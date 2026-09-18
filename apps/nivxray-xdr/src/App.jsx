@@ -18,6 +18,8 @@ const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"
 const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPage"));
 // Slice 1 · Data Sources is a first-class XDR destination, not an admin page.
 const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSourcesPage"));
+// E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
+const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
@@ -49,7 +51,7 @@ const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigat
 const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
 const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
 const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
-const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));   // retained · superseded by AssetsPage, kept for rollback
 const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
 const EdrTrajectoryRedirect       = lazy(() => import("@/nivxforge/EdrTrajectoryRedirect"));
 const XdrNotImplementedPage       = lazy(() => import("@/xdr/pages/XdrNotImplementedPage"));
@@ -159,7 +161,11 @@ export default function App() {
             surfaces are untouched; this is an additional destination. */}
         <Route path="/xdr/data-sources"      element={<Protected><DataSourcesPage /></Protected>} />
         <Route path="/xdr/data-sources/:tab" element={<Protected><DataSourcesPage /></Protected>} />
-        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/assets" replace />} />
+        {/* E2E-3 · Assets is the single inventory destination. Tabs are query
+            params (`?tab=`) so every pre-existing `/xdr/assets/*` route keeps
+            resolving exactly as before — nothing was removed. */}
+        <Route path="/xdr/assets"          element={<Protected><AssetsPage /></Protected>} />
         {/* X1 · the information architecture stays complete; unsupported
             capabilities render an explicit NOT_IMPLEMENTED page. */}
         <Route path="/xdr/assets/identity"     element={<Protected><XdrNotImplementedPage node="assets-identity" /></Protected>} />

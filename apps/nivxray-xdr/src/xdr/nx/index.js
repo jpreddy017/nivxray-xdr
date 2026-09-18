@@ -24,3 +24,10 @@ export { default as NxDataTable }           from "./NxDataTable";
 export { default as NxFlyout }              from "./NxFlyout";
 export { default as NxTabs }                from "./NxTabs";
 export { default as NxStatus, NxHealthVerdict, NxMetric } from "./NxStatus";
+
+// E2E waves 1-3 · one severity grammar, one entity header, one attack chain.
+// Incidents, Investigation and every Entity 360 compose these.
+export { default as NxVerdict, NxLifecycle, NxPriority, NxConfidence,
+         NxRisk, NxProvenanceChip }                from "./NxSeverity";
+export { default as NxEntityHeader, NxFact }       from "./NxEntityHeader";
+export { default as NxAttackChain }                from "./NxAttackChain";

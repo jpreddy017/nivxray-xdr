@@ -1,911 +1,491 @@
 /**
- * XdrIncidentsPage · `/xdr/incidents`
+ * XdrIncidentsPage · `/xdr/incidents` · E2E-1
  *
- * Layer 2 · full product-quality rebuild of the primary analyst
- * landing page.  Defender-inspired light workspace + dark
- * investigation preview drawer + NivXRay purple accent.
+ * The enterprise incident queue, rebuilt on the authoritative `xdr/nx/`
+ * primitives: ONE page shell, ONE tab bar, ONE table, ONE flyout, ONE
+ * severity grammar.
  *
- * Composition:
- *   PriorityStrip · attention/lens tiles
- *   QueueToolbar  · search · filters · saved views · customize columns · time · CSV · refresh
- *   Active filter chips row
- *   StateTabs     · All · New · In Progress · On Hold · Resolved · Closed
- *   Bulk action bar (appears when ≥1 row selected)
- *   QueueTable    · sticky dense projection of canonical incidents
- *   IncidentPreviewDrawer · right-side dark peek panel
+ * Workflow (owner directive §4): queue → contextual flyout → full
+ * investigation. An analyst inspects without losing the queue, and only opens
+ * the workspace when they commit to the investigation.
  *
- * Owner-locked rules:
- *   · The queue is a READ MODEL — never invokes an engine.
- *   · Every unavailable field renders honestly (— · NOT_RUN · NO EVIDENCE).
- *   · Bulk operations require confirmation, write audit rows,
- *     and never mutate canonical evidence.
- *   · Saved views are per-user and shareable via ?view=<id>.
+ * Every column and every flyout field maps to an authoritative field of
+ * `GET /api/incidents` / `GET /api/incidents/{id}`. Absent facts render as
+ * absence with a reason — never as a zero (§18).
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowUpRight, Shield } from "lucide-react";
 
-import { useAuth } from "@/lib/auth";
-import {
-  listIncidents, bulkAssign, bulkState,
-  listSavedViews, createSavedView, deleteSavedView,
-} from "@/lib/incidentsApi";
 import XdrShell from "@/xdr/XdrShell";
+import {
+  NxPageShell, NxDataTable, NxFlyout, NxTabs, NxEmpty, NxChip,
+  NxVerdict, NxLifecycle, NxPriority, NxConfidence, NxRisk,
+  NxProvenanceChip, NxAttackChain, NxFact, NxMetric,
+} from "@/xdr/nx";
+import { useAccess } from "@/xdr/access/AccessProvider";
+import {
+  listIncidents, getIncident, bulkAssign, bulkState, listSavedViews,
+} from "@/lib/incidentsApi";
+import "@/xdr/nx/nx-entity.css";
 
-import { NxHeroHeader, NxHBar, NxSurface } from "@/xdr/nx";
-
-import PriorityStrip           from "./incidents/PriorityStrip";
-import QueueToolbar            from "./incidents/QueueToolbar";
-import StateTabs               from "./incidents/StateTabs";
-import { incidentNumber } from "./incidents/QueueTable";
-import QueueTable, {
-  ALL_COLUMNS, DEFAULT_VISIBLE, DEFAULT_ORDER,
-}                              from "./incidents/QueueTable";
-import IncidentPreviewDrawer   from "./incidents/IncidentPreviewDrawer";
-import QueueContextMenu        from "./incidents/QueueContextMenu";
-import QueueSearchBar          from "./incidents/QueueSearchBar";
-import FiltersPanel            from "./incidents/FiltersPanel";
-import "./incidents/queue-theme.css";
-
-
-const LENS_LABELS = {
-  critical: "Critical", high_priority: "High Priority",
-  high_fidelity: "High Fidelity", unassigned: "Unassigned",
-  in_progress_mine: "In Progress — Mine",
-  customer_response: "Customer Response", on_hold: "On Hold",
-  aging: "SLA / Aging Risk",
-  recently_created: "Recently Created", recently_updated: "Recently Updated",
-};
-
-const FILTER_KEYS = [
-  "priority", "severity", "verdict", "confidence",
-  "customer", "detection_source", "technique",
-  // Work-management filter (P0-2b) — never a visibility gate.
-  "assignment",
-  // Column search (server-side).
-  "number", "name", "assignee",
-  // Negative predicates · explicit allow-list, applied inside the
-  // tenant authorization scope.
-  "exclude_customer", "exclude_assignee", "exclude_detection_source",
-  "exclude_priority", "exclude_severity", "exclude_verdict",
-  "exclude_mitre",
+const STATE_TABS = [
+  { key: "",            label: "All open" },
+  { key: "new",         label: "New" },
+  { key: "in_progress", label: "In progress" },
+  { key: "on_hold",     label: "On hold" },
+  { key: "resolved",    label: "Resolved" },
+  { key: "closed",      label: "Closed" },
 ];
 
-const TIME_WINDOW_MS = {
-  "1d":  86400_000,
-  "3d":  3 * 86400_000,
-  "7d":  7 * 86400_000,
-  "30d": 30 * 86400_000,
-  "6m":  180 * 86400_000,
-  all:   null,
-};
+const TIME_WINDOWS = [
+  { key: "24h", label: "Last 24 hours", ms: 86400e3 },
+  { key: "7d",  label: "Last 7 days",   ms: 7 * 86400e3 },
+  { key: "30d", label: "Last 30 days",  ms: 30 * 86400e3 },
+  { key: "all", label: "All time",      ms: null },
+];
 
-// ── CSV export (client-side · uses the currently-loaded rows) ──────
-function toCSV(rows, cols) {
-  const header = ["ID", "Number", "Name", ...cols.map(c => c.label)];
-  const esc = (s) => {
-    const v = s == null ? "" : String(s);
-    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-  };
-  const lines = [header.join(",")];
-  for (const r of rows.slice(0, 10000)) {
-    const row = [r.id, r.number, r.name];
-    for (const c of cols) {
-      switch (c.id) {
-        case "priority":       row.push(r.priority?.code); break;
-        case "severity":       row.push(r.severity); break;
-        case "verdict":        row.push(r.verdict?.stage2_label); break;
-        case "confidence":     row.push(r.confidence); break;
-        case "customer":       row.push(r.customer); break;
-        case "detection_source":row.push(r.detection_source); break;
-        case "evidence_count": row.push(r.evidence_count); break;
-        case "techniques_top": row.push((r.techniques_top || []).join("|")); break;
-        case "sla_due_at":     row.push(r.sla_due_at); break;
-        case "aging_seconds":  row.push(r.aging_seconds); break;
-        case "assignee":       row.push(r.assignee); break;
-        case "state":          row.push(r.state); break;
-        case "last_activity":  row.push(r.last_activity); break;
-        case "auto_investigation": row.push(r.auto_investigation?.status); break;
-        case "engine_results": row.push(
-          r.auto_investigation?.engines_total
-            ? `${r.auto_investigation.engines_ok}/${r.auto_investigation.engines_total}`
-            : "");
-          break;
-        default: row.push("");
-      }
-    }
-    lines.push(row.map(esc).join(","));
+function fmtWhen(iso) {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.round(mins / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+function Absent({ children = "Not recorded", title }) {
+  return <span className="nx-unavail" title={title}>{children}</span>;
+}
+
+// ── Flyout body ──────────────────────────────────────────────────────
+function IncidentFlyoutBody({ row, detail, loading, error }) {
+  if (error) {
+    return (
+      <div className="nx-dt-error" role="alert"
+           data-testid="incident-flyout-error">
+        <strong>This incident could not be loaded.</strong>
+        <span>{String(error)}</span>
+      </div>
+    );
   }
-  return lines.join("\n");
+  const d = detail || {};
+  const vc = d.verdict_card || {};
+  const assets = d.assets || {};
+  const pointers = d.evidence_pointers || [];
+  const withEvidence = pointers.filter((p) => p.status === "available");
+
+  return (
+    <div data-testid="incident-flyout-body">
+      <div className="nx-eh-chips" style={{ marginBottom: 14 }}>
+        <NxVerdict value={vc.verdict || row.severity}
+                   title={vc.reason} testid="flyout-verdict" />
+        <NxPriority priority={row.priority} testid="flyout-priority" />
+        <NxRisk score={row.verdict?.risk_score ?? vc.confidence}
+                testid="flyout-risk" />
+        <NxLifecycle value={d.state || row.state} testid="flyout-state" />
+        <NxProvenanceChip provenance={d.provenance || row.provenance}
+                          basis={d.provenance_basis || row.provenance_basis}
+                          isReal={d.provenance_is_real ?? row.provenance_is_real}
+                          testid="flyout-provenance" />
+      </div>
+
+      <section className="nx-sec">
+        <h3 className="nx-sec-title">Verdict, cited</h3>
+        <dl className="nx-kv">
+          <dt>Engine</dt>
+          <dd>{vc.engine || row.detection_source || <Absent />}</dd>
+          <dt>Basis</dt>
+          <dd>{vc.reason
+            || <Absent title="No verdict derivation was recorded">
+                 No derivation recorded
+               </Absent>}</dd>
+          <dt>Provenance</dt>
+          <dd>{d.provenance_basis || row.provenance_basis || <Absent />}</dd>
+        </dl>
+      </section>
+
+      <section className="nx-sec">
+        <h3 className="nx-sec-title">Impacted assets</h3>
+        {Object.keys(assets).length === 0 ? (
+          <Absent>No asset roll-up on this record</Absent>
+        ) : (
+          <div className="nx-grid4">
+            {["hosts", "users", "processes", "files", "network"].map((k) => (
+              <NxMetric key={k} label={k} value={assets[k] ?? null}
+                        reason="Not counted on this record"
+                        testid={`flyout-asset-${k}`} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="nx-sec">
+        <h3 className="nx-sec-title">
+          MITRE ATT&amp;CK
+          {(d.mitre || []).length > 0 && ` · ${d.mitre.length}`}
+        </h3>
+        {(d.mitre || []).length === 0 ? (
+          <Absent title="The record carries no technique mapping">
+            No technique mapped to this incident
+          </Absent>
+        ) : (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {d.mitre.map((m, i) => (
+              <NxChip key={m.id || i} tone="purple" variant="tinted"
+                      title={m.name}>
+                {m.id}{m.name ? ` · ${m.name}` : ""}
+              </NxChip>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="nx-sec">
+        <h3 className="nx-sec-title">
+          Evidence · {withEvidence.length} of {pointers.length} domains
+        </h3>
+        {pointers.length === 0 ? (
+          <Absent>No evidence pointers on this record</Absent>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {pointers.map((p) => (
+              <div key={p.domain}
+                   style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
+                   data-testid={`flyout-evidence-${p.domain}`}>
+                <NxChip tone={p.status === "available" ? "available"
+                            : p.status === "not_connected" ? "not_connected"
+                            : "no_evidence"}
+                        variant={p.status === "available" ? "tinted" : "dashed"}>
+                  {p.label}
+                </NxChip>
+                <span style={{ fontSize: 11.5, color: "var(--nx-text-dim)",
+                               lineHeight: 1.5 }}>
+                  {p.reason}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="nx-sec">
+        <h3 className="nx-sec-title">Attack progression</h3>
+        {loading
+          ? <Absent>loading…</Absent>
+          : <NxAttackChain nodes={d.attack_progression}
+                           testid="flyout-attack-chain" />}
+      </section>
+    </div>
+  );
 }
 
-function downloadCSV(csv, filename) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-
+// ── Page ─────────────────────────────────────────────────────────────
 export default function XdrIncidentsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const access = useAccess();
 
-  // ── URL-persisted state ─────────────────────────────────────────
-  const urlLens     = params.get("lens");
-  const urlState    = params.get("state");
-  const urlSearch   = params.get("q") || "";
-  const urlTime     = params.get("time") || "7d";
-  const urlSort     = params.get("sort")  || "updated_at";
-  const urlOrder    = params.get("order") || "desc";
-  const urlViewId   = params.get("view");
+  const urlState = params.get("state") || "";
+  const urlTime  = params.get("time")  || "7d";
+  const urlLens  = params.get("lens")  || null;
+  const mine     = params.get("mine")  === "1";
 
-  const filters = useMemo(() => {
-    const out = {};
-    FILTER_KEYS.forEach(k => { out[k] = params.get(k) || null; });
-    return out;
-  }, [params]);
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [invariant, setInv]   = useState(null);
+  const [views, setViews]     = useState([]);
 
-  // ── Local state ─────────────────────────────────────────────────
-  const [rows, setRows]         = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [refreshing, setRefresh] = useState(false);
-  const [error, setError]       = useState(null);
-  const [selected, setSelected] = useState(new Set());
-  const [previewId, setPrevId]  = useState(null);
-  const [views, setViews]       = useState([]);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [invariant, setInvariant]   = useState(null);
+  const [openRow, setOpenRow]   = useState(null);
+  const [detail, setDetail]     = useState(null);
+  const [dLoading, setDLoading] = useState(false);
+  const [dError, setDError]     = useState(null);
 
-  // Column visibility + order (persisted in localStorage).
-  const [hidden, setHidden] = useState(() => {
-    try {
-      const raw = localStorage.getItem("xdr.queue.hiddenCols");
-      if (raw) return new Set(JSON.parse(raw));
-    } catch (_) { /* noop */ }
-    return new Set(ALL_COLUMNS.filter(c => c.defaultHidden).map(c => c.id));
-  });
-  const [columnOrder, setColumnOrder] = useState(() => {
-    try {
-      const raw = localStorage.getItem("xdr.queue.columnOrder");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // Only trust it if it still covers every known column.
-        const known = new Set(DEFAULT_ORDER);
-        const ok = parsed.length === DEFAULT_ORDER.length
-          && parsed.every(id => known.has(id));
-        if (ok) return parsed;
-      }
-    } catch (_) { /* noop */ }
-    return DEFAULT_ORDER.slice();
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("xdr.queue.hiddenCols", JSON.stringify([...hidden]));
-      localStorage.setItem("xdr.queue.columnOrder", JSON.stringify(columnOrder));
-    } catch (_) { /* noop */ }
-  }, [hidden, columnOrder]);
-
-  // ── Helpers to mutate URL params ────────────────────────────────
   const setParam = useCallback((k, v) => {
     const next = new URLSearchParams(params);
     if (v == null || v === "") next.delete(k); else next.set(k, v);
     setParams(next, { replace: true });
   }, [params, setParams]);
 
-  const setManyParams = useCallback((updates) => {
-    const next = new URLSearchParams(params);
-    Object.entries(updates).forEach(([k, v]) => {
-      if (v == null || v === "") next.delete(k); else next.set(k, v);
-    });
-    setParams(next, { replace: true });
-  }, [params, setParams]);
-
-  const clearAllFilters = useCallback(() => {
-    const next = new URLSearchParams();
-    if (urlSort  !== "updated_at") next.set("sort",  urlSort);
-    if (urlOrder !== "desc")       next.set("order", urlOrder);
-    if (urlTime  !== "7d")         next.set("time",  urlTime);
-    setParams(next, { replace: true });
-  }, [urlSort, urlOrder, urlTime, setParams]);
-
-  // ── Data load ───────────────────────────────────────────────────
-  const load = useCallback(async ({ silent = false } = {}) => {
-    if (silent) setRefresh(true); else setLoading(true);
-    setError(null);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
     try {
       const res = await listIncidents({
-        ...filters,
-        lens:  urlLens  || null,
         state: urlState || null,
-        sort:  urlSort,
-        order: urlOrder,
+        lens:  urlLens,
+        sort:  "updated_at",
+        order: "desc",
         limit: 500,
       });
       setRows(res.incidents || []);
-      setInvariant(res.invariant || null);
-      setSelected(new Set());
+      setInv(res.invariant || null);
     } catch (e) {
       setError(e?.response?.data?.detail?.error
         || e?.response?.data?.detail
         || e?.message || "Failed to load incidents.");
-    } finally {
-      setLoading(false); setRefresh(false);
-    }
-  }, [filters, urlLens, urlState, urlSort, urlOrder]);
+    } finally { setLoading(false); }
+  }, [urlState, urlLens]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [load]);
-
-  const loadViews = useCallback(async () => {
-    try { setViews((await listSavedViews()).views || []); } catch (_) { /* noop */ }
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    listSavedViews().then((r) => setViews(r.views || [])).catch(() => {});
   }, []);
-  useEffect(() => { loadViews(); }, [loadViews]);
 
-  // ── Client-side search + time filtering ─────────────────────────
-  const visibleRows = useMemo(() => {
+  // Flyout detail — a second authoritative read, never a guess from the row.
+  useEffect(() => {
+    if (!openRow) { setDetail(null); setDError(null); return; }
+    let live = true;
+    setDLoading(true); setDError(null);
+    getIncident(openRow.id)
+      .then((d) => { if (live) setDetail(d); })
+      .catch((e) => {
+        if (live) setDError(e?.response?.data?.detail || e?.message
+                            || "Load failed.");
+      })
+      .finally(() => { if (live) setDLoading(false); });
+    return () => { live = false; };
+  }, [openRow]);
+
+  const visible = useMemo(() => {
     let out = rows;
-    const q = urlSearch.trim().toLowerCase();
-    if (q) {
-      out = out.filter(r => {
-        const bag = [
-          r.name, r.id, r.number, r.customer, r.assignee,
-          r.detection_source, r.priority?.code, r.severity,
-          r.verdict?.stage2_label, r.state,
-          ...(r.techniques_top || []),
-        ].filter(Boolean).join(" ").toLowerCase();
-        return bag.includes(q);
-      });
+    if (mine && access.principal) {
+      out = out.filter((r) => r.assignee === access.principal);
     }
-    const win = TIME_WINDOW_MS[urlTime];
+    const win = TIME_WINDOWS.find((w) => w.key === urlTime)?.ms;
     if (win) {
       const cutoff = Date.now() - win;
-      out = out.filter(r => {
-        const ts = r.last_activity || r.updated_at || r.created_at;
-        if (!ts) return true;
-        const t = Date.parse(ts);
+      out = out.filter((r) => {
+        const t = Date.parse(r.last_activity || r.updated_at || r.created_at);
         return Number.isFinite(t) ? t >= cutoff : true;
       });
     }
     return out;
-  }, [rows, urlSearch, urlTime]);
+  }, [rows, mine, access.principal, urlTime]);
 
-  // ── Client-side counts per lifecycle state ──────────────────────
-  const stateCounts = useMemo(() => {
-    const c = { new: 0, in_progress: 0, on_hold: 0, resolved: 0, closed: 0 };
-    (visibleRows || []).forEach(r => {
-      const s = r.state || "new";
-      if (c[s] != null) c[s] += 1;
-    });
+  const counts = useMemo(() => {
+    const c = {};
+    rows.forEach((r) => { c[r.state || "new"] = (c[r.state || "new"] || 0) + 1; });
     return c;
-  }, [visibleRows]);
+  }, [rows]);
 
-  // Columns in display order.
-  const orderedCols = useMemo(
-    () => columnOrder.map(id => ALL_COLUMNS.find(c => c.id === id)).filter(Boolean),
-    [columnOrder]);
-  const visibleColumns = useMemo(
-    () => orderedCols.filter(c => !hidden.has(c.id)),
-    [orderedCols, hidden]);
+  const canManage = access.can("incidents.update");
+  const canAssign = access.can("incidents.assign");
 
-  // ── Column customization callbacks ──────────────────────────────
-  const toggleColumn = (id) => {
-    setHidden(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-  const moveColumn = (from, to) => {
-    setColumnOrder(prev => {
-      const next = prev.slice();
-      const fi = next.indexOf(from);
-      const ti = next.indexOf(to);
-      if (fi < 0 || ti < 0) return prev;
-      next.splice(fi, 1);
-      next.splice(ti, 0, from);
-      return next;
-    });
-  };
-  const resetColumns = () => {
-    setHidden(new Set(ALL_COLUMNS.filter(c => c.defaultHidden).map(c => c.id)));
-    setColumnOrder(DEFAULT_ORDER.slice());
-  };
+  const columns = useMemo(() => [
+    { key: "priority", header: "Priority", width: 116,
+      value: (r) => r.priority?.code || "",
+      render: (r) => <NxPriority priority={r.priority} /> },
+    { key: "number", header: "Incident", width: 330,
+      value: (r) => `${r.number} ${r.name}`,
+      render: (r) => (
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: 10.5, color: "var(--nx-muted)" }}>
+            {r.number || r.id}
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--nx-text)",
+                        overflow: "hidden", textOverflow: "ellipsis",
+                        whiteSpace: "nowrap" }} title={r.name}>
+            {r.name}
+          </div>
+        </div>
+      ) },
+    { key: "verdict", header: "Verdict", width: 120,
+      value: (r) => r.verdict?.stage2_label || r.severity,
+      render: (r) => <NxVerdict value={r.verdict?.stage2_label || r.severity} /> },
+    { key: "risk", header: "Risk", width: 104, align: "right",
+      value: (r) => r.verdict?.risk_score ?? -1,
+      render: (r) => <NxRisk score={r.verdict?.risk_score} /> },
+    { key: "state", header: "Status", width: 116,
+      render: (r) => <NxLifecycle value={r.state} /> },
+    { key: "assets", header: "Assets", width: 80, align: "right",
+      value: (r) => r.evidence_count ?? -1,
+      render: (r) => (r.evidence_count == null
+        ? <Absent>—</Absent> : r.evidence_count) },
+    { key: "mitre", header: "MITRE", width: 150,
+      value: (r) => (r.techniques_top || []).join(" "),
+      render: (r) => ((r.techniques_top || []).length === 0
+        ? <Absent title="No technique mapped">none</Absent>
+        : <span style={{ fontFamily: "'IBM Plex Mono', monospace",
+                         fontSize: 10.5 }}>
+            {r.techniques_top.slice(0, 2).join(", ")}
+            {r.techniques_total > 2 ? ` +${r.techniques_total - 2}` : ""}
+          </span>) },
+    { key: "source", header: "Source", width: 170,
+      value: (r) => r.detection_source,
+      render: (r) => <span style={{ fontFamily: "'IBM Plex Mono', monospace",
+                                    fontSize: 10.5 }}>
+        {r.detection_source || "—"}</span> },
+    { key: "provenance", header: "Provenance", width: 172,
+      value: (r) => r.provenance,
+      render: (r) => <NxProvenanceChip provenance={r.provenance}
+                                       basis={r.provenance_basis}
+                                       isReal={r.provenance_is_real} /> },
+    { key: "assignee", header: "Assignee", width: 150,
+      render: (r) => (r.assignee
+        ? r.assignee
+        : <Absent title="Nobody is assigned">Unassigned</Absent>) },
+    { key: "updated", header: "Updated", width: 110, align: "right",
+      value: (r) => r.last_activity || r.updated_at,
+      render: (r) => fmtWhen(r.last_activity || r.updated_at)
+        || <Absent>—</Absent> },
+  ], []);
 
-  // ── Sort ────────────────────────────────────────────────────────
-  const onSort = (colSort) => {
-    if (urlSort === colSort) {
-      setParam("order", urlOrder === "desc" ? "asc" : "desc");
-    } else {
-      setManyParams({ sort: colSort, order: "desc" });
-    }
-  };
+  const toolbarExtra = (
+    <>
+      <select className="nx-dt-btn" value={urlTime}
+              onChange={(e) => setParam("time", e.target.value)}
+              data-testid="incidents-time-window"
+              aria-label="Time window">
+        {TIME_WINDOWS.map((w) => (
+          <option key={w.key} value={w.key}>{w.label}</option>
+        ))}
+      </select>
+      {views.length > 0 && (
+        <select className="nx-dt-btn" value={urlLens || ""}
+                onChange={(e) => setParam("lens", e.target.value)}
+                data-testid="incidents-saved-views"
+                aria-label="Saved views">
+          <option value="">Saved views</option>
+          {views.map((v) => (
+            <option key={v.id} value={v.lens || v.id}>{v.name}</option>
+          ))}
+        </select>
+      )}
+      <button className={`nx-dt-btn${mine ? " is-active" : ""}`}
+              onClick={() => setParam("mine", mine ? "" : "1")}
+              data-testid="incidents-mine-toggle">
+        {mine ? "My queue · on" : "My queue"}
+      </button>
+    </>
+  );
 
-  // ── Selection + preview ─────────────────────────────────────────
-  const toggleSelect = (id, on) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (on) next.add(id); else next.delete(id);
-      return next;
-    });
-  };
-  const selectAll = (on) => {
-    setSelected(on ? new Set(visibleRows.map(r => r.id)) : new Set());
-  };
-
-  const previewIndex = useMemo(
-    () => visibleRows.findIndex(r => r.id === previewId),
-    [visibleRows, previewId]);
-
-  const previewRow = previewIndex >= 0 ? visibleRows[previewIndex] : null;
-
-  const onRowClick = (r) => setPrevId(r.id);
-
-  // ── Row context menu · work management without leaving the queue ──
-  // Backed by PATCH /api/incidents/{id}/assignee (a real endpoint).
-  // Assignment is work management only — it NEVER changes who can SEE
-  // the incident (that is tenant authorization).
-  const [ctx, setCtx] = useState(null);   // { row, at:{x,y}, col }
-
-  const [ctxToast, setCtxToast] = useState(null);
-
-  const patchAssignee = async (row, assignee) => {
-    const target = (assignee || "").trim() || null;
-    try {
-      // Reuse the audited bulk-assign path so a single-row assignment
-      // is written and audited exactly like a bulk one.
-      await bulkAssign([row.id], target, "assign from queue context menu");
-      setRows(rs => rs.map(r => (r.id === row.id
-        ? { ...r, assignee: target } : r)));
-      setCtxToast(target
-        ? `${incidentNumber(row)} assigned to ${target}`
-        : `${incidentNumber(row)} released — now unassigned`);
-      return true;
-    } catch (e) {
-      setCtxToast(`Assignment failed — ${e?.response?.data?.detail?.error
-        || e?.response?.status || "network error"}`);
-      return false;
-    }
-  };
-  const onNameClick = (r) => navigate(`/xdr/incidents/${r.id}`);
-  const onDrawerOpen = () => {
-    if (previewRow) navigate(`/xdr/incidents/${previewRow.id}`);
-  };
-  const onDrawerPrev = () => {
-    if (previewIndex > 0) setPrevId(visibleRows[previewIndex - 1].id);
-  };
-  const onDrawerNext = () => {
-    if (previewIndex >= 0 && previewIndex < visibleRows.length - 1) {
-      setPrevId(visibleRows[previewIndex + 1].id);
-    }
-  };
-
-  // ── Bulk operations ─────────────────────────────────────────────
-  const doBulkAssign = async () => {
-    if (selected.size === 0) return;
-    const assignee = window.prompt(
-      "Bulk assign — new owner email (blank to unassign):",
-      "");
-    if (assignee === null) return;
-    if (!window.confirm(
-      `Assign ${selected.size} incident(s) to "${assignee || "unassigned"}"?`)) return;
-    try {
-      await bulkAssign([...selected], assignee.trim() || null,
-                          "bulk_assign from queue");
-      await load({ silent: true });
-    } catch (e) {
-      window.alert(e?.response?.data?.detail?.error || "Bulk assign failed.");
-    }
-  };
-
-  const doBulkState = async () => {
-    if (selected.size === 0) return;
-    const target = window.prompt(
-      "Bulk state — target state (new|in_progress|on_hold|resolved|closed):",
-      "in_progress");
-    if (!target) return;
-    if (!window.confirm(
-      `Transition ${selected.size} incident(s) to "${target}"?`)) return;
-    try {
-      await bulkState([...selected], target.trim(),
-                          "bulk_state from queue");
-      await load({ silent: true });
-    } catch (e) {
-      window.alert(e?.response?.data?.detail?.error || "Bulk state failed.");
-    }
-  };
-
-  // ── Saved views ─────────────────────────────────────────────────
-  const applyView = (v) => {
-    const next = new URLSearchParams();
-    Object.entries(v.filters || {}).forEach(([k, val]) => val && next.set(k, val));
-    if (v.lens)  next.set("lens",  v.lens);
-    if (v.sort)  next.set("sort",  v.sort);
-    if (v.order) next.set("order", v.order);
-    next.set("view", v.id);
-    setParams(next, { replace: true });
-    if (v.visible_columns?.length) {
-      const shown = new Set(v.visible_columns);
-      setHidden(new Set(ALL_COLUMNS.map(c => c.id).filter(id => !shown.has(id))));
-    }
-  };
-  const removeView = async (v) => {
-    if (!window.confirm(`Delete saved view "${v.name}"?`)) return;
-    await deleteSavedView(v.id);
-    await loadViews();
-  };
-  const onSaveView = async (name) => {
-    await createSavedView({
-      name,
-      filters: Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => v)),
-      sort: urlSort, order: urlOrder,
-      lens: urlLens || null,
-      visible_columns: visibleColumns.map(c => c.id),
-    });
-    await loadViews();
-  };
-
-  // ── CSV export ──────────────────────────────────────────────────
-  const doExportCsv = () => {
-    const csv = toCSV(visibleRows, visibleColumns);
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    downloadCSV(csv, `nivxray-incidents-${stamp}.csv`);
-  };
-
-  // ── Priority strip lens click ───────────────────────────────────
-  const onLensClick = (lensId) => {
-    if (urlLens === lensId) setParam("lens", null);
-    else setParam("lens", lensId);
-  };
-
-  // ── Filters ─────────────────────────────────────────────────────
-  const applyFilters = (next) => {
-    setManyParams(next);
-  };
-
-  const activeChips = [
-    urlLens  && ["lens",  urlLens],
-    urlState && ["state", urlState],
-    ...FILTER_KEYS.map(k => filters[k] && [k, filters[k]]).filter(Boolean),
-  ].filter(Boolean);
+  const bulkActions = (keys, clear) => (
+    <>
+      <button className="nx-dt-btn" data-testid="incidents-bulk-assign"
+              disabled={canAssign === false}
+              title={canAssign === false
+                ? "You are not authorized to assign incidents"
+                : canAssign === null
+                  ? "Authorization contract unavailable — the server will decide"
+                  : undefined}
+              onClick={async () => {
+                if (!access.principal) return;
+                await bulkAssign(keys, access.principal);
+                clear(); load();
+              }}>
+        Assign to me
+      </button>
+      <button className="nx-dt-btn" data-testid="incidents-bulk-progress"
+              disabled={canManage === false}
+              title={canManage === false
+                ? "You are not authorized to change incident state"
+                : undefined}
+              onClick={async () => {
+                await bulkState(keys, "in_progress");
+                clear(); load();
+              }}>
+        Move to in progress
+      </button>
+    </>
+  );
 
   return (
     <XdrShell>
-      <div className="xdr-queue-l2" data-testid="xdr-incidents-l2">
-        {/* Hero header — first-5-seconds identity */}
-        <NxHeroHeader
-          eyebrow="ANALYST OPERATIONS"
-          title="Incidents"
-          description="Prioritize the incidents that need analyst attention right now."
-          metrics={[
-            { label: "All", value: (rows || []).length, tone: "neutral" },
-            { label: "Selected", value: selected.size || null, tone: "purple" },
-            urlLens ? { label: "Lens", value: (LENS_LABELS[urlLens] || urlLens), tone: "purple" } : null,
-          ].filter(Boolean)}
-          action={(
-            <button
-              type="button"
-              className="ql-btn"
-              onClick={() => navigate("/xdr/mss-dashboard")}
-              data-testid="xdr-incidents-mss"
-            >
-              MSS Dashboard
-            </button>
-          )}
-          provenance={null}
-        />
-
-        {/* Priority strip */}
-        <PriorityStrip activeLens={urlLens} onLensClick={onLensClick} />
-
-        {/* Operational Intelligence — insights derived from the
-             current in-view incident set.  Not a duplicate of the
-             queue: this answers *what shape is the workload right
-             now*, at a glance, before the analyst dives in. */}
-        <IncidentOpsIntel rows={rows || []} />
-
-        {/* Toolbar */}
-        <QueueToolbar
-          search={urlSearch}
-          onSearchChange={(v) => setParam("q", v)}
-          time={urlTime}
-          onTimeChange={(v) => setParam("time", v)}
-          columns={ALL_COLUMNS}
-          hidden={hidden}
-          columnOrder={columnOrder}
-          onColumnToggle={toggleColumn}
-          onColumnMove={moveColumn}
-          onColumnReset={resetColumns}
-          savedViews={views}
-          currentViewId={urlViewId}
-          onApplyView={applyView}
-          onDeleteView={removeView}
-          onSaveView={onSaveView}
-          onCsvExport={doExportCsv}
-          onRefresh={() => load({ silent: true })}
-          refreshing={refreshing}
-          onOpenFilters={() => setFilterOpen(true)}
-          activeFilterCount={FILTER_KEYS.filter(k => filters[k]).length}
-        />
-
-        {/* Active-filter chip row */}
-        <div className="ql-chips" data-testid="xdr-incidents-filters">
-          {activeChips.length === 0 && (
-            <span className="ql-empty-chip">
-              No filters — showing all incidents in the selected time window.
+      <NxPageShell
+        eyebrow="Security operations"
+        title="Incidents"
+        description="Every incident NivXRay has correlated for this tenant.
+                     Select a row to inspect it without leaving the queue, then
+                     open the investigation when you commit to it."
+        testid="xdr-incidents-page"
+        action={
+          <button className="nx-dt-btn" onClick={load}
+                  data-testid="incidents-refresh-top">
+            Refresh
+          </button>
+        }
+      >
+        {access.available === false && access.error !== "unauthenticated" && (
+          <div className="nx-sec" style={{ marginBottom: 14 }}
+               data-testid="incidents-access-unavailable">
+            <NxChip tone="not_run" variant="dashed">
+              Authorization contract unavailable
+            </NxChip>
+            <span style={{ marginLeft: 10, fontSize: 11.5,
+                           color: "var(--nx-text-dim)" }}>
+              Effective permissions could not be read
+              {access.error ? ` (${access.error})` : ""}. Controls are shown as
+              normal and the server remains the authority — it will reject any
+              action you are not entitled to.
             </span>
-          )}
-          {activeChips.map(([k, v]) => (
-            <span key={k} className="ql-chip"
-                    data-testid={`xdr-incidents-chip-${k}`}>
-              <b>{k}:</b> {v}
-              <button
-                type="button"
-                className="ql-chip-x"
-                onClick={() => setParam(k, null)}
-                data-testid={`xdr-incidents-chip-clear-${k}`}
-                title={`Remove ${k}`}
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
-          {activeChips.length > 0 && (
-            <button
-              type="button"
-              className="ql-btn ghost"
-              onClick={clearAllFilters}
-              data-testid="xdr-incidents-clear-all"
-              style={{ padding: "3px 8px", fontSize: 11 }}
-            >
-              Clear all
-            </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* State tabs */}
-        <StateTabs
-          current={urlState}
-          counts={stateCounts}
+        <NxTabs
+          tabs={STATE_TABS.map((t) => ({
+            ...t,
+            count: t.key ? (counts[t.key] ?? 0) : rows.length,
+          }))}
+          active={urlState}
           onChange={(k) => setParam("state", k)}
+          testid="incidents-state-tabs"
         />
 
-        {(urlSort !== "updated_at" || urlOrder !== "desc") && (
-          <div style={{ padding: "6px 12px",
-                          background: "var(--ql-surface)",
-                          borderLeft: "1px solid var(--ql-border)",
-                          borderRight: "1px solid var(--ql-border)",
-                          borderBottom: "1px solid var(--ql-border)" }}>
-            <span className="ql-sort-marker" data-testid="xdr-incidents-sort-marker">
-              Sorted by <b>{urlSort}</b> · {urlOrder === "desc" ? "↓" : "↑"}
-              <button
-                type="button"
-                onClick={() => setManyParams({ sort: "updated_at", order: "desc" })}
-                data-testid="xdr-incidents-sort-clear"
-                style={{ marginLeft: 6, background: "transparent", border: "none",
-                          color: "var(--nx-purple)", fontWeight: 700,
-                          fontFamily: "var(--qs-mono)", fontSize: 10, cursor: "pointer" }}
-              >
-                Reset
-              </button>
-            </span>
+        {invariant && (
+          <div className="nx-eh-prov" style={{ margin: "10px 0 12px" }}
+               data-testid="incidents-invariant">
+            {invariant.statement || invariant.reason || String(invariant)}
           </div>
         )}
 
-        {/* Bulk actions bar */}
-        {selected.size > 0 && (
-          <div className="ql-bulk" data-testid="xdr-incidents-bulk-bar">
-            <span className="ql-bulk-count">
-              {selected.size} selected
-            </span>
-            <button type="button" className="ql-btn primary"
-                     onClick={doBulkAssign}
-                     data-testid="xdr-incidents-bulk-assign">
-              Assign owner
-            </button>
-            <button type="button" className="ql-btn"
-                     onClick={doBulkState}
-                     data-testid="xdr-incidents-bulk-state">
-              Change state
-            </button>
-            <button type="button" className="ql-btn ghost"
-                     onClick={() => setSelected(new Set())}
-                     data-testid="xdr-incidents-bulk-clear"
-                     style={{ marginLeft: "auto" }}>
-              Clear selection
-            </button>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="ql-error" data-testid="xdr-incidents-error">
-            {String(error)}
-          </div>
-        )}
-
-        {/* Table */}
-        <QueueSearchBar
-          values={{ ...filters, state: urlState || "" }}
-          facets={{
-            // Facet options come from the rows the API actually
-            // returned — never a hard-coded customer list.
-            customers: [...new Set(rows.map(r => r.customer).filter(Boolean))].sort(),
-            sources:   [...new Set(rows.map(r => r.detection_source).filter(Boolean))].sort(),
-          }}
-          onChange={(param, value) => setParam(param, value)}
-          onClear={() => {
-            const next = new URLSearchParams(params);
-            ["number", "name", "assignee", "customer", "detection_source",
-             "priority", "severity", "verdict", "state", "technique"]
-              .forEach(k => next.delete(k));
-            setParams(next, { replace: true });
-          }}
-        />
-
-        <QueueTable
-          rows={visibleRows}
-          visibleColumns={visibleColumns}
-          selected={selected}
-          allSelected={visibleRows.length > 0 && selected.size === visibleRows.length}
-          onToggleSelect={toggleSelect}
-          onSelectAll={selectAll}
-          previewId={previewId}
-          onRowClick={onRowClick}
-          onNameClick={onNameClick}
-          onCellDrill={(field, value) => setParam(field, value)}
-          sort={urlSort}
-          order={urlOrder}
-          onSort={onSort}
+        <NxDataTable
+          columns={columns}
+          rows={visible}
+          rowKey={(r) => r.id}
           loading={loading}
-          onContextMenu={(row, at, col) => setCtx({ row, at, col })}
+          error={error}
+          onRefresh={load}
+          searchPlaceholder="Search incident, asset, source, technique, assignee…"
+          pageSize={25}
+          selectable
+          bulkActions={bulkActions}
+          toolbarExtra={toolbarExtra}
+          onRowClick={(r) => setOpenRow(r)}
+          emptyTitle="No incident matches this view"
+          emptyHint="Nothing was returned by /api/incidents for this tenant,
+                     state and time window. This is an authorized empty set,
+                     not a failure."
+          testid="incidents-table"
         />
+      </NxPageShell>
 
-        {ctx && (
-          <QueueContextMenu
-            row={ctx.row}
-            at={ctx.at}
-            col={ctx.col}
-            currentUser={user?.email}
-            onClose={() => setCtx(null)}
-            onOpen={(r) => navigate(`/xdr/incidents/${r.id}`)}
-            onOpenNewTab={(r) => window.open(`/xdr/incidents/${r.id}`, "_blank", "noopener")}
-            onOpenNewWindow={(r) => window.open(
-              `/xdr/incidents/${r.id}`, `nivxray-${r.id}`,
-              "noopener,width=1480,height=940")}
-            onShowMatching={(param, value) => setParam(param, value)}
-            onFilterOut={(param, value) => setParam(param, value)}
-            onPreview={(r) => setPrevId(r.id)}
-            onAssignToMe={(r) => patchAssignee(r, user?.email)}
-            onUnassign={(r) => patchAssignee(r, "")}
-            onToast={(m) => setCtxToast(m)}
-          />
+      <NxFlyout
+        open={!!openRow}
+        eyebrow={openRow ? `INCIDENT · ${openRow.number || openRow.id}` : ""}
+        title={openRow?.name || ""}
+        onClose={() => setOpenRow(null)}
+        width={660}
+        fullPageHref={openRow ? `/xdr/incidents/${openRow.id}` : null}
+        fullPageLabel="Full page"
+        testid="incident-flyout"
+        footer={openRow && (
+          <button className="nx-dt-btn"
+                  data-testid="incident-flyout-open-investigation"
+                  onClick={() => navigate(`/xdr/incidents/${openRow.id}`)}>
+            Open investigation <ArrowUpRight size={13} />
+          </button>
         )}
-
-        {ctxToast && (
-          <div className="ql-ctx-toast" role="status"
-                data-testid="ql-ctx-toast"
-                onAnimationEnd={() => setCtxToast(null)}>
-            {ctxToast}
-          </div>
+      >
+        {openRow && (
+          <IncidentFlyoutBody row={openRow} detail={detail}
+                              loading={dLoading} error={dError} />
         )}
-
-        {/* Preview drawer */}
-        <IncidentPreviewDrawer
-          incident={previewRow}
-          onClose={() => setPrevId(null)}
-          onOpen={onDrawerOpen}
-          onPrev={onDrawerPrev}
-          onNext={onDrawerNext}
-          hasPrev={previewIndex > 0}
-          hasNext={previewIndex >= 0 && previewIndex < visibleRows.length - 1}
-          position={previewIndex >= 0 ? previewIndex + 1 : null}
-          total={visibleRows.length}
-        />
-
-        {/* Filters panel */}
-        <FiltersPanel
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          filters={filters}
-          onApply={applyFilters}
-        />
-      </div>
+      </NxFlyout>
     </XdrShell>
   );
 }
-
-
-/**
- * IncidentOpsIntel · Phase A.3 · compact operational intelligence
- * band between the priority strip and the queue table.
- *
- * Answers three analyst questions at a glance:
- *   · How is the current workload distributed?
- *   · Where is SLA/aging exposure concentrated?
- *   · Which owners carry the load right now?
- *
- * Derives everything from the in-view incident rows — no new API
- * dependency, no fabricated metrics.  When the workload is small
- * enough that this intelligence adds nothing, the band collapses
- * to a single explanatory line rather than showing empty bars.
- */
-function IncidentOpsIntel({ rows }) {
-  const [stateBars, priorityBars, agingBuckets, ownerBars, agingTotals] = React.useMemo(() => {
-    const stateCount = {};
-    const prioCount  = {};
-    const owner      = {};
-    const aging      = { fresh: 0, day: 0, week: 0, month: 0, older: 0 };
-    let slaAtRisk = 0, unassigned = 0;
-    const now = Date.now();
-    for (const r of rows) {
-      const s = r.state || "new";
-      const p = r?.priority?.code || "P?";
-      stateCount[s] = (stateCount[s] || 0) + 1;
-      prioCount[p]  = (prioCount[p]  || 0) + 1;
-      const own = r.assignee || null;
-      if (!own) unassigned += 1;
-      else owner[own] = (owner[own] || 0) + 1;
-      if (r.sla_due_at) {
-        const t = Date.parse(r.sla_due_at);
-        if (Number.isFinite(t) && t - now < 6 * 3600_000) slaAtRisk += 1;
-      }
-      if (r.created_at) {
-        const t = Date.parse(r.created_at);
-        if (Number.isFinite(t)) {
-          const days = (now - t) / 86400_000;
-          if      (days < 1)   aging.fresh += 1;
-          else if (days < 7)   aging.day   += 1;
-          else if (days < 30)  aging.week  += 1;
-          else if (days < 90)  aging.month += 1;
-          else                 aging.older += 1;
-        }
-      }
-    }
-    const stateTone = { new: "blue", in_progress: "amber", on_hold: "purple", resolved: "teal", closed: "faint" };
-    const prioTone  = { P1: "red",   P2: "amber",         P3: "amber",       P4: "teal",       P5: "faint" };
-    const s = Object.entries(stateCount)
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => ({ key: k, label: k.replace("_", " "), value: v, tone: stateTone[k] || "faint" }));
-    const p = Object.entries(prioCount)
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([k, v]) => ({ key: k, label: k, value: v, tone: prioTone[k] || "faint" }));
-    const o = [
-      { key: "__unassigned", label: "Unassigned", value: unassigned, tone: "amber" },
-      ...Object.entries(owner)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-        .map(([k, v]) => ({ key: k, label: shortenOwner(k), value: v, tone: "purple" })),
-    ].filter(x => x.value > 0);
-    return [s, p, aging, o, { slaAtRisk, unassigned, total: rows.length }];
-  }, [rows]);
-
-  if (rows.length === 0) return null;
-
-  return (
-    <div className="xdr-incidents-intel"
-             data-testid="xdr-incidents-ops-intel"
-             style={{
-               display: "grid",
-               gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
-               gap: 12,
-               margin: "14px 0",
-             }}>
-      <NxSurface
-        title="Incident distribution"
-        subtitle={`${rows.length} incident${rows.length === 1 ? "" : "s"} in current view`}
-        testid="xdr-incidents-intel-distribution"
-      >
-        <div style={{ display: "grid", gap: 14 }}>
-          <IntelBlock label="By state"    bars={stateBars} />
-          <IntelBlock label="By priority" bars={priorityBars} />
-        </div>
-      </NxSurface>
-
-      <NxSurface
-        title="Aging & SLA exposure"
-        subtitle="How long these incidents have been open"
-        testid="xdr-incidents-intel-aging"
-      >
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}>
-            <ExposureTile
-              label="SLA at risk"
-              value={agingTotals.slaAtRisk}
-              tone={agingTotals.slaAtRisk > 0 ? "critical" : "faint"}
-              sub="Due within 6 h"
-            />
-            <ExposureTile
-              label="Unassigned"
-              value={agingTotals.unassigned}
-              tone={agingTotals.unassigned > 0 ? "amber" : "faint"}
-              sub="No owner"
-            />
-          </div>
-          <IntelBlock
-            label="Age distribution"
-            bars={[
-              { key: "fresh", label: "< 1 day", value: agingBuckets.fresh, tone: "teal" },
-              { key: "day",   label: "1–7 days", value: agingBuckets.day,   tone: "blue" },
-              { key: "week",  label: "7–30 days", value: agingBuckets.week,  tone: "amber" },
-              { key: "month", label: "30–90 days", value: agingBuckets.month, tone: "red" },
-              { key: "older", label: "> 90 days", value: agingBuckets.older, tone: "faint" },
-            ].filter(b => b.value > 0)}
-          />
-        </div>
-      </NxSurface>
-
-      <NxSurface
-        title="Workload & assignment"
-        subtitle="Where the current queue sits"
-        testid="xdr-incidents-intel-workload"
-      >
-        <IntelBlock label="Top owners" bars={ownerBars} />
-      </NxSurface>
-    </div>
-  );
-}
-
-function IntelBlock({ label, bars }) {
-  return (
-    <div>
-      <div style={{
-        fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
-        letterSpacing: 0.5, textTransform: "uppercase",
-        color: "var(--nx-muted)", marginBottom: 6,
-      }}>{label}</div>
-      {bars.length === 0 ? (
-        <div style={{ fontSize: 12, color: "var(--nx-text-dim)",
-                             fontFamily: "var(--sans)" }}>
-          Nothing in this segment.
-        </div>
-      ) : (
-        <NxHBar items={bars} />
-      )}
-    </div>
-  );
-}
-
-function ExposureTile({ label, value, tone, sub }) {
-  const bgMap = { critical: "var(--nx-critical-bg)", amber: "var(--nx-medium-bg)", faint: "var(--nx-surf-inset)" };
-  const fgMap = { critical: "var(--nx-critical)", amber: "var(--nx-medium)", faint: "var(--nx-muted)" };
-  const bMap  = { critical: "var(--nx-critical-bd)", amber: "var(--nx-medium-bd)", faint: "var(--nx-bd-quiet)" };
-  return (
-    <div style={{
-      padding: "10px 12px",
-      background: bgMap[tone] || bgMap.faint,
-      border: `1px solid ${bMap[tone] || bMap.faint}`,
-      borderRadius: 8,
-    }}>
-      <div style={{ fontFamily: "var(--mono)", fontSize: 22, fontWeight: 800,
-                          color: fgMap[tone] || fgMap.faint, lineHeight: 1 }}>
-        {value}
-      </div>
-      <div style={{ fontFamily: "var(--sans)", fontSize: 10.5, fontWeight: 800,
-                          letterSpacing: 0.4, textTransform: "uppercase",
-                          color: fgMap[tone] || fgMap.faint, marginTop: 4 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: "var(--sans)", fontSize: 11,
-                          color: "var(--nx-text-dim)", marginTop: 2 }}>
-        {sub}
-      </div>
-    </div>
-  );
-}
-
-function shortenOwner(s) {
-  if (!s) return "—";
-  const [name] = s.split("@");
-  return (name || s).slice(0, 18);
-}
-

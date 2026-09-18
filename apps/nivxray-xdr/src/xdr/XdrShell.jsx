@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { useAccess } from "@/xdr/access/AccessProvider";
 import { getSessionContext } from "@/nivxforge/edrApi";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import WorkspaceLaunch from "@/components/WorkspaceLaunch";
@@ -173,8 +174,8 @@ const SIDEBAR = [
       // The information architecture stays COMPLETE: a capability that
       // belongs to NivXRay XDR is reachable and states honestly that it
       // is not operational, instead of being a dead disabled row.
-      { key: "assets",          label: "Endpoints",       icon: Boxes,
-        to: "/xdr/endpoints",
+      { key: "assets",          label: "Devices",         icon: Boxes,
+        to: "/xdr/assets",
         title: "Endpoint inventory — the operational asset class" },
       { key: "assets-identity", label: "Identity / Users", icon: UserIcon,
         to: "/xdr/assets/identity",
@@ -292,33 +293,43 @@ const RAIL = [
     children: ["telemetry-health", "platform-health"] },
   { key: "incidents-primary", label: "Incidents", icon: AlertOctagon,
     to: "/xdr/incidents",
+    requires: ["incidents.read", "alerts.read"],
     children: ["my-queue", "detections", "sla-aging", "response"] },
   { key: "investigate", label: "Investigate", icon: FolderSearch,
     to: "/xdr/investigations",
+    requires: ["investigations.read", "evidence.read"],
     children: ["entity-search", "activities", "evidence-explorer",
                "attack-story-rollup"] },
   { key: "intelligence", label: "Intelligence", icon: Globe,
     to: "/xdr/intelligence/threat",
+    requires: ["intel.read"],
     children: ["ioc", "command", "malware", "mitre", "kb"] },
   { key: "automate", label: "Automate", icon: Zap,
     to: "/xdr/respond/playbooks",
+    requires: ["playbooks.read", "response.read", "response.recommend",
+               "response.execute", "response.approve"],
     children: ["automation-rules", "approvals", "rule-studio",
                "detection-registry", "correlation-rules"] },
   { key: "assets-primary", label: "Assets", icon: Boxes,
-    to: "/xdr/endpoints",
+    to: "/xdr/assets",
     children: ["assets-identity", "assets-network", "vulnerabilities",
                "exposure", "attack-paths", "critical-assets"] },
   // Slice 1 · telemetry onboarding is an operator destination, not an
   // engineering sub-page. It stops being buried under Administration.
   { key: "data-sources-primary", label: "Data Sources", icon: HardDrive,
     to: "/xdr/data-sources",
+    requires: ["data_sources.read", "collectors.read"],
     children: [] },
   { key: "client-management", label: "Client Management", icon: Users,
     to: "/xdr/admin/users-roles",
+    requires: ["users.read", "roles.read", "groups.read"],
     children: ["users-roles", "response-policies",
                "response-strategies"] },
   { key: "administration", label: "Administration", icon: Sliders,
     to: "/xdr/admin",
+    requires: ["platform.read", "platform.admin", "api_keys.read",
+               "webhooks.read", "secrets.read", "audit.read",
+               "parsers.read", "normalization.read", "extensions.read"],
     children: ["integrations", "data-sources", "collectors", "agents",
                "parsers", "normalization", "sdl", "detection-rules",
                "api-webhooks", "docs"] },
@@ -330,6 +341,8 @@ function useActiveKey() {
   return useMemo(() => {
     if (pathname === "/xdr")                     return "control-center";
     if (pathname.startsWith("/xdr/mss-dashboard")) return "mss-dashboard";
+    if (pathname.startsWith("/xdr/assets"))        return "assets";
+    if (pathname.startsWith("/xdr/endpoints"))     return "assets";
     if (pathname.startsWith("/xdr/incidents")) {
       return search.includes("mine=1") ? "my-queue" : "incidents";
     }
@@ -356,6 +369,7 @@ function useActiveKey() {
 
 export default function XdrShell({ children, flush = false }) {
   const { user, logout } = useAuth();
+  const access    = useAccess();
   const activeKey = useActiveKey();
   const navigate  = useNavigate();
   const [expanded, setExpanded] = useState({});
@@ -590,7 +604,15 @@ export default function XdrShell({ children, flush = false }) {
                   ? (navOverlay ? " nav-overlay" : " nav-hidden") : ""}`}
                data-testid="xdr-sidebar"
                aria-hidden={focusMode && !navOverlay ? "true" : "false"}>
-          {RAIL.map((primary) => {
+          {RAIL.filter((primary) => {
+            // §23 · navigation derives from EFFECTIVE PERMISSIONS, never from
+            // a role-name check. `canAny` is three-valued: `false` hides,
+            // `true` shows, and `null` (contract unavailable) SHOWS — hiding
+            // the console on a transient authorization read would be worse
+            // than relying on the backend's 403, which is authoritative.
+            if (!primary.requires) return true;
+            return access.canAny(primary.requires) !== false;
+          }).map((primary) => {
             const kids = (primary.children || [])
               .map((k) => ITEM_BY_KEY[k]).filter(Boolean);
             const childActive = kids.some((k) => k.key === activeKey);

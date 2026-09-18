@@ -1,0 +1,141 @@
+/* nx-entity.css · entity header + attack chain.
+   Density-first: SOC console spacing, not marketing spacing. */
+
+.nx-eh {
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-divider);
+  border-radius: var(--nx-r-card);
+  padding: 14px 18px 0;
+  box-shadow: var(--nx-shadow-1);
+  margin-bottom: 14px;
+}
+.nx-eh-top {
+  display: flex; align-items: flex-start; gap: 20px;
+  justify-content: space-between;
+}
+.nx-eh-id { min-width: 0; flex: 1; }
+.nx-eh-eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--nx-muted); margin-bottom: 3px;
+}
+.nx-eh-title {
+  margin: 0; font-size: 19px; line-height: 1.25; font-weight: 600;
+  color: var(--nx-text); letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.nx-eh-sub {
+  margin-top: 3px; font-size: 12.5px; color: var(--nx-text-dim);
+}
+.nx-eh-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+}
+.nx-eh-actions {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  flex-wrap: wrap; justify-content: flex-end;
+}
+.nx-eh-facts {
+  display: flex; flex-wrap: wrap; gap: 0 26px;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--nx-divider);
+}
+.nx-eh-fact { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.nx-eh-fact-k {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--nx-faint);
+}
+.nx-eh-fact-v { font-size: 12.5px; color: var(--nx-text); }
+.nx-eh-prov {
+  margin-top: 10px; padding: 8px 10px;
+  background: var(--nx-inset);
+  border-left: 2px solid var(--nx-purple);
+  border-radius: 0 4px 4px 0;
+  font-size: 11.5px; color: var(--nx-text-dim); line-height: 1.5;
+}
+.nx-eh .nx-tabs { margin-top: 12px; }
+
+/* ── attack chain ───────────────────────────────────────────── */
+.nx-ac { list-style: none; margin: 0; padding: 4px 0; }
+.nx-ac-node { display: flex; gap: 12px; }
+.nx-ac-rail {
+  position: relative; width: 12px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.nx-ac-dot {
+  width: 9px; height: 9px; border-radius: 50%; margin-top: 7px;
+  background: var(--nx-purple);
+  box-shadow: 0 0 0 3px var(--nx-purple-ring);
+  flex-shrink: 0;
+}
+.nx-ac-line {
+  flex: 1; width: 1px; background: var(--nx-divider-strong); margin: 4px 0 0;
+}
+.nx-ac-body { flex: 1; min-width: 0; padding: 2px 0 16px; }
+.nx-ac-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.nx-ac-label { font-size: 13px; font-weight: 550; color: var(--nx-text); }
+.nx-ac-detail {
+  margin: 5px 0 0; font-size: 12px; line-height: 1.55;
+  color: var(--nx-text-dim);
+}
+.nx-ac-meta {
+  display: flex; align-items: center; gap: 14px; margin-top: 6px;
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+  color: var(--nx-muted);
+}
+.nx-ac-absent { color: var(--nx-faint); font-style: italic; }
+.nx-ac-pivot {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: transparent; border: none; cursor: pointer; padding: 0;
+  color: var(--nx-purple); font-family: inherit; font-size: 10.5px;
+  transition: color 120ms ease, transform 120ms ease;
+}
+.nx-ac-pivot:hover { color: var(--nx-purple-hover); transform: translateX(2px); }
+
+/* ── dark theme · deliberate, not an inversion ─────────────── */
+[data-nx-theme="dark"] .nx-eh {
+  background: var(--nx-elevated);
+  border-color: var(--nx-divider);
+}
+[data-nx-theme="dark"] .nx-eh-prov {
+  background: rgba(109, 78, 224, 0.08);
+  border-left-color: var(--nx-purple);
+}
+
+/* ── shared section card used by the workspace tabs ────────── */
+.nx-sec {
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-divider);
+  border-radius: var(--nx-r-card);
+  padding: 14px 16px;
+  box-shadow: var(--nx-shadow-1);
+}
+.nx-sec + .nx-sec { margin-top: 14px; }
+.nx-sec-title {
+  margin: 0 0 10px; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--nx-text-dim);
+}
+.nx-grid2 {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px; align-items: start;
+}
+.nx-grid4 {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.nx-kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; }
+.nx-kv dt {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--nx-faint);
+  padding-top: 2px;
+}
+.nx-kv dd {
+  margin: 0; font-size: 12.5px; color: var(--nx-text);
+  overflow-wrap: anywhere;
+}
+.nx-unavail {
+  font-size: 11.5px; color: var(--nx-faint); font-style: italic;
+}

@@ -142,7 +142,8 @@
   background: none; border: 0; padding: 0 0 4px; cursor: pointer;
   color: var(--nx-purple); font-size: 11.5px;
 }
-.nx-fly-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.nx-fly-actions { margin-left: auto; display: flex; gap: 8px; align-items: center;
+                  flex-shrink: 0; align-self: flex-start; }
 .nx-fly-x {
   background: none; border: 1px solid var(--nx-divider); border-radius: 8px;
   color: var(--nx-text-dim); cursor: pointer; padding: 4px;

@@ -12,7 +12,11 @@
 const KEY = "nx.ribbon";
 
 const DEFAULTS = {
-  expanded: true,          // Cisco: the ribbon is expanded by default
+  // E2E-1 · density (owner directive §15). Cisco's ribbon is a utility tray;
+  // expanded-by-default cost 260px of a 800px SOC viewport, so the incident
+  // queue lost half its rows before an analyst touched anything. It now
+  // starts collapsed and is one click away; the preference still persists.
+  expanded: false,
   height: 260,             // px, user-resizable by dragging the top edge
   side: "left",            // collapsed floating button position
   app: "incidents",        // active ribbon app

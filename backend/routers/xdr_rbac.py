@@ -1308,6 +1308,102 @@ def simulate(body: SimulateBody, request: Request):
     }}
 
 
+# ── Endpoint · SELF-scoped effective access (RBAC-0 · gap G-3) ────
+# The role-aware SPA needs to know what the CALLER may do. Every other
+# effective-access route is gated on `users.read`, which an analyst does not
+# hold, so a non-admin could not read their own permissions and navigation
+# would have to be hard-coded on role names — forbidden by the owner
+# directive §4/§23.
+#
+# This is a PROJECTION of the existing resolver, not a new authority:
+#   · identity comes only from the verified JWT (`_deps_current_user`)
+#   · the tenant comes only from the persisted user record, never a header
+#   · permissions come from `_resolve_user_permissions()` — the same function
+#     `check_access()` uses, so there is no second algorithm
+#   · it grants nothing and mutates nothing
+#
+# `basis` tells the client WHY it received this set, so the UI can render an
+# honest state instead of guessing.
+@router.get("/me/effective")
+def my_effective_access(user=Depends(_deps_current_user)):
+    email = (user or {}).get("email")
+    role  = (user or {}).get("role")
+    if not email:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED", "reason": "unauthenticated"})
+
+    # Cross-tenant platform administrator — the same gate
+    # `require_permission` short-circuits on (`:783`). Its authority is
+    # platform-wide, so its effective set is the whole catalog.
+    if role == "admin":
+        return {"ok": True, "data": {
+            "principal":    email,
+            "tenant":       (user or {}).get("tenant_id"),
+            "cross_tenant": True,
+            "basis":        "CROSS_TENANT_ADMIN_ROLE",
+            "roles":        ["platform_admin"],
+            "groups":       [],
+            "permissions":  sorted(_all_permissions()),
+            "scopes":       [],
+            "note":         ("platform administrator · authority is not "
+                                    "narrowed by a tenant-scoped RBAC grant"),
+        }}
+
+    ten = (user or {}).get("tenant_id")
+    if not ten:
+        return {"ok": True, "data": {
+            "principal": email, "tenant": None, "cross_tenant": False,
+            "basis": "NO_TENANT_SCOPE", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": "principal has no tenant scope"}}
+
+    if _c_users() is None:
+        raise HTTPException(status_code=503, detail={
+            "code": "AUTHZ_UNAVAILABLE",
+            "reason": "authorization store unavailable"})
+
+    u = _user_by_email(ten, email)
+    if not u:
+        return {"ok": True, "data": {
+            "principal": email, "tenant": ten, "cross_tenant": False,
+            "basis": "USER_NOT_PROVISIONED", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": ("this principal has no RBAC record in its tenant, so no "
+                            "XDR control-plane permission is granted")}}
+    if not u.get("enabled", True):
+        return {"ok": True, "data": {
+            "principal": email, "tenant": ten, "cross_tenant": False,
+            "basis": "USER_DISABLED", "roles": [], "groups": [],
+            "permissions": [], "scopes": [],
+            "note": "RBAC record is disabled"}}
+
+    perms, assigns = _resolve_user_permissions(ten, u["id"])
+    roles, scopes = [], []
+    for a in assigns:
+        r = _role_by_id(a.get("role_id", ""))
+        if r:
+            roles.append(r.get("name"))
+        sc = a.get("scope") or {}
+        if sc.get("resource_ids") or sc.get("environment"):
+            scopes.append({"role": (r or {}).get("name"),
+                                 "resource_ids": sc.get("resource_ids") or [],
+                                 "environment": sc.get("environment")})
+    return {"ok": True, "data": {
+        "principal":    email,
+        "tenant":       ten,
+        "cross_tenant": False,
+        "basis":        "TENANT_SCOPED_RBAC_GRANT",
+        # `groups` is reported as persisted. RBAC-0 finding G-1: group
+        # membership confers NO permission today, so it is never presented as
+        # a source of access.
+        "roles":        sorted(set(roles) - {None}),
+        "groups":       list(u.get("groups") or []),
+        "groups_confer_access": False,
+        "permissions":  sorted(perms),
+        "scopes":       scopes,
+    }}
+
+
 # ── Endpoint · session context (shell customer pill) ──────────────
 # The XDR shell top bar previously printed the analyst's e-mail where the
 # customer belongs. Tenant identity is an authorisation fact, so it is

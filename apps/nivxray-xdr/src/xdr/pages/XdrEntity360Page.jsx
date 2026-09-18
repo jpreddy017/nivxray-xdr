@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxTabs } from "@/xdr/nx";
 import { useAuth } from "@/lib/auth";
 import EndpointLanes from "@/xdr/components/EndpointLanes";
 import ProcessAncestryTree from "@/xdr/components/ProcessAncestryTree";
@@ -506,22 +507,11 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
 
           {/* Tabbed workspace (order: 1 — sits left of the drawer) */}
           <div style={{ minWidth: 0, order: 1 }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}
-                 data-testid="entity360-tabs">
-              {TABS.map((t) => {
-                const Icon = t.icon;
-                return (
-                  <button key={t.key}
-                          className={`btn ${tab === t.key ? "primary" : ""}`}
-                          style={{ padding: "5px 10px", fontSize: 11 }}
-                          onClick={() => setTab(t.key)}
-                          data-testid={`entity360-tab-${t.key}`}>
-                    <Icon size={11} /> {t.label}
-                  </button>
-                );
-              })}
-            </div>
-
+            {/* E2E-3 · ONE tab grammar. This page used bespoke `btn primary`
+                pills; it now uses the same NxTabs bar as Incidents, the
+                Investigation workspace and Data Sources. */}
+            <NxTabs tabs={TABS} active={tab} onChange={setTab}
+                    testid="entity360-tab" />
             {events.length === 0 && (
               <div className="x-empty" data-testid="xdr-trajectory-empty">
                 <b>◇ NO EVIDENCE</b>
