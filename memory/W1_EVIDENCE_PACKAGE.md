@@ -95,7 +95,20 @@ line and W1-A is closed on the collector row too.
 * `reasoned=5` means all five produced `status=REASONED` through the existing
   canonical-evidence → detection → IUE/ICE/VEEE chain. **PASS.**
 
-### W1-C · field-level provenance — **NOT PROVEN** (C only)
+### W1-C · field-level provenance — **PASS** (owner-executed query B, 2026-06)
+Query B returned **exactly 5** ACCEPTED rows for `col_2c20bb28ac744be48f67`,
+every one satisfying the full PASS bar: authoritative tenant correct, collector
+correct, `routing_result=ACCEPTED`,
+`routing_authority=AUTHENTICATED_COLLECTOR_DECLARATION`,
+`declared_source = declared_source_resolved = selected_dsm_id =
+microsoft-sysmon`, `content_compatible=True`,
+`authorization_relationship=DECLARED_SOURCE_IN_COLLECTOR_ALLOWLIST`,
+`at_basis=provenance.timestamps.nivx_received_at` with a non-null ingest
+timestamp, unique non-null `trace_id`, non-null canonical `evidence_ref`.
+The contract below is therefore no longer contract-only — it is observed on the
+five real rows.
+
+#### the contract that those rows satisfy (retained for the record)
 The provenance *contract* is unambiguous and fail-closed:
 * raw row carries `tenant_id`, `collector_id`, `source`, `source_event_id`,
   `collection_method`, `parser_version`, `event_type`, `source_timestamp`,
@@ -110,9 +123,8 @@ The provenance *contract* is unambiguous and fail-closed:
   `provenance.timestamps.nivx_received_at`
   (`xdr_ingest_routing.py:131-181`).
 
-But I have **not observed the five rows**. A contract is not evidence. This
-criterion stays NOT PROVEN until one read-only query is run — see §3 query B.
-It is the smallest remaining gap and it costs one GET.
+Query B (§3) observed all five rows carrying exactly these fields, so the
+contract is now evidenced, not assumed.
 
 ### W1-D · authoritative tenant attribution — **PASS** (R + C, + P for the refusal)
 * The ingest route does **not** trust the header. It loads the collector by
@@ -211,13 +223,13 @@ principal and the counter evidence attached (`xdr_ingest.py:1004-1017`).
 |---|---|---|---|---|
 | W1-A | ingestion truth | **PASS** | receipt + route contract | nothing (optional: `collector_state_reason` line) |
 | W1-B | Sysmon DSM / canonical normalization | **PASS** | receipt + fail-closed routing + `SysmonDSM.supports()` | nothing (optional: `selected_dsm_id` on the rows) |
-| W1-C | field-level provenance | **NOT PROVEN** | contract only | one read-only GET — query B |
+| W1-C | field-level provenance | **PASS** | owner-executed query B — 5/5 ACCEPTED rows meet the full bar | nothing |
 | W1-D | authoritative tenant attribution | **PASS** | tenant resolved from the authenticated collector, header mismatch = 403 | nothing |
 | W1-E | `source_event_id` identity + dedup | **NOT PROVEN** | E1 not exposed by any read API · E2 contract proven 34/34 on identical code, never exercised in production | E1: the five id strings (no send needed) · E2: your decision on the §4 replay |
 | W1-F | collector-state truth | **PASS** | `CONNECTED` unreachable from the admin API; only ingest writes it | nothing (optional: audit row) |
 
-**W1 IS NOT CLOSED.** Four of six criteria are closed on authoritative
-evidence. Two remain, and neither needs a new five-event send.
+**W1 IS NOT CLOSED — 5/6 PASS.** A · B · C · D · F closed on authoritative
+evidence. **W1-E alone remains**, and it does not need a new five-event send.
 
 ---
 

@@ -17586,3 +17586,13 @@ No code, config, deployment, credential or telemetry touched. No replay executed
   (they create collectors for unregistered tenants → 403 TENANT_NOT_FOUND now that
   the registry is enforced). The dedupe regression gate is effectively disarmed
   until the fixtures register their tenant.
+- **W1-C = PASS (2026-06, owner-executed query B).** Production returned exactly 5
+  ACCEPTED rows for `col_2c20bb28ac744be48f67`, all meeting the full bar: correct
+  tenant + collector, `routing_result=ACCEPTED`,
+  `routing_authority=AUTHENTICATED_COLLECTOR_DECLARATION`,
+  declared/resolved/DSM = `microsoft-sysmon`, `content_compatible=True`,
+  `authorization_relationship=DECLARED_SOURCE_IN_COLLECTOR_ALLOWLIST`,
+  `at_basis=provenance.timestamps.nivx_received_at`, unique trace ids, canonical
+  evidence refs. W1 now **5/6 PASS** (A·B·C·D·F). Only **W1-E** remains
+  (E1 identity → E2 behavioural dedup). Dedupe-test fixture drift is a separate P1,
+  deliberately not mixed into evidence collection. UDOF not started.
