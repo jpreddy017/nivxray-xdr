@@ -17280,3 +17280,30 @@ confirm the console carries the authoritative tenant (no picker UI yet; use
 `?tenant=<ten_*>`) → W1 Phase 3.1 (collector, minimum-scope key,
 DESKTOP-A9HGFJJ with `NIVX_TENANT_ID` set to the authoritative tenant, exactly
 5 genuine Sysmon events, end-to-end trace).
+
+### 2026-06 · PRODUCTION REPUBLISHED (publish 100 / build `a55ec13`) · READ-ONLY ACCEPTANCE RUN
+Report: `W1_PHASE3_PROD_ACCEPTANCE_PUBLISH100_a55ec13.md` ·
+owner GET-only block: `W1_PHASE3_AI_OWNER_BLOCK_a55ec13.ps1`.
+- Build identity PROVEN: production OpenAPI identical (795 paths, path hash,
+  schema bodies) to the frozen `7645b2b1` baseline in-pod.
+- Collector tenant authority live: `GET /api/xdr/collector/connectors`
+  no tenant → 403 `TENANT_REQUIRED`; unknown/`default` → 403
+  `TENANT_NOT_FOUND`; authoritative tenant → 200 `count=0`. No `default`
+  resurrection anywhere probed. `TENANT_NOT_ACTIVE` evidenced in-pod
+  (182 + 105 tests passed) since production has no non-ACTIVE tenant to probe
+  read-only.
+- Anonymous fail-closed confirmed on tenants/organizations/EDR/security-state/
+  auth/routing planes; a valid `ten_*` does NOT substitute for authentication.
+- **COLLECTOR AUTH P0 CONFIRMED OPEN**: 6 collector GET routes (collectors,
+  data-sources, outbox, outbox/health, telemetry-health, source-types) answer
+  **200 anonymously**, leaking runtime inventory, internal pod host name,
+  ingest configuration state and the telemetry blind-spot map.
+- Zero mutations (GET/HEAD only). No collector, key, endpoint, token.
+  **W1 STILL HELD.**
+
+P0 next: owner runs the authenticated GET-only A–I subset → then implement the
+approved narrowly-scoped Collector Auth P0 on candidate/preview
+(AUTHENTICATION → PERMISSION → TENANT AUTHORITY → CAPABILITY, mandatory route
+classification, fail-closed for unclassified routes, webhook HMAC unchanged)
+→ preview report → separate owner approval → only then W1 Phase 3.1.
+
