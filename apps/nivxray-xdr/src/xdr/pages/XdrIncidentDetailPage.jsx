@@ -29,6 +29,7 @@ import {
 } from "@/xdr/nx";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 import OpenInEdr from "@/xdr/components/OpenInEdr";
+import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligenceContext";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
 import TechnicalTab         from "./incidents/record/tabs/TechnicalTab";
@@ -273,6 +274,7 @@ export default function XdrIncidentDetailPage() {
         <div data-testid={`incident-tab-${tab}`}>
           {tab === "overview" && (
             <>
+              <IncidentIntelligenceContext incidentId={incident.id} />
               <section className="nx-sec">
                 <h3 className="nx-sec-title">Verdict, cited</h3>
                 <dl className="nx-kv">

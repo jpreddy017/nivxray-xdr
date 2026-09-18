@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import { activeTenant } from "@/lib/tenant";
 import { modeOf } from "./intelligenceModel";
 
 function errText(e) {
@@ -43,6 +44,17 @@ export default function useIntelligencePolicy({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // A0.5 · the intelligence policy is tenant-scoped. With no customer
+    // resolved the server correctly answers TENANT_REQUIRED, so we state
+    // that instead of firing a request that can only be denied.
+    if (!activeTenant()) {
+      setHealth(null);
+      setPolicy(null);
+      setEffective(null);
+      setError("No customer selected · there is no default tenant");
+      setLoading(false);
+      return;
+    }
     try {
       const h = await api.get("/intelligence/health");
       setHealth(h.data);
