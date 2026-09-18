@@ -37,7 +37,7 @@ Security Boundary | Evidence/Proof | Next Action
 | A-18 | Integrations | P2 | OPEN | — | — | — | Wave B8 |
 | A-19 | Coverage | P2 | OPEN | I-* | — | — | Wave B9 |
 | A-20 | Telemetry Health | P1 | OPEN | I-* | never render an unavailable metric as 0 | — | Wave B9 |
-| A-21 | Reports | P2 | OPEN | — | — | — | Wave B10 |
+| A-21 | Reports | P2 | DONE (2026-06) | — | — | Rebuilt on NxInv: dense library table (Incident · Customer · Verdict · State · Updated · Open/PDF) → contextual pane with the report's facts and both pivots; unsupported report types moved under a disclosure. `NOT ISSUED` / `NOT ATTRIBUTED` / `NOT RECORDED` replace blanks. Build PASS (not yet browser-verified) | Browser-verify in the next regression |
 | A-22 | Client Management | P1 | PARTIAL | D-* | tenant authority | "ALL CUSTOMERS" retired (REG3) | Wave B11 |
 | A-23 | Administration | P1 | OPEN | D-* | RBAC enforcement is backend | — | Wave B12 |
 | A-24 | Access Management surfaces | P1 | OPEN | D-* | no access without authority | — | Program D IA |

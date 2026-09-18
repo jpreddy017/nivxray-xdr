@@ -62,6 +62,9 @@ active execution subset.
 - **Threat Intelligence**: 117,225 indicators · 9 of 11 sources · 3 source
   errors surfaced verbatim (HTTP 429/403/401) · per-type chips act as filters ·
   indicator table with a contextual pane.
+- **Reports**: dense library table → contextual pane carrying the report's
+  facts plus both pivots (Open · PDF projection); unsupported report types moved
+  under a disclosure. Build PASS, browser verification pending.
 - **IOC Intelligence**: 7 of 7 providers with the governing credential;
   enrichment now answers as a **per-provider table** (or states
   `NO PER-PROVIDER ATTRIBUTION`) instead of a raw JSON dump; the verbatim
