@@ -1493,3 +1493,32 @@ lineage guides, Activity quick filters). iteration_100 all pass.
 - Measured `parser_ok` / `normalized_ok` instead of defaulting to true.
 - `xdr_canonical_events.source_timestamp` null on raw projection.
 - Per-tenant / per-analyst incident layout customisation (rejected for UX0).
+
+## 2026-06 (session 2) · WAVE PLAN — each wave gated on owner approval
+
+**Gate now open:** Wave 1 visual + functional review
+(`/xdr/_ux0-preview/workspace`, `memory/E2E_UX0_WAVE1_ACCEPTANCE.md`) and the
+Command Intelligence discovery report (`memory/CI_DISCOVERY_R4_R5.md`).
+
+| wave | surfaces | primary reference | status |
+|---|---|---|---|
+| 1 | Global shell · Incidents queue · Incident workspace (Overview) | Cisco XDR shell · Cortex XDR split view | **DELIVERED — awaiting approval** |
+| 2 | Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360 · Process/Activity graph | Defender attack story · Cortex causality · Cisco evidence/worklog | blocked on Wave 1 approval |
+| 3 | Endpoint investigation · Hunting · Assets · Report tab | Cortex endpoint · Defender advanced hunting · Cisco assets | blocked |
+| 4 | Response · Intelligence · Data Sources · Collector onboarding | Cortex/Defender action centre · Cisco intel · Elastic onboarding | blocked |
+| CI | Command Intelligence page rebuild | NivXRay original | blocked on Lane B R-4/R-5 + R-7 |
+
+**Enforced sequence (owner):** UX0 refinement → owner visual approval →
+CI R-4/R-5 correctness → canonical propagation (R-7) → production Command
+Intelligence rebuild → E2E production workspace promotion.
+
+**Wave 1 follow-ups if approved:** 1440×900 + 2560×1440 captures · automated
+side-by-side image diff · hover-revealed bulk select in the queue · segmented
+alert donut with hover · keyboard focus + sub-1180px sweep · rebuild
+`/xdr/incidents` itself on the same queue grammar.
+
+**Lane B next (approval required):** R-4 expression evaluator · R-5 statement +
+dataflow model · artifact graph with provenance and explicit stop reasons ·
+R-7 canonical fan-out · LOLBAS call-site repair (catalog already exists) ·
+OSINT bridge (providers already exist) · D-11 ATT&CK records · D-12 IOC records
+· evidence-driven Executive Summary · `analysis_completeness` object.

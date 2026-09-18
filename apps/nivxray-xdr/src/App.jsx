@@ -25,6 +25,8 @@ const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 // E2E-UX0 · non-destructive design prototype at `/xdr/_ux0-preview`.
 const Ux0PreviewPage          = lazy(() => import("@/xdr/ux0/Ux0PreviewPage"));
+// E2E-UX0 Wave 1 · Cortex-reference incident workspace (additive preview).
+const Ux0CortexWorkspace      = lazy(() => import("@/xdr/ux0/Ux0CortexWorkspace"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
 const XdrFleetFileTrajectoryPage =
@@ -183,6 +185,8 @@ export default function App() {
         {/* E2E-UX0 · additive visual acceptance environment. Replaces no
             production route; awaiting owner visual approval. */}
         <Route path="/xdr/_ux0-preview"    element={<Protected><Ux0PreviewPage /></Protected>} />
+        <Route path="/xdr/_ux0-preview/workspace"
+                                            element={<Protected><Ux0CortexWorkspace /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"
                                             element={<Protected><XdrIncidentDomainPage /></Protected>} />

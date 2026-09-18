@@ -17947,3 +17947,64 @@ Evidence: **`/app/memory/CI_R1_R3_EVIDENCE.md`** (before/after per finding).
 W1 untouched · W2-1 untouched · RBAC-1+ on HOLD (RBAC-0 findings retained as
 architectural input) · no route deleted · no response-authority change · no
 tenant/auth weakening · no fabricated data · no test weakened.
+
+## 2026-06 (session 2) · MASTER DIRECTIVE — LANE A WAVE 1 + LANE B DISCOVERY
+
+### LANE B · Command Intelligence discovery (read-only, no code changed)
+`memory/CI_DISCOVERY_R4_R5.md` answers all 20 required items. Key findings
+beyond the earlier RCA:
+- **The surviving structural defect is `combined_text`.** Summary, behaviour,
+  IOC, MITRE and exec-flow all read a concatenation of wrapper + every layer,
+  so no consumer reads the canonical artifact (D-7). `detect_lolbins()` reads
+  outer tokens only; `classify_behaviors()` reads the original text only.
+- **`backend/lolbas.py` already contains the full ~239-entry official LOLBAS
+  catalog** (Mongo-cached) + 40 curated argv rules — and is **not wired** into
+  `analyze_command`, which uses a tiny interpreter index instead. ADOPT + repair
+  the call site.
+- **`backend/osint.py` already implements 7 keyed providers** (VirusTotal,
+  AbuseIPDB, Shodan, GreyNoise, URLScan, OTX, IPinfo) + a free baseline, and
+  `ioc_intelligence/providers` already returns an explicit `pending` when keys
+  are absent — and is **not wired** in. ADOPT; add canonical-IOC call site with
+  `NOT_APPLICABLE` / `WAITING_FOR_CANONICAL_IOC`.
+- `map_mitre()` returns `{id,name}` only — no tactic, confidence, evidence_ref,
+  artifact_layer or mapping_reason. REBUILD per D-11.
+- `summarize()` is 6 canned sentences starting `Runs under {interpreter}.` and
+  never reads the recovered payload. BUILD a deterministic narrative (D-8).
+- ADOPT/EXTEND/REPAIR/BUILD matrix, minimal repair architecture (`ps_lexer`,
+  `ps_expr`, `ps_program`, `artifact_graph`, `exec_summary`,
+  `command_intel_records`), exact file list, 20 regression assertions and 6
+  named risks to the existing corpus are all in the report.
+- **STOPPED before R-4/R-5.** Still outstanding: the owner's exact
+  byte-for-byte sample for the permanent D-19 fixture.
+
+### LANE A · Enterprise UX Reference Program
+- `memory/E2E_UX0_REFERENCE_CATALOGUE.md` — all **14 surfaces** catalogued with
+  one locked primary reference each (Cisco XDR shell/assets/intel/data-sources,
+  Cortex XDR queue/workspace/graph/endpoint, Defender entity-360/hunting/attack
+  story, Elastic onboarding, NivXRay-original Command Intelligence), justified
+  secondaries, structural + interaction pattern, NivX capability that must
+  survive, required backend truth, missing backend truth, ADOPT/ADAPT/REJECT and
+  implementation wave. Source honesty marks (`DOC` / `OWNER-SCREENSHOT` /
+  `unknown`) are recorded; no mockup is presented as a vendor console.
+  6 patterns explicitly REJECTED with reasons.
+- **Wave 1 implemented** at `/xdr/_ux0-preview/workspace` (additive): Cortex
+  split-view — persistent 27% incident queue + incident detail, compact header
+  row, italic incident sentence, alerts-ring/host/user stat clusters +
+  "Open for N days", underline tab strip, 14-column ATT&CK tactic strip,
+  horizontal lifecycle rail, 4-panel overview grid, entity pivot → NxFlyout.
+- **All ten NivXRay investigation tabs survive** (5 more than the reference);
+  unbuilt tabs render "scheduled for Wave N, primary reference X" instead of a
+  mock. Cortex is the layout authority, never the capability authority.
+- Honest absence in reference positions: incident `Score` → `NOT AVAILABLE`,
+  unreached lifecycle node → `NOT OBSERVED`, sources → `3 OF 5 CONTRIBUTING`,
+  ATT&CK → `EVIDENCE-BACKED ONLY`.
+- **Contrast correction pass executed** before presentation (3 dark-theme
+  defects found and fixed); the reference's own low-contrast behaviour was
+  deliberately not reproduced.
+- `memory/E2E_UX0_WAVE1_ACCEPTANCE.md` returns all 16 required items including
+  8 declared remaining visual differences and 5 declared gaps
+  (1440p/2560p captures, no automated image-diff, focus/responsive sweep,
+  Overview-only tab coverage, `/xdr/incidents` page itself not yet rebuilt).
+- Analysis Completeness is kept **separate from Confidence** by owner decision;
+  it is not derived from confidence and confidence is not derived from it.
+- No production route replaced. Wave 2 not started.
