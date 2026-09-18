@@ -17709,3 +17709,30 @@ Key findings:
 - Open questions blocking W2-0: path choice, channel priority, identity scheme,
   channel retention policy (64 MB circular rolled 130k records in ~95 min on this
   host), fixture repair first.
+- **STANDING DIRECTIVE ADOPTED (2026-09-18):** `memory/ENGINEERING_DIRECTIVE_RESEARCH_FIRST.md`
+  — research-first loop for every subsystem, four layers (industry architecture →
+  data model → analyst workflow → UI/UX), [FACT]/[PATTERN]/[NIVX] labelling,
+  industry parity before differentiation, and no displayed status without a
+  computable backend contract. Applies to W2 and everything after.
+- **W2 RESEARCH PASS 1 DONE (research only):** `memory/W2_RESEARCH_PASS1_INDUSTRY_COMPARISON.md`.
+  Five documented findings changed the plan: (1) `EvtSubscribe`+bookmark XML with
+  `EvtSubscribeStrict` returns `ERROR_EVT_QUERY_RESULT_STALE` — Windows already
+  detects the circular-log rollover that made W1-E1 unprovable, so our int
+  `LastRecordId` is the wrong primitive (ADAPT); (2) hard ~22-clause XPath limit
+  means per-channel hard-coded id lists cannot scale → three-tier filtering
+  (source/collector/server); (3) origin-vs-collector identity is a documented bug
+  class (Elastic `winlog.computer_name` vs `agent.hostname`) → identity becomes
+  `origin_computer|channel|event_record_id` with event_id/provider_guid/activity_id
+  kept separately as evidence; (4) WEF/WEC has hard ceilings (~2-4k clients, ~3k EPS,
+  100k lifetime-source registry limit, 20 MB default ForwardedEvents) → DEFER;
+  (5) raw-XML-only acquisition with no description rendering and no edge SID
+  resolution is validated by Splunk's renderXml rationale → ADOPT.
+  Path 2 (Windows connector inside the collector service) remains the candidate,
+  now research-supported. Gates extended: W2-C2 rollover honesty, W2-E2 timezone
+  safety, W2-F2 filter-limit conformance.
+- **UI reference board pass 1** recorded from five owner-supplied images (Elastic
+  Integrations, Splunk Add Data, Cisco XDR Integrations, Elastic Fleet Add
+  Integration, Cortex Add Feed). Common weakness = none proves telemetry became
+  evidence; NivX differentiator = the **Verify Ingestion** walk
+  source→collected→authenticated→received→parsed→normalized→canonicalized→evidence→detection-ready.
+  Full IA/wireframes/field-mapping DELIBERATELY HELD for the owner's next image batch.
