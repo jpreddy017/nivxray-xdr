@@ -35,11 +35,23 @@ const client = COLLECTOR_BASE
   ? axios.create({ baseURL: COLLECTOR_BASE, timeout: 8000 })
   : null;
 
-// The collector plane is tenant-scoped. This client is a separate axios
-// instance, so it needs the same one-place header attachment as `lib/api.js`:
-// no call site can then forget the tenant, and none can substitute a default.
+// The collector plane is AUTHENTICATED and tenant-scoped. This client is a
+// separate axios instance, so it needs the same one-place header attachment as
+// `lib/api.js`: no call site can then forget the credential or the tenant, and
+// none can substitute a default.
+//
+// Collector Auth P0 · this instance previously sent NO Authorization header at
+// all, which was survivable only because the collector plane was anonymous.
+// The bearer token is the SAME session token `lib/api.js` uses — no second
+// credential, no collector-specific identity, nothing invented here. When no
+// session exists no header is sent and the server answers ACCESS_DENIED /
+// unauthenticated, which is the honest outcome.
 if (client) {
   client.interceptors.request.use((config) => {
+    if (config.headers.Authorization == null) {
+      const token = localStorage.getItem("nvx_token");
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    }
     if (config.headers["X-Tenant-Id"] == null) {
       const tenant = activeTenant();
       if (tenant) config.headers["X-Tenant-Id"] = tenant;

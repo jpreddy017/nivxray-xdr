@@ -3,6 +3,7 @@ import httpx
 import pytest
 from contextlib import asynccontextmanager
 
+from framework.authz import collector_guard
 from main import app
 
 
@@ -13,9 +14,26 @@ def _client() -> httpx.AsyncClient:
 
 @asynccontextmanager
 async def _lifespan_client():
+    """Collector Auth P0 · standalone fails closed, so the preflight
+    behaviour tests override the guard and the fail-closed contract is
+    asserted separately (`test_standalone_preflight_fails_closed`)."""
+    app.dependency_overrides[collector_guard] = lambda: "HUMAN_CONTROL"
+    try:
+        async with app.router.lifespan_context(app):
+            async with _client() as c:
+                yield c
+    finally:
+        app.dependency_overrides.pop(collector_guard, None)
+
+
+@pytest.mark.asyncio
+async def test_standalone_preflight_fails_closed():
     async with app.router.lifespan_context(app):
         async with _client() as c:
-            yield c
+            r = await c.post("/api/xdr/ingest-preflight",
+                             headers={"X-Tenant-Id": "acme"})
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["code"] == "COLLECTOR_AUTH_UNAVAILABLE"
 
 
 def _mock_only_ingest(monkeypatch, ingest_response):

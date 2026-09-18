@@ -1,15 +1,22 @@
 from fastapi import APIRouter, Request
-import os, platform, socket
+import os
 
 router = APIRouter(tags=["collectors"])
 
 
 def _self_identity() -> dict:
+    """This collector runtime's identity.
+
+    Collector Auth P0 · `host` (`socket.gethostname()`) and `runtime`
+    (`python-<exact version>`) used to be returned here, and the plane was
+    anonymous, so production published its internal pod hostname and
+    interpreter patch level to any caller. Infrastructure identifiers are
+    removed for ALL callers — no operator or admin decision depends on the
+    pod name, and an authenticated reader is not a reason to disclose it.
+    """
     return {
         "collector_id":  os.environ.get("XDR_COLLECTOR_ID", "collector-local"),
         "version":       "0.1.0-phaseA",
-        "runtime":       f"python-{platform.python_version()}",
-        "host":          socket.gethostname(),
         "status":        "healthy",
         "active_connectors": 0,
         "events_processed":  0,

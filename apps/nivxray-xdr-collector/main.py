@@ -30,9 +30,10 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from fastapi                    import FastAPI
+from fastapi                    import Depends, FastAPI
 from fastapi.middleware.cors    import CORSMiddleware
 
+from framework.authz        import collector_guard
 from framework.registry     import ConnectorRegistry
 from framework.runtime      import CollectorRuntime
 from framework.store        import ConnectorStore
@@ -126,13 +127,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(connectors_router,       prefix="/api/xdr")
-app.include_router(collectors_router,       prefix="/api/xdr")
-app.include_router(telemetry_health_router, prefix="/api/xdr")
-app.include_router(data_sources_router,     prefix="/api/xdr")
-app.include_router(webhooks_router,         prefix="/api/xdr")
-app.include_router(outbox_router,           prefix="/api/xdr")
-app.include_router(preflight_router,        prefix="/api/xdr")
+# Collector Auth P0 · the same guard the landed backend uses. Standalone it
+# resolves to the fail-closed shim, because standalone has no authentication
+# authority, RBAC store or tenant registry to consult. The HMAC webhook is the
+# one route that keeps working, by classification, not by exception.
+app.state.collector_mount_prefix = "/api/xdr"
+_guarded = [Depends(collector_guard)]
+
+app.include_router(connectors_router,       prefix="/api/xdr", dependencies=_guarded)
+app.include_router(collectors_router,       prefix="/api/xdr", dependencies=_guarded)
+app.include_router(telemetry_health_router, prefix="/api/xdr", dependencies=_guarded)
+app.include_router(data_sources_router,     prefix="/api/xdr", dependencies=_guarded)
+app.include_router(webhooks_router,         prefix="/api/xdr", dependencies=_guarded)
+app.include_router(outbox_router,           prefix="/api/xdr", dependencies=_guarded)
+app.include_router(preflight_router,        prefix="/api/xdr", dependencies=_guarded)
 
 
 @app.get("/health")

@@ -17307,3 +17307,35 @@ approved narrowly-scoped Collector Auth P0 on candidate/preview
 classification, fail-closed for unclassified routes, webhook HMAC unchanged)
 → preview report → separate owner approval → only then W1 Phase 3.1.
 
+
+### 2026-06 · COLLECTOR AUTH P0 CLOSED ON CANDIDATE/PREVIEW (not republished)
+Report: `COLLECTOR_AUTH_P0_CLOSURE_REPORT.md`. Owner-approved single bounded
+security closure — authentication + fail-closed route-classification guard +
+infrastructure-hostname removal. Contract:
+`AUTHENTICATION -> PERMISSION -> TENANT AUTHORITY -> CAPABILITY`.
+- NEW `apps/nivxray-xdr-collector/framework/route_classification.py` (22 ops:
+  HUMAN_CONTROL 17 / MACHINE 1 / TEST_PLANE 1 / PRODUCT_METADATA 3),
+  `backend/routers/collector_authz.py` (the guard), and
+  `apps/nivxray-xdr-collector/framework/authz.py` (standalone fail-closed shim).
+- Guard attached at `include_router` time in `xdr_collector_landing.py` and
+  standalone `main.py`; undeclared collector routes are refused
+  (`COLLECTOR_ROUTE_UNCLASSIFIED`). Webhook keeps per-connector HMAC untouched.
+- `source-types` now requires `collectors.read`; `inject` requires
+  `collectors.test` + `X-Debug-Inject` + `NIVX_COLLECTOR_TEST_PLANE=1`.
+- Pod hostname + interpreter version removed from `/collector/collectors`.
+- `collectorApi.js` attaches the existing `nvx_token` bearer (no new credential).
+- Tests: 112 (new collector-plane auth gate) + 107 (collector suite) + 258
+  (EDR/b4b5/D14 regression) passed · `yarn build` exit 0 · OpenAPI 795 unchanged.
+- Preview verified in-browser: anonymous 403, admin+tenant 200, panel honest.
+- No new permission/role/identity/tenant authority. No ingestion, DSM, rule,
+  evidence-schema or response-semantics change. **NOT REPUBLISHED. W1 HELD.**
+
+Known, reported, deliberately not fixed here: with no tenant selected the
+Integrations panel renders `COLLECTOR CALL FAILED [object Object]` over a
+correct `TENANT_REQUIRED` refusal — Tenant Picker (P2) + error formatter.
+
+P0 next: owner reviews this candidate -> republish -> small read-only
+production verification (anonymous collector 403 + authenticated 200) -> W1 GO
+-> DESKTOP-A9HGFJJ collector + minimum-scope ingest key -> exactly 5 genuine
+Sysmon events.
+
