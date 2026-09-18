@@ -302,6 +302,57 @@ Expect five rows, ids ascending from `DESKTOP-A9HGFJJ|1696988`, `ProviderName`
 containing `Sysmon`, `Id ∈ {1,3,11,12,13,14,22}`. Reading the event log does
 not move the bookmark, does not read the key and sends nothing.
 
+#### 3.1 · CORRECTION (2026-06) — the block above is WITHDRAWN, use §3.2
+
+Owner-executed result: `$L5` returned **1696992** (bookmark confirmed), then
+`Get-WinEvent` threw
+`EventLogException: The description string for parameter reference (%1) could
+not be found`. Root cause: the block passes **`-ErrorAction Stop`** while
+enumerating the *whole* channel, so the first record whose provider metadata
+cannot be rendered terminates the entire pipeline. A `-FilterHashtable` +
+`Where-Object` fallback also scanned the (very large) channel without
+returning and was correctly interrupted. Two defects in one block: unbounded
+enumeration, and dependence on description rendering.
+
+#### 3.2 · W1-E1 · targeted, render-free, XPath-bounded (authoritative)
+
+`EventLogQuery` + `EventLogReader` with `ReverseDirection`, reading **only**
+`ToXml()`. The event-log service applies the XPath predicate, so the channel is
+never enumerated; `ToXml()` returns the raw record and never renders a
+description, so the `%1` fault cannot occur. It also derives
+`source_event_id` from `System.Computer` + `System.EventRecordID` — exactly
+how `ConvertTo-RawEvent` built the value that was transmitted.
+
+```powershell
+$L5 = 1696992
+$q = New-Object System.Diagnostics.Eventing.Reader.EventLogQuery(
+       'Microsoft-Windows-Sysmon/Operational',
+       [System.Diagnostics.Eventing.Reader.PathType]::LogName,
+       "*[System[EventRecordID<=$L5]]")
+$q.ReverseDirection = $true
+$reader = New-Object System.Diagnostics.Eventing.Reader.EventLogReader($q)
+$out = @()
+try {
+  while ($out.Count -lt 5 -and ($null -ne ($ev = $reader.ReadEvent()))) {
+    $x = [xml]$ev.ToXml()
+    $out += [pscustomobject]@{
+      source_event_id = '{0}|{1}' -f $x.Event.System.Computer,
+                                     $x.Event.System.EventRecordID
+      sysmon_event_id = [int]$x.Event.System.EventID
+      provider        = $x.Event.System.Provider.Name
+      time_created    = $x.Event.System.TimeCreated.SystemTime
+      record_id       = [int64]$x.Event.System.EventRecordID
+    }
+    $ev.Dispose()
+  }
+} finally { $reader.Dispose() }
+$out | Sort-Object record_id | Format-Table -AutoSize
+```
+
+PASS bar: exactly 5 rows; `record_id` ascending and ending at 1696992;
+`source_event_id` of the form `DESKTOP-A9HGFJJ|<record_id>`; `provider`
+containing `Sysmon`; `sysmon_event_id ∈ {1,3,11,12,13,14,22}`.
+
 ---
 
 ## 4 · IF — AND ONLY IF — YOU CHOOSE TO CLOSE W1-E2 BEHAVIOURALLY
