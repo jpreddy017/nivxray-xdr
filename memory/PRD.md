@@ -17481,3 +17481,30 @@ Report: `XDR_SPA_ROUTE_HEALTH_SCAN.md`. Base `f3fea7c4` · 30 files (+102/−116
   collector base). That hash MUST change after promotion.
 - Seven read-only smoke checks armed. **W1 HELD** until they pass.
 
+
+### 2026-06 · PRODUCTION PROMOTION VERIFIED — xdr.nivxforge.com
+Report: `PRODUCTION_SMOKE_VERIFICATION_xdr_nivxforge.md`. Production Branch was
+repointed to `release/xdr-w1-candidate` (owner, Path A); production is now a
+rebuild of `3njhqYa5K` from candidate `9ae7bdac2140…`.
+- Entry chunk changed `index-CmdMrjfH.js` → `index-dQhjKK0o.js`;
+  `build-info.json` declares scope xdr, api_origin nivxray.nivxforge.com,
+  cross_product_origins 0.
+- **Identity proof**: crawled the entry module graph (116 chunks), fetched all,
+  rebuilt the candidate locally with the same production command →
+  **117/117 chunks byte-identical**, 0 same-name-different-content, 0
+  production-only. (1 local-only lazy chunk was simply never requested.)
+- Fixes present in the served artefact: `X-Tenant-Id`, `nvx_tenant`,
+  `nvx_token`, landed collector base, `evops-tenant-select`,
+  `admin-surface-error`, refusal.js remedies. Regressions absent: the
+  `typeof process …/api/xdr/collector` short-circuit (0) and the bare `Bug`
+  identifier in the rule-editor chunk (0).
+- No preview origin, no cross-product host anywhere in 117 chunks.
+- Seven routes serve 200 with SPA fallback; browser run shows router resolving
+  and the guard redirecting with `returnTo` preserved, **0 page errors**.
+- Backend untouched: anonymous collector read still `403 ACCESS_DENIED`.
+- OWNER-SIDE REMAINDER (agent holds no production password): authenticated UI
+  acceptance — collectors + audit-log render with readable `TENANT_REQUIRED`,
+  Integrations dropdown lists the ACTIVE tenant by display name and loads on
+  selection, header Refresh works, api-keys tenant field empty (not `default`).
+- **W1 still HELD** pending those five owner clicks.
+
