@@ -17457,3 +17457,27 @@ Report: `XDR_SPA_ROUTE_HEALTH_SCAN.md`. Base `f3fea7c4` · 30 files (+102/−116
 - `yarn build` exit 0 · production-build guard PASSED (incl. collector-base).
 - Backend untouched, no republish, Vercel NOT promoted, **W1 HELD**.
 
+
+### 2026-06 · VERCEL PROMOTION BLOCKER — STRUCTURAL, NOT A UI GLITCH (owner action)
+- "Promote to Production" errors because the project's **Production Branch is
+  `conflict_310826_2116`** (@ `e6784fc`, Sep 10). Vercel Overview states it:
+  "To update your Production Deployment, push to the conflict_310826_2116
+  branch." On Hobby, promoting a preview from another branch is refused.
+- Verified read-only from the remote:
+  `release/xdr-w1-candidate = 9ae7bdac21408b575231b1e77e850de49f2564fb`
+  (identical to pod HEAD — pushed tree matches the accepted artefact),
+  `conflict_310826_2116 = e6784fcda8f070f5183e27383d8c6a7b3a2b7d63`,
+  `main = 752a00ff…`. `e6784fc` is NOT in the pod history, so no fast-forward
+  claim can be made about it.
+- **Owner chose Path A**: Vercel → Settings → Git → Production Branch →
+  `release/xdr-w1-candidate`, then Redeploy the `9ae7bda` deployment as
+  Production. Only that one setting changes; no env var, domain or Root
+  Directory. Path C (pushing onto the old conflict branch) explicitly rejected.
+- The agent CANNOT operate Vercel: no CLI, no token, no `~/.vercel` in the pod.
+- Target steady state: GitHub `release/xdr-w1-candidate` @ `9ae7bdac` →
+  Vercel Production Branch `release/xdr-w1-candidate` → `xdr.nivxforge.com`.
+- Pre-promotion baseline for the smoke diff: `xdr.nivxforge.com` serves
+  `assets/index-CmdMrjfH.js` (stale: no `X-Tenant-Id`, no `nvx_tenant`, no
+  collector base). That hash MUST change after promotion.
+- Seven read-only smoke checks armed. **W1 HELD** until they pass.
+
