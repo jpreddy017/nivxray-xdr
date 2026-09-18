@@ -1,0 +1,53 @@
+{
+  "summary": "Frontend-only sweep of iteration_114 (three iteration_113 defect repairs + the investigation-UX wave). The non-incident regressions are FIXED (REG1 data-sources renders with rail on nav and hard refresh; REG3 'ALL CUSTOMERS' is gone from control-center/clients/incidents; TAB PARITY: /xdr/incidents split view now exposes all 10 cx-tab-<key> including cx-tab-report). BUT a P0 regression was introduced elsewhere: opening ANY incident detail (/xdr/incidents/<id>?tab=<any>) causes XdrScopeNavigator to throw 'destroy is not a function', which unmounts XdrShell — the entire body renders with only <data-testid=xdr-root> and 0 chars of text (no rail, no incident header, no tab body, no error boundary). This blocks verification of every incident-tab requirement in this round (Activity tab, Timeline, Evidence, Detections, Attack Story, Overview, Entities/MITRE/Response/Report structure, REG4 scope navigator on incident, REG5 intelligence-overlays 404, cross-tab regression, activity honesty, tab-body isolation). REG2 legacy redirects only fire for the 3 tabs whose mapping changes name (trajectory→timeline, process→story, graph→entities) — identity-mapped engine tabs (verdict, security_state, attack, story, evidence) are NOT redirected off /xdr/investigations/<id> and stay on the legacy path.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "GET /api/xdr/collector/*, /api/edr/endpoints", "issue": "403 fail-closed under admin scope (expected per owner note); UI now renders honestly."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "XdrScopeNavigator (src/xdr/components/XdrScopeNavigator.jsx line 89)",
+        "issue": "P0 CRASH on every incident page. The effect at line 82 does `if (incidentId) return resolve({ kind: 'all_authorized' });` — `resolve` is `async`, so useEffect receives a Promise as its 'cleanup', React invokes it on unmount/rerun and throws 'destroy is not a function'. Because XdrScopeNavigator sits in XdrShell ABOVE the nx-page-error-boundary, the shell unmounts and the page becomes literally blank (only [data-testid=xdr-root], body innerText length = 0). Reproduces on every incident URL: /xdr/incidents/inc_c312e0180ec742778b6b?tab=overview (and every other ?tab= value). Console shows 'PAGEERROR: destroy is not a function' + 'The above error occurred in the <XdrScopeNavigator> component'. This regression is what makes every subsequent incident-tab requirement in this round unverifiable.",
+        "selector": "[data-testid=\"xdr-tenant-pill\"] / XdrShell",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "InvestigationRedirect / ENGINE_TAB_TO_ANALYST_TAB (App.jsx)",
+        "issue": "Legacy engine deep-link `/xdr/investigations/<id>?tab=<engine>` only redirects when the mapping renames the tab. Identity mappings are skipped, so the following STAY on /xdr/investigations/<id>?tab=<x>: verdict, security_state, attack, story, evidence. Observed final URLs: /xdr/investigations/inc_.../?tab=verdict, /?tab=security_state, /?tab=attack, /?tab=story, /?tab=evidence. Redirect works only for: trajectory→timeline, process→story, graph→entities. The review request explicitly requires the whole map to redirect including the identity ones (evidence→evidence, story→story).",
+        "selector": "n/a (router)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Incident workspace (every tab)",
+        "issue": "Unverifiable because of the XdrScopeNavigator crash above. Nothing under /xdr/incidents/<id>?tab=* renders. This blocks: ACTIVITY tab (xdr-record-auto-investigation, xdr-record-ai-activity, summary strip, filters, row expansion, evidence pivot, capability pivot, honesty of Result column, incident-activity-auto-tech disclosure); TIMELINE (xdr-record-timeline, inv-timeline, inv-timeline-filters, inv-timeline-table, xdr-record-timeline-activity); EVIDENCE (xdr-record-evidence + per-domain cells + inv-evidence-table/empty + xdr-record-evidence-clear-filter); DETECTIONS (xdr-record-technical, inv-detections-metrics/table/empty, inv-indicators-table/empty, inv-detections-tech, NOT_RUN honesty); ATTACK STORY (xdr-record-attack-story + metrics/flow/empty/narration-tech); OVERVIEW (incident-overview-assessment, incident-overview-metrics with 6 separate metrics, incident-completeness, engine-depth-verdict-security_state); ENTITIES / MITRE / RESPONSE / REPORT structure; TAB PARITY navigation to /xdr/incidents/<id>?tab=<key>; CROSS-TAB REGRESSION incident-header persistence; REG4 pill/label/lock testids on incident; REG5 intelligence-overlays 404s per incident open. All of these are BLOCKED until the effect bug is fixed.",
+        "affected_selectors": ["everything under /xdr/incidents/<id>"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "CRITICAL — Fix XdrScopeNavigator.jsx line 89. Do NOT return the promise from useEffect. Change `if (incidentId) return resolve({ kind: 'all_authorized' });` to `if (incidentId) { resolve({ kind: 'all_authorized' }); return; }`. This will restore every incident-page tab. Same effect (line 82-91) should be audited: it must return either undefined or a synchronous cleanup, never a Promise.",
+    "HIGH — In App.jsx InvestigationRedirect(), also redirect identity-mapped engine tabs (verdict, security_state, attack, story, evidence) from /xdr/investigations/<id> to /xdr/incidents/<id> preserving ?tab=. Currently only the renamed tabs (trajectory→timeline, process→story, graph→entities) trigger the redirect; the identity cases short-circuit and stay on the legacy path.",
+    "RETEST — After both fixes land, re-run the full incident-tab suite (Activity/Timeline/Evidence/Detections/Attack Story/Overview/Entities/MITRE/Response/Report, cross-tab regression, REG4 pill/lock, REG5 intelligence-overlays 404 count, activity honesty and pivots)."
+  ],
+  "critical_code_review_comments": [
+    "XdrScopeNavigator useEffect at line 82 uses `return resolve(...)` where resolve is async — a classic 'destroy is not a function' pattern. Any useEffect callback that could return a Promise must be wrapped so the effect returns undefined/cleanup. Because this component is mounted inside XdrShell ABOVE the page-slot error boundary (nx-page-error-boundary), the boundary cannot save the shell — the whole SPA blanks. Consider hoisting an ErrorBoundary AROUND XdrScopeNavigator inside XdrShell too, so a scope-nav bug never takes down the rail again.",
+    "InvestigationRedirect must not treat identity mappings as 'no redirect needed' — the path itself (/xdr/investigations vs /xdr/incidents) is what needs to change, not just the tab key.",
+    "REG1, REG3, and TAB PARITY are cleanly fixed — good.",
+    "429 rate limit was observed on the preview during rapid page navigation. It did not cause the shell blank (that was the effect bug), but it did surface as a lot of console noise. Consider client-side debouncing on the intelligence overlays / scope refresh calls."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "n/a (frontend-only per request)",
+    "frontend": "~30% verifiable in this round. REG1 PASS, REG3 PASS, TAB PARITY PASS (cx-tab-report present alongside 9 others), REG2 PARTIAL (3/8 redirects OK, 5 identity-mapped legacy tabs stay on /xdr/investigations). REG4, REG5, ACTIVITY tab, TIMELINE, EVIDENCE, DETECTIONS, ATTACK STORY, OVERVIEW, ENTITIES, MITRE, RESPONSE, REPORT, CROSS-TAB REGRESSION are all BLOCKED by the XdrScopeNavigator crash."
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only, per /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The XdrScopeNavigator effect bug is the single blocker for every incident-workspace test. Its fingerprint is: opening /xdr/incidents/<id> renders body innerText length 0, only [data-testid=\"xdr-root\"] is in the DOM, console shows 'PAGEERROR: destroy is not a function' and 'The above error occurred in the <XdrScopeNavigator> component'. Once fixed, use incident inc_c312e0180ec742778b6b (populated: 12 planned pivots, 6 executions, 6 skips, 6 findings — an empty Activity table is a wiring defect). Testids from prior iterations remain valid: incident tab buttons = incident-header-tabs-<key>; tab bodies = incident-tab-<key> (only active tab body renders). Split view at /xdr/incidents now correctly exposes cx-tab-<key> for all 10 tabs including cx-tab-report. Confirmed non-blocking: /xdr/data-sources renders (data-sources-page + xdr-sidebar) on nav and on hard refresh; 'ALL CUSTOMERS' has been fully retired from control-center/clients/incidents; the Scope Navigator pill on non-incident routes reads 'All Authorized Tenants' for the admin. intelligence-overlays 404s could not be counted because the incident pages never loaded — recheck after the crash fix.",
+  "rca of the issue": "XdrScopeNavigator.jsx has: `useEffect(() => { const t = activeTenant(); if (incidentId) return resolve({ kind: 'all_authorized' }); resolve(t ? { kind: 'tenant', tenantId: t } : { kind: 'all_authorized' }); }, [resolve, incidentId]);`. The `resolve` function is declared `async` (useCallback with an async body), so `return resolve(...)` returns a Promise. React treats the useEffect return value as the cleanup function; on the next effect run (any state or prop change, including the internal setEff/setBusy/setActiveTenant), React calls `destroy()` on that Promise, which throws 'destroy is not a function'. The uncaught throw propagates up to XdrShell, which is above the page-slot nx-page-error-boundary, so the whole shell unmounts and the body becomes empty save for [data-testid=xdr-root]. Fix: change `if (incidentId) return resolve({ kind: 'all_authorized' });` to `if (incidentId) { resolve({ kind: 'all_authorized' }); return; }`. Same pattern-audit for line 90 (if it were ever returned). Optional hardening: wrap XdrScopeNavigator inside XdrShell with a local <ErrorBoundary> so a future scope-nav bug is contained."
+}
