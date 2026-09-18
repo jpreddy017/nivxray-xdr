@@ -147,6 +147,7 @@ export default function IntelligenceOverlayEditor({
         <span style={{ flex: 1 }} />
         {!editing && !readOnlyReason && (
           <button data-testid={`ovr-edit-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="edit"
                        onClick={openEdit}
                        style={btn}
                        title="Edit the analyst interpretation">
@@ -155,6 +156,7 @@ export default function IntelligenceOverlayEditor({
         )}
         {hasOverlay && !editing && (
           <button data-testid={`ovr-revert-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="revert"
                        onClick={revert} disabled={busy}
                        style={btn}
                        title="Revert to the NivXRay machine value (audited)">
@@ -162,6 +164,7 @@ export default function IntelligenceOverlayEditor({
           </button>
         )}
         <button data-testid={`ovr-history-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="history"
                      onClick={loadHistory} disabled={busy}
                      style={btn}>
           <History size={11} /> History
@@ -194,6 +197,7 @@ export default function IntelligenceOverlayEditor({
         <div style={{ padding: "8px 10px" }}>
           <textarea
             data-testid={`ovr-textarea-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="value"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={4}
@@ -202,6 +206,7 @@ export default function IntelligenceOverlayEditor({
           />
           <input
             data-testid={`ovr-reason-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="reason"
             placeholder="Reason for change (required — recorded in audit)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -214,6 +219,7 @@ export default function IntelligenceOverlayEditor({
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
             <button data-testid={`ovr-save-${targetKind}-${targetId}-${fieldKey}`}
+                       data-ovr-action="save"
                          onClick={save}
                          disabled={busy || !draft.trim() || !reason.trim()}
                          style={{ ...btn, background: "#7c3aed",

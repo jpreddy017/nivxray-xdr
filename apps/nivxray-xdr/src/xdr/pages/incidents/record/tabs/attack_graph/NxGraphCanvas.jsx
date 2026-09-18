@@ -73,8 +73,7 @@ export default function NxGraphCanvas({
   selectedId, onSelect, cmd, opts = {}, dimIds,
 }) {
   const box = useRef(null);
-  const [view, setView] = useState({ k: 1, x: 0, y: 0 });
-  const [drag, setDrag] = useState(null);
+  const [k, setK] = useState(1);
   const [expanded, setExpanded] = useState(() => new Set());
 
   const byId = useMemo(() => {
@@ -217,24 +216,23 @@ export default function NxGraphCanvas({
     return { w: mx, h: my };
   }, [cells]);
 
-  /* ── imperative view commands from the rail ───────────────────── */
+  /* ── view commands from the rail · scroll, never wheel-zoom ───── */
   useEffect(() => {
     if (!cmd?.kind) return;
-    if (cmd.kind === "center") { setView({ k: 1, x: 0, y: 0 }); return; }
+    const el = box.current;
+    if (cmd.kind === "center") {
+      setK(1);
+      if (el) el.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+      return;
+    }
     if (cmd.kind === "fit") {
-      const el = box.current;
       if (!el) return;
-      const k = Math.min(el.clientWidth / extent.w,
+      const f = Math.min(el.clientWidth / extent.w,
                          el.clientHeight / extent.h, 1.4);
-      setView({ k: Math.max(0.25, k), x: 0, y: 0 });
+      setK(Math.max(0.25, Number(f.toFixed(2))));
+      el.scrollTo({ left: 0, top: 0, behavior: "smooth" });
     }
   }, [cmd, extent.w, extent.h]);
-
-  const onWheel = (e) => {
-    e.preventDefault();
-    setView((v) => ({ ...v,
-      k: Math.min(2.2, Math.max(0.25, v.k * (e.deltaY > 0 ? 0.92 : 1.08))) }));
-  };
 
   const cardTone = (n) => {
     if (!opts.overlays?.risk) return undefined;
@@ -254,21 +252,12 @@ export default function NxGraphCanvas({
   };
 
   return (
-    <div className="inv-cv" ref={box} data-drag={drag ? "1" : undefined}
-         data-testid="inv-graph-canvas"
-         onWheel={onWheel}
-         onMouseDown={(e) => setDrag({ x: e.clientX, y: e.clientY,
-                                       ox: view.x, oy: view.y })}
-         onMouseMove={(e) => {
-           if (!drag) return;
-           setView((v) => ({ ...v, x: drag.ox + (e.clientX - drag.x),
-                                    y: drag.oy + (e.clientY - drag.y) }));
-         }}
-         onMouseUp={() => setDrag(null)}
-         onMouseLeave={() => setDrag(null)}>
-      <svg width="100%" height="100%" role="img"
+    <div className="inv-cv-wrap" data-testid="inv-graph-frame">
+      <div className="inv-cv" ref={box} data-testid="inv-graph-canvas">
+      <svg width={Math.round(extent.w * k)} height={Math.round(extent.h * k)}
+           viewBox={`0 0 ${extent.w} ${extent.h}`} role="img"
            aria-label="incident causality graph">
-        <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+        <g>
           {drawEdges.map((e) => {
             const x1 = e.a.x + W, y1 = e.a.y + H / 2;
             const x2 = e.b.x, y2 = e.b.y + H / 2;
@@ -347,18 +336,19 @@ export default function NxGraphCanvas({
           </marker>
         </defs>
       </svg>
+      </div>
 
       <div className="inv-cv__hud">
         <button className="inv-chip" data-testid="inv-graph-zoom-out"
-                onClick={() => setView((v) => ({ ...v,
-                  k: Math.max(0.25, v.k * 0.9) }))}>
+                onClick={() => setK((v) => Math.max(0.25,
+                  Number((v - 0.1).toFixed(2))))}>
           <Minus size={10} />
         </button>
         <span className="inv-chip" style={{ cursor: "default" }}
-              data-testid="inv-graph-zoom">{Math.round(view.k * 100)}%</span>
+              data-testid="inv-graph-zoom">{Math.round(k * 100)}%</span>
         <button className="inv-chip" data-testid="inv-graph-zoom-in"
-                onClick={() => setView((v) => ({ ...v,
-                  k: Math.min(2.2, v.k * 1.1) }))}>
+                onClick={() => setK((v) => Math.min(2.2,
+                  Number((v + 0.1).toFixed(2))))}>
           <Plus size={10} />
         </button>
       </div>
