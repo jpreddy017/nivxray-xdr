@@ -17596,3 +17596,46 @@ No code, config, deployment, credential or telemetry touched. No replay executed
   evidence refs. W1 now **5/6 PASS** (A·B·C·D·F). Only **W1-E** remains
   (E1 identity → E2 behavioural dedup). Dedupe-test fixture drift is a separate P1,
   deliberately not mixed into evidence collection. UDOF not started.
+- **W1 HOLD at 5/6 (2026-09-18).** W1-E1 blocked by an evidence-retrieval gap, not a
+  data gap: the five `source_event_id` values are persisted in
+  `xdr_ingest_dedupe`, `xdr_live_reasoning_audit.outcomes[]` and
+  `xdr_canonical_events`, but NO router reads any of the three, so there is no
+  read-only API path. The endpoint's local Sysmon copy is gone — 64 MB Circular
+  channel rolled 130k records in ~95 min (oldest surviving 1751184 > 1696992), so
+  the §4 same-five endpoint replay is WITHDRAWN as unexecutable.
+  Option A = owner-executed read-only production Mongo `find` (E1-a/E1-b, §3.5 of
+  the evidence package). Checked and confirmed NOT executable from this workspace:
+  no production Mongo URI, credential, tunnel or env var exists here.
+  Option B = minimal read-only admin evidence endpoint — requires owner
+  authorisation before any code is written.
+  Locked acceptance wording if E1-a/E1-b pass: "W1-E2 PASS — stored production
+  evidence + validated dedupe contract; duplicate replay not behaviorally
+  re-observed during W1." Behavioural window closes 14 days after
+  2026-09-18T10:01:42Z (dedupe `retention_at`). Do not replay merely because the
+  window exists. UDOF not started.
+- **W1-E1 = PASS (2026-09-18, option A).** Owner recovered the five identities
+  `DESKTOP-A9HGFJJ|1696988…1696992` from the read-only Production MongoDB Viewer,
+  consistent across `xdr_canonical_events` (5/5 persisted),
+  `xdr_ingest_dedupe` (5/5 COMPLETED, attempt=1, delivery_count=1,
+  duplicate_count=0, outcome=PROCESSED, canonical_event_id + observation_id +
+  raw_persisted_at populated) and `xdr_live_reasoning_audit` (envelopes=5,
+  reasoned=5, observations_created=5, 0 errors, ACCEPTED 5/5, RULE_NO_MATCH,
+  verdict INCONCLUSIVE/0, correctly not promoted). trace_ids correlate to the five
+  W1-C rows. **Option B (read-only evidence endpoint) CANCELLED — do not build.**
+- **W1-E2 = PASS — stored production evidence + validated dedupe contract;
+  duplicate replay not behaviorally re-observed during W1.** (Verbatim, locked.)
+  The `uniq_event_key` unique index needs no query: `_coll()` creates it and turns
+  any index failure into `503 INGEST_IDEMPOTENCY_UNAVAILABLE`, so five successful
+  claims prove it exists in production. No production replay was ever performed.
+- **W1 FINAL = 6/6** (A·B·C·D·E1·E2*·F), pending owner review of this status.
+  W1 involved exactly 5 genuine Sysmon events; no seeded, fake or demo data.
+- **P1 follow-up recorded, NOT fixed:** `memory/W1_FOLLOWUP_TEMPORAL_NORMALIZATION.md`
+  — Sysmon source-time canonicalization (`source_timestamp=null` though
+  `raw.TimeCreated` present; 1h23m26s source→NivX latency never computed) and a
+  normalization-contract review (`normalized`/`canonical_schema`/`event_type` null
+  while `normalized_ok=true`). Triage note: `SysmonDSM.normalize()` already splits
+  activity time (`UtcTime`) from record-write time (`TimeCreated`) via
+  `event_time_basis`, so the evidence plane may already be correct — verify
+  `xdr_canonical_evidence.event_time` read-only before writing code. Also found:
+  `CanonicalEnvelope.parser_ok`/`normalized_ok` DEFAULT to True and the forwarder
+  never sends them, so those CONNECTED-gate counters assert an unmeasured outcome.

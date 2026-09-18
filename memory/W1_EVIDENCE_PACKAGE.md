@@ -603,3 +603,150 @@ so the now-enforced tenant registry answers `403 TENANT_NOT_FOUND`. This is
 pure-contract tests pass, and my independent probe of the same module scored
 34/34. Worth a P1 fixture fix (register the tenant first) so the dedupe
 regression gate is armed again. No code was changed in this session.
+
+---
+
+## 6 · ACCEPTANCE RECORD — OWNER-DICTATED WORDING (locked 2026-09-18)
+
+**W1 status: HOLD at 5/6 PASS.** A · B · C · D · F closed on authoritative
+evidence. W1-E is **not disproven**: the required evidence is durably persisted
+server-side but has **no read-only API retrieval path**.
+
+### W1-E1 acceptance structure (to be applied to E1-a / E1-b output)
+```
+Required five source_event_id values
+        ↓
+xdr_ingest_dedupe
+        ├── source_event_id matches
+        ├── status = COMPLETED
+        ├── delivery_count = 1
+        ├── duplicate_count = 0
+        ├── trace_id present
+        └── canonical_event_id present
+        +
+xdr_live_reasoning_audit
+        └── outcomes[].source_event_id matches
+        +
+W1-C trace_ids
+        ↓
+same five identities correlated
+RESULT → W1-E1 = PASS
+```
+
+### W1-E2 · the distinction that must survive in the record
+```
+Stored-evidence dedupe proof   ≠   Observed replay proof
+```
+If E1-a shows five `COMPLETED` claims with `delivery_count=1`,
+`duplicate_count=0`, populated canonical ids and the `uniq_event_key` unique
+index, and the identical implementation has already passed the 34/34 contract
+probe, the verdict is to be recorded **verbatim** as:
+
+> **W1-E2 PASS — stored production evidence + validated dedupe contract;
+> duplicate replay not behaviorally re-observed during W1.**
+
+Nobody may later read W1 as having performed an actual production duplicate
+replay. It did not.
+
+### Evidence constraint (deadline, not an instruction to replay)
+```
+Transmission                : 2026-09-18 10:01:42 UTC
+Dedupe retention            : 14 days (retention_at armed by complete())
+Behavioural replay window   : before the associated claims expire
+```
+Owner direction: do **not** replay merely because the window exists. Recover
+E1-a/E1-b first. If they meet the acceptance standard, there is no reason to
+introduce additional production telemetry for a more visually satisfying test.
+
+### Standing hold
+**W1 HOLD — READ-ONLY EVIDENCE RECOVERY ONLY.** No further endpoint queries, no
+bookmark rewind, no telemetry replay, no code/configuration change, no
+deployment, no W1-E2 behavioural testing, no UDOF. First establish whether
+owner-authorised read-only production MongoDB access exists. If it does,
+execute **only** E1-a and E1-b from §3.5 and return the unmodified results for
+owner review. If it does not, stop and bring **option B** — a minimal
+read-only administrative evidence endpoint — back for owner authorisation
+before changing any code.
+
+### Production MongoDB access check (this workspace, 2026-09-18)
+| probe | result |
+|---|---|
+| `backend/.env` `MONGO_URL` | `mongodb://localhost:27017` — pod-local |
+| `backend/.env` `DB_NAME` | `test_database` — preview store |
+| `mongodb+srv` anywhere in the repo | only `docs/DEPLOYMENT.md` placeholders (`mongodb+srv://nivxray:<pwd>@<cluster>/nivxray_prod`) |
+| Mongo variables in the process environment | none |
+| `.emergent/` config | no Mongo entry |
+| production DB tunnel / read-only user held here | none |
+
+**Conclusion: option A is not executable from this workspace.** It requires the
+owner to run E1-a/E1-b in their own production DB console, or to confirm that
+no read-only access exists — in which case option B goes to authorisation.
+
+---
+
+## 7 · W1-E1 = **PASS** — production evidence recovered 2026-09-18 (option A)
+
+Owner executed E1-a / E1-b / E1-c through the read-only Production MongoDB
+Viewer. **Option B is cancelled and must not be implemented.**
+
+Identity recovered for `DESKTOP-A9HGFJJ|1696988` … `|1696992`, consistent
+across all three persistence layers:
+
+| record | `xdr_canonical_events` | `xdr_ingest_dedupe` | reasoning | observation |
+|---|---|---|---|---|
+| 1696988 | persisted | COMPLETED | REASONED | created |
+| 1696989 | persisted | COMPLETED | REASONED | created |
+| 1696990 | persisted | COMPLETED | REASONED | created |
+| 1696991 | persisted | COMPLETED | REASONED | created |
+| 1696992 | persisted | COMPLETED | REASONED | created |
+
+All five agree on `tenant_id=ten_e759b7288598bd882e3dcac49d`,
+`collector_id=col_2c20bb28ac744be48f67`, `source=microsoft-sysmon`, host
+`DESKTOP-A9HGFJJ`, `collection_method=windows_eventlog_pull`,
+`connector_id=nivx-sysmon-forwarder/1.0@DESKTOP-A9HGFJJ`.
+
+* `xdr_ingest_dedupe` — 5/5 `COMPLETED`, `attempt=1`, `delivery_count=1`,
+  `duplicate_count=0`, `outcome=PROCESSED`, unique `trace_id`, populated
+  `canonical_event_id`, `observation_id`, `raw_persisted_at`, `completed_at`.
+* `xdr_live_reasoning_audit` — `envelopes=5`, `reasoned=5`,
+  `observations_created=5`, 0 errors; every identity
+  `routing_result=ACCEPTED`, `status=REASONED`, `RULE_NO_MATCH`,
+  `verdict=INCONCLUSIVE` score 0, and correctly **not** promoted through the
+  incident gate.
+* `xdr_canonical_events` — 5/5 original source identities and raw Sysmon
+  records durably persisted under the same tenant / collector / source.
+* `trace_id` values correlate to the five W1-C evidence rows.
+
+**W1-E1 — PASS. Production persistence and delivery identity demonstrated for
+all five transmitted Sysmon events.** This is materially stronger than proving
+the HTTP call returned 200: the chain is evidenced through ingestion,
+persistence, identity/dedupe, canonical event creation, reasoning and
+observation creation.
+
+### W1-E2 — stored-evidence standard now fully met
+The §6 bar required five `COMPLETED` claims with `delivery_count=1`,
+`duplicate_count=0`, populated canonical ids **and** the `uniq_event_key`
+unique index. The first three are confirmed above. The index needs no further
+query: `_coll()` creates `uniq_event_key` (`unique=True`) on first use and
+converts **any** index failure into `IdempotencyUnavailable`, which the ingest
+route answers as `503 INGEST_IDEMPOTENCY_UNAVAILABLE`
+(`ingest_idempotency.py:101-131`, `xdr_ingest.py:798-806`). Five claims were
+taken successfully, so the unique index demonstrably exists in production.
+
+Recorded verdict, verbatim and non-negotiable:
+
+> **W1-E2 PASS — stored production evidence + validated dedupe contract;
+> duplicate replay not behaviorally re-observed during W1.**
+
+No production duplicate replay was performed at any point in W1. The §4
+endpoint replay remains withdrawn (records rolled out of the circular
+channel), and the stored-envelope replay route was never exercised.
+
+### W1 FINAL — 6/6, with the E2 qualification above
+`A PASS · B PASS · C PASS · D PASS · E1 PASS · E2 PASS (stored evidence) · F PASS`
+
+Awaiting owner review of this status before anything else proceeds.
+
+### Follow-up finding — RECORDED, NOT FIXED
+See `memory/W1_FOLLOWUP_TEMPORAL_NORMALIZATION.md`. Deliberately excluded from
+W1-E1 closure and from the W1 verdict.
