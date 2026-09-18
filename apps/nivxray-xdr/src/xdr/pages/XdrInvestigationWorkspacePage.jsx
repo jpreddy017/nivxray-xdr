@@ -36,12 +36,28 @@ const PROFILES = [
   { id: "conservative", label: "Conservative (High Precision)" },
 ];
 
-export default function XdrInvestigationWorkspacePage() {
-  const { caseId } = useParams();
+/**
+ * B2-INV · this surface is now a CAPABILITY PROVIDER as well as a page.
+ *
+ * `embedded` + `capabilities` render ONLY the requested engine panels with
+ * no chrome, so the unified analyst workspace (`/xdr/incidents/:id`) can
+ * mount Device Trajectory under Timeline, Process Ancestry under Attack
+ * Story, the IKG under Entities, artifacts under Evidence and the
+ * deterministic verdict / causal FSM under Overview — without a second
+ * investigation experience and without reimplementing an engine.
+ */
+export default function XdrInvestigationWorkspacePage(
+  { caseId: caseIdProp = null, capabilities = null, embedded = false } = {}) {
+  const { caseId: caseIdParam } = useParams();
+  const caseId = caseIdProp || caseIdParam;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const activeTab = searchParams.get("tab") || "story";
+  /** One gate: a tab when standalone, a requested capability when embedded. */
+  const show = (key) => (embedded
+    ? (capabilities || []).includes(key)
+    : activeTab === key);
   const profile = searchParams.get("profile") || "soc_balanced";
   const trajView = searchParams.get("traj_view") || "timeline";
 
@@ -281,11 +297,14 @@ export default function XdrInvestigationWorkspacePage() {
     return list;
   }, [inv?.mitre_techniques, inv?.story?.steps]);
 
+  const Wrapper = embedded ? React.Fragment : XdrShell;
   return (
-    <XdrShell>
+    <Wrapper>
       <div
-        data-testid="xdr-investigation-workspace-page"
-        style={{
+        data-testid={embedded
+          ? `investigation-engine-${(capabilities || []).join("-")}`
+          : "xdr-investigation-workspace-page"}
+        style={embedded ? { color: "var(--nx-text)" } : {
           display: "flex",
           flexDirection: "column",
           minHeight: "calc(100vh - 56px)",
@@ -293,6 +312,7 @@ export default function XdrInvestigationWorkspacePage() {
           color: "var(--nx-text)",
         }}
       >
+        {!embedded && (<>
         {/* Top Breadcrumb & Actions Bar */}
         <div
           style={{
@@ -523,8 +543,12 @@ export default function XdrInvestigationWorkspacePage() {
           })}
         </div>
 
+        </>)}
+
         {/* Tab Content Canvas */}
-        <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
+        <div style={embedded
+              ? { padding: 0 }
+              : { flex: 1, padding: "20px 24px", overflowY: "auto" }}>
           {loading ? (
             <div style={{ padding: 60, textAlign: "center", color: "var(--nx-muted)" }}>
               <RefreshCw size={24} className="spin" style={{ margin: "0 auto 12px" }} />
@@ -538,7 +562,7 @@ export default function XdrInvestigationWorkspacePage() {
           ) : (
             <>
               {/* TAB 1: ATTACK STORY */}
-              {activeTab === "story" && (
+              {show("story") && (
                 <div data-testid="tab-story-content" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 20 }}>
                   <div style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px", color: "var(--nx-benign)" }}>
@@ -638,7 +662,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 2: DEVICE TRAJECTORY */}
-              {activeTab === "trajectory" && (
+              {show("trajectory") && (
                 <div data-testid="tab-trajectory-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <div>
@@ -731,7 +755,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 3: PROCESS ANCESTRY */}
-              {activeTab === "process" && (
+              {show("process") && (
                 <div data-testid="tab-process-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Process Execution Hierarchy</h3>
                   {processTreeLoading ? (
@@ -762,7 +786,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 4: EVIDENCE GRAPH (IKG) */}
-              {activeTab === "graph" && (
+              {show("graph") && (
                 <div data-testid="tab-graph-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <div>
@@ -801,7 +825,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 5: SECURITY STATE & CAUSAL FSM */}
-              {activeTab === "security_state" && (
+              {show("security_state") && (
                 <div data-testid="tab-security-state-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Security State Computing & Causal Transition FSM</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 20px" }}>
@@ -859,7 +883,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 6: EXTRACTED ARTIFACTS & EVIDENCE */}
-              {activeTab === "evidence" && (
+              {show("evidence") && (
                 <div data-testid="tab-evidence-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Extracted Evidence & Hash Chains</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 16px" }}>
@@ -905,7 +929,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 7: DETERMINISTIC VERDICT */}
-              {activeTab === "verdict" && (
+              {show("verdict") && (
                 <div data-testid="tab-verdict-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Deterministic Verdict Engine Breakdown</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 16px" }}>
@@ -994,7 +1018,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 8: MITRE ATT&CK */}
-              {activeTab === "attack" && (
+              {show("attack") && (
                 <div data-testid="tab-attack-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Observed MITRE ATT&CK Matrix Crosswalk</h3>
                   {mitreList.length > 0 ? (
@@ -1110,6 +1134,6 @@ export default function XdrInvestigationWorkspacePage() {
           )}
         </div>
       </div>
-    </XdrShell>
+    </Wrapper>
   );
 }

@@ -15,7 +15,7 @@
  * Deep links preserved: `?tab=` still selects a tab, and every previous tab
  * key is accepted via `LEGACY_TAB_ALIASES` so existing shared links resolve.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 
@@ -44,6 +44,23 @@ import TimelineTab          from "./incidents/record/tabs/TimelineTab";
 import RelatedTab           from "./incidents/record/tabs/RelatedTab";
 import ClosureTab           from "./incidents/record/tabs/ClosureTab";
 import ReportTab            from "./incidents/record/tabs/ReportTab";
+
+/**
+ * B2-INV · the causal ENGINE panels are mounted UNDERNEATH the analyst
+ * tabs that own the question they answer, never as primary navigation:
+ *
+ *   Device Trajectory        → Timeline
+ *   Process Ancestry         → Attack Story
+ *   Evidence Graph (IKG)     → Entities
+ *   Extracted artifacts      → Evidence
+ *   Deterministic Verdict    → Overview · why this verdict
+ *   Security State / FSM     → Overview · technical reasoning
+ *   Engine ATT&CK mapping    → MITRE
+ *
+ * Advanced underneath. Simple on top. Powerful when needed.
+ */
+const InvestigationEngine = lazy(
+  () => import("./XdrInvestigationWorkspacePage"));
 
 import "./incidents/queue-theme.css";
 import "./incidents/record/record-theme.css";
@@ -81,6 +98,32 @@ const LC_LABEL = {
   in_progress: "Start work", on_hold: "Put on hold",
   resolved: "Mark resolved", closed: "Close",
 };
+
+/** Engine depth: present, never in the way. Collapsed by default so the
+ *  analyst surface stays simple and the capability is one click away. */
+function EngineDepth({ title, hint, caseId, capabilities }) {
+  const [open, setOpen] = useState(false);
+  const id = capabilities.join("-");
+  return (
+    <section className="nx-sec" data-testid={`engine-depth-${id}`}>
+      <button className="nx-dt-btn" onClick={() => setOpen((v) => !v)}
+              data-testid={`engine-depth-toggle-${id}`}
+              data-open={open || undefined}>
+        {open ? "▾" : "▸"} {title}
+      </button>
+      <p style={{ fontSize: 11.5, color: "var(--nx-text-dim)",
+                  margin: "8px 0 0", lineHeight: 1.6 }}>
+        {hint}
+      </p>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          <InvestigationEngine caseId={caseId} capabilities={capabilities}
+                               embedded />
+        </div>
+      )}
+    </section>
+  );
+}
 
 function Absent({ children = "Not recorded", title }) {
   return <span className="nx-unavail" title={title}>{children}</span>;
@@ -299,6 +342,10 @@ export default function XdrIncidentDetailPage() {
                 </div>
               </section>
               <ExecutiveTab incident={incident} />
+              <EngineDepth title="Why this verdict"
+                           hint="Deterministic verdict derivation and the causal security-state machine, as the engine recorded them."
+                           caseId={incident.id}
+                           capabilities={["verdict", "security_state"]} />
             </>
           )}
 
@@ -310,19 +357,51 @@ export default function XdrIncidentDetailPage() {
                                testid="incident-attack-chain" />
               </section>
               <AttackStoryTab incident={incident} />
+              <EngineDepth title="How it unfolded"
+                           hint="Reconstructed causal narrative and process ancestry for this incident."
+                           caseId={incident.id}
+                           capabilities={["story", "process"]} />
             </>
           )}
 
-          {tab === "timeline"   && <TimelineTab   incident={incident} />}
-          {tab === "evidence"   && <EvidenceTab   incident={incident} />}
+          {tab === "timeline"   && (
+            <>
+              <TimelineTab incident={incident} />
+              <EngineDepth title="Device trajectory"
+                           hint="Endpoint event stream across the process, network, file, registry and system lanes."
+                           caseId={incident.id}
+                           capabilities={["trajectory"]} />
+            </>
+          )}
+          {tab === "evidence"   && (
+            <>
+              <EvidenceTab incident={incident} />
+              <EngineDepth title="Extracted artifacts & hashes"
+                           hint="Artifacts the pipeline extracted from this case, with their hash chain."
+                           caseId={incident.id}
+                           capabilities={["evidence"]} />
+            </>
+          )}
           {tab === "entities"   && (
             <>
               <AttackGraphTab incident={incident} onNavigateTab={setTab} />
               <RelatedTab incident={incident} />
+              <EngineDepth title="Evidence graph (IKG)"
+                           hint="Entity and relationship graph the investigation was derived from."
+                           caseId={incident.id}
+                           capabilities={["graph"]} />
             </>
           )}
           {tab === "detections" && <TechnicalTab  incident={incident} />}
-          {tab === "mitre"      && <MitreTab      incident={incident} />}
+          {tab === "mitre"      && (
+            <>
+              <MitreTab incident={incident} />
+              <EngineDepth title="Engine technique mapping"
+                           hint="ATT&CK techniques the causal engine attributed to this incident."
+                           caseId={incident.id}
+                           capabilities={["attack"]} />
+            </>
+          )}
           {tab === "response"   && (
             <>
               <section className="nx-sec">

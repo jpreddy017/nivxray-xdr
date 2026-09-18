@@ -7,7 +7,7 @@
  * byte-identical.  Vite `base: "/xdr/"` handles asset URL prefixing.
  */
 import React, { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { HOME_PATH } from "@/productScope";
 import ProductScopeGuard from "@/components/ProductScopeGuard";
 
@@ -16,7 +16,14 @@ import { useAccess } from "@/xdr/access/AccessProvider";
 import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+// B2-NAV · `/xdr/control-center` is the canonical landing. The previous
+// card-heavy MSS Dashboard stays reachable at `/xdr/mss-dashboard/_legacy`
+// so nothing is deleted while the new surface is in review.
+const XdrControlCenterPage    = lazy(() => import("@/xdr/pages/XdrControlCenterPage"));
 const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPage"));
+const XdrHuntingPage          = lazy(() => import("@/xdr/pages/XdrHuntingPage"));
+const XdrReportsPage          = lazy(() => import("@/xdr/pages/XdrReportsPage"));
+const XdrClientManagementPage = lazy(() => import("@/xdr/pages/XdrClientManagementPage"));
 // Slice 1 · Data Sources is a first-class XDR destination, not an admin page.
 const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSourcesPage"));
 // E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
@@ -135,6 +142,33 @@ function RequirePermission({ anyOf, label, children }) {
   );
 }
 
+/** Compatibility redirect that PRESERVES the query string — a deep link
+ *  with `?q=` must keep working after a route consolidation. */
+function KeepQuery({ to }) {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search || ""}`} replace />;
+}
+
+/** `/xdr/investigations/:caseId?tab=<engine tab>` → the analyst tab that
+ *  owns that question in the unified workspace. Capability preserved,
+ *  navigation simplified. */
+const ENGINE_TAB_TO_ANALYST_TAB = {
+  story: "story", process: "story",
+  trajectory: "timeline",
+  graph: "entities",
+  evidence: "evidence",
+  verdict: "overview", security_state: "overview",
+  attack: "mitre",
+};
+function InvestigationRedirect() {
+  const { caseId } = useParams();
+  const { search } = useLocation();
+  const engineTab = new URLSearchParams(search).get("tab") || "story";
+  const tab = ENGINE_TAB_TO_ANALYST_TAB[engineTab] || "story";
+  return <Navigate to={`/xdr/incidents/${encodeURIComponent(caseId)}?tab=${tab}`}
+                   replace />;
+}
+
 function RouteFallback() {
   return (
     <div
@@ -181,10 +215,19 @@ export default function App() {
             is the telemetry studio, so the canonical route redirects rather
             than duplicating the page. Typing /xdr/activities now resolves. */}
         <Route path="/xdr/activities"      element={<Navigate to="/xdr/admin/telemetry-studio" replace />} />
-        <Route path="/xdr"                 element={<Navigate to="/xdr/mss-dashboard" replace />} />
-        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/mss-dashboard" replace />} />
-        <Route path="/xdr/control-center"  element={<Navigate to="/xdr/mss-dashboard" replace />} />
-        <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
+        <Route path="/xdr"                 element={<Navigate to="/xdr/control-center" replace />} />
+        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/control-center" replace />} />
+        {/* B2-NAV · navigation label, page identity and route now agree. */}
+        <Route path="/xdr/control-center"  element={<Protected><XdrControlCenterPage /></Protected>} />
+        <Route path="/xdr/mss-dashboard"   element={<Navigate to="/xdr/control-center" replace />} />
+        <Route path="/xdr/mss-dashboard/_legacy"
+                                            element={<Protected><XdrMssDashboardPage /></Protected>} />
+        {/* Hunting is the single analyst-initiated interrogation surface;
+            `/xdr/search` redirects into it and keeps `?q=`. */}
+        <Route path="/xdr/hunting"         element={<Protected><XdrHuntingPage /></Protected>} />
+        <Route path="/xdr/reports"         element={<Protected><XdrReportsPage /></Protected>} />
+        <Route path="/xdr/clients"         element={<Protected><XdrClientManagementPage /></Protected>} />
+        <Route path="/xdr/client-management" element={<Navigate to="/xdr/clients" replace />} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsCortexPage /></Protected>} />
         <Route path="/xdr/incidents/_table" element={<Protected><XdrIncidentsPage /></Protected>} />
         {/* E2E-UX0 · additive visual acceptance environment. Replaces no
@@ -198,7 +241,14 @@ export default function App() {
 
         {/* P0 · Flagship Causal Investigation Workspace & Evidence Explorer */}
         <Route path="/xdr/investigations"          element={<Protected><XdrInvestigationsListPage /></Protected>} />
-        <Route path="/xdr/investigations/:caseId"  element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
+        {/* B2-INV · ONE investigation workspace. The engine-centric tab set
+            resolves into the analyst tab that owns the same question, so
+            every existing deep link keeps landing on the right surface. */}
+        <Route path="/xdr/investigations/:caseId"  element={<InvestigationRedirect />} />
+        {/* Retained for rollback and for engineering inspection of the raw
+            causal pipeline. Not a rail destination. */}
+        <Route path="/xdr/investigations/:caseId/_engine"
+                                            element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
         <Route path="/xdr/evidence-explorer"       element={<Protected><XdrEvidenceExplorerPage /></Protected>} />
 
         {/* Slice 6 canvas remains reachable at the incident-scoped
@@ -208,7 +258,9 @@ export default function App() {
         {/* P0 · 2026-09-05 — the inventory now resolves real endpoint
             entities from v2_shadow_observations, so it is a real page
             again instead of a redirect to the incident queue. */}
-        <Route path="/xdr/search"          element={<Protected><XdrSearchPage /></Protected>} />
+        <Route path="/xdr/search"          element={<KeepQuery to="/xdr/hunting" />} />
+        {/* Retained for rollback — the hunt surface supersedes it. */}
+        <Route path="/xdr/search/_legacy"  element={<Protected><XdrSearchPage /></Protected>} />
         {/* Slice 1 · Data Sources. Deep links to the old admin telemetry
             surfaces are untouched; this is an additional destination. */}
         <Route path="/xdr/data-sources"      element={<Protected><DataSourcesPage /></Protected>} />
