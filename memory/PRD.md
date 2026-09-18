@@ -17542,3 +17542,47 @@ acceptance + 7/7 smoke PASS.
   (SYSTEM + Administrators only), never echoed.
 - STATUS: awaiting the owner's evidence package; W1 NOT closed until A–F prove.
 
+
+## 2026-06 · W1 EVIDENCE PACKAGE BUILT (read-only) — 4/6 PASS, W1 NOT CLOSED
+Report: `memory/W1_EVIDENCE_PACKAGE.md`. Probe: `scripts/w1e_dedupe_contract_probe.py`.
+No code, config, deployment, credential or telemetry touched. No replay executed.
+- Production is NOT readable from this workspace (no credential, none requested):
+  `/api/health` 200 but `/api/xdr/tenants|collectors|ingest/routing/*` → 403;
+  `backend/.env` points at the preview store (`test_database`). Verdicts are
+  therefore based on (R) the production-generated TelemetryReceipt, (C) the
+  deployed code contract — `git diff 9ae7bdac..HEAD` over the six relevant
+  backend files is EMPTY, so this code is byte-identical to production — and
+  (P) preview execution of that identical module.
+- W1-A ingestion truth — PASS. accepted=5 counts only FRESH+parser_ok+normalized_ok
+  envelopes; duplicates/resumed/routing_blocked all 0 ⇒ 5 raw rows + events_received +5.
+- W1-B Sysmon DSM / canonical normalization — PASS. routing_blocked=0 ⇒ ACCEPTED
+  routing for all five (declaration resolved, in allowlist, content-compatible with
+  `SysmonDSM` provider/event-id gate); reasoned=5.
+- W1-C field-level provenance — NOT PROVEN. Contract is fail-closed and complete,
+  but the five actual rows were never observed. Closes with ONE read-only GET
+  `/api/xdr/ingest/routing/deliveries?collector_id=…&result=ACCEPTED`.
+- W1-D tenant attribution — PASS. Ingest resolves the tenant from the authenticated
+  collector, not the header; mismatch = 403 TENANT_ISOLATION_VIOLATION, so acceptance
+  proves the binding to `ten_e759b7288598bd882e3dcac49d`.
+- W1-E identity + dedup — NOT PROVEN (split):
+  * E1: the five `source_event_id` strings are NOT retrievable from any production
+    read-only API. FINDING: `_accepted_row()` returns `source_event_id: None` with
+    basis NOT_CARRIED_INTO_CANONICAL_EVIDENCE, and no router reads
+    `xdr_canonical_events` or `xdr_ingest_dedupe`. Closes via the receipt JSON's
+    `reasoning[].source_event_id` or a local read-only Sysmon+bookmark query.
+  * E2: dedup CONTRACT proven 34/34 on the identical module (FRESH→DUPLICATE,
+    duplicate_count/delivery_count, unique index, no payload-only suppression,
+    tenant/collector/record-id separation). Production instance unproven —
+    `duplicates=0`, and the stored claims are not readable. Safe SAME-FIVE replay
+    procedure documented §4, deliberately NOT executed.
+- W1-F collector-state truth — PASS. `CONNECTED` is refused to the admin API
+  (`CONNECTED_REQUIRES_TELEMETRY`); only the ingest route writes it, recomputed from
+  the counters it had just written.
+- Runbook correction accepted: the DryRun ids 1696775–1696779 are VOID as identity
+  evidence (DryRun returns before `Set-Bookmark`); the live window from 1696988 is
+  the only authority.
+- SIDE FINDING (P1, no action taken): `tests/test_p0_ingest_idempotency.py` +
+  `tests/test_p0_dedupe_hardening.py` = 7 passed / 25 errors — all fixture drift
+  (they create collectors for unregistered tenants → 403 TENANT_NOT_FOUND now that
+  the registry is enforced). The dedupe regression gate is effectively disarmed
+  until the fixtures register their tenant.
