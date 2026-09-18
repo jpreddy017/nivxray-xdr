@@ -25,6 +25,7 @@ export default class NxErrorBoundary extends React.Component {
 
   render() {
     if (!this.state.error) return this.props.children;
+    if (this.props.fallback) return this.props.fallback(this.state.error);
     return (
       <div className="nx-empty nx-empty--noicon" role="alert"
            data-testid="nx-page-error-boundary">

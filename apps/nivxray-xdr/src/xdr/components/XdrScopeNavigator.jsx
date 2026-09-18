@@ -85,9 +85,15 @@ export default function XdrScopeNavigator() {
     // pill then printed as "NOT AUTHORIZED" — the analyst was authorized,
     // the scope was simply locked. Inside an incident we ask for the
     // authorized scope and let the resolver bind it to the incident.
+    //
+    // `resolve` is async: its return value is a Promise, and an effect may
+    // only return a cleanup function. Returning it made React call
+    // `destroy()` on a Promise, which threw and unmounted the whole shell.
     const t = activeTenant();
-    if (incidentId) return resolve({ kind: "all_authorized" });
-    resolve(t ? { kind: "tenant", tenantId: t } : { kind: "all_authorized" });
+    const request = incidentId
+      ? { kind: "all_authorized" }
+      : (t ? { kind: "tenant", tenantId: t } : { kind: "all_authorized" });
+    resolve(request);
   }, [resolve, incidentId]);
 
   // A denial that names the incident lock is a LOCK, not a loss of

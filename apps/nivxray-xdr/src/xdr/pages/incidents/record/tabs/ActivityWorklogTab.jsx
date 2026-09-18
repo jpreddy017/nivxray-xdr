@@ -27,6 +27,7 @@ import {
   NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvValue,
   ABSENCE, fmtTime,
 } from "@/xdr/nx";
+import { capabilityLabel } from "@/xdr/nx/capabilityLabels";
 
 /** Engine kind → analyst type. The raw kind stays on the row. */
 const TYPE_OF = {
@@ -82,6 +83,16 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
   const [types, setTypes] = useState([]);
   const [capability, setCapability] = useState("");
   const [q, setQ] = useState("");
+  const [view, setView] = useState("events");
+
+  const execIndex = useMemo(() => {
+    const m = new Map();
+    (data?.executions || []).forEach((e) => {
+      if (e.execution_id) m.set(e.execution_id, e);
+      if (e.pivot_id) m.set(e.pivot_id, e);
+    });
+    return m;
+  }, [data]);
 
   useEffect(() => {
     if (!incident?.id) return undefined;
@@ -103,6 +114,7 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
     const out = [];
     (data?.activity || []).forEach((a, i) => {
       const refs = a.evidence_refs || [];
+      const ex = a.execution_id ? execIndex.get(a.execution_id) : null;
       out.push({
         id: `e${i}`,
         at: a.at,
@@ -116,6 +128,9 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
         result: resultText(a.result),
         confidence: confidenceOf(a),
         evidence: refs,
+        state: a.lifecycle_state || ex?.status || null,
+        findings: a.finding_id ? [a.finding_id] : (ex?.finding_ids || []),
+        duration: a.duration_ms ?? ex?.duration_ms ?? null,
         source: a.source || a.actor
           || (String(a.kind).toUpperCase() === "LIFECYCLE" ? "XDR" : "Investigator"),
         raw: a,
@@ -126,11 +141,12 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
       activity: `Incident moved ${h.from || "—"} → ${h.to || "—"}`,
       why: h.note || h.reason || null, capability: null,
       rawResult: "APPLIED", result: "Applied", confidence: null,
-      evidence: [], source: h.by || h.actor || "Analyst", raw: h,
+      evidence: [], state: h.to || null, findings: [], duration: null,
+      source: h.by || h.actor || "Analyst", raw: h,
     }));
     return out.sort((a, b) =>
       (Date.parse(b.at || "") || 0) - (Date.parse(a.at || "") || 0));
-  }, [data, incident]);
+  }, [data, incident, execIndex]);
 
   const capabilities = useMemo(() => Array.from(new Set(
     rows.map((r) => r.capability).filter(Boolean))).sort(), [rows]);
@@ -185,20 +201,40 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
     { key: "activity", label: "Activity / finding",
       render: (r) => <NxInvValue value={r.activity}
                                  absent={ABSENCE.NOT_RECORDED} /> },
-    { key: "capability", label: "Capability", width: 160,
+    { key: "capability", label: "Capability", width: 168,
       render: (r) => (r.capability
         ? <button className="inv-chip" style={{ padding: "1px 7px",
                     fontSize: 9.8 }}
                   onClick={(e) => { e.stopPropagation();
                     setCapability(capability === r.capability
                       ? "" : r.capability); }}
+                  title={`Backend capability id · ${r.capability}`}
                   data-testid={`inv-activity-cap-${r.capability}`}>
-            {r.capability}
+            {capabilityLabel(r.capability)}
           </button>
         : <span className="inv-tb__na">—</span>) },
-    { key: "result", label: "Result", width: 190,
+    { key: "result", label: "Result", width: 180,
       render: (r) => <NxInvValue value={r.result}
                                  absent={ABSENCE.NOT_EVALUATED} /> },
+    { key: "state", label: "State", width: 130,
+      render: (r) => <NxInvValue value={r.state
+                       ? String(r.state).replace(/_/g, " ") : null} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "findings", label: "Findings", width: 86, num: true,
+      render: (r) => (r.findings?.length
+        ? <button className="inv-chip" style={{ padding: "1px 7px",
+                    fontSize: 9.8 }}
+                  title={r.findings.join("\n")}
+                  onClick={(e) => { e.stopPropagation();
+                    onNavigateTab && onNavigateTab("findings"); }}
+                  data-testid={`inv-activity-findings-${r.id}`}>
+            {r.findings.length}
+          </button>
+        : <span className="inv-tb__na">—</span>) },
+    { key: "duration", label: "Duration", width: 92, num: true,
+      render: (r) => (r.duration == null
+        ? <span className="inv-tb__na">{ABSENCE.NOT_RECORDED}</span>
+        : `${r.duration} ms`) },
     { key: "confidence", label: "Conf.", width: 62, num: true,
       render: (r) => (r.confidence == null
         ? <span className="inv-tb__na">—</span> : `${r.confidence}%`) },
@@ -217,9 +253,34 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
           </button>
         )
         : <span className="inv-tb__na">{ABSENCE.EVIDENCE_INCOMPLETE}</span>) },
-    { key: "source", label: "Source", width: 130,
+    { key: "source", label: "Actor / source", width: 130,
       render: (r) => <NxInvValue value={r.source} mono
                                  absent={ABSENCE.NOT_ATTRIBUTED} /> },
+    { key: "actions", label: "Actions", width: 112,
+      render: (r) => (
+        <span style={{ display: "inline-flex", gap: 4 }}>
+          <button className="inv-chip" style={{ padding: "1px 6px",
+                    fontSize: 9.4 }}
+                  disabled={!r.evidence?.length}
+                  title={r.evidence?.length ? "Open in Evidence"
+                    : ABSENCE.EVIDENCE_INCOMPLETE}
+                  onClick={(e) => { e.stopPropagation();
+                                    pivotEvidence(r.evidence?.[0]); }}
+                  data-testid={`inv-activity-action-evidence-${r.id}`}>
+            Evidence
+          </button>
+          <button className="inv-chip" style={{ padding: "1px 6px",
+                    fontSize: 9.4 }}
+                  disabled={!r.findings?.length}
+                  title={r.findings?.length ? "Open in Findings"
+                    : ABSENCE.NOT_OBSERVED}
+                  onClick={(e) => { e.stopPropagation();
+                    onNavigateTab && onNavigateTab("findings"); }}
+                  data-testid={`inv-activity-action-finding-${r.id}`}>
+            Finding
+          </button>
+        </span>
+      ) },
   ];
 
   return (
@@ -256,7 +317,25 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
       {/* ── Operations toolbar + dense event table ───────────── */}
       <NxInvSection title="Investigation activity"
                     subtitle="one row per operational event · expand for the full record"
-                    testid="xdr-record-ai-activity-sec">
+                    testid="xdr-record-ai-activity-sec"
+                    actions={
+                      <span style={{ display: "inline-flex", gap: 4 }}>
+                        <button className="inv-chip"
+                                aria-pressed={view === "events"}
+                                onClick={() => setView("events")}
+                                data-testid="inv-activity-view-events">
+                          Event log
+                        </button>
+                        <button className="inv-chip"
+                                aria-pressed={view === "runs"}
+                                onClick={() => setView("runs")}
+                                data-testid="inv-activity-view-runs">
+                          Capability runs
+                          <span className="inv-chip__n">
+                            {(data?.executions || []).length || "—"}</span>
+                        </button>
+                      </span>
+                    }>
         <div className="inv-filters" data-testid="inv-activity-toolbar">
           <span className="inv-cov__k" style={{ display: "inline-flex",
                   alignItems: "center", gap: 5 }}>
@@ -298,6 +377,7 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
           )}
         </div>
 
+        {view === "events" && (
         <NxInvTable testid="xdr-record-ai-activity" columns={columns}
                     rows={visible.slice(0, 500)} rowKey={(r) => r.id}
                     detail={(r) => (
@@ -362,7 +442,8 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
                           "Analyst lifecycle transitions appear here as soon as the incident is worked.",
                         ]} />
                     } />
-        {visible.length > 500 && (
+        )}
+        {view === "events" && visible.length > 500 && (
           <div className="inv-empty" data-testid="inv-activity-truncated">
             Showing the 500 most recent of {visible.length} matching events.
             Narrow the search or filters to reach older activity.
@@ -384,33 +465,81 @@ export default function ActivityWorklogTab({ incident, onNavigateTab }) {
         </NxInvTech>
       </NxInvSection>
 
-      {(data?.executions || []).length > 0 && (
-        <NxInvSection title="Engine executions"
-                      subtitle="provenance of every capability that ran"
+      {view === "runs" && (
+        <NxInvSection title="Capability runs"
+                      subtitle="every capability the investigator executed, with its engine provenance"
                       testid="xdr-record-ai-exec-sec">
-          <NxInvTable testid="xdr-record-ai-exec-table" rows={data.executions}
-                      rowKey={(r, i) => `${r.capability}-${i}`}
+          <NxInvTable testid="xdr-record-ai-exec-table"
+                      rows={data?.executions || []}
+                      rowKey={(r, i) => r.execution_id || `${r.capability}-${i}`}
                       columns={[
-                        { key: "capability", label: "Capability", width: 200 },
-                        { key: "engine", label: "Engine", width: 200,
+                        { key: "capability", label: "Capability", width: 190,
+                          render: (r) => <NxInvValue
+                            value={capabilityLabel(r.capability)}
+                            absent={ABSENCE.NOT_ATTRIBUTED} /> },
+                        { key: "engine", label: "Engine", width: 210,
                           render: (r) => <NxInvValue value={r.engine} mono
                                            absent={ABSENCE.NOT_RECORDED} /> },
-                        { key: "status", label: "Status", width: 150,
+                        { key: "status", label: "Status", width: 140,
                           render: (r) => <NxInvValue
                             value={resultText(r.status)} mono
                             absent={ABSENCE.NOT_EVALUATED} /> },
-                        { key: "duration_ms", label: "Duration", width: 100,
+                        { key: "duration_ms", label: "Duration", width: 96,
                           num: true,
                           render: (r) => (r.duration_ms == null
                             ? <span className="inv-tb__na">{ABSENCE.NOT_RECORDED}</span>
                             : `${r.duration_ms} ms`) },
-                        { key: "finding_ids", label: "Findings", width: 90,
+                        { key: "finding_ids", label: "Findings", width: 86,
                           num: true,
-                          render: (r) => (r.finding_ids || []).length },
-                        { key: "started_at", label: "Started", width: 158,
+                          render: (r) => ((r.finding_ids || []).length
+                            ? (r.finding_ids || []).length
+                            : <span className="inv-tb__na">—</span>) },
+                        { key: "evidence_ids", label: "Evidence", width: 110,
+                          num: true,
+                          render: (r) => ((r.evidence_ids || []).length
+                            ? <button className="inv-chip"
+                                      style={{ padding: "1px 6px", fontSize: 9.4 }}
+                                      title={(r.evidence_ids || []).join("\n")}
+                                      onClick={(e) => { e.stopPropagation();
+                                        pivotEvidence(r.evidence_ids[0]); }}
+                                      data-testid={`inv-runs-evidence-${r.execution_id}`}>
+                                {(r.evidence_ids || []).length}
+                              </button>
+                            : <span className="inv-tb__na">
+                                {ABSENCE.EVIDENCE_INCOMPLETE}</span>) },
+                        { key: "started_at", label: "Started", width: 150,
                           render: (r) => <NxInvValue value={fmtTime(r.started_at)}
                                            mono absent={ABSENCE.NOT_RECORDED} /> },
-                      ]} />
+                        { key: "completed_at", label: "Completed", width: 150,
+                          render: (r) => <NxInvValue value={fmtTime(r.completed_at)}
+                                           mono absent={ABSENCE.NOT_RECORDED} /> },
+                      ]}
+                      detail={(r) => (
+                        <dl className="inv-kv">
+                          <dt>Why it ran</dt>
+                          <dd><NxInvValue value={r.reason}
+                                absent={ABSENCE.NOT_RECORDED} /></dd>
+                          <dt>Target</dt>
+                          <dd className="mono">
+                            <NxInvValue value={r.target_kind
+                              ? `${r.target_kind}:${r.target_value}` : null}
+                              absent={ABSENCE.NOT_RECORDED} /></dd>
+                          <dt>Trigger</dt>
+                          <dd className="mono"><NxInvValue value={r.trigger}
+                                absent={ABSENCE.NOT_RECORDED} /></dd>
+                          <dt>Capability id</dt>
+                          <dd className="mono">{String(r.capability)}</dd>
+                          <dt>Error</dt>
+                          <dd className="mono"><NxInvValue value={r.error}
+                                absent="NO ERROR REPORTED" /></dd>
+                          <dt>Provenance</dt>
+                          <dd className="mono">
+                            {JSON.stringify(r.provenance || {})}</dd>
+                        </dl>
+                      )}
+                      empty={<NxInvEmpty testid="inv-runs-empty"
+                        title="No capability run is recorded"
+                        body="The investigator has not executed a capability against this incident. A run appears here the moment one is attempted — including the ones that are skipped or fail." />} />
         </NxInvSection>
       )}
     </div>

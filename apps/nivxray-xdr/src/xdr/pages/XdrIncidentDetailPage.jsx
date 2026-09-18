@@ -39,7 +39,8 @@ import EvidenceTab          from "./incidents/record/tabs/EvidenceTab";
 import AutoInvestigationTab from "./incidents/record/tabs/AutoInvestigationTab";
 import MitreTab             from "./incidents/record/tabs/MitreTab";
 import AttackStoryTab       from "./incidents/record/tabs/AttackStoryTab";
-import AttackGraphTab       from "./incidents/record/tabs/AttackGraphTab";
+import EntitiesGraphTab     from "./incidents/record/tabs/EntitiesGraphTab";
+import FindingsTab          from "./incidents/record/tabs/FindingsTab";
 import RecommendationsTab   from "./incidents/record/tabs/RecommendationsTab";
 import NotesTab             from "./incidents/record/tabs/NotesTab";
 import TimelineTab          from "./incidents/record/tabs/TimelineTab";
@@ -476,11 +477,11 @@ export default function XdrIncidentDetailPage() {
               </NxInvSection>
 
               <NxInvSection title="Relationships"
-                            subtitle="process ancestry and the activity graph, in this incident's context"
+                            subtitle="the causality graph for this incident — graph or table, with contextual entity details"
                             testid="incident-entities-relationships">
-                <div className="inv-sec__b--pad">
-                  <AttackGraphTab incident={incident} onNavigateTab={setTab} />
-                </div>
+                <EntitiesGraphTab incident={incident}
+                                  onNavigateTab={(t) =>
+                                    setTab(t === "findings" ? "activity" : t)} />
               </NxInvSection>
 
               <EngineDepth title="Evidence graph (IKG)"
@@ -539,7 +540,12 @@ export default function XdrIncidentDetailPage() {
           )}
           {tab === "activity"   && (
             <div className="inv">
-              <ActivityWorklogTab incident={incident} onNavigateTab={setTab} />
+              <ActivityWorklogTab incident={incident}
+                                  onNavigateTab={(t) =>
+                                    setTab(t === "findings" ? "activity" : t)} />
+              <FindingsTab incident={incident}
+                           onNavigateTab={(t) =>
+                             setTab(t === "findings" ? "activity" : t)} />
               <NxInvSection title="Analyst notes"
                             subtitle="attributed to the principal who wrote them"
                             testid="incident-activity-notes">

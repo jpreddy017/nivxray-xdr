@@ -40,6 +40,7 @@ import WorkspaceLaunch from "@/components/WorkspaceLaunch";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import XdrRibbon from "@/xdr/components/XdrRibbon";
 import XdrScopeNavigator from "@/xdr/components/XdrScopeNavigator";
+import NxErrorBoundary from "@/xdr/nx/NxErrorBoundary";
 import "./xdr-console.css";
 import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
@@ -350,8 +351,22 @@ export default function XdrShell({ children, flush = false }) {
             {theme === "dark" ? "◐ DARK" : "◑ LIGHT"}
           </button>
 
-          {/* Scope Navigator · EffectiveScope = Requested ∩ Authorized. */}
-          <XdrScopeNavigator />
+          {/* Scope Navigator · EffectiveScope = Requested ∩ Authorized.
+              Fault containment ONLY: if the control itself fails to render
+              the rail survives and the pill states the failure. It grants
+              no tenant, unlocks no incident scope and hides no denial. */}
+          <NxErrorBoundary fallback={(err) => (
+            <span data-testid="xdr-scope-navigator-error"
+                  title={String(err?.message || err)}
+                  style={{ display: "inline-flex", alignItems: "center",
+                           gap: 6, fontSize: 11, fontWeight: 700,
+                           color: "var(--muted)" }}>
+              <Lock size={13} style={{ opacity: .8 }} />
+              SCOPE CONTROL ERROR · NO SCOPE GRANTED
+            </span>
+          )}>
+            <XdrScopeNavigator />
+          </NxErrorBoundary>
         </div>
       </div>
 

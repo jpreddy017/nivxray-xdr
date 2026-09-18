@@ -25,6 +25,10 @@ export { default as NxErrorBoundary }       from "./NxErrorBoundary";
 export { NxInvSection, NxInvTable, NxInvEmpty, NxInvFilters, NxInvTech,
          NxInvMetrics, NxInvValue, ABSENCE, fmtTime } from "./NxInv";
 
+// ONE analyst vocabulary for capabilities — backend ids are never renamed.
+export { CAPABILITY_LABELS, capabilityLabel, capabilityIsMapped,
+         capabilityEngineId } from "./capabilityLabels";
+
 // Slice 1 · enterprise primitives. One table, one flyout, one status
 // grammar, one tab bar — every page composes these instead of its own.
 export { default as NxDataTable }           from "./NxDataTable";
