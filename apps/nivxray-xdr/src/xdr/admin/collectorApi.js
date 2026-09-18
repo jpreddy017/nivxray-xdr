@@ -16,14 +16,20 @@ import axios from "axios";
 import { activeTenant } from "@/lib/tenant";
 
 const CUSTOM_URL   = import.meta.env.VITE_XDR_COLLECTOR_URL || "";
-// vite.config.js exposes REACT_APP_BACKEND_URL via `process.env.*`
-// (bridged from REACT_APP_NIVXRAY_API_URL).  Use that channel so the
-// landed-collector default path resolves the same way every other
-// XDR module resolves the backend base URL.
-const BACKEND_URL  =
-  (typeof process !== "undefined"
-    && process.env
-    && process.env.REACT_APP_BACKEND_URL) || "";
+// vite.config.js `define` replaces the EXACT literal
+// `process.env.REACT_APP_BACKEND_URL` (bridged from
+// REACT_APP_NIVXRAY_API_URL). Read it exactly as `lib/api.js` does.
+//
+// This used to be wrapped in `typeof process !== "undefined" && process.env
+// && …`. `define` only substitutes the full literal, so in a PRODUCTION
+// bundle the guard compiled to `typeof process<"u" && {} && "https://…"` —
+// `process` does not exist in a browser, so it short-circuited to "" and
+// COLLECTOR_CONFIGURED became false. The Vite DEV server defines `process`,
+// so the defect was invisible in preview and only surfaced on Vercel as
+// "COLLECTOR RUNTIME NOT WIRED" while authentication (lib/api.js, no guard)
+// worked fine. scripts/verify-production-build.js now fails the build if the
+// collector base is missing from the artifact.
+const BACKEND_URL  = process.env.REACT_APP_BACKEND_URL || "";
 
 const COLLECTOR_BASE = CUSTOM_URL
   ? `${CUSTOM_URL.replace(/\/+$/, "")}/api/xdr`

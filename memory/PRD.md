@@ -17363,3 +17363,39 @@ Folded into the SAME candidate (no extra deployment cycle). Scope local to
   no DevTools/localStorage intervention.
 **STILL NOT REPUBLISHED. W1 HELD.**
 
+
+### 2026-06 · COLLECTOR AUTH P0 LIVE IN PRODUCTION + SPA COLLECTOR-BASE FIX
+Report: `COLLECTOR_BASE_FIX_AND_PROD_CHECKS.md`, `COLLECTOR_URL_CONFIG_CHECK.md`.
+- **Collector Auth P0 is LIVE in production**: the seven formerly-anonymous
+  collector GETs now answer `403 ACCESS_DENIED collectors.read /
+  unauthenticated`. Six anonymous read-only checks passed, including ladder
+  order (a real tenant is not a credential), no `default` resurrection, machine
+  lane fails closed (unknown API key → 401), and build identity (795 paths,
+  path-hash identical to the pod candidate, 22 collector ops).
+- **`VITE_XDR_COLLECTOR_URL` must stay UNSET.** The collector is landed
+  in-process in the backend at `<api-origin>/api/xdr/collector`; that variable
+  targets a standalone collector and appends `/api/xdr`, so setting it to the
+  API origin would 404. `XDR_PROD_API_ORIGIN` remains the only origin lever.
+- **Root cause of "COLLECTOR RUNTIME NOT WIRED" on Vercel** (a code defect, not
+  config): `collectorApi.js` read the Vite-`define`d literal behind
+  `typeof process !== "undefined" && …`. `define` substitutes only the exact
+  literal, so a production bundle short-circuited to `""` and
+  `COLLECTOR_CONFIGURED` became false. The Vite dev server defines `process`,
+  which is why preview passed and only Vercel exposed it; `lib/api.js` has no
+  such guard, which is why authentication kept working.
+- Fix (owner-scoped, collector-only; Cortex/vendor deliberately untouched):
+  read `process.env.REACT_APP_BACKEND_URL` directly, plus a new check 6 in
+  `scripts/verify-production-build.js` that fails the build if the collector
+  chunk is missing, lacks the API origin, or resolves its base behind a
+  `typeof process` test. Guard proven both ways (PASS on fix, exit 1 on a
+  re-introduced regression, source restored).
+- Backend unchanged ⇒ **no Emergent republish needed**. Vercel NOT promoted.
+  **W1 HELD** until the SPA fix is deployed and Integrations loads on
+  xdr.nivxforge.com.
+
+Pending: owner pushes to `release/xdr-w1-candidate` via "Save to Github" (no
+git remote in the pod) → Vercel PREVIEW verification of authenticated
+tenant-scoped collector loading → explicit authorisation → production
+promotion → W1 GO (DESKTOP-A9HGFJJ, minimum-scope ingest key, five genuine
+Sysmon events).
+

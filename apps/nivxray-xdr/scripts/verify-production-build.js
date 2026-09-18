@@ -17,6 +17,7 @@
  *   3. no origin outside the allow-list is baked in (unauthorised API base)
  *   4. no dependency on the OTHER product's hostname (the split must hold)
  *   5. build-info.json declares this exact scope and API origin
+ *   6. the LANDED COLLECTOR BASE is actually present in the artifact
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -179,6 +180,50 @@ try {
     failures.push(`build-info.json api_origin is "${info.api_origin}" — expected ${EXPECTED_API}`);
 } catch {
   failures.push("dist/build-info.json missing or unreadable — build via scripts/vercel-build.sh");
+}
+
+// 6 · the landed collector base must survive compilation.
+//
+// The collector is LANDED IN-PROCESS in the backend at
+// `<api-origin>/api/xdr/collector`; there is no separate collector host and
+// VITE_XDR_COLLECTOR_URL must stay unset. Dev and preview both resolved it,
+// but a production bundle silently lost it and the Integration Control Center
+// honestly reported "collector runtime not wired". Cause: the module read the
+// `define`d literal behind `typeof process !== "undefined" && …`, and
+// `define` substitutes only the exact literal — so in a browser bundle the
+// guard short-circuited to "". Every other check here passed. This one
+// encodes the defect itself.
+const COLLECTOR_MARKER = "collector_runtime_not_deployed";
+const COLLECTOR_PATH = "/api/xdr/collector";
+const collectorChunks = files.filter(
+  (f) => /\.js$/.test(f) && readFileSync(f, "utf8").includes(COLLECTOR_MARKER));
+
+if (collectorChunks.length === 0) {
+  failures.push(`the collector client (${COLLECTOR_MARKER}) is absent from the bundle`);
+} else {
+  for (const f of collectorChunks) {
+    const body = readFileSync(f, "utf8");
+    const where = f.replace(dist, "dist");
+    if (!body.includes(COLLECTOR_PATH))
+      failures.push(`collector chunk ${where} does not build the landed path ${COLLECTOR_PATH}`);
+    if (!body.includes(EXPECTED_API))
+      failures.push(
+        `collector chunk ${where} carries no API origin, so COLLECTOR_CONFIGURED `
+        + `would be false and Integrations would report "collector runtime not wired"`);
+    // The exact regression: a `typeof process` test in the same statement as
+    // the collector base. `process` does not exist in a browser, so the
+    // origin is never reached.
+    const broken = new RegExp(`typeof process[^;]{0,160}${COLLECTOR_PATH}`);
+    if (broken.test(body))
+      failures.push(
+        `collector chunk ${where} resolves its base behind a \`typeof process\` `
+        + `test — that short-circuits in a browser and silently disables the `
+        + `collector client. Read process.env.REACT_APP_BACKEND_URL directly, `
+        + `as lib/api.js does. Do NOT "fix" this with VITE_XDR_COLLECTOR_URL: `
+        + `that appends /api/xdr and would 404 against the landed mount.`);
+  }
+  if (!failures.some((f) => f.includes("collector chunk")))
+    notes.push(`ok · landed collector base ${EXPECTED_API}${COLLECTOR_PATH} resolves in the artifact`);
 }
 
 console.log("");
