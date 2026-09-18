@@ -1460,3 +1460,36 @@ lineage guides, Activity quick filters). iteration_100 all pass.
   from incident; script-vs-interpreter attribution; short-lived process
   visibility gap; live attack replay; 52 unbound detection rules.
 - P2: quarantine, forensic snapshot, live query, hunting; Windows agent.
+
+## 2026-06 · NEXT, GATED ON OWNER REVIEW (do not self-authorize)
+
+### P0 — awaiting owner decision
+- **UX0 visual approval.** Review `/xdr/_ux0-preview` (light + dark) against
+  `memory/E2E_UX0_BLUEPRINT.md` §6 checklist. On approval: promote `ux0/`
+  candidates into `xdr/nx/` as `NxIncidentHeader`, `NxMetricDrawerCard`,
+  `NxStageRail`, `NxClaimCard`, `NxTechnicalDetails`, then propagate E2E-1…E2E-10.
+- **CI R-4** semantic PowerShell expression evaluator (literal, number,
+  `[char]`, cast, parens, `+` with .NET coercion, `-f`, `-join`, `.Replace`,
+  `.Substring`), behind the existing regexes until it proves equal-or-better on
+  the corpus.
+- **CI R-5** statement list + variable dependency graph; `runtime_value` vs
+  `statically_recovered_value` vs `unresolved`.
+- **D-11 fixture**: pin the owner's exact obfuscated PowerShell sample,
+  byte-for-byte, replacing the NON-AUTHORITATIVE reconstruction.
+
+### P1
+- CI R-6 recursive fixed point with per-artifact `provenance[]` and explicit
+  stop reasons.
+- CI R-7 canonical-payload propagation to Summary / IOC / MITRE / execution
+  flow / auto-investigation / reports (wrapper retained as labelled context).
+- CI R-8 rebuild the production `/xdr/intelligence/command` page on the approved
+  UX0 composition (raw JSON demoted to Technical details).
+- F9: parse the `-c "<program>"` interior as a program instead of one opaque span.
+- RBAC-1+ (RBAC-0 discovery already approved as architectural input).
+
+### P2
+- LOLBAS / GTFOBins offline matching; OSINT enrichment (VirusTotal, AbuseIPDB).
+- Timezone safety for Sysmon `UtcTime` (offset-naive datetimes).
+- Measured `parser_ok` / `normalized_ok` instead of defaulting to true.
+- `xdr_canonical_events.source_timestamp` null on raw projection.
+- Per-tenant / per-analyst incident layout customisation (rejected for UX0).

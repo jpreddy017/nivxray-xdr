@@ -1,0 +1,22 @@
+{
+  "summary": "Validated LANE A (UX0 preview) and LANE B (Command Intelligence R-1/R-2/R-3 decoder honesty). Backend: 7/7 targeted pytest checks pass against POST /api/analyze/command (Windows tokenizer preserves backslashes and mirrors deprecated token_count; POSIX shell tokenizer unchanged; obfuscated fixture returns PARTIALLY_RECOVERED with all 4 required unresolved kinds and canonical_decoded_artifact.promoted=false with reason; clean single-layer -enc payload returns RECOVERED and promotes 'ipconfig /all'; benign ipconfig => NOT_REQUIRED; cosmetic case-only obfuscation does not trigger ast_deobfuscation.applied nor a semantic_transformations count; concat-operand string literal is classified artifact_class=FRAGMENT with auto_decoded=false and a fragment_of expression). Frontend: /xdr/_ux0-preview loads for admin, DESIGN-STATE banner + incident header + 7-tab strip + xdr-theme-toggle all present. Scroll flips data-condensed false->true on ux0-incident-header. Overview 'View all' opens ux0-flyout without navigating away. Attack Story renders claims/proofs; proof chip opens flyout. Evidence table rows e2-e5 (ip/file/domain/process) open the evidence flyout with ux0-fly-summary/ux0-fly-relations/ux0-fly-tech-toggle and the JSON block (ux0-fly-tech-json) is hidden until toggled; rows e1/e6 open the Command Intelligence composition flyout by design (command/artifact rows). Command Intelligence composition on the real API shows PARTIALLY RECOVERED status pill, ux0-ci-not-promoted, numbered ux0-ci-flow, unresolved constructs, iocs/mitre/classes, and ux0-ci-tech-json only after toggling ux0-ci-tech. Empty states ux0-empty-nodata / ux0-empty-unavailable / ux0-empty-unauthorized all present, each with a stated reason. Theme toggle visually flips console between LIGHT and DARK and UX0 prototype remains legible in both (screenshots captured). Production routes /xdr/incidents and /xdr/intelligence/command still render (no regression).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ci_ux0_validation.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "test_credentials.md still stores the admin preview password in plain-text (line 40). Acceptable for preview but worth noting because the same file also documents the earlier SEC-001 exposure. This is out-of-scope for the current review but flagged for hygiene.",
+    "The Command Intelligence flyout re-uses the ux0-ci-* testid namespace; when Story tab was inspected while a CI flyout was still open, a <pre data-testid=ux0-ci-artifact-body> was visible. Not a bug (Base64 artifact body is intentional in CI), but tests that assert 'no raw JSON on Story until Technical details is expanded' should scope selectors to the Story panel container and exclude open flyouts.",
+    "Data-theme is not exposed on documentElement/body — theme toggle changes styling via a different container. Consider surfacing data-theme on <html> for easier automated theme assertions."
+  ],
+  "updated_files": ["/app/backend/tests/test_ci_ux0_validation.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all required testids and behaviours verified)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only, from /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend field name for /api/analyze/command is 'input' (NOT 'command'). Auth is required via /api/auth/login (returns access_token used as Bearer). Evidence rows e1 (command) and e6 (artifact) intentionally open the Command Intelligence composition flyout rather than the plain Evidence flyout; use rows e2/e3/e4/e5 to exercise ux0-fly-summary/ux0-fly-relations/ux0-fly-tech-toggle. Do NOT run the full backend pytest suite (thousands of mongo-heavy tests). Targeted file: /app/backend/tests/test_ci_ux0_validation.py runs in <5s with -o addopts=''.",
+  "rca of the issue": "n/a — no bugs found"
+}

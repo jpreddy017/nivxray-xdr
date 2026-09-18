@@ -17877,3 +17877,73 @@ CLOSED/FROZEN untouched; W2-1 untouched (git status shows only
   the duplicate incident tree; retire the second token set; consolidate 3 dashboards /
   2 rule studios / 3 KB routes; then build per-stream counters + computed latency so
   Verify and Health stop showing dashes.
+
+## 2026-06 (session) · TWO ISOLATED LANES DELIVERED — OWNER REVIEW GATE
+
+Owner decision honoured: *"Do not run the remaining work as one large mixed
+wave. Proceed with two isolated lanes."* Both lanes STOP here for review.
+
+### LANE A · E2E-UX0 (research + blueprint + clickable prototype)
+- Live industry research completed (Microsoft Defender XDR incident tabs /
+  Attack story; Palo Alto Cortex XDR detailed case view, key assets &
+  artifacts, causality view; Cisco XDR incident-detail, overview drawers,
+  event drawer, relations graph, AI analysis view; Cisco progressive-disclosure
+  writing; SOC console density craft). 15 patterns recorded with an explicit
+  ADOPT / ADAPT / REJECT decision, plus 5 NIVX-DIFFERENTIATORs.
+- **`/app/memory/E2E_UX0_BLUEPRINT.md`** — information architecture, four-band
+  answer stack (Verdict → Impact → Narrative → Proof → Engine), 4-level
+  navigation depth limit, locked incident tab set, ASCII wireframes for header /
+  Overview / Attack Story / Evidence / Flyout / Command Intelligence, component
+  contracts, typography + density scale, both-theme rule, permission-adaptation
+  rule, owner acceptance checklist.
+- **`/xdr/_ux0-preview`** — additive clickable prototype. Replaces no
+  production route, deletes nothing, persists nothing. Demonstrates shell →
+  persistent incident header (expanded + condensed-on-scroll) → 7 tabs →
+  Overview (8/4 grid, metric-drawer cards) → Attack Story (stage rail + CLAIM /
+  BASIS / PROOF cards, zero JSON) → Evidence (one table grammar → flyout) →
+  Entities → Response → Activity worklog → layered flyouts with back +
+  open-full-page → three distinct empty/unavailable states → Command
+  Intelligence composition. Light and dark both verified.
+- Command Intelligence in the prototype calls the **real**
+  `POST /api/analyze/command`; every other panel renders explicitly badged
+  DESIGN-STATE fixtures (`ux0Fixtures.js`).
+- No role-name literal anywhere: actions gate on `useAccess().canAny`.
+- **NOT DONE ON PURPOSE:** no E2E-1…E2E-10 propagation, no production page
+  replaced. Awaiting owner VISUAL approval.
+
+### LANE B · Command Intelligence P0 — R-1 / R-2 / R-3 only
+Evidence: **`/app/memory/CI_R1_R3_EVIDENCE.md`** (before/after per finding).
+- R-1 evidence preservation: `tokenize_windows()` (backslash is a path
+  separator, never an escape), `tokenize_with_mode()`, `first_token_span()`;
+  `parsed_structure` gains `executable_span` (byte-for-byte slice),
+  `evidence_preserved`, `tokenizer`, `shell_token_count` (`token_count`
+  retained as a deprecated mirror). POSIX tokenization unchanged.
+- R-2 honest status: `decode_status ∈ {NOT_REQUIRED, DETECTED,
+  PARTIALLY_RECOVERED, RECOVERED, AMBIGUOUS, UNSUPPORTED, LIMIT_REACHED,
+  FAILED}` + `decode_status_reason` + `unresolved_expressions[]` (kind ·
+  expression · offset · reason · found_in). `RECOVERED` is structurally
+  impossible while anything is unresolved. Cosmetic `case-normalization` no
+  longer counts as a recovery and no longer manufactures a decode chain.
+  Partial concat folds are flagged `complete:false` at the step level.
+- R-3 artifact classes: FRAGMENT · CONSTRUCTED_VALUE · ENCODED_ARTIFACT ·
+  DECODED_ARTIFACT · EXECUTABLE_ARTIFACT · SHELLCODE_ARTIFACT. A literal that
+  is an operand of a `+` chain is a FRAGMENT — excluded from the confidence
+  gate and from the recursive frontier, so a 0.98-confidence fragment is no
+  longer decoded as a standalone payload. `canonical_decoded_artifact` is only
+  `promoted` at a clean fixed point; otherwise `text:null` +
+  `candidate_text` + reason.
+- Tests: new `tests/test_ci_r1_r3_decoder_honesty.py` (22) and
+  `tests/test_ci_ux0_validation.py` (7, added by the testing agent); the six
+  decoder-related files run 277 passed serially. Nothing weakened.
+- **STILL BROKEN, STATED:** R-4 expression evaluator, R-5 statement/dataflow
+  reconstruction, F9 (`-c "<program>"` still one opaque span), R-6 provenance
+  chains, R-7 canonical propagation to IOC/MITRE/behaviour consumers, R-8
+  production Command Intelligence page (still raw JSON outside the prototype).
+- **D-11 NOT SATISFIED:** the owner's exact byte-for-byte sample is still
+  outstanding; the RCA reconstruction is labelled NON-AUTHORITATIVE in the test
+  file and must be replaced.
+
+### Held boundaries
+W1 untouched · W2-1 untouched · RBAC-1+ on HOLD (RBAC-0 findings retained as
+architectural input) · no route deleted · no response-authority change · no
+tenant/auth weakening · no fabricated data · no test weakened.
