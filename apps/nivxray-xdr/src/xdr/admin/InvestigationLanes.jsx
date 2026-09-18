@@ -19,6 +19,7 @@ import React, { useEffect, useState } from "react";
 import { Clock, GitBranch, Share2, MapPin, BookOpen, Target,
                 CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const LANE_META = {
@@ -145,7 +146,7 @@ export default function InvestigationLanes({ incidentId, testid }) {
           `/admin/content-supply-chain/investigation/${incidentId}`);
         setData(r.data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       } finally {
         setLoading(false);
       }

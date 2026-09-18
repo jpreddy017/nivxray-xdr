@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const KINDS = ["api_key", "bearer_token", "oauth_client_secret",
@@ -53,7 +54,7 @@ function AddSecretModal({ onClose, onCreated }) {
       onCreated?.(r?.data);
       onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
 
@@ -138,7 +139,7 @@ function RevealModal({ secret, onClose, onRevealed }) {
       setAR(r?.data?.audit_ref);
       onRevealed?.(r?.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "reveal failed");
+      setErr(refusalText(e, "reveal failed"));
     } finally { setBusy(false); }
   };
 
@@ -242,7 +243,7 @@ function RotateModal({ secret, onClose, onRotated }) {
       onRotated?.(r?.data);
       onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "rotate failed");
+      setErr(refusalText(e, "rotate failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -317,8 +318,7 @@ export default function SecretsBody() {
     } catch (e) {
       setRows([]);
       setState({ loading: false,
-                      err: e?.response?.data?.detail || e?.message
-                              || "secrets fetch failed" });
+                      err: refusalText(e, "secrets fetch failed")});
     }
   };
 

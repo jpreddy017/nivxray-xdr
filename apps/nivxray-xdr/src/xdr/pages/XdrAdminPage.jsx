@@ -47,6 +47,7 @@ import ApiKeysBody from "@/xdr/admin/ApiKeysBody";
 import WebhooksBody from "@/xdr/admin/WebhooksBody";
 import ResponseStrategiesBody from "@/xdr/admin/ResponseStrategiesBody";
 import * as collectorApi from "@/xdr/admin/collectorApi";
+import AdminErrorBoundary from "@/xdr/admin/AdminErrorBoundary";
 import api from "@/lib/api";
 
 // ── Small state helpers ─────────────────────────────────────────
@@ -246,6 +247,7 @@ function AdminBody({ section }) {
   useEffect(() => { load(); }, [load]);
 
   return (
+    <AdminErrorBoundary sectionKey={section.key}>
     <section data-testid={`xdr-admin-body-${section.key}`}>
       <div style={{ display: "flex", alignItems: "center", gap: 10,
                       marginBottom: 8 }}>
@@ -391,6 +393,7 @@ function AdminBody({ section }) {
         )}
       </section>
     </section>
+    </AdminErrorBoundary>
   );
 }
 

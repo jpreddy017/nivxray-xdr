@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -111,8 +113,7 @@ function AddKeyModal({ onClose, onCreated, tenant }) {
       onCreated?.(r?.data);
       onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -205,12 +206,14 @@ export default function ApiKeysBody() {
   const [reveal, setReveal] = useState(null);   // {plaintext, prefix, notice}
   const [tick, setTick] = useState(0);
   const [lastAudit, setLastAudit] = useState(null);
-  // Every /xdr/api-keys handler resolves its tenant from `X-Tenant-Id`
-  // (defaulting to "default"), so the WHOLE surface — list, rotate, revoke,
-  // delete — must speak the same tenant as the key was created under.
-  // Sending the header on create only made a freshly created key invisible.
-  const [tenant, setTenant] = useState("default");
-  const hdrs = () => ({ headers: { "X-Tenant-Id": tenant } });
+  // Tenant comes from the EXISTING authoritative tenant contract
+  // (`lib/tenant`), never from a literal here. This was `useState("default")`;
+  // the registry has no `default` tenant, so in production every load answered
+  // a structured `TENANT_NOT_FOUND` — the same defect that blanked
+  // /xdr/admin/collectors. No hardcoded fallback, no implicit substitution.
+  const [tenant, setTenant] = useState(() => activeTenant() || "");
+  // No tenant selected ⇒ no header ⇒ the backend answers TENANT_REQUIRED.
+  const hdrs = () => (tenant ? { headers: { "X-Tenant-Id": tenant } } : {});
 
   const load = async () => {
     setState({ loading: true, err: null });
@@ -228,9 +231,7 @@ export default function ApiKeysBody() {
     } catch (e) {
       setRows([]);
       setState({ loading: false,
-                      err: e?.response?.data?.detail?.reason
-                              || e?.response?.data?.detail
-                              || e?.message || "fetch failed" });
+                      err: refusalText(e, "fetch failed")});
     }
   };
 
@@ -246,7 +247,7 @@ export default function ApiKeysBody() {
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "rotate failed");
+      alert(refusalText(e, "rotate failed"));
     }
   };
   const revoke = async (k) => {
@@ -256,7 +257,7 @@ export default function ApiKeysBody() {
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "revoke failed");
+      alert(refusalText(e, "revoke failed"));
     }
   };
   const remove = async (k) => {
@@ -266,7 +267,7 @@ export default function ApiKeysBody() {
       setLastAudit(r?.data?.audit_ref);
       setTick((n) => n + 1);
     } catch (e) {
-      alert(e?.response?.data?.detail?.reason || e?.message || "delete failed");
+      alert(refusalText(e, "delete failed"));
     }
   };
 
@@ -299,8 +300,12 @@ export default function ApiKeysBody() {
                               fontFamily: "var(--mono)" }}>
             TENANT
             <input value={tenant} data-testid="xdr-api-key-tenant-context"
-                       onChange={(e) => setTenant(e.target.value)}
-                       placeholder="default"
+                       onChange={(e) => {
+                         const next = e.target.value.trim();
+                         setTenant(next);
+                         setActiveTenant(next || null);
+                       }}
+                       placeholder="authoritative tenant"
                        style={{ ...inp, display: "inline-block", width: 150,
                                        marginTop: 0, padding: "3px 6px" }} />
           </label>

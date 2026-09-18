@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -54,7 +55,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
         const r = await api.get("/xdr/rbac/users");
         setUsers(r?.data?.data?.users || []); setErr(null);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "list failed");
+        setErr(refusalText(e, "list failed"));
         setUsers([]);
       }
     })();
@@ -65,14 +66,14 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
       const r = await api.put(`/xdr/rbac/users/${u.id}`,
                                           { enabled: !u.enabled });
       setLastAudit(r?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
   const removeUser = async (u) => {
     if (!window.confirm(`Remove user ${u.email}?`)) return;
     try {
       const r = await api.delete(`/xdr/rbac/users/${u.id}`);
       setLastAudit(r?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
 
   return (
@@ -190,8 +191,7 @@ function AddUserModal({ roles, onClose, onCreated }) {
       const r = await api.post("/xdr/rbac/users", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   const toggleRole = (name) => setF((s) => ({
@@ -254,8 +254,7 @@ function AssignRoleModal({ user, roles, onClose, onAssigned }) {
                                           { role_id: selected, scope: {} });
       onAssigned?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "assign failed");
+      setErr(refusalText(e, "assign failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -341,7 +340,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
     try {
       const res = await api.post(`/xdr/rbac/roles/${r.id}/clone`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
   const remove = async (r) => {
     if (r.type === "SYSTEM") return;
@@ -350,7 +349,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
       const res = await api.delete(`/xdr/rbac/roles/${r.id}`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message);
+      setErr(refusalText(e));
     }
   };
 
@@ -454,8 +453,7 @@ function AddRoleModal({ onClose, onCreated }) {
       const r = await api.post("/xdr/rbac/roles", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -601,7 +599,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
       });
       setRes(r?.data?.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "simulate failed");
+      setErr(refusalText(e, "simulate failed"));
     } finally { setBusy(false); }
   };
   return (

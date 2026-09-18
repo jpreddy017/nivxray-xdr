@@ -14,7 +14,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronLeft, Play, Save, GitBranch, History,
-  ShieldCheck, AlertTriangle, Layers, PenTool, Undo2 } from "lucide-react";
+  ShieldCheck, AlertTriangle, Layers, PenTool, Undo2, Bug } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import { useAuth } from "@/lib/auth";

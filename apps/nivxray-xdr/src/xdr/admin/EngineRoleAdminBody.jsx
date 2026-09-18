@@ -17,6 +17,7 @@
 import React, { useEffect, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -40,7 +41,7 @@ export default function EngineRoleAdminBody({
         setEngines(er?.data?.items || []);
         setContracts(cr?.data?.items || []);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setErr(refusalText(e, "load failed"));
       }
     })();
   }, [role, tick]);

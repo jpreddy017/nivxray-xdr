@@ -37,6 +37,7 @@ import Entity from "./Entity";
 import EvidenceState from "./EvidenceState";
 import Provenance from "./Provenance";
 import Action, { ActionGroup } from "./Action";
+import { refusalText } from "@/lib/refusal";
 
 const BACKEND =
   (typeof process !== "undefined" && process.env && process.env.REACT_APP_BACKEND_URL) || "";
@@ -91,7 +92,7 @@ export default function CortexOnboardingWizard({ onClose, onBound }) {
       setProbe(data);
     } catch (e) {
       setProbe(null);
-      setSaveError(e?.response?.data?.detail || e?.message || "probe failed");
+      setSaveError(refusalText(e, "probe failed"));
     } finally { setBusy(false); }
   };
 

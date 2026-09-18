@@ -12,6 +12,7 @@ import React, { useEffect, useState } from "react";
 import { Plug, HardDrive, Cpu, Filter, Shuffle, Database,
                 ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const STAGES_STATIC = [
@@ -59,7 +60,7 @@ export default function PipelineStrip({ testid }) {
       } catch { c["normalizers"] = null; }
       setCounts(c);
     })().catch((e) =>
-      setErr(e?.response?.data?.detail || e?.message || "unavailable"));
+      setErr(refusalText(e, "unavailable")));
   }, []);
 
   return (

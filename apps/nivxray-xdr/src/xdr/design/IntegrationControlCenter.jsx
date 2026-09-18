@@ -36,6 +36,7 @@ import {
 
 import * as C from "@/xdr/admin/collectorApi";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import Entity from "./Entity";
 import EvidenceState from "./EvidenceState";
@@ -145,7 +146,7 @@ export default function IntegrationControlCenter({ refreshNonce }) {
         // (`{code, reason}`). Storing that object and rendering `String(...)`
         // printed `[object Object]`, which hid the actual reason — usually
         // `TENANT_REQUIRED`. Format it here, where the shape is known.
-        setError(formatRefusal(e));
+        setError(refusalText(e));
         setState("error");
       }
     }
@@ -609,26 +610,6 @@ function ErrorSection({ message, onRetry }) {
   );
 }
 
-// ── Structured refusal formatting (local to this surface) ────
-// The collector control plane answers `{"detail": {"code": ..., "reason": ...}}`.
-// Rendering that object printed `[object Object]`.
-function formatRefusal(e) {
-  const detail = e?.response?.data?.detail;
-  if (typeof detail === "string" && detail.trim()) return detail;
-  if (detail && typeof detail === "object") {
-    const code = detail.code || detail.error || "";
-    const reason = detail.reason || detail.message || "";
-    const hint = code === "TENANT_REQUIRED"
-      ? " Select the authoritative tenant above — there is no default tenant."
-      : code === "ACCESS_DENIED"
-        ? " This session is not authorised for the collector control plane."
-        : "";
-    const text = [code, reason].filter(Boolean).join(" — ");
-    return (text || "Request refused.") + hint;
-  }
-  return e?.message || "Load failed.";
-}
-
 // ── Tenant selection (minimal · registry-driven) ─────────────
 // Every collector control-plane call is tenant-scoped and the backend has no
 // default tenant, so an operator with no selection is refused
@@ -648,7 +629,7 @@ function TenantBar({ selected, onSelect }) {
         const all = r?.data?.data?.tenants || r?.data?.tenants || [];
         setTenants(all.filter((t) => t.state === "ACTIVE"));
       })
-      .catch((e) => { if (alive) setFailure(formatRefusal(e)); });
+      .catch((e) => { if (alive) setFailure(refusalText(e)); });
     return () => { alive = false; };
   }, []);
 

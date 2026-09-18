@@ -17,6 +17,7 @@ import React, { useState } from "react";
 import { Play, CheckCircle2, XCircle, Circle, AlertTriangle,
                 ArrowRight, ShieldAlert, Copy } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import InvestigationLanes from "@/xdr/admin/InvestigationLanes";
 import ResponseFabricPanel from "@/xdr/admin/ResponseFabricPanel";
 import ClosedLoopPanel from "@/xdr/admin/ClosedLoopPanel";
@@ -150,7 +151,7 @@ export default function GoldenPipelineTrace({ testid }) {
         "/admin/content-supply-chain/e2e/snort-golden");
       setResult(data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "unavailable");
+      setErr(refusalText(e, "unavailable"));
     } finally {
       setLoading(false);
     }

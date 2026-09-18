@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Search, ShieldOff, ShieldCheck } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 const RESULTS = ["", "ACCEPTED", "BLOCKED", "NOT_EVALUATED"];
 const AUTHORITIES = [
@@ -71,8 +72,7 @@ export default function IngestRoutingBody({ refreshNonce = 0 }) {
     } catch (e) {
       setRows([]);
       setState({ loading: false,
-                 err: e?.response?.data?.detail || e?.message
-                      || "routing visibility fetch failed" });
+                 err: refusalText(e, "routing visibility fetch failed")});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce, refreshNonce]);

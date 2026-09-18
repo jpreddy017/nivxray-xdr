@@ -14,6 +14,7 @@ import { Lightbulb, Gavel, ShieldCheck, PlayCircle,
                 CheckCircle2, XCircle, Circle, AlertTriangle,
                 Radar } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const DECISION_COLOR = {
@@ -52,7 +53,7 @@ export default function ResponseFabricPanel({ incidentId, testid }) {
           `/admin/content-supply-chain/response/${incidentId}`);
         setData(r.data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       } finally {
         setLoading(false);
       }

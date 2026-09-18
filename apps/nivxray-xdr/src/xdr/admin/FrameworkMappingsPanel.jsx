@@ -13,6 +13,7 @@ import React, { useEffect, useState } from "react";
 import { Layers, ShieldCheck, GitBranch, BookOpen, Target,
                 Circle } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const FW_META = {
@@ -45,7 +46,7 @@ export default function FrameworkMappingsPanel({ incidentId, testid }) {
           `/admin/content-supply-chain/incidents/${incidentId}/framework-mappings`);
         setData(r.data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       } finally {
         setLoading(false);
       }

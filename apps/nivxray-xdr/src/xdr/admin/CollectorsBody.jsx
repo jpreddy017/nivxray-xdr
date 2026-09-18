@@ -19,6 +19,7 @@ import { Plus, RefreshCcw, Play, Square, Power, PowerOff, PlayCircle,
                  Trash2, CheckCircle2, AlertTriangle, XCircle, Cpu,
                  ChevronRight } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
@@ -36,28 +37,6 @@ const STATE_COLOR = {
   DEGRADED:          "var(--amber)",
   DISABLED:          "var(--faint)",
 };
-
-
-// A refusal from this control plane is STRUCTURED (`{code, reason, …}`).
-// Rendering that object as a React child throws React #31 and unmounts the
-// route, so it is turned into text here — the refusal stays fail-closed, it
-// just becomes readable.
-function refusalText(e) {
-  const detail = e?.response?.data?.detail;
-  if (typeof detail === "string" && detail.trim()) return detail;
-  if (detail && typeof detail === "object") {
-    const code = detail.code || detail.error || "";
-    const text = [code, detail.reason || detail.message || ""]
-      .filter(Boolean).join(" — ");
-    const hint = code === "TENANT_REQUIRED"
-      ? " Name the authoritative tenant above — there is no default tenant."
-      : code === "TENANT_NOT_FOUND" || code === "TENANT_NOT_ACTIVE"
-        ? " Use a registered, ACTIVE tenant."
-        : "";
-    return (text || "Request refused.") + hint;
-  }
-  return e?.message || "load failed";
-}
 
 
 export default function CollectorsBody() {

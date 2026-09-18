@@ -14,6 +14,7 @@ import { Cpu, Search, Filter, CheckCircle2, Circle,
                 Package, ExternalLink, BookOpen } from "lucide-react";
 
 import registry from "../../../docs/NIVXRAY_CAPABILITY_REGISTRY.json";
+import { refusalText } from "@/lib/refusal";
 
 
 const STATUS_META = {
@@ -338,7 +339,7 @@ function BackendEngineRegistryBanner() {
         const { data } = await api.get("/admin/content-supply-chain/engines/report");
         setReport(data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       }
     })();
   }, []);

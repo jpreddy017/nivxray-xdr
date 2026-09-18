@@ -9,6 +9,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, ShieldCheck, FileText, AlertTriangle, ExternalLink, RefreshCcw } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Action from "@/xdr/design/Action";
 import IntelligenceOverlayEditor from "@/xdr/components/IntelligenceOverlayEditor";
@@ -42,7 +43,7 @@ export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
       const list = Array.isArray(ov.data) ? ov.data : (ov.data?.overlays || []);
       setOverlay(list && list[0] ? list[0] : null);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load Narration Gateway executive summary.");
+      setError(refusalText(e, "Failed to load Narration Gateway executive summary."));
     } finally {
       setLoading(false);
     }

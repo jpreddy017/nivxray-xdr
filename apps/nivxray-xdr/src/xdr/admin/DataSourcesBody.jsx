@@ -17,6 +17,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCcw, Power, PowerOff, PlayCircle, Trash2,
                  CheckCircle2, AlertTriangle, HardDrive } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -39,7 +40,7 @@ export default function DataSourcesBody() {
         setRows(ds?.data?.data?.data_sources || []);
         setKinds(cat?.data?.data?.kinds || {});
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setErr(refusalText(e, "load failed"));
       } finally { setBusy(false); }
     })();
   }, [refresh]);

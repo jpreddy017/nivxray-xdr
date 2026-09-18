@@ -34,6 +34,7 @@ import * as C from "@/xdr/admin/collectorApi";
 import { activeTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
+import { refusalText } from "@/lib/refusal";
 
 // ── 12-tile catalog mapped to Phase-B transports ────────────
 const CATALOG = [
@@ -121,7 +122,7 @@ export default function IntegrationsBody() {
       if (e?.code === "COLLECTOR_RUNTIME_NOT_DEPLOYED") {
         setState("not_deployed");
       } else {
-        setError(e?.response?.data?.detail || e?.message || "Load failed.");
+        setError(refusalText(e, "Load failed."));
         setState("error");
       }
     }
@@ -488,7 +489,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
       }
       onCreated();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Save failed.");
+      setErr(refusalText(e, "Save failed."));
     } finally {
       setSaving(false);
     }

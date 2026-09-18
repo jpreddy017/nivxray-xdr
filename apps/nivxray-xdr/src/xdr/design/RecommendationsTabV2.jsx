@@ -33,6 +33,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Play, RefreshCcw, ShieldAlert } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import Entity from "@/xdr/design/Entity";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Provenance from "@/xdr/design/Provenance";
@@ -96,7 +97,7 @@ export default function RecommendationsTabV2({ incident }) {
         `/admin/content-supply-chain/response/${incident.id}/recompute`);
       setData(r.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "unavailable");
+      setErr(refusalText(e, "unavailable"));
     } finally { setLoading(false); }
   }, [incident?.id]);
 

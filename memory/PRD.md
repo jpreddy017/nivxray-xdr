@@ -17428,3 +17428,32 @@ Report: `COLLECTORS_ROUTE_BLACK_SCREEN_RCA.md`. Base commit `f3fea7c4`.
   UsersRolesBody.
 - Backend untouched, no republish, Vercel NOT promoted, **W1 HELD**.
 
+
+### 2026-06 · SHARED REFUSAL CORRECTION + FULL XDR SPA ROUTE-HEALTH SCAN
+Report: `XDR_SPA_ROUTE_HEALTH_SCAN.md`. Base `f3fea7c4` · 30 files (+102/−116).
+- Root cause of the black screens was NOT a shared component: the structured
+  refusal contract (`403 {detail:{code,reason}}`) met a copy-pasted
+  `setErr(detail)` + `{err}` render, so React #31 threw during render and
+  unmounted the tree. `AuditLogBody` was the same chain as `CollectorsBody`.
+- NEW `src/lib/refusal.js` (`refusalText`, `refusalCode`) — ONE helper, applied
+  to 23 object-capable render paths across 17 admin/design surfaces; the two
+  local helpers were deleted. Presentation only: never retries, substitutes a
+  tenant, invents `default`, widens scope, fabricates success or softens a 403.
+  Remedies included; no credential/token/stack ever surfaced.
+- `ApiKeysBody` hardcoded `useState("default")` REMOVED → `activeTenant()`
+  contract, header omitted when unset, writes through `setActiveTenant`.
+- NEW `xdr/admin/AdminErrorBoundary.jsx` wrapping the Administration section
+  body: last-resort containment with a selectable `<code>` block for support,
+  resets on section change, never converts a refusal into success.
+- Phase A: all 27 Administration sections driven with every control-plane call
+  forced to `403 TENANT_NOT_FOUND` → 27/27 rendered, 0 page errors, 0 black
+  screens, boundary never needed.
+- Phase B: full SPA scan from the router source (32 static + 12 parameterised;
+  nested routes discovered from real hrefs). Found a SECOND, unrelated black
+  screen: `/xdr/detections/:id` → `ReferenceError: Bug is not defined`
+  (`XdrDetectionRuleEditorPage.jsx:294`, missing lucide import) — fixed, then
+  swept every `.jsx` for the same class (only prop aliases and comments remain).
+  FINAL: **30/30 PASS · 0 BLACK_SCREEN · 0 RUNTIME_EXCEPTION · 0 BROKEN_ROUTE**.
+- `yarn build` exit 0 · production-build guard PASSED (incl. collector-base).
+- Backend untouched, no republish, Vercel NOT promoted, **W1 HELD**.
+
