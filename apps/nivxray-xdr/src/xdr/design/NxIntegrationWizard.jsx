@@ -1,5 +1,5 @@
 /**
- * Round 25a · CortexOnboardingWizard.
+ * Round 25a · NxIntegrationWizard.
  *
  * Typed onboarding for Palo Alto Cortex XDR — never a generic REST
  * connector.  Progressive-disclosure stages, each rendered as an
@@ -60,7 +60,7 @@ const REASON_LABEL = {
   UNEXPECTED_STATUS:      "vendor returned an unexpected status",
 };
 
-export default function CortexOnboardingWizard({ onClose, onBound }) {
+export default function NxIntegrationWizard({ onClose, onBound }) {
   // Form state — API key held in a ref, never in setState, so React
   // devtools / DOM inspection never expose it after submit.
   const [label,      setLabel]      = useState("Cortex XDR");

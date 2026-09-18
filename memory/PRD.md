@@ -17840,3 +17840,40 @@ bindings, measured parser_ok/normalized_ok, collector queue/drop metrics.
 Slice 1 proposed (needs approval): design-system consolidation → global shell →
 Data Sources end-to-end. W2-1 stays independently controlled; UI must NOT claim
 PowerShell/Security/multi-channel before W2 proves it. STOPPED for owner approval.
+
+## 2026-09-18 · UI SLICE 1 DELIVERED (design system → shell → Data Sources)
+Evidence: `memory/UI_SLICE1_EVIDENCE.md`. Scope held exactly to S1-A..S1-E. W1
+CLOSED/FROZEN untouched; W2-1 untouched (git status shows only
+`apps/nivxray-xdr/src/**`).
+- **xdr/nx/ is now authoritative.** ADOPTED existing primitives unchanged; BUILT the
+  four missing ones: `NxDataTable` (search/sort/columns/pagination/selection/bulk/row
+  actions/loading/empty/error/keyboard), `NxFlyout` (layered, with back + open-full-page),
+  `NxStatus`+`NxHealthVerdict`+`NxMetric` (status grammar incl. HEALTHY · EVIDENCE
+  INCOMPLETE and honest absence), `NxTabs`. `xdr/design/tokens.css`, the *V2 components
+  and the duplicate incident tree were classified MIGRATE-LATER and left untouched —
+  nothing deleted on grep or assumption.
+- **Platform defect found + fixed:** `.nx-kpi` is a `32px|1fr` icon grid, so ANY
+  icon-less KPI dropped its body into the 32px column and wrapped one word per line.
+  Fixed with `nx-kpi--noicon` applied by NxKpi/NxMetric. Pre-existing, not introduced.
+- `CortexOnboardingWizard` → **`NxIntegrationWizard`** with its 2 importers updated;
+  no blind global rename.
+- **Data Sources is a rail primary**, no second permanent nav column, and NO route was
+  removed or redirected — `/xdr/admin/*` deep links still work; Slice 1 only adds
+  `/xdr/data-sources{,/:tab}`.
+- IA implemented: Overview · Sources · Collectors · Integrations · Coverage · Health ·
+  Verify + the Choose→Recommended→Configure/deploy→Verify→Ready wizard. Live real data
+  observed: 9 declared sources, 9 receiving, 47,150 accepted events, 13 catalog cards,
+  3 transports. Full API→UI provenance table is in the evidence file.
+- **BUILD contracts declared, never faked:** EPS, latency P50/P95/P99, evidence
+  completeness (COLLECTION_GAP), dropped events, rules-consuming-source, measured
+  parser_ok/normalized_ok, dedupe observability — each renders a dashed chip + reason.
+- **W2 separation held:** the wizard states that Security/PowerShell/Defender/AppLocker/
+  WMI/TaskScheduler are not claimed until the W2 engine proves them.
+- Acceptance: production build PASS (twice), light + dark PASS, deep links PASS,
+  a11y basics (roles/aria/keyboard/focus-visible) PASS, tenant + RBAC + auth unchanged,
+  no fake telemetry. NOT claimed: there is no automated frontend test suite in this app,
+  so "frontend tests pass" is not asserted — a NxDataTable harness is proposed for S2.
+- Slice 2 PROPOSAL ONLY (not authorised): Incidents onto the same primitives + collapse
+  the duplicate incident tree; retire the second token set; consolidate 3 dashboards /
+  2 rule studios / 3 KB routes; then build per-stream counters + computed latency so
+  Verify and Health stop showing dashes.

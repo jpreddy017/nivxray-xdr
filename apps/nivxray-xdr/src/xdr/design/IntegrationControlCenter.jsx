@@ -41,7 +41,7 @@ import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import Entity from "./Entity";
 import EvidenceState from "./EvidenceState";
 import Action, { ActionGroup } from "./Action";
-import CortexOnboardingWizard from "./CortexOnboardingWizard";
+import NxIntegrationWizard from "./NxIntegrationWizard";
 import "./tokens.css";
 import { ConnectorWizard } from "./_WizardLegacyBridge";
 
@@ -226,7 +226,7 @@ export default function IntegrationControlCenter({ refreshNonce }) {
       )}
       {(wizardCategory || editing) && (
         wizardCategory?.vendor === "cortex"
-          ? <CortexOnboardingWizard
+          ? <NxIntegrationWizard
               onClose={() => setWizardCategory(null)}
               onBound={async () => { setWizardCategory(null); await load(); }}
             />

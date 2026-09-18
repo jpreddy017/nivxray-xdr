@@ -16,6 +16,8 @@ import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
 const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPage"));
+// Slice 1 · Data Sources is a first-class XDR destination, not an admin page.
+const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSourcesPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
@@ -153,6 +155,10 @@ export default function App() {
             entities from v2_shadow_observations, so it is a real page
             again instead of a redirect to the incident queue. */}
         <Route path="/xdr/search"          element={<Protected><XdrSearchPage /></Protected>} />
+        {/* Slice 1 · Data Sources. Deep links to the old admin telemetry
+            surfaces are untouched; this is an additional destination. */}
+        <Route path="/xdr/data-sources"      element={<Protected><DataSourcesPage /></Protected>} />
+        <Route path="/xdr/data-sources/:tab" element={<Protected><DataSourcesPage /></Protected>} />
         <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
         {/* X1 · the information architecture stays complete; unsupported
             capabilities render an explicit NOT_IMPLEMENTED page. */}

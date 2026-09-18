@@ -17,3 +17,10 @@ export { NxSurface, NxKpi, NxPill }         from "./NxSurface";
 export { NxEmpty as NxEmptyBlock }          from "./NxSurface";
 export { NxEmpty, NxSkeleton }              from "./NxEmpty";
 export { NxDensityProvider, useNxDensity }  from "./NxDensity";
+
+// Slice 1 · enterprise primitives. One table, one flyout, one status
+// grammar, one tab bar — every page composes these instead of its own.
+export { default as NxDataTable }           from "./NxDataTable";
+export { default as NxFlyout }              from "./NxFlyout";
+export { default as NxTabs }                from "./NxTabs";
+export { default as NxStatus, NxHealthVerdict, NxMetric } from "./NxStatus";

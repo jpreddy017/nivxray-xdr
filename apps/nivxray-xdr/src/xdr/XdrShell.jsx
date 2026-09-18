@@ -308,6 +308,11 @@ const RAIL = [
     to: "/xdr/endpoints",
     children: ["assets-identity", "assets-network", "vulnerabilities",
                "exposure", "attack-paths", "critical-assets"] },
+  // Slice 1 · telemetry onboarding is an operator destination, not an
+  // engineering sub-page. It stops being buried under Administration.
+  { key: "data-sources-primary", label: "Data Sources", icon: HardDrive,
+    to: "/xdr/data-sources",
+    children: [] },
   { key: "client-management", label: "Client Management", icon: Users,
     to: "/xdr/admin/users-roles",
     children: ["users-roles", "response-policies",
@@ -337,8 +342,7 @@ function useActiveKey() {
       const key = pathname.split("/")[3];
       return key || null;
     }
-    if (pathname.startsWith("/xdr/investigations")) return "investigations";
-    if (pathname.startsWith("/xdr/evidence-explorer")) return "evidence-explorer";
+    if (pathname.startsWith("/xdr/investigations")) return "investigations";    if (pathname.startsWith("/xdr/evidence-explorer")) return "evidence-explorer";
     if (pathname.startsWith("/xdr/intelligence/")) {
       const key = pathname.split("/")[3];
       // Sidebar keys are authoritative — URL keys map back to them.
