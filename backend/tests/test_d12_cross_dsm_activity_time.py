@@ -123,6 +123,40 @@ SAMPLES: dict[str, dict] = {
         "expect_activity_source": "zeek:dns.log ts",
         "expect_observation_source": "zeek:dns.log _write_ts",
     },
+    # W2-1 · the PowerShell ETW channels carry no activity-occurrence
+    # field at all. `TimeCreated` is when the provider wrote the record, so
+    # this DSM may only ever declare an OBSERVATION.
+    "windows-powershell-evd": {
+        "event": {"EventID": 4104,
+                  "provider": "Microsoft-Windows-PowerShell",
+                  "channel": "Microsoft-Windows-PowerShell/Operational",
+                  "Computer": "WIN-WS-07",
+                  "TimeCreated": "2026-06-01T10:00:00+00:00",
+                  "EventData": {"MessageNumber": "1", "MessageTotal": "1",
+                                "ScriptBlockText": "Get-Process",
+                                "ScriptBlockId": "{d12-d12}",
+                                "Path": "C:\\d12\\demo.ps1"}},
+        "time_keys": ["TimeCreated"],
+        "proves_activity": False,
+        "expect_observation_source":
+            "windows_powershell:System.TimeCreated.SystemTime",
+    },
+    # W2-1 lane housekeeping · the M365 Management Activity DSM had no D12
+    # sample, which is precisely the gap the guard below exists to catch.
+    # `CreationTime` is Microsoft's record of WHEN THE ACTIVITY HAPPENED;
+    # the API is a service audit log, so there is no sensor observation to
+    # record and that boundary stays NOT_OBSERVED by declaration.
+    "m365-unified-audit": {
+        "event": {"RecordType": 15, "Operation": "UserLoggedIn",
+                  "Workload": "AzureActiveDirectory",
+                  "OrganizationId": "d12-org", "Id": "m365-d12",
+                  "CreationTime": "2026-06-01T10:00:00",
+                  "UserId": "dev1@fixture.test",
+                  "ResultStatus": "Success"},
+        "time_keys": ["CreationTime"],
+        "proves_activity": True,
+        "expect_activity_source": "m365:CreationTime",
+    },
 }
 
 
@@ -292,6 +326,19 @@ def test_windows_never_promotes_timecreated_to_activity():
     assert "record-generation instant" in ts[ACT]["reason"]
     assert ts[OBS]["status"] == pts.AVAILABLE
     assert ts[OBS]["source"] == "windows:System.TimeCreated.SystemTime"
+    assert declarations(c)["event_time_basis"] == etb.OBSERVATION_TIME
+    assert declarations(c)["event_time_substituted"] is True
+
+
+def test_powershell_never_promotes_timecreated_to_activity():
+    c = normalize("windows-powershell-evd",
+                  SAMPLES["windows-powershell-evd"]["event"])
+    ts = stamps(c)
+    assert ts[ACT]["status"] == pts.NOT_OBSERVED
+    assert "when the script ran" in ts[ACT]["reason"]
+    assert ts[OBS]["status"] == pts.AVAILABLE
+    assert ts[OBS]["source"] == \
+        "windows_powershell:System.TimeCreated.SystemTime"
     assert declarations(c)["event_time_basis"] == etb.OBSERVATION_TIME
     assert declarations(c)["event_time_substituted"] is True
 

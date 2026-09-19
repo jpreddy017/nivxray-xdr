@@ -228,6 +228,11 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
         from .zeek_json_dsm import ZeekJsonDSM
         return ZeekJsonDSM()
 
+    # W2-1 · the PowerShell channels acquired by the native Windows adapter.
+    def _powershell():
+        from .windows_powershell_dsm import WindowsPowerShellDSM
+        return WindowsPowerShellDSM()
+
     reg.try_register("windows-security-evd", _windows)
     reg.try_register("linux-auditd", _linux)
     reg.try_register("aws-cloudtrail", _cloudtrail)
@@ -240,6 +245,11 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
     # `supports()` is narrow enough that content recognition can only ever
     # confirm what the collector declared.
     reg.try_register("zeek-json", _zeek)
+    # W2-1 · Microsoft-Windows-PowerShell/Operational and the classic
+    # `Windows PowerShell` channel. Selected by DECLARATION; its
+    # `supports()` additionally requires the PowerShell provider, so a
+    # small event id shared with another provider can never be claimed.
+    reg.try_register("windows-powershell-evd", _powershell)
 
 
 _register_builtin_dsms(TELEMETRY_DSM_REGISTRY)

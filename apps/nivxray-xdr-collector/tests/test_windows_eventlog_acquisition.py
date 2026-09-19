@@ -357,24 +357,35 @@ def test_named_profiles_resolve_their_channels(store):
 
 
 def test_collection_support_does_not_imply_analysis_support(store):
-    r = FakeReader([("Security", {"records": [sysmon_xml(90).replace(
-        SYSMON, "Security")], "bookmark_xml": "bm", "state": "READ_OK"})])
-    c = make(r, store, channels=("Security",))
+    # W2-1 · Security and PowerShell are now normalized by core DSMs, so
+    # the invariant is asserted on a channel that is genuinely acquired and
+    # genuinely not analysable yet. The invariant itself is unchanged.
+    TASKS = "Microsoft-Windows-TaskScheduler/Operational"
+    r = FakeReader([(TASKS, {"records": [sysmon_xml(90).replace(
+        SYSMON, TASKS)], "bookmark_xml": "bm", "state": "READ_OK"})])
+    c = make(r, store, channels=(TASKS,))
     collect(c)
-    rep = c.channel_reports["Security"]
+    rep = c.channel_reports[TASKS]
     # Acquired successfully...
     assert rep["state"] == "READ_OK"
     assert rep["collection_support"] == "SUPPORTED"
     # ...and explicitly NOT analysable yet.
     assert rep["analysis_support"]["normalization"] == "NOT YET SUPPORTED"
     assert rep["analysis_support"]["detection_coverage"] == "NOT AVAILABLE"
-    assert rep["analysis_support"]["roadmap_position"] == 1
+    assert rep["analysis_support"]["roadmap_position"] == 2
 
 
-def test_sysmon_is_the_only_analysis_supported_channel(store):
+def test_windows_channel_analysis_support_is_stated_per_channel(store):
     from framework.windows_eventlog import analysis_support
     assert analysis_support(SYSMON)["normalization"] == "SUPPORTED"
     assert analysis_support(SYSMON)["dsm"] == "sysmon_dsm"
+    # W2-1 · normalization is SUPPORTED for these two; detection coverage
+    # is stated SEPARATELY and is not claimed where it does not exist.
+    assert analysis_support("Security")["normalization"] == "SUPPORTED"
+    assert analysis_support("Security")["dsm"] == "windows-security-evd"
+    assert analysis_support("Security")["detection_coverage"] == "PARTIAL"
+    assert analysis_support(PS)["dsm"] == "windows-powershell-evd"
+    assert analysis_support(PS)["detection_coverage"] == "NOT AVAILABLE"
     assert analysis_support("Application")["dsm"] is None
 
 

@@ -2,6 +2,56 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-06 · W2-1B — Windows Security + PowerShell canonical evidence — SHIPPED
+
+The W2-1 adapter delivers rendered EVTX XML; every Windows DSM read a
+decoded document. So a channel could be genuinely RECEIVING and report
+`NO_DSM` forever. That gap is now closed, and Security + PowerShell
+telemetry becomes canonical evidence instead of preserved-but-unreadable
+XML. Report `memory/W2-1B_WINDOWS_CHANNEL_DSM_REPORT.md`.
+
+**Backend**
+- `detection_content/telemetry/evtx_xml.py` (new) — the ONE place rendered
+  Windows XML becomes JSON. Interprets nothing, invents nothing, discards
+  nothing: the verbatim XML remains the authority. Unnamed positional
+  `<Data>` (the classic PowerShell channel) is preserved positionally.
+- `routers/xdr_ingest.py :: _document_for_pipeline` — decodes once, for
+  BOTH declared-source routing and the pipeline, and records the outcome
+  under `_nivx.evtx_decode` so "not a Windows record" can never be
+  confused with "a Windows record we could not read".
+- `windows_security_dsm.py` — accepts rendered XML; coverage widened to
+  4648, 4672, 4720, 4726, 4732, 4776, 4698, 1102. 1102 is normalized from
+  `UserData`. Actor and target account stay separate entities.
+- `windows_powershell_dsm.py` (new) — 4103/4104/4105/4106 plus classic
+  400/403/500/501/600/800. `ContextInfo` and the classic key=value block
+  are parsed (both spaced and unspaced spellings). `ScriptBlockText` is
+  carried verbatim: no decoding, no deobfuscation, no scoring, and
+  Command Intelligence is NOT invoked — it stays a downstream consumer
+  and stays PAUSED.
+- `telemetry/registry.py`, `services/source_routing.py` —
+  `windows-powershell-evd` registered; `windows_security` /
+  `windows_powershell` / `powershell` resolve as aliases to the one
+  catalog key permitted to interpret them. Previously refused
+  `UNSUPPORTED_SOURCE`.
+
+**Collector**
+- `framework/windows_eventlog.py` — `ANALYSIS_SUPPORTED` now states
+  Security (normalization SUPPORTED / detection PARTIAL) and both
+  PowerShell channels (SUPPORTED / NOT AVAILABLE). Collection support and
+  analysis support remain two separate facts.
+
+**Temporal invariant**
+- Neither channel carries an activity-occurrence field, so both DSMs
+  declare `OBSERVATION_TIME` with `activity_occurred_at` `NOT_OBSERVED`.
+  The D12 cross-DSM guard was itself red (`m365-unified-audit` had no
+  temporal sample) and is now green.
+
+**Verification** — self-tested per owner instruction (no testing agent):
+33 new backend tests, 119 passing across the Windows/temporal suites,
+229 passing across ingest/routing/telemetry regression, 134/134 collector
+tests.
+
+
 ## 2026-09-08 · P0-3 — Blindness/Staleness Detection + Linux Sensor Recovery — SHIPPED
 
 NivXForge can now detect and state when its OWN telemetry pipeline has

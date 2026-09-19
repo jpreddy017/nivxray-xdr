@@ -135,12 +135,27 @@ ANALYSIS_SUPPORTED = {
     "Microsoft-Windows-Sysmon/Operational": {
         "dsm": "sysmon_dsm", "normalization": "SUPPORTED",
         "detection_coverage": "SUPPORTED"},
+    # W2-1 · Security and both PowerShell channels are normalized by the
+    # core DSMs `windows-security-evd` and `windows-powershell-evd`.
+    # `detection_coverage` is stated separately and deliberately: canonical
+    # evidence exists and can be reasoned over, but published detection
+    # content for these channels is still being built, and claiming
+    # coverage we cannot demonstrate would be the exact lie this two-state
+    # model exists to prevent.
+    "Security": {
+        "dsm": "windows-security-evd", "normalization": "SUPPORTED",
+        "detection_coverage": "PARTIAL"},
+    "Microsoft-Windows-PowerShell/Operational": {
+        "dsm": "windows-powershell-evd", "normalization": "SUPPORTED",
+        "detection_coverage": "NOT AVAILABLE"},
+    "Windows PowerShell": {
+        "dsm": "windows-powershell-evd", "normalization": "SUPPORTED",
+        "detection_coverage": "NOT AVAILABLE"},
 }
 
 #: The DSM roadmap order the owner set. Declared here so the admin surface
 #: can state WHEN, not just that something is missing.
 ANALYSIS_ROADMAP = [
-    "Security", "Microsoft-Windows-PowerShell/Operational",
     "Microsoft-Windows-Windows Defender/Operational",
     "Microsoft-Windows-TaskScheduler/Operational",
     "Microsoft-Windows-WMI-Activity/Operational",

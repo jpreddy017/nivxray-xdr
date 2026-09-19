@@ -73,6 +73,8 @@ SOURCE_CATALOG: dict[str, str] = {
     "m365-unified-audit":     "m365-unified-audit",
     #: N1 · Zeek / Corelight conn + dns JSON records.
     "zeek-json":              "zeek-json",
+    #: W2-1 · the PowerShell channels the native Windows adapter acquires.
+    "windows-powershell-evd": "windows-powershell-evd",
 }
 
 #: Spelling variants a collector may legitimately use. Every alias resolves
@@ -106,6 +108,14 @@ SOURCE_ALIASES: dict[str, str] = {
     "corelight":  "zeek-json",
     "zeek-conn":  "zeek-json",
     "zeek-dns":   "zeek-json",
+    #: W2-1 · the declared_source strings the Windows Event Log adapter
+    #: emits (`framework/windows_eventlog.py :: CHANNELS`). They are
+    #: ALIASES, so the authorization check still resolves to the one
+    #: catalog key that names the single DSM permitted to interpret them.
+    "windows_security":       "windows-security-evd",
+    "windows_powershell":     "windows-powershell-evd",
+    "windows-powershell":     "windows-powershell-evd",
+    "powershell":             "windows-powershell-evd",
 }
 
 

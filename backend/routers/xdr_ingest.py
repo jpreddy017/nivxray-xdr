@@ -36,6 +36,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from pymongo import MongoClient
 
+from detection_content.telemetry import evtx_xml
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission, verified_actor
 from services import ingest_idempotency as idem
@@ -335,6 +336,27 @@ def _document_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
     doc = dict(e.raw or {})
     if TRANSPORT_NS in doc:
         raise IngestShapeCollision(TRANSPORT_NS)
+    # ── W2-1 · a rendered Windows Event Log record is decoded ONCE ─────
+    # The native Windows adapter delivers `EvtRender(EvtRenderEventXml)`
+    # output verbatim. Without this step the XML reaches every DSM's
+    # `supports()` as an opaque string, no DSM claims it, and a channel
+    # that is genuinely RECEIVING reports NO_DSM forever. The verbatim XML
+    # stays in the document and stays the authority; the decode only adds
+    # the fields the XML already contained, and its outcome is recorded so
+    # "not a Windows record" can never be confused with "a Windows record
+    # we could not read".
+    evtx_decode: dict[str, Any] | None = None
+    try:
+        _decoded = evtx_xml.decode_document(doc)
+    except evtx_xml.EvtxXmlDecodeError as exc:
+        evtx_decode = {"decoded": False, "code": exc.code,
+                       "reason": exc.message,
+                       "decoder_id": evtx_xml.DECODER_ID}
+    else:
+        if _decoded is not None:
+            doc = _decoded
+            evtx_decode = {"decoded": True,
+                           "decoder_id": evtx_xml.DECODER_ID}
     withheld: dict[str, Any] = {}
     if "tenant_id" in doc:
         withheld["tenant_id"] = doc.pop("tenant_id")
@@ -354,6 +376,7 @@ def _document_for_pipeline(e: CanonicalEnvelope) -> dict[str, Any]:
                                    or (e.canonical or {}).get(
                                        "payload_format"),
         "source_fields_withheld":  withheld or None,
+        "evtx_decode":             evtx_decode,
         "withheld_reason": (
             "a source-supplied tenant_id is recorded as a claim and never "
             "used: the authenticated tenant is the only authority on "

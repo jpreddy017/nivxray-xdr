@@ -23,6 +23,9 @@ $ErrorActionPreference = 'SilentlyContinue'
 $INGEST = 'https://greeting-app-5782.preview.emergentagent.com/api/xdr/ingest/telemetry'
 $STATE  = 'C:\ProgramData\NivXRay\state'
 $R = [ordered]@{}
+# TLS 1.2 must be selected BEFORE the first HTTPS call on PowerShell 5.1,
+# whose default (SSL3/TLS1.0) the ingest endpoint will refuse.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 Write-Host "`n=== W2-R0 · NivXRay XDR Windows pre-flight (READ-ONLY) ===`n" -ForegroundColor Cyan
 
@@ -80,10 +83,12 @@ $channels = @(
 $chanRows = foreach ($c in $channels) {
   $log = Get-WinEvent -ListLog $c -ErrorAction SilentlyContinue
   if ($log) {
+    $newest = 'UNREADABLE_AS_THIS_USER'
+    try { $newest = (Get-WinEvent -LogName $c -MaxEvents 1 -ErrorAction Stop).TimeCreated } catch { $newest = 'UNREADABLE_AS_THIS_USER' }
     [pscustomobject]@{
       Channel = $c; State = 'PRESENT'; Enabled = $log.IsEnabled
       Records = $log.RecordCount; MaxSizeMB = [math]::Round($log.MaximumSizeInBytes/1MB,0)
-      Newest  = try { (Get-WinEvent -LogName $c -MaxEvents 1 -ErrorAction Stop).TimeCreated } catch { 'UNREADABLE_AS_THIS_USER' }
+      Newest  = $newest
     }
   } else {
     [pscustomobject]@{ Channel=$c; State='NOT PRESENT'; Enabled=$null
@@ -99,31 +104,39 @@ $R['audit_logon'] = (auditpol /get /subcategory:"Logon" 2>&1 | Select-String 'Lo
 # ── R0-6 · outbound reachability + TLS to the REAL endpoint ──────
 $u = [uri]$INGEST
 $R['ingest_url'] = $INGEST
-$tnc = Test-NetConnection -ComputerName $u.Host -Port 443 -WarningAction SilentlyContinue
-$R['tcp_443'] = if ($tnc.TcpTestSucceeded) { 'PASS' } else { 'BLOCKED' }
-$R['dns_resolves'] = ($tnc.RemoteAddress).IPAddressToString
+$tnc = $null
+try { $tnc = Test-NetConnection -ComputerName $u.Host -Port 443 -WarningAction SilentlyContinue -ErrorAction Stop } catch { $tnc = $null }
+$R['tcp_443'] = if ($tnc -and $tnc.TcpTestSucceeded) { 'PASS' } else { 'BLOCKED' }
+$R['dns_resolves'] = if ($tnc -and $tnc.RemoteAddress) { $tnc.RemoteAddress.IPAddressToString } else { 'NOT RESOLVED' }
 $R['proxy_env'] = "HTTPS_PROXY=$($env:HTTPS_PROXY) HTTP_PROXY=$($env:HTTP_PROXY)"
 $R['winhttp_proxy'] = (netsh winhttp show proxy 2>&1 | Out-String).Trim()
-# An UNAUTHENTICATED probe. 401/403 is the CORRECT answer: it proves TLS and
-# reachability while proving the endpoint refuses unauthenticated delivery.
+# An UNAUTHENTICATED, NON-MUTATING probe. A 401/403/405 is the CORRECT
+# answer: it proves TLS and reachability while proving the endpoint refuses
+# anything unauthenticated. W2-R0 sends no telemetry and enrols nothing.
 try {
-  $resp = Invoke-WebRequest -Uri $INGEST -Method POST -Body '{"envelopes":[]}' `
-            -ContentType 'application/json' -UseBasicParsing -TimeoutSec 20
+  $resp = Invoke-WebRequest -Uri $INGEST -Method GET `
+            -UseBasicParsing -TimeoutSec 20
   $R['ingest_unauth_status'] = $resp.StatusCode
 } catch {
   $R['ingest_unauth_status'] = $_.Exception.Response.StatusCode.value__
   if (-not $R['ingest_unauth_status']) { $R['ingest_unauth_status'] = "NO RESPONSE: $($_.Exception.Message)" }
 }
-$R['tls_cert_subject'] = try {
-  $c = [Net.HttpWebRequest]::Create("https://$($u.Host)")
-  $c.Timeout = 15000; $null = $c.GetResponse(); $c.ServicePoint.Certificate.Subject
-} catch { "TLS CHECK FAILED: $($_.Exception.Message)" }
+$tlsSubject = 'TLS CHECK NOT RUN'
+try {
+  $req = [Net.HttpWebRequest]::Create("https://$($u.Host)")
+  $req.Timeout = 15000
+  $null = $req.GetResponse()
+  $tlsSubject = $req.ServicePoint.Certificate.Subject
+} catch {
+  $tlsSubject = "TLS CHECK FAILED: $($_.Exception.Message)"
+}
+$R['tls_cert_subject'] = $tlsSubject
 
 # ── R0-7 · durable-queue disk + state path ───────────────────────
-$drive = Get-PSDrive -Name ($STATE.Substring(0,1))
+$drive = Get-PSDrive -Name ($STATE.Substring(0,1)) -ErrorAction SilentlyContinue
 $R['state_dir']        = $STATE
 $R['state_dir_exists'] = Test-Path $STATE
-$R['free_gb']          = [math]::Round($drive.Free/1GB,2)
+$R['free_gb']          = if ($drive) { [math]::Round($drive.Free/1GB,2) } else { 'UNKNOWN' }
 $R['free_gb_required'] = 2
 
 Write-Host '--- HOST / RUNTIME / CONNECTIVITY ---' -ForegroundColor Yellow
