@@ -1,80 +1,48 @@
-.wx-wrap { display: flex; flex-direction: column; gap: 22px; }
+/* windows.css · ONLY the stage rail, which is a Windows-specific
+ * composition. Tokens only — both themes are first-class.
+ * Everything that used to live here (wx-chip, wx-kv, wx-section, wx-fact,
+ * wx-btn, wx-tag, wx-filters…) was a second design system and is gone. */
 
-.wx-chip {
-  display: inline-block; padding: 1px 7px; border-radius: 2px;
-  font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
-  text-transform: uppercase; white-space: nowrap;
-  border: 1px solid transparent;
+.wxs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wxs-arrow { color: var(--nx-faint); flex: 0 0 auto; }
+.wxs-stage {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  padding: 5px 9px; cursor: pointer;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 5px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
-.wx-ok    { background: rgba(34,197,94,.10);  color: #4ade80; border-color: rgba(34,197,94,.28); }
-.wx-warn  { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.28); }
-.wx-bad   { background: rgba(239,68,68,.10);  color: #f87171; border-color: rgba(239,68,68,.30); }
-.wx-info  { background: rgba(56,189,248,.08); color: #7dd3fc; border-color: rgba(56,189,248,.24); }
-.wx-muted { background: rgba(148,163,184,.08); color: #94a3b8; border-color: rgba(148,163,184,.22); }
-.wx-dim   { color: #64748b; }
-
-.wx-stagebar { display: flex; align-items: center; gap: 4px; }
-.wx-stage-arrow { color: #475569; flex: 0 0 auto; }
-.wx-stage {
-  display: flex; flex-direction: column; align-items: flex-start;
-  gap: 1px; padding: 3px 8px; border-radius: 3px; cursor: pointer;
-  background: rgba(148,163,184,.06); border: 1px solid rgba(148,163,184,.18);
-  transition: background-color .15s ease, border-color .15s ease;
+.wxs-stage:hover {
+  background: var(--nx-surf-hover); border-color: var(--nx-bd-strong);
 }
-.wx-stage:hover { background: rgba(148,163,184,.13); border-color: rgba(148,163,184,.34); }
-.wx-stage-name  { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
-.wx-stage-state { font-size: 10.5px; font-weight: 600; color: #cbd5e1; }
-.wx-stage-on .wx-stage-name  { color: #4ade80; }
-.wx-stage-off .wx-stage-name { color: #64748b; }
-.wx-stage-off .wx-stage-state { color: #94a3b8; }
-
-.wx-section { display: flex; flex-direction: column; gap: 10px; }
-.wx-section-title {
-  margin: 0; font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
-  color: #94a3b8; font-weight: 700;
+.wxs-stage:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px var(--nx-purple-ring);
 }
-.wx-section-note { margin: 0; font-size: 11.5px; color: #64748b; max-width: 88ch; line-height: 1.5; }
-
-.wx-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 26px; }
-.wx-fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wx-fact-label  { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
-.wx-fact-value  { font-size: 12.5px; color: #e2e8f0; overflow-wrap: anywhere; }
-.wx-fact-reason { font-size: 10.5px; color: #64748b; line-height: 1.45; }
-
-.wx-pane { display: flex; flex-direction: column; gap: 20px; }
-.wx-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.wx-tag {
-  font-size: 10.5px; padding: 1px 6px; border-radius: 2px;
-  background: rgba(148,163,184,.08); color: #cbd5e1;
-  border: 1px solid rgba(148,163,184,.18); font-family: ui-monospace, monospace;
+.wxs-name {
+  font: 700 9.5px/1.2 var(--sans); text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--nx-muted);
 }
+.wxs-stage[data-reached="true"] { border-left: 3px solid var(--nx-benign); }
+.wxs-stage[data-reached="false"] { border-left: 3px solid var(--nx-bd-strong); }
+
+/* Page rhythm: generous, consistent, never ad-hoc per section. */
+.wx-stack { display: flex; flex-direction: column; gap: 20px; }
+.wx-split {
+  display: grid; gap: 20px;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .wx-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* PAGE LAYOUT ONLY (classified per the owner's CSS convergence rule):
+ * a fact grid and an inline attention line. No colours are invented —
+ * both resolve through nx tokens. */
+.wx-facts { display: grid; gap: 10px 26px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .wx-attn {
-  font-size: 10.5px; font-weight: 600; color: #fbbf24;
-  letter-spacing: .04em;
+  font: 600 11.5px/1.5 var(--sans);
+  color: var(--nx-medium);
 }
-.wx-xml {
-  margin: 0; padding: 12px; border-radius: 3px; max-height: 420px; overflow: auto;
-  background: #0b1220; border: 1px solid rgba(148,163,184,.16);
-  font-family: ui-monospace, monospace; font-size: 11.5px; line-height: 1.55;
-  color: #cbd5e1; white-space: pre-wrap; overflow-wrap: anywhere;
-}
-.wx-kv { width: 100%; border-collapse: collapse; font-size: 12px; }
-.wx-kv td { padding: 4px 10px 4px 0; vertical-align: top; border-bottom: 1px solid rgba(148,163,184,.10); }
-.wx-kv td:first-child { color: #64748b; white-space: nowrap; width: 1%; font-family: ui-monospace, monospace; }
-.wx-kv td:last-child  { color: #e2e8f0; overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
-
-.wx-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
-.wx-filter { display: flex; flex-direction: column; gap: 3px; }
-.wx-filter > span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
-.wx-filter input, .wx-filter select {
-  background: #0b1220; color: #e2e8f0; font-size: 12px; padding: 4px 7px;
-  border: 1px solid rgba(148,163,184,.22); border-radius: 3px; min-width: 150px;
-}
-.wx-filter input:focus, .wx-filter select:focus { outline: none; border-color: #38bdf8; }
-.wx-btn {
-  background: rgba(56,189,248,.12); color: #7dd3fc; font-size: 11.5px; font-weight: 600;
-  padding: 5px 12px; border: 1px solid rgba(56,189,248,.34); border-radius: 3px;
-  cursor: pointer; transition: background-color .15s ease;
-}
-.wx-btn:hover { background: rgba(56,189,248,.22); }
-.wx-mono { font-family: ui-monospace, monospace; font-size: 11.5px; }

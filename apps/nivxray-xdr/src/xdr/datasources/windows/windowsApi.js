@@ -47,6 +47,7 @@ export const getWindowsDevices = () => get("/xdr/windows/devices");
 export const getWindowsDevice = (origin) =>
   get(`/xdr/windows/devices/${encodeURIComponent(origin)}`);
 export const getWindowsCollectors = () => get("/xdr/windows/collectors");
+export const getWindowsCoverage = () => get("/xdr/windows/coverage");
 export const getWindowsConfiguration = () => get("/xdr/windows/configuration");
 
 /** Event Explorer · source-agnostic canonical event search. */
@@ -59,15 +60,28 @@ export const getEventDetail = (eventId) =>
 export const measured = (value) =>
   value === null || value === undefined ? "—" : String(value);
 
+/**
+ * The tenant-scope refusal is a CORRECT, fail-closed answer, not a fault:
+ * a cross-tenant principal must name the customer it is operating in
+ * before any tenant-scoped truth can be computed. It is recognised here so
+ * the console can say what to do instead of repeating the raw sentence.
+ */
+export const isTenantRequired = (message) =>
+  typeof message === "string"
+  && /must name the tenant|no default tenant|TENANT_REQUIRED/i.test(message);
+
 /** The tone each state carries. Mirrors the server vocabularies exactly. */
 export const STATE_TONE = {
   RECEIVING: "ok",
   AVAILABLE: "ok",
+  "AVAILABLE NOW": "ok",
   SUPPORTED: "ok",
+  PASS: "ok",
   MATERIALISED: "ok",
   OBSERVED: "ok",
   MATCHED: "warn",
   PARTIAL: "warn",
+  POTENTIAL: "warn",
   DEGRADED: "warn",
   "GAP DETECTED": "warn",
   CONFIGURED: "info",
@@ -77,6 +91,8 @@ export const STATE_TONE = {
   "NOT AVAILABLE": "muted",
   "NOT PROVEN": "muted",
   "NOT ESTABLISHED": "muted",
+  "NOT APPLICABLE": "muted",
   UNSUPPORTED: "muted",
+  BLOCKED: "bad",
   ERROR: "bad",
 };

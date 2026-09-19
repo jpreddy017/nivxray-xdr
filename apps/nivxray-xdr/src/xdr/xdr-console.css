@@ -358,7 +358,7 @@
 .xdr-console .x-table thead th {
   text-align: left; padding: 10px 12px;
   font-size: 9.8px; font-weight: 700; letter-spacing: .4px;
-  text-transform: uppercase; color: var(--faint);
+  text-transform: uppercase; color: var(--nx-text-dim);
   background: var(--panel2); border-bottom: 1px solid var(--border);
 }
 .xdr-console .x-table tbody td {
@@ -830,7 +830,7 @@
 }
 .xdr-console .x-table thead th {
   background: var(--nx-surf-inset);
-  color: var(--nx-muted);
+  color: var(--nx-text-dim);
   border-bottom: 1px solid var(--nx-bd-quiet);
   font-family: var(--sans);
   font-size: 10px; font-weight: 800;

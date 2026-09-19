@@ -39,8 +39,8 @@ function Prose({ text }) {
     <span>
       {parts.map((p, i) => (i % 2 === 1
         ? <span key={i} className="mono"
-                style={{ color: "#E4E9F0", background: "#11161D",
-                         border: "1px solid #212B36", borderRadius: 3,
+                style={{ color: "#E4E9F0", background: "var(--nx-surf-inset)",
+                         border: "1px solid var(--nx-bd-quiet)", borderRadius: 3,
                          padding: "0 3px" }}>{p}</span>
         : <span key={i}>{p}</span>))}
     </span>
@@ -114,7 +114,7 @@ export default function ActivityDetailsPanel({
       </div>
 
       {/* ── Prose primary fact ─────────────────────────────────── */}
-      <div style={{ background: "#0D1218", border: "1px solid #212B36",
+      <div style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                     borderRadius: 4, padding: 10, fontSize: 11.5,
                     lineHeight: 1.85, color: "var(--text-dim)" }}
            data-testid="edr-activity-narrative">

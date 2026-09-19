@@ -156,15 +156,18 @@
   --nx-elevated:       #FFFFFF;
   --nx-inset:          var(--nx-surf-inset);
 
-  --nx-bd-quiet:       #E2E8F0;
-  --nx-bd-strong:      #CBD5E1;
+  /* Seams carry table structure in a dense console, so they are held to a
+     measurable floor (≥1.4:1 against every surface) rather than to taste.
+     `scripts/nx_contrast_audit.py` gates these values in BOTH themes. */
+  --nx-bd-quiet:       #C3CDDA;
+  --nx-bd-strong:      #A8B5C6;
   --nx-divider:        var(--nx-bd-quiet);
   --nx-divider-strong: var(--nx-bd-strong);
 
   --nx-text:      #0F172A;
   --nx-text-dim:  #475569;
   --nx-muted:     #475569;
-  --nx-faint:     #64748B;
+  --nx-faint:     #5A6777;   /* 4.9:1 on the inset surface too */
 
   --nx-shadow-1: 0 1px 2px rgba(15, 20, 30, 0.05);
   --nx-shadow-2: 0 2px 8px rgba(15, 20, 30, 0.09);

@@ -133,6 +133,18 @@ async def windows_collectors(request: Request):
     }}
 
 
+@router.get("/coverage", dependencies=[READ])
+async def windows_coverage(request: Request):
+    """Coverage Impact · POTENTIAL and EFFECTIVE, never merged.
+
+    `AVAILABLE NOW` requires evidence. `POTENTIAL` names the unmet
+    prerequisite. `BLOCKED` names the exact blocker. None of the three is
+    inferred from a detection having fired.
+    """
+    data = await truth.coverage_impact_estate(_adb(), _tenant(request))
+    return {"ok": True, "data": data}
+
+
 @router.get("/configuration", dependencies=[READ])
 async def windows_configuration(request: Request):
     """The declarative contract: channels, declared sources, DSMs, roadmap."""

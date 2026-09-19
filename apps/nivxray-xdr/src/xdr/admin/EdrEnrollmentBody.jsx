@@ -109,7 +109,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
   return (
     <div style={{ padding: "10px 12px 20px" }} data-testid="edr-enrollment">
       {err && (
-        <div style={{ border: "1px solid #4A1F1F", background: "#1A0B0B",
+        <div style={{ border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
                       padding: "7px 10px", borderRadius: 4, marginBottom: 10,
                       fontSize: 10.5, color: "#D08A8A" }}
              data-testid="edr-enrollment-error">{err}</div>
@@ -121,7 +121,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
         <input className="mono" value={label} placeholder="label (optional)"
                onChange={(e) => setLabel(e.target.value)}
                data-testid="edr-enrollment-label-input"
-               style={{ background: "#0C1116", border: "1px solid #212B36",
+               style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                         color: "var(--text)", padding: "5px 9px", fontSize: 10.5,
                         borderRadius: 3, width: 240 }} />
         <button className="btn" disabled={busy} onClick={mint}
@@ -150,7 +150,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
       </div>
 
       {minted && (
-        <div style={{ border: "1px solid #1F4A3A", background: "#081A14",
+        <div style={{ border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
                       padding: "10px 12px", borderRadius: 4, marginBottom: 14,
                       maxWidth: 760 }}
              data-testid="edr-enrollment-secret-panel">
@@ -243,7 +243,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                 <th key={h} style={{ padding: "4px 7px", fontSize: 8.5,
                                      fontWeight: 800, letterSpacing: ".4px",
                                      textTransform: "uppercase",
-                                     borderBottom: "1px solid #212B36",
+                                     borderBottom: "1px solid var(--nx-bd-quiet)",
                                      whiteSpace: "nowrap" }}>{h}</th>))}
             </tr>
           </thead>
@@ -339,7 +339,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                 </td>
               </tr>
               {open[e.endpoint_id] && (
-                <tr style={{ borderBottom: "1px solid #161D24" }}>
+                <tr style={{ borderBottom: "1px solid var(--nx-bd-quiet)" }}>
                   <EndpointDetail e={e} />
                 </tr>
               )}
@@ -366,13 +366,13 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                 <th key={h} style={{ padding: "4px 7px", fontSize: 8.5,
                                      fontWeight: 800, letterSpacing: ".4px",
                                      textTransform: "uppercase",
-                                     borderBottom: "1px solid #212B36",
+                                     borderBottom: "1px solid var(--nx-bd-quiet)",
                                      whiteSpace: "nowrap" }}>{h}</th>))}
             </tr>
           </thead>
           <tbody>
             {tokens.map((t) => (
-              <tr key={t.token_id} style={{ borderBottom: "1px solid #161D24" }}
+              <tr key={t.token_id} style={{ borderBottom: "1px solid var(--nx-bd-quiet)" }}
                   data-testid={`edr-enrollment-token-${t.token_id}`}>
                 <td style={{ padding: "5px 7px" }}>
                   <div style={{ color: "var(--text)" }}>
@@ -416,7 +416,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
       {sections.rejections && rejections && (
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start",
-                        border: "1px solid #4A3A16", background: "#1A1508",
+                        border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
                         padding: "8px 10px", borderRadius: 4,
                         margin: "4px 0 10px", maxWidth: 900 }}
                data-testid="edr-enrollment-rejection-note">
@@ -450,14 +450,14 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                     <th key={h} style={{ padding: "4px 7px", fontSize: 8.5,
                                          fontWeight: 800, letterSpacing: ".4px",
                                          textTransform: "uppercase",
-                                         borderBottom: "1px solid #212B36",
+                                         borderBottom: "1px solid var(--nx-bd-quiet)",
                                          whiteSpace: "nowrap" }}>{h}</th>))}
                 </tr>
               </thead>
               <tbody>
                 {rejections.rejections.map((r) => (
                   <tr key={r.rejection_id}
-                      style={{ borderBottom: "1px solid #161D24" }}
+                      style={{ borderBottom: "1px solid var(--nx-bd-quiet)" }}
                       data-testid={`edr-rejection-${r.rejection_id}`}>
                     <td style={{ padding: "5px 7px", color: "var(--text-dim)",
                                  fontSize: 9 }}>{r.observed_at}</td>
@@ -532,7 +532,7 @@ const Section = ({ title, count, right = null, id = null, open = true,
         {count}
       </div>
     )}
-    <div style={{ flex: 1, height: 1, background: "#1A222B" }} />
+    <div style={{ flex: 1, height: 1, background: "var(--nx-surf-inset)" }} />
     {right}
   </div>
 );
@@ -560,11 +560,11 @@ const Field = ({ k, v, mono = true, testid }) => (
  */
 const EndpointDetail = ({ e }) => (
   <td colSpan={8} style={{ padding: "2px 7px 12px 30px",
-                           background: "#0A0E13" }}
+                           background: "var(--nx-surf-inset)" }}
       data-testid={`edr-enrollment-detail-${e.endpoint_id}`}>
     <div style={{ display: "grid", gap: "12px 22px",
                   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-                  border: "1px solid #161D24", borderRadius: 4,
+                  border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                   padding: "10px 12px", maxWidth: 1100 }}>
       <Field k="Endpoint id (platform-minted)" v={e.endpoint_id}
              testid={`edr-enrollment-detail-id-${e.endpoint_id}`} />

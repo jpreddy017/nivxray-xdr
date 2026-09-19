@@ -22,7 +22,7 @@ function LifecyclePill({ state }) {
     testing:    { glyph: "◌", color: "var(--cyan)",    label: "Testing" },
     enabled:    { glyph: "●", color: "var(--mint)",    label: "Enabled" },
     disabled:   { glyph: "○", color: "var(--muted)",   label: "Disabled" },
-    deprecated: { glyph: "⊘", color: "#ff5b5b",         label: "Deprecated" },
+    deprecated: { glyph: "⊘", color: "var(--nx-text-dim)",         label: "Deprecated" },
   }[state] || { glyph: "?", color: "var(--faint)", label: state };
   return (
     <span data-testid={`xdr-playbook-lc-${state}`}

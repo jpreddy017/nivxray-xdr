@@ -261,7 +261,7 @@ export default function AutoInvestigationTab({ incident }) {
                     <td className="mono">{f.capability || "—"}</td>
                     <td>
                       {summaryIsEmpty && !overlay ? (
-                        <div style={{ fontWeight: 500, color: "#64748b",
+                        <div style={{ fontWeight: 500, color: "var(--nx-text-dim)",
                                           fontStyle: "italic" }}
                               data-testid={`xdr-record-ai-finding-empty-${i}`}
                               title="This finding was persisted without a natural summary sentence; identity derived from kind + subject.">

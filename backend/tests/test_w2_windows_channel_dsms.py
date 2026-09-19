@@ -733,11 +733,162 @@ class TestWindowsChannelTruthModel:
         parsing = t._support_dimension(t.SUPPORTED, None, None, None, None)
         norm = t._support_dimension(t.SUPPORTED, None, None, None, None)
         cap = t.detection_capability("Security")
-        stages = t._human_stages(collection, parsing, norm, cap)
+        cov = t.coverage_impact("Security", collection=collection,
+                                parsing=parsing, normalization=norm,
+                                measured_fields=set())
+        stages = t._human_stages(collection, parsing, norm, cap, cov)
         assert [s["stage"] for s in stages] == \
             ["Acquired", "Understood", "Detectable"]
         assert stages[0]["reached"] is False     # nothing acquired
         assert stages[1]["reached"] is False     # so nothing understood
-        # Capability is independent: it is TRUE even with no telemetry.
-        assert stages[2]["reached"] is True
-        assert stages[2]["state"] == t.AVAILABLE
+        # Owner correction: applicable content does NOT light this up.
+        # Potential coverage exists; effective coverage is not proven.
+        assert stages[2]["reached"] is False
+        assert stages[2]["state"] == t.COVERAGE_BLOCKED
+        assert cov["potential"]["rule_count"] > 0
+        assert cap["state"] == t.AVAILABLE   # potential, independently true
+
+
+# ══ Coverage Impact · POTENTIAL is not EFFECTIVE ═══════════════════
+class TestCoverageImpactModel:
+    """Owner correction (2026-06): telemetry arriving does not by itself
+    prove the parser, the normalization, the required fields, an enabled
+    rule, its schema compatibility or the detection execution path."""
+
+    @staticmethod
+    def _dims(t, *, collection_state, authorized, norm_measured):
+        collection = {"state": collection_state, "reason": "fixture",
+                      "authorized_collectors": (["c1"] if authorized else [])}
+        parsing = t._support_dimension(t.SUPPORTED, 5, 0, 0, None)
+        norm = t._support_dimension(t.SUPPORTED,
+                                    5 if norm_measured else None,
+                                    0 if norm_measured else None,
+                                    0 if norm_measured else None, None)
+        return collection, parsing, norm
+
+    def test_applicable_content_with_no_telemetry_is_potential_not_effective(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.NOT_CONFIGURED, authorized=False,
+            norm_measured=False)
+        cov = t.coverage_impact("Security", collection=collection,
+                                parsing=parsing, normalization=norm,
+                                measured_fields=set())
+        assert cov["potential"]["rule_count"] > 0
+        assert cov["effective"]["rule_count"] == 0
+        assert cov["effective"]["state"] == t.COVERAGE_BLOCKED
+        assert "SOURCE NOT CONFIGURED" in cov["evidence_gaps"]
+        assert cov["required_fields"]["state"] == t.PREREQ_NOT_PROVEN
+
+    def test_effective_requires_measured_fields_not_a_declaration(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.RECEIVING, authorized=True,
+            norm_measured=True)
+        # Prerequisites all pass, but NO field has been measured.
+        cov = t.coverage_impact("Security", collection=collection,
+                                parsing=parsing, normalization=norm,
+                                measured_fields=set())
+        assert cov["prerequisites_satisfied"] is True
+        assert cov["effective"]["state"] == t.COVERAGE_NOT_PROVEN
+        assert cov["effective"]["rule_count"] == 0
+        assert "no required field has been measured" in cov["effective"]["basis"]
+
+    def test_effective_is_established_when_fields_are_measured(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.RECEIVING, authorized=True,
+            norm_measured=True)
+        cov = t.coverage_impact(
+            "Security", collection=collection, parsing=parsing,
+            normalization=norm,
+            measured_fields=set(t.CHANNEL_CANONICAL_FIELDS["Security"]))
+        assert cov["effective"]["state"] == t.COVERAGE_EFFECTIVE
+        assert cov["effective"]["rule_count"] > 0
+        # And still WITHOUT any detection having fired.
+        assert all(r["detections_fired"] is None
+                   for r in cov["effective"]["rules"])
+        assert "does NOT require a detection to have fired" in \
+            cov["effective"]["basis_note"]
+
+    def test_the_detectable_stage_reports_effective_never_potential(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.NOT_CONFIGURED, authorized=False,
+            norm_measured=False)
+        cov = t.coverage_impact("Security", collection=collection,
+                                parsing=parsing, normalization=norm,
+                                measured_fields=set())
+        stages = t._human_stages(collection, parsing, norm,
+                                 t.detection_capability("Security"), cov)
+        detectable = stages[2]
+        # 21-ish applicable rules must NOT light this stage up.
+        assert detectable["reached"] is False
+        assert detectable["state"] == t.COVERAGE_BLOCKED
+        assert "potential coverage:" in detectable["detail"]
+
+    def test_prerequisite_and_content_gaps_are_kept_apart(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.RECEIVING, authorized=True,
+            norm_measured=True)
+        cov = t.coverage_impact(
+            "Security", collection=collection, parsing=parsing,
+            normalization=norm,
+            measured_fields=set(t.CHANNEL_CANONICAL_FIELDS["Security"]))
+        # An onboarding blocker and a rule citing an unsupported field are
+        # different problems and are never mixed.
+        assert cov["evidence_gaps"] == []
+        assert "REQUIRED FIELD NOT SUPPORTED" in cov["content_gaps"]
+
+    def test_unsupported_channel_is_blocked_with_the_reason(self):
+        from services import windows_channel_truth as t
+        cov = t.coverage_impact(
+            "ForwardedEvents",
+            collection={"state": t.UNSUPPORTED, "reason": "x",
+                        "authorized_collectors": []},
+            parsing=t._support_dimension(t.UNSUPPORTED, None, None, None, None),
+            normalization=t._support_dimension(t.UNSUPPORTED, None, None,
+                                               None, None),
+            measured_fields=set())
+        assert cov["effective"]["state"] == t.NOT_AVAILABLE
+        assert cov["potential"]["rule_count"] == 0
+        assert any("not implemented" in (p["blocker"] or "")
+                   for p in cov["prerequisites"])
+
+    def test_attack_rows_only_exist_where_content_maps_a_technique(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.RECEIVING, authorized=True,
+            norm_measured=True)
+        cov = t.coverage_impact(
+            "Security", collection=collection, parsing=parsing,
+            normalization=norm,
+            measured_fields=set(t.CHANNEL_CANONICAL_FIELDS["Security"]))
+        assert cov["attack"], "expected at least one mapped technique"
+        for row in cov["attack"]:
+            assert row["technique_id"]
+            assert row["detection_content"]
+            assert row["coverage_state"] in (
+                t.COVERAGE_EFFECTIVE, t.COVERAGE_POTENTIAL, t.COVERAGE_BLOCKED)
+        # A channel with no DSM manufactures no ATT&CK coverage.
+        empty = t.coverage_impact(
+            "System",
+            collection={"state": t.NOT_CONFIGURED, "reason": "x",
+                        "authorized_collectors": []},
+            parsing=t._support_dimension(t.UNSUPPORTED, None, None, None, None),
+            normalization=t._support_dimension(t.UNSUPPORTED, None, None,
+                                               None, None),
+            measured_fields=set())
+        assert empty["attack"] == []
+
+    def test_citation_chain_is_published_with_every_claim(self):
+        from services import windows_channel_truth as t
+        collection, parsing, norm = self._dims(
+            t, collection_state=t.RECEIVING, authorized=True,
+            norm_measured=True)
+        cov = t.coverage_impact("Security", collection=collection,
+                                parsing=parsing, normalization=norm,
+                                measured_fields=set())
+        assert cov["citation"]["chain"][0] == "channel"
+        assert cov["citation"]["chain"][-1] == "supporting evidence"

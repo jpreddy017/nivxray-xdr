@@ -21,12 +21,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING, MongoClient
 
-from services import tenant_registry
-
 router = APIRouter(prefix="/api/xdr/audit-log", tags=["xdr-audit-log"])
+
+#: Bearer is optional HERE only so `require_permission` can produce its own
+#: structured `ACCESS_DENIED · unauthenticated` refusal instead of FastAPI's
+#: generic 403 body. It is never treated as permission.
+_bearer_optional = HTTPBearer(auto_error=False)
 
 # ── Mongo binding (sync pymongo — audit log is not perf-critical and
 # using sync eliminates event-loop mismatch under TestClient). ────
@@ -134,39 +138,34 @@ class AuditEvent(BaseModel):
 
 
 def _principal(req: Request) -> tuple[str, str, str]:
-    """Best-effort principal extraction.  Falls back to `demo` when
-    no auth middleware has set the request state.  A future JWT
-    verifier will replace this with real claim extraction."""
-    raw = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "")
-    try:
-        ten = tenant_registry.authoritative(raw, purpose="xdr.audit")
-    except tenant_registry.TenantRegistryError as e:
-        raise HTTPException(status_code=e.http, detail=e.detail()) from None
-    pid = _verified_principal(req)
-    pkd = ("api_key" if getattr(req.state, "principal_kind", None) == "api_key"
-              else "user")
-    return ten, pid, pkd
+    """ONE tenancy authority — delegated, never re-implemented here.
 
-
-def _verified_principal(req: Request) -> str:
-    """A0.5 · T-RISK-2 · identity from VERIFIED authentication only.
-
-    The previous body read `X-Principal-Id` and, when absent, substituted
-    the literal `"admin@nivxray.com"` — in the AUDIT router, which meant
-    provenance itself could be forged or fabricated.
+    2026-06 DEFECT CLOSED (found by `test_xdr_rbac_enforcement.py`): this
+    function resolved the tenant from `X-Tenant-Id` through the registry
+    only — it proved the tenant EXISTS and never asked whether the
+    principal is AUTHORIZED for it.  A platform_admin of tenant B could
+    therefore read tenant A's whole audit chain (reproduced: 18 events of
+    another tenant, including other principals' identities).  It now
+    delegates to `xdr_rbac.resolve_principal`, the single resolver that
+    performs `authorize_requested_tenant()`, so naming a tenant can never
+    authorise one.
     """
-    from fastapi import HTTPException
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
-    from routers.xdr_rbac import verified_actor
-    pid, _ = verified_actor(req)
-    if not pid:
-        raise HTTPException(status_code=403, detail={
-            "code": "ACCESS_DENIED",
-            "reason": ("no verified principal; a client-supplied identity "
-                            "header is never an identity"),
-            "risk": "T-RISK-2", "fail_closed": True})
-    return str(pid)
+
+def _authorized_tenant(req: Request, requested: str | None) -> str:
+    """A `?tenant=` query parameter is a REQUEST, not an authority."""
+    ten, _, _ = _principal(req)
+    if requested and requested != ten:
+        from routers.xdr_rbac import authorize_tenant
+        return authorize_tenant(req, requested, purpose="xdr.audit")
+    return ten
+
+
+#: `_verified_principal()` was deleted 2026-06: `resolve_principal()` already
+#: performs the T-RISK-2 verified-identity refusal, and a second copy of an
+#: identity rule is how the two authorities diverged in the first place.
 
 
 # ── Lazy RBAC dependency (avoids circular import with xdr_rbac
@@ -174,10 +173,22 @@ def _verified_principal(req: Request) -> str:
 def _lazy_require(permission: str):
     """Return a FastAPI dependency that defers importing
     ``routers.xdr_rbac.require_permission`` until first request —
-    prevents the audit-log ↔ RBAC circular import at module load."""
-    def _dep(request: Request):
+    prevents the audit-log ↔ RBAC circular import at module load.
+
+    2026-06 DEFECT CLOSED: the previous body called
+    ``require_permission(permission)(request)`` from a **sync** dependency.
+    `require_permission`'s dependency is `async`, so the call produced a
+    coroutine that was returned as the dependency's value and **never
+    awaited** — the permission was therefore never evaluated on ANY
+    audit-log route.  The coroutine is now awaited, and `creds` is declared
+    here so FastAPI resolves the bearer credential exactly as it does for
+    every other gated route.
+    """
+    async def _dep(request: Request,
+                   creds: HTTPAuthorizationCredentials | None =
+                       Depends(_bearer_optional)):
         from routers.xdr_rbac import require_permission  # local import
-        return require_permission(permission)(request)
+        return await require_permission(permission)(request, creds)
     return _dep
 
 
@@ -197,8 +208,7 @@ def list_events(
         return {"ok": False, "error": {
             "code": "STORAGE_UNAVAILABLE",
             "detail": "audit-log storage not configured"}}
-    ten, _, _ = _principal(request)
-    tenant = tenant or ten
+    tenant = _authorized_tenant(request, tenant)
     q: dict[str, Any] = {"tenant_id": tenant}
     if action:        q["action"] = action
     if resource_kind: q["resource_kind"] = resource_kind

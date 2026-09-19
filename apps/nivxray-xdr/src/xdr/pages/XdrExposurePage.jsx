@@ -188,7 +188,7 @@ export default function XdrExposurePage() {
           <Stat label="KEV listed"    value={s.kev_listed ?? "—"}
                     testid="cve-stat-kev" color="#f97316" />
           <Stat label="CVSS Critical" value={s.cvss_critical ?? "—"}
-                    testid="cve-stat-critical" color="#ef4444" />
+                    testid="cve-stat-critical" color="var(--nx-text-dim)" />
           <Stat label="CVSS High"     value={s.cvss_high ?? "—"}
                     testid="cve-stat-high" color="var(--amber)" />
           <Stat label="Assets"        value={s.assets_registered ?? "—"}

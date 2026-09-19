@@ -1,132 +1,170 @@
 {
-  "theme_standardization": {
-    "selected_theme": "cisco_amp_classic_light",
-    "theme_rationale": "Cisco Secure Endpoint Device Trajectory baseline specifies exact Cisco light console canvas with crisp structural borders, grey gutter bands, and vivid green process lifelines and red compromise bands.",
-    "shell_transition_seam": {
-      "strategy": "Seamless embedded card shell",
-      "wrapper_background": "#0F172A",
-      "canvas_container_background": "#F8FAFC",
-      "border_color": "#CBD5E1",
-      "border_radius": "6px",
-      "padding": "0px"
-    },
-    "palette": {
-      "bg_main": "#F8FAFC",
-      "bg_card": "#FFFFFF",
-      "bg_gutter": "#F1F5F9",
-      "border_subtle": "#E2E8F0",
-      "border_strong": "#CBD5E1",
-      "text_primary": "#0F172A",
-      "text_secondary": "#475569",
-      "text_muted": "#64748B",
-      "process_lifeline": "#16A34A",
-      "process_lifeline_dashed": "#22C55E",
-      "file_network_line": "#94A3B8",
-      "malicious_compromise_red": "#DC2626",
-      "malicious_compromise_halo": "#FEF2F2",
-      "compromise_band_amber": "rgba(251, 191, 36, 0.18)",
-      "selection_highlight": "#3B82F6",
-      "selection_bg": "#EFF6FF",
-      "disposition_clean": "#16A34A",
-      "disposition_malicious": "#DC2626",
-      "disposition_unknown": "#D97706"
+  "project_name": "NivXRay XDR - Data Sources / Windows UI Redesign Blueprint",
+  "archetype": "THE PERFORMANCE PRO / SWISS & HIGH-CONTRAST",
+  "theme_strategy": {
+    "default_mode": "dark",
+    "supported_modes": ["dark", "light"],
+    "css_selector": ".xdr-console[data-nx-theme='light']",
+    "theme_tokens": {
+      "dark": {
+        "canvas": "#0B0E14",
+        "surface_primary": "#121721",
+        "surface_inset": "#0E131C",
+        "surface_raised": "#1A212D",
+        "border_quiet": "rgba(255, 255, 255, 0.08)",
+        "border_strong": "rgba(255, 255, 255, 0.14)",
+        "text_primary": "#F1F5F9",
+        "text_dim": "#CBD5E1",
+        "text_muted": "#94A3B8",
+        "text_faint": "#7C8AA0",
+        "accent_primary": "#F59E0B"
+      },
+      "light": {
+        "canvas": "#F8FAFC",
+        "surface_primary": "#FFFFFF",
+        "surface_inset": "#F1F5F9",
+        "surface_raised": "#FFFFFF",
+        "border_quiet": "#E2E8F0",
+        "border_strong": "#CBD5E1",
+        "text_primary": "#0F172A",
+        "text_dim": "#334155",
+        "text_muted": "#475569",
+        "text_faint": "#64748B",
+        "accent_primary": "#D97706"
+      }
     }
   },
   "typography": {
-    "font_family_headings": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    "font_family_body": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    "font_family_mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-    "sizes": {
-      "h1": "text-2xl font-bold tracking-tight",
-      "h2": "text-xl font-semibold tracking-tight",
-      "h3": "text-lg font-medium",
-      "body": "text-sm font-normal leading-normal",
-      "mono": "text-xs font-mono tracking-tight",
-      "caption": "text-xs font-normal text-slate-500"
+    "display": "Outfit (700/800 weight, tracking-tight) for Page Titles & Hero Metrics",
+    "body": "IBM Plex Sans (400/500/600 weight) for UI labels, table content, and descriptions",
+    "mono": "JetBrains Mono (400/500/700 weight) for Channel IDs, Event IDs, DSM IDs, Technical Tokens, Timestamps",
+    "scale": {
+      "h1": "text-2xl font-bold tracking-tight (24px)",
+      "h2": "text-lg font-semibold tracking-tight (18px)",
+      "h3": "text-sm font-semibold tracking-wide uppercase (14px)",
+      "body": "text-xs leading-relaxed (12px)",
+      "mono_token": "text-[11px] font-mono leading-none",
+      "kpi_value": "text-2xl font-extrabold font-mono tracking-tight",
+      "kpi_label": "text-[10px] font-bold uppercase tracking-wider text-muted"
+    },
+    "forbidden_fonts": ["Inter", "Space Grotesk"]
+  },
+  "colors": {
+    "brand_amber": "#F59E0B",
+    "status_vocabulary_matrix": {
+      "RECEIVING": { "tone": "benign", "bg_dark": "rgba(16, 185, 129, 0.15)", "text_dark": "#34D399", "border_dark": "rgba(16, 185, 129, 0.3)" },
+      "CONFIGURED": { "tone": "benign", "bg_dark": "rgba(59, 130, 246, 0.15)", "text_dark": "#60A5FA", "border_dark": "rgba(59, 130, 246, 0.3)" },
+      "AVAILABLE_NOW": { "tone": "benign", "bg_dark": "rgba(16, 185, 129, 0.15)", "text_dark": "#34D399", "border_dark": "rgba(16, 185, 129, 0.3)" },
+      "GAP_DETECTED": { "tone": "critical", "bg_dark": "rgba(239, 68, 68, 0.18)", "text_dark": "#F87171", "border_dark": "rgba(239, 68, 68, 0.35)" },
+      "DEGRADED": { "tone": "medium", "bg_dark": "rgba(245, 158, 11, 0.15)", "text_dark": "#FBBF24", "border_dark": "rgba(245, 158, 11, 0.3)" },
+      "ERROR": { "tone": "critical", "bg_dark": "rgba(239, 68, 68, 0.2)", "text_dark": "#FCA5A5", "border_dark": "rgba(239, 68, 68, 0.4)" },
+      "BLOCKED": { "tone": "critical", "bg_dark": "rgba(239, 68, 68, 0.15)", "text_dark": "#F87171", "border_dark": "rgba(239, 68, 68, 0.3)" },
+      "POTENTIAL": { "tone": "medium", "bg_dark": "rgba(245, 158, 11, 0.15)", "text_dark": "#FCD34D", "border_dark": "rgba(245, 158, 11, 0.3)" },
+      "NOT_CONFIGURED": { "tone": "not_connected", "bg_dark": "rgba(148, 163, 184, 0.08)", "text_dark": "#94A3B8", "border_dark": "rgba(148, 163, 184, 0.2)" },
+      "NOT_OBSERVED": { "tone": "not_connected", "bg_dark": "rgba(148, 163, 184, 0.08)", "text_dark": "#94A3B8", "border_dark": "rgba(148, 163, 184, 0.2)" },
+      "UNSUPPORTED": { "tone": "not_run", "bg_dark": "rgba(100, 116, 139, 0.12)", "text_dark": "#CBD5E1", "border_dark": "rgba(100, 116, 139, 0.25)" },
+      "NOT_AVAILABLE": { "tone": "not_run", "bg_dark": "rgba(100, 116, 139, 0.1)", "text_dark": "#94A3B8", "border_dark": "rgba(100, 116, 139, 0.2)" },
+      "NOT_PROVEN": { "tone": "not_run", "bg_dark": "rgba(100, 116, 139, 0.12)", "text_dark": "#CBD5E1", "border_dark": "rgba(100, 116, 139, 0.25)" }
     }
   },
-  "layout_geometry": {
-    "page_header": {
-      "height": "48px",
-      "border_bottom": "1px solid #CBD5E1",
-      "bg": "#FFFFFF"
+  "cortex_xdr_redesign_blueprint": {
+    "architecture_and_density": {
+      "row_height": "28px - 32px dense operational row height for NxDataTable",
+      "layout_grid": "Main Content (8 col / 66%) + Summary & Filter Rail (4 col / 33%) in 12-col bento grid",
+      "zebra_and_borders": "1px solid var(--nx-bd-quiet) subtle rows, alternating row highlights (hover: bg-hover), 1px solid card containment",
+      "font_hierarchy": "Headers in Outfit Bold, technical values in JetBrains Mono text-xs, metadata in IBM Plex Sans text-xs"
     },
-    "top_row_computer_and_navigator": {
-      "layout": "flex flex-col lg:flex-row gap-4 align-stretch",
-      "computer_card": {
-        "flex": "flex-1 min-w-[320px]",
-        "min_height": "220px"
+    "nx_primitives_mapping": {
+      "NxPageShell": "Top-level layout wrapper with eyebrow='Data Sources', title='Windows', description",
+      "NxTabs": "Tab switcher (Overview | Devices | Channels | Collectors | Coverage | Health | Configuration)",
+      "NxSurface": "Container cards with variant='primary' or variant='inset'. NO empty container bands.",
+      "NxKpi": "KPI summary tiles (Channels declared, Devices, Collectors, Detections fired)",
+      "NxDataTable": "Standard enterprise grid for Channels, Devices, Collectors, Coverage channels, ATT&CK techniques, Health channels, Configuration channels. Replaces raw <table class='wx-kv'>",
+      "NxFlyout": "Side contextual pane for Channel/Coverage citation drilldown (width=720px)",
+      "NxStatus": "High-density status chip mapping state values to distinct tones",
+      "NxDimensionStrip": "PROPOSED NEW NX PRIMITIVE in nx/: Renders horizontal 5-dimension state breakdown (Collection, Parsing, Normalization, Detection capability, Coverage) as dense status-count badges without calculating or implying a composite score",
+      "NxBlockerGroup": "PROPOSED NEW NX PRIMITIVE in nx/: Groups and deduplicates repeated blocker messages with channel tags and affected rule counts"
+    },
+    "tab_specifications": {
+      "Overview": {
+        "layout": "2-column layout: Left (Hero KPI Grid + 5-Dimension State Strips + Blocker Summary) | Right (Real Windows Endpoint Proof + Coverage Impact Breakdown + Quick Filters)",
+        "kpi_cards": "4 compact NxKpi tiles inside a single 4-column NxSurface header without empty card margins",
+        "dimension_strips": "5 independent NxDimensionStrip components for Collection, Parsing, Normalization, Detection capability, Coverage. Explicitly renders 'Composite Health = NOT AVAILABLE (never published)' and 'Real Windows Endpoint Proof = NOT PROVEN' with distinct NxStatus chips",
+        "attention_block": "NxBlockerGroup summarizing top blockers, grouped by root cause (e.g. 'Missing Sysmon Config Event 1' affecting 4 channels) rather than repeating line-by-line"
       },
-      "navigator_panel": {
-        "flex": "flex-1 min-w-[360px]",
-        "min_height": "220px",
-        "alignment_rule": "Equal height matching computer card, eliminate dead space"
+      "Coverage": {
+        "layout": "Top summary rail + 3 Onboarding Buckets (Available Now, Potential, Blocked) rendered via NxDataTable + ATT&CK Coverage Matrix / Dense Table",
+        "columns_onboarding_table": [
+          { "key": "channel", "label": "Channel", "width": "180px" },
+          { "key": "telemetry", "label": "Telemetry", "width": "110px" },
+          { "key": "parsing", "label": "Parsing", "width": "110px" },
+          { "key": "normalization", "label": "Normalization", "width": "120px" },
+          { "key": "required_fields", "label": "Required Fields", "width": "130px" },
+          { "key": "potential_rules", "label": "Potential Rules", "width": "110px", "align": "right" },
+          { "key": "effective_state", "label": "Effective State", "width": "130px" },
+          { "key": "attack_techniques", "label": "ATT&CK Tech.", "width": "100px", "align": "right" },
+          { "key": "blockers", "label": "Primary Blocker", "width": "flex" }
+        ],
+        "attack_section": "NxDataTable for ~23 to 100+ ATT&CK techniques with Columns: Technique ID (e.g., T1003.001), Technique Name, Coverage State Chip, Rule Count, Required Telemetry Tokens (Tags), Prerequisite State, Last Detection, Detection Rule Names (Truncated tags with +N expander)"
+      },
+      "Health": {
+        "layout": "NxDataTable displaying Channel Collection Health",
+        "columns": [
+          { "key": "label", "label": "Channel Name" },
+          { "key": "collection_state", "label": "Collection State" },
+          { "key": "delivery_rate", "label": "Events Delivered" },
+          { "key": "last_event", "label": "Last Telemetry Timestamp" },
+          { "key": "reason", "label": "Health Diagnostic & Gap Reason" }
+        ]
+      },
+      "Configuration": {
+        "layout": "NxDataTable for Declared Channel Contract + Supplementary NxSurface for Declared Unsupported channels",
+        "columns": [
+          { "key": "channel", "label": "Channel ID" },
+          { "key": "declared_source", "label": "Declared Source" },
+          { "key": "dsm_id", "label": "DSM ID" },
+          { "key": "parsing", "label": "Declared Parsing" },
+          { "key": "normalization", "label": "Declared Normalization" }
+        ]
       }
     },
-    "workspace_and_events_row": {
-      "layout": "grid grid-cols-12 gap-0 border border-slate-300 rounded-md overflow-hidden bg-white mt-4",
-      "trajectory_workspace": {
-        "col_span": "col-span-12 lg:col-span-8 xl:col-span-9",
-        "gutter_width": "280px",
-        "min_height": "540px"
-      },
-      "events_panel": {
-        "col_span": "col-span-12 lg:col-span-4 xl:col-span-3",
-        "border_left": "1px solid #CBD5E1",
-        "min_height": "540px"
-      }
+    "absence_handling_rules": {
+      "rule": "Missing measurement MUST render as '—' or 'NOT AVAILABLE' with a faint/dashed status pill. NEVER render as '0' or blank space.",
+      "composite_health_policy": "Composite Health MUST state 'NOT AVAILABLE' with explanatory note 'Composite health score is deliberately never published to prevent false confidence'."
     }
   },
-  "row_and_axis_metrics": {
-    "row_height": "28px",
-    "row_gutter_width": "280px",
-    "time_axis_height": "32px",
-    "gridline_weight": "1px",
-    "gridline_color": "#E2E8F0",
-    "lifeline_stroke_width": "2px",
-    "lifeline_dash_array": "4 3",
-    "parent_child_connector_color": "#94A3B8",
-    "icon_size": "16px",
-    "badge_size": "14px"
+  "component_path": "/app/apps/nivxray-xdr/src/xdr/datasources/windows/",
+  "grids": {
+    "bento_mode": "MODE B: High Density Grid (Dashboards / Analytics)",
+    "gap": "gap-4",
+    "cols": "grid-cols-1 md:grid-cols-12"
   },
-  "navigator_specifics": {
-    "sparkline_height": "24px",
-    "sparkline_fill": "rgba(59, 130, 246, 0.15)",
-    "sparkline_stroke": "#2563EB",
-    "thirty_day_band": {
-      "cell_height": "20px",
-      "selected_border": "2px solid #2563EB",
-      "dot_compromise": "#DC2626",
-      "dot_activity": "#2563EB"
-    },
-    "twenty_four_hour_band": {
-      "bin_dot_size": "4px",
-      "draggable_window_bg": "rgba(37, 99, 235, 0.12)",
-      "triangle_handle_color": "#1D4ED8"
-    }
+  "layouts": {
+    "page_structure": "NxPageShell > NxTabs > Main Bento Grid (Left Panel 8 cols, Right Summary Rail 4 cols)",
+    "flyout": "NxFlyout width={720} data-testid='wx-channel-pane'"
   },
-  "event_details_specifics": {
-    "detected_by_line": {
-      "color": "#DC2626",
-      "font_weight": "600",
-      "font_size": "12px"
-    },
-    "mitre_box": {
-      "bg": "#FEF2F2",
-      "border": "1px solid #FCA5A5",
-      "text": "#991B1B"
-    },
-    "observables_box": {
-      "bg": "#F8FAFC",
-      "border": "1px solid #E2E8F0"
-    }
+  "motion": {
+    "hover_transitions": "transition-colors duration-150 ease-in-out",
+    "drawer_animations": "framer-motion animate ease-out 200ms"
   },
-  "component_path": "/app/apps/nivxray-xdr/src/nivxforge/trajectory/",
-  "instructions_to_main_agent": "Ensure 100% fidelity to Cisco AMP Device Trajectory layout, matching computer card height with Navigator panel, eliminating dead gaps, aligning workspace and right-hand Events Details panel with solid matched boundaries, and utilizing exact color tokens.",
+  "accessibility": {
+    "contrast_ratio": "WCAG AA >= 4.5:1 for body text, >= 3:1 for large display / status pills",
+    "data_testid_convention": "kebab-case data-testid on every table, row, button, tab, chip, and field (e.g. data-testid='wx-table-row-sysmon')"
+  },
+  "media": {
+    "icons": "lucide-react icons"
+  },
+  "3d_libraries": [],
+  "instructions_to_main_agent": [
+    "Refactor WindowsPage.jsx, WindowsOverview.jsx, WindowsCoverage.jsx, WindowsChannels.jsx, and WindowsPrimitives.jsx to replace raw <table class='wx-kv'> with NxDataTable and NxSurface panels.",
+    "Add new NxDimensionStrip and NxBlockerGroup components to nx/ or WindowsPrimitives.jsx for dense 5-dimension strip and blocker aggregation.",
+    "Ensure both Light Mode (.xdr-console[data-nx-theme='light']) and Default Dark Mode render with high-contrast, crisp typography and zero empty card bands.",
+    "Verify all missing measurements display '—' or 'NOT AVAILABLE' and data-testid attributes are preserved or expanded on every key component."
+  ],
   "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
-    "data_testid_requirement": "All interactive buttons, canvas regions, search inputs, day cells, handles, event list rows, and event detail sections MUST include role-based data-testid attributes (kebab-case).",
-    "no_universal_transition": "Do NOT apply 'transition: all' globally on trajectory canvas or lifelines to prevent jitter during drag/pan operations.",
-    "alignment": "Zero alignment errors; equal height panels and shared structural borders."
-  },
-  "image_urls": []
+    "avoid_ai_slop": true,
+    "use_dense_layouts": true,
+    "no_universal_transition_all": true,
+    "data_testid_required": true
+  }
 }

@@ -73,8 +73,8 @@ function HashLookup({ title, sha256, keyNote, storeSize, testid }) {
   const a = state.artifact || {};
 
   return (
-    <section style={{ border: "1px solid #212B36", borderRadius: 4,
-                      padding: 10, marginBottom: 10, background: "#0D1218" }}
+    <section style={{ border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
+                      padding: 10, marginBottom: 10, background: "var(--nx-surf-inset)" }}
              data-testid={testid}>
       <div className="section-title" style={{ marginBottom: 6 }}>{title}</div>
       <Row k="Lookup key" v={sha256 || <span className="nx-ep" data-ep="no_evidence"
@@ -213,7 +213,7 @@ export default function StaticAnalysisBridge({ event, onClose }) {
          data-testid="edr-static-analysis-overlay">
       <aside onClick={(e) => e.stopPropagation()}
              style={{ width: 540, maxWidth: "94vw", height: "100%",
-                      background: "#0B0F14", borderLeft: "1px solid #212B36",
+                      background: "var(--nx-surf-inset)", borderLeft: "1px solid var(--nx-bd-quiet)",
                       overflow: "auto", padding: 14 }}
              data-testid="edr-static-analysis-drawer">
         <div style={{ display: "flex", alignItems: "center", gap: 8,
@@ -266,8 +266,8 @@ export default function StaticAnalysisBridge({ event, onClose }) {
           storeSize={store?.total_artifacts}
           testid="edr-static-lookup-input" />
 
-        <div style={{ padding: 10, background: "#11161D",
-                      border: "1px solid #212B36", borderRadius: 4 }}>
+        <div style={{ padding: 10, background: "var(--nx-surf-inset)",
+                      border: "1px solid var(--nx-bd-quiet)", borderRadius: 4 }}>
           <div className="nx-ep" data-ep="capability_unavailable" data-known="true">
             ⊘ SENSOR OFFLINE — NO ACQUISITION DRIVER
           </div>

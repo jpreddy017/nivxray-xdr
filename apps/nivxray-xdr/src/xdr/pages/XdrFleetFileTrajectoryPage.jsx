@@ -495,8 +495,8 @@ export default function XdrFleetFileTrajectoryPage() {
                       <Nope ep="capability_unavailable"
                             label="⊘ ATTACK TRAVERSAL / LIFECYCLE NOT IMPLEMENTED" />
                     </div>
-                    <div style={{ marginTop: 9, padding: 9, background: "#0D1218",
-                                  border: "1px dashed #212B36", borderRadius: 4 }}
+                    <div style={{ marginTop: 9, padding: 9, background: "var(--nx-surf-inset)",
+                                  border: "1px dashed var(--nx-bd-quiet)", borderRadius: 4 }}
                          data-testid="fleet-traversal-contract">
                       <div className="mono" style={{ fontSize: 9.5,
                                                       color: "var(--faint)",
@@ -505,7 +505,7 @@ export default function XdrFleetFileTrajectoryPage() {
                         NAVIGATION CONTRACT · ⊘ Investigate Attack Traversal
                       </div>
                       <div className="mono" style={{ fontSize: 9.5,
-                                                     color: "#5D6875",
+                                                     color: "var(--nx-text-dim)",
                                                      lineHeight: 1.8 }}>
                         {["Trace to Origin", "Trace Forward", "Host Traversal",
                           "Process Chain", "Network Traversal", "Identity",
@@ -549,8 +549,8 @@ export default function XdrFleetFileTrajectoryPage() {
                   <section className="panel" style={{ padding: 0, marginBottom: 10 }}
                            data-testid="fleet-endpoint-ledger">
                     <div style={{ display: "flex", alignItems: "center", gap: 10,
-                                  padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                  background: "#11161D", flexWrap: "wrap" }}>
+                                  padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                  background: "var(--nx-surf-inset)", flexWrap: "wrap" }}>
                       <span className="section-title" style={{ margin: 0 }}>
                         Computers with matching activity
                       </span>
@@ -562,14 +562,14 @@ export default function XdrFleetFileTrajectoryPage() {
                              onChange={(e) => { setFilter(e.target.value); setPage(0); }}
                              placeholder="Filter hostname / device_iid / case…"
                              className="mono"
-                             style={{ background: "#0B0F14", border: "1px solid #212B36",
+                             style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                                       color: "var(--text)", fontSize: 10,
                                       padding: "3px 7px", borderRadius: 3, width: 240 }}
                              data-testid="fleet-ledger-filter" />
                       <select value={pageSize}
                               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
                               className="mono"
-                              style={{ background: "#0B0F14", border: "1px solid #212B36",
+                              style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                                        color: "var(--text)", fontSize: 10, padding: "3px 5px" }}
                               data-testid="fleet-ledger-pagesize">
                         {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} / page</option>)}
@@ -663,7 +663,7 @@ export default function XdrFleetFileTrajectoryPage() {
 
                     {pages > 1 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center",
-                                    padding: "6px 10px", borderTop: "1px solid #212B36" }}>
+                                    padding: "6px 10px", borderTop: "1px solid var(--nx-bd-quiet)" }}>
                         <button className="btn" style={{ padding: "2px 7px", fontSize: 10 }}
                                 disabled={page === 0}
                                 onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -682,8 +682,8 @@ export default function XdrFleetFileTrajectoryPage() {
                   {index && (
                     <section className="panel" style={{ padding: 0 }}
                              data-testid="fleet-spread-index">
-                      <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                    background: "#11161D" }}>
+                      <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                    background: "var(--nx-surf-inset)" }}>
                         <Fingerprint size={11} style={{ color: "var(--mint)",
                                                         verticalAlign: "middle",
                                                         marginRight: 6 }} />
@@ -737,8 +737,8 @@ export default function XdrFleetFileTrajectoryPage() {
               {tab === "timeline" && (
                 <section className="panel" style={{ padding: 0 }}
                          data-testid="fleet-event-history">
-                  <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                background: "#11161D" }}>
+                  <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                background: "var(--nx-surf-inset)" }}>
                     <span className="section-title" style={{ margin: 0 }}>
                       Fleet timeline
                     </span>{" "}
@@ -797,8 +797,8 @@ export default function XdrFleetFileTrajectoryPage() {
               {tab === "processes" && (
                 <section className="panel" style={{ padding: 0 }}
                          data-testid="fleet-processes">
-                  <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                background: "#11161D" }}>
+                  <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                background: "var(--nx-surf-inset)" }}>
                     <span className="section-title" style={{ margin: 0 }}>
                       Actor processes
                     </span>{" "}
@@ -862,8 +862,8 @@ export default function XdrFleetFileTrajectoryPage() {
               {tab === "network" && (
                 <section className="panel" style={{ padding: 0 }}
                          data-testid="fleet-network">
-                  <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                background: "#11161D" }}>
+                  <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                background: "var(--nx-surf-inset)" }}>
                     <span className="section-title" style={{ margin: 0 }}>
                       Network activity
                     </span>{" "}
@@ -922,8 +922,8 @@ export default function XdrFleetFileTrajectoryPage() {
               {tab === "artifacts" && (
                 <section className="panel" style={{ padding: 0 }}
                          data-testid="fleet-artifacts">
-                  <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                background: "#11161D" }}>
+                  <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                background: "var(--nx-surf-inset)" }}>
                     <span className="section-title" style={{ margin: 0 }}>
                       Touched artifacts
                     </span>{" "}
@@ -996,8 +996,8 @@ export default function XdrFleetFileTrajectoryPage() {
 
                   <section className="panel" style={{ padding: 0, marginTop: 10 }}
                            data-testid="fleet-evidence-ledger">
-                    <div style={{ padding: "7px 10px", borderBottom: "1px solid #212B36",
-                                  background: "#11161D" }}>
+                    <div style={{ padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                                  background: "var(--nx-surf-inset)" }}>
                       <span className="section-title" style={{ margin: 0 }}>
                         Evidence ledger
                       </span>{" "}

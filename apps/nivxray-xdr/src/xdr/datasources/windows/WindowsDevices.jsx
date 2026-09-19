@@ -13,10 +13,10 @@ import { getWindowsDevice, measured } from "./windowsApi";
 
 const Tags = ({ values = [] }) => (
   values.length
-    ? <span className="wx-tags">
-        {values.map((v) => <span className="wx-tag" key={String(v)}>{String(v)}</span>)}
+    ? <span className="nx-tokens">
+        {values.map((v) => <span className="nx-token" key={String(v)}>{String(v)}</span>)}
       </span>
-    : <span className="wx-dim">—</span>
+    : <span className="nx-absent">—</span>
 );
 
 function DevicePane({ origin, onClose, onPivotEvents }) {
@@ -36,8 +36,8 @@ function DevicePane({ origin, onClose, onPivotEvents }) {
   return (
     <NxFlyout open title={origin} eyebrow="Windows event origin"
               onClose={onClose} width={720} testid="wx-device-pane">
-      <div className="wx-pane">
-        {state.loading && <p className="wx-dim">loading…</p>}
+      <div className="wx-stack">
+        {state.loading && <p className="nx-absent">loading…</p>}
         {state.error && <p className="wx-attn">{state.error}</p>}
         {d && (
           <>
@@ -59,19 +59,24 @@ function DevicePane({ origin, onClose, onPivotEvents }) {
 
             <Section title="Aliases · the seam for stronger identifiers"
                      note={d.aliases?.note} testid="wx-device-aliases">
-              <table className="wx-kv">
-                <tbody>
-                  {Object.entries(d.aliases || {})
-                    .filter(([k]) => k !== "note")
-                    .map(([k, v]) => (
-                      <tr key={k}>
-                        <td>{k}</td>
-                        <td>{Array.isArray(v)
-                          ? (v.length ? v.join(", ") : <span className="wx-dim">—</span>)
-                          : (v || <span className="wx-dim">NOT AVAILABLE</span>)}</td>
-                      </tr>))}
-                </tbody>
-              </table>
+              <NxDataTable searchable={false} pageSize={50}
+                           testid="wx-device-aliases-table"
+                           rowKey={(r) => r.alias}
+                           emptyTitle="No stronger identifier has been asserted"
+                           rows={Object.entries(d.aliases || {})
+                             .filter(([k]) => k !== "note")
+                             .map(([k, v]) => ({ alias: k, value: v }))}
+                           columns={[
+                { key: "alias", header: "Identifier", width: "200px",
+                  render: (r) => <span className="nx-mono">{r.alias}</span> },
+                { key: "value", header: "Value",
+                  render: (r) => (Array.isArray(r.value)
+                    ? (r.value.length
+                      ? <Tags values={r.value} />
+                      : <span className="nx-absent">—</span>)
+                    : (r.value
+                      || <span className="nx-absent">Not available</span>)) },
+              ]} />
             </Section>
 
             <Section title="Collection" testid="wx-device-collection">
@@ -88,22 +93,24 @@ function DevicePane({ origin, onClose, onPivotEvents }) {
             </Section>
 
             <Section title="Channel matrix" testid="wx-device-matrix">
-              <table className="wx-kv">
-                <tbody>
-                  {matrix.map((c) => (
-                    <tr key={c.channel}>
-                      <td>{c.channel}</td>
-                      <td>
-                        <StateChip value={c.collection.state} />{" "}
-                        <StateChip value={c.normalization.state} />{" "}
-                        <StateChip value={c.detection_capability.state} />
-                      </td>
-                    </tr>))}
-                </tbody>
-              </table>
+              <NxDataTable rows={matrix} rowKey={(c) => c.channel}
+                           searchable={false} pageSize={30}
+                           testid="wx-device-matrix-table"
+                           emptyTitle="No channel has been observed on this device"
+                           columns={[
+                { key: "channel", header: "Channel", width: "230px",
+                  render: (c) => <span className="nx-mono">{c.channel}</span> },
+                { key: "collection", header: "Collection", width: "140px",
+                  render: (c) => <StateChip value={c.collection.state} /> },
+                { key: "normalization", header: "Evidence", width: "140px",
+                  render: (c) => <StateChip value={c.normalization.state} /> },
+                { key: "capability", header: "Detection capability",
+                  render: (c) => (
+                    <StateChip value={c.detection_capability.state} />) },
+              ]} />
             </Section>
 
-            <button type="button" className="wx-btn"
+            <button type="button" className="nx-btn nx-btn--primary"
                     data-testid="wx-device-pivot-events"
                     onClick={() => onPivotEvents && onPivotEvents(d.evidence_origin)}>
               Open host in Event Explorer
@@ -116,45 +123,48 @@ function DevicePane({ origin, onClose, onPivotEvents }) {
 }
 
 export default function WindowsDevices({ devices, loading, error, onRefresh,
+                                         initialOrigin = null,
                                          onPivotEvents }) {
-  const [origin, setOrigin] = useState(null);
+  const [origin, setOrigin] = useState(initialOrigin);
+  useEffect(() => { if (initialOrigin) setOrigin(initialOrigin); },
+            [initialOrigin]);
   const columns = [
-    { key: "origin", label: "Device (event origin)",
+    { key: "origin", header: "Device (event origin)",
       value: (r) => r.evidence_origin,
       render: (r) => (
         <span>
           <strong>{r.evidence_origin}</strong>
-          <div className="wx-dim">identity: {r.identity_state}</div>
+          <div className="nx-absent">identity: {r.identity_state}</div>
         </span>) },
-    { key: "os", label: "OS", value: (r) => r.os || "",
-      render: (r) => (r.os || <span className="wx-dim">—</span>) },
-    { key: "collector", label: "Collector",
+    { key: "os", header: "OS", value: (r) => r.os || "",
+      render: (r) => (r.os || <span className="nx-absent">—</span>) },
+    { key: "collector", header: "Collector",
       value: (r) => (r.collectors || []).join(","),
       render: (r) => <Tags values={r.collectors} /> },
-    { key: "profile", label: "Profile",
+    { key: "profile", header: "Profile",
       value: (r) => (r.profiles || []).join(","),
       render: (r) => <Tags values={r.profiles} /> },
-    { key: "collection", label: "Collection",
+    { key: "collection", header: "Collection",
       value: (r) => r.collection_state,
       render: (r) => <StateChip value={r.collection_state} /> },
-    { key: "last", label: "Last telemetry", value: (r) => r.last_telemetry_at,
-      render: (r) => <span className="wx-mono">{r.last_telemetry_at || "—"}</span> },
-    { key: "channels", label: "Channels receiving",
+    { key: "last", header: "Last telemetry", value: (r) => r.last_telemetry_at,
+      render: (r) => <span className="nx-mono">{r.last_telemetry_at || "—"}</span> },
+    { key: "channels", header: "Channels receiving",
       value: (r) => (r.channels_observed || []).length,
       render: (r) => `${(r.channels_observed || []).length}` },
-    { key: "coverage", label: "Evidence coverage",
+    { key: "coverage", header: "Evidence coverage",
       value: (r) => r.evidence_coverage || "",
-      render: (r) => (r.evidence_coverage || <span className="wx-dim">—</span>) },
-    { key: "gaps", label: "Gaps", value: (r) => (r.gaps || []).length,
+      render: (r) => (r.evidence_coverage || <span className="nx-absent">—</span>) },
+    { key: "gaps", header: "Gaps", value: (r) => (r.gaps || []).length,
       render: (r) => ((r.gaps || []).length
-        ? <StateChip value="GAP DETECTED" /> : <span className="wx-dim">—</span>) },
-    { key: "edr", label: "EDR", value: (r) => r.edr_association,
+        ? <StateChip value="GAP DETECTED" /> : <span className="nx-absent">—</span>) },
+    { key: "edr", header: "EDR", value: (r) => r.edr_association,
       render: (r) => <StateChip value={r.edr_association} title={r.edr_association_reason} /> },
-    { key: "attention", label: "Attention",
+    { key: "attention", header: "Attention",
       value: (r) => (r.attention || []).length,
       render: (r) => ((r.attention || []).length
         ? <span className="wx-attn">{r.attention.join(" · ")}</span>
-        : <span className="wx-dim">—</span>) },
+        : <span className="nx-absent">—</span>) },
   ];
 
   return (

@@ -15,7 +15,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import XdrShell from "@/xdr/XdrShell";
-import { NxDataTable, NxFlyout, NxPageShell, NxTabs } from "@/xdr/nx";
+import { NxButton, NxDataTable, NxField, NxFlyout, NxPageShell, NxRaw,
+         NxSection, NxState, NxTabs, NxToken, NxToolbar } from "@/xdr/nx";
 import {
   Fact, Section, StateChip,
 } from "@/xdr/datasources/windows/WindowsPrimitives";
@@ -45,19 +46,22 @@ const PANE_TABS = [
 ];
 
 const KV = ({ data, testid }) => (
-  <table className="wx-kv" data-testid={testid}>
-    <tbody>
-      {Object.entries(data || {}).map(([k, v]) => (
-        <tr key={k}>
-          <td>{k}</td>
-          <td>{v === null || v === undefined || v === ""
-            ? <span className="wx-dim">—</span>
-            : (typeof v === "object" ? JSON.stringify(v) : String(v))}</td>
-        </tr>))}
-      {Object.keys(data || {}).length === 0 && (
-        <tr><td colSpan={2} className="wx-dim">NOT AVAILABLE</td></tr>)}
-    </tbody>
-  </table>
+  <NxDataTable testid={testid} searchable={false} pageSize={100}
+               rowKey={(r) => r.field}
+               emptyTitle="Not available"
+               emptyHint="This stage produced no field for this event"
+               rows={Object.entries(data || {}).map(([field, value]) => (
+                 { field, value }))}
+               columns={[
+    { key: "field", header: "Field", width: "260px",
+      render: (r) => <span className="nx-mono">{r.field}</span> },
+    { key: "value", header: "Value",
+      render: (r) => (r.value === null || r.value === undefined
+        || r.value === ""
+        ? <span className="nx-absent">—</span>
+        : <span className="nx-mono">{typeof r.value === "object"
+            ? JSON.stringify(r.value) : String(r.value)}</span>) },
+  ]} />
 );
 
 function EventPane({ eventId, onClose, onPivot }) {
@@ -79,27 +83,34 @@ function EventPane({ eventId, onClose, onPivot }) {
   return (
     <NxFlyout open title={sum?.event_type || "Event"} eyebrow={eventId}
               onClose={onClose} width={780} testid="ev-pane">
-      <div className="wx-pane">
-        {state.loading && <p className="wx-dim">loading…</p>}
+      <div className="wx-stack">
+        {state.loading && <p className="nx-absent">loading…</p>}
         {state.error && <p className="wx-attn">{state.error}</p>}
         {d && (
           <>
             <Section title="Transformation chain"
                      note="Each stage is a separate fact with its own evidence reference. A stage that did not happen says so."
                      testid="ev-chain">
-              <table className="wx-kv">
-                <tbody>
-                  {d.chain.map((st) => (
-                    <tr key={st.stage}>
-                      <td>{st.stage}</td>
-                      <td>
-                        <StateChip value={st.state} />{" "}
-                        {st.evidence_ref && <span className="wx-tag">{st.evidence_ref}</span>}
-                        {st.reason && <div className="wx-dim">{st.reason}</div>}
-                      </td>
-                    </tr>))}
-                </tbody>
-              </table>
+              <NxDataTable rows={d.chain} rowKey={(st) => st.stage}
+                           searchable={false} pageSize={20}
+                           testid="ev-chain-table"
+                           emptyTitle="No transformation stage was recorded"
+                           columns={[
+                { key: "stage", header: "Stage", width: "190px",
+                  render: (st) => st.stage },
+                { key: "state", header: "State", width: "160px",
+                  render: (st) => <NxState value={st.state}
+                                           reason={st.reason} /> },
+                { key: "evidence_ref", header: "Evidence reference",
+                  width: "260px",
+                  render: (st) => (st.evidence_ref
+                    ? <NxToken>{st.evidence_ref}</NxToken>
+                    : <span className="nx-absent">—</span>) },
+                { key: "reason", header: "Why",
+                  render: (st) => (st.reason
+                    ? <span>{st.reason}</span>
+                    : <span className="nx-absent">—</span>) },
+              ]} />
             </Section>
 
             <NxTabs tabs={PANE_TABS} active={tab} onChange={setTab}
@@ -126,15 +137,15 @@ function EventPane({ eventId, onClose, onPivot }) {
             {tab === "fields" && <KV data={d.fields} testid="ev-pane-fields" />}
             {tab === "raw" && (
               <div data-testid="ev-pane-raw">
-                <p className="wx-section-note">{d.raw.immutability_note}</p>
+                <p className="nx-sec-note">{d.raw.immutability_note}</p>
                 {d.raw.xml
-                  ? <pre className="wx-xml">{d.raw.xml}</pre>
+                  ? <pre className="nx-raw">{d.raw.xml}</pre>
                   : <KV data={d.raw.document} />}
               </div>
             )}
             {tab === "normalized" && <KV data={d.normalized} testid="ev-pane-normalized" />}
             {tab === "canonical" && (
-              <pre className="wx-xml" data-testid="ev-pane-canonical">
+              <pre className="nx-raw" data-testid="ev-pane-canonical">
                 {JSON.stringify(d.canonical, null, 2)}
               </pre>
             )}
@@ -146,10 +157,10 @@ function EventPane({ eventId, onClose, onPivot }) {
                   <Fact label="Process" value={d.relationships.process} />
                   <Fact label="Process GUID" value={d.relationships.process_guid} />
                 </div>
-                <div className="wx-tags">
+                <div className="nx-tokens">
                   {d.relationships.pivots.map((p) => (
                     <button type="button" key={`${p.kind}-${p.value}`}
-                            className="wx-btn"
+                            className="nx-btn"
                             data-testid={`ev-pivot-${p.kind}`}
                             onClick={() => onPivot(p.query)}>
                       {p.kind}: {p.value}
@@ -171,14 +182,14 @@ function EventPane({ eventId, onClose, onPivot }) {
                     </div>
                   </Section>))}
                 {d.detection.matches.length === 0 && (
-                  <p className="wx-section-note">
+                  <p className="nx-sec-note">
                     this evidence was evaluated and no deployed rule matched.
                     That is an evaluation outcome, not a gap
                   </p>)}
               </div>
             )}
             {tab === "provenance" && (
-              <pre className="wx-xml" data-testid="ev-pane-provenance">
+              <pre className="nx-raw" data-testid="ev-pane-provenance">
                 {JSON.stringify(d.provenance, null, 2)}
               </pre>
             )}
@@ -220,47 +231,47 @@ export default function XdrEventExplorerPage() {
 
   const rows = state.data?.rows || [];
   const columns = [
-    { key: "time", label: "Time", value: (r) => r.time,
+    { key: "time", header: "Time", value: (r) => r.time,
       render: (r) => (
-        <span className="wx-mono" title={`${r.time_basis || ""} · ${r.time_source || ""}`}>
+        <span className="nx-mono" title={`${r.time_basis || ""} · ${r.time_source || ""}`}>
           {r.time || "—"}
         </span>) },
-    { key: "host", label: "Host", value: (r) => r.host || "",
-      render: (r) => (r.host || <span className="wx-dim">—</span>) },
-    { key: "channel", label: "Channel / source",
+    { key: "host", header: "Host", value: (r) => r.host || "",
+      render: (r) => (r.host || <span className="nx-absent">—</span>) },
+    { key: "channel", header: "Channel / source",
       value: (r) => r.channel || r.source_product || "",
       render: (r) => (
         <span title={r.source_vendor || ""}>
-          {r.channel || r.source_product || <span className="wx-dim">—</span>}
+          {r.channel || r.source_product || <span className="nx-absent">—</span>}
         </span>) },
-    { key: "provider", label: "Provider", value: (r) => r.provider || "",
-      render: (r) => (r.provider || <span className="wx-dim">—</span>) },
-    { key: "event_id", label: "Event ID / type",
+    { key: "provider", header: "Provider", value: (r) => r.provider || "",
+      render: (r) => (r.provider || <span className="nx-absent">—</span>) },
+    { key: "event_id", header: "Event ID / type",
       value: (r) => r.source_event_id || "",
       render: (r) => (
         <span>
-          <span className="wx-mono">{r.source_event_id || "—"}</span>
-          <div className="wx-dim">{r.event_type}</div>
+          <span className="nx-mono">{r.source_event_id || "—"}</span>
+          <div className="nx-absent">{r.event_type}</div>
         </span>) },
-    { key: "user", label: "User", value: (r) => r.user || "",
-      render: (r) => (r.user || <span className="wx-dim">—</span>) },
-    { key: "process", label: "Process", value: (r) => r.process || "",
+    { key: "user", header: "User", value: (r) => r.user || "",
+      render: (r) => (r.user || <span className="nx-absent">—</span>) },
+    { key: "process", header: "Process", value: (r) => r.process || "",
       render: (r) => (
         <span title={r.process_command_line || ""}>
-          {r.process || <span className="wx-dim">—</span>}
+          {r.process || <span className="nx-absent">—</span>}
         </span>) },
-    { key: "activity", label: "Activity", value: (r) => r.event_type },
-    { key: "level", label: "Level", value: (r) => r.level || "",
+    { key: "activity", header: "Activity", value: (r) => r.event_type },
+    { key: "level", header: "Level", value: (r) => r.level || "",
       render: (r) => measured(r.level) },
-    { key: "detection", label: "Detection",
+    { key: "detection", header: "Detection",
       value: (r) => r.detection.count,
       render: (r) => (
         <span title={(r.detection.rules || []).join(", ")}>
           <StateChip value={r.detection.state} />
           {r.detection.count > 0 && <strong> {r.detection.count}</strong>}
         </span>) },
-    { key: "evidence", label: "Evidence", value: (r) => r.evidence_ref,
-      render: (r) => <span className="wx-tag">{r.dsm_id || "—"}</span> },
+    { key: "evidence", header: "Evidence", value: (r) => r.evidence_ref,
+      render: (r) => <span className="nx-token">{r.dsm_id || "—"}</span> },
   ];
 
   return (
@@ -268,24 +279,30 @@ export default function XdrEventExplorerPage() {
       <NxPageShell eyebrow="Investigate" title="Event Explorer"
                    description="Estate-wide canonical events, from every source with a DSM"
                    testid="ev-page">
-        <div className="wx-filters" data-testid="ev-filters">
+        <NxToolbar testid="ev-filters" right={
+          <>
+            <NxButton variant="primary" testid="ev-apply"
+                      onClick={() => apply(draft)}>Search</NxButton>
+            <NxButton testid="ev-clear" onClick={() => apply({})}>
+              Clear
+            </NxButton>
+          </>}>
           {FILTERS.map((f) => (
-            <label className="wx-filter" key={f.key}>
-              <span>{f.label}</span>
+            <NxField label={f.label} key={f.key}>
               <input value={draft[f.key] || ""}
                      data-testid={`ev-filter-${f.key}`}
-                     placeholder={f.key === "q" ? "host, user, process, script text" : ""}
-                     onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-                     onKeyDown={(e) => { if (e.key === "Enter") apply(draft); }} />
-            </label>))}
-          <button type="button" className="wx-btn" data-testid="ev-apply"
-                  onClick={() => apply(draft)}>Search</button>
-          <button type="button" className="wx-btn" data-testid="ev-clear"
-                  onClick={() => apply({})}>Clear</button>
-        </div>
+                     placeholder={f.key === "q"
+                       ? "host, user, process, script text" : ""}
+                     onChange={(e) => setDraft({ ...draft,
+                                                 [f.key]: e.target.value })}
+                     onKeyDown={(e) => {
+                       if (e.key === "Enter") apply(draft);
+                     }} />
+            </NxField>))}
+        </NxToolbar>
 
         {facets && (
-          <p className="wx-section-note" data-testid="ev-facets">
+          <p className="nx-sec-note" data-testid="ev-facets">
             {facets.channels.length} channel(s) · {facets.hosts.length} host(s) ·{" "}
             {facets.dsm_ids.length} DSM(s) have produced canonical evidence in this tenant
           </p>
@@ -301,7 +318,7 @@ export default function XdrEventExplorerPage() {
                      testid="ev-table" />
 
         {state.data && (
-          <p className="wx-section-note">
+          <p className="nx-sec-note">
             {rows.length} of {measured(state.data.total)} matching canonical events ·{" "}
             {state.data.source_agnostic_note}
           </p>

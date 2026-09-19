@@ -55,7 +55,7 @@ const NODE_TYPE = {
   technique: { color: "#f472b6", icon: GitBranch,   label: "MITRE",     shape: "hex" },
   verdict:   { color: "#f87171", icon: ShieldAlert, label: "VERDICT",   shape: "hex" },
   response:  { color: "#34d399", icon: Zap,         label: "RESPONSE",  shape: "square" },
-  cluster:   { color: "#7c8494", icon: Boxes,       label: "CLUSTER",   shape: "square" },
+  cluster:   { color: "var(--nx-text-dim)", icon: Boxes,       label: "CLUSTER",   shape: "square" },
 };
 
 const EDGE_KIND = {
@@ -762,7 +762,7 @@ function NodeGlyph({ node, selected, hovered, dimmed,
       </text>
       {node.subtitle && (
         <text y={r + 24} textAnchor="middle"
-                fill="#7c8494" fontSize={9}
+                fill="var(--nx-text)" fontSize={9}
                 fontFamily="ui-monospace, SFMono-Regular, monospace"
                 style={{ pointerEvents: "none" }}>
           {_short(node.subtitle, 32)}
@@ -1365,7 +1365,7 @@ function PivotMenu({ x, y, node, incident, onClose, onHighlight }) {
   const style = {
     position: "fixed", left: Math.min(x, window.innerWidth - 240),
     top: Math.min(y, window.innerHeight - 320),
-    background: "#0e131c", border: "1px solid #22293a",
+    background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
     borderRadius: 5, minWidth: 220, padding: "5px 0",
     boxShadow: "0 6px 24px rgba(0,0,0,.55)",
     zIndex: 100, fontSize: 11.5,
@@ -1380,7 +1380,7 @@ function PivotMenu({ x, y, node, incident, onClose, onHighlight }) {
       </div>
       {items.map((it, i) =>
         it.divider ? (
-          <div key={i} style={{ height: 1, background: "#1c2230", margin: "4px 0" }} />
+          <div key={i} style={{ height: 1, background: "var(--nx-surf-inset)", margin: "4px 0" }} />
         ) : (
           <button key={i} className="btn ghost"
                      onClick={() => { it.action?.({ onHighlight }); onClose(); }}
@@ -1564,7 +1564,7 @@ function Minimap({ nodes, pan, zoom, selectedId, canvasRef }) {
               position: "absolute", right: 10, bottom: 40, zIndex: 5,
               width: size.w, height: size.h,
               background: "rgba(10,13,20,.85)",
-              border: "1px solid #22293a", borderRadius: 4,
+              border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
               boxShadow: "0 4px 14px rgba(0,0,0,.5)",
               padding: 3,
             }}>

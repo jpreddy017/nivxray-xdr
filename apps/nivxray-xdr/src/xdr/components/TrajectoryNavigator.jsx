@@ -557,8 +557,8 @@ export default function TrajectoryNavigator({
                                   + (has ? " · click to focus, double-click to fit" : "")}
                           style={{
                             height: 30, padding: 0, cursor: has ? "pointer" : "default",
-                            background: active ? "#152131" : has ? "#0F151C" : "#0A0E13",
-                            border: `1px solid ${active ? "#3A6B9E" : "#212B36"}`,
+                            background: active ? "var(--nx-surf-inset)" : has ? "var(--nx-surf-inset)" : "var(--nx-surf-inset)",
+                            border: `1px solid ${active ? "var(--nx-bd-quiet)" : "var(--nx-bd-quiet)"}`,
                             display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: "center", gap: 2,
                           }}
@@ -616,7 +616,7 @@ export default function TrajectoryNavigator({
                 {Array.from({ length: 24 }, (_, h) => (
                   <rect key={h} x={PAD + (h / 24) * innerW} y={6}
                         width={innerW / 24} height={26}
-                        fill="#0F151C" stroke="#212B36" strokeWidth={0.8} />
+                        fill="var(--nx-surf-inset)" stroke="var(--nx-surf-inset)" strokeWidth={0.8} />
                 ))}
 
                 {/* Observation dots, stacked red-over-blue inside the cells. */}

@@ -389,7 +389,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
           <EndpointActionsMenu groups={actionGroups} />
         </div>
         <span className="mono" style={{ fontSize: 10,
-                color: maliciousCount ? "#FF3838" : "var(--faint)" }}
+                color: maliciousCount ? "var(--nx-text-dim)" : "var(--faint)" }}
               data-testid="entity360-compromise-count">
           {maliciousCount
             ? `${maliciousCount} compromise event${maliciousCount === 1 ? "" : "s"}`
@@ -576,7 +576,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
                         </div>
                       </div>
                     ) : (
-                      <div className="mono" style={{ fontSize: 11, color: "#FF3838" }}>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--nx-text-dim)" }}>
                         {maliciousCount} compromise observation
                         {maliciousCount === 1 ? "" : "s"} in the observed span
                       </div>

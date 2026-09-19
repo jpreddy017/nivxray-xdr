@@ -373,6 +373,9 @@ app.include_router(xdr_windows_router)
 # Lane H · Event Explorer (source-agnostic canonical event search)
 from routers.xdr_events import router as xdr_events_router
 app.include_router(xdr_events_router)
+# Program D · Access Management write paths + Effective Access
+from routers.xdr_access import router as xdr_access_router
+app.include_router(xdr_access_router)
 
 # D21 · routing visibility — READ-ONLY projection of ingest routing decisions.
 from routers.xdr_ingest_routing import router as xdr_ingest_routing_router

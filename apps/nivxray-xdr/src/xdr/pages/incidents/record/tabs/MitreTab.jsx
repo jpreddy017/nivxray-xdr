@@ -132,22 +132,22 @@ export default function MitreTab({ incident }) {
             /* Round 45 · shared inspector opened via evidence pill.
                 Same component used by Attack Graph / Timeline /
                 Evidence Deep-Links (R38.3 · R42 invariant). */
-            <div style={{ background: "#0b1220",
-                             border: "1px solid #1e293b",
+            <div style={{ background: "var(--nx-surf-inset)",
+                             border: "1px solid var(--nx-bd-quiet)",
                              borderRadius: 4, overflow: "hidden" }}
                   data-testid="xdr-mitre-inspector">
               <div style={{ padding: "8px 12px",
-                               borderBottom: "1px solid #1e293b",
-                               background: "#111827",
+                               borderBottom: "1px solid var(--nx-bd-quiet)",
+                               background: "var(--nx-surf-inset)",
                                display: "flex", alignItems: "center",
                                gap: 8, fontSize: 11, color: "#cbd5e1" }}
                     data-testid="xdr-mitre-deeplink-bar">
                 <button
                   data-testid="xdr-mitre-deeplink-back"
                   onClick={() => setDeepLink(null)}
-                  style={{ background: "#0f172a",
+                  style={{ background: "var(--nx-surf-inset)",
                                  color: "#e2e8f0",
-                                 border: "1px solid #334155",
+                                 border: "1px solid var(--nx-bd-quiet)",
                                  borderRadius: 3,
                                  padding: "4px 8px", fontSize: 11,
                                  cursor: "pointer" }}>

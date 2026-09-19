@@ -46,7 +46,7 @@
 .cx-row__l1 { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
 .cx-row__sev { width: 15px; height: 15px; border-radius: 2px; flex-shrink: 0;
                font-size: 9.5px; font-weight: 800; line-height: 15px;
-               text-align: center; color: #0B0E14; }
+               text-align: center; color: var(--nx-text-dim); }
 .cx-row__sev[data-s="critical"] { background: var(--nx-critical-bd); }
 .cx-row__sev[data-s="high"]     { background: var(--nx-high-bd); }
 .cx-row__sev[data-s="medium"]   { background: var(--nx-medium-bd); }

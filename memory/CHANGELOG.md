@@ -2,6 +2,54 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-06 · W2-1D — Coverage Impact: POTENTIAL vs EFFECTIVE — SHIPPED
+
+Owner correction to the W2-1C model: "detectable the moment telemetry
+arrives" is too strong, and `AVAILABLE` must never depend on a rule having
+fired. Both are now impossible to express.
+
+**Benchmark recorded before implementing** (standing rule): Elastic
+Security publishes `required_fields` + `related_integrations` per prebuilt
+rule; DeTT&CT separates data-source visibility from detection coverage; the
+documented industry failure mode is *"assuming coverage based on log
+presence"* when the fields a rule cites were never normalized. Rejected
+alternatives: coverage-by-log-source (that failure mode) and
+coverage-by-firing (would report a new customer with 500 valid rules as
+uncovered).
+
+- `coverage_impact()` publishes two independent claims. **POTENTIAL** =
+  deployed content that could use the source, judged against the channel's
+  DECLARED canonical fields. **EFFECTIVE** = source receiving · parser
+  supported · normalization supported · required fields **measured in real
+  evidence** · rule deployed · rule applicable to the schema. Neither needs
+  a detection to have fired.
+- Prerequisites are itemised individually (Source configured · Source
+  receiving · Parsing · Normalization · Canonical evidence produced), each
+  PASS / NOT PROVEN / BLOCKED with the exact blocker.
+- **Evidence gaps** (this deployment must fix) are kept apart from
+  **content gaps** (a rule citing a field this channel will never carry).
+- A rule that declares no required fields is BLOCKED, not effective — its
+  field prerequisite cannot be verified.
+- The `Detectable` stage now reports EFFECTIVE coverage, so the misleading
+  `Security · Detectable ✓ while Acquired ✗` reading is gone. It now reads
+  `Detectable ✗ BLOCKED · potential coverage: 18 rule(s)`.
+- ATT&CK rows appear only where deployed content carries an authoritative
+  technique mapping; a channel with no DSM yields an empty set (asserted).
+- `GET /api/xdr/windows/coverage` → `available_now` / `potential` /
+  `blocked` buckets + estate ATT&CK view. UI `WindowsCoverage.jsx` with a
+  citation pane walking channel → schema/event types → required fields →
+  detection rules → ATT&CK mapping → operational state → evidence.
+- Truthfulness fixes: a channel with no source configured reports
+  `events_delivered = null` (`—`) because nothing was counted (`0` is
+  reserved for NOT OBSERVED, where zero is measured); the tenant-scope
+  refusal now renders once as an actionable "select a customer" notice.
+
+Verified: 56 tests in `test_w2_windows_channel_dsms.py` (8 new for this
+model), 201 passing across the Windows/temporal/routing suites, 175 passing
+across ingest/telemetry regression, clean vite build, live endpoints
+confirmed against a real tenant.
+
+
 ## 2026-06 · W2-1C — Windows channel truth model · Event Explorer · Defender DSM — SHIPPED
 
 Report `memory/W2-1C_WINDOWS_TRUTH_AND_EVENT_EXPLORER.md`. Standing owner

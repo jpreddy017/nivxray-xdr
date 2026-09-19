@@ -202,6 +202,71 @@ ANALYSIS_UNDECLARED_REASON = (
     "over or detected on")
 
 
+#: The canonical fields each channel's DSM can populate. Declared, because
+#: POTENTIAL coverage must be answerable before any telemetry exists; and
+#: measured separately below, because EFFECTIVE coverage may never be
+#: answered from a declaration.
+#:
+#: Benchmark (owner standing rule): Elastic Security publishes
+#: `required_fields` + `related_integrations` per prebuilt rule, and the
+#: documented failure mode across Elastic/Splunk/DeTT&CT practice is
+#: "assuming coverage from log presence" when the specific fields a rule
+#: cites were never normalized. So NivXRay checks the FIELDS, not the
+#: channel.
+CHANNEL_CANONICAL_FIELDS: dict[str, tuple[str, ...]] = {
+    "Microsoft-Windows-Sysmon/Operational": (
+        "process.name", "process.command_line", "process.executable_path",
+        "process.pid", "process.process_guid", "process.parent_name",
+        "process.parent_command_line", "process.parent_process_guid",
+        "identity.username", "identity.domain", "host.hostname",
+        "registry.key_path", "registry.value_name", "network.dest_ip",
+        "network.dest_port", "network.dns_query", "file.path", "file.name",
+        "file.hash_sha256",
+    ),
+    "Security": (
+        "process.name", "process.command_line", "process.executable_path",
+        "process.pid", "process.parent_name", "identity.username",
+        "identity.domain", "identity.user_sid", "identity.logon_id",
+        "identity.is_privileged", "host.hostname", "network.src_ip",
+        "network.src_port", "authentication.auth_type",
+        "authentication.status", "registry.key_path",
+        "additional_fields.logon_type", "additional_fields.privilege_list",
+        "additional_fields.target_user_name", "additional_fields.task_name",
+    ),
+    "Microsoft-Windows-PowerShell/Operational": (
+        "process.name", "process.command_line", "process.pid",
+        "identity.username", "identity.domain", "host.hostname",
+        "additional_fields.script_block_text",
+        "additional_fields.script_block_id", "additional_fields.script_path",
+    ),
+    "Windows PowerShell": (
+        "process.name", "process.command_line", "process.pid",
+        "identity.username", "host.hostname",
+        "additional_fields.engine_version",
+    ),
+    "Microsoft-Windows-Windows Defender/Operational": (
+        "file.path", "file.name", "process.name", "process.executable_path",
+        "identity.username", "host.hostname",
+        "additional_fields.vendor_verdict",
+    ),
+}
+
+#: Coverage vocabulary. POTENTIAL and EFFECTIVE are different claims and
+#: are never merged: "content exists that could use this source" is not
+#: "this platform can currently establish that it works".
+COVERAGE_EFFECTIVE = "AVAILABLE NOW"
+COVERAGE_POTENTIAL = "POTENTIAL"
+COVERAGE_BLOCKED = "BLOCKED"
+COVERAGE_NOT_PROVEN = "NOT PROVEN"
+COVERAGE_STATES = (COVERAGE_EFFECTIVE, COVERAGE_POTENTIAL,
+                   COVERAGE_BLOCKED, COVERAGE_NOT_PROVEN, NOT_AVAILABLE)
+
+PREREQ_PASS = "PASS"
+PREREQ_NOT_PROVEN = "NOT PROVEN"
+PREREQ_BLOCKED = "BLOCKED"
+PREREQ_NOT_APPLICABLE = "NOT APPLICABLE"
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -482,7 +547,7 @@ def _collection_dimension(channel: str, raw: dict[str, Any] | None,
         if not authorized_for:
             state = NOT_CONFIGURED
             reason = ("no collector in this tenant is authorized to deliver "
-                      f"this channel's declared source")
+                      "this channel's declared source")
         elif tenant_has_any_delivery:
             state = NOT_OBSERVED
             reason = ("a collector authorized for this channel is delivering "
@@ -492,7 +557,13 @@ def _collection_dimension(channel: str, raw: dict[str, Any] | None,
             reason = ("a collector is authorized for this channel and no "
                       "delivery of any channel has been observed yet, so "
                       "arrival has not been evaluated")
-        return {"state": state, "reason": reason, "events_delivered": 0,
+        # A measurement we never took is NOT zero. With no source
+        # configured there was nothing to count; once a collector is
+        # authorized and other channels are arriving, zero IS the measured
+        # answer for this one.
+        counted = 0 if state == NOT_OBSERVED else None
+        return {"state": state, "reason": reason,
+                "events_delivered": counted,
                 "last_event_at": None, "gap": None,
                 "authorized_collectors": authorized_for,
                 "collectors_observed": [],
@@ -547,9 +618,9 @@ def _support_dimension(declared: str, ok: int | None, failed: int | None,
                        ) -> dict[str, Any]:
     """A declaration and a measurement, side by side — never merged."""
     total = sum(v for v in (ok, failed, unmeasured) if v)
-    if declared == UNSUPPORTED:
-        measured_state = NOT_EVALUATED
-    elif total == 0:
+    if declared == UNSUPPORTED or total == 0:
+        # A channel with no parser and a channel with nothing yet to parse
+        # are both simply NOT EVALUATED. Neither is a failure.
         measured_state = NOT_EVALUATED
     elif failed and not ok:
         measured_state = ERROR
@@ -590,14 +661,22 @@ def _activity_dimension(activity: dict[str, Any] | None,
 
 
 def _human_stages(collection: dict, parsing: dict, normalization: dict,
-                  capability: dict) -> list[dict[str, Any]]:
+                  capability: dict, coverage: dict) -> list[dict[str, Any]]:
     """`Acquired → Understood → Detectable` — a PRESENTATION of the states
     above. It computes no new truth and it cannot manufacture a successful
-    stage: each stage carries the underlying facts it is standing on."""
+    stage: each stage carries the underlying facts it is standing on.
+
+    The third stage reports EFFECTIVE coverage, never potential. Owner
+    correction (2026-06): 21 applicable rules with no proven telemetry is
+    `Potential coverage: 21 rules · Effective coverage: NOT PROVEN` — it is
+    NOT a reached `Detectable` stage, because telemetry arriving does not
+    by itself prove the parser, the normalization, the required fields, an
+    enabled rule, its schema compatibility or the execution path.
+    """
     acquired = collection["state"] in (RECEIVING, DEGRADED)
     understood = (normalization["state"] in (SUPPORTED, PARTIAL)
                   and normalization["measured_state"] in (SUPPORTED, PARTIAL))
-    detectable = capability["state"] in (AVAILABLE, PARTIAL)
+    effective = coverage["effective"]["state"] == COVERAGE_EFFECTIVE
     return [
         {"stage": "Acquired", "reached": acquired,
          "state": collection["state"], "detail": collection["reason"],
@@ -608,10 +687,318 @@ def _human_stages(collection: dict, parsing: dict, normalization: dict,
                     "channel's records" if understood
                     else "no canonical evidence measured from this channel"),
          "drill": "normalization"},
-        {"stage": "Detectable", "reached": detectable,
-         "state": capability["state"], "detail": capability["basis"],
-         "drill": "detection_capability"},
+        {"stage": "Detectable", "reached": effective,
+         "state": coverage["effective"]["state"],
+         "detail": (f"effective coverage: {coverage['effective']['state']} · "
+                    f"potential coverage: "
+                    f"{coverage['potential']['rule_count']} rule(s) · "
+                    f"{coverage['effective']['basis']}"),
+         "drill": "coverage"},
     ]
+
+
+# ── COVERAGE IMPACT · potential vs effective ──────────────────────
+def _prereq(name: str, state: str, detail: str,
+            blocker: str | None = None) -> dict[str, Any]:
+    return {"prerequisite": name, "state": state, "detail": detail,
+            "blocker": blocker}
+
+
+async def _measured_fields(db, tenant_id: str, sample: int = 200
+                           ) -> dict[str, set[str]]:
+    """Which canonical fields this channel's evidence has ACTUALLY carried.
+
+    The industry failure mode is assuming coverage from log presence while
+    the specific fields a rule cites were never populated. So effective
+    coverage is checked against measured fields, never against the
+    declaration.
+    """
+    out: dict[str, set[str]] = {}
+    cursor = db[EVIDENCE_COLLECTION].find(
+        {"tenant_id": tenant_id},
+        {"_id": 0, "raw_ref.channel": 1, "host": 1, "identity": 1,
+         "process": 1, "network": 1, "file": 1, "registry": 1,
+         "authentication": 1, "additional_fields": 1}
+    ).sort("ingest_time", -1).limit(sample)
+    async for doc in cursor:
+        channel = ((doc.get("raw_ref") or {}).get("channel"))
+        if not channel:
+            continue
+        seen = out.setdefault(channel, set())
+        for group, value in doc.items():
+            if group in ("raw_ref",) or not isinstance(value, dict):
+                continue
+            for key, v in value.items():
+                if v in (None, "", [], {}):
+                    continue
+                seen.add(f"{group}.{key}")
+    return out
+
+
+async def _activity_by_rule(db, tenant_id: str) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    cursor = db[MATCH_COLLECTION].aggregate([
+        {"$match": {"tenant_id": tenant_id}},
+        {"$group": {"_id": "$rule_id", "count": {"$sum": 1},
+                    "last": {"$max": "$evaluated_at"},
+                    "evidence": {"$addToSet": "$evidence_ref"}}},
+    ])
+    async for row in cursor:
+        if not row["_id"]:
+            continue
+        out[row["_id"]] = {"count": row["count"], "last": row["last"],
+                           "evidence": [e for e in row["evidence"] if e][:5]}
+    return out
+
+
+def coverage_impact(channel: str, *, collection: dict[str, Any],
+                    parsing: dict[str, Any], normalization: dict[str, Any],
+                    measured_fields: set[str] | None = None,
+                    activity_by_rule: dict[str, dict[str, Any]] | None = None,
+                    ) -> dict[str, Any]:
+    """POTENTIAL and EFFECTIVE coverage for one channel, kept apart.
+
+    POTENTIAL  — what deployed detection content COULD use this source if
+                 its prerequisites were satisfied.
+    EFFECTIVE  — what this platform can CURRENTLY ESTABLISH from: source
+                 receiving · parser supported · normalization supported ·
+                 required fields measured as available · rule deployed ·
+                 rule applicable to this channel's schema.
+
+    Neither depends on a malicious detection having fired. Firings are a
+    separate Detection Activity measurement.
+    """
+    decl = CHANNEL_DECLARATIONS.get(channel) or {}
+    provides = set(decl.get("provides") or ())
+    declared_fields = set(CHANNEL_CANONICAL_FIELDS.get(channel) or ())
+    measured = set(measured_fields or ())
+    activity = activity_by_rule or {}
+
+    # ── prerequisites, each answered independently ─────────────────
+    prereqs: list[dict[str, Any]] = []
+    if channel in UNSUPPORTED_CHANNELS:
+        prereqs.append(_prereq(
+            "Channel supported", PREREQ_BLOCKED,
+            UNSUPPORTED_CHANNELS[channel],
+            "collection of this channel is not implemented"))
+    else:
+        configured = bool(collection.get("authorized_collectors"))
+        prereqs.append(_prereq(
+            "Source configured",
+            PREREQ_PASS if configured else PREREQ_BLOCKED,
+            ("a collector in this tenant is authorized to deliver this "
+             "channel's declared source" if configured
+             else "no collector is authorized for this declared source"),
+            None if configured else "SOURCE NOT CONFIGURED"))
+        receiving = collection.get("state") in (RECEIVING, DEGRADED)
+        prereqs.append(_prereq(
+            "Source receiving",
+            PREREQ_PASS if receiving else PREREQ_NOT_PROVEN,
+            collection.get("reason") or "",
+            None if receiving else f"TELEMETRY {collection.get('state')}"))
+        p_ok = parsing.get("state") in (SUPPORTED, PARTIAL)
+        prereqs.append(_prereq(
+            "Parsing supported",
+            PREREQ_PASS if p_ok else PREREQ_BLOCKED,
+            f"declared {parsing.get('state')}, measured "
+            f"{parsing.get('measured_state')}",
+            None if p_ok else "NO PARSER FOR THIS CHANNEL"))
+        n_ok = normalization.get("state") in (SUPPORTED, PARTIAL)
+        n_measured = normalization.get("measured_state") in (SUPPORTED,
+                                                             PARTIAL)
+        prereqs.append(_prereq(
+            "Normalization supported",
+            PREREQ_PASS if n_ok else PREREQ_BLOCKED,
+            f"declared {normalization.get('state')}",
+            None if n_ok else "NORMALIZATION UNSUPPORTED"))
+        prereqs.append(_prereq(
+            "Canonical evidence produced",
+            PREREQ_PASS if n_measured else PREREQ_NOT_PROVEN,
+            (f"{normalization.get('measured', {}).get('ok')} canonical "
+             f"event(s) measured" if n_measured
+             else "no canonical evidence from this channel has been "
+                  "measured, so no required field can be confirmed"),
+            None if n_measured else "NO CANONICAL EVIDENCE YET"))
+
+    prereqs_satisfied = all(p["state"] == PREREQ_PASS for p in prereqs)
+
+    # ── rule-by-rule evaluation ────────────────────────────────────
+    potential: list[dict[str, Any]] = []
+    effective: list[dict[str, Any]] = []
+    blocked: list[dict[str, Any]] = []
+
+    for rule in _rule_inventory():
+        reqs = set(rule["telemetry_requirements"])
+        if not reqs or not provides or not (reqs <= provides):
+            continue
+        if rule["platform"] not in ("windows", "identity", "cloud"):
+            continue
+
+        fields = [f for f in rule["declared_fields"] if f]
+        # POTENTIAL: content exists that could use this source, judged
+        # against the DECLARED field set.
+        missing_declared = sorted(set(fields) - declared_fields) if fields \
+            else []
+        # EFFECTIVE: judged ONLY against fields measured in real evidence.
+        missing_measured = sorted(set(fields) - measured) if fields else []
+
+        act = activity.get(rule["rule_id"]) or {}
+        row = {
+            "rule_id": rule["rule_id"], "name": rule["name"],
+            "severity": rule["severity"],
+            "technique_id": rule["technique_id"],
+            "required_telemetry": sorted(reqs),
+            "required_fields": fields,
+            "content_state": "DEPLOYED",
+            "detections_fired": act.get("count"),
+            "last_detection_at": act.get("last"),
+            "evidence_refs": act.get("evidence") or [],
+        }
+
+        if missing_declared:
+            blocked.append({**row, "coverage_state": COVERAGE_BLOCKED,
+                            "blocker": "REQUIRED FIELD NOT SUPPORTED",
+                            "missing_fields": missing_declared})
+            continue
+        potential.append({**row, "coverage_state": COVERAGE_POTENTIAL})
+        if not fields:
+            # Content that declares no required fields cannot have its
+            # field prerequisite VERIFIED. Counting it as effective would
+            # be assuming coverage from log presence — the exact industry
+            # failure mode this model exists to prevent.
+            blocked.append({**row, "coverage_state": COVERAGE_BLOCKED,
+                            "blocker": "RULE DECLARES NO REQUIRED FIELDS",
+                            "missing_fields": []})
+        elif prereqs_satisfied and not missing_measured:
+            effective.append({**row, "coverage_state": COVERAGE_EFFECTIVE,
+                              "prerequisite_state": PREREQ_PASS})
+        elif prereqs_satisfied and missing_measured:
+            blocked.append({**row, "coverage_state": COVERAGE_BLOCKED,
+                            "blocker": "REQUIRED FIELD NOT OBSERVED",
+                            "missing_fields": missing_measured})
+
+    first_blocker = next((p["blocker"] for p in prereqs if p["blocker"]), None)
+    if effective:
+        eff_state, eff_basis = COVERAGE_EFFECTIVE, (
+            f"{len(effective)} deployed rule(s) have every prerequisite "
+            f"satisfied and every required field measured in this channel's "
+            f"canonical evidence")
+    elif not potential and not blocked:
+        # No content targets this channel at all. That is an absence of
+        # applicable content, not a blocked deployment — reporting it as
+        # BLOCKED would send an administrator hunting for a fault that
+        # does not exist.
+        eff_state, eff_basis = NOT_AVAILABLE, (
+            "no deployed rule's telemetry requirements are satisfied by "
+            "this channel's evidence")
+    elif first_blocker:
+        eff_state, eff_basis = COVERAGE_BLOCKED, (
+            f"blocked: {first_blocker}")
+    else:
+        eff_state, eff_basis = COVERAGE_NOT_PROVEN, (
+            "prerequisites are satisfied but no required field has been "
+            "measured in real evidence yet, so effective coverage cannot "
+            "be established")
+
+    # ── ATT&CK, only where content carries an authoritative mapping ─
+    attack: dict[str, dict[str, Any]] = {}
+    for bucket, state in ((effective, COVERAGE_EFFECTIVE),
+                          (potential, COVERAGE_POTENTIAL),
+                          (blocked, COVERAGE_BLOCKED)):
+        for r in bucket:
+            tid = r.get("technique_id")
+            if not tid:
+                continue
+            entry = attack.setdefault(tid, {
+                "technique_id": tid, "coverage_state": state,
+                "detection_content": [], "required_telemetry": set(),
+                "prerequisite_state": (PREREQ_PASS if prereqs_satisfied
+                                       else first_blocker or PREREQ_NOT_PROVEN),
+                "last_detection_at": None, "detections_fired": None,
+                "evidence_refs": [],
+            })
+            # The strongest state wins the technique row, and it is the
+            # strongest EVIDENCED state — never an optimistic one.
+            order = {COVERAGE_EFFECTIVE: 3, COVERAGE_POTENTIAL: 2,
+                     COVERAGE_BLOCKED: 1}
+            if order[state] > order[entry["coverage_state"]]:
+                entry["coverage_state"] = state
+            entry["detection_content"].append(
+                {"rule_id": r["rule_id"], "name": r["name"],
+                 "severity": r["severity"],
+                 "coverage_state": r["coverage_state"],
+                 "blocker": r.get("blocker"),
+                 "missing_fields": r.get("missing_fields") or []})
+            entry["required_telemetry"].update(r["required_telemetry"])
+            if r.get("last_detection_at"):
+                entry["last_detection_at"] = max(
+                    entry["last_detection_at"] or "", r["last_detection_at"])
+            if r.get("detections_fired"):
+                entry["detections_fired"] = (
+                    (entry["detections_fired"] or 0) + r["detections_fired"])
+            entry["evidence_refs"].extend(r.get("evidence_refs") or [])
+
+    attack_rows = []
+    for row in attack.values():
+        row["required_telemetry"] = sorted(row["required_telemetry"])
+        row["evidence_refs"] = row["evidence_refs"][:5]
+        attack_rows.append(row)
+    attack_rows.sort(key=lambda r: r["technique_id"])
+
+    fields_state = (PREREQ_PASS if measured & declared_fields
+                    else PREREQ_NOT_PROVEN)
+    # Two different kinds of blocker, kept apart. A PREREQUISITE gap is
+    # something this deployment must fix (configure the source, ship a
+    # parser). A CONTENT gap is a rule citing a field this channel's schema
+    # will never carry — which is a content-authoring fact, not an
+    # onboarding failure, and must not be reported as one.
+    prereq_gaps = sorted({p["blocker"] for p in prereqs if p["blocker"]})
+    content_gaps = sorted({b["blocker"] for b in blocked if b.get("blocker")})
+
+    return {
+        "channel": channel,
+        "prerequisites": prereqs,
+        "prerequisites_satisfied": prereqs_satisfied,
+        "potential": {
+            "state": COVERAGE_POTENTIAL if potential else NOT_AVAILABLE,
+            "rule_count": len(potential),
+            "rules": potential[:50],
+            "basis": ("deployed content whose telemetry requirements and "
+                      "declared required fields this channel can satisfy. "
+                      "POTENTIAL is not protection"),
+        },
+        "effective": {
+            "state": eff_state,
+            "rule_count": len(effective),
+            "rules": effective[:50],
+            "basis": eff_basis,
+            "basis_note": ("effective coverage requires source receiving, "
+                           "parser supported, normalization supported, "
+                           "required fields measured as available, rule "
+                           "deployed and rule applicable to this schema. It "
+                           "does NOT require a detection to have fired"),
+        },
+        "blocked": {"rule_count": len(blocked), "rules": blocked[:50]},
+        "required_fields": {
+            "state": fields_state,
+            "declared": sorted(declared_fields),
+            "measured": sorted(measured & declared_fields),
+            "declared_but_not_measured": sorted(declared_fields - measured),
+            "note": ("a field is `measured` only when real canonical "
+                     "evidence from this channel carried it. Declaring a "
+                     "field is not evidence that a rule can read it"),
+        },
+        "attack": attack_rows,
+        "evidence_gaps": prereq_gaps,
+        "content_gaps": content_gaps,
+        "citation": {
+            "chain": ["channel", "schema/event types", "required fields",
+                      "detection rules", "ATT&CK mapping",
+                      "operational state", "supporting evidence"],
+            "note": ("every coverage claim on this row is reconstructable "
+                     "from the chain above. Coverage, cited"),
+        },
+    }
 
 
 async def channel_truth(db, tenant_id: str, *, channels: list[str] | None = None
@@ -621,6 +1008,8 @@ async def channel_truth(db, tenant_id: str, *, channels: list[str] | None = None
     raw = await _raw_facts(db, tenant_id, since)
     evidence = await _evidence_facts(db, tenant_id)
     activity = await _activity_facts(db, tenant_id)
+    fields = await _measured_fields(db, tenant_id)
+    by_rule = await _activity_by_rule(db, tenant_id)
     authorized, _collectors = await _authorized_channels(db, tenant_id)
     tenant_has_any_delivery = bool(raw)
 
@@ -656,6 +1045,10 @@ async def channel_truth(db, tenant_id: str, *, channels: list[str] | None = None
         capability = detection_capability(channel)
         act = _activity_dimension(activity.get(channel),
                                   bool((ev or {}).get("canonical_events")))
+        coverage = coverage_impact(
+            channel, collection=collection, parsing=parsing,
+            normalization=normalization,
+            measured_fields=fields.get(channel), activity_by_rule=by_rule)
 
         attention: list[str] = []
         if collection["state"] in (ERROR, DEGRADED, GAP_DETECTED):
@@ -668,7 +1061,9 @@ async def channel_truth(db, tenant_id: str, *, channels: list[str] | None = None
         if (normalization["measured_state"] in (SUPPORTED, PARTIAL)
                 and capability["state"] == NOT_AVAILABLE):
             attention.append("UNDERSTOOD BUT NOT DETECTABLE")
-
+        if coverage["evidence_gaps"]:
+            attention.append("COVERAGE BLOCKED · "
+                             + " · ".join(coverage["evidence_gaps"]))
         rows.append({
             "channel": channel,
             "label": decl.get("label") or channel,
@@ -688,11 +1083,89 @@ async def channel_truth(db, tenant_id: str, *, channels: list[str] | None = None
             "normalization": normalization,
             "detection_capability": capability,
             "detection_activity": act,
+            "coverage": coverage,
             "attention": attention,
             "summary_stages": _human_stages(collection, parsing,
-                                            normalization, capability),
+                                            normalization, capability,
+                                            coverage),
         })
     return rows
+
+
+async def coverage_impact_estate(db, tenant_id: str) -> dict[str, Any]:
+    """`Coverage Impact` for the whole Windows estate, in three buckets.
+
+    Answers the onboarding question directly: what security capability am I
+    gaining from this source, and what is still missing? `AVAILABLE NOW`
+    requires evidence. `POTENTIAL` names the unmet prerequisite. `BLOCKED`
+    names the exact blocker.
+    """
+    channels = await channel_truth(db, tenant_id)
+    available_now: list[dict[str, Any]] = []
+    potential: list[dict[str, Any]] = []
+    blocked: list[dict[str, Any]] = []
+    attack: dict[str, dict[str, Any]] = {}
+
+    for ch in channels:
+        cov = ch["coverage"]
+        head = {"channel": ch["channel"], "label": ch["label"],
+                "telemetry": ch["collection"]["state"],
+                "parsing": ch["parsing"]["state"],
+                "normalization": ch["normalization"]["state"],
+                "required_fields": cov["required_fields"]["state"],
+                "potential_rules": cov["potential"]["rule_count"],
+                "effective_rules": cov["effective"]["rule_count"],
+                "blocked_rules": cov["blocked"]["rule_count"],
+                "detections_fired": ch["detection_activity"]["detections_fired"],
+                "attack_techniques": len(cov["attack"]),
+                "evidence_gaps": cov["evidence_gaps"],
+                "content_gaps": cov["content_gaps"],
+                "effective_state": cov["effective"]["state"],
+                "effective_basis": cov["effective"]["basis"],
+                "prerequisites": cov["prerequisites"]}
+        if cov["effective"]["state"] == COVERAGE_EFFECTIVE:
+            available_now.append(head)
+        elif cov["evidence_gaps"]:
+            blocked.append(head)
+        elif cov["potential"]["rule_count"]:
+            potential.append(head)
+
+        for row in cov["attack"]:
+            entry = attack.setdefault(row["technique_id"], {
+                **row, "channels": []})
+            entry["channels"].append(ch["channel"])
+            order = {COVERAGE_EFFECTIVE: 3, COVERAGE_POTENTIAL: 2,
+                     COVERAGE_BLOCKED: 1}
+            if order.get(row["coverage_state"], 0) > order.get(
+                    entry["coverage_state"], 0):
+                entry["coverage_state"] = row["coverage_state"]
+
+    return {
+        "available_now": available_now,
+        "potential": potential,
+        "blocked": blocked,
+        "attack": sorted(attack.values(),
+                         key=lambda r: r["technique_id"]),
+        "model": {
+            "potential": ("what deployed detection content COULD use this "
+                          "source if its prerequisites were satisfied"),
+            "effective": ("what this platform can CURRENTLY ESTABLISH from "
+                          "source receiving, parser supported, "
+                          "normalization supported, required fields "
+                          "measured, rule deployed and rule applicable to "
+                          "the schema"),
+            "never_equate": [
+                "channel configured is NOT coverage",
+                "telemetry received is NOT detectable",
+                "a rule existing is NOT protection",
+                "zero detections is NOT absence of coverage",
+            ],
+            "attack_note": ("ATT&CK appears only where deployed content "
+                            "carries an authoritative technique mapping. "
+                            "Coverage is never manufactured because an "
+                            "event id could theoretically be useful"),
+        },
+    }
 
 
 async def device_truth(db, tenant_id: str) -> list[dict[str, Any]]:
@@ -810,6 +1283,23 @@ async def overview(db, tenant_id: str) -> dict[str, Any]:
             for s in SUPPORT_STATES},
         "detection_capability": {
             s: count("detection_capability", s) for s in CAPABILITY_STATES},
+        "coverage": {
+            "available_now": sum(
+                1 for c in channels
+                if c["coverage"]["effective"]["state"] == COVERAGE_EFFECTIVE),
+            "potential": sum(
+                1 for c in channels
+                if c["coverage"]["effective"]["state"] != COVERAGE_EFFECTIVE
+                and not c["coverage"]["evidence_gaps"]
+                and c["coverage"]["potential"]["rule_count"]),
+            "blocked": sum(1 for c in channels
+                           if c["coverage"]["evidence_gaps"]),
+            "note": ("POTENTIAL is content that could use a source once its "
+                     "prerequisites hold. EFFECTIVE is what this platform "
+                     "can currently establish. Neither requires a detection "
+                     "to have fired, and neither is inferred from the "
+                     "other"),
+        },
         "detections_fired": sum(
             (c["detection_activity"]["detections_fired"] or 0)
             for c in channels),

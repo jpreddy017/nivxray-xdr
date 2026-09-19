@@ -483,22 +483,53 @@ def _user_by_email(tenant_id: str, email: str) -> dict | None:
                                              {"_id": 0})
 
 
+def _c_grants():        return _db()["xdr_access_grants"] if _db() is not None else None
+def _c_restrictions():  return _db()["xdr_access_restrictions"] if _db() is not None else None
+
+
+def _authority_inputs(tenant_id: str, user_id: str) -> dict:
+    """Every grant path the authority must consider, read once.
+
+    Groups are read for the WHOLE tenant and membership is filtered inside
+    the resolver, so no caller can forget to filter and accidentally widen
+    a group's reach.
+    """
+    def rows(coll, query):
+        return list(coll.find(query, {"_id": 0})) if coll is not None else []
+    return {
+        "assignments": rows(_c_assignments(),
+                            {"tenant_id": tenant_id, "user_id": user_id}),
+        "groups": rows(_c_groups(), {"tenant_id": tenant_id}),
+        "grants": rows(_c_grants(),
+                       {"tenant_id": tenant_id, "user_id": user_id}),
+        "restrictions": rows(_c_restrictions(),
+                             {"tenant_id": tenant_id, "user_id": user_id}),
+    }
+
+
+def resolve_access(tenant_id: str, user: dict) -> dict:
+    """The ONE authority. See `services/access_authority` for precedence."""
+    from services import access_authority
+    return access_authority.resolve(
+        tenant_id=tenant_id, user=user, role_by_id=_role_by_id,
+        expand=_expand_wildcard, **_authority_inputs(tenant_id,
+                                                     user.get("id") or ""))
+
+
 def _resolve_user_permissions(tenant_id: str, user_id: str
                                                 ) -> tuple[set[str], list[dict]]:
-    """Return (effective_permission_set, matched_assignments)."""
-    if _c_assignments() is None:
+    """Return (effective_permission_set, matched_assignments).
+
+    Now resolved through the full authority — direct roles AND group role
+    bindings AND direct grants, with explicit restrictions subtracted.
+    Before this, a group could not grant anything at all (RBAC-0, row
+    "Groups": REPAIR).
+    """
+    if _c_users() is None:
         return set(), []
-    assignments = list(_c_assignments().find(
-        {"tenant_id": tenant_id, "user_id": user_id},
-        {"_id": 0},
-    ))
-    perms: set[str] = set()
-    for a in assignments:
-        role = _role_by_id(a.get("role_id", ""))
-        if role and role.get("enabled", True):
-            for p in role.get("permissions", []):
-                perms |= _expand_wildcard(p)
-    return perms, assignments
+    user = _user_by_id(tenant_id, user_id) or {"id": user_id}
+    resolved = resolve_access(tenant_id, user)
+    return set(resolved["effective_permissions"]), resolved["assignments"]
 
 
 def check_access(tenant_id: str, principal_id: str, permission: str,
@@ -530,19 +561,51 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
                      "matched_role": None, "matched_permission": None,
                      "effective_permissions": [], "scope_ok": False}
 
-    perms, assignments = _resolve_user_permissions(tenant_id, user["id"])
+    from services import access_authority
+    resolved = resolve_access(tenant_id, user)
+    perms = set(resolved["effective_permissions"])
+    assignments = resolved["assignments"]
+    decision = access_authority.explain(resolved, permission)
 
-    # Match permission (concrete first, then any wildcard hit already
-    # expanded into `perms`).
+    # An explicit restriction is a DENY that outranks every grant. It is
+    # reported as its own reason so an operator is never told "not granted"
+    # when the truth is "deliberately withheld".
+    if permission in set(resolved["restricted_permissions"]):
+        return {"allow": False, "reason": access_authority.REASON_RESTRICTED,
+                     "matched_role": None, "matched_permission": permission,
+                     "effective_permissions": sorted(perms),
+                     "scope_ok": False, "user_id": user["id"],
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
+
     if permission not in perms:
         return {"allow": False, "reason": "permission-not-granted",
                      "matched_role": None, "matched_permission": None,
                      "effective_permissions": sorted(perms),
                      "scope_ok": False,
-                     "user_id": user["id"]}
+                     "user_id": user["id"],
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
 
-    # Scope check — first matching assignment whose role provides this
-    # permission and whose scope allows the resource.
+    # A direct grant carries its own scope and no role. It is honoured
+    # here rather than falling through the role loop below, which would
+    # report `scope-denied` for a grant that was never scope-limited.
+    if decision["allow"] and decision["winning_path"]["source"] == \
+            access_authority.SOURCE_DIRECT_GRANT:
+        scope = decision["winning_path"].get("scope") or {}
+        allowed_ids = scope.get("resource_ids") or []
+        if not allowed_ids or not resource_id or resource_id in allowed_ids:
+            return {"allow": True, "reason": decision["reason"],
+                         "matched_role": None,
+                         "matched_permission": permission,
+                         "effective_permissions": sorted(perms),
+                         "scope_ok": True, "user_id": user["id"],
+                         "decision_path": decision["winning_path"],
+                         "explanation": decision["explanation"]}
+
+    # Scope check — first matching assignment (direct OR group-derived)
+    # whose role provides this permission and whose scope allows the
+    # resource.
     for a in assignments:
         role = _role_by_id(a.get("role_id", ""))
         if not role or not role.get("enabled", True):
@@ -557,18 +620,26 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
         allowed_ids = scope.get("resource_ids") or []
         if allowed_ids and resource_id and resource_id not in allowed_ids:
             continue
-        return {"allow": True, "reason": "role-permission-match",
+        return {"allow": True,
+                     "reason": (access_authority.REASON_GRANTED_GROUP
+                                if a.get("via_group")
+                                else "role-permission-match"),
                      "matched_role": role.get("name"),
                      "matched_permission": permission,
                      "effective_permissions": sorted(perms),
                      "scope_ok": True,
-                     "user_id": user["id"]}
+                     "user_id": user["id"],
+                     "via_group": a.get("via_group_name"),
+                     "decision_path": decision["winning_path"],
+                     "explanation": decision["explanation"]}
 
     return {"allow": False, "reason": "scope-denied",
                  "matched_role": None, "matched_permission": permission,
                  "effective_permissions": sorted(perms),
                  "scope_ok": False,
-                 "user_id": user["id"]}
+                 "user_id": user["id"],
+                 "decision_path": decision["winning_path"],
+                 "explanation": decision["explanation"]}
 
 
 # ── Machine principals · XDR collector API keys ───────────────────

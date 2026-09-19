@@ -132,7 +132,7 @@ export default function XdrEvidenceExplorerPage() {
           display: "flex",
           flexDirection: "column",
           minHeight: "calc(100vh - 56px)",
-          background: "#07090e",
+          background: "var(--nx-surf-inset)",
           color: "#e6edf3",
           padding: "24px 32px",
         }}
@@ -164,8 +164,8 @@ export default function XdrEvidenceExplorerPage() {
               gap: 6,
               padding: "7px 14px",
               borderRadius: 5,
-              background: "#131822",
-              border: "1px solid #1e2638",
+              background: "var(--nx-surf-inset)",
+              border: "1px solid var(--nx-bd-quiet)",
               color: "#e6edf3",
               fontSize: 12,
               cursor: "pointer",
@@ -183,9 +183,9 @@ export default function XdrEvidenceExplorerPage() {
             justifyContent: "space-between",
             alignItems: "center",
             padding: "12px 16px",
-            background: "#0d1117",
+            background: "var(--nx-surf-inset)",
             borderRadius: "6px 6px 0 0",
-            border: "1px solid #1e2638",
+            border: "1px solid var(--nx-bd-quiet)",
             borderBottom: "none",
             gap: 16,
             flexWrap: "wrap",
@@ -223,7 +223,7 @@ export default function XdrEvidenceExplorerPage() {
                   fontSize: 11,
                   fontWeight: 600,
                   cursor: "pointer",
-                  background: selectedCat === cat.id ? "#1e293b" : "transparent",
+                  background: selectedCat === cat.id ? "var(--nx-surf-inset)" : "transparent",
                   color: selectedCat === cat.id ? "#38bdf8" : "#9198a1",
                   border: `1px solid ${selectedCat === cat.id ? "#38bdf8" : "transparent"}`,
                 }}
@@ -237,9 +237,9 @@ export default function XdrEvidenceExplorerPage() {
         {/* Evidence Table */}
         <div
           style={{
-            background: "#0d1117",
+            background: "var(--nx-surf-inset)",
             borderRadius: "0 0 6px 6px",
-            border: "1px solid #1e2638",
+            border: "1px solid var(--nx-bd-quiet)",
             overflowX: "auto",
           }}
         >
@@ -258,8 +258,8 @@ export default function XdrEvidenceExplorerPage() {
                   marginTop: 12,
                   padding: "5px 12px",
                   borderRadius: 4,
-                  background: "#131822",
-                  border: "1px solid #1e2638",
+                  background: "var(--nx-surf-inset)",
+                  border: "1px solid var(--nx-bd-quiet)",
                   color: "#e6edf3",
                   fontSize: 11,
                   cursor: "pointer",
@@ -270,16 +270,16 @@ export default function XdrEvidenceExplorerPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center", color: "#9198a1" }} data-testid="evidence-empty-state">
-              <Database size={28} color="#656d76" style={{ margin: "0 auto 12px" }} />
+              <Database size={28} color="var(--nx-text-dim)" style={{ margin: "0 auto 12px" }} />
               <div style={{ fontSize: 14, fontWeight: 600, color: "#e6edf3" }}>NO MATCHING EVIDENCE</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: "#656d76" }}>
+              <div style={{ fontSize: 12, marginTop: 4, color: "var(--nx-text-dim)" }}>
                 No extracted artifacts, cryptographic hashes, or decoded payloads found matching this filter.
               </div>
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #1e2638", color: "#656d76", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <tr style={{ borderBottom: "1px solid var(--nx-bd-quiet)", color: "var(--nx-text-dim)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   <th style={{ padding: "10px 16px" }}>Artifact Name</th>
                   <th style={{ padding: "10px 16px" }}>Case / Host</th>
                   <th style={{ padding: "10px 16px" }}>Decoder / Engine</th>
@@ -295,10 +295,10 @@ export default function XdrEvidenceExplorerPage() {
                     key={art.id}
                     data-testid={`evidence-row-${art.id}`}
                     style={{
-                      borderBottom: "1px solid #161c28",
+                      borderBottom: "1px solid var(--nx-bd-quiet)",
                       transition: "background 0.15s",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#131822")}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--nx-surf-inset)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e6edf3" }}>
@@ -320,7 +320,7 @@ export default function XdrEvidenceExplorerPage() {
                         <button
                           onClick={() => copyToClipboard(art.hash, art.id)}
                           title="Copy SHA-256"
-                          style={{ background: "transparent", border: "none", cursor: "pointer", color: copiedId === art.id ? "#4ade80" : "#656d76", padding: 2 }}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", color: copiedId === art.id ? "#4ade80" : "var(--nx-text-dim)", padding: 2 }}
                         >
                           {copiedId === art.id ? <Check size={11} /> : <Copy size={11} />}
                         </button>
@@ -329,7 +329,7 @@ export default function XdrEvidenceExplorerPage() {
                     <td style={{ padding: "12px 16px", fontFamily: "var(--mono, monospace)", color: "#5cc0a5", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {art.decoded}
                     </td>
-                    <td style={{ padding: "12px 16px", color: "#656d76", fontSize: 11 }}>
+                    <td style={{ padding: "12px 16px", color: "var(--nx-text-dim)", fontSize: 11 }}>
                       {art.stop_reason}
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right" }}>
@@ -367,8 +367,8 @@ export default function XdrEvidenceExplorerPage() {
               right: 0,
               width: 500,
               height: "100vh",
-              background: "#0d1117",
-              borderLeft: "1px solid #1e2638",
+              background: "var(--nx-surf-inset)",
+              borderLeft: "1px solid var(--nx-bd-quiet)",
               boxShadow: "-8px 0 32px rgba(0,0,0,0.6)",
               zIndex: 1000,
               padding: 24,
@@ -406,7 +406,7 @@ export default function XdrEvidenceExplorerPage() {
 
               <div>
                 <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>SHA-256 Forensic Hash:</span>
-                <div style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#e6edf3", background: "#131822", padding: "6px 8px", borderRadius: 4, marginTop: 4, wordBreak: "break-all", border: "1px solid #1e2638" }}>
+                <div style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#e6edf3", background: "var(--nx-surf-inset)", padding: "6px 8px", borderRadius: 4, marginTop: 4, wordBreak: "break-all", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.hash}
                 </div>
               </div>
@@ -420,14 +420,14 @@ export default function XdrEvidenceExplorerPage() {
 
               <div>
                 <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Raw Input Payload ({selectedArtifact.in_len} bytes):</span>
-                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#9198a1", background: "#131822", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto", border: "1px solid #1e2638" }}>
+                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#9198a1", background: "var(--nx-surf-inset)", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.raw}
                 </pre>
               </div>
 
               <div>
                 <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Decoded Output Payload ({selectedArtifact.out_len} bytes):</span>
-                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#5cc0a5", background: "#131822", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto", border: "1px solid #1e2638" }}>
+                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#5cc0a5", background: "var(--nx-surf-inset)", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.decoded}
                 </pre>
               </div>

@@ -142,7 +142,7 @@ export default function IntelligenceOverlayEditor({
                        background: "#fff" }}>
         <b style={{ fontSize: 10, letterSpacing: 0.4,
                         textTransform: "uppercase",
-                        color: "#7c3aed" }}>{label}</b>
+                        color: "var(--nx-text-dim)" }}>{label}</b>
         <EffectiveBadge overlay={overlay} machineValue={machineValue} />
         <span style={{ flex: 1 }} />
         {!editing && !readOnlyReason && (
@@ -172,7 +172,7 @@ export default function IntelligenceOverlayEditor({
       </div>
 
       {!editing && (
-        <div style={{ padding: "8px 10px", color: "#0f172a",
+        <div style={{ padding: "8px 10px", color: "var(--nx-text-dim)",
                          fontSize: 12, lineHeight: 1.5 }}>
           {effective || (
             <i style={{ color: "#94a3b8" }}>
@@ -182,7 +182,7 @@ export default function IntelligenceOverlayEditor({
           {hasOverlay && (
             <div style={{ marginTop: 8, paddingTop: 6,
                              borderTop: "1px dashed #e2e8f0",
-                             fontSize: 10, color: "#64748b" }}>
+                             fontSize: 10, color: "var(--nx-text-dim)" }}>
               <div><b>NivXRay machine value:</b> {machineValue || <i>(empty)</i>}</div>
               <div style={{ marginTop: 4 }}>
                 edited by <b>{overlay.author_email}</b> ·
@@ -214,7 +214,7 @@ export default function IntelligenceOverlayEditor({
                           marginTop: 6, border: "1px solid #cbd5e1",
                           borderRadius: 3 }}
           />
-          <div style={{ marginTop: 6, fontSize: 10, color: "#64748b" }}>
+          <div style={{ marginTop: 6, fontSize: 10, color: "var(--nx-text-dim)" }}>
             <b>NivXRay machine value (immutable):</b> {machineValue || <i>(empty)</i>}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
@@ -222,8 +222,8 @@ export default function IntelligenceOverlayEditor({
                        data-ovr-action="save"
                          onClick={save}
                          disabled={busy || !draft.trim() || !reason.trim()}
-                         style={{ ...btn, background: "#7c3aed",
-                                     color: "#fff", borderColor: "#7c3aed" }}>
+                         style={{ ...btn, background: "var(--nx-surf-inset)",
+                                     color: "#fff", borderColor: "var(--nx-bd-quiet)" }}>
               {busy ? <Loader2 className="rl-spin" size={11} /> : <Save size={11} />}
               Save v{version + 1}
             </button>
@@ -237,7 +237,7 @@ export default function IntelligenceOverlayEditor({
 
       {err && (
         <div style={{ padding: "6px 10px",
-                         background: "#fee2e2", color: "#7f1d1d",
+                         background: "var(--nx-critical-bg)", color: "var(--nx-critical)",
                          fontSize: 11 }}>
           <AlertTriangle size={11} style={{ marginRight: 4,
                                                             verticalAlign: -2 }} />
@@ -248,9 +248,9 @@ export default function IntelligenceOverlayEditor({
       {showHist && history && (
         <div data-testid={`ovr-history-panel-${targetKind}-${targetId}-${fieldKey}`}
               style={{ padding: "6px 10px",
-                          background: "#f1f5f9",
+                          background: "var(--nx-surf-inset)",
                           borderTop: "1px solid #e2e8f0",
-                          fontSize: 10, color: "#334155" }}>
+                          fontSize: 10, color: "var(--nx-text-dim)" }}>
           <b>Audit trail</b>
           {history.length === 0 && <div style={{ opacity: 0.6 }}>No entries.</div>}
           {history.map((e) => (
@@ -276,7 +276,7 @@ export default function IntelligenceOverlayEditor({
 
 const btn = {
   display: "inline-flex", alignItems: "center", gap: 4,
-  background: "#fff", color: "#0f172a",
+  background: "#fff", color: "var(--nx-text-dim)",
   border: "1px solid #cbd5e1", borderRadius: 3,
   padding: "3px 8px", fontSize: 10, fontWeight: 600,
   cursor: "pointer", letterSpacing: 0.3,

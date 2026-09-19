@@ -1,160 +1,257 @@
-"""XDR RBAC — P0-1 Global Retrofit Negative Enforcement Tests.
+"""XDR RBAC — negative enforcement, proven against VERIFIED SESSIONS.
 
-For every retrofitted route, prove:
-  * An authenticated user WITHOUT the required permission receives
-    a deterministic HTTP 403 with `code = ACCESS_DENIED` and the
-    exact permission name in the response body.
-  * An authenticated user WITH the required permission (via role
-    assignment) receives 2xx / expected success.
-  * The denial is audit-logged (`action = ACCESS_DENIED`,
-    `outcome = FAILURE`) and the audit chain remains valid.
+MODERNIZED 2026-06 (owner decision: "the stale test must adapt to the
+hardened security architecture").  The previous revision of this suite
+established identity with the client-supplied `X-Tenant-Id` /
+`X-Principal-Id` headers and relied on the tenant-empty *bootstrap
+short-circuit*.  Both were the P0-SEC fail-open defect and were deleted
+from `require_permission()` on 2026-09-09, so the suite could no longer
+provision anything and reported 21 collection/fixture errors.
 
-This suite guarantees the acceptance criterion from the P0-1
-directive: "backend enforcement is authoritative, not UI hiding".
+Nothing was restored to make these tests pass.  The suite now does what a
+real client does: it authenticates, carries a JWT, and lets the server
+resolve the tenant from the VERIFIED user record.
+
+What is proven here:
+  * unauthenticated                  → denied
+  * tampered / non-JWT bearer        → denied
+  * expired JWT                      → denied
+  * authenticated but unauthorized   → deterministic 403 `ACCESS_DENIED`
+                                       naming the exact permission
+  * authenticated and authorized     → allowed (least privilege, not blanket)
+  * tenant resolved SERVER-SIDE      → a header never establishes scope
+  * cross-tenant request             → denied `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL`
+  * wildcard role expansion          → `secrets.*` covers create+read, and
+                                       still cannot reach `users.create`
+  * every denial is audit-logged and the audit chain stays valid
 """
 from __future__ import annotations
 
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("XDR_AUDIT_MASTER_SECRET", "test-master-secret")
 os.environ.setdefault("XDR_SECRETS_MASTER", "test-secrets-master-passphrase")
+os.environ.setdefault("DB_NAME", "test_database")
 
+import deps
 from routers import xdr_audit_log as al
 from routers import xdr_rbac as rb
 from server import app
 
-client = TestClient(app)
-
-# Tenant unique to this suite so bootstrap short-circuit is fully
-# consumed after we provision the first user, then enforcement engages.
-TEN = f"rbac-enf-{uuid.uuid4().hex[:8]}"
 _SUFFIX = uuid.uuid4().hex[:6]
+TEN = f"rbac-enf-{_SUFFIX}"
+TEN_OTHER = f"rbac-oth-{_SUFFIX}"
 
-# Two principals: `SOC` (has scoped permissions only), `ROOT` (admin).
-ROOT     = "root@nivxray.enf"
-SOC      = "soc@nivxray.enf"
+#: Tenant-scoped principals, each authenticating with a real password.
+SOC = f"soc-{_SUFFIX}@nivxray.enf"
+VAULT = f"vault-{_SUFFIX}@nivxray.enf"
+OUTSIDER = f"outsider-{_SUFFIX}@nivxray.enf"
+PASSWORD = "Enf!Suite2026-verified-session"
+
+_TOKENS: dict[str, str] = {}
 
 
-def _hdrs(email: str, ten: str | None = None) -> dict:
-    return {"X-Tenant-Id": ten or TEN,
-                "X-Principal-Id": email,
-                "X-Principal-Kind": "user"}
+def _auth(email_or_token: str, tenant: str | None = None) -> dict:
+    """Authorization header for a verified session.
+
+    `X-Tenant-Id` is sent where a cross-tenant principal must NAME the
+    tenant it operates in.  It is an input to authorization and never an
+    identity — that is exactly what several tests below prove.
+    """
+    token = _TOKENS.get(email_or_token, email_or_token)
+    h = {"Authorization": f"Bearer {token}"}
+    if tenant:
+        h["X-Tenant-Id"] = tenant
+    return h
 
 
-def _skip_if_no_mongo():
+def _skip_if_unusable():
     if rb._db() is None:
         pytest.skip("MONGO_URL not configured")
 
 
+def _login(client: TestClient, email: str, password: str) -> str:
+    r = client.post("/api/auth/login", json={"email": email,
+                                             "password": password})
+    assert r.status_code == 200, f"login failed for {email}: {r.text}"
+    return r.json()["access_token"]
+
+
+def _provision_session_user(email: str, tenant_id: str) -> None:
+    """Create the AUTH record a verified session needs.
+
+    Role is deliberately NOT `admin`: a platform administrator holds the
+    documented cross-tenant break-glass authority and would prove nothing
+    about permission enforcement.
+    """
+    users = deps.sync_collection("users")
+    users.delete_many({"email": email})
+    users.insert_one({
+        "email": email,
+        "password": deps.hash_password(PASSWORD),
+        "role": "analyst",
+        "tenant_id": tenant_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 @pytest.fixture(scope="module", autouse=True)
-def _seed_users():
-    """Provision two users in this tenant: an admin and a scoped
-    read-only analyst.  Also provision at least one user in the DEFAULT
-    tenant so the bootstrap short-circuit is exercised only where we
-    want it to be."""
-    _skip_if_no_mongo()
-    # Clean prior state for this tenant.
-    for c in (rb._c_users, rb._c_roles, rb._c_groups, rb._c_assignments):
-        if c() is not None:
-            c().delete_many({"tenant_id": TEN})
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": TEN})
+def client():
+    _skip_if_unusable()
+    with TestClient(app) as c:
+        # ── clean prior state for both tenants ────────────────────
+        for coll in (rb._c_users, rb._c_roles, rb._c_groups, rb._c_assignments):
+            if coll() is not None:
+                coll().delete_many({"tenant_id": {"$in": [TEN, TEN_OTHER]}})
+        if al._get_coll() is not None:
+            al._get_coll().delete_many({"tenant_id": {"$in": [TEN, TEN_OTHER]}})
 
-    # 1) Create the ROOT user first — while tenant has 0 users the
-    #    bootstrap short-circuit lets this through.
-    r = client.post("/api/xdr/rbac/users", headers=_hdrs(ROOT),
-                          json={"email": ROOT, "display_name": "Root",
-                                    "initial_roles": ["platform_admin"]})
-    assert r.status_code == 200, r.text
+        # ── tenancy is an ADMINISTRATIVE act, never implied ───────
+        # The registry fails closed on an unregistered tenant, so the two
+        # suite tenants are registered here exactly as an operator would.
+        from services import tenant_registry as tr
+        org = tr.create_organization(slug=f"rbac-enf-org-{_SUFFIX}",
+                                     display_name="RBAC Enforcement Suite",
+                                     kind="CUSTOMER", created_by="test-suite")
+        for tid in (TEN, TEN_OTHER):
+            tr.adopt_legacy(tenant_id=tid, organization_id=org["id"],
+                            slug=tid, display_name=tid,
+                            created_by="test-suite")
 
-    # 2) Create SOC user with a scoped role that grants ONLY `lolbas.read`
-    #    and `audit.read` — nothing else.
-    #    Build a custom role first (unique name per run — roles are global).
-    r = client.post("/api/xdr/rbac/roles", headers=_hdrs(ROOT),
-                          json={"name": f"readonly_soc_{_SUFFIX}",
-                                    "display_name": "Read-Only SOC",
-                                    "description": "Test-only scoped role",
-                                    "permissions": ["lolbas.read", "audit.read"]})
-    assert r.status_code == 200, r.text
-    role_id = r.json()["data"]["id"]
+        # ── the platform administrator drives provisioning ────────
+        _TOKENS["admin"] = _login(c, os.environ["ADMIN_EMAIL"],
+                                  os.environ["ADMIN_PASSWORD"])
+        admin = _auth("admin", TEN)
 
-    r = client.post("/api/xdr/rbac/users", headers=_hdrs(ROOT),
-                          json={"email": SOC, "display_name": "SOC",
-                                    "initial_roles": [role_id]})
-    assert r.status_code == 200, r.text
-    yield
+        # A scoped role holding ONLY `lolbas.read` + `audit.read`.
+        r = c.post("/api/xdr/rbac/roles", headers=admin,
+                   json={"name": f"readonly_soc_{_SUFFIX}",
+                         "display_name": "Read-Only SOC",
+                         "description": "Test-only scoped role",
+                         "permissions": ["lolbas.read", "audit.read"]})
+        assert r.status_code == 200, r.text
+        soc_role = r.json()["data"]["id"]
+
+        r = c.post("/api/xdr/rbac/roles", headers=admin,
+                   json={"name": f"vault_op_{_SUFFIX}",
+                         "display_name": "Vault Ops",
+                         "permissions": ["secrets.*"]})
+        assert r.status_code == 200, r.text
+        vault_role = r.json()["data"]["id"]
+
+        for email, role_id in ((SOC, soc_role), (VAULT, vault_role)):
+            _provision_session_user(email, TEN)
+            r = c.post("/api/xdr/rbac/users", headers=admin,
+                       json={"email": email, "display_name": email,
+                             "initial_roles": [role_id]})
+            assert r.status_code == 200, r.text
+            _TOKENS[email] = _login(c, email, PASSWORD)
+
+        # An administrator of a DIFFERENT tenant — the cross-tenant control.
+        _provision_session_user(OUTSIDER, TEN_OTHER)
+        r = c.post("/api/xdr/rbac/users", headers=_auth("admin", TEN_OTHER),
+                   json={"email": OUTSIDER, "display_name": "Outsider",
+                         "initial_roles": ["platform_admin"]})
+        assert r.status_code == 200, r.text
+        _TOKENS[OUTSIDER] = _login(c, OUTSIDER, PASSWORD)
+
+        yield c
 
 
-# ─────────────────────────────────────────────────────────────────
-# Negative enforcement — a scoped principal MUST be denied on
-# every mutation and privileged-read endpoint they do not own.
 # ─────────────────────────────────────────────────────────────────
 # Every entry is (method, path, body_or_none, permission_expected).
-# Endpoints that only require lolbas.read / audit.read (SOC owns those)
-# are DELIBERATELY not listed — those are covered by allow tests below.
+# Routes SOC legitimately owns (lolbas.read / audit.read) are covered
+# by the positive tests instead.
+# ─────────────────────────────────────────────────────────────────
 DENIED_ROUTES = [
-    # Secrets
     ("POST",   "/api/xdr/secrets",
-      {"name": "x", "kind": "api_key", "value": "v"},
-      "secrets.create"),
+     {"name": "x", "kind": "api_key", "value": "v"}, "secrets.create"),
     ("GET",    "/api/xdr/secrets", None, "secrets.read"),
     ("DELETE", "/api/xdr/secrets/nope", None, "secrets.delete"),
 
-    # API Keys
     ("POST",   "/api/xdr/api-keys",
-      {"name": "x", "scopes": ["lolbas.read"],
-       "confirm_tenant_id": "acme", "allow_new_tenant": True},
-      "api_keys.create"),
+     {"name": "x", "scopes": ["lolbas.read"],
+      "confirm_tenant_id": "acme", "allow_new_tenant": True},
+     "api_keys.create"),
     ("GET",    "/api/xdr/api-keys", None, "api_keys.read"),
 
-    # Webhooks
     ("POST",   "/api/xdr/webhooks",
-      {"name": "x", "url": "https://example.test/x", "events": ["audit.*"]},
-      "webhooks.create"),
+     {"name": "x", "url": "https://example.test/x", "events": ["audit.*"]},
+     "webhooks.create"),
     ("GET",    "/api/xdr/webhooks", None, "webhooks.read"),
 
-    # LOLBAS mutations (SOC has read only)
     ("POST",   "/api/xdr/lolbas/sync?use_bundled_fallback=false",
-      None, "lolbas.sync"),
+     None, "lolbas.sync"),
     ("POST",   "/api/xdr/lolbas/rollback/nope", None, "lolbas.rollback"),
     ("POST",   "/api/xdr/lolbas/entries/Regsvr32.exe/disable",
-      None, "lolbas.disable"),
+     None, "lolbas.disable"),
 
-    # RBAC self-management (SOC has neither role nor user perms)
     ("GET",    "/api/xdr/rbac/roles", None, "roles.read"),
     ("GET",    "/api/xdr/rbac/users", None, "users.read"),
     ("POST",   "/api/xdr/rbac/roles",
-      {"name": "hack", "display_name": "H", "permissions": []},
-      "roles.create"),
+     {"name": "hack", "display_name": "H", "permissions": []},
+     "roles.create"),
 
-    # Audit-emit (privileged write)
     ("POST",   "/api/xdr/audit-log/emit",
-      {"action": "FORGED", "resource_kind": "test", "resource_id": "z"},
-      "audit.write"),
+     {"action": "FORGED", "resource_kind": "test", "resource_id": "z"},
+     "audit.write"),
 
-    # Response evidence writer
     ("POST",   "/api/xdr/response-evidence",
-      {"execution_id": "e1", "tenant_id": TEN,
-        "invoker": {"kind": "user", "id": SOC},
-        "action":  {"action_id": "noop"}},
-      "response.execute"),
+     {"execution_id": "e1", "tenant_id": TEN,
+      "invoker": {"kind": "user", "id": SOC},
+      "action": {"action_id": "noop"}},
+     "response.execute"),
 ]
 
+_IDS = [f"{m}:{p}" for m, p, _, _ in DENIED_ROUTES]
 
-@pytest.mark.parametrize("method,path,body,perm", DENIED_ROUTES,
-                                            ids=[f"{m}:{p}" for m, p, _, _ in DENIED_ROUTES])
-def test_scoped_principal_is_denied(method: str, path: str,
-                                                                body, perm: str):
-    _skip_if_no_mongo()
-    req = getattr(client, method.lower())
-    kwargs = {"headers": _hdrs(SOC)}
+
+def _call(client: TestClient, method: str, path: str, body, headers: dict):
+    kwargs = {"headers": headers}
     if body is not None:
         kwargs["json"] = body
-    r = req(path, **kwargs)
+    return getattr(client, method.lower())(path, **kwargs)
+
+
+# ── 1 · no credential at all ──────────────────────────────────────
+@pytest.mark.parametrize("method,path,body,perm", DENIED_ROUTES, ids=_IDS)
+def test_unauthenticated_is_denied(client, method, path, body, perm):
+    r = _call(client, method, path, body, {})
+    assert r.status_code in (401, 403), \
+        f"{method} {path} answered {r.status_code} anonymously: {r.text}"
+
+
+# ── 2 · a tampered / non-JWT bearer establishes nothing ───────────
+def test_tampered_token_is_denied(client):
+    real = _TOKENS[SOC]
+    tampered = real[:-4] + ("aaaa" if not real.endswith("aaaa") else "bbbb")
+    for token in ("not-a-jwt", tampered):
+        r = client.get("/api/xdr/rbac/users",
+                       headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code in (401, 403), r.text
+
+
+# ── 3 · an expired JWT is not a session ───────────────────────────
+def test_expired_token_is_denied(client):
+    past = datetime.now(timezone.utc) - timedelta(hours=2)
+    expired = jwt.encode({"sub": SOC, "iat": past,
+                          "exp": past + timedelta(minutes=1)},
+                         deps.JWT_SECRET, algorithm=deps.JWT_ALG)
+    r = client.get("/api/xdr/lolbas/status",
+                   headers={"Authorization": f"Bearer {expired}"})
+    assert r.status_code in (401, 403), r.text
+
+
+# ── 4 · authenticated, evaluated, and denied on what it lacks ─────
+@pytest.mark.parametrize("method,path,body,perm", DENIED_ROUTES, ids=_IDS)
+def test_scoped_principal_is_denied(client, method, path, body, perm):
+    r = _call(client, method, path, body, _auth(SOC))
     assert r.status_code == 403, (
         f"{method} {path} expected 403; got {r.status_code} · body={r.text}")
     detail = r.json().get("detail", {})
@@ -164,104 +261,90 @@ def test_scoped_principal_is_denied(method: str, path: str,
     assert detail.get("permission") == perm, detail
 
 
-def test_scoped_principal_allowed_on_owned_reads():
-    """SOC has `lolbas.read` + `audit.read` — those routes MUST succeed."""
-    _skip_if_no_mongo()
-    r = client.get("/api/xdr/lolbas/status", headers=_hdrs(SOC))
-    assert r.status_code == 200
-    r = client.get("/api/xdr/audit-log", headers=_hdrs(SOC))
-    assert r.status_code == 200
+# ── 5 · least privilege, not blanket denial ───────────────────────
+def test_scoped_principal_allowed_on_owned_reads(client):
+    r = client.get("/api/xdr/lolbas/status", headers=_auth(SOC))
+    assert r.status_code == 200, r.text
+    r = client.get("/api/xdr/audit-log", headers=_auth(SOC))
+    assert r.status_code == 200, r.text
 
 
-def test_root_admin_can_do_every_denied_action():
-    """Positive control — the same routes SOC was denied on succeed
-    for a platform_admin (holder of ``*.*``)."""
-    _skip_if_no_mongo()
-    r = client.get("/api/xdr/rbac/users", headers=_hdrs(ROOT))
-    assert r.status_code == 200
-    r = client.get("/api/xdr/rbac/roles", headers=_hdrs(ROOT))
-    assert r.status_code == 200
-    r = client.get("/api/xdr/api-keys",   headers=_hdrs(ROOT))
-    assert r.status_code == 200
-    r = client.get("/api/xdr/webhooks",   headers=_hdrs(ROOT))
-    assert r.status_code == 200
-    r = client.get("/api/xdr/secrets",    headers=_hdrs(ROOT))
-    assert r.status_code == 200
+# ── 6 · positive control · the platform administrator ─────────────
+def test_admin_can_do_every_denied_action(client):
+    for path in ("/api/xdr/rbac/users", "/api/xdr/rbac/roles",
+                 "/api/xdr/api-keys", "/api/xdr/webhooks",
+                 "/api/xdr/secrets"):
+        r = client.get(path, headers=_auth("admin", TEN))
+        assert r.status_code == 200, f"{path}: {r.text}"
 
 
-def test_access_denied_events_are_audit_logged():
-    _skip_if_no_mongo()
-    # Trigger one deterministic denial.
-    client.post("/api/xdr/rbac/roles", headers=_hdrs(SOC),
-                    json={"name": "hackx", "display_name": "H", "permissions": []})
+# ── 7 · the tenant is resolved from the RECORD, never the header ──
+def test_tenant_is_resolved_server_side_not_from_header(client):
+    """SOC names a tenant it is not authorized for.
+
+    The request must fail closed on tenancy — and the permission SOC
+    genuinely holds must NOT rescue it.  Without any header the same call
+    succeeds, because the server resolves TEN from the verified record.
+    """
+    r = client.get("/api/xdr/audit-log", headers=_auth(SOC, TEN_OTHER))
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["code"] in (
+        "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL", "ACCESS_DENIED"), r.text
+
+    r = client.get("/api/xdr/audit-log", headers=_auth(SOC))
+    assert r.status_code == 200, r.text
+    for e in r.json()["data"]["events"]:
+        assert e.get("tenant_id") == TEN, \
+            f"scope leak: {e.get('tenant_id')} returned for a {TEN} principal"
+
+
+# ── 8 · cross-tenant, held by a principal with `*.*` elsewhere ────
+def test_cross_tenant_request_is_denied(client):
+    """OUTSIDER is a platform_admin **of TEN_OTHER**.  Holding `*.*` in
+    its own tenant must not reach TEN."""
+    r = client.get("/api/xdr/audit-log", headers=_auth(OUTSIDER, TEN))
+    assert r.status_code == 403, r.text
+    r = client.get("/api/xdr/rbac/users", headers=_auth(OUTSIDER, TEN))
+    assert r.status_code == 403, r.text
+    # …and in its own tenant it sees only its own tenant's users.
+    r = client.get("/api/xdr/rbac/users", headers=_auth(OUTSIDER, TEN_OTHER))
+    assert r.status_code == 200, r.text
+    for u in r.json()["data"]["users"]:
+        assert u["tenant_id"] == TEN_OTHER, u
+
+
+# ── 9 · denials are evidence ──────────────────────────────────────
+def test_access_denied_events_are_audit_logged(client):
+    r = client.post("/api/xdr/rbac/roles", headers=_auth(SOC),
+                    json={"name": f"hackx_{_SUFFIX}", "display_name": "H",
+                          "permissions": []})
+    assert r.status_code == 403, r.text
     r = client.get("/api/xdr/audit-log?action=ACCESS_DENIED",
-                          headers=_hdrs(ROOT))
-    assert r.status_code == 200
-    events = r.json()["data"]["events"]
-    assert any(e["principal_id"] == SOC and
-                    e.get("outcome") == "FAILURE" and
-                    e.get("resource_id") == "roles.create"
-                    for e in events), events
-
-
-def test_audit_chain_remains_valid_after_denials():
-    _skip_if_no_mongo()
-    r = client.get("/api/xdr/audit-log/verify/chain", headers=_hdrs(ROOT))
-    d = r.json()["data"]
-    assert d["status"] == "valid", d
-
-
-# ─────────────────────────────────────────────────────────────────
-# Tenant isolation — a principal in tenant A must NOT read/write
-# resources in tenant B, even if they hold `*.*` in their own tenant.
-# ─────────────────────────────────────────────────────────────────
-def test_tenant_isolation_denied_across_tenants():
-    _skip_if_no_mongo()
-    other_ten = f"other-{uuid.uuid4().hex[:8]}"
-    # ROOT is admin of TEN.  Attempting to read another tenant's
-    # audit-log with ROOT's identity but their own tenant header should
-    # still ONLY show TEN's rows (never other_ten's).  Provision no
-    # users in other_ten so bootstrap short-circuits — but we assert
-    # that ROOT reading with X-Tenant-Id=other_ten is scoped to
-    # other_ten's (empty) collection, NOT leaking TEN's data.
-    r = client.get("/api/xdr/audit-log", headers=_hdrs(ROOT, ten=other_ten))
-    # Under bootstrap short-circuit this returns 200 with a list scoped
-    # to other_ten — MUST NOT contain any TEN events.
+                   headers=_auth("admin", TEN))
     assert r.status_code == 200, r.text
     events = r.json()["data"]["events"]
-    for e in events:
-        assert e.get("tenant_id") == other_ten, \
-            f"tenant isolation breach: {e.get('tenant_id')} leaked into {other_ten}"
+    assert any(e["principal_id"] == SOC
+               and e.get("outcome") == "FAILURE"
+               and e.get("resource_id") == "roles.create"
+               for e in events), events
 
 
-# ─────────────────────────────────────────────────────────────────
-# Wildcard expansion — a role that holds `secrets.*` must satisfy
-# secrets.create AND secrets.read AND secrets.delete without listing
-# them individually.
-# ─────────────────────────────────────────────────────────────────
-def test_wildcard_role_covers_every_action():
-    _skip_if_no_mongo()
-    # Provision a user with only `secrets.*`.
-    r = client.post("/api/xdr/rbac/roles", headers=_hdrs(ROOT),
-                          json={"name": f"vault_op_{_SUFFIX}", "display_name": "Vault Ops",
-                                    "permissions": ["secrets.*"]})
+def test_audit_chain_remains_valid_after_denials(client):
+    r = client.get("/api/xdr/audit-log/verify/chain",
+                   headers=_auth("admin", TEN))
     assert r.status_code == 200, r.text
-    role_id = r.json()["data"]["id"]
-    email = "vault@nivxray.enf"
-    r = client.post("/api/xdr/rbac/users", headers=_hdrs(ROOT),
-                          json={"email": email, "initial_roles": [role_id]})
-    assert r.status_code == 200, r.text
+    assert r.json()["data"]["status"] == "valid", r.json()["data"]
 
-    # secrets.create allowed
-    r = client.post("/api/xdr/secrets", headers=_hdrs(email),
-                          json={"name": f"k-{uuid.uuid4().hex[:6]}",
-                                    "kind": "api_key", "value": "shh"})
+
+# ── 10 · wildcard expansion widens the ACTION, never the RESOURCE ─
+def test_wildcard_role_covers_every_action(client):
+    r = client.post("/api/xdr/secrets", headers=_auth(VAULT),
+                    json={"name": f"k-{uuid.uuid4().hex[:6]}",
+                          "kind": "api_key", "value": "shh"})
     assert r.status_code == 200, r.text
-    # secrets.read allowed
-    r = client.get("/api/xdr/secrets", headers=_hdrs(email))
+    r = client.get("/api/xdr/secrets", headers=_auth(VAULT))
     assert r.status_code == 200, r.text
-    # But `users.create` MUST still be denied
-    r = client.post("/api/xdr/rbac/users", headers=_hdrs(email),
-                          json={"email": "denied@nivxray.enf"})
+    r = client.post("/api/xdr/rbac/users", headers=_auth(VAULT),
+                    json={"email": f"denied-{_SUFFIX}@nivxray.enf"})
     assert r.status_code == 403, r.text
     assert r.json()["detail"]["permission"] == "users.create"

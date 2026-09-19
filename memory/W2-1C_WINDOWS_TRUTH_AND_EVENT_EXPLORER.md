@@ -139,7 +139,72 @@ The D12 guard gained samples for `m365-unified-audit` (pre-existing gap),
 helper now also strips nested `EventData` timestamps — without that the
 Defender activity-time regression could not have been exercised.
 
-## 6 · Still open
+## 6 · Coverage Impact — potential vs effective (owner correction, 2026-06)
+
+The owner rejected "what becomes detectable the moment telemetry arrives"
+as too strong, and rejected making AVAILABLE depend on a rule having
+fired. Both are now impossible to express in the model.
+
+**Benchmark recorded before implementation.** Elastic Security publishes
+`required_fields` + `related_integrations` per prebuilt rule; DeTT&CT
+separates data-source visibility from detection coverage; the documented
+failure mode across Elastic/Splunk practice is *"assuming coverage based on
+log presence"* when the specific fields a rule cites were never normalized.
+NivXRay therefore checks the **fields**, not the channel. Alternatives
+considered: coverage-by-log-source (Sentinel connector style — rejected, it
+is the exact failure mode above) and coverage-by-firing (rejected by the
+owner, and it would tell a new customer with 500 valid rules that they have
+no coverage).
+
+`coverage_impact()` in `services/windows_channel_truth.py`:
+
+| Concept | Definition | Verified behaviour |
+|---|---|---|
+| **POTENTIAL** | deployed content that COULD use this source once prerequisites hold, judged against the channel's DECLARED canonical fields | Security → 18 rules with zero telemetry |
+| **EFFECTIVE** | what the platform can CURRENTLY ESTABLISH: source receiving · parser supported · normalization supported · required fields **measured** in real evidence · rule deployed · rule applicable to the schema | Security → `BLOCKED: SOURCE NOT CONFIGURED`, 0 rules |
+
+Prerequisites are enumerated individually (`Source configured`,
+`Source receiving`, `Parsing supported`, `Normalization supported`,
+`Canonical evidence produced`) each PASS / NOT PROVEN / BLOCKED with the
+exact blocker, so the Coverage tab answers "what am I gaining, and what is
+still missing" without a health roll-up.
+
+Two gap classes are kept apart: **evidence gaps** (this deployment must fix
+them) and **content gaps** (a rule cites a field this channel will never
+carry — a content-authoring fact, not an onboarding failure).
+
+`required_fields.measured` is populated only from fields that real
+canonical evidence from that channel actually carried. A rule that declares
+no required fields is `BLOCKED · RULE DECLARES NO REQUIRED FIELDS` rather
+than counted as effective — found by a test, and it was the one way
+"coverage from log presence" could still have crept in.
+
+**The `Detectable` stage now reports EFFECTIVE coverage.** The earlier
+`Security · Detectable ✓ while Acquired ✗` reading is gone:
+
+```
+Acquired ✗ NOT CONFIGURED   Understood ✗ NOT EVALUATED
+Detectable ✗ BLOCKED  —  "effective coverage: BLOCKED · potential coverage: 18 rule(s)"
+```
+
+ATT&CK appears only where deployed content carries an authoritative
+technique mapping (19 techniques for Security, 23 estate-wide); a channel
+with no DSM produces an empty ATT&CK set, asserted. Each technique row
+carries technique id, detection content, required telemetry, prerequisite
+state, coverage state, last detection and evidence refs.
+
+`GET /api/xdr/windows/coverage` returns the three onboarding buckets
+(`available_now` / `potential` / `blocked`) plus the estate ATT&CK view and
+the four equations the model refuses to make. UI:
+`WindowsCoverage.jsx`, with a citation pane that walks
+channel → schema/event types → required fields → detection rules →
+ATT&CK mapping → operational state → supporting evidence.
+
+Also fixed while here: a channel with no source configured now reports
+`events_delivered = null` (`—`), because nothing was counted; `0` is
+reserved for `NOT OBSERVED`, where zero is the measured answer.
+
+## 7 · Still open
 
 * Bookmark/queue position is `NOT AVAILABLE` and says why: the collector
   holds it locally and does not publish it yet (W2 contract C-4).

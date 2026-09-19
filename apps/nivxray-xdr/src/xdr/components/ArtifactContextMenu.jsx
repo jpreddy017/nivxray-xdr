@@ -21,13 +21,13 @@ function Item({ label, hint, onClick, disabled, testid }) {
               display: "block", width: "100%", textAlign: "left",
               padding: "5px 9px", background: "transparent",
               border: "none", cursor: disabled ? "not-allowed" : "pointer",
-              color: disabled ? "#5D6875" : "#C7D0DB",
+              color: disabled ? "var(--nx-text-dim)" : "#C7D0DB",
               fontSize: 10.5,
             }}
             data-testid={testid}>
       <span className="mono">{label}</span>
       {hint && (
-        <div className="mono" style={{ fontSize: 8.8, color: "#5D6875",
+        <div className="mono" style={{ fontSize: 8.8, color: "var(--nx-text-dim)",
                                        marginTop: 2 }}>{hint}</div>
       )}
     </button>
@@ -38,8 +38,8 @@ function Item({ label, hint, onClick, disabled, testid }) {
 function Section({ label }) {
   return (
     <div style={{ padding: "6px 9px 3px", fontSize: 8.6, letterSpacing: .7,
-                  color: "#5D6875", textTransform: "uppercase",
-                  borderTop: "1px solid #212B36", marginTop: 2 }}>
+                  color: "var(--nx-text-dim)", textTransform: "uppercase",
+                  borderTop: "1px solid var(--nx-bd-quiet)", marginTop: 2 }}>
       {label}
     </div>
   );
@@ -90,16 +90,16 @@ export default function ArtifactContextMenu({
                   left: Math.min(at.x, window.innerWidth - 280),
                   top: Math.max(8, Math.min(at.y,
                     window.innerHeight - 470)),
-                  width: 292, maxHeight: 460, overflowY: "auto", background: "#11161D",
-                  border: "1px solid #212B36", borderRadius: 5,
+                  width: 292, maxHeight: 460, overflowY: "auto", background: "var(--nx-surf-inset)",
+                  border: "1px solid var(--nx-bd-quiet)", borderRadius: 5,
                   boxShadow: "0 12px 34px rgba(0,0,0,0.55)", padding: "4px 0" }}
          data-testid="edr-artifact-context-menu">
-      <div style={{ padding: "6px 9px", borderBottom: "1px solid #212B36" }}>
+      <div style={{ padding: "6px 9px", borderBottom: "1px solid var(--nx-bd-quiet)" }}>
         <div className="mono" style={{ fontSize: 10, color: "#E4E9F0",
                                        wordBreak: "break-all" }}>
           {name || "◇ NO NAME RECORDED"}
         </div>
-        <div className="mono" style={{ fontSize: 9, color: "#5D6875", marginTop: 3 }}>
+        <div className="mono" style={{ fontSize: 9, color: "var(--nx-text-dim)", marginTop: 3 }}>
           {sha ? shortHash(sha) : "◇ NO SHA-256 RECORDED"}
         </div>
         <div style={{ marginTop: 4 }}>

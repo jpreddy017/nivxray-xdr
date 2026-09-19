@@ -20,8 +20,8 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
       <div style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "6px 8px", marginLeft: depth * 24,
-              background: isSelected ? "#1e1b4b" : "#0f172a",
-              border: `1px solid ${isSelected ? "#a78bfa" : "#1e293b"}`,
+              background: isSelected ? "var(--nx-surf-inset)" : "var(--nx-surf-inset)",
+              border: `1px solid ${isSelected ? "#a78bfa" : "var(--nx-bd-quiet)"}`,
               borderRadius: 3, marginBottom: 4, cursor: "pointer",
               position: "relative",
             }}
@@ -45,7 +45,7 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
         </span>
         {proc.role && (
           <span style={{ fontSize: 9, color: "#94a3b8",
-                            background: "#1e293b", padding: "1px 5px",
+                            background: "var(--nx-surf-inset)", padding: "1px 5px",
                             borderRadius: 2, textTransform: "uppercase",
                             letterSpacing: 0.4 }}>
             {proc.role}
@@ -73,9 +73,9 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
             <div key={i}
                   className="mono"
                   style={{ fontSize: 11, color: "#e2e8f0",
-                              background: "#0b0f1a", padding: "3px 8px",
+                              background: "var(--nx-surf-inset)", padding: "3px 8px",
                               borderRadius: 2, marginBottom: 2,
-                              border: "1px solid #1e293b",
+                              border: "1px solid var(--nx-bd-quiet)",
                               wordBreak: "break-all" }}
                   data-testid={`xdr-proctree-cli-${proc.name}-${i}`}>
               <span style={{ color: "#fca5a5" }}>$</span>{" "}
@@ -101,7 +101,7 @@ export function ProcessTreeView({ tree, onSelectProcess, selectedId }) {
                        color: "#94a3b8" }}
             data-testid="xdr-proctree-empty">
         <Cpu size={20} style={{ margin: "0 auto 8px", display: "block",
-                                          color: "#475569" }} />
+                                          color: "var(--nx-text-dim)" }} />
         <div style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
           NO PROCESS EXECUTION TELEMETRY
         </div>

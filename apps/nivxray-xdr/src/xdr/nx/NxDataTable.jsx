@@ -28,6 +28,11 @@ export default function NxDataTable({
   const [colMenu, setColMenu] = useState(false);
 
   const shown = columns.filter((c) => !hidden[c.key]);
+  //: A column's header may be declared as `header` or `label` — both are
+  //: in use across the console and a blank `<th>` is a defect, not a
+  //: style choice. (Found 2026-06: every Windows table rendered headerless
+  //: because it declared `label` while this component only read `header`.)
+  const head = (c) => c.header ?? c.label ?? "";
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -95,7 +100,7 @@ export default function NxDataTable({
                   <input type="checkbox" checked={!hidden[c.key]}
                          onChange={() => setHidden((h) =>
                            ({ ...h, [c.key]: !h[c.key] }))} />
-                  {c.header}
+                  {head(c)}
                 </label>
               ))}
             </div>
@@ -126,10 +131,10 @@ export default function NxDataTable({
                 {shown.map((c) => (
                   <th key={c.key} style={{ width: c.width }}
                       className={c.align === "right" ? "nx-dt-r" : ""}>
-                    {c.sortable === false ? c.header : (
+                    {c.sortable === false ? head(c) : (
                       <button className="nx-dt-sort" onClick={() => toggleSort(c.key)}
                               data-testid={`${testid}-sort-${c.key}`}>
-                        {c.header}
+                        {head(c)}
                         {sort.key === c.key && (sort.dir === "asc"
                           ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
                       </button>

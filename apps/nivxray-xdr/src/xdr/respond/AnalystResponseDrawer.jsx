@@ -247,7 +247,7 @@ export default function AnalystResponseDrawer({
         {error && (
           <div data-testid="xdr-analyst-drawer-error"
                   style={{ marginTop: 10, padding: 8,
-                              border: "1px solid #ff5b5b", borderRadius: 4,
+                              border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                               background: "rgba(255,91,91,.08)",
                               color: "#ff9494", fontSize: 11 }}>
             <AlertTriangle size={11} /> {String(error)}

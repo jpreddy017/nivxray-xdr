@@ -1563,7 +1563,7 @@ export default function AttackGraphTab({ incident, onNavigateTab }) {
   if (popOut) {
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 9999,
-                       background: "#020617", padding: 16,
+                       background: "var(--nx-surf-inset)", padding: 16,
                        display: "flex", flexDirection: "column" }}
             data-testid="xdr-ag-popout-overlay">
         <div style={{ display: "flex", alignItems: "center",

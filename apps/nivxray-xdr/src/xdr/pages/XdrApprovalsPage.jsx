@@ -144,7 +144,7 @@ export default function XdrApprovalsPage() {
       {error && (
         <div data-testid="xdr-approvals-error"
                 style={{ padding: 10, marginBottom: 10, borderRadius: 4,
-                            border: "1px solid #ff5b5b",
+                            border: "1px solid var(--nx-bd-quiet)",
                             background: "rgba(255,91,91,.08)",
                             color: "#ff9494", fontSize: 11.5 }}>
           <AlertTriangle size={11} /> {error}

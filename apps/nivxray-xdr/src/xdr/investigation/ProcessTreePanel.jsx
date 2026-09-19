@@ -736,7 +736,7 @@ const popoutInner = {
   width: "100%", maxWidth: 1600,
   maxHeight: "calc(100vh - 48px)",
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   padding: 16, display: "flex", flexDirection: "column",
   overflow: "hidden",
 };

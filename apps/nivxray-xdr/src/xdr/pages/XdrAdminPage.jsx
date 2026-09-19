@@ -279,7 +279,7 @@ function AdminBody({ section }) {
         )}
         {state === "error" && (
           <div style={{ padding: 14 }}>
-            <HonestBadge label="ERROR" color="#ff5b5b"
+            <HonestBadge label="ERROR" color="var(--nx-text-dim)"
                             testid={`xdr-admin-error-${section.key}`} />
             <div style={{ marginTop: 8, color: "#ff9494", fontSize: 11.5 }}>
               {String(error)}

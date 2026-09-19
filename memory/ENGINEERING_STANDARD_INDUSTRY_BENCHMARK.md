@@ -37,6 +37,23 @@ management · Command Intelligence · detection coverage · response · the
 remaining XDR UI/UX work.
 
 ## Where this has already been applied
+* **Coverage Impact · potential vs effective (2026-06)** —
+  *Industry pattern:* Elastic Security publishes `required_fields` and
+  `related_integrations` per prebuilt rule; DeTT&CT separates data-source
+  visibility from detection coverage; Sentinel/Defender present
+  coverage per data connector.
+  *Alternatives:* (a) coverage-by-log-source — rejected, it is the
+  documented failure mode "assuming coverage based on log presence" when
+  the fields a rule cites were never normalized; (b) coverage-by-firing —
+  rejected by the owner, it would report a new customer with 500 valid
+  rules as having no coverage.
+  *NivX decision:* two independent claims — POTENTIAL (content that could
+  use the source) and EFFECTIVE (source receiving · parser · normalization
+  · required fields **measured** · rule deployed · rule applicable). A rule
+  that declares no required fields cannot be verified and is BLOCKED.
+  *Security implication:* an operator is never told they are protected by
+  content whose required fields have never been observed, and is never
+  told they are unprotected merely because nothing has attacked them yet.
 * **Windows channel truth model (Lane G)** — separating *connector /
   ingestion* health from *content coverage* follows the established pattern
   (Defender XDR data-connector health; Cortex XDR data-source ingestion

@@ -95,7 +95,7 @@ export const EndpointActionsMenu = ({ groups }) => {
              data-testid="endpoint-actions-menu">
           {groups.map((g, gi) => (
             <div key={g.label}
-                 style={{ borderTop: gi ? "1px solid #212B36" : "none",
+                 style={{ borderTop: gi ? "1px solid var(--nx-bd-quiet)" : "none",
                           paddingTop: gi ? 5 : 0, marginTop: gi ? 5 : 0 }}>
               <div style={{ color: "var(--faint)", fontSize: 8.5, fontWeight: 800,
                             textTransform: "uppercase", letterSpacing: ".5px",
@@ -108,7 +108,7 @@ export const EndpointActionsMenu = ({ groups }) => {
             </div>
           ))}
           {unavailable ? (
-            <div style={{ borderTop: "1px solid #212B36", marginTop: 5,
+            <div style={{ borderTop: "1px solid var(--nx-bd-quiet)", marginTop: 5,
                           padding: "7px 10px 4px", fontSize: 9,
                           color: "var(--faint)", lineHeight: 1.65,
                           position: "sticky", bottom: -8,

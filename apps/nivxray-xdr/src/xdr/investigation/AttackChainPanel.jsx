@@ -326,7 +326,7 @@ export default function AttackChainPanel({ incident }) {
                                     fill="rgba(15,23,42,0.9)"
                                     stroke={color} strokeWidth={1.6} />
                         <circle cx={12} cy={NODE_H / 2} r={5.5}
-                                       fill={color} stroke="#0b1220" strokeWidth={2} />
+                                       fill={color} stroke="var(--nx-surf-inset)" strokeWidth={2} />
                         <text x={24} y={NODE_H / 2 - 3}
                                     fill="#e2e8f0" fontFamily="JetBrains Mono, monospace"
                                     fontSize={12} fontWeight={700}>
@@ -382,7 +382,7 @@ export default function AttackChainPanel({ incident }) {
                     </text>
                     <text x={14}
                                 y={20 + i * ROW_H + ROW_H / 2 + 14}
-                                fill="#64748b"
+                                fill="var(--nx-text)"
                                 fontFamily="JetBrains Mono, monospace"
                                 fontSize={9}
                                 letterSpacing={0.3}>
@@ -447,7 +447,7 @@ export default function AttackChainPanel({ incident }) {
                                   strokeWidth={active ? 2.2 : 1.6} />
                       <circle cx={12} cy={NODE_H / 2} r={5.5}
                                      fill={color}
-                                     stroke="#0b1220" strokeWidth={2} />
+                                     stroke="var(--nx-bd-strong)" strokeWidth={2} />
                       <text x={24} y={NODE_H / 2 - 3}
                                   fill="#e2e8f0"
                                   fontFamily="JetBrains Mono, monospace"
@@ -608,7 +608,7 @@ function NodeInspector({ node, onClose }) {
 function InspectorSection({ title, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 9, color: "#64748b",
+      <div style={{ fontSize: 9, color: "var(--nx-text-dim)",
                               letterSpacing: "0.18em", textTransform: "uppercase",
                               fontFamily: "JetBrains Mono, monospace",
                               marginBottom: 6 }}>
@@ -625,7 +625,7 @@ const inspectorPanel = {
   maxHeight: "calc(100vh - 120px)", overflowY: "auto",
   padding: 18, zIndex: 60,
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
 };
 
@@ -659,7 +659,7 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
       <span style={{ padding: "3px 8px", fontSize: 10.5,
                               fontFamily: "JetBrains Mono, monospace",
                               fontWeight: 600, color: "#94a3b8",
-                              border: "1px solid #334467",
+                              border: "1px solid var(--nx-bd-quiet)",
                               borderRadius: 4 }}>
         {techniques} technique{techniques === 1 ? "" : "s"} · 14 tactics
       </span>
@@ -715,7 +715,7 @@ function TacticLegend() {
                             padding: "0 4px 10px", alignItems: "center" }}
                 data-testid="xdr-chain-legend">
       <span style={{ fontSize: 9, letterSpacing: "0.14em",
-                              textTransform: "uppercase", color: "#64748b",
+                              textTransform: "uppercase", color: "var(--nx-text-dim)",
                               fontFamily: "JetBrains Mono, monospace" }}>
         MITRE tactics projected:
       </span>
@@ -765,7 +765,7 @@ function EmptyCanvas({ contentWidth, pan, zoom }) {
               </text>
               <text x={14}
                           y={20 + i * ROW_H + ROW_H / 2 + 14}
-                          fill="#64748b"
+                          fill="var(--nx-text)"
                           fontFamily="JetBrains Mono, monospace"
                           fontSize={9}
                           letterSpacing={0.3}>
@@ -889,7 +889,7 @@ function truncate(s, n) {
 const canvasFrame = {
   width: "100%",                           // constrain to parent
   boxSizing: "border-box",
-  border: "1px solid #1f2b3f", borderRadius: 10,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 10,
   background: "rgba(2,6,23,0.65)",
   overflowX: "scroll",                     // ALWAYS-visible horizontal (NivXRay Tool parity)
   overflowY: "auto",
@@ -908,13 +908,13 @@ const popoutInner = {
   width: "100%", maxWidth: 1600,
   maxHeight: "calc(100vh - 48px)",
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   padding: 16, display: "flex", flexDirection: "column",
   overflow: "hidden",
 };
 const canvasFramePopout = {
   flex: 1,
-  border: "1px solid #1f2b3f", borderRadius: 10,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 10,
   background: "rgba(2,6,23,0.65)",
   overflowX: "scroll", overflowY: "auto",
   userSelect: "none",
@@ -924,7 +924,7 @@ const canvasFramePopout = {
 const helpText = {
   padding: "8px 4px", fontSize: 10.5,
   fontFamily: "JetBrains Mono, monospace",
-  color: "#64748b", fontStyle: "italic",
+  color: "var(--nx-text-dim)", fontStyle: "italic",
   letterSpacing: 0.2,
 };
 const ctrlBtn = {
@@ -939,6 +939,6 @@ const ctrlBtn = {
 const emptyBox = {
   padding: "10px 12px", fontSize: 11,
   fontFamily: "JetBrains Mono, monospace",
-  color: "#94a3b8", border: "1px dashed #334467",
+  color: "#94a3b8", border: "1px dashed var(--nx-bd-quiet)",
   borderRadius: 6, display: "flex", alignItems: "center",
 };

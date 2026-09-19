@@ -297,8 +297,8 @@ export default function TrajectoryLifelineCanvas({
          data-testid="edr-lifeline-canvas">
       {/* Lineage + overlap honesty banner. */}
       <div style={{ display: "flex", gap: 10, alignItems: "center",
-                    padding: "5px 8px", background: "#11161D",
-                    border: "1px solid #212B36", borderRadius: 4,
+                    padding: "5px 8px", background: "var(--nx-surf-inset)",
+                    border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                     marginBottom: 6, flexWrap: "wrap" }}
            data-testid="edr-lifeline-lineage-banner">
         <span className="nx-ep"
@@ -337,10 +337,10 @@ export default function TrajectoryLifelineCanvas({
 
       <div ref={scrollRef} data-testid="edr-lifeline-viewport"
            style={{ maxHeight: "58vh", overflowY: "auto",
-                    overflowX: "hidden", border: "1px solid #161C24",
+                    overflowX: "hidden", border: "1px solid var(--nx-bd-quiet)",
                     borderRadius: 3 }}>
       <svg width={width} height={height} onMouseDown={startPan}
-           style={{ display: "block", background: "#0B0F14",
+           style={{ display: "block", background: "var(--nx-surf-inset)",
                     cursor: panning ? "grabbing"
                             : navEnabled ? "grab" : "default" }}
            data-testid="edr-lifeline-svg">
@@ -377,14 +377,14 @@ export default function TrajectoryLifelineCanvas({
         {/* Time axis — vertical tick labels survive dense clusters. */}
         <g data-testid="edr-lifeline-axis">
           <line x1={GUTTER} y1={AXIS_H - 4} x2={GUTTER + plotW} y2={AXIS_H - 4}
-                stroke="#212B36" />
+                stroke="var(--nx-bd-strong)" />
           {ticks.map((d, i) => {
             const tx = x(d);
             return (
               <g key={i}>
                 <line x1={tx} y1={AXIS_H - 8} x2={tx} y2={layout.bodyEnd}
-                      stroke="#161C24" strokeDasharray="2 4" />
-                <text x={tx} y={AXIS_H - 12} fill="#7A8797" fontSize={9.5}
+                      stroke="var(--nx-bd-strong)" strokeDasharray="2 4" />
+                <text x={tx} y={AXIS_H - 12} fill="var(--nx-text)" fontSize={9.5}
                       fontFamily="'IBM Plex Mono', monospace"
                       transform={`rotate(-90 ${tx} ${AXIS_H - 12})`}
                       textAnchor="start">
@@ -400,18 +400,18 @@ export default function TrajectoryLifelineCanvas({
           if (item.type === "header") {
             return (
               <g key={`h-${idx}`}>
-                <rect x={0} y={item.y} width={width} height={HEADER_H} fill="#0E141B" />
-                <text x={8} y={item.y + 14} fill="#8895A6" fontSize={9.5}
+                <rect x={0} y={item.y} width={width} height={HEADER_H} fill="var(--nx-surf-inset)" />
+                <text x={8} y={item.y + 14} fill="var(--nx-text)" fontSize={9.5}
                       fontWeight={800} letterSpacing="0.6"
                       fontFamily="'IBM Plex Mono', monospace">
                   {item.label}
                 </text>
-                <text x={GUTTER - 12} y={item.y + 14} textAnchor="end" fill="#59636F"
+                <text x={GUTTER - 12} y={item.y + 14} textAnchor="end" fill="var(--nx-text)"
                       fontSize={8.5} fontFamily="'IBM Plex Mono', monospace">
                   {item.note}
                 </text>
                 {item.detail ? (
-                  <text x={GUTTER + 8} y={item.y + 14} fill="#59636F"
+                  <text x={GUTTER + 8} y={item.y + 14} fill="var(--nx-text)"
                         fontSize={8.5} fontFamily="'IBM Plex Mono', monospace">
                     {item.detail}
                   </text>
@@ -432,7 +432,7 @@ export default function TrajectoryLifelineCanvas({
           return (
             <g key={r.key} data-testid={`edr-lifeline-row-${r.key}`}>
               <rect x={0} y={item.y} width={width} height={ROW_H}
-                    fill={idx % 2 === 0 ? "#0B0F14" : "#0D1218"} />
+                    fill={idx % 2 === 0 ? "var(--nx-surf-inset)" : "var(--nx-surf-inset)"} />
               {/* Gutter label — solid crimson only for a real detection. */}
               <rect x={0} y={item.y + 2} width={GUTTER - 6} height={ROW_H - 4}
                     fill={malicious ? IOC_RED : "transparent"}
@@ -449,7 +449,7 @@ export default function TrajectoryLifelineCanvas({
                 <title>{`${r.label}  ${r.tag}`}</title>
               </text>
               <text x={GUTTER - 12} y={cy + 3.5} textAnchor="end"
-                    fill={malicious ? "#FFE3E3" : "#6B7686"} fontSize={9}
+                    fill={malicious ? "#FFE3E3" : "var(--nx-text)"} fontSize={9}
                     fontFamily="'IBM Plex Mono', monospace">
                 {r.tag}
               </text>
@@ -459,14 +459,14 @@ export default function TrajectoryLifelineCanvas({
                     track is drawn quiet (#30363D) and the OBSERVED span is
                     overdrawn brighter on top of it. */}
                 <line x1={GUTTER} y1={cy} x2={GUTTER + plotW} y2={cy}
-                      stroke="#30363D" strokeWidth={1.5} />
+                      stroke="var(--nx-bd-strong)" strokeWidth={1.5} />
                 <line x1={Math.min(x0, x1)} y1={cy} x2={Math.max(x0, x1)} y2={cy}
                       stroke={malicious ? "rgba(255,56,56,0.75)" : "rgba(143,166,200,0.75)"}
                       strokeWidth={2} />
                 {r.parentClaims.length > 0 && lineage.resolved.length === 0 && (
                   <g data-testid={`edr-lifeline-ghost-root-${r.key}`}>
                     <circle cx={GUTTER + 6} cy={cy} r={3.4} fill="none"
-                            stroke="#4B5563" strokeWidth={1}
+                            stroke="var(--nx-bd-strong)" strokeWidth={1}
                             strokeDasharray="1.6 1.6" />
                     <title>
                       {`Ghost root · this process declares a parent`
@@ -512,9 +512,9 @@ export default function TrajectoryLifelineCanvas({
             return (
               <g key={`tick-${it.evt.id}-${it.role}-${i}`} opacity={dim ? 0.18 : 0.8}>
                 <line x1={it.trueX} y1={cy - 8} x2={it.trueX} y2={cy + 8}
-                      stroke="#3A4653" strokeWidth={0.8} />
+                      stroke="var(--nx-bd-strong)" strokeWidth={0.8} />
                 <line x1={it.trueX} y1={cy - 8} x2={it.renderX} y2={cy - 8}
-                      stroke="#3A4653" strokeWidth={0.8} strokeDasharray="1 2" />
+                      stroke="var(--nx-bd-strong)" strokeWidth={0.8} strokeDasharray="1 2" />
               </g>
             );
           })}
@@ -561,9 +561,9 @@ export default function TrajectoryLifelineCanvas({
                         fill={tier === TIER_MALICIOUS ? IOC_RED
                               : tier === TIER_ATTRIBUTED ? TIER_COLOR[TIER_ATTRIBUTED]
                               : g.color}
-                        stroke="#0A0D12" strokeWidth={1.2} />
+                        stroke="var(--nx-bd-strong)" strokeWidth={1.2} />
                 <text x={cx} y={cy + 2.6} textAnchor="middle" fontSize={6.5}
-                      fill="#080B10" fontWeight={800} pointerEvents="none"
+                      fill="var(--nx-text)" fontWeight={800} pointerEvents="none"
                       fontFamily="'IBM Plex Mono', monospace">
                   {g.sym}
                 </text>
@@ -593,9 +593,9 @@ export default function TrajectoryLifelineCanvas({
 
         {/* Brush strip — drag to scope the shared temporal window. */}
         <g transform={`translate(0,${layout.bodyEnd + 4})`}>
-          <rect x={GUTTER} y={0} width={plotW} height={BRUSH_H} fill="#0E141B"
-                stroke="#212B36" strokeWidth={0.6} />
-          <text x={8} y={13} fill="#6B7686" fontSize={9}
+          <rect x={GUTTER} y={0} width={plotW} height={BRUSH_H} fill="var(--nx-surf-inset)"
+                stroke="var(--nx-bd-strong)" strokeWidth={0.6} />
+          <text x={8} y={13} fill="var(--nx-text)" fontSize={9}
                 fontFamily="'IBM Plex Mono', monospace">
             DRAG TO SCOPE WINDOW
           </text>

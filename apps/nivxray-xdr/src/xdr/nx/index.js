@@ -40,5 +40,25 @@ export { default as NxStatus, NxHealthVerdict, NxMetric } from "./NxStatus";
 // Incidents, Investigation and every Entity 360 compose these.
 export { default as NxVerdict, NxLifecycle, NxPriority, NxConfidence,
          NxRisk, NxProvenanceChip }                from "./NxSeverity";
-export { default as NxEntityHeader, NxFact }       from "./NxEntityHeader";
+export { default as NxEntityHeader, NxFact } from "./NxEntityHeader";
 export { default as NxAttackChain }                from "./NxAttackChain";
+
+// ── Phase 0 · operational composition layer (console-wide) ─────────
+// ONE section, toolbar, metric strip, key-fact block, token list,
+// technical-details disclosure and button for every operational surface.
+// Theme-token only: both light and dark are first-class.
+export { NxSection, NxToolbar, NxField, NxMetricStrip, NxDimensionStrip,
+         NxBlockerGroup, NxFacts, NxKeyFact, NxToken, NxTokenList,
+         NxTechnical, NxRaw, NxButton, measured, nxSlug } from "./NxOps";
+
+// ONE presentation mapping for backend state tokens. The token stays the
+// authority and is preserved in `data-nx-state`; only the LABEL is ours.
+export { default as NxState, opsState, opsLabel, opsKey,
+         OPS_STATES } from "./NxOpsState";
+
+// Product identity: authentic vendor assets for third-party integrations,
+// our own coherent family for NivXRay-native concepts.
+export { default as NxVendorIcon }                 from "./NxVendorIcon";
+export { default as NxEntityIcon, ENTITY_ICONS }   from "./NxEntityIcon";
+export { resolveIntegrationIcon, integrationIconInventory,
+         INTEGRATION_ICONS } from "./integrations/iconRegistry";

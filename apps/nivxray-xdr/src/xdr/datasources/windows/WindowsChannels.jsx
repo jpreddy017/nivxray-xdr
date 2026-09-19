@@ -5,19 +5,19 @@
  * every fact each one stands on. Nothing here merges two dimensions, and
  * a missing measurement renders `—`, never `0`.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { NxDataTable, NxFlyout } from "@/xdr/nx";
 import { Fact, Section, StageBar, StateChip } from "./WindowsPrimitives";
 import { measured } from "./windowsApi";
 
 const Tags = ({ values = [], empty = "—" }) => (
   values.length
-    ? <span className="wx-tags">
+    ? <span className="nx-tokens">
         {values.slice(0, 12).map((v) => (
-          <span className="wx-tag" key={String(v)}>{String(v)}</span>))}
-        {values.length > 12 && <span className="wx-dim">+{values.length - 12}</span>}
+          <span className="nx-token" key={String(v)}>{String(v)}</span>))}
+        {values.length > 12 && <span className="nx-absent">+{values.length - 12}</span>}
       </span>
-    : <span className="wx-dim">{empty}</span>
+    : <span className="nx-absent">{empty}</span>
 );
 
 export function ChannelPane({ row, onClose, onPivotEvents }) {
@@ -27,7 +27,7 @@ export function ChannelPane({ row, onClose, onPivotEvents }) {
   return (
     <NxFlyout open title={row.label} eyebrow={row.channel} onClose={onClose}
               width={720} testid="wx-channel-pane">
-      <div className="wx-pane">
+      <div className="wx-stack">
         <StageBar stages={row.summary_stages || []} testid="wx-pane-stages" />
         {row.attention?.length > 0 && (
           <div className="wx-attn" data-testid="wx-pane-attention">
@@ -82,27 +82,74 @@ export function ChannelPane({ row, onClose, onPivotEvents }) {
           </div>
         </Section>
 
-        <Section title="Detection capability" note={cap.basis}
+        <Section title="Coverage · potential vs effective"
+                 note={row.coverage?.effective?.basis_note}
+                 testid="wx-pane-coverage">
+          <div className="wx-facts">
+            <Fact label="Potential coverage"
+                  value={`${measured(row.coverage?.potential?.rule_count)} rule(s)`}
+                  reason={row.coverage?.potential?.basis} />
+            <Fact label="Effective coverage"
+                  value={<StateChip value={row.coverage?.effective?.state} />}
+                  reason={row.coverage?.effective?.basis} />
+            <Fact label="Required fields"
+                  value={<StateChip value={row.coverage?.required_fields?.state} />}
+                  reason={row.coverage?.required_fields?.note} />
+            <Fact label="Fields measured"
+                  value={`${(row.coverage?.required_fields?.measured || []).length} of ${(row.coverage?.required_fields?.declared || []).length}`} />
+            <Fact label="Blocked rules" value={measured(row.coverage?.blocked?.rule_count)} />
+            <Fact label="ATT&CK techniques" value={measured((row.coverage?.attack || []).length)} />
+          </div>
+          {row.coverage?.evidence_gaps?.length > 0 && (
+            <div className="wx-attn">
+              EVIDENCE GAPS · {row.coverage.evidence_gaps.join(" · ")}
+            </div>)}
+          {row.coverage?.content_gaps?.length > 0 && (
+            <p className="nx-sec-note">
+              content gaps: {row.coverage.content_gaps.join(" · ")} — a rule
+              citing a field this channel does not carry is a
+              content-authoring fact, not an onboarding failure
+            </p>)}
+          <NxDataTable rows={row.coverage?.prerequisites || []}
+                       rowKey={(p) => p.prerequisite} searchable={false}
+                       pageSize={50} testid="wx-pane-prereqs"
+                       emptyTitle="No prerequisite is declared"
+                       columns={[
+            { key: "prerequisite", header: "Prerequisite", width: "220px",
+              render: (p) => <span className="nx-mono">{p.prerequisite}</span> },
+            { key: "state", header: "State", width: "150px",
+              render: (p) => <StateChip value={p.state} title={p.detail} /> },
+            { key: "blocker", header: "Blocker",
+              render: (p) => (p.blocker
+                ? <span>{p.blocker}</span>
+                : <span className="nx-absent">—</span>) },
+          ]} />
+        </Section>
+
+        <Section title="Detection content applicable to this channel"
+                 note={cap.basis}
                  testid="wx-pane-capability">
           <div className="wx-facts">
-            <Fact label="Capability" value={<StateChip value={cap.state} />} />
             <Fact label="Content state" value={cap.content_state} />
             <Fact label="Fully eligible rules" value={measured(cap.eligible_rule_count)} />
             <Fact label="Partially eligible rules" value={measured(cap.partially_eligible_rule_count)} />
             <Fact label="Evidence this channel provides" value={<Tags values={cap.provides} />} />
           </div>
           {cap.eligible_rules?.length > 0 && (
-            <table className="wx-kv" data-testid="wx-pane-eligible-rules">
-              <tbody>
-                {cap.eligible_rules.map((r) => (
-                  <tr key={r.rule_id}>
-                    <td>{r.technique_id || "—"}</td>
-                    <td>{r.name}</td>
-                  </tr>))}
-              </tbody>
-            </table>
+            <NxDataTable rows={cap.eligible_rules} rowKey={(r) => r.rule_id}
+                         searchable={false} pageSize={25}
+                         testid="wx-pane-eligible-rules"
+                         emptyTitle="No rule is fully eligible on this channel"
+                         columns={[
+              { key: "technique_id", header: "ATT&CK", width: "120px",
+                render: (r) => (r.technique_id
+                  ? <span className="nx-mono">{r.technique_id}</span>
+                  : <span className="nx-absent">—</span>) },
+              { key: "name", header: "Detection rule",
+                render: (r) => r.name },
+            ]} />
           )}
-          <p className="wx-section-note">{cap.independence_note}</p>
+          <p className="nx-sec-note">{cap.independence_note}</p>
         </Section>
 
         <Section title="Detection activity" note={act.reason}
@@ -115,7 +162,7 @@ export function ChannelPane({ row, onClose, onPivotEvents }) {
           </div>
         </Section>
 
-        <button type="button" className="wx-btn" data-testid="wx-pane-pivot-events"
+        <button type="button" className="nx-btn nx-btn--primary" data-testid="wx-pane-pivot-events"
                 onClick={() => onPivotEvents && onPivotEvents(row.channel)}>
           Open in Event Explorer
         </button>
@@ -125,51 +172,61 @@ export function ChannelPane({ row, onClose, onPivotEvents }) {
 }
 
 export default function WindowsChannels({ channels, loading, error, onRefresh,
+                                          initialChannel = null,
                                           onPivotEvents }) {
   const [selected, setSelected] = useState(null);
+  // Arriving from a grouped blocker on Overview opens that channel's pane.
+  useEffect(() => {
+    if (!initialChannel) return;
+    const hit = (channels || []).find((c) => c.channel === initialChannel);
+    if (hit) setSelected(hit);
+  }, [initialChannel, channels]);
   const columns = [
-    { key: "label", label: "Channel", value: (r) => r.label,
+    { key: "label", header: "Channel", value: (r) => r.label,
       render: (r) => (
         <span title={r.channel}>
           <strong>{r.label}</strong>
-          <div className="wx-dim wx-mono">{r.channel}</div>
+          <div className="nx-absent nx-mono">{r.channel}</div>
         </span>) },
-    { key: "devices", label: "Device(s)", value: (r) => r.devices.length,
+    { key: "devices", header: "Device(s)", value: (r) => r.devices.length,
       render: (r) => (r.devices.length
         ? <span title={r.devices.join(", ")}>{r.devices.length}</span>
-        : <span className="wx-dim">—</span>) },
-    { key: "collection", label: "Collection",
+        : <span className="nx-absent">—</span>) },
+    { key: "collection", header: "Collection",
       value: (r) => r.collection.state,
       render: (r) => <StateChip value={r.collection.state} title={r.collection.reason} /> },
-    { key: "last", label: "Last event",
+    { key: "last", header: "Last event",
       value: (r) => r.collection.last_event_at || "",
       render: (r) => (r.collection.last_event_at
-        ? <span className="wx-mono">{r.collection.last_event_at}</span>
-        : <span className="wx-dim">—</span>) },
-    { key: "events", label: "Events",
+        ? <span className="nx-mono">{r.collection.last_event_at}</span>
+        : <span className="nx-absent">—</span>) },
+    { key: "events", header: "Events",
       value: (r) => r.collection.events_delivered ?? -1,
       render: (r) => measured(r.collection.events_delivered) },
-    { key: "parsing", label: "Parsing", value: (r) => r.parsing.state,
+    { key: "parsing", header: "Parsing", value: (r) => r.parsing.state,
       render: (r) => <StateChip value={r.parsing.state} title={r.parsing.note || ""} /> },
-    { key: "normalization", label: "Normalization",
+    { key: "normalization", header: "Normalization",
       value: (r) => r.normalization.state,
       render: (r) => <StateChip value={r.normalization.state} /> },
-    { key: "capability", label: "Detection",
-      value: (r) => r.detection_capability.state,
+    { key: "capability", header: "Coverage",
+      value: (r) => r.coverage?.effective?.state || "",
       render: (r) => (
-        <span title={r.detection_capability.basis}>
-          <StateChip value={r.detection_capability.state} />
-          <div className="wx-dim">fired {measured(r.detection_activity.detections_fired)}</div>
+        <span title={r.coverage?.effective?.basis}>
+          <StateChip value={r.coverage?.effective?.state} />
+          <div className="nx-absent">
+            potential {measured(r.coverage?.potential?.rule_count)} ·{" "}
+            fired {measured(r.detection_activity.detections_fired)}
+          </div>
         </span>) },
-    { key: "gap", label: "Gap", value: (r) => (r.collection.gap ? 1 : 0),
+    { key: "gap", header: "Gap", value: (r) => (r.collection.gap ? 1 : 0),
       render: (r) => (r.collection.gap
         ? <StateChip value="GAP DETECTED" title={r.collection.gap.note} />
-        : <span className="wx-dim">—</span>) },
-    { key: "attention", label: "Attention",
+        : <span className="nx-absent">—</span>) },
+    { key: "attention", header: "Attention",
       value: (r) => r.attention.length,
       render: (r) => (r.attention.length
         ? <span className="wx-attn">{r.attention.join(" · ")}</span>
-        : <span className="wx-dim">—</span>) },
+        : <span className="nx-absent">—</span>) },
   ];
 
   return (

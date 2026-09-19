@@ -379,7 +379,7 @@ export default function XdrAutomationRuleEditorPage() {
           {liveResult && (
             <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
                              background: "var(--panel2)",
-                             border: `1px solid ${liveResult.error ? "#ff5b5b"
+                             border: `1px solid ${liveResult.error ? "var(--nx-bd-quiet)"
                                                                  : liveResult.matched ? "var(--mint)"
                                                                  : "var(--amber)"}`,
                              fontSize: 11, color: "var(--text-dim)" }}
