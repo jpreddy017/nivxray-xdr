@@ -101,7 +101,7 @@ function AddSecretModal({ onClose, onCreated }) {
                        style={inputStyle} placeholder="What this is used for" />
           </label>
         </div>
-        {err && <div style={{ marginTop: 8, color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ marginTop: 8, color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="xdr-secret-add-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
@@ -180,7 +180,7 @@ function RevealModal({ secret, onClose, onRevealed }) {
                          style={inputStyle}
                          placeholder="e.g. debugging VT sync failure" />
             </label>
-            {err && <div style={{ marginTop: 8, color: "#f87171",
+            {err && <div style={{ marginTop: 8, color: "var(--nx-critical)",
                                                 fontSize: 11 }}
                                    data-testid="xdr-secret-reveal-error">{err}</div>}
             <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
@@ -274,7 +274,7 @@ function RotateModal({ secret, onClose, onRotated }) {
           Version <b>{secret.version}</b> → <b>{secret.version + 1}</b> ·
           previous ciphertext preserved (last 3).
         </div>
-        {err && <div style={{ marginTop: 6, color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ marginTop: 6, color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="xdr-secret-rotate-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
@@ -437,7 +437,7 @@ export default function SecretsBody() {
                 <button className="btn ghost" title="Delete"
                              data-testid={`xdr-secret-delete-${r.id}`}
                              onClick={() => removeSecret(r)}
-                             style={{ ...iconBtn, color: "#f87171" }}>
+                             style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                   <Trash2 size={11} />
                 </button>
               </div>

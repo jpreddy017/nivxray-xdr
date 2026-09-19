@@ -100,7 +100,7 @@ export default function ResponseFabricPanel({ incidentId, testid }) {
         <span style={{
           fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
           letterSpacing: ".6px", textTransform: "uppercase",
-          color: "#38bdf8",
+          color: "var(--nx-teal)",
         }}>
           Response Fabric · {data.incident_id}
         </span>

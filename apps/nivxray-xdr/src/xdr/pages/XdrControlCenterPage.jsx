@@ -32,6 +32,7 @@ import {
 import { getResponseEngineHealth, getPendingApprovals } from "@/nivxforge/edrApi";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
+import { NxDataTable, NxState, opsLabel } from "@/xdr/nx";
 
 const ATTN = [
   { id: "critical",         label: "Critical",    icon: AlertOctagon,  tone: "critical" },
@@ -53,8 +54,12 @@ const ago = (iso) => {
   return `${Math.floor(s / 86400)}d`;
 };
 
-const NA = ({ children }) => (
-  <span className="cc-tb__na">{children || "NOT AVAILABLE"}</span>
+//: Absence is stated in the product's own words. The machine token stays
+//: on the element (`data-nx-state`) so it is still one hover away.
+const NA = ({ children, state = "NOT_AVAILABLE" }) => (
+  <span className="cc-tb__na" data-nx-state={state} title={state}>
+    {children || opsLabel(state)}
+  </span>
 );
 
 export default function XdrControlCenterPage() {
@@ -156,7 +161,7 @@ export default function XdrControlCenterPage() {
                   {n == null ? "—" : n}
                 </span>
                 <span className="cc-attn__s">
-                  {!t ? (loading ? "reading…" : "NOT AVAILABLE")
+                  {!t ? (loading ? "reading…" : opsLabel("NOT_AVAILABLE"))
                     : t.lens_href ? "Open queue" : "no scope"}
                 </span>
               </button>
@@ -170,10 +175,10 @@ export default function XdrControlCenterPage() {
             <span className="cc-cond__k">Response engine</span>
             <span className="cc-cond__v" data-state={respondState}
                   data-testid="cc-cond-response">
-              {respond?.error ? "NOT EVALUATED"
-                : respond?.configured === false ? "NOT CONFIGURED"
-                : respond?.reachable ? (respond.state || "REACHABLE")
-                : "UNREACHABLE"}
+              {opsLabel(respond?.error ? "NOT_EVALUATED"
+                : respond?.configured === false ? "NOT_CONFIGURED"
+                : respond?.reachable ? (respond.state || "RECEIVING")
+                : "OFFLINE")}
             </span>
           </span>
           <span className="cc-cond__i">
@@ -181,7 +186,7 @@ export default function XdrControlCenterPage() {
             <span className="cc-cond__v"
                   data-state={pendingCount ? "warn" : pendingCount === 0 ? "ok" : "unknown"}
                   data-testid="cc-cond-approvals">
-              {pendingCount == null ? "NOT AVAILABLE" : pendingCount}
+              {pendingCount == null ? opsLabel("NOT_AVAILABLE") : pendingCount}
             </span>
           </span>
           <span className="cc-cond__i">
@@ -189,14 +194,16 @@ export default function XdrControlCenterPage() {
             <span className="cc-cond__v"
                   data-state={dist?.total ? "warn" : "unknown"}
                   data-testid="cc-cond-open">
-              {typeof dist?.total === "number" ? dist.total : "NOT AVAILABLE"}
+              {typeof dist?.total === "number" ? dist.total
+                : opsLabel("NOT_AVAILABLE")}
             </span>
           </span>
           <span className="cc-cond__i">
             <span className="cc-cond__k">Tenants in scope</span>
             <span className="cc-cond__v" data-state="ok"
                   data-testid="cc-cond-tenants">
-              {Array.isArray(cust?.rows) ? cust.rows.length : "NOT AVAILABLE"}
+              {Array.isArray(cust?.rows) ? cust.rows.length
+                : opsLabel("NOT_AVAILABLE")}
             </span>
           </span>
           <span className="cc-cond__i">
@@ -234,47 +241,57 @@ export default function XdrControlCenterPage() {
             <div className="cc-card__b">
               {queue?.error ? (
                 <div className="cc-empty" data-testid="cc-needs-attention-error">
-                  <b>NOT AVAILABLE</b> — {String(queue.error)}
+                  <b>Not available</b> — {String(queue.error)}
                 </div>
               ) : !queue ? (
                 <div className="cc-empty">Reading the incident authority…</div>
               ) : (queue.rows || []).length === 0 ? (
                 <div className="cc-empty" data-testid="cc-needs-attention-empty">
-                  <b>NOTHING REQUIRES ATTENTION</b> — no open P1/P2 incident
+                  <b>Nothing requires attention</b> — no open P1/P2 incident
                   exists in this scope. This is an observed state, not an
                   empty page: aging and unassigned work still appears in the
                   attention strip above.
                 </div>
               ) : (
-                <table className="cc-tb" data-testid="cc-needs-attention-table">
-                  <thead>
-                    <tr>
-                      <th>Incident</th><th>Pri</th><th>State</th>
-                      <th>Owner</th><th>Tenant</th><th>SLA</th><th>Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(queue.rows || []).slice(0, 10).map((r) => (
-                      <tr key={r.id} onClick={() => navigate(`/xdr/incidents/${r.id}`)}
-                          data-testid={`cc-needs-attention-row-${r.id}`}>
-                        <td>
-                          <span className="cc-tb__sev" data-s={r.priority} />
-                          {r.name || <NA>UNNAMED</NA>}
-                        </td>
-                        <td className="mono">{r.priority || <NA>—</NA>}</td>
-                        <td className="mono">
-                          {String(r.state || "").replace("_", " ") || <NA>—</NA>}
-                        </td>
-                        <td className="mono">
-                          {r.assignee || <NA>UNASSIGNED</NA>}
-                        </td>
-                        <td className="mono">{r.customer || <NA>NOT ATTRIBUTED</NA>}</td>
-                        <td className="mono">{ts(r.sla_due_at) || <NA>NOT SET</NA>}</td>
-                        <td className="mono">{ago(r.updated_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <NxDataTable rows={(queue.rows || []).slice(0, 10)}
+                             rowKey={(r) => r.id} searchable={false}
+                             pageSize={10}
+                             onRowClick={(r) => navigate(`/xdr/incidents/${r.id}`)}
+                             testid="cc-needs-attention-table"
+                             emptyTitle="Nothing requires attention"
+                             columns={[
+                  { key: "name", header: "Incident",
+                    value: (r) => r.name || "",
+                    render: (r) => (
+                      <span data-testid={`cc-needs-attention-row-${r.id}`}>
+                        <span className="cc-tb__sev" data-s={r.priority} />
+                        {r.name || <NA>Unnamed</NA>}
+                      </span>) },
+                  { key: "priority", header: "Priority", width: "90px",
+                    value: (r) => r.priority || "",
+                    render: (r) => (r.priority || <NA>—</NA>) },
+                  { key: "state", header: "State", width: "120px",
+                    value: (r) => r.state || "",
+                    render: (r) => (r.state
+                      ? String(r.state).replace(/_/g, " ")
+                      : <NA>—</NA>) },
+                  { key: "assignee", header: "Owner", width: "150px",
+                    value: (r) => r.assignee || "",
+                    render: (r) => (r.assignee
+                      || <NA state="UNASSIGNED">Unassigned</NA>) },
+                  { key: "customer", header: "Customer", width: "150px",
+                    value: (r) => r.customer || "",
+                    render: (r) => (r.customer
+                      || <NA state="NOT_REPORTED">Not attributed</NA>) },
+                  { key: "sla", header: "SLA due", width: "150px",
+                    value: (r) => r.sla_due_at || "",
+                    render: (r) => (ts(r.sla_due_at)
+                      || <NA state="NOT_CONFIGURED">Not set</NA>) },
+                  { key: "updated", header: "Updated", width: "100px",
+                    align: "right",
+                    value: (r) => r.updated_at || "",
+                    render: (r) => ago(r.updated_at) },
+                ]} />
               )}
             </div>
           </div>
@@ -292,40 +309,43 @@ export default function XdrControlCenterPage() {
               </div>
               <div className="cc-card__b">
                 {cust?.error ? (
-                  <div className="cc-empty"><b>NOT AVAILABLE</b> — {String(cust.error)}</div>
+                  <div className="cc-empty"><b>Not available</b> — {String(cust.error)}</div>
                 ) : !cust ? <div className="cc-empty">Reading…</div>
                   : (cust.rows || []).length === 0 ? (
                     <div className="cc-empty" data-testid="cc-tenants-empty">
-                      <b>NO TENANT IN SCOPE</b> — your authorization resolves
+                      <b>No customer in scope</b> — your authorization resolves
                       to no customer with incidents.
                     </div>
                   ) : (
-                    <table className="cc-tb" data-testid="cc-tenants-table">
-                      <thead>
-                        <tr><th>Tenant</th><th className="num">Open</th>
-                          <th className="num">Crit</th>
-                          <th className="num">SLA</th>
-                          <th className="num">Unass.</th></tr>
-                      </thead>
-                      <tbody>
-                        {(cust.rows || []).slice(0, 8).map((r) => (
-                          <tr key={r.customer}
-                              data-testid={`cc-tenant-row-${r.customer}`}
-                              onClick={() => navigate(
-                                `/xdr/incidents?customer=${encodeURIComponent(r.customer)}`)}>
-                            <td className="mono">{r.customer}</td>
-                            <td className="num">{r.open}</td>
-                            <td className="num"
-                                style={{ color: r.critical > 0
-                                  ? "var(--nx-critical, #E5484D)" : undefined }}>
-                              {r.critical}
-                            </td>
-                            <td className="num">{r.sla_risk}</td>
-                            <td className="num">{r.unassigned}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <NxDataTable rows={(cust.rows || []).slice(0, 8)}
+                                 rowKey={(r) => r.customer} searchable={false}
+                                 pageSize={8}
+                                 onRowClick={(r) => navigate(
+                                   `/xdr/incidents?customer=${encodeURIComponent(r.customer)}`)}
+                                 testid="cc-tenants-table"
+                                 emptyTitle="No customer in scope carries an incident"
+                                 columns={[
+                      { key: "customer", header: "Customer",
+                        value: (r) => r.customer,
+                        render: (r) => (
+                          <span className="nx-mono"
+                                data-testid={`cc-tenant-row-${r.customer}`}>
+                            {r.customer}
+                          </span>) },
+                      { key: "open", header: "Open", width: "80px",
+                        align: "right", value: (r) => r.open },
+                      { key: "critical", header: "Critical", width: "90px",
+                        align: "right", value: (r) => r.critical,
+                        render: (r) => (
+                          <span style={{ color: r.critical > 0
+                            ? "var(--nx-critical)" : undefined }}>
+                            {r.critical}
+                          </span>) },
+                      { key: "sla_risk", header: "SLA risk", width: "90px",
+                        align: "right", value: (r) => r.sla_risk },
+                      { key: "unassigned", header: "Unassigned", width: "110px",
+                        align: "right", value: (r) => r.unassigned },
+                    ]} />
                   )}
               </div>
             </div>
@@ -337,7 +357,7 @@ export default function XdrControlCenterPage() {
               <div className="cc-card__b cc-card__b--pad">
                 <div className="cc-empty" style={{ padding: 0 }}
                      data-testid="cc-assets-state">
-                  <b>NOT AVAILABLE</b> — the incident queue projection carries
+                  <b>Not available</b> — the incident queue projection carries
                   no asset attribution, so no cross-incident asset impact roll-up
                   exists to report. Asset impact is resolved per investigation
                   in <b>Investigate ▸ Entities</b>, and inventory lives in{" "}
@@ -360,7 +380,7 @@ export default function XdrControlCenterPage() {
             </div>
             <div className="cc-card__b">
               {dist?.error ? (
-                <div className="cc-empty"><b>NOT AVAILABLE</b> — {String(dist.error)}</div>
+                <div className="cc-empty"><b>Not available</b> — {String(dist.error)}</div>
               ) : !dist ? <div className="cc-empty">Reading…</div> : (
                 <>
                   <Bars label="By priority" entries={dist.priorities} total={dist.total}
@@ -378,11 +398,11 @@ export default function XdrControlCenterPage() {
             </div>
             <div className="cc-card__b">
               {det?.error ? (
-                <div className="cc-empty"><b>NOT AVAILABLE</b> — {String(det.error)}</div>
+                <div className="cc-empty"><b>Not available</b> — {String(det.error)}</div>
               ) : !det ? <div className="cc-empty">Reading…</div>
                 : (det.detection_sources || []).length === 0 ? (
                   <div className="cc-empty" data-testid="cc-detection-drivers-empty">
-                    <b>NOT OBSERVED</b> — no incident in scope carries a
+                    <b>Not observed</b> — no incident in scope carries a
                     detection-source label.
                   </div>
                 ) : (
@@ -413,11 +433,11 @@ export default function XdrControlCenterPage() {
             </div>
             <div className="cc-card__b">
               {act?.error ? (
-                <div className="cc-empty"><b>NOT AVAILABLE</b> — {String(act.error)}</div>
+                <div className="cc-empty"><b>Not available</b> — {String(act.error)}</div>
               ) : !act ? <div className="cc-empty">Reading…</div>
                 : (act.events || []).length === 0 ? (
                   <div className="cc-empty" data-testid="cc-activity-empty">
-                    <b>NOT OBSERVED</b> — no analyst action is recorded against
+                    <b>Not observed</b> — no analyst action is recorded against
                     any incident in this scope.
                   </div>
                 ) : (
@@ -452,7 +472,7 @@ function Bars({ label, entries, total, tone }) {
       <div className="cc-cond__k">{label}</div>
       {items.length === 0
         ? <div className="cc-tb__na" style={{ fontSize: 10.8 }}>
-            NOT OBSERVED in this scope
+            Not observed in this scope
           </div>
         : items.map(([k, v]) => (
             <Bar key={k} k={k} v={v} max={max} tone={tone(k)} pct={total} />

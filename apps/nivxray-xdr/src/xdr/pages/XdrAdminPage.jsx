@@ -20,6 +20,7 @@ import { NavLink, useParams } from "react-router-dom";
 import { Loader2, RefreshCcw, ArrowRightLeft } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxDataTable } from "@/xdr/nx";
 import { ADMIN_SECTIONS, ADMIN_BY_KEY } from "@/xdr/admin/adminMeta";
 import IntegrationsBody from "@/xdr/admin/IntegrationsBody";
 import { IntegrationControlCenter, isDesignV2EnabledFor } from "@/xdr/design";
@@ -99,30 +100,29 @@ function KVBlock({ payload }) {
   );
 }
 
+//: The generic admin list now composes the platform table, so admin
+//: inherits the same density, sorting, search, empty state and sticky
+//: header as every other operational surface.
 function TableBlock({ rows, columns }) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   return (
-    <table className="x-table" style={{ width: "100%" }}
-              data-testid="xdr-admin-table">
-      <thead>
-        <tr>{columns.map((c) => <th key={c.k}>{c.label}</th>)}</tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={r.id || r._id || i}>
-            {columns.map((c) => {
-              const raw = r[c.k];
-              const shown = c.render ? c.render(raw, r) : (raw ?? "—");
-              return (
-                <td key={c.k} className={c.mono ? "mono" : ""}>
-                  {shown}
-                </td>
-              );
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <NxDataTable rows={rows} pageSize={25}
+                 rowKey={(r, i) => r.id || r._id || String(i)}
+                 searchPlaceholder="Filter rows"
+                 testid="xdr-admin-table"
+                 emptyTitle="This administrative authority returned no row"
+                 columns={columns.map((c) => ({
+                   key: c.k,
+                   header: c.label,
+                   value: (r) => (r[c.k] ?? ""),
+                   render: (r) => {
+                     const raw = r[c.k];
+                     const shown = c.render ? c.render(raw, r)
+                       : (raw ?? <span className="nx-absent">—</span>);
+                     return c.mono
+                       ? <span className="nx-mono">{shown}</span> : shown;
+                   },
+                 }))} />
   );
 }
 
@@ -281,7 +281,7 @@ function AdminBody({ section }) {
           <div style={{ padding: 14 }}>
             <HonestBadge label="ERROR" color="var(--nx-text-dim)"
                             testid={`xdr-admin-error-${section.key}`} />
-            <div style={{ marginTop: 8, color: "#ff9494", fontSize: 11.5 }}>
+            <div style={{ marginTop: 8, color: "var(--nx-critical)", fontSize: 11.5 }}>
               {String(error)}
             </div>
           </div>

@@ -102,7 +102,7 @@ export default function EngineRoleAdminBody({
                 style={{ padding: 12, marginBottom: 10,
                             borderLeft: "3px solid #f87171" }}>
           <div style={{ fontFamily: "var(--mono)", fontSize: 11,
-                              color: "#f87171" }}>
+                              color: "var(--nx-critical)" }}>
             error · {err}
           </div>
         </div>

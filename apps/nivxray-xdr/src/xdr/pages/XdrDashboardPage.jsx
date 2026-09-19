@@ -115,7 +115,7 @@ export default function XdrDashboardPage() {
       {error && (
         <div className="x-empty"
               data-testid="xdr-operations-dashboard-error"
-              style={{ color: "#ff9494", marginTop: 12 }}>
+              style={{ color: "var(--nx-critical)", marginTop: 12 }}>
           {String(error)}
         </div>
       )}

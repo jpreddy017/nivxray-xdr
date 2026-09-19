@@ -146,7 +146,7 @@ export default function XdrApprovalsPage() {
                 style={{ padding: 10, marginBottom: 10, borderRadius: 4,
                             border: "1px solid var(--nx-bd-quiet)",
                             background: "rgba(255,91,91,.08)",
-                            color: "#ff9494", fontSize: 11.5 }}>
+                            color: "var(--nx-critical)", fontSize: 11.5 }}>
           <AlertTriangle size={11} /> {error}
         </div>
       )}
@@ -183,7 +183,7 @@ export default function XdrApprovalsPage() {
               {action?.destructive && (
                 <span className="mono"
                          style={{ padding: "1px 6px", borderRadius: 3,
-                                     border: "1px solid #ff9494", color: "#ff9494",
+                                     border: "1px solid #ff9494", color: "var(--nx-critical)",
                                      fontSize: 9.5, letterSpacing: ".3px",
                                      textTransform: "uppercase" }}>
                   Destructive

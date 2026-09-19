@@ -14,21 +14,25 @@ import {
   LIFECYCLE,
 } from "@/xdr/respond/playbookStore";
 import { RESPONSE_ENGINE_WIRED } from "@/xdr/respond/actionRegistry";
+import { NxChip, NxDataTable, NxSection, NxState } from "@/xdr/nx";
 
+
+//: Lifecycle is a state, so it wears the platform's state grammar rather
+//: than a page-local glyph palette.
+const LC_TONE = {
+  draft: "not_run", testing: "medium", enabled: "benign",
+  disabled: "neutral", deprecated: "high",
+};
 
 function LifecyclePill({ state }) {
-  const map = {
-    draft:      { glyph: "◌", color: "var(--faint)",   label: "Draft" },
-    testing:    { glyph: "◌", color: "var(--cyan)",    label: "Testing" },
-    enabled:    { glyph: "●", color: "var(--mint)",    label: "Enabled" },
-    disabled:   { glyph: "○", color: "var(--muted)",   label: "Disabled" },
-    deprecated: { glyph: "⊘", color: "var(--nx-text-dim)",         label: "Deprecated" },
-  }[state] || { glyph: "?", color: "var(--faint)", label: state };
+  const key = String(state || "").toLowerCase();
+  const label = key ? key.charAt(0).toUpperCase() + key.slice(1) : "Unknown";
   return (
-    <span data-testid={`xdr-playbook-lc-${state}`}
-             style={{ color: map.color, fontWeight: 700, fontSize: 11 }}>
-      {map.glyph} {map.label}
-    </span>
+    <NxChip tone={LC_TONE[key] || "neutral"}
+            variant={key === "enabled" ? "filled" : "tinted"}
+            data-testid={`xdr-playbook-lc-${state}`}>
+      {label}
+    </NxChip>
   );
 }
 
@@ -48,22 +52,12 @@ export default function XdrPlaybooksPage() {
   return (
     <XdrShell>
       {!RESPONSE_ENGINE_WIRED && (
-        <div data-testid="xdr-playbooks-not-wired"
-                style={{
-                  padding: "8px 12px", marginBottom: 12,
-                  borderRadius: 4, border: "1px dashed var(--amber)",
-                  background: "rgba(245, 166, 35, .08)",
-                  color: "var(--text-dim)", fontSize: 11.5, lineHeight: 1.6,
-                }}>
-          <b style={{ color: "var(--amber)", fontFamily: "var(--mono)",
-                          letterSpacing: ".3px" }}>NOT WIRED</b>{" "}
-          — Response Engine is not connected yet.  Playbooks in this
-          milestone are <b>design-only</b>: they persist, version, and
-          validate, but they will not execute against endpoints, identity,
-          network, or email.  The eventual{" "}
-          <span className="mono">/api/respond/execute</span> plane will
-          light this up.
-        </div>
+        <NxSection variant="inset" testid="xdr-playbooks-not-wired"
+                   title="Response engine is not connected"
+                   note={"Playbooks in this milestone are design-only: they persist, version and validate, but they execute against no endpoint, identity, network or mailbox until the response plane lands."}>
+          <NxState value="NOT_CONFIGURED"
+                   reason="POST /api/respond/execute is not wired in this build" />
+        </NxSection>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -87,72 +81,73 @@ export default function XdrPlaybooksPage() {
         {rows.length === 0 ? (
           <div className="x-empty" style={{ padding: 20 }}
                  data-testid="xdr-playbooks-empty">
-            <b>NO PLAYBOOKS</b> — Design-only store is empty.  Click
-            "Create Playbook" to draft one.
+            <b>No playbook exists yet</b> — the design-only store is
+            empty. Use "Create Playbook" to draft one.
           </div>
         ) : (
-          <table className="x-table" style={{ width: "100%" }}
-                    data-testid="xdr-playbooks-table">
-            <thead>
-              <tr>
-                <th>Name</th><th>Trigger</th><th>Nodes</th>
-                <th>Version</th><th>Lifecycle</th>
-                <th>Last modified</th><th style={{ width: 150 }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((pb) => (
-                <tr key={pb.id} data-testid={`xdr-playbook-row-${pb.id}`}>
-                  <td>
-                    <Link to={`/xdr/respond/playbooks/${pb.id}`}
-                             style={{ color: "var(--text)", fontWeight: 700,
-                                          textDecoration: "none" }}>
-                      {pb.name}
-                    </Link>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--faint)",
-                                                          marginTop: 2 }}>{pb.id}</div>
-                  </td>
-                  <td className="mono" style={{ color: "var(--text-dim)" }}>
-                    {pb.trigger?.type || "—"}
-                  </td>
-                  <td className="mono" style={{ color: "var(--text-dim)" }}>
-                    {pb.nodes.length}
-                  </td>
-                  <td className="mono" style={{ color: "var(--text-dim)" }}>
-                    v{pb.version}
-                  </td>
-                  <td><LifecyclePill state={pb.lifecycle} /></td>
-                  <td className="mono" style={{ color: "var(--muted)" }}>
-                    {(pb.updated_at || "").slice(0, 19).replace("T", " ")}
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn ghost" style={{ padding: "3px 8px" }}
-                                onClick={() => { duplicatePlaybook(pb.id, { by: "operator" }); refresh(); }}
-                                data-testid={`xdr-playbook-dup-${pb.id}`}>
-                        <Copy size={11} /> Duplicate
-                      </button>
-                      <button className="btn ghost" style={{ padding: "3px 8px", color: "#ff9494" }}
-                                onClick={() => {
-                                  if (!window.confirm(`Delete "${pb.name}"?`)) return;
-                                  deletePlaybook(pb.id); refresh();
-                                }}
-                                data-testid={`xdr-playbook-del-${pb.id}`}>
-                        <Trash2 size={11} /> Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <NxDataTable rows={rows} rowKey={(pb) => pb.id} pageSize={25}
+                       searchPlaceholder="Search playbook, trigger, id"
+                       onRowClick={(pb) => navigate(
+                         `/xdr/respond/playbooks/${pb.id}`)}
+                       testid="xdr-playbooks-table"
+                       emptyTitle="No playbook exists yet"
+                       columns={[
+            { key: "name", header: "Name", width: "300px",
+              value: (pb) => pb.name,
+              render: (pb) => (
+                <span data-testid={`xdr-playbook-row-${pb.id}`}>
+                  <strong>{pb.name}</strong>
+                  <div className="nx-absent nx-mono">{pb.id}</div>
+                </span>) },
+            { key: "trigger", header: "Trigger", width: "170px",
+              value: (pb) => pb.trigger?.type || "",
+              render: (pb) => (pb.trigger?.type
+                ? <span className="nx-mono">{pb.trigger.type}</span>
+                : <span className="nx-absent">—</span>) },
+            { key: "nodes", header: "Nodes", width: "90px", align: "right",
+              value: (pb) => pb.nodes.length },
+            { key: "version", header: "Version", width: "90px",
+              align: "right", value: (pb) => pb.version,
+              render: (pb) => <span className="nx-mono">v{pb.version}</span> },
+            { key: "lifecycle", header: "Lifecycle", width: "130px",
+              value: (pb) => pb.lifecycle,
+              render: (pb) => <LifecyclePill state={pb.lifecycle} /> },
+            { key: "updated", header: "Last modified", width: "170px",
+              value: (pb) => pb.updated_at || "",
+              render: (pb) => (
+                <span className="nx-mono">
+                  {(pb.updated_at || "").slice(0, 19).replace("T", " ")}
+                </span>) },
+            { key: "row_actions", header: "", width: "200px",
+              sortable: false,
+              render: (pb) => (
+                <span style={{ display: "flex", gap: 4 }}>
+                  <button className="nx-btn"
+                          onClick={(e) => { e.stopPropagation();
+                            duplicatePlaybook(pb.id, { by: "operator" });
+                            refresh(); }}
+                          data-testid={`xdr-playbook-dup-${pb.id}`}>
+                    <Copy size={11} /> Duplicate
+                  </button>
+                  <button className="nx-btn"
+                          style={{ color: "var(--nx-critical)" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!window.confirm(`Delete "${pb.name}"?`)) return;
+                            deletePlaybook(pb.id); refresh();
+                          }}
+                          data-testid={`xdr-playbook-del-${pb.id}`}>
+                    <Trash2 size={11} /> Delete
+                  </button>
+                </span>) },
+          ]} />
         )}
         <div style={{ padding: "8px 14px", borderTop: "1px solid var(--border)",
                          background: "var(--panel2)",
                          color: "var(--faint)", fontSize: 10.5,
                          fontFamily: "var(--mono)" }}>
           <ShieldAlert size={10} style={{ verticalAlign: "middle", marginRight: 4 }} />
-          STORAGE: LOCAL BROWSER · versioned, not yet backed by NivXRay
+          Storage: local browser · versioned, not yet backed by NivXRay
         </div>
       </section>
     </XdrShell>

@@ -39,7 +39,7 @@ export default class AdminErrorBoundary extends React.Component {
     return (
       <div className="panel" data-testid="admin-surface-error"
            style={{ padding: 16 }}>
-        <div style={{ fontSize: 12.5, color: "#f87171",
+        <div style={{ fontSize: 12.5, color: "var(--nx-critical)",
                       fontFamily: "var(--mono)", marginBottom: 6 }}>
           ADMINISTRATION SURFACE FAILED TO RENDER
         </div>

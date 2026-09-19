@@ -320,7 +320,7 @@ export default function VisualExecutionStudio({
                   style={{ marginBottom: 10, padding: 8,
                               border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                               background: "rgba(255,91,91,.08)",
-                              color: "#ff9494", fontSize: 11 }}>
+                              color: "var(--nx-critical)", fontSize: 11 }}>
             <AlertTriangle size={11} /> {error}
           </div>
         )}
@@ -493,7 +493,7 @@ function NodeChip({ node, state, isCurrent, hasBreakpoint, forcedBranch,
                       style={{ padding: "1px 8px",
                                   background: forcedBranch === "no"
                                                   ? "rgba(255,91,91,.2)" : "transparent",
-                                  color: "#ff9494" }}>
+                                  color: "var(--nx-critical)" }}>
               Force NO
             </button>
           </div>

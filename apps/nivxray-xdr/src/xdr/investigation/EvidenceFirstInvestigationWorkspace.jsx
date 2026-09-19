@@ -42,19 +42,19 @@ import { XdrIocEnrichmentPanel, XdrProcessCausalityPanel,
 
 // ── Node type palette (single restrained accent per kind) ─────────
 const NODE_TYPE = {
-  incident:  { color: "#f87171", icon: ShieldAlert, label: "INCIDENT",  shape: "hex" },
-  host:      { color: "#38bdf8", icon: Server,      label: "HOST",      shape: "square" },
-  user:      { color: "#c084fc", icon: User,        label: "IDENTITY",  shape: "circle" },
-  process:   { color: "#a78bfa", icon: Cpu,         label: "PROCESS",   shape: "circle" },
-  file:      { color: "#e5e7eb", icon: FileDigit,   label: "FILE",      shape: "diamond" },
-  ip:        { color: "#22d3ee", icon: Globe,       label: "IP",        shape: "diamond" },
-  domain:    { color: "#22d3ee", icon: Globe,       label: "DOMAIN",    shape: "diamond" },
-  hash:      { color: "#facc15", icon: Hash,        label: "HASH",      shape: "diamond" },
-  url:       { color: "#22d3ee", icon: Globe,       label: "URL",       shape: "diamond" },
-  evidence:  { color: "#fbbf24", icon: FileDigit,   label: "EVIDENCE",  shape: "circle" },
-  technique: { color: "#f472b6", icon: GitBranch,   label: "MITRE",     shape: "hex" },
-  verdict:   { color: "#f87171", icon: ShieldAlert, label: "VERDICT",   shape: "hex" },
-  response:  { color: "#34d399", icon: Zap,         label: "RESPONSE",  shape: "square" },
+  incident:  { color: "var(--nx-critical)", icon: ShieldAlert, label: "INCIDENT",  shape: "hex" },
+  host:      { color: "var(--nx-teal)", icon: Server,      label: "HOST",      shape: "square" },
+  user:      { color: "var(--nx-purple)", icon: User,        label: "IDENTITY",  shape: "circle" },
+  process:   { color: "var(--nx-purple)", icon: Cpu,         label: "PROCESS",   shape: "circle" },
+  file:      { color: "var(--nx-text)", icon: FileDigit,   label: "FILE",      shape: "diamond" },
+  ip:        { color: "var(--nx-teal)", icon: Globe,       label: "IP",        shape: "diamond" },
+  domain:    { color: "var(--nx-teal)", icon: Globe,       label: "DOMAIN",    shape: "diamond" },
+  hash:      { color: "var(--nx-medium)", icon: Hash,        label: "HASH",      shape: "diamond" },
+  url:       { color: "var(--nx-teal)", icon: Globe,       label: "URL",       shape: "diamond" },
+  evidence:  { color: "var(--nx-high)", icon: FileDigit,   label: "EVIDENCE",  shape: "circle" },
+  technique: { color: "var(--nx-purple)", icon: GitBranch,   label: "MITRE",     shape: "hex" },
+  verdict:   { color: "var(--nx-critical)", icon: ShieldAlert, label: "VERDICT",   shape: "hex" },
+  response:  { color: "var(--nx-benign)", icon: Zap,         label: "RESPONSE",  shape: "square" },
   cluster:   { color: "var(--nx-text-dim)", icon: Boxes,       label: "CLUSTER",   shape: "square" },
 };
 
@@ -62,14 +62,14 @@ const EDGE_KIND = {
   // Semantic edge taxonomy — every edge on the canvas must be one of
   // these.  Never a generic "connected".  If the incident payload does
   // not support a semantic relationship, we do NOT draw an edge.
-  parent_of:    { color: "#c084fc", dashed: false, label: "parent_of",    weight: 1.6 },
-  created:      { color: "#facc15", dashed: false, label: "created",      weight: 1.4 },
-  executed:     { color: "#a78bfa", dashed: false, label: "executed",     weight: 1.4 },
-  connected_to: { color: "#22d3ee", dashed: false, label: "connected_to", weight: 1.2 },
-  resolved_to:  { color: "#22d3ee", dashed: true,  label: "resolved_to",  weight: 1.0 },
-  mapped_to:    { color: "#f472b6", dashed: true,  label: "mapped_to",    weight: 1.0 },
-  responded:    { color: "#34d399", dashed: false, label: "responded",    weight: 1.6 },
-  produced:     { color: "#34d399", dashed: true,  label: "produced",     weight: 1.2 },
+  parent_of:    { color: "var(--nx-purple)", dashed: false, label: "parent_of",    weight: 1.6 },
+  created:      { color: "var(--nx-medium)", dashed: false, label: "created",      weight: 1.4 },
+  executed:     { color: "var(--nx-purple)", dashed: false, label: "executed",     weight: 1.4 },
+  connected_to: { color: "var(--nx-teal)", dashed: false, label: "connected_to", weight: 1.2 },
+  resolved_to:  { color: "var(--nx-teal)", dashed: true,  label: "resolved_to",  weight: 1.0 },
+  mapped_to:    { color: "var(--nx-purple)", dashed: true,  label: "mapped_to",    weight: 1.0 },
+  responded:    { color: "var(--nx-benign)", dashed: false, label: "responded",    weight: 1.6 },
+  produced:     { color: "var(--nx-benign)", dashed: true,  label: "produced",     weight: 1.2 },
   // legacy fallbacks (kept for older callers)
   observed:     { color: "rgba(160,160,180,.55)", dashed: false, label: "observed" },
   derived:      { color: "rgba(160,160,180,.32)", dashed: true,  label: "derived"  },
@@ -998,7 +998,7 @@ function EntityInspector({ node, incident, onPivotHighlight, onOpenPivot }) {
             {raw.technique_id && (
               <Row k="MITRE" v={
                 <span onClick={() => onPivotHighlight({ technique_id: raw.technique_id })}
-                         style={{ color: "#f472b6", cursor: "pointer",
+                         style={{ color: "var(--nx-purple)", cursor: "pointer",
                                     textDecoration: "underline" }}>
                   {raw.technique_id} · {TECHNIQUE_INDEX[raw.technique_id]?.name || "—"}
                 </span>
@@ -1165,7 +1165,7 @@ function AttackStoryPanel({ incident, selectedNodeId,
             {s.text}
             {s.technique && (
               <span className="mono"
-                       style={{ marginLeft: 4, color: "#f472b6", fontSize: 9.5 }}>
+                       style={{ marginLeft: 4, color: "var(--nx-purple)", fontSize: 9.5 }}>
                 [{s.technique}]
               </span>
             )}

@@ -12,6 +12,7 @@ export default function NxTabs({ tabs, active, onChange, testid = "nx-tabs" }) {
     <div className="nx-tabs" role="tablist" data-testid={testid}>
       {tabs.map((t) => (
         <button key={t.key} role="tab" aria-selected={t.key === active}
+                data-state={t.key === active ? "active" : "inactive"}
                 className={`nx-tab${t.key === active ? " is-active" : ""}`}
                 data-testid={`${testid}-${t.key}`}
                 onClick={() => onChange(t.key)}>

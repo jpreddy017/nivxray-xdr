@@ -13,6 +13,12 @@ from unittest.mock import patch
 
 import httpx
 import pytest
+
+#: L3 (LLM decoder fallback) is opt-in and irrelevant to these planes. It is
+#: disabled here because its dedicated-loop worker keeps a Starlette
+#: threadpool slot busy, which makes the application's shutdown — and hence
+#: this module's teardown — hang for the full pytest timeout.
+os.environ.setdefault("NIVX_L3_DISABLE", "1")
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("XDR_AUDIT_MASTER_SECRET", "test-master")
@@ -23,29 +29,47 @@ from routers import xdr_rbac as rb
 from routers import xdr_webhooks as wh
 from server import app
 
+from tests._verified_session import admin_token, hdrs, register_tenants
+
+#: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
+#: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
+#: had kept speaking that dialect, so every request was correctly refused.
+#: See `tests/_verified_session.py`. Nothing was relaxed server-side.
+
 client = TestClient(app)
 
 TEN = f"wh-tenant-{uuid.uuid4().hex[:8]}"
 ADMIN = "wh-admin@nivxray.com"
 
+_TOKEN: list[str] = []
+
 
 def _hdrs(email=ADMIN, ten=None):
-    return {"X-Tenant-Id": ten or TEN,
-                "X-Principal-Id": email, "X-Principal-Kind": "user"}
+    return hdrs(_TOKEN[0], ten or TEN)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _seed():
-    for c in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
-                    rb._c_assignments):
-        if c() is not None:
-            c().delete_many({"tenant_id": TEN})
-            c().delete_many({})
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": TEN})
-    client.post("/api/xdr/rbac/users", headers=_hdrs(),
-                    json={"email": ADMIN, "initial_roles": ["platform_admin"]})
-    yield
+    # ONE client for the whole module, context-managed so the application
+    # lifespan (config validation + database init) is live for every request.
+    # Mixing a lifespan client with a second non-lifespan client puts the two
+    # on different event loops, which surfaces as a `Task ... got Future
+    # attached to a different loop` 500 rather than as a test failure.
+    global client
+    with TestClient(app) as c:
+        client = c
+        _TOKEN.append(admin_token(c))
+        register_tenants(TEN, label="webhooks")
+        for c in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
+                  rb._c_assignments):
+            if c() is not None:
+                c().delete_many({"tenant_id": TEN})
+        if al._get_coll() is not None:
+            al._get_coll().delete_many({"tenant_id": TEN})
+        client.post("/api/xdr/rbac/users", headers=_hdrs(),
+                    json={"email": ADMIN,
+                          "initial_roles": ["platform_admin"]})
+        yield
 
 
 def _skip_if_no_mongo():
@@ -195,14 +219,14 @@ def test_disabled_webhook_refuses_delivery():
 
 # ── 7 · Tenant isolation ─────────────────────────────────────────
 def test_tenant_isolation():
+    """A second, registered tenant sees none of this tenant's webhooks."""
     _skip_if_no_mongo()
     other = f"wh-other-{uuid.uuid4().hex[:8]}"
-    client.post("/api/xdr/rbac/users",
-                    headers={"X-Tenant-Id": other, "X-Principal-Id": "o@x"},
+    register_tenants(other, label="webhooks-other")
+    client.post("/api/xdr/rbac/users", headers=_hdrs(ten=other),
                     json={"email": "o@x", "initial_roles": ["platform_admin"]})
     r_other = client.get("/api/xdr/webhooks",
-                                        headers={"X-Tenant-Id": other,
-                                                        "X-Principal-Id": "o@x"}).json()["data"]
+                         headers=_hdrs(ten=other)).json()["data"]
     assert all(w["tenant_id"] != TEN for w in r_other["webhooks"])
 
 

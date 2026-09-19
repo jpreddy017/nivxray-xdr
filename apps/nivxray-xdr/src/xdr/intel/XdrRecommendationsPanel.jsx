@@ -170,7 +170,7 @@ export default function XdrRecommendationsPanel({ incident }) {
         <div style={{ marginBottom: 8, padding: 6, borderRadius: 3,
                           border: "1px solid #f87171",
                           background: "rgba(248,113,113,.06)" }}>
-          <b className="mono" style={{ fontSize: 10, color: "#f87171",
+          <b className="mono" style={{ fontSize: 10, color: "var(--nx-critical)",
                                                        textTransform: "uppercase" }}>
             {critical.length} critical action{critical.length === 1 ? "" : "s"} recommended
           </b>

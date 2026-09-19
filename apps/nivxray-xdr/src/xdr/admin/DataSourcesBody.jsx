@@ -123,7 +123,7 @@ export default function DataSourcesBody() {
             <StateBadge state={r.state} />
             <div>{r.enabled
               ? <span style={{ color: "var(--mint)" }}>ENABLED</span>
-              : <span style={{ color: "#f87171" }}>DISABLED</span>}</div>
+              : <span style={{ color: "var(--nx-critical)" }}>DISABLED</span>}</div>
             <div style={{ fontSize: 10, color: "var(--faint)" }}>
               {r.events_received || 0} rx
               {" · "}{r.events_normalized || 0} norm

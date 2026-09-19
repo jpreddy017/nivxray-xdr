@@ -95,7 +95,7 @@ export default function XdrSearchPage() {
         )}
         {err && (
           <div className="x-empty" data-testid="xdr-search-error"
-               style={{ color: "#ff9494" }}>{String(err)}</div>
+               style={{ color: "var(--nx-critical)" }}>{String(err)}</div>
         )}
 
         {data && (

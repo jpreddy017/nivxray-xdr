@@ -124,7 +124,7 @@ export default function EdrTrajectoryResolver() {
               </div>
             )}
             {state.error && (
-              <div className="mono" style={{ marginTop: 8, color: "#ff9494",
+              <div className="mono" style={{ marginTop: 8, color: "var(--nx-critical)",
                                                   fontSize: 10.5 }}>
                 {String(state.error)}
               </div>

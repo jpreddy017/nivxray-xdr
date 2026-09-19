@@ -68,6 +68,18 @@ export const OPS_STATES = {
   EVIDENCE_INCOMPLETE:  S("Evidence incomplete", "high", "filled"),
   INTEGRITY_ALARM:      S("Integrity alarm", "critical", "filled"),
 
+  // ── platform/engine condition (Control Center, Admin) ─────────
+  REAL_RUNTIME_VERIFIED: S("Verified at runtime", "benign"),
+  REACHABLE:            S("Reachable", "benign"),
+  UNREACHABLE:          S("Unreachable", "critical"),
+  UNASSIGNED:           S("Unassigned", "medium", "dashed"),
+  NOT_SET:              S("Not set", "not_run", "dashed"),
+  NOT_ATTRIBUTED:       S("Not attributed", "not_run", "dashed"),
+  UNNAMED:              S("Unnamed", "not_run", "dashed"),
+  IN_PROGRESS:          S("In progress", "running"),
+  OPERATOR_CONFIGURED:  S("Operator configured", "low"),
+  PLATFORM_DEFAULT:     S("Platform default", "not_run", "dashed"),
+
   // ── response lifecycle ────────────────────────────────────────
   REQUESTED:            S("Requested", "not_run", "dashed"),
   PENDING_APPROVAL:     S("Pending approval", "medium"),

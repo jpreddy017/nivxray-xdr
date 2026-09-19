@@ -111,7 +111,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
       {err && (
         <div style={{ border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
                       padding: "7px 10px", borderRadius: 4, marginBottom: 10,
-                      fontSize: 10.5, color: "#D08A8A" }}
+                      fontSize: 10.5, color: "var(--nx-critical)" }}
              data-testid="edr-enrollment-error">{err}</div>
       )}
 
@@ -190,7 +190,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
               </span>
             )}
           </div>
-          <div style={{ fontSize: 10, color: "#D6A84A", marginTop: 7,
+          <div style={{ fontSize: 10, color: "var(--nx-high)", marginTop: 7,
                         lineHeight: 1.6 }}>
             {minted.warning}
           </div>
@@ -330,7 +330,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                   </button>
                   <button className="btn ghost" disabled={busy}
                           style={{ fontSize: 9, padding: "2px 7px",
-                                   color: "#D08A8A" }}
+                                   color: "var(--nx-critical)" }}
                           onClick={(ev) => { ev.stopPropagation();
                                              act(e.endpoint_id, "revoke"); }}
                           data-testid={`edr-enrollment-revoke-${e.endpoint_id}`}>
@@ -420,7 +420,7 @@ export default function EdrEnrollmentBody({ refreshNonce = 0 }) {
                         padding: "8px 10px", borderRadius: 4,
                         margin: "4px 0 10px", maxWidth: 900 }}
                data-testid="edr-enrollment-rejection-note">
-            <AlertTriangle size={13} style={{ color: "#E8B931", flexShrink: 0,
+            <AlertTriangle size={13} style={{ color: "var(--nx-high)", flexShrink: 0,
                                               marginTop: 1 }} />
             <div style={{ fontSize: 10.5, lineHeight: 1.6,
                           color: "var(--text-dim)" }}>

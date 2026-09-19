@@ -274,7 +274,7 @@ export default function XdrFleetFileTrajectoryPage() {
         </div>
       )}
       {!loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--nx-critical)" }}
              data-testid="fleet-error">{String(error)}</div>
       )}
 
@@ -781,7 +781,7 @@ export default function XdrFleetFileTrajectoryPage() {
                                                           wordBreak: "break-all" }}>
                               {e.target || (e.file_paths || [])[0] || <Nope label="◇" />}
                             </td>
-                            <td className="mono" style={{ fontSize: 9.5, color: "#F39C12" }}>
+                            <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                               {(e.mitre || []).join(", ") || "◇"}
                             </td>
                             <td><Nope ep="unknown" label="? UNKNOWN" /></td>
@@ -848,7 +848,7 @@ export default function XdrFleetFileTrajectoryPage() {
                               </>
                             ) : <Nope label="◇ NONE DECLARED" />}
                           </td>
-                          <td className="mono" style={{ fontSize: 9.5, color: "#F39C12" }}>
+                          <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                             {r.mitre.size ? Array.from(r.mitre).join(", ") : "◇"}
                           </td>
                         </tr>
@@ -907,7 +907,7 @@ export default function XdrFleetFileTrajectoryPage() {
                             </td>
                             <td className="mono" style={{ fontSize: 10 }}>{e.kind}</td>
                             <td><Nope label="◇ NOT CAPTURED" /></td>
-                            <td className="mono" style={{ fontSize: 9.5, color: "#F39C12" }}>
+                            <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                               {(e.mitre || []).join(", ") || "◇"}
                             </td>
                           </tr>

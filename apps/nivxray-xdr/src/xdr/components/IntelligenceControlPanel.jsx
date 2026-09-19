@@ -254,16 +254,16 @@ export default function IntelligenceControlPanel({
       style={{
         background: "linear-gradient(180deg, #0b1220 0%, #0a0e1a 100%)",
         border: "1px solid var(--nx-bd-quiet)", borderRadius: 6,
-        padding: compact ? 10 : 14, color: "#e2e8f0",
+        padding: compact ? 10 : 14, color: "var(--nx-text)",
         fontFamily: "ui-sans-serif, system-ui",
       }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 10,
                           marginBottom: 10 }}>
-        <Cpu size={14} style={{ color: "#a78bfa" }} />
+        <Cpu size={14} style={{ color: "var(--nx-purple)" }} />
         <span data-testid={`${scope}-intel-title`}
                   style={{ fontWeight: 700, fontSize: 12, letterSpacing: 0.4,
-                              textTransform: "uppercase", color: "#c4b5fd" }}>
+                              textTransform: "uppercase", color: "var(--nx-text)" }}>
           NivXRay XDR Intelligence · {scope === "global"
             ? "Global Policy" : "Incident Policy"}
         </span>
@@ -291,7 +291,7 @@ export default function IntelligenceControlPanel({
           title="Refresh policy"
           style={{ background: "transparent", border: "1px solid var(--nx-bd-quiet)",
                           borderRadius: 3, cursor: "pointer",
-                          color: "#94a3b8", padding: "3px 6px" }}>
+                          color: "var(--nx-low)", padding: "3px 6px" }}>
           <RefreshCcw size={11}
             style={{ animation: loading ? "nx-spin .9s linear infinite" : "none" }} />
         </button>
@@ -300,7 +300,7 @@ export default function IntelligenceControlPanel({
       {/* Error banner */}
       {error && (
         <div data-testid={`${scope}-intel-error`}
-              style={{ color: "#fca5a5", fontSize: 11,
+              style={{ color: "var(--nx-critical)", fontSize: 11,
                           padding: "6px 10px", background: "var(--nx-surf-inset)",
                           border: "1px solid var(--nx-bd-quiet)", borderRadius: 3,
                           marginBottom: 10, display: "flex",
@@ -452,7 +452,7 @@ export default function IntelligenceControlPanel({
           style={{
             flex: 1, minWidth: 180,
             background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
-            borderRadius: 3, color: "#e2e8f0",
+            borderRadius: 3, color: "var(--nx-text)",
             padding: "4px 8px", fontSize: 11,
           }} />
         {scope === "incident" && overrideIsActive && (
@@ -461,7 +461,7 @@ export default function IntelligenceControlPanel({
                         disabled={savingKey === "clear"}
                         style={{ padding: "4px 10px", fontSize: 10,
                                      border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
-                                     color: "#fbbf24", borderRadius: 3, cursor: "pointer",
+                                     color: "var(--nx-high)", borderRadius: 3, cursor: "pointer",
                                      letterSpacing: 0.4, textTransform: "uppercase",
                                      fontWeight: 700 }}>
             Clear Override
@@ -474,7 +474,7 @@ export default function IntelligenceControlPanel({
         <button data-testid={`${scope}-history-toggle`}
                     onClick={loadHistory}
                     style={{ display: "inline-flex", alignItems: "center",
-                                 gap: 6, fontSize: 10, color: "#94a3b8",
+                                 gap: 6, fontSize: 10, color: "var(--nx-low)",
                                  background: "transparent", border: "1px solid var(--nx-bd-quiet)",
                                  borderRadius: 3, cursor: "pointer",
                                  padding: "3px 8px",
@@ -498,12 +498,12 @@ export default function IntelligenceControlPanel({
                                     padding: "4px 6px",
                                     borderTop: "1px solid var(--nx-bd-quiet)",
                                     fontFamily: "ui-monospace, monospace" }}>
-                <span style={{ color: "#a78bfa" }}>{h.recorded_at}</span>
-                <span style={{ color: "#cbd5e1" }}>
+                <span style={{ color: "var(--nx-purple)" }}>{h.recorded_at}</span>
+                <span style={{ color: "var(--nx-low)" }}>
                   {h.changed_by} · {h.changed_by_role}
                 </span>
                 <span></span>
-                <span style={{ color: "#94a3b8" }}>
+                <span style={{ color: "var(--nx-low)" }}>
                   {JSON.stringify(h.previous)} → {JSON.stringify(h.new)}
                   {h.reason ? ` · ${h.reason}` : ""}
                 </span>
@@ -526,9 +526,9 @@ function Row({ icon, label, sub, testidBase, dim, children }) {
                     padding: "4px 6px",
                     background: "var(--nx-surf-inset)", borderRadius: 3,
                     opacity: dim ? 0.65 : 1 }}>
-      <span style={{ color: "#94a3b8" }}>{icon}</span>
+      <span style={{ color: "var(--nx-low)" }}>{icon}</span>
       <span style={{ flex: 1, fontSize: 12, fontWeight: 500,
-                             color: "#e2e8f0", whiteSpace: "pre" }}>
+                             color: "var(--nx-text)", whiteSpace: "pre" }}>
         {label}
         {sub && (
           <span style={{ marginLeft: 8, fontSize: 10, color: "var(--nx-text-dim)",

@@ -244,7 +244,7 @@ export default function IntegrationsBody() {
         {state === "error" && (
           <div style={{ padding: 20 }}>
             <HonestBadge label="ERROR" color="var(--nx-text-dim)" />
-            <div style={{ marginTop: 8, color: "#ff9494", fontSize: 12 }}>
+            <div style={{ marginTop: 8, color: "var(--nx-critical)", fontSize: 12 }}>
               {String(error)}
             </div>
           </div>
@@ -364,7 +364,7 @@ function IngestHealthStrip({ state, health, onRefresh }) {
         </b>
       </span>
       {health.ingest?.last_error && (
-        <span className="mono" style={{ fontSize: 11, color: "#ff9494" }}>
+        <span className="mono" style={{ fontSize: 11, color: "var(--nx-critical)" }}>
           <b style={{ color: "var(--faint)" }}>LAST ERROR</b>{" "}
           {String(health.ingest.last_error).slice(0, 80)}
         </span>
@@ -452,7 +452,7 @@ function ConnectorRow({ row, onEdit, onDelete, onToggle, onTest }) {
                     data-testid={`xdr-int-edit-${row.id}`}>
             Edit
           </button>
-          <button className="btn ghost" style={{ padding: "3px 8px", color: "#ff9494" }}
+          <button className="btn ghost" style={{ padding: "3px 8px", color: "var(--nx-critical)" }}
                     onClick={() => onDelete(row)}
                     data-testid={`xdr-int-delete-${row.id}`}>
             <Trash2 size={11} /> Delete
@@ -536,7 +536,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
         {err && (
           <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
                           background: "rgba(255,91,91,.1)",
-                          border: "1px solid var(--nx-bd-quiet)", color: "#ff9494",
+                          border: "1px solid var(--nx-bd-quiet)", color: "var(--nx-critical)",
                           fontSize: 11.5 }}
                  data-testid="xdr-int-wizard-error">
             {String(err)}

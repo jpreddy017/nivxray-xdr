@@ -145,14 +145,14 @@ export default function RecommendationsTab({ incident }) {
                                 border: "1px solid #38bdf8",
                                 borderRadius: 3, marginBottom: 6 }}>
               <span style={{ fontFamily: "var(--mono)", fontSize: 9,
-                                  fontWeight: 700, color: "#38bdf8",
+                                  fontWeight: 700, color: "var(--nx-teal)",
                                   padding: "1px 6px",
                                   border: "1px solid #38bdf8",
                                   borderRadius: 2 }}>
                 STRATEGY
               </span>
               <b style={{ fontFamily: "var(--mono)", fontSize: 11,
-                                color: "#38bdf8" }}>
+                                color: "var(--nx-teal)" }}>
                 {group.info?.id || sid}
               </b>
               <span style={{ fontFamily: "var(--mono)", fontSize: 10,
@@ -206,7 +206,7 @@ export default function RecommendationsTab({ incident }) {
                             borderRadius: 4,
                             background: "rgba(167,139,250,0.04)" }}>
           <div style={{ fontFamily: "var(--mono)", fontSize: 10,
-                              color: "#a78bfa", fontWeight: 700,
+                              color: "var(--nx-purple)", fontWeight: 700,
                               marginBottom: 6 }}>
             ANALYST-AUTHORED RECOMMENDATIONS
           </div>
@@ -232,7 +232,7 @@ function Header({ threatFamily, confidence, active, total }) {
                         borderRadius: 4,
                         background: "var(--panel2)",
                         marginBottom: 12 }}>
-      <ShieldAlert size={12} style={{ color: "#a78bfa" }} />
+      <ShieldAlert size={12} style={{ color: "var(--nx-purple)" }} />
       <b style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
         Recommended Mitigations
       </b>
@@ -240,7 +240,7 @@ function Header({ threatFamily, confidence, active, total }) {
       <span style={{ fontFamily: "var(--mono)", fontSize: 11,
                           color: "var(--text-dim)" }}>
         Threat Family:{" "}
-        <b style={{ color: "#a78bfa" }}>{threatFamily || "—"}</b>
+        <b style={{ color: "var(--nx-purple)" }}>{threatFamily || "—"}</b>
         {confidence && <> · {confidence}</>}
         {" "}· {active}/{total} applicable
       </span>
@@ -511,7 +511,7 @@ function RecoProvenance({ p }) {
                               background: "rgba(167,139,250,0.04)" }}>
       <div style={{ display: "flex", gap: 6, alignItems: "center",
                           flexWrap: "wrap" }}>
-        <b style={{ color: "#a78bfa" }}>PROVENANCE</b>
+        <b style={{ color: "var(--nx-purple)" }}>PROVENANCE</b>
         {(p.chain || []).map((step, i, arr) => (
           <React.Fragment key={step}>
             <span>{step}</span>
@@ -562,7 +562,7 @@ function RecoTraversalChain({ chain, recoId }) {
                     data-testid={`reco-traversal-toggle-${recoId}`}
                     style={{ padding: "2px 6px", fontSize: 10,
                                     fontFamily: "var(--mono)",
-                                    color: "#38bdf8",
+                                    color: "var(--nx-teal)",
                                     border: "1px solid rgba(56,189,248,0.4)",
                                     background: "transparent",
                                     borderRadius: 2, cursor: "pointer" }}>

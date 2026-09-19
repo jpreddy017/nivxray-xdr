@@ -162,7 +162,7 @@ function AddKeyModal({ onClose, onCreated, tenant }) {
                      style={inp} placeholder="nivx-prod-1" />
         </label>
         {f.tenant_id.trim() && !tenantOk && (
-          <div style={{ color: "#f87171", fontSize: 11 }}
+          <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                    data-testid="xdr-api-key-add-tenant-mismatch">
             tenant confirmation does not match
           </div>
@@ -180,7 +180,7 @@ function AddKeyModal({ onClose, onCreated, tenant }) {
                      onChange={(e) => setF({ ...f, expires_at: e.target.value })}
                      style={inp} placeholder="2026-12-31T23:59:59Z" />
         </label>
-        {err && <div style={{ color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                                 data-testid="xdr-api-key-add-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
@@ -406,7 +406,7 @@ export default function ApiKeysBody() {
                 <button className="btn ghost" title="Delete"
                              data-testid={`xdr-api-key-delete-${r.id}`}
                              onClick={() => remove(r)}
-                             style={{ ...iconBtn, color: "#f87171" }}>
+                             style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                   <Trash2 size={11} />
                 </button>
               </div>

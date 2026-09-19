@@ -134,7 +134,7 @@ export default function XdrDetectionsPage() {
               </span>
               {r.validation && !r.validation.ok && (
                 <span data-testid={`xdr-detections-invalid-${r.id}`}
-                         style={{ color: "#ff9494", fontSize: 10.5 }}>
+                         style={{ color: "var(--nx-critical)", fontSize: 10.5 }}>
                   <AlertTriangle size={10} /> validation failed
                 </span>
               )}
@@ -158,7 +158,7 @@ export default function XdrDetectionsPage() {
                          style={{ padding: "1px 5px", borderRadius: 3,
                                      border: "1px solid #f472b6",
                                      background: "rgba(244,114,182,.08)",
-                                     color: "#f472b6", fontSize: 9.5 }}>
+                                     color: "var(--nx-purple)", fontSize: 9.5 }}>
                   {t}
                 </span>
               ))}
@@ -196,7 +196,7 @@ export default function XdrDetectionsPage() {
                         style={{ display: "flex", justifyContent: "space-between",
                                     padding: "3px 0", fontSize: 11,
                                     borderBottom: "1px solid var(--border)" }}>
-                  <span className="mono" style={{ color: "#f472b6" }}>{t}</span>
+                  <span className="mono" style={{ color: "var(--nx-purple)" }}>{t}</span>
                   <span className="mono" style={{ color: "var(--text-dim)" }}>
                     {rs.length} rule{rs.length === 1 ? "" : "s"}
                   </span>

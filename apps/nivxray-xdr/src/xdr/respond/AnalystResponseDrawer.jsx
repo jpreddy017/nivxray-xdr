@@ -249,7 +249,7 @@ export default function AnalystResponseDrawer({
                   style={{ marginTop: 10, padding: 8,
                               border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                               background: "rgba(255,91,91,.08)",
-                              color: "#ff9494", fontSize: 11 }}>
+                              color: "var(--nx-critical)", fontSize: 11 }}>
             <AlertTriangle size={11} /> {String(error)}
           </div>
         )}

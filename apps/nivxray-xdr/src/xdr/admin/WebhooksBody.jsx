@@ -111,7 +111,7 @@ function AddModal({ onClose, onCreated }) {
           <label style={{ ...lbl, flex: 1 }}>Timeout (s)<input type="number"
             value={f.timeout_seconds} onChange={(e) => setF({ ...f, timeout_seconds: +e.target.value })} style={inp} /></label>
         </div>
-        {err && <div style={{ color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                                 data-testid="xdr-webhook-add-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
@@ -176,7 +176,7 @@ function DeliveriesPanel({ hook, onClose }) {
                 </button>
               )}
             </div>
-            {d.last_error && <div style={{ color: "#f87171" }}>{d.last_error}</div>}
+            {d.last_error && <div style={{ color: "var(--nx-critical)" }}>{d.last_error}</div>}
           </div>
         ))}
       </div>
@@ -326,7 +326,7 @@ export default function WebhooksBody() {
               <button className="btn ghost" title="Delete"
                            data-testid={`xdr-webhook-delete-${h.id}`}
                            onClick={() => remove(h)}
-                           style={{ ...iconBtn, color: "#f87171" }}><Trash2 size={11} /></button>
+                           style={{ ...iconBtn, color: "var(--nx-critical)" }}><Trash2 size={11} /></button>
             </div>
           </div>
         ))}

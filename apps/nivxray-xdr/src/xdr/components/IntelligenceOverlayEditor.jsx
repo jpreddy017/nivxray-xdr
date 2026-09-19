@@ -175,7 +175,7 @@ export default function IntelligenceOverlayEditor({
         <div style={{ padding: "8px 10px", color: "var(--nx-text-dim)",
                          fontSize: 12, lineHeight: 1.5 }}>
           {effective || (
-            <i style={{ color: "#94a3b8" }}>
+            <i style={{ color: "var(--nx-low)" }}>
               (no interpretation yet — NivXRay machine value shown below)
             </i>
           )}

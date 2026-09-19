@@ -111,7 +111,7 @@ export default function EventsLedger({
                         </span>
                       )}
                     </td>
-                    <td className="mono" style={{ fontSize: 9.5, color: "#F39C12" }}>
+                    <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                       {(e.mitre || []).length
                         ? e.mitre.join(", ")
                         : <span className="nx-ep" data-ep="no_evidence" data-known="true">◇</span>}

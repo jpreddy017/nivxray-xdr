@@ -506,7 +506,7 @@ export default function TrajectoryNavigator({
           />
         </div>
         {dropError && (
-          <span className="mono" style={{ fontSize: 10, color: "#ff9494" }}
+          <span className="mono" style={{ fontSize: 10, color: "var(--nx-critical)" }}
                   data-testid="xdr-navigator-drop-error">{dropError}</span>
         )}
         {query && (

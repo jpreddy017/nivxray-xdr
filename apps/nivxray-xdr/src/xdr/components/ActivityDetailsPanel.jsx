@@ -39,7 +39,7 @@ function Prose({ text }) {
     <span>
       {parts.map((p, i) => (i % 2 === 1
         ? <span key={i} className="mono"
-                style={{ color: "#E4E9F0", background: "var(--nx-surf-inset)",
+                style={{ color: "var(--nx-text)", background: "var(--nx-surf-inset)",
                          border: "1px solid var(--nx-bd-quiet)", borderRadius: 3,
                          padding: "0 3px" }}>{p}</span>
         : <span key={i}>{p}</span>))}
@@ -129,7 +129,7 @@ export default function ActivityDetailsPanel({
               <div key={i} style={{ marginBottom: 5 }}><Prose text={s} /></div>
             ))}
             {(narr.data.unknowns || []).map((s, i) => (
-              <div key={`u-${i}`} style={{ marginBottom: 3, color: "#C9A227" }}>
+              <div key={`u-${i}`} style={{ marginBottom: 3, color: "var(--nx-medium)" }}>
                 <Prose text={s} />
               </div>
             ))}
@@ -223,7 +223,7 @@ export default function ActivityDetailsPanel({
                : <Absent label="◇ NOT CAPTURED" />} />
       <Row k="ATT&CK"
            v={(event.mitre || []).length
-               ? <span className="mono" style={{ color: "#F39C12" }}>
+               ? <span className="mono" style={{ color: "var(--nx-high)" }}>
                    {event.mitre.join(", ")}
                  </span>
                : <Absent label="◇ NO TECHNIQUE ASSERTED" />} />

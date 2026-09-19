@@ -299,7 +299,7 @@ function EntriesTab({ refresh, onToggle, onOpen, filters, setFilters }) {
             <div>
               {r.enabled_for_tenant
                 ? <span style={{ color: "var(--mint)" }}>ENABLED</span>
-                : <span style={{ color: "#f87171" }}>DISABLED</span>}
+                : <span style={{ color: "var(--nx-critical)" }}>DISABLED</span>}
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button className="btn ghost" title="View"

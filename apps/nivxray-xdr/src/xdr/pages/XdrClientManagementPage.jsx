@@ -20,6 +20,7 @@ import { setActiveTenant } from "@/lib/tenant";
 import { getMssCustomerOperations } from "@/lib/incidentsApi";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
+import { NxDataTable, opsLabel } from "@/xdr/nx";
 
 export default function XdrClientManagementPage() {
   const navigate = useNavigate();
@@ -93,27 +94,28 @@ export default function XdrClientManagementPage() {
           <span className="cc-cond__i">
             <span className="cc-cond__k">Principal</span>
             <span className="cc-cond__v">
-              {scope?.principal?.email || "NOT RESOLVED"}
+              {scope?.principal?.email || opsLabel("NOT_ESTABLISHED")}
             </span>
           </span>
           <span className="cc-cond__i">
             <span className="cc-cond__k">Basis</span>
             <span className="cc-cond__v" data-testid="xdr-clients-basis">
-              {scope?.basis || "UNRESOLVED"}
+              {scope?.basis || opsLabel("NOT_ESTABLISHED")}
             </span>
           </span>
           <span className="cc-cond__i">
             <span className="cc-cond__k">Authorized tenants</span>
             <span className="cc-cond__v">
               {typeof scope?.authorized_count === "number"
-                ? scope.authorized_count : "NOT AVAILABLE"}
+                ? scope.authorized_count : opsLabel("NOT_AVAILABLE")}
             </span>
           </span>
           <span className="cc-cond__i">
             <span className="cc-cond__k">Cross-tenant role</span>
             <span className="cc-cond__v"
                   data-state={scope?.cross_tenant_role ? "warn" : "ok"}>
-              {scope ? (scope.cross_tenant_role ? "YES" : "NO") : "NOT EVALUATED"}
+              {scope ? (scope.cross_tenant_role ? "Yes" : "No")
+                : opsLabel("NOT_EVALUATED")}
             </span>
           </span>
         </div>
@@ -121,7 +123,7 @@ export default function XdrClientManagementPage() {
         {error && (
           <div className="cc-card"><div className="cc-empty"
                data-testid="xdr-clients-error">
-            <b>NOT AUTHORIZED / NOT AVAILABLE</b> — {String(
+            <b>Not authorized, or not available</b> — {String(
               typeof error === "object" ? JSON.stringify(error) : error)}
           </div></div>
         )}
@@ -137,60 +139,67 @@ export default function XdrClientManagementPage() {
             {loading && <div className="cc-empty">Reading the tenant authority…</div>}
             {!loading && (scope?.tenants || []).length === 0 && !error && (
               <div className="cc-empty" data-testid="xdr-clients-empty">
-                <b>NO CLIENT IN SCOPE</b> — your identity resolves to no
+                <b>No client in scope</b> — your identity resolves to no
                 authorized tenant. There is no default tenant: an unresolved
                 scope is a denial, never a substitution.
               </div>
             )}
             {(scope?.tenants || []).length > 0 && (
-              <table className="cc-tb" data-testid="xdr-clients-table">
-                <thead>
-                  <tr>
-                    <th>Client</th><th className="num">Open</th>
-                    <th className="num">Incidents</th><th className="num">Critical</th>
-                    <th className="num">SLA risk</th><th className="num">Unassigned</th>
-                    <th>Scope</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(scope.tenants || []).map((t) => {
-                    const o = opsBy[t.customer];
-                    return (
-                      <tr key={t.customer}
-                          data-testid={`xdr-clients-row-${t.customer}`}
-                          onClick={() => navigate(t.queue_href)}>
-                        <td className="mono"><b>{t.customer}</b></td>
-                        <td className="num">{t.open_incidents}</td>
-                        <td className="num">{t.incidents}</td>
-                        <td className="num">
-                          {o ? o.critical : <span className="cc-tb__na">—</span>}
-                        </td>
-                        <td className="num">
-                          {o ? o.sla_risk : <span className="cc-tb__na">—</span>}
-                        </td>
-                        <td className="num">
-                          {o ? o.unassigned : <span className="cc-tb__na">—</span>}
-                        </td>
-                        <td>
-                          <button className="cx-pill"
-                                  data-testid={`xdr-clients-enter-${t.customer}`}
-                                  onClick={(e) => { e.stopPropagation();
-                                                    enter(t.customer); }}>
-                            <ShieldCheck size={11} /> Enter scope
-                          </button>
-                          {denied?.tenantId === t.customer && (
-                            <span className="cc-tb__na" style={{ marginLeft: 8 }}
-                                  data-testid={`xdr-clients-denied-${t.customer}`}>
-                              DENIED · {String(denied.detail?.code
-                                || denied.detail?.reason || denied.detail)}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <NxDataTable rows={scope.tenants || []} pageSize={25}
+                           searchPlaceholder="Search client"
+                           rowKey={(t) => t.customer}
+                           onRowClick={(t) => navigate(t.queue_href)}
+                           testid="xdr-clients-table"
+                           emptyTitle="No client in scope"
+                           columns={[
+                { key: "customer", header: "Client", width: "220px",
+                  value: (t) => t.customer,
+                  render: (t) => (
+                    <strong className="nx-mono"
+                            data-testid={`xdr-clients-row-${t.customer}`}>
+                      {t.customer}
+                    </strong>) },
+                { key: "open", header: "Open", width: "90px", align: "right",
+                  value: (t) => t.open_incidents },
+                { key: "incidents", header: "Incidents", width: "100px",
+                  align: "right", value: (t) => t.incidents },
+                { key: "critical", header: "Critical", width: "95px",
+                  align: "right",
+                  value: (t) => opsBy[t.customer]?.critical ?? -1,
+                  render: (t) => (opsBy[t.customer]
+                    ? opsBy[t.customer].critical
+                    : <span className="nx-absent">—</span>) },
+                { key: "sla_risk", header: "SLA risk", width: "95px",
+                  align: "right",
+                  value: (t) => opsBy[t.customer]?.sla_risk ?? -1,
+                  render: (t) => (opsBy[t.customer]
+                    ? opsBy[t.customer].sla_risk
+                    : <span className="nx-absent">—</span>) },
+                { key: "unassigned", header: "Unassigned", width: "110px",
+                  align: "right",
+                  value: (t) => opsBy[t.customer]?.unassigned ?? -1,
+                  render: (t) => (opsBy[t.customer]
+                    ? opsBy[t.customer].unassigned
+                    : <span className="nx-absent">—</span>) },
+                { key: "scope", header: "Scope", width: "230px",
+                  sortable: false,
+                  render: (t) => (
+                    <span>
+                      <button className="nx-btn"
+                              data-testid={`xdr-clients-enter-${t.customer}`}
+                              onClick={(e) => { e.stopPropagation();
+                                                enter(t.customer); }}>
+                        <ShieldCheck size={11} /> Enter scope
+                      </button>
+                      {denied?.tenantId === t.customer && (
+                        <span className="nx-absent" style={{ marginLeft: 8 }}
+                              data-testid={`xdr-clients-denied-${t.customer}`}>
+                          Denied · {String(denied.detail?.code
+                            || denied.detail?.reason || denied.detail)}
+                        </span>
+                      )}
+                    </span>) },
+              ]} />
             )}
           </div>
         </div>
@@ -202,7 +211,8 @@ export default function XdrClientManagementPage() {
           </div>
           <div className="cc-card__b cc-card__b--pad">
             <div className="cc-empty" style={{ padding: 0 }}>
-              <b>{scope?.tenant_groups?.state || "NOT EVALUATED"}</b>
+              <b>{opsLabel(scope?.tenant_groups?.state
+                || "NOT_EVALUATED")}</b>
               {scope?.tenant_groups?.reason ? ` — ${scope.tenant_groups.reason}` : ""}
             </div>
           </div>

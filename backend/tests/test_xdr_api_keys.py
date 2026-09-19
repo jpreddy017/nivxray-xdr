@@ -19,6 +19,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+#: L3 (LLM decoder fallback) is opt-in and irrelevant to these planes. It is
+#: disabled here because its dedicated-loop worker keeps a Starlette
+#: threadpool slot busy, which makes the application's shutdown — and hence
+#: this module's teardown — hang for the full pytest timeout.
+os.environ.setdefault("NIVX_L3_DISABLE", "1")
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("XDR_AUDIT_MASTER_SECRET", "test-master-secret")
@@ -28,34 +34,52 @@ from routers import xdr_audit_log as al
 from routers import xdr_rbac as rb
 from server import app
 
+from tests._verified_session import admin_token, hdrs, register_tenants
+
+#: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
+#: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
+#: had kept speaking that dialect, so every request was correctly refused.
+#: See `tests/_verified_session.py`. Nothing was relaxed server-side.
+
 client = TestClient(app)
 
 TEN = f"apikey-tenant-{uuid.uuid4().hex[:8]}"
 ADMIN = "root@apikeys.nivxray.com"
 ANALYST = "l1@apikeys.nivxray.com"
 
+_TOKEN: list[str] = []
+
 
 def _hdrs(email=ADMIN):
-    return {"X-Tenant-Id": TEN,
-                "X-Principal-Id": email,
-                "X-Principal-Kind": "user"}
+    """A verified session that NAMES the tenant it operates in."""
+    return hdrs(_TOKEN[0], TEN)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _seed():
-    # Clean.
-    for c in (ak._coll, rb._c_users, rb._c_roles, rb._c_assignments):
-        if c() is not None:
-            c().delete_many({"tenant_id": TEN})
-            c().delete_many({})   # roles / users are per-tenant scoped anyway
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": TEN})
-    # Seed admin + analyst users for RBAC enforcement path.
-    client.post("/api/xdr/rbac/users", headers=_hdrs(),
-                    json={"email": ADMIN, "initial_roles": ["platform_admin"]})
-    client.post("/api/xdr/rbac/users", headers=_hdrs(),
+    # ONE client for the whole module, context-managed so the application
+    # lifespan (config validation + database init) is live for every request.
+    # Mixing a lifespan client with a second non-lifespan client puts the two
+    # on different event loops, which surfaces as a `Task ... got Future
+    # attached to a different loop` 500 rather than as a test failure.
+    global client
+    with TestClient(app) as c:
+        client = c
+        _TOKEN.append(admin_token(c))
+        register_tenants(TEN, label="apikeys")
+        # Clean.
+        for c in (ak._coll, rb._c_users, rb._c_roles, rb._c_assignments):
+            if c() is not None:
+                c().delete_many({"tenant_id": TEN})
+        if al._get_coll() is not None:
+            al._get_coll().delete_many({"tenant_id": TEN})
+        # Seed admin + analyst principals for the RBAC enforcement path.
+        client.post("/api/xdr/rbac/users", headers=_hdrs(),
+                    json={"email": ADMIN,
+                          "initial_roles": ["platform_admin"]})
+        client.post("/api/xdr/rbac/users", headers=_hdrs(),
                     json={"email": ANALYST, "initial_roles": ["l1_analyst"]})
-    yield
+        yield
 
 
 def _skip_if_no_mongo():

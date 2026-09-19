@@ -97,7 +97,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
           </span>
         )}
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>{err}</div>}
       <div data-testid="rbac-user-rows"
                 style={{ border: "1px solid var(--border)", borderRadius: 3,
                                 overflow: "hidden" }}>
@@ -150,7 +150,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
               <button className="btn ghost" title="Delete"
                            data-testid={`rbac-user-delete-${u.id}`}
                            onClick={() => removeUser(u)}
-                           style={{ ...iconBtn, color: "#f87171" }}>
+                           style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                 <Trash2 size={11} />
               </button>
             </div>
@@ -225,7 +225,7 @@ function AddUserModal({ roles, onClose, onCreated }) {
           ))}
         </div>
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-user-add-error">{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
@@ -273,7 +273,7 @@ function AssignRoleModal({ user, roles, onClose, onAssigned }) {
           ))}
         </select>
       </label>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
         <button className="btn ghost" onClick={onClose}
@@ -303,7 +303,7 @@ function EffectiveModal({ user, onClose }) {
   return (
     <ModalShell title={`EFFECTIVE ACCESS · ${user.email}`} onClose={onClose} wide>
       {!eff && <div style={{ fontSize: 11, color: "var(--faint)" }}>Loading…</div>}
-      {eff?.error && <div style={{ color: "#f87171", fontSize: 11 }}>load failed</div>}
+      {eff?.error && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>load failed</div>}
       {eff && !eff.error && (
         <>
           <div style={{ fontSize: 11, marginBottom: 8, color: "var(--text-dim)" }}>
@@ -376,7 +376,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
           </span>
         )}
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-role-error">{err}</div>}
       <div data-testid="rbac-role-rows"
                 style={{ border: "1px solid var(--border)", borderRadius: 3,
@@ -408,7 +408,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
                 <button className="btn ghost" title="Delete"
                              data-testid={`rbac-role-delete-${r.name}`}
                              onClick={() => remove(r)}
-                             style={{ ...iconBtn, color: "#f87171" }}>
+                             style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                   <Trash2 size={11} />
                 </button>
               )}
@@ -518,7 +518,7 @@ function AddRoleModal({ onClose, onCreated }) {
           </div>
         ))}
       </div>
-      {err && <div style={{ marginTop: 6, color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ marginTop: 6, color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-role-add-error">{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
@@ -548,7 +548,7 @@ function PermissionsTab() {
     })();
   }, []);
   if (!d) return <div style={{ fontSize: 11, color: "var(--faint)" }}>Loading…</div>;
-  if (d.error) return <div style={{ color: "#f87171", fontSize: 11 }}>load failed</div>;
+  if (d.error) return <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>load failed</div>;
   return (
     <div data-testid="rbac-tab-permissions">
       <div style={{ fontSize: 11, color: "var(--faint)", marginBottom: 6 }}>
@@ -640,7 +640,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
           </button>
         </div>
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 8 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11, marginTop: 8 }}>{err}</div>}
       {res && (
         <div data-testid="rbac-sim-result" style={{ marginTop: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8,
@@ -650,7 +650,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
                             background: "var(--panel2)" }}>
             {res.decision === "ALLOW"
               ? <CheckCircle2 size={14} style={{ color: "var(--mint)" }} />
-              : <XCircle       size={14} style={{ color: "#f87171" }} />}
+              : <XCircle       size={14} style={{ color: "var(--nx-critical)" }} />}
             <b style={{ color: res.decision === "ALLOW"
                                 ? "var(--mint)" : "#f87171",
                               fontFamily: "var(--mono)" }}>

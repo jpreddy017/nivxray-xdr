@@ -19,6 +19,7 @@ import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
+import { NxChip, NxDataTable } from "@/xdr/nx";
 
 const BANDS = ["all", "critical", "malicious", "suspicious", "low",
                "informational", "benign", "unknown"];
@@ -28,17 +29,18 @@ const BAND_TONE = {
   low: "high", informational: "", benign: "benign", unknown: "",
 };
 
+//: A verdict the platform did not issue reads "No evidence" — it is never
+//: rounded to benign, and it is never shouted in raw machine casing.
 function VerdictBadge({ band }) {
   const norm = typeof band === "string" && band ? band.toLowerCase() : "unknown";
-  const label = norm === "unknown" ? "NO EVIDENCE" : norm.toUpperCase();
+  const label = norm === "unknown" ? "No evidence"
+    : norm.charAt(0).toUpperCase() + norm.slice(1);
+  const tone = BAND_TONE[norm] || "neutral";
   return (
-    <span data-testid={`verdict-badge-${norm}`} className="mono"
-          style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5 }}>
-      <span className="cc-tb__sev"
-            data-s={BAND_TONE[norm] === "critical" ? "P1"
-              : BAND_TONE[norm] === "high" ? "P2" : undefined} />
+    <NxChip tone={tone} variant={norm === "unknown" ? "dashed" : "tinted"}
+            data-testid={`verdict-badge-${norm}`}>
       {label}
-    </span>
+    </NxChip>
   );
 }
 
@@ -189,7 +191,7 @@ export default function XdrInvestigationsListPage() {
           <div className="cc-card__b">
             {error && (
               <div className="cc-empty" data-testid="xdr-investigate-error">
-                <b>NOT AVAILABLE</b> — {String(
+                <b>Not available</b> — {String(
                   typeof error === "object" ? JSON.stringify(error) : error)}
               </div>
             )}
@@ -198,62 +200,62 @@ export default function XdrInvestigationsListPage() {
             )}
             {!loading && filtered.length === 0 && !error && (
               <div className="cc-empty" data-testid="xdr-investigate-empty">
-                <b>NO INVESTIGATION IN SCOPE</b> — neither the case engine nor
+                <b>No investigation in scope</b> — neither the case engine nor
                 the incident registry returns a record your identity is
                 authorized to open. This is an authorization and data
                 statement, not a broken page.
               </div>
             )}
             {filtered.length > 0 && (
-              <table className="cc-tb" data-testid="xdr-investigate-table">
-                <thead>
-                  <tr>
-                    <th>Case</th><th>Title</th><th>Verdict</th>
-                    <th className="num">Risk</th>
-                    <th className="num">IKG</th>
-                    <th className="num">Events</th>
-                    <th>Tenant</th><th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(0, 200).map((c) => {
-                    const caseId = c.id || c.case_id;
-                    return (
-                      <tr key={caseId} data-testid={`investigation-row-${caseId}`}
-                          onClick={() => open(caseId)}>
-                        <td className="mono"><b>{caseId}</b></td>
-                        <td>{c.title || c.name
-                          || <span className="cc-tb__na">UNNAMED</span>}</td>
-                        <td><VerdictBadge band={c.verdict_band} /></td>
-                        <td className="num">
-                          {c.incident_score ?? c.device_score
-                            ?? <span className="cc-tb__na">—</span>}
-                        </td>
-                        <td className="num">
-                          {c.ikg_nodes == null && c.ikg_edges == null
-                            ? <span className="cc-tb__na">NOT BUILT</span>
-                            : `${c.ikg_nodes ?? 0}n / ${c.ikg_edges ?? 0}e`}
-                        </td>
-                        <td className="num">
-                          {c.event_count ?? <span className="cc-tb__na">—</span>}
-                        </td>
-                        <td className="mono">
-                          {c.customer || <span className="cc-tb__na">
-                            NOT ATTRIBUTED</span>}
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="cx-pill"
-                                  data-testid={`open-case-${caseId}`}
-                                  onClick={(e) => { e.stopPropagation();
-                                                    open(caseId); }}>
-                            Investigate <ArrowRight size={11} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <NxDataTable rows={filtered.slice(0, 200)} pageSize={25}
+                           searchable={false}
+                           rowKey={(c) => c.id || c.case_id}
+                           onRowClick={(c) => open(c.id || c.case_id)}
+                           testid="xdr-investigate-table"
+                           emptyTitle="No investigation in scope"
+                           columns={[
+                { key: "case", header: "Case", width: "200px",
+                  value: (c) => c.id || c.case_id,
+                  render: (c) => (
+                    <strong className="nx-mono"
+                            data-testid={`investigation-row-${c.id || c.case_id}`}>
+                      {c.id || c.case_id}
+                    </strong>) },
+                { key: "title", header: "Title",
+                  value: (c) => c.title || c.name || "",
+                  render: (c) => (c.title || c.name
+                    || <span className="nx-absent">Unnamed</span>) },
+                { key: "verdict", header: "Verdict", width: "140px",
+                  value: (c) => c.verdict_band || "unknown",
+                  render: (c) => <VerdictBadge band={c.verdict_band} /> },
+                { key: "risk", header: "Risk", width: "80px", align: "right",
+                  value: (c) => c.incident_score ?? c.device_score ?? -1,
+                  render: (c) => (c.incident_score ?? c.device_score
+                    ?? <span className="nx-absent">—</span>) },
+                { key: "ikg", header: "Knowledge graph", width: "150px",
+                  align: "right",
+                  value: (c) => (c.ikg_nodes ?? -1),
+                  render: (c) => (c.ikg_nodes == null && c.ikg_edges == null
+                    ? <span className="nx-absent">Not built</span>
+                    : `${c.ikg_nodes ?? 0}n / ${c.ikg_edges ?? 0}e`) },
+                { key: "events", header: "Events", width: "90px",
+                  align: "right",
+                  value: (c) => c.event_count ?? -1,
+                  render: (c) => (c.event_count
+                    ?? <span className="nx-absent">—</span>) },
+                { key: "customer", header: "Customer", width: "150px",
+                  value: (c) => c.customer || "",
+                  render: (c) => (c.customer
+                    || <span className="nx-absent">Not attributed</span>) },
+                { key: "open", header: "", width: "130px", sortable: false,
+                  render: (c) => (
+                    <button className="nx-btn"
+                            data-testid={`open-case-${c.id || c.case_id}`}
+                            onClick={(e) => { e.stopPropagation();
+                                              open(c.id || c.case_id); }}>
+                      Investigate <ArrowRight size={11} />
+                    </button>) },
+              ]} />
             )}
           </div>
         </div>

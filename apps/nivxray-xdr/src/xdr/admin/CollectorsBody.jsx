@@ -180,7 +180,7 @@ export default function CollectorsBody() {
             <StateBadge state={r.state} />
             <div>{r.enabled
               ? <span style={{ color: "var(--mint)" }}>ENABLED</span>
-              : <span style={{ color: "#f87171" }}>DISABLED</span>}</div>
+              : <span style={{ color: "var(--nx-critical)" }}>DISABLED</span>}</div>
             <div style={{ fontSize: 10, color: "var(--faint)" }}>
               {r.events_received || 0} / {r.events_parsed || 0} /{" "}
               {r.events_normalized || 0}

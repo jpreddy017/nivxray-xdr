@@ -182,7 +182,7 @@ function RulesTable({ rules }) {
             {r.enabled ? (
               <CheckCircle2 size={12} style={{ color: "var(--mint)" }} />
             ) : (
-              <XCircle size={12} style={{ color: "#f87171" }} />
+              <XCircle size={12} style={{ color: "var(--nx-critical)" }} />
             )}
           </div>
         </div>
@@ -225,7 +225,7 @@ function MatchesTable({ matches }) {
               ✓{(m.matched_conditions || []).join(", ")}
             </span>
             {(m.missing_conditions || []).length > 0 && (
-              <span style={{ marginLeft: 6, color: "#f87171" }}>
+              <span style={{ marginLeft: 6, color: "var(--nx-critical)" }}>
                 ✗{m.missing_conditions.join(", ")}
               </span>
             )}

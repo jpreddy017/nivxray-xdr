@@ -104,7 +104,7 @@ function Header({ summary, rowCount, onSearch, q }) {
                         background: "var(--panel2)" }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center",
                           flexWrap: "wrap" }}>
-        <Layers size={13} style={{ color: "#a78bfa" }} />
+        <Layers size={13} style={{ color: "var(--nx-purple)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 12 }}>
           Response Strategy Knowledge
         </b>

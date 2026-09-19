@@ -160,7 +160,7 @@ export const EndpointDetailsDrawer = ({
         </div>
       ) : null}
       {tele?.note ? (
-        <div style={{ fontSize: 9.5, color: "#E8B931", lineHeight: 1.6,
+        <div style={{ fontSize: 9.5, color: "var(--nx-high)", lineHeight: 1.6,
                       marginTop: 5 }}
              data-testid="endpoint-drawer-health-note">
           {tele.note}

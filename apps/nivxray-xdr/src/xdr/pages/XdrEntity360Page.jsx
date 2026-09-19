@@ -467,7 +467,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
         </div>
       )}
       {!loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--nx-critical)" }}
              data-testid="xdr-trajectory-error">{String(error)}</div>
       )}
 
@@ -567,7 +567,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
                         No related compromise events observed.
                         <div style={{ marginTop: 6 }}>
                           <span className="mono" style={{ fontSize: 9.8,
-                                                          color: "#F39C12" }}>
+                                                          color: "var(--nx-high)" }}>
                             {attributedCount} observation
                             {attributedCount === 1 ? "" : "s"} carry an ATT&amp;CK
                             technique or label asserted by the ingest adapter —

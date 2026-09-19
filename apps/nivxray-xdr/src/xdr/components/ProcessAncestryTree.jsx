@@ -148,7 +148,7 @@ export default function ProcessAncestryTree({ events }) {
                     </span>
                     {/-enc|-EncodedCommand|-e /i.test(n.commandLine || "") && (
                       <span className="nx-ep" data-ep="evidence_present" data-known="true"
-                              style={{ color: "#f5a623" }}
+                              style={{ color: "var(--nx-high)" }}
                               title="Encoded-command switch observed in the persisted command line">
                         ! -enc DETECTED
                       </span>

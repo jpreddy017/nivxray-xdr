@@ -363,7 +363,7 @@ function NodeCard({ entry, selected, onSelect, onDelete, onInsertAction, onInser
                           fontFamily: "var(--mono)" }}>
             <span style={{ color: "var(--mint)" }}>yes → {entry.yes_next?.slice(-5)}</span>
             <span style={{ color: "var(--faint)" }}>·</span>
-            <span style={{ color: "#ff9494" }}>no → {entry.no_next?.slice(-5)}</span>
+            <span style={{ color: "var(--nx-critical)" }}>no → {entry.no_next?.slice(-5)}</span>
           </div>
         )}
       </div>

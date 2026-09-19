@@ -122,7 +122,7 @@ export default function EdrCapabilityTruthBody() {
                       padding: "8px 10px", borderRadius: 4, marginBottom: 12,
                       maxWidth: 900 }}
              data-testid="edr-cap-taxonomy-disclosure">
-          <AlertTriangle size={13} style={{ color: "#E8B931", flexShrink: 0,
+          <AlertTriangle size={13} style={{ color: "var(--nx-high)", flexShrink: 0,
                                             marginTop: 1 }} />
           <div style={{ fontSize: 10.5, lineHeight: 1.6,
                         color: "var(--text-dim)" }}>
@@ -182,7 +182,7 @@ export default function EdrCapabilityTruthBody() {
                     {r.effective_state}
                   </span>
                   {r.downgrade_reason && (
-                    <div style={{ color: "#E8B931", fontSize: 9,
+                    <div style={{ color: "var(--nx-high)", fontSize: 9,
                                   marginTop: 2, whiteSpace: "normal",
                                   maxWidth: 240, lineHeight: 1.5 }}>
                       declared {r.declared_state} — {r.downgrade_reason}

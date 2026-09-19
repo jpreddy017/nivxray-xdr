@@ -103,7 +103,7 @@ function HashLookup({ title, sha256, keyNote, storeSize, testid }) {
                style={{ display: "block" }}>
             ⊘ CAPABILITY UNAVAILABLE — STATIC ANALYSIS API CONTRACT NOT VERIFIED
           </div>
-          <div className="mono" style={{ marginTop: 5, fontSize: 10, color: "#ff9494" }}>
+          <div className="mono" style={{ marginTop: 5, fontSize: 10, color: "var(--nx-critical)" }}>
             {state.code ? `HTTP ${state.code} · ` : ""}
             {String(state.error || "route did not respond")}
           </div>

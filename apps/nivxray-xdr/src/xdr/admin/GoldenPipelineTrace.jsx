@@ -26,10 +26,10 @@ import FrameworkMappingsPanel from "@/xdr/admin/FrameworkMappingsPanel";
 
 const STATUS_META = {
   EXECUTED:    { color: "var(--mint)",     icon: CheckCircle2 },
-  READY:       { color: "#38bdf8",         icon: Circle       },
+  READY:       { color: "var(--nx-teal)",         icon: Circle       },
   NOT_CREATED: { color: "var(--amber)",    icon: AlertTriangle },
-  BLOCKED:     { color: "#f87171",         icon: XCircle      },
-  FAILED:      { color: "#f87171",         icon: XCircle      },
+  BLOCKED:     { color: "var(--nx-critical)",         icon: XCircle      },
+  FAILED:      { color: "var(--nx-critical)",         icon: XCircle      },
 };
 
 

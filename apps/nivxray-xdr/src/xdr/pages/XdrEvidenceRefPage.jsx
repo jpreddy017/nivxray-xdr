@@ -88,7 +88,7 @@ export default function XdrEvidenceRefPage() {
       {!state.loading && state.errs?.length > 0 && !exec && !refs && (
         <div className="x-empty"
                 data-testid="xdr-evidence-ref-error"
-                style={{ color: "#ff9494" }}>
+                style={{ color: "var(--nx-critical)" }}>
           <AlertTriangle size={13} style={{ verticalAlign: "middle",
                                                             marginRight: 6 }} />
           {state.errs.join(" · ")}

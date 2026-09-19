@@ -85,7 +85,7 @@ export default function XdrEndpointsPage() {
         </div>
       )}
       {!loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--nx-critical)" }}
               data-testid="xdr-endpoints-error">{String(error)}</div>
       )}
       {!loading && !error && rows && rows.length === 0 && (

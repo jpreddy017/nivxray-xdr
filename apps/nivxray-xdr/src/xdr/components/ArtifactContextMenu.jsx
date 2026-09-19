@@ -95,7 +95,7 @@ export default function ArtifactContextMenu({
                   boxShadow: "0 12px 34px rgba(0,0,0,0.55)", padding: "4px 0" }}
          data-testid="edr-artifact-context-menu">
       <div style={{ padding: "6px 9px", borderBottom: "1px solid var(--nx-bd-quiet)" }}>
-        <div className="mono" style={{ fontSize: 10, color: "#E4E9F0",
+        <div className="mono" style={{ fontSize: 10, color: "var(--nx-text)",
                                        wordBreak: "break-all" }}>
           {name || "◇ NO NAME RECORDED"}
         </div>
