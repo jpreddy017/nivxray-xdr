@@ -56,26 +56,118 @@ COLLECTION_METHOD = "windows-eventlog"
 #: Channels this adapter is architected for. Adding one is a PROFILE change,
 #: never another collector. `supported` means the adapter knows the channel's
 #: identity and declared source; it does not claim telemetry exists.
+#: COLLECTION SUPPORT — can this adapter acquire the channel reliably?
+#: This is a DIFFERENT fact from analysis support below, and the two are never
+#: merged: XML reaching the server does not mean the platform understands it.
+#: `declared_source` is what the delivery declares at the authenticated ingest
+#: boundary; an unmapped channel would be refused with DECLARATION_REQUIRED.
 CHANNELS: Dict[str, Dict[str, str]] = {
+    # ── Critical security value ───────────────────────────────────
     "Microsoft-Windows-Sysmon/Operational": {
-        "declared_source": "sysmon", "label": "Sysmon"},
-    "Microsoft-Windows-PowerShell/Operational": {
-        "declared_source": "windows_powershell", "label": "PowerShell Operational"},
-    "Windows PowerShell": {
-        "declared_source": "windows_powershell", "label": "Windows PowerShell (classic)"},
+        "declared_source": "sysmon", "label": "Sysmon", "value": "CRITICAL"},
     "Security": {
-        "declared_source": "windows_security", "label": "Security"},
+        "declared_source": "windows_security", "label": "Security",
+        "value": "CRITICAL"},
+    "Microsoft-Windows-PowerShell/Operational": {
+        "declared_source": "windows_powershell",
+        "label": "PowerShell Operational", "value": "CRITICAL"},
+    "Windows PowerShell": {
+        "declared_source": "windows_powershell",
+        "label": "Windows PowerShell (classic)", "value": "HIGH"},
     "Microsoft-Windows-Windows Defender/Operational": {
-        "declared_source": "microsoft_defender", "label": "Microsoft Defender"},
+        "declared_source": "microsoft_defender",
+        "label": "Microsoft Defender", "value": "CRITICAL"},
+    # ── High security value ───────────────────────────────────────
     "Microsoft-Windows-TaskScheduler/Operational": {
-        "declared_source": "windows_task_scheduler", "label": "Task Scheduler"},
+        "declared_source": "windows_task_scheduler",
+        "label": "Task Scheduler", "value": "HIGH"},
     "Microsoft-Windows-WMI-Activity/Operational": {
-        "declared_source": "windows_wmi", "label": "WMI Activity"},
+        "declared_source": "windows_wmi", "label": "WMI Activity",
+        "value": "HIGH"},
     "Microsoft-Windows-AppLocker/EXE and DLL": {
-        "declared_source": "windows_applocker", "label": "AppLocker"},
-    "System": {"declared_source": "windows_system", "label": "System"},
-    "Application": {"declared_source": "windows_application", "label": "Application"},
+        "declared_source": "windows_applocker", "label": "AppLocker",
+        "value": "HIGH"},
+    "Microsoft-Windows-CodeIntegrity/Operational": {
+        "declared_source": "windows_code_integrity", "label": "Code Integrity",
+        "value": "HIGH"},
+    "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational": {
+        "declared_source": "windows_rdp", "label": "RDP · local session",
+        "value": "HIGH"},
+    "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational": {
+        "declared_source": "windows_rdp", "label": "RDP · remote connection",
+        "value": "HIGH"},
+    "Microsoft-Windows-WinRM/Operational": {
+        "declared_source": "windows_winrm", "label": "WinRM", "value": "HIGH"},
+    "Microsoft-Windows-DNS-Client/Operational": {
+        "declared_source": "windows_dns_client", "label": "DNS Client",
+        "value": "HIGH"},
+    "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall": {
+        "declared_source": "windows_firewall", "label": "Windows Firewall",
+        "value": "HIGH"},
+    "Microsoft-Windows-SmbClient/Security": {
+        "declared_source": "windows_smb", "label": "SMB client security",
+        "value": "HIGH"},
+    "Directory Service": {
+        "declared_source": "windows_directory_service",
+        "label": "Directory Service (DC)", "value": "CRITICAL"},
+    "Microsoft-Windows-DNSServer/Audit": {
+        "declared_source": "windows_dns_server", "label": "DNS Server audit",
+        "value": "HIGH"},
+    # ── Operational / posture ─────────────────────────────────────
+    "System": {"declared_source": "windows_system", "label": "System",
+               "value": "HIGH"},
+    "Application": {"declared_source": "windows_application",
+                    "label": "Application", "value": "MEDIUM"},
+    "Microsoft-Windows-BitLocker/BitLocker Management": {
+        "declared_source": "windows_bitlocker", "label": "BitLocker",
+        "value": "MEDIUM"},
+    "Microsoft-Windows-WindowsUpdateClient/Operational": {
+        "declared_source": "windows_update", "label": "Windows Update",
+        "value": "MEDIUM"},
 }
+
+#: ANALYSIS SUPPORT — can the platform PARSE, NORMALIZE and reason over it?
+#: Acquisition is not comprehension. A channel absent from this map is
+#: acquired and preserved verbatim, and reported as
+#: `NORMALIZATION: NOT YET SUPPORTED · DETECTION COVERAGE: NOT AVAILABLE`.
+#: It must never be rolled up as HEALTHY because XML arrived.
+ANALYSIS_SUPPORTED = {
+    "Microsoft-Windows-Sysmon/Operational": {
+        "dsm": "sysmon_dsm", "normalization": "SUPPORTED",
+        "detection_coverage": "SUPPORTED"},
+}
+
+#: The DSM roadmap order the owner set. Declared here so the admin surface
+#: can state WHEN, not just that something is missing.
+ANALYSIS_ROADMAP = [
+    "Security", "Microsoft-Windows-PowerShell/Operational",
+    "Microsoft-Windows-Windows Defender/Operational",
+    "Microsoft-Windows-TaskScheduler/Operational",
+    "Microsoft-Windows-WMI-Activity/Operational",
+    "Microsoft-Windows-AppLocker/EXE and DLL",
+    "System", "Application",
+]
+
+
+def analysis_support(channel: str) -> Dict[str, Any]:
+    """The SECOND state. Collection support lives in `CHANNELS`."""
+    hit = ANALYSIS_SUPPORTED.get(channel)
+    if hit:
+        return {"normalization": hit["normalization"],
+                "detection_coverage": hit["detection_coverage"],
+                "dsm": hit["dsm"], "roadmap_position": None}
+    pos = (ANALYSIS_ROADMAP.index(channel) + 1
+           if channel in ANALYSIS_ROADMAP else None)
+    return {
+        "normalization": "NOT YET SUPPORTED",
+        "detection_coverage": "NOT AVAILABLE",
+        "dsm": None,
+        "roadmap_position": pos,
+        "reason": ("this channel is acquired and its raw XML is preserved "
+                   "verbatim, but no DSM parses it into canonical evidence "
+                   "yet — so it cannot be reasoned over or detected on"),
+    }
+
 
 #: WEF/WEC is a LATER milestone and is declared, not silently missing.
 UNSUPPORTED_CHANNELS = {
@@ -122,12 +214,59 @@ class CollectionProfile:
                 "max_events_per_read": self.max_events_per_read}
 
 
-BASELINE_PROFILE = CollectionProfile(
-    profile_id="windows-baseline",
+#: FIRST REAL-WINDOWS VALIDATION PROFILE. Deliberately NOT every channel the
+#: reader supports: process/network/registry/file from Sysmon, authentication
+#: and security auditing from Security, script execution from PowerShell.
+VALIDATION_PROFILE = CollectionProfile(
+    profile_id="windows-validation",
     version="1.0.0",
     channels=["Microsoft-Windows-Sysmon/Operational",
+              "Security",
               "Microsoft-Windows-PowerShell/Operational"],
 )
+
+#: RECOMMENDED SECURITY — the standing production profile.
+RECOMMENDED_SECURITY_PROFILE = CollectionProfile(
+    profile_id="windows-recommended-security",
+    version="1.0.0",
+    channels=["Microsoft-Windows-Sysmon/Operational",
+              "Security",
+              "Microsoft-Windows-PowerShell/Operational",
+              "Microsoft-Windows-Windows Defender/Operational",
+              "Microsoft-Windows-TaskScheduler/Operational",
+              "Microsoft-Windows-WMI-Activity/Operational"],
+)
+
+#: FORENSIC / HIGH VISIBILITY — higher volume, opt-in.
+FORENSIC_PROFILE = CollectionProfile(
+    profile_id="windows-forensic",
+    version="1.0.0",
+    channels=RECOMMENDED_SECURITY_PROFILE.channels + [
+        "System", "Application",
+        "Microsoft-Windows-AppLocker/EXE and DLL",
+        "Microsoft-Windows-CodeIntegrity/Operational",
+        "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational",
+        "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational",
+        "Microsoft-Windows-WinRM/Operational",
+        "Microsoft-Windows-DNS-Client/Operational",
+        "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall",
+        "Microsoft-Windows-SmbClient/Security"],
+)
+
+#: DOMAIN CONTROLLER — adds directory/authentication authority telemetry.
+DOMAIN_CONTROLLER_PROFILE = CollectionProfile(
+    profile_id="windows-domain-controller",
+    version="1.0.0",
+    channels=RECOMMENDED_SECURITY_PROFILE.channels + [
+        "Directory Service", "Microsoft-Windows-DNSServer/Audit"],
+)
+
+PROFILES = {p.profile_id: p for p in (
+    VALIDATION_PROFILE, RECOMMENDED_SECURITY_PROFILE, FORENSIC_PROFILE,
+    DOMAIN_CONTROLLER_PROFILE)}
+
+#: Back-compat alias — the first profile a fresh connector uses.
+BASELINE_PROFILE = VALIDATION_PROFILE
 
 
 class EvtReader(Protocol):
@@ -254,6 +393,11 @@ class WindowsEventLogConnector(Connector):
                  bookmarks: Optional[WindowsBookmarkStore] = None,
                  collector_id: Optional[str] = None):
         super().__init__(tenant_id, config)
+        named = PROFILES.get(config.get("profile_id") or "")
+        if named and not config.get("channels"):
+            config = {**config, "channels": list(named.channels),
+                      "profile_version": config.get("profile_version")
+                      or named.version}
         self.profile = CollectionProfile(
             profile_id=config.get("profile_id") or BASELINE_PROFILE.profile_id,
             version=config.get("profile_version") or BASELINE_PROFILE.version,
@@ -409,6 +553,11 @@ class WindowsEventLogConnector(Connector):
 
             self.channel_reports[channel] = {
                 "state": "READ_OK",
+                # Two INDEPENDENT states. Collection success never implies
+                # the platform can analyse what it collected.
+                "collection_support": "SUPPORTED",
+                "analysis_support": analysis_support(channel),
+                "security_value": CHANNELS[channel].get("value"),
                 "resume": resume.get("classification"),
                 "resume_reason": resume.get("reason"),
                 "events_read": len(read.get("records") or []),
@@ -482,4 +631,11 @@ class WindowsEventLogConnector(Connector):
                 self.tenant_id, self.collector_id),
             "invariant": ("Read → Make Durable → Advance Acquisition → "
                           "Deliver → Account → Verify"),
+            "analysis_support_by_channel": {
+                ch: analysis_support(ch) for ch in self.profile.channels},
+            "state_model_note": (
+                "COLLECTION SUPPORT and ANALYSIS SUPPORT are separate facts. "
+                "A channel may be RECEIVING while its normalization is NOT "
+                "YET SUPPORTED and its detection coverage NOT AVAILABLE — "
+                "that combination is valid and is never rolled up as HEALTHY"),
         }

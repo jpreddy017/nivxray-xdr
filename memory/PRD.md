@@ -1,5 +1,96 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · WAVE 2 · PROGRAM B (WINDOWS ACQUISITION) + RBAC-0 DISCOVERY + LANE 5
+
+Records: `NIVXRAY_XDR_MASTER_OPEN_WORK_REGISTER.md` (master backlog, 9 programs) ·
+`W2-1_WINDOWS_ACQUISITION_ARCHITECTURE.md` · `W2-1A_WINDOWS_DEPLOYMENT_ENROLMENT_RUNBOOK.md` ·
+`RBAC-0_ACCESS_MANAGEMENT_DISCOVERY.md`.
+
+### Accepted architecture (owner, 2026-06)
+Windows Event Log **local** subscription → durable local queue → authenticated
+**outbound** delivery → NivXRay XDR. Cloud-side remote WMI/RPC polling is NOT
+the primary architecture (operational/security model: inbound RPC/DCOM
+reachability, privileged credential storage, firewall complexity, endpoint
+availability, scaling). WEF/WEC is a **later supported topology**, not a
+replacement. W1 stays **FROZEN**.
+
+### W2-1 · IMPLEMENTED / TESTED OFF-ENDPOINT — **not** operational
+`apps/nivxray-xdr-collector/framework/windows_eventlog.py` +
+`windows_bookmarks.py`, registered as source type `windows-eventlog`.
+Reuses the EXISTING durable engine (`Outbox`, `AcquisitionState`) — no second
+database, no second state machine.
+- native `EvtSubscribe` behind an isolated `EvtReader`; off-Windows the
+  `UnsupportedPlatformReader` collects **nothing** and says why;
+- **per-channel bookmark XML** is the resume authority; `EventRecordID` is
+  evidence only (record ids restart at 1 on log-clear and are non-contiguous);
+- **21 channels** architected with security-value ratings; **4 versioned
+  profiles** (`windows-validation` = Sysmon+Security+PowerShell first);
+- channel-qualified identity `tenant | origin_computer | channel | record_id`;
+  a record with no record id is **unidentifiable**, never surrogated;
+- origin computer kept separate from collector host; **three clocks** separate
+  (`activity_occurred_at` + `activity_time_source`, `sensor_observed_at`; the
+  collector claims no ingest time);
+- SID verbatim (no endpoint-side principal rendering); raw XML verbatim;
+- invariant implemented literally: Read → Make Durable → **Advance
+  Acquisition** → Deliver → Account → Verify. A bookmark advances ONLY for
+  channels whose records are durable;
+- stale bookmark **classified and retained**; log-cleared detected and the
+  evidence loss stated;
+- **TWO INDEPENDENT STATES**: collection support ≠ analysis support.
+  `Security · Collection: RECEIVING · Normalization: NOT YET SUPPORTED ·
+  Detection coverage: NOT AVAILABLE` is a valid reported state and is never
+  rolled up as HEALTHY;
+- **134/134 collector tests pass, 27 of them Windows acquisition invariants.**
+
+**GATE: REAL WINDOWS ENDPOINT VALIDATION.** Analysis support is **Sysmon
+only**. Runbook ready (prerequisites · 6-step enrolment chain · exact
+PowerShell · 14-row service matrix · 12-row acceptance matrix); execution needs
+a Windows host. `INSTALLED ≠ CONFIGURED ≠ CONNECTED ≠ RECEIVING ≠ HEALTHY`, and
+HTTP 200 is not end-to-end proof — the server must be able to **cite the
+received event**.
+
+### Two ingest truthfulness defects closed
+- `parser_ok` / `normalized_ok` defaulted to `True`, so an undeclared delivery
+  was counted as a successful parse AND normalization — and those counters are
+  the LOCKED evidence behind the CONNECTED gate. Now `bool|None` where absence
+  = **UNMEASURED**, core observation beats a contradicting claim,
+  `events_parsed` counts only measured successes, new unmeasured counters, and
+  `processing_outcome` provenance is persisted per event.
+- Timezone safety: `_try_parse_dt` lacked `%Y-%m-%d %H:%M:%S.%f` (exactly
+  Sysmon `UtcTime`) and its ISO fallback **returned naive datetimes**;
+  `telemetry_adapters/runner.py` compared a naive source instant with an aware
+  `now`, silently killing telemetry-lag computation for those sources. Both
+  fixed and verified. `ingest_provenance.py` deliberately preserves
+  offset presence/absence and was left alone.
+
+### RBAC-0 discovery (Lane 4, read-only — no auth code changed)
+11 built-in roles, 33-resource permission catalog, `check_access()` already
+returns a reason + matched role (the provenance spine exists).
+**VERIFIED DEFECT:** a group document is `{id, tenant_id, name, description}` —
+**no members field, no roles field** — and the resolver reads assignments only.
+A group grants nothing while looking like authority. Direct grants and
+restrictions do not exist, so **DENY cannot currently be expressed**. Work
+order set: freeze catalog → repair groups → decision path → grants/restrictions
+→ scope → UI last.
+
+### Lane 5 · cross-tab polish
+Root cause of the unstyled Notes/Closure tabs found: `record-theme.css` is
+scoped **entirely** under `.xdr-record-l3` and no surface carried that class
+after the workspace rewrite, so every legacy `rl-*` component rendered as naked
+text with undefined colours. The token scope was restored (geometry split into
+an opt-in `--canvas` modifier) and both tabs were rebuilt on a new
+`xdr/nx/nx-form.css` (labels, inputs, selects, textareas, buttons, alerts,
+code tokens) with honest statements — Notes says nothing is stored on the
+platform; Closure says disposition/root-cause are composed into the transition
+note, not structured columns.
+
+### Fences
+T-RISK-3 **HELD** · T-RISK-4/5 tracked · W1 **FROZEN** · Command Intelligence
+R-4/R-5 **PAUSED** (Program C, never reported done) · no fabricated Windows
+telemetry on a Linux host · Reports remains **BUILD PASS / BROWSER
+VERIFICATION PENDING**.
+
+
 ## 2026-06 · CONTROLLED-PARALLEL WAVE 1 — LANE A (P0) · LANE B (CORTEX INVESTIGATION UX) · LANE C (SPA) · RAIL INTEGRITY
 
 Master backlog now lives in `/app/memory/NIVXRAY_XDR_MASTER_OPEN_WORK_REGISTER.md`

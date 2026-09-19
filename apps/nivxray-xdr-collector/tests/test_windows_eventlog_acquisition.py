@@ -332,3 +332,71 @@ def test_acquisition_report_states_platform_and_reader(store):
 def test_extract_facts_does_not_default_absent_fields():
     facts = extract_facts("<Event><System></System></Event>")
     assert facts == {}
+
+
+# ── W2-1A · profiles + the two-state model ───────────────────────
+def test_named_profiles_resolve_their_channels(store):
+    from framework.windows_eventlog import (
+        DOMAIN_CONTROLLER_PROFILE, FORENSIC_PROFILE, PROFILES,
+        RECOMMENDED_SECURITY_PROFILE, VALIDATION_PROFILE,
+    )
+    c = WindowsEventLogConnector(
+        "tenant-a", {"profile_id": "windows-recommended-security"},
+        reader=UnsupportedPlatformReader(), bookmarks=store,
+        collector_id="col-1")
+    assert c.profile.channels == RECOMMENDED_SECURITY_PROFILE.channels
+    # The first validation profile is deliberately NARROW.
+    assert VALIDATION_PROFILE.channels == [
+        SYSMON, "Security", PS]
+    # Every shipped profile must validate cleanly.
+    for p in PROFILES.values():
+        assert p.validate() == [], (p.profile_id, p.validate())
+    assert "Directory Service" in DOMAIN_CONTROLLER_PROFILE.channels
+    assert len(FORENSIC_PROFILE.channels) > len(
+        RECOMMENDED_SECURITY_PROFILE.channels)
+
+
+def test_collection_support_does_not_imply_analysis_support(store):
+    r = FakeReader([("Security", {"records": [sysmon_xml(90).replace(
+        SYSMON, "Security")], "bookmark_xml": "bm", "state": "READ_OK"})])
+    c = make(r, store, channels=("Security",))
+    collect(c)
+    rep = c.channel_reports["Security"]
+    # Acquired successfully...
+    assert rep["state"] == "READ_OK"
+    assert rep["collection_support"] == "SUPPORTED"
+    # ...and explicitly NOT analysable yet.
+    assert rep["analysis_support"]["normalization"] == "NOT YET SUPPORTED"
+    assert rep["analysis_support"]["detection_coverage"] == "NOT AVAILABLE"
+    assert rep["analysis_support"]["roadmap_position"] == 1
+
+
+def test_sysmon_is_the_only_analysis_supported_channel(store):
+    from framework.windows_eventlog import analysis_support
+    assert analysis_support(SYSMON)["normalization"] == "SUPPORTED"
+    assert analysis_support(SYSMON)["dsm"] == "sysmon_dsm"
+    assert analysis_support("Application")["dsm"] is None
+
+
+def test_unavailable_channel_does_not_fail_the_whole_collector(store):
+    """One bad channel must not stop the others."""
+    r = FakeReader([
+        ("Security", {"records": [], "bookmark_xml": None,
+                      "state": "CHANNEL_NOT_FOUND",
+                      "reason": "the channel is not present on this host"}),
+        (SYSMON, {"records": [sysmon_xml(91)], "bookmark_xml": "bm",
+                  "state": "READ_OK"})])
+    c = make(r, store, channels=("Security", SYSMON))
+    envs = collect(c)
+    assert len(envs) == 1
+    assert c.channel_reports["Security"]["state"] == "CHANNEL_NOT_FOUND"
+    assert c.channel_reports[SYSMON]["state"] == "READ_OK"
+
+
+def test_report_carries_the_two_state_note(store):
+    c = make(UnsupportedPlatformReader(), store)
+    collect(c)
+    rep = c.acquisition_report()
+    assert "separate facts" in rep["state_model_note"]
+    assert rep["analysis_support_by_channel"][SYSMON]["normalization"] \
+        == "SUPPORTED"

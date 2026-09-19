@@ -51,6 +51,9 @@ Security Boundary | Evidence/Proof | Next Action
 
 ## PROGRAM B — WINDOWS DEVICE ACQUISITION & TELEMETRY  (restored as a full program)
 
+Architecture record: `memory/W2-1_WINDOWS_ACQUISITION_ARCHITECTURE.md` · Runbook: `memory/W2-1A_WINDOWS_DEPLOYMENT_ENROLMENT_RUNBOOK.md`.
+**Nothing in Program B may be called operational or production-ready until REAL WINDOWS ENDPOINT VALIDATION passes.**
+
 Architecture: Windows endpoint → native Windows Event Log adapter → NivXRay
 collector → durable local outbox → authenticated ingestion → raw persistence →
 DSM → normalization → canonical evidence → detection → correlation →
@@ -62,16 +65,21 @@ expanded into the permanent architecture.
 
 | ID | Work Item | Pri | Status | Dependencies | Security Boundary | Evidence / Proof | Next Action |
 |----|-----------|-----|--------|--------------|-------------------|------------------|-------------|
-| B-01 | Native Windows Event Log subscriptions | P1 | PAUSED (was W2-1) | — | collector credential server-side only | — | Resume only on owner go; verify existing worktree first |
-| B-02 | Bookmark XML persistence + per-channel acquisition state | P1 | PAUSED | B-01 | — | — | — |
-| B-03 | Strict stale detection · log-cleared handling | P1 | PAUSED | B-02 | — | — | — |
-| B-04 | Durable outbox · retries · backpressure · queue accounting · measured drops | P1 | PAUSED | B-01 | no silent loss | — | — |
-| B-05 | Channel-qualified identity + dedupe; origin computer vs collector identity | P1 | PAUSED | B-01 | tenant + collector identity proven | — | — |
-| B-06 | Source/channel filtering + collection profiles | P2 | PAUSED | B-01 | — | — | — |
-| B-07 | DSM coverage → canonical evidence → deterministic detection proof | P1 | PAUSED | B-01..B-06 | no fabricated telemetry | — | — |
-| B-08 | Channel tracking: Sysmon · PowerShell · Security · Defender · Task Scheduler · WMI Activity · AppLocker · System · Application | P1 | PAUSED | B-01 | — | — | — |
-| B-09 | ForwardedEvents / WEF-WEC | P2 | OPEN (later milestone) | B-08 | — | — | — |
-| B-10 | Timezone safety — Sysmon `UtcTime` offset-naive parsing | P1 | OPEN | — | — | Carried from earlier fork | Backend fix + test |
+| B-01 | Native Windows Event Log subscription adapter (`EvtSubscribe`, XPath filtering at the subscription) | P1 | **IMPLEMENTED / TESTED OFF-ENDPOINT** | — | collector credential server-side only; never logged | `framework/windows_eventlog.py` · `NativeEvtReader` binds `win32evtlog`; off-Windows the `UnsupportedPlatformReader` collects NOTHING and states why | **Gate: REAL WINDOWS ENDPOINT VALIDATION** |
+| B-02 | Per-channel bookmark XML · strict resume · durable position | P1 | **IMPLEMENTED / TESTED OFF-ENDPOINT** | B-01 | tenant/collector/channel scoped | `framework/windows_bookmarks.py`; bookmark is the authority, `last_record_id` is evidence only. Tests 4/5/6 prove advance-only-after-durable and resume-from-bookmark | Real-endpoint restart test (S4/§7.8) |
+| B-03 | Stale-bookmark detection · log-cleared detection | P1 | **IMPLEMENTED / TESTED OFF-ENDPOINT** | B-02 | — | `BOOKMARK_STALE` classified and **retained** (never reset to "now"); a lower record id is reported `log_cleared` with the evidence loss stated and counted | Real-endpoint clear-log test |
+| B-04 | Durable outbox · retries · backpressure · queue accounting · measured drops | P1 | PARTIAL | B-01 | no silent loss | Existing `framework/outbox.py` reused (SQLite, unique key, retry, dead-letter, replay, metrics) — **per-channel drop accounting not yet surfaced** | Surface per-channel drops (B-2 in the architecture record) |
+| B-05 | Channel-qualified identity; origin computer separate from collector host | P1 | **IMPLEMENTED / TESTED OFF-ENDPOINT** | B-01 | tenant + collector identity proven | `tenant \| origin_computer \| channel \| event_record_id`; a record with no `EventRecordID` is reported **unidentifiable**, never surrogated. Origin vs `collector_host` asserted | Real-endpoint dedupe test (§7.6) |
+| B-06 | Declarative versioned collection profiles | P2 | **IMPLEMENTED / TESTED OFF-ENDPOINT** | B-01 | — | 4 profiles: `windows-validation` (Sysmon+Security+PowerShell) · `windows-recommended-security` (+Defender, Task Scheduler, WMI) · `windows-forensic` (+System, Application, AppLocker, Code Integrity, RDP×2, WinRM, DNS Client, Firewall, SMB) · `windows-domain-controller` (+Directory Service, DNS Server audit). All validate clean | Expand deliberately after validation |
+| B-07 | DSM coverage → canonical evidence → deterministic detection proof | P1 | **OPEN** | B-01..B-06 | no fabricated telemetry | **Sysmon only.** `ANALYSIS_SUPPORTED` has one entry; roadmap order encoded: Security → PowerShell → Defender → Task Scheduler → WMI → AppLocker → System/Application | Begin Security + PowerShell DSMs |
+| B-08 | Channel coverage (21 channels architected) | P1 | **COLLECTION IMPLEMENTED / ANALYSIS OPEN** | B-01 | — | Sysmon · Security · PowerShell (×2) · Defender · Task Scheduler · WMI · AppLocker · Code Integrity · RDP (×2) · WinRM · DNS Client · Windows Firewall · SMB · Directory Service · DNS Server audit · System · Application · BitLocker · Windows Update. Each carries a security-value rating | Analysis support per B-07 |
+| B-09 | ForwardedEvents / WEF-WEC | P2 | **DECLARED UNSUPPORTED** (later topology) | B-08 | origin vs collector host must be provable | Profile validation refuses it with that exact reason | Later milestone |
+| B-11 | **Two-state model**: collection support ≠ analysis support | P0 | **IMPLEMENTED / TESTED** | B-07 | never roll up as HEALTHY because XML arrived | `analysis_support()` emits `NOT YET SUPPORTED` / `NOT AVAILABLE` + roadmap position per channel; asserted by `test_collection_support_does_not_imply_analysis_support` | Consume in Program G UI |
+| B-12 | `parser_ok` / `normalized_ok` MEASURED, not assumed | P1 | **DONE (2026-06)** | — | CONNECTED gate evidence | Both now `bool\|None`; absence = UNMEASURED; core observation beats a contradicting claim; `events_parsed` counts only measured successes; new `events_parse_unmeasured` / `events_normalize_unmeasured` / `events_unmeasured`; `processing_outcome` provenance persisted; receipt reports both. Verified by direct model exercise | Surface in Telemetry Health (I-03) |
+| B-13 | Deployment / enrolment runbook + Windows-service packaging | P1 | **RUNBOOK READY · EXECUTION BLOCKED (needs a Windows host)** | B-01 | secret never on a command line, never logged, per-collector | `memory/W2-1A_WINDOWS_DEPLOYMENT_ENROLMENT_RUNBOOK.md` — prerequisites, 6-step enrolment chain, exact PowerShell, 14-row service matrix, 12-row acceptance matrix | Owner supplies the endpoint |
+| B-SVC-1 | Production Windows-service wrapper (SCM stop/shutdown signals) | P1 | OPEN | B-13 | — | `sc.exe create` with bare `python.exe` is the VALIDATION form only | Before any 24×7 use |
+| B-14 | Collector test suite | P1 | **DONE** | — | — | **134/134 pass**, of which **27 Windows acquisition invariants** | Re-run on every change |
+| B-10 | Timezone safety — Sysmon `UtcTime` offset-naive parsing | P1 | **DONE (2026-06)** | — | — | `_try_parse_dt` lacked `%Y-%m-%d %H:%M:%S.%f` (exactly Sysmon's `UtcTime`), so it fell to an ISO fallback that **returned a naive datetime**; both fixed and verified across 7 shapes, all AWARE. `telemetry_adapters/runner.py` compared a naive source instant with an aware `now`, which silently stopped telemetry-lag computation for those sources — fixed. `ingest_provenance.py` intentionally preserves `OFFSET_PRESENT`/`OFFSET_ABSENT` and was left alone | Re-verify on real Windows events |
 
 ---
 
@@ -98,6 +106,8 @@ executable content to obtain a verdict.
 
 ## PROGRAM D — IDENTITY / RBAC / TENANT / ACCESS MANAGEMENT
 
+Discovery record: `memory/RBAC-0_ACCESS_MANAGEMENT_DISCOVERY.md` (2026-06, read-only; 11 built-in roles, 33-resource permission catalog, `check_access()` already returns a reason + matched role).
+
 One SPA, role-aware experiences, authoritative backend enforcement. **No
 separate Analyst and Admin products.** Admin may hold the functional superset of
 authorized capabilities but never bypasses tenant isolation, audit or response
@@ -111,12 +121,12 @@ Scope | Effective Access | Audit History`.
 | ID | Work Item | Pri | Status | Dependencies | Security Boundary | Evidence / Proof | Next Action |
 |----|-----------|-----|--------|--------------|-------------------|------------------|-------------|
 | D-01 | Permission catalog (authoritative) | P1 | PARTIAL | — | — | 11 built-in permissions proven on `role_builtin_l1_analyst` | Publish the catalog surface |
-| D-02 | Authoritative effective-access resolver + provenance | P1 | OPEN | D-01 | no privilege without provenance | `require_permission()` fails closed since P0-SEC | Design resolver output shape |
-| D-03 | Groups · role inheritance · individual grants · restrictions | P1 | OPEN | D-02 | — | — | — |
+| D-02 | Authoritative effective-access resolver + provenance | P1 | **RBAC-0 DISCOVERY DONE** | D-01 | no privilege without provenance | `require_permission()` fails closed since P0-SEC | Design resolver output shape |
+| D-03 | Groups · role inheritance · individual grants · restrictions | P1 | **OPEN — VERIFIED DEFECT** | D-02 | — | **A group document is `{id, tenant_id, name, description}` — no members field, no roles field** — and `_resolve_user_permissions()` reads assignments only. A group grants nothing today while looking like authority. Direct grants and restrictions do not exist at all (no way to express DENY) | Repair groups BEFORE any Access Management UI |
 | D-04 | Tenant / resource scope model | P0 | PARTIAL | D-02 | fail-closed; header spoofing rejected | Scope Navigator + `/scope/select`; cross-tenant IDOR closed | Extend to every admin surface |
 | D-05 | Route + component authorization | P1 | PARTIAL | D-02 | UI never decides authority | `AccessProvider` + `useAccess` in the shell | Audit every route |
 | D-06 | Response-specific permissions (`response.execute` / `response.approve`) | P0 | DONE | — | separation of duties | P0-1 gates 37 PASS | Keep under F-* |
-| D-07 | Access Simulator | P2 | OPEN | D-02 | read-only | — | — |
+| D-07 | Access Simulator | P2 | **BACKEND EXISTS · NO UI** | D-02 | read-only, audited | `/api/xdr/rbac/simulate` is non-mutating and emits `ACCESS_SIMULATED`; `/rbac/users/{id}/effective`, `/rbac/me/effective`, `/rbac/session-context` also exist | Surface it (D-H) |
 | D-08 | Audit · revocation / session behaviour · privilege-escalation protection · cross-tenant regression | P1 | PARTIAL | D-02 | — | `xdr_audit_log`; P0-SEC suites 21/21 + 14/14 | Extend to grants/restrictions |
 
 ---
@@ -166,8 +176,9 @@ never be converted into connected.
 
 | ID | Work Item | Pri | Status | Dependencies | Security Boundary | Evidence / Proof | Next Action |
 |----|-----------|-----|--------|--------------|-------------------|------------------|-------------|
-| G-01 | Windows data-source add/configure wizard | P1 | OPEN | B-01, F-04 | vendor-wizard risk T-RISK-4 | — | Design after B-01 resumes |
+| G-01 | Windows data-source add/configure wizard | P1 | OPEN — NEXT | B-13 | vendor-wizard risk T-RISK-4 | Contracts now exist to build against (profiles, per-channel report, two-state model) | Build `Data Sources → Windows`: Devices \| Channels \| Collectors \| Coverage \| Health \| Configuration |
 | G-02 | Collector deploy / connect / verify flow | P1 | OPEN | B-01 | ingest key never printed to chat/repo/log | — | — |
+| G-02b | Device lifecycle model NOT INSTALLED → INSTALLED → ENROLLED → CONFIGURED → CONNECTED → RECEIVING → HEALTHY/DEGRADED | P1 | OPEN — NEXT | B-13 | only authoritative telemetry moves the state | Model underneath, not seven badges on screen | Build with G-01 |
 | G-03 | Operational collector table (Device · Collector · Version · Channel · Profile · Last telemetry · Received · Durably queued · Delivered · Queue depth/bytes · Oldest event · Retries · Drops · Gaps · Parser health · Normalization health · Coverage · Config · Lifecycle · Errors) | P1 | OPEN | I-01 | unavailable metric ≠ 0 | Collector split-brain (two runtimes, two state stores) documented | Reconcile registries first (P0-4) |
 | G-04 | Collector reconciliation (P0-4) | P1 | OPEN | — | tenant/source identity proven | `xdr_collector/*` 403 fail-closed under admin scope today | — |
 
@@ -186,7 +197,7 @@ ingestion time. **No invented "Windows Explorer log" channel.**
 
 | ID | Work Item | Pri | Status | Dependencies | Security Boundary | Evidence / Proof | Next Action |
 |----|-----------|-----|--------|--------------|-------------------|------------------|-------------|
-| H-01 | Event result table | P1 | OPEN | A-12, B-08 | tenant-scoped | — | Wave B3 (Hunting) |
+| H-01 | **NivXRay Event Explorer** (not a Windows Event Viewer replica): Time \| Host \| Channel \| Provider \| Event ID \| Level \| User \| Process \| Activity \| Detection \| Source \| Evidence | P1 | OPEN — NEXT (needs an authoritative estate-wide endpoint) | B-07 | tenant-scoped | — | Define the backend search contract first; Hunting ▸ Activities stays withdrawn until it exists |
 | H-02 | Contextual event inspection (raw → parsed → normalized → canonical) | P1 | OPEN | H-01 | provenance mandatory | — | — |
 | H-03 | Three-timestamp model | P1 | OPEN | B-10 | — | — | Depends on B-10 |
 | H-04 | Pivots: entity · evidence · detection · incident · open in investigation | P1 | OPEN | H-01, E-03 | — | — | — |
