@@ -157,6 +157,27 @@ SAMPLES: dict[str, dict] = {
         "proves_activity": True,
         "expect_activity_source": "m365:CreationTime",
     },
+    # W2-1 · Defender states its OWN `Detection Time`, which IS the activity
+    # instant the vendor measured. `TimeCreated` remains the record write.
+    "windows-defender-evd": {
+        "event": {"EventID": 1116,
+                  "provider": "Microsoft-Windows-Windows Defender",
+                  "channel": "Microsoft-Windows-Windows Defender/Operational",
+                  "Computer": "WIN-WS-07",
+                  "TimeCreated": "2026-06-01T10:00:02+00:00",
+                  "EventData": {"Threat Name": "Trojan:Win32/Fixture",
+                                "Severity Name": "Severe",
+                                "Category Name": "Trojan",
+                                "Action Name": "Quarantine",
+                                "Detection Time": "2026-06-01T10:00:00+00:00",
+                                "Path": "file:_C:\\d12\\x.exe",
+                                "Detection User": "FIXTURE\\dev1"}},
+        "time_keys": ["Detection Time"],
+        "proves_activity": True,
+        "expect_activity_source": "defender:EventData.Detection Time",
+        "expect_observation_source":
+            "defender:System.TimeCreated.SystemTime",
+    },
 }
 
 
@@ -207,8 +228,13 @@ def _strip_time(dsm_id: str, mode: str) -> dict:
                     .replace("rt=1780308060000", "rt=never")
         elif mode == "remove":
             ev.pop(key, None)
+            if isinstance(ev.get("EventData"), dict):
+                ev["EventData"].pop(key, None)
         else:
             ev[key] = "yesterday afternoon"
+            if isinstance(ev.get("EventData"), dict) and \
+                    key in ev["EventData"]:
+                ev["EventData"][key] = "yesterday afternoon"
     if mode == "corrupt":
         for extra in ("TimeCreated", "observed_at", "timestamp"):
             if extra in ev:

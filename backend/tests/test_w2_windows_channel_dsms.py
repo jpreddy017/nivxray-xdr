@@ -548,3 +548,196 @@ class TestWindowsChannelRouting:
         assert decision["mismatch_reason"] == \
             source_routing.SOURCE_FORMAT_MISMATCH
         assert dsm is None
+
+
+# ══ Microsoft Defender · vendor verdict is SOURCE evidence ═════════
+DEF_1116 = _event(
+    provider="Microsoft-Windows-Windows Defender", event_id=1116,
+    channel="Microsoft-Windows-Windows Defender/Operational",
+    computer="WIN-LAB-01.fixture.local",
+    time_created="2026-06-01T13:00:05.0000000Z", level=3,
+    data_xml=(
+        "<EventData>"
+        '<Data Name="Threat Name">Trojan:Win32/Fixture.A</Data>'
+        '<Data Name="Threat ID">2147683313</Data>'
+        '<Data Name="Severity Name">Severe</Data>'
+        '<Data Name="Category Name">Trojan</Data>'
+        '<Data Name="Action Name">Quarantine</Data>'
+        '<Data Name="Detection Time">2026-06-01T13:00:00.000Z</Data>'
+        '<Data Name="Detection Source">Real-Time Protection</Data>'
+        '<Data Name="Detection User">FIXTURE\\jdoe</Data>'
+        '<Data Name="Path">C:\\fixtures\\sample.exe</Data>'
+        '<Data Name="Process Name">C:\\Windows\\explorer.exe</Data>'
+        "</EventData>"))
+
+DEF_5001 = _event(
+    provider="Microsoft-Windows-Windows Defender", event_id=5001,
+    channel="Microsoft-Windows-Windows Defender/Operational",
+    computer="WIN-LAB-01.fixture.local",
+    time_created="2026-06-01T13:05:00.0000000Z", level=3,
+    data_xml="<EventData><Data Name=\"Feature Name\">Real-Time "
+             "Protection</Data></EventData>")
+
+
+class TestWindowsDefenderDSM:
+    from detection_content.telemetry.windows_defender_dsm import (
+        WindowsDefenderDSM as _D,
+    )
+    dsm = _D()
+
+    def test_supports_requires_the_defender_provider(self):
+        assert self.dsm.supports(_delivery(
+            DEF_1116, "Microsoft-Windows-Windows Defender/Operational"))
+        assert not self.dsm.supports(_delivery(SEC_4688, "Security"))
+        assert not self.dsm.supports(_delivery(PS_4104, "PowerShell"))
+
+    def test_vendor_verdict_is_evidence_not_a_nivx_verdict(self):
+        out = _normalize(self.dsm, _delivery(
+            DEF_1116, "Microsoft-Windows-Windows Defender/Operational"))
+        v = out["additional_fields"]["vendor_verdict"]
+        assert v["vendor"] == "Microsoft"
+        assert v["threat_name"] == "Trojan:Win32/Fixture.A"
+        assert v["severity"] == "Severe"
+        assert v["action"] == "Quarantine"
+        assert "never promoted" in v["authority_note"]
+        # NivXRay's own verdict is NOT written by the DSM.
+        assert "verdict" not in out
+        assert "nivx_verdict" not in out["additional_fields"]
+        assert out["additional_fields"]["evidence_class"] == \
+            "ENDPOINT_PROTECTION_DETECTION"
+
+    def test_detection_time_is_the_activity_instant(self):
+        out = _normalize(self.dsm, _delivery(
+            DEF_1116, "Microsoft-Windows-Windows Defender/Operational"))
+        stamps = out["provenance"]["timestamps"]
+        assert out["additional_fields"]["event_time_basis"] == "ACTIVITY_TIME"
+        assert stamps["activity_occurred_at"]["source"] == \
+            "defender:EventData.Detection Time"
+        assert stamps["sensor_observed_at"]["source"] == \
+            "defender:System.TimeCreated.SystemTime"
+
+    def test_file_and_identity_evidence(self):
+        out = _normalize(self.dsm, _delivery(
+            DEF_1116, "Microsoft-Windows-Windows Defender/Operational"))
+        assert out["file"]["path"] == "C:\\fixtures\\sample.exe"
+        assert out["file"]["name"] == "sample.exe"
+        assert out["identity"]["username"] == "jdoe"
+        assert out["process"]["name"] == "explorer.exe"
+
+    def test_protection_disabled_is_a_posture_fact(self):
+        out = _normalize(self.dsm, _delivery(
+            DEF_5001, "Microsoft-Windows-Windows Defender/Operational"))
+        add = out["additional_fields"]
+        assert out["event_type"] == "endpoint_protection_disabled"
+        assert add["protection_state"] == "DISABLED"
+        assert "not evidence of absence" in add["posture_note"]
+
+    def test_command_intelligence_is_not_invoked(self):
+        out = _normalize(self.dsm, _delivery(
+            DEF_1116, "Microsoft-Windows-Windows Defender/Operational"))
+        assert "downstream consumer" in \
+            out["additional_fields"]["analysis_note"]
+
+    def test_defender_routing_alias(self):
+        assert source_routing.canonical_source("microsoft_defender") == \
+            "windows-defender-evd"
+        decision, dsm = source_routing.route(
+            declared="microsoft_defender",
+            authorized=["windows-defender-evd"],
+            raw_event=evtx_xml.decode_document(_delivery(
+                DEF_1116,
+                "Microsoft-Windows-Windows Defender/Operational")),
+            registry=TELEMETRY_DSM_REGISTRY)
+        assert decision["routing_result"] == source_routing.ACCEPTED
+        assert decision["selected_dsm_id"] == "windows-defender-evd"
+        assert dsm is not None
+
+
+# ══ Lane G · the five independent dimensions ═══════════════════════
+class TestWindowsChannelTruthModel:
+    def test_five_dimensions_never_collapse(self):
+        from services import windows_channel_truth as t
+        sec = t.detection_capability("Security")
+        assert sec["state"] in t.CAPABILITY_STATES
+        # Capability must not depend on anything having fired.
+        assert "does NOT depend on anything having fired" in \
+            sec["independence_note"]
+        assert sec["eligible_rule_count"] > 0
+
+    def test_a_channel_without_a_dsm_has_no_capability(self):
+        from services import windows_channel_truth as t
+        for channel in ("System", "Application",
+                        "Microsoft-Windows-TaskScheduler/Operational"):
+            cap = t.detection_capability(channel)
+            assert cap["state"] == t.NOT_AVAILABLE
+            assert "no DSM" in cap["basis"]
+
+    def test_partial_normalization_caps_capability(self):
+        from services import windows_channel_truth as t
+        cap = t.detection_capability("Windows PowerShell")
+        assert cap["state"] == t.PARTIAL
+
+    def test_unsupported_channel_is_declared_not_missing(self):
+        from services import windows_channel_truth as t
+        cap = t.detection_capability("ForwardedEvents")
+        assert cap["state"] == t.NOT_AVAILABLE
+        assert "WEF/WEC" in cap["basis"]
+
+    def test_collection_states_distinguish_absence_from_zero(self):
+        from services import windows_channel_truth as t
+        # No collector authorized, nothing delivered.
+        d = t._collection_dimension("Security", None, [], False)
+        assert d["state"] == t.NOT_CONFIGURED
+        # Authorized, nothing has ever arrived from any channel.
+        d = t._collection_dimension("Security", None, ["c1"], False)
+        assert d["state"] == t.CONFIGURED
+        # Authorized and the collector is delivering other channels.
+        d = t._collection_dimension("Security", None, ["c1"], True)
+        assert d["state"] == t.NOT_OBSERVED
+        # Delivered but stale.
+        d = t._collection_dimension(
+            "Security", {"events_delivered": 5,
+                         "last_received_at": "2020-01-01T00:00:00+00:00"},
+            ["c1"], True)
+        assert d["state"] == t.GAP_DETECTED
+        assert d["gap"]["state"] == "ARRIVAL_STOPPED"
+        # Arriving but nothing normalized.
+        d = t._collection_dimension(
+            "Security", {"events_delivered": 5, "norm_failed": 5,
+                         "last_received_at": t._now().isoformat()},
+            ["c1"], True)
+        assert d["state"] == t.ERROR
+
+    def test_support_dimension_keeps_declaration_and_measurement_apart(self):
+        from services import windows_channel_truth as t
+        d = t._support_dimension(t.SUPPORTED, None, None, None, None)
+        assert d["state"] == t.SUPPORTED
+        assert d["measured_state"] == t.NOT_EVALUATED
+        assert d["measured"]["ok"] is None          # not zero
+        d = t._support_dimension(t.SUPPORTED, 0, 4, 0, None)
+        assert d["state"] == t.SUPPORTED
+        assert d["measured_state"] == t.ERROR
+        assert d["disagreement"] is True
+
+    def test_activity_zero_is_not_the_same_as_unmeasured(self):
+        from services import windows_channel_truth as t
+        unmeasured = t._activity_dimension(None, False)
+        assert unmeasured["detections_fired"] is None
+        assert "not zero" in unmeasured["reason"]
+        measured = t._activity_dimension(None, True)
+        assert measured["detections_fired"] == 0
+
+    def test_the_summary_bar_cannot_manufacture_a_stage(self):
+        from services import windows_channel_truth as t
+        collection = t._collection_dimension("Security", None, [], False)
+        parsing = t._support_dimension(t.SUPPORTED, None, None, None, None)
+        norm = t._support_dimension(t.SUPPORTED, None, None, None, None)
+        cap = t.detection_capability("Security")
+        stages = t._human_stages(collection, parsing, norm, cap)
+        assert [s["stage"] for s in stages] == \
+            ["Acquired", "Understood", "Detectable"]
+        assert stages[0]["reached"] is False     # nothing acquired
+        assert stages[1]["reached"] is False     # so nothing understood
+        # Capability is independent: it is TRUE even with no telemetry.
+        assert stages[2]["reached"] is True
+        assert stages[2]["state"] == t.AVAILABLE

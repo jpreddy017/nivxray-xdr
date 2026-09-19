@@ -109,9 +109,11 @@ const NAV = [
       // Telemetry Studio is LLM decoding CONFIGURATION, not events. The
       // previous row bounced the analyst into Administration, which was
       // simply wrong, so the row is withdrawn rather than pointed at an
-      // unrelated page. It returns when Program H delivers the real event
-      // table (Time · Host · Channel · Provider · Event ID · … ) over real
-      // telemetry. Hunting itself remains the interrogation surface.
+      // unrelated page. Program H has now delivered that surface, so the
+      // row is back — pointed at REAL canonical evidence, and honest when
+      // there is none.
+      { key: "events", label: "Event Explorer", icon: Search,
+        to: "/xdr/events" },
     ],
   },
   {
@@ -174,6 +176,8 @@ const NAV = [
     requires: ["data_sources.read", "collectors.read"],
     title: "Telemetry onboarding and per-source health",
     children: [
+      { key: "windows", label: "Windows", icon: Layers,
+        to: "/xdr/data-sources/windows" },
       { key: "collectors", label: "Collectors", icon: Cpu,
         to: "/xdr/admin/collectors" },
       { key: "agents", label: "Agents", icon: Wifi, to: "/xdr/admin/agents" },

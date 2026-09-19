@@ -367,6 +367,12 @@ from routers.xdr_detection_citations import router as xdr_detection_citations_ro
 app.include_router(xdr_detection_citations_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
+# Lane G · Data Sources → Windows (read-only channel/device truth)
+from routers.xdr_windows import router as xdr_windows_router
+app.include_router(xdr_windows_router)
+# Lane H · Event Explorer (source-agnostic canonical event search)
+from routers.xdr_events import router as xdr_events_router
+app.include_router(xdr_events_router)
 
 # D21 · routing visibility — READ-ONLY projection of ingest routing decisions.
 from routers.xdr_ingest_routing import router as xdr_ingest_routing_router

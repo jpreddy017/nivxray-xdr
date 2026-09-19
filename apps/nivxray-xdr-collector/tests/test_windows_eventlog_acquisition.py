@@ -372,7 +372,7 @@ def test_collection_support_does_not_imply_analysis_support(store):
     # ...and explicitly NOT analysable yet.
     assert rep["analysis_support"]["normalization"] == "NOT YET SUPPORTED"
     assert rep["analysis_support"]["detection_coverage"] == "NOT AVAILABLE"
-    assert rep["analysis_support"]["roadmap_position"] == 2
+    assert rep["analysis_support"]["roadmap_position"] == 1
 
 
 def test_windows_channel_analysis_support_is_stated_per_channel(store):

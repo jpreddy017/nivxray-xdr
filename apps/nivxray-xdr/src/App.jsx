@@ -26,6 +26,11 @@ const XdrReportsPage          = lazy(() => import("@/xdr/pages/XdrReportsPage"))
 const XdrClientManagementPage = lazy(() => import("@/xdr/pages/XdrClientManagementPage"));
 // Slice 1 · Data Sources is a first-class XDR destination, not an admin page.
 const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSourcesPage"));
+// Lane G · Data Sources → Windows. Per-channel acquisition, understanding and
+// detection truth, with the five dimensions kept independent.
+const WindowsPage             = lazy(() => import("@/xdr/datasources/windows/WindowsPage"));
+// Lane H · Event Explorer. Source-agnostic canonical event surface.
+const XdrEventExplorerPage    = lazy(() => import("@/xdr/pages/XdrEventExplorerPage"));
 // E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
 const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
@@ -264,6 +269,14 @@ export default function App() {
         {/* Slice 1 · Data Sources. Deep links to the old admin telemetry
             surfaces are untouched; this is an additional destination. */}
         <Route path="/xdr/data-sources"      element={<Protected><DataSourcesPage /></Protected>} />
+        {/* Lane G · the Windows console is a NAMED destination under Data
+            Sources, matched before the generic `:tab` route so it is never
+            swallowed by it. */}
+        <Route path="/xdr/data-sources/windows"      element={<Protected><WindowsPage /></Protected>} />
+        <Route path="/xdr/data-sources/windows/:tab" element={<Protected><WindowsPage /></Protected>} />
+        {/* Lane H · Event Explorer. Filters ride on the query string so a
+            pivot from any surface is a shareable deep link. */}
+        <Route path="/xdr/events"            element={<Protected><XdrEventExplorerPage /></Protected>} />
         <Route path="/xdr/data-sources/:tab" element={<Protected><DataSourcesPage /></Protected>} />
         <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/assets" replace />} />
         {/* E2E-3 · Assets is the single inventory destination. Tabs are query

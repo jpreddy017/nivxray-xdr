@@ -233,6 +233,12 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
         from .windows_powershell_dsm import WindowsPowerShellDSM
         return WindowsPowerShellDSM()
 
+    # W2-1 · Microsoft Defender Antivirus operational channel. Defender's
+    # own verdict is SOURCE evidence; it is never a NivXRay verdict.
+    def _defender():
+        from .windows_defender_dsm import WindowsDefenderDSM
+        return WindowsDefenderDSM()
+
     reg.try_register("windows-security-evd", _windows)
     reg.try_register("linux-auditd", _linux)
     reg.try_register("aws-cloudtrail", _cloudtrail)
@@ -250,6 +256,7 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
     # `supports()` additionally requires the PowerShell provider, so a
     # small event id shared with another provider can never be claimed.
     reg.try_register("windows-powershell-evd", _powershell)
+    reg.try_register("windows-defender-evd", _defender)
 
 
 _register_builtin_dsms(TELEMETRY_DSM_REGISTRY)

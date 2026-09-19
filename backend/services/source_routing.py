@@ -75,6 +75,8 @@ SOURCE_CATALOG: dict[str, str] = {
     "zeek-json":              "zeek-json",
     #: W2-1 · the PowerShell channels the native Windows adapter acquires.
     "windows-powershell-evd": "windows-powershell-evd",
+    #: W2-1 · the Microsoft Defender operational channel.
+    "windows-defender-evd":   "windows-defender-evd",
 }
 
 #: Spelling variants a collector may legitimately use. Every alias resolves
@@ -116,6 +118,10 @@ SOURCE_ALIASES: dict[str, str] = {
     "windows_powershell":     "windows-powershell-evd",
     "windows-powershell":     "windows-powershell-evd",
     "powershell":             "windows-powershell-evd",
+    "microsoft_defender":     "windows-defender-evd",
+    "microsoft-defender":     "windows-defender-evd",
+    "windows_defender":       "windows-defender-evd",
+    "defender":               "windows-defender-evd",
 }
 
 

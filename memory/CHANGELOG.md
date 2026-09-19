@@ -2,6 +2,63 @@
 
 Chronological record of significant releases (newest first).
 
+## 2026-06 · W2-1C — Windows channel truth model · Event Explorer · Defender DSM — SHIPPED
+
+Report `memory/W2-1C_WINDOWS_TRUTH_AND_EVENT_EXPLORER.md`. Standing owner
+rule recorded in `memory/ENGINEERING_STANDARD_INDUSTRY_BENCHMARK.md`:
+benchmark every decision against current industry-leading XDR/EDR
+architecture, copy proven patterns, never copy a vendor limitation.
+
+**Shared truth contract**
+- `services/windows_channel_truth.py` — one server-side authority
+  publishing FIVE independent dimensions: Collection · Parsing ·
+  Normalization · Detection **capability** · Detection **activity**. None
+  derived from another; `composite_health` is deliberately `null` with the
+  reason published.
+- Capability is computed from the deployed content inventory against the
+  capability tokens each channel's evidence provides — it never depends on
+  a rule having fired, and historical firings never prove present
+  capability. `Security · capability AVAILABLE (21 eligible rules) ·
+  detections observed null` is a valid, verified state.
+- A measurement not taken returns `null` → `—` / `NOT AVAILABLE`, never
+  `0`. `CONFIGURED` / `NOT OBSERVED` / `NOT CONFIGURED` stay three
+  distinct answers. `real_endpoint_proof` = NOT PROVEN until W2-R0…R6.
+
+**Lane G · Data Sources → Windows**
+- `GET /api/xdr/windows/{overview,channels,channels/{id},devices,
+  devices/{origin},collectors,configuration}` (read-only).
+- `/xdr/data-sources/windows/:tab` — Overview | Devices | Channels |
+  Collectors | Coverage | Health | Configuration, with a contextual
+  channel pane and a device pane. `Acquired → Understood → Detectable` is
+  a presentation of the authoritative states and cannot manufacture a
+  stage.
+- Device identity: `origin_computer` is EVIDENCE OF ORIGIN, not the asset
+  id. `canonical_device_id` is null with an alias block for the stronger
+  identifiers; unmatched origins report `EDR association: NOT ESTABLISHED`
+  rather than `UNENROLLED`.
+
+**Lane H · Event Explorer**
+- `GET /api/xdr/events/search · /facets · /{event_id}` over canonical
+  evidence — source-agnostic from day one.
+- `/xdr/events` dense analyst table + inspection pane (Summary | Fields |
+  Raw | Normalized | Canonical Evidence | Relationships | Detection |
+  Provenance) above the explicit chain Raw Event → Parsed Fields →
+  Normalized Event → Canonical Evidence → Detection → Incident, each stage
+  with its own state and evidence reference. Raw XML immutable. No
+  fixtures.
+
+**Defender DSM**
+- `windows-defender-evd` covering the detection, response and posture
+  event families. Microsoft's verdict is carried verbatim as
+  `vendor_verdict` SOURCE evidence and is never promoted to a NivXRay
+  verdict; Command Intelligence is not invoked. `Detection Time` is the
+  activity instant, `TimeCreated` the observation.
+
+**Verification** — self-test only: 337 backend passed / 14 skipped, 134
+collector passed, clean vite build, live endpoints 200 authenticated and
+403 unauthenticated, all three new pages render.
+
+
 ## 2026-06 · W2-1B — Windows Security + PowerShell canonical evidence — SHIPPED
 
 The W2-1 adapter delivers rendered EVTX XML; every Windows DSM read a

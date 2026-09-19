@@ -151,12 +151,14 @@ ANALYSIS_SUPPORTED = {
     "Windows PowerShell": {
         "dsm": "windows-powershell-evd", "normalization": "SUPPORTED",
         "detection_coverage": "NOT AVAILABLE"},
+    "Microsoft-Windows-Windows Defender/Operational": {
+        "dsm": "windows-defender-evd", "normalization": "SUPPORTED",
+        "detection_coverage": "NOT AVAILABLE"},
 }
 
 #: The DSM roadmap order the owner set. Declared here so the admin surface
 #: can state WHEN, not just that something is missing.
 ANALYSIS_ROADMAP = [
-    "Microsoft-Windows-Windows Defender/Operational",
     "Microsoft-Windows-TaskScheduler/Operational",
     "Microsoft-Windows-WMI-Activity/Operational",
     "Microsoft-Windows-AppLocker/EXE and DLL",
