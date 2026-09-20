@@ -140,6 +140,17 @@
   --nx-pri-5: #94A3B8;   /* P5 · INFORMATIONAL · slate  */
   --nx-graph-bg:   #090C12;
   --nx-graph-grid: rgba(255, 255, 255, 0.035);
+
+  /* ── Annotation surface · analyst-authored content ─────────────
+   * The analyst interpretation overlay used to hard-code a light
+   * paper palette (#fff / #f8fafc / #fffbeb) while its text consumed
+   * the THEME tokens, so in the default dark console the paragraph,
+   * the section label and the Edit/History controls rendered light
+   * text on white. These two tokens give that surface a themed
+   * identity; `scripts/nx_contrast_audit.py` gates them in BOTH
+   * themes like every other surface. */
+  --nx-surf-note: #1C1A12;
+  --nx-note-bd:   rgba(245, 158, 11, 0.32);
 }
 
 /* ══ LIGHT · preserved toggle ═════════════════════════════════════ */
@@ -224,6 +235,9 @@
   --nx-pri-5: #64748B;
   --nx-graph-bg:   #FBFBF9;
   --nx-graph-grid: rgba(15, 23, 42, 0.05);
+
+  --nx-surf-note: #FDF6E3;
+  --nx-note-bd:   #D9B45A;
 }
 
 /* ══ Base surface application ═════════════════════════════════════ */
@@ -350,6 +364,66 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nx-theme-toggle, .nx-drawer__toggle { transition: none; }
+}
+
+/* ══ Analyst annotation surface (overlay editor) ══════════════════
+ * One themed surface for analyst-authored narrative. Body text is
+ * `--nx-text`, not a dimmed token: an interpretation an analyst wrote
+ * is primary content, not metadata. */
+.nx-ovr {
+  margin-top: 8px;
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: var(--nx-r-card, 8px);
+  background: var(--nx-surf-primary);
+  overflow: hidden;
+}
+.nx-ovr--edited {
+  background: var(--nx-surf-note);
+  border-color: var(--nx-note-bd);
+}
+.nx-ovr__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--nx-surf-inset);
+  border-bottom: 1px solid var(--nx-bd-quiet);
+}
+.nx-ovr__label {
+  font: 800 10px/1.4 var(--sans, system-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nx-muted);
+}
+.nx-ovr__spacer { flex: 1; }
+.nx-ovr__head .nx-btn { padding: 3px 8px; font-size: 10px; height: auto; }
+.nx-ovr__body {
+  padding: 8px 10px;
+  font: 400 12.5px/1.6 var(--sans, system-ui);
+  color: var(--nx-text);
+}
+.nx-ovr__absent { color: var(--nx-muted); font-style: italic; }
+.nx-ovr__machine {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--nx-bd-strong);
+  font: 500 11px/1.55 var(--mono, monospace);
+  color: var(--nx-text-dim);
+}
+.nx-ovr__machine b, .nx-ovr__audit b { color: var(--nx-text); }
+.nx-ovr__meta { margin-top: 4px; color: var(--nx-muted); }
+.nx-ovr__edit { padding: 8px 10px; display: grid; gap: 6px; }
+.nx-ovr__audit {
+  padding: 6px 10px;
+  background: var(--nx-surf-inset);
+  border-top: 1px solid var(--nx-bd-quiet);
+  font: 500 11px/1.55 var(--mono, monospace);
+  color: var(--nx-text-dim);
+}
+.nx-ovr__audit-row {
+  padding-top: 4px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--nx-bd-quiet);
 }
 
 /* ── Priority ladder rendering (owner spec 2026-09-05) ─────────────

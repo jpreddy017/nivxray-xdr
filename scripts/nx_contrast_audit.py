@@ -23,14 +23,28 @@ from pathlib import Path
 THEME = Path("/app/apps/nivxray-xdr/src/xdr/nx/nx-theme.css")
 
 TEXT = ["--nx-text", "--nx-text-dim", "--nx-muted", "--nx-faint"]
-SURFACES = ["--nx-surf-canvas", "--nx-surf-primary", "--nx-surf-inset"]
+SURFACES = ["--nx-surf-canvas", "--nx-surf-primary", "--nx-surf-inset",
+            "--nx-surf-note"]
 SEAMS = ["--nx-bd-quiet", "--nx-bd-strong"]
 TEXT_MIN, SEAM_MIN = 4.5, 1.4
 
 
 def blocks(css: str) -> dict[str, str]:
-    """Split the two authoritative theme blocks."""
-    light_at = css.index('[data-nx-theme="light"]')
+    """Split the two authoritative theme blocks.
+
+    2026-06 defect: this anchored on the first literal occurrence of
+    `[data-nx-theme="light"]`, which is the *header comment* at the top of
+    the file — so the "dark" block was the comment alone, yielded ZERO
+    tokens, and every dark pair was silently reported as `SKIP unresolved`.
+    The gate therefore never audited the default theme, which is exactly
+    where the analyst-interpretation contrast defect lived. It now anchors
+    on the real rule selector.
+    """
+    m = re.search(r'^\s*\.xdr-console\[data-nx-theme="light"\]',
+                  css, re.MULTILINE)
+    if m is None:
+        raise SystemExit("nx-theme.css: light theme rule not found")
+    light_at = m.start()
     return {"dark": css[:light_at], "light": css[light_at:]}
 
 

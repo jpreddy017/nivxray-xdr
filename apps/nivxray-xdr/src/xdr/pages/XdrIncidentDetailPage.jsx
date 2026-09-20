@@ -34,6 +34,7 @@ import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligence
 import IncidentEntities from "@/xdr/incidents/IncidentEntities";
 import RecommendedActions from "@/xdr/incidents/RecommendedActions";
 import IncidentProvenance from "@/xdr/incidents/IncidentProvenance";
+import InvestigationPivots from "@/xdr/incidents/InvestigationPivots";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
 import ActivityWorklogTab   from "./incidents/record/tabs/ActivityWorklogTab";
@@ -81,9 +82,11 @@ import "@/xdr/nx/nx-entity.css";
 import "@/xdr/nx/nx-inv.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
 
-/**
- * Task 3 · SEVEN primary investigation views, in the order the
- * investigation itself runs. A backend domain does not earn a tab:
+/** Task 3 · SEVEN primary investigation views, in the order the
+ * investigation itself runs. Task 3A added an eighth — Pivots — because
+ * telemetry origin, IOC verification and native-console deep links are a
+ * distinct analyst question, not a lens on another view.
+ * A backend domain does not earn a tab:
  *   · Entities is a Graph|Table LENS inside Story, with contextual panes.
  *   · ATT&CK is a drill-down from Story and Detections, where the mapping
  *     is authoritative — never an isolated badge wall.
@@ -96,6 +99,7 @@ const TABS = [
   { key: "timeline",   label: "Timeline" },
   { key: "evidence",   label: "Evidence" },
   { key: "detections", label: "Detections" },
+  { key: "pivots",     label: "Pivots" },
   { key: "response",   label: "Response" },
   { key: "activity",   label: "Activity" },
 ];
@@ -539,6 +543,9 @@ export default function XdrIncidentDetailPage() {
                            caseId={incident.id}
                            capabilities={["attack"]} />
             </div>
+          )}
+          {tab === "pivots"     && (
+            <InvestigationPivots incident={incident} />
           )}
           {tab === "response"   && (
             <>

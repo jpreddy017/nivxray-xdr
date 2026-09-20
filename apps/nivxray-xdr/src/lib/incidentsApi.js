@@ -116,6 +116,16 @@ export async function getIncident(incidentId) {
   return data;
 }
 
+/** Task 3A · Investigation pivots. The SERVER decides which pivot exists:
+ *  a native console link is only ever present when the tenant's own
+ *  integration record declares it. Nothing here is built client-side. */
+export async function getIncidentPivots(incidentId) {
+  const { data } = await api.get(
+    `/incidents/${encodeURIComponent(incidentId)}/pivots`,
+  );
+  return data;
+}
+
 export async function getIncidentSummary(incidentId) {
   const { data } = await api.get(
     `/incidents/${encodeURIComponent(incidentId)}/summary`,

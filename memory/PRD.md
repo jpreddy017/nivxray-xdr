@@ -1,5 +1,73 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · TASK 3A · INVESTIGATION PIVOTS + CONTRAST DEFECT — DONE · VERIFIED_PROGRAMMATICALLY
+
+Proofs (no screenshots): `scripts/p1_task3a_pivots_dom_proof.py` →
+**27 PASS · 0 FAIL** (`test_reports/p1_task3a_pivots_dom_proof.txt`) ·
+`backend/tests/test_task3a_investigation_pivots.py` → **18 passed** ·
+`scripts/nx_contrast_audit.py` → **0 failures (both themes)** ·
+Task 3 regression `p1_investigation_dom_proof.py` → **47 PASS · 0 FAIL** ·
+production build **PASS**.
+
+### UI DEFECT CLOSED — analyst interpretation contrast
+`IntelligenceOverlayEditor` hard-coded a light paper palette
+(`#fff · #f8fafc · #fffbeb · #e2e8f0 · #cbd5e1`) while its text consumed the
+THEME tokens, so in the default dark console the paragraph, the section
+label and the Edit/History controls were light-on-white. Fixed **in the
+design system, not in the page**: two new theme tokens
+(`--nx-surf-note` / `--nx-note-bd`, defined in BOTH theme blocks) plus a
+`nx-ovr*` component block in `nx-theme.css`; the component now carries only
+classes and the form primitives. Interpretation body text is `--nx-text`,
+not a dimmed token — narrative an analyst wrote is primary content.
+Measured live: **17.85:1 / 6.92:1 / 17.85:1** light and
+**16.38:1 / 7.26:1 / 14.75:1** dark.
+**Second, bigger defect found in the gate itself**: `nx_contrast_audit.py`
+anchored on the first literal `[data-nx-theme="light"]`, which is the header
+COMMENT — so the "dark" block parsed to zero tokens and every dark pair was
+silently `SKIP unresolved`. The default theme had therefore **never** been
+audited, which is exactly where this defect lived. The gate now anchors on
+the real rule selector and audits `--nx-surf-note` as a first-class surface.
+
+### TASK 3A · Investigation Pivots (8th primary view, inside the INDIVIDUAL
+### INCIDENT workspace — the standalone Investigate workspace was untouched)
+Server authority: new `GET /api/incidents/{id}/pivots`
+(`backend/services/investigation_pivots.py`). The frontend builds **no URL**.
+- **Telemetry & detection sources** — five stages, each a recorded fact with
+  the field it was read from: product (`xdr_canonical_evidence.source`), DSM
+  + parser + normalizer, delivering collector (with its own
+  received/parsed/normalized counters), raising detection, endpoint sensor.
+  A stage with nothing recorded reads `NOT_RECORDED` with the reason.
+- **IOC investigation** — observables read from the record with their
+  `iocs.*` field. An observable no provider verifies (user/host/process)
+  states that instead of offering a dead lookup.
+- **Provider capability model (owner decision)** — `AUTO_ENRICHMENT` and
+  `EXTERNAL_PIVOT` are two INDEPENDENT capabilities per provider, so a later
+  event-driven enrichment adapter plugs into the same registry without
+  redesigning this surface. Every provider that could support enrichment
+  reports `NOT_IMPLEMENTED` today — a statement about NivXRay, not the
+  provider. **No VirusTotal (or any) API key is requested or stored, and no
+  server-side enrichment call exists in this task.** 7 providers:
+  VirusTotal · Cisco Talos · AbuseIPDB · URLhaus · ThreatFox ·
+  MalwareBazaar · Umbrella Investigate (licensed → integration-gated).
+- **External egress is analyst-initiated and confirmed**: clicking a
+  provider shows the host and the observable that will reach a third party;
+  **no tab opens until the analyst confirms** (proven: 1 tab before and
+  after, cancel removes the gate).
+- **Native console pivots are fail-closed on the tenant's own integration
+  record**: a link exists only with `console_url` + a declared
+  `console_pivot_paths` entry + the incident's required identifier. NivXRay
+  never guesses a vendor console route. Six distinct states are preserved
+  and each was proven one at a time: `AVAILABLE · NOT_CONFIGURED ·
+  NOT_AUTHORIZED · REQUIRED_IDENTIFIER_MISSING · UNSUPPORTED ·
+  TEMPORARILY_UNAVAILABLE` (new tokens added to `NxOpsState`).
+- **Recommended investigation pivots** are deterministic and strictly
+  artifact-derived — `Reason → supporting evidence → available action` — and
+  only actions whose provider capability is AVAILABLE are rendered. No model,
+  no generic advice; an incident with no artifact recommends nothing.
+- **Tenancy fail-closed on both planes**: cross-tenant `…/pivots` → **404**
+  (existence never disclosed, no observable or endpoint id in the body), and
+  another tenant's integration is never visible to an incident.
+
 ## 2026-06-20 · TASK 3 · INVESTIGATION WORKSPACE CORE — MIGRATED · VERIFIED_PROGRAMMATICALLY
 
 Proof: `scripts/p1_investigation_dom_proof.py` → **45 PASS · 0 FAIL**

@@ -20,7 +20,7 @@ EMAIL = os.environ.get("XDR_EMAIL", "admin@nivxray.com")
 PASSWORD = os.environ["XDR_PASSWORD"]
 
 VIEWS = ["overview", "story", "timeline", "evidence", "detections",
-         "response", "activity"]
+         "pivots", "response", "activity"]
 
 results: list[tuple[str, str, str]] = []
 
@@ -145,7 +145,7 @@ def main() -> int:
                             '[data-testid="incident-header"] .nx-tab')
         labels = [tabs.nth(i).inner_text().strip().lower()
                   for i in range(tabs.count())]
-        check("exactly 7 primary views", len(labels) == 7, str(labels))
+        check("exactly 8 primary views", len(labels) == 8, str(labels))
 
         for v in VIEWS:
             if not open_view(page, inc_id, v,

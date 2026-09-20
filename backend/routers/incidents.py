@@ -1091,6 +1091,23 @@ async def get_incident_understanding(incident_id: str,
         client.close()
 
 
+# ── Task 3A · Investigation pivots ──────────────────────────────────
+@router.get("/{incident_id}/pivots")
+async def get_incident_pivots(incident_id: str,
+                                 user=Depends(get_current_user)):
+    """Telemetry origin · IOC investigation · recommended pivots.
+
+    The SERVER is the authority: a native console pivot exists in the
+    response only when this tenant's own integration record declares the
+    console route AND the incident carries the required identifier. Every
+    other case keeps its own distinct state and reason. Cross-tenant
+    addressing is 404 — existence is never disclosed.
+    """
+    from services.investigation_pivots import build_pivots
+    doc, _q = _authorized_incident(incident_id, user)
+    return build_pivots(_db_sync_for_provenance(), doc)
+
+
 # ── LIFECYCLE ────────────────────────────────────────────────────────
 class LifecyclePatch(BaseModel):
     target_state: str = Field(..., description="new/in_progress/on_hold/resolved/closed")

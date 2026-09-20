@@ -57,6 +57,13 @@ export const OPS_STATES = {
   NOT_AVAILABLE:        S("Not available", "not_run", "dashed"),
   NOT_APPLICABLE:       S("Not applicable", "not_run", "dashed"),
   NOT_REPORTED:         S("Not reported", "not_run", "dashed"),
+  NOT_RECORDED:         S("Not recorded", "not_run", "dashed"),
+
+  // ── pivot / provider availability (Task 3A) ───────────────────
+  NOT_AUTHORIZED:       S("Not authorized", "high", "dashed"),
+  REQUIRED_IDENTIFIER_MISSING: S("Identifier missing", "medium", "dashed"),
+  TEMPORARILY_UNAVAILABLE: S("Temporarily unavailable", "medium"),
+  NOT_IMPLEMENTED:      S("Not implemented", "not_run", "dashed"),
 
   // ── verdicts an operator acts on ──────────────────────────────
   PASS:                 S("Pass", "benign"),

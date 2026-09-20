@@ -111,7 +111,7 @@ export default function IncidentContextPane({ row, detail, loading, error,
         {[["overview", "Overview"], ["story", "Attack Story"],
           ["timeline", "Timeline"], ["evidence", "Evidence"],
           ["entities", "Entities"], ["detections", "Detections"],
-          ["mitre", "MITRE"], ["response", "Response"],
+          ["mitre", "MITRE"], ["pivots", "Pivots"], ["response", "Response"],
           ["activity", "Activity"], ["report", "Report"]].map(([k, label]) => (
           <NxButton key={k} onClick={() => onPivotTab(k)}
                     testid={`incident-pivot-${k}`}>

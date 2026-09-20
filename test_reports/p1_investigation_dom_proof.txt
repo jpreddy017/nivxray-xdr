@@ -1,18 +1,20 @@
 PASS  incident → investigation keeps identity  INC000001458 · inc_8ddc1dee7a4c46aa93c9
-PASS  exactly 7 primary views  ['overview', 'story', 'timeline', 'evidence', 'detections', 'response', 'activity']
+PASS  exactly 8 primary views  ['overview', 'story', 'timeline', 'evidence', 'detections', 'pivots', 'response', 'activity']
 PASS  view overview mounts with content  6284 chars
 PASS  view overview preserves incident identity  
 PASS  view story mounts with content  6133 chars
 PASS  view story preserves incident identity  
-PASS  view timeline mounts with content  7144 chars
+PASS  view timeline mounts with content  8120 chars
 PASS  view timeline preserves incident identity  
 PASS  view evidence mounts with content  2168 chars
 PASS  view evidence preserves incident identity  
 PASS  view detections mounts with content  1835 chars
 PASS  view detections preserves incident identity  
+PASS  view pivots mounts with content  3311 chars
+PASS  view pivots preserves incident identity  
 PASS  view response mounts with content  1174 chars
 PASS  view response preserves incident identity  
-PASS  view activity mounts with content  17647 chars
+PASS  view activity mounts with content  18783 chars
 PASS  view activity preserves incident identity  
 PASS  legacy ?tab=entities lands on story lens  
 PASS  legacy ?tab=mitre lands on detections lens  
@@ -44,4 +46,5 @@ PASS  cross-tenant workspace read is refused by the API  HTTP 404 (existence nev
 PASS  cross-tenant investigation is refused without disclosure  NIVXRAY XDR NivXMachines Workspace ◇ NOT CONFIGURED ◑ LIGHT NOT AUTHORIZED analy
 PASS  no runtime/console error  []
 
-45 PASS · 0 FAIL
+47 PASS · 0 FAIL
+exit=0
