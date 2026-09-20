@@ -165,7 +165,12 @@ def test_critical_lens_picks_up_p1_open_only(clean_ws):
     _make_case(db, "p1-dash-crit-4", state="new",         priority="P2")  # excluded
     q = client.get("/api/incidents?lens=critical&limit=500").json()
     ids = {r["id"] for r in q["incidents"]}
-    assert ids == {"p1-dash-crit-1", "p1-dash-crit-2"}
+    # The invariant under test is the lens's INCLUSION/EXCLUSION rule, asserted
+    # over this suite's own cases. Demanding global equality made the result
+    # depend on every other suite sharing `nivxray_ci_local`, which is a test
+    # isolation artefact, not a product fact.
+    assert {"p1-dash-crit-1", "p1-dash-crit-2"} <= ids
+    assert {"p1-dash-crit-3", "p1-dash-crit-4"}.isdisjoint(ids)
 
 
 def test_high_priority_lens_covers_p1_and_p2_open(clean_ws):
@@ -176,7 +181,8 @@ def test_high_priority_lens_covers_p1_and_p2_open(clean_ws):
     _make_case(db, "p1-dash-hp-4", state="closed", priority="P1")  # excluded
     q = client.get("/api/incidents?lens=high_priority&limit=500").json()
     ids = {r["id"] for r in q["incidents"]}
-    assert ids == {"p1-dash-hp-1", "p1-dash-hp-2"}
+    assert {"p1-dash-hp-1", "p1-dash-hp-2"} <= ids
+    assert {"p1-dash-hp-3", "p1-dash-hp-4"}.isdisjoint(ids)
 
 
 def test_high_fidelity_lens_requires_flag(clean_ws):

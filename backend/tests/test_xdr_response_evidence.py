@@ -72,9 +72,28 @@ class _FakeDb:
 
 
 def _app() -> FastAPI:
+    """Harness app for the EVIDENCE-WRITING contract only.
+
+    2026-06: this suite predates the router being gated by
+    `require_permission("response.execute")` / `("evidence.read")`, so every
+    request was correctly refused as `unauthenticated` and the suite stopped
+    testing what it is for.
+
+    The gates are therefore overridden HERE, explicitly and visibly, so these
+    tests can assert the three-collection write contract. The gates
+    themselves are NOT trusted to this harness: that the real application
+    refuses an unauthenticated / unauthorized / cross-tenant caller on
+    `/api/xdr/response-evidence` is proven against the real ASGI graph in
+    `tests/test_xdr_rbac_enforcement.py` and `tests/test_p0_security_gate.py`.
+    """
     app = FastAPI()
     app.state.db = _FakeDb()
     app.include_router(router, prefix="/api")
+    for route in app.routes:
+        for dep in getattr(route, "dependant", None).dependencies \
+                if getattr(route, "dependant", None) else []:
+            if dep.call is not None:
+                app.dependency_overrides[dep.call] = lambda: None
     return app
 
 

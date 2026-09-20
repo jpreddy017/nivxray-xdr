@@ -16,9 +16,9 @@ recorded by the wave notes below, not inferred from code.
 
 | State | Routes |
 | --- | --- |
-| MIGRATED | 17 |
+| MIGRATED | 18 |
 | IN_PROGRESS | 9 |
-| NOT_STARTED | 38 |
+| NOT_STARTED | 37 |
 | UNRESOLVED | 2 |
 
 | Route | Page | nx adoption | Page-local CSS | Residual debt | State |
@@ -54,7 +54,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/intelligence/files/:key | xdr/pages/XdrFleetFileTrajectoryPage.jsx | none | — | hand-built <table> | NOT_STARTED |
 | /xdr/intelligence/kb | xdr/pages/XdrKbPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/intelligence/malware | xdr/pages/XdrMalwareIntelPage.jsx | none | — | — | NOT_STARTED |
-| /xdr/investigations/:caseId/_engine | xdr/pages/XdrInvestigationWorkspacePage.jsx | none | — | hand-built <table> | NOT_STARTED |
 | /xdr/kb | xdr/pages/XdrKbPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/respond/approvals | xdr/pages/XdrApprovalsPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/respond/automation-rules/:id | xdr/pages/XdrAutomationRuleEditorPage.jsx | none | — | — | NOT_STARTED |
@@ -86,6 +85,7 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/intelligence/iocs | xdr/pages/XdrIocIntelPage.jsx | 6 nx primitives | — | — | MIGRATED |
 | /xdr/intelligence/mitre | xdr/pages/XdrMitreHeatmap.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/intelligence/threat | xdr/pages/XdrThreatIntelPage.jsx | 6 nx primitives | — | — | MIGRATED |
+| /xdr/investigations/:caseId/_engine | xdr/pages/XdrInvestigationWorkspacePage.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/reports | xdr/pages/XdrReportsPage.jsx | 5 nx primitives | — | — | MIGRATED |
 | /xdr/respond/automation-rules | xdr/pages/XdrAutomationRulesPage.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/respond/playbooks | xdr/pages/XdrPlaybooksPage.jsx | 4 nx primitives | — | — | MIGRATED |
