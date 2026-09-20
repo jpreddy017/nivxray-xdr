@@ -16,9 +16,9 @@ recorded by the wave notes below, not inferred from code.
 
 | State | Routes |
 | --- | --- |
-| MIGRATED | 20 |
-| IN_PROGRESS | 9 |
-| NOT_STARTED | 35 |
+| MIGRATED | 21 |
+| IN_PROGRESS | 8 |
+| NOT_STARTED | 34 |
 | UNRESOLVED | 2 |
 
 | Route | Page | nx adoption | Page-local CSS | Residual debt | State |
@@ -48,7 +48,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/endpoints/:device/trajectory | xdr/pages/XdrDeviceTrajectoryPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/evidence/:executionId | xdr/pages/XdrEvidenceRefPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/exposure | xdr/pages/XdrExposurePage.jsx | none | — | — | NOT_STARTED |
-| /xdr/incidents/:id/domain/:domainKey | xdr/pages/XdrIncidentDomainPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/intelligence/command | xdr/pages/XdrCommandIntelPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/intelligence/files/:key | xdr/pages/XdrFleetFileTrajectoryPage.jsx | none | — | hand-built <table> | NOT_STARTED |
 | /xdr/intelligence/kb | xdr/pages/XdrKbPage.jsx | none | — | — | NOT_STARTED |
@@ -64,7 +63,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/control-center | xdr/pages/XdrControlCenterPage.jsx | 2 nx primitives | — | page-local class system | IN_PROGRESS |
 | /xdr/events | xdr/pages/XdrEventExplorerPage.jsx | 11 nx primitives | @/xdr/datasources/windows/windows.css | page-local class system | IN_PROGRESS |
 | /xdr/hunting | xdr/pages/XdrHuntingPage.jsx | 5 nx primitives | — | page-local class system | IN_PROGRESS |
-| /xdr/incidents | xdr/pages/XdrIncidentsCortexPage.jsx | 1 nx primitives | @/xdr/ux0/ux0.css, @/xdr/ux0/ux0-cortex.css | page-local class system | IN_PROGRESS |
 | /xdr/investigations | xdr/pages/XdrInvestigationsListPage.jsx | 2 nx primitives | — | page-local class system | IN_PROGRESS |
 | /xdr/mss-dashboard/_legacy | xdr/pages/XdrMssDashboardPage.jsx | 8 nx primitives | — | hand-built <table>; page-local class system | IN_PROGRESS |
 | /xdr/investigations/:caseId | InvestigationRedirect | — | — | — | UNRESOLVED |
@@ -79,8 +77,9 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/detections | xdr/pages/XdrDetectionsPage.jsx | 5 nx primitives | — | — | MIGRATED |
 | /xdr/endpoints/:device | xdr/pages/XdrEntity360Page.jsx | 1 nx primitives | — | — | MIGRATED |
 | /xdr/evidence-explorer | xdr/pages/XdrEvidenceExplorerPage.jsx | 2 nx primitives | — | — | MIGRATED |
+| /xdr/incidents | xdr/pages/XdrIncidentsPage.jsx | 10 nx primitives | — | — | MIGRATED |
 | /xdr/incidents/:id | xdr/pages/XdrIncidentDetailPage.jsx | 19 nx primitives | ./incidents/queue-theme.css, ./incidents/record/record-theme.css | — | MIGRATED |
-| /xdr/incidents/_table | xdr/pages/XdrIncidentsPage.jsx | 15 nx primitives | — | — | MIGRATED |
+| /xdr/incidents/:id/domain/:domainKey | xdr/pages/XdrIncidentDomainPage.jsx | 10 nx primitives | — | — | MIGRATED |
 | /xdr/intelligence/iocs | xdr/pages/XdrIocIntelPage.jsx | 6 nx primitives | — | — | MIGRATED |
 | /xdr/intelligence/mitre | xdr/pages/XdrMitreHeatmap.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/intelligence/threat | xdr/pages/XdrThreatIntelPage.jsx | 6 nx primitives | — | — | MIGRATED |

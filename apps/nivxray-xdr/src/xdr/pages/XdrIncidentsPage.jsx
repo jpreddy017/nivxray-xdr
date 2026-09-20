@@ -15,14 +15,15 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUpRight, Shield } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import {
-  NxPageShell, NxDataTable, NxFlyout, NxTabs, NxEmpty, NxChip,
-  NxVerdict, NxLifecycle, NxPriority, NxConfidence, NxRisk,
-  NxProvenanceChip, NxAttackChain, NxFact, NxMetric,
+  NxPageShell, NxDataTable, NxFlyout, NxTabs, NxChip,
+  NxVerdict, NxLifecycle, NxPriority, NxRisk, NxProvenanceChip,
 } from "@/xdr/nx";
+import IncidentContextPane, { Absent }
+  from "@/xdr/incidents/IncidentContextPane";
 import { useAccess } from "@/xdr/access/AccessProvider";
 import {
   listIncidents, getIncident, bulkAssign, bulkState, listSavedViews,
@@ -56,132 +57,6 @@ function fmtWhen(iso) {
   const h = Math.round(mins / 60);
   if (h < 48) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
-}
-
-function Absent({ children = "Not recorded", title }) {
-  return <span className="nx-unavail" title={title}>{children}</span>;
-}
-
-// ── Flyout body ──────────────────────────────────────────────────────
-function IncidentFlyoutBody({ row, detail, loading, error }) {
-  if (error) {
-    return (
-      <div className="nx-dt-error" role="alert"
-           data-testid="incident-flyout-error">
-        <strong>This incident could not be loaded.</strong>
-        <span>{String(error)}</span>
-      </div>
-    );
-  }
-  const d = detail || {};
-  const vc = d.verdict_card || {};
-  const assets = d.assets || {};
-  const pointers = d.evidence_pointers || [];
-  const withEvidence = pointers.filter((p) => p.status === "available");
-
-  return (
-    <div data-testid="incident-flyout-body">
-      <div className="nx-eh-chips" style={{ marginBottom: 14 }}>
-        <NxVerdict value={vc.verdict || row.severity}
-                   title={vc.reason} testid="flyout-verdict" />
-        <NxPriority priority={row.priority} testid="flyout-priority" />
-        <NxRisk score={row.verdict?.risk_score ?? vc.confidence}
-                testid="flyout-risk" />
-        <NxLifecycle value={d.state || row.state} testid="flyout-state" />
-        <NxProvenanceChip provenance={d.provenance || row.provenance}
-                          basis={d.provenance_basis || row.provenance_basis}
-                          isReal={d.provenance_is_real ?? row.provenance_is_real}
-                          testid="flyout-provenance" />
-      </div>
-
-      <section className="nx-sec">
-        <h3 className="nx-sec-title">Verdict, cited</h3>
-        <dl className="nx-kv">
-          <dt>Engine</dt>
-          <dd>{vc.engine || row.detection_source || <Absent />}</dd>
-          <dt>Basis</dt>
-          <dd>{vc.reason
-            || <Absent title="No verdict derivation was recorded">
-                 No derivation recorded
-               </Absent>}</dd>
-          <dt>Provenance</dt>
-          <dd>{d.provenance_basis || row.provenance_basis || <Absent />}</dd>
-        </dl>
-      </section>
-
-      <section className="nx-sec">
-        <h3 className="nx-sec-title">Impacted assets</h3>
-        {Object.keys(assets).length === 0 ? (
-          <Absent>No asset roll-up on this record</Absent>
-        ) : (
-          <div className="nx-grid4">
-            {["hosts", "users", "processes", "files", "network"].map((k) => (
-              <NxMetric key={k} label={k} value={assets[k] ?? null}
-                        reason="Not counted on this record"
-                        testid={`flyout-asset-${k}`} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="nx-sec">
-        <h3 className="nx-sec-title">
-          MITRE ATT&amp;CK
-          {(d.mitre || []).length > 0 && ` · ${d.mitre.length}`}
-        </h3>
-        {(d.mitre || []).length === 0 ? (
-          <Absent title="The record carries no technique mapping">
-            No technique mapped to this incident
-          </Absent>
-        ) : (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {d.mitre.map((m, i) => (
-              <NxChip key={m.id || i} tone="purple" variant="tinted"
-                      title={m.name}>
-                {m.id}{m.name ? ` · ${m.name}` : ""}
-              </NxChip>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="nx-sec">
-        <h3 className="nx-sec-title">
-          Evidence · {withEvidence.length} of {pointers.length} domains
-        </h3>
-        {pointers.length === 0 ? (
-          <Absent>No evidence pointers on this record</Absent>
-        ) : (
-          <div style={{ display: "grid", gap: 8 }}>
-            {pointers.map((p) => (
-              <div key={p.domain}
-                   style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
-                   data-testid={`flyout-evidence-${p.domain}`}>
-                <NxChip tone={p.status === "available" ? "available"
-                            : p.status === "not_connected" ? "not_connected"
-                            : "no_evidence"}
-                        variant={p.status === "available" ? "tinted" : "dashed"}>
-                  {p.label}
-                </NxChip>
-                <span style={{ fontSize: 11.5, color: "var(--nx-text-dim)",
-                               lineHeight: 1.5 }}>
-                  {p.reason}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="nx-sec">
-        <h3 className="nx-sec-title">Attack progression</h3>
-        {loading
-          ? <Absent>loading…</Absent>
-          : <NxAttackChain nodes={d.attack_progression}
-                           testid="flyout-attack-chain" />}
-      </section>
-    </div>
-  );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────
@@ -481,8 +356,10 @@ export default function XdrIncidentsPage() {
         )}
       >
         {openRow && (
-          <IncidentFlyoutBody row={openRow} detail={detail}
-                              loading={dLoading} error={dError} />
+          <IncidentContextPane row={openRow} detail={detail}
+                               loading={dLoading} error={dError}
+                               onPivotTab={(tab) => navigate(
+                                 `/xdr/incidents/${openRow.id}?tab=${tab}`)} />
         )}
       </NxFlyout>
     </XdrShell>

@@ -33,11 +33,12 @@ const WindowsPage             = lazy(() => import("@/xdr/datasources/windows/Win
 const XdrEventExplorerPage    = lazy(() => import("@/xdr/pages/XdrEventExplorerPage"));
 // E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
 const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
+// Task 2 · ONE incident queue. The nx surface (dense table → contextual
+// pane → investigation) owns `/xdr/incidents`; the earlier ux0-styled
+// split view is retired because its capabilities — search, sort, inline
+// inspection and per-tab pivots — are all carried here, and a second
+// visual system on the same workflow is the thing we are removing.
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
-// Wave B2 · `/xdr/incidents` is now the Cortex-structured workspace on REAL
-// queue data. The previous table queue stays reachable at
-// `/xdr/incidents/_table` so no capability is lost while it is reviewed.
-const XdrIncidentsCortexPage  = lazy(() => import("@/xdr/pages/XdrIncidentsCortexPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
 // E2E-UX0 · non-destructive design prototype at `/xdr/_ux0-preview`.
 const Ux0PreviewPage          = lazy(() => import("@/xdr/ux0/Ux0PreviewPage"));
@@ -233,8 +234,8 @@ export default function App() {
         <Route path="/xdr/reports"         element={<Protected><XdrReportsPage /></Protected>} />
         <Route path="/xdr/clients"         element={<Protected><XdrClientManagementPage /></Protected>} />
         <Route path="/xdr/client-management" element={<Navigate to="/xdr/clients" replace />} />
-        <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsCortexPage /></Protected>} />
-        <Route path="/xdr/incidents/_table" element={<Protected><XdrIncidentsPage /></Protected>} />
+        <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
+        <Route path="/xdr/incidents/_table" element={<Navigate to="/xdr/incidents" replace />} />
         {/* E2E-UX0 · additive visual acceptance environment. Replaces no
             production route; awaiting owner visual approval. */}
         <Route path="/xdr/_ux0-preview"    element={<Protected><Ux0PreviewPage /></Protected>} />
