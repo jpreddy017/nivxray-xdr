@@ -78,13 +78,9 @@ export default function XdrPlaybooksPage() {
 
       <section className="panel" style={{ padding: 0, marginTop: 12,
                                                 overflow: "hidden" }}>
-        {rows.length === 0 ? (
-          <div className="x-empty" style={{ padding: 20 }}
-                 data-testid="xdr-playbooks-empty">
-            <b>No playbook exists yet</b> — the design-only store is
-            empty. Use "Create Playbook" to draft one.
-          </div>
-        ) : (
+        {/* The table renders whether or not there are rows: its headers are
+            the contract, and its own empty state says what is missing. A
+            bespoke empty block here hid both. */}
           <NxDataTable rows={rows} rowKey={(pb) => pb.id} pageSize={25}
                        searchPlaceholder="Search playbook, trigger, id"
                        onRowClick={(pb) => navigate(

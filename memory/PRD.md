@@ -18315,3 +18315,48 @@ Key findings of this pass:
 Console signatures locked:
 Analyst = Evidence → Provenance → Conclusion → Response → Verification.
 Admin = Tenant → Configuration → Authority → Effective Access → Health → Audit.
+
+---
+
+## 2026-06 · OWNER PRIORITY RESET (P0 → P1 → P2 → P3) — standing rule
+
+The backlog is no longer flat. Execution order is by risk and product
+dependency, and it does not require re-authorisation:
+
+* **P0 — security / correctness / release blockers.** Never bypassed for UI
+  progress. Closed 5/5 this wave (see
+  `memory/UI_CONVERGENCE_AND_P0_WAVE.md`): API-key suite modernised, stale
+  P0-SEC admin test repaired, a 6-outcome × 6-plane security gate created
+  (`backend/tests/test_p0_security_gate.py`), the two newly found audit
+  defects pinned by regression, and the full backend regression classified
+  rather than assumed green.
+* **P1 — core SOC workflow UX on `xdr/nx/`.** Incidents → Investigation
+  Workspace → Detections → Event Explorer → Hunting → Evidence →
+  Entities/Graph → Response, then the operational/admin workflows, then the
+  9 half-migrated core routes.
+* **P2 — secondary surfaces**: remaining admin bodies, intelligence
+  surfaces, automation detail pages, reports/client management, NivXForge
+  EDR, authentication screens.
+* **P3 — polish**: the 213 ambiguous colour literals, the 19-file CSS
+  cleanup, dead CSS, register accuracy, and vendor icon completion. Keep the
+  truthful neutral icon fallback until an official asset is verified; never
+  fabricate one to finish a screen.
+
+**Separate engineering lanes, tracked independently and NOT absorbed into
+the UI priority**: W2 Windows real-endpoint proof (resumes the moment the
+owner provides the W2-R0 result), T-RISK-3/4/5 (HELD), Command Intelligence
+R4/R5 (PAUSED), Defender DSM (P1 detection/evidence lane), and the L3
+`llm_decoder` shutdown hang (production-readiness defect; worked around in
+tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
+
+**Checkpoint format** for every report: `P0: X/Y CLOSED`, `P1: X/Y`,
+`P2: X/Y`, `P3: X/Y`, BLOCKERS, NEW REGRESSIONS, NEXT HIGHEST-PRIORITY ITEM.
+
+Three product laws re-confirmed by this wave's defects:
+1. A page must not short-circuit to a bespoke empty block instead of
+   rendering the platform table — that deletes the column contract exactly
+   when the analyst needs to see what was searched.
+2. A router must not re-implement tenancy. Naming a tenant is a REQUEST;
+   `xdr_rbac.resolve_principal` is the only authority that turns it into an
+   authorisation.
+3. A test may only delete what it created.

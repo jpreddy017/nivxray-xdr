@@ -103,24 +103,22 @@ export default function XdrApprovalsPage() {
         </button>
       </div>
       <div className="page-sub">
-        Every response execution currently parked in{" "}
-        <span className="mono" style={{ color: "var(--amber)" }}>
-          WAITING_APPROVAL
-        </span>. A peer approval resumes the SAME execution — no
-        duplicate request is submitted.
+        Every response execution currently waiting for approval. A peer
+        approval resumes the SAME execution — no duplicate request is
+        submitted.
       </div>
 
       {!RESPONSE_ENGINE_CONFIGURED && (
-        <div data-testid="xdr-approvals-not-wired"
-                style={{ marginTop: 10, padding: 10,
-                            border: "1px dashed var(--amber)", borderRadius: 4,
-                            background: "rgba(245,166,35,.08)",
-                            color: "var(--text-dim)", fontSize: 11.5 }}>
-          <b style={{ color: "var(--amber)", fontFamily: "var(--mono)" }}>
-            NOT WIRED
-          </b> — set <span className="mono">VITE_XDR_RESPONSE_URL</span>
-          {" "}to see live pending approvals.
-        </div>
+        <NxSection variant="inset" testid="xdr-approvals-not-wired"
+                   title="Response engine is not connected"
+                   note="This console can show and decide approvals only once
+                         the response plane is reachable. Until then the queue
+                         is not empty — it is UNKNOWN, and saying so is the
+                         honest answer.">
+          <NxState value="NOT_CONFIGURED"
+                   reason="the response engine endpoint is not configured in
+                           this deployment" />
+        </NxSection>
       )}
 
       {/* Filter bar */}

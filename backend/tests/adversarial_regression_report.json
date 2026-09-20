@@ -1,7 +1,7 @@
 {
-  "total": 111,
+  "total": 112,
   "passed": 35,
-  "hit_rate": 0.3153,
+  "hit_rate": 0.3125,
   "threshold": 0.6,
   "results": [
     {
@@ -1046,6 +1046,13 @@
       "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1789893152 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "ddd5ba988803979b6f8ff14874ee6f0d0ad04cb8",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789898990 nivxray unique payload",
       "ok": false
     }
   ]

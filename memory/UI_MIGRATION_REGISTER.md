@@ -16,9 +16,9 @@ recorded by the wave notes below, not inferred from code.
 
 | State | Routes |
 | --- | --- |
-| MIGRATED | 18 |
+| MIGRATED | 20 |
 | IN_PROGRESS | 9 |
-| NOT_STARTED | 37 |
+| NOT_STARTED | 35 |
 | UNRESOLVED | 2 |
 
 | Route | Page | nx adoption | Page-local CSS | Residual debt | State |
@@ -42,7 +42,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/assets/identity | xdr/pages/XdrNotImplementedPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/assets/network | xdr/pages/XdrNotImplementedPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/detect/tuning/:ruleId | xdr/pages/XdrRuleTuningPage.jsx | none | — | — | NOT_STARTED |
-| /xdr/detections | xdr/pages/XdrDetectionsPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/detections/:id | xdr/pages/XdrDetectionRuleEditorPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/docs | xdr/pages/XdrDocsPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/edr/device-trajectory | nivxforge/EdrTrajectoryRedirect.jsx | none | — | — | NOT_STARTED |
@@ -55,7 +54,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/intelligence/kb | xdr/pages/XdrKbPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/intelligence/malware | xdr/pages/XdrMalwareIntelPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/kb | xdr/pages/XdrKbPage.jsx | none | — | — | NOT_STARTED |
-| /xdr/respond/approvals | xdr/pages/XdrApprovalsPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/respond/automation-rules/:id | xdr/pages/XdrAutomationRuleEditorPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/respond/playbooks/:id | xdr/pages/XdrPlaybookDesignerPage.jsx | none | — | — | NOT_STARTED |
 | /xdr/rule-studio | xdr/pages/XdrRuleStudioPage.jsx | none | — | — | NOT_STARTED |
@@ -78,6 +76,7 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/data-sources/:tab | xdr/datasources/DataSourcesPage.jsx | 6 nx primitives | — | — | MIGRATED |
 | /xdr/data-sources/windows | xdr/datasources/windows/WindowsPage.jsx | 5 nx primitives | ./windows.css | — | MIGRATED |
 | /xdr/data-sources/windows/:tab | xdr/datasources/windows/WindowsPage.jsx | 5 nx primitives | ./windows.css | — | MIGRATED |
+| /xdr/detections | xdr/pages/XdrDetectionsPage.jsx | 5 nx primitives | — | — | MIGRATED |
 | /xdr/endpoints/:device | xdr/pages/XdrEntity360Page.jsx | 1 nx primitives | — | — | MIGRATED |
 | /xdr/evidence-explorer | xdr/pages/XdrEvidenceExplorerPage.jsx | 2 nx primitives | — | — | MIGRATED |
 | /xdr/incidents/:id | xdr/pages/XdrIncidentDetailPage.jsx | 19 nx primitives | ./incidents/queue-theme.css, ./incidents/record/record-theme.css | — | MIGRATED |
@@ -87,5 +86,6 @@ recorded by the wave notes below, not inferred from code.
 | /xdr/intelligence/threat | xdr/pages/XdrThreatIntelPage.jsx | 6 nx primitives | — | — | MIGRATED |
 | /xdr/investigations/:caseId/_engine | xdr/pages/XdrInvestigationWorkspacePage.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/reports | xdr/pages/XdrReportsPage.jsx | 5 nx primitives | — | — | MIGRATED |
+| /xdr/respond/approvals | xdr/pages/XdrApprovalsPage.jsx | 3 nx primitives | — | — | MIGRATED |
 | /xdr/respond/automation-rules | xdr/pages/XdrAutomationRulesPage.jsx | 4 nx primitives | — | — | MIGRATED |
 | /xdr/respond/playbooks | xdr/pages/XdrPlaybooksPage.jsx | 4 nx primitives | — | — | MIGRATED |

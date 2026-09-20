@@ -26,6 +26,40 @@ paths (`xdr_ingest`, `collector_authz`, `edr_enrollment`) deliberately keep
 their own credential-bound resolution — there is no user session there — and
 were left untouched.
 
+## P0.5 · classification of the full backend regression
+
+Run 1 completed in 1h22m: **11 404 passed · 493 failed · 271 errors · 264
+skipped**. Run 2 was killed by its wall-clock budget at 79 % (no summary
+line) — recorded here as INCOMPLETE rather than interpreted. Run 3 is
+executing with a larger budget; `scripts/classify_backend_regression.py`
+regenerates the classification from whichever log is current.
+
+Classification of run 1 (by evidence, not opinion):
+
+| Bucket | Files | Tests | Basis |
+|---|---|---|---|
+| `TEST_DEFECT_STALE_AUTH` | 86 | 276 | the file drives gated endpoints without ever calling `/api/auth/login`, and/or still asserts identity via `X-Principal-Id`. Broken by the P0-SEC hardening of 2026-09-09, i.e. **PRE-EXISTING**, long before this wave. |
+| `ENVIRONMENT` | 10 | 178 | passes in ISOLATION, fails only inside the full run — shared-database contamination in `nivxray_ci_local`. |
+| `NEEDS_REVIEW` | 60 | 310 | neither signature matched; must be read before anyone claims it is not a regression. |
+| `NEW REGRESSION` | **0** | **0** | nothing yet attributable to this wave. |
+
+**A real isolation defect was found and fixed while classifying**:
+`tests/test_xdr_rbac.py` ran `delete_many({})` on `xdr_users`, `xdr_roles`,
+`xdr_groups` and `xdr_assignments` — wiping *every* tenant's principals, not
+its own. In a full run it destroyed the principals provisioned by
+`test_p0_security_gate.py` and `test_xdr_rbac_enforcement.py`, which then
+reported ~90 failures that did not exist in isolation. A test may only delete
+what it created; all three now pass together (104 passed).
+
+Suites repaired during classification (each **stale test**, no product
+defect): `test_collector_api_key_auth` (33 pass), `test_xdr_lolbas` (20),
+`test_xdr_response_evidence` (10), `test_xdr_dashboard` (20),
+`test_xdr_api_keys` (9), `test_xdr_webhooks` (9), `test_xdr_secrets`,
+`test_xdr_audit_log`, `test_p0sec_rbac_fail_closed` (22).
+
+The remaining 86 stale-auth files are an evidenced backlog. They are NOT
+counted as green.
+
 ## P1 — IN PROGRESS
 
 * **P1.1 Nx foundation — COMPLETE.** Added `NxFilter` (active constraints are
@@ -34,7 +68,29 @@ were left untouched.
   unobserved relationships), on top of the earlier `NxSection`, `NxToolbar`,
   `NxMetricStrip`, `NxDimensionStrip`, `NxBlockerGroup`, `NxKeyFact`,
   `NxTechnical`, `NxRaw`, `NxToken(List)`, `NxButton`, `NxState`.
-* **P1.2 core analyst workflows — NEXT.** Incidents → Investigation Workspace
+* **P1.2 core analyst workflows — UNDER WAY.** Migrated: Detections
+  (`NxFilter` + dense table, active-filter chips), Investigation Workspace
+  (platform tab rail + artifacts table), Approvals (status vocabulary + an
+  honest "engine not connected" section), Control Center, Investigations,
+  Clients, Evidence Explorer, Automation Rules, Playbooks, Event Explorer,
+  Admin generic list.
+
+  Four defects found by DOM verification (iteration 120) and fixed — three
+  shared ONE root cause worth remembering: **a page must not short-circuit to
+  a bespoke empty block instead of rendering the platform table.** Doing so
+  deletes the column contract exactly when the analyst most needs to see what
+  was searched. The fourth: "Investigate" navigated to
+  `/xdr/incidents/<caseId>`, but a case id is not an incident id, so cases
+  without a same-id incident dead-ended on the deliberate
+  "existence is never disclosed" page; it now opens
+  `/xdr/investigations/<caseId>/_engine`.
+
+  Still owed here: the owner's full tab set
+  (Overview | Timeline | Entities | Detections | Response | Activity | Report)
+  — deliberately NOT added as empty shells, because an empty tab claims a
+  capability the platform does not have.
+
+* **P1.2 original note.** Incidents → Investigation Workspace
   → Detections → Event Explorer → Hunting → Evidence → Entities/Graph →
   Response. Event Explorer and Evidence Explorer are migrated; the
   Investigation Workspace ten-tab experience is not started.

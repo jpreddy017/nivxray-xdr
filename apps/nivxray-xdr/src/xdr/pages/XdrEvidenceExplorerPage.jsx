@@ -269,15 +269,12 @@ export default function XdrEvidenceExplorerPage() {
                 Retry
               </button>
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: "var(--nx-muted)" }} data-testid="evidence-empty-state">
-              <Database size={28} color="var(--nx-text-dim)" style={{ margin: "0 auto 12px" }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--nx-text)" }}>NO MATCHING EVIDENCE</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: "var(--nx-text-dim)" }}>
-                No extracted artifacts, cryptographic hashes, or decoded payloads found matching this filter.
-              </div>
-            </div>
           ) : (
+            /* No bespoke empty block: the platform table owns its own empty
+               state, so the column headers stay visible and the analyst can
+               see WHAT was searched rather than just being told nothing was
+               found. */
+
             <NxDataTable rows={filtered} rowKey={(a) => a.id} pageSize={50}
                          searchable={false}
                          onRowClick={(a) => setSelectedArtifact(a)}

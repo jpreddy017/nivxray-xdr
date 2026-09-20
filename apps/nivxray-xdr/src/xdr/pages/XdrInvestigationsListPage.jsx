@@ -114,8 +114,14 @@ export default function XdrInvestigationsListPage() {
       && (selectedBand === "all" || band === selectedBand);
   }), [cases, filterQuery, selectedBand]);
 
+  //: 2026-06 · this sent the analyst to `/xdr/incidents/<caseId>`, but a
+  //: case id is not an incident id: for a case with no incident of the same
+  //: id the incident page correctly answers "not available to you" (it
+  //: refuses to disclose existence), so "Investigate" dead-ended on a
+  //: fail-closed page. It now opens the investigation workspace, which is
+  //: the surface that can actually render a case.
   const open = (caseId) =>
-    navigate(`/xdr/incidents/${encodeURIComponent(caseId)}?tab=story`);
+    navigate(`/xdr/investigations/${encodeURIComponent(caseId)}/_engine?tab=story`);
 
   return (
     <XdrShell>

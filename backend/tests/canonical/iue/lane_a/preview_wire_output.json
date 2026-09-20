@@ -10,7 +10,7 @@
     "lane": "structured",
     "parent_input_id": null,
     "provenance": {
-      "at": "2026-09-20T09:46:42.940897+00:00",
+      "at": "2026-09-20T15:17:49.655809+00:00",
       "engine": "iue.intake",
       "upstream_evidence_ids": [
         "bb0343677eaeaf7c"
@@ -38,17 +38,17 @@
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:00.870Z",
       "provenance": {
-        "at": "2026-09-20T09:46:42.941179+00:00",
+        "at": "2026-09-20T15:17:49.656061+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "1e8b6d2da302c37b767de27f",
-          "iue.parsers.ndjson:2026-09-20T09:46:42.940929+00:00",
+          "iue.parsers.ndjson:2026-09-20T15:17:49.655844+00:00",
           "1e8b6d2da302c37b767de27f",
-          "iue.normalizers.field_map:2026-09-20T09:46:42.941031+00:00",
+          "iue.normalizers.field_map:2026-09-20T15:17:49.655943+00:00",
           "43bd4cc52edac09e1f9bc5d6"
         ],
         "version": "1.0"
@@ -92,17 +92,17 @@
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:05.100Z",
       "provenance": {
-        "at": "2026-09-20T09:46:42.941187+00:00",
+        "at": "2026-09-20T15:17:49.656068+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "1c3b5b246228a085b09c892d",
-          "iue.parsers.ndjson:2026-09-20T09:46:42.940957+00:00",
+          "iue.parsers.ndjson:2026-09-20T15:17:49.655874+00:00",
           "1c3b5b246228a085b09c892d",
-          "iue.normalizers.field_map:2026-09-20T09:46:42.941074+00:00",
+          "iue.normalizers.field_map:2026-09-20T15:17:49.655973+00:00",
           "19addb5e4e90c40f48d5ae05"
         ],
         "version": "1.0"
@@ -144,17 +144,17 @@
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:07.500Z",
       "provenance": {
-        "at": "2026-09-20T09:46:42.941193+00:00",
+        "at": "2026-09-20T15:17:49.656074+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "acc9d98fa723bdce06562465",
-          "iue.parsers.ndjson:2026-09-20T09:46:42.940967+00:00",
+          "iue.parsers.ndjson:2026-09-20T15:17:49.655883+00:00",
           "acc9d98fa723bdce06562465",
-          "iue.normalizers.field_map:2026-09-20T09:46:42.941086+00:00",
+          "iue.normalizers.field_map:2026-09-20T15:17:49.655983+00:00",
           "9fd52fbb2990d601d8cec847"
         ],
         "version": "1.0"
@@ -193,17 +193,17 @@
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:08.220Z",
       "provenance": {
-        "at": "2026-09-20T09:46:42.941199+00:00",
+        "at": "2026-09-20T15:17:49.656079+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "c9a5954fe060783abf637a39",
-          "iue.parsers.ndjson:2026-09-20T09:46:42.940976+00:00",
+          "iue.parsers.ndjson:2026-09-20T15:17:49.655891+00:00",
           "c9a5954fe060783abf637a39",
-          "iue.normalizers.field_map:2026-09-20T09:46:42.941095+00:00",
+          "iue.normalizers.field_map:2026-09-20T15:17:49.655992+00:00",
           "15c3daa887dc8f391b5529ae"
         ],
         "version": "1.0"
@@ -240,17 +240,17 @@
       "input_id": "bb0343677eaeaf7c",
       "last_seen": "2026-02-14T12:00:15.000Z",
       "provenance": {
-        "at": "2026-09-20T09:46:42.941205+00:00",
+        "at": "2026-09-20T15:17:49.656085+00:00",
         "engine": "iue.aggregator",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "5a01289a35e6366cd4395a31",
-          "iue.parsers.ndjson:2026-09-20T09:46:42.941010+00:00",
+          "iue.parsers.ndjson:2026-09-20T15:17:49.655921+00:00",
           "5a01289a35e6366cd4395a31",
-          "iue.normalizers.field_map:2026-09-20T09:46:42.941118+00:00",
+          "iue.normalizers.field_map:2026-09-20T15:17:49.656005+00:00",
           "b37852608974a7b44b596aff"
         ],
         "version": "1.0"
@@ -286,13 +286,13 @@
       "parse_status": "malformed",
       "parser_name": "ndjson",
       "provenance": {
-        "at": "2026-09-20T09:46:42.940999+00:00",
+        "at": "2026-09-20T15:17:49.655912+00:00",
         "engine": "iue.parsers.ndjson",
         "upstream_evidence_ids": [
           "bb0343677eaeaf7c",
-          "iue.intake:2026-09-20T09:46:42.940897+00:00",
+          "iue.intake:2026-09-20T15:17:49.655809+00:00",
           "bb0343677eaeaf7c5fd904286b9794fa",
-          "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+          "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
           "4888e810e20544b3ffa3c1ec"
         ],
         "version": "1.0"
@@ -311,11 +311,11 @@
     "mime": "application/x-ndjson",
     "parent_input_id": null,
     "provenance": {
-      "at": "2026-09-20T09:46:42.940911+00:00",
+      "at": "2026-09-20T15:17:49.655823+00:00",
       "engine": "iue.collectors.log",
       "upstream_evidence_ids": [
         "bb0343677eaeaf7c",
-        "iue.intake:2026-09-20T09:46:42.940897+00:00",
+        "iue.intake:2026-09-20T15:17:49.655809+00:00",
         "bb0343677eaeaf7c5fd904286b9794fa"
       ],
       "version": "1.0"
@@ -341,17 +341,17 @@
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:00.870Z",
         "provenance": {
-          "at": "2026-09-20T09:46:42.941179+00:00",
+          "at": "2026-09-20T15:17:49.656061+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-09-20T09:46:42.940897+00:00",
+            "iue.intake:2026-09-20T15:17:49.655809+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+            "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
             "1e8b6d2da302c37b767de27f",
-            "iue.parsers.ndjson:2026-09-20T09:46:42.940929+00:00",
+            "iue.parsers.ndjson:2026-09-20T15:17:49.655844+00:00",
             "1e8b6d2da302c37b767de27f",
-            "iue.normalizers.field_map:2026-09-20T09:46:42.941031+00:00",
+            "iue.normalizers.field_map:2026-09-20T15:17:49.655943+00:00",
             "43bd4cc52edac09e1f9bc5d6"
           ],
           "version": "1.0"
@@ -395,17 +395,17 @@
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:05.100Z",
         "provenance": {
-          "at": "2026-09-20T09:46:42.941187+00:00",
+          "at": "2026-09-20T15:17:49.656068+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-09-20T09:46:42.940897+00:00",
+            "iue.intake:2026-09-20T15:17:49.655809+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+            "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
             "1c3b5b246228a085b09c892d",
-            "iue.parsers.ndjson:2026-09-20T09:46:42.940957+00:00",
+            "iue.parsers.ndjson:2026-09-20T15:17:49.655874+00:00",
             "1c3b5b246228a085b09c892d",
-            "iue.normalizers.field_map:2026-09-20T09:46:42.941074+00:00",
+            "iue.normalizers.field_map:2026-09-20T15:17:49.655973+00:00",
             "19addb5e4e90c40f48d5ae05"
           ],
           "version": "1.0"
@@ -447,17 +447,17 @@
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:07.500Z",
         "provenance": {
-          "at": "2026-09-20T09:46:42.941193+00:00",
+          "at": "2026-09-20T15:17:49.656074+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-09-20T09:46:42.940897+00:00",
+            "iue.intake:2026-09-20T15:17:49.655809+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+            "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
             "acc9d98fa723bdce06562465",
-            "iue.parsers.ndjson:2026-09-20T09:46:42.940967+00:00",
+            "iue.parsers.ndjson:2026-09-20T15:17:49.655883+00:00",
             "acc9d98fa723bdce06562465",
-            "iue.normalizers.field_map:2026-09-20T09:46:42.941086+00:00",
+            "iue.normalizers.field_map:2026-09-20T15:17:49.655983+00:00",
             "9fd52fbb2990d601d8cec847"
           ],
           "version": "1.0"
@@ -496,17 +496,17 @@
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:08.220Z",
         "provenance": {
-          "at": "2026-09-20T09:46:42.941199+00:00",
+          "at": "2026-09-20T15:17:49.656079+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-09-20T09:46:42.940897+00:00",
+            "iue.intake:2026-09-20T15:17:49.655809+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+            "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
             "c9a5954fe060783abf637a39",
-            "iue.parsers.ndjson:2026-09-20T09:46:42.940976+00:00",
+            "iue.parsers.ndjson:2026-09-20T15:17:49.655891+00:00",
             "c9a5954fe060783abf637a39",
-            "iue.normalizers.field_map:2026-09-20T09:46:42.941095+00:00",
+            "iue.normalizers.field_map:2026-09-20T15:17:49.655992+00:00",
             "15c3daa887dc8f391b5529ae"
           ],
           "version": "1.0"
@@ -543,17 +543,17 @@
         "input_id": "bb0343677eaeaf7c",
         "last_seen": "2026-02-14T12:00:15.000Z",
         "provenance": {
-          "at": "2026-09-20T09:46:42.941205+00:00",
+          "at": "2026-09-20T15:17:49.656085+00:00",
           "engine": "iue.aggregator",
           "upstream_evidence_ids": [
             "bb0343677eaeaf7c",
-            "iue.intake:2026-09-20T09:46:42.940897+00:00",
+            "iue.intake:2026-09-20T15:17:49.655809+00:00",
             "bb0343677eaeaf7c5fd904286b9794fa",
-            "iue.collectors.log:2026-09-20T09:46:42.940911+00:00",
+            "iue.collectors.log:2026-09-20T15:17:49.655823+00:00",
             "5a01289a35e6366cd4395a31",
-            "iue.parsers.ndjson:2026-09-20T09:46:42.941010+00:00",
+            "iue.parsers.ndjson:2026-09-20T15:17:49.655921+00:00",
             "5a01289a35e6366cd4395a31",
-            "iue.normalizers.field_map:2026-09-20T09:46:42.941118+00:00",
+            "iue.normalizers.field_map:2026-09-20T15:17:49.656005+00:00",
             "b37852608974a7b44b596aff"
           ],
           "version": "1.0"
