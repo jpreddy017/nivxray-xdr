@@ -1,5 +1,58 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-20 · TASK 3 · INVESTIGATION WORKSPACE CORE — MIGRATED · VERIFIED_PROGRAMMATICALLY
+
+Proof: `scripts/p1_investigation_dom_proof.py` → **45 PASS · 0 FAIL**
+(`test_reports/p1_investigation_dom_proof.txt`). No screenshots.
+
+- **Ten tabs → SEVEN primary views**: `Overview · Story · Timeline ·
+  Evidence · Detections · Response · Activity`. Entities became a
+  **Graph|Table lens inside Story** (contextual entity panes kept), ATT&CK a
+  **drill-down under Detections**, Report a **header action** with a
+  deep-linkable view. Nothing was deleted: `?tab=entities|graph|attack_graph|
+  related → story`, `?tab=mitre|technical → detections`, and every old key
+  still resolves.
+- **New investigation modules** (`xdr/incidents/`):
+  `investigationPivots.js` — the ONE pivot contract (entity → related
+  events · entity → hunt · detection → evidence · evidence → activity ·
+  IOC → intelligence · device → trajectory). A pivot that cannot be offered
+  honestly returns `null` and the control is not rendered. Tenant is never
+  in a URL — the session stays the tenant authority.
+  `IncidentEntities.jsx` — entities read from `endpoint_campaign` + `iocs`,
+  each stating its source field, with pivots and entity-context response.
+  `RecommendedActions.jsx` — deterministic next actions with
+  Reason · Evidence · pivot. No model, no "AI recommends"; an empty list is
+  a true statement.
+  `IncidentProvenance.jsx` — `Raw → Parsed → Normalized → Canonical
+  evidence → Detection → Incident`. Verified live:
+  `NOT_REPORTED ×3 → MATERIALISED → MATCHED → OBSERVED`; the three ingest
+  stages say they are recorded per canonical event and pivot to Event
+  Explorer instead of being drawn as complete.
+- **Response is six distinct facts**: `REQUESTED · AUTHORIZED · DISPATCHED ·
+  EXECUTED · RESULT_REPORTED · VERIFIED` (`RESULT_REPORTED` added to
+  `NxOpsState`). Entity-context response only for a device with an endpoint
+  id and only when authorized; other entity classes read
+  **"No response plane"** rather than offering an action that cannot
+  execute.
+- **Authorization proven on a real identity**: for the tenant-authorized
+  analyst without response/update permission the response control is
+  **disabled with the reason**, the state transition is **disabled**, and
+  **no** entity-level Respond renders. Cross-tenant: API **404** (existence
+  never disclosed) and the workspace reads `NOT AUTHORIZED`.
+- **CSS review**: `queue-theme.css` is scoped entirely under `.xdr-queue-l2`,
+  a class no surface carries since the queue became the nx table — the dead
+  import was removed from the workspace (file retained).
+  `record-theme.css` **is** load bearing for the remaining legacy `rl-*` tab
+  bodies and stays.
+- Register: `/xdr/incidents/:id` **MIGRATED** (20 nx primitives),
+  `/xdr/investigations` now **MIGRATED** too (last stray `cx-pill` replaced).
+  Totals: MIGRATED 22 · IN_PROGRESS 7 · NOT_STARTED 34.
+- Environment notes for the next agent: the preview edge 403s the default
+  `urllib` user-agent (declare a browser UA or the edge is what you measure),
+  it throttles rapid login bursts with 429, and a long-running vite dev
+  server can serve a stale `?t=` module — restart `frontend` before calling
+  that a product defect.
+
 ## 2026-06-20 · TASK 2 · INCIDENTS — MIGRATED · VERIFIED_PROGRAMMATICALLY
 
 Proof: `scripts/p1_incidents_dom_proof.py` → **24 PASS · 0 FAIL**

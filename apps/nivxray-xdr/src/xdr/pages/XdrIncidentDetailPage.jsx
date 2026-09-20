@@ -26,11 +26,14 @@ import {
   NxPageShell, NxEntityHeader, NxFact, NxTabs, NxChip, NxEmpty, NxSkeleton,
   NxVerdict, NxLifecycle, NxPriority, NxRisk, NxConfidence,
   NxProvenanceChip, NxAttackChain, NxMetric,
-  NxInvSection, NxInvMetrics, NxInvValue, NxInvTech, ABSENCE,
+  NxInvSection, NxInvMetrics, NxInvValue, NxInvTech, ABSENCE, NxState,
 } from "@/xdr/nx";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
 import OpenInEdr from "@/xdr/components/OpenInEdr";
 import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligenceContext";
+import IncidentEntities from "@/xdr/incidents/IncidentEntities";
+import RecommendedActions from "@/xdr/incidents/RecommendedActions";
+import IncidentProvenance from "@/xdr/incidents/IncidentProvenance";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
 import ActivityWorklogTab   from "./incidents/record/tabs/ActivityWorklogTab";
@@ -65,31 +68,48 @@ import ReportTab            from "./incidents/record/tabs/ReportTab";
 const InvestigationEngine = lazy(
   () => import("./XdrInvestigationWorkspacePage"));
 
-import "./incidents/queue-theme.css";
+/* Task 3 · CSS review. `queue-theme.css` is scoped ENTIRELY under
+   `.xdr-queue-l2`, a class no surface carries since the queue became the nx
+   table — the import was dead weight on every investigation load and is
+   removed (the file is retained, not deleted, because the legacy queue
+   components it styles still exist). `record-theme.css` IS still load
+   bearing: the remaining legacy `rl-*` tab bodies (Executive, Related,
+   Notes, Closure, Threat assessment) render unstyled without it, so it stays
+   until those components finish migrating. */
 import "./incidents/record/record-theme.css";
 import "@/xdr/nx/nx-entity.css";
 import "@/xdr/nx/nx-inv.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
 
+/**
+ * Task 3 · SEVEN primary investigation views, in the order the
+ * investigation itself runs. A backend domain does not earn a tab:
+ *   · Entities is a Graph|Table LENS inside Story, with contextual panes.
+ *   · ATT&CK is a drill-down from Story and Detections, where the mapping
+ *     is authoritative — never an isolated badge wall.
+ *   · Report is a workspace ACTION (header) with a deep-linkable view.
+ * Nothing was removed while consolidating; every surface still mounts.
+ */
 const TABS = [
   { key: "overview",   label: "Overview" },
-  { key: "story",      label: "Attack Story" },
+  { key: "story",      label: "Story" },
   { key: "timeline",   label: "Timeline" },
   { key: "evidence",   label: "Evidence" },
-  { key: "entities",   label: "Entities" },
   { key: "detections", label: "Detections" },
-  { key: "mitre",      label: "MITRE" },
   { key: "response",   label: "Response" },
   { key: "activity",   label: "Activity" },
-  { key: "report",     label: "Report" },
 ];
+
+/** Deep-linkable views that are reached by an action, not by a tab. */
+const ACTION_VIEWS = ["report"];
 
 /** Every tab key the previous record used, so shared deep links still land. */
 const LEGACY_TAB_ALIASES = {
   attack_story: "story", executive: "overview", summary: "overview",
-  technical: "detections", attack_graph: "entities", graph: "entities",
+  technical: "detections", attack_graph: "story", graph: "story",
+  entities: "story", related: "story", mitre: "detections",
   auto_investigation: "activity", notes: "activity", closure: "activity",
-  recommendations: "response", related: "entities",
+  recommendations: "response",
 };
 
 const LIFECYCLE_NEXT = {
@@ -140,7 +160,7 @@ export default function XdrIncidentDetailPage() {
   const access = useAccess();
 
   const raw = params.get("tab") || "overview";
-  const tab = TABS.some((t) => t.key === raw)
+  const tab = (TABS.some((t) => t.key === raw) || ACTION_VIEWS.includes(raw))
     ? raw : (LEGACY_TAB_ALIASES[raw] || "overview");
 
   const [incident, setIncident] = useState(null);
@@ -196,6 +216,11 @@ export default function XdrIncidentDetailPage() {
             {busy === s ? "…" : (LC_LABEL[s] || s)}
           </button>
         ))}
+        <button className="nx-dt-btn" data-testid="incident-generate-report"
+                title="Compose the investigation report from this record. Evidence-derived sections are read-only."
+                onClick={() => setTab("report")}>
+          Report
+        </button>
         <button className="nx-dt-btn" data-testid="incident-open-respond"
                 disabled={canRespond === false}
                 title={canRespond === false
@@ -214,7 +239,7 @@ export default function XdrIncidentDetailPage() {
         />
       </>
     );
-  }, [incident, busy, canManage, canRespond]); // eslint-disable-line
+  }, [incident, busy, canManage, canRespond, setTab]); // eslint-disable-line
 
   if (loading && !incident) {
     return (
@@ -393,6 +418,13 @@ export default function XdrIncidentDetailPage() {
                   }))} />
               </NxInvSection>
 
+              <IncidentEntities incident={incident} canRespond={canRespond}
+                                onRespond={() => setRespondOpen(true)}
+                                testid="incident-overview-entities" />
+
+              <RecommendedActions incident={incident}
+                                  testid="incident-overview-recommended" />
+
               <NxInvSection title="Incident summary"
                             subtitle="evidence-backed narrative and recommended next inspection"
                             testid="incident-overview-summary">
@@ -429,10 +461,41 @@ export default function XdrIncidentDetailPage() {
                 </NxInvSection>
               )}
               <AttackStoryTab incident={incident} />
+
+              {/* Task 3 · Entities is a LENS of the story, not a peer tab:
+                  Graph | Table with contextual entity panes, where every
+                  relationship is evidence-backed and an unobserved one is
+                  drawn as inferred rather than asserted. */}
+              <NxInvSection title="Entities · graph or table"
+                            subtitle="the evidence-backed relationships this story is made of — select a node or edge for its supporting evidence"
+                            testid="incident-story-entities">
+                <EntitiesGraphTab incident={incident}
+                                  onNavigateTab={(t) =>
+                                    setTab(t === "findings" ? "activity"
+                                      : t === "mitre" ? "detections" : t)} />
+              </NxInvSection>
+
+              <IncidentEntities incident={incident} canRespond={canRespond}
+                                onRespond={() => setRespondOpen(true)}
+                                title="Entities cited by this incident"
+                                testid="incident-story-entity-list" />
+
+              <NxInvSection title="Related records"
+                            subtitle="pivot into any entity's own 360 view"
+                            testid="incident-story-related">
+                <div className="inv-sec__b--pad">
+                  <RelatedTab incident={incident} />
+                </div>
+              </NxInvSection>
+
               <EngineDepth title="How it unfolded"
                            hint="Reconstructed causal narrative and process ancestry for this incident."
                            caseId={incident.id}
                            capabilities={["story", "process"]} />
+              <EngineDepth title="Evidence graph (IKG)"
+                           hint="The entity and relationship graph this investigation was derived from."
+                           caseId={incident.id}
+                           capabilities={["graph"]} />
             </div>
           )}
 
@@ -447,6 +510,7 @@ export default function XdrIncidentDetailPage() {
           )}
           {tab === "evidence"   && (
             <>
+              <IncidentProvenance incident={incident} />
               <EvidenceTab incident={incident} />
               <EngineDepth title="Extracted artifacts & hashes"
                            hint="Artifacts the pipeline extracted from this case, with their hash chain."
@@ -454,57 +518,22 @@ export default function XdrIncidentDetailPage() {
                            capabilities={["evidence"]} />
             </>
           )}
-          {tab === "entities"   && (
+          {tab === "detections" && (
             <div className="inv">
-              <NxInvSection title="Entities"
-                            subtitle="every entity class this incident touches — an uncounted class is not zero"
-                            testid="incident-entities-inventory">
-                <NxInvMetrics testid="incident-entities-metrics" items={[
-                  { key: "devices", label: "Devices",
-                    value: assets.hosts ?? null, absent: ABSENCE.NOT_OBSERVED },
-                  { key: "users", label: "Users",
-                    value: assets.users ?? null, absent: ABSENCE.NOT_OBSERVED },
-                  { key: "processes", label: "Processes",
-                    value: assets.processes ?? null, absent: ABSENCE.NOT_OBSERVED },
-                  { key: "files", label: "Files / hashes",
-                    value: assets.files ?? null, absent: ABSENCE.NOT_OBSERVED },
-                  { key: "network", label: "IPs / domains / URLs",
-                    value: assets.network ?? null, absent: ABSENCE.NOT_OBSERVED },
-                ]} />
-              </NxInvSection>
+              <TechnicalTab incident={incident} />
 
-              <NxInvSection title="Related entities"
-                            subtitle="pivot into any entity's own 360 view"
-                            testid="incident-entities-related">
-                <div className="inv-sec__b--pad">
-                  <RelatedTab incident={incident} />
-                </div>
-              </NxInvSection>
-
-              <NxInvSection title="Relationships"
-                            subtitle="the causality graph for this incident — graph or table, with contextual entity details"
-                            testid="incident-entities-relationships">
-                <EntitiesGraphTab incident={incident}
-                                  onNavigateTab={(t) =>
-                                    setTab(t === "findings" ? "activity" : t)} />
-              </NxInvSection>
-
-              <EngineDepth title="Evidence graph (IKG)"
-                           hint="The entity and relationship graph this investigation was derived from."
-                           caseId={incident.id}
-                           capabilities={["graph"]} />
-            </div>
-          )}
-          {tab === "detections" && <TechnicalTab incident={incident} />}
-          {tab === "mitre"      && (
-            <div className="inv">
-              <NxInvSection title="ATT&CK coverage"
-                            subtitle="a technique appears only where evidence substantiates it"
-                            testid="incident-mitre-sec">
+              {/* Task 3 · ATT&CK is a DRILL-DOWN from the detections that
+                  substantiate it, never a standalone badge wall: a technique
+                  appears only where the authoritative detection content
+                  mapped it, and selecting it shows that detection. */}
+              <NxInvSection title="ATT&CK · from the detections that prove it"
+                            subtitle="a technique appears only where the authoritative detection content mapped it to this incident's evidence"
+                            testid="incident-detections-mitre">
                 <div className="inv-sec__b--pad">
                   <MitreTab incident={incident} />
                 </div>
               </NxInvSection>
+
               <EngineDepth title="Engine technique mapping"
                            hint="ATT&CK techniques the causal engine attributed to this incident."
                            caseId={incident.id}
@@ -518,22 +547,37 @@ export default function XdrIncidentDetailPage() {
                 <p style={{ fontSize: 12, color: "var(--nx-text-dim)",
                             margin: "0 0 10px", lineHeight: 1.6 }}>
                   NivXRay keeps <strong>Requested → Approved → Dispatched →
-                  Executed → Verified</strong> as five distinct facts. An
-                  approved action is never rendered as a contained endpoint.
+                  Executed → Result reported → Independently verified</strong>
+                  as six distinct facts. Accepted is not executed, and
+                  executed is not verified: an approved action is never
+                  rendered as a contained endpoint, and an execution with no
+                  independent proof reads <em>Executed · unproven</em>.
                 </p>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {["Requested", "Approved", "Dispatched", "Executed",
-                    "Verified"].map((s) => (
-                    <NxChip key={s} tone="neutral" variant="dashed">{s}</NxChip>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+                     data-testid="incident-response-lifecycle">
+                  {["REQUESTED", "AUTHORIZED", "DISPATCHED", "EXECUTED",
+                    "RESULT_REPORTED", "VERIFIED"].map((s) => (
+                    <NxState key={s} value={s} size="md"
+                             testid={`incident-response-state-${s.toLowerCase()}`} />
                   ))}
                 </div>
                 <button className="nx-dt-btn" style={{ marginTop: 12 }}
                         data-testid="incident-response-open"
                         disabled={canRespond === false}
+                        title={canRespond === false
+                          ? "You are not authorized to request a response for this tenant"
+                          : canRespond === null
+                            ? "Authorization contract unavailable — the server decides"
+                            : undefined}
                         onClick={() => setRespondOpen(true)}>
                   Open response drawer <ArrowUpRight size={13} />
                 </button>
               </section>
+              <IncidentEntities incident={incident} canRespond={canRespond}
+                                onRespond={() => setRespondOpen(true)}
+                                title="Respond from the entity being investigated"
+                                testid="incident-response-entities" />
+
               <NxInvSection title="Response actions"
                             subtitle="recommended · requested · approved · dispatched · executed · verified"
                             testid="incident-response-actions">

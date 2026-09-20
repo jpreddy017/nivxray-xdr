@@ -87,6 +87,7 @@ export const OPS_STATES = {
   DISPATCHED:           S("Dispatched", "low"),
   EXECUTING:            S("Executing", "running"),
   EXECUTED:             S("Executed · unproven", "medium"),
+  RESULT_REPORTED:      S("Result reported · unverified", "medium"),
   VERIFIED:             S("Verified", "benign"),
   VERIFICATION_FAILED:  S("Verification failed", "critical"),
   FAILED:               S("Failed", "critical"),

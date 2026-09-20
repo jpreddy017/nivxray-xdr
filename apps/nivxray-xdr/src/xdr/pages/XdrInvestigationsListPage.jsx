@@ -19,7 +19,7 @@ import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
-import { NxChip, NxDataTable } from "@/xdr/nx";
+import { NxChip, NxDataTable, NxButton } from "@/xdr/nx";
 
 const BANDS = ["all", "critical", "malicious", "suspicious", "low",
                "informational", "benign", "unknown"];
@@ -141,10 +141,10 @@ export default function XdrInvestigationsListPage() {
             surfaces, not beside them.
           </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            <button className="cx-pill" onClick={loadCases} disabled={loading}
-                    data-testid="refresh-investigations-btn">
+            <NxButton onClick={loadCases} disabled={loading}
+                      testid="refresh-investigations-btn">
               <RefreshCw size={11} /> Refresh
-            </button>
+            </NxButton>
           </div>
         </div>
 
