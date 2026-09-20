@@ -1,5 +1,38 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · INVESTIGATE → INCIDENT CONSOLIDATION INVENTORY — READ-ONLY · DELIVERED
+
+Report: `/app/memory/INVESTIGATION_TO_INCIDENT_CONSOLIDATION_INVENTORY.md`.
+Nothing was implemented, deleted, redirected or migrated (`git status`: one
+new document). Headlines:
+- `/xdr/investigations/:caseId` **already redirects** into the incident
+  workspace; the engine page survives only at `…/_engine`. But the Investigate
+  landing still opens rows at `/_engine`, and its primary authority
+  `/api/v2/cases` returns **37 cases with ZERO incident ids** (golden
+  fixtures) — `GET /api/incidents/<case_golden…>` is 404.
+- **Three distinct investigation domain objects**: A = incident's autonomous
+  investigation (analytical child of an Incident) · B = v2 case engine
+  (`v2_cases` 37, `require_admin`) · C = L1/L2 bundle/forensic cases
+  (`investigation_cases` 104, owner-scoped, own state machine) (+ D =
+  Workspace command timelines). `case_id ↔ incident_id` do NOT map.
+- The engine page carries **no unique analyst capability** — all 8 engine tabs
+  are already mounted in the incident page as `EngineDepth` panels. Only three
+  engine-only controls exist: verdict profile selector, negative
+  explainability, trajectory view switch.
+- **Non-incident investigation is backend-real but console-nonexistent**: no
+  XDR frontend call site creates a case (`POST /api/investigation`,
+  `/api/v2/cases`, `/api/cases/save` are never called).
+- `src/xdr/investigation/` (7 files, ~2.6 kLOC incl.
+  `EvidenceFirstInvestigationWorkspace`) is **unmounted dead code**;
+  `scenario-match` therefore has no reachable UI.
+- **P0 SECURITY (found, NOT fixed, owner decision needed)**: six incident
+  sub-resources are anonymous/unscoped — `…/investigation`,
+  `…/investigation/executions`, `…/investigation/findings`, `…/attack-story`,
+  `…/attack-graph`, `…/report` + `/report/pdf` all answer **anonymous 200**,
+  and the report block write API has **no auth dependency at all** with
+  `author_email` taken from the body. Same class as P0-W, which fixed only
+  `/api/incidents/{id}`.
+
 ## 2026-06-21 · TASK 3A · INVESTIGATION PIVOTS + CONTRAST DEFECT — DONE · VERIFIED_PROGRAMMATICALLY
 
 Proofs (no screenshots): `scripts/p1_task3a_pivots_dom_proof.py` →
