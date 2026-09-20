@@ -135,7 +135,6 @@ export default function XdrAutomationRulesPage() {
                   </button>
                 </span>) },
           ]} />
-        )}
         <div style={{ padding: "8px 14px", borderTop: "1px solid var(--border)",
                          background: "var(--panel2)",
                          color: "var(--faint)", fontSize: 10.5,

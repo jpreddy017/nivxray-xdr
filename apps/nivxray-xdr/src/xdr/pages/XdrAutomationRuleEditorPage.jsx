@@ -82,7 +82,7 @@ export default function XdrAutomationRuleEditorPage() {
       setLiveResult(res);
     } catch (e) {
       setLiveResult({ error: e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
-        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL)."
+        ? "Response Engine URL not set."
         : (e?.message || String(e)) });
     } finally { setLiveBusy(false); }
   };

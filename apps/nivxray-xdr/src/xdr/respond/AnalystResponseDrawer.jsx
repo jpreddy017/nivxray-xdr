@@ -84,7 +84,7 @@ export default function AnalystResponseDrawer({
 
   async function invoke() {
     if (!RESPONSE_ENGINE_CONFIGURED) {
-      setError("Response Engine URL not set (VITE_XDR_RESPONSE_URL)."); return;
+      setError("Response Engine URL not set."); return;
     }
     if (!action) { setError("Pick a response action."); return; }
     if (missingParam) { setError(`Missing parameter: ${missingParam}`); return; }

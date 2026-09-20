@@ -1,5 +1,31 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-20 · P0.5 CLOSED WITH DOCUMENTED TEST-INFRASTRUCTURE DEBT
+
+Record: `/app/memory/P0_5_CLOSURE.md`. Owner mode change: work is now taken
+as **small bounded tasks with a PASS/FAIL exit condition**, one at a time;
+the large directive remains the architecture blueprint only.
+
+- Run 3 of the full backend regression **completed** (11 453 passed · 462
+  failed · 291 errors · 264 skipped · 15 xfailed, 1:13:34) and is preserved
+  as the baseline. Runs 1–3 logs kept in `test_reports/`.
+- **0 NEW REGRESSION · 0 NEEDS_REVIEW.** The 7 failing files that touch a
+  surface this security wave changed produce byte-identical outcomes on the
+  pre-wave tree `b4dfc4b0`. Remaining: 86 `TEST_DEFECT_STALE_AUTH`, 41
+  `PRE_EXISTING_UNRELATED`, 21 `ENVIRONMENT` — carried as debt, never
+  reported as green.
+- Security gates PASS: 193 alone; 227 in one serial process together with
+  the security plane (auth · tenancy · API keys · audit · collectors · RBAC).
+- Two real test-infrastructure defects fixed: `test_restore_equivalence_live`
+  repointed `MONGO_URL`/`DB_NAME` to the **preview** database at import time
+  for the whole run; `test_moe_panel` blanked `EMERGENT_LLM_KEY`
+  process-wide, breaking every later `validate_config()`.
+- Next tasks, in the owner's order: Task 2 Incidents migration + DOM
+  verification → Task 3 Investigation Workspace → Task 4 Event Explorer →
+  Task 5 Hunting → Task 6 Control Center + Clients → Task 7 workspace/RBAC
+  contract → Tasks 8-11 logins, switcher, test identities, Admin shell →
+  Tasks 12-19 Admin capability-by-capability.
+
 ## 2026-06 · WAVE 2 · PROGRAM B (WINDOWS ACQUISITION) + RBAC-0 DISCOVERY + LANE 5
 
 Records: `NIVXRAY_XDR_MASTER_OPEN_WORK_REGISTER.md` (master backlog, 9 programs) ·

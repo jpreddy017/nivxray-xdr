@@ -30,6 +30,7 @@ exercises them is escalated to NEEDS_REVIEW even if it looks stale.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from collections import Counter
 from pathlib import Path
@@ -58,8 +59,35 @@ VERIFIED_ISOLATED = {
 
 FAILED = re.compile(r"^(?:FAILED|ERROR) (tests/[\w/]+\.py)")
 
+#: Evidence produced while CLOSING P0.5 — no file is classified by opinion.
+#: `p0_5_isolation.json` records the per-file ISOLATION run (passes alone =
+#: ENVIRONMENT); `p0_5_prewave_attribution.json` records the same file run
+#: against the pre-wave tree `b4dfc4b0` (identical outcome = PRE_EXISTING).
+ISOLATION = Path("/app/test_reports/p0_5_isolation.json")
+PREWAVE = Path("/app/test_reports/p0_5_prewave_attribution.json")
+
+
+def _evidence() -> dict[str, str]:
+    verdicts: dict[str, str] = {}
+    if ISOLATION.exists():
+        for rel, row in json.loads(ISOLATION.read_text()).items():
+            if row.get("verdict") == "ENVIRONMENT":
+                verdicts[rel] = "ENVIRONMENT"
+            elif row.get("verdict") == "PRE_EXISTING_UNRELATED":
+                verdicts[rel] = "PRE_EXISTING_UNRELATED"
+    if PREWAVE.exists():
+        for rel, row in json.loads(PREWAVE.read_text()).items():
+            verdicts[rel] = ("PRE_EXISTING_PROVEN_PREWAVE"
+                             if row.get("verdict") == "PRE_EXISTING"
+                             else "NEW_REGRESSION")
+    return verdicts
+
 
 def classify(path: Path) -> str:
+    rel = str(path).replace("/app/backend/", "")
+    proven = _evidence().get(rel)
+    if proven:
+        return proven
     try:
         src = path.read_text(encoding="utf8", errors="replace")
     except OSError:
@@ -95,7 +123,8 @@ def main() -> int:
     total = sum(files.values())
     print(f"{len(files)} failing files · {total} failing tests\n")
     for verdict in ("NEW_REGRESSION", "NEEDS_REVIEW",
-                    "TEST_DEFECT_STALE_AUTH", "ENVIRONMENT"):
+                    "TEST_DEFECT_STALE_AUTH", "PRE_EXISTING_UNRELATED",
+                    "PRE_EXISTING_PROVEN_PREWAVE", "ENVIRONMENT"):
         rows = sorted(buckets.get(verdict, []), key=lambda r: -r[1])
         if not rows:
             continue

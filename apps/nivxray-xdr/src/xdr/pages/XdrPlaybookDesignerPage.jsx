@@ -180,7 +180,7 @@ export default function XdrPlaybookDesignerPage() {
                   disabled={!RESPONSE_ENGINE_WIRED}
                   title={RESPONSE_ENGINE_WIRED
                             ? "Live run — real Response Engine · state machine · persisted approvals"
-                            : "Response Engine not wired · set VITE_XDR_RESPONSE_URL"}
+                            : "Response Engine not wired · configure the response engine endpoint"}
                   onClick={() => { setStudioMode("live"); setView("studio"); }}
                   data-testid="xdr-designer-run">
           <Play size={11} /> Run {RESPONSE_ENGINE_WIRED ? "" : "(disabled)"}

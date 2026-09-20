@@ -1,0 +1,704 @@
+{
+  "tests/test_training_corpus.py": {
+    "returncode": 1,
+    "seconds": 2.4,
+    "counts": {
+      "passed": 2,
+      "error": 270
+    },
+    "tail": "ERROR tests/test_training_corpus.py::test_corpus_sample_round_trip[reg_export_hive_001]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_001]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_002]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_003]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_004]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_005]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_006]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_007]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_008]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_009]\nERROR tests/test_training_corpus.py::test_negative_control_not_flagged[negative_010]\n2 passed, 270 errors in 2.00s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_real_world_battery.py": {
+    "returncode": 1,
+    "seconds": 295.5,
+    "counts": {
+      "failed": 29,
+      "passed": 92
+    },
+    "tail": "FAILED tests/test_real_world_battery.py::test_decode_pipeline[reg_save_sam_dump]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[base58_ps_payload]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[base32_ps_payload]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[url_percent_encoded_ps]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[html_entity_encoded_ps]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[certutil_decode_pem_pe]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[perl_inline_exec]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[cmstp_uac_bypass]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[installutil_lolbas]\nFAILED tests/test_real_world_battery.py::test_decode_pipeline[hh_chm_helper]\nFAILED tests/test_real_world_battery.py::test_lolbas_and_mitre_surfaces[node_buffer_gunzip_dropper]\n29 failed, 92 passed in 294.93s (0:04:54)",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_xdr_data_sources_collectors.py": {
+    "returncode": 1,
+    "seconds": 9.9,
+    "counts": {
+      "error": 20
+    },
+    "tail": "ERROR tests/test_xdr_data_sources_collectors.py::test_tenant_isolation_header_mismatch_denied\nERROR tests/test_xdr_data_sources_collectors.py::test_tenant_isolation_list_does_not_leak\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[POST:/api/xdr/data-sources]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[DELETE:/api/xdr/data-sources/anything]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[POST:/api/xdr/collectors]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[POST:/api/xdr/collectors/anything/start]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[POST:/api/xdr/collectors/anything/stop]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_denied[POST:/api/xdr/ingest/telemetry]\nERROR tests/test_xdr_data_sources_collectors.py::test_scoped_principal_can_read\nERROR tests/test_xdr_data_sources_collectors.py::test_data_source_counters_updated_by_ingest\nERROR tests/test_xdr_data_sources_collectors.py::test_audit_chain_valid_after_p08\n24 warnings, 20 errors in 9.35s",
+    "wave_surfaces": [
+      "/api/xdr/audit-log",
+      "/api/xdr/collectors",
+      "/api/xdr/rbac",
+      "xdr_audit_log",
+      "xdr_collectors",
+      "xdr_rbac"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_xdr_correlation.py": {
+    "returncode": 1,
+    "seconds": 9.3,
+    "counts": {
+      "error": 17
+    },
+    "tail": "ERROR tests/test_xdr_correlation.py::test_cross_host_pivot_supported - Assert...\nERROR tests/test_xdr_correlation.py::test_negative_evidence_yields_candidate\nERROR tests/test_xdr_correlation.py::test_multistage_timeline_produces_multiple_matches\nERROR tests/test_xdr_correlation.py::test_replay_dry_run_does_not_persist - A...\nERROR tests/test_xdr_correlation.py::test_scoped_user_denied_writes[/api/xdr/correlation/signals]\nERROR tests/test_xdr_correlation.py::test_scoped_user_denied_writes[/api/xdr/correlation/replay]\nERROR tests/test_xdr_correlation.py::test_scoped_user_denied_writes[/api/xdr/correlation/rules]\nERROR tests/test_xdr_correlation.py::test_scoped_user_can_read - AssertionErr...\nERROR tests/test_xdr_correlation.py::test_tenant_isolation_matches_do_not_leak\nERROR tests/test_xdr_correlation.py::test_replay_records_audit_event - Assert...\nERROR tests/test_xdr_correlation.py::test_deterministic_evidence_shape - Asse...\n24 warnings, 17 errors in 8.76s",
+    "wave_surfaces": [
+      "/api/xdr/audit-log",
+      "/api/xdr/rbac",
+      "xdr_rbac"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_p0_dedupe_hardening.py": {
+    "returncode": 0,
+    "seconds": 151.3,
+    "counts": {
+      "passed": 19
+    },
+    "tail": "19 passed, 25 warnings in 150.79s (0:02:30)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='co...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [
+      "/api/xdr/collectors",
+      "xdr_collectors"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_fixture_regression_matrix.py": {
+    "returncode": 1,
+    "seconds": 2.0,
+    "counts": {
+      "passed": 8,
+      "error": 11
+    },
+    "tail": "ERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ascii_decimal_hello_analyst]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ascii_decimal_recon]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ascii_decimal_xor_hancitor]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ascii_decimal_xor_multiline_empire]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[base32_emotet_shape_wrap]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[base32_lowercase_downloader]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[base32_nopad_downloader]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[base32_pure_downloader]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[js_fromcharcode_socgholish]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ps_backtick_obf_downloader]\nERROR tests/test_fixture_regression_matrix.py::test_fixture_decodes_end_to_end[ps_backtick_obf_iex]\n8 passed, 11 errors in 1.48s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_p0_ingest_idempotency.py": {
+    "returncode": 0,
+    "seconds": 142.9,
+    "counts": {
+      "passed": 13
+    },
+    "tail": "13 passed, 25 warnings in 142.38s (0:02:22)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content=None, rol...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='co...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [
+      "/api/xdr/collectors",
+      "xdr_collectors"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/canonical/api/test_p11_upload_bridge.py": {
+    "returncode": 0,
+    "seconds": 170.0,
+    "counts": {
+      "passed": 11
+    },
+    "tail": "    PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n    return self.__pydantic_serializer__.to_python(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n11 passed, 25 warnings in 169.64s (0:02:49)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_xdr_secrets.py": {
+    "returncode": 0,
+    "seconds": 25.0,
+    "counts": {
+      "passed": 11
+    },
+    "tail": "server.py:1014\nserver.py:1014\n  /app/backend/server.py:1014: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n11 passed, 24 warnings in 24.49s",
+    "wave_surfaces": [
+      "/api/xdr/audit-log",
+      "xdr_audit_log"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_xdr_api_keys.py": {
+    "returncode": 0,
+    "seconds": 16.2,
+    "counts": {
+      "passed": 9
+    },
+    "tail": "server.py:1014\nserver.py:1014\n  /app/backend/server.py:1014: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n9 passed, 24 warnings in 15.53s",
+    "wave_surfaces": [
+      "/api/xdr/api-keys",
+      "/api/xdr/audit-log",
+      "/api/xdr/rbac",
+      "/api/xdr/tenants",
+      "xdr_api_keys",
+      "xdr_audit_log",
+      "xdr_rbac"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_xdr_webhooks.py": {
+    "returncode": 0,
+    "seconds": 16.3,
+    "counts": {
+      "passed": 9
+    },
+    "tail": "server.py:1014\nserver.py:1014\n  /app/backend/server.py:1014: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n9 passed, 24 warnings in 15.96s",
+    "wave_surfaces": [
+      "/api/xdr/audit-log",
+      "/api/xdr/rbac",
+      "xdr_audit_log",
+      "xdr_rbac"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_xdr_content_pipeline.py": {
+    "returncode": 1,
+    "seconds": 7.4,
+    "counts": {
+      "failed": 8,
+      "passed": 15
+    },
+    "tail": "\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/test_xdr_content_pipeline.py::test_multiple_sources_populated_from_bundled_snapshots\nFAILED tests/test_xdr_content_pipeline.py::test_sources_catalog_lists_every_bundled_source\nFAILED tests/test_xdr_content_pipeline.py::test_every_rule_carries_license_policy_state\nFAILED tests/test_xdr_content_pipeline.py::test_restricted_rule_can_be_enabled\nFAILED tests/test_xdr_content_pipeline.py::test_blocked_license_rule_cannot_be_enabled\nFAILED tests/test_xdr_content_pipeline.py::test_collector_catalog_surface - a...\nFAILED tests/test_xdr_content_pipeline.py::test_collector_catalog_rbac_denies_unscoped\nFAILED tests/test_xdr_content_pipeline.py::test_version_doc_records_acquisition_state\n8 failed, 15 passed, 24 warnings in 6.90s",
+    "wave_surfaces": [
+      "/api/xdr/collectors",
+      "/api/xdr/rbac",
+      "xdr_rbac"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/edr/test_p1_10_live_contract.py": {
+    "returncode": 1,
+    "seconds": 135.9,
+    "counts": {
+      "failed": 6
+    },
+    "tail": "E       assert 403 == 400\nE        +  where 403 = <Response [403]>.status_code\n\ntests/edr/test_p1_10_live_contract.py:71: AssertionError\n=========================== short test summary info ============================\nFAILED tests/edr/test_p1_10_live_contract.py::TestIngestContract::test_bare_list_accepted\nFAILED tests/edr/test_p1_10_live_contract.py::TestProtocolCatalog::test_cef_leef_implemented\nFAILED tests/edr/test_p1_10_live_contract.py::TestIngestContract::test_envelopes_wrapper_accepted\nFAILED tests/edr/test_p1_10_live_contract.py::TestIngestContract::test_tenant_isolation_envelope_mismatch\nFAILED tests/edr/test_p1_10_live_contract.py::TestIngestContract::test_mixed_envelope_tenants\nFAILED tests/edr/test_p1_10_live_contract.py::TestIngestContract::test_mixed_collectors\n6 failed in 135.53s (0:02:15)",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_adr0014_endpoints.py": {
+    "returncode": 1,
+    "seconds": 148.9,
+    "counts": {
+      "failed": 3,
+      "passed": 6
+    },
+    "tail": "  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_e2e_decode_smart_http_contract.py": {
+    "returncode": 1,
+    "seconds": 142.9,
+    "counts": {
+      "failed": 5,
+      "passed": 5
+    },
+    "tail": "FAILED tests/test_e2e_decode_smart_http_contract.py::test_complete_sample_Q4_stop_reason_is_deterministic_convergence\nFAILED tests/test_e2e_decode_smart_http_contract.py::test_complete_sample_verdict_is_malicious\nFAILED tests/test_e2e_decode_smart_http_contract.py::test_corrupt_sample_stops_at_L1_with_dx1001_root_cause\nFAILED tests/test_e2e_decode_smart_http_contract.py::test_repeated_decode_is_deterministic\n5 failed, 5 passed, 14 warnings in 142.46s (0:02:22)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_edr_context_p0_f13_3.py": {
+    "returncode": 1,
+    "seconds": 2.4,
+    "counts": {
+      "failed": 5,
+      "passed": 1
+    },
+    "tail": "E       assert 727 == 241\nE        +  where 727 = <built-in method get of dict object at 0xff9ee3170c00>('open_incidents')\nE        +    where <built-in method get of dict object at 0xff9ee3170c00> = {'customer': 'default', 'open_incidents': 727, 'incidents': 727, 'queue_href': '/xdr/incidents?customer=default'}.get\n\ntests/test_edr_context_p0_f13_3.py:92: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_edr_context_p0_f13_3.py::test_context_xdr_pivot - Assertion...\nFAILED tests/test_edr_context_p0_f13_3.py::test_context_direct_edr - Assertio...\nFAILED tests/test_edr_context_p0_f13_3.py::test_context_bogus_incident - Asse...\nFAILED tests/test_edr_context_p0_f13_3.py::test_context_ignores_query_tenant\nFAILED tests/test_edr_context_p0_f13_3.py::test_session_context - AssertionEr...\n5 failed, 1 passed in 2.03s",
+    "wave_surfaces": [
+      "/api/xdr/rbac"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_xdr_audit_log.py": {
+    "returncode": 0,
+    "seconds": 16.7,
+    "counts": {
+      "passed": 5
+    },
+    "tail": "server.py:1014\nserver.py:1014\n  /app/backend/server.py:1014: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n5 passed, 24 warnings in 16.38s",
+    "wave_surfaces": [
+      "/api/xdr/audit-log",
+      "xdr_audit_log"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/edr/test_p0_a2_adversarial_live.py": {
+    "returncode": 1,
+    "seconds": 4.1,
+    "counts": {
+      "failed": 4,
+      "passed": 5
+    },
+    "tail": "            if r.status_code in (200, 201):\n                return r.json()\n>       raise AssertionError(f\"mint: {r.status_code} {r.text[:300]}\")\nE       AssertionError: mint: 403 {\"detail\":{\"code\":\"TENANT_REQUIRED\",\"reason\":\"no tenant named for edr.enrollment: the authoritative tenant must be presented explicitly; there is no default tenant\"}}\n\ntests/edr/test_p0_a2_adversarial_live.py:51: AssertionError\n=========================== short test summary info ============================\nFAILED tests/edr/test_p0_a2_adversarial_live.py::test_token_failure_messages_are_identical\nFAILED tests/edr/test_p0_a2_adversarial_live.py::test_revocation_kills_in_flight_session_live\nFAILED tests/edr/test_p0_a2_adversarial_live.py::test_admin_list_endpoints_has_no_plaintext_or_hash\nFAILED tests/edr/test_p0_a2_adversarial_live.py::test_telemetry_envelope_rejects_tenant_and_endpoint_fields\n4 failed, 5 passed in 3.63s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_confusion_matrix.py": {
+    "returncode": 1,
+    "seconds": 1.9,
+    "counts": {
+      "passed": 2,
+      "error": 7
+    },
+    "tail": "E           requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://greeting-app-5782.preview.emergentagent.com/api/auth/login\n\n/root/.venv/lib/python3.11/site-packages/requests/models.py:1167: HTTPError\n=========================== short test summary info ============================\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_full_matrix_shape\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_high_baseline_metrics\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_cache_hit_on_second_call\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_refresh_bypasses_cache\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_category_filter\nERROR tests/test_confusion_matrix.py::TestConfusionMatrix::test_per_category_bounds\nERROR tests/test_confusion_matrix.py::TestConfusionSummary::test_returns_worst_and_best_5\n2 passed, 7 errors in 1.62s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_playbook_feedback.py": {
+    "returncode": 1,
+    "seconds": 1.4,
+    "counts": {
+      "error": 10
+    },
+    "tail": "=========================== short test summary info ============================\nERROR tests/test_playbook_feedback.py::test_login - AssertionError: login fai...\nERROR tests/test_playbook_feedback.py::test_async_job_attaches_playbooks - As...\nERROR tests/test_playbook_feedback.py::test_feedback_get_initial_none - Asser...\nERROR tests/test_playbook_feedback.py::test_feedback_toggle_math - AssertionE...\nERROR tests/test_playbook_feedback.py::test_feedback_same_vote_no_double_count\nERROR tests/test_playbook_feedback.py::test_admin_playbook_votes_audit - Asse...\nERROR tests/test_playbook_feedback.py::test_weight_based_sort - AssertionErro...\nERROR tests/test_playbook_feedback.py::test_error_bad_job_id - AssertionError...\nERROR tests/test_playbook_feedback.py::test_error_invalid_vote - AssertionErr...\nERROR tests/test_playbook_feedback.py::test_benchmark_regression - AssertionE...\n10 errors in 1.07s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_rc42_smart_decode_flows.py": {
+    "returncode": 1,
+    "seconds": 12.2,
+    "counts": {
+      "failed": 4,
+      "passed": 8
+    },
+    "tail": ">       assert any(\"powershell-reverse-regex-swap\" in o for o in ops), f\"op missing; ops={ops}\"\nE       AssertionError: op missing; ops=['powershell-semantic-mini', 'semantic-ps-variable-propagate']\nE       assert False\nE        +  where False = any(<generator object test_powershell_reverse_regex_swap.<locals>.<genexpr> at 0xfec6664de4d0>)\n\ntests/test_rc42_smart_decode_flows.py:205: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_rc42_smart_decode_flows.py::test_powershell_hex_csv_inline\nFAILED tests/test_rc42_smart_decode_flows.py::test_powershell_xor_inline_key\nFAILED tests/test_rc42_smart_decode_flows.py::test_powershell_reverse_string\nFAILED tests/test_rc42_smart_decode_flows.py::test_powershell_reverse_regex_swap\n4 failed, 8 passed in 11.89s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_rc4_verification.py": {
+    "returncode": 1,
+    "seconds": 5.8,
+    "counts": {
+      "failed": 4,
+      "passed": 5,
+      "skipped": 1
+    },
+    "tail": "        unresolved = crr.get(\"unresolved_vars\") or []\n>       assert v_val == \"partial-reconstruction\", f\"verdict != partial-reconstruction: {verdict}\"\nE       AssertionError: verdict != partial-reconstruction: {}\nE       assert None == 'partial-reconstruction'\n\ntests/test_rc4_verification.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_rc4_verification.py::test_p0_bug_3_honesty_linter_downgrade_partial\nFAILED tests/test_rc4_verification.py::test_p0_feat_5_cmd_runtime_reconstruct_calc\nFAILED tests/test_rc4_verification.py::test_p0_feat_6_lolbin_certutil - Asser...\nFAILED tests/test_rc4_verification.py::test_p0_feat_7_partial_reconstruction\n4 failed, 5 passed, 1 skipped in 5.43s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_shellcode_pipeline.py": {
+    "returncode": 1,
+    "seconds": 1.8,
+    "counts": {
+      "passed": 19,
+      "error": 3
+    },
+    "tail": "                          json={\"email\": ADMIN_EMAIL, \"password\": ADMIN_PASSWORD},\n                          timeout=15)\n>       assert r.status_code == 200\nE       assert 401 == 200\nE        +  where 401 = <Response [401]>.status_code\n\ntests/test_shellcode_pipeline.py:199: AssertionError\n=========================== short test summary info ============================\nERROR tests/test_shellcode_pipeline.py::test_api_analyze_shellcode_hex - asse...\nERROR tests/test_shellcode_pipeline.py::test_api_analyze_shellcode_base64 - a...\nERROR tests/test_shellcode_pipeline.py::test_api_analyze_shellcode_arch_override\n19 passed, 3 errors in 1.49s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/live/test_phase2_final_gate_live.py": {
+    "returncode": 0,
+    "seconds": 12.2,
+    "counts": {
+      "passed": 9,
+      "skipped": 1
+    },
+    "tail": "bringing up nodes...\nbringing up nodes...\n\n........s.                                                               [100%]\n9 passed, 1 skipped in 11.85s",
+    "wave_surfaces": [],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_batch_and_rss_feb2026.py": {
+    "returncode": 1,
+    "seconds": 2.3,
+    "counts": {
+      "passed": 4,
+      "error": 13
+    },
+    "tail": "ERROR tests/test_batch_and_rss_feb2026.py::TestBatch::test_batch_json_ps_encoded\nERROR tests/test_batch_and_rss_feb2026.py::TestBatch::test_batch_json_reg_export\nERROR tests/test_batch_and_rss_feb2026.py::TestBatch::test_batch_json_vssadmin\nERROR tests/test_batch_and_rss_feb2026.py::TestBatch::test_batch_csv_upload_returns_csv\nERROR tests/test_batch_and_rss_feb2026.py::TestBatch::test_batch_csv_upload_json_format\nERROR tests/test_batch_and_rss_feb2026.py::TestRegression::test_decode_smart_reg_export\nERROR tests/test_batch_and_rss_feb2026.py::TestRSS::test_list_feeds - Asserti...\nERROR tests/test_batch_and_rss_feb2026.py::TestRSS::test_crawl_bleepingcomputer\nERROR tests/test_batch_and_rss_feb2026.py::TestRSS::test_list_pending - Asser...\nERROR tests/test_batch_and_rss_feb2026.py::TestRSS::test_dismiss_and_delete_flow\nERROR tests/test_batch_and_rss_feb2026.py::TestRSS::test_promote_flow - Asser...\n4 passed, 13 errors in 1.93s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_collector_api_key_adversarial_regression.py": {
+    "returncode": 1,
+    "seconds": 4.0,
+    "counts": {
+      "failed": 5,
+      "passed": 9,
+      "error": 4
+    },
+    "tail": "tests/test_collector_api_key_adversarial_regression.py:153: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_collector_api_key_adversarial_regression.py::test_header_case_variation_lowercase_is_honoured\nFAILED tests/test_collector_api_key_adversarial_regression.py::test_header_case_variation_mixed_is_honoured\nFAILED tests/test_collector_api_key_adversarial_regression.py::test_spoofed_principal_headers_with_valid_key_do_not_elevate\nFAILED tests/test_collector_api_key_adversarial_regression.py::test_cross_tenant_envelope_body_does_not_bypass_key_tenant_binding\nFAILED tests/test_collector_api_key_adversarial_regression.py::test_expires_at_null_is_accepted_as_never_expires\nERROR tests/test_collector_api_key_adversarial_regression.py::test_admin_jwt_still_authorized[/api/xdr/collectors]\nERROR tests/test_collector_api_key_adversarial_regression.py::test_admin_jwt_still_authorized[/api/xdr/secrets]\nERROR tests/test_collector_api_key_adversarial_regression.py::test_admin_jwt_still_authorized[/api/xdr/api-keys]\nERROR tests/test_collector_api_key_adversarial_regression.py::test_admin_jwt_still_authorized[/api/xdr/rule-studio/rules]\n5 failed, 9 passed, 4 errors in 3.58s",
+    "wave_surfaces": [
+      "/api/xdr/api-keys",
+      "/api/xdr/collectors",
+      "/api/xdr/rbac",
+      "xdr_api_keys"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_iter27_rc45.py": {
+    "returncode": 1,
+    "seconds": 5.4,
+    "counts": {
+      "failed": 3,
+      "passed": 3
+    },
+    "tail": ">       assert crr.get(\"expected_child\") == \"calc.exe\", f\"expected_child: {crr.get('expected_child')}\"\nE       AssertionError: expected_child: None\nE       assert None == 'calc.exe'\nE        +  where None = <built-in method get of dict object at 0xfd6ed0e9d480>('expected_child')\nE        +    where <built-in method get of dict object at 0xfd6ed0e9d480> = {}.get\n\ntests/test_iter27_rc45.py:77: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_iter27_rc45.py::test_p1_feat9_line_continuation_backtick - ...\nFAILED tests/test_iter27_rc45.py::test_p0_feat6_lolbin_certutil - AssertionEr...\nFAILED tests/test_iter27_rc45.py::test_p0_feat5_calc_envvar_substring - Asser...\n3 failed, 3 passed in 5.12s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_p1_machine_credential_hardening.py": {
+    "returncode": 1,
+    "seconds": 1.9,
+    "counts": {
+      "failed": 3,
+      "passed": 8
+    },
+    "tail": "                \"code\": \"ACCESS_DENIED\", \"reason\": (\n                    \"no verified principal; a client-supplied identity header \"\n                    \"is never an identity\"),\n                \"risk\": \"T-RISK-2\", \"fail_closed\": True})\nE           fastapi.exceptions.HTTPException: 403: {'code': 'ACCESS_DENIED', 'reason': 'no verified principal; a client-supplied identity header is never an identity', 'risk': 'T-RISK-2', 'fail_closed': True}\n\nrouters/xdr_rbac.py:383: HTTPException\n=========================== short test summary info ============================\nFAILED tests/test_p1_machine_credential_hardening.py::test_confirmation_mismatch_is_rejected\nFAILED tests/test_p1_machine_credential_hardening.py::test_unknown_tenant_needs_explicit_acknowledgement\nFAILED tests/test_p1_machine_credential_hardening.py::test_matching_confirmation_on_known_tenant_succeeds\n3 failed, 8 passed in 1.56s",
+    "wave_surfaces": [
+      "xdr_api_keys",
+      "xdr_rbac"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_ps_ascii_xor_iex.py": {
+    "returncode": 1,
+    "seconds": 1.5,
+    "counts": {
+      "passed": 4,
+      "error": 3
+    },
+    "tail": "        r = requests.post(f\"{BASE_URL}/api/auth/login\",\n                          json={\"email\": \"admin@nivxray.com\", \"password\": os.environ.get(\"ADMIN_PASSWORD\", \"\")}, timeout=30)\n>       assert r.status_code == 200\nE       assert 401 == 200\nE        +  where 401 = <Response [401]>.status_code\n\ntests/test_ps_ascii_xor_iex.py:52: AssertionError\n=========================== short test summary info ============================\nERROR tests/test_ps_ascii_xor_iex.py::TestPsAsciiXorIex::test_end_to_end_via_decode_smart\nERROR tests/test_ps_ascii_xor_iex.py::TestPsAsciiXorIex::test_recipe_is_two_ops_and_no_extract_payload\nERROR tests/test_ps_ascii_xor_iex.py::TestPsAsciiXorIex::test_terminal_line_wrap_inside_integer_still_decodes\n4 passed, 3 errors in 1.16s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_rc45_iteration26.py": {
+    "returncode": 1,
+    "seconds": 12.0,
+    "counts": {
+      "failed": 3,
+      "passed": 9
+    },
+    "tail": "        data = smart_decode(headers, payload)\n        crr = data.get(\"cmd_runtime_reconstruct\")\n>       assert crr, f\"cmd_runtime_reconstruct missing. keys={list(data.keys())}\"\nE       AssertionError: cmd_runtime_reconstruct missing. keys=['recipe', 'output', 'notes', 'detected_type', 'engine', 'reached_shellcode', 'confidence', 'trace', 'chain_ids', 'score', 'custom_recipes_matched', 'boost', 'boost_hit', 'corrupted_container', 'reasoning', 'layer_trace', 'l3_metadata', 'layer_iocs', 'analysis_mode', 'canonical_artifact', 'iedde', 'iedde_terminal_state', 'canonical_confidence', 'canonical_confidence_reason', 'iedde_diagnostics', 'verdict_card', 'mode', 'risk', 'iocs', 'mitre', 'lolbas', 'ti_shield', 'output_raw', 'report_text', 'transformation_trace', 'semantic_ir', 'exec_graph', 'behaviors', 'mitre_v2', 'lolbins_v2', 'verdict_v2', 'explain', 'semantic_engine_v2', 'semantic', 'investigation', 'cio']\nE       assert None\n\ntests/test_rc45_iteration26.py:179: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_rc45_iteration26.py::test_p0_feat_6_lolbin_certutil_full - ...\nFAILED tests/test_rc45_iteration26.py::test_p1_feat_9_backtick_preserves_escape\nFAILED tests/test_rc45_iteration26.py::test_p0_feat_5_calc_regression - Asser...\n3 failed, 9 passed in 11.70s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_restore_equivalence_live.py": {
+    "returncode": 1,
+    "seconds": 2.4,
+    "counts": {
+      "failed": 3,
+      "passed": 1
+    },
+    "tail": ".0 = <list_iterator object at 0xfe4feb8e2c20>\n\n>   case_id = [c for c in cases if c[\"name\"] == name][0][\"id\"]\n                                   ^^^^^^^^^\nE   KeyError: 'name'\n\ntests/test_restore_equivalence_live.py:261: KeyError\n=========================== short test summary info ============================\nFAILED tests/test_restore_equivalence_live.py::test_workspace_case_matches_ssot_dereference\nFAILED tests/test_restore_equivalence_live.py::test_workspace_and_history_share_one_immutable_investigation\nFAILED tests/test_restore_equivalence_live.py::test_ssot_dereference_is_authoritative\n3 failed, 1 passed in 2.01s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_ssot_persistence_live.py": {
+    "returncode": 1,
+    "seconds": 5.3,
+    "counts": {
+      "failed": 3,
+      "passed": 4
+    },
+    "tail": "        got_ssot = r.json().get(\"ssot\") or {}\n>       assert got_ssot.get(\"version\") == \"1.0\"\nE       AssertionError: assert {'schema': '1.0', 'engine': 'legacy', 'uaie': 'phase1', 'baseline': 'R27'} == '1.0'\nE        +  where {'schema': '1.0', 'engine': 'legacy', 'uaie': 'phase1', 'baseline': 'R27'} = <built-in method get of dict object at 0xfeb0e7186e80>('version')\nE        +    where <built-in method get of dict object at 0xfeb0e7186e80> = {'understanding': {'input_kind': 'powershell', 'confidence': 0.94, 'decode_required': True, 'next_steps': ['base64_dec...xtract_iocs'}], 'incident': {'behaviors': ['T1059.001']}, 'ice': {'behavior_clusters': ['download-and-execute']}}, ...}.get\n\ntests/test_ssot_persistence_live.py:159: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_ssot_persistence_live.py::test_ssot_round_trip_preserves_all_fields\nFAILED tests/test_ssot_persistence_live.py::test_list_cases_flags_ssot_presence\nFAILED tests/test_ssot_persistence_live.py::test_oversized_bundle_drops_gracefully\n3 failed, 4 passed in 4.90s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_timeline_ti_finetune.py": {
+    "returncode": 1,
+    "seconds": 1.8,
+    "counts": {
+      "error": 13
+    },
+    "tail": "ERROR tests/test_timeline_ti_finetune.py::TestTimeline::test_recent_global_feed\nERROR tests/test_timeline_ti_finetune.py::TestTimeline::test_correction_auto_records_timeline_events\nERROR tests/test_timeline_ti_finetune.py::TestFinetuneExport::test_summary_shape\nERROR tests/test_timeline_ti_finetune.py::TestFinetuneExport::test_download_jsonl_shape\nERROR tests/test_timeline_ti_finetune.py::TestFinetuneExport::test_dedupe_no_duplicate_inputs\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_kind_detection_ip\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_kind_detection_sha256\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_kind_detection_domain\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_kind_detection_url\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_no_key_graceful_fallback\nERROR tests/test_timeline_ti_finetune.py::TestThreatIntelEnrich::test_config_key_redaction\n13 errors in 1.32s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_narrative_enrichment.py": {
+    "returncode": 1,
+    "seconds": 16.0,
+    "counts": {
+      "error": 3
+    },
+    "tail": "            except Exception as e:\n                last = (\"EXC\", str(e))\n            import time as _t; _t.sleep(3)\n>       pytest.fail(f\"login failed after retries: {last}\")\nE       Failed: login failed after retries: ('EXC', \"Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?\")\n\ntests/test_narrative_enrichment.py:32: Failed\n=========================== short test summary info ============================\nERROR tests/test_narrative_enrichment.py::TestInvestigationResults::test_investigation_results_shape\nERROR tests/test_narrative_enrichment.py::TestSavedCase::test_saved_case_narrative\nERROR tests/test_narrative_enrichment.py::TestSample1Regression::test_sample1_not_modified\n3 errors in 15.62s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_analyst_v2_api.py": {
+    "returncode": 1,
+    "seconds": 150.2,
+    "counts": {
+      "failed": 2,
+      "passed": 7
+    },
+    "tail": "  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_compression_benchmark.py": {
+    "returncode": 1,
+    "seconds": 1.5,
+    "counts": {
+      "error": 14
+    },
+    "tail": "ERROR tests/test_compression_benchmark.py::test_decode_magic[lzma-/Td6WFoAAATm1rRGAgAhARYAAAB0L+WjAQAJSGVsbG8gTFpNQQAAAH7LyqERLLdRAAEiChUa4WcftvN9AQAAAAAEWVo=-Hello LZMA]\nERROR tests/test_compression_benchmark.py::test_decode_magic[jwt-eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhbmFseXN0IiwiZXhwIjoxOTk5OTk5OTk5fQ.-\"sub\": \"admin\"]\nERROR tests/test_compression_benchmark.py::test_decode_magic[atob-eval(atob(\"YWxlcnQoIlhTUyIp\"))-alert(\"XSS\")]\nERROR tests/test_compression_benchmark.py::test_decode_smart[gzip-H4sIAIL2VWoC/0tNzshXyEjNyclXSCvKz1VIr8osAABjdx7zFAAAAA==-echo hello from gzip]\nERROR tests/test_compression_benchmark.py::test_decode_smart[zlib-eJzzSM3JyVdwzs8tKEotLs7Mz1MEAD/qBsg=-Hello Compression!]\nERROR tests/test_compression_benchmark.py::test_decode_smart[lzma-/Td6WFoAAATm1rRGAgAhARYAAAB0L+WjAQAJSGVsbG8gTFpNQQAAAH7LyqERLLdRAAEiChUa4WcftvN9AQAAAAAEWVo=-Hello LZMA]\nERROR tests/test_compression_benchmark.py::test_decode_smart[jwt-eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhbmFseXN0IiwiZXhwIjoxOTk5OTk5OTk5fQ.-\"sub\": \"admin\"]\nERROR tests/test_compression_benchmark.py::test_decode_smart[atob-eval(atob(\"YWxlcnQoIlhTUyIp\"))-alert(\"XSS\")]\nERROR tests/test_compression_benchmark.py::test_powershell_regression - Asser...\nERROR tests/test_compression_benchmark.py::test_admin_samples_list - Assertio...\nERROR tests/test_compression_benchmark.py::test_benchmark_all_100pct - Assert...\n14 errors in 1.14s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_csv_edr_investigation.py": {
+    "returncode": 1,
+    "seconds": 5.1,
+    "counts": {
+      "failed": 1,
+      "passed": 1,
+      "skipped": 1,
+      "error": 1
+    },
+    "tail": "        narrative = obj.get(\"narrative\") or {}\n        ap = narrative.get(\"attack_progression\") or []\n>       assert len(ap) == 3, f\"attack_progression stages={len(ap)}\"\nE       AssertionError: attack_progression stages=0\nE       assert 0 == 3\nE        +  where 0 = len([])\n\ntests/test_csv_edr_investigation.py:111: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_csv_edr_investigation.py::test_cyberdefenders_regression - ...\nERROR tests/test_csv_edr_investigation.py::test_csv_edr_investigation_result\n1 failed, 1 passed, 1 skipped, 1 error in 4.68s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_p01_p02_verdict_card.py": {
+    "returncode": 1,
+    "seconds": 7.6,
+    "counts": {
+      "failed": 2,
+      "passed": 2
+    },
+    "tail": "        assert vc is not None, \"verdict_card is null\"\n        assert isinstance(vc, dict), f\"verdict_card not a dict: {type(vc)}\"\n        missing = VERDICT_KEYS - set(vc.keys())\n>       assert not missing, f\"verdict_card missing keys: {missing}\"\nE       AssertionError: verdict_card missing keys: {'reason', 'recommended_action', 'indicators'}\nE       assert not {'indicators', 'reason', 'recommended_action'}\n\ntests/test_p01_p02_verdict_card.py:61: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_p01_p02_verdict_card.py::test_verdict_card_malicious_ps - A...\nFAILED tests/test_p01_p02_verdict_card.py::test_verdict_card_benign_plain - A...\n2 failed, 2 passed in 7.07s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_p0sec_rbac_fail_closed.py": {
+    "returncode": 0,
+    "seconds": 282.5,
+    "counts": {
+      "passed": 22
+    },
+    "tail": "          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n22 passed, 24 warnings in 282.09s (0:04:42)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [
+      "/api/xdr/api-keys",
+      "/api/xdr/collectors",
+      "/api/xdr/tenants",
+      "xdr_rbac"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_p1_02b_verdict_engine.py": {
+    "returncode": 1,
+    "seconds": 28.1,
+    "counts": {
+      "failed": 2,
+      "passed": 4
+    },
+    "tail": "        cio = _extract_cio(r.json())\n        verdict = cio.get(\"verdict\", {})\n        label = verdict.get(\"label\")\n>       assert label in (\"Undetermined\", \"Informational\"), f\"expected benign, got {label}\"\nE       AssertionError: expected benign, got Suspicious\nE       assert 'Suspicious' in ('Undetermined', 'Informational')\n\ntests/test_p1_02b_verdict_engine.py:125: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_p1_02b_verdict_engine.py::TestRecipeEscalation::test_custom_recipe_triggers_malicious\nFAILED tests/test_p1_02b_verdict_engine.py::TestSmartDecodeVerdict::test_benign_input_undetermined_or_informational\n2 failed, 4 passed in 27.77s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_training_notes_sync.py": {
+    "returncode": 1,
+    "seconds": 1.7,
+    "counts": {
+      "passed": 2,
+      "error": 3
+    },
+    "tail": "                          json={\"email\": ADMIN_EMAIL, \"password\": ADMIN_PASSWORD},\n                          timeout=15)\n>       assert r.status_code == 200\nE       assert 401 == 200\nE        +  where 401 = <Response [401]>.status_code\n\ntests/test_training_notes_sync.py:33: AssertionError\n=========================== short test summary info ============================\nERROR tests/test_training_notes_sync.py::TestSyncValidation::test_rejects_non_http_url\nERROR tests/test_training_notes_sync.py::TestSyncValidation::test_rejects_missing_url\nERROR tests/test_training_notes_sync.py::TestSyncValidation::test_rejects_relative_url\n2 passed, 3 errors in 1.31s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/canonical/ssot/test_ssot_isolation.py": {
+    "returncode": 1,
+    "seconds": 1.4,
+    "counts": {
+      "failed": 1,
+      "passed": 2
+    },
+    "tail": "        ]\n>       assert not non_phase, (\n            f\"unauthorised files touched outside Phase 2 + Phase 5.1 scope: \"\n            f\"{non_phase}\"\n        )\nE       AssertionError: unauthorised files touched outside Phase 2 + Phase 5.1 scope: ['apps/nivxray-xdr/src/xdr/nx/nx-theme.css', 'apps/nivxray-xdr/src/xdr/pages/XdrApprovalsPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrAutomationRuleEditorPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrAutomationRulesPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrEvidenceRefPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrPlaybookDesignerPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrPlaybooksPage.jsx', 'apps/nivxray-xdr/src/xdr/respond/AnalystResponseDrawer.jsx', 'backend/corpus/vendor/v1/reports/sprint_trend.json', 'backend/services/uaie/retirement/v2.investigation.rte.transformations.ps_byte_array_xor_loop.json', 'backend/tests/reports/multilayer_battery.json', 'backend/tests/reports/phase2_batch2_perf.json', 'backend/tests/reports/workspace_audit_report.json', 'test_reports/enterprise_content_inventory.json']\nE       assert not ['apps/nivxray-xdr/src/xdr/nx/nx-theme.css', 'apps/nivxray-xdr/src/xdr/pages/XdrApprovalsPage.jsx', 'apps/nivxray-xdr/...s/nivxray-xdr/src/xdr/pages/XdrEvidenceRefPage.jsx', 'apps/nivxray-xdr/src/xdr/pages/XdrPlaybookDesignerPage.jsx', ...]\n\ntests/canonical/ssot/test_ssot_isolation.py:484: AssertionError\n=========================== short test summary info ============================\nFAILED tests/canonical/ssot/test_ssot_isolation.py::test_no_route_file_modified_by_phase2\n1 failed, 2 passed in 1.04s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/edr/test_cross_tenant.py": {
+    "returncode": 1,
+    "seconds": 6.8,
+    "counts": {
+      "failed": 1,
+      "passed": 11
+    },
+    "tail": "  /app/backend/server.py:1014: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/edr/test_cross_tenant.py::test_v11_body_tenant_id_never_trusted\n1 failed, 11 passed, 24 warnings in 6.43s",
+    "wave_surfaces": [
+      "/api/xdr/collectors"
+    ],
+    "verdict": "ATTRIBUTION_REQUIRED"
+  },
+  "tests/test_a05_tenant_scope_contract.py": {
+    "returncode": 0,
+    "seconds": 144.1,
+    "counts": {
+      "passed": 72
+    },
+    "tail": "    PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n    return self.__pydantic_serializer__.to_python(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n72 passed, 25 warnings in 143.76s (0:02:23)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback",
+    "wave_surfaces": [
+      "/api/xdr/rbac",
+      "xdr_audit_log",
+      "xdr_rbac"
+    ],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_analyst_corrections.py": {
+    "returncode": 1,
+    "seconds": 2.4,
+    "counts": {
+      "error": 11
+    },
+    "tail": "ERROR tests/test_analyst_corrections.py::test_submit_admin_team_scope_auto_approves\nERROR tests/test_analyst_corrections.py::test_submit_admin_global_scope_stays_pending\nERROR tests/test_analyst_corrections.py::test_analyze_applies_deterministic_override\nERROR tests/test_analyst_corrections.py::test_revise_bumps_version_and_supersedes\nERROR tests/test_analyst_corrections.py::test_approve_reject_rollback_flow - ...\nERROR tests/test_analyst_corrections.py::test_pending_admin_inbox_lists_global_pending\nERROR tests/test_analyst_corrections.py::test_preview_returns_applicable_by_tag\nERROR tests/test_analyst_corrections.py::test_invalid_surface_rejected - KeyE...\nERROR tests/test_analyst_corrections.py::test_verdict_types_accepted_and_validated\nERROR tests/test_analyst_corrections.py::test_correct_verdict_does_NOT_apply_deterministic_override\nERROR tests/test_analyst_corrections.py::test_analytics_endpoint_returns_full_shape\n11 errors in 1.87s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_corpus_v1_parity_sweep.py": {
+    "returncode": 1,
+    "seconds": 3.7,
+    "counts": {
+      "error": 20
+    },
+    "tail": "ERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0011]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0012]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0013]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0014]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0015]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0016]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0017]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0018]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0019]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0020]\nERROR tests/test_corpus_v1_parity_sweep.py::test_corpus_v1_parity_5_dimensions[0021]\n20 errors in 2.98s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_evidence_backed_behavior.py": {
+    "returncode": 1,
+    "seconds": 6.7,
+    "counts": {
+      "failed": 1,
+      "passed": 8
+    },
+    "tail": "            f\"Rule-14 violation: analyze verdict={analyze_vc.get('verdict')} decode verdict={decode_vc.get('verdict')}\"\n        )\nE       AssertionError: Rule-14 violation: analyze verdict=Suspicious decode verdict=Partial\nE       assert 'Suspicious' == 'Partial'\nE         \nE         - Partial\nE         + Suspicious\n\ntests/test_evidence_backed_behavior.py:187: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_evidence_backed_behavior.py::TestDecodeAnalyzeEquivalence::test_analyze_matches_decode_verdict\n1 failed, 8 passed in 6.11s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_iter43_decode_api_contract.py": {
+    "returncode": 1,
+    "seconds": 12.5,
+    "counts": {
+      "failed": 1,
+      "passed": 1
+    },
+    "tail": "        # Anti-garbage contract\n>       assert sem[\"decode_outcome\"] == \"decode_error\", sem.get(\"decode_outcome\")\nE       AssertionError: fully_decoded\nE       assert 'fully_decoded' == 'decode_error'\nE         \nE         - decode_error\nE         + fully_decoded\n\ntests/test_iter43_decode_api_contract.py:70: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_iter43_decode_api_contract.py::test_corrupt_encodedcommand_returns_decode_error_contract\n1 failed, 1 passed in 12.02s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_iteration_81_review.py": {
+    "returncode": 1,
+    "seconds": 4.5,
+    "counts": {
+      "failed": 1,
+      "passed": 9,
+      "skipped": 2
+    },
+    "tail": "E       assert 500 == 198\n\ntests/test_iteration_81_review.py:50: AssertionError\n=============================== warnings summary ===============================\ntests/test_iteration_81_review.py::TestCrossTenant::test_tenant_restricted_user_via_seed\n  /root/.venv/lib/python3.11/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13\n    from crypt import crypt as _crypt\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/test_iteration_81_review.py::TestIncidentQueue::test_admin_sees_all_198\n1 failed, 9 passed, 2 skipped, 1 warning in 4.15s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_multi_fragment_split.py": {
+    "returncode": 1,
+    "seconds": 1.6,
+    "counts": {
+      "error": 3
+    },
+    "tail": "    def h():\n>       tok = requests.post(f\"{API}/api/auth/login\",\n                            json={\"email\": EMAIL, \"password\": PW},\n                            timeout=10).json()[\"access_token\"]\nE       KeyError: 'access_token'\n\ntests/test_multi_fragment_split.py:23: KeyError\n=========================== short test summary info ============================\nERROR tests/test_multi_fragment_split.py::test_br_delimited_multi_enc_splits\nERROR tests/test_multi_fragment_split.py::test_single_payload_does_not_go_multi_fragment\nERROR tests/test_multi_fragment_split.py::test_two_encs_on_separate_lines_splits\n3 errors in 1.17s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_multiline_decode.py": {
+    "returncode": 1,
+    "seconds": 2.3,
+    "counts": {
+      "failed": 1,
+      "passed": 2,
+      "error": 24
+    },
+    "tail": "ERROR tests/test_multiline_decode.py::TestOpsRegression::test_base64_gzip_and_gzip_decompress\nERROR tests/test_multiline_decode.py::TestOpsRegression::test_gzip_decompress_via_recipe\nERROR tests/test_multiline_decode.py::TestOpsRegression::test_xor - Assertion...\nERROR tests/test_multiline_decode.py::test_operations_registry_45 - Assertion...\nERROR tests/test_multiline_decode.py::test_ps_encoded_single_line - Assertion...\nERROR tests/test_multiline_decode.py::test_ps_encoded_multi_line - AssertionE...\nERROR tests/test_multiline_decode.py::test_ps_encoded_full_cmdline_multi_line\nERROR tests/test_multiline_decode.py::test_base64_multi_line_with_whitespace\nERROR tests/test_multiline_decode.py::test_base64_missing_padding - Assertion...\nERROR tests/test_multiline_decode.py::test_base64_multiline_and_missing_padding\nERROR tests/test_multiline_decode.py::test_analyze_accepts_ps_decoded_payload\n1 failed, 2 passed, 24 errors in 1.93s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_phase94_api_contract.py": {
+    "returncode": 1,
+    "seconds": 6.8,
+    "counts": {
+      "failed": 1,
+      "passed": 4
+    },
+    "tail": "        ps_cmd = \"[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)\"\n        enc = _b64_utf16le(ps_cmd)\n        payload = {\"incident_text\": f\"powershell.exe -EncodedCommand {enc}\"}\n        data = _invoke(payload, auth_headers)\n        sems = _find_semantic_chains(data)\n>       assert sems\nE       assert []\n\ntests/test_phase94_api_contract.py:122: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_phase94_api_contract.py::test_amsi_bypass_text_signal - ass...\n1 failed, 4 passed in 6.41s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_rc42_semantic_mini.py": {
+    "returncode": 0,
+    "seconds": 1.4,
+    "counts": {
+      "skipped": 6
+    },
+    "tail": "bringing up nodes...\nbringing up nodes...\n\nssssss                                                                   [100%]\n6 skipped in 1.01s",
+    "wave_surfaces": [],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_rc4_1_360_confidence.py": {
+    "returncode": 1,
+    "seconds": 1.3,
+    "counts": {
+      "passed": 1,
+      "error": 5
+    },
+    "tail": "E       AssertionError: login failed: 429 {\"detail\":{\"error\":\"rate_limited\",\"reason\":\"locked\",\"retry_after_seconds\":863}}\nE       assert 429 == 200\nE        +  where 429 = <Response [429]>.status_code\n\ntests/test_rc4_1_360_confidence.py:27: AssertionError\n=========================== short test summary info ============================\nERROR tests/test_rc4_1_360_confidence.py::test_encoded_command_base64_decodes_url\nERROR tests/test_rc4_1_360_confidence.py::test_list_cases - AssertionError: l...\nERROR tests/test_rc4_1_360_confidence.py::test_document_upload - AssertionErr...\nERROR tests/test_rc4_1_360_confidence.py::test_case_sigma_export - AssertionE...\nERROR tests/test_rc4_1_360_confidence.py::test_case_yara_export - AssertionEr...\n1 passed, 5 errors in 0.98s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_smart_reverse_chain.py": {
+    "returncode": 0,
+    "seconds": 1.4,
+    "counts": {
+      "passed": 3,
+      "skipped": 1
+    },
+    "tail": "bringing up nodes...\nbringing up nodes...\n\n...s                                                                     [100%]\n3 passed, 1 skipped in 1.02s",
+    "wave_surfaces": [],
+    "verdict": "ENVIRONMENT"
+  },
+  "tests/test_v13x_e2e.py": {
+    "returncode": 1,
+    "seconds": 1.6,
+    "counts": {
+      "error": 11
+    },
+    "tail": "ERROR tests/test_v13x_e2e.py::test_smart_response_shape_top_level - requests....\nERROR tests/test_v13x_e2e.py::test_multi_fragment_br_split - requests.excepti...\nERROR tests/test_v13x_e2e.py::test_reverse_string_chain - requests.exceptions...\nERROR tests/test_v13x_e2e.py::test_amsi_mitre_t1562_001 - requests.exceptions...\nERROR tests/test_v13x_e2e.py::test_lab_reveal_enriched - requests.exceptions....\nERROR tests/test_v13x_e2e.py::test_lab_narrative - requests.exceptions.HTTPEr...\nERROR tests/test_v13x_e2e.py::test_lab_narrative_bad_id_404 - requests.except...\nERROR tests/test_v13x_e2e.py::test_heatmap_data - requests.exceptions.HTTPErr...\nERROR tests/test_v13x_e2e.py::test_corpus_validate - requests.exceptions.HTTP...\nERROR tests/test_v13x_e2e.py::test_threat_intel_feeds_sync - requests.excepti...\nERROR tests/test_v13x_e2e.py::test_batch_test_and_runs - requests.exceptions....\n11 errors in 1.24s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_iter62_correlations_e2e.py": {
+    "returncode": 1,
+    "seconds": 1.3,
+    "counts": {
+      "error": 2
+    },
+    "tail": "E   KeyError: 'REACT_APP_BACKEND_URL'\n____________ ERROR collecting tests/test_iter62_correlations_e2e.py ____________\ntests/test_iter62_correlations_e2e.py:13: in <module>\n    BASE = os.environ[\"REACT_APP_BACKEND_URL\"].rstrip(\"/\")\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen os>:679: in __getitem__\n    ???\nE   KeyError: 'REACT_APP_BACKEND_URL'\n=========================== short test summary info ============================\nERROR tests/test_iter62_correlations_e2e.py - KeyError: 'REACT_APP_BACKEND_URL'\nERROR tests/test_iter62_correlations_e2e.py - KeyError: 'REACT_APP_BACKEND_URL'\n2 errors in 0.97s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_osint_live_endpoints.py": {
+    "returncode": 1,
+    "seconds": 1.4,
+    "counts": {
+      "error": 2
+    },
+    "tail": "E   KeyError: 'REACT_APP_BACKEND_URL'\n_____________ ERROR collecting tests/test_osint_live_endpoints.py ______________\ntests/test_osint_live_endpoints.py:13: in <module>\n    BASE_URL = os.environ[\"REACT_APP_BACKEND_URL\"].rstrip(\"/\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen os>:679: in __getitem__\n    ???\nE   KeyError: 'REACT_APP_BACKEND_URL'\n=========================== short test summary info ============================\nERROR tests/test_osint_live_endpoints.py - KeyError: 'REACT_APP_BACKEND_URL'\nERROR tests/test_osint_live_endpoints.py - KeyError: 'REACT_APP_BACKEND_URL'\n2 errors in 1.07s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_pr212_api_parity.py": {
+    "returncode": 1,
+    "seconds": 1.3,
+    "counts": {
+      "error": 2
+    },
+    "tail": "    BASE_URL = os.environ.get(\"REACT_APP_BACKEND_URL\").rstrip(\"/\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AttributeError: 'NoneType' object has no attribute 'rstrip'\n_______________ ERROR collecting tests/test_pr212_api_parity.py ________________\ntests/test_pr212_api_parity.py:7: in <module>\n    BASE_URL = os.environ.get(\"REACT_APP_BACKEND_URL\").rstrip(\"/\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AttributeError: 'NoneType' object has no attribute 'rstrip'\n=========================== short test summary info ============================\nERROR tests/test_pr212_api_parity.py - AttributeError: 'NoneType' object has ...\nERROR tests/test_pr212_api_parity.py - AttributeError: 'NoneType' object has ...\n2 errors in 0.97s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  },
+  "tests/test_pr21_canonical_artifact_api.py": {
+    "returncode": 1,
+    "seconds": 1.4,
+    "counts": {
+      "error": 2
+    },
+    "tail": "E   KeyError: 'REACT_APP_BACKEND_URL'\n__________ ERROR collecting tests/test_pr21_canonical_artifact_api.py __________\ntests/test_pr21_canonical_artifact_api.py:39: in <module>\n    BASE_URL = os.environ[\"REACT_APP_BACKEND_URL\"].rstrip(\"/\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen os>:679: in __getitem__\n    ???\nE   KeyError: 'REACT_APP_BACKEND_URL'\n=========================== short test summary info ============================\nERROR tests/test_pr21_canonical_artifact_api.py - KeyError: 'REACT_APP_BACKEN...\nERROR tests/test_pr21_canonical_artifact_api.py - KeyError: 'REACT_APP_BACKEN...\n2 errors in 1.09s",
+    "wave_surfaces": [],
+    "verdict": "PRE_EXISTING_UNRELATED"
+  }
+}

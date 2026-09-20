@@ -76,7 +76,11 @@
   /* ── Brand ink ──────────────────────────────────────────────── */
   --nx-purple:       #F59E0B;
   --nx-purple-hover: #D97706;
-  --nx-purple-dim:   rgba(245, 158, 11, 0.15);
+  /* 2026-06 · was an AMBER wash (rgba(245,158,11,.15)) while every
+     consumer treats it as the accent wash — the active nav pill therefore
+     rendered light text on amber (1.96:1). It is now the accent it claims
+     to be. */
+  --nx-purple-dim:   rgba(109, 78, 224, 0.22);
   --nx-purple-ring:  rgba(56, 189, 248, 0.55);
   --nx-purple-soft:  #FCD34D;
 
@@ -105,7 +109,7 @@
   --nx-ep-none:       #93A1B4; --nx-ep-none-bg:    rgba(147,161,180,0.13); --nx-ep-none-bd:    #556274;
   --nx-ep-unknown:    #FDE047; --nx-ep-unknown-bg: rgba(242,193, 78,0.13); --nx-ep-unknown-bd: #8E7130;
   --nx-ep-notrun:     #A5B4FC; --nx-ep-notrun-bg:  rgba(169,139,250,0.13); --nx-ep-notrun-bd:  #6B54B0;
-  --nx-ep-nocap:      #8896A8; --nx-ep-nocap-bg:   rgba(136,150,168,0.11); --nx-ep-nocap-bd:   #4E5A6B;
+  --nx-ep-nocap:      #BCC7D6; --nx-ep-nocap-bg:   rgba(136,150,168,0.11); --nx-ep-nocap-bd:   #4E5A6B;
   --nx-ep-noconn:     #D9A343; --nx-ep-noconn-bg:  rgba(217,163, 67,0.13); --nx-ep-noconn-bd:  #7E6127;
 
   /* ── §3 RELATIONSHIP GRAMMAR · locked ────────────────────────
@@ -175,7 +179,7 @@
 
   --nx-purple:       #D97706;
   --nx-purple-hover: #92400E;
-  --nx-purple-dim:   #FEF3C7;
+  --nx-purple-dim:   #EDE9FE;
   --nx-purple-ring:  rgba(2, 132, 199, 0.45);
   --nx-purple-soft:  #B45309;
 

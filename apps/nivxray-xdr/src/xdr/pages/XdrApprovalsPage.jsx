@@ -46,7 +46,7 @@ export default function XdrApprovalsPage() {
       setRows(res.rows || []);
     } catch (e) {
       const c = e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
-        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL)."
+        ? "The response engine endpoint is not configured in this deployment."
         : (e?.response?.data?.detail?.error || e?.message || String(e));
       setError(c);
     } finally { setL(false); }

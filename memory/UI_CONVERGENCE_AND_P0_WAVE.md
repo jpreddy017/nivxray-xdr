@@ -26,7 +26,21 @@ paths (`xdr_ingest`, `collector_authz`, `edr_enrollment`) deliberately keep
 their own credential-bound resolution — there is no user session there — and
 were left untouched.
 
-## P0.5 · classification of the full backend regression
+## P0.5 · CLOSED WITH DOCUMENTED TEST-INFRASTRUCTURE DEBT (2026-06-20)
+
+Full record: `/app/memory/P0_5_CLOSURE.md`. Run 3 **completed** — 11 453
+passed · 462 failed · 291 errors · 264 skipped (1:13:34) — and is the
+baseline. Classification now carries **0 `NEW_REGRESSION` and 0
+`NEEDS_REVIEW`**: the 60 previously unresolved files are resolved by
+evidence (isolation re-runs + the same file run against the pre-wave tree
+`b4dfc4b0`). Security gates: 193 passed alone, 227 passed in one serial
+process with the security plane. Two real test-infrastructure defects fixed
+(a test that repointed `DB_NAME` to the preview database for the whole run,
+and a test that blanked `EMERGENT_LLM_KEY` process-wide). Debt carried, not
+called green: 86 stale-auth files, 41 unrelated pre-existing, 21
+environment.
+
+## P0.5 · classification of the full backend regression (historical, run 1)
 
 Run 1 completed in 1h22m: **11 404 passed · 493 failed · 271 errors · 264
 skipped**. Run 2 was killed by its wall-clock budget at 79 % (no summary

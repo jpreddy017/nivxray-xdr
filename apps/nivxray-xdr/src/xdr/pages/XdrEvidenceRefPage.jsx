@@ -42,7 +42,7 @@ export default function XdrEvidenceRefPage() {
           out.errs.push(`Response Engine: ${c}`);
         }
       } else {
-        out.errs.push("Response Engine URL not set (VITE_XDR_RESPONSE_URL).");
+        out.errs.push("Response Engine URL not set.");
       }
       // 2. Persisted evidence refs from the base backend.
       try {
