@@ -53,21 +53,20 @@ def _coll():
 
 # ── Principal ────────────────────────────────────────────────────
 def _principal(req: Request) -> tuple[str, str, str]:
-    """Tenant resolved against the authoritative registry (B4).
+    """ONE tenancy authority — delegated, never re-implemented here.
 
-    Minting a credential never establishes tenancy: with enforcement on an
-    unregistered or inactive tenant is refused before any key is generated.
+    2026-06 DEFECT CLOSED (caught by `tests/test_p0_security_gate.py`): this
+    resolved the tenant through the registry ONLY. That proves the tenant
+    EXISTS; it never asked whether the caller is AUTHORIZED for it, so a
+    principal holding `api_keys.read` in tenant A could read tenant B's credential inventory
+    simply by naming B in `X-Tenant-Id`. It now delegates to
+    `xdr_rbac.resolve_principal`, the single resolver that runs
+    `authorize_requested_tenant()`.
+
+    Naming a tenant is therefore a REQUEST, never an authorisation.
     """
-    raw = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "")
-    try:
-        ten = tenant_registry.authoritative(raw, purpose="xdr.api_keys")
-    except tenant_registry.TenantRegistryError as e:
-        raise HTTPException(status_code=e.http, detail=e.detail()) from None
-    pid = _verified_principal(req)
-    pkd = ("api_key" if getattr(req.state, "principal_kind", None) == "api_key"
-              else "user")
-    return ten, pid, pkd
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
 
 
 def _verified_principal(req: Request) -> str:

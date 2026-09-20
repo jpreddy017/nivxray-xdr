@@ -62,3 +62,13 @@ export { default as NxVendorIcon }                 from "./NxVendorIcon";
 export { default as NxEntityIcon, ENTITY_ICONS }   from "./NxEntityIcon";
 export { resolveIntegrationIcon, integrationIconInventory,
          INTEGRATION_ICONS } from "./integrations/iconRegistry";
+
+// ── P1.1 · the remaining shared primitives ─────────────────────────
+// One filter grammar (with visible active constraints), one entity
+// reference, one provenance chain, one temporal view and one deterministic
+// graph — so no surface hand-rolls these again.
+export { default as NxFilter }                     from "./NxFilter";
+export { default as NxEntity, NxEntityList }       from "./NxEntity";
+export { default as NxProvenanceChain }            from "./NxProvenanceChain";
+export { default as NxTimeline }                   from "./NxTimeline";
+export { default as NxGraph }                      from "./NxGraph";

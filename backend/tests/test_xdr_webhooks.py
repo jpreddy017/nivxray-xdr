@@ -60,10 +60,10 @@ def _seed():
         client = c
         _TOKEN.append(admin_token(c))
         register_tenants(TEN, label="webhooks")
-        for c in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
-                  rb._c_assignments):
-            if c() is not None:
-                c().delete_many({"tenant_id": TEN})
+        for coll in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
+                     rb._c_assignments):
+            if coll() is not None:
+                coll().delete_many({"tenant_id": TEN})
         if al._get_coll() is not None:
             al._get_coll().delete_many({"tenant_id": TEN})
         client.post("/api/xdr/rbac/users", headers=_hdrs(),

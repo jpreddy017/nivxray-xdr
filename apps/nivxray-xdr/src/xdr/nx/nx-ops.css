@@ -235,3 +235,99 @@
 .nx-btn--primary:hover:not(:disabled) {
   background: var(--nx-purple-hover); border-color: var(--nx-purple-hover);
 }
+
+/* ── Filter · active constraints are part of the primitive ────────── */
+.nx-filter { display: flex; flex-direction: column; gap: 8px; }
+.nx-filter-active {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.nx-filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 7px; cursor: pointer;
+  background: var(--nx-purple-dim);
+  border: 1px solid var(--nx-purple);
+  border-radius: 999px;
+  color: var(--nx-purple);
+  font: 600 10.5px/1.6 var(--sans);
+  transition: background-color 0.15s ease;
+}
+.nx-filter-chip:hover { background: var(--nx-surf-hover); }
+.nx-filter-chip-k { text-transform: uppercase; letter-spacing: 0.4px;
+  opacity: 0.8; }
+.nx-filter-chip-v { font-family: var(--mono); }
+
+/* ── Entity reference ─────────────────────────────────────────────── */
+.nx-ent { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.nx-ent-list { display: inline-flex; flex-wrap: wrap; gap: 10px; }
+.nx-ent-body { display: inline-flex; flex-direction: column; min-width: 0; }
+.nx-ent-value {
+  font: 600 12px/1.4 var(--sans); color: var(--nx-text);
+  overflow-wrap: anywhere;
+}
+.nx-ent-value.nx-mono { font-family: var(--mono); font-size: 11.5px; }
+.nx-ent-secondary { font: 400 10.5px/1.4 var(--sans); color: var(--nx-muted); }
+.nx-ent-pivot {
+  background: transparent; border: none; padding: 0; cursor: pointer;
+  text-align: left;
+}
+.nx-ent-pivot:hover .nx-ent-value { color: var(--nx-purple); }
+
+/* ── Provenance chain ─────────────────────────────────────────────── */
+.nx-prov { list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px; }
+.nx-prov-step {
+  padding: 9px 11px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-left: 3px solid var(--nx-teal);
+  border-radius: 4px;
+}
+.nx-prov-head { display: flex; align-items: center; gap: 9px; }
+.nx-prov-stage {
+  font: 700 10px/1.2 var(--sans); text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--nx-text-dim);
+}
+.nx-prov-reason {
+  margin: 5px 0 0; font: 400 11.5px/1.5 var(--sans); color: var(--nx-muted);
+}
+.nx-prov-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  flex-wrap: wrap; }
+.nx-prov-rail { display: inline-flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; }
+.nx-prov-rail-i { display: inline-flex; flex-direction: column; gap: 2px; }
+.nx-prov-arrow { color: var(--nx-faint); }
+
+/* ── Timeline ─────────────────────────────────────────────────────── */
+.nx-tl { display: flex; flex-direction: column; gap: 14px; }
+.nx-tl-day {
+  position: sticky; top: 0; z-index: 1;
+  padding: 4px 0;
+  background: var(--nx-surf-primary);
+  font: 700 10px/1.2 var(--sans); text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--nx-muted);
+  border-bottom: 1px solid var(--nx-bd-quiet);
+}
+.nx-tl-items { list-style: none; margin: 0; padding: 0; }
+.nx-tl-item {
+  display: grid; grid-template-columns: 64px 12px 1fr; gap: 8px;
+  padding: 7px 0; cursor: pointer; align-items: start;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  transition: background-color 0.15s ease;
+}
+.nx-tl-item:hover { background: var(--nx-surf-hover); }
+.nx-tl-item.is-selected {
+  background: var(--nx-surf-hover);
+  box-shadow: inset 3px 0 0 var(--nx-purple);
+}
+.nx-tl-time { font-size: 11px; color: var(--nx-text-dim); padding-top: 1px; }
+.nx-tl-dot {
+  width: 7px; height: 7px; margin-top: 5px; border-radius: 50%;
+  background: var(--nx-bd-strong);
+}
+.nx-tl-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nx-tl-title {
+  display: flex; align-items: center; gap: 6px;
+  font: 600 12px/1.45 var(--sans); color: var(--nx-text);
+}
+.nx-tl-detail { font: 400 11.5px/1.5 var(--sans); color: var(--nx-text-dim); }
+.nx-tl-basis { font: 400 10px/1.4 var(--mono); color: var(--nx-faint); }

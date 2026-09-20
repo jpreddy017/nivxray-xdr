@@ -61,3 +61,35 @@ def hdrs(token: str, tenant: str | None = None, **extra: str) -> dict:
         h["X-Tenant-Id"] = tenant
     h.update(extra)
     return h
+
+
+#: A password shared by suite-provisioned principals. Preview database only.
+SUITE_PASSWORD = "Suite!Verified2026-session"
+
+
+def provision_session_user(email: str, tenant_id: str,
+                           role: str = "analyst") -> None:
+    """Create the AUTH record a non-admin principal needs to log in.
+
+    `role` is deliberately NOT `admin`: a platform administrator holds the
+    documented cross-tenant break-glass authority, so testing a denial with
+    an admin token proves nothing about permission enforcement.
+    """
+    import deps
+
+    users = deps.sync_collection("users")
+    users.delete_many({"email": email})
+    users.insert_one({
+        "email": email,
+        "password": deps.hash_password(SUITE_PASSWORD),
+        "role": role,
+        "tenant_id": tenant_id,
+    })
+
+
+def login(client: TestClient, email: str,
+          password: str = SUITE_PASSWORD) -> str:
+    r = client.post("/api/auth/login", json={"email": email,
+                                             "password": password})
+    assert r.status_code == 200, f"login failed for {email}: {r.text}"
+    return r.json()["access_token"]

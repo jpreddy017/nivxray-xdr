@@ -270,5 +270,10 @@ def test_jwt_admin_path_still_works(client):
         "password": os.environ["ADMIN_PASSWORD"]})
     assert login.status_code == 200, login.text
     token = login.json()["access_token"]
-    r = client.get(READ_PATH, headers={"Authorization": f"Bearer {token}"})
+    # The administrator must NAME the tenant it operates in: a cross-tenant
+    # principal resolves to no single customer, and there is no default
+    # tenant (T-RISK-1). Naming it is an input to authorization, never an
+    # identity — the bearer token remains the only identity here.
+    r = client.get(READ_PATH, headers={"Authorization": f"Bearer {token}",
+                                       "X-Tenant-Id": TENANT})
     assert r.status_code == 200, r.text
