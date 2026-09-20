@@ -1,6 +1,44 @@
 # NivXRay — Master Reminders + Product Requirements
 
-## 2026-06-20 · P0.5 CLOSED WITH DOCUMENTED TEST-INFRASTRUCTURE DEBT
+## 2026-06-20 · TASK 2 · INCIDENTS — MIGRATED · VERIFIED_PROGRAMMATICALLY
+
+Proof: `scripts/p1_incidents_dom_proof.py` → **24 PASS · 0 FAIL**
+(`test_reports/p1_incidents_dom_proof.txt`), plus testing-agent DOM sweep
+`test_reports/iteration_122.json`. No screenshots used.
+
+- **ONE incident queue.** `/xdr/incidents` now serves the nx surface
+  (`XdrIncidentsPage`: dense 12-column `NxDataTable` → contextual `NxFlyout`
+  → investigation). The ux0-styled split view `XdrIncidentsCortexPage` is
+  **deleted** and `/xdr/incidents/_table` redirects — the second visual
+  system on the same workflow is gone. Every retired capability is carried:
+  search, sort, state tabs, time window, my-queue, inline inspection and
+  per-tab pivots.
+- **New `xdr/incidents/IncidentContextPane.jsx`** — verdict cited (engine,
+  risk, confidence, derivation, derivation chain) · entities (from
+  `endpoint_campaign` + `iocs`, drawn as `NxEntity` classes) · detections
+  that contributed (`verdict_stage2.contributing_signals` with weight/hits/
+  label effect) · assets · MITRE · evidence pointers per domain + canonical
+  evidence and correlation counts · attack progression · worklog. All ten
+  detail tabs are reachable as pivots (`incident-pivot-<tab>`).
+- **`XdrIncidentDomainPage` rebuilt on nx** — the bespoke context strip,
+  hand-rolled state badge and legacy `--faint/--panel2/.btn` palette are
+  gone; state tokens render through `NxState` (token kept in
+  `data-nx-state`). Honest states unchanged: identity/network/email/cloud
+  `NOT_CONNECTED`, files `NOT_ESTABLISHED`, endpoints pivots to the
+  resolver.
+- **Real defect found by the testing agent and fixed in the primitive**:
+  `NxInvValue` did `JSON.stringify(value)` on any object, so a composed node
+  threw "Converting circular structure to JSON" on React's fiber refs and
+  `NxErrorBoundary` swallowed the whole pane. It now renders a valid element
+  as presentation; the pane also passes primitives via column renderers.
+- All three Incidents routes read **MIGRATED** in the generated register.
+  Register totals: MIGRATED 21 · IN_PROGRESS 8 · NOT_STARTED 34.
+- Correction for future agents: the theme is applied on `.xdr-console`
+  (`data-nx-theme`), NOT on `documentElement`. The toggle works — both
+  themes verified with zero clipped and zero same-colour-on-same-background
+  elements.
+
+
 
 Record: `/app/memory/P0_5_CLOSURE.md`. Owner mode change: work is now taken
 as **small bounded tasks with a PASS/FAIL exit condition**, one at a time;

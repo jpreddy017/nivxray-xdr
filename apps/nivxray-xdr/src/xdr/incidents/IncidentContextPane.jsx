@@ -54,11 +54,18 @@ function entitiesOf(detail) {
 }
 
 const DETECTION_COLUMNS = [
-  { key: "rule", label: "Rule", width: 190 },
-  { key: "effect", label: "Label effect", width: 120 },
-  { key: "weight", label: "Weight", width: 80, num: true },
-  { key: "hits", label: "Hits", width: 62, num: true },
-  { key: "why", label: "Contribution" },
+  { key: "rule_id", label: "Rule", width: 190,
+    render: (r) => <span className="nx-mono">{r.rule_id || "—"}</span> },
+  { key: "label_effect", label: "Label effect", width: 120,
+    render: (r) => (r.label_effect
+      ? <NxChip tone="medium" variant="tinted">{r.label_effect}</NxChip>
+      : <Absent>not stated</Absent>) },
+  { key: "weight", label: "Weight", width: 80, num: true,
+    render: (r) => (r.weight == null ? <Absent>—</Absent> : `+${r.weight}`) },
+  { key: "hits", label: "Hits", width: 62, num: true,
+    render: (r) => (r.hits == null ? <Absent>—</Absent> : r.hits) },
+  { key: "description", label: "Contribution",
+    render: (r) => r.description || <Absent /> },
 ];
 
 export default function IncidentContextPane({ row, detail, loading, error,
@@ -164,18 +171,8 @@ export default function IncidentContextPane({ row, detail, loading, error,
         {signals.length > 0 && (
           <NxInvTable
             columns={DETECTION_COLUMNS}
-            rows={signals.map((s, i) => ({
-              _k: s.rule_id || i,
-              rule: <span className="nx-mono">{s.rule_id || "—"}</span>,
-              effect: <NxChip tone="medium" variant="tinted">
-                        {s.label_effect || "not stated"}
-                      </NxChip>,
-              weight: s.weight == null
-                ? <Absent>—</Absent> : `+${s.weight}`,
-              hits: s.hits == null ? <Absent>—</Absent> : s.hits,
-              why: s.description || <Absent />,
-            }))}
-            rowKey={(r) => r._k}
+            rows={signals}
+            rowKey={(r, i) => r.rule_id || i}
             testid="flyout-detections-table"
           />
         )}

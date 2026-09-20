@@ -33,6 +33,12 @@ export const ABSENCE = {
 export function NxInvValue({ value, absent = ABSENCE.NOT_AVAILABLE, mono }) {
   const missing = value == null || value === "" || value === "unset";
   if (missing) return <span className="inv-tb__na">{absent}</span>;
+  // A composed node (a chip, an entity, a token) is already presentation —
+  // render it. Stringifying it used to throw on React's circular fiber
+  // refs and took the whole surface down with it.
+  if (React.isValidElement(value)) {
+    return <span className={mono ? "mono" : undefined}>{value}</span>;
+  }
   return <span className={mono ? "mono" : undefined}>
     {typeof value === "object" ? JSON.stringify(value) : String(value)}
   </span>;
