@@ -1,5 +1,59 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## VERDICT AUTHORITY RULE (owner decision, 2026-06-21 · binding)
+
+The **Incident deterministic verdict** is the authoritative analyst-facing
+Incident verdict. The **causal-engine assessment is analytical input and
+context**, never a second competing Incident verdict. Never average, merge or
+synthesize them into a third verdict. Where they differ, preserve both
+truthfully and disclose the difference without implying either observation did
+not occur. Any future disagreement narrative must be derived from the actual
+scopes/evidence — never hard-coded.
+
+## 2026-06-21 · S3-C · MILESTONE TIMELINE MERGE — DONE · PROVEN
+
+Full record: `/app/memory/S3C_MILESTONE_TIMELINE_MERGE.md`. **Frontend only**,
+no backend change, no new engine, no new data store.
+Proof: `scripts/p1_s3c_milestone_timeline_proof.py` → **31 PASS · 0 FAIL** ·
+build **PASS**.
+
+- **Time authorities**: a causal milestone (`story[]`) carries **no timestamp
+  of its own**; it is positioned by `frames[].ts` of the evidence event it
+  cites (`story[].frame_iids` → `…/trajectory/device`). `provenance.ingested_at`
+  is INGEST_TIME and is never shown as activity time;
+  `provenance.sensor_observed_at` is absent in this dataset ⇒ NOT RECORDED.
+- **ONE timeline** (asserted): it now also carries **Observed event** rows
+  (one per frame, each with its own clocks, lane, source, MITRE and
+  `evidence_ids`) and **Causal milestone** rows marked with a filled
+  `ATTACK MILESTONE · <stage>` chip so a milestone can never read as raw
+  telemetry. Live: milestone and cited event both at `2026-06-01 10:00:00`,
+  order descending by authoritative time.
+- **Milestones with no authoritative activity time** get their own section
+  *below* the chronology — listed, never snapped to a neighbouring event.
+- **Three clocks** reported separately in the expanded row, with the sentence
+  "A milestone has no clock of its own — it is positioned by the activity time
+  of the cited evidence event <frame_iid>".
+- **Evidence chain** `event → canonical evidence → normalizer → source →
+  origin → ingest job` plus the **existing** shared `EvidenceInspector`
+  embedded in place (no evidence duplicated, no synthetic rows).
+- **Story ↔ Timeline** hand-off through existing query params only
+  (`?tab=timeline&focus=m-0` and back); `NxInvTable` gained one optional
+  `openKey` prop (focused row expands, `data-focus="true"`, scrolled into
+  view).
+- NOT_ASSOCIATED: no milestone row, no unpositioned block, no zero chart —
+  timeline still renders its own records. All 7 tabs render; cross-tenant
+  exposes no rows.
+- Residuals: sensor clock absent from this dataset's provenance (confirm the
+  collector schema); merge proven on 1 frame / 1 milestone — spot-check a
+  dense incident; carried P0 `response-executions` client-supplied tenant.
+
+### Next (owner-set sequence)
+1. **S3-D Anchor-to-Evidence** — causal anchor → the incident evidence rows citing it.
+2. Small Verdict Disagreement presentation, only if still needed.
+3. Investigate Parity Audit → retire the standalone Investigate UI **only if
+   parity is proven**.
+4. Then (and only then) the large NivX competitive capability audit.
+
 ## 2026-06-21 · S3-B · VERDICT EXPLAINABILITY — DONE · PROVEN
 
 Full record: `/app/memory/S3B_VERDICT_EXPLAINABILITY.md`.

@@ -161,6 +161,18 @@ export async function getIncidentVerdictHypothesis(incidentId, patternId) {
   return data;
 }
 
+/** S3-C · the device trajectory frames — the authoritative, time-bearing
+ *  evidence events the causal milestones cite. Same authority as the causal
+ *  analysis read. Each frame carries its own `ts` (activity time) and its own
+ *  `provenance` (source · normalizer · ingest job · ingested_at), which is
+ *  why a milestone never needs a clock of its own. */
+export async function getIncidentDeviceTrajectory(incidentId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/trajectory/device?limit=500`,
+  );
+  return data;
+}
+
 export async function transitionIncidentState(incidentId, targetState, note) {
   const { data } = await api.patch(
     `/incidents/${encodeURIComponent(incidentId)}/state`,

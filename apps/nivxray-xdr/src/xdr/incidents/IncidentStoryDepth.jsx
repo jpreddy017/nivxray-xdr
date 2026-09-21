@@ -30,7 +30,7 @@
  *     versions) stays under Technical details.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvMetrics,
          NxState, NxChip, NxEntity, NxSkeleton, ABSENCE } from "@/xdr/nx";
@@ -124,6 +124,14 @@ function NotAssociated({ reason, readFrom, testid }) {
 
 /* ── L1 · sequential attack milestones ──────────────────────────── */
 function Milestones({ story, nodeById, testid }) {
+  const [params, setParams] = useSearchParams();
+  const focus = params.get("focus");
+  const toTimeline = (key) => {
+    const next = new URLSearchParams(params);
+    next.set("tab", "timeline");
+    next.set("focus", key);
+    setParams(next);
+  };
   if (!story.length) {
     return <NxInvEmpty
       title="No milestone was recorded for this incident"
@@ -138,14 +146,16 @@ function Milestones({ story, nodeById, testid }) {
     { key: "entity", label: "Entity", width: "14rem" },
     { key: "why", label: "Why it is a milestone", width: "15rem" },
     { key: "when", label: "First observed", width: "12rem" },
+    { key: "go", label: "", width: "9rem" },
   ];
   const rows = story.map((s, i) => {
     const procs = (s.process_iids || []).map((iid) => nodeById.get(iid))
       .filter(Boolean);
     const first = procs.map((p) => p?.attrs?.first_seen).filter(Boolean)[0];
     const signals = s.signals || [];
+    const key = `m-${s.idx ?? i}`;
     return {
-      _k: `m-${s.idx ?? i}`,
+      _k: key,
       _s: s,
       _first: first,
       n: (s.idx ?? i) + 1,
@@ -169,11 +179,17 @@ function Milestones({ story, nodeById, testid }) {
           </span>
         : <span className="inv-tb__na">{ABSENCE.NOT_RECORDED}</span>,
       when: first || <span className="inv-tb__na">{ABSENCE.NOT_RECORDED}</span>,
+      go: (
+        <button type="button" className="nx-dt-btn"
+                data-testid={`${testid}-to-timeline-${key}`}
+                onClick={(e) => { e.stopPropagation(); toTimeline(key); }}>
+          Show on timeline
+        </button>),
     };
   });
   return (
     <NxInvTable columns={columns} rows={rows} rowKey={(r) => r._k}
-                testid={testid}
+                testid={testid} openKey={focus || undefined}
                 detail={(r) => (
                   <div style={{ display: "grid", gap: 6, fontSize: 11.5 }}
                        data-testid={`${testid}-prov-${r.n}`}>

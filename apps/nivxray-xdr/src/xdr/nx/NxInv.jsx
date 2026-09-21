@@ -13,7 +13,7 @@
  *   · engine strings (`NOT_RUN`, `attack_progression[]`, provider
  *     internals) live under Technical details, never in primary content.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./nx-inv.css";
 
 export const ABSENCE = {
@@ -106,10 +106,13 @@ export function NxInvFilters({ options, active, onChange, right, testid }) {
 }
 
 /** Dense table with optional row expansion — the ONE table in the
- *  investigation experience. `columns: [{key,label,width,num,render}]`. */
+ *  investigation experience. `columns: [{key,label,width,num,render}]`.
+ *  `openKey` opens (and marks `data-focus`) one row from outside the table,
+ *  so one surface can hand an analyst to the same fact on another surface. */
 export function NxInvTable({ columns, rows, rowKey, detail, testid,
-                            onRowClick, empty }) {
-  const [open, setOpen] = useState(null);
+                            onRowClick, empty, openKey }) {
+  const [open, setOpen] = useState(openKey ?? null);
+  useEffect(() => { if (openKey != null) setOpen(openKey); }, [openKey]);
   if (!rows || rows.length === 0) return empty || null;
   return (
     <table className="inv-tb" data-testid={testid}>
@@ -130,6 +133,8 @@ export function NxInvTable({ columns, rows, rowKey, detail, testid,
           return (
             <React.Fragment key={k}>
               <tr className="inv-tb__r" data-open={isOpen || undefined}
+                  data-focus={(openKey != null && openKey === k)
+                    ? "true" : undefined}
                   data-testid={`${testid}-row-${k}`}
                   onClick={() => {
                     if (onRowClick) return onRowClick(r);
