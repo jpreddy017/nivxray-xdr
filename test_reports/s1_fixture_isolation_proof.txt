@@ -1,0 +1,32 @@
+PRE  · 154 collections · 1197051 docs · incident queue 942
+  pytest tests/test_s1_incident_subresource_authz.py -q -n 0 → rc=0 · ['61 passed, 17 warnings in 209.97s (0:03:29)']
+  pytest /tmp/s1_teardown_on_failure/test_s1_teardown_on_failure.py -q -n 0 -p no:cacheprovider → rc=1 · ['1 failed, 12 warnings in 3.18s']
+POST · 154 collections · 1197771 docs · incident queue 942
+PASS · workspace_cases: 1272 → 1272 · 0 fixture documents remaining
+PASS · users: 17 → 17 · 0 fixture documents remaining
+PASS · xdr_report_blocks: 15 → 15 · 0 fixture documents remaining
+PASS · xdr_intelligence_overlays: 10 → 10 · 0 fixture documents remaining
+PASS · xdr_intelligence_overlay_audit: 16 → 16 · 0 fixture documents remaining
+PASS · incident queue count 942 → 942
+
+CONTROL 1 · 2 × 217s with NO tests running (this Preview database has live writers, some periodic)
+  window 1: 8 collections moved
+  window 2: 9 collections moved
+CONTROL 2 · app lifespan only (no S1 fixture, no request)
+  pytest /tmp/s1_lifespan_control/test_s1_lifespan_control.py -q -n 0 -p no:cacheprovider → rc=0 · ['1 passed, 12 warnings in 11.10s']
+  the lifespan alone moved 7 collections: ['edr_raw_events', 'v2_shadow_observations', 'xdr_audit_log', 'xdr_canonical_evidence', 'xdr_cortex_scheduler_audit', 'xdr_detection_versions', 'xdr_vault_audit']
+  edr_raw_events: 183424 → 183518 · app-startup-job
+  edr_rejected_telemetry: 1953 → 1954 · background
+  ti_sync_runs: 2433 → 2434 · UNEXPLAINED
+  v2_shadow_observations: 179651 → 179744 · app-startup-job
+  xdr_audit_log: 14290 → 14440 · app-startup-job
+  xdr_canonical_evidence: 177063 → 177156 · app-startup-job
+  xdr_cortex_scheduler_audit: 221212 → 221287 · app-startup-job
+  xdr_detection_matches: 612 → 613 · background
+  xdr_detection_versions: 10672 → 10822 · app-startup-job
+  xdr_spread_sightings: 3260 → 3262 · background
+  xdr_vault_audit: 179293 → 179353 · app-startup-job
+  probe · ti_sync_runs: 0 documents carry an S1 fixture marker
+NOTE · 1 collections moved during the test run and in none of the controls: ['ti_sync_runs'] — carrying no S1 fixture marker.
+
+S1 FIXTURE ISOLATION: PASS

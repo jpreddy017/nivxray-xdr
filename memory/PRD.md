@@ -1,5 +1,57 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · S1 · INCIDENT SUB-RESOURCE AUTHORIZATION — CLOSED · PROVEN
+
+Full record: `/app/memory/S1_INCIDENT_SUBRESOURCE_AUTHZ.md`.
+Backend only, authorization only. No frontend change, no S2/S3/S4 work.
+
+- **14 routes closed** on ONE model, exported from `routers/incidents.py` as
+  `authorized_incident()` + `require_incident_action()` (it delegates to the
+  existing P0-W resolver — no second authorization model):
+  `authenticated principal → server-resolved tenant scope → incident in scope
+  (else 404, existence never disclosed) → permission for a mutation
+  (incidents.update) → actor = the verified principal`.
+- The 7 inventory routes + the 4 report-block writes, **plus 7 additional
+  same-class leaks found while verifying** (owner-approved, same pass):
+  `…/attack-evidence` and `…/inspector/**` had **no auth dependency at all**;
+  `…/summary`, `…/threat-model` were unscoped; the **whole
+  `…/intelligence/overlays` family** was authenticated-but-unscoped on read
+  AND write — one customer's analyst could overwrite another's interpretation.
+- Report blocks: `author_email` from the **body** is ignored; attribution is
+  the verified principal; a block is addressable only through its own incident.
+- **Live edge proof with real JWTs — 66 PASS · 0 FAIL**
+  (`test_reports/s1_live_authz_matrix.txt`): anonymous denied ×14, own-tenant
+  analyst **200 ×14**, cross-tenant 404 with no disclosure, refused mutations
+  store nothing, `?tenant=`/`?customer=`/`X-Tenant-Id`/`X-Principal-Id` are
+  **not authority**, unknown incident 404 everywhere.
+- **S1 suite 61 passed.** Focused regression (10 suites, one serial process):
+  **316 passed · 3 skipped · 2 failed**, both proven pre-existing on the
+  pre-S1 tree by `git stash` — a stale hard-coded live count (198 vs 500) and
+  `test_xdr_incident_queue`'s **import-time global dependency override**
+  leaking into `test_a05`.
+- Defect in my own first S1 test file fixed: `dependency_overrides.clear()`
+  deleted another module's override and broke 9 queue tests; the suite now
+  owns exactly one key.
+- **Fixture isolation PASS** (`scripts/s1_fixture_isolation_proof.py`):
+  cleanup on success AND failure, S1-owned collections count-identical,
+  **incident queue 942 → 942**, 0 artefacts remaining; all other drift
+  attributed by measurement to background writers / the app's own startup
+  sync. One residual: `ti_sync_runs +1`, **TEST INFRASTRUCTURE RESIDUAL —
+  DOES NOT INVALIDATE S1** (0 documents carry an S1 marker).
+- Recorded, NOT changed (different root cause, owner decision):
+  `GET /api/xdr/incidents/{id}/response-executions` trusts an optional
+  client-supplied `tenant_id`. And `content_supply_chain.py`'s 8 per-incident
+  routes are blanket `require_admin` — that is the S2 question, not a leak.
+
+### Owner-set next priorities (visible product work, deliberately small)
+- **S2-mini (P0 next)**: the MINIMUM tenant/RBAC adjustment so an authorized
+  analyst can read the already-existing engine-depth results. Not a broad
+  engine-authorization rewrite.
+- **S3-A UI (P1)**: promote Causal Anchors · Sequential Attack Milestones ·
+  IKG/Graph summary · Negative Explainability into the Individual Incident
+  Story/analysis experience.
+- S4 (retire the duplicate Investigate experience) stays after S3-A.
+
 ## 2026-06-21 · INVESTIGATE → INCIDENT CONSOLIDATION INVENTORY — READ-ONLY · DELIVERED
 
 Report: `/app/memory/INVESTIGATION_TO_INCIDENT_CONSOLIDATION_INVENTORY.md`.

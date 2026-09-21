@@ -75,6 +75,58 @@ def _authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
     return doc, query
 
 
+def authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
+                        projection: Optional[Dict[str, Any]] = None):
+    """S1 · THE authority for addressing ONE incident, exported.
+
+    Every incident SUB-RESOURCE router (attack story, attack graph, report,
+    autonomous investigation) resolves the incident through this function, so
+    the plane has exactly one authorization model:
+
+        authenticated principal → server-resolved tenant scope
+        → incident belongs to that scope → resource
+
+    A client can never present a tenant: the scope comes from the verified
+    principal. Out of scope is indistinguishable from non-existent (404), so
+    a sub-resource cannot disclose that another customer's incident exists.
+    """
+    return _authorized_incident(incident_id, user, projection)
+
+
+def require_incident_action(user: Optional[Dict[str, Any]],
+                            permission: str) -> None:
+    """S1 · the ACTION gate for a write on an incident sub-resource.
+
+    Read access is the incident record's own contract (tenant scope, above);
+    a MUTATION additionally requires the permission, resolved server-side
+    from the principal's own RBAC record in its own tenant. The
+    cross-tenant platform-admin role keeps the authority it already has
+    everywhere else (`routers.xdr_rbac`), so no second model is introduced.
+    """
+    email = (user or {}).get("email")
+    if not email:
+        raise HTTPException(status_code=401,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": "unauthenticated",
+                                    "permission": permission})
+    if (user or {}).get("role") == "admin":
+        return
+    tenant = (user or {}).get("tenant_id")
+    if not tenant:
+        raise HTTPException(status_code=403,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": "no-tenant-scope",
+                                    "permission": permission})
+    from routers.xdr_rbac import check_access
+    decision = check_access(tenant, email, permission)
+    if not decision.get("allow"):
+        raise HTTPException(status_code=403,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": decision.get("reason")
+                                              or "permission-not-granted",
+                                    "permission": permission})
+
+
 # ── Lifecycle state machine ──────────────────────────────────────────
 # Deterministic, allow-listed transitions.  Any transition not in
 # this map is rejected with HTTP 409.
