@@ -133,6 +133,21 @@ export async function getIncidentSummary(incidentId) {
   return data;
 }
 
+/** S3-A · the causal analysis this incident is associated with.
+ *
+ *  Authority: `S2-mini` — the server resolves the caller's tenant and only
+ *  answers for an incident they are authorized for, and it states whether
+ *  causal analysis is associated with this incident at all
+ *  (`engine_association.state`). The frontend NEVER infers association from
+ *  an empty payload, and never substitutes another case. */
+export async function getIncidentCausalAnalysis(incidentId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/investigation`
+    + `?limit=500&profile=soc_balanced`,
+  );
+  return data;
+}
+
 export async function transitionIncidentState(incidentId, targetState, note) {
   const { data } = await api.patch(
     `/incidents/${encodeURIComponent(incidentId)}/state`,

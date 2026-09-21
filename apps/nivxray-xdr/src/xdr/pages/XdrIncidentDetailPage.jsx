@@ -35,6 +35,7 @@ import IncidentEntities from "@/xdr/incidents/IncidentEntities";
 import RecommendedActions from "@/xdr/incidents/RecommendedActions";
 import IncidentProvenance from "@/xdr/incidents/IncidentProvenance";
 import InvestigationPivots from "@/xdr/incidents/InvestigationPivots";
+import IncidentStoryDepth from "@/xdr/incidents/IncidentStoryDepth";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
 import ActivityWorklogTab   from "./incidents/record/tabs/ActivityWorklogTab";
@@ -465,6 +466,14 @@ export default function XdrIncidentDetailPage() {
                 </NxInvSection>
               )}
               <AttackStoryTab incident={incident} />
+
+              {/* S3-A · the causal analysis the engine already produced,
+                  promoted into the story: ordered milestones + observed
+                  stages (L1), anchors + relationship intelligence (L2),
+                  per-row provenance (L3). When the server states the
+                  incident has no associated causal analysis this renders
+                  ONE honest state — never zeros or an empty chain. */}
+              <IncidentStoryDepth incident={incident} />
 
               {/* Task 3 · Entities is a LENS of the story, not a peer tab:
                   Graph | Table with contextual entity panes, where every

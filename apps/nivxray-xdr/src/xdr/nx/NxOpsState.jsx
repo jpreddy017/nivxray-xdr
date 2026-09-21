@@ -87,6 +87,12 @@ export const OPS_STATES = {
   OPERATOR_CONFIGURED:  S("Operator configured", "low"),
   PLATFORM_DEFAULT:     S("Platform default", "not_run", "dashed"),
 
+  // ── causal analysis association (S2-mini authority, S3-A surface) ─
+  ASSOCIATED:           S("Causal analysis available", "benign"),
+  NOT_ASSOCIATED:       S("Causal analysis not available", "not_run", "dashed"),
+  EVIDENCE_CITED:       S("Evidence cited", "available"),
+  ENGINE_DERIVED:       S("Derived · no event cited", "not_run", "dashed"),
+
   // ── response lifecycle ────────────────────────────────────────
   REQUESTED:            S("Requested", "not_run", "dashed"),
   PENDING_APPROVAL:     S("Pending approval", "medium"),

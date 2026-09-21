@@ -1,5 +1,56 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · S3-A · INCIDENT STORY DEPTH — DONE · VERIFIED_PROGRAMMATICALLY
+
+Full record: `/app/memory/S3A_INCIDENT_STORY_DEPTH.md`. **Frontend only** —
+zero backend change, zero data-model change. Verdict Explainability (S3-B)
+deliberately not started.
+Proof: `scripts/p1_s3a_story_depth_dom_proof.py` → **23 PASS · 0 FAIL**
+(`test_reports/p1_s3a_story_depth_dom_proof.txt`) · production build **PASS**.
+No screenshots.
+
+- New `xdr/incidents/IncidentStoryDepth.jsx`, mounted in the **Story tab** of
+  the Individual Incident under the incident's own attack story. The engine's
+  collapsed `EngineDepth` panels stay untouched — the engine workspace was NOT
+  re-embedded.
+- **L1 Attack milestones** — ordered table from `story[]`
+  (`# · What happened · Stage · Entity · Why it is a milestone · First
+  observed`) + metric strip; row expansion reveals L3 provenance (event
+  frames + the exact field each value was read from).
+- **L1b Observed attack stages** — all 14 stages from
+  `attack_mapping.kill_chain[]`; placed stages carry their technique ids, a
+  stage with no evidence is **dashed = NOT OBSERVED**, with the sentence that
+  it is not a claim the activity did not happen. Live: 2 placed · 12 not
+  observed.
+- **L2 Causal anchors** — from `ikg.nodes[]`, rendered as `NxEntity` with
+  relationship degree and `first_seen`; pivots come ONLY from the existing
+  `investigationPivots` contract (no invented URL). An anchor whose only label
+  is the incident id is **not given a borrowed name** — the count is stated.
+- **L2 Relationship intelligence** — `entity —relationship→ entity` lines,
+  each marked **Evidence cited** or **Derived · no event cited**; behavioural
+  relationships primary, structural under a disclosure. Engine internals under
+  Technical details.
+- **Association honesty** — one compact `NOT_ASSOCIATED` state carrying the
+  server's own reason, asserted live to have **no metric strip, no milestone
+  table, no stage strip**: no zeros, no empty chart, no empty kill chain, and
+  explicit "absence of engine analysis ≠ benign".
+- Design system: 4 new `NxOpsState` tokens (`ASSOCIATED`, `NOT_ASSOCIATED`,
+  `EVIDENCE_CITED`, `ENGINE_DERIVED`). No new component system.
+- Asserted live: **0** occurrences of `v2_cases` / `shadow_observation` /
+  `case_authz` / "IKG engine" in analyst-facing copy; all 7 incident tabs
+  still render; cross-tenant incident exposes no engine content.
+- Environment note: the preview edge throttles rapid sequential navigation
+  (0-char bodies). The sweep waits on a real anchor element and retries once.
+
+### Next (owner-set)
+- **S3-B · Verdict Explainability** — why this verdict, supporting evidence,
+  contradictory/negative evidence, "why not X?", inside the Incident. Note:
+  `…/investigation/explain/{pattern_id}` is **admin-only by design** — expose
+  the read contract securely, do NOT weaken it for the UI.
+- Then: standalone Investigate landing (S4), Control Center expansion.
+- Carried P0 residual (separate ticket): `response-executions` trusts a
+  client-supplied `tenant_id`.
+
 ## 2026-06-21 · S2-MINI · ENGINE-DEPTH READ AUTHORIZATION — DONE · PROVEN
 
 Full record: `/app/memory/S2_MINI_ENGINE_DEPTH_AUTHZ.md`. Backend only,
