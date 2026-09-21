@@ -8,7 +8,7 @@ Additive. Read-only. Flag-gated on VERDICT_ENGINE_V3.
 """
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
-from deps import require_admin, db as _db
+from deps import db as _db
 from v2.case_authz import engine_association, engine_case_read
 from v2.flags import get as get_flag
 from v2.trajectory import build_from_observations
@@ -41,8 +41,15 @@ async def investigation(case_id: str, limit: int = 500,
 @router.get("/{case_id}/investigation/explain/{pattern_id}")
 async def investigation_explain_negative(case_id: str, pattern_id: str,
                                          profile: str = "soc_balanced",
-                                         _: dict = Depends(require_admin)) -> dict:
-    """Deterministic "Why isn't this <pattern>?" reasoning."""
+                                         grant: dict = Depends(engine_case_read)
+                                         ) -> dict:
+    """Deterministic "Why isn't this <pattern>?" reasoning.
+
+    S3-B · this read carries the SAME authority as the other engine-depth
+    reads (S2-mini): admin keeps its access, and any other principal may ask
+    the question only about a `case_id` that IS an incident it is authorized
+    for. Read-only — no profile, engine or verdict state can be changed here.
+    """
     if not get_flag("VERDICT_ENGINE_V3").observable():
         raise HTTPException(status_code=503, detail="verdict engine v3 disabled")
     frames = await build_from_observations(_db, case_id=case_id, limit=500)

@@ -148,6 +148,19 @@ export async function getIncidentCausalAnalysis(incidentId) {
   return data;
 }
 
+/** S3-B · the engine's deterministic "why isn't this <pattern>?" answer for
+ *  ONE hypothesis. Same authority as the causal analysis read: the server
+ *  resolves the tenant and only answers for an incident this principal is
+ *  authorized for. Read-only — the frontend never proposes a hypothesis the
+ *  engine did not list, and never computes its own. */
+export async function getIncidentVerdictHypothesis(incidentId, patternId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/investigation/explain/`
+    + `${encodeURIComponent(patternId)}?profile=soc_balanced`,
+  );
+  return data;
+}
+
 export async function transitionIncidentState(incidentId, targetState, note) {
   const { data } = await api.patch(
     `/incidents/${encodeURIComponent(incidentId)}/state`,

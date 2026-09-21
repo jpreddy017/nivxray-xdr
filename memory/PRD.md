@@ -1,5 +1,54 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · S3-B · VERDICT EXPLAINABILITY — DONE · PROVEN
+
+Full record: `/app/memory/S3B_VERDICT_EXPLAINABILITY.md`.
+One 4-line backend authorization change + one new frontend surface. No new
+verdict engine, no frontend-computed verdict, no duplicated negative-
+explainability logic.
+Proof: `scripts/p1_s3b_verdict_explainability_proof.py` → **32 PASS · 0 FAIL**
+· `tests/test_s2mini_engine_depth_authz.py` → **22 passed** · build **PASS**.
+
+- **Authorities used (inventoried first, none invented)**: verdict · risk ·
+  confidence ← `/incidents/:id/summary.deterministic_verdict` (the incident's
+  OWN authority, `workspace_cases.verdict_stage2`) · supporting reasons ←
+  `verdicts.device.evidence_breakdown[]` + `explainability.positive.reasons[]`
+  · negative evidence ← the engine's own
+  `…/investigation/explain/{pattern}` per hypothesis in
+  `explainability.negative_patterns[]` · gaps ←
+  `/summary.evidence_gaps[]`. **Analysis completeness has NO authoritative
+  measure in this build** → reads NOT AVAILABLE with the reason (the frontend
+  `completeness.js` computation was deliberately NOT used).
+- **Minimal auth change**: exactly one route,
+  `GET /api/v2/cases/{id}/investigation/explain/{pattern_id}`,
+  `require_admin` → `Depends(engine_case_read)` (the same S2-mini authority).
+  Read-only; no engine mutation/configuration exposed; admin unchanged.
+- **New `IncidentVerdictExplainability`** on the incident **Overview** tab:
+  verdict header (`SUSPICIOUS · risk 70 · confidence medium · analysis
+  completeness NOT AVAILABLE · 2 signals`) → *Why this verdict* (each reason
+  with **Evidence cited** or "statement · no event cited", row expansion =
+  event frames + source field) → *Evidence limiting a stronger conclusion*
+  (5 engine hypotheses under progressive disclosure, each absent behaviour
+  tagged NOT OBSERVED) → *Visibility and evidence gaps* in **two separate
+  groups** (2 searched-not-observed · 4 telemetry-unavailable).
+- Semantics asserted live: NOT OBSERVED ≠ ABSENT · MISSING TELEMETRY ≠
+  NEGATIVE EVIDENCE · CONFIDENCE ≠ ANALYSIS COMPLETENESS · NOT ASSOCIATED ≠
+  BENIGN. No profile/engine selector exposed; 0 implementation vocabulary in
+  primary content.
+- **Owner question raised**: the causal engine's band (`informational`, score
+  20, confidence 45) can disagree with the incident verdict (`suspicious`,
+  risk 70). The incident verdict is the headline; the causal assessment is
+  disclosed under Technical details. No third verdict is computed.
+
+### Next (owner-set sequence)
+1. **Milestone Timeline Merge** — milestone → exact time → evidence.
+2. **Anchor-to-Evidence** — causal anchor → the incident evidence rows citing it.
+3. Final Investigate parity audit → **then** retire the standalone Investigate UI.
+- Carried P0 residual (separate ticket): `response-executions` trusts a
+  client-supplied `tenant_id`.
+- Container note: `/tmp` and the Playwright browsers are wiped periodically —
+  run `python -m playwright install chromium` before a DOM proof.
+
 ## 2026-06-21 · S3-A · INCIDENT STORY DEPTH — DONE · VERIFIED_PROGRAMMATICALLY
 
 Full record: `/app/memory/S3A_INCIDENT_STORY_DEPTH.md`. **Frontend only** —

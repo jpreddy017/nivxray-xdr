@@ -185,8 +185,6 @@ def test_client_supplied_tenant_is_not_authority(seeded, q):
     ("DELETE", f"/api/v2/cases/{ENGINE_NATIVE}", None),
     ("POST", f"/api/v2/cases/{INC_ASSOC}/observations",
      {"kind": "process", "event": {}}),
-    ("GET", f"/api/v2/cases/{INC_ASSOC}/investigation/explain/lateral_movement",
-     None),
 ])
 def test_analyst_gains_no_engine_administration(seeded, method, path, body):
     _as(ANALYST)
@@ -229,3 +227,37 @@ def test_admin_access_is_unchanged(seeded):
             assert own.json()["engine_association"]["authority"] \
                 == "CROSS_TENANT_ROLE"
         assert c.get("/api/v2/cases").status_code == 200
+
+
+# ── S3-B · negative explainability carries the SAME read authority ──
+EXPLAIN = "/investigation/explain/ransomware"
+
+
+def test_negative_explainability_is_refused_anonymously(seeded):
+    _anon()
+    r = client.get(f"/api/v2/cases/{INC_ASSOC}{EXPLAIN}")
+    assert r.status_code in (401, 403), r.status_code
+
+
+def test_negative_explainability_is_404_cross_tenant(seeded):
+    _as(OTHER)
+    assert client.get(
+        f"/api/v2/cases/{INC_ASSOC}{EXPLAIN}").status_code == 404
+
+
+def test_negative_explainability_engine_native_case_denied_to_analyst(seeded):
+    _as(ANALYST)
+    assert client.get(
+        f"/api/v2/cases/{ENGINE_NATIVE}{EXPLAIN}").status_code == 404
+
+
+def test_authorized_analyst_reads_negative_explainability(seeded):
+    _as(ANALYST)
+    with motor_client() as c:
+        r = c.get(f"/api/v2/cases/{INC_ASSOC}{EXPLAIN}")
+    assert r.status_code == 200, r.status_code
+    body = r.json()
+    # the engine's own answer — never composed by the caller
+    assert body["pattern"] == "ransomware"
+    assert isinstance(body["missing_required"], list)
+    assert body["verdict_line"]

@@ -36,6 +36,7 @@ import RecommendedActions from "@/xdr/incidents/RecommendedActions";
 import IncidentProvenance from "@/xdr/incidents/IncidentProvenance";
 import InvestigationPivots from "@/xdr/incidents/InvestigationPivots";
 import IncidentStoryDepth from "@/xdr/incidents/IncidentStoryDepth";
+import IncidentVerdictExplainability from "@/xdr/incidents/IncidentVerdictExplainability";
 
 import ExecutiveTab         from "./incidents/record/tabs/ExecutiveTab";
 import ActivityWorklogTab   from "./incidents/record/tabs/ActivityWorklogTab";
@@ -445,6 +446,13 @@ export default function XdrIncidentDetailPage() {
                   <IncidentIntelligenceContext incidentId={incident.id} />
                 </div>
               </NxInvSection>
+
+              {/* S3-B · Verdict Explainability. Authoritative reads only:
+                  the incident's own verdict authority + the causal engine's
+                  recorded reasons, its own tested hypotheses, and the
+                  platform's recorded gaps. Negative evidence and missing
+                  visibility are never merged. */}
+              <IncidentVerdictExplainability incident={incident} />
 
               <EngineDepth title="Technical reasoning · verdict engine and causal state machine"
                            hint="The deterministic verdict derivation and the causal security-state machine, exactly as the engine recorded them."
