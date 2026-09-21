@@ -1,0 +1,41 @@
+edge: https://greeting-app-5782.preview.emergentagent.com
+
+PASS · anonymous /investigation?limit=50 → 403
+PASS · own-tenant analyst reads engine depth /investigation?limit=50 → 200 ASSOCIATED/INCIDENT_TENANT_AUTHORITY
+PASS · cross-tenant analyst /investigation?limit=50 → 404
+PASS · admin still reads /investigation?limit=50 → 200
+PASS · admin reads the engine-native case /investigation?limit=50 → 200
+PASS · analyst CANNOT read the engine-native case /investigation?limit=50 → 404
+PASS · fabricated identity cannot elevate /investigation?limit=50 &tenant_id=nivx-live → 404
+PASS · fabricated identity cannot elevate /investigation?limit=50 &customer=nivx-live → 404
+PASS · fabricated identity cannot elevate /investigation?limit=50 {'X-Tenant-Id': 'nivx-live'} → 404
+PASS · fabricated identity cannot elevate /investigation?limit=50 {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · anonymous /trajectory/device?limit=50 → 403
+PASS · own-tenant analyst reads engine depth /trajectory/device?limit=50 → 200 ASSOCIATED/INCIDENT_TENANT_AUTHORITY
+PASS · cross-tenant analyst /trajectory/device?limit=50 → 404
+PASS · admin still reads /trajectory/device?limit=50 → 200
+PASS · admin reads the engine-native case /trajectory/device?limit=50 → 200
+PASS · analyst CANNOT read the engine-native case /trajectory/device?limit=50 → 404
+PASS · fabricated identity cannot elevate /trajectory/device?limit=50 &tenant_id=nivx-live → 404
+PASS · fabricated identity cannot elevate /trajectory/device?limit=50 &customer=nivx-live → 404
+PASS · fabricated identity cannot elevate /trajectory/device?limit=50 {'X-Tenant-Id': 'nivx-live'} → 404
+PASS · fabricated identity cannot elevate /trajectory/device?limit=50 {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · anonymous /artifacts?limit=50 → 403
+PASS · own-tenant analyst reads engine depth /artifacts?limit=50 → 200 ASSOCIATED/INCIDENT_TENANT_AUTHORITY
+PASS · cross-tenant analyst /artifacts?limit=50 → 404
+PASS · admin still reads /artifacts?limit=50 → 200
+PASS · admin reads the engine-native case /artifacts?limit=50 → 200
+PASS · analyst CANNOT read the engine-native case /artifacts?limit=50 → 404
+PASS · fabricated identity cannot elevate /artifacts?limit=50 &tenant_id=nivx-live → 404
+PASS · fabricated identity cannot elevate /artifacts?limit=50 &customer=nivx-live → 404
+PASS · fabricated identity cannot elevate /artifacts?limit=50 {'X-Tenant-Id': 'nivx-live'} → 404
+PASS · fabricated identity cannot elevate /artifacts?limit=50 {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · authorized but unassociated incident states NOT_ASSOCIATED → 200 NOT_ASSOCIATED
+PASS · analyst cannot create an engine case → 403
+PASS · analyst cannot delete an engine case → 403
+PASS · analyst cannot list the engine case registry → 403
+PASS · analyst cannot ingest an engine observation → 403
+PASS · engine-only negative explainability stays admin-only → 403
+PASS · admin still lists the engine case registry → 200
+
+S2-MINI LIVE PROOF · 37 PASS · 0 FAIL

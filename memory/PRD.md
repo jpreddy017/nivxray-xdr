@@ -1,5 +1,54 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · S2-MINI · ENGINE-DEPTH READ AUTHORIZATION — DONE · PROVEN
+
+Full record: `/app/memory/S2_MINI_ENGINE_DEPTH_AUTHZ.md`. Backend only,
+**3 routes**, +12/−4 lines plus one new authority module. No frontend change,
+no engine redesign, S3 not started.
+
+- The Individual Incident's `EngineDepth` panels read
+  `GET /api/v2/cases/{case_id}/{investigation · trajectory/device · artifacts}`
+  with `case_id = incident.id`. All three were `require_admin`, so a
+  tenant-scoped analyst could not read the depth of **their own** incident.
+- New `backend/v2/case_authz.py` · `engine_case_read`: admin keeps exactly the
+  access it had (`CROSS_TENANT_ROLE`); any other principal may read **only** a
+  `case_id` that IS an incident it is authorized for, via the ONE incident
+  authority (`INCIDENT_TENANT_AUTHORITY`); anything else 404. Engine list,
+  create, delete, observation ingest, artifact writes and negative
+  explainability stay **admin-only**.
+- **Association is never fabricated.** `v2_cases` documents carry **no tenant
+  field at all**, and only **87 of 154** distinct observation `case_id`s are
+  incident ids. A golden/engine-native/foreign case is simply not that tenant's
+  incident → 404; no id is reshaped or matched by resemblance. New additive
+  `engine_association {state: ASSOCIATED|NOT_ASSOCIATED, read_from, reason,
+  authority}` so an authorized incident with no engine evidence **says so**
+  instead of returning an empty projection.
+- `GET /api/v2/security-state/{case_id}?tenant_id=` was examined and left
+  alone — already correct (B6: `incidents.read` + `authorize_tenant`; the query
+  tenant is a request, not authority).
+- **Live proof 37 PASS · 0 FAIL** (real JWTs): anonymous 403 ×3 · own-tenant
+  analyst 200 + ASSOCIATED ×3 · cross-tenant 404 ×3 · admin unchanged ·
+  engine-native case admin 200 / analyst 404 · `?tenant_id=`/`?customer=`/
+  `X-Tenant-Id`/`X-Principal-Id` cannot elevate · analyst cannot mutate or
+  administer the engine · unassociated incident → NOT_ASSOCIATED.
+  **Focused guard 19 passed in 25 s**, zero fixture residue.
+- Pre-existing and NOT fixed: `v2/shadow/irg.py:119` `KeyError` (HTTP 500) when
+  a frame has no parseable `ts`; 3 failures in `test_v2_isolation`/
+  `test_v2_phase2` proven identical on the pre-S2 tree.
+
+### Carried P0 SECURITY RESIDUAL (separate, do not fold into a sweep)
+`GET /api/xdr/incidents/{id}/response-executions` accepts a **client-supplied
+`tenant_id`** and queries `invoker.context.incident_id` with no server-resolved
+tenant predicate. Needs correction on its own ticket.
+
+### Owner-set next priorities
+- **S3-A (next)**: Individual Incident Story Depth — promote Causal Anchors +
+  Sequential Attack Milestones + IKG/graph intelligence into the incident.
+- **S3-B**: Verdict Explainability in the incident — why this verdict,
+  supporting evidence, contradictory/negative evidence, "why not X?".
+- Only after those: the standalone Investigate landing (S4) and the larger
+  Control Center expansion.
+
 ## 2026-06-21 · S1 · INCIDENT SUB-RESOURCE AUTHORIZATION — CLOSED · PROVEN
 
 Full record: `/app/memory/S1_INCIDENT_SUBRESOURCE_AUTHZ.md`.

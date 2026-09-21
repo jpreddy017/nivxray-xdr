@@ -10,7 +10,8 @@ Flag-gated on TRAJECTORY_ENGINE. Read-only. Zero RC5 imports.
 from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
-from deps import require_admin, db as _db
+from deps import db as _db
+from v2.case_authz import engine_association, engine_case_read
 from v2.flags import get as get_flag
 from v2.trajectory import build_from_observations, LANES
 from v2.shadow.irg import enrich as irg_enrich
@@ -20,7 +21,8 @@ router = APIRouter(prefix="/v2/cases", tags=["v2-trajectory"])
 
 @router.get("/{case_id}/trajectory/device")
 async def device_trajectory(case_id: str, limit: int = 500,
-                            _: dict = Depends(require_admin)) -> dict[str, Any]:
+                            grant: dict = Depends(engine_case_read)
+                            ) -> dict[str, Any]:
     if not get_flag("TRAJECTORY_ENGINE").observable():
         raise HTTPException(status_code=503, detail="trajectory engine disabled")
     frames = await build_from_observations(_db, case_id=case_id,
@@ -35,6 +37,7 @@ async def device_trajectory(case_id: str, limit: int = 500,
     return {
         "ok": True,
         "case_id": case_id,
+        "engine_association": await engine_association(_db, case_id, grant),
         "lanes": [{"key": l.key, "label": l.label, "order": l.order} for l in LANES],
         "frames": frame_dicts,
         "count": len(frame_dicts),

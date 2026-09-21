@@ -9,6 +9,7 @@ Additive. Read-only. Flag-gated on VERDICT_ENGINE_V3.
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from deps import require_admin, db as _db
+from v2.case_authz import engine_association, engine_case_read
 from v2.flags import get as get_flag
 from v2.trajectory import build_from_observations
 from v2.investigation import build_investigation
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/v2/cases", tags=["v2-investigation"])
 @router.get("/{case_id}/investigation")
 async def investigation(case_id: str, limit: int = 500,
                         profile: str = "soc_balanced",
-                        _: dict = Depends(require_admin)) -> dict:
+                        grant: dict = Depends(engine_case_read)) -> dict:
     if not get_flag("VERDICT_ENGINE_V3").observable():
         raise HTTPException(status_code=503, detail="verdict engine v3 disabled")
 
@@ -32,6 +33,8 @@ async def investigation(case_id: str, limit: int = 500,
     inv = build_investigation(fdicts, case_id=case_id, profile=profile)
     payload = inv.to_dict()
     payload["ok"] = True
+    payload["engine_association"] = await engine_association(_db, case_id,
+                                                             grant)
     return payload
 
 
