@@ -1,5 +1,53 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · S3-D · ANCHOR-TO-EVIDENCE — DONE · PROVEN
+
+Full record: `/app/memory/S3D_ANCHOR_TO_EVIDENCE.md`. **Frontend only** — no
+backend change, no new graph/correlation/inference, no new evidence store, no
+new authorization mechanism.
+Proof: `scripts/p1_s3d_anchor_to_evidence_proof.py` → **24 PASS · 0 FAIL** ·
+build **PASS**.
+
+- **The real join (verified, not assumed)**: a causal anchor is an IKG node id
+  (`ent_process_a5fb93a39897`), and a device-trajectory frame cites it in a
+  **structured entity slot** (`entity/process/device/user/file/parent/network/
+  registry/root/execution .iid`). That frame carries `frame_iid`,
+  `evidence_ids[]` and `provenance`. **entity id ≠ evidence id · label ≠
+  lookup key** — no name matching anywhere (`anchorEvidence.js`).
+- **Story → Causal anchors** now states `N supporting record(s)` with a
+  `View evidence →` action, or a dashed **NO EVENT CITED** with **no action**
+  (asserted: actionable + uncited == all anchors).
+- **Evidence tab** gained a focused section (same tab, no new screen) listing
+  **every** citing record with *"none is chosen as 'the' evidence"*, row
+  expansion showing
+  `event tf_… → canonical evt_… → normalizer → source → origin → ingest job`
+  and the **existing** shared `EvidenceInspector`.
+- Unmapped reference → **REFERENCE NOT MATCHED** + "will not show the nearest
+  similar record — the same entity label is not provenance" + "absence of a
+  citation, not a finding that the entity was benign". No fallback row.
+- Navigation via the existing query-param contract only
+  (`?tab=evidence&focus=<anchor id>`, `Clear anchor`).
+
+### P1 CONTRACT GAP — needs an owner decision (do NOT invent a join)
+The causal evidence plane (`tf_…`/`evt_…`) and the incident evidence plane
+(`evidence_pointers`, `canonical_evidence_ids` = `sysmon-1-<uuid>`) do **not**
+share a reference namespace, and the shared inspector answers
+`state: MISSING` for engine ids ("process not present in canonical
+evidence"). For `inc_c1edae99d4e541c58552` every evidence pointer has zero
+bullets. A causal anchor can therefore be joined to the records that cite it,
+but **not** to a row of the incident Evidence table, until one plane carries
+the other's reference.
+
+### Next (owner-set sequence)
+1. **Dense Timeline Check** — merged timeline correctness/perf on an incident
+   with many frames (also proves anchor multiplicity with N>1).
+2. **Sensor Clock Mapping** — confirm whether collectors carry a sensor clock.
+3. Small **Verdict Disagreement** presentation, only if warranted.
+4. **Investigate Parity Audit** → retirement decision.
+5. Then the large NivX competitive capability audit.
+- Carried P0 residual: `response-executions` trusts a client-supplied
+  `tenant_id`.
+
 ## VERDICT AUTHORITY RULE (owner decision, 2026-06-21 · binding)
 
 The **Incident deterministic verdict** is the authoritative analyst-facing

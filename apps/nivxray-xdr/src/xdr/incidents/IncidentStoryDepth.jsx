@@ -35,8 +35,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvMetrics,
          NxState, NxChip, NxEntity, NxSkeleton, ABSENCE } from "@/xdr/nx";
 import { apiErrorText } from "@/xdr/nx/apiError";
-import { getIncidentCausalAnalysis } from "@/lib/incidentsApi";
+import { getIncidentCausalAnalysis,
+         getIncidentDeviceTrajectory } from "@/lib/incidentsApi";
 import { pivotsFor } from "./investigationPivots";
+import { framesForAnchor, evidenceRefsFor } from "./anchorEvidence";
 
 /* ── vocabulary ─────────────────────────────────────────────────── */
 const TACTIC_LABEL = {
@@ -254,6 +256,13 @@ function Stages({ killChain, testid }) {
 /* ── L2 · causal anchor entities ────────────────────────────────── */
 function Anchors({ anchors, unnamed, incident, testid }) {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const toEvidence = (anchorId) => {
+    const next = new URLSearchParams(params);
+    next.set("tab", "evidence");
+    next.set("focus", anchorId);
+    setParams(next);
+  };
   if (!anchors.length) {
     return <NxInvEmpty
       title="No causal anchor entity was recorded"
@@ -261,10 +270,11 @@ function Anchors({ anchors, unnamed, incident, testid }) {
       testid={`${testid}-empty`} />;
   }
   const columns = [
-    { key: "entity", label: "Anchor", width: "22rem" },
-    { key: "cls", label: "Class", width: "8rem" },
-    { key: "rel", label: "Relationships", width: "8rem", num: true },
-    { key: "first", label: "First observed", width: "12rem" },
+    { key: "entity", label: "Anchor", width: "20rem" },
+    { key: "cls", label: "Class", width: "7rem" },
+    { key: "rel", label: "Relationships", width: "7rem", num: true },
+    { key: "first", label: "First observed", width: "11rem" },
+    { key: "evidence", label: "Supporting evidence", width: "16rem" },
     { key: "pivots", label: "Investigate" },
   ];
   const rows = anchors.map((a) => ({
@@ -275,6 +285,28 @@ function Anchors({ anchors, unnamed, incident, testid }) {
     rel: a.degree,
     first: a.first_seen
       || <span className="inv-tb__na">{ABSENCE.NOT_RECORDED}</span>,
+    evidence: a.evidence.count > 0
+      ? (
+        <span style={{ display: "flex", gap: 6, alignItems: "center",
+                       flexWrap: "wrap" }}>
+          <NxState value="EVIDENCE_CITED" size="sm" />
+          <span style={{ fontSize: 11.5 }}
+                data-testid={`${testid}-evcount-${slug(a.label)}`}>
+            {a.evidence.count} supporting record
+            {a.evidence.count === 1 ? "" : "s"}
+          </span>
+          <button type="button" className="inv-chip"
+                  data-testid={`${testid}-view-evidence-${slug(a.label)}`}
+                  onClick={(e) => { e.stopPropagation(); toEvidence(a.id); }}>
+            View evidence →
+          </button>
+        </span>)
+      : (
+        <span data-testid={`${testid}-noevidence-${slug(a.label)}`}>
+          <NxChip tone="not_connected" variant="dashed" size="sm">
+            NO EVENT CITED
+          </NxChip>
+        </span>),
     pivots: a.pivots.length
       ? <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {a.pivots.map((p) => (
@@ -361,6 +393,7 @@ function Relationships({ edges, testid }) {
 export default function IncidentStoryDepth({ incident }) {
   const id = incident?.id;
   const [data, setData] = useState(null);
+  const [frames, setFrames] = useState([]);
   const [state, setState] = useState("loading");
   const [error, setError] = useState(null);
 
@@ -375,6 +408,12 @@ export default function IncidentStoryDepth({ incident }) {
         setError(apiErrorText(e));
         setState("error");
       });
+    // S3-D · the frames are what CITE an anchor; without them an anchor's
+    // evidence count would be a guess, so an unread trajectory leaves the
+    // anchor at NO EVENT CITED rather than inventing a number.
+    getIncidentDeviceTrajectory(id)
+      .then((t) => { if (live) setFrames(t?.frames || []); })
+      .catch(() => { if (live) setFrames([]); });
     return () => { live = false; };
   }, [id]);
 
@@ -402,6 +441,7 @@ export default function IncidentStoryDepth({ incident }) {
         id: n.id, kind, label: n.label,
         degree: degree.get(n.id) || 0,
         first_seen: n.attrs?.first_seen || null,
+        evidence: evidenceRefsFor(framesForAnchor(frames, n.id)),
         pivots: pivotsFor({ kind, value: n.label, id: n.id }, incident),
       });
     });
@@ -435,7 +475,7 @@ export default function IncidentStoryDepth({ incident }) {
       stats: ikg.stats || {},
       engineVersion: data.engine_version || {},
     };
-  }, [data, incident]);
+  }, [data, incident, frames]);
 
   if (!id) return null;
 

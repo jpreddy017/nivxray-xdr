@@ -16,13 +16,16 @@
  * Source of truth: `incident.evidence_pointers` exactly as the backend
  * projected it. No bullet is rewritten and no count is inferred.
  */
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { productHref, productMode } from "@/productOrigins";
+import EvidenceInspector from "@/xdr/components/EvidenceInspector";
+import { getIncidentDeviceTrajectory } from "@/lib/incidentsApi";
+import { framesForAnchor, chainFor } from "@/xdr/incidents/anchorEvidence";
 import {
-  NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvValue,
-  ABSENCE, fmtTime,
+  NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvValue, NxChip,
+  NxState, ABSENCE, fmtTime,
 } from "@/xdr/nx";
 
 function openTarget(p) {
@@ -91,9 +94,156 @@ function bulletRow(domain, b, i) {
            value: String(b), source: null, state: null, provenance: null, raw: b };
 }
 
+/**
+ * S3-D · evidence supporting ONE causal anchor.
+ *
+ * Reached from Story → Causal anchors → "View evidence" as
+ * `?tab=evidence&focus=<anchor id>`. The anchor id is resolved ONLY through
+ * the structured entity slots of the device-trajectory frames that cite it —
+ * never by matching a label, and never by falling back to the nearest
+ * similar record.
+ *
+ * CONTRACT GAP, stated rather than hidden: the incident Evidence table below
+ * is projected from `incident.evidence_pointers` and the incident's own
+ * `canonical_evidence_ids` live in a different namespace from the engine's
+ * `tf_…`/`evt_…` references, so there is no authoritative join between a
+ * causal anchor and a row of that table. The supporting records are
+ * therefore shown here with their own chain, and each reference stays
+ * inspectable through the existing shared inspector, which reports honestly
+ * when a reference is not present in the canonical store.
+ */
+function AnchorEvidence({ incident, anchorId, onClear }) {
+  const [frames, setFrames] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    if (!incident?.id || !anchorId) return undefined;
+    let live = true;
+    setFrames(null); setErr(null);
+    getIncidentDeviceTrajectory(incident.id)
+      .then((t) => { if (live) setFrames(t?.frames || []); })
+      .catch((e) => { if (live) setErr(e?.message || String(e)); });
+    return () => { live = false; };
+  }, [incident?.id, anchorId]);
+
+  const citing = useMemo(
+    () => framesForAnchor(frames || [], anchorId), [frames, anchorId]);
+
+  const columns = [
+    { key: "at", label: "Activity time", width: 150,
+      render: (r) => <NxInvValue value={fmtTime(r.ts)} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "lane", label: "Lane", width: 100,
+      render: (r) => <NxInvValue value={r.lane} mono
+                                 absent={ABSENCE.NOT_ATTRIBUTED} /> },
+    { key: "label", label: "Observed activity",
+      render: (r) => <NxInvValue value={r.label || r.action}
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+    { key: "ref", label: "Evidence reference", width: 230,
+      render: (r) => <NxInvValue mono
+                                 value={(r.evidence_ids || []).join(", ")
+                                        || r.frame_iid}
+                                 absent={ABSENCE.EVIDENCE_INCOMPLETE} /> },
+    { key: "source", label: "Source", width: 140,
+      render: (r) => <NxInvValue value={r.provenance?.source} mono
+                                 absent={ABSENCE.NOT_RECORDED} /> },
+  ];
+
+  return (
+    <NxInvSection
+      title="Evidence supporting the selected causal anchor"
+      subtitle={anchorId}
+      actions={
+        <button className="inv-chip" onClick={onClear}
+                data-testid="xdr-record-evidence-anchor-clear">
+          Clear anchor
+        </button>}
+      testid="xdr-record-evidence-anchor">
+      <div className="inv-sec__b--pad" style={{ display: "grid", gap: 10 }}>
+        {err && (
+          <div data-testid="xdr-record-evidence-anchor-refused">
+            <NxState value="NOT_AUTHORIZED" size="sm" /> {err}
+          </div>)}
+        {!err && frames === null && (
+          <div style={{ fontSize: 11.5 }}
+               data-testid="xdr-record-evidence-anchor-loading">
+            resolving the records that cite this anchor…
+          </div>)}
+        {frames !== null && citing.length === 0 && (
+          <div data-testid="xdr-record-evidence-anchor-unmatched"
+               style={{ display: "grid", gap: 6 }}>
+            <NxChip tone="not_connected" variant="dashed" size="sm">
+              REFERENCE NOT MATCHED
+            </NxChip>
+            <NxInvEmpty
+              title="No recorded evidence cites this reference"
+              body={`Nothing in this incident's evidence plane cites `
+                    + `${anchorId}.`}
+              points={[
+                "NivXRay will not show the nearest similar record instead — "
+                + "the same entity label is not provenance.",
+                "This is an absence of a citation, not a finding that the "
+                + "entity was benign.",
+              ]}
+              testid="xdr-record-evidence-anchor-unmatched-empty" />
+          </div>)}
+        {citing.length > 0 && (
+          <>
+            <div style={{ fontSize: 11.5 }}
+                 data-testid="xdr-record-evidence-anchor-count">
+              <b>{citing.length}</b> recorded evidence item
+              {citing.length === 1 ? " cites" : "s cite"} this anchor. Every
+              one of them is listed — none is chosen as "the" evidence.
+            </div>
+            <NxInvTable testid="xdr-record-evidence-anchor-table"
+                        columns={columns} rows={citing}
+                        rowKey={(r) => r.frame_iid}
+                        openKey={citing.length === 1
+                          ? citing[0].frame_iid : undefined}
+                        detail={(r) => (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <dl className="inv-kv">
+                              <dt>Provenance chain</dt>
+                              <dd className="mono" style={{ fontSize: 11 }}>
+                                {chainFor(r).join("  →  ")}
+                              </dd>
+                              <dt>Ingested</dt>
+                              <dd className="mono">
+                                <NxInvValue
+                                  value={fmtTime(r.provenance?.ingested_at)}
+                                  absent={ABSENCE.NOT_RECORDED} />
+                              </dd>
+                            </dl>
+                            <div data-testid={`xdr-record-evidence-anchor-inspect-${r.frame_iid}`}>
+                              <EvidenceInspector incidentId={incident?.id}
+                                                 kind="event"
+                                                 refId={r.frame_iid}
+                                                 embedded />
+                            </div>
+                          </div>)} />
+            <div style={{ fontSize: 11, color: "var(--nx-text-dim)" }}>
+              These records are cited by the incident's causal evidence plane.
+              The incident evidence table below is projected from the
+              integration evidence pointers and uses a different reference
+              namespace, so the two are reported separately rather than
+              joined on a guess.
+            </div>
+          </>)}
+      </div>
+    </NxInvSection>
+  );
+}
+
 export default function EvidenceTab({ incident }) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const focus = params.get("focus");
+  const clearFocus = () => {
+    const next = new URLSearchParams(params);
+    next.delete("focus");
+    setParams(next);
+  };
 
   const byDomain = useMemo(() => {
     const alias = { edr: "endpoint", endpoint: "endpoint", itdr: "identity",
@@ -152,6 +302,10 @@ export default function EvidenceTab({ incident }) {
 
   return (
     <div className="inv" data-testid="xdr-record-evidence">
+      {focus && (
+        <AnchorEvidence incident={incident} anchorId={focus}
+                        onClear={clearFocus} />
+      )}
       <NxInvSection title="Evidence coverage"
                     subtitle="which domains were asked, and what they answered"
                     testid="xdr-record-evidence-grid">
