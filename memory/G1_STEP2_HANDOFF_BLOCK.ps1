@@ -23,17 +23,31 @@
 # no channel enabling, no log clearing, no registry or audit-policy
 # change, no service install, no B4, no G2.
 #
-# CREDENTIAL LIFECYCLE (stage 13):
+# CREDENTIAL LIFECYCLE (stage 13/14) — STATED EXACTLY, NO OVERCLAIM:
 #   * if $env:NIVX_INGEST_TOKEN already exists in this window it is REUSED
 #     and never re-displayed — there is no second prompt;
 #   * otherwise ONE key is minted here: tenant ten_f1a5479243e901cf159e230fa0,
 #     scopes ["collectors.enroll"] exactly, 12h expiry;
 #   * the plaintext goes only into the process environment — never echoed,
-#     logged, persisted, committed, or passed on a command line;
+#     logged, persisted to disk/config, committed, or passed on a command line;
 #   * the admin bearer token is destroyed the instant the key exists;
-#   * only the NON-SECRET key id/prefix is persisted, so the exact key can be
-#     revoked AFTER server-side evidence verification — never before;
-#   * the plaintext is cleared in `finally`, on success and on failure.
+#   * IMPORTANT AND TRUE: the collector is launched WHILE the token is present
+#     in this PowerShell environment, so the collector CHILD PROCESS INHERITS
+#     a copy of the plaintext. Clearing this PowerShell's environment does NOT
+#     clear the collector's inherited copy. That copy lives in the collector
+#     process memory only, for exactly as long as the collector needs it to
+#     perform authenticated delivery;
+#   * therefore this block TERMINATES the collector at the end of the bounded
+#     60-minute acquisition, immediately after proof capture. Terminating the
+#     process destroys the process-held copy. Only then is this PowerShell's
+#     own copy cleared. Restart/resume is a SEPARATE controlled gate and is
+#     deliberately NOT proved here;
+#   * on ANY failure after the collector process exists, the collector is
+#     terminated before returning — a failed run never leaves a collector,
+#     or its inherited credential, alive;
+#   * only the NON-SECRET key id/prefix is kept (console + proof artifact), so
+#     the exact key can be revoked AFTER server-side evidence verification —
+#     never before. The plaintext is never written to any artifact or log.
 #
 # OPERATOR SAFETY: no `exit` anywhere. A failed gate throws, is caught, and
 # prints STAGE + REASON; the elevated console stays open and no later G1
@@ -79,6 +93,10 @@ $script:G1GateLog  = $null
 $script:G1KeyId     = $null
 $script:G1KeyPrefix = $null
 $script:G1KeyExpires = $null
+#: the collector child process, once it exists. It holds an INHERITED copy of
+#: the plaintext token, so every exit path must terminate it.
+$script:G1Svc       = $null
+$script:G1SvcStopped = $false
 
 function Note($line) {
   # Durable gate trail, so a reason survives even a lost console.
@@ -98,6 +116,28 @@ function Stage($n,$t) {
   $script:G1Stage = "$n · $t"
   Write-Host "`n=== $n · $t ===" -ForegroundColor Cyan
   Note "STAGE $n · $t"
+}
+function Stop-G1Collector($why) {
+  # Terminating the collector is the ONLY way to destroy the plaintext copy it
+  # inherited at launch. Called on success (after proof capture) and on every
+  # failure path once the process exists.
+  if (-not $script:G1Svc) { return }
+  if ($script:G1SvcStopped) { return }
+  $pidToStop = $script:G1Svc.Id
+  try {
+    Stop-Process -Id $pidToStop -Force -ErrorAction Stop
+    try { Wait-Process -Id $pidToStop -Timeout 30 -ErrorAction SilentlyContinue } catch { }
+    $script:G1SvcStopped = $true
+    Write-Host ("  collector pid " + $pidToStop + " terminated (" + $why +
+      "); its inherited credential copy died with the process") -ForegroundColor DarkGray
+    Note ("collector pid " + $pidToStop + " terminated: " + $why)
+  } catch {
+    Write-Host ("  WARNING: could not terminate collector pid " + $pidToStop +
+      ": " + $_.Exception.Message) -ForegroundColor Red
+    Write-Host  "  That process still holds the inherited plaintext token. Kill it" -ForegroundColor Red
+    Write-Host ("  manually (Stop-Process -Id " + $pidToStop + " -Force) before revoking the key.") -ForegroundColor Red
+    Note ("WARN collector pid " + $pidToStop + " NOT terminated: " + $_.Exception.Message)
+  }
 }
 
 try {
@@ -472,19 +512,22 @@ New-Item -ItemType Directory -Force -Path $proofDir | Out-Null
 $svcLog = Join-Path $proofDir 'collector.log'
 
 Info 'starting collector on 127.0.0.1:8080 (loopback only — the standalone control plane is fail-closed by design)'
+Info 'the collector INHERITS a copy of the plaintext token at launch (that is how it authenticates);'
+Info 'it is terminated at the end of this bounded run, which destroys that copy.'
 $svc = Start-Process -FilePath $VenvPy `
   -ArgumentList '-m','uvicorn','main:app','--host','127.0.0.1','--port','8080' `
   -WorkingDirectory $Collector -PassThru -NoNewWindow `
   -RedirectStandardOutput $svcLog -RedirectStandardError "$proofDir\collector.err.log"
+# Registered immediately: from here on EVERY exit path terminates it.
+$script:G1Svc = $svc
 Start-Sleep -Seconds 15
 
 try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30 }
-catch { Stop-Process -Id $svc.Id -Force -ErrorAction SilentlyContinue; Pop-Location; Fail "the collector did not come up; see $svcLog" }
+catch { Pop-Location; Fail "the collector did not come up; see $svcLog" }
 $health | ConvertTo-Json -Depth 10 | Set-Content "$proofDir\health-start.json" -Encoding UTF8
 Info ("rehydration: constructed=$($health.rehydration.constructed) started=$($health.rehydration.started) failures=$($health.rehydration.failures.Count)")
 if ($health.rehydration.started -lt 1) {
   $health.rehydration | ConvertTo-Json -Depth 10 | Write-Host
-  Stop-Process -Id $svc.Id -Force -ErrorAction SilentlyContinue
   Pop-Location; Fail 'the Windows connector did not start. Acquisition is refused rather than reported as healthy.'
 }
 Ok "connector started (pid $($svc.Id)); acquiring"
@@ -504,6 +547,14 @@ while ((Get-Date) -lt $deadline) {
 Stage 'A' 'PROOF CAPTURE + INDEPENDENT WINDOWS RE-READ'
 Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30 |
   ConvertTo-Json -Depth 10 | Set-Content "$proofDir\health-end.json" -Encoding UTF8
+
+# The bounded acquisition is over and the last health snapshot is captured, so
+# the collector has no remaining job in THIS gate. It is stopped now, which
+# destroys the plaintext token copy it inherited at launch. The local SQLite
+# state is then read with no writer attached, so the dump is a quiescent read.
+# Restart/resume, reboot/resume and mid-delivery interruption are a SEPARATE
+# controlled gate and are deliberately not attempted here.
+Stop-G1Collector 'bounded acquisition complete · proof captured'
 
 $dump = @'
 import json, os, re, sqlite3, subprocess, sys
@@ -629,7 +680,7 @@ Copy-Item $cfgPath "$proofDir\connectors.seeded.json" -Force
 @{ key_id = $script:G1KeyId; prefix = $script:G1KeyPrefix
    expires_at = $script:G1KeyExpires
    scopes = @('collectors.enroll'); tenant_id = $TenantId
-   plaintext = 'NEVER PERSISTED — process environment only, cleared at exit'
+   plaintext = 'NEVER PERSISTED — process environment only; collector process copy destroyed by terminating the collector, PowerShell copy cleared at exit'
    revoke_after = 'server-side receipt + canonical evidence verification'
  } | ConvertTo-Json -Depth 5 |
    Set-Content "$proofDir\g1-credential-ref.json" -Encoding UTF8
@@ -646,13 +697,16 @@ $capOut | Set-Content "$proofDir\capability.json" -Encoding UTF8
    observed_minutes = $ObserveMinutes
    hostname = $env:COMPUTERNAME
    generated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
-   credential = 'process environment only · never printed, stored or committed'
+   credential = 'process environment only · never printed, persisted to disk/config/command line, or committed'
    credential_key_id = $script:G1KeyId; credential_prefix = $script:G1KeyPrefix
+   credential_inheritance = 'the collector child process inherited a plaintext copy at launch; that copy was destroyed by terminating the collector after proof capture'
+   collector_state_at_exit = 'TERMINATED · restart/resume is a separate controlled gate'
  } | ConvertTo-Json -Depth 8 | Set-Content "$proofDir\run-context.json" -Encoding UTF8
 
 Write-Host ""
-Write-Host "Collector is STILL RUNNING (pid $($svc.Id)) so restart/resume," -ForegroundColor Yellow
-Write-Host "reboot/resume and mid-delivery interruption can be proved next." -ForegroundColor Yellow
+Write-Host "Collector is STOPPED. The plaintext copy it inherited at launch died" -ForegroundColor Yellow
+Write-Host "with the process. Restart/resume, reboot/resume and mid-delivery" -ForegroundColor Yellow
+Write-Host "interruption are a SEPARATE controlled gate and were NOT attempted." -ForegroundColor Yellow
 Write-Host "Artifacts in $proofDir :" -ForegroundColor Cyan
 Get-ChildItem $proofDir | ForEach-Object { Write-Host ("  " + $_.Name + "  " + $_.Length + " bytes") }
 Write-Host ""
@@ -692,18 +746,27 @@ catch {
     }
     Note ("UNEXPECTED [" + $script:G1Stage + "] " + $_.Exception.Message)
   }
-  Write-Host "Acquisition was NOT started. No gate was downgraded or bypassed." -ForegroundColor Red
+  # If the collector was already launched, it holds an inherited plaintext copy.
+  # A failed run must never leave that process — or that credential — alive.
+  Stop-G1Collector 'failure path · collector must not outlive a failed run'
+  Write-Host "No gate was downgraded or bypassed." -ForegroundColor Red
   if ($script:G1GateLog) { Write-Host ("Gate trail: " + $script:G1GateLog) -ForegroundColor DarkGray }
   Write-Host "This console stays open. Re-run Invoke-G1Step2 after fixing the cause." -ForegroundColor Yellow
   Write-Host "===============================================" -ForegroundColor Red
   return
 }
 finally {
-  # The in-memory ingest token never outlives the run, pass or fail.
+  # Last-resort guarantee: the collector is never left running by this block,
+  # on any path. Stop-G1Collector is idempotent.
+  Stop-G1Collector 'final guarantee · no collector outlives this block'
+  # THIS PowerShell's copy of the plaintext is cleared here, pass or fail.
+  # Clearing it does NOT reach any other process; that is why the collector is
+  # terminated above rather than merely left running.
   if ($env:NIVX_INGEST_TOKEN) {
     $env:NIVX_INGEST_TOKEN = $null
     Remove-Item Env:\NIVX_INGEST_TOKEN -ErrorAction SilentlyContinue
-    Write-Host "  ingest token cleared from this process's environment" -ForegroundColor DarkGray
+    Write-Host "  ingest token cleared from THIS PowerShell process's environment" -ForegroundColor DarkGray
+    Write-Host "  (the collector's inherited copy was destroyed by terminating that process)" -ForegroundColor DarkGray
   }
   Pop-Location -ErrorAction SilentlyContinue
 }
