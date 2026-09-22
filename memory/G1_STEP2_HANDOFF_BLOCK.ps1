@@ -1,40 +1,40 @@
 # =====================================================================
-# G1 · STEP 2 HANDOFF BLOCK — NivXForge EDR Windows acquisition
-# Run in an ELEVATED PowerShell (Run as Administrator).
+# G1 · STEP 2 · NivXForge EDR native Windows acquisition -> NivXRay XDR
+# ELEVATED PowerShell (Run as Administrator). Single run, fail closed.
 #
-# Fail-closed order. Acquisition starts ONLY after every gate passes:
-#   1 Administrator
-#   2 authoritative Git branch
-#   3 reviewed-code manifest (25 files, SHA-256)
-#   4 supported CPython 3.14 x64 (non-Store, GIL build)
-#   5 virtual environment
-#   6 pinned Windows dependencies (pywin32==312)
-#   7 pywin32 import
-#   8 real native Event Log binding probe (EvtSubscribe, read-only)
-#   9 persistent state directory
-#  10 pre-seeded collector configuration
-#  11 server reachability + authentication + tenant authority
-#  12 60-minute bounded acquisition (Sysmon · Security · PowerShell)
+# GATE ORDER (acquisition starts only if every gate passes):
+#   1  Administrator
+#   2  repository + branch identity (no reclone, no delete, no clean)
+#   3  safe update to the exact reviewed HEAD
+#   4  reviewed-code manifest 25/25 verified locally
+#   5  supported standard CPython 3.14 x64 (Store alias REJECTED)
+#   6  isolated venv
+#   7  exactly the pinned Windows dependencies
+#   8  pywin32 verified
+#   9  real native Event Log binding + read probe
+#   10 per-channel readability (Sysmon · Security · PowerShell)
+#   11 persistent state root + write/persistence validation
+#   12 collector identity + server authority configured
+#   13 server reachability + authentication + tenant binding
+#   14 bounded acquisition (60-minute scope bound)
 #
-# CREDENTIAL HANDLING
-#   * No credential is ever echoed, written to disk, passed on a command
-#     line, or printed. Only a key PREFIX and its expiry are shown.
-#   * $MintOnHost = $true  -> you type the preview admin password once as a
-#     SecureString; the block mints a 24h key scoped to `collectors.enroll`
-#     in the G1 tenant only, and keeps it in-process.
-#   * $MintOnHost = $false -> you paste an already-minted ingest key as a
-#     SecureString instead. Nothing else changes.
+# NOT DONE HERE: no Python installation, no Sysmon install/reconfigure,
+# no channel enabling, no log clearing, no registry or audit-policy
+# change, no service install, no B4, no G2.
 #
-# NOTHING IS CONFIGURED ON WINDOWS: no Sysmon install, no channel enabling,
-# no registry write, no audit-policy change, no service install.
+# CREDENTIAL SAFETY: the ingest key is NOT in this source. It is entered
+# once as a SecureString, lives only in this process's environment, is
+# never printed, never written to disk, never placed on a command line,
+# and never appears in a proof artifact.
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
 
-# ── settings ─────────────────────────────────────────────────────────
+# ── settings (no secrets) ────────────────────────────────────────────
 $Repo        = 'https://github.com/jpreddy017/nivxray-xdr.git'
 $Branch      = 'feature/rc2-alignment'
+$ReviewedHead= '687929346cc9afe17a1815ff1895908910880b83'
 $Work        = 'C:\nivx'
 $Collector   = "$Work\apps\nivxray-xdr-collector"
 $StateDir    = 'C:\ProgramData\NivXForge\state'
@@ -42,60 +42,84 @@ $Venv        = "$Work\.venv"
 $VenvPy      = "$Venv\Scripts\python.exe"
 
 $BaseUrl     = 'https://greeting-app-5782.preview.emergentagent.com'
-$TenantId    = 'ten_f1a5479243e901cf159e230fa0'      # g1-windows-proof
-$CollectorId = 'col_d6b0b9e8172246f29be9'            # enrolled windows-eventlog
+$TenantId    = 'ten_f1a5479243e901cf159e230fa0'   # g1-windows-proof
+$CollectorId = 'col_d6b0b9e8172246f29be9'         # enrolled windows-eventlog
 $ConnectorId = 'windows-eventlog-g1proof01'
-$RunMinutes  = 15                                    # observation window
-$MintOnHost  = $true
+$ScopeMinutes   = 60                              # G1_VALIDATION_SCOPE_BOUND
+$ObserveMinutes = 60                              # foreground observation
+
+$Channels = @('Microsoft-Windows-Sysmon/Operational',
+              'Security',
+              'Microsoft-Windows-PowerShell/Operational')
 
 function Fail($msg) {
   Write-Host ""
   Write-Host "STOP: $msg" -ForegroundColor Red
-  Write-Host "No acquisition was started." -ForegroundColor Red
+  Write-Host "Acquisition was NOT started. Nothing was downgraded or bypassed." -ForegroundColor Red
+  if ($env:NIVX_INGEST_TOKEN) { $env:NIVX_INGEST_TOKEN = $null }
   exit 1
 }
-function Ok($msg)   { Write-Host "  OK   $msg" -ForegroundColor Green }
-function Stage($n, $t) { Write-Host "`n=== $n · $t ===" -ForegroundColor Cyan }
+function Ok($m)        { Write-Host "  OK   $m" -ForegroundColor Green }
+function Info($m)      { Write-Host "  $m" }
+function Stage($n,$t)  { Write-Host "`n=== $n · $t ===" -ForegroundColor Cyan }
 
 # ── 1 · Administrator ────────────────────────────────────────────────
 Stage 1 'ADMINISTRATOR'
-$elevated = ([Security.Principal.WindowsPrincipal] `
-  [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-  [Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $elevated) {
-  Fail 'not elevated. The Security channel is only truthfully readable under elevation, so an unelevated run would report READ_DENIED and call it evidence.'
+if (-not ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  Fail 'not elevated. Security is only truthfully readable under elevation; an unelevated run would record READ_DENIED and call it evidence.'
 }
 Ok 'running elevated'
 
-# ── 2 · authoritative branch ─────────────────────────────────────────
-Stage 2 'AUTHORITATIVE GIT BRANCH'
+# ── 2 · repository + branch identity (non-destructive) ───────────────
+Stage 2 'REPOSITORY IDENTITY (no reclone · no delete · no clean)'
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Fail 'git is not on PATH.' }
-git config --global core.autocrlf false
-if (-not (Test-Path "$Work\.git")) {
-  if (Test-Path $Work) { Remove-Item $Work -Recurse -Force }
-  git clone --branch $Branch --single-branch $Repo $Work
-} else {
-  Set-Location $Work
-  git remote set-url origin $Repo
-  git fetch origin $Branch
-  git checkout -B $Branch "origin/$Branch"
-  git reset --hard "origin/$Branch"
-  git clean -fdx -e .venv -e 'scripts/windows/g1/nivxray-g1-preflight.json' -e 'g1-proof'
-}
+if (-not (Test-Path "$Work\.git")) { Fail "$Work is not a git working tree. Step 1 left it in place; this block does not create or destroy it." }
 Set-Location $Work
-$head = (git rev-parse HEAD)
-Write-Host ("  remote : " + (git config --get remote.origin.url))
-Write-Host ("  branch : " + (git rev-parse --abbrev-ref HEAD))
-Write-Host ("  HEAD   : $head")
-Write-Host ("  date   : " + (git show -s --format=%cI HEAD))
-Write-Host ("  subject: " + (git show -s --format=%s HEAD))
-if ((git status --porcelain) -ne $null) {
-  Write-Host "  note   : untracked/ignored files present (expected: .venv, proof artifacts)" -ForegroundColor DarkGray
+$origin = (git config --get remote.origin.url)
+Info "origin: $origin"
+if ($origin -notmatch 'jpreddy017/nivxray-xdr') { Fail "unexpected origin '$origin'." }
+$autocrlf = (git config --get core.autocrlf)
+Info "core.autocrlf: $autocrlf"
+if ($autocrlf -eq 'true' -or $autocrlf -eq 'input') {
+  Fail "core.autocrlf=$autocrlf rewrites line endings, so every .py/.ps1 hash would differ legitimately. Set 'git config --global core.autocrlf false' and re-checkout before running this block."
 }
-Ok 'branch is the authoritative remote state'
+$dirty = (git status --porcelain --untracked-files=no)
+if ($dirty) {
+  Write-Host $dirty -ForegroundColor Red
+  Fail 'tracked files are modified in the working tree. This block will not discard your changes; resolve them deliberately first.'
+}
+Ok 'working tree is the expected repository and is clean on tracked files'
 
-# ── 3 · reviewed-code manifest ───────────────────────────────────────
-Stage 3 'REVIEWED-CODE MANIFEST (G1 STEP 2 · 25 files)'
+# ── 3 · safe update to the EXACT reviewed HEAD ───────────────────────
+Stage 3 "UPDATE TO REVIEWED HEAD $($ReviewedHead.Substring(0,12))"
+git fetch --no-tags origin $Branch
+if ($LASTEXITCODE -ne 0) { Fail 'git fetch failed.' }
+git cat-file -e "$ReviewedHead^{commit}" 2>$null
+if ($LASTEXITCODE -ne 0) { Fail "the reviewed commit $ReviewedHead is not present after fetching origin/$Branch. Verification of the remote is a prerequisite; nothing is forced." }
+$tip = (git rev-parse "origin/$Branch")
+Info "origin/$Branch tip: $tip"
+$isAncestorOrEqual = $false
+if ($tip -eq $ReviewedHead) { $isAncestorOrEqual = $true }
+else {
+  git merge-base --is-ancestor $ReviewedHead $tip 2>$null
+  if ($LASTEXITCODE -eq 0) { $isAncestorOrEqual = $true }
+}
+if (-not $isAncestorOrEqual) { Fail "the reviewed HEAD is not the tip of origin/$Branch and is not an ancestor of it. The remote diverged from what was verified; STOP." }
+# Detached checkout of the exact reviewed commit: the local branch ref is
+# never rewritten and nothing is deleted or cleaned.
+git checkout --detach $ReviewedHead
+if ($LASTEXITCODE -ne 0) { Fail 'checkout of the reviewed commit failed.' }
+$head = (git rev-parse HEAD)
+Info "HEAD now : $head"
+Info ("date     : " + (git show -s --format=%cI HEAD))
+Info ("subject  : " + (git show -s --format=%s HEAD))
+if ($head -ne $ReviewedHead) { Fail "HEAD is $head, expected $ReviewedHead." }
+Ok 'checked out the exact reviewed commit (detached; branch ref untouched)'
+
+# ── 4 · reviewed-code manifest ───────────────────────────────────────
+Stage 4 'REVIEWED-CODE MANIFEST (G1 STEP 2 · 25 files)'
 $expected = [ordered]@{
  'scripts\windows\g1\Get-NivXRayG1Preflight.ps1'                        = '3D43E6235BBBEB631EAC11B96AF10C5AF14B6227C93ABDBCD88F966CAD9C4AF7'
  'scripts\windows\g1\README_G1_STEP1_PREFLIGHT.md'                      = '055A28E5FA8EBDBAA25ABE97E33B2C776E347CEC20DD536D4479942132EF598C'
@@ -123,10 +147,11 @@ $expected = [ordered]@{
  'backend\lib\collector_catalog.py'                                     = '32935FE2AD85A24B0822EF65A24FC689A12FFF2D12E32704976E8F3EC21E9B61'
  'backend\tests\test_g1_s2_windows_eventlog_protocol.py'                = 'EB94E38DA8ECFCF342E58072ECDE1125EA6DB690EAABC17B5770FD12842E817C'
 }
-$bad = 0
+$bad = 0; $manifestRows = @()
 foreach ($k in $expected.Keys) {
   if (-not (Test-Path $k)) { Write-Host "  MISSING   $k" -ForegroundColor Red; $bad++; continue }
   $h = (Get-FileHash $k -Algorithm SHA256).Hash
+  $manifestRows += [pscustomobject]@{ path=$k; expected=$expected[$k]; actual=$h; match=($h -eq $expected[$k]) }
   if ($h -eq $expected[$k]) { Write-Host "  match     $k" -ForegroundColor DarkGreen }
   else {
     Write-Host "  MISMATCH  $k" -ForegroundColor Red
@@ -135,110 +160,156 @@ foreach ($k in $expected.Keys) {
     $bad++
   }
 }
-if ($bad -gt 0) {
-  Fail "$bad file(s) are not the reviewed G1 Step 2 code. If EVERY .py/.ps1 mismatched, core.autocrlf rewrote line endings: re-clone after 'git config --global core.autocrlf false'. A proof taken on unreviewed code is not a proof."
-}
-Ok "$($expected.Count)/$($expected.Count) files match the reviewed manifest byte-for-byte"
+if ($bad -gt 0) { Fail "$bad of $($expected.Count) file(s) are not the reviewed G1 Step 2 code. A proof taken on unreviewed code is not a proof." }
+Ok "$($expected.Count)/$($expected.Count) reviewed files match byte-for-byte"
 
-# ── 4 · supported interpreter ────────────────────────────────────────
-Stage 4 'SUPPORTED CPYTHON 3.14 x64 (non-Store, GIL build)'
-if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
-  Fail 'py.exe launcher not found. Install CPython 3.14 x64 from python.org (NOT the Microsoft Store). No interpreter is installed automatically by this block.'
-}
+# ── 5 · supported interpreter (validate, never install) ──────────────
+Stage 5 'SUPPORTED CPYTHON 3.14 x64 · STORE ALIAS REJECTED'
 $probe = @'
 import json, sys, sysconfig
 print(json.dumps({
     "version": "%d.%d.%d" % sys.version_info[:3],
     "executable": sys.executable,
+    "prefix": sys.prefix,
     "bits": 64 if sys.maxsize > 2**32 else 32,
     "free_threaded": bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
 }))
 '@
-$probe | Out-File -FilePath "$env:TEMP\nivx_pyprobe.py" -Encoding ASCII
-$info = (py -3.14 "$env:TEMP\nivx_pyprobe.py" 2>$null) | ConvertFrom-Json
-if (-not $info) { Fail 'py -3.14 did not run. CPython 3.14 x64 is the supported G1 runtime; see apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md. Nothing is installed automatically.' }
-Write-Host "  interpreter: $($info.version)  $($info.bits)-bit"
-Write-Host "  path       : $($info.executable)"
-if ($info.executable -like '*WindowsApps*') { Fail 'the resolved interpreter is the Microsoft Store alias. It is not a supported runtime — the path existing proves nothing.' }
-if ($info.bits -ne 64)        { Fail '32-bit interpreter is not supported for G1.' }
-if ($info.free_threaded)      { Fail 'free-threaded (cp314t) build is not supported: pywin32 publishes no wheel for it.' }
-if (-not $info.version.StartsWith('3.14')) { Fail "unsupported interpreter $($info.version); G1 is pinned to CPython 3.14 x64." }
-Ok 'supported interpreter confirmed'
+$probePath = Join-Path $env:TEMP 'nivx_pyprobe.py'
+$probe | Out-File -FilePath $probePath -Encoding ASCII
+Write-Host "  py.exe launcher inventory:"
+$launcher = (Get-Command py -ErrorAction SilentlyContinue)
+if (-not $launcher) { Fail 'py.exe is not present. This block installs no interpreter: report this and we decide the runtime change deliberately (see apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md).' }
+try { (py -0p) 2>$null | ForEach-Object { Write-Host "    $_" } } catch { }
+$info = $null
+try { $info = (py -3.14 $probePath 2>$null) | ConvertFrom-Json } catch { }
+if (-not $info) { Fail 'py -3.14 did not produce a usable interpreter. Nothing is installed automatically — report this and we decide the runtime change deliberately.' }
+Info "resolved  : $($info.version)  $($info.bits)-bit"
+Info "executable: $($info.executable)"
+if ($info.executable -like '*\WindowsApps\*' -or $info.prefix -like '*\WindowsApps\*') {
+  Fail 'the resolved interpreter is the Microsoft Store alias/package. It is not a supported runtime: the path existing proves nothing and it carries no usable pip.'
+}
+if (-not $info.version.StartsWith('3.14')) { Fail "resolved $($info.version); G1 is pinned to CPython 3.14 x64 standard build." }
+if ($info.bits -ne 64)   { Fail '32-bit interpreter is not supported for G1.' }
+if ($info.free_threaded) { Fail 'free-threaded (cp314t) build is not supported: pywin32 publishes no wheel for it.' }
+Ok 'supported standard CPython 3.14 x64 confirmed (nothing installed)'
 
-# ── 5 · virtual environment ──────────────────────────────────────────
-Stage 5 'VIRTUAL ENVIRONMENT'
+# ── 6 · isolated venv ────────────────────────────────────────────────
+Stage 6 'ISOLATED VIRTUAL ENVIRONMENT'
 if (-not (Test-Path $VenvPy)) {
   py -3.14 -m ensurepip --upgrade | Out-Null
   py -3.14 -m venv $Venv
 }
 if (-not (Test-Path $VenvPy)) { Fail "venv was not created at $Venv." }
-& $VenvPy -m pip install --upgrade pip --quiet
-Ok "venv pinned at $VenvPy"
+$venvInfo = (& $VenvPy $probePath) | ConvertFrom-Json
+Info "venv python: $($venvInfo.version) $($venvInfo.bits)-bit  $VenvPy"
+if (-not $venvInfo.version.StartsWith('3.14') -or $venvInfo.bits -ne 64) { Fail 'the venv interpreter is not the supported runtime.' }
+if ($venvInfo.executable -like '*\WindowsApps\*') { Fail 'the venv resolves to the Store alias.' }
+Ok 'venv pinned; every later command uses it by absolute path'
 
-# ── 6 · pinned Windows dependencies ──────────────────────────────────
-Stage 6 'PINNED WINDOWS DEPENDENCIES'
+# ── 7 · pinned Windows dependencies ──────────────────────────────────
+Stage 7 'PINNED WINDOWS DEPENDENCIES'
 Push-Location $Collector
-& $VenvPy -m pip install -r requirements-windows.txt --quiet
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'pinned dependency installation failed. Report this instead of installing a different interpreter or an unpinned pywin32.' }
-$pw = (& $VenvPy -c "import importlib.metadata as m; print(m.version('pywin32'))").Trim()
-Write-Host "  pywin32: $pw"
-if ($pw -ne '312') { Pop-Location; Fail "pywin32 $pw is installed but the contract pins 312 (requirements-windows.txt)." }
-Ok 'dependencies match the pinned Windows contract'
+& $VenvPy -m pip install --disable-pip-version-check -r requirements-windows.txt --quiet
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'installation of the pinned Windows dependencies failed. Report it — no unpinned pywin32 and no different interpreter are substituted.' }
+Ok 'requirements-windows.txt installed (pinned)'
 
-# ── 7 · pywin32 import ───────────────────────────────────────────────
-Stage 7 'PYWIN32 IMPORT'
+# ── 8 · pywin32 verified ─────────────────────────────────────────────
+Stage 8 'PYWIN32 VERIFICATION'
+$pw = (& $VenvPy -c "import importlib.metadata as m; print(m.version('pywin32'))" 2>$null)
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'pywin32 is not installed in the venv.' }
+$pw = $pw.Trim()
+Info "pywin32: $pw"
+if ($pw -ne '312') { Pop-Location; Fail "pywin32 $pw installed but the contract pins 312." }
 & $VenvPy -c "import win32evtlog; print('  win32evtlog:', win32evtlog.__file__)"
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'win32evtlog could not be imported. The runtime fails closed rather than acquiring zero events while reporting CONNECTED.' }
-Ok 'native bindings importable'
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'win32evtlog could not be imported. The runtime fails closed instead of acquiring zero events while looking healthy.' }
+Ok 'pinned pywin32 present and importable'
 
-# ── 8 · REAL native Event Log binding probe (read-only) ──────────────
-Stage 8 'NATIVE EVENT LOG BINDING PROBE (EvtSubscribe · read-only)'
+# ── 9+10 · native binding + per-channel readability ──────────────────
+Stage '9+10' 'NATIVE BINDING PROBE + PER-CHANNEL READABILITY (read-only)'
 $bind = @'
 import json, sys
 import win32evtlog as w
-out = {"bound": False}
+
+WINDOW = int(sys.argv[1]) * 60 * 1000
+CHANNELS = sys.argv[2:]
+XPATH = "*[System[TimeCreated[timediff(@SystemTime) <= %d]]]" % WINDOW
+out = {"bound": False, "channels": {}}
 try:
     bm = w.EvtCreateBookmark(None)
-    h = w.EvtSubscribe("System", w.EvtSubscribeStartAtOldestRecord, None,
-                       None, None,
-                       "*[System[TimeCreated[timediff(@SystemTime) <= 3600000]]]")
-    evs = w.EvtNext(h, 1, -1, 0)
-    rendered = None
-    if evs:
-        rendered = w.EvtRender(evs[0], w.EvtRenderEventXml)
-        w.EvtUpdateBookmark(bm, evs[0])
-    out = {"bound": True,
-           "events_available_in_window": bool(evs),
-           "xml_bytes": len(rendered) if rendered else 0,
-           "bookmark_bytes": len(w.EvtRender(bm, w.EvtRenderBookmark))}
+    out["bind_api"] = sorted(n for n in
+        ("EvtSubscribe", "EvtCreateBookmark", "EvtNext", "EvtRender",
+         "EvtUpdateBookmark") if hasattr(w, n))
+    out["bound"] = len(out["bind_api"]) == 5
 except Exception as exc:
-    out = {"bound": False, "error": "%s: %s" % (type(exc).__name__, exc)}
-print(json.dumps(out))
-sys.exit(0 if out.get("bound") else 1)
-'@
-$bind | Out-File -FilePath "$env:TEMP\nivx_bindprobe.py" -Encoding ASCII
-$bindOut = & $VenvPy "$env:TEMP\nivx_bindprobe.py"
-Write-Host "  $bindOut"
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'EvtSubscribe could not be bound. Acquisition is refused — a subscription that cannot bind can only ever produce zero events.' }
-Ok 'native subscription bound, one record rendered, bookmark rendered'
+    out["error"] = "%s: %s" % (type(exc).__name__, exc)
+    print(json.dumps(out)); sys.exit(1)
 
-# ── 9 · persistent state directory ───────────────────────────────────
-Stage 9 'PERSISTENT STATE DIRECTORY'
+for ch in CHANNELS:
+    rec = {"readable": False}
+    try:
+        b = w.EvtCreateBookmark(None)
+        h = w.EvtSubscribe(ch, w.EvtSubscribeStartAtOldestRecord, None,
+                           None, None, XPATH)
+        evs = w.EvtNext(h, 1, -1, 0)
+        rec["readable"] = True
+        rec["records_in_window"] = bool(evs)
+        if evs:
+            xml = w.EvtRender(evs[0], w.EvtRenderEventXml)
+            w.EvtUpdateBookmark(b, evs[0])
+            rec["sample_xml_bytes"] = len(xml)
+            rec["bookmark_bytes"] = len(w.EvtRender(b, w.EvtRenderBookmark))
+    except Exception as exc:
+        rec["error"] = "%s: %s" % (type(exc).__name__, exc)
+    out["channels"][ch] = rec
+
+unreadable = [c for c, r in out["channels"].items() if not r["readable"]]
+out["unreadable"] = unreadable
+print(json.dumps(out, indent=2))
+sys.exit(1 if (unreadable or not out["bound"]) else 0)
+'@
+$bindPath = Join-Path $env:TEMP 'nivx_bindprobe.py'
+$bind | Out-File -FilePath $bindPath -Encoding ASCII
+$bindOut = (& $VenvPy $bindPath $ScopeMinutes @Channels) -join "`n"
+Write-Host $bindOut
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'native binding or channel readability FAILED. A subscription that cannot bind, or a channel that cannot be read, can only produce zero events — that is refused, not downgraded.' }
+Ok 'EvtSubscribe bound; all three channels readable; bookmark renderable'
+
+# ── 11 · persistent state root ───────────────────────────────────────
+Stage 11 'PERSISTENT STATE ROOT'
 New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
 icacls $StateDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" /grant:r "*S-1-5-32-544:(OI)(CI)F" | Out-Null
-$probeFile = Join-Path $StateDir '.nivx_write_probe'
-Set-Content -Path $probeFile -Value 'probe' -Encoding ASCII
-if (-not (Test-Path $probeFile)) { Pop-Location; Fail "state directory $StateDir is not writable." }
-Remove-Item $probeFile -Force
-Write-Host "  state root: $StateDir (SYSTEM + Administrators only)"
-Ok 'durable state root ready'
+$persist = @'
+import json, os, sqlite3, sys
+d = sys.argv[1]
+p = os.path.join(d, ".nivx_persist_probe.db")
+try:
+    c = sqlite3.connect(p); c.execute("PRAGMA journal_mode=WAL")
+    c.execute("CREATE TABLE IF NOT EXISTS t(k TEXT)")
+    c.execute("INSERT INTO t VALUES ('probe')"); c.commit(); c.close()
+    c = sqlite3.connect(p)
+    n = c.execute("SELECT COUNT(*) FROM t").fetchone()[0]; c.close()
+    os.remove(p)
+    for suf in ("-wal", "-shm"):
+        if os.path.exists(p + suf): os.remove(p + suf)
+    print(json.dumps({"writable": True, "reopened_rows": n, "dir": d}))
+    sys.exit(0 if n >= 1 else 1)
+except Exception as exc:
+    print(json.dumps({"writable": False,
+                      "error": "%s: %s" % (type(exc).__name__, exc)}))
+    sys.exit(1)
+'@
+$persistPath = Join-Path $env:TEMP 'nivx_persistprobe.py'
+$persist | Out-File -FilePath $persistPath -Encoding ASCII
+$persistOut = (& $VenvPy $persistPath $StateDir)
+Info $persistOut
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "state root $StateDir failed the durability probe. Bookmarks and the outbox must share one durable fsync domain; acquisition is refused." }
+Info "state root: $StateDir (SYSTEM + Administrators only)"
+Ok 'durable state validated (write, WAL commit, reopen, read back)'
 
-# ── 10 · pre-seeded collector configuration ──────────────────────────
-Stage 10 'PRE-SEEDED COLLECTOR CONFIGURATION'
-# The standalone control plane fails closed by design (no identity, RBAC or
-# tenant authority exists off the backend), so the connector is seeded on
-# disk and auto-started by the service's own rehydration path.
-$window = '*[System[TimeCreated[timediff(@SystemTime) <= 3600000]]]'
+# ── 12 · collector identity + server authority ───────────────────────
+Stage 12 'COLLECTOR IDENTITY + SERVER AUTHORITY'
+$window = "*[System[TimeCreated[timediff(@SystemTime) <= $($ScopeMinutes * 60 * 1000)]]]"
 $now = (Get-Date).ToUniversalTime().ToString('o')
 $cfg = [ordered]@{
   connectors = @(
@@ -253,6 +324,7 @@ $cfg = [ordered]@{
         interval_seconds    = 60
         max_events_per_read = 500
         scope_bound         = 'G1_VALIDATION_SCOPE_BOUND'
+        scope_bound_minutes = $ScopeMinutes
         filters             = [ordered]@{
           'Microsoft-Windows-Sysmon/Operational'     = $window
           'Security'                                 = $window
@@ -266,64 +338,44 @@ $cfg = [ordered]@{
 }
 $cfgPath = Join-Path $StateDir 'connectors.json'
 $cfg | ConvertTo-Json -Depth 8 | Set-Content -Path $cfgPath -Encoding UTF8
-$roundTrip = Get-Content $cfgPath -Raw | ConvertFrom-Json
-if ($roundTrip.connectors[0].config.collector_id -ne $CollectorId) { Pop-Location; Fail 'seeded connector configuration did not round-trip.' }
-Write-Host "  connector  : $ConnectorId"
-Write-Host "  collector  : $CollectorId (server-enrolled identity)"
-Write-Host "  tenant     : $TenantId"
-Write-Host "  channels   : Sysmon · Security · PowerShell/Operational"
-Write-Host "  scope bound: G1_VALIDATION_SCOPE_BOUND (last 60 minutes, XPath, applied by Windows)"
-Ok 'configuration seeded — no disabled channel enabled, no Windows setting changed'
+$rt = Get-Content $cfgPath -Raw | ConvertFrom-Json
+if ($rt.connectors[0].config.collector_id -ne $CollectorId -or
+    $rt.connectors[0].tenant_id -ne $TenantId) { Pop-Location; Fail 'seeded collector configuration did not round-trip.' }
+Info "connector  : $ConnectorId"
+Info "collector  : $CollectorId  (identity enrolled server-side; never generated)"
+Info "tenant     : $TenantId"
+Info "channels   : Sysmon · Security · PowerShell/Operational"
+Info "scope bound: G1_VALIDATION_SCOPE_BOUND = last $ScopeMinutes minutes (XPath, applied by Windows)"
+Ok 'identity + bounded scope configured; no Windows setting changed'
 
-# ── 11 · server reachability + authentication + tenant authority ─────
-Stage 11 'SERVER REACHABILITY · AUTHENTICATION · TENANT AUTHORITY'
-try { $h = Invoke-RestMethod -Uri "$BaseUrl/api/health" -TimeoutSec 30 }
+# ── 13 · reachability + authentication + tenant binding ──────────────
+Stage 13 'SERVER REACHABILITY · AUTHENTICATION · TENANT BINDING'
+try { Invoke-RestMethod -Uri "$BaseUrl/api/health" -TimeoutSec 30 | Out-Null }
 catch { Pop-Location; Fail "NivXRay XDR is not reachable at $BaseUrl : $($_.Exception.Message)" }
 Ok "reachable ($BaseUrl)"
 
-function Get-PlainFromSecure([System.Security.SecureString]$s) {
-  $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)
-  try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
-  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
+Write-Host ""
+Write-Host "  Paste the G1 ingest key (X-XDR-API-Key). It is NOT echoed, NOT stored," -ForegroundColor Yellow
+Write-Host "  NOT logged, and NOT written into any proof artifact. Press Enter with" -ForegroundColor Yellow
+Write-Host "  nothing typed to STOP if no key has been minted yet." -ForegroundColor Yellow
+$keySecure = Read-Host '  G1 ingest key' -AsSecureString
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($keySecure)
+try { $env:NIVX_INGEST_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+Remove-Variable keySecure, bstr -ErrorAction SilentlyContinue
+if ([string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)) {
+  Fail @'
+no ingest credential was supplied, so acquisition cannot start.
+
+REMAINING SERVER-SIDE ACTION (one item):
+  mint ONE API key in tenant ten_f1a5479243e901cf159e230fa0 (g1-windows-proof)
+  with scopes = ["collectors.enroll"] and nothing else, short expiry,
+  via POST /api/xdr/api-keys  (UI: /xdr/admin -> API keys -> create).
+  The plaintext is shown exactly once. Paste it at this prompt on the next
+  run, and revoke the key after the proof.
+'@
 }
 
-if ($MintOnHost) {
-  $adminEmail = Read-Host 'NivXRay admin e-mail (preview)'
-  $adminSecret = Read-Host 'NivXRay admin password (not echoed, not stored)' -AsSecureString
-  try {
-    $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" `
-      -ContentType 'application/json' -TimeoutSec 30 `
-      -Body (@{ email = $adminEmail
-                password = (Get-PlainFromSecure $adminSecret) } | ConvertTo-Json)
-  } catch { Pop-Location; Fail 'admin authentication failed; no key was minted.' }
-  $jwt = $login.access_token
-  $keyName = "g1-endpoint-$([int](Get-Date -UFormat %s))"
-  $expires = (Get-Date).ToUniversalTime().AddHours(24).ToString('o')
-  try {
-    $mint = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/xdr/api-keys" `
-      -Headers @{ Authorization = "Bearer $jwt"; 'X-Tenant-Id' = $TenantId } `
-      -ContentType 'application/json' -TimeoutSec 30 `
-      -Body (@{ name = $keyName; confirm_tenant_id = $TenantId
-                description = 'G1 Step 2 endpoint ingest credential (24h)'
-                scopes = @('collectors.enroll'); expires_at = $expires
-              } | ConvertTo-Json)
-  } catch { Pop-Location; Fail "ingest key could not be minted: $($_.Exception.Message)" }
-  $env:NIVX_INGEST_TOKEN = $mint.data.plaintext     # in-process only
-  Write-Host "  minted key : $($mint.data.prefix)…  id=$($mint.data.id)"
-  Write-Host "  scopes     : collectors.enroll (no control-plane authority)"
-  Write-Host "  expires    : $expires"
-  Remove-Variable jwt, login, mint, adminSecret -ErrorAction SilentlyContinue
-  [GC]::Collect()
-} else {
-  $keySecure = Read-Host 'G1 ingest key (X-XDR-API-Key, not echoed)' -AsSecureString
-  $env:NIVX_INGEST_TOKEN = Get-PlainFromSecure $keySecure
-  Remove-Variable keySecure -ErrorAction SilentlyContinue
-}
-if (-not $env:NIVX_INGEST_TOKEN) { Pop-Location; Fail 'no ingest credential is present.' }
-
-# Authentication + tenant-authority probe that creates NO evidence: an
-# empty batch is rejected 400 AFTER auth and tenant resolution succeed.
-# 401/403 here means the credential or the tenant binding is wrong.
 $authStatus = $null
 try {
   Invoke-WebRequest -Method Post -Uri "$BaseUrl/api/xdr/ingest/telemetry" `
@@ -332,127 +384,205 @@ try {
     -ContentType 'application/json' -Body '{"envelopes":[]}' `
     -TimeoutSec 30 -UseBasicParsing | Out-Null
 } catch { $authStatus = [int]$_.Exception.Response.StatusCode }
-Write-Host "  auth probe : HTTP $authStatus (400 = authenticated + tenant resolved, empty batch refused)"
-if ($authStatus -eq 401 -or $authStatus -eq 403) {
-  Pop-Location; Fail "ingest authentication/tenant authority REFUSED (HTTP $authStatus). Acquisition is not started."
-}
-if ($authStatus -ne 400) {
-  Pop-Location; Fail "unexpected auth-probe result (HTTP $authStatus). Acquisition is not started until the boundary answers as contracted."
-}
-Ok 'authenticated, tenant authority accepted, no evidence created'
+Info "auth probe : HTTP $authStatus  (400 = authenticated, tenant resolved, empty batch refused; creates no evidence)"
+if ($authStatus -eq 401 -or $authStatus -eq 403) { Pop-Location; Fail "ingest authentication / tenant binding REFUSED (HTTP $authStatus)." }
+if ($authStatus -ne 400) { Pop-Location; Fail "unexpected auth-probe result (HTTP $authStatus); acquisition is not started until the boundary answers as contracted." }
+Ok 'authenticated; tenant binding accepted; no evidence created by the probe'
 
-# ── 12 · bounded acquisition ─────────────────────────────────────────
-Stage 12 "BOUNDED ACQUISITION · $RunMinutes min observation · 60-min scope bound"
-$env:NIVX_INGEST_URL          = "$BaseUrl/api/xdr/ingest/telemetry"
-$env:NIVX_INGEST_AUTH_MODE    = 'api_key'
-$env:NIVX_TENANT_ID           = $TenantId
-$env:NIVX_COLLECTOR_ID        = $CollectorId
-$env:XDR_STATE_DIR            = $StateDir
+# ── 14 · bounded acquisition ─────────────────────────────────────────
+Stage 14 "BOUNDED ACQUISITION · scope $ScopeMinutes min · observe $ObserveMinutes min"
+$env:NIVX_INGEST_URL           = "$BaseUrl/api/xdr/ingest/telemetry"
+$env:NIVX_INGEST_AUTH_MODE     = 'api_key'
+$env:NIVX_TENANT_ID            = $TenantId
+$env:NIVX_COLLECTOR_ID         = $CollectorId
+$env:XDR_STATE_DIR             = $StateDir
 $env:XDR_AUTO_START_CONNECTORS = '1'
-$env:XDR_CORS_ORIGINS         = 'http://127.0.0.1'
+$env:XDR_CORS_ORIGINS          = 'http://127.0.0.1'
 
 $proofDir = Join-Path $Work 'g1-proof'
 New-Item -ItemType Directory -Force -Path $proofDir | Out-Null
 $svcLog = Join-Path $proofDir 'collector.log'
 
-Write-Host "  starting collector on 127.0.0.1:8080 (loopback only — the standalone control plane is fail-closed)"
+Info 'starting collector on 127.0.0.1:8080 (loopback only — the standalone control plane is fail-closed by design)'
 $svc = Start-Process -FilePath $VenvPy `
   -ArgumentList '-m','uvicorn','main:app','--host','127.0.0.1','--port','8080' `
   -WorkingDirectory $Collector -PassThru -NoNewWindow `
   -RedirectStandardOutput $svcLog -RedirectStandardError "$proofDir\collector.err.log"
-Start-Sleep -Seconds 12
+Start-Sleep -Seconds 15
 
 try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30 }
-catch { Stop-Process -Id $svc.Id -Force -ErrorAction SilentlyContinue; Pop-Location; Fail "collector did not come up; see $svcLog" }
-$health | ConvertTo-Json -Depth 8 | Set-Content "$proofDir\health-start.json" -Encoding UTF8
-Write-Host ("  rehydration: constructed=$($health.rehydration.constructed) started=$($health.rehydration.started) failures=$($health.rehydration.failures.Count)")
+catch { Stop-Process -Id $svc.Id -Force -ErrorAction SilentlyContinue; Pop-Location; Fail "the collector did not come up; see $svcLog" }
+$health | ConvertTo-Json -Depth 10 | Set-Content "$proofDir\health-start.json" -Encoding UTF8
+Info ("rehydration: constructed=$($health.rehydration.constructed) started=$($health.rehydration.started) failures=$($health.rehydration.failures.Count)")
 if ($health.rehydration.started -lt 1) {
+  $health.rehydration | ConvertTo-Json -Depth 10 | Write-Host
   Stop-Process -Id $svc.Id -Force -ErrorAction SilentlyContinue
-  $health.rehydration | ConvertTo-Json -Depth 8 | Write-Host
   Pop-Location; Fail 'the Windows connector did not start. Acquisition is refused rather than reported as healthy.'
 }
-Ok 'connector started and is subscribed'
+Ok "connector started (pid $($svc.Id)); acquiring"
 
-$deadline = (Get-Date).AddMinutes($RunMinutes)
+$deadline = (Get-Date).AddMinutes($ObserveMinutes)
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Seconds 60
-  $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30
-  $ob = $h.outbox.counts
-  Write-Host ("  [{0:HH:mm:ss}] outbox queued={1} delivering={2} delivered={3} retrying={4} dead={5}" -f `
-    (Get-Date), $ob.queued, $ob.delivering, $ob.delivered, $ob.retrying, $ob.dead_letter)
+  try {
+    $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30
+    $c = $h.outbox.counts
+    Write-Host ("  [{0:HH:mm:ss}] outbox received={1} queued={2} delivering={3} delivered={4} retrying={5} dead={6}" -f `
+      (Get-Date), $c.received, $c.queued, $c.delivering, $c.delivered, $c.retrying, $c.dead_letter)
+  } catch { Write-Host "  [$(Get-Date -Format HH:mm:ss)] health unavailable: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
-# ── proof artifacts (nothing is interpreted here) ────────────────────
-Stage 'A' 'PROOF ARTIFACTS'
+# ── proof capture + independent verification (no interpretation) ─────
+Stage 'A' 'PROOF CAPTURE + INDEPENDENT WINDOWS RE-READ'
 Invoke-RestMethod -Uri 'http://127.0.0.1:8080/health' -TimeoutSec 30 |
-  ConvertTo-Json -Depth 8 | Set-Content "$proofDir\health-end.json" -Encoding UTF8
+  ConvertTo-Json -Depth 10 | Set-Content "$proofDir\health-end.json" -Encoding UTF8
+
 $dump = @'
-import json, os, sqlite3, sys
+import json, os, re, sqlite3, subprocess, sys
+
 db = os.path.join(os.environ["XDR_STATE_DIR"], "outbox.db")
 c = sqlite3.connect(db); c.row_factory = sqlite3.Row
 out = {"db": db}
+
 out["channel_state"] = [dict(r) for r in c.execute(
     "SELECT tenant_id, collector_id, channel, origin_computer, profile_id,"
     " profile_version, bookmark_at, last_record_id, last_activity_at,"
     " last_read_at, reads, events_read, log_cleared_count, last_error,"
     " length(bookmark_xml) AS bookmark_bytes,"
+    " (bookmark_xml IS NOT NULL) AS has_bookmark,"
     " (delivered_through IS NOT NULL) AS has_delivered_through,"
-    " (delivered_through = bookmark_xml) AS delivered_through_matches"
+    " (delivered_through = bookmark_xml) AS delivered_through_matches_bookmark"
     " FROM windows_channel_state")]
+
 out["outbox_by_status"] = {r["status"]: r["n"] for r in c.execute(
     "SELECT status, COUNT(*) AS n FROM envelopes GROUP BY status")}
-out["outbox_sample"] = [dict(r) for r in c.execute(
-    "SELECT id, status, attempts, source_event_id, declared_source,"
-    " created_at, updated_at, last_error FROM envelopes"
-    " ORDER BY created_at LIMIT 5")]
-row = c.execute(
-    "SELECT source_timestamp, collection_timestamp, source_event_id,"
-    " declared_source, raw_json, canonical_json FROM envelopes"
-    " ORDER BY created_at LIMIT 1").fetchone()
-if row:
+out["outbox_total"] = c.execute("SELECT COUNT(*) FROM envelopes").fetchone()[0]
+out["outbox_distinct_source_event_ids"] = c.execute(
+    "SELECT COUNT(DISTINCT source_event_id) FROM envelopes").fetchone()[0]
+out["duplicate_accounting"] = {
+    "rows": out["outbox_total"],
+    "distinct_identities": out["outbox_distinct_source_event_ids"],
+    "note": ("a unique index on (tenant_id, connector_id, source_event_id)"
+             " makes a second row for one identity impossible; equality of"
+             " these two numbers is the local no-duplicate statement"),
+}
+
+# One fully traced event per channel: identity, clocks, raw XML, delivery.
+traced = []
+for ch in sorted({r["channel"] for r in out["channel_state"]}):
+    row = c.execute(
+        "SELECT id, status, attempts, source_event_id, declared_source,"
+        " source_timestamp, collection_timestamp, event_type, parser_version,"
+        " raw_json, canonical_json, created_at, updated_at, last_error"
+        " FROM envelopes WHERE canonical_json LIKE ? ORDER BY created_at LIMIT 1",
+        ("%" + ch + "%",)).fetchone()
+    if not row:
+        traced.append({"channel": ch, "acquired": False,
+                       "note": "no event acquired for this channel in the bounded window"})
+        continue
     raw = json.loads(row["raw_json"] or "{}")
     can = json.loads(row["canonical_json"] or "{}")
-    out["envelope_clocks"] = {
-        "source_timestamp": row["source_timestamp"],
-        "collection_timestamp": row["collection_timestamp"],
-        "canonical.activity_occurred_at": can.get("activity_occurred_at"),
-        "canonical.activity_time_source": can.get("activity_time_source"),
-        "canonical.sensor_observed_at": can.get("sensor_observed_at"),
-        "three_clocks_distinct": len({
-            str(can.get("activity_occurred_at")),
-            str(can.get("sensor_observed_at"))}) == 2,
-        "declared_source": row["declared_source"],
-        "raw_xml_bytes": len(raw.get("xml") or ""),
-        "raw_xml_head": (raw.get("xml") or "")[:400],
-        "channel": raw.get("channel"),
-        "source_event_id": row["source_event_id"],
+    xml = raw.get("xml") or ""
+    rec_id = can.get("event_record_id")
+    entry = {
+        "channel": ch, "acquired": True,
+        "outbox_id": row["id"], "outbox_status": row["status"],
+        "attempts": row["attempts"],
+        "identity": {
+            "source_event_id": row["source_event_id"],
+            "event_id": can.get("event_id"),
+            "event_record_id": rec_id,
+            "provider": can.get("provider"),
+            "origin_computer": can.get("origin_computer"),
+            "collector_host": can.get("collector_host"),
+            "user_sid": can.get("user_sid"),
+        },
+        "clocks": {
+            "activity_occurred_at": can.get("activity_occurred_at"),
+            "activity_time_source": can.get("activity_time_source"),
+            "sensor_observed_at": can.get("sensor_observed_at"),
+            "envelope.source_timestamp": row["source_timestamp"],
+            "envelope.collection_timestamp": row["collection_timestamp"],
+            "activity_differs_from_sensor": (
+                can.get("activity_occurred_at") != can.get("sensor_observed_at")),
+            "nivx_received_at": "SERVER-SIDE ONLY — not visible from the endpoint",
+        },
+        "binding": {
+            "declared_source": row["declared_source"],
+            "tenant_id": os.environ.get("NIVX_TENANT_ID"),
+            "collector_id": os.environ.get("NIVX_COLLECTOR_ID"),
+            "parser_version": row["parser_version"],
+            "profile_id": can.get("profile_id"),
+            "profile_version": can.get("profile_version"),
+        },
+        "raw_xml": {"bytes": len(xml), "head": xml[:600]},
     }
+    # INDEPENDENT re-read of the SAME record straight from Windows.
+    if rec_id is not None:
+        q = "*[System[EventRecordID=%s]]" % rec_id
+        try:
+            p = subprocess.run(["wevtutil", "qe", ch, "/q:" + q, "/f:xml",
+                                "/c:1", "/e:root"],
+                               capture_output=True, text=True, timeout=120)
+            ref = p.stdout or ""
+            norm = lambda s: re.sub(r"\s+", "", s)
+            entry["independent_reread"] = {
+                "tool": "wevtutil qe (separate Windows API consumer)",
+                "returned_bytes": len(ref),
+                "contains_record_id": ("<EventRecordID>%s</EventRecordID>" % rec_id) in ref,
+                "stored_xml_found_in_reread": norm(xml) in norm(ref) if xml else False,
+                "stderr": (p.stderr or "")[:300],
+            }
+        except Exception as exc:
+            entry["independent_reread"] = {"error": "%s: %s" % (type(exc).__name__, exc)}
+    traced.append(entry)
+out["traced_events"] = traced
+
+out["chain_local_segments"] = {
+    "windows_event": "proved by independent_reread per traced event",
+    "native_acquisition": "proved by channel_state.reads/events_read + bookmark bytes",
+    "durable_local_record": "proved by outbox rows holding the raw XML",
+    "bookmark_advance": ("proved by has_bookmark + "
+                         "delivered_through_matches_bookmark"),
+    "authenticated_transport": "proved by outbox status delivered (2xx acknowledged)",
+    "server_receipt_and_canonical_evidence": (
+        "NOT PROVED HERE — the endpoint credential holds collectors.enroll "
+        "only and has no read authority. canonical_evidence_id, parser/"
+        "normalizer status and ingest provenance are verified server-side."),
+}
 print(json.dumps(out, indent=2, default=str))
 '@
-$dump | Out-File -FilePath "$env:TEMP\nivx_dump.py" -Encoding ASCII
-& $VenvPy "$env:TEMP\nivx_dump.py" | Set-Content "$proofDir\acquisition-state.json" -Encoding UTF8
+$dumpPath = Join-Path $env:TEMP 'nivx_dump.py'
+$dump | Out-File -FilePath $dumpPath -Encoding ASCII
+& $VenvPy $dumpPath | Set-Content "$proofDir\acquisition-state.json" -Encoding UTF8
 Copy-Item $cfgPath "$proofDir\connectors.seeded.json" -Force
-@{ head = $head; branch = $Branch; manifest_files = $expected.Count
-   manifest = 'G1_STEP2_REVIEWED_CODE_MANIFEST.md'
-   interpreter = $info; pywin32 = $pw; bind_probe = ($bindOut | ConvertFrom-Json)
+$manifestRows | ConvertTo-Json -Depth 4 | Set-Content "$proofDir\manifest-verification.json" -Encoding UTF8
+$bindOut | Set-Content "$proofDir\binding-and-channel-probe.json" -Encoding UTF8
+@{ reviewed_head = $head; branch = $Branch
+   manifest = 'G1_STEP2_REVIEWED_CODE_MANIFEST.md'; manifest_files = $expected.Count
+   manifest_result = "$($expected.Count)/$($expected.Count) MATCH"
+   interpreter = $info; venv_interpreter = $venvInfo; pywin32 = $pw
    state_dir = $StateDir; tenant_id = $TenantId; collector_id = $CollectorId
-   scope_bound = 'G1_VALIDATION_SCOPE_BOUND'; window_minutes = 60
-   observation_minutes = $RunMinutes
+   connector_id = $ConnectorId; channels = $Channels
+   scope_bound = 'G1_VALIDATION_SCOPE_BOUND'; scope_bound_minutes = $ScopeMinutes
+   observed_minutes = $ObserveMinutes
+   hostname = $env:COMPUTERNAME
    generated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+   credential = 'entered interactively; never printed, stored or committed'
  } | ConvertTo-Json -Depth 8 | Set-Content "$proofDir\run-context.json" -Encoding UTF8
 
 Write-Host ""
-Write-Host "Collector is STILL RUNNING (pid $($svc.Id)) so the restart/resume," -ForegroundColor Yellow
-Write-Host "reboot/resume and mid-delivery interruption proofs can follow." -ForegroundColor Yellow
-Write-Host "Artifacts written to $proofDir :" -ForegroundColor Cyan
+Write-Host "Collector is STILL RUNNING (pid $($svc.Id)) so restart/resume," -ForegroundColor Yellow
+Write-Host "reboot/resume and mid-delivery interruption can be proved next." -ForegroundColor Yellow
+Write-Host "Artifacts in $proofDir :" -ForegroundColor Cyan
 Get-ChildItem $proofDir | ForEach-Object { Write-Host ("  " + $_.Name + "  " + $_.Length + " bytes") }
 Write-Host ""
-Write-Host "Send back: run-context.json, health-start.json, health-end.json," -ForegroundColor Cyan
-Write-Host "acquisition-state.json. They contain NO credential." -ForegroundColor Cyan
+Write-Host "Send back: run-context.json · health-start.json · health-end.json ·" -ForegroundColor Cyan
+Write-Host "acquisition-state.json · manifest-verification.json ·" -ForegroundColor Cyan
+Write-Host "binding-and-channel-probe.json   (none contains a credential)" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "G1 is NOT declared PASS because events arrived. The per-proof" -ForegroundColor Yellow
-Write-Host "matrix (raw XML, bookmark identity, durable-before-advance," -ForegroundColor Yellow
-Write-Host "restart/resume, three clocks, tenant binding, canonical evidence" -ForegroundColor Yellow
-Write-Host "identity, duplicate/loss accounting, per-channel truth states) is" -ForegroundColor Yellow
-Write-Host "evaluated against these artifacts. B4 is demonstrated separately." -ForegroundColor Yellow
+Write-Host "A 2xx from ingest is DELIVERY, not end-to-end evidence processing." -ForegroundColor Yellow
+Write-Host "Canonical evidence identity, parser/normalizer status and ingest" -ForegroundColor Yellow
+Write-Host "provenance are verified server-side against these artifacts." -ForegroundColor Yellow
+Write-Host "B4 is NOT part of this run and remains OPEN/MANDATORY/UNWAIVED." -ForegroundColor Yellow
 Pop-Location

@@ -19106,6 +19106,18 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
   append-only (`d85bb1d9…` → HEAD is `ahead_by 5, behind_by 0`) so no
   force-push occurred. Windows endpoint NOT cleared yet — owner decision
   pending. Vercel `nivxray-xdr` check still failing, out of scope, untouched.
+* **Endpoint execution block v2 handed over (2026-06, not executed).**
+  `memory/G1_STEP2_HANDOFF_BLOCK.ps1` — 14 fail-closed gates, non-destructive
+  git update (fetch + `checkout --detach 6879293…`, refuses a dirty tree, no
+  reclone/clean), interpreter validated but never installed, Store alias
+  rejected, pinned `pywin32==312`, native binding + per-channel readability
+  probe, SQLite WAL durability probe on `C:\ProgramData\NivXForge\state`,
+  ingest key entered as a SecureString (never printed/stored/committed) with
+  an explicit STOP naming the one remaining server-side action if no key
+  exists, 60-minute `G1_VALIDATION_SCOPE_BOUND`, and proof capture including
+  an independent `wevtutil` re-read of the same EventRecordID. Server-side
+  receipt / `canonical_evidence_id` / parser status are explicitly NOT
+  claimed from the endpoint. B4 excluded.
 * Regression wording of record: **zero new regressions in the compared
   affected-area test set; broader RC5 execution remains affected by
   pre-existing environment/authentication faults.** RC5 is NOT globally
