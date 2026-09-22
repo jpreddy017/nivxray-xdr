@@ -19052,6 +19052,30 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
 **Checkpoint format** for every report: `P0: X/Y CLOSED`, `P1: X/Y`,
 `P2: X/Y`, `P3: X/Y`, BLOCKERS, NEW REGRESSIONS, NEXT HIGHEST-PRIORITY ITEM.
 
+## G1 · Windows endpoint proof — Step 1 CLOSED, Step 2 PREPARED (2026-06)
+
+* **Step 1 (read-only pre-flight) — DONE on the real host.** Windows 10 Pro
+  19045 CLIENT/WORKGROUP, elevated, Sysmon 15.22 running (~80K records),
+  21/23 channels present, 16 readable, **0 read-denied**. Report
+  `nivxray-g1-preflight.json` SHA-256 `210A3C1D…19A37`. G1 reviewed-code
+  manifest 10/10 PASS remotely (`feature/rc2-alignment`) and on the endpoint.
+  RC5 gap-tracking review performed (not weakened); remote branch verified
+  byte-for-byte after the second Save to GitHub.
+* **Step 2 (acquisition → ingestion) — PREPARED, NOT EXECUTED.** Full
+  runbook: `memory/G1_STEP2_WINDOWS_ACQUISITION_RUNBOOK.md`. Six owner
+  decisions gate execution: **S1** server maps `sensor_observed_at` from
+  `envelope.source_timestamp`, which for Windows is the ACTIVITY clock
+  (`services/ingest_provenance.py:88-101`) — blocks the three-clock proof;
+  **S2** no `windows-eventlog` protocol in `PROTOCOL_REGISTRY` (only
+  `wef`/SCAFFOLD/winrm) — enrolment would record a false acquisition method;
+  **S3** `pywin32` undeclared in collector requirements; **S4**
+  `XDR_STATE_DIR` has no valid Windows default; **S5** interpreter must be a
+  pinned venv (Store alias is not an interpreter, pywin32 ≥312 for cp314);
+  **S6** bounded acquisition window vs full 80K Sysmon backfill.
+* **B4 remains mandatory and unwaived** — Step 2 captures it as measured
+  behaviour (`windows_system` → `UNSUPPORTED_SOURCE`, no raw retention), and
+  explicitly does not fix it inside a proof run.
+
 Three product laws re-confirmed by this wave's defects:
 1. A page must not short-circuit to a bespoke empty block instead of
    rendering the platform table — that deletes the column contract exactly
