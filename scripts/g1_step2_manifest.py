@@ -54,6 +54,7 @@ GROUPS: list[tuple[str, list[str]]] = [
         "apps/nivxray-xdr-collector/requirements-windows.txt",
         "apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md",
         "apps/nivxray-xdr-collector/tests/test_g1_windows_runtime_contract.py",
+        "apps/nivxray-xdr-collector/tests/test_g1_evtsubscribe_contract.py",
     ]),
     ("S1 · three-clock independence (server)", [
         "backend/services/ingest_provenance.py",

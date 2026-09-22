@@ -7,11 +7,11 @@ running the reviewed code". These SHA-256 content hashes are.
 **This manifest supersedes nothing.** The Step 1 manifest
 (`G1_REVIEWED_CODE_MANIFEST.md`, 10 files) remains the historical
 evidence for the read-only pre-flight that already ran. This one
-covers the 25 files G1 **Step 2** depends on, including the
+covers the 26 files G1 **Step 2** depends on, including the
 owner-accepted S1-S5 correctness closure.
 
-Generated 2026-09-22T13:56:32.821634+00:00 · local branch `feature/rc2-alignment`
-· local HEAD `009aa47253b8db1e84eb37c35122078b3c2a445d`.
+Generated 2026-09-22T15:00:33.311928+00:00 · local branch `feature/rc2-alignment`
+· local HEAD `9b8a9d65c1c9baf863733268753019131f605723`.
 
 ## Windows pre-flight (Step 1 code, unchanged)
 
@@ -24,7 +24,7 @@ Generated 2026-09-22T13:56:32.821634+00:00 · local branch `feature/rc2-alignmen
 
 | SHA-256 | Path |
 |---|---|
-| `D0AB898AF46EBC8D2FE897EDFA1ACBD173C37892E4F87A2BB1192831A363FF9D` | `apps/nivxray-xdr-collector/framework/windows_eventlog.py` |
+| `EC747671ED0156C3814C458A2A07C41B98901620E506842040E77C04F72A39E6` | `apps/nivxray-xdr-collector/framework/windows_eventlog.py` |
 | `C0B480269387541804196ACEDBC89E1880A8BD92F9C22BFA866D756EED63179B` | `apps/nivxray-xdr-collector/framework/windows_bookmarks.py` |
 | `B5ED4F5524A89C53D9CBF2BA8E6852C15C09C94AABC2F3EB4C199EBEAA4AB280` | `apps/nivxray-xdr-collector/framework/collector_identity.py` |
 | `EA61D2F36A2A50567E3CC9647E0A3D1A7895CC814CE1AA8FE67741FC07E131B1` | `apps/nivxray-xdr-collector/framework/runtime.py` |
@@ -46,6 +46,7 @@ Generated 2026-09-22T13:56:32.821634+00:00 · local branch `feature/rc2-alignmen
 | `F0ED4BD460AA1066E3F800F37A904BCB8CCFBF0D6AEEBB41649182F0F98446DD` | `apps/nivxray-xdr-collector/requirements-windows.txt` |
 | `74E829EFDA2FB84A00205562E5BA3CC3885A62EA14188326A6D809B6858FEB74` | `apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md` |
 | `1D3E6DE9CB63AFFC06D01609C8B6B66F1F15EE922DF3EC4E557D10656F542FA4` | `apps/nivxray-xdr-collector/tests/test_g1_windows_runtime_contract.py` |
+| `754764F133895435844DB4D7E795B052B7C5E9368371C159E901A3D1037847B3` | `apps/nivxray-xdr-collector/tests/test_g1_evtsubscribe_contract.py` |
 
 ## S1 · three-clock independence (server)
 
@@ -72,7 +73,7 @@ or MISMATCH. The machine-readable form used there:
 {
   "scripts/windows/g1/Get-NivXRayG1Preflight.ps1": "3D43E6235BBBEB631EAC11B96AF10C5AF14B6227C93ABDBCD88F966CAD9C4AF7",
   "scripts/windows/g1/README_G1_STEP1_PREFLIGHT.md": "055A28E5FA8EBDBAA25ABE97E33B2C776E347CEC20DD536D4479942132EF598C",
-  "apps/nivxray-xdr-collector/framework/windows_eventlog.py": "D0AB898AF46EBC8D2FE897EDFA1ACBD173C37892E4F87A2BB1192831A363FF9D",
+  "apps/nivxray-xdr-collector/framework/windows_eventlog.py": "EC747671ED0156C3814C458A2A07C41B98901620E506842040E77C04F72A39E6",
   "apps/nivxray-xdr-collector/framework/windows_bookmarks.py": "C0B480269387541804196ACEDBC89E1880A8BD92F9C22BFA866D756EED63179B",
   "apps/nivxray-xdr-collector/framework/collector_identity.py": "B5ED4F5524A89C53D9CBF2BA8E6852C15C09C94AABC2F3EB4C199EBEAA4AB280",
   "apps/nivxray-xdr-collector/framework/runtime.py": "EA61D2F36A2A50567E3CC9647E0A3D1A7895CC814CE1AA8FE67741FC07E131B1",
@@ -89,6 +90,7 @@ or MISMATCH. The machine-readable form used there:
   "apps/nivxray-xdr-collector/requirements-windows.txt": "F0ED4BD460AA1066E3F800F37A904BCB8CCFBF0D6AEEBB41649182F0F98446DD",
   "apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md": "74E829EFDA2FB84A00205562E5BA3CC3885A62EA14188326A6D809B6858FEB74",
   "apps/nivxray-xdr-collector/tests/test_g1_windows_runtime_contract.py": "1D3E6DE9CB63AFFC06D01609C8B6B66F1F15EE922DF3EC4E557D10656F542FA4",
+  "apps/nivxray-xdr-collector/tests/test_g1_evtsubscribe_contract.py": "754764F133895435844DB4D7E795B052B7C5E9368371C159E901A3D1037847B3",
   "backend/services/ingest_provenance.py": "EEEC91EC55707BD9846BCF6568EA2D5A38BD880EDF7AF3892B8384F8A5B28913",
   "backend/tests/test_g1_s1_clock_independence.py": "B3D43A2A0401B2434B5D2CF2636E2D31957E55BD85F0DCF59A6508B2A6FC3D3C",
   "backend/routers/xdr_collectors.py": "D898C793C048DD1100E227415BECF83BA426CE46964A7F6AF4A2B68D8D1893ED",

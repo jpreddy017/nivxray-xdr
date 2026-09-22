@@ -19118,6 +19118,24 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
   an independent `wevtutil` re-read of the same EventRecordID. Server-side
   receipt / `canonical_evidence_id` / parser status are explicitly NOT
   claimed from the endpoint. B4 excluded.
+* **Real-endpoint run 1 (2026-06): stages 1–8 PASS, Stage 9/10 FAIL with
+  Windows ERROR 87 on all three channels — root-caused and fixed.**
+  `EvtSubscribe` was called with `SignalEvent=None` AND `Callback=None`;
+  Windows requires exactly one delivery mechanism, so every channel
+  returned `ERROR_INVALID_PARAMETER (87)` regardless of permissions. A
+  second defect rode along: the bookmark was passed positionally into
+  `Context` (tail is `Context, Query, Session, Bookmark`), so
+  `StartAfterBookmark` would have resumed with no bookmark. Fixed in
+  `framework/windows_eventlog.py` — pull subscription with a real
+  `win32event.CreateEvent` manual-reset handle, all tail parameters passed
+  by keyword, finite `EvtNext` timeout (200 ms, never INFINITE), and
+  `ERROR_NO_MORE_ITEMS`/`WAIT_TIMEOUT` treated as a clean end of read;
+  `binding_status()` now also requires `win32event`. 13 new tests in
+  `tests/test_g1_evtsubscribe_contract.py` pin the call shape, including the
+  exact ERROR-87 shape; collector suite 180/180. Step 2 manifest regenerated
+  to **26 files** (`windows_eventlog.py` → `EC747671…39E6`). Stage-9/10-only
+  validation block: `memory/G1_STAGE910_VALIDATION_BLOCK.ps1`. Fail-closed
+  gate held: acquisition never started, no credential used.
 * Regression wording of record: **zero new regressions in the compared
   affected-area test set; broader RC5 execution remains affected by
   pre-existing environment/authentication faults.** RC5 is NOT globally

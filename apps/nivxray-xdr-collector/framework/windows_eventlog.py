@@ -308,6 +308,13 @@ PLATFORM_NOT_WINDOWS = "PLATFORM_NOT_WINDOWS"
 #: no capability claim. It is taken at its word rather than probed.
 BINDING_NOT_PROBED = "BINDING_NOT_PROBED"
 
+#: `EvtNext` timeout, milliseconds. Never INFINITE: a channel with nothing
+#: new must end the read, not stall the collector.
+_EVT_NEXT_TIMEOUT_MS = 200
+#: "there is nothing more right now" is a normal end of read, not an error:
+#: ERROR_NO_MORE_ITEMS and WAIT_TIMEOUT.
+_EVT_NEXT_EXHAUSTED = (259, 1460)
+
 
 class UnsupportedPlatformReader:
     """The reader used when this process is not Windows.
@@ -360,6 +367,19 @@ class NativeEvtReader:
         missing = [n for n in ("EvtSubscribe", "EvtCreateBookmark",
                                "EvtNext", "EvtRender", "EvtUpdateBookmark")
                    if not hasattr(win32evtlog, n)]
+        try:
+            # The pull subscription needs a real signal event handle, so
+            # win32event is as much a requirement as win32evtlog.
+            import win32event  # type: ignore
+            if not hasattr(win32event, "CreateEvent"):
+                missing.append("win32event.CreateEvent")
+        except Exception as exc:                                # noqa: BLE001
+            return {"bound": False, "code": NATIVE_BINDING_UNAVAILABLE,
+                    "reason": ("win32evtlog bound but win32event could not "
+                               "be imported, so no pull subscription can be "
+                               f"signalled: {type(exc).__name__}: {exc}"),
+                    "platform": platform.system(),
+                    "requirement": "requirements-windows.txt · pywin32==312"}
         if missing:
             return {"bound": False, "code": NATIVE_BINDING_UNAVAILABLE,
                     "reason": ("win32evtlog imported but does not expose the "
@@ -374,7 +394,9 @@ class NativeEvtReader:
     def read(self, channel: str, *, bookmark_xml: Optional[str],
              xpath: Optional[str], limit: int) -> Dict[str, Any]:
         try:
+            import win32event  # type: ignore
             import win32evtlog  # type: ignore
+            import pywintypes  # type: ignore
         except Exception as exc:  # pragma: no cover - Windows only
             return {"records": [], "bookmark_xml": bookmark_xml,
                     "state": "READER_UNAVAILABLE",
@@ -384,13 +406,31 @@ class NativeEvtReader:
                     if bookmark_xml else win32evtlog.EvtCreateBookmark(None))
         flags = (win32evtlog.EvtSubscribeStartAfterBookmark if bookmark_xml
                  else win32evtlog.EvtSubscribeStartAtOldestRecord)
+        # EvtSubscribe REQUIRES exactly one delivery mechanism: a signal
+        # event (pull) or a callback (push). Passing neither is
+        # ERROR_INVALID_PARAMETER (87) on every channel, which reads like a
+        # permissions problem and is not one. We pull, so we own a real
+        # manual-reset event handle. Keyword arguments are deliberate: the
+        # positional tail is (Context, Query, Session, Bookmark) and a
+        # bookmark handed to `Context` is silently the wrong subscription.
+        signal = win32event.CreateEvent(None, True, False, None)
         handle = win32evtlog.EvtSubscribe(
-            channel, flags, None, None, bookmark if bookmark_xml else None,
-            xpath)
+            channel, flags,
+            SignalEvent=signal,
+            Callback=None,
+            Query=xpath,
+            Bookmark=(bookmark if bookmark_xml else None))
         records: List[str] = []
         while len(records) < limit:
-            events = win32evtlog.EvtNext(handle, limit - len(records),
-                                         -1, 0)
+            try:
+                # A finite timeout: INFINITE would block the collector
+                # forever the moment a channel has nothing new.
+                events = win32evtlog.EvtNext(handle, limit - len(records),
+                                             _EVT_NEXT_TIMEOUT_MS, 0)
+            except pywintypes.error as exc:                    # noqa: PERF203
+                if exc.winerror in _EVT_NEXT_EXHAUSTED:
+                    break
+                raise
             if not events:
                 break
             for ev in events:
