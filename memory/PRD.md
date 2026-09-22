@@ -1,5 +1,57 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06-21 · P0 · RESPONSE-EXECUTION TENANT ISOLATION — CLOSED · PROVEN
+
+Full record: `/app/memory/P0_RESPONSE_EXECUTION_TENANT_ISOLATION.md`.
+Backend only, authorization only. No frontend change.
+Proof: `scripts/p0_response_execution_tenant_isolation.py` → **21 PASS · 0
+FAIL** · focused pytest **23 passed in 0.6 s**. No broad regression.
+
+- **Root cause**: `GET /api/xdr/incidents/{id}/response-executions` queried
+  `xdr_response_evidence` by `invoker.context.incident_id` **alone** — the
+  only tenant predicate was an OPTIONAL client-supplied `tenant_id`, so
+  omitting it removed scoping entirely. Any principal with `evidence.read`
+  could read another customer's response executions (invoker, action,
+  parameters, target, adapter result, authorization block) plus the joined
+  evidence/audit/timeline refs. Sibling
+  `GET /api/xdr/response-evidence/{execution_id}` had the identical defect
+  keyed on an execution id. **Both FIXED.**
+- **Authority now**: `_apply_principal_tenant_scope()` →
+  `resolve_tenant_scope(principal)` (the same authority the incident plane
+  uses): unauthorized ⇒ `{"$in": []}`, cross-tenant role ⇒ ALL_TENANTS
+  (unchanged), everyone else ⇒ own tenants; a client `tenant_id` may only
+  INTERSECT. The incident-keyed route additionally resolves the incident
+  through `authorized_incident` (out of scope ⇒ 404, no disclosure). The
+  response reports the **applied** scope, never a client value.
+- **Decisive pytest case**: two evidence rows referencing the SAME
+  `incident_id`, one per tenant → the own-tenant principal receives only its
+  own row; the foreign row appears nowhere.
+- `POST /api/xdr/response-evidence` — **NOT fixed, reported (new P1)**: it
+  stores `body.tenant_id`, the writer's own claim, as the record's tenant.
+  Same defect class on the WRITE path; the Response Engine is the caller, so
+  it needs an owner decision.
+- Honest limitation: **no tenant role in this deployment holds
+  `evidence.read`** (only `l2_investigator_copy`, assigned to nobody), so on
+  the live edge a tenant analyst is refused by the RBAC gate before the
+  tenant authority is reached; the positive path is proven in pytest against
+  the real router.
+- `tests/test_xdr_response_evidence.py` was updated honestly (its harness
+  presented NO principal, which now correctly means "no tenant ⇒ nothing"):
+  it presents a cross-tenant principal, seeds the incident ids it addresses,
+  and an unaddressable incident now expects **404** instead of an empty list.
+
+### Master sequence (owner)
+P0 CLOSED → **P1-1 Evidence Namespace Bridge (next, independent task)** →
+P1-2 Dense Timeline Check → P1-3 Sensor Clock Mapping → P1-4 Verdict
+disagreement presentation → P1-5 Investigate Parity Audit → P1-6 retirement
+only if parity proven → P1-7 Control Center → P1-8 Event Explorer → P1-9
+Hunting → P2 detection/correlation maturity, detection-as-code, coverage,
+Evidence Lake, NivXForge trajectory/journal/live search, response depth → P3
+prevention engines, Security Knowledge Graph, evidence-constrained AI,
+production scale/HA. Invariants across every stage: security · tenant
+isolation · evidence integrity · provenance · truth semantics · response
+verification · production reliability.
+
 ## 2026-06-21 · S3-D · ANCHOR-TO-EVIDENCE — DONE · PROVEN
 
 Full record: `/app/memory/S3D_ANCHOR_TO_EVIDENCE.md`. **Frontend only** — no
