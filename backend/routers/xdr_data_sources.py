@@ -70,6 +70,10 @@ SOURCE_KINDS: dict[str, dict[str, Any]] = {
     "cef_syslog":           {"protocol": "syslog",   "canonical": "canonical.log"},
     "leef_syslog":          {"protocol": "syslog",   "canonical": "canonical.log"},
     "windows_event_fwd":    {"protocol": "wef",      "canonical": "canonical.host.process"},
+    #: G1/S2 · a Windows endpoint acquiring its OWN channels natively. Kept
+    #: distinct from `windows_event_fwd`, which is forwarding over WinRM.
+    "windows_eventlog_native": {"protocol": "windows-eventlog",
+                                                  "canonical": "canonical.host.process"},
     "sysmon_wef":           {"protocol": "wef",      "canonical": "canonical.host.process"},
     "generic_webhook":      {"protocol": "webhook",  "canonical": "canonical.event"},
     "generic_rest":         {"protocol": "rest",     "canonical": "canonical.event"},

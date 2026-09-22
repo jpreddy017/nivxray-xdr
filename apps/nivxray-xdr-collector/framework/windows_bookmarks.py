@@ -38,6 +38,8 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from framework import state_paths
+
 #: Resume classification returned by `resume_for()`.
 RESUME_BOOKMARK = "RESUME_FROM_BOOKMARK"
 RESUME_FRESH = "NO_BOOKMARK_FIRST_COLLECTION"
@@ -97,7 +99,7 @@ class WindowsBookmarkStore:
     def __init__(self, path: Optional[str] = None,
                  stale_after_seconds: int = DEFAULT_STALE_AFTER_SECONDS):
         self._path = path or os.path.join(
-            os.environ.get("XDR_STATE_DIR", "/var/lib/nivxray"), "outbox.db")
+            state_paths.state_dir(), "outbox.db")
         self._stale_after = int(stale_after_seconds)
         self._lock = threading.RLock()
         os.makedirs(os.path.dirname(self._path), exist_ok=True)

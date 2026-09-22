@@ -19061,20 +19061,28 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
   manifest 10/10 PASS remotely (`feature/rc2-alignment`) and on the endpoint.
   RC5 gap-tracking review performed (not weakened); remote branch verified
   byte-for-byte after the second Save to GitHub.
-* **Step 2 (acquisition → ingestion) — PREPARED, NOT EXECUTED.** Full
-  runbook: `memory/G1_STEP2_WINDOWS_ACQUISITION_RUNBOOK.md`. Six owner
-  decisions gate execution: **S1** server maps `sensor_observed_at` from
-  `envelope.source_timestamp`, which for Windows is the ACTIVITY clock
-  (`services/ingest_provenance.py:88-101`) — blocks the three-clock proof;
-  **S2** no `windows-eventlog` protocol in `PROTOCOL_REGISTRY` (only
-  `wef`/SCAFFOLD/winrm) — enrolment would record a false acquisition method;
-  **S3** `pywin32` undeclared in collector requirements; **S4**
-  `XDR_STATE_DIR` has no valid Windows default; **S5** interpreter must be a
-  pinned venv (Store alias is not an interpreter, pywin32 ≥312 for cp314);
-  **S6** bounded acquisition window vs full 80K Sysmon backfill.
-* **B4 remains mandatory and unwaived** — Step 2 captures it as measured
-  behaviour (`windows_system` → `UNSUPPORTED_SOURCE`, no raw retention), and
-  explicitly does not fix it inside a proof run.
+* **Step 2 (acquisition → ingestion) — PRE-EXECUTION GATES CLOSED, NOT YET
+  EXECUTED.** Runbook: `memory/G1_STEP2_WINDOWS_ACQUISITION_RUNBOOK.md`.
+  Owner approved S1–S5 as fix-before-acquisition and chose the bounded
+  60-minute first window (S6, reported as `G1_VALIDATION_SCOPE_BOUND`).
+  Closed 2026-06: **S1** `sensor_observed_at` is no longer derived from an
+  activity-clock `source_timestamp` — a producer must declare
+  `canonical.sensor_observed_at`, and a missing observation stays
+  NOT_OBSERVED (`services/ingest_provenance.py`, 10 tests in
+  `tests/test_g1_s1_clock_independence.py`); **S2** native acquisition has
+  its own protocol identity `windows-eventlog` / `windows-evt-api` /
+  IMPLEMENTED across `PROTOCOL_REGISTRY`, `SOURCE_KINDS` and the collector
+  catalog, and is never conflated with `wef` (12 tests); **S3**
+  `requirements-windows.txt` pins `pywin32==312` and the runtime now
+  REFUSES to start a Windows connector whose native binding is unavailable
+  instead of reporting CONNECTED and acquiring nothing; **S4** Windows state
+  root is `C:\ProgramData\NivXForge\state` via `framework/state_paths.py`;
+  **S5** supported runtime declared in `WINDOWS_RUNTIME.md` with no silent
+  interpreter fallback. 13 collector tests added; collector suite 167/167,
+  regression-neutral (identical 66 pre-existing failures before and after).
+* **B4 remains mandatory and unwaived** — Step 2 records it as a FAIL/GAP
+  (`windows_system` → `UNSUPPORTED_SOURCE`, no raw retention), and is not
+  changed to make the acquisition proof green.
 
 Three product laws re-confirmed by this wave's defects:
 1. A page must not short-circuit to a bespoke empty block instead of

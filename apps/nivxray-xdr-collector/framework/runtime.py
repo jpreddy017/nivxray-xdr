@@ -10,6 +10,7 @@ worker does, and only after the ingest API returns 2xx.
 """
 from __future__ import annotations
 
+import platform
 from typing import Any, List
 
 from framework.base       import Connector, Envelope, Health
@@ -115,6 +116,21 @@ class CollectorRuntime:
                     "collector_id": conn.collector_id,
                     "declared_channels": declared, "problems": problems}
 
+        # G1/S3 · acquisition capability is decided BEFORE a subscription is
+        # claimed. On Windows the native bindings are a hard requirement: a
+        # connector that cannot bind `EvtSubscribe` can only ever acquire
+        # zero events, and reporting that as CONNECTED is the exact silent
+        # failure this gate removes. Fail closed instead.
+        capability = conn.acquisition_capability()
+        if platform.system() == "Windows" and not capability.get("bound"):
+            conn.health = Health.ERROR
+            conn.metrics.last_error = (
+                f"{capability.get('code')}: {capability.get('reason')}")
+            return {"ok": False, "reason": "native_binding_unavailable",
+                    "collector_id": conn.collector_id,
+                    "declared_channels": declared,
+                    "acquisition_capability": capability}
+
         async def _on_envs(c: WindowsEventLogConnector,
                            envs: List[Envelope]) -> None:
             durable = await self.deliver_windows(c, envs)
@@ -138,6 +154,7 @@ class CollectorRuntime:
                 "collector_id": conn.collector_id,
                 "declared_channels": declared,
                 "channel_problems": problems,
+                "acquisition_capability": capability,
                 "durable_acquisition_state": True,
                 "note": ("subscribed channels are read on the interval; a "
                          "position advances only after the outbox holds the "

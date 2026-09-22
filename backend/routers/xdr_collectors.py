@@ -157,6 +157,22 @@ PROTOCOL_REGISTRY: dict[str, dict[str, Any]] = {
                     "transport":       "winrm",
                     "canonical_schema": "canonical.host.process",
                     "notes": "Windows Event Forwarding subscription not implemented"},
+    #: G1/S2 · NATIVE Windows Event Log acquisition on the endpoint itself:
+    #: `EvtSubscribe` + per-channel bookmark, performed by NivXForge EDR
+    #: (collector `framework/windows_eventlog.py`). It is IMPLEMENTED because
+    #: that adapter exists — and it is a SEPARATE protocol identity from
+    #: `wef`, which forwards over WinRM and is not implemented. Mapping
+    #: native acquisition onto WEF/WinRM/syslog would record a false
+    #: acquisition method in the authoritative collector document.
+    "windows-eventlog": {
+                    "implementation":  "IMPLEMENTED",
+                    "transport":       "windows-evt-api",
+                    "canonical_schema": "canonical.host.process",
+                    "notes": "Native EvtSubscribe acquisition on the Windows "
+                                "endpoint · nivxray-xdr-collector "
+                                "framework/windows_eventlog.py · core DSMs "
+                                "microsoft-sysmon · windows-security-evd · "
+                                "windows-powershell-evd"},
     "file":    {"implementation": "SCAFFOLD",
                     "transport":       "filesystem",
                     "canonical_schema": "canonical.event",

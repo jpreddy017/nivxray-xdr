@@ -85,16 +85,59 @@ def pick(candidates: list[tuple[Any, str]], *, absent_reason: str
     return pts.stamp(status=pts.NOT_OBSERVED, reason=absent_reason)
 
 
+def declared_activity_clock(envelope: dict[str, Any]) -> str | None:
+    """S1 · the field proving `source_timestamp` IS the activity clock.
+
+    Some producers — the native Windows Event Log adapter is the first —
+    put the event's OWN instant (`EventData.UtcTime` /
+    `System.TimeCreated`) in `source_timestamp`, and say so. For those,
+    `source_timestamp` is NOT an observation: reading it as
+    `sensor_observed_at` would make one clock stand for two and the
+    three-clock separation would hold only in appearance.
+    """
+    can = envelope.get("canonical") or {}
+    if can.get("activity_time_source"):
+        return "canonical.activity_time_source"
+    supplied = envelope.get("source_timestamp")
+    if supplied and can.get("activity_occurred_at") == supplied:
+        return "canonical.activity_occurred_at"
+    return None
+
+
 def transport_stamps(envelope: dict[str, Any], *, nivx_received_at: str,
                      path_kind: str = COLLECTOR_DELIVERED
                      ) -> dict[str, dict[str, Any]]:
     """The three boundaries the transport can honestly speak for."""
-    sensor = pick(
-        [(envelope.get("source_timestamp"),
-          "collector:envelope.source_timestamp")],
-        absent_reason=("the collector envelope carried no source timestamp; "
-                       "the source's own observation instant was never "
-                       "delivered to us"))
+    # ── S1 · sensor observation, never borrowed from the activity clock ──
+    can = envelope.get("canonical") or {}
+    declared_sensor = can.get("sensor_observed_at")
+    activity_field = declared_activity_clock(envelope)
+    if declared_sensor is not None and str(declared_sensor).strip():
+        # The producer named its own observation instant. That is the only
+        # value allowed to become `sensor_observed_at`.
+        sensor = pick(
+            [(declared_sensor,
+              "collector:envelope.canonical.sensor_observed_at")],
+            absent_reason=("the collector declared a sensor observation "
+                           "instant but it was not usable"))
+    elif activity_field:
+        # The producer declared `source_timestamp` to be the ACTIVITY clock
+        # and declared no observation instant. Unavailable is the truthful
+        # answer; the activity value may not be reused here.
+        sensor = pts.stamp(
+            status=pts.NOT_OBSERVED,
+            reason=("the collector declared source_timestamp to be the "
+                    f"activity clock (via {activity_field}) and supplied no "
+                    "canonical.sensor_observed_at; when the sensor observed "
+                    "the event was never delivered to us, and the activity "
+                    "instant is NOT a substitute for it"))
+    else:
+        sensor = pick(
+            [(envelope.get("source_timestamp"),
+              "collector:envelope.source_timestamp")],
+            absent_reason=("the collector envelope carried no source "
+                           "timestamp; the source's own observation instant "
+                           "was never delivered to us"))
 
     if path_kind == DIRECT_SENSOR:
         collector = pts.stamp(

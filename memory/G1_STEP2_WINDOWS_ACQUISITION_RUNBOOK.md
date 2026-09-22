@@ -1,7 +1,8 @@
 # G1 · STEP 2 — NivXForge EDR Windows acquisition → NivXRay XDR ingestion
 
-**Status:** PREPARED — NOT EXECUTED. Six items (S1–S6) need an owner
-decision before a single Windows event is acquired.
+**Status:** S1–S5 **CLOSED IN CODE** (owner-approved 2026-06, pre-execution
+gates). S6 decided: bounded 60-minute window. Acquisition NOT started; no
+server-side G1 preparation performed; no proof tenant or credential exists.
 **Input of record:** `nivxray-g1-preflight.json`, SHA-256
 `210A3C1D705B1230D7B9601EF69AC0C4665E2A1C9215122C97390331D1819A37`,
 produced on the real host under elevation.
@@ -23,10 +24,24 @@ G1 reviewed-code manifest 10/10 PASS remotely and on the endpoint.
 
 ---
 
-## 2 · Blockers requiring an owner decision (S1–S6)
+## 2 · Pre-execution gates S1–S6 · OWNER-APPROVED AND CLOSED
 
-These are the Step 2 equivalents of B1/B2/B3. Each is a real defect or a
-real choice, with the evidence that proves it.
+The findings below were raised as blockers and decided by the owner. S1–S5
+are now closed in code; S6 is a scope decision applied at configuration
+time. The original defect evidence is kept verbatim, because a closed gate
+still has to say what it closed.
+
+### CLOSURE SUMMARY
+
+| Gate | Decision | Closed by |
+| --- | --- | --- |
+| S1 · sensor-clock conflation | FIX BEFORE ACQUISITION | `backend/services/ingest_provenance.py` — `declared_activity_clock()` + rewritten sensor derivation in `transport_stamps()`. 10 tests, `backend/tests/test_g1_s1_clock_independence.py` |
+| S2 · protocol identity | FIX BEFORE ENROLMENT | `windows-eventlog` / `windows-evt-api` / IMPLEMENTED in `PROTOCOL_REGISTRY`, plus `SOURCE_KINDS["windows_eventlog_native"]` and catalog entry `cat_endpoint_windows_eventlog`. 12 tests, `backend/tests/test_g1_s2_windows_eventlog_protocol.py` |
+| S3 · pywin32 pinned + fail closed | APPROVED, PIN IT | `apps/nivxray-xdr-collector/requirements-windows.txt` (`pywin32==312`) + `acquisition_capability()` + start-up refusal in `CollectorRuntime._start_windows_eventlog()` |
+| S4 · Windows state root | APPROVED | `apps/nivxray-xdr-collector/framework/state_paths.py`; `WindowsBookmarkStore` no longer hard-codes the POSIX path |
+| S5 · supported runtime, no silent fallback | APPROVED WITH CHANGE | `apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md`; the auto-install fallback is REMOVED from this runbook |
+| S6 · first-acquisition scope | BOUNDED 60-MINUTE WINDOW | applied as a declared per-channel XPath filter, reported as `G1_VALIDATION_SCOPE_BOUND` |
+
 
 ### S1 · SENSOR CLOCK CONFLATION (blocks a required G1 proof)
 
@@ -127,14 +142,16 @@ that runs acquisition. `py.exe` resolves 3.14.5.
      lifetime of the proof; everything afterwards uses
      `C:\nivx\.venv\Scripts\python.exe` by absolute path. The alias can
      never be picked up by accident.
-  3. `pip install -r requirements.txt pywin32>=312` inside the venv.
+  3. `pip install -r requirements-windows.txt` (pinned `pywin32==312`).
   4. `python -c "import win32evtlog"` + a real `EvtSubscribe` bind probe on
-     `System`. **If this probe fails, STOP.** Do not run acquisition
-     against an interpreter that cannot bind the API.
-  5. Only if cp314 wheels turn out to be unavailable on this host: install
-     python.org **3.13 x64** (non-Store) and rebuild the venv from it. The
-     fallback is declared in advance so an install failure never becomes an
-     improvised decision mid-proof.
+     `System`. **If this probe fails, STOP and report.** Do not run
+     acquisition against an interpreter that cannot bind the API.
+  5. **No automatic interpreter fallback.** A dependency or bind failure is
+     reported, not routed around by installing a different Python — that
+     would silently change the runtime the proof is about. The supported
+     runtime is declared in
+     `apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md`, and changing it is a
+     decision recorded there.
 
 ### S6 · FIRST-READ VOLUME: ~80K RETAINED SYSMON RECORDS
 
@@ -144,15 +161,16 @@ to 500, and the scheduler interval defaults to 60s
 (`framework/scheduler.py:24`). A full Sysmon backfill is therefore ~160
 reads of 500 into the preview backend.
 
-* **Recommended decision:** run G1 with a **declared bounded acquisition
-  window** — a Windows-side XPath filter of the last 60 minutes per channel
-  — recorded in the profile as a deliberate bound. The bound is stated in
-  the report; it is a scope decision, not evidence loss, and Windows
-  applies the filter server-side so nothing is read and discarded.
-* **Alternative:** full 80K backfill. It is a legitimate volume test, but
-  it conflates "does acquisition work" with "does 80K records at 500/minute
-  through a preview backend work", and a failure would not tell us which.
-  Recommend keeping it as a separate, later run.
+* **DECIDED — bounded 60-minute window for the first correctness proof.**
+  A Windows-side XPath filter of the last 60 minutes per channel, declared
+  in the connector configuration and reported in the proof metadata as
+  **`G1_VALIDATION_SCOPE_BOUND`**. It must not be presented as telemetry
+  loss, as a successful historical backfill, or as complete channel
+  coverage. Windows applies the filter server-side, so nothing is read and
+  discarded.
+* Historical / backfill volume testing (the ~80K retained Sysmon records)
+  remains a **separate later test**: it measures a different property and
+  would mix volume behaviour into an acquisition-correctness proof.
 
 ---
 
@@ -176,7 +194,7 @@ Executed by me, in this order, once S1/S2 are decided:
 3. **Collector enrolment** — `POST /api/xdr/collectors`:
    ```json
    { "name": "g1-windows-endpoint",
-     "protocol": "windows-eventlog",          // pending S2
+     "protocol": "windows-eventlog",          // S2 closed
      "authorized_sources": ["microsoft-sysmon",
                             "windows-security-evd",
                             "windows-powershell-evd"],
@@ -246,7 +264,15 @@ connector record.
                  "collector_id": "col_…",
                  "interval_seconds": 60,
                  "max_events_per_read": 500,
-                 "filters": { }          // bounded window pending S6
+                 "scope_bound": "G1_VALIDATION_SCOPE_BOUND",
+                 "filters": {
+                   "Microsoft-Windows-Sysmon/Operational":
+                     "*[System[TimeCreated[timediff(@SystemTime) <= 3600000]]]",
+                   "Security":
+                     "*[System[TimeCreated[timediff(@SystemTime) <= 3600000]]]",
+                   "Microsoft-Windows-PowerShell/Operational":
+                     "*[System[TimeCreated[timediff(@SystemTime) <= 3600000]]]"
+                 }
                },
      "created_at": "…", "updated_at": "…", "enabled": true } ] }
    ```
@@ -278,7 +304,7 @@ connector record.
 | 9 | Host reboot / resume | Full Windows reboot, restart the process → same as #8 across a kernel boundary; `last_boot` in the report proves the reboot happened |
 | 10 | Mid-delivery interruption / recovery | Kill the process while rows are `DELIVERING` → on boot they are reset to `QUEUED` (`outbox.py:186-190`) and drain; bookmark did NOT advance past them |
 | 11 | Duplicate / loss accounting | Re-deliver a known `source_event_id` → server receipt reports `DUPLICATE`, no second raw/canonical/detection chain; loss is separately accounted by `log_cleared` + record-id gaps, never as zero |
-| 12 | Three-clock separation | Per event: `activity_occurred_at` (XML `UtcTime`/`TimeCreated`), `sensor_observed_at` (collector read), `nivx_received_at` (server receipt) — three DISTINCT values. **Gated on S1.** |
+| 12 | Three-clock separation | Per event: `activity_occurred_at` (XML `UtcTime`/`TimeCreated`), `sensor_observed_at` (collector read instant, declared in `canonical.sensor_observed_at`), `nivx_received_at` (server receipt) — three DISTINCT values. **S1 closed: the activity clock can no longer populate the sensor boundary.** |
 | 13 | Raw → canonical provenance | `provenance.ingest.identity.raw_ref` on the canonical event resolves to the stored raw row, and that raw row's XML is the one from #2 |
 | 14 | Tenant isolation | Same key + `X-Tenant-Id: g1-windows-isolation` → 403 `TENANT_ISOLATION_VIOLATION`; foreign `collector_id` → 404 that does not disclose existence (`xdr_ingest.py:788-834`) |
 | 15 | Server collector-enrolment match | Envelope `collector_id` matched to `xdr_collectors.id` **and** its `tenant_id`; unenrolled id → 404, no evidence created |
@@ -302,9 +328,10 @@ behaviour, exactly as ordered, with no code change:
   and ACQUIRED is **discarded because no DSM understands it**. Parsing
   capability is deciding retention. Raw forensic evidence must survive the
   absence of comprehension.
-* Step 2 will state this as a NAMED ARCHITECTURAL DEFECT with the block
-  rows as evidence. It will not be presented as acceptable final
-  architecture, and it will not be quietly fixed inside a proof run.
+* Step 2 will record this as a **FAIL / GAP**, never as a PASS, with the
+  block rows as evidence. B4 is not changed to make the acquisition proof
+  green; it closes later as its own bounded engineering gate, after the
+  native acquisition path is proven.
 
 ---
 

@@ -298,6 +298,17 @@ class EvtReader(Protocol):
              xpath: Optional[str], limit: int) -> Dict[str, Any]: ...
 
 
+#: G1/S3 · acquisition-capability codes. A capability answer is never a
+#: health answer and never a read result — it says whether acquisition is
+#: POSSIBLE at all, which is what start-up must decide on.
+NATIVE_BINDING_BOUND = "NATIVE_BINDING_BOUND"
+NATIVE_BINDING_UNAVAILABLE = "NATIVE_BINDING_UNAVAILABLE"
+PLATFORM_NOT_WINDOWS = "PLATFORM_NOT_WINDOWS"
+#: An injected reader (a test double, or a future non-pywin32 backend) makes
+#: no capability claim. It is taken at its word rather than probed.
+BINDING_NOT_PROBED = "BINDING_NOT_PROBED"
+
+
 class UnsupportedPlatformReader:
     """The reader used when this process is not Windows.
 
@@ -307,6 +318,13 @@ class UnsupportedPlatformReader:
 
     reason = ("this collector process is not running on Windows, so no "
               "native Event Log subscription can be opened here")
+
+    def binding_status(self) -> Dict[str, Any]:
+        """G1/S3 · this reader can never acquire, and it is not a missing
+        dependency: the platform itself has no Event Log API, so installing
+        something would not change the answer."""
+        return {"bound": False, "code": PLATFORM_NOT_WINDOWS,
+                "reason": self.reason, "platform": platform.system()}
 
     def read(self, channel: str, *, bookmark_xml: Optional[str],
              xpath: Optional[str], limit: int) -> Dict[str, Any]:
@@ -320,6 +338,38 @@ class NativeEvtReader:
     Imported inside `read` so the module remains importable — and unit
     testable — on a non-Windows collector host.
     """
+
+    def binding_status(self) -> Dict[str, Any]:
+        """G1/S3 · can the native API actually be bound RIGHT NOW?
+
+        `pywin32` is a hard requirement of the Windows runtime, and its
+        absence used to surface only as a per-read `READER_UNAVAILABLE`
+        while the connector still reported CONNECTED. A subscription that
+        can never bind is not healthy, so this is asked at start-up and the
+        runtime fails closed on it.
+        """
+        try:
+            import win32evtlog  # type: ignore
+        except Exception as exc:                                # noqa: BLE001
+            return {"bound": False, "code": NATIVE_BINDING_UNAVAILABLE,
+                    "reason": ("pywin32 (win32evtlog) could not be bound, so "
+                               "no native Event Log subscription can be "
+                               f"opened: {type(exc).__name__}: {exc}"),
+                    "platform": platform.system(),
+                    "requirement": "requirements-windows.txt · pywin32==312"}
+        missing = [n for n in ("EvtSubscribe", "EvtCreateBookmark",
+                               "EvtNext", "EvtRender", "EvtUpdateBookmark")
+                   if not hasattr(win32evtlog, n)]
+        if missing:
+            return {"bound": False, "code": NATIVE_BINDING_UNAVAILABLE,
+                    "reason": ("win32evtlog imported but does not expose the "
+                               f"Event Log API: missing {', '.join(missing)}"),
+                    "platform": platform.system(),
+                    "requirement": "requirements-windows.txt · pywin32==312"}
+        return {"bound": True, "code": NATIVE_BINDING_BOUND,
+                "reason": "win32evtlog bound; EvtSubscribe API available",
+                "platform": platform.system(),
+                "pywin32_version": getattr(win32evtlog, "__version__", None)}
 
     def read(self, channel: str, *, bookmark_xml: Optional[str],
              xpath: Optional[str], limit: int) -> Dict[str, Any]:
@@ -466,6 +516,21 @@ class WindowsEventLogConnector(Connector):
         self.channel_reports: Dict[str, Dict[str, Any]] = {}
 
     # ── identity ──────────────────────────────────────────────────
+    def acquisition_capability(self) -> Dict[str, Any]:
+        """G1/S3 · can this connector acquire at all, and if not, why.
+
+        Asked at start-up. A reader that makes no claim (an injected test
+        double) is taken at its word — this probes capability, it does not
+        police who supplies the reader.
+        """
+        probe = getattr(self.reader, "binding_status", None)
+        if probe is None:
+            return {"bound": True, "code": BINDING_NOT_PROBED,
+                    "reason": ("the reader was supplied explicitly and makes "
+                               "no native-binding claim"),
+                    "reader": type(self.reader).__name__}
+        return {**probe(), "reader": type(self.reader).__name__}
+
     def event_identity(self, facts: Dict[str, Any], channel: str) -> Optional[str]:
         """Channel-qualified identity.
 
