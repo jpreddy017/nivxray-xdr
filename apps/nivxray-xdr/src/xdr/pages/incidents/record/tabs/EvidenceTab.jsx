@@ -21,8 +21,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { productHref, productMode } from "@/productOrigins";
 import EvidenceInspector from "@/xdr/components/EvidenceInspector";
-import { getIncidentDeviceTrajectory } from "@/lib/incidentsApi";
-import { framesForAnchor, chainFor } from "@/xdr/incidents/anchorEvidence";
+import { getIncidentDeviceTrajectory, getIncidentCanonicalEvidence }
+  from "@/lib/incidentsApi";
+import { framesForAnchor, chainFor, canonicalIdsFor }
+  from "@/xdr/incidents/anchorEvidence";
+import CanonicalEvidenceRecords, { BridgeChip }
+  from "@/xdr/incidents/CanonicalEvidenceRecords";
 import {
   NxInvSection, NxInvTable, NxInvEmpty, NxInvTech, NxInvValue, NxChip,
   NxState, ABSENCE, fmtTime,
@@ -112,7 +116,8 @@ function bulletRow(domain, b, i) {
  * inspectable through the existing shared inspector, which reports honestly
  * when a reference is not present in the canonical store.
  */
-function AnchorEvidence({ incident, anchorId, onClear }) {
+function AnchorEvidence({ incident, anchorId, onClear, canonical,
+                          onCanonicalIds }) {
   const [frames, setFrames] = useState(null);
   const [err, setErr] = useState(null);
 
@@ -129,6 +134,14 @@ function AnchorEvidence({ incident, anchorId, onClear }) {
   const citing = useMemo(
     () => framesForAnchor(frames || [], anchorId), [frames, anchorId]);
 
+  useEffect(() => {
+    onCanonicalIds?.(canonicalIdsFor(citing));
+  }, [citing, onCanonicalIds]);
+
+  /** The incident's canonical evidence record for a frame — never a guess. */
+  const recordFor = (frame) => (canonical?.rows || []).find(
+    (r) => r.canonical_evidence_id === frame?.canonical_evidence_id) || null;
+
   const columns = [
     { key: "at", label: "Activity time", width: 150,
       render: (r) => <NxInvValue value={fmtTime(r.ts)} mono
@@ -139,11 +152,18 @@ function AnchorEvidence({ incident, anchorId, onClear }) {
     { key: "label", label: "Observed activity",
       render: (r) => <NxInvValue value={r.label || r.action}
                                  absent={ABSENCE.NOT_RECORDED} /> },
-    { key: "ref", label: "Evidence reference", width: 230,
+    { key: "ref", label: "Observation reference", width: 200,
       render: (r) => <NxInvValue mono
                                  value={(r.evidence_ids || []).join(", ")
                                         || r.frame_iid}
                                  absent={ABSENCE.EVIDENCE_INCOMPLETE} /> },
+    { key: "canonical", label: "Canonical evidence", width: 300,
+      render: (r) => (
+        <div style={{ display: "grid", gap: 3 }}>
+          <NxInvValue mono value={r.canonical_evidence_id}
+                      absent={ABSENCE.EVIDENCE_INCOMPLETE} />
+          <BridgeChip state={r.bridge_state || "LEGACY_UNBRIDGED"} />
+        </div>) },
     { key: "source", label: "Source", width: 140,
       render: (r) => <NxInvValue value={r.provenance?.source} mono
                                  absent={ABSENCE.NOT_RECORDED} /> },
@@ -213,20 +233,45 @@ function AnchorEvidence({ incident, anchorId, onClear }) {
                                   value={fmtTime(r.provenance?.ingested_at)}
                                   absent={ABSENCE.NOT_RECORDED} />
                               </dd>
+                              <dt>Incident evidence record</dt>
+                              <dd className="mono" style={{ fontSize: 11 }}>
+                                {recordFor(r)
+                                  ? [recordFor(r).record?.event_type,
+                                     [recordFor(r).record?.source_vendor,
+                                      recordFor(r).record?.source_product]
+                                       .filter(Boolean).join(" · ")]
+                                      .filter(Boolean).join("  ·  ")
+                                    || recordFor(r).canonical_evidence_id
+                                  : <NxInvValue value={null}
+                                      absent={ABSENCE.EVIDENCE_INCOMPLETE} />}
+                              </dd>
                             </dl>
-                            <div data-testid={`xdr-record-evidence-anchor-inspect-${r.frame_iid}`}>
-                              <EvidenceInspector incidentId={incident?.id}
-                                                 kind="event"
-                                                 refId={r.frame_iid}
-                                                 embedded />
-                            </div>
+                            {r.canonical_evidence_id
+                             && r.bridge_state === "BRIDGED" ? (
+                              <div data-testid={`xdr-record-evidence-anchor-inspect-${r.canonical_evidence_id}`}>
+                                <EvidenceInspector incidentId={incident?.id}
+                                                   kind="event"
+                                                   refId={r.canonical_evidence_id}
+                                                   embedded />
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 11.5 }}
+                                   data-testid={`xdr-record-evidence-anchor-unbridged-${r.frame_iid}`}>
+                                This record carries no resolvable canonical
+                                evidence reference, so it keeps its own
+                                namespace. NivXRay will not attach it to a
+                                similar canonical record — an unbridged
+                                reference is not missing evidence and is not a
+                                benign finding.
+                              </div>
+                            )}
                           </div>)} />
             <div style={{ fontSize: 11, color: "var(--nx-text-dim)" }}>
               These records are cited by the incident's causal evidence plane.
-              The incident evidence table below is projected from the
-              integration evidence pointers and uses a different reference
-              namespace, so the two are reported separately rather than
-              joined on a guess.
+              Each one that carries a canonical evidence identity resolves to
+              the incident's own canonical evidence record below, on the
+              deterministic identifier the pipeline persisted — never on a
+              label, a time window or a nearest match.
             </div>
           </>)}
       </div>
@@ -238,7 +283,20 @@ export default function EvidenceTab({ incident }) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState(null);
   const [params, setParams] = useSearchParams();
+  const [canonical, setCanonical] = useState(null);
+  const [anchorCanonicalIds, setAnchorCanonicalIds] = useState(new Set());
   const focus = params.get("focus");
+
+  useEffect(() => {
+    if (!incident?.id) return undefined;
+    let live = true;
+    setCanonical(null);
+    getIncidentCanonicalEvidence(incident.id)
+      .then((d) => { if (live) setCanonical(d); })
+      .catch(() => { if (live) setCanonical({ rows: [], counts: {} }); });
+    return () => { live = false; };
+  }, [incident?.id]);
+
   const clearFocus = () => {
     const next = new URLSearchParams(params);
     next.delete("focus");
@@ -304,8 +362,11 @@ export default function EvidenceTab({ incident }) {
     <div className="inv" data-testid="xdr-record-evidence">
       {focus && (
         <AnchorEvidence incident={incident} anchorId={focus}
-                        onClear={clearFocus} />
+                        onClear={clearFocus} canonical={canonical}
+                        onCanonicalIds={setAnchorCanonicalIds} />
       )}
+      <CanonicalEvidenceRecords incidentId={incident?.id} data={canonical}
+                                highlight={anchorCanonicalIds} />
       <NxInvSection title="Evidence coverage"
                     subtitle="which domains were asked, and what they answered"
                     testid="xdr-record-evidence-grid">

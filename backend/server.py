@@ -68,6 +68,8 @@ from routers.incident_threat_model import router as incident_threat_model_router
 from routers.attack_graph import router as attack_graph_router
 from routers.attack_evidence import router as attack_evidence_router
 from routers.evidence_inspector import router as evidence_inspector_router
+from routers.incident_canonical_evidence import (
+    router as incident_canonical_evidence_router)
 from routers.report import router as report_router
 from routers.intelligence_overlay import router as intelligence_overlay_router
 from routers.mitre_catalogue import router as mitre_catalogue_router
@@ -270,6 +272,7 @@ api.include_router(incident_threat_model_router)
 api.include_router(attack_graph_router)
 api.include_router(attack_evidence_router)
 api.include_router(evidence_inspector_router)
+api.include_router(incident_canonical_evidence_router)
 api.include_router(report_router)
 api.include_router(intelligence_overlay_router)
 api.include_router(mitre_catalogue_router)

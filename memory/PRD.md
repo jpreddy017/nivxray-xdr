@@ -1,5 +1,36 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · P1 · EVIDENCE NAMESPACE BRIDGE — CLOSED · PROVEN
+
+Full record: `/app/memory/P1_EVIDENCE_NAMESPACE_BRIDGE.md`.
+Authoritative identity: `canonical_evidence_id` := `xdr_canonical_evidence.event_id`.
+Proof: new-evidence E2E through the REAL authenticated ingest pipeline
+(`scripts/p1_evidence_namespace_bridge_e2e_proof.py` → **39 PASS · 0 FAIL**),
+real-browser DOM proof (`scripts/p1_evidence_bridge_dom_proof.py` →
+**21 PASS · 0 FAIL**), focused pytest **18 passed**, regression **69 passed**.
+
+- **Root cause**: the canonical identity was already persisted on every live
+  observation (`v2_shadow_observations.canonical_event_id`) and already equal
+  to the incident's own `xdr_pipeline.canonical_event_id`, but
+  `build_from_observations()` read only `row["event"]` and dropped it, so
+  frames exposed only `tf_*`/`evt_*`. Separately, the Evidence table had no
+  persisted row identity (ids were browser array positions).
+- **Fix**: propagate the persisted id onto `TrajectoryFrame`
+  (`canonical_evidence_id`) + `bridge_state`; new read-only projection
+  `GET /api/incidents/{id}/canonical-evidence` whose row identity IS the
+  canonical id; `EvidenceInspector kind=event` now resolves the incident's
+  FULL authoritative canonical set (tenant-checked, no enumeration); S3-D
+  anchor → exact canonical record → inspector → raw source.
+- **Three truthful states**: `BRIDGED` · `REFERENCED_RECORD_ABSENT` ·
+  `LEGACY_UNBRIDGED`. No migration, no backfill, no heuristic matching.
+- **Known residual (own task)**: on the connector ingest path only the
+  promoting observation gets `case_id`, so sibling canonical evidence of the
+  same delivery stays unassociated from the incident.
+- **Owner stack next**: Dense Timeline Check → Sensor Clock Mapping →
+  Evidence Read Grant (least-privilege RBAC decision) → Verdict disagreement
+  presentation → Investigate Parity Audit → Investigate retirement.
+  `Write Authority At Source` retained as hardening beyond P0.1.
+
 ## 2026-06 · P0.1 · RESPONSE-EVIDENCE **WRITE** TENANT AUTHORITY — CLOSED · PROVEN
 
 Full record: `/app/memory/P01_RESPONSE_EVIDENCE_WRITE_TENANT_AUTHORITY.md`.

@@ -173,6 +173,13 @@ export async function getIncidentDeviceTrajectory(incidentId) {
   return data;
 }
 
+export async function getIncidentCanonicalEvidence(incidentId) {
+  const { data } = await api.get(
+    `/incidents/${encodeURIComponent(incidentId)}/canonical-evidence`,
+  );
+  return data;
+}
+
 export async function transitionIncidentState(incidentId, targetState, note) {
   const { data } = await api.patch(
     `/incidents/${encodeURIComponent(incidentId)}/state`,

@@ -94,6 +94,11 @@ class TrajectoryFrame:
     action: str                 # canonical short verb, e.g. "process_create"
     label: str                  # human-readable — e.g. "cmd.exe spawned powershell.exe"
     device:   EntityRef
+    # P1 · the AUTHORITATIVE canonical evidence identity this frame
+    # represents (`xdr_canonical_evidence.event_id`), propagated from the
+    # observation that produced the frame. None when the observation never
+    # carried one — never reconstructed.
+    canonical_evidence_id: str | None = None
     process:  EntityRef | None = None
     parent:   EntityRef | None = None
     file:     EntityRef | None = None

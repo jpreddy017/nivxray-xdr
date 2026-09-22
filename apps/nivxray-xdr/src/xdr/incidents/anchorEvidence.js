@@ -19,17 +19,28 @@
  * name match: `same entity label ≠ provenance`, and no label is ever used as
  * a lookup key.
  *
- * KNOWN CONTRACT GAP (reported, not papered over): the incident's own
- * `canonical_evidence_ids` live in a different namespace
- * (`sysmon-1-<uuid>`) from the engine's frame/evidence ids
- * (`evt_…`/`tf_…`), and the shared inspector answers `MISSING` for engine
- * ids. There is therefore NO authoritative join from a causal anchor to a
- * row of the incident Evidence table, and this module does not invent one.
+ * KNOWN CONTRACT GAP — CLOSED (P1 Evidence Namespace Bridge, 2026-06): a
+ * trajectory frame now carries `canonical_evidence_id`
+ * (`xdr_canonical_evidence.event_id`), propagated from the identifier the
+ * ingest pipeline already persisted on the observation. A causal anchor
+ * therefore joins the incident's own canonical evidence record
+ * deterministically, through `GET /api/incidents/{id}/canonical-evidence`.
+ * Frames whose observation never carried that identifier stay
+ * LEGACY_UNBRIDGED and keep their own namespace — no heuristic match.
  */
 
 /** Every structured entity slot a frame may cite an anchor in. */
 const SLOTS = ["process", "device", "user", "file", "parent", "network",
                "registry", "entity", "root", "execution"];
+
+/** The canonical evidence identities the given frames reference. */
+export function canonicalIdsFor(frames) {
+  const out = new Set();
+  (frames || []).forEach((f) => {
+    if (f?.canonical_evidence_id) out.add(f.canonical_evidence_id);
+  });
+  return out;
+}
 
 /** Frames that CITE this anchor id in a structured slot. */
 export function framesForAnchor(frames, anchorId) {
@@ -61,7 +72,9 @@ export function chainFor(frame) {
   return [
     frame?.frame_iid ? `event ${frame.frame_iid}` : null,
     (frame?.evidence_ids || []).length
-      ? `canonical ${frame.evidence_ids.join(", ")}` : null,
+      ? `observation ${frame.evidence_ids.join(", ")}` : null,
+    frame?.canonical_evidence_id
+      ? `canonical ${frame.canonical_evidence_id}` : null,
     p.normalizer ? `normalizer ${p.normalizer}` : null,
     p.source ? `source ${p.source}` : null,
     p.origin ? `origin ${p.origin}` : null,
