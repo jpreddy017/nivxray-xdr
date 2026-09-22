@@ -174,50 +174,45 @@ reads of 500 into the preview backend.
 
 ---
 
-## 3 · Server-side preparation (NivXRay XDR, preview)
+## 3 · Server-side preparation (NivXRay XDR, preview) — DONE 2026-06
 
-Target: `https://greeting-app-5782.preview.emergentagent.com` — verified
-reachable from outside the container (`GET /api/health` → 200) and
-fail-closed on ingest (`POST /api/xdr/ingest/telemetry` unauthenticated →
-403). `NIVX_TENANT_REGISTRY_ENFORCE=true`, so tenancy must exist before
-anything else.
+Target: `https://greeting-app-5782.preview.emergentagent.com`
+(`GET /api/health` → 200; unauthenticated ingest → 403).
+`NIVX_TENANT_REGISTRY_ENFORCE=true`.
 
-Executed by me, in this order, once S1/S2 are decided:
+Created by `scripts/g1_server_authority_prep.py` (idempotent; re-running
+reuses by slug/name). Result: `test_reports/g1_server_authority_prep.json`.
 
-1. **Organisation + tenant** — `POST /api/xdr/organizations`
-   (`slug: g1-windows-proof-org`, `kind: VENDOR`), then
-   `POST /api/xdr/tenants` (`slug: g1-windows-proof`, `products: ["XDR","EDR"]`).
-   No existing tenant is reused: G1's tenant-isolation proof needs a tenant
-   whose entire content was created by G1.
-2. **Second tenant** — `g1-windows-isolation` — exists only to receive the
-   cross-tenant refusal proof. Nothing ever delivers to it successfully.
-3. **Collector enrolment** — `POST /api/xdr/collectors`:
-   ```json
-   { "name": "g1-windows-endpoint",
-     "protocol": "windows-eventlog",          // S2 closed
-     "authorized_sources": ["microsoft-sysmon",
-                            "windows-security-evd",
-                            "windows-powershell-evd"],
-     "auth_kind": "none", "tls": true }
-   ```
-   The response `id` (`col_…`) is THE `collector_id`. It becomes
-   `NIVX_COLLECTOR_ID` on the endpoint and one third of the bookmark scope.
-   Verified vocabulary: the adapter declares `sysmon` / `windows_security` /
-   `windows_powershell`, which `services/source_routing.py:110-124` resolves
-   to exactly these three catalog keys — one declared source → one DSM, no
-   widening.
-4. **Ingest credential** — `POST /api/xdr/api-keys` with
-   `scopes: ["collectors.enroll"]` and nothing else, `confirm_tenant_id`
-   restated. The plaintext is shown once, goes straight into the endpoint's
-   environment, and is **never** written to chat, a log, a report or the
-   repo (`memory/test_credentials.md` records only its `prefix`).
-5. **Isolation credential** — one key in `g1-windows-isolation`, used only
-   to prove that key + a foreign `X-Tenant-Id` / foreign `collector_id` is
-   refused.
-6. **Baseline snapshot** — record, before any Windows delivery:
-   `xdr_collectors` counters (`events_received/parsed/normalized`, `state`),
-   `xdr_canonical_events` count for the tenant, `xdr_ingest_routing_blocks`
-   count. A proof needs a before, not only an after.
+| Authority | Value |
+| --- | --- |
+| Organisation | `org_10b45e9746dd71655ecbb13287` (`g1-windows-proof-org`, VENDOR, ACTIVE) |
+| Proof tenant | `ten_f1a5479243e901cf159e230fa0` (`g1-windows-proof`) |
+| Isolation tenant | `ten_fe58e4a683a671a8dbafe45d57` (`g1-windows-isolation`) |
+| G1 collector | `col_d6b0b9e8172246f29be9` (`g1-windows-endpoint`) — protocol `windows-eventlog`, transport `windows-evt-api`, implementation `IMPLEMENTED`, schema `canonical.host.process`, state `ADOPTED` |
+| Authorized sources | `microsoft-sysmon`, `windows-security-evd`, `windows-powershell-evd` — nothing else |
+| Isolation collector | `col_98ea65b24b5049579c46` — authorized for **nothing**, control only |
+| Baseline counters | received/parsed/normalized/error all `0`, state `ADOPTED` |
+
+**Credential policy.** Both keys minted for the negative controls were
+scoped to `collectors.enroll` **only** and were **revoked in the same run**
+(`key_7c77a426c3504d4691b0`, `key_f832db2526994770aea6`,
+`key_a3a2b1c65984497dbd49`). **No live ingest credential exists for G1
+right now**, and no plaintext key has ever been printed, logged or
+committed — only prefixes. The endpoint's operational key is minted **on
+the Windows host** by the handoff block, scoped `collectors.enroll`, tenant
+`g1-windows-proof`, 24h expiry, held in-process only.
+
+### Negative controls — verified BEFORE any endpoint delivery
+
+| Control | Expected | Result |
+| --- | --- | --- |
+| Unauthenticated ingest | 403 | **PASS** `ACCESS_DENIED` |
+| Proof-tenant key acting in the isolation tenant | 403 | **PASS** `ACCESS_DENIED` |
+| Isolation key using the G1 collector id | 403 | **PASS** `TENANT_ISOLATION_VIOLATION` (no existence disclosure) |
+| Unenrolled collector identity | 404 | **PASS** `collector not found` |
+| Unauthorized/unsupported source (`windows_system`) | routing refusal | **PASS** `accepted: 0, routing_blocked: 1` — the B4 shape |
+| Undeclared source | routing refusal | **PASS** `accepted: 0, routing_blocked: 1` |
+
 
 ---
 

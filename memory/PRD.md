@@ -19083,6 +19083,24 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
 * **B4 remains mandatory and unwaived** — Step 2 records it as a FAIL/GAP
   (`windows_system` → `UNSUPPORTED_SOURCE`, no raw retention), and is not
   changed to make the acquisition proof green.
+* **Server authority + handoff prepared (2026-06).** Proof tenant
+  `g1-windows-proof`, isolation tenant `g1-windows-isolation`, collector
+  `col_d6b0b9e8172246f29be9` enrolled as `windows-eventlog` /
+  `windows-evt-api`, authorized for the three G1 sources only. All six
+  negative controls PASS before endpoint delivery (unauthenticated,
+  cross-tenant key, foreign collector id, unenrolled id, unauthorized
+  source, undeclared source). Both control keys revoked in-run; **no live
+  ingest credential exists** and no plaintext key has been printed, logged
+  or committed. Step 2 manifest (25 files, incl. S1–S5) at
+  `scripts/windows/g1/G1_STEP2_REVIEWED_CODE_MANIFEST.md`; the Step 1
+  10-file manifest is untouched historical evidence. Handoff block:
+  `memory/G1_STEP2_HANDOFF_BLOCK.ps1` (12 fail-closed gates; acquisition
+  cannot start unless manifest, interpreter, native binding, state root,
+  seeded config and tenant authority all pass).
+* Regression wording of record: **zero new regressions in the compared
+  affected-area test set; broader RC5 execution remains affected by
+  pre-existing environment/authentication faults.** RC5 is NOT globally
+  clean.
 
 Three product laws re-confirmed by this wave's defects:
 1. A page must not short-circuit to a bespoke empty block instead of
