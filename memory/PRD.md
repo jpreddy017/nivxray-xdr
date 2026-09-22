@@ -19097,6 +19097,15 @@ tests via `NIVX_L3_DISABLE=1`, root cause NOT fixed).
   `memory/G1_STEP2_HANDOFF_BLOCK.ps1` (12 fail-closed gates; acquisition
   cannot start unless manifest, interpreter, native binding, state root,
   seeded config and tenant authority all pass).
+* **Remote verification PASS (2026-06, after second save).** Remote HEAD
+  `687929346cc9afe17a1815ff1895908910880b83` on `feature/rc2-alignment`:
+  **25/25 MATCH, 0 MISMATCH, 0 ABSENT** against
+  `G1_STEP2_REVIEWED_CODE_MANIFEST.md`; the manifest is self-consistent with
+  the remote files; the Step 1 10-file manifest is byte-identical and still
+  10 rows; PR #1 OPEN/UNMERGED (head_sha == remote HEAD); history
+  append-only (`d85bb1d9…` → HEAD is `ahead_by 5, behind_by 0`) so no
+  force-push occurred. Windows endpoint NOT cleared yet — owner decision
+  pending. Vercel `nivxray-xdr` check still failing, out of scope, untouched.
 * Regression wording of record: **zero new regressions in the compared
   affected-area test set; broader RC5 execution remains affected by
   pre-existing environment/authentication faults.** RC5 is NOT globally
