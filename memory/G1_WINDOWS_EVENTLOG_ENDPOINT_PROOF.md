@@ -128,7 +128,50 @@ resume of the same bookmark scope.
   **Linux tests prove the deployment and durability contracts, NOT the
   endpoint proof.**
 
+## REMOTE VERIFICATION (2026-09-22) — GitHub content matches the review
+
+| Item | Value |
+|---|---|
+| Repository | `jpreddy017/nivxray-xdr` |
+| Remote URL | `https://github.com/jpreddy017/nivxray-xdr` |
+| Branch | `feature/rc2-alignment` |
+| Remote HEAD SHA | `709fa4a26429b0bd46c805eae778dc9164fce366` ("Auto-generated changes", 2026-09-22T04:21:53Z) |
+| Local HEAD | `d8d8154f10f12d22549a02be24fb12bd3871314d` — **different by design**: Save to Github re-commits, so commit SHA is NOT the anchor |
+| G1 MANIFEST | **PASS** — all 10 manifest files fetched from `raw.githubusercontent.com` at the remote SHA hash-match byte-for-byte |
+| Additionally verified | `G1_REVIEWED_CODE_MANIFEST.md`, `test_windows_eventlog_lifecycle.py`, `test_windows_eventlog_deployment_identity.py`, `test_windows_eventlog_acquisition.py`, `memory/G1_WINDOWS_EVENTLOG_ENDPOINT_PROOF.md` — all MATCH |
+| Mismatches / absences | **NONE** |
+
+## RC5 HYGIENE FAILURE — classified and closed by an actual review
+
+`tests/rc5/unit/hygiene/test_xfail_hygiene.py::test_gap_tracking_review_is_fresh`
+failed with `Gap-tracking review is 63 days stale (limit 60)` — a **hygiene
+ritual lapse, not a test failure**: the same runs show 819 passed / 3 skipped.
+Unrelated to G1 and unrelated to the FastAPI `on_event` DeprecationWarnings.
+
+The review it demands was genuinely performed, then the date was bumped:
+`tests/rc5/unit/coverage_gaps/` holds **zero tracked xfail gaps** — both
+former `xfail(strict=True)` tombstones (PowerShell parser hang on
+`$env:VAR + '...'` in expression context; `[Reflection.Assembly]::Load`
+semantic detection → T1620) were resolved in the Feb-2026 correctness sprint
+and now run as positive regression assertions.
+`pytest tests/rc5/unit/coverage_gaps/ -rxX` → **18 passed, 0 xfail, 0 xpass**,
+so nothing is silently fixed-but-still-tracked and nothing new was added.
+`LAST_REVIEW_DATE` is now `2026-09-22` with an auditable review log in the
+file. `MAX_STALENESS_DAYS` remains **60** — nothing weakened, skipped,
+xfailed or bypassed. Local: `hygiene/ + coverage_gaps/` → **21 passed**.
+
+## VERCEL FAILURE — out of G1 scope
+The failing check is `Vercel – nivxray-xdr` while `nivxray-xdr-production`,
+`nivxray-edr-production` and `nivxmachines-workspace` all deployed and
+`RC4.x Quality Gate` passed. The commit changed only
+`.emergent/emergent.yml`, so no G1 code is implicated. The G1 acquisition
+path is Windows host → collector → `POST /api/xdr/ingest/telemetry` →
+backend; **no Vercel surface participates in it**. Investigate separately
+with `npx vercel inspect dpl_2tjoM5c7HrxgpF1ZqjRkh6LhDknY --logs`.
+
 ## Delivered to the owner (STEP 1)
+
+
 - `scripts/windows/g1/Get-NivXRayG1Preflight.ps1` — READ-ONLY pre-flight:
   host/edition/build/arch/hostname/domain, client-vs-server, PowerShell,
   elevation, python/pip/git/**pywin32 importability**, Sysmon
