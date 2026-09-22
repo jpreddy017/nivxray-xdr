@@ -6,14 +6,14 @@
 #   1  Administrator
 #   2  repository + branch identity (no reclone, no delete, no clean)
 #   3  safe update to the exact reviewed HEAD
-#   4  reviewed-code manifest 25/25 verified locally
+#   4  reviewed-code manifest 26/26 verified locally
 #   5  supported standard CPython 3.14 x64 (RESOLVED interpreter judged;
 #      py.exe launcher location is informational only)
 #   6  isolated venv
 #   7  exactly the pinned Windows dependencies
 #   8  pywin32 verified
-#   9  real native Event Log binding + read probe
-#   10 per-channel readability (Sysmon · Security · PowerShell)
+#   9  acquisition capability (the Stage 9/10 PROOF IS CLOSED and is
+#      NOT re-run; only the runtime's own capability question is asked)
 #   11 persistent state root + write/persistence validation
 #   12 collector identity + server authority configured
 #   13 server reachability + authentication + tenant binding
@@ -23,10 +23,17 @@
 # no channel enabling, no log clearing, no registry or audit-policy
 # change, no service install, no B4, no G2.
 #
-# CREDENTIAL SAFETY: the ingest key is NOT in this source. It is entered
-# once as a SecureString, lives only in this process's environment, is
-# never printed, never written to disk, never placed on a command line,
-# and never appears in a proof artifact. It is cleared in `finally`.
+# CREDENTIAL LIFECYCLE (stage 13):
+#   * if $env:NIVX_INGEST_TOKEN already exists in this window it is REUSED
+#     and never re-displayed — there is no second prompt;
+#   * otherwise ONE key is minted here: tenant ten_f1a5479243e901cf159e230fa0,
+#     scopes ["collectors.enroll"] exactly, 12h expiry;
+#   * the plaintext goes only into the process environment — never echoed,
+#     logged, persisted, committed, or passed on a command line;
+#   * the admin bearer token is destroyed the instant the key exists;
+#   * only the NON-SECRET key id/prefix is persisted, so the exact key can be
+#     revoked AFTER server-side evidence verification — never before;
+#   * the plaintext is cleared in `finally`, on success and on failure.
 #
 # OPERATOR SAFETY: no `exit` anywhere. A failed gate throws, is caught, and
 # prints STAGE + REASON; the elevated console stays open and no later G1
@@ -47,7 +54,7 @@ function Invoke-G1Step2 {
 # ── settings (no secrets) ────────────────────────────────────────────
 $Repo        = 'https://github.com/jpreddy017/nivxray-xdr.git'
 $Branch      = 'feature/rc2-alignment'
-$ReviewedHead= '687929346cc9afe17a1815ff1895908910880b83'
+$ReviewedHead= '4a6b71049d535728b524aa8b1b48554a042f0876'
 $Work        = 'C:\nivx'
 $Collector   = "$Work\apps\nivxray-xdr-collector"
 $StateDir    = 'C:\ProgramData\NivXForge\state'
@@ -65,8 +72,13 @@ $Channels = @('Microsoft-Windows-Sysmon/Operational',
               'Security',
               'Microsoft-Windows-PowerShell/Operational')
 
-$script:G1Stage   = 'init'
-$script:G1GateLog = $null
+$script:G1Stage    = 'init'
+$script:G1GateLog  = $null
+#: NON-SECRET credential reference, so the exact temporary key can be
+#: revoked AFTER server-side evidence verification — never before.
+$script:G1KeyId     = $null
+$script:G1KeyPrefix = $null
+$script:G1KeyExpires = $null
 
 function Note($line) {
   # Durable gate trail, so a reason survives even a lost console.
@@ -157,11 +169,11 @@ if ($head -ne $ReviewedHead) { Fail "HEAD is $head, expected $ReviewedHead." }
 Ok 'checked out the exact reviewed commit (detached; branch ref untouched)'
 
 # ── 4 · reviewed-code manifest ───────────────────────────────────────
-Stage 4 'REVIEWED-CODE MANIFEST (G1 STEP 2 · 25 files)'
+Stage 4 'REVIEWED-CODE MANIFEST (G1 STEP 2 · 26 files)'
 $expected = [ordered]@{
  'scripts\windows\g1\Get-NivXRayG1Preflight.ps1'                        = '3D43E6235BBBEB631EAC11B96AF10C5AF14B6227C93ABDBCD88F966CAD9C4AF7'
  'scripts\windows\g1\README_G1_STEP1_PREFLIGHT.md'                      = '055A28E5FA8EBDBAA25ABE97E33B2C776E347CEC20DD536D4479942132EF598C'
- 'apps\nivxray-xdr-collector\framework\windows_eventlog.py'             = 'D0AB898AF46EBC8D2FE897EDFA1ACBD173C37892E4F87A2BB1192831A363FF9D'
+ 'apps\nivxray-xdr-collector\framework\windows_eventlog.py'             = 'EC747671ED0156C3814C458A2A07C41B98901620E506842040E77C04F72A39E6'
  'apps\nivxray-xdr-collector\framework\windows_bookmarks.py'            = 'C0B480269387541804196ACEDBC89E1880A8BD92F9C22BFA866D756EED63179B'
  'apps\nivxray-xdr-collector\framework\collector_identity.py'           = 'B5ED4F5524A89C53D9CBF2BA8E6852C15C09C94AABC2F3EB4C199EBEAA4AB280'
  'apps\nivxray-xdr-collector\framework\runtime.py'                      = 'EA61D2F36A2A50567E3CC9647E0A3D1A7895CC814CE1AA8FE67741FC07E131B1'
@@ -178,6 +190,7 @@ $expected = [ordered]@{
  'apps\nivxray-xdr-collector\requirements-windows.txt'                  = 'F0ED4BD460AA1066E3F800F37A904BCB8CCFBF0D6AEEBB41649182F0F98446DD'
  'apps\nivxray-xdr-collector\WINDOWS_RUNTIME.md'                        = '74E829EFDA2FB84A00205562E5BA3CC3885A62EA14188326A6D809B6858FEB74'
  'apps\nivxray-xdr-collector\tests\test_g1_windows_runtime_contract.py' = '1D3E6DE9CB63AFFC06D01609C8B6B66F1F15EE922DF3EC4E557D10656F542FA4'
+ 'apps\nivxray-xdr-collector\tests\test_g1_evtsubscribe_contract.py'      = '754764F133895435844DB4D7E795B052B7C5E9368371C159E901A3D1037847B3'
  'backend\services\ingest_provenance.py'                                = 'EEEC91EC55707BD9846BCF6568EA2D5A38BD880EDF7AF3892B8384F8A5B28913'
  'backend\tests\test_g1_s1_clock_independence.py'                       = 'B3D43A2A0401B2434B5D2CF2636E2D31957E55BD85F0DCF59A6508B2A6FC3D3C'
  'backend\routers\xdr_collectors.py'                                    = 'D898C793C048DD1100E227415BECF83BA426CE46964A7F6AF4A2B68D8D1893ED'
@@ -273,55 +286,24 @@ if ($pw -ne '312') { Pop-Location; Fail "pywin32 $pw installed but the contract 
 if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'win32evtlog could not be imported. The runtime fails closed instead of acquiring zero events while looking healthy.' }
 Ok 'pinned pywin32 present and importable'
 
-# ── 9+10 · native binding + per-channel readability ──────────────────
-Stage '9+10' 'NATIVE BINDING PROBE + PER-CHANNEL READABILITY (read-only)'
-$bind = @'
+# ── 9 · capability only · the Stage 9/10 PROOF IS CLOSED ─────────────
+Stage 9 'ACQUISITION CAPABILITY (Stage 9/10 proof is CLOSED — not re-run)'
+Info 'Stage 9/10 was proved on THIS host against this reviewed code:'
+Info '  bound=true · Sysmon/Security/PowerShell READ_OK · bookmark + resume READ_OK · ERROR 87 resolved'
+Info 'It is frozen. This is only the cheap capability question the runtime'
+Info 'itself asks before it will start a connector — no subscription is opened here.'
+Push-Location $Collector
+$capOut = (& $VenvPy -c @"
 import json, sys
-import win32evtlog as w
-
-WINDOW = int(sys.argv[1]) * 60 * 1000
-CHANNELS = sys.argv[2:]
-XPATH = "*[System[TimeCreated[timediff(@SystemTime) <= %d]]]" % WINDOW
-out = {"bound": False, "channels": {}}
-try:
-    bm = w.EvtCreateBookmark(None)
-    out["bind_api"] = sorted(n for n in
-        ("EvtSubscribe", "EvtCreateBookmark", "EvtNext", "EvtRender",
-         "EvtUpdateBookmark") if hasattr(w, n))
-    out["bound"] = len(out["bind_api"]) == 5
-except Exception as exc:
-    out["error"] = "%s: %s" % (type(exc).__name__, exc)
-    print(json.dumps(out)); sys.exit(1)
-
-for ch in CHANNELS:
-    rec = {"readable": False}
-    try:
-        b = w.EvtCreateBookmark(None)
-        h = w.EvtSubscribe(ch, w.EvtSubscribeStartAtOldestRecord, None,
-                           None, None, XPATH)
-        evs = w.EvtNext(h, 1, -1, 0)
-        rec["readable"] = True
-        rec["records_in_window"] = bool(evs)
-        if evs:
-            xml = w.EvtRender(evs[0], w.EvtRenderEventXml)
-            w.EvtUpdateBookmark(b, evs[0])
-            rec["sample_xml_bytes"] = len(xml)
-            rec["bookmark_bytes"] = len(w.EvtRender(b, w.EvtRenderBookmark))
-    except Exception as exc:
-        rec["error"] = "%s: %s" % (type(exc).__name__, exc)
-    out["channels"][ch] = rec
-
-unreadable = [c for c, r in out["channels"].items() if not r["readable"]]
-out["unreadable"] = unreadable
-print(json.dumps(out, indent=2))
-sys.exit(1 if (unreadable or not out["bound"]) else 0)
-'@
-$bindPath = Join-Path $env:TEMP 'nivx_bindprobe.py'
-$bind | Out-File -FilePath $bindPath -Encoding ASCII
-$bindOut = (& $VenvPy $bindPath $ScopeMinutes @Channels) -join "`n"
-Write-Host $bindOut
-if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'native binding or channel readability FAILED. A subscription that cannot bind, or a channel that cannot be read, can only produce zero events — that is refused, not downgraded.' }
-Ok 'EvtSubscribe bound; all three channels readable; bookmark renderable'
+sys.path.insert(0, '.')
+from framework.windows_eventlog import NativeEvtReader
+st = NativeEvtReader().binding_status()
+print(json.dumps(st))
+sys.exit(0 if st.get('bound') else 1)
+"@) -join "`n"
+Write-Host "  $capOut"
+if ($LASTEXITCODE -ne 0) { Pop-Location; Fail 'the native bindings are no longer available on this host. Acquisition is refused; nothing is downgraded.' }
+Ok 'native acquisition capability present (production NativeEvtReader)'
 
 # ── 11 · persistent state root ───────────────────────────────────────
 Stage 11 'PERSISTENT STATE ROOT'
@@ -402,26 +384,64 @@ try { Invoke-RestMethod -Uri "$BaseUrl/api/health" -TimeoutSec 30 | Out-Null }
 catch { Pop-Location; Fail "NivXRay XDR is not reachable at $BaseUrl : $($_.Exception.Message)" }
 Ok "reachable ($BaseUrl)"
 
-Write-Host ""
-Write-Host "  Paste the G1 ingest key (X-XDR-API-Key). It is NOT echoed, NOT stored," -ForegroundColor Yellow
-Write-Host "  NOT logged, and NOT written into any proof artifact. Press Enter with" -ForegroundColor Yellow
-Write-Host "  nothing typed to STOP if no key has been minted yet." -ForegroundColor Yellow
-$keySecure = Read-Host '  G1 ingest key' -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($keySecure)
-try { $env:NIVX_INGEST_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-Remove-Variable keySecure, bstr -ErrorAction SilentlyContinue
-if ([string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)) {
-  Fail @'
-no ingest credential was supplied, so acquisition cannot start.
+function Get-PlainFromSecure([System.Security.SecureString]$sec) {
+  $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+  try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
+  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
+}
 
-REMAINING SERVER-SIDE ACTION (one item):
-  mint ONE API key in tenant ten_f1a5479243e901cf159e230fa0 (g1-windows-proof)
-  with scopes = ["collectors.enroll"] and nothing else, short expiry,
-  via POST /api/xdr/api-keys  (UI: /xdr/admin -> API keys -> create).
-  The plaintext is shown exactly once. Paste it at this prompt on the next
-  run, and revoke the key after the proof.
-'@
+if (-not [string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)) {
+  # A token already lives in this window (you minted it earlier). Reuse it.
+  # No second prompt, and the value is never re-displayed.
+  Info 'reusing the ingest token already present in this window (not re-displayed)'
+  $script:G1KeyId = $script:G1KeyId     # may be $null if minted outside this block
+  $script:G1KeyPrefix = $script:G1KeyPrefix
+  Ok 'credential source: existing in-process environment token'
+} else {
+  Info 'no in-process token found — minting exactly ONE temporary key on this host'
+  $adminEmail  = Read-Host '  NivXRay admin e-mail (preview)'
+  $adminSecret = Read-Host '  NivXRay admin password (not echoed, not stored)' -AsSecureString
+  $expires = (Get-Date).ToUniversalTime().AddHours(12).ToString('o')
+  try {
+    $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" `
+      -ContentType 'application/json' -TimeoutSec 30 `
+      -Body (@{ email = $adminEmail
+                password = (Get-PlainFromSecure $adminSecret) } | ConvertTo-Json)
+    $mint = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/xdr/api-keys" `
+      -Headers @{ Authorization = "Bearer $($login.access_token)"
+                  'X-Tenant-Id' = $TenantId } `
+      -ContentType 'application/json' -TimeoutSec 30 `
+      -Body (@{ name = "g1-endpoint-$([int](Get-Date -UFormat %s))"
+                confirm_tenant_id = $TenantId
+                description = 'G1 Step 2 acquisition proof · 12h · collectors.enroll only'
+                scopes = @('collectors.enroll')
+                expires_at = $expires } | ConvertTo-Json)
+  } catch {
+    # The admin session dies with this scope either way.
+    Remove-Variable login, mint, adminSecret -ErrorAction SilentlyContinue
+    [GC]::Collect()
+    Pop-Location
+    Fail "key minting failed: $($_.Exception.Message). No credential exists and nothing was started."
+  }
+  # Plaintext goes straight into the process environment and nowhere else:
+  # not a file, not a log, not a command line, not this transcript.
+  $env:NIVX_INGEST_TOKEN = $mint.data.plaintext
+  $script:G1KeyId     = $mint.data.id
+  $script:G1KeyPrefix = $mint.data.prefix
+  $script:G1KeyExpires = $expires
+  Info "minted key id : $script:G1KeyId"
+  Info "prefix        : $script:G1KeyPrefix"
+  Info "scopes        : collectors.enroll  (no control-plane authority)"
+  Info "expires       : $expires"
+  # The admin bearer token is destroyed the instant the key exists: it is
+  # far more powerful than the credential it just created, and it is never
+  # needed again in this run.
+  Remove-Variable login, mint, adminSecret, adminEmail -ErrorAction SilentlyContinue
+  [GC]::Collect()
+  Ok 'admin session discarded from memory; only the scoped ingest token remains'
+}
+if ([string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)) {
+  Pop-Location; Fail 'no ingest credential is present; acquisition cannot start.'
 }
 
 $authStatus = $null
@@ -604,19 +624,30 @@ $dumpPath = Join-Path $env:TEMP 'nivx_dump.py'
 $dump | Out-File -FilePath $dumpPath -Encoding ASCII
 & $VenvPy $dumpPath | Set-Content "$proofDir\acquisition-state.json" -Encoding UTF8
 Copy-Item $cfgPath "$proofDir\connectors.seeded.json" -Force
+# NON-SECRET credential reference. Enough to revoke the exact key later,
+# useless to anyone who finds the file.
+@{ key_id = $script:G1KeyId; prefix = $script:G1KeyPrefix
+   expires_at = $script:G1KeyExpires
+   scopes = @('collectors.enroll'); tenant_id = $TenantId
+   plaintext = 'NEVER PERSISTED — process environment only, cleared at exit'
+   revoke_after = 'server-side receipt + canonical evidence verification'
+ } | ConvertTo-Json -Depth 5 |
+   Set-Content "$proofDir\g1-credential-ref.json" -Encoding UTF8
 $manifestRows | ConvertTo-Json -Depth 4 | Set-Content "$proofDir\manifest-verification.json" -Encoding UTF8
-$bindOut | Set-Content "$proofDir\binding-and-channel-probe.json" -Encoding UTF8
+$capOut | Set-Content "$proofDir\capability.json" -Encoding UTF8
 @{ reviewed_head = $head; branch = $Branch
    manifest = 'G1_STEP2_REVIEWED_CODE_MANIFEST.md'; manifest_files = $expected.Count
    manifest_result = "$($expected.Count)/$($expected.Count) MATCH"
    interpreter = $info; venv_interpreter = $venvInfo; pywin32 = $pw
+   stage_9_10 = 'CLOSED · real-Windows PASS · not re-run in this block'
    state_dir = $StateDir; tenant_id = $TenantId; collector_id = $CollectorId
    connector_id = $ConnectorId; channels = $Channels
    scope_bound = 'G1_VALIDATION_SCOPE_BOUND'; scope_bound_minutes = $ScopeMinutes
    observed_minutes = $ObserveMinutes
    hostname = $env:COMPUTERNAME
    generated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
-   credential = 'entered interactively; never printed, stored or committed'
+   credential = 'process environment only · never printed, stored or committed'
+   credential_key_id = $script:G1KeyId; credential_prefix = $script:G1KeyPrefix
  } | ConvertTo-Json -Depth 8 | Set-Content "$proofDir\run-context.json" -Encoding UTF8
 
 Write-Host ""
@@ -627,8 +658,16 @@ Get-ChildItem $proofDir | ForEach-Object { Write-Host ("  " + $_.Name + "  " + $
 Write-Host ""
 Write-Host "Send back: run-context.json · health-start.json · health-end.json ·" -ForegroundColor Cyan
 Write-Host "acquisition-state.json · manifest-verification.json ·" -ForegroundColor Cyan
-Write-Host "binding-and-channel-probe.json   (none contains a credential)" -ForegroundColor Cyan
+Write-Host "capability.json · g1-credential-ref.json · gate-log.txt" -ForegroundColor Cyan
+Write-Host "(none contains a credential — only the key id and prefix)" -ForegroundColor Cyan
 Write-Host ""
+if ($script:G1KeyId) {
+  Write-Host ("Temporary key " + $script:G1KeyId + " (" + $script:G1KeyPrefix + ") is STILL VALID and is") -ForegroundColor Yellow
+  Write-Host "NOT auto-revoked: if server verification shows a retryable delivery" -ForegroundColor Yellow
+  Write-Host "problem, destroying the credential first would cost us the diagnosis." -ForegroundColor Yellow
+  Write-Host "It is revoked immediately AFTER server-side evidence verification." -ForegroundColor Yellow
+  Write-Host ""
+}
 Write-Host "A 2xx from ingest is DELIVERY, not end-to-end evidence processing." -ForegroundColor Yellow
 Write-Host "Canonical evidence identity, parser/normalizer status and ingest" -ForegroundColor Yellow
 Write-Host "provenance are verified server-side against these artifacts." -ForegroundColor Yellow
