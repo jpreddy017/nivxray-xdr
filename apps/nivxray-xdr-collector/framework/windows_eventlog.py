@@ -38,9 +38,9 @@ DELIBERATE NON-BEHAVIOURS
 """
 from __future__ import annotations
 
+import os
 import platform
 import re
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Protocol
@@ -406,10 +406,19 @@ class WindowsEventLogConnector(Connector):
     credential_requirements: List[str] = []  # local privilege, not a secret
 
     def __init__(self, tenant_id: str, config: Dict[str, Any],
+                 identity: Optional[str] = None,
                  *, reader: Optional[EvtReader] = None,
                  bookmarks: Optional[WindowsBookmarkStore] = None,
                  collector_id: Optional[str] = None):
         super().__init__(tenant_id, config)
+        # G1/B1 · the collector service rehydrates and creates every
+        # connector as `cls(tenant_id=…, config=…, identity=rec.id)`, the
+        # same contract the REST/webhook/syslog adapters honour. Without it
+        # this adapter raised TypeError, which boot swallowed, so the
+        # Windows connector silently never started.
+        if identity:
+            self.identity = identity
+            self.checkpoint.connector_id = identity
         named = PROFILES.get(config.get("profile_id") or "")
         if named and not config.get("channels"):
             config = {**config, "channels": list(named.channels),
@@ -427,7 +436,26 @@ class WindowsEventLogConnector(Connector):
             NativeEvtReader() if platform.system() == "Windows"
             else UnsupportedPlatformReader())
         self.bookmarks = bookmarks or WindowsBookmarkStore()
-        self.collector_id = collector_id or f"collector-{uuid.uuid4().hex[:8]}"
+        # G1/B2 · THE collector identity. It anchors both the envelope the
+        # authoritative boundary matches against its enrolled collector AND
+        # the bookmark scope `(tenant, collector_id, channel)`. A generated
+        # value would change on every process start, so acquisition could
+        # never resume and ingest could never recognise the collector: an
+        # undeclared identity therefore fails closed instead.
+        declared_collector = (collector_id
+                              or config.get("collector_id")
+                              or os.environ.get("NIVX_COLLECTOR_ID"))
+        declared_collector = str(declared_collector).strip() \
+            if declared_collector else ""
+        if not declared_collector:
+            raise ValueError(
+                "windows-eventlog connector requires an authoritative "
+                "collector_id: set it in the connector configuration "
+                "(`config.collector_id`) or in NIVX_COLLECTOR_ID. It must be "
+                "the id of the collector enrolled in NivXRay XDR — it anchors "
+                "envelope identity and bookmark scope, so it is never "
+                "generated.")
+        self.collector_id = declared_collector
         #: Bookmarks READ in the last collect, awaiting Advance Acquisition.
         self._pending: Dict[str, str] = {}
         #: Per-channel acquisition accounting for this process.

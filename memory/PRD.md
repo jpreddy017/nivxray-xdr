@@ -1,5 +1,31 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · G1 · WINDOWS EVENT LOG ENDPOINT PROOF — STEP 1 DELIVERED · AWAITING OWNER PRE-FLIGHT JSON
+
+Full record: `/app/memory/G1_WINDOWS_EVENTLOG_ENDPOINT_PROOF.md`.
+
+- Pre-flight found 4 deployment-path blockers in the EXISTING collector.
+  **B1** the Windows connector rejected the `identity` argument the service
+  passes to every connector (`TypeError`, swallowed at boot → it silently
+  never started; W2-1 was never wired through the service path). **B2**
+  `collector_id` was random per process, breaking both ingest collector
+  matching and bookmark resume. Both **FIXED** minimally (config →
+  `NIVX_COLLECTOR_ID` → fail closed; never generated). 33 collector tests
+  pass (6 new deployment-identity tests) — Linux tests prove the deployment
+  contract, NOT the endpoint proof.
+- **B3** standalone collector HUMAN routes fail closed → pre-seeded
+  `connectors.json` + boot auto-start; no authorization class weakened.
+- **B4** an unparsed channel cannot be retained as raw evidence server-side
+  (`route_batch`: refused declaration ⇒ no raw row). G1 will report
+  ENDPOINT ACQUISITION = PASS / NIVXRAY XDR RAW FORENSIC RETENTION = GAP.
+  Architectural requirement recorded for a later gate: tenant-safe raw
+  forensic retention of legitimately declared telemetry without a DSM, still
+  fail-closed against unregistered sources.
+- Delivered: `scripts/windows/g1/Get-NivXRayG1Preflight.ps1` (READ-ONLY) +
+  `README_G1_STEP1_PREFLIGHT.md` (GitHub delivery + exact command).
+- **STOPPED** for the owner's pre-flight JSON; STEP 2 runbook is generated
+  per-host afterwards. No G2-G9 work started.
+
 ## 2026-06 · WINDOWS TELEMETRY / ENDPOINT JOURNAL / FORENSIC GAP ANALYSIS — READ-ONLY, DELIVERED
 
 Full record: `/app/memory/NIVXRAY_XDR_NIVXFORGE_EDR_WINDOWS_TELEMETRY_FORENSIC_GAP_ANALYSIS.md`.
