@@ -22,6 +22,8 @@ from typing import Any, Dict, List, Optional
 from fastapi   import APIRouter, HTTPException, Request, Header
 from pydantic  import BaseModel, Field
 
+from framework import collector_identity
+
 from framework.rest_poller import RestPollerConnector
 from framework.webhook     import WebhookConnector
 from framework.syslog      import SyslogConnector
@@ -166,11 +168,19 @@ async def create_connector(body: ConnectorCreate, request: Request,
                                               "known": list(CLASS_BY_TYPE.keys())})
     tenant = _tenant(x_tenant_id)
     store  = request.app.state.store
+    cls    = CLASS_BY_TYPE[body.source_type]
     rec    = store.create(tenant_id=tenant, source_type=body.source_type,
                               label=body.label, config=body.config)
-    # instantiate live object (not started)
-    cls   = CLASS_BY_TYPE[body.source_type]
-    inst  = cls(tenant_id=tenant, config=body.config, identity=rec.id)
+    # instantiate live object (not started). A configuration the connector
+    # refuses is a client error, and the unusable record is not kept.
+    try:
+        inst = cls(tenant_id=tenant, config=body.config, identity=rec.id)
+    except ValueError as exc:
+        store.delete(rec.id)
+        raise HTTPException(400, detail={
+            "error": "invalid_connector_configuration",
+            "source_type": body.source_type,
+            "reason": str(exc)}) from exc
     request.app.state.instances[rec.id] = inst
     request.app.state.registry.register_instance(inst)
     return rec.redacted()
@@ -222,6 +232,11 @@ async def delete_connector(cid: str, request: Request):
     inst  = request.app.state.instances.pop(cid, None)
     if inst is not None:
         await request.app.state.runtime.stop(inst)
+        # Release the collector identity so the id can be re-enrolled
+        # (including by another tenant) once this connector is gone.
+        held = getattr(inst, "collector_id", None)
+        if held:
+            collector_identity.release(held)
     gone = store.delete(cid)
     if not gone:
         raise HTTPException(404, detail={"error": "connector_not_found"})

@@ -23,6 +23,7 @@ from framework.rest_poller import RestPollerConnector
 from framework.scheduler  import PollerScheduler
 from framework.syslog     import SyslogConnector, SyslogRunner
 from framework.webhook    import WebhookConnector
+from framework.windows_eventlog import WindowsEventLogConnector
 from framework.identity import collector_id
 
 
@@ -65,8 +66,87 @@ class CollectorRuntime:
                                        tenant_id=conn.tenant_id,
                                        connector_id_=conn.identity)
 
+    # ── Windows Event Log · Read → Make Durable → Advance ─────
+    async def deliver_windows(self, conn: WindowsEventLogConnector,
+                              envs: List[Envelope]) -> set:
+        """Make the read durable and report WHICH channels are durable.
+
+        The acquisition position may only advance for a channel whose
+        records the outbox has accepted. A record the outbox already holds
+        (same tenant + connector + source_event_id) is durable too — it is
+        the same evidence, not a second one — so the channel still counts.
+        """
+        durable: set = set()
+        for e in envs:
+            channel = ((e.raw or {}).get("channel")
+                       or (e.canonical or {}).get("channel"))
+            if e.source_event_id and self.dedup.seen(conn.identity,
+                                                     e.source_event_id):
+                conn.metrics.events_duplicated += 1
+                if channel:
+                    durable.add(channel)
+                continue
+            rid, _status = self.outbox.record(e)
+            if not rid:
+                continue
+            conn.metrics.events_accepted += 1
+            if channel:
+                durable.add(channel)
+        return durable
+
+    async def _start_windows_eventlog(self, conn: WindowsEventLogConnector
+                                       ) -> dict:
+        """The production acquisition lifecycle for this connector.
+
+        configuration validation → schedule → Read → Make Durable →
+        Advance Acquisition → (stop) → (restart → rehydrate → resume).
+
+        Fail closed: a profile in which NO declared channel is collectible
+        never starts, and the connector reports ERROR rather than a healthy
+        subscription that can never read anything.
+        """
+        problems = conn.profile.validate()
+        declared = list(conn.profile.channels)
+        blocked = {p.get("channel") for p in problems if p.get("channel")}
+        if not declared or blocked >= set(declared):
+            conn.health = Health.ERROR
+            conn.metrics.last_error = "no collectible channel in profile"
+            return {"ok": False, "reason": "no_collectible_channel",
+                    "collector_id": conn.collector_id,
+                    "declared_channels": declared, "problems": problems}
+
+        async def _on_envs(c: WindowsEventLogConnector,
+                           envs: List[Envelope]) -> None:
+            durable = await self.deliver_windows(c, envs)
+            # A channel that read OK and returned nothing has no evidence at
+            # risk, so its position may advance. A channel that failed to
+            # read is NOT in this set and is therefore re-read.
+            for channel, report in (c.channel_reports or {}).items():
+                if report.get("state") == "READ_OK" \
+                        and not report.get("events_read"):
+                    durable.add(channel)
+            c.advance(durable_channels=durable)
+
+        def _on_error(c: WindowsEventLogConnector, exc: Exception) -> None:
+            c.health = Health.ERROR
+            c.metrics.last_error = f"{type(exc).__name__}: {exc}"
+
+        await self.scheduler.start(conn, _on_envs, on_error=_on_error,
+                                   always_callback=True)
+        conn.health = Health.CONNECTED
+        return {"ok": True, "mode": "eventlog-subscription",
+                "collector_id": conn.collector_id,
+                "declared_channels": declared,
+                "channel_problems": problems,
+                "durable_acquisition_state": True,
+                "note": ("subscribed channels are read on the interval; a "
+                         "position advances only after the outbox holds the "
+                         "records")}
+
     # ── lifecycle ─────────────────────────────────────────────
     async def start(self, conn: Connector) -> dict:
+        if isinstance(conn, WindowsEventLogConnector):
+            return await self._start_windows_eventlog(conn)
         if isinstance(conn, M365ManagementActivityConnector):
             conn.attach_state(self.acquisition, self.outbox)
             self.reconcile_acquisition()
@@ -97,6 +177,12 @@ class CollectorRuntime:
                  "reason": f"unsupported_connector_kind:{type(conn).__name__}"}
 
     async def stop(self, conn: Connector) -> dict:
+        if isinstance(conn, WindowsEventLogConnector):
+            await self.scheduler.stop(conn.identity)
+            conn.health = Health.DISCONNECTED
+            return {"ok": True, "mode": "eventlog-subscription",
+                    "collector_id": conn.collector_id,
+                    "pending_bookmarks": list(conn._pending.keys())}
         if isinstance(conn, (RestPollerConnector,
                              M365ManagementActivityConnector)):
             await self.scheduler.stop(conn.identity)

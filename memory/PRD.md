@@ -4,15 +4,19 @@
 
 Full record: `/app/memory/G1_WINDOWS_EVENTLOG_ENDPOINT_PROOF.md`.
 
-- Pre-flight found 4 deployment-path blockers in the EXISTING collector.
-  **B1** the Windows connector rejected the `identity` argument the service
-  passes to every connector (`TypeError`, swallowed at boot → it silently
-  never started; W2-1 was never wired through the service path). **B2**
-  `collector_id` was random per process, breaking both ingest collector
-  matching and bookmark resume. Both **FIXED** minimally (config →
-  `NIVX_COLLECTOR_ID` → fail closed; never generated). 33 collector tests
-  pass (6 new deployment-identity tests) — Linux tests prove the deployment
-  contract, NOT the endpoint proof.
+- Pre-flight found 4 deployment-path blockers in the EXISTING collector, then
+  a production-grade re-review (owner correction: *small scope, complete
+  fix*) found a **third defect inside B1**: `CollectorRuntime.start()` had no
+  branch for this connector at all (`unsupported_connector_kind`), so it
+  would never have been scheduled even with a working constructor. All of
+  B1/B2 is now closed to production quality: connector lifecycle
+  (validate → construct → rehydrate → auto-start → Read/Make Durable/Advance
+  → stop → restart → resume), observable rehydration failures on `/health`,
+  `400` on refused configuration, permanent collector identity (config →
+  `NIVX_COLLECTOR_ID` → fail closed, one tenant per identity,
+  `CollectorIdentityConflict` on cross-tenant reuse, released on delete).
+  **Collector suite: 154 passed** (14 + 6 new). Linux tests prove the
+  deployment/durability contracts, NOT the endpoint proof.
 - **B3** standalone collector HUMAN routes fail closed → pre-seeded
   `connectors.json` + boot auto-start; no authorization class weakened.
 - **B4** an unparsed channel cannot be retained as raw evidence server-side

@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Protocol
 
 from framework.base import Capability, Connector, Envelope, Health
+from framework.collector_identity import bind as bind_collector_identity
 from framework.windows_bookmarks import (
     RESUME_FRESH, RESUME_LOG_CLEARED, RESUME_STALE, WindowsBookmarkStore,
 )
@@ -455,7 +456,10 @@ class WindowsEventLogConnector(Connector):
                 "the id of the collector enrolled in NivXRay XDR — it anchors "
                 "envelope identity and bookmark scope, so it is never "
                 "generated.")
-        self.collector_id = declared_collector
+        # One tenant per collector identity, process-wide. Raises
+        # CollectorIdentityConflict on a cross-tenant reuse.
+        self.collector_id = bind_collector_identity(declared_collector,
+                                                    tenant_id)
         #: Bookmarks READ in the last collect, awaiting Advance Acquisition.
         self._pending: Dict[str, str] = {}
         #: Per-channel acquisition accounting for this process.
