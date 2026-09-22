@@ -90,10 +90,37 @@ endpoint returns `400 invalid_provenance`.
 On idempotent replay `idempotent_replay: true` is included and the
 three refs are identical to the original write.
 
+## 4b · Tenant authority (P0.1 · 2026-06)
+
+`tenant_id` in the request body is an **assertion**, never authority. The
+stored tenant is resolved server-side from authoritative context:
+
+| Context | Authority |
+| --- | --- |
+| `invoker.context.incident_id` present | the incident's server-resolved tenant (the incident is addressed through the incident authority; out of scope ⇒ `404`, existence never disclosed) |
+| no resource anchor, single-tenant principal | the principal's one tenant |
+| no resource anchor, multi/all-tenant principal | **DENY** `403 tenant_authority_denied` — being authorized for tenant B does not prove this evidence belongs to B |
+
+A presented `tenant_id` that disagrees with the resolved authority fails
+closed with `403 tenant_authority_denied`; the refusal never echoes the
+authoritative tenant. `tenant_id` may therefore be omitted entirely.
+
+Idempotency on `execution_id` is evaluated **within the resolved tenant**, so
+the same `execution_id` in two tenants can neither collide nor be used to
+harvest the other tenant's ref triple.
+
+Rows written before P0.1 do not carry this guarantee: their `tenant_id` was
+the value the writer presented. They are left untouched — response evidence is
+audit material and is not rewritten to conform to a later contract.
+
 ## 5 · Attribution invariants
 
 - Every evidence row carries `provenance.execution_id`, `provenance.kind`,
   `tenant_id`, and the full `invoker`/`action`/`authorization` blocks.
+- Every row written after P0.1 carries
+  `provenance.tenant_authority = { source: "incident" | "principal_scope",
+  tenant_id, asserted_tenant_id }` — a RECORD of how the tenant was
+  resolved; it is never consulted as authority.
 - Every timeline row is tagged `incident_id` from `invoker.context` (nullable
   — analyst-initiated actions on assets not tied to an incident still write
   to a per-asset timeline).

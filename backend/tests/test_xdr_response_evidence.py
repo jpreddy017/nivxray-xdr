@@ -32,7 +32,7 @@ init_database()
 # `tests/test_p0_response_execution_tenant_scope.py` and
 # `tests/test_xdr_rbac_enforcement.py`.
 _HARNESS_PRINCIPAL = {"email": "admin@nivxray.com", "role": "admin"}
-_HARNESS_INCIDENTS = ("INC-1", "INC-9", "INC-EMPTY")
+_HARNESS_INCIDENTS = ("INC-1", "INC-2", "INC-9", "INC-EMPTY")
 
 
 @pytest.fixture(autouse=True)
@@ -271,23 +271,28 @@ async def test_list_incident_response_executions_returns_only_matching_incident(
 
 @pytest.mark.asyncio
 async def test_list_incident_response_executions_tenant_scoped():
+    """P0.1 · the incident owns the tenant, so a foreign tenant ASSERTION on
+    that incident can no longer create a row at all: the write fails closed
+    and only the incident's own tenant appears in the response history."""
     app = _app()
     async with AsyncClient(transport=ASGITransport(app=app),
                               base_url="http://t") as c:
-        # Two tenants writing to the same incident id.
-        for tid in ("acme", "globex"):
-            body = {**BODY, "execution_id": f"exec-tenant-{tid}",
-                       "tenant_id": tid,
-                       "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}}
-            await c.post("/api/xdr/response-evidence", json=body)
+        ok = await c.post("/api/xdr/response-evidence", json={
+            **BODY, "execution_id": "exec-tenant-acme", "tenant_id": "acme",
+            "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}})
+        denied = await c.post("/api/xdr/response-evidence", json={
+            **BODY, "execution_id": "exec-tenant-globex", "tenant_id": "globex",
+            "invoker": {**BODY["invoker"], "context": {"incident_id": "INC-9"}}})
         acme = await c.get("/api/xdr/incidents/INC-9/response-executions",
                                 params={"tenant_id": "acme"})
         globex = await c.get("/api/xdr/incidents/INC-9/response-executions",
                                   params={"tenant_id": "globex"})
+    assert ok.status_code == 200, ok.text
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["error"] == "tenant_authority_denied"
     assert acme.json()["count"]   == 1
-    assert globex.json()["count"] == 1
-    assert acme.json()["executions"][0]["tenant_id"]   == "acme"
-    assert globex.json()["executions"][0]["tenant_id"] == "globex"
+    assert globex.json()["count"] == 0
+    assert acme.json()["executions"][0]["tenant_id"] == "acme"
 
 
 @pytest.mark.asyncio

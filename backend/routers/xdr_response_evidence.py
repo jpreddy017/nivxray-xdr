@@ -61,6 +61,71 @@ def _apply_principal_tenant_scope(q: dict[str, Any], user: dict | None,
     q["tenant_id"] = {"$in": tenants}
     return scope
 
+def _resolve_write_tenant_authority(body: ResponseEvidenceRequest,
+                                    user: dict | None) -> tuple[str, str, dict]:
+    """P0.1 · THE tenant authority for a response-evidence WRITE.
+
+    Owner contract (2026-06): `body.tenant_id` is an ASSERTION that may be
+    CHECKED, never the source of ownership. Tenant ownership is derived only
+    from authoritative server-side context:
+
+        single-tenant verified principal + no resource anchor
+            → its one tenant is authoritative
+        any principal + authoritative incident anchor
+            → the incident's server-resolved tenant is authoritative
+        multi/all-tenant principal + no authoritative anchor
+            → DENY (being authorized for tenant B does not prove that THIS
+              response evidence belongs to tenant B)
+
+    A presented tenant that disagrees with the authority fails closed, and
+    the refusal never discloses the authoritative tenant value.
+    """
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        raise HTTPException(403, detail={
+            "error":  "tenant_authority_denied",
+            "reason": "principal_not_tenant_authorized",
+        })
+    asserted = (body.tenant_id or "").strip() or None
+    incident_id = (body.invoker.context or {}).get("incident_id")
+
+    if incident_id:
+        # THE incident authority: out of scope ⇒ 404, existence undisclosed.
+        doc, _q = authorized_incident(str(incident_id), user,
+                                      {"_id": 0, "id": 1, "tenant_id": 1})
+        tenant = str(doc.get("tenant_id") or "").strip()
+        if not tenant:
+            raise HTTPException(403, detail={
+                "error":  "tenant_authority_denied",
+                "reason": "incident_carries_no_tenant_authority",
+            })
+        if asserted and asserted != tenant:
+            raise HTTPException(403, detail={
+                "error":  "tenant_authority_denied",
+                "reason": "asserted_tenant_conflicts_with_resource_authority",
+            })
+        return tenant, "incident", scope
+
+    if scope.get("all_tenants"):
+        raise HTTPException(403, detail={
+            "error":  "tenant_authority_denied",
+            "reason": "ambiguous_tenant_authority_without_resource_anchor",
+        })
+    tenants = [t for t in (scope.get("tenant_ids") or []) if t]
+    if len(tenants) != 1:
+        raise HTTPException(403, detail={
+            "error":  "tenant_authority_denied",
+            "reason": "ambiguous_tenant_authority_without_resource_anchor",
+        })
+    tenant = str(tenants[0])
+    if asserted and asserted != tenant:
+        raise HTTPException(403, detail={
+            "error":  "tenant_authority_denied",
+            "reason": "asserted_tenant_outside_principal_authority",
+        })
+    return tenant, "principal_scope", scope
+
+
 router = APIRouter(prefix="/xdr", tags=["xdr-response-evidence"])
 
 
@@ -84,7 +149,10 @@ class Authorization(BaseModel):
 
 class ResponseEvidenceRequest(BaseModel):
     execution_id:     str
-    tenant_id:        str
+    # P0.1 · an ASSERTION only. The stored tenant is resolved server-side
+    # (`_resolve_write_tenant_authority`); a presented value may be checked
+    # but is never authority, and may therefore be omitted entirely.
+    tenant_id:        str | None = None
     invoker:          Invoker
     action:           ActionRef
     parameters:       dict[str, Any] = Field(default_factory=dict)
@@ -110,14 +178,22 @@ def _mint(prefix: str) -> str:
 
 @router.post("/response-evidence",
                        dependencies=[Depends(require_permission("response.execute"))])
-async def response_evidence(body: ResponseEvidenceRequest, request: Request):
+async def response_evidence(body: ResponseEvidenceRequest, request: Request,
+                            user: dict = Depends(get_current_user)):
     """Idempotent evidence sink for the Response Engine.  See module docstring."""
     db = _resolve_db(request)
     if db is None:
         raise HTTPException(503, detail={"error": "database_unavailable"})
 
-    # 1. Idempotency — replay returns identical refs.
-    prior = await db.xdr_response_executions.find_one({"execution_id": body.execution_id})
+    # 0. P0.1 · resolve the tenant AUTHORITY before anything is read or
+    # written. Everything below stores and matches on this value only.
+    tenant_id, authority_source, _scope = _resolve_write_tenant_authority(body, user)
+
+    # 1. Idempotency — replay returns identical refs. Scoped to the resolved
+    # tenant so an execution_id can neither collide across tenants nor be
+    # used to harvest another tenant's ref triple.
+    prior = await db.xdr_response_executions.find_one(
+        {"execution_id": body.execution_id, "tenant_id": tenant_id})
     if prior:
         return {
             "evidence_ref": prior["evidence_ref"],
@@ -130,6 +206,13 @@ async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     prov = dict(body.provenance or {})
     prov.setdefault("kind", "response_action")
     prov["execution_id"] = body.execution_id
+    # P0.1 · record WHERE the tenant authority came from. This documents the
+    # decision; it is never itself consulted as authority.
+    prov["tenant_authority"] = {
+        "source":             authority_source,
+        "tenant_id":          tenant_id,
+        "asserted_tenant_id": (body.tenant_id or None),
+    }
     if prov.get("kind") != "response_action":
         raise HTTPException(400, detail={
             "error":  "invalid_provenance",
@@ -143,7 +226,7 @@ async def response_evidence(body: ResponseEvidenceRequest, request: Request):
     now          = _iso()
     common = {
         "execution_id":     body.execution_id,
-        "tenant_id":        body.tenant_id,
+        "tenant_id":        tenant_id,
         "invoker":          body.invoker.model_dump(),
         "action":           body.action.model_dump(),
         "parameters":       body.parameters,
@@ -178,7 +261,7 @@ async def response_evidence(body: ResponseEvidenceRequest, request: Request):
         })
         await db.xdr_response_executions.insert_one({
             "execution_id": body.execution_id,
-            "tenant_id":    body.tenant_id,
+            "tenant_id":    tenant_id,
             "evidence_ref": evidence_ref,
             "audit_ref":    audit_ref,
             "timeline_ref": timeline_ref,

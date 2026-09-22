@@ -1,5 +1,33 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · P0.1 · RESPONSE-EVIDENCE **WRITE** TENANT AUTHORITY — CLOSED · PROVEN
+
+Full record: `/app/memory/P01_RESPONSE_EVIDENCE_WRITE_TENANT_AUTHORITY.md`.
+Backend only, authorization only. No frontend change.
+Proof: focused pytest **35 passed** (`test_p01_response_evidence_write_tenant_authority.py`
++ the two pre-existing response-evidence suites) · live deny-path script
+`scripts/p01_response_evidence_write_tenant_authority.py` → **11 PASS · 0 FAIL**.
+Regression: `test_xdr_rbac_enforcement.py` + `canonical/api/test_p02_evidence_chain.py`
+→ 69 passed / 2 skipped.
+
+- **Root cause**: `POST /api/xdr/response-evidence` stored `body.tenant_id`,
+  the value the WRITER presented, as the tenant of the evidence / audit /
+  timeline / dedup rows, and looked up `execution_id` idempotency globally.
+- **Fix**: `_resolve_write_tenant_authority()` — incident anchor ⇒ the
+  incident's server-resolved tenant (`authorized_incident`); no anchor +
+  single-tenant principal ⇒ its one tenant; no anchor + multi/all-tenant
+  principal ⇒ **DENY** (403 `ambiguous_tenant_authority_without_resource_anchor`).
+  A conflicting assertion fails closed without echoing the authoritative
+  tenant. `body.tenant_id` is now optional and check-only. Idempotency is
+  `{execution_id, tenant_id}`-scoped. `provenance.tenant_authority`
+  records the decision but is never authority.
+- **Accepted debt**: pre-P0.1 rows lack the guarantee — no backfill, no
+  migration, no blanket "unverified" label (audit history is not rewritten).
+- **Owner stack next**: Evidence Namespace Bridge → Dense Timeline Check →
+  Sensor Clock Mapping → Evidence Read Grant (least-privilege RBAC decision,
+  NOT an automatic analyst grant) → Verdict disagreement presentation →
+  Investigate Parity Audit → Investigate retirement.
+
 ## 2026-06-21 · P0 · RESPONSE-EXECUTION TENANT ISOLATION — CLOSED · PROVEN
 
 Full record: `/app/memory/P0_RESPONSE_EXECUTION_TENANT_ISOLATION.md`.
