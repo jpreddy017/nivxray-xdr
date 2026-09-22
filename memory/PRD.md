@@ -1,5 +1,43 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · WINDOWS TELEMETRY / ENDPOINT JOURNAL / FORENSIC GAP ANALYSIS — READ-ONLY, DELIVERED
+
+Full record: `/app/memory/NIVXRAY_XDR_NIVXFORGE_EDR_WINDOWS_TELEMETRY_FORENSIC_GAP_ANALYSIS.md`.
+No implementation code written (owner directive: analysis only).
+
+**Product ownership (mandatory terminology)** — NivXForge EDR owns the Windows
+endpoint sensor, Windows Event Log + native endpoint acquisition, the
+endpoint-local durable Event Journal, endpoint health/provenance and endpoint
+response execution. NivXRay XDR owns authenticated cross-domain ingestion,
+server-side tenant binding, raw + canonical evidence, the Evidence Lake,
+detection/correlation, incidents, investigation, hunting, Event Explorer,
+timeline/trajectory presentation, forensic reconstruction and response
+orchestration + independent verification.
+
+**Headline findings**
+- Windows Event Log acquisition is genuinely implemented
+  (`framework/windows_eventlog.py` EvtSubscribe + durable per-channel
+  bookmarks, 22 declared channels, raw XML verbatim, two-state
+  collection-vs-analysis honesty) but has **NEVER run on a Windows host** —
+  `collection_method: "windows-eventlog"` raw rows = **0**. Class B.
+- **No NivXForge EDR Windows sensor** (Linux sensor only). **No ETW. No WMI
+  API telemetry.** Windows process/file/registry depth is Sysmon-dependent.
+- **No Endpoint Event Journal**: `outbox.py` is a delivery outbox — no
+  retention, rollover, index, query or at-rest integrity.
+- Only 5 of 22 channels have a DSM; the other 17 are acquired-and-preserved
+  but unparsed (stated honestly, never rolled up as healthy).
+- Raw+canonical dual evidence, the three-clock model, tenant authority and the
+  P1 evidence namespace bridge are the platform's strongest assets.
+
+**Gates in order**: G1 Windows endpoint proof → G2 metadata/Sysmon EID
+completeness → G3 DSM expansion → G4 Endpoint Event Journal → G5 Windows
+sensor skeleton (+ `os_family` at enrolment) → G6 ETW → G7 channel-profile API
++ WEF → G8 retention/tier policy → G9 forensic artifact design gate.
+
+**RECOMMENDED NEXT TASK**: G1 — prove the existing Windows Event Log
+acquisition on ONE real Windows endpoint end to end (real Windows host
+required; Linux unit tests are not acceptable for that gate).
+
 ## 2026-06 · P1 · EVIDENCE NAMESPACE BRIDGE — CLOSED · PROVEN
 
 Full record: `/app/memory/P1_EVIDENCE_NAMESPACE_BRIDGE.md`.
