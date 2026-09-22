@@ -7,7 +7,8 @@
 #   2  repository + branch identity (no reclone, no delete, no clean)
 #   3  safe update to the exact reviewed HEAD
 #   4  reviewed-code manifest 25/25 verified locally
-#   5  supported standard CPython 3.14 x64 (Store alias REJECTED)
+#   5  supported standard CPython 3.14 x64 (RESOLVED interpreter judged;
+#      py.exe launcher location is informational only)
 #   6  isolated venv
 #   7  exactly the pinned Windows dependencies
 #   8  pywin32 verified
@@ -25,11 +26,23 @@
 # CREDENTIAL SAFETY: the ingest key is NOT in this source. It is entered
 # once as a SecureString, lives only in this process's environment, is
 # never printed, never written to disk, never placed on a command line,
-# and never appears in a proof artifact.
+# and never appears in a proof artifact. It is cleared in `finally`.
+#
+# OPERATOR SAFETY: no `exit` anywhere. A failed gate throws, is caught, and
+# prints STAGE + REASON; the elevated console stays open and no later G1
+# step runs. Every gate outcome is also appended to C:\nivx\g1-proof\
+# gate-log.txt so a reason survives even a lost window.
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
+
+# OPERATOR-SAFE FAILURE HANDLING
+# Everything runs inside a function. A failed gate throws, the function's
+# own catch prints the exact stage and reason, clears any in-memory token
+# and returns — so the elevated console STAYS OPEN and no later G1 step
+# runs. No `exit` anywhere: `exit` is what closed your window.
+function Invoke-G1Step2 {
 
 # ── settings (no secrets) ────────────────────────────────────────────
 $Repo        = 'https://github.com/jpreddy017/nivxray-xdr.git'
@@ -52,16 +65,41 @@ $Channels = @('Microsoft-Windows-Sysmon/Operational',
               'Security',
               'Microsoft-Windows-PowerShell/Operational')
 
-function Fail($msg) {
-  Write-Host ""
-  Write-Host "STOP: $msg" -ForegroundColor Red
-  Write-Host "Acquisition was NOT started. Nothing was downgraded or bypassed." -ForegroundColor Red
-  if ($env:NIVX_INGEST_TOKEN) { $env:NIVX_INGEST_TOKEN = $null }
-  exit 1
+$script:G1Stage   = 'init'
+$script:G1GateLog = $null
+
+function Note($line) {
+  # Durable gate trail, so a reason survives even a lost console.
+  if ($script:G1GateLog) {
+    try { Add-Content -Path $script:G1GateLog -Value `
+      ("{0:o}  {1}" -f (Get-Date).ToUniversalTime(), $line) -Encoding UTF8 } catch { }
+  }
 }
-function Ok($m)        { Write-Host "  OK   $m" -ForegroundColor Green }
-function Info($m)      { Write-Host "  $m" }
-function Stage($n,$t)  { Write-Host "`n=== $n · $t ===" -ForegroundColor Cyan }
+function Fail($msg) {
+  # Throws. Never exits: the caller's catch prints and returns.
+  Note "FAIL [$script:G1Stage] $msg"
+  throw "G1_GATE_FAILED|$script:G1Stage|$msg"
+}
+function Ok($m)   { Write-Host "  OK   $m" -ForegroundColor Green; Note "OK   [$script:G1Stage] $m" }
+function Info($m) { Write-Host "  $m"; Note "info [$script:G1Stage] $m" }
+function Stage($n,$t) {
+  $script:G1Stage = "$n · $t"
+  Write-Host "`n=== $n · $t ===" -ForegroundColor Cyan
+  Note "STAGE $n · $t"
+}
+
+try {
+# Gate trail lives beside the proof artifacts. Creating this directory
+# touches no Windows configuration and deletes nothing — in particular
+# scripts/windows/g1/nivxray-g1-preflight.json (Step 1 evidence) and any
+# existing g1-proof content are left exactly as they are.
+$script:G1GateLog = $null
+if (Test-Path $Work) {
+  $proofDirEarly = Join-Path $Work 'g1-proof'
+  New-Item -ItemType Directory -Force -Path $proofDirEarly | Out-Null
+  $script:G1GateLog = Join-Path $proofDirEarly 'gate-log.txt'
+  Note "--- G1 Step 2 run start · host $env:COMPUTERNAME · PS $($PSVersionTable.PSVersion) ---"
+}
 
 # ── 1 · Administrator ────────────────────────────────────────────────
 Stage 1 'ADMINISTRATOR'
@@ -164,7 +202,7 @@ if ($bad -gt 0) { Fail "$bad of $($expected.Count) file(s) are not the reviewed 
 Ok "$($expected.Count)/$($expected.Count) reviewed files match byte-for-byte"
 
 # ── 5 · supported interpreter (validate, never install) ──────────────
-Stage 5 'SUPPORTED CPYTHON 3.14 x64 · STORE ALIAS REJECTED'
+Stage 5 'SUPPORTED CPYTHON 3.14 x64 · RESOLVED INTERPRETER IS AUTHORITATIVE'
 $probe = @'
 import json, sys, sysconfig
 print(json.dumps({
@@ -177,17 +215,27 @@ print(json.dumps({
 '@
 $probePath = Join-Path $env:TEMP 'nivx_pyprobe.py'
 $probe | Out-File -FilePath $probePath -Encoding ASCII
-Write-Host "  py.exe launcher inventory:"
+# The LAUNCHER's own location is informational only. py.exe ships under
+# WindowsApps on this host, and that says nothing about the runtime it
+# resolves. What is judged is the interpreter py -3.14 actually resolves to
+# (sys.executable / sys.prefix). On this endpoint that is
+#   C:\Users\<user>\AppData\Local\Python\pythoncore-3.14-64\python.exe
+# which is a real CPython with a working pip, so it PASSES. Only a runtime
+# that itself lives in WindowsApps (the Store alias/package, which has no
+# usable pip) is rejected.
 $launcher = (Get-Command py -ErrorAction SilentlyContinue)
-if (-not $launcher) { Fail 'py.exe is not present. This block installs no interpreter: report this and we decide the runtime change deliberately (see apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md).' }
+if (-not $launcher) { Fail 'py.exe launcher is not present. This block installs no interpreter: report this and we decide the runtime change deliberately (see apps/nivxray-xdr-collector/WINDOWS_RUNTIME.md).' }
+Info "py.exe launcher (informational, not judged): $($launcher.Source)"
+Write-Host "  py.exe launcher inventory:"
 try { (py -0p) 2>$null | ForEach-Object { Write-Host "    $_" } } catch { }
 $info = $null
 try { $info = (py -3.14 $probePath 2>$null) | ConvertFrom-Json } catch { }
 if (-not $info) { Fail 'py -3.14 did not produce a usable interpreter. Nothing is installed automatically — report this and we decide the runtime change deliberately.' }
-Info "resolved  : $($info.version)  $($info.bits)-bit"
-Info "executable: $($info.executable)"
+Info "resolved interpreter (authoritative): $($info.executable)"
+Info "version   : $($info.version)  $($info.bits)-bit  free_threaded=$($info.free_threaded)"
+Info "sys.prefix: $($info.prefix)"
 if ($info.executable -like '*\WindowsApps\*' -or $info.prefix -like '*\WindowsApps\*') {
-  Fail 'the resolved interpreter is the Microsoft Store alias/package. It is not a supported runtime: the path existing proves nothing and it carries no usable pip.'
+  Fail 'the RESOLVED interpreter itself lives under WindowsApps (Microsoft Store alias/package). That is not a supported runtime: it carries no usable pip. The launcher living under WindowsApps is fine; the runtime must not.'
 }
 if (-not $info.version.StartsWith('3.14')) { Fail "resolved $($info.version); G1 is pinned to CPython 3.14 x64 standard build." }
 if ($info.bits -ne 64)   { Fail '32-bit interpreter is not supported for G1.' }
@@ -586,3 +634,41 @@ Write-Host "Canonical evidence identity, parser/normalizer status and ingest" -F
 Write-Host "provenance are verified server-side against these artifacts." -ForegroundColor Yellow
 Write-Host "B4 is NOT part of this run and remains OPEN/MANDATORY/UNWAIVED." -ForegroundColor Yellow
 Pop-Location
+
+}
+catch {
+  $parts = ($_.Exception.Message -split '\|', 3)
+  Write-Host ""
+  if ($parts[0] -eq 'G1_GATE_FAILED') {
+    Write-Host "================ G1 GATE FAILED ================" -ForegroundColor Red
+    Write-Host ("STAGE : " + $parts[1]) -ForegroundColor Red
+    Write-Host ("REASON: " + $parts[2]) -ForegroundColor Red
+  } else {
+    Write-Host "============ G1 UNEXPECTED FAILURE ============" -ForegroundColor Red
+    Write-Host ("STAGE : " + $script:G1Stage) -ForegroundColor Red
+    Write-Host ("ERROR : " + $_.Exception.Message) -ForegroundColor Red
+    if ($_.InvocationInfo) {
+      Write-Host ("WHERE : line " + $_.InvocationInfo.ScriptLineNumber + " · " +
+                  $_.InvocationInfo.Line.Trim()) -ForegroundColor DarkGray
+    }
+    Note ("UNEXPECTED [" + $script:G1Stage + "] " + $_.Exception.Message)
+  }
+  Write-Host "Acquisition was NOT started. No gate was downgraded or bypassed." -ForegroundColor Red
+  if ($script:G1GateLog) { Write-Host ("Gate trail: " + $script:G1GateLog) -ForegroundColor DarkGray }
+  Write-Host "This console stays open. Re-run Invoke-G1Step2 after fixing the cause." -ForegroundColor Yellow
+  Write-Host "===============================================" -ForegroundColor Red
+  return
+}
+finally {
+  # The in-memory ingest token never outlives the run, pass or fail.
+  if ($env:NIVX_INGEST_TOKEN) {
+    $env:NIVX_INGEST_TOKEN = $null
+    Remove-Item Env:\NIVX_INGEST_TOKEN -ErrorAction SilentlyContinue
+    Write-Host "  ingest token cleared from this process's environment" -ForegroundColor DarkGray
+  }
+  Pop-Location -ErrorAction SilentlyContinue
+}
+}
+
+# Run it. Nothing above executed on its own.
+Invoke-G1Step2
