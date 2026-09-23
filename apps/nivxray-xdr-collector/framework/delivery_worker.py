@@ -20,18 +20,24 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-from framework.delivery import IngestClient, IngestOutcome
-from framework.outbox   import Outbox, OutboxRow, OutboxStatus
+from framework.delivery    import (DeliveryClassification, IngestClient,
+                                   IngestOutcome)
+from framework.health_gate import DeliveryHealthGate, GateState
+from framework.outbox      import Outbox, OutboxRow, OutboxStatus
 
 
 class DeliveryWorker:
     def __init__(self, outbox: Outbox, ingest: IngestClient,
                     batch_size: int = 50,
-                    poll_interval_seconds: float = 2.0) -> None:
+                    poll_interval_seconds: float = 2.0,
+                    health_gate: Optional[DeliveryHealthGate] = None) -> None:
         self.outbox     = outbox
         self.ingest     = ingest
         self.batch_size = batch_size
         self.interval   = poll_interval_seconds
+        #: G1-R3 · destination health, so a dead endpoint cannot consume every
+        #: event's per-event retry budget.
+        self.gate       = health_gate or DeliveryHealthGate()
         self._task: Optional[asyncio.Task] = None
         self._stop_event: Optional[asyncio.Event] = None
         self.ticks         = 0
@@ -74,11 +80,27 @@ class DeliveryWorker:
 
     async def _drain_batch(self) -> dict:
         import datetime as _dt
-        rows = self.outbox.next_batch(limit=self.batch_size)
         self.ticks += 1
         self.tick_last_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+        # G1-R3 · while the destination is known-unavailable, claim nothing.
+        # No row is touched, so no retry budget is consumed and nothing can be
+        # stranded in DELIVERING.
+        if not self.gate.allow_delivery():
+            return {"ticks": self.ticks, "drained": 0, "delivered": 0,
+                     "retrying": 0, "dead": 0,
+                     "gate": self.gate.state,
+                     "gate_skipped": True,
+                     "seconds_until_probe": self.gate.seconds_until_probe()}
+
+        probing = self.gate.state == GateState.HALF_OPEN
+        limit = self.gate.probe_limit() or self.batch_size
+        rows = self.outbox.next_batch(limit=limit)
         if not rows:
-            return {"ticks": self.ticks, "drained": 0}
+            return {"ticks": self.ticks, "drained": 0,
+                     "gate": self.gate.state}
+        if probing:
+            self.gate.note_probe()
 
         ids = [r.id for r in rows]
         self.outbox.mark_delivering(ids)
@@ -92,11 +114,17 @@ class DeliveryWorker:
             env = r.to_envelope()
             result = await self.ingest.deliver([env])
             out    = result.get("outcome")
+            classification = result.get("classification")
             if out == IngestOutcome.OK:
                 delivered_ids.append(r.id)
+                self.gate.record_success()
             elif out == IngestOutcome.RETRYABLE:
                 reason = str(result.get("reason") or "retryable")
                 detail = result.get("failure_detail")
+                # R3: a retryable/unattributed failure is evidence about the
+                # DESTINATION. Record it before touching the row, so a gate
+                # that opens mid-batch stops the remaining attempts.
+                self.gate.record_destination_failure(reason)
                 new_status = self.outbox.mark_retry(r.id, error=reason,
                                                         detail=detail)
                 if new_status == OutboxStatus.DEAD_LETTER:
@@ -111,18 +139,35 @@ class DeliveryWorker:
                     dead_counts += 1
                 else:
                     retrying_counts += 1
+                if self.gate.state == GateState.OPEN:
+                    # Stop spending the rest of the batch on a destination we
+                    # now know is unavailable. Unclaimed rows are released
+                    # back to QUEUED, untouched and uncounted.
+                    remaining = [row.id for row in rows
+                                 if row.id not in delivered_ids
+                                 and row.id != r.id]
+                    if remaining:
+                        self.outbox.release_delivering(remaining)
+                    break
             else:  # FATAL — an application-attributed refusal only
                 self.outbox.mark_dead(r.id,
                                           error=str(result.get("reason") or "fatal"),
                                           detail=result.get("failure_detail"))
                 dead_counts += 1
+                # The destination answered correctly about this event, so it is
+                # healthy: a stream of bad events must not stall good ones.
+                if classification == DeliveryClassification.AUTHORITATIVE_TERMINAL:
+                    self.gate.record_event_refusal(
+                        str(result.get("reason") or "fatal"))
         if delivered_ids:
             self.outbox.mark_delivered(delivered_ids)
         return {"ticks":     self.ticks,
                  "drained":   len(rows),
                  "delivered": len(delivered_ids),
                  "retrying":  retrying_counts,
-                 "dead":      dead_counts}
+                 "dead":      dead_counts,
+                 "gate":      self.gate.state,
+                 "probe":     probing}
 
     def status(self) -> dict:
         return {
@@ -132,4 +177,5 @@ class DeliveryWorker:
             "last_tick_error": self.tick_last_error,
             "batch_size":      self.batch_size,
             "poll_interval":   self.interval,
+            "health_gate":     self.gate.status(),
         }

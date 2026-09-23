@@ -29,8 +29,14 @@ def outbox_health(request: Request):
     outbox_metrics = runtime.outbox.metrics()
     worker_status  = runtime.worker.status()
     depth = outbox_metrics["queue_depth"]
+    gate = worker_status.get("health_gate") or {}
+    gate_state = gate.get("state")
     if not ingest_status["configured"]:
         state = "not_configured"
+    elif gate_state in ("OPEN", "HALF_OPEN"):
+        # G1-R3 · the destination is unavailable and delivery is paused. Say so
+        # plainly rather than reporting "degraded" as if events were flowing.
+        state = "delivery_paused"
     elif ingest_status["last_error"] and depth > 0:
         state = "degraded"
     elif ingest_status["delivered"] > 0 and ingest_status["last_error"] is None:
@@ -38,6 +44,7 @@ def outbox_health(request: Request):
     else:
         state = "idle"
     return {"state":  state,
+              "delivery_health": gate,
               "ingest": ingest_status,
               "outbox": outbox_metrics,
               "worker": worker_status}

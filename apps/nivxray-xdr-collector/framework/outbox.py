@@ -308,6 +308,28 @@ class Outbox:
                 f"UPDATE envelopes SET status=?, updated_at=? WHERE id IN ({qmarks})",
                 [OutboxStatus.DELIVERING, now, *ids])
 
+    def release_delivering(self, ids: Iterable[str]) -> int:
+        """G1-R3 · hand claimed-but-unattempted rows back to QUEUED.
+
+        Used when the delivery health gate opens mid-batch: those rows were
+        never sent, so they must not lose retry budget and must not be left
+        stranded in DELIVERING. `attempts` and `next_attempt_at` are left
+        exactly as they were, and only rows still in DELIVERING are touched,
+        so this can never resurrect a row that meanwhile reached a terminal
+        state."""
+        ids = list(ids)
+        if not ids:
+            return 0
+        now = _iso(_utcnow())
+        with self._lock:
+            qmarks = ",".join("?" * len(ids))
+            cur = self._conn.execute(
+                f"UPDATE envelopes SET status=?, updated_at=? "
+                f" WHERE id IN ({qmarks}) AND status=?",
+                [OutboxStatus.QUEUED, now, *ids, OutboxStatus.DELIVERING])
+            return cur.rowcount or 0
+
+
     def mark_delivered(self, ids: Iterable[str]) -> None:
         ids = list(ids)
         if not ids:

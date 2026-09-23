@@ -887,3 +887,143 @@ remains owner-gated **R4**.
    successful replay should archive it.
 7. **Not deployed, not exercised against a live ingest delivery** — unit-proven
    only, by instruction.
+
+---
+
+## 13 · G1-R3 DELIVERY HEALTH GATE IMPLEMENTATION
+
+**`G1_R3_DELIVERY_HEALTH_GATE = PASS`** · owner-authorised scope only. No R4,
+no requeue/replay, no Windows endpoint contact, no deployment, no merge, no
+force-push, no B4/G2, no credential work.
+
+### 13.1 Why R1+R2 were not enough
+
+R1 and R2 are *per-event* corrections. Neither stops the worker from grinding
+the whole queue against a destination that is not there. With R1 alone, the G1
+outage would no longer destroy events on attempt one — it would walk each of
+125,452 rows to `retries exhausted` instead. The retry budget exists to absorb
+*per-event* problems; spending it on a *destination* problem is the same
+category error in slower motion.
+
+So health is now tracked per destination, and the evidence that moves it is
+destination-level evidence only.
+
+### 13.2 State machine
+
+```
+  CLOSED ──failure──▶ SUSPECT ──threshold reached──▶ OPEN
+     ▲                   │                            │
+     │                   └──success/refusal──┐        │ cooldown elapsed
+     │                                       ▼        ▼
+     └──────── probe succeeds ──────── HALF_OPEN ◀────┘
+                                            │
+                                    probe fails → OPEN
+                                    (cooldown ×2, clamped)
+```
+
+| state | delivery | rows claimed | retry budget |
+|---|---|---|---|
+| `CLOSED` | normal | up to `batch_size` | spent normally |
+| `SUSPECT` | **normal** — visible, not paused | up to `batch_size` | spent normally |
+| `OPEN` | **paused** | **none** | **none spent** |
+| `HALF_OPEN` | probing | **exactly one** | one row only |
+
+Defaults (env-overridable, invalid values fall back rather than disabling the
+gate): `NIVX_DELIVERY_GATE_THRESHOLD=5`,
+`NIVX_DELIVERY_GATE_COOLDOWN_SECONDS=30`,
+`NIVX_DELIVERY_GATE_MAX_COOLDOWN_SECONDS=300`. Cooldown doubles per failed
+probe and clamps at the maximum, so the gate **always keeps re-probing** — it
+never gives up permanently and never busy-loops (an `OPEN` tick performs zero
+network I/O).
+
+### 13.3 Contract — what moves the gate, and what must not
+
+| evidence | gate effect | rationale |
+|---|---|---|
+| `ACCEPTED` (2xx) | resets run, closes gate | the destination is provably alive |
+| `RETRYABLE` (5xx/408/429/timeout/connect/DNS) | destination failure | service-level condition |
+| `UNATTRIBUTED_FAILURE` (incl. the G1 edge 404) | destination failure | nothing proves the app answered |
+| `AUTHORITATIVE_TERMINAL` (attributed 4xx) | **no effect** — resets the run | the application answering correctly about one event *is* health; a stream of bad events must never stall good ones |
+
+This is the invariant that stops the gate from becoming a new way to lose
+evidence: **an authoritative application refusal is never disguised as an
+infrastructure outage, and an infrastructure outage is never disguised as a
+refusal.**
+
+### 13.4 Safety properties, and how each is enforced
+
+| property | mechanism |
+|---|---|
+| no event loss | while `OPEN` no row is claimed; when the gate opens mid-batch the un-attempted rows are handed back with `release_delivering()` (status-guarded `WHERE status='delivering'`, `attempts` and `next_attempt_at` untouched) |
+| no retry-budget burn | `allow_delivery()` returns `False` before `next_batch()`, so no attempt is recorded |
+| no false `DELIVERED` | only a real 2xx reaches `mark_delivered()`; unchanged |
+| no duplicate acknowledgement | the gate never acknowledges; a probe is an ordinary single-row delivery |
+| no bookmark advancement | bookmarks follow acknowledgement, and the gate produces none |
+| backpressure accounting preserved | `counts()`/`metrics()` untouched; queue depth stays truthful while paused |
+| restart is deterministic | gate is in-memory and starts `CLOSED`; `Outbox.__init__` already resets `DELIVERING -> QUEUED`, so no row is stranded and retry budgets survive |
+| tenant/auth stays fail-closed | untouched — those are `AUTHORITATIVE_TERMINAL` when attributed, and bounded-retry when not (R1) |
+| R1 preserved | classification logic untouched; the gate reads it, never overrides it |
+| R2 preserved | failure detail still written on every attempted row |
+| operationally visible | `worker.status()["health_gate"]` and `GET /outbox/health` -> `delivery_health` + `state: "delivery_paused"` |
+
+### 13.5 Changed files
+
+| file | change |
+|---|---|
+| `framework/health_gate.py` | **new** · `DeliveryHealthGate`, `GateState`, env config with safe fallback, bounded exponential cooldown, `status()` telemetry |
+| `framework/delivery_worker.py` | gate injected (default-constructed); pre-drain `allow_delivery()` short-circuit; `HALF_OPEN` single-row probe; destination-failure recording *before* the row update so a mid-batch open stops further attempts; `release_delivering()` for un-attempted rows; `AUTHORITATIVE_TERMINAL` reported as event-refusal, not destination failure; gate state in `status()` and in every tick result |
+| `framework/outbox.py` | **new** `release_delivering()` — status-guarded return of claimed-but-unattempted rows to `QUEUED` without touching `attempts`/`next_attempt_at` |
+| `routes/outbox.py` | `GET /outbox/health` reports `delivery_health` and a distinct `delivery_paused` state instead of mislabelling a paused destination as `degraded` |
+| `tests/test_g1_r3_delivery_health_gate.py` | **new**, 19 tests |
+
+### 13.6 Tests and results
+
+```
+tests/test_g1_r3_delivery_health_gate.py  ->  19 passed
+full collector regression                 -> 245 passed in 3.12s, 0 failed
+                                             (R1 30 · R2 16 · R3 19 · pre-existing 180)
+imports                                   -> main, routes.outbox, routes.preflight,
+                                             framework.delivery_worker, health_gate
+```
+
+| required scenario | test |
+|---|---|
+| outage -> pause | `test_gate_opens_after_threshold_and_stops_consuming_attempts` (3 calls spent, not 10; 5 later ticks attempt nothing; attempts map unchanged) |
+| no stranded/lost rows | `test_unattempted_rows_are_released_not_stranded` (`delivering == 0`, 2 retrying + 6 queued, total 8) |
+| bounded recovery -> resume | `test_half_open_probes_a_single_row_then_closes_on_success` (probe risks exactly 1 row, then 5 drain normally) |
+| failed probe backoff, bounded | `test_failed_probe_reopens_with_bounded_backoff` (10 -> 20 -> 40 -> 40 clamp, still probing) |
+| attributed refusal must not pause | `test_authoritative_refusal_does_not_open_the_gate` (all 6 refused, gate `CLOSED`) |
+| success resets the run | `test_success_resets_the_failure_run` |
+| connect/DNS/timeout | `test_transport_failure_is_destination_evidence` |
+| repeated 404 | tests 1, 2, 3, 9, 11 |
+| repeated 5xx | `test_suspect_state_is_visible_before_pausing`, `test_success_resets_the_failure_run` |
+| R1+R2 not bypassed | `test_gate_preserves_r1_classification_and_r2_evidence` |
+| no false DELIVERED / no dup ack | `test_no_duplicate_acknowledgement_and_no_delivery_while_open`, `test_concurrent_ticks_do_not_double_acknowledge` |
+| durability + idempotency | `test_idempotency_and_payloads_survive_a_gated_outage` |
+| restart while unhealthy | `test_restart_while_unhealthy_is_safe_and_deterministic` (fresh gate `CLOSED`, `delivering == 0`, `delivered == 0`, 6 rows, attempts identical) |
+| concurrency | `test_concurrent_ticks_do_not_double_acknowledge` (4 concurrent drains; no row invented or lost) |
+| no retry storm | `test_open_gate_performs_no_network_io` (25 ticks, zero network calls, queue of 50 intact) |
+| observability | `test_gate_state_is_reported_in_worker_status`, `test_suspect_state_is_visible_before_pausing` |
+| configuration | `test_gate_defaults_come_from_environment`, `test_gate_rejects_nonsense_configuration`, `test_worker_has_a_gate_by_default` |
+| happy path unaffected | `test_healthy_destination_is_unaffected` (12/12 delivered, gate never opened) |
+
+### 13.7 Unresolved risks
+
+1. **The gate is in-memory.** A restart during an outage begins `CLOSED` and
+   re-probes immediately, so a crash-loop could re-spend the threshold each
+   time. Deterministic and bounded (threshold attempts per start), but not
+   persisted. Persisting gate state was not in scope.
+2. **Row claiming is still select-then-update.** Two concurrent drains of the
+   same outbox could claim the same row; the invariants hold (idempotent
+   ingest, single terminal status, no row loss — proven by test 10) but this
+   pre-existing race was not fixed under R3.
+3. **Threshold semantics are consecutive-failure based**, not a rolling error
+   rate; a destination failing 50 % of requests will oscillate
+   `SUSPECT -> CLOSED` rather than opening. Acceptable for the outage class
+   that caused G1; a rate-based policy is a later refinement.
+4. **A long outage still ends in `retries exhausted`** for rows already close
+   to their budget when the gate opened — materially better than instant
+   destruction, but the gate does not retroactively restore budget.
+5. **Attribution remains an unsigned header** (unchanged from R1/R2).
+6. **Not deployed and not exercised against a live destination** — unit-proven
+   only, by instruction.

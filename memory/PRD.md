@@ -19287,9 +19287,34 @@ Live check (no ingest, no mutation): the deployed app stamps `x-request-id` on a
 is observable end-to-end. Historical 14,868 rows untouched — additive migration
 back-fills nothing. Detail: §12 of the root-cause doc.
 
-Sequence remaining: **terminal verification of R1+R2 -> R3 delivery health gate
--> terminal verification -> R4 owner-gated recovery of the 14,868** (only R4
-touches historical rows).
+### 2026-06 · G1-R3 delivery health gate — `G1_R3_DELIVERY_HEALTH_GATE = PASS`
+Destination health is now tracked separately from per-event outcomes, so an
+outage can no longer consume every row's retry budget.
+State machine `CLOSED -> SUSPECT -> OPEN -> HALF_OPEN -> CLOSED`: `SUSPECT` is
+visible but still delivering; `OPEN` claims **no rows** and performs **zero
+network I/O**; `HALF_OPEN` risks **exactly one** probe row; a failed probe
+doubles the cooldown, clamped, so probing never stops and never storms.
+Defaults (env-overridable, invalid values fall back safely):
+threshold 5, cooldown 30 s, max cooldown 300 s.
+Contract: `ACCEPTED` closes the gate; `RETRYABLE` and `UNATTRIBUTED_FAILURE`
+(incl. the G1 edge 404) are destination evidence; **`AUTHORITATIVE_TERMINAL`
+never opens the gate** — an app refusing one event is a healthy destination, so
+bad events cannot stall good ones.
+Files: new `framework/health_gate.py`, new `Outbox.release_delivering()`
+(status-guarded, leaves `attempts`/`next_attempt_at` untouched),
+`framework/delivery_worker.py`, `routes/outbox.py` (`delivery_health` +
+`state: delivery_paused`), new `tests/test_g1_r3_delivery_health_gate.py`
+(19 tests).
+Results: 19 passed · full collector regression **245 passed, 0 failed**
+(R1 30 · R2 16 · R3 19 · pre-existing 180). Detail: §13 of the root-cause doc.
+Known risks: gate is in-memory (restart re-probes), row claiming is still
+select-then-update (pre-existing race, invariants hold), threshold is
+consecutive-failure not rate-based, and nothing is deployed.
+
+Sequence remaining: **R4 owner-gated recovery of the 14,868 preserved rows**
+(the only step that touches historical evidence), then Security
+`SOURCE_FORMAT_MISMATCH`, PowerShell re-test, clock collapse, `parser_ok`
+declaration, `RAW_PERSISTED` orphan, server rejection ledger, B4, G2.
 
 Original recommended scope (1 now DONE as R1):
 1. terminality requires an application-attributable refusal — **404 must not be
