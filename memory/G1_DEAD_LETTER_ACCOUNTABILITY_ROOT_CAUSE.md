@@ -453,3 +453,168 @@ and it can only be produced on the endpoint. Run
 `memory/G1_DEAD_LETTER_HISTOGRAM_READONLY.ps1` and return
 `dead-letter-histogram.json`; this section will then be replaced with the measured
 result.
+
+---
+
+## 10 · G1 HTTP 404 ROOT CAUSE
+
+**`G1_HTTP_404_ROOT_CAUSE = PASS`**
+
+Owner-supplied endpoint measurement accepted as authoritative: 125,452 rows
+(107,525 queued · 14,868 dead_letter · 2,884 delivered · 125 retrying ·
+50 delivering); **14,868 / 14,868 dead letters = `HTTP 404` (100 %)**; zero
+payloads over 512 KB; size range 754–28,135 bytes, mean ≈1,240 bytes. The
+512 KB / `413` hypothesis is therefore **REJECTED** for this population, and so
+are the `422`, `403`, `400`, DNS, TLS and timeout families — none is present.
+
+### 10.1 Every 404 producer in the deployed ingest path
+
+| # | file:line / function | condition | response detail | reaches ingest handler? | anything persisted? | compatible with measured G1 behaviour? |
+|---|---|---|---|---|---|---|
+| P1 | `routers/xdr_ingest.py:818-820` `ingest_telemetry` | `_c_collectors().find_one({"id": cid})` returns nothing | `404 detail="collector not found"` (JSON body) | yes — 404 raised *inside* the handler, after auth | **no** | **NO — excluded, see 10.2** |
+| P2 | `routers/xdr_api_keys.py:265/277/311/340/361` | key-management routes only (`GET`/`revoke`/`rotate`) | `404 "api key not found"` | n/a — different routes | no | NO — not in the ingest path |
+| P3 | Starlette router (no matching route/method) | path or method not registered | bare `404 {"detail":"Not Found"}` | no | no | possible in principle; **excluded, see 10.2** |
+| P4 | **infrastructure in front of the app** (Kubernetes ingress / preview router) | no live backend behind the preview hostname | edge `404`, no application body | **no** | **no** | **YES — this is the proven producer** |
+
+Note the collector lookup at P1 is `find_one({"id": cid})` with **no** tenant,
+`enabled`, `state` or `deleted_at` filter, so mere existence of the document is
+sufficient for it to pass. `state = PARSE_ERROR` is irrelevant to it.
+
+### 10.2 Three independent proofs that the application never produced these 404s
+
+**Proof 1 — the API key's own counter.** `verify_api_key()`
+(`routers/xdr_api_keys.py:396-401`) increments `use_count` and stamps
+`last_used_at` on **every successful verification**, and that dependency runs
+*before* the route body. So an in-app 404 at P1 would still have incremented the
+counter. Measured:
+
+```
+key_17105f51ce76424ca1bd : use_count = 2901 , last_used_at = 2026-09-22T23:38:34.104017Z
+server-side work         : 2876 canonical + 26 routing blocks = 2902
+```
+`use_count` matches the requests that were *processed*, with no surplus. Had even a
+fraction of the 14,868 reached the app, `use_count` would be ≈17,700. **14,868
+POSTs performed zero key verifications, therefore they never entered the ASGI
+application.** (Also decisive: `last_used_at` never advanced past 23:38:34, while
+dead-lettering continued afterwards.)
+
+**Proof 2 — the backend request log contains no 404 at all.**
+`/var/log/supervisor/backend.err.log` covers `2026-09-22T17:45:21` →
+`2026-09-23T14:28:18` — squarely across the dead-letter window. Measured:
+
+```
+grep -c 'status=404 | "status": 404'                      -> 0
+'"route": "/api/xdr/ingest/telemetry"'  by status         -> status=200 : 312   (only value present)
+first 2026-09-22T17:45:22.494Z   last 2026-09-22T23:38:34.211Z
+```
+Both the structured `nivxray.request` logger and the `nivxray.middleware` logger
+recorded **not one** 404 for any route in the entire window.
+
+**Proof 3 — the application was not running during the loss window.** Counting
+*all* app-reaching requests per hour (the local EDR agent heartbeats continuously
+while the backend is up, so absence is meaningful):
+
+```
+2026-09-22T17  174        <- app up
+2026-09-22T18  (absent)   <- app DOWN
+2026-09-22T19  (absent)
+2026-09-22T20  (absent)
+2026-09-22T21  (absent)
+2026-09-22T22  (absent)
+2026-09-22T23  504        <- app back: "Started server process [162]" @ 23:33:54.437
+2026-09-23T00  555 ... (further down-windows 04-07, 10-12)
+```
+Zero requests of any kind for ~5 h 46 m (17:47 → 23:33). The preview backend was
+**not serving**; the hostname in front of it answered `404`.
+
+### 10.3 Why record 3286059 succeeded while thousands of later events got 404
+
+Pure temporal coincidence with backend availability — not source type, not size,
+not parser:
+
+```
+16:43:27  temporary key minted; collector starts; delivery begins
+16:43:32  Sysmon 3286059 delivered -> raw + canonical evidence (app UP)
+16:43-17:47  2,707 events processed (382 in hour 16, 2,325 in hour 17)   app UP
+17:26-17:41  26 Security routing blocks recorded (app UP, durable refusals)
+17:47 -> 23:33  app DOWN  ->  every POST answered 404 by the edge  ->  endpoint
+                dead-letters each one immediately (attempts = 0)
+23:33:54  backend restarted
+23:33-23:38  169 more events delivered successfully (app UP again)
+23:38:34  last app-reaching ingest request; collector later stopped
+           (50 rows left in `delivering` = worker killed mid-flight)
+```
+The same collector, same key, same tenant, same three channels succeeded before
+17:47 and again at 23:33. **Nothing about the events changed; only backend
+availability did.**
+
+### 10.4 Answers to the specific questions
+
+| question | answer | classification |
+|---|---|---|
+| Which exact server code path produced the 404s? | **None.** P4 — the infrastructure in front of the ASGI app, while the backend was not running. `xdr_ingest.py:820` did not execute. | **PROVEN** (3 independent proofs, §10.2) |
+| Why could 3286059 succeed while others 404'd? | It was delivered at 16:43:32 while the backend was up; the 404s fall in the 17:47→23:33 outage. 169 later deliveries also succeeded after the 23:33:54 restart. | **PROVEN** |
+| Collector temporarily unregistered? | **No.** Single document `_id 6ab288a9589e534d6c49bb6a`, `created_at 13:54:49.832948Z`, `deleted_at null`, `enabled true`; only one collector has ever existed in the tenant. | **PROVEN** |
+| Tenant lookup failing? | **No.** Tenant `ten_f1a5…` `ACTIVE`, created 13:54:49.453547Z, never modified. A tenant/collector mismatch yields `403`, not `404`, and zero 403s were recorded either side. | **PROVEN** |
+| Wrong deployment / wrong backend hit? | Not a *different* backend — the same hostname with **no live backend behind it**. | **PROVEN** for "app not reached"; the precise edge component that emitted the 404 is infrastructure-side and **UNRESOLVED** (no ingress logs are available to this environment) |
+| Routing / proxy issue? | Yes, in the sense of §10.2 Proof 3: the route existed in code but no process was listening. | **PROVEN** |
+| Any lifecycle op created/deleted/recreated/changed `col_d6b0b9e8…`? | Audit log for the tenant holds 15 rows: `TENANT_CREATED`, `COLLECTOR_CREATED` (13:54:49.840705Z), 6× `API_KEY_CREATED`, 6× `API_KEY_REVOKED`, and exactly one `COLLECTOR_STATE_CHANGED` at 16:43:32.137133Z (by `apikey:key_17105f51ce76424ca1bd`). **No delete, no recreate.** `updated_at 23:38:34.106091Z` = the last successful ingest, not a lifecycle edit. | **PROVEN** |
+| Are the 14,868 genuinely terminal? | **No.** They are transient-outage casualties. Proven by construction: 169 events of the same kinds succeeded minutes after the backend returned, and the rows still hold their `raw_json` + `canonical_json`. | **PROVEN** |
+| Does the endpoint misclassify this 404 as permanently dead on first failure? | **Yes.** `framework/delivery.py:141-146` maps any non-408/429 4xx to `FATAL`; `outbox.mark_dead()` is terminal with no attempt threshold. Measured `attempts = 0` on every dead letter confirms a single attempt. | **PROVEN** |
+| Is PowerShell a parser problem? | **No.** Record 510's single attempt received an edge 404, so PowerShell telemetry has **never been evaluated server-side**. Its parser/DSM status is simply untested. | **PROVEN** that it was never evaluated; **UNRESOLVED** whether it would parse |
+| Is the Security format mismatch real? | Yes, but **separate**. The 24 `SOURCE_FORMAT_MISMATCH` routing blocks occurred at 17:26-17:41 while the app was up. Record 238776's own single attempt was an edge 404. | **PROVEN** (both facts, independently) |
+
+### 10.5 Revised defect model
+
+The earlier analysis (§3) identified the *accountability* architecture correctly,
+but it mis-ranked the cause of **this** incident. Corrected ranking:
+
+1. **D-5 is the primary defect here, not a secondary amplifier.** A transient
+   infrastructure outage was converted into 14,868 permanent evidence losses by a
+   first-attempt terminal decision on a status code the endpoint cannot attribute.
+   The retry/backoff machinery already exists (`mark_retry`, `_max_attempts`,
+   `DEFAULT_BACKOFF_SECONDS`) — it was simply not reachable for a 404.
+2. **D-4 (`last_error = "HTTP {code}"`) is what made diagnosis this expensive.**
+   An edge 404 (no JSON body, no `X-Request-ID`, different `content-type`/`server`
+   headers) is trivially distinguishable from the app's
+   `404 {"detail":"collector not found"}` — but the endpoint discarded exactly the
+   bytes that distinguish them.
+3. **D-1/D-2/D-3 (the server-side rejection ledger) remain valid and unwaived**,
+   but they are **second-order for this incident**: a server-side ledger cannot
+   record a request the server never received. Any ledger design that claimed to
+   explain these 14,868 would be false by construction.
+4. **New defect D-9: no delivery health gate.** The worker drained the outbox at
+   full rate into a dead endpoint for nearly six hours without a single
+   reachability pre-flight or circuit breaker.
+5. **New defect D-10: unattributable-terminal has no representation.** There is no
+   `DEAD_LETTER_UNEXPLAINED` state, so "the server never told us why" is
+   indistinguishable from "the server refused this event".
+
+### 10.6 Recommended bounded remediation scope (NOT implemented)
+
+Ordered by ratio of loss prevented to risk introduced:
+
+1. **Endpoint — terminality must require an application-attributable refusal.**
+   Treat a 4xx as terminal only when the response is provably from the
+   application (parseable NivXRay error envelope, ideally a `rejection_id`);
+   otherwise classify `RETRYABLE` / `DEAD_LETTER_UNEXPLAINED` and honour
+   `_max_attempts`. Specifically: **404 must not be first-attempt terminal.**
+2. **Endpoint — persist the discriminating bytes**: status, `content-type`,
+   `X-Request-ID`, a bounded body excerpt, plus the resolved URL. This alone would
+   have answered this question in minutes.
+3. **Endpoint — delivery health gate (D-9)**: cheap pre-flight probe plus a
+   circuit breaker so an unreachable server pauses the drain instead of shredding
+   the queue.
+4. **Bounded recovery of the existing 14,868** — the rows still contain
+   `raw_json` and `canonical_json`, so a one-off operator-gated requeue of
+   `status='dead_letter' AND last_error='HTTP 404'` is feasible and would restore
+   the lost evidence. **Separate owner-authorised gate; not part of any fix
+   above; must not run automatically.**
+5. **Server — rejection ledger (D-1/D-2/D-3)** as designed in §5, correctly
+   scoped to refusals the server actually issues.
+6. **Only after (1)-(3)** does re-testing PowerShell make sense; today its
+   server-side behaviour is simply unmeasured.
+
+Not in scope and untouched: the 512 KB cap (hypothesis rejected — no change
+justified), Security `SOURCE_FORMAT_MISMATCH`, the clock collapse, `parser_ok`
+declaration, the `RAW_PERSISTED` orphan, B4, G2.

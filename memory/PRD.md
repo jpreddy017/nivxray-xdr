@@ -19216,9 +19216,50 @@ be recorded at all. Endpoint amplifier: `framework/delivery.py:143` stores only
 non-408/429 4xx on the first attempt.
 Classification **E (multiple causes)**: B primary, C amplifier, D ruled out,
 A not excludable for an unknown share.
-`DEAD_LETTER_ROOT_CAUSE = PASS` · `MOVE_TO_IMPLEMENTATION = HOLD` pending one
-read-only endpoint query (`GROUP BY last_error` on dead-lettered rows) to measure
-the actual 4xx histogram before the ledger is designed around a guess.
+`DEAD_LETTER_ROOT_CAUSE = PASS`.
+
+### 2026-06 · G1 HTTP 404 root cause — `G1_HTTP_404_ROOT_CAUSE = PASS`
+Owner ran the read-only histogram on the endpoint: **14,868 / 14,868 dead letters
+= `HTTP 404` (100%)**, zero payloads over 512 KB (754–28,135 bytes, mean ~1,240).
+**512 KB / 413 hypothesis REJECTED**; no 422/403/400/DNS/TLS/timeout present.
+
+Root cause **PROVEN**: the application never produced these 404s. They came from
+the infrastructure in front of the ASGI app while the Preview backend was **not
+running** (~17:47 -> 23:33 on 2026-09-22, ~5h46m). Three independent proofs:
+1. `key_17105f51ce76424ca1bd.use_count = 2901` == 2876 canonical + 26 routing
+   blocks, with `last_used_at` frozen at 23:38:34 — `verify_api_key()` increments
+   on every verification *before* the route, so 14,868 POSTs performed **zero**
+   verifications and never entered the app;
+2. `backend.err.log` (17:45 -> next-day 14:28) contains **zero** 404s for any
+   route; ingest shows only `status=200` (312 of them);
+3. zero app-reaching requests of any kind in hours 18-22 (continuous EDR
+   heartbeats absent) -> backend down; `Started server process` @ 23:33:54.
+
+`xdr_ingest.py:818-820` ("collector not found") did **not** execute. Collector
+`col_d6b0b9e8172246f29be9` was never deleted/recreated (single `_id`,
+`deleted_at=null`, audit shows only `COLLECTOR_CREATED` 13:54:49 +
+one `COLLECTOR_STATE_CHANGED` 16:43:32). Sysmon `3286059` succeeded at 16:43:32
+while up; 169 more events succeeded after the 23:33:54 restart. **The 14,868 are
+transient-outage casualties, not terminal refusals**, and their `raw_json` +
+`canonical_json` are still intact in the outbox.
+
+Revised defect ranking: **D-5 (first-attempt terminality on an unattributable
+4xx) is the primary defect**, D-4 (`last_error = "HTTP {code}"` discards the
+distinguishing bytes) made diagnosis expensive, and the server rejection ledger
+(D-1/D-2/D-3) is **second-order for this incident** — a server cannot ledger a
+request it never received. New: **D-9** no delivery health gate/circuit breaker,
+**D-10** no `DEAD_LETTER_UNEXPLAINED` state. PowerShell is **not** a parser
+problem — record 510's single attempt hit the edge 404, so PowerShell has never
+been evaluated server-side. Security `SOURCE_FORMAT_MISMATCH` (24 blocks,
+17:26-17:41, app up) is real and **separate**.
+
+Recommended bounded scope (not implemented, owner review pending):
+1. terminality requires an application-attributable refusal — **404 must not be
+   first-attempt terminal**; 2. persist status + content-type + `X-Request-ID` +
+bounded body excerpt; 3. delivery health gate / circuit breaker; 4. **separate
+owner-gated** requeue of `dead_letter AND last_error='HTTP 404'` to recover the
+14,868; 5. server rejection ledger as designed; 6. re-test PowerShell only after
+1-3. The 512 KB cap stays unchanged (hypothesis rejected).
 
 ### Findings recorded, NOT fixed (no owner authorization yet)
 * **P1 — dead-letter accountability**: endpoint reported 14,868 dead-lettered events;
