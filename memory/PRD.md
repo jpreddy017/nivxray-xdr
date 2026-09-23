@@ -19423,3 +19423,67 @@ no force push.
 R4 dead-letter recovery → B4 forensic raw retention → PowerShell ingestion →
 clock correctness / parser-state truth / RAW_PERSISTED → G2 → NivXForge Windows
 Sensor.
+
+---
+
+## 2026-06 · WAVE 0 · B4 RAW FORENSIC RETENTION + REFUSAL SPLIT = PASS
+
+Local commits: `86a02907` (B4 + refusal split), preceded by `deb2ec0a` (R3.1)
+and `9faffd9b` (PRD). Publication is still the owner's **Save to GitHub** on
+`feature/rc2-alignment` — the pod has no `origin` remote.
+
+### Refusal semantics
+New code `SOURCE_RECORD_NOT_SUPPORTED`. Routing:
+`supports=False & recognizes_format=True → SOURCE_RECORD_NOT_SUPPORTED`;
+`supports=False & recognizes_format=False/absent/raises → SOURCE_FORMAT_MISMATCH`.
+New optional DSM hook `recognizes_format()` implemented per SOURCE FAMILY on
+`windows-security-evd`, `windows-powershell-evd`, `windows-defender-evd`,
+`microsoft-sysmon`. A Security record declared as PowerShell is STILL a format
+mismatch. `SUPPORTED_EVENT_IDS` widened nowhere. `SOURCE_FORMAT_MISMATCH`
+keeps its spelling (56 historical rows + D15 suite valid);
+`FORMAT_INVALID ≡ SOURCE_FORMAT_MISMATCH` is documentation only.
+
+### B4 persistence · `xdr_ingest_raw_retained`
+Authorized + declared deliveries retain VERBATIM raw even without coverage.
+Authority failures retain NOTHING. Invariant
+`RAW RETAINED ≠ PARSED ≠ NORMALIZED ≠ EVALUATED ≠ DETECTED` is written onto
+every row as an explicit disposition (verdict null, benign false,
+detection_evaluated false, counts_toward_connected_gate false,
+ingest_idempotency_claim_consumed false, reprocessable true). No ingest
+idempotency claim is consumed; uniqueness is enforced on
+`(tenant_id, retained_identity_key)` so re-delivery increments
+`delivery_count`. Full contract: `memory/B4_RAW_FORENSIC_RETENTION_CONTRACT.md`.
+
+### Retrieval (backend only — no frontend in this gate)
+`GET /api/xdr/ingest/routing/retained-raw` (metadata, bounded, paginated,
+filterable by reason_code/collector/declared_source/event_id/channel/window)
+and `GET .../retained-raw/{id}` (verbatim raw). Existing principal, existing
+session-derived tenant scope, existing RBAC; cross-tenant answered 404.
+
+### Evidence
+* 25 focused B4 tests (cases A-I) — PASS.
+* Blast-radius backend regression (59 test files importing routing / ingest /
+  evtx / DSM registry / idempotency / tenant authority): **953 passed**;
+  remaining 3 failures + 21 errors verified PRE-EXISTING against a stashed
+  tree (`test_xdr_round44_cockpit_audit_lock`, `test_xdr_data_sources_collectors`,
+  `test_rule_detection_playbook_expansion` import error).
+* `test_d21_routing_visibility` route-inventory assertion extended for the two
+  new GET routes (still GET-only, still read-only).
+* Full collector suite: **271 passed** (R3.1 included).
+* Live end-to-end on the preview API: unsupported Security 4798 →
+  `SOURCE_RECORD_NOT_SUPPORTED` → retained → listed → fetched verbatim with
+  `event_id 4798`, `event_record_id 555001`; unknown id → 404. Proof rows
+  deleted afterwards.
+* R3.1 scratch acceptance EXECUTED on loopback with disposable events —
+  **12/12 rows PASS**; evidence
+  `memory/G1_R31_SCRATCH_ACCEPTANCE_EVIDENCE.log`.
+
+### Untouched (verified)
+14,868 preserved G1 dead letters; `C:\ProgramData\NivXForge\state\outbox.db`;
+the Windows collector was never started; G1 tenant block rows still 26. No
+deployment, no merge, no force push.
+
+### WAVE 0 CORRECTNESS = PASS · R4 = NOT EXECUTED / OWNER-GATED
+Next: R4 controlled recovery of exactly the preserved HTTP-404 population
+(owner authorization required), then Wave 1 — Endpoint Event Journal +
+NivXForge Windows Sensor + native telemetry.

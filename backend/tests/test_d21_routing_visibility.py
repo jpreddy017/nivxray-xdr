@@ -203,5 +203,11 @@ def test_every_route_declares_the_read_only_projection():
     paths = {r.path for r in viz.router.routes}
     assert paths == {"/api/xdr/ingest/routing/deliveries",
                      "/api/xdr/ingest/routing/summary",
-                     "/api/xdr/ingest/routing/catalog"}
+                     "/api/xdr/ingest/routing/catalog",
+                     # B4 · retained forensic raw is read here too: the
+                     # surface stays a read-only projection, it just gained
+                     # the evidence a refusal now points at.
+                     "/api/xdr/ingest/routing/retained-raw",
+                     "/api/xdr/ingest/routing/retained-raw/"
+                     "{retained_raw_id}"}
     assert "not a routing authority" in viz._READ_ONLY_NOTE
