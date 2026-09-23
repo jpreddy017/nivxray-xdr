@@ -333,3 +333,123 @@ the mistake the owner warned against.
 Recommended next step (read-only, no replay, no state change): run that one query
 on the endpoint and report the `last_error` histogram. Implementation should begin
 only after that histogram is in hand and the owner has reviewed this document.
+
+---
+
+## 9 · Measured G1 Dead-Letter Histogram
+
+**Status: NOT YET MEASURED — measurement cannot be performed from the Preview
+environment. Read-only measurement instrument delivered to the operator.**
+
+### 9.1 Why the measurement could not be executed here
+
+The authoritative 125,452-row outbox exists **only on the Windows endpoint** at
+`C:\ProgramData\NivXForge\state\outbox.db`. Nothing in the Preview container
+holds a copy of it. Proven by exhaustive search rather than assumed:
+
+```
+find / -name "outbox.db*"  ->  only two unrelated development databases:
+  apps/nivxray-xdr-collector/.state/outbox.db   38 rows   (delivered 35, dead_letter 3)
+  backend/xdr_state/outbox.db                    0 rows
+```
+Neither contains a `windows_channel_state` table, so neither ever ran the Windows
+connector — they are not the G1 authority and must not be reported as such. The
+G1 proof artifacts held here (`run-context.json`, `acquisition-state.json`, …) were
+never pasted back to this environment, and `acquisition-state.json` groups the
+outbox by **status only**, not by `last_error`, so it could not answer this
+question even if present.
+
+### 9.2 Delivered instrument
+
+`memory/G1_DEAD_LETTER_HISTOGRAM_READONLY.ps1` — elevated, read-only, ASCII-only.
+
+Non-mutation design:
+* refuses to run if a collector process is still alive (a copy taken under an
+  active writer could be torn);
+* copies `outbox.db` + `-wal` + `-shm` to a temp folder and queries the **copy**;
+  the live files are only ever read; temp copy deleted at the end;
+* `SELECT`-only — no `UPDATE`/`INSERT`/`DELETE`/`DROP` anywhere in the script;
+* no acquisition, no replay, no status change, no recovery, no cleanup, no
+  collector start, no server call, no credential use;
+* emits counts, codes, sizes and identity only — **no event payload bodies**.
+
+What it produces (`C:\nivx\g1-proof\dead-letter-histogram.json`):
+1. `totals_by_status` + reconciliation against the captured accounting
+   (125,452 / 2,884 / 14,868 / 125 / 107,525) with the exact delta;
+2. `histogram_exact` — **unnormalised** `last_error` values with counts and
+   `percentage_of_dead_letters`;
+3. `classification` into the 14 required buckets, derived strictly from the
+   stored string, with `classification_unmatched_exact_values` so nothing is
+   silently forced into a bucket;
+4. `dead_letter_attempts_distribution` — terminality evidence;
+5. `dead_letter_payload_bytes` (min/max/avg, rows over 256 KB / 512 KB) plus
+   `delivered_payload_bytes_for_contrast` — the direct test of the 512 KB
+   hypothesis;
+6. `dead_letter_by_source_and_error` and `all_status_by_source` — channel
+   correlation;
+7. `named_records` — the two named rows located by
+   `source_event_id LIKE '%|510'` / `'%|238776'`, returning outbox id, source,
+   declared_source, event_type, status, attempts, last_error, created/updated,
+   `length(raw_json)`, `length(canonical_json)`, and EventID/EventRecordID read
+   from the canonical view;
+8. `dead_letter_window` — first/last created and updated timestamps.
+
+### 9.3 Evidence-discipline caveat carried into the artifact
+
+The script embeds this note verbatim: a stored `HTTP 413` proves only that the
+endpoint *received* 413; it does not prove why the server produced it. Likewise
+`403` is not proof of a tenant violation and `400` is not proof of a malformed
+batch. Attribution requires the corresponding server path or configuration to
+independently establish it.
+
+### 9.4 Indirect corroboration available today (NOT G1 evidence)
+
+The unrelated 38-row development outbox in this container was read read-only and
+shows a pattern worth carrying into the analysis as a *hypothesis*, not a finding:
+
+```
+last_error='HTTP 422'  count=3   attempts=0   raw_json 174-451 bytes
+source='Generic Syslog Receiver'  declared_source=NULL
+```
+Three observations follow, and only the first two are firm:
+* the query shape and schema assumptions are correct (`envelopes.last_error`,
+  `status='dead_letter'`);
+* **`attempts=0` confirms defect D-5 empirically**: a 4xx dead-letters on the
+  first attempt, with no retry;
+* these rows are **174-451 bytes** — three orders of magnitude below the 512 KB
+  cap — so at least in this unrelated sample, dead-lettering happened with tiny
+  payloads and `declared_source = NULL`, which is the `DECLARATION_REQUIRED` /
+  `422` family rather than a size problem. **This weakens the 512 KB hypothesis
+  as a sole or dominant cause and raises `422` to an equally serious candidate.**
+  It is not G1 data and does not settle the question.
+
+### 9.5 512 KB hypothesis
+
+**UNRESOLVED.** It is neither confirmed nor rejected. Direct discriminators are
+already built into the instrument: `dead_letter_payload_bytes.rows_over_512KB`
+and the delivered-row contrast. If that number is near 14,868 the hypothesis is
+confirmed; if it is near zero the hypothesis is rejected and the cause is an
+identity or schema class. The 512 KB limit has **not** been changed.
+
+### 9.6 Hypothesis cross-check status
+
+| hypothesis | status |
+|---|---|
+| durable refusals answer 200, so routing blocks can never be dead letters | **CONFIRMED** (code + measured data, §1.3) |
+| 11 terminal 4xx exits write no durable record | **CONFIRMED** (code, `xdr_ingest.py:784-834`) |
+| endpoint stores only `"HTTP {code}"` and discards the reason | **CONFIRMED** (`delivery.py:143`) |
+| a 4xx is terminal on the first attempt | **CONFIRMED** in code; **SUPPORTED** by observed `attempts=0` in a non-G1 sample |
+| `422` schema rejection is a real dead-letter producer | **SUPPORTED** (non-G1 sample only) |
+| 512 KB cap is a major contributor | **UNRESOLVED** — measurement pending |
+| rejection records exist in some uncensused collection | **NOT OBSERVED** — ruled out |
+| PowerShell terminated before stage 11 | **CONFIRMED** (zero routing blocks for that channel) |
+| which stage PowerShell/Security actually hit | **UNRESOLVED** — measurement pending |
+
+### 9.7 Decision
+
+`MOVE_TO_IMPLEMENTATION` **remains HOLD**. The histogram is the input that decides
+whether the first change is size/batching semantics or identity/schema semantics,
+and it can only be produced on the endpoint. Run
+`memory/G1_DEAD_LETTER_HISTOGRAM_READONLY.ps1` and return
+`dead-letter-histogram.json`; this section will then be replaced with the measured
+result.
