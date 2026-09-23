@@ -19185,9 +19185,17 @@ canonical_evidence 2876, dedupe 2876, routing_blocks 26.
 audit `aud_270253b257564bcbb349`. Record retained (not deleted). G1 evidence verified
 unchanged after revocation.
 
-Three sibling G1-attempt keys left **deliberately unrevoked** pending owner decision:
-`key_6efa6f3ac55640a0a6f0`, `key_7816ab044f904899ae23`, `key_51341fa33ddf420aa4bd`
-(each `use_count=1`, expired `2026-09-23T04:2x–04:4xZ`).
+Sibling G1-attempt keys — swept on owner decision (2026-06), all via the same control
+plane, records preserved:
+`key_6efa6f3ac55640a0a6f0` (audit `aud_204aa63b601b40838014`),
+`key_7816ab044f904899ae23` (audit `aud_04174dabbc344b7b8150`),
+`key_51341fa33ddf420aa4bd` (audit `aud_24e25e0f46d04cb79b3b`).
+**All 6 API keys in tenant `ten_f1a5479243e901cf159e230fa0` are now revoked; enabled
+count = 0.** No replacement credential minted. All known temporary G1 credentials are
+accounted for.
+
+Owner's stated next step before engineering fixes: **rotate the exposed MongoDB
+credential** (explicitly out of scope for the key-sweep task).
 
 ### Findings recorded, NOT fixed (no owner authorization yet)
 * **P1 — dead-letter accountability**: endpoint reported 14,868 dead-lettered events;
