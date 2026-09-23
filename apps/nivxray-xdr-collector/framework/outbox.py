@@ -147,6 +147,24 @@ class Outbox:
     CREATE UNIQUE INDEX IF NOT EXISTS ux_env_event_id
         ON envelopes(tenant_id, connector_id, source_event_id)
         WHERE source_event_id IS NOT NULL;
+    -- G1-R3.1 · durable delivery health (circuit) state. It lives HERE, in
+    -- the same store and the same durability boundary as the rows whose
+    -- delivery it governs, so "what is queued" and "is the destination
+    -- reachable" can never diverge across a restart. One row per
+    -- destination; no secret is ever written to it.
+    CREATE TABLE IF NOT EXISTS delivery_health_gate (
+        destination_key      TEXT PRIMARY KEY,
+        state_version        INTEGER NOT NULL,
+        state                TEXT NOT NULL,
+        consecutive_failures INTEGER NOT NULL,
+        cooldown_seconds     REAL NOT NULL,
+        cooldown_until_epoch REAL,
+        opened_count         INTEGER NOT NULL,
+        probes               INTEGER NOT NULL,
+        last_reason          TEXT,
+        last_transition_at   TEXT,
+        updated_at           TEXT NOT NULL
+    );
     """
 
     def __init__(self, path: Optional[str] = None,
@@ -329,6 +347,60 @@ class Outbox:
                 [OutboxStatus.QUEUED, now, *ids, OutboxStatus.DELIVERING])
             return cur.rowcount or 0
 
+
+    # ── G1-R3.1 · durable delivery health state ───────────────
+    def load_health_gate(self, destination_key: str
+                            ) -> Optional[Dict[str, Any]]:
+        """The persisted gate row for one destination, or None on first boot.
+
+        Returned verbatim — validation belongs to the gate, which is the
+        component that knows what a trustworthy outage looks like and how to
+        fail safe when the row is not one."""
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT * FROM delivery_health_gate WHERE destination_key=?",
+                (destination_key,)).fetchone()
+        if r is None:
+            return None
+        return {k: r[k] for k in r.keys()}
+
+    def save_health_gate(self, destination_key: str,
+                            snapshot: Dict[str, Any]) -> None:
+        """Write the gate state as ONE atomic upsert.
+
+        Single-statement, so a restart or crash can only ever observe the
+        whole previous state or the whole new one — never a half-written
+        outage."""
+        now = _iso(_utcnow())
+        with self._lock:
+            self._conn.execute("""
+                INSERT INTO delivery_health_gate
+                (destination_key, state_version, state, consecutive_failures,
+                    cooldown_seconds, cooldown_until_epoch, opened_count,
+                    probes, last_reason, last_transition_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(destination_key) DO UPDATE SET
+                    state_version=excluded.state_version,
+                    state=excluded.state,
+                    consecutive_failures=excluded.consecutive_failures,
+                    cooldown_seconds=excluded.cooldown_seconds,
+                    cooldown_until_epoch=excluded.cooldown_until_epoch,
+                    opened_count=excluded.opened_count,
+                    probes=excluded.probes,
+                    last_reason=excluded.last_reason,
+                    last_transition_at=excluded.last_transition_at,
+                    updated_at=excluded.updated_at
+            """, (destination_key,
+                    snapshot.get("state_version"),
+                    snapshot.get("state"),
+                    snapshot.get("consecutive_failures"),
+                    snapshot.get("cooldown_seconds"),
+                    snapshot.get("cooldown_until_epoch"),
+                    snapshot.get("opened_count"),
+                    snapshot.get("probes"),
+                    snapshot.get("last_reason"),
+                    snapshot.get("last_transition_at"),
+                    now))
 
     def mark_delivered(self, ids: Iterable[str]) -> None:
         ids = list(ids)

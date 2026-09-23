@@ -36,8 +36,10 @@ class DeliveryWorker:
         self.batch_size = batch_size
         self.interval   = poll_interval_seconds
         #: G1-R3 · destination health, so a dead endpoint cannot consume every
-        #: event's per-event retry budget.
-        self.gate       = health_gate or DeliveryHealthGate()
+        #: event's per-event retry budget. R3.1 · by default it is DURABLE in
+        #: the outbox store, so a restart does not rediscover a known outage
+        #: from CLOSED and burn another threshold of real attempts.
+        self.gate       = health_gate or DeliveryHealthGate(store=outbox)
         self._task: Optional[asyncio.Task] = None
         self._stop_event: Optional[asyncio.Event] = None
         self.ticks         = 0
