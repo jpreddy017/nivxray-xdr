@@ -19149,3 +19149,67 @@ Three product laws re-confirmed by this wave's defects:
    `xdr_rbac.resolve_principal` is the only authority that turns it into an
    authorisation.
 3. A test may only delete what it created.
+
+---
+
+## 2026-06 · G1 WINDOWS ENDPOINT PROOF — CLOSED (owner-accepted) + credential cleanup
+
+**G1 golden-event end-to-end verification: ACCEPTED, CLOSED and FROZEN by the owner.**
+
+Preview authority of record: `MONGO_URL=mongodb://localhost:27017`, `DB_NAME=test_database`
+(the DB the Preview backend process itself loads). Tenant `ten_f1a5479243e901cf159e230fa0`
+(`g1-windows-proof`), collector `col_d6b0b9e8172246f29be9` (`windows-eventlog`),
+endpoint `DESKTOP-A9HGFJJ`.
+
+Golden event proven server-side (read-only verification, not inferred from HTTP 2xx):
+Sysmon EID 12 / `EventRecordID 3286059`
+* server raw row `xdr_canonical_events/6ab2b034589e534d6c49de68` — holds verbatim XML
+* canonical evidence `sysmon-12-e57cad386df243adafb16f71e94184f5`
+  (`xdr_canonical_evidence/6ab2b034589e534d6c49de6a`)
+* dedupe identity `ten_…|DESKTOP-A9HGFJJ|Microsoft-Windows-Sysmon/Operational|3286059`,
+  `delivery_count=1`, `duplicate_count=0`, `outcome=PROCESSED`
+* three-clock model populated: `activity_occurred_at` (`sysmon:EventData.UtcTime`),
+  `sensor_observed_at` (`sysmon:System.TimeCreated`), `nivx_received_at`
+  (`ingest:http receipt POST /api/xdr/ingest/telemetry`), plus `parsed_at`,
+  `normalized_at`, `rule_evaluated_at`, `verdict_at`
+* routing `ACCEPTED` under `AUTHENTICATED_COLLECTOR_DECLARATION`, `dsm_id=microsoft-sysmon`
+
+Tenant totals at close: canonical_events 2876 (Sysmon 2872 / Security 4 / PowerShell 0),
+canonical_evidence 2876, dedupe 2876, routing_blocks 26.
+
+### Credential cleanup (2026-06)
+`key_17105f51ce76424ca1bd` (prefix `nvx_62373180`, scopes `["collectors.enroll"]`,
+`use_count=2901`) **REVOKED** through the authoritative control plane
+`POST /api/xdr/api-keys/{key_id}/revoke` — `enabled=false`,
+`revoked_at=2026-09-23T13:04:42.061804+00:00`, `revoked_by=admin@nivxray.com`,
+audit `aud_270253b257564bcbb349`. Record retained (not deleted). G1 evidence verified
+unchanged after revocation.
+
+Three sibling G1-attempt keys left **deliberately unrevoked** pending owner decision:
+`key_6efa6f3ac55640a0a6f0`, `key_7816ab044f904899ae23`, `key_51341fa33ddf420aa4bd`
+(each `use_count=1`, expired `2026-09-23T04:2x–04:4xZ`).
+
+### Findings recorded, NOT fixed (no owner authorization yet)
+* **P1 — dead-letter accountability**: endpoint reported 14,868 dead-lettered events;
+  only 26 blocked deliveries exist server-side. The server cannot explain the mass.
+* **P1 — PowerShell channel**: zero server-side artifacts for
+  `Microsoft-Windows-PowerShell/Operational` despite `windows-powershell-evd` being an
+  authorized source.
+* **P1 — clock collapse (endpoint side)**: collector `normalized.sensor_observed_at`
+  carries the collector receipt clock, identical to `collector_received_at`; the server
+  independently recovered the truthful `System.TimeCreated`.
+* **P1 — `parser_ok` never declared**: `parser_ok=null`,
+  `parser_ok_basis=NOT_DECLARED`, collector pinned at `state=PARSE_ERROR
+  ("parser failed on every event")` despite 2,876 canonical evidence rows. B4-adjacent.
+* **P2 — one incomplete transaction**: dedupe row
+  `…Sysmon/Operational|3291349` stuck at `RAW_PERSISTED`, `canonical_event_id=null`.
+* Local-only artifacts not yet published to the remote: `memory/G1_STEP2_EXECUTION_COPY.ps1`
+  (sha256 `ae691d88…5b7e`) and the credential-lifecycle-corrected
+  `memory/G1_STEP2_HANDOFF_BLOCK.ps1`. Remote tip `4a6b7104` still carries the
+  pre-correction handoff block. Publishing requires the owner's **Save to GitHub**.
+* PR #1 (`feature/rc2-alignment`) remains OPEN/UNMERGED, head `4a6b7104`, no force push
+  (`compare` vs `6879293` = ahead 5 / behind 0). Remote 26/26 manifest verified.
+
+### Still frozen / not started
+B4 forensic raw retention, G2, restart/resume gate, replay, MongoDB credential rotation.
+
