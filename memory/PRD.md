@@ -19348,3 +19348,78 @@ owner-gated** requeue of `dead_letter AND last_error='HTTP 404'` to recover the
 ### Still frozen / not started
 B4 forensic raw retention, G2, restart/resume gate, replay, MongoDB credential rotation.
 
+
+---
+
+## 2026-06 · G1-R3.1 · DURABLE DELIVERY HEALTH GATE = PASS (owner-authorised)
+
+Local commit `deb2ec0a` (parent `688575d4`). Not yet published — the pod has no
+`origin` remote; publication is the owner's **Save to GitHub** on
+`feature/rc2-alignment` (no new branch, no new PR, no merge, no force push).
+
+### Published lineage to verify after Save to GitHub
+| item | local SHA |
+|---|---|
+| R1 retry classification | `12ba6f5e` |
+| R2 failure detail capture | `f499c1e1` |
+| R3 delivery health gate | `688575d4` |
+| **R3.1 gate-state persistence** | **`deb2ec0a`** |
+
+### Persisted-state contract (`delivery_health_gate`, in `outbox.db`)
+One row per destination, in the SAME durability boundary as the envelopes:
+`destination_key, state_version, state, consecutive_failures,
+cooldown_seconds, cooldown_until_epoch, opened_count, probes, last_reason,
+last_transition_at, updated_at`. Written as ONE atomic upsert.
+* OPEN survives restart with its REMAINING cooldown (wall-clock deadline).
+* Failure run survives → a crash-loop cannot reset a building outage.
+* Restart while OPEN → zero delivery traffic, zero retry budget consumed,
+  nothing stranded in DELIVERING.
+* Restart while HALF_OPEN → resumes OPEN + probe-eligible: exactly ONE probe.
+* Failed probe → doubled, bounded, persisted cooldown.
+* Unreadable/corrupt/wrong-version → fails SAFE (OPEN, base cooldown) and
+  VISIBLE (`state_load_error`), never silently into traffic.
+* Reasons bounded (300 chars) and credential-scrubbed. No secrets persisted.
+* No tenant/auth/provenance/evidence change; no false DELIVERED; no dedupe,
+  bookmark or acknowledgement involvement.
+
+### Evidence
+* 26 focused tests `tests/test_g1_r31_gate_state_persistence.py`.
+* Full collector regression: **271 passed**.
+* Automated acceptance harness **ACCEPTED, 41 checks** —
+  `scripts/g1_r31_delivery_health_acceptance.py` (in-process fake destination;
+  NOT a live-production-destination proof).
+* Real-process loopback proof executed: unattributed 404 → SUSPECT → OPEN
+  (persisted) → restart restored OPEN → one bounded probe → destination
+  restored → CLOSED; 7/7 unique acks, 0 dead letters, 0 stranded.
+* Scratch-collector runbook (next acceptance level, no production contact):
+  `memory/G1_R31_SCRATCH_ACCEPTANCE_RUNBOOK.md`.
+
+### Read-only lane · Windows Security `SOURCE_FORMAT_MISMATCH` RCA
+`memory/G1_SECURITY_SOURCE_FORMAT_MISMATCH_RCA.md`. `MECHANISM = DETERMINED`,
+`EXACT_EVENT_IDS = EVIDENCE_INCOMPLETE`.
+* 24 Security refusals, contiguous EventRecordID 239169-239192.
+* Decisive control: EventRecordID 239165-239168 (EID 4624/4672) from the SAME
+  channel/collector/envelope shape were ACCEPTED and canonicalized → decoder,
+  envelope contract, alias table, allowlist and DSM registry all proven good.
+* Mechanism: `WindowsSecurityDSM.supports()` reduces to
+  `int(EventID) in SUPPORTED_EVENT_IDS` (15 IDs); the Security channel carries
+  far more, so an uncovered EventID is refused and REPORTED as a format
+  mismatch. Semantic defect: a COVERAGE gap is labelled as a declaration/format
+  violation (candidate distinct code `SOURCE_RECORD_NOT_SUPPORTED`). NOT fixed;
+  source validation was NOT weakened.
+* Missing evidence, named: the rendered `System/EventID` of EventRecordIDs
+  239169-239192. Unavailable because `xdr_ingest.py:748-751` takes the block
+  excerpt from `raw["line"]`/`raw["message"]` only (Windows raw uses
+  `channel`+`xml`) and no raw row is kept for a BLOCKED delivery → the **B4**
+  defect. Recovery requires B4, or an owner-authorised read-only endpoint
+  extraction. Neither executed.
+
+### Hard boundaries respected
+R4 NOT started. 14,868 dead letters untouched. `C:\ProgramData\NivXForge\state\outbox.db`
+untouched. Windows collector NOT started. No B4, no G2, no deployment, no merge,
+no force push.
+
+### Next (unchanged order)
+R4 dead-letter recovery → B4 forensic raw retention → PowerShell ingestion →
+clock correctness / parser-state truth / RAW_PERSISTED → G2 → NivXForge Windows
+Sensor.
