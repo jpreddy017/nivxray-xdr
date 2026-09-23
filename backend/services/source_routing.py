@@ -47,7 +47,38 @@ DECLARATION_REQUIRED = "DECLARATION_REQUIRED"
 SOURCE_NOT_AUTHORIZED = "SOURCE_NOT_AUTHORIZED"
 UNSUPPORTED_SOURCE = "UNSUPPORTED_SOURCE"
 SOURCE_FORMAT_MISMATCH = "SOURCE_FORMAT_MISMATCH"
+#: B4 · the declaration is CORRECT and the payload IS the declared format —
+#: NivXRay simply has no parser/normalizer coverage for this record type yet.
+#: Before this code existed such a record was reported as
+#: SOURCE_FORMAT_MISMATCH, which made a healthy Windows Security channel look
+#: malformed because 24 of its records carried EventIDs outside the DSM's
+#: supported set. Coverage and validity are different facts.
+#: Documentation note: FORMAT_INVALID ≡ SOURCE_FORMAT_MISMATCH; the API and
+#: stored records keep the existing spelling.
+SOURCE_RECORD_NOT_SUPPORTED = "SOURCE_RECORD_NOT_SUPPORTED"
 SOURCE_DSM_UNAVAILABLE = "SOURCE_DSM_UNAVAILABLE"
+
+#: B4 · refusals for which the raw payload MUST still be retained as
+#: forensic evidence. Every code here has already passed declaration,
+#: catalog and allowlist validation, so the delivery is AUTHORIZED and
+#: DECLARED — the failure is downstream of authority. Discarding such a
+#: record destroys the only copy of evidence an investigator could later
+#: reconstruct, and it is what made the G1 Security EventIDs unrecoverable.
+#:
+#: Deliberately EXCLUDED: DECLARATION_REQUIRED, UNSUPPORTED_SOURCE and
+#: SOURCE_NOT_AUTHORIZED. Those are authority failures and must stay
+#: fail-closed — an unauthorized or undeclared source may never buy itself
+#: durable storage in this tenant by being refused.
+RAW_RETENTION_ELIGIBLE_CODES = frozenset({
+    SOURCE_FORMAT_MISMATCH,
+    SOURCE_RECORD_NOT_SUPPORTED,
+    SOURCE_DSM_UNAVAILABLE,
+})
+
+
+def raw_retention_eligible(code: str | None) -> bool:
+    """B4 · may this refusal's raw payload be retained for forensics?"""
+    return code in RAW_RETENTION_ELIGIBLE_CODES
 
 #: Who chose the DSM. Recorded on every routed event so an auditor never has
 #: to infer whether selection was declared or guessed.
@@ -185,7 +216,27 @@ def catalog() -> dict[str, Any]:
         "content_role": CONTENT_ROLE,
         "refusal_codes": [DECLARATION_REQUIRED, SOURCE_NOT_AUTHORIZED,
                           UNSUPPORTED_SOURCE, SOURCE_FORMAT_MISMATCH,
+                          SOURCE_RECORD_NOT_SUPPORTED,
                           SOURCE_DSM_UNAVAILABLE],
+        "refusal_code_meanings": {
+            DECLARATION_REQUIRED: "the delivery declared nothing",
+            UNSUPPORTED_SOURCE: "the declaration names no catalog source",
+            SOURCE_NOT_AUTHORIZED: ("the collector's server-side allowlist "
+                                    "does not permit the declared source"),
+            SOURCE_FORMAT_MISMATCH: ("the payload is not the declared format "
+                                     "(FORMAT_INVALID)"),
+            SOURCE_RECORD_NOT_SUPPORTED: (
+                "the payload IS the declared format; NivXRay has no coverage "
+                "for this record type yet — the source is not broken"),
+            SOURCE_DSM_UNAVAILABLE: ("the authorized DSM is not loaded — a "
+                                     "code failure, not a payload defect"),
+        },
+        "raw_retention_eligible_codes": sorted(RAW_RETENTION_ELIGIBLE_CODES),
+        "raw_retention_note": (
+            "an AUTHORIZED + DECLARED delivery keeps its verbatim raw record "
+            "as forensic evidence even when it is refused; retained raw is "
+            "NOT parsed, normalized, detected, canonicalized or asserted to "
+            "be benign"),
         "honesty_note": (
             "a collector with no registered authorized_sources is authorized "
             "for nothing; an empty allowlist never means 'any source'"),
@@ -196,6 +247,7 @@ def _decision(*, result: str, declared: Any, resolved: str | None,
               authorized: list[str], dsm_id: str | None = None,
               compatible: bool | None = None,
               recognized: list[str] | None = None,
+              format_recognized: bool | None = None,
               code: str | None = None, reason: str) -> dict[str, Any]:
     return {
         "routing_result": result,
@@ -207,8 +259,16 @@ def _decision(*, result: str, declared: Any, resolved: str | None,
         "selected_dsm_id": dsm_id,
         "content_compatible": compatible,
         "content_recognized_as": recognized,
+        #: B4 · did the declared DSM recognise the payload's FORMAT? Only
+        #: asked when compatibility already failed, so it is None whenever
+        #: the question was never put.
+        "declared_format_recognized": format_recognized,
         "content_role": CONTENT_ROLE,
         "mismatch_reason": code,
+        #: B4 · whether this refusal's raw payload is kept as forensic
+        #: evidence. Stated on the decision so the disposition and the
+        #: retention promise can never disagree.
+        "raw_retention_eligible": raw_retention_eligible(code),
         "reason": reason,
     }
 
@@ -254,10 +314,26 @@ def route(*, declared: Any, authorized: list[str], raw_event: Any,
                     "a CODE failure, not a payload defect")), None
 
     if not registry.compatible(dsm, raw_event):
+        # B4 · two different truths, two different answers. The declaration
+        # is NOT overridden either way and no other DSM is tried.
+        if registry.format_recognized(dsm, raw_event):
+            return _decision(
+                result=BLOCKED, declared=declared, resolved=resolved,
+                authorized=authorized, dsm_id=dsm_id, compatible=False,
+                recognized=registry.recognize(raw_event),
+                format_recognized=True,
+                code=SOURCE_RECORD_NOT_SUPPORTED,
+                reason=("the declared source is correct and this payload IS "
+                        "that format, but the authorized DSM has no parser / "
+                        "normalizer coverage for this record type yet; the "
+                        "raw record is retained as forensic evidence and is "
+                        "NOT parsed, normalized, detected or "
+                        "canonicalized")), None
         return _decision(
             result=BLOCKED, declared=declared, resolved=resolved,
             authorized=authorized, dsm_id=dsm_id, compatible=False,
             recognized=registry.recognize(raw_event),
+            format_recognized=False,
             code=SOURCE_FORMAT_MISMATCH,
             reason=("the payload is not structurally consistent with the "
                     "declared source; the declaration is NOT overridden and "
@@ -297,7 +373,9 @@ def internal_caller(dsm_id: str | None, *, reason: str) -> dict[str, Any]:
         "selected_dsm_id": dsm_id,
         "content_compatible": bool(dsm_id),
         "content_recognized_as": None,
+        "declared_format_recognized": None,
         "content_role": CONTENT_ROLE,
         "mismatch_reason": None if dsm_id else UNSUPPORTED_SOURCE,
+        "raw_retention_eligible": False,
         "reason": reason,
     }

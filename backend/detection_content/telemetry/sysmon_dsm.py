@@ -501,6 +501,27 @@ class SysmonDSM:
         except Exception:
             return False
 
+    def recognizes_format(self, ev: Dict[str, Any]) -> bool:
+        """B4 · is this a readable SYSMON record? FORMAT only.
+
+        Sysmon publishes far more event ids than this DSM interprets
+        (`SUPPORTED_EVENT_IDS`); such a record is a coverage gap, not a
+        malformed source. Provider evidence is still required, so a
+        non-Sysmon record can never borrow this recognition.
+        """
+        from . import evtx_xml as _evtx
+        view = _evtx.decoded_view(ev)
+        if not isinstance(view, dict):
+            return False
+        system = view.get("System") if isinstance(view.get("System"),
+                                                  dict) else {}
+        provider = str(view.get("provider") or view.get("Provider")
+                       or system.get("Provider") or "")
+        if "Sysmon" not in provider:
+            return False
+        return bool(view.get("event_id") or view.get("EventID")
+                    or system.get("EventID"))
+
     def select_parser(self) -> SysmonParser:
         return SysmonParser()
 

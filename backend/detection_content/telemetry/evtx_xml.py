@@ -89,6 +89,27 @@ def envelope_xml(doc: Any) -> Optional[str]:
     return None
 
 
+def decoded_view(doc: Any) -> Optional[Dict[str, Any]]:
+    """B4 · a READABLE decoded view of a delivery, or ``None``.
+
+    Never raises. It exists for the one question a DSM must be able to answer
+    without committing to anything: *is this a record of MY source family?*
+
+    ``None`` means the payload could not be read as a Windows record at all —
+    which is a FORMAT fault. A returned document means the format was
+    readable; whether the DSM supports that particular record type is a
+    separate question with a separate answer.
+    """
+    try:
+        if isinstance(doc, str) or envelope_xml(doc) is not None:
+            decoded = decode_document(doc)
+            if decoded is not None:
+                return decoded
+    except EvtxXmlDecodeError:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
 def _decode_system(node: ET.Element) -> Dict[str, Any]:
     system: Dict[str, Any] = {}
     for child in node:

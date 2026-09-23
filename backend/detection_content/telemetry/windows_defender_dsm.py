@@ -371,6 +371,15 @@ class WindowsDefenderDSM:
             return False
         return _is_defender(ev)
 
+    def recognizes_format(self, ev: Dict[str, Any]) -> bool:
+        """B4 · is this a readable Defender-channel record? FORMAT only —
+        an unsupported Defender EventID is a coverage gap, not a malformed
+        source."""
+        view = evtx_xml.decoded_view(ev)
+        if not isinstance(view, dict):
+            return False
+        return _is_defender(view)
+
     def select_parser(self) -> WindowsDefenderParser:
         return WindowsDefenderParser()
 

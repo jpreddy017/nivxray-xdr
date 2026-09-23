@@ -149,6 +149,41 @@ class TelemetryDSMRegistry:
                 dsm_id, type(exc).__name__, str(exc)[:400])
             return False
 
+    def format_recognized(self, dsm: Any, ev: Dict[str, Any]) -> bool:
+        """B4 · does the declared DSM RECOGNISE this payload's format, even
+        though it does not interpret this particular record type?
+
+        Asked only after `compatible()` has already said no. It separates two
+        facts that were previously reported as one:
+
+          * the payload is not the declared format at all — a declaration
+            violation (`SOURCE_FORMAT_MISMATCH`);
+          * the payload IS the declared format and the DSM simply has no
+            support for this record type yet — a coverage gap
+            (`SOURCE_RECORD_NOT_SUPPORTED`).
+
+        Fail closed twice over: a DSM that does not implement the hook, and a
+        hook that raises, both answer "not recognised", so the stricter
+        refusal stands and no declaration is ever rescued by this question.
+        """
+        hook = getattr(dsm, "recognizes_format", None)
+        if not callable(hook):
+            return False
+        try:
+            return bool(hook(ev))
+        except BaseException as exc:  # noqa: BLE001 — fail closed, stay observable
+            dsm_id = getattr(dsm, "id", None) or dsm.__class__.__name__
+            self._resolve_failures.append({
+                "dsm_id": dsm_id,
+                "status": "RECOGNIZES_FORMAT_ERROR",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:400],
+            })
+            log.error(
+                "DSM recognizes_format() FAILED · dsm_id=%s %s: %s — "
+                "failing closed", dsm_id, type(exc).__name__, str(exc)[:400])
+            return False
+
     def recognize(self, ev: Dict[str, Any]) -> List[str]:
         """Every DSM that WOULD have claimed this payload by content.
 

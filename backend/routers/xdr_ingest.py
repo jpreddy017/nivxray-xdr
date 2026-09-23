@@ -41,6 +41,7 @@ from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission, verified_actor
 from services import ingest_idempotency as idem
 from services import ingest_provenance as ing_prov
+from services import raw_forensic_retention as raw_retention
 from services import source_routing
 from services import tenant_registry
 
@@ -734,6 +735,32 @@ def route_batch(envelopes: list[CanonicalEnvelope], *,
             mismatch_reason=decision.get("mismatch_reason"),
             error=str(decision.get("reason"))[:300]))
         raw = e.raw if isinstance(e.raw, dict) else {}
+        # ── B4 · raw forensic retention ───────────────────────────────
+        # This delivery was AUTHENTICATED, TENANT-AUTHORIZED and DECLARED;
+        # only interpretation failed. Keeping the verbatim record is what
+        # makes a refusal investigable later — the G1 Security refusals could
+        # not be explained because the record itself was discarded. Retention
+        # takes NO idempotency claim, so the same event can still be
+        # processed normally once coverage for its record type exists.
+        retention: dict[str, Any] = {
+            "state": "NOT_ELIGIBLE",
+            "retained_raw_id": None,
+            "reason": ("only an authorized, declared delivery retains raw "
+                       "evidence; an authority failure retains nothing"),
+        }
+        if source_routing.raw_retention_eligible(
+                decision.get("mismatch_reason")):
+            try:
+                ident = idem.event_identity(e.tenant_id, e.collector_id,
+                                            e.source, e.source_event_id,
+                                            e.raw)
+                retention = raw_retention.retain(
+                    tenant_id=tenant_id, collector_id=collector_id,
+                    envelope=e, decision=decision, identity=ident,
+                    trace_id=btrace, nivx_received_at=nivx_received_at)
+            except Exception as ex:                          # noqa: BLE001
+                retention = {"state": "FAILED", "retained_raw_id": None,
+                             "reason": f"{type(ex).__name__}: {str(ex)[:200]}"}
         rows.append({
             "tenant_id":        tenant_id,
             "collector_id":     collector_id,
@@ -751,10 +778,18 @@ def route_batch(envelopes: list[CanonicalEnvelope], *,
             "payload_excerpt":  str(raw.get("line")
                                     or raw.get("message") or "")[:300],
             "routing":          decision,
+            # B4 · the bridge from a refusal to the evidence behind it, so
+            # nobody has to reconstruct an EventID by inference again.
+            "raw_retention":    retention,
+            "retained_raw_id":  retention.get("retained_raw_id"),
             "honesty_note": (
                 "no raw row, no idempotency claim and no canonical evidence "
                 "exist for this delivery; it does not count toward the "
-                "CONNECTED gate"),
+                "CONNECTED gate"
+                + (" — the verbatim raw record IS retained as forensic "
+                   "evidence (see retained_raw_id) and was NOT parsed, "
+                   "normalized, detected or canonicalized"
+                   if retention.get("retained_raw_id") else "")),
         })
     return routed, blocked, rows
 

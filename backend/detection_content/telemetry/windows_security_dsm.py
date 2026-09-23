@@ -685,6 +685,31 @@ class WindowsSecurityDSM:
         except Exception:
             return False
 
+    def recognizes_format(self, ev: Dict[str, Any]) -> bool:
+        """B4 · is this a readable Windows SECURITY-channel record?
+
+        Answers only the FORMAT question. It is deliberately independent of
+        `SUPPORTED_EVENT_IDS`: "I can read this Security record but do not
+        interpret this EventID yet" is a COVERAGE fact, and reporting it as a
+        format mismatch made a working channel look malformed. Provider /
+        channel evidence is required, so a record from another channel can
+        never borrow this DSM's format recognition.
+        """
+        view = evtx_xml.decoded_view(ev)
+        if not isinstance(view, dict):
+            return False
+        system = view.get("System") if isinstance(view.get("System"),
+                                                  dict) else {}
+        if not (_get_ci(view, "EventID", "event_id", "eventid")
+                or _get_ci(system, "EventID", "event_id", "eventid")):
+            return False
+        provider = str(_get_ci(view, "Provider", "provider")
+                       or _get_ci(system, "Provider", "provider") or "")
+        channel = str(_get_ci(view, "Channel", "channel")
+                      or _get_ci(system, "Channel", "channel") or "")
+        return (channel.strip().lower() == "security"
+                or "security-auditing" in provider.lower())
+
     def select_parser(self) -> WindowsSecurityParser:
         return WindowsSecurityParser()
 

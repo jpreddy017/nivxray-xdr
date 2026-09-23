@@ -494,6 +494,15 @@ class WindowsPowerShellDSM:
             return False
         return _is_powershell(ev)
 
+    def recognizes_format(self, ev: Dict[str, Any]) -> bool:
+        """B4 · is this a readable PowerShell-channel record? FORMAT only —
+        an unsupported EventID from a PowerShell channel is a coverage gap,
+        not a malformed source."""
+        view = evtx_xml.decoded_view(ev)
+        if not isinstance(view, dict):
+            return False
+        return _is_powershell(view)
+
     def select_parser(self) -> WindowsPowerShellParser:
         return WindowsPowerShellParser()
 

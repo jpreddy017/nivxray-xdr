@@ -1,0 +1,617 @@
+
+===== STEP 2 seed =====
+{
+  "seeded": 8,
+  "counts": {
+    "received": 0,
+    "queued": 8,
+    "delivering": 0,
+    "delivered": 0,
+    "retrying": 0,
+    "dead_letter": 0
+  }
+}
+
+===== STEP 3 HEALTHY =====
+{
+  "boot_gate": {
+    "state": "CLOSED",
+    "consecutive_failures": 0,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": null,
+    "opened_count": 0,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": null,
+    "last_transition_at": null,
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": null,
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 2, "delivered": 2, "retrying": 0, "dead": 0, "gate": "CLOSED", "probe": false}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 6, "delivering": 0, "delivered": 2, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 2, "drained": 2, "delivered": 2, "retrying": 0, "dead": 0, "gate": "CLOSED", "probe": false}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 4, "delivering": 0, "delivered": 4, "retrying": 0, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 4,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 0,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0,
+    "r31-scratch-7": 0,
+    "r31-scratch-6": 0,
+    "r31-scratch-5": 0,
+    "r31-scratch-4": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "CLOSED",
+    "consecutive_failures": 0,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": null,
+    "opened_count": 0,
+    "probes": 0,
+    "last_reason": null,
+    "last_transition_at": null,
+    "updated_at": "2026-09-23T16:26:45.066153+00:00"
+  }
+}
+
+===== STEP 4 destination unavailable (unattributed edge 404) =====
+{
+  "boot_gate": {
+    "state": "CLOSED",
+    "consecutive_failures": 0,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": null,
+    "opened_count": 0,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": null,
+    "last_transition_at": null,
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "CLOSED",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 2, "delivered": 0, "retrying": 2, "dead": 0, "gate": "SUSPECT", "probe": false}, "gate": "SUSPECT", "seconds_until_probe": null, "counts": {"received": 0, "queued": 2, "delivering": 0, "delivered": 4, "retrying": 2, "dead_letter": 0}}
+{"tick": {"ticks": 2, "drained": 2, "delivered": 0, "retrying": 1, "dead": 0, "gate": "OPEN", "probe": false}, "gate": "OPEN", "seconds_until_probe": 9.993939666004735, "counts": {"received": 0, "queued": 1, "delivering": 0, "delivered": 4, "retrying": 3, "dead_letter": 0}}
+{"tick": {"ticks": 3, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 7.9924158550056745}, "gate": "OPEN", "seconds_until_probe": 7.992407726000238, "counts": {"received": 0, "queued": 1, "delivering": 0, "delivered": 4, "retrying": 3, "dead_letter": 0}}
+{"tick": {"ticks": 4, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 5.990179585001897}, "gate": "OPEN", "seconds_until_probe": 5.990170782002679, "counts": {"received": 0, "queued": 1, "delivering": 0, "delivered": 4, "retrying": 3, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 1,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 3,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 0,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": 1790180819.3802755,
+    "opened_count": 1,
+    "probes": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "updated_at": "2026-09-23T16:26:49.380296+00:00"
+  }
+}
+
+===== STEP 4 status =====
+{
+  "counts": {
+    "received": 0,
+    "queued": 1,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 3,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 0,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": 1790180819.3802755,
+    "opened_count": 1,
+    "probes": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "updated_at": "2026-09-23T16:26:49.380296+00:00"
+  }
+}
+
+===== STEP 5 RESTART while OPEN (x3, crash-loop) =====
+--- restart 1
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 3.663364930798707,
+    "opened_count": 1,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "OPEN",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 3.663290196796879}, "gate": "OPEN", "seconds_until_probe": 3.6632872077971115, "counts": {"received": 0, "queued": 1, "delivering": 0, "delivered": 4, "retrying": 3, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 1,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 3,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 0,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": 1790180819.3802755,
+    "opened_count": 1,
+    "probes": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "updated_at": "2026-09-23T16:26:49.380296+00:00"
+  }
+}
+--- restart 2
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 1.4141321236893418,
+    "opened_count": 1,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "OPEN",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 1.4140571246898617}, "gate": "OPEN", "seconds_until_probe": 1.4140541376837064, "counts": {"received": 0, "queued": 1, "delivering": 0, "delivered": 4, "retrying": 3, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 1,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 3,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 0,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": 1790180819.3802755,
+    "opened_count": 1,
+    "probes": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "updated_at": "2026-09-23T16:26:49.380296+00:00"
+  }
+}
+--- restart 3
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 0.0,
+    "opened_count": 1,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:26:49.380279+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "OPEN",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 1, "delivered": 0, "retrying": 1, "dead": 0, "gate": "OPEN", "probe": true}, "gate": "OPEN", "seconds_until_probe": 19.996937713993248, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 4, "retrying": 4, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 4,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 20.0,
+    "cooldown_until_epoch": 1790180840.2046332,
+    "opened_count": 2,
+    "probes": 1,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "updated_at": "2026-09-23T16:27:00.204653+00:00"
+  }
+}
+
+===== STEP 5 status after crash-loop =====
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 4,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 20.0,
+    "cooldown_until_epoch": 1790180840.2046332,
+    "opened_count": 2,
+    "probes": 1,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "updated_at": "2026-09-23T16:27:00.204653+00:00"
+  }
+}
+
+===== STEP 6 cooldown elapsed -> ONE bounded probe (still down) =====
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "failure_threshold": 3,
+    "cooldown_seconds": 20.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 7.588547920327983,
+    "opened_count": 2,
+    "probes": 1,
+    "skipped_ticks": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "OPEN",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 7.588473901327234}, "gate": "OPEN", "seconds_until_probe": 7.588470420327212, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 4, "retrying": 4, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 4,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 20.0,
+    "cooldown_until_epoch": 1790180840.2046332,
+    "opened_count": 2,
+    "probes": 1,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "updated_at": "2026-09-23T16:27:00.204653+00:00"
+  }
+}
+
+===== STEP 6 status =====
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 4,
+    "retrying": 4,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "cooldown_seconds": 20.0,
+    "cooldown_until_epoch": 1790180840.2046332,
+    "opened_count": 2,
+    "probes": 1,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "updated_at": "2026-09-23T16:27:00.204653+00:00"
+  }
+}
+
+===== STEP 7 destination restored =====
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 3,
+    "failure_threshold": 3,
+    "cooldown_seconds": 20.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 0.0,
+    "opened_count": 2,
+    "probes": 1,
+    "skipped_ticks": 0,
+    "last_reason": "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+    "last_transition_at": "2026-09-23T16:27:00.204637+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": "OPEN",
+    "state_load_error": null
+  }
+}
+{"tick": {"ticks": 1, "drained": 1, "delivered": 1, "retrying": 0, "dead": 0, "gate": "CLOSED", "probe": true}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 5, "retrying": 3, "dead_letter": 0}}
+{"tick": {"ticks": 2, "drained": 2, "delivered": 2, "retrying": 0, "dead": 0, "gate": "CLOSED", "probe": false}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 7, "retrying": 1, "dead_letter": 0}}
+{"tick": {"ticks": 3, "drained": 1, "delivered": 1, "retrying": 0, "dead": 0, "gate": "CLOSED", "probe": false}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 4, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 5, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 6, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 7, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 8, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 9, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 10, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 11, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 12, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 13, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 14, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{"tick": {"ticks": 15, "drained": 0, "gate": "CLOSED"}, "gate": "CLOSED", "seconds_until_probe": null, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 8,
+    "retrying": 0,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "CLOSED",
+    "consecutive_failures": 0,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": null,
+    "opened_count": 2,
+    "probes": 2,
+    "last_reason": "destination acknowledged a delivery",
+    "last_transition_at": "2026-09-23T16:27:37.373210+00:00",
+    "updated_at": "2026-09-23T16:27:41.481627+00:00"
+  }
+}
+
+===== STEP 7 status =====
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 8,
+    "retrying": 0,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "CLOSED",
+    "consecutive_failures": 0,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": null,
+    "opened_count": 2,
+    "probes": 2,
+    "last_reason": "destination acknowledged a delivery",
+    "last_transition_at": "2026-09-23T16:27:37.373210+00:00",
+    "updated_at": "2026-09-23T16:27:41.481627+00:00"
+  }
+}
+
+===== STEP 7 destination ledger =====
+{"mode": "UP", "accepted": 8, "unique_accepted": 8}
+
+===== STEP 8 corrupt persisted gate state =====
+corrupted persisted gate state
+{
+  "boot_gate": {
+    "state": "OPEN",
+    "consecutive_failures": 0,
+    "failure_threshold": 3,
+    "cooldown_seconds": 10.0,
+    "max_cooldown_seconds": 40.0,
+    "seconds_until_probe": 9.955676580000727,
+    "opened_count": 1,
+    "probes": 0,
+    "skipped_ticks": 0,
+    "last_reason": "persisted delivery-health state was unreadable, so the gate failed safe and paused delivery: unknown gate state: 'NOT_A_STATE'",
+    "last_transition_at": "2026-09-23T16:28:08.064474+00:00",
+    "durable": true,
+    "destination_key": "nivx-ingest",
+    "restored_from": null,
+    "state_load_error": "unknown gate state: 'NOT_A_STATE'"
+  }
+}
+{"tick": {"ticks": 1, "drained": 0, "delivered": 0, "retrying": 0, "dead": 0, "gate": "OPEN", "gate_skipped": true, "seconds_until_probe": 9.955566568001814}, "gate": "OPEN", "seconds_until_probe": 9.955562778006424, "counts": {"received": 0, "queued": 0, "delivering": 0, "delivered": 8, "retrying": 0, "dead_letter": 0}}
+{
+  "counts": {
+    "received": 0,
+    "queued": 0,
+    "delivering": 0,
+    "delivered": 8,
+    "retrying": 0,
+    "dead_letter": 0
+  },
+  "attempts": {
+    "r31-scratch-7": 1,
+    "r31-scratch-5": 1,
+    "r31-scratch-6": 1,
+    "r31-scratch-4": 1,
+    "r31-scratch-2": 0,
+    "r31-scratch-3": 0,
+    "r31-scratch-0": 0,
+    "r31-scratch-1": 0
+  },
+  "persisted_health_gate": {
+    "destination_key": "nivx-ingest",
+    "state_version": 1,
+    "state": "OPEN",
+    "consecutive_failures": 0,
+    "cooldown_seconds": 10.0,
+    "cooldown_until_epoch": 1790180898.0644696,
+    "opened_count": 1,
+    "probes": 0,
+    "last_reason": "persisted delivery-health state was unreadable, so the gate failed safe and paused delivery: unknown gate state: 'NOT_A_STATE'",
+    "last_transition_at": "2026-09-23T16:28:08.064474+00:00",
+    "updated_at": "2026-09-23T16:28:08.064495+00:00"
+  }
+}
+
+===== STEP 9 teardown =====
+evidence: /tmp/r31-scratch-run/evidence.txt

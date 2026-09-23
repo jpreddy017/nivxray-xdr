@@ -25,10 +25,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo import DESCENDING, MongoClient
 
 from deps import get_current_user
+from services import raw_forensic_retention as raw_retention
 from services import source_routing
 from services.dashboard_lenses import resolve_tenant_scope
 
@@ -40,6 +41,9 @@ _client = MongoClient(_MONGO_URL) if _MONGO_URL else None
 
 _EVIDENCE = "xdr_canonical_evidence"
 _BLOCKS = "xdr_ingest_routing_blocks"
+#: B4 · retained forensic raw for AUTHORIZED deliveries refused before
+#: interpretation. Explicitly NOT canonical evidence.
+_RETAINED = raw_retention.COLLECTION
 
 _READ_ONLY_NOTE = (
     "read-only projection of decisions made at the authenticated ingest "
@@ -59,6 +63,8 @@ def _ensure_indexes() -> None:
     _db()[_BLOCKS].create_index([("tenant_id", 1), ("at", DESCENDING)])
     _db()[_EVIDENCE].create_index(
         [("tenant_id", 1), ("ingest_time", DESCENDING)])
+    _db()[_RETAINED].create_index(
+        [("tenant_id", 1), ("first_seen_at", DESCENDING)])
     _INDEXED = True
 
 
@@ -140,6 +146,9 @@ def _routing_fields(routing: dict[str, Any]) -> dict[str, Any]:
         "selected_dsm_id": routing.get("selected_dsm_id"),
         "content_compatible": routing.get("content_compatible"),
         "content_recognized_as": routing.get("content_recognized_as"),
+        "declared_format_recognized": routing.get(
+            "declared_format_recognized"),
+        "raw_retention_eligible": routing.get("raw_retention_eligible"),
         "reason_code": routing.get("mismatch_reason"),
         "reason": routing.get("reason"),
     }
@@ -174,6 +183,11 @@ def _accepted_row(doc: dict[str, Any]) -> dict[str, Any]:
         "raw_envelope_ref": ingest.get("raw_envelope_ref"),
         "payload_keys": None,
         "payload_excerpt": None,
+        "retained_raw_id": None,
+        "raw_retention": {
+            "state": "NOT_APPLICABLE",
+            "reason": ("this delivery was ACCEPTED, so its raw row and "
+                       "canonical evidence exist on the normal path")},
         **_routing_fields(routing),
     }
 
@@ -201,6 +215,12 @@ def _blocked_row(doc: dict[str, Any]) -> dict[str, Any]:
         "raw_envelope_ref": None,
         "payload_keys": doc.get("payload_keys"),
         "payload_excerpt": doc.get("payload_excerpt"),
+        #: B4 · the bridge to the verbatim evidence behind this refusal.
+        "retained_raw_id": doc.get("retained_raw_id"),
+        "raw_retention": doc.get("raw_retention") or {
+            "state": "NOT_RECORDED",
+            "reason": ("this refusal predates B4 raw forensic retention, so "
+                       "no raw record was kept for it")},
         **_routing_fields(routing),
     }
 
@@ -302,6 +322,106 @@ async def list_deliveries(
                     "refused": f"{_BLOCKS}.routing"},
         "read_only_note": _READ_ONLY_NOTE,
     }
+
+
+@router.get("/retained-raw")
+async def list_retained_raw(
+        scope: TenantScope = Depends(_scope),
+        reason_code: str | None = Query(
+            None, description="SOURCE_RECORD_NOT_SUPPORTED | "
+                              "SOURCE_FORMAT_MISMATCH | "
+                              "SOURCE_DSM_UNAVAILABLE"),
+        collector_id: str | None = None,
+        declared_source: str | None = None,
+        event_id: str | None = Query(None, description="Windows EventID, "
+                                                       "when one was "
+                                                       "extractable"),
+        channel: str | None = None,
+        since: str | None = Query(None, description="ISO-8601 lower bound"),
+        until: str | None = Query(None, description="ISO-8601 upper bound"),
+        limit: int = Query(50, ge=1, le=_LIMIT_MAX),
+        offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """B4 · retained forensic raw for the authenticated scope, metadata only.
+
+    Bounded and paginated, and never a global enumeration: the tenant filter
+    comes from the verified session, so a principal can only ever see its own
+    tenants' evidence. The verbatim raw is NOT in this response — fetch a
+    record by its `retained_raw_id` to read it.
+    """
+    if _db() is None:
+        return {"rows": [], "count": 0,
+                "unavailable": "telemetry store unavailable",
+                "read_only_note": _READ_ONLY_NOTE}
+    _ensure_indexes()
+    q: dict[str, Any] = {**scope.filter()}
+    if reason_code:
+        q["disposition.mismatch_reason"] = reason_code
+    if collector_id:
+        q["collector_id"] = collector_id
+    if declared_source:
+        q["declared_source_resolved"] = declared_source
+    if event_id:
+        q["record_hints.event_id"] = str(event_id)
+    if channel:
+        q["record_hints.channel"] = channel
+    window: dict[str, Any] = {}
+    if since:
+        window["$gte"] = since
+    if until:
+        window["$lte"] = until
+    if window:
+        q["first_seen_at"] = window
+
+    cursor = (_db()[_RETAINED].find(q)
+              .sort("first_seen_at", DESCENDING)
+              .skip(offset).limit(limit))
+    rows = [raw_retention.metadata_row(d) for d in cursor]
+    return {
+        "tenant_scope": scope.describe(),
+        "filters_applied": {"reason_code": reason_code,
+                            "collector_id": collector_id,
+                            "declared_source": declared_source,
+                            "event_id": event_id, "channel": channel,
+                            "since": since, "until": until,
+                            "limit": limit, "offset": offset},
+        "count": len(rows),
+        "total": _db()[_RETAINED].count_documents(q),
+        "rows": rows,
+        "source": _RETAINED,
+        "evidence_contract": {
+            "retained_raw_is_canonical_evidence": False,
+            "invariant": ("RAW RETAINED != PARSED != NORMALIZED != "
+                          "EVALUATED != DETECTED"),
+        },
+        "read_only_note": _READ_ONLY_NOTE,
+    }
+
+
+@router.get("/retained-raw/{retained_raw_id}")
+async def get_retained_raw(retained_raw_id: str,
+                           scope: TenantScope = Depends(_scope)
+                           ) -> dict[str, Any]:
+    """B4 · one retained forensic record, verbatim raw included.
+
+    Fails closed on tenant isolation: a record belonging to another tenant is
+    answered exactly like a record that does not exist, so the surface never
+    confirms the existence of evidence outside the caller's authority.
+    """
+    if _db() is None:
+        raise HTTPException(503, detail="telemetry store unavailable")
+    _ensure_indexes()
+    doc = _db()[_RETAINED].find_one({"id": retained_raw_id,
+                                     **scope.filter()})
+    if not doc:
+        raise HTTPException(404, detail={
+            "code": "RETAINED_RAW_NOT_FOUND",
+            "reason": ("no retained raw record with this id exists inside "
+                       "the authenticated tenant scope"),
+            "tenant_scope": scope.describe()})
+    return {"tenant_scope": scope.describe(),
+            "row": raw_retention.full_row(doc),
+            "read_only_note": _READ_ONLY_NOTE}
 
 
 @router.get("/summary")
