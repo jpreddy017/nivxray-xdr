@@ -21,7 +21,7 @@ import asyncio
 from typing import Optional
 
 from framework.delivery import IngestClient, IngestOutcome
-from framework.outbox   import Outbox, OutboxRow
+from framework.outbox   import Outbox, OutboxRow, OutboxStatus
 
 
 class DeliveryWorker:
@@ -95,10 +95,18 @@ class DeliveryWorker:
             if out == IngestOutcome.OK:
                 delivered_ids.append(r.id)
             elif out == IngestOutcome.RETRYABLE:
-                self.outbox.mark_retry(r.id,
-                                            error=str(result.get("reason") or "retryable"))
-                retrying_counts += 1
-            else:  # FATAL
+                reason = str(result.get("reason") or "retryable")
+                new_status = self.outbox.mark_retry(r.id, error=reason)
+                if new_status == OutboxStatus.DEAD_LETTER:
+                    # G1-R1: bounded retries were exhausted. That is a
+                    # truthful terminal disposition and is NOT the same thing
+                    # as an authoritative refusal — say so on the row.
+                    self.outbox.mark_dead(
+                        r.id, error=f"{reason} | retries exhausted")
+                    dead_counts += 1
+                else:
+                    retrying_counts += 1
+            else:  # FATAL — an application-attributed refusal only
                 self.outbox.mark_dead(r.id,
                                           error=str(result.get("reason") or "fatal"))
                 dead_counts += 1

@@ -618,3 +618,136 @@ Ordered by ratio of loss prevented to risk introduced:
 Not in scope and untouched: the 512 KB cap (hypothesis rejected — no change
 justified), Security `SOURCE_FORMAT_MISMATCH`, the clock collapse, `parser_ok`
 declaration, the `RAW_PERSISTED` orphan, B4, G2.
+
+---
+
+## 11 · G1-R1 RETRY CLASSIFICATION IMPLEMENTATION
+
+**`G1_R1_RETRY_CLASSIFICATION = PASS`** · owner-authorised scope only. No
+failure-detail capture, no health gate, no requeue, no ledger, no PowerShell
+work, no B4/G2, no deployment, no replay, no endpoint mutation.
+
+### 11.1 Old behaviour
+
+`framework/delivery.py` (pre-change, final lines):
+
+```python
+if code in (408, 429) or 500 <= code < 600:   # retryable
+    ...
+# Any other 4xx is a fatal, don't-retry response.
+self.failed_fatal += len(batch)
+self.last_error = f"HTTP {code}"
+return {"outcome": IngestOutcome.FATAL, ...}
+```
+`delivery_worker.py` mapped `FATAL -> outbox.mark_dead()`, which is terminal
+with **no attempt threshold** (`framework/outbox.py:338`). Consequence: a status
+code alone decided permanence. During the G1 outage this converted 14,868
+transient infrastructure 404s into permanent evidence loss at `attempts = 0`.
+
+### 11.2 New behaviour
+
+Terminality now requires an **application-attributable** refusal. Attribution
+is the presence of the `X-Request-ID` response header, which the application
+stamps on **every** response — success and error alike
+(`backend/request_hardening.py:125` `response.headers["X-Request-ID"] = rid`,
+and explicitly on its own 413/504/500 JSON responses). An infrastructure
+response produced when no backend is listening does not carry it.
+
+The test is deliberately one-directional: it can only ever **withhold**
+terminality, never manufacture it. It is a header-only check — no response body
+is read or stored, because richer capture is G1-R2.
+
+### 11.3 Classification contract
+
+| condition | classification | worker action | terminal? |
+|---|---|---|---|
+| `2xx` | `ACCEPTED` | `mark_delivered` | n/a (accepted) |
+| not configured / timeout / transport error | `RETRYABLE` | `mark_retry` | only on exhaustion |
+| `408`, `429`, `5xx` | `RETRYABLE` | `mark_retry` | only on exhaustion |
+| **`404` (attributed or not)** | `UNATTRIBUTED_FAILURE` | `mark_retry` | **only on exhaustion** |
+| other `4xx` **without** `X-Request-ID` | `UNATTRIBUTED_FAILURE` | `mark_retry` | only on exhaustion |
+| other `4xx` **with** `X-Request-ID` | `AUTHORITATIVE_TERMINAL` | `mark_dead` | **yes, immediately (fail-closed)** |
+
+`404` is never terminal even when attributed: the application's only ingest 404
+is `"collector not found"`, which a later enrolment legitimately resolves.
+
+Bounded, never infinite: `RETRYABLE`/`UNATTRIBUTED_FAILURE` go through the
+existing `mark_retry` machinery (`_max_attempts`, `DEFAULT_BACKOFF_SECONDS`).
+On exhaustion the worker now writes a distinct disposition —
+`"<reason> | retries exhausted"` — so *"we tried and gave up"* is never
+confusable with *"the authority refused this event"*.
+
+Reason strings written to `envelopes.last_error`:
+```
+HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry
+HTTP 404 | UNATTRIBUTED_FAILURE (app-attributed) | bounded retry
+HTTP 403 | AUTHORITATIVE_TERMINAL (app-attributed refusal)
+HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry | retries exhausted
+```
+
+### 11.4 Changed files
+
+| file | change |
+|---|---|
+| `framework/delivery.py` | `DeliveryClassification` taxonomy + `APP_ATTRIBUTION_HEADER`; attribution-aware classification; `failed_unattributed` / `last_classification` counters; `classification` + `app_attributed` in every returned dict and in `status()`. `IngestOutcome` wire values (`ok`/`retryable`/`fatal`) intentionally unchanged, so `routes/preflight.py` and the worker keep working. |
+| `framework/delivery_worker.py` | imports `OutboxStatus`; on retry exhaustion writes the explicit `"… | retries exhausted"` disposition and counts it as dead; `FATAL` branch now documented as application-attributed refusals only. |
+| `tests/test_outbox.py` | `test_4xx_marks_dead_letter` now sends `X-Request-ID` with its 400, preserving the test's intent (an authoritative refusal stays terminal) under the corrected contract. |
+| `tests/test_g1_r1_retry_classification.py` | **new**, 30 tests. |
+
+### 11.5 Tests and results
+
+```
+tests/test_g1_r1_retry_classification.py  ->  30 passed
+full collector suite                      ->  210 passed in 3.09s   (0 failures)
+import check                              ->  framework.delivery, delivery_worker,
+                                              routes.preflight, main all import
+```
+Coverage, mapped to the required list:
+
+| requirement | test |
+|---|---|
+| infrastructure/bare 404 not immediate dead-letter | `test_bare_404_is_not_immediate_dead_letter` |
+| **exact G1 shape cannot go `queued -> dead_letter` on attempt one** | `test_queued_cannot_transition_directly_to_dead_letter_on_first_404` (asserts the transition and `attempts == 1`) |
+| unattributed 404 -> retry path | `test_unattributed_404_classification_is_explicit`, `test_attributed_404_is_still_retryable` |
+| retry accounting advances | `test_retry_attempts_advance_and_exhaust_explicitly` (1 -> 2 -> 3) |
+| exhaustion has an explicit truthful disposition | same test: `"retries exhausted"` present, `AUTHORITATIVE_TERMINAL` absent |
+| 408 retryable · 429 retryable · 5xx retryable | `test_known_retryable_statuses_stay_retryable[408/429/500/502/503/504]` |
+| authoritative refusal stays terminal | `test_app_attributed_refusal_is_terminal[400/401/403/409/413/422]` |
+| unattributed 4xx is retried, not destroyed | `test_unattributed_4xx_is_retried_not_destroyed[400/401/403/409/422]` |
+| 2xx remains delivered | `test_2xx_still_delivers` |
+| tenant/auth rejection never becomes success | `test_auth_and_tenant_rejection_never_becomes_delivered[403/401/404 × attributed/not]` |
+| acquisition/bookmark invariants unchanged | `test_404_does_not_acknowledge_or_drop_the_row` (no acknowledgement, no row loss) |
+| outbox durability/idempotency unchanged | `test_idempotency_and_durability_unaffected_by_404` (one row, payload intact, zero delivered) |
+| transport contract unchanged | `test_transport_error_stays_retryable` |
+
+### 11.6 Historical data
+
+Untouched. No requeue, no rewrite, no status change. The 14,868 rows and
+`C:\ProgramData\NivXForge\state\outbox.db` are preserved as evidence; recovery
+is the separate owner-gated **R4**.
+
+### 11.7 Remaining gaps / risks
+
+1. **Attribution is a header, not a signature (accepted risk).** An
+   intermediary that echoes `X-Request-ID` could make an edge response look
+   attributed. Blast radius is bounded: it would make an unattributed failure
+   *terminal* for non-404 statuses only — the exact G1 shape (404) is terminal
+   under **no** circumstances. A signed refusal contract belongs to the server
+   ledger work (D-1/D-2/D-3).
+2. **Reason strings carry a classification label, not the server's own words**
+   (D-4 remains open). Full detail capture — body excerpt, `content-type`,
+   resolved URL — is **R2**.
+3. **No health gate (D-9 open).** The worker will now *retry* into an
+   unreachable endpoint rather than shred the queue, but it still drains at
+   full rate. Bounded exhaustion means a long outage can still end in
+   `retries exhausted` dead letters — materially better than `attempts = 0`
+   destruction, and not yet the full answer. **R3.**
+4. **`DEAD_LETTER_UNEXPLAINED` is expressed in `last_error` text, not as a
+   distinct status (D-10 partially open).** A first-class state is deferred so
+   this change stays additive to the existing status machine.
+5. **Server-side rejection ledger untouched** (D-1/D-2/D-3) — still unwaived.
+6. **`max_attempts` is `len(DEFAULT_BACKOFF_SECONDS)`**; whether that budget is
+   right for a multi-hour outage is a tuning question deliberately left to R3
+   alongside the circuit breaker.
+7. **Not deployed and not exercised against a live endpoint** — unit-proven
+   only, by instruction.

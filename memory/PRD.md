@@ -19253,7 +19253,24 @@ problem — record 510's single attempt hit the edge 404, so PowerShell has neve
 been evaluated server-side. Security `SOURCE_FORMAT_MISMATCH` (24 blocks,
 17:26-17:41, app up) is real and **separate**.
 
-Recommended bounded scope (not implemented, owner review pending):
+### 2026-06 · G1-R1 retry classification fix — `G1_R1_RETRY_CLASSIFICATION = PASS`
+Implemented (collector only): terminality now requires an
+application-attributable refusal. Attribution = presence of the `X-Request-ID`
+response header, which `backend/request_hardening.py` stamps on every
+application response and an edge response does not carry. New taxonomy
+`ACCEPTED / RETRYABLE / UNATTRIBUTED_FAILURE / AUTHORITATIVE_TERMINAL`;
+**404 is never first-attempt terminal** (attributed or not); unattributed 4xx
+are bounded-retried; attributed non-404 4xx stay terminal and fail-closed;
+retry exhaustion writes a distinct `"... | retries exhausted"` disposition.
+Files: `framework/delivery.py`, `framework/delivery_worker.py`,
+`tests/test_outbox.py` (one test now sends `X-Request-ID` with its 400),
+new `tests/test_g1_r1_retry_classification.py` (30 tests).
+Results: 30 passed · full collector suite **210 passed, 0 failed**. Historical
+14,868 rows untouched. Detail: §11 of the root-cause doc.
+Sequence remaining: **R2 failure-detail capture -> R3 delivery health gate ->
+R4 owner-gated recovery of the 14,868** (only R4 touches historical rows).
+
+Original recommended scope (1 now DONE as R1):
 1. terminality requires an application-attributable refusal — **404 must not be
    first-attempt terminal**; 2. persist status + content-type + `X-Request-ID` +
 bounded body excerpt; 3. delivery health gate / circuit breaker; 4. **separate
