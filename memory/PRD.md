@@ -19194,8 +19194,31 @@ plane, records preserved:
 count = 0.** No replacement credential minted. All known temporary G1 credentials are
 accounted for.
 
-Owner's stated next step before engineering fixes: **rotate the exposed MongoDB
-credential** (explicitly out of scope for the key-sweep task).
+MongoDB credential rotation was **removed from the sequence by owner decision**
+(the credential is not exposed/compromised; it was only an agent suggestion).
+
+Owner-approved remediation sequence:
+**dead-letter accountability -> PowerShell channel -> clock correctness ->
+parser-state truth -> RAW_PERSISTED recovery/accounting -> B4 -> G2.**
+Proof-script publishing deliberately deferred until the defects the proof exposed
+are corrected.
+
+### 2026-06 · Dead-letter accountability root cause (analysis only, no fix)
+Full inventory: `memory/G1_DEAD_LETTER_ACCOUNTABILITY_ROOT_CAUSE.md`.
+Structural finding: **every stage that writes a durable refusal answers HTTP 200
+(routing blocks), and every stage that answers 4xx writes nothing** — so the 26
+routing blocks sit inside the endpoint's *delivered* count and can never explain a
+single dead letter. 11 terminal 4xx exits in `routers/xdr_ingest.py:784-834` have
+no accountability write path; `422` (pre-handler) and `413`
+(`request_hardening.py`, 512 KB cap — ingest is not in `_LARGE_BODY_PATHS`) cannot
+be recorded at all. Endpoint amplifier: `framework/delivery.py:143` stores only
+`f"HTTP {code}"` and discards the server's reason body, then dead-letters any
+non-408/429 4xx on the first attempt.
+Classification **E (multiple causes)**: B primary, C amplifier, D ruled out,
+A not excludable for an unknown share.
+`DEAD_LETTER_ROOT_CAUSE = PASS` · `MOVE_TO_IMPLEMENTATION = HOLD` pending one
+read-only endpoint query (`GROUP BY last_error` on dead-lettered rows) to measure
+the actual 4xx histogram before the ledger is designed around a guess.
 
 ### Findings recorded, NOT fixed (no owner authorization yet)
 * **P1 — dead-letter accountability**: endpoint reported 14,868 dead-lettered events;
