@@ -19267,8 +19267,29 @@ Files: `framework/delivery.py`, `framework/delivery_worker.py`,
 new `tests/test_g1_r1_retry_classification.py` (30 tests).
 Results: 30 passed · full collector suite **210 passed, 0 failed**. Historical
 14,868 rows untouched. Detail: §11 of the root-cause doc.
-Sequence remaining: **R2 failure-detail capture -> R3 delivery health gate ->
-R4 owner-gated recovery of the 14,868** (only R4 touches historical rows).
+### 2026-06 · G1-R2 failure detail capture — `G1_R2_FAILURE_DETAIL_CAPTURE = PASS`
+Every failed delivery attempt now writes a **bounded, redacted** record onto the
+outbox row: `classification`, `reason`, `attempted_at`, `url`, `status_code`,
+`app_attributed`, `request_id`, `content_type`, `server`, `body_excerpt` (capped
+300 chars, `body_bytes` + `body_truncated` so truncation is never silent), plus
+`transport_error` for transport failures and `disposition: RETRIES_EXHAUSTED` on
+exhaustion. Credentials (`nvx_…`, `Bearer …`, `api_key: …`) are redacted before
+storage; only the latest failure per row is kept.
+Files: `framework/delivery.py` (`_failure_detail`, `_redact`,
+`FAILURE_BODY_EXCERPT_CHARS`), `framework/outbox.py` (additive
+`failure_detail_json` column, `mark_retry/mark_dead(detail=)` via `COALESCE`,
+`OutboxRow.failure_detail`), `framework/delivery_worker.py`,
+`routes/outbox.py` (exposed on `GET /outbox` and `GET /outbox/{id}`),
+new `tests/test_g1_r2_failure_detail_capture.py` (16 tests).
+Results: 16 passed · full collector suite **226 passed, 0 failed**.
+Live check (no ingest, no mutation): the deployed app stamps `x-request-id` on a
+404 and the header **survives the edge** (`server: cloudflare`), so attribution
+is observable end-to-end. Historical 14,868 rows untouched — additive migration
+back-fills nothing. Detail: §12 of the root-cause doc.
+
+Sequence remaining: **terminal verification of R1+R2 -> R3 delivery health gate
+-> terminal verification -> R4 owner-gated recovery of the 14,868** (only R4
+touches historical rows).
 
 Original recommended scope (1 now DONE as R1):
 1. terminality requires an application-attributable refusal — **404 must not be

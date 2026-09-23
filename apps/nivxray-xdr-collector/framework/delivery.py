@@ -54,12 +54,33 @@ in health so operators fix it.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Dict, Iterable, List
 
 import httpx
 
 from framework.base import Envelope
 from framework.identity import collector_id, tenant_id
+
+
+#: G1-R2 · bounded body excerpt. Enough to identify the refusal contract,
+#: never enough to become a payload store.
+FAILURE_BODY_EXCERPT_CHARS = 300
+
+#: Defensive redaction. Our own API never echoes the credential, but a
+#: failure record must not be able to become the place a secret leaks.
+_REDACT = (
+    (re.compile(r"nvx_[A-Za-z0-9_\-]+"), "nvx_<redacted>"),
+    (re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]+"), "Bearer <redacted>"),
+    (re.compile(r"(?i)(api[-_]?key\"?\s*[:=]\s*\"?)[A-Za-z0-9._\-]+"),
+     r"\1<redacted>"),
+)
+
+
+def _redact(text: str) -> str:
+    for pattern, replacement in _REDACT:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 class IngestOutcome:
@@ -81,6 +102,51 @@ class DeliveryClassification:
 APP_ATTRIBUTION_HEADER = "X-Request-ID"
 
 
+def _failure_detail(*, classification: str, reason: str,
+                    status_code: int | None = None,
+                    app_attributed: bool | None = None,
+                    resp: "httpx.Response | None" = None,
+                    url: str | None = None) -> Dict[str, Any]:
+    """G1-R2 · the bounded, redacted record of one failed attempt.
+
+    It answers, after the fact and without the original process: what did the
+    far side actually say, and was it the authoritative application at all.
+    """
+    import datetime as _dt
+    detail: Dict[str, Any] = {
+        "classification":  classification,
+        "reason":          reason,
+        "attempted_at":    _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "url":             url,
+        "status_code":     status_code,
+        "app_attributed":  app_attributed,
+        "attribution_header": APP_ATTRIBUTION_HEADER,
+        "request_id":      None,
+        "content_type":    None,
+        "server":          None,
+        "body_excerpt":    None,
+        "body_bytes":      None,
+        "body_truncated":  None,
+        "capture_note": ("bounded and redacted; body excerpt capped at "
+                         f"{FAILURE_BODY_EXCERPT_CHARS} chars and never "
+                         "contains the credential"),
+    }
+    if resp is None:
+        return detail
+    headers = resp.headers
+    detail["request_id"]   = headers.get(APP_ATTRIBUTION_HEADER)
+    detail["content_type"] = headers.get("content-type")
+    detail["server"]       = headers.get("server")
+    try:
+        body = resp.text or ""
+    except Exception:                                        # noqa: BLE001
+        body = ""
+    detail["body_bytes"]     = len(body)
+    detail["body_truncated"] = len(body) > FAILURE_BODY_EXCERPT_CHARS
+    detail["body_excerpt"]   = _redact(body[:FAILURE_BODY_EXCERPT_CHARS])
+    return detail
+
+
 class IngestClient:
     def __init__(self) -> None:
         self.delivered:       int = 0
@@ -89,6 +155,7 @@ class IngestClient:
         self.failed_unattributed: int = 0
         self.last_error: str | None = None
         self.last_classification: str | None = None
+        self.last_failure_detail: Dict[str, Any] | None = None
         self.last_delivery_at: str | None = None
 
     # Read env fresh on every call so operators can hot-fix the token
@@ -122,6 +189,7 @@ class IngestClient:
             "failed_fatal":       self.failed_fatal,
             "failed_unattributed": self.failed_unattributed,
             "last_classification": self.last_classification,
+            "last_failure_detail": self.last_failure_detail,
             "last_error":         self.last_error,
             "last_delivery_at":   self.last_delivery_at,
             "state":              "connected" if self.configured() else "not_configured",
@@ -136,9 +204,14 @@ class IngestClient:
             self.failed_retryable += len(batch)
             self.last_error = "ingest_not_configured"
             self.last_classification = DeliveryClassification.RETRYABLE
+            detail = _failure_detail(
+                classification=DeliveryClassification.RETRYABLE,
+                reason="ingest_not_configured", url=None)
+            self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "failure_detail": detail,
                      "reason":    "ingest_not_configured"}
 
         try:
@@ -171,17 +244,31 @@ class IngestClient:
             self.failed_retryable += len(batch)
             self.last_error = f"{type(e).__name__}: {e}"
             self.last_classification = DeliveryClassification.RETRYABLE
+            detail = _failure_detail(
+                classification=DeliveryClassification.RETRYABLE,
+                reason=self.last_error, url=self.url,
+                app_attributed=False)
+            detail["transport_error"] = type(e).__name__
+            self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "failure_detail": detail,
                      "reason": self.last_error}
         except Exception as e:                                  # noqa: BLE001
             self.failed_retryable += len(batch)
             self.last_error = f"{type(e).__name__}: {e}"
             self.last_classification = DeliveryClassification.RETRYABLE
+            detail = _failure_detail(
+                classification=DeliveryClassification.RETRYABLE,
+                reason=self.last_error, url=self.url,
+                app_attributed=False)
+            detail["transport_error"] = type(e).__name__
+            self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "failure_detail": detail,
                      "reason": self.last_error}
 
         code = resp.status_code
@@ -195,6 +282,7 @@ class IngestClient:
             self.delivered += len(batch)
             self.last_error = None
             self.last_classification = DeliveryClassification.ACCEPTED
+            self.last_failure_detail = None
             self.last_delivery_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
             return {"outcome": IngestOutcome.OK, "delivered": len(batch),
                      "classification": DeliveryClassification.ACCEPTED,
@@ -205,10 +293,16 @@ class IngestClient:
             self.failed_retryable += len(batch)
             self.last_error = f"HTTP {code}"
             self.last_classification = DeliveryClassification.RETRYABLE
+            detail = _failure_detail(
+                classification=DeliveryClassification.RETRYABLE,
+                reason=self.last_error, status_code=code,
+                app_attributed=app_attributed, resp=resp, url=self.url)
+            self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0, "status_code": code,
                      "classification": DeliveryClassification.RETRYABLE,
                      "app_attributed": app_attributed,
+                     "failure_detail": detail,
                      "reason": self.last_error}
 
         # ── G1-R1 · a 4xx is terminal ONLY when attributable ──────────
@@ -217,15 +311,21 @@ class IngestClient:
         # later enrolment legitimately resolves.
         if code == 404 or not app_attributed:
             self.failed_unattributed += len(batch)
-            detail = ("no " + APP_ATTRIBUTION_HEADER
-                      if not app_attributed else "app-attributed")
-            self.last_error = (f"HTTP {code} | UNATTRIBUTED_FAILURE ({detail}) "
+            detail_note = ("no " + APP_ATTRIBUTION_HEADER
+                           if not app_attributed else "app-attributed")
+            self.last_error = (f"HTTP {code} | UNATTRIBUTED_FAILURE ({detail_note}) "
                                f"| bounded retry")
             self.last_classification = DeliveryClassification.UNATTRIBUTED_FAILURE
+            detail = _failure_detail(
+                classification=DeliveryClassification.UNATTRIBUTED_FAILURE,
+                reason=self.last_error, status_code=code,
+                app_attributed=app_attributed, resp=resp, url=self.url)
+            self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0, "status_code": code,
                      "classification": DeliveryClassification.UNATTRIBUTED_FAILURE,
                      "app_attributed": app_attributed,
+                     "failure_detail": detail,
                      "reason": self.last_error}
 
         # An application-attributed 4xx refusal (tenant isolation, auth,
@@ -233,8 +333,14 @@ class IngestClient:
         self.failed_fatal += len(batch)
         self.last_error = f"HTTP {code} | AUTHORITATIVE_TERMINAL (app-attributed refusal)"
         self.last_classification = DeliveryClassification.AUTHORITATIVE_TERMINAL
+        detail = _failure_detail(
+            classification=DeliveryClassification.AUTHORITATIVE_TERMINAL,
+            reason=self.last_error, status_code=code,
+            app_attributed=app_attributed, resp=resp, url=self.url)
+        self.last_failure_detail = detail
         return {"outcome": IngestOutcome.FATAL,
                  "delivered": 0, "status_code": code,
                  "classification": DeliveryClassification.AUTHORITATIVE_TERMINAL,
                  "app_attributed": app_attributed,
+                 "failure_detail": detail,
                  "reason": self.last_error}

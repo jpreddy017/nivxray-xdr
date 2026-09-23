@@ -96,19 +96,25 @@ class DeliveryWorker:
                 delivered_ids.append(r.id)
             elif out == IngestOutcome.RETRYABLE:
                 reason = str(result.get("reason") or "retryable")
-                new_status = self.outbox.mark_retry(r.id, error=reason)
+                detail = result.get("failure_detail")
+                new_status = self.outbox.mark_retry(r.id, error=reason,
+                                                        detail=detail)
                 if new_status == OutboxStatus.DEAD_LETTER:
                     # G1-R1: bounded retries were exhausted. That is a
                     # truthful terminal disposition and is NOT the same thing
                     # as an authoritative refusal — say so on the row.
+                    exhausted = dict(detail or {})
+                    exhausted["disposition"] = "RETRIES_EXHAUSTED"
                     self.outbox.mark_dead(
-                        r.id, error=f"{reason} | retries exhausted")
+                        r.id, error=f"{reason} | retries exhausted",
+                        detail=exhausted or None)
                     dead_counts += 1
                 else:
                     retrying_counts += 1
             else:  # FATAL — an application-attributed refusal only
                 self.outbox.mark_dead(r.id,
-                                          error=str(result.get("reason") or "fatal"))
+                                          error=str(result.get("reason") or "fatal"),
+                                          detail=result.get("failure_detail"))
                 dead_counts += 1
         if delivered_ids:
             self.outbox.mark_delivered(delivered_ids)

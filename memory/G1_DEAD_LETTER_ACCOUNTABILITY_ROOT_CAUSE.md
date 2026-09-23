@@ -751,3 +751,139 @@ is the separate owner-gated **R4**.
    alongside the circuit breaker.
 7. **Not deployed and not exercised against a live endpoint** — unit-proven
    only, by instruction.
+
+---
+
+## 12 · G1-R2 FAILURE DETAIL CAPTURE IMPLEMENTATION
+
+**`G1_R2_FAILURE_DETAIL_CAPTURE = PASS`** · owner-authorised scope only. No
+health gate (R3), no requeue/recovery (R4), no rejection ledger, no PowerShell
+work, no B4/G2, no deployment, no replay, no endpoint mutation.
+
+### 12.1 Old behaviour (the reason G1 diagnosis was expensive)
+
+Every failure preserved exactly one string:
+
+```python
+self.last_error = f"HTTP {code}"        # everything else discarded
+```
+The response object was read for its status and then dropped. The
+`X-Request-ID` stamp, content type, body and resolved URL — the only things
+that separate an infrastructure refusal from an authoritative one — were gone
+before the terminal decision was written. Establishing "these 14,868 never
+reached the application" needed API-key `use_count` arithmetic, backend log
+archaeology and per-hour traffic reconstruction.
+
+### 12.2 New behaviour
+
+Every failed attempt now writes a bounded, redacted record **onto the row**:
+
+```json
+{
+  "classification":     "UNATTRIBUTED_FAILURE",
+  "reason":             "HTTP 404 | UNATTRIBUTED_FAILURE (no X-Request-ID) | bounded retry",
+  "attempted_at":       "2026-…Z",
+  "url":                "https://…/api/xdr/ingest/telemetry",
+  "status_code":        404,
+  "app_attributed":     false,
+  "attribution_header": "X-Request-ID",
+  "request_id":         null,
+  "content_type":       "text/html",
+  "server":             "edge-proxy",
+  "body_excerpt":       "<html><body>404 Not Found</body></html>",
+  "body_bytes":         39,
+  "body_truncated":     false,
+  "capture_note":       "bounded and redacted; body excerpt capped at 300 chars …"
+}
+```
+Transport failures record the same shape with `status_code: null` and
+`transport_error: "ConnectError"`. Retry exhaustion adds
+`disposition: "RETRIES_EXHAUSTED"`.
+
+Two hard limits, both tested:
+* **bounded** — body excerpt capped at `FAILURE_BODY_EXCERPT_CHARS = 300`, with
+  `body_bytes` + `body_truncated` so truncation is never silent. This is a
+  diagnosis record, not a payload store.
+* **redacted** — `nvx_…` keys, `Bearer …` tokens and `api_key: …` values are
+  stripped before storage, so a failure record can never become the place a
+  credential leaks. Only the last failure per row is kept (replaced, not
+  appended), so the record cannot grow without bound.
+
+### 12.3 Live validation of the attribution signal
+
+Probed the deployed Preview app with an unknown `/api` route (no ingest, no
+mutation):
+
+```
+via edge :  HTTP/2 404 · content-type: application/json · server: cloudflare
+                       · x-request-id: nvx-256a2413ff77
+localhost:  HTTP/1.1 404 Not Found · content-type: application/json
+                       · x-request-id: nvx-944d866ce925
+```
+The application stamps `X-Request-ID` on a 404 and **the header survives the
+edge**, so attribution is observable end-to-end in the real deployment.
+
+### 12.4 Changed files
+
+| file | change |
+|---|---|
+| `framework/delivery.py` | `FAILURE_BODY_EXCERPT_CHARS`, `_redact()`, `_failure_detail()`; every non-accepted return now carries `failure_detail`; `last_failure_detail` on the client, cleared on success, exposed in `status()`. |
+| `framework/outbox.py` | `OutboxRow.failure_detail`; additive migration `ALTER TABLE envelopes ADD COLUMN failure_detail_json TEXT`; `mark_retry(..., detail=)` and `mark_dead(..., detail=)` persist it via `COALESCE` so a caller that passes nothing never erases an existing record; `_row()` deserialises defensively when the column is absent. |
+| `framework/delivery_worker.py` | forwards `result["failure_detail"]` on both the retry and terminal paths; stamps `disposition: RETRIES_EXHAUSTED` on exhaustion. |
+| `routes/outbox.py` | `failure_detail` exposed on `GET /outbox` and `GET /outbox/{id}` so an operator can read it without touching SQLite. |
+| `tests/test_g1_r2_failure_detail_capture.py` | **new**, 16 tests. |
+
+### 12.5 Tests and results
+
+```
+tests/test_g1_r2_failure_detail_capture.py  ->  16 passed
+full collector suite                        -> 226 passed in 3.23s, 0 failed
+imports                                     -> delivery, delivery_worker,
+                                               routes.outbox, routes.preflight, main
+schema                                      -> failure_detail_json present
+```
+
+| requirement | test |
+|---|---|
+| the exact G1 edge-404 shape becomes self-explaining | `test_infrastructure_404_records_absence_of_attribution` |
+| app 404 vs infrastructure 404 are distinguishable | `test_application_404_is_distinguishable_from_infrastructure_404` |
+| capture is bounded and truncation is visible | `test_body_excerpt_is_bounded_and_flagged_truncated` |
+| a failure record can never leak the credential | `test_credential_is_redacted_from_failure_detail` |
+| every failure class persists a record | `test_all_failure_classes_persist_detail[404/403 unattributed · 403 attributed · 429 · 503]` |
+| transport failure with no response still records | `test_transport_failure_records_detail_without_a_response` |
+| not-configured still records | `test_not_configured_records_detail` |
+| exhaustion disposition recorded | `test_exhaustion_disposition_is_recorded` |
+| record reflects the latest attempt, not an accumulation | `test_detail_reflects_the_latest_attempt` |
+| survives process restart | `test_failure_detail_persists_across_reopen` |
+| opens a pre-R2 database additively | `test_additive_migration_on_a_pre_r2_database` |
+| success carries no stale failure narrative | `test_success_clears_client_side_failure_detail` |
+| R1 contract still intact | full suite, incl. all 30 R1 tests |
+
+### 12.6 Historical data
+
+Untouched. The preserved 14,868 rows keep `last_error = "HTTP 404"` and
+`failure_detail = NULL`; the migration is additive and back-fills nothing,
+because inventing detail for past attempts would be fabrication. Recovery
+remains owner-gated **R4**.
+
+### 12.7 Remaining gaps / risks
+
+1. **Attribution is still an unsigned header** (unchanged from R1). R2 makes the
+   surrounding evidence — content type, `server`, body shape — available so a
+   spoof is *detectable after the fact*, but it is not prevented. A signed
+   refusal contract belongs to the server-side ledger (D-1/D-2/D-3).
+2. **The no-backend case was not reproduced live** — proving it would require
+   taking the Preview backend down, which is out of scope. The edge-404 path is
+   unit-proven with a synthetic response; the app-404 path is confirmed against
+   the real deployment (§12.3).
+3. **Cloudflare sits in front** and was observed to pass the application header
+   through without inventing one, but only in the app-up case.
+4. **D-9 (no health gate) still open** — R3.
+5. **D-10 partially open** — `disposition` now records `RETRIES_EXHAUSTED` in
+   the detail record, but `DEAD_LETTER_UNEXPLAINED` is still not a first-class
+   status.
+6. **`replay_dead()` deliberately preserves `failure_detail`** so a requeue
+   cannot erase why the row previously failed. R4 must decide whether a
+   successful replay should archive it.
+7. **Not deployed, not exercised against a live ingest delivery** — unit-proven
+   only, by instruction.

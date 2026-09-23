@@ -86,6 +86,13 @@ class OutboxRow:
     attempts:            int
     next_attempt_at:     str
     last_error:          Optional[str]
+    #: G1-R2 · bounded, redacted evidence of the LAST failed delivery
+    #: attempt: classification, status code, application attribution,
+    #: request id, content-type, body excerpt and resolved URL. Without it
+    #: an infrastructure refusal is indistinguishable from an authoritative
+    #: one after the fact — which is what made the G1 404 loss expensive to
+    #: diagnose. Never contains the credential.
+    failure_detail:      Optional[Dict[str, Any]]
     created_at:          str
     updated_at:          str
 
@@ -174,6 +181,10 @@ class Outbox:
             if "declared_source" not in cols:
                 self._conn.execute(
                     "ALTER TABLE envelopes ADD COLUMN declared_source TEXT")
+            # G1-R2 · additive migration for the failure-detail record.
+            if "failure_detail_json" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE envelopes ADD COLUMN failure_detail_json TEXT")
 
     def _reset_stuck_delivering(self) -> None:
         """Restart-recovery: anything left in DELIVERING is put back
@@ -309,10 +320,16 @@ class Outbox:
                 f" WHERE id IN ({qmarks})",
                 [OutboxStatus.DELIVERED, now, *ids])
 
-    def mark_retry(self, rid: str, error: str) -> str:
+    def mark_retry(self, rid: str, error: str,
+                      detail: Optional[Dict[str, Any]] = None) -> str:
         """Advance one row into RETRYING with backoff, or DEAD_LETTER
-        if attempts are exhausted.  Returns the new status."""
+        if attempts are exhausted.  Returns the new status.
+
+        `detail` (G1-R2) is the bounded failure record for THIS attempt; it
+        replaces the previous one so the row always describes its latest
+        failure rather than growing without bound."""
         now = _utcnow()
+        det = json.dumps(detail) if detail else None
         with self._lock:
             row = self._conn.execute(
                 "SELECT attempts FROM envelopes WHERE id=?", (rid,)).fetchone()
@@ -321,26 +338,36 @@ class Outbox:
             attempts  = int(row["attempts"]) + 1
             if attempts >= self._max_attempts:
                 self._conn.execute(
-                    "UPDATE envelopes SET status=?, attempts=?, last_error=?, updated_at=? "
+                    "UPDATE envelopes SET status=?, attempts=?, last_error=?,"
+                    "       failure_detail_json=COALESCE(?, failure_detail_json),"
+                    "       updated_at=? "
                     " WHERE id=?",
-                    (OutboxStatus.DEAD_LETTER, attempts, error, _iso(now), rid))
+                    (OutboxStatus.DEAD_LETTER, attempts, error, det,
+                     _iso(now), rid))
                 return OutboxStatus.DEAD_LETTER
             idx = min(attempts - 1, len(self._backoff) - 1)
             next_at = now.timestamp() + self._backoff[idx]
             next_iso = _iso(datetime.fromtimestamp(next_at, tz=timezone.utc))
             self._conn.execute(
                 "UPDATE envelopes "
-                "   SET status=?, attempts=?, next_attempt_at=?, last_error=?, updated_at=? "
+                "   SET status=?, attempts=?, next_attempt_at=?, last_error=?, "
+                "       failure_detail_json=COALESCE(?, failure_detail_json), "
+                "       updated_at=? "
                 " WHERE id=?",
-                (OutboxStatus.RETRYING, attempts, next_iso, error, _iso(now), rid))
+                (OutboxStatus.RETRYING, attempts, next_iso, error, det,
+                 _iso(now), rid))
             return OutboxStatus.RETRYING
 
-    def mark_dead(self, rid: str, error: str) -> None:
+    def mark_dead(self, rid: str, error: str,
+                     detail: Optional[Dict[str, Any]] = None) -> None:
         now = _iso(_utcnow())
+        det = json.dumps(detail) if detail else None
         with self._lock:
             self._conn.execute(
-                "UPDATE envelopes SET status=?, last_error=?, updated_at=? WHERE id=?",
-                (OutboxStatus.DEAD_LETTER, error, now, rid))
+                "UPDATE envelopes SET status=?, last_error=?, "
+                "       failure_detail_json=COALESCE(?, failure_detail_json), "
+                "       updated_at=? WHERE id=?",
+                (OutboxStatus.DEAD_LETTER, error, det, now, rid))
 
     def replay_dead(self, rid: str) -> bool:
         """Requeue a dead-letter row for another delivery attempt."""
@@ -438,6 +465,9 @@ class Outbox:
             status=r["status"], attempts=int(r["attempts"]),
             next_attempt_at=r["next_attempt_at"],
             last_error=r["last_error"],
+            failure_detail=(json.loads(r["failure_detail_json"])
+                            if "failure_detail_json" in r.keys()
+                            and r["failure_detail_json"] else None),
             created_at=r["created_at"], updated_at=r["updated_at"],
         )
 
