@@ -19487,3 +19487,48 @@ deployment, no merge, no force push.
 Next: R4 controlled recovery of exactly the preserved HTTP-404 population
 (owner authorization required), then Wave 1 — Endpoint Event Journal +
 NivXForge Windows Sensor + native telemetry.
+
+---
+
+## 2026-06 · G1-R4 PREPARATION GATE = READY (nothing mutated)
+
+Published base verified by the owner: `origin/feature/rc2-alignment` →
+`f97da900` (parent `38907156` → `86a02907`). New local commit **`5bd1dc94`**
+awaits Save to GitHub.
+
+### Delivered (preparation only)
+* `apps/nivxray-xdr-collector/scripts/g1_r4_recover_dead_letters.py` —
+  dry-run by default (`mode=ro`, so a dry run cannot write). Predicate
+  `status='dead_letter' AND last_error LIKE 'HTTP 404%' AND recovery_json IS
+  NULL`. `--execute` requires `--expect-count` (mismatch → REFUSED before any
+  write) and a plausible `--backup`; refuses while
+  `delivery_health_gate.state != CLOSED`; bounded batches, one transaction
+  each, per-row guarded UPDATE; **requeue only** — never delivers,
+  acknowledges, marks DELIVERED or touches a bookmark; original
+  status/attempts/last_error preserved in `recovery_json`; `--rollback`
+  restores and will not drag back a row that already progressed.
+* `tests/test_g1_r4_dead_letter_recovery.py` — **19 tests PASS** against the
+  real tool. Collector suite total **290 passed**.
+* `memory/G1_R4_PREPARATION_READONLY.ps1` — elevated read-only owner block:
+  writer guard → SHA256-verified backup → dry run against a separate copy →
+  Security EventID sweep. Sweep logic validated locally (24/24 refused window
+  isolated; control window 4624/4672).
+* `memory/G1_R4_RECOVERY_PLAN.md` — predicate, expected 14,868, backup,
+  algorithm, rollback, stop conditions, reconciliation equations, extraction
+  method, risks.
+
+### Reconciliation equation for the recovery
+`TARGET (14,868) = DELIVERED + (QUEUED|RETRYING) + RETAINED_UNSUPPORTED (B4)
++ TERMINAL_ACCOUNTED`; any residual is unexplained loss and fails the gate.
+
+### Untouched
+14,868 dead letters; `C:\ProgramData\NivXForge\state\outbox.db` (never opened
+from this workspace); Windows collector never started; no deployment, merge,
+force push or credential creation. Repository hygiene (tracked `outbox.db`,
+`-wal`, `-shm`) deliberately deferred.
+
+### Next
+Owner runs `G1_R4_PREPARATION_READONLY.ps1` → returns `r4-dryrun.json` +
+`security-eventid-sweep.json` → R4 execution authorized batch by batch → then
+retention policy for `xdr_ingest_raw_retained`, coverage visibility, repo
+hygiene, then Wave 1 (Endpoint Event Journal + NivXForge Windows Sensor).
