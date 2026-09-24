@@ -42,18 +42,51 @@ try {
     throw 'not elevated. C:\ProgramData\NivXForge\state is SYSTEM+Administrators only.'
   }
   if (-not (Test-Path $VenvPy)) { throw "venv python not found at $VenvPy" }
-  if (-not (Test-Path $Tool))   { throw "recovery tool not found at $Tool (git pull feature/rc2-alignment first)" }
+  # ---- 0 . refresh the checkout (the dry run must use the PUBLISHED tool)
+  Write-Host "`n=== 0 . REPO UPDATE ===" -ForegroundColor Cyan
+  if (Test-Path "$Repo\.git") {
+    try {
+      git -C $Repo fetch origin --prune 2>&1 | Out-Null
+      git -C $Repo checkout feature/rc2-alignment 2>&1 | Out-Null
+      git -C $Repo pull --ff-only origin feature/rc2-alignment 2>&1 | Out-Null
+      $head = (git -C $Repo rev-parse HEAD).Trim()
+      Write-Host ("  checkout HEAD: " + $head)
+      Write-Host  "  expected lineage: ed32ccc6 <- dc4909ac <- 5bd1dc94"
+    } catch {
+      Write-Host ("  git update skipped: " + $_.Exception.Message) -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host "  no git checkout at $Repo - using the files as they are" -ForegroundColor Yellow
+  }
+  if (-not (Test-Path $Tool)) {
+    throw ("recovery tool not found at $Tool . The checkout is stale or the path is wrong: " +
+           "pull feature/rc2-alignment (remote HEAD ed32ccc6) or set `$Repo to the real checkout.")
+  }
+  Write-Host ("  tool present: " + $Tool) -ForegroundColor Green
+
   $db = Join-Path $StateDir 'outbox.db'
   if (-not (Test-Path $db))     { throw "outbox database not found at $db" }
 
   # ---- 1 . no writer may hold the database -------------------------
-  $live = Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
-            Where-Object { $_.CommandLine -like '*uvicorn*main:app*' }
+  Write-Host "`n=== 1 . WRITER GUARD ===" -ForegroundColor Cyan
+  $live = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" |
+            Where-Object { $_.CommandLine -like '*uvicorn*' -or
+                           $_.CommandLine -like '*nivx*'   -or
+                           $_.CommandLine -like '*collector*' }
   if ($live) {
-    $live | ForEach-Object { Write-Host ("  running collector pid " + $_.ProcessId) -ForegroundColor Red }
+    $live | ForEach-Object {
+      Write-Host ("  running collector pid " + $_.ProcessId + " : " + $_.CommandLine) -ForegroundColor Red }
     throw ('a collector process is still running. This preparation refuses to copy the ' +
            'outbox under an active writer. Stop it first (Stop-Process -Id <pid> -Force), ' +
            'then re-run. Nothing was read or changed.')
+  }
+  try {
+    $probe = [System.IO.File]::Open($db, 'Open', 'Read', 'None')
+    $probe.Close(); $probe.Dispose()
+    Write-Host "  no process holds the outbox (exclusive-open probe passed)" -ForegroundColor Green
+  } catch {
+    throw ('the outbox is locked by another process, so a copy could be torn. ' +
+           'Nothing was read or changed. Detail: ' + $_.Exception.Message)
   }
 
   New-Item -ItemType Directory -Force -Path $ProofDir  | Out-Null
