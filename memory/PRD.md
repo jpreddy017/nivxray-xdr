@@ -19895,3 +19895,56 @@ pinned python lineage assertion
 exact-50 invariants preserved; 10 tests still pass. R6 Phase A NOT
 pre-authored, Phase B NOT designed — stop for owner review of the authority
 file.
+
+### G1-R5 exact-50 · HTTP 403 / edge error 1010 RCA + correction (2026-06)
+The endpoint's second attempt passed every local gate, the credential-free
+preflight and admin login, then hard-stopped pre-request on
+`HTTP 403: error code: 1010`. No evidence written, 50 rows untouched.
+
+ROOT CAUSE — the security edge (Cloudflare) bans the default
+`Python-urllib/*` User-Agent outright ("banned based on your browser's
+signature"). The request was refused AT THE EDGE and never reached FastAPI,
+which is indistinguishable from an application 403 by status code alone.
+Reproduced credential-free from the pod, and proved by request-level
+correlation: a marked probe path `/api/__rca1010_probe_urllib?tag=...` logged
+EXACTLY ONE FastAPI entry, for the browser-signature request; the
+`Python-urllib` request produced no backend log line at all. UA matrix against
+the same host/route/body: `Python-urllib/3.11` -> 403 `error code: 1010`;
+default urllib -> 403 1010; `curl/8.5.0`, `python-requests/2.32.3`,
+PowerShell's UA and an honest `NivXForge-EDR-Collector/1.0 ...` -> 422 real
+FastAPI JSON. Not an authorization failure, not a token problem, not
+deployment drift. This also explains why `testing_agent` is Cloudflare-blocked
+on this project.
+
+CORRECTION (smallest possible, transport only) — `post_reconcile()` now sends
+an explicit `User-Agent: NivXForge-EDR-Collector/1.0 (+G1-R5 exact-50
+reconciliation; read-only)` plus `Accept: application/json`, and a 403 whose
+body carries `error code: 1010` is reported as an EDGE block ("never reached
+the backend, NOT an application authorization failure") instead of a generic
+surface error. No WAF change, no bypass, no auth-semantics change, no
+whitelist, no credential, no token exposure. Reconciliation semantics are
+untouched: same URL, method, bearer, body, assertions, buckets and failure
+handling. New pinned tool SHA
+`D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A`
+(was F83BD442...), re-pinned in the PS block.
+
+PREFLIGHT HARDENED — preflight (c) now issues the unauthenticated reconcile
+probe FROM THE SAME PYTHON CLIENT with the tool's own User-Agent (read out of
+the tool at runtime), requiring HTTP 403 with `edge_banned = false`. The
+earlier failure was exactly the asymmetry of a PowerShell probe passing while
+the python client was banned, visible only after the password had been typed.
+Verified live: `{"status": 403, "edge_banned": false, "body": "{\"detail\":
+\"Not authenticated\"}"}`.
+
+VERIFIED — 13/13 collector tests pass (3 new: explicit non-urllib UA with URL/
+method/bearer/body/timeout unchanged; 1010 reported as an edge block; a real
+application 403 still reported verbatim). Full authenticated rehearsal against
+the live backend with a SYNTHETIC local outbox (endpoint never contacted):
+1 request, 50 rows returned, strict 1:1 refs, `CROSS_TENANT_ROLE` scope, all
+non-mutation invariants true, and the only failures the expected
+`canonical_exactly`/`retryable_exactly` (synthetic refs are legitimately
+unknown -> 50 RETRYABLE) -> no authoritative file, untrusted file written with
+the NOT-AUTHORITY banner. The edge no longer blocks the path.
+
+R6 Phase A NOT run, Phase B NOT designed. Next: one endpoint execution of the
+re-pinned block.

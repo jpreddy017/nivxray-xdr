@@ -49,6 +49,17 @@ _IDENTITY_SEPARATOR = "\x1f"
 _NO_SOURCE_EVENT_ID = "__no_source_event_id__"
 
 RECONCILE_PATH = "/api/xdr/ingest/routing/reconcile"
+#: The security edge bans the default `Python-urllib/*` User-Agent outright
+#: (Cloudflare error 1010, "banned based on your browser's signature"): the
+#: request is refused AT THE EDGE and never reaches FastAPI, which looks
+#: identical to an application 403. An explicit, honest identity is sent so
+#: the one reconciliation request is attributable rather than anonymous. This
+#: is not a WAF bypass and not an authorization change: the request still
+#: carries the same bearer token and is still subject to the same admin
+#: authority check.
+USER_AGENT = ("NivXForge-EDR-Collector/1.0 "
+              "(+G1-R5 exact-50 reconciliation; read-only)")
+EDGE_BAN_MARKER = "error code: 1010"
 FAILED_SUFFIX = ".FAILED-UNTRUSTED.json"
 UNTRUSTED_BANNER = ("FAILED / UNTRUSTED FORENSIC EVIDENCE — NOT AUTHORITY "
                     "FOR R6. One or more required assertions did not hold.")
@@ -223,12 +234,22 @@ def post_reconcile(base_url: str, token: str, identities: List[Dict[str, Any]],
     request = urllib.request.Request(
         base_url.rstrip("/") + RECONCILE_PATH, data=body, method="POST",
         headers={"Content-Type": "application/json",
+                 "Accept": "application/json",
+                 "User-Agent": USER_AGENT,
                  "Authorization": f"Bearer {token}"})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as ex:
         detail = ex.read().decode("utf-8", "replace")[:600]
+        if EDGE_BAN_MARKER in detail:
+            raise PreRequestRefusal(
+                f"the SECURITY EDGE refused this request with HTTP {ex.code} "
+                f"and {EDGE_BAN_MARKER!r} — it never reached the backend, so "
+                "this is NOT an application authorization failure and NOT a "
+                "token problem. The client's HTTP signature was banned at the "
+                f"edge. User-Agent sent: {USER_AGENT!r}. No evidence was "
+                "written.") from ex
         raise PreRequestRefusal(
             f"the reconciliation surface answered HTTP {ex.code}: {detail} . "
             "No evidence was written.") from ex

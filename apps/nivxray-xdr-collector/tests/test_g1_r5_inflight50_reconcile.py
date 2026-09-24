@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import sqlite3
@@ -241,3 +242,72 @@ def test_identity_matches_the_drain_derivation(tmp_path):
         tenant_id=TENANT, collector_id=COLLECTOR, source="windows_security",
         source_event_id="sei-3", raw=raw)
     assert tool.payload_digest(raw) != tool.payload_digest({"EventID": 4624})
+
+
+def _captured_request(monkeypatch, status=200, body=b'{"rows":[]}'):
+    """Capture the urllib Request the tool builds, without opening a socket."""
+    captured = {}
+
+    class _Resp:
+        def read(self):
+            return body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(request, timeout=None):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        if status >= 400:
+            import urllib.error
+            raise urllib.error.HTTPError(
+                request.full_url, status, "refused", {}, io.BytesIO(body))
+        return _Resp()
+
+    monkeypatch.setattr(tool.urllib.request, "urlopen", fake_urlopen)
+    return captured
+
+
+def test_request_carries_an_explicit_non_urllib_user_agent(monkeypatch):
+    captured = _captured_request(monkeypatch)
+    tool.post_reconcile("https://host.example/", "tok-secret",
+                        [{"ref": "env-0000"}], 120)
+    request = captured["request"]
+
+    # the edge bans the default Python-urllib signature; ours must not match it
+    sent_ua = request.get_header("User-agent")
+    assert sent_ua == tool.USER_AGENT
+    assert "urllib" not in sent_ua.lower()
+    assert "NivXForge" in sent_ua
+
+    # nothing else about the request changed
+    assert request.full_url == "https://host.example" + tool.RECONCILE_PATH
+    assert request.get_method() == "POST"
+    assert request.get_header("Authorization") == "Bearer tok-secret"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data)["identities"] == [{"ref": "env-0000"}]
+    assert captured["timeout"] == 120
+
+
+def test_edge_ban_is_reported_as_an_edge_block_not_an_authz_failure(
+        monkeypatch):
+    _captured_request(monkeypatch, status=403, body=b"error code: 1010\n")
+    with pytest.raises(tool.PreRequestRefusal) as ex:
+        tool.post_reconcile("https://host.example", "tok", [{"ref": "a"}], 30)
+    message = str(ex.value)
+    assert "SECURITY EDGE" in message
+    assert "never reached the backend" in message
+    assert "NOT an application authorization failure" in message
+    assert "No evidence was written" in message
+
+
+def test_application_403_is_still_reported_verbatim(monkeypatch):
+    _captured_request(monkeypatch, status=403,
+                      body=b'{"detail":"Not authorized"}')
+    with pytest.raises(tool.PreRequestRefusal) as ex:
+        tool.post_reconcile("https://host.example", "tok", [{"ref": "a"}], 30)
+    assert "SECURITY EDGE" not in str(ex.value)
+    assert "Not authorized" in str(ex.value)

@@ -77,10 +77,11 @@ $ExpectRetryable = 28
 $ExpectTotalRows = 125452
 $ExpectHistogram = 'delivered=3284,delivering=50,queued=121993,retrying=125,dead_letter=0'
 
-# Lineage: the exact tool this block was written for, as committed on
-# feature/rc2-alignment (commit 4049b438). A mismatch means the pull did not
-# land the substantive R5 exact-50 commit, or the checkout is stale.
-$ExpectToolSha = 'F83BD4424BC84058E3AF95856CFB7B7B15E2E52158DF661FFDF5FF12E7956E38'
+# Lineage: the exact tool this block was written for. Re-pinned after the
+# edge-1010 correction (an explicit non-`Python-urllib` User-Agent on the one
+# reconciliation request). A mismatch means the pull did not land that
+# correction, or the checkout is stale.
+$ExpectToolSha = 'D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A'
 
 try {
   if (-not ([Security.Principal.WindowsPrincipal] `
@@ -198,6 +199,54 @@ try {
            'This is NOT retried automatically: wait, then re-run this block ' +
            'deliberately.')
   }
+  # (c) THE PROBE THAT MATTERS: issue the same unauthenticated request from
+  #     the SAME python client, with the SAME User-Agent the tool sends. The
+  #     earlier failure was exactly this asymmetry - PowerShell's signature
+  #     was accepted while the python client's default `Python-urllib/*`
+  #     signature was banned at the edge (error code: 1010), which only became
+  #     visible AFTER the password had been typed. A 403 here must come from
+  #     FastAPI, not from the edge.
+  $pyProbe = @'
+import json, sys, urllib.error, urllib.request
+base, ua = sys.argv[1], sys.argv[2]
+req = urllib.request.Request(
+    base.rstrip("/") + "/api/xdr/ingest/routing/reconcile",
+    data=b'{"identities":[]}', method="POST",
+    headers={"Content-Type": "application/json", "Accept": "application/json",
+             "User-Agent": ua})
+try:
+    with urllib.request.urlopen(req, timeout=20) as r:
+        code, body = r.status, r.read().decode("utf-8", "replace")
+except urllib.error.HTTPError as ex:
+    code, body = ex.code, ex.read().decode("utf-8", "replace")
+except Exception as ex:
+    code, body = -1, str(ex)
+print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
+                  "body": body[:200]}))
+'@
+  $pFile = Join-Path $env:TEMP ("nivx_r5_pyprobe_" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".py")
+  Set-Content -Path $pFile -Value $pyProbe -Encoding UTF8
+  $toolUa = (& $VenvPy -c "import importlib.util,sys;s=importlib.util.spec_from_file_location('t',r'$Tool');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.USER_AGENT)") -join ''
+  Write-Host ("  python client User-Agent: " + $toolUa)
+  $pyRes = (& $VenvPy $pFile $BaseUrl $toolUa) -join "`n" | ConvertFrom-Json
+  Remove-Item $pFile -ErrorAction SilentlyContinue
+  Write-Host ("  python client, unauthenticated reconcile -> HTTP " + $pyRes.status +
+              "   edge_banned=" + $pyRes.edge_banned + "   (require 403 / False)")
+  if ($pyRes.edge_banned -or [int]$pyRes.status -ne 403) {
+    Write-Host ''
+    if ($pyRes.edge_banned) {
+      Write-Host '  EDGE BAN ON THE PYTHON CLIENT (error code: 1010) - DO NOT RETYPE' -ForegroundColor Red
+      Write-Host '  PASSWORD. NO RECONCILIATION ATTEMPTED. The request never reaches' -ForegroundColor Red
+      Write-Host '  the backend, so this is not an authorization or token problem.' -ForegroundColor Red
+    } else {
+      Write-Host '  BACKEND NOT READY/BOUND - DO NOT RETYPE PASSWORD. NO RECONCILIATION ATTEMPTED.' -ForegroundColor Red
+    }
+    throw ('the python client itself was refused before authentication (HTTP ' +
+           $pyRes.status + ', edge_banned=' + $pyRes.edge_banned + '): ' +
+           $pyRes.body + ' . No credential was requested and nothing was ' +
+           'written. Report this rather than retrying.')
+  }
+  Write-Host '  the python client signature is accepted by the edge; 403 is FastAPI' -ForegroundColor Green
   Write-Host '  both routes bound on the same backend; reconcile still protected' -ForegroundColor Green
 
   Write-Host "`n=== 3 . AUTHENTICATE (read-only reconciliation) ===" -ForegroundColor Cyan
