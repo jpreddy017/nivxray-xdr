@@ -19985,3 +19985,50 @@ Files changed: `memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1`
 (SHA-256 `CCBC08A1E80C4BB6F31870DABD428E83C77B54DD60374EF2DD9B6673E376FD94`)
 and the new test (`21EC5F9F...`). Awaiting Save to Github, then one endpoint
 execution. R6 not run, Phase B not designed.
+
+### G1-R5 exact-50 · authentication RCA + credential inventory (2026-06, inspection only)
+Nothing changed: no reset, no new user, no authorization/tenant edit, no
+reconciliation, no endpoint contact, no R6.
+
+ENVIRONMENT THE WRAPPER TARGETS = **PREVIEW**. `$BaseUrl` is the preview host
+(`REACT_APP_BACKEND_URL`), whose backend runs `DB_NAME=test_database`. Proven
+independently: the endpoint's collector `col_d6b0b9e8172246f29be9` exists in
+the PREVIEW DB (tenant `ten_f1a5479243e901cf159e230fa0`, `enabled: true`,
+`auth_kind: none`, `events_received: 3271`) with 3271 matching
+`xdr_ingest_dedupe` docs. The endpoint has been delivering into PREVIEW all
+along.
+
+PREVIEW admin: `ADMIN_EMAIL=admin@nivxray.com` (backend/.env), user doc
+`role: admin`, `must_change_password: false`, no `enabled` gate.
+`bcrypt.checkpw(ADMIN_PASSWORD, stored_hash)` -> **True**, and a single live
+`POST /api/auth/login` -> **200** with a 163-char JWT. The preview secret is
+RETRIEVABLE from `backend/.env: ADMIN_PASSWORD` (24 chars) and mirrored in
+`memory/test_credentials.md`. VALID — no rotation needed.
+
+PRODUCTION: this workspace holds NO production credentials (zero
+`PROD_*`/`PRODUCTION_*` keys; `MONGO_URL` is the local preview mongo). Prod
+admin password, tenant/org ids, API keys and collector identities are
+**NOT RETRIEVABLE** from here; the prod admin password was owner-rotated
+2026-09-09. Prod hosts per docs: API `nivxray.nivxforge.com`, UI
+`workspace.nivxmachines.com`.
+
+RECONCILE AUTHORITY: `/api/xdr/ingest/routing/reconcile` authenticates by USER
+JWT (`_scope` -> `get_current_user` -> `resolve_tenant_scope`); API keys
+cannot reach it (their only scopes are alerts.read, audit.read,
+collectors.enroll, collectors.read, lolbas.sync). `admin` -> cross-tenant,
+which is required because the 50 rows belong to tenant
+`ten_f1a5479243e901cf159e230fa0`, NOT `default`.
+
+PROVEN CAUSE OF THE 401: credential/environment mismatch — the production
+(owner-rotated) password was typed against the PREVIEW URL. Not a missing
+user, not disabled, not payload drift (`LoginIn` = `{email, password}`,
+exactly what the wrapper posts). Aggravating latent trap: `auth.py:55` looks
+users up with an exact, case-sensitive, untrimmed `{"email": body.email}`
+while the rate-limit key lowercases/strips, so `Admin@...` or a trailing
+space yields the same indistinguishable 401. Rate limit: 5 fails per
+(email, IP) -> 900 s lockout returning 429 + Retry-After; one 401 observed,
+so budget remains.
+
+NEXT ACTION (one): re-run the corrected block using the PREVIEW admin
+credential from `backend/.env` / `memory/test_credentials.md`, e-mail exactly
+lowercase and untrimmed.
