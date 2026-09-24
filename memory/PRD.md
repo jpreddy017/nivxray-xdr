@@ -19532,3 +19532,55 @@ Owner runs `G1_R4_PREPARATION_READONLY.ps1` → returns `r4-dryrun.json` +
 `security-eventid-sweep.json` → R4 execution authorized batch by batch → then
 retention policy for `xdr_ingest_raw_retained`, coverage visibility, repo
 hygiene, then Wave 1 (Endpoint Event Journal + NivXForge Windows Sensor).
+
+---
+
+## 2026-06 · G1-R3.1 GATE PREREQUISITE FOR R4 = READY (procedure only)
+
+Local commit `ca2a0f71` (after `1c8aae08`, `d20206b0`). Awaiting Save to
+GitHub. R4 recovery NOT executed; the 14,868 rows and the Windows endpoint
+remain untouched.
+
+### Diagnosis
+The preserved outbox predates R3.1, so `delivery_health_gate` was never
+created (the table is declared in `Outbox._SCHEMA` and only comes into being
+when an `Outbox` is constructed). Absence was **never** a refusal: R3.1's
+contract is that a gate with no persisted state has observed nothing and
+CLOSED is the truthful first-boot default; the R4 tool refuses only on a
+persisted non-CLOSED row.
+Two real defects were fixed: (a) the dry-run report derived
+`delivery_health_gate_table_present` from ROW presence — now `table_present`
+(DDL) and `row_present` (observation) are separate, with a
+`health_gate_prerequisite` decision block; (b) durability was genuinely
+absent, so an outage during the drain could not survive a restart.
+
+### Chosen mechanism · `--init-health-gate`
+DDL-only, one `CREATE TABLE IF NOT EXISTS` in one transaction, byte-identical
+to `Outbox._SCHEMA` (drift test enforced), `--backup` mandatory,
+`rows_written = 0`, and **no gate row written** — CLOSED is not fabricated.
+Proof set: `counts_by_status`, `total_envelopes`, SHA-256 over every envelope
+row `(id,status,attempts,last_error,next_attempt_at,updated_at)`,
+`max_updated_at`, SHA-256 over every `windows_channel_state` bookmark row, and
+`only_new_table_is_the_gate`. Rejected alternative: starting the collector
+creates the same table but also runs `DELIVERING → QUEUED` restart recovery,
+mutating preserved rows. Added `--require-persisted-gate` (strict posture),
+deliberately unsatisfiable before the first batch rather than inviting a
+fabricated observation.
+
+### Evidence
+17 new tests (`tests/test_g1_r31_gate_prerequisite.py`) against a legacy
+pre-R3.1 outbox; collector suite **307 passed**; full-scale local simulation
+(14,868 target + 107,700 live rows + bookmarks): init `ACCEPTED`, all seven
+proofs true, dry run still `14,868 / 0 non-target / would_write false /
+durability PRESENT`.
+
+### Owner artefacts
+`memory/G1_R31_GATE_PREREQUISITE_PROCEDURE.md` (reason, mechanism, DB delta,
+proofs, truthful-CLOSED argument, PASS/FAIL, constraint compliance) and
+`memory/G1_R31_GATE_INIT_EXECUTION_COPY.ps1` (elevated: stale-checkout guard,
+writer guard, fresh verified backup, DDL, re-proof dry run, 12-check
+PASS/FAIL).
+
+### Next
+Save to GitHub → run the gate-init block → review `r31-gate-init.json` +
+`r4-dryrun-after-gate-init.json` → authorize the first 500-row R4 batch.
