@@ -19628,3 +19628,46 @@ Save to GitHub → run the first-batch block → review `r4-batch1.json` +
 `r4-batch1-verify.json` → decide on the remaining 14,368 (larger batches once
 the first is clean) → then retention policy, coverage visibility, repo
 hygiene, and Wave 1 (Endpoint Event Journal + NivXForge Windows Sensor).
+
+---
+
+## 2026-06 · G1-R4 REMAINING RECOVERY = READY (owner-executed)
+
+Local commit `5760ad25`. Published base `27f6cd95`. First batch PASSED all 21
+checks on DESKTOP-A9HGFJJ (recovery id `r4_f3304b612fc04b99`, 500 rows).
+
+### Design
+One tool invocation **per batch** (2,000 rows), so every batch has its own
+recovery id, accounting and rollback. Each invocation states the CURRENT
+remaining target, so a one-row drift refuses that batch rather than widening
+the selection. After each batch an INDEPENDENT read-only verifier (not the
+tool's own report) checks requeued == planned, rid row count, all rid rows
+`queued` with `attempts 0`, exact dead_letter/queued deltas,
+delivered/delivering/retrying unchanged, total unchanged, bookmark SHA-256
+unchanged, non-target still 0 — any failure aborts the loop immediately.
+
+### Final reconciliation asserted
+`target 0 · dead_letter 0 · queued 108,025 → 122,393 · delivered 2,884 ·
+delivering 50 · retrying 125 · total 125,452 · 14,868 rows tagged (500 +
+14,368), all queued with attempts 0 · bookmarks unchanged · every recovery id
+accounted`. Artefacts: `r4-final-reconciliation.json`, `r4-rollback-all.txt`
+(one independent rollback command per recovery id, including batch 1),
+`r4-remaining-batch-*.json`, `r4-remaining-verify-*.json`.
+
+### Evidence
+New test drains the real-shape population through 8 independently accounted
+invocations (500 + 7×2,000 + 368) → reconciles to dead_letter 0 / queued
+122,393 / total 125,452 / 14,868 tagged / 9 distinct recovery ids → then rolls
+every batch back to the exact starting counts. Collector suite **310 passed**.
+
+### Boundaries
+Collector, delivery worker and acquisition never started; nothing delivered,
+acknowledged or marked delivered; no bookmark or checkpoint read or written;
+no deploy, merge or push.
+
+### After this
+R4 recovery side is closed (rows queued, not yet delivered). Remaining small
+items: delivery drain decision, retention policy for
+`xdr_ingest_raw_retained`, coverage visibility, repo hygiene (tracked
+`outbox.db`/`-wal`/`-shm`). Then **Wave 1: Endpoint Event Journal + NivXForge
+Windows Sensor + native telemetry**.
