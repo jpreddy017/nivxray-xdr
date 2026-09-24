@@ -15,13 +15,17 @@
 #   2. loads the EXACT 50 recorded in-flight refs; refuses any other count
 #   3. asserts the local `delivering` set is EXACTLY those same 50 refs
 #   4. asserts the frozen pre-state histogram and total
-#   5. issues ONE read-only reconciliation request for those 50 identities
-#   6. verifies 22 DELIVERED_CANONICAL + 28 RETRYABLE_STILL_QUEUED,
+#   5. BACKEND READINESS PREFLIGHT, before any credential is requested:
+#      /api/auth/login with an invalid shape must answer 422, and
+#      /api/xdr/ingest/routing/reconcile unauthenticated must answer 403.
+#      Anything else hard-stops BEFORE the password prompt.
+#   6. issues ONE read-only reconciliation request for those 50 identities
+#   7. verifies 22 DELIVERED_CANONICAL + 28 RETRYABLE_STILL_QUEUED,
 #      0 retained raw, 0 terminal, 0 unexplained, and a strict 1:1 ref
 #      correspondence (no missing, no foreign, no duplicate refs)
-#   7. read-only post-snapshot: file bytes, histogram, total, bookmarks and
+#   8. read-only post-snapshot: file bytes, histogram, total, bookmarks and
 #      the delivering set must all be identical
-#   8. writes the authoritative per-row evidence file ONLY on full PASS
+#   9. writes the authoritative per-row evidence file ONLY on full PASS
 #
 # WHAT IT NEVER DOES
 #   no SQLite write . no Outbox construction . no DeliveryWorker . no ingest
@@ -31,6 +35,10 @@
 #   no R6 Phase A . no Phase B . no widening beyond the exact 50
 #
 # FAILURE SEMANTICS (owner decision)
+#   readiness preflight failure (login != 422 or unauthenticated reconcile
+#   != 403) -> HARD STOP BEFORE THE CREDENTIAL PROMPT, printing
+#   "BACKEND NOT READY/BOUND - DO NOT RETYPE PASSWORD. NO RECONCILIATION
+#   ATTEMPTED." Never retried automatically.
 #   pre-request failure (count != 50, delivering-set mismatch, histogram
 #   drift, auth failure, unreachable surface) -> HARD STOP, nothing written.
 #   assertion failure AFTER a response was received -> the complete raw
@@ -106,7 +114,15 @@ try {
     throw 'a collector process is running. Stop it first so the snapshots are stable. Nothing was attempted.'
   }
   $toolSha = (Get-FileHash $Tool -Algorithm SHA256).Hash
-  Write-Host ("  tool sha256: " + $toolSha)
+  Write-Host ("  pinned python tool sha256: " + $toolSha)
+  # Provenance of THIS orchestration block, printed for the record only. It is
+  # NOT a substitute for, and never recalculates, the pinned python lineage
+  # assertion below: the reconciliation authority lives in the .py.
+  $selfSha = [BitConverter]::ToString(
+      [Security.Cryptography.SHA256]::Create().ComputeHash(
+        [Text.Encoding]::UTF8.GetBytes(
+          ${function:Invoke-G1R5Inflight50Reconcile}.ToString()))).Replace('-','')
+  Write-Host ("  this PS block (orchestration) sha256: " + $selfSha)
   if ($toolSha -ne $ExpectToolSha) {
     throw ('tool sha256 is ' + $toolSha + ', expected ' + $ExpectToolSha +
            '. The checkout does not hold the substantive R5 exact-50 commit ' +
@@ -137,7 +153,54 @@ try {
   Write-Host ("  outbox.db sha256 (pre):  " + (Get-FileHash $db -Algorithm SHA256).Hash)
 
   # ---- 2 . authenticate ----------------------------------------------
-  Write-Host "`n=== 2 . AUTHENTICATE (read-only reconciliation) ===" -ForegroundColor Cyan
+  # ---- 2 . BACKEND READINESS PREFLIGHT (no credentials) --------------
+  # A recycled preview pod serves edge errors for every /api/* path while the
+  # static frontend still answers 200. That window produced the earlier
+  # HTTP 404 from /api/auth/login and cost a credential attempt. These two
+  # probes prove, WITHOUT any credential, that both routes are bound and that
+  # reconcile is still protected. They are route/readiness probes only: the
+  # login probe sends a deliberately invalid shape so it can never
+  # authenticate, and the reconcile probe sends no Authorization header so it
+  # can never read anything.
+  Write-Host "`n=== 2 . BACKEND READINESS PREFLIGHT (no credentials) ===" -ForegroundColor Cyan
+  function Probe-Status([string]$uri, [string]$body) {
+    try {
+      $r = Invoke-WebRequest -Method Post -Uri $uri -ContentType 'application/json' `
+             -Body $body -TimeoutSec 20 -UseBasicParsing
+      return [int]$r.StatusCode
+    } catch {
+      if ($_.Exception.Response) { return [int]$_.Exception.Response.StatusCode }
+      return -1
+    }
+  }
+  # (a) login route bound and validating: an empty JSON object cannot satisfy
+  #     the LoginIn model, so a live route MUST answer 422.
+  $probeLogin = Probe-Status "$BaseUrl/api/auth/login" '{}'
+  Write-Host ("  POST /api/auth/login  (invalid shape, no credentials) -> HTTP " +
+              $probeLogin + "   (require 422)")
+  # (b) reconcile route bound AND still requiring authenticated admin
+  #     authority: unauthenticated MUST be refused with 403.
+  $probeRecon = Probe-Status "$BaseUrl/api/xdr/ingest/routing/reconcile" '{"identities":[]}'
+  Write-Host ("  POST /api/xdr/ingest/routing/reconcile (unauthenticated) -> HTTP " +
+              $probeRecon + "   (require 403)")
+  if ($probeLogin -ne 422 -or $probeRecon -ne 403) {
+    Write-Host ''
+    Write-Host '  BACKEND NOT READY/BOUND - DO NOT RETYPE PASSWORD. NO RECONCILIATION ATTEMPTED.' -ForegroundColor Red
+    Write-Host ''
+    if ($probeRecon -eq 200) {
+      Write-Host '  *** The reconcile route answered 200 WITHOUT authentication.' -ForegroundColor Red
+      Write-Host '      That is an authorization regression, not a readiness' -ForegroundColor Red
+      Write-Host '      problem. Report it before anything else. ***' -ForegroundColor Red
+    }
+    throw ('backend readiness preflight failed (login=' + $probeLogin +
+           ', reconcile=' + $probeRecon + '; required 422 / 403). No credential ' +
+           'was requested, no reconciliation was attempted, nothing was written. ' +
+           'This is NOT retried automatically: wait, then re-run this block ' +
+           'deliberately.')
+  }
+  Write-Host '  both routes bound on the same backend; reconcile still protected' -ForegroundColor Green
+
+  Write-Host "`n=== 3 . AUTHENTICATE (read-only reconciliation) ===" -ForegroundColor Cyan
   function Get-PlainFromSecure([System.Security.SecureString]$sec) {
     $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
     try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
@@ -167,7 +230,7 @@ try {
   Write-Host '  authenticated (token held in memory only)' -ForegroundColor Green
 
   # ---- 3 . ONE bounded read-only reconciliation ----------------------
-  Write-Host "`n=== 3 . RECONCILE THE EXACT $ExpectCount (one request, read-only) ===" -ForegroundColor Cyan
+  Write-Host "`n=== 4 . RECONCILE THE EXACT $ExpectCount (one request, read-only) ===" -ForegroundColor Cyan
   Write-Host '  the tool opens outbox.db strictly mode=ro, recomputes each'
   Write-Host '  delivery identity locally, issues exactly one request, and'
   Write-Host '  writes the authoritative file only if every assertion holds.'
@@ -190,7 +253,7 @@ try {
   Write-Host ("`n  tool exit code: " + $exit + "   runtime: " + $sw.ElapsedMilliseconds + " ms")
 
   # ---- 4 . independent non-mutation re-check -------------------------
-  Write-Host "`n=== 4 . INDEPENDENT NON-MUTATION RE-CHECK ===" -ForegroundColor Cyan
+  Write-Host "`n=== 5 . INDEPENDENT NON-MUTATION RE-CHECK ===" -ForegroundColor Cyan
   Write-Host ("  outbox.db sha256 (post): " + (Get-FileHash $db -Algorithm SHA256).Hash)
   $hist = @'
 import json, sqlite3, sys
@@ -212,7 +275,7 @@ print(json.dumps({
   Remove-Item $hFile -ErrorAction SilentlyContinue
 
   # ---- 5 . verdict ----------------------------------------------------
-  Write-Host "`n=== 5 . VERDICT ===" -ForegroundColor Cyan
+  Write-Host "`n=== 6 . VERDICT ===" -ForegroundColor Cyan
   $failedFile = "$OutFile.FAILED-UNTRUSTED.json"
   if ($exit -eq 0 -and (Test-Path $OutFile)) {
     Write-Host "  EXACT-50 EVIDENCE RECOVERY: PASS" -ForegroundColor Green

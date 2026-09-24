@@ -19865,3 +19865,33 @@ Execution copy: `memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1`
 (login → bearer pattern reused, writer guard, independent pre/post hash and
 histogram re-check). Awaiting owner execution. R6 Phase A NOT executed;
 Phase B NOT built.
+
+### G1-R5 exact-50 · backend readiness preflight added (2026-06, owner-authorised)
+The endpoint's first exact-50 attempt hard-stopped safely at authentication
+with HTTP 404 from `/api/auth/login`. Diagnosis: transient preview-pod
+recycle, NOT route removal or deployment drift. Evidence: with `backend`
+uptime 8s all `/api/*` paths returned 502 from the edge while `/` returned 200
+(no backend bound for `/api/*`); 6s later `/api/auth/login` returned 401 and
+both routes verified live on the SAME backend — one FastAPI app, 824 routes,
+`/api/auth/login` (422 invalid shape, 200 + token with admin creds),
+`/api/auth/me` 200 `role: admin`, and `/api/xdr/ingest/routing/reconcile`
+403 unauthenticated / 400 `RECONCILIATION_REQUEST_INVALID` with that same
+bearer. Authoritative base URL unchanged
+(`https://greeting-app-5782.preview.emergentagent.com`). No deployment,
+routing, auth-semantics or Vercel change was required or made.
+
+`memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1` now runs a
+credential-free readiness preflight BEFORE the password prompt: `POST
+/api/auth/login` with `{}` must return 422, `POST .../reconcile`
+unauthenticated must return 403 (both verified live). Anything else — 404,
+502, 503, timeout, connection failure — hard-stops with "BACKEND NOT
+READY/BOUND - DO NOT RETYPE PASSWORD. NO RECONCILIATION ATTEMPTED.", never
+retried automatically; an unauthenticated 200 on reconcile is called out as an
+authorization regression rather than a readiness problem. The block also
+prints its own orchestration SHA for provenance, which does not replace the
+pinned python lineage assertion
+`F83BD4424BC84058E3AF95856CFB7B7B15E2E52158DF661FFDF5FF12E7956E38`.
+`scripts/g1_r5_inflight50_reconcile.py` is UNCHANGED (hash re-verified); all
+exact-50 invariants preserved; 10 tests still pass. R6 Phase A NOT
+pre-authored, Phase B NOT designed — stop for owner review of the authority
+file.
