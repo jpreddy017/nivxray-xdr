@@ -125,8 +125,8 @@ try {
   Write-Host "`n=== 3 . R4 DRY RUN (read-only, against the copy) ===" -ForegroundColor Cyan
   Write-Host "  copy: $copy" -ForegroundColor DarkGray
 
-  & $VenvPy $Tool --db $copy --expect-count 14868 |
-      Tee-Object -FilePath "$ProofDir\r4-dryrun.json"
+  & $VenvPy $Tool --db $copy --expect-count 14868 `
+      --json-out "$ProofDir\r4-dryrun.json"
   $dryRc = $LASTEXITCODE
   if ($dryRc -eq 0) {
     Write-Host "  DRY RUN: target population == 14,868 (as expected)" -ForegroundColor Green
@@ -219,7 +219,8 @@ print(json.dumps(out, indent=2))
 '@
   $pyFile = Join-Path $tmp 'security_sweep.py'
   Set-Content -Path $pyFile -Value $py -Encoding UTF8
-  & $VenvPy $pyFile $tmp | Tee-Object -FilePath "$ProofDir\security-eventid-sweep.json" | Out-Null
+  & $VenvPy $pyFile $tmp |
+      Out-File -FilePath "$ProofDir\security-eventid-sweep.json" -Encoding UTF8
   $sweep = Get-Content "$ProofDir\security-eventid-sweep.json" -Raw | ConvertFrom-Json
   Write-Host ("  Security rows in outbox: " + $sweep.security_rows_total)
   Write-Host  "  refused window 239169-239192 EventID histogram:"

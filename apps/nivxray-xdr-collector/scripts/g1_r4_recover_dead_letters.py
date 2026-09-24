@@ -53,6 +53,19 @@ TARGET_STATUS = "dead_letter"
 RECOVERY_COLUMN = "recovery_json"
 
 
+def _emit(report: dict, args) -> None:
+    """Human console output, and a machine-clean JSON artefact when asked.
+
+    The evidence file must be pure JSON — an operator forwarding a report
+    should not have to strip a console banner out of it first.
+    """
+    body = json.dumps(report, indent=2, default=str)
+    if getattr(args, "json_out", None):
+        with open(args.json_out, "w", encoding="utf-8") as fh:
+            fh.write(body + "\n")
+    print(body)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -213,7 +226,7 @@ def dry_run(args) -> int:
             "+ TERMINAL_ACCOUNTED ; any residual is unexplained loss and "
             "fails the gate")
         report["would_write"] = False
-        print(json.dumps(report, indent=2, default=str))
+        _emit(report, args)
         if args.expect_count is not None and target != args.expect_count:
             print(f"\nG1_R4_DRYRUN = REFUSED · target {target} != expected "
                   f"{args.expect_count}", file=sys.stderr)
@@ -249,19 +262,19 @@ def execute(args) -> int:
         before = _counts(con)
         pop = _population(con, args)
         if pop["target_count"] != args.expect_count:
-            print(json.dumps({"result": "REFUSED",
-                              "reason": "target count does not match the "
-                                        "stated expectation",
-                              "target_count": pop["target_count"],
-                              "expected": args.expect_count}, indent=2))
+            _emit({"result": "REFUSED",
+                   "reason": "target count does not match the stated "
+                             "expectation",
+                   "target_count": pop["target_count"],
+                   "expected": args.expect_count}, args)
             return 2
         gate = _health_gate(con)
         if gate and gate.get("state") not in (None, "CLOSED"):
-            print(json.dumps({"result": "REFUSED",
-                              "reason": "the destination health gate is not "
-                                        "CLOSED; recovery must not queue into "
-                                        "a known-unavailable destination",
-                              "health_gate": gate}, indent=2))
+            _emit({"result": "REFUSED",
+                   "reason": "the destination health gate is not CLOSED; "
+                             "recovery must not queue into a known-"
+                             "unavailable destination",
+                   "health_gate": gate}, args)
             return 3
 
         if not _has_column(con, "envelopes", RECOVERY_COLUMN):
@@ -334,7 +347,7 @@ def execute(args) -> int:
             "note": ("requeue only — nothing was delivered, acknowledged or "
                      "marked DELIVERED by this tool"),
         }
-        print(json.dumps(report, indent=2, default=str))
+        _emit(report, args)
         ok = (report["accounting_holds"] and report["delivered_unchanged"]
               and moved == args.expect_count)
         print(f"\nG1_R4_RECOVERY = {'ACCEPTED' if ok else 'REVIEW'} · "
@@ -376,11 +389,11 @@ def rollback(args) -> int:
         except Exception:
             con.execute("ROLLBACK")
             raise
-        print(json.dumps({"mode": "ROLLBACK", "candidates": len(rows),
-                          "restored": restored,
-                          "not_restored_because_already_progressed":
-                              len(rows) - restored,
-                          "counts": _counts(con)}, indent=2))
+        _emit({"mode": "ROLLBACK", "candidates": len(rows),
+               "restored": restored,
+               "not_restored_because_already_progressed":
+                   len(rows) - restored,
+               "counts": _counts(con)}, args)
         return 0
     finally:
         con.close()
@@ -401,6 +414,8 @@ def main() -> int:
     ap.add_argument("--execute", action="store_true")
     ap.add_argument("--rollback", action="store_true")
     ap.add_argument("--recovery-id", default=None)
+    ap.add_argument("--json-out", default=None,
+                    help="write the report as pure JSON to this path")
     args = ap.parse_args()
     if args.rollback:
         return rollback(args)
