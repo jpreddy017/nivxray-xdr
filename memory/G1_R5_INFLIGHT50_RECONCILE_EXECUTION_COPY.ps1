@@ -35,6 +35,9 @@
 #   no R6 Phase A . no Phase B . no widening beyond the exact 50
 #
 # FAILURE SEMANTICS (owner decision)
+#   EVERY failure path returns a NON-ZERO process exit code. Exit 0 requires
+#   both a clean python exit AND the authoritative file existing. (The
+#   previous copy printed HARD STOP and still returned 0.)
 #   readiness preflight failure (login != 422 or unauthenticated reconcile
 #   != 403) -> HARD STOP BEFORE THE CREDENTIAL PROMPT, printing
 #   "BACKEND NOT READY/BOUND - DO NOT RETYPE PASSWORD. NO RECONCILIATION
@@ -62,11 +65,16 @@ function Invoke-G1R5Inflight50Reconcile {
 # ---- configuration ---------------------------------------------------
 $StateDir = 'C:\ProgramData\NivXForge\state'
 $Work     = 'C:\nivx'
-$Repo     = "$Work\nivxray-xdr-collector"
+# The repository is a monorepo: the collector lives UNDER apps\. The earlier
+# execution copy omitted that segment and hard-stopped with "tool not found",
+# so the python tool never ran.
+$Repo     = "$Work\apps\nivxray-xdr-collector"
 $VenvPy   = "$Work\.venv\Scripts\python.exe"
 $Tool     = "$Repo\scripts\g1_r5_inflight50_reconcile.py"
 $ProofDir = "$Work\g1-proof\r5"
-$IdFile   = "$ProofDir\interruption-reconciliation-corrected\r5-inflight-identities-20260924T063436Z.json"
+# Verified BOM-free identities. A UTF-8 BOM corrupts the first JSON byte, so
+# the no-BOM copy is authoritative for this run.
+$IdFile   = "$ProofDir\interruption-reconciliation-corrected\r5-inflight-identities-20260924T063436Z.utf8-nobom.json"
 $OutFile  = "$ProofDir\r5-inflight-50-server-reconciliation.json"
 $BaseUrl  = 'https://greeting-app-5782.preview.emergentagent.com'
 
@@ -92,7 +100,10 @@ try {
   $db = Join-Path $StateDir 'outbox.db'
   if (-not (Test-Path $VenvPy)) { throw "venv python not found at $VenvPy" }
   if (-not (Test-Path $db))     { throw "outbox database not found at $db" }
-  if (-not (Test-Path $Tool))   { throw "tool not found at $Tool (publish the branch and pull)" }
+  if (-not (Test-Path $Tool))   {
+    throw ("tool not found at $Tool . The collector lives UNDER apps\ in the " +
+           "monorepo; confirm $Repo exists after the pull. Nothing was attempted.")
+  }
   if (-not (Test-Path $IdFile)) { throw "in-flight identities file not found at $IdFile . Nothing was attempted." }
   if (Test-Path $OutFile) {
     throw ("$OutFile already exists. This recovery refuses to overwrite " +
@@ -126,8 +137,8 @@ try {
   Write-Host ("  this PS block (orchestration) sha256: " + $selfSha)
   if ($toolSha -ne $ExpectToolSha) {
     throw ('tool sha256 is ' + $toolSha + ', expected ' + $ExpectToolSha +
-           '. The checkout does not hold the substantive R5 exact-50 commit ' +
-           '(4049b438 on feature/rc2-alignment). Pull that branch again. ' +
+           '. The checkout does not hold the edge-1010 correction. Pull ' +
+           'feature/rc2-alignment again. ' +
            'Nothing was attempted.')
   }
   $help = (& $VenvPy $Tool --help) -join ' '
@@ -351,11 +362,28 @@ print(json.dumps({
   Write-Host 'outbox.db was not written to. The 50 rows are still delivering.' -ForegroundColor Yellow
   Write-Host 'R6 Phase A was NOT executed and Phase B was NOT built.' -ForegroundColor Yellow
   Write-Host 'Send back the console output and the written JSON file.' -ForegroundColor Yellow
+
+  # A PASS is the ONLY path that yields 0. A failed python run, a missing
+  # authority file, or anything else yields non-zero.
+  if ($exit -eq 0 -and (Test-Path $OutFile)) { return 0 } else { return 1 }
 }
 catch {
   Remove-Item Env:\NIVX_RECONCILE_TOKEN -ErrorAction SilentlyContinue
   Write-Host ("`nHARD STOP: " + $_.Exception.Message) -ForegroundColor Red
+  # Every HARD STOP must be observable to the parent process. The previous
+  # execution copy printed HARD STOP and still exited 0, which made a failed
+  # prerequisite look like a successful run.
+  return 1
 }
 }
 
-Invoke-G1R5Inflight50Reconcile
+$NivxExit = Invoke-G1R5Inflight50Reconcile
+if ($null -eq $NivxExit) { $NivxExit = 1 }
+Write-Host ("`nPROCESS EXIT CODE: " + $NivxExit) -ForegroundColor $(
+  if ($NivxExit -eq 0) { 'Green' } else { 'Red' })
+$global:LASTEXITCODE = $NivxExit
+# When saved and run as a .ps1, surface the code to the parent process. When
+# pasted interactively, `exit` would close the window and destroy the console
+# evidence, so the code is only printed and left in $LASTEXITCODE.
+if ($PSCommandPath) { exit $NivxExit }
+

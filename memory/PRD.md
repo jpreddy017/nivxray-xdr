@@ -19948,3 +19948,40 @@ the NOT-AUTHORITY banner. The edge no longer blocks the path.
 
 R6 Phase A NOT run, Phase B NOT designed. Next: one endpoint execution of the
 re-pinned block.
+
+### G1-R5 exact-50 · execution-copy wrapper defects fixed (2026-06, bounded)
+Windows execution proved two wrapper defects. Python reconciliation logic was
+NOT touched (`g1_r5_inflight50_reconcile.py` still
+`D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A`).
+
+1. STALE PATH — the block resolved `$Work\nivxray-xdr-collector`, but the
+   monorepo puts the collector under `apps\`. It hard-stopped with "tool not
+   found", so the tool never ran, no request was sent, no authority file was
+   created and the endpoint DB stayed byte-identical (`ED007216...`). Now
+   `$Repo = "$Work\apps\nivxray-xdr-collector"`, and the not-found message
+   explains the `apps\` segment.
+2. EXIT CODE 0 ON HARD STOP — the catch printed HARD STOP and returned
+   nothing, so the process exited 0 and a failed prerequisite looked like a
+   successful run. Now every failure path returns 1; exit 0 requires BOTH a
+   clean python exit AND the authoritative file existing. The return value is
+   captured (`$NivxExit`), null-defaulted to 1, printed as
+   `PROCESS EXIT CODE:`, assigned to `$global:LASTEXITCODE`, and surfaced via
+   `exit $NivxExit` when run as a .ps1 (not when pasted interactively, where
+   `exit` would close the window and destroy the console evidence).
+3. Identities input switched to the verified BOM-free copy
+   `r5-inflight-identities-20260924T063436Z.utf8-nobom.json`.
+
+New regression guard `tests/test_g1_r5_execution_copy_wrapper.py` (7 tests):
+the `$Tool` Windows path is expanded and mapped onto this repository and must
+resolve to a real file under `apps/nivxray-xdr-collector/scripts/`; the stale
+layout must appear nowhere in the block; the pinned SHA must equal the tool's
+actual hash; the identities file must be the no-BOM copy; the catch must
+`return 1`; the only `return 0` must be the PASS conjunction; the wrapper must
+not be invoked bare; every `throw` must sit inside the guarded try. pwsh is
+unavailable in the container, so these are static guards, not an executed
+PowerShell run. 20/20 exact-50 tests pass.
+
+Files changed: `memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1`
+(SHA-256 `CCBC08A1E80C4BB6F31870DABD428E83C77B54DD60374EF2DD9B6673E376FD94`)
+and the new test (`21EC5F9F...`). Awaiting Save to Github, then one endpoint
+execution. R6 not run, Phase B not designed.
