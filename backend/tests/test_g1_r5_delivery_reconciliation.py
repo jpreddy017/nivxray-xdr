@@ -19,6 +19,7 @@ collector, synthetic claims. No endpoint state and no production data.
 from __future__ import annotations
 
 import os
+import time
 import uuid
 
 import pytest
@@ -276,6 +277,145 @@ def test_the_request_is_bounded(db):
         recon.reconcile(db, [TEN], payload)
     with pytest.raises(recon.ReconciliationRequestInvalid):
         recon.reconcile(db, [TEN], [])
+
+
+# ── cost · a batch must not become N+1 ───────────────────────────
+class _CountingDb:
+    """Counts the queries the service issues, without changing answers."""
+
+    def __init__(self, real):
+        self._real = real
+        self.queries = 0
+
+    def __getitem__(self, name):
+        return _CountingCollection(self._real[name], self)
+
+
+class _CountingCollection:
+    def __init__(self, real, counter):
+        self._real = real
+        self._counter = counter
+
+    def find(self, *a, **kw):
+        self._counter.queries += 1
+        return self._real.find(*a, **kw)
+
+    def find_one(self, *a, **kw):
+        self._counter.queries += 1
+        return self._real.find_one(*a, **kw)
+
+    def create_index(self, *a, **kw):
+        return self._real.create_index(*a, **kw)
+
+
+@pytest.fixture(scope="module")
+def bulk_population(db):
+    """500 processed deliveries with resolvable canonical evidence."""
+    recon.ensure_indexes(db)
+    idents, claims, evidence = [], [], []
+    for i in range(500):
+        sei = f"r5-bulk-{i}"
+        ident = _identity(sei, {"xml": f"<Event>{i}</Event>"})
+        event_id = f"evt_bulk_{i}_{uuid.uuid4().hex[:8]}"
+        claims.append({**ident, "status": "COMPLETED", "stage": "COMPLETED",
+                       "delivery_count": 1, "canonical_event_id": event_id})
+        evidence.append({"event_id": event_id, "tenant_id": TEN,
+                         "ingest_time": "2026-06-01T00:00:00+00:00"})
+        idents.append(_ident_input(ident, ref=sei))
+    db[recon.DEDUPE_COLLECTION].insert_many(claims)
+    db[recon.EVIDENCE_COLLECTION].insert_many(evidence)
+    return idents
+
+
+@pytest.mark.parametrize("size", [1, 50, 450, 500])
+def test_batch_sizes_resolve_completely_and_cheaply(db, bulk_population, size):
+    """1 / 50 / 450 / 500 identities, all accounted, well under the gateway.
+
+    The 450-identity call previously took 35 s and was cut off by the server
+    timeout: resolving one delivery scanned the whole evidence collection.
+    """
+    counting = _CountingDb(db)
+    started = time.monotonic()
+    out = recon.reconcile(counting, [TEN], bulk_population[:size])
+    elapsed = time.monotonic() - started
+
+    assert out["attempted"] == size
+    assert out["buckets"][recon.BUCKET_CANONICAL] == size
+    assert out["unexplained"] == 0
+    assert out["accounting_identity"]["holds"] is True
+    assert out["pass"] is True
+    # A fixed number of queries for ANY batch size - never per identity.
+    assert counting.queries <= 10, (
+        f"{counting.queries} queries for {size} identities looks like N+1")
+    assert elapsed < 5.0, f"{size} identities took {elapsed:.1f}s"
+
+
+def test_the_full_batch_is_far_below_the_gateway_timeout(db, bulk_population):
+    started = time.monotonic()
+    out = recon.reconcile(db, [TEN], bulk_population)
+    elapsed = time.monotonic() - started
+    assert out["pass"] is True
+    # The preview gateway cuts at 30 s; keep an order of magnitude of margin.
+    assert elapsed < 3.0, f"500 identities took {elapsed:.1f}s"
+
+
+def test_a_mixed_batch_partitions_every_bucket_at_scale(db, bulk_population):
+    """Canonical + retained raw + terminal + still-queued + unexplained."""
+    sei_r = "r5-mixbig-retained"
+    retained = _identity(sei_r, {"xml": "<Event/>"})
+    db[recon.RETAINED_COLLECTION].insert_one({
+        "id": "rr_synthetic_r5_mixbig", "tenant_id": TEN, "collector_id": COL,
+        "retained_identity_key": retained["key"], "source_event_id": sei_r,
+        "disposition": {"mismatch_reason": "SOURCE_RECORD_NOT_SUPPORTED"}})
+    sei_b = "r5-mixbig-blocked"
+    blocked = _identity(sei_b, {"line": "x"})
+    db[recon.BLOCKS_COLLECTION].insert_one({
+        "tenant_id": TEN, "collector_id": COL, "source_event_id": sei_b,
+        "at": "2026-06-01T00:00:00+00:00",
+        "routing": {"routing_result": "BLOCKED",
+                    "mismatch_reason": "SOURCE_FORMAT_MISMATCH"}})
+    ghost_open = _identity("r5-mixbig-open", {"xml": "<Event/>"})
+    ghost_lost = _identity("r5-mixbig-lost", {"xml": "<Event/>"})
+
+    batch = (bulk_population[:100]
+             + [_ident_input(retained), _ident_input(blocked),
+                _ident_input(ghost_open, outcome="queued"),
+                _ident_input(ghost_lost, outcome="delivered")])
+    out = recon.reconcile(db, [TEN], batch)
+
+    assert out["attempted"] == 104
+    assert out["buckets"] == {
+        recon.BUCKET_CANONICAL: 100, recon.BUCKET_RETAINED: 1,
+        recon.BUCKET_TERMINAL: 1, recon.BUCKET_OPEN: 1,
+        recon.BUCKET_UNEXPLAINED: 1}
+    assert out["accounting_identity"]["holds"] is True
+    assert out["pass"] is False
+    assert out["unexplained_rows"][0]["ref"] == "r5-mixbig-lost"
+
+
+def test_tenant_isolation_holds_at_batch_scale(db, bulk_population):
+    """A 500-strong batch reconciled under a foreign scope reveals nothing."""
+    out = recon.reconcile(db, [OTHER_TEN], bulk_population)
+    assert out["buckets"][recon.BUCKET_CANONICAL] == 0
+    assert out["buckets"][recon.BUCKET_UNEXPLAINED] == 500
+    assert all(r["claim"] is None and r["evidence_ref"] is None
+               for r in out["rows"])
+
+
+def test_identity_tuple_fallback_works_in_a_batch(db, bulk_population):
+    """Mixed key-matched and key-less identities in one batch."""
+    keyless = [{"ref": i["ref"], "source_event_id": i["source_event_id"],
+                "collector_id": i["collector_id"],
+                "payload_digest": i["payload_digest"],
+                "endpoint_outcome": "delivered"}
+               for i in bulk_population[:20]]
+    out = recon.reconcile(db, [TEN], keyless + bulk_population[20:60])
+
+    assert out["attempted"] == 60
+    assert out["buckets"][recon.BUCKET_CANONICAL] == 60
+    bases = {r["matched_by"] for r in out["rows"]}
+    assert bases == {"IDENTITY_TUPLE", "DELIVERY_KEY"}
+    assert out["pass"] is True
 
 
 # ── the endpoint and the server must agree on the identity ───────

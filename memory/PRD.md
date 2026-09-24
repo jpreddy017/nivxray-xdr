@@ -19736,3 +19736,29 @@ bookmark-invariance comparison, mandatory identity-level server reconciliation
 `r5-terminal-outcomes.json`, combined verdict, then STOP.
 PREREQUISITE: the branch must be published so the endpoint can pull the driver
 (the block aborts if the tool is missing or its hash differs).
+
+### G1-R5 backend blocker fixed (2026-06) — reconciliation 504 + auth 401 RCA
+**504 root cause**: `xdr_canonical_evidence` (199,144 docs) had no `event_id`
+index, and a cross-tenant admin scope adds no tenant predicate, so each
+identity's evidence lookup scanned the collection (measured 195,666 docs
+examined, 182 ms). 450 identities ran 35,439 ms and the server-timeout
+middleware returned 504. Fix: `services/delivery_reconciliation.py` now loads
+the whole batch in 7 indexed queries (claims by key, claims by tuple, retained
+by key, retained by source_event_id, refusals, evidence by event_id, raw rows)
+and resolves in memory with unchanged precedence/buckets, plus
+`ensure_indexes()` (evidence `event_id` and `(tenant_id, event_id)`, dedupe
+`(tenant_id, source_event_id, collector_id)`). Measured after: 450 real
+endpoint identities 12.4 ms in-process / 0.37 s end-to-end over HTTPS,
+500 → 12.6 ms / 0.24 s, all DELIVERED_CANONICAL, UNEXPLAINED = 0.
+**401 root cause**: not a defect. Login is working (verified 200 twice with the
+documented admin). Request log shows two distinct failure shapes: 401 at
+~1.9 ms (e-mail absent from `users`, no hash computed) and 401 at ~220 ms
+(known e-mail, wrong password). The limiter returns 429, never 401, so no
+lockout was involved and no credential was changed.
+Tests: backend R5 suite 25 passed (new: 1/50/450/500 sizes, mixed buckets at
+scale, tenant isolation at scale, tuple fallback in batch, query-count bound
+<=10 to prevent N+1 regression); D21 + B4 + P0 idempotency regressions 78
+passed total. Endpoint HOLD respected: nothing executed, R4 frozen.
+Next: `memory/G1_R5_RECONCILE_ONLY_EXECUTION_COPY.ps1` — read-only accounting
+of the 450 already-touched rows; delivers nothing and does not construct the
+Outbox, so the 50 `delivering` rows are left untouched.
