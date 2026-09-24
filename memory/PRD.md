@@ -19829,3 +19829,39 @@ an embedding test session cannot mask it), and `--expect-total 125452`.
 `memory/G1_R6_PHASE_A_EXECUTION_COPY.ps1` keeps `$Apply = $false` and prints
 each claim as its own line. Phase B (28 rows) remains unbuilt and
 unauthorised. Collector suite: 340 passed.
+
+### G1-R5 evidence recovery · exact-50 in-flight reconciliation (2026-06, owner-authorised)
+Endpoint inventory confirmed `r5-server-reconciliation.json` was never
+persisted, so the per-row 22/28 split of the 50 locally-`delivering` rows —
+which R6 Phase A consumes as authority — does not exist on disk. Only the
+aggregate (450 accounted / 422 canonical / 28 retryable) survived.
+
+New: `scripts/g1_r5_inflight50_reconcile.py` (10 tests, all passing) recovers
+exactly that evidence and nothing else:
+- SQLite opened strictly `mode=ro`; no Outbox / DeliveryWorker / IngestClient
+  import (attested from the script's own import lines), so R3.1 restart
+  recovery cannot requeue the 28 as a side effect.
+- Loads the exact 50 refs from
+  `r5-inflight-identities-20260924T063436Z.json`; refuses any other count.
+- Asserts the local `delivering` set equals exactly those 50 refs, plus frozen
+  pre-state total 125452 and histogram
+  delivered=3284/delivering=50/queued=121993/retrying=125/dead_letter=0.
+- Recomputes each delivery identity locally, issues exactly ONE reconciliation
+  request. No negative control (an auxiliary request destroyed this evidence
+  once).
+- Verifies 22 DELIVERED_CANONICAL + 28 RETRYABLE_STILL_QUEUED, 0 retained raw,
+  0 terminal, 0 unexplained, strict 1:1 ref correspondence (no missing/foreign/
+  duplicate), server bucket totals agreeing with a local recount, and post-run
+  non-mutation (db bytes, histogram, total, bookmarks, delivering set).
+- Authoritative `r5-inflight-50-server-reconciliation.json` is written ONLY on
+  full PASS, and refuses to overwrite an existing one. If a response was
+  received but an assertion failed, the complete raw response is persisted as
+  `<out>.FAILED-UNTRUSTED.json` banner-marked "NOT AUTHORITY FOR R6"; any
+  pre-request failure writes nothing.
+- Bearer token passed via env (`NIVX_RECONCILE_TOKEN`), never on a command
+  line and never in evidence.
+
+Execution copy: `memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1`
+(login → bearer pattern reused, writer guard, independent pre/post hash and
+histogram re-check). Awaiting owner execution. R6 Phase A NOT executed;
+Phase B NOT built.
