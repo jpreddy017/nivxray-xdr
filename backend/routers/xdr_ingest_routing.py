@@ -65,6 +65,10 @@ def _ensure_indexes() -> None:
         [("tenant_id", 1), ("ingest_time", DESCENDING)])
     _db()[_RETAINED].create_index(
         [("tenant_id", 1), ("first_seen_at", DESCENDING)])
+    # G1-R5 · reconciliation looks a refusal up by the delivery identity the
+    # collector holds, so that lookup gets an index too.
+    _db()[_BLOCKS].create_index([("tenant_id", 1), ("source_event_id", 1)])
+    _db()[_RETAINED].create_index([("tenant_id", 1), ("source_event_id", 1)])
     _INDEXED = True
 
 

@@ -383,6 +383,9 @@ app.include_router(xdr_access_router)
 # D21 · routing visibility — READ-ONLY projection of ingest routing decisions.
 from routers.xdr_ingest_routing import router as xdr_ingest_routing_router
 app.include_router(xdr_ingest_routing_router)
+from routers.xdr_delivery_reconciliation import (
+    router as xdr_delivery_reconciliation_router)
+app.include_router(xdr_delivery_reconciliation_router)
 from routers.xdr_spread import router as xdr_spread_router
 app.include_router(xdr_spread_router)
 # P1 · Detection Content Registry (Sigma + MITRE analytics + native).

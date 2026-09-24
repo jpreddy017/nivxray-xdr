@@ -19671,3 +19671,52 @@ items: delivery drain decision, retention policy for
 `xdr_ingest_raw_retained`, coverage visibility, repo hygiene (tracked
 `outbox.db`/`-wal`/`-shm`). Then **Wave 1: Endpoint Event Journal + NivXForge
 Windows Sensor + native telemetry**.
+
+---
+
+## G1-R5 · Bounded Delivery Drain — PLANNED + IMPLEMENTED, NOT EXECUTED (2026-06)
+
+R4 requeue is CLOSED/FROZEN (14,868 rows queued, dead_letter 0, total 125,452).
+Delivery is a separate bounded phase. Authored this turn, **nothing executed on
+DESKTOP-A9HGFJJ, no deploy, no merge**:
+
+* `apps/nivxray-xdr-collector/scripts/g1_r5_delivery_drain.py` — delivery-only
+  driver (`Outbox → DeliveryWorker → IngestClient`). Never imports
+  `framework.windows_eventlog`, never constructs `CollectorRuntime`/
+  `AcquisitionState`, no EvtSubscribe, no channel read, no bookmark write.
+  Hard ceilings: exact `--max-rows` (worker batch resized to
+  `min(batch_size, remaining)` every tick), `--max-ticks`, `--max-seconds`,
+  plus a HARD STOP on a health gate that OPENs (no cooldown, no HALF_OPEN
+  probe). Dry run is strictly non-mutating: it does not construct the Outbox,
+  so R3.1 restart recovery is NOT applied and is reported as
+  `would_reset_to_queued`. Refuses to run without `NIVX_COLLECTOR_ID`
+  (the delivery identity depends on it).
+* `backend/services/delivery_reconciliation.py` +
+  `backend/routers/xdr_delivery_reconciliation.py` — read-only
+  `POST /api/xdr/ingest/routing/reconcile` (≤500 identities). Closes the gap
+  that made server-side accounting impossible: canonical evidence does not
+  carry the collector's `source_event_id`, and `xdr_canonical_events` had no
+  read API. Resolution is by the authoritative delivery identity key
+  (`ingest_idempotency.event_identity`, recomputable on the endpoint) with an
+  identity-tuple fallback, over `xdr_ingest_dedupe`, `xdr_canonical_events`,
+  `xdr_canonical_evidence`, `xdr_ingest_routing_blocks`,
+  `xdr_ingest_raw_retained`. Buckets: DELIVERED_CANONICAL /
+  DELIVERED_RETAINED_RAW / RETRYABLE_STILL_QUEUED / TERMINAL_ACCOUNTED /
+  UNEXPLAINED, PASS requires UNEXPLAINED = 0. Own router so the D21 GET-only
+  contract stays literal. Tenant scope from the authenticated principal.
+* `memory/G1_R5_DELIVERY_DRAIN_PLAN.md` and
+  `memory/G1_R5_DELIVERY_DRAIN_EXECUTION_COPY.ps1` — plan, accounting
+  equations, evidence contract, PASS/FAIL, and the bounded endpoint procedure
+  (dry run always; `$Execute = $false` gate for the 500-row attempt; ingest
+  auth probe; reconcile-surface probe that aborts if reconciliation is
+  unavailable; server reconciliation; final combined verdict).
+
+Tests: collector suite **325 passed** (15 new), backend R5 suite **17 passed**,
+D21 contract + B4 + D15 + P0 idempotency regressions pass. Live:
+reconcile endpoint 403 unauthenticated, correct partition with an admin
+session.
+
+Status: **READY for the first 500-row execution, pending owner authorization.**
+Next after PASS: larger controlled drain, then P1 `xdr_ingest_raw_retained`
+retention policy, P2 coverage visibility, then Wave 1 (Endpoint Event Journal
++ NivXForge Windows Sensor + native telemetry).
