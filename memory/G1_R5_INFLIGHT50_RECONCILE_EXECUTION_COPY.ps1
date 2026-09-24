@@ -69,6 +69,11 @@ $ExpectRetryable = 28
 $ExpectTotalRows = 125452
 $ExpectHistogram = 'delivered=3284,delivering=50,queued=121993,retrying=125,dead_letter=0'
 
+# Lineage: the exact tool this block was written for, as committed on
+# feature/rc2-alignment (commit 4049b438). A mismatch means the pull did not
+# land the substantive R5 exact-50 commit, or the checkout is stale.
+$ExpectToolSha = 'F83BD4424BC84058E3AF95856CFB7B7B15E2E52158DF661FFDF5FF12E7956E38'
+
 try {
   if (-not ([Security.Principal.WindowsPrincipal] `
       [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -100,7 +105,14 @@ try {
     $live | ForEach-Object { Write-Host ("  running collector pid " + $_.ProcessId) -ForegroundColor Red }
     throw 'a collector process is running. Stop it first so the snapshots are stable. Nothing was attempted.'
   }
-  Write-Host ("  tool sha256: " + (Get-FileHash $Tool -Algorithm SHA256).Hash)
+  $toolSha = (Get-FileHash $Tool -Algorithm SHA256).Hash
+  Write-Host ("  tool sha256: " + $toolSha)
+  if ($toolSha -ne $ExpectToolSha) {
+    throw ('tool sha256 is ' + $toolSha + ', expected ' + $ExpectToolSha +
+           '. The checkout does not hold the substantive R5 exact-50 commit ' +
+           '(4049b438 on feature/rc2-alignment). Pull that branch again. ' +
+           'Nothing was attempted.')
+  }
   $help = (& $VenvPy $Tool --help) -join ' '
   foreach ($opt in @('identities', 'out', 'expect-count', 'expect-canonical',
                      'expect-retryable', 'expect-histogram')) {
