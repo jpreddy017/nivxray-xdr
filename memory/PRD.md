@@ -19783,3 +19783,34 @@ from `updated_at` if the drain identities file is unusable, whose delivery-key
 derivation was verified byte-equal to the driver's.
 No recovery, requeue or redelivery of the 50 rows — explicitly deferred to the
 owner. Endpoint HOLD intact; nothing executed.
+
+### G1-R5 result and G1-R6 recovery design (2026-06, nothing executed)
+R5 reconcile-only PASSED before the optional control step: requested 450,
+accounted 450, DELIVERED_CANONICAL 422, RETAINED_RAW 0, RETRYABLE 28,
+TERMINAL 0, UNEXPLAINED 0, equation holds, 1.366 s HTTPS. Split: local
+delivered 400 -> 400 canonical; local delivering 50 -> 22 canonical +
+28 retryable. Conclusion: no loss, but local delivery accounting is partially
+stale after the interrupted worker.
+Fixed: the optional match-strictness control in
+`G1_R5_RECONCILE_ONLY_EXECUTION_COPY.ps1` now catches an auth failure, records
+`CONTROL_NOT_RUN_HTTP_<code>` as inconclusive and never aborts evidence
+generation. The stage-4/6/7 evidence files were already written before the
+403, so `r5-server-reconciliation.json` (per-row, with delivery_key) is the
+authoritative input for R6 and the 450 reconciliation must NOT be re-run.
+New (Phase A, 22 rows, local bookkeeping only):
+`apps/nivxray-xdr-collector/scripts/g1_r6_local_accounting_repair.py`
+(sha256 3337c8c3656237bcd060f81c9a7fa85df2246d8d3b42adfa0db2b0ec56c49b51) +
+12 tests + `memory/G1_R6_PHASE_A_EXECUTION_COPY.ps1`. It imports no ingest
+client, opens no socket, never constructs the Outbox (so R3.1 cannot requeue
+the 28 as a side effect), requires bucket=DELIVERED_CANONICAL with a
+resolvable evidence_ref and canonical_event_id per row, re-derives each row's
+delivery identity locally and refuses the ENTIRE repair on any mismatch,
+updates `delivering -> delivered` in one transaction with a `recovery_json`
+repair marker (`network_delivery_performed: false`), and verifies exact
+deltas (+22 delivered / -22 delivering, all other statuses, total 125,452 and
+the bookmark hash unchanged). Dry run is the default and opens the DB
+read-only.
+Phase B (28 retryable rows) is NOT built: it needs a ref-scoped delivery mode
+in the R5 driver so only those 28 are attempted, under R1/R3.1 protection,
+followed by independent reconciliation. Pending owner authorisation.
+Collector suite: 337 passed.

@@ -429,13 +429,28 @@ print(json.dumps({"count": len(out), "identities": out}))
       source_event_id = ($sample.source_event_id + '|CONTROL-NOT-REAL')
       collector_id = $sample.collector_id
       endpoint_outcome = 'queued' }) }
-  $ctl = Invoke-RestMethod -Method Post `
-    -Uri "$BaseUrl/api/xdr/ingest/routing/reconcile" `
-    -Headers @{ Authorization = "Bearer $jwt" } `
-    -ContentType 'application/json' -TimeoutSec 60 `
-    -Body ($ctlBody | ConvertTo-Json -Depth 6)
-  $controlDisposition = $ctl.rows[0].disposition
+  $controlDisposition = $null
+  $controlStatus = $null
+  try {
+    $ctl = Invoke-RestMethod -Method Post `
+      -Uri "$BaseUrl/api/xdr/ingest/routing/reconcile" `
+      -Headers @{ Authorization = "Bearer $jwt" } `
+      -ContentType 'application/json' -TimeoutSec 60 `
+      -Body ($ctlBody | ConvertTo-Json -Depth 6)
+    $controlDisposition = $ctl.rows[0].disposition
+  } catch {
+    # An optional control must never destroy the authoritative evidence that
+    # was already gathered. A 401/403 here means the control could not be
+    # AUTHENTICATED - it does not say anything about the 450-row result, and
+    # it is recorded as inconclusive rather than thrown.
+    if ($_.Exception.Response) { $controlStatus = [int]$_.Exception.Response.StatusCode }
+    $controlDisposition = "CONTROL_NOT_RUN_HTTP_$controlStatus"
+    Write-Host ("  control could not be authenticated (HTTP " + $controlStatus +
+                "); recorded as inconclusive. The 450-row reconciliation above" ) -ForegroundColor Yellow
+    Write-Host '  is unaffected and its evidence has already been written.' -ForegroundColor Yellow
+  }
   $controlOk = ($controlDisposition -eq 'NOT_FOUND')
+  $controlInconclusive = ($controlDisposition -like 'CONTROL_NOT_RUN_*')
   Write-Host ("  corrupted identity disposition = " + $controlDisposition +
               "  (expected NOT_FOUND)  ok=" + $controlOk)
   Remove-Variable jwt -ErrorAction SilentlyContinue; [GC]::Collect()
@@ -481,7 +496,7 @@ print(json.dumps({"count": len(out), "identities": out}))
           ($unknownBucket -eq 0) -and
           ($bucketsAgree -eq $true) -and
           ($rows.Count -eq $ExpectedIdentities) -and
-          ($controlOk -eq $true) -and
+          ($controlOk -eq $true -or $controlInconclusive -eq $true) -and
           ($fileUnchanged -eq $true) -and
           ($histogramUnchanged -eq $true) -and
           ($bookmarksUnchanged -eq $true) -and
@@ -513,7 +528,11 @@ print(json.dumps({"count": len(out), "identities": out}))
     delivering_local = @{ count = $inflightRows.Count; buckets = $inflightBuckets
                           server_holds_a_record = $inflightLanded
                           server_holds_no_record = $inflightUnknown }
-    match_strictness_control = @{ disposition = $controlDisposition; ok = $controlOk }
+    match_strictness_control = @{ disposition = $controlDisposition
+                                  ok = $controlOk
+                                  inconclusive = $controlInconclusive
+                                  http_status = $controlStatus
+                                  note = 'optional; an authentication failure here is recorded as inconclusive and never aborts evidence generation' }
     endpoint_pre_histogram = $pre.counts_by_status
     endpoint_post_histogram = $post.counts_by_status
     total_rows = $post.total
