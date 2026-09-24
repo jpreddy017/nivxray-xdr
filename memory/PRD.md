@@ -19762,3 +19762,24 @@ passed total. Endpoint HOLD respected: nothing executed, R4 frozen.
 Next: `memory/G1_R5_RECONCILE_ONLY_EXECUTION_COPY.ps1` — read-only accounting
 of the 450 already-touched rows; delivers nothing and does not construct the
 Outbox, so the 50 `delivering` rows are left untouched.
+
+### G1-R5 reconcile-only block audited and hardened (2026-06, not executed)
+`memory/G1_R5_RECONCILE_ONLY_EXECUTION_COPY.ps1` verified strictly read-only:
+only `sqlite3.connect("file:...?mode=ro")`, no Outbox/IngestClient/driver
+import, no INSERT/UPDATE/DELETE, no backup restore, only two HTTP endpoints
+(`/api/auth/login`, `/api/xdr/ingest/routing/reconcile`). Added after the
+audit: exact-450 assertion (refuses any other count, no widening); frozen-state
+assertion (total 125,452 and delivering 50 or hard stop); independent local
+recount of all five buckets cross-checked against the server's own totals;
+separate dispositions for the 400 locally-delivered and the 50
+locally-delivering rows (`r5-delivered-400-disposition.json`,
+`r5-inflight-50-disposition.json`, incl. per-row claim status /
+canonical_event_id / duplicate_count / evidence_ref); a 1-identity
+match-strictness control outside the 450 (corrupted key+sei must return
+NOT_FOUND — verified live); pre/post SHA-256 of outbox.db as non-mutation proof
+(with `-wal`/`-shm` reported but excluded from PASS since a read-only open can
+normalise the shm); optional read-only reconstruction of the touched population
+from `updated_at` if the drain identities file is unusable, whose delivery-key
+derivation was verified byte-equal to the driver's.
+No recovery, requeue or redelivery of the 50 rows — explicitly deferred to the
+owner. Endpoint HOLD intact; nothing executed.
