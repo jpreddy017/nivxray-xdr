@@ -19584,3 +19584,47 @@ PASS/FAIL).
 ### Next
 Save to GitHub → run the gate-init block → review `r31-gate-init.json` +
 `r4-dryrun-after-gate-init.json` → authorize the first 500-row R4 batch.
+
+---
+
+## 2026-06 · G1-R4 FIRST BATCH = READY (owner-executed, not run here)
+
+Local commit `bc0ac290`. Base verified by owner: endpoint checkout `65497243`.
+R3.1 gate prerequisite PASSED all 12 checks on DESKTOP-A9HGFJJ.
+
+### Tool changes
+* A run bounded by `--max-batches` is judged against `planned_this_run`
+  (= min(expect_count, max_batches × batch_size)), so an intentional 500-row
+  batch reports `ACCEPTED` instead of `REVIEW`.
+* The execute report additionally proves `delivering_unchanged`,
+  `retrying_unchanged`, `total_unchanged`, `bookmarks_unchanged` (SHA-256 over
+  every `windows_channel_state` row before/after),
+  `recovery_id_row_count_matches`, `rows_with_this_recovery_id`,
+  `remaining_target_after`, `no_delivery_performed`, plus a
+  `rollback_command` bound to the exact recovery id.
+
+### Owner artefact
+`memory/G1_R4_FIRST_BATCH_EXECUTION_COPY.ps1`: stale-checkout guard → writer
+guard (collector stays stopped) → fresh SHA-256 verified pre-batch backup →
+independent pre-batch snapshot → read-only dry run on a copy (aborts unless
+target 14,868, non-target 0, prerequisite satisfied) → EXECUTE one batch of
+500 → **independent** post-batch verification that does not trust the tool's
+own report → 21 PASS/FAIL checks → rollback command written to disk. Never
+starts the collector/worker/acquisition, never delivers or acknowledges, never
+touches a bookmark.
+
+### Expected transition (asserted in tests and by the block)
+`dead_letter 14868→14368 · queued 107525→108025 · delivered 2884 ·
+delivering 50 · retrying 125 · total 125452 · 500 rows carry the recovery id`
+
+### Evidence
+2 new tests at the real population shape (125,452 rows) + full reversibility;
+collector suite **307 passed**; full-scale local simulation of the exact
+PowerShell sequence including the independent verifier reproduced every
+expected number and a clean 500-row rollback.
+
+### Next
+Save to GitHub → run the first-batch block → review `r4-batch1.json` +
+`r4-batch1-verify.json` → decide on the remaining 14,368 (larger batches once
+the first is clean) → then retention policy, coverage visibility, repo
+hygiene, and Wave 1 (Endpoint Event Journal + NivXForge Windows Sensor).
