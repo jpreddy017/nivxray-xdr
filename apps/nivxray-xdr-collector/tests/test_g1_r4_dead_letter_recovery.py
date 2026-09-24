@@ -292,11 +292,19 @@ def test_execute_is_idempotent(db, tmp_path):
 
 
 def test_max_batches_bounds_the_operation(db, tmp_path):
+    """A deliberately bounded run is ACCEPTED for what it was asked to move,
+    not judged against the whole population."""
     rep = _run("--db", db, "--execute", "--expect-count", "40",
                "--batch-size", "5", "--max-batches", "2",
-               "--backup", _backup(db, tmp_path), expect_rc=4)
+               "--backup", _backup(db, tmp_path))
+    assert rep["result"] == "ACCEPTED"
+    assert rep["planned_this_run"] == 10
     assert rep["requeued"] == 10
     assert rep["batches"] == 2
+    assert rep["rows_with_this_recovery_id"] == 10
+    assert rep["remaining_target_after"] == 30
+    assert rep["bookmarks_unchanged"] is True
+    assert rep["rollback_command"].endswith(rep["recovery_id"])
     counts = _counts(db)
     assert counts["queued"] == 10
     assert counts["dead_letter"] == 42          # the rest stay preserved
@@ -357,3 +365,91 @@ def test_rollback_does_not_reclaim_a_row_that_already_progressed(db,
     assert back["restored"] == 37
     assert back["not_restored_because_already_progressed"] == 3
     assert _counts(db)["delivered"] == 8        # 5 original + 3 delivered
+
+
+# ══ the real first batch, at the real population shape ═══════════
+@pytest.fixture()
+def g1_shaped(tmp_path):
+    """The preserved G1 population, exactly as the endpoint reports it:
+    14,868 dead_letter + 107,525 queued + 2,884 delivered + 50 delivering
+    + 125 retrying = 125,452 rows."""
+    path = str(tmp_path / "outbox.db")
+    con = sqlite3.connect(path, isolation_level=None)
+    con.executescript(SCHEMA)
+    con.execute("BEGIN")
+    plan = [("dead_letter", 14868, TARGET_ERROR, 1),
+            ("queued", 107525, None, 0),
+            ("delivered", 2884, None, 1),
+            ("delivering", 50, None, 2),
+            ("retrying", 125, TARGET_ERROR, 1)]
+    n = 0
+    for status, count, err, attempts in plan:
+        for _ in range(count):
+            n += 1
+            _row(con, status=status, last_error=err, attempts=attempts, i=n)
+    con.execute("COMMIT")
+    con.execute("INSERT INTO delivery_health_gate VALUES "
+                "('nivx-ingest',1,'CLOSED',0,30.0,NULL,0,0,NULL,NULL,"
+                "'2026-09-23T10:00:00Z')")
+    con.close()
+    return path
+
+
+def test_first_controlled_batch_of_500_matches_the_owner_expectations(
+        g1_shaped, tmp_path):
+    before = _counts(g1_shaped)
+    assert before == {"dead_letter": 14868, "queued": 107525,
+                      "delivered": 2884, "delivering": 50, "retrying": 125}
+    assert sum(before.values()) == 125452
+
+    rep = _run("--db", g1_shaped, "--execute", "--expect-count", "14868",
+               "--batch-size", "500", "--max-batches", "1",
+               "--backup", _backup(g1_shaped, tmp_path))
+    after = _counts(g1_shaped)
+
+    assert rep["result"] == "ACCEPTED"
+    assert rep["planned_this_run"] == 500
+    assert rep["batches"] == 1
+    assert rep["requeued"] == 500
+    assert rep["rows_with_this_recovery_id"] == 500
+    assert rep["remaining_target_after"] == 14368
+
+    assert after["dead_letter"] == 14368
+    assert after["queued"] == 108025
+    assert after["delivered"] == 2884
+    assert after["delivering"] == 50        # untouched: no restart recovery
+    assert after["retrying"] == 125         # untouched: already progressing
+    assert sum(after.values()) == 125452
+
+    for flag in ("accounting_holds", "delivered_unchanged",
+                 "delivering_unchanged", "retrying_unchanged",
+                 "total_unchanged", "bookmarks_unchanged",
+                 "recovery_id_row_count_matches", "no_delivery_performed"):
+        assert rep[flag] is True, flag
+
+    # the recovered rows are queued, budget returned, provenance recorded
+    con = sqlite3.connect(g1_shaped)
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        "SELECT status, attempts, recovery_json FROM envelopes "
+        " WHERE json_extract(recovery_json,'$.recovery_id')=?",
+        (rep["recovery_id"],)).fetchall()
+    con.close()
+    assert len(rows) == 500
+    for r in rows:
+        assert r["status"] == "queued" and r["attempts"] == 0
+        prov = json.loads(r["recovery_json"])
+        assert prov["original_status"] == "dead_letter"
+        assert prov["original_attempts"] == 1
+        assert prov["original_last_error"] == TARGET_ERROR
+
+
+def test_first_batch_is_fully_reversible(g1_shaped, tmp_path):
+    before = _counts(g1_shaped)
+    rep = _run("--db", g1_shaped, "--execute", "--expect-count", "14868",
+               "--batch-size", "500", "--max-batches", "1",
+               "--backup", _backup(g1_shaped, tmp_path))
+    back = _run("--db", g1_shaped, "--rollback",
+                "--recovery-id", rep["recovery_id"])
+    assert back["restored"] == 500
+    assert _counts(g1_shaped) == before

@@ -474,6 +474,14 @@ def execute(args) -> int:
             con.execute(f"ALTER TABLE envelopes ADD COLUMN "
                         f"{RECOVERY_COLUMN} TEXT")
 
+        # A deliberately bounded run must be judged against what it was
+        # ASKED to move, not against the whole population.
+        planned = args.expect_count
+        if args.max_batches:
+            planned = min(args.expect_count,
+                          args.max_batches * args.batch_size)
+        bookmarks_before = _integrity(con)["bookmarks"]
+
         where, params = _predicate(args)
         moved = 0
         batches = 0
@@ -518,13 +526,24 @@ def execute(args) -> int:
                 break
 
         after = _counts(con)
+        bookmarks_after = _integrity(con)["bookmarks"]
+        with_id = con.execute(
+            f"SELECT COUNT(*) FROM envelopes WHERE "
+            f"json_extract({RECOVERY_COLUMN}, '$.recovery_id')=?",
+            (recovery_id,)).fetchone()[0]
         report = {
             "mode": "EXECUTE",
             "recovery_id": recovery_id,
             "at": _now(),
             "batch_size": args.batch_size,
+            "max_batches": args.max_batches or None,
+            "planned_this_run": planned,
             "batches": batches,
             "requeued": moved,
+            "rows_with_this_recovery_id": with_id,
+            "remaining_target_after": _population(con, args)["target_count"],
+            "bookmarks_before": bookmarks_before,
+            "bookmarks_after": bookmarks_after,
             "counts_before": before,
             "counts_after": after,
             "delta_dead_letter": (after.get(TARGET_STATUS, 0)
@@ -537,12 +556,29 @@ def execute(args) -> int:
                 and after.get("queued", 0) - before.get("queued", 0) == moved),
             "delivered_unchanged": (after.get("delivered", 0)
                                     == before.get("delivered", 0)),
+            "delivering_unchanged": (after.get("delivering", 0)
+                                     == before.get("delivering", 0)),
+            "retrying_unchanged": (after.get("retrying", 0)
+                                   == before.get("retrying", 0)),
+            "total_unchanged": (sum(before.values()) == sum(after.values())),
+            "bookmarks_unchanged": bookmarks_before == bookmarks_after,
+            "recovery_id_row_count_matches": with_id == moved,
+            "no_delivery_performed": True,
+            "rollback_command": (
+                f"python scripts/g1_r4_recover_dead_letters.py --db <outbox.db>"
+                f" --rollback --recovery-id {recovery_id}"),
             "note": ("requeue only — nothing was delivered, acknowledged or "
-                     "marked DELIVERED by this tool"),
+                     "marked DELIVERED by this tool, and no bookmark or "
+                     "checkpoint was read or written"),
         }
+        ok = all([report["accounting_holds"], report["delivered_unchanged"],
+                  report["delivering_unchanged"],
+                  report["retrying_unchanged"], report["total_unchanged"],
+                  report["bookmarks_unchanged"],
+                  report["recovery_id_row_count_matches"],
+                  moved == planned])
+        report["result"] = "ACCEPTED" if ok else "REVIEW"
         _emit(report, args)
-        ok = (report["accounting_holds"] and report["delivered_unchanged"]
-              and moved == args.expect_count)
         print(f"\nG1_R4_RECOVERY = {'ACCEPTED' if ok else 'REVIEW'} · "
               f"{moved} requeued in {batches} batches")
         return 0 if ok else 4
