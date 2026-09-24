@@ -19814,3 +19814,18 @@ Phase B (28 retryable rows) is NOT built: it needs a ref-scoped delivery mode
 in the R5 driver so only those 28 are attempted, under R1/R3.1 protection,
 followed by independent reconciliation. Pending owner authorisation.
 Collector suite: 337 passed.
+
+### G1-R6 Phase A dry run authorised (2026-06, owner: dry run ONLY)
+Hardened the Phase A proof so every owner-required claim is asserted, not
+implied. `scripts/g1_r6_local_accounting_repair.py` (sha256
+c92fa282ceb1a6f7f9eaad30faa43471071498be6d8de4eb7e4d9cb1a47a2b64, 15 tests)
+now also reports/enforces: `database_file_unchanged` (chunked SHA-256 of
+outbox.db, pre vs post — must match in dry run), `retryable_rows_untouched_exactly`
+(status+attempts+next_attempt_at+last_error fingerprint of the 28, in BOTH
+modes), `canonical_rows_untouched_in_dry_run`, `delivering_set_matches_the_proof`
+(the DB's delivering row-id set must equal the 22+28 proof refs),
+`no_delivery_surface_loaded` (attested from the script's OWN import lines, so
+an embedding test session cannot mask it), and `--expect-total 125452`.
+`memory/G1_R6_PHASE_A_EXECUTION_COPY.ps1` keeps `$Apply = $false` and prints
+each claim as its own line. Phase B (28 rows) remains unbuilt and
+unauthorised. Collector suite: 340 passed.

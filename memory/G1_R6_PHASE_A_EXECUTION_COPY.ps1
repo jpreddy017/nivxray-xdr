@@ -183,11 +183,28 @@ print(json.dumps(out, indent=2))
   Write-Host "`n=== 3 . DRY RUN (database opened read-only) ===" -ForegroundColor Cyan
   & $VenvPy $Tool --state-dir $StateDir --proof $R5Proof `
       --evidence-dir $ProofDir --expect-canonical $ExpectCanonical `
-      --expect-retryable $ExpectRetryable
+      --expect-retryable $ExpectRetryable --expect-total $ExpectTotalRows
   if ($LASTEXITCODE -ne 0) { throw "dry run did not pass (exit $LASTEXITCODE). Nothing was changed." }
   $dry = Get-Content (Join-Path $ProofDir 'r6-phaseA-dryrun.json') -Raw | ConvertFrom-Json
   Write-Host ("  planned=" + $dry.planned.Count + "  refused=" + $dry.refused.Count +
               "  retryable_untouched=" + $dry.retryable_untouched.Count)
+  $di = $dry.invariants
+  Write-Host ("  all planned rows locally 'delivering' = " +
+              (@($dry.planned | Where-Object { $_.local_status -ne 'delivering' }).Count -eq 0))
+  Write-Host ("  every planned row has evidence_ref + canonical_event_id = " +
+              (@($dry.planned | Where-Object { -not $_.evidence_ref -or
+                                               -not $_.canonical_event_id }).Count -eq 0))
+  Write-Host ("  delivering set matches the proof (22+28) = " + $di.delivering_set_matches_the_proof.holds)
+  Write-Host ("  database bytes unchanged (read-only)    = " + $di.database_file_unchanged.holds)
+  Write-Host ("  retryable rows untouched (status/attempts/next_attempt) = " +
+              $di.retryable_rows_untouched_exactly.holds)
+  Write-Host ("  canonical rows untouched in dry run     = " + $di.canonical_rows_untouched_in_dry_run.holds)
+  Write-Host ("  queued/retrying/dead unchanged          = " + $di.no_other_status_changed.holds)
+  Write-Host ("  total rows " + $dry.post_snapshot.total + " unchanged and expected = " +
+              ($di.total_rows_unchanged.holds -and $di.expected_total_rows.holds))
+  Write-Host ("  bookmarks unchanged                     = " + $di.bookmarks_unchanged.holds)
+  Write-Host ("  no delivery surface imported            = " + $di.no_delivery_surface_loaded.holds)
+  Write-Host ("  dry-run overall pass                    = " + $dry.'pass')
   if ($dry.planned.Count -ne $ExpectCanonical) {
     throw ('the dry run planned ' + $dry.planned.Count + ' rows, expected ' +
            $ExpectCanonical + '. Nothing was changed.')
@@ -203,7 +220,7 @@ print(json.dumps(out, indent=2))
   Write-Host "`n=== 4 . APPLY . 22-ROW LOCAL ACCOUNTING REPAIR ===" -ForegroundColor Cyan
   & $VenvPy $Tool --state-dir $StateDir --proof $R5Proof `
       --evidence-dir $ProofDir --expect-canonical $ExpectCanonical `
-      --expect-retryable $ExpectRetryable --apply
+      --expect-retryable $ExpectRetryable --expect-total $ExpectTotalRows --apply
   $applyExit = $LASTEXITCODE
   $applied = Get-Content (Join-Path $ProofDir 'r6-phaseA-apply.json') -Raw | ConvertFrom-Json
   Write-Host ("  repaired rows: " + $applied.repair.updated.Count +

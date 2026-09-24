@@ -91,12 +91,65 @@ def _bookmark_fingerprint(conn: sqlite3.Connection) -> Optional[str]:
     return h.hexdigest()
 
 
-def _snapshot(conn: sqlite3.Connection) -> Dict[str, Any]:
+def _own_delivery_imports() -> List[str]:
+    """Any delivery/acquisition surface THIS script imports. Must be empty."""
+    import re
+    try:
+        with open(os.path.abspath(__file__), encoding="utf-8") as fh:
+            source = fh.read()
+    except OSError:                                          # pragma: no cover
+        return []
+    found = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if not re.match(r"^(import|from)\s", stripped):
+            continue
+        if re.search(r"\b(httpx|requests|framework\.(outbox|delivery|"
+                     r"delivery_worker|windows_eventlog|runtime))\b",
+                     stripped):
+            found.append(stripped)
+    return found
+
+
+def _fingerprint(conn: sqlite3.Connection, refs: List[str]) -> Optional[str]:
+    """Bookkeeping fingerprint of specific rows: status + retry budget."""
+    if not refs:
+        return None
+    h = hashlib.sha256()
+    for ref in sorted(refs):
+        row = conn.execute(
+            "SELECT id, status, attempts, next_attempt_at, last_error "
+            "  FROM envelopes WHERE id=?", (ref,)).fetchone()
+        h.update(("|".join("" if v is None else str(v)
+                           for v in (tuple(row) if row else ("MISSING",))
+                           )).encode("utf-8"))
+    return h.hexdigest()
+
+
+def _snapshot(conn: sqlite3.Connection, db_path: str,
+              canonical_refs: Optional[List[str]] = None,
+              retryable_refs: Optional[List[str]] = None) -> Dict[str, Any]:
     hist = _histogram(conn)
-    return {"at": _now(), "status_histogram": hist,
-            "total": int(conn.execute(
-                "SELECT COUNT(*) FROM envelopes").fetchone()[0]),
-            "bookmarks_sha256": _bookmark_fingerprint(conn)}
+    digest = hashlib.sha256()
+    with open(db_path, "rb") as fh:
+        # The endpoint database holds 125,452 rows: hash it in chunks rather
+        # than reading it into memory.
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    db_sha = digest.hexdigest()
+    return {
+        "at": _now(),
+        "status_histogram": hist,
+        "total": int(conn.execute(
+            "SELECT COUNT(*) FROM envelopes").fetchone()[0]),
+        "bookmarks_sha256": _bookmark_fingerprint(conn),
+        "database_sha256": db_sha,
+        "delivering_row_ids": sorted(
+            r[0] for r in conn.execute(
+                "SELECT id FROM envelopes WHERE status=?", (DELIVERING,))),
+        "canonical_rows_fingerprint": _fingerprint(conn, canonical_refs or []),
+        "retryable_rows_fingerprint": _fingerprint(conn, retryable_refs or []),
+    }
 
 
 def load_proof(path: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -229,7 +282,8 @@ def apply_repair(conn: sqlite3.Connection, eligible: List[Dict[str, Any]],
 
 def run(*, state_dir: str, proof_path: str, expect_canonical: int,
         expect_retryable: int, collector_id: str, apply_changes: bool,
-        allow_schema_add: bool = False) -> Dict[str, Any]:
+        allow_schema_add: bool = False,
+        expect_total: int = 0) -> Dict[str, Any]:
     db_path = os.path.join(state_dir, "outbox.db")
     if not os.path.exists(db_path):
         raise SystemExit(f"outbox database not found: {db_path}")
@@ -259,8 +313,10 @@ def run(*, state_dir: str, proof_path: str, expect_canonical: int,
     mode = "" if apply_changes else "?mode=ro"
     conn = sqlite3.connect(f"file:{db_path}{mode}", uri=True)
     conn.row_factory = sqlite3.Row
+    canonical_refs = [r.get("ref") for r in proof["canonical"]]
+    retryable_refs = [r.get("ref") for r in proof["retryable"]]
     try:
-        pre = _snapshot(conn)
+        pre = _snapshot(conn, db_path, canonical_refs, retryable_refs)
         the_plan = plan(conn, proof, collector_id)
         if the_plan["refused"]:
             raise SystemExit(
@@ -278,7 +334,7 @@ def run(*, state_dir: str, proof_path: str, expect_canonical: int,
             repair = apply_repair(conn, the_plan["eligible"],
                                   f"r6a_{uuid.uuid4().hex[:16]}", proof_path,
                                   allow_schema_add)
-        post = _snapshot(conn)
+        post = _snapshot(conn, db_path, canonical_refs, retryable_refs)
     finally:
         conn.close()
 
@@ -321,6 +377,44 @@ def run(*, state_dir: str, proof_path: str, expect_canonical: int,
             "holds": True,
             "note": ("this script imports no ingest client and opens no "
                      "socket; the repair is local bookkeeping only")},
+        "no_delivery_surface_loaded": {
+            "imports_declared_by_this_script": _own_delivery_imports(),
+            "modules_loaded_in_this_process": sorted(
+                m for m in sys.modules
+                if m in ("httpx", "requests")
+                or m.startswith(("framework.outbox", "framework.delivery",
+                                 "framework.windows_eventlog"))),
+            "holds": not _own_delivery_imports(),
+            "note": ("the attestation is the SCRIPT's own imports: it never "
+                     "imports an ingest client, a delivery worker or the "
+                     "Outbox, so R3.1 restart recovery cannot run and cannot "
+                     "requeue the retryable rows as a side effect. Modules "
+                     "loaded by an embedding process (a test session) are "
+                     "reported but are not this script's surface.")},
+        "database_file_unchanged": {
+            "pre": pre["database_sha256"], "post": post["database_sha256"],
+            "holds": (pre["database_sha256"] == post["database_sha256"]
+                      if not apply_changes else True),
+            "note": ("a dry run opens the database read-only, so its bytes "
+                     "must be identical; an apply legitimately changes them")},
+        "retryable_rows_untouched_exactly": {
+            "fingerprint": post["retryable_rows_fingerprint"],
+            "holds": (pre["retryable_rows_fingerprint"]
+                      == post["retryable_rows_fingerprint"]),
+            "note": ("status + attempts + next_attempt_at + last_error of the "
+                     "retryable rows, unchanged in BOTH modes")},
+        "canonical_rows_untouched_in_dry_run": {
+            "holds": (pre["canonical_rows_fingerprint"]
+                      == post["canonical_rows_fingerprint"]
+                      if not apply_changes else True)},
+        "delivering_set_matches_the_proof": {
+            "delivering_rows": len(post["delivering_row_ids"]),
+            "holds": (set(pre["delivering_row_ids"])
+                      == set(canonical_refs) | set(retryable_refs))},
+        "expected_total_rows": {
+            "expected": expect_total or None, "actual": post["total"],
+            "holds": (post["total"] == expect_total if expect_total
+                      else True)},
     }
 
     return {
@@ -357,6 +451,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--apply", action="store_true",
                     help="perform the local status repair (transactional)")
     ap.add_argument("--allow-schema-add", action="store_true")
+    ap.add_argument("--expect-total", type=int, default=0,
+                    help="refuse unless the outbox holds exactly this many "
+                         "rows (e.g. 125452)")
     args = ap.parse_args(argv)
 
     if not args.state_dir:
@@ -367,7 +464,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                  expect_retryable=args.expect_retryable,
                  collector_id=os.environ.get("NIVX_COLLECTOR_ID") or "",
                  apply_changes=args.apply,
-                 allow_schema_add=args.allow_schema_add)
+                 allow_schema_add=args.allow_schema_add,
+                 expect_total=args.expect_total)
 
     evidence_dir = args.evidence_dir or os.path.join(args.state_dir,
                                                      "g1_r6_evidence")
@@ -390,6 +488,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             "total_rows_unchanged"]["holds"],
         "bookmarks_unchanged": report["invariants"][
             "bookmarks_unchanged"]["holds"],
+        "database_file_unchanged": report["invariants"][
+            "database_file_unchanged"]["holds"],
+        "retryable_rows_untouched": report["invariants"][
+            "retryable_rows_untouched_exactly"]["holds"],
+        "delivering_set_matches_proof": report["invariants"][
+            "delivering_set_matches_the_proof"]["holds"],
+        "no_delivery_surface_loaded": report["invariants"][
+            "no_delivery_surface_loaded"]["holds"],
         "pass": report["pass"],
         "evidence": path,
     }, indent=2, default=str))

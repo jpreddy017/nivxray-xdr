@@ -267,11 +267,51 @@ def test_without_an_audit_column_the_repair_refuses_to_run(fixture):
     assert _histogram(fixture["state"])[repair.DELIVERING] == 50
 
 
+def test_dry_run_leaves_the_database_bytes_identical(fixture):
+    report = _run(fixture)
+    inv = report["invariants"]
+    assert inv["database_file_unchanged"]["holds"] is True
+    assert (inv["database_file_unchanged"]["pre"]
+            == inv["database_file_unchanged"]["post"])
+    assert inv["canonical_rows_untouched_in_dry_run"]["holds"] is True
+    assert inv["retryable_rows_untouched_exactly"]["holds"] is True
+    assert inv["delivering_set_matches_the_proof"]["holds"] is True
+    assert inv["no_delivery_surface_loaded"]["holds"] is True
+    assert inv["no_delivery_surface_loaded"][
+        "imports_declared_by_this_script"] == []
+
+
+def test_an_unexpected_total_population_fails_the_proof(fixture):
+    ok = _run(fixture, expect_total=60)
+    assert ok["invariants"]["expected_total_rows"]["holds"] is True
+    assert ok["pass"] is True
+
+    wrong = _run(fixture, expect_total=125452)
+    assert wrong["invariants"]["expected_total_rows"]["holds"] is False
+    assert wrong["pass"] is False
+
+
+def test_a_delivering_row_outside_the_proof_fails_the_proof(fixture):
+    """An extra stranded row means the proof no longer describes reality."""
+    extra = fixture["delivered"][0]
+    _set_status(fixture["state"], [extra], repair.DELIVERING)
+    report = _run(fixture)
+    assert report["invariants"]["delivering_set_matches_the_proof"][
+        "holds"] is False
+    assert report["pass"] is False
+
+
 def test_the_repair_never_imports_a_delivery_client():
     """Local bookkeeping has no destination, so it must have no client."""
     source = open(os.path.join(_ROOT, "scripts",
                                "g1_r6_local_accounting_repair.py"),
                   encoding="utf-8").read()
-    for forbidden in ("IngestClient", "httpx", "requests", "DeliveryWorker",
-                      "Outbox(", "windows_eventlog"):
-        assert forbidden not in source, f"{forbidden} must not appear"
+    imports = [ln.strip() for ln in source.splitlines()
+               if ln.strip().startswith(("import ", "from "))]
+    joined = " ".join(imports)
+    for forbidden in ("httpx", "requests", "framework.outbox",
+                      "framework.delivery", "framework.windows_eventlog",
+                      "framework.runtime"):
+        assert forbidden not in joined, f"{forbidden} must not be imported"
+    assert "Outbox(" not in source, "the Outbox must never be constructed"
+    assert repair._own_delivery_imports() == []
