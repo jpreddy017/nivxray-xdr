@@ -453,3 +453,88 @@ def test_first_batch_is_fully_reversible(g1_shaped, tmp_path):
                 "--recovery-id", rep["recovery_id"])
     assert back["restored"] == 500
     assert _counts(g1_shaped) == before
+
+
+# ══ the remaining population, drained in larger batches ══════════
+def test_remaining_population_drains_to_zero_with_per_batch_accounting(
+        g1_shaped, tmp_path):
+    """One invocation per batch: each gets its own recovery id, its own
+    accounting, and its own rollback. The population itself is the running
+    assertion — every call must state the CURRENT remaining target, so a
+    drift of even one row refuses the whole batch."""
+    backup = _backup(g1_shaped, tmp_path)
+    start = _counts(g1_shaped)
+    expected_final_queued = start["queued"] + start["dead_letter"]
+
+    # the proven first batch
+    first = _run("--db", g1_shaped, "--execute", "--expect-count", "14868",
+                 "--batch-size", "500", "--max-batches", "1",
+                 "--backup", backup)
+    ids = [first["recovery_id"]]
+    remaining = first["remaining_target_after"]
+    assert remaining == 14368
+
+    # then larger, independently accounted batches
+    batch = 2000
+    ledger = []
+    while remaining > 0:
+        size = min(batch, remaining)
+        rep = _run("--db", g1_shaped, "--execute",
+                   "--expect-count", str(remaining),
+                   "--batch-size", str(size), "--max-batches", "1",
+                   "--backup", backup)
+        assert rep["result"] == "ACCEPTED"
+        assert rep["requeued"] == size
+        assert rep["batches"] == 1
+        assert rep["rows_with_this_recovery_id"] == size
+        assert rep["remaining_target_after"] == remaining - size
+        for flag in ("accounting_holds", "delivered_unchanged",
+                     "delivering_unchanged", "retrying_unchanged",
+                     "total_unchanged", "bookmarks_unchanged",
+                     "recovery_id_row_count_matches"):
+            assert rep[flag] is True, (flag, rep["recovery_id"])
+        assert rep["recovery_id"] not in ids     # a fresh id per batch
+        ids.append(rep["recovery_id"])
+        ledger.append({"id": rep["recovery_id"], "requeued": size,
+                       "remaining_after": rep["remaining_target_after"]})
+        remaining -= size
+
+    assert len(ids) == 1 + 8                     # 500 + 7x2000 + 368
+    assert sum(x["requeued"] for x in ledger) == 14368
+
+    # ── final reconciliation ──
+    final = _counts(g1_shaped)
+    assert final.get("dead_letter", 0) == 0
+    assert final["queued"] == expected_final_queued == 122393
+    assert final["delivered"] == 2884
+    assert final["delivering"] == 50
+    assert final["retrying"] == 125
+    assert sum(final.values()) == 125452
+
+    con = sqlite3.connect(g1_shaped)
+    tagged = con.execute("SELECT COUNT(*) FROM envelopes "
+                         " WHERE recovery_json IS NOT NULL").fetchone()[0]
+    not_queued = con.execute("SELECT COUNT(*) FROM envelopes "
+                             " WHERE recovery_json IS NOT NULL "
+                             "   AND status<>'queued'").fetchone()[0]
+    with_attempts = con.execute("SELECT COUNT(*) FROM envelopes "
+                                " WHERE recovery_json IS NOT NULL "
+                                "   AND attempts<>0").fetchone()[0]
+    distinct = con.execute(
+        "SELECT COUNT(DISTINCT json_extract(recovery_json,'$.recovery_id')) "
+        "  FROM envelopes WHERE recovery_json IS NOT NULL").fetchone()[0]
+    con.close()
+    assert tagged == 14868
+    assert not_queued == 0
+    assert with_attempts == 0
+    assert distinct == len(ids)
+
+    # a fully drained population refuses further work rather than widening
+    after = _run("--db", g1_shaped)
+    assert after["population"]["target_count"] == 0
+    assert after["population"]["non_target_dead_letter_count"] == 0
+
+    # ── every batch is still independently reversible ──
+    for rid in ids:
+        _run("--db", g1_shaped, "--rollback", "--recovery-id", rid)
+    assert _counts(g1_shaped) == start
