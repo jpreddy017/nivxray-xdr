@@ -19720,3 +19720,19 @@ Status: **READY for the first 500-row execution, pending owner authorization.**
 Next after PASS: larger controlled drain, then P1 `xdr_ingest_raw_retained`
 retention policy, P2 coverage visibility, then Wave 1 (Endpoint Event Journal
 + NivXForge Windows Sensor + native telemetry).
+
+### G1-R5 first-500 execution block authored (owner-authorized, not executed)
+`memory/G1_R5_FIRST500_EXECUTION_COPY.ps1` — `$Execute = $true` pre-set for
+exactly 500 rows. Stage gates before any delivery: lineage verification
+(branch HEAD + driver SHA-256 pinned to
+`D47DE2DEE87BA4187EB63713B07DE23DCE8307752E0D60C44BCD99734B7CB223`), writer
+guard, SHA-256-verified backup, independent read-only pre-run evidence
+(histogram + bookmark hash + durable gate row + non-target dead-letter check),
+backend reachability + ingest auth probe (expect 400) + reconcile-surface
+probe (404 aborts), non-mutating dry run verified against the independent
+snapshot. Then one bounded 500-row attempt, independent post-run evidence with
+bookmark-invariance comparison, mandatory identity-level server reconciliation
+(chunked <=500), separate `r5-retained-raw-outcomes.json` and
+`r5-terminal-outcomes.json`, combined verdict, then STOP.
+PREREQUISITE: the branch must be published so the endpoint can pull the driver
+(the block aborts if the tool is missing or its hash differs).

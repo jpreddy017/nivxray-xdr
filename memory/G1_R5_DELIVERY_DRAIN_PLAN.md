@@ -1,6 +1,6 @@
 # G1-R5 · Bounded Delivery Drain — PLAN (authored; NOTHING executed)
 
-Status: **READY for owner review · NOT executed on DESKTOP-A9HGFJJ**
+Status: **OWNER-AUTHORIZED for the first 500-row execution · NOT executed on DESKTOP-A9HGFJJ**
 Scope of this turn: plan + implementation + tests + execution procedure + evidence
 contract. No endpoint execution. No deploy. No merge.
 
