@@ -51,6 +51,27 @@ from datetime import datetime, timezone
 DEFAULT_ERROR_LIKE = "HTTP 404%"
 TARGET_STATUS = "dead_letter"
 RECOVERY_COLUMN = "recovery_json"
+GATE_TABLE = "delivery_health_gate"
+
+#: Byte-identical to framework/outbox.py's R3.1 schema, deliberately repeated
+#: here so a preserved database can be prepared WITHOUT constructing an
+#: Outbox (whose constructor also runs restart recovery). Any drift between
+#: the two is caught by test_init_ddl_matches_the_published_schema.
+GATE_DDL = """
+    CREATE TABLE IF NOT EXISTS delivery_health_gate (
+        destination_key      TEXT PRIMARY KEY,
+        state_version        INTEGER NOT NULL,
+        state                TEXT NOT NULL,
+        consecutive_failures INTEGER NOT NULL,
+        cooldown_seconds     REAL NOT NULL,
+        cooldown_until_epoch REAL,
+        opened_count         INTEGER NOT NULL,
+        probes               INTEGER NOT NULL,
+        last_reason          TEXT,
+        last_transition_at   TEXT,
+        updated_at           TEXT NOT NULL
+    );
+"""
 
 
 def _emit(report: dict, args) -> None:
@@ -194,6 +215,157 @@ def _health_gate(con: sqlite3.Connection) -> dict | None:
     return {k: row[k] for k in row.keys()} if row else None
 
 
+def _gate_table_present(con: sqlite3.Connection) -> bool:
+    return bool(con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (GATE_TABLE,)).fetchone())
+
+
+def _gate_prerequisite(con: sqlite3.Connection) -> dict:
+    """R4's health-gate precondition, stated honestly.
+
+    R3.1's contract is that a gate with NO persisted state has observed
+    nothing, and CLOSED is the truthful default for a first boot. Absence is
+    therefore not an outage and not a refusal — but a FABRICATED `CLOSED`
+    row would be a false observation, so this tool never writes one.
+
+    Only a persisted row that says the destination is unavailable blocks
+    recovery, because that is the one case where something IS known.
+    """
+    present = _gate_table_present(con)
+    gate = _health_gate(con) if present else None
+    if gate is None:
+        return {
+            "table_present": present,
+            "persisted_state": None,
+            "effective_state": "CLOSED",
+            "satisfied": True,
+            "basis": ("R3.1 first-boot semantics: no persisted state means "
+                      "no observation, and CLOSED is the truthful default. "
+                      "A CLOSED row is NOT written, because a gate that has "
+                      "observed nothing must not claim to have observed "
+                      "health"),
+            "durability": ("PRESENT" if present else
+                           "ABSENT — the first delivery of the recovery run "
+                           "would create the table implicitly; run "
+                           "--init-health-gate first to make that a "
+                           "controlled, backed-up, proven step"),
+        }
+    return {
+        "table_present": True,
+        "persisted_state": gate.get("state"),
+        "effective_state": gate.get("state"),
+        "satisfied": gate.get("state") == "CLOSED",
+        "basis": ("a persisted gate row exists, so the destination IS known; "
+                  "recovery proceeds only while it says CLOSED"),
+        "durability": "PRESENT",
+        "persisted_row": gate,
+    }
+
+
+def _integrity(con: sqlite3.Connection) -> dict:
+    """A fingerprint of everything initialization must NOT change."""
+    counts = _counts(con)
+    total = con.execute("SELECT COUNT(*) FROM envelopes").fetchone()[0]
+    env = hashlib.sha256()
+    for r in con.execute(
+            "SELECT id, status, attempts, last_error, next_attempt_at, "
+            "       updated_at FROM envelopes ORDER BY id"):
+        env.update(("|".join("" if v is None else str(v)
+                             for v in tuple(r))).encode("utf-8"))
+    book = None
+    if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' "
+                   "AND name='windows_channel_state'").fetchone():
+        h = hashlib.sha256()
+        rows = 0
+        for r in con.execute("SELECT * FROM windows_channel_state "
+                             "ORDER BY rowid"):
+            rows += 1
+            h.update(("|".join("" if v is None else str(v)
+                               for v in tuple(r))).encode("utf-8"))
+        book = {"rows": rows, "sha256": h.hexdigest()}
+    return {
+        "counts_by_status": counts,
+        "total_envelopes": total,
+        "envelope_state_sha256": env.hexdigest(),
+        "max_updated_at": con.execute(
+            "SELECT MAX(updated_at) FROM envelopes").fetchone()[0],
+        "bookmarks": book or {"table_present": False},
+        "tables": sorted(r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")),
+    }
+
+
+def init_health_gate(args) -> int:
+    """Create the R3.1 gate table on a preserved outbox, and prove that
+    nothing else moved.
+
+    Why a dedicated operation rather than just starting the collector: the
+    published `Outbox` constructor would create this table too, but it also
+    runs restart recovery (`DELIVERING -> QUEUED`) and opens the database for
+    general use. On a preserved evidence population the smallest possible
+    change is the DDL alone, executed under a verified backup, with a
+    before/after fingerprint of every row and every bookmark.
+    """
+    _guard_backup(args)
+    con = _connect(args.db, write=True)
+    try:
+        before = _integrity(con)
+        if _gate_table_present(con):
+            _emit({"mode": "INIT_HEALTH_GATE", "result": "ALREADY_PRESENT",
+                   "prerequisite": _gate_prerequisite(con),
+                   "integrity": before,
+                   "note": "no change was made"}, args)
+            return 0
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            con.execute(GATE_DDL)
+            con.execute("COMMIT")
+        except Exception:
+            con.execute("ROLLBACK")
+            raise
+        after = _integrity(con)
+        proof = {
+            "counts_unchanged": before["counts_by_status"]
+            == after["counts_by_status"],
+            "total_unchanged": before["total_envelopes"]
+            == after["total_envelopes"],
+            "envelope_state_unchanged": before["envelope_state_sha256"]
+            == after["envelope_state_sha256"],
+            "max_updated_at_unchanged": before["max_updated_at"]
+            == after["max_updated_at"],
+            "bookmarks_unchanged": before["bookmarks"] == after["bookmarks"],
+            "only_new_table_is_the_gate":
+                sorted(set(after["tables"]) - set(before["tables"]))
+                == [GATE_TABLE],
+            "no_gate_row_written": _health_gate(con) is None,
+        }
+        report = {
+            "mode": "INIT_HEALTH_GATE",
+            "at": _now(),
+            "db": args.db,
+            "backup": args.backup,
+            "ddl_executed": GATE_DDL.strip(),
+            "rows_written": 0,
+            "integrity_before": before,
+            "integrity_after": after,
+            "proof": proof,
+            "prerequisite": _gate_prerequisite(con),
+            "result": "ACCEPTED" if all(proof.values()) else "REVIEW",
+            "note": ("schema-only, additive. No envelope row, no status, no "
+                     "attempt count, no bookmark, no checkpoint and no "
+                     "delivery state was touched, and NO gate row was "
+                     "written — CLOSED is the truthful first-boot default, "
+                     "not a value this tool fabricates"),
+        }
+        _emit(report, args)
+        print(f"\nG1_R31_GATE_INIT = {report['result']}")
+        return 0 if all(proof.values()) else 4
+    finally:
+        con.close()
+
+
+
 def dry_run(args) -> int:
     con = _connect(args.db, write=False)
     try:
@@ -210,10 +382,15 @@ def dry_run(args) -> int:
                                                    "failure_detail_json"),
                 "recovery_json": _has_column(con, "envelopes",
                                              RECOVERY_COLUMN),
-                "delivery_health_gate_table_present": _health_gate(
+                # NOTE: table presence, not row presence. An empty gate
+                # table is the R3.1 first-boot state, not a missing one.
+                "delivery_health_gate_table_present": _gate_table_present(
+                    con),
+                "delivery_health_gate_row_present": _health_gate(
                     con) is not None,
             },
             "persisted_health_gate": _health_gate(con),
+            "health_gate_prerequisite": _gate_prerequisite(con),
         }
         target = report["population"]["target_count"]
         report["expectation"] = {
@@ -238,13 +415,11 @@ def dry_run(args) -> int:
         con.close()
 
 
-def _guard_execute(args) -> None:
-    if args.expect_count is None:
-        raise SystemExit("--execute requires --expect-count (the population "
-                         "is evidence; an unstated expectation must not run)")
+def _guard_backup(args) -> None:
+    """No write to a preserved evidence population without a real backup."""
     if not args.backup:
-        raise SystemExit("--execute requires --backup <path to the verified "
-                         "pre-recovery copy of outbox.db>")
+        raise SystemExit("this operation requires --backup <path to the "
+                         "verified pre-change copy of outbox.db>")
     if not os.path.exists(args.backup):
         raise SystemExit(f"backup not found: {args.backup}")
     live_size = os.path.getsize(args.db)
@@ -252,6 +427,13 @@ def _guard_execute(args) -> None:
     if backup_size < live_size * 0.5:
         raise SystemExit(f"backup looks truncated: {backup_size} bytes vs "
                          f"live {live_size} bytes")
+
+
+def _guard_execute(args) -> None:
+    if args.expect_count is None:
+        raise SystemExit("--execute requires --expect-count (the population "
+                         "is evidence; an unstated expectation must not run)")
+    _guard_backup(args)
 
 
 def execute(args) -> int:
@@ -268,13 +450,24 @@ def execute(args) -> int:
                    "target_count": pop["target_count"],
                    "expected": args.expect_count}, args)
             return 2
-        gate = _health_gate(con)
-        if gate and gate.get("state") not in (None, "CLOSED"):
+        prereq = _gate_prerequisite(con)
+        if not prereq["satisfied"]:
             _emit({"result": "REFUSED",
                    "reason": "the destination health gate is not CLOSED; "
                              "recovery must not queue into a known-"
                              "unavailable destination",
-                   "health_gate": gate}, args)
+                   "health_gate_prerequisite": prereq}, args)
+            return 3
+        if args.require_persisted_gate and prereq["persisted_state"] is None:
+            _emit({"result": "REFUSED",
+                   "reason": ("--require-persisted-gate was set and no "
+                              "persisted gate state exists. Note: a truthful "
+                              "CLOSED row can only come from a real delivery "
+                              "success against the real destination, so this "
+                              "posture cannot be satisfied before the first "
+                              "recovery batch without fabricating an "
+                              "observation"),
+                   "health_gate_prerequisite": prereq}, args)
             return 3
 
         if not _has_column(con, "envelopes", RECOVERY_COLUMN):
@@ -414,9 +607,17 @@ def main() -> int:
     ap.add_argument("--execute", action="store_true")
     ap.add_argument("--rollback", action="store_true")
     ap.add_argument("--recovery-id", default=None)
+    ap.add_argument("--init-health-gate", action="store_true",
+                    help="create the R3.1 delivery_health_gate table on a "
+                         "preserved outbox (schema only, no rows)")
+    ap.add_argument("--require-persisted-gate", action="store_true",
+                    help="refuse execution unless a persisted gate row "
+                         "exists and says CLOSED")
     ap.add_argument("--json-out", default=None,
                     help="write the report as pure JSON to this path")
     args = ap.parse_args()
+    if args.init_health_gate:
+        return init_health_gate(args)
     if args.rollback:
         return rollback(args)
     if args.execute:
