@@ -20128,3 +20128,44 @@ OPEN PRECONDITION: if the endpoint's `envelopes` table has no `recovery_json`
 column, APPLY refuses rather than improvise; the dry run reports it and the
 owner decides whether `--allow-schema-add` is authorised.
 Phase A NOT executed from here. Phase B NOT built. The 28 untouched.
+
+### G1-R6 Phase A CLOSED · Phase B DESIGN ONLY (2026-06)
+Phase A PASS/CLOSED/FROZEN on the endpoint: repaired 22, refused 0, retryable
+untouched 28, delivered 3284->3306, delivering 50->28, queued 121993,
+retrying 125, dead_letter 0, total 125452, 22 `G1-R6-A` markers, bookmarks
+unchanged, no network delivery, no schema change, backup taken. The 22 were
+NOT sent twice.
+
+Phase B design written to `memory/G1_R6_PHASE_B_DESIGN.md`. NOTHING
+implemented or executed. Two blocking facts found during the review and
+designed around:
+1. `Outbox.__init__` -> `_reset_stuck_delivering()` (outbox.py:207) runs
+   `UPDATE envelopes SET status='queued' WHERE status='delivering'`, so merely
+   OPENING the real Outbox would flip all 28 to queued and expose them to the
+   general worker. Phase B therefore never constructs `Outbox`; it owns its
+   own sqlite3 connection and imports only the pure `Envelope` dataclass. A
+   planned test asserts the delivering count is unchanged after import.
+2. `IngestClient` authenticates `POST /api/xdr/ingest/telemetry` with
+   `X-XDR-API-Key` + `X-Tenant-Id`, and that route requires
+   `collectors.enroll` (`routers/xdr_ingest.py:798-800`). Tenant
+   `ten_f1a5479243e901cf159e230fa0` has 7 keys, 6 revoked, EXACTLY ONE LIVE:
+   `key_1318617827ee44ada0f7` / `nvx_5866032d`, scope `collectors.enroll`,
+   last used 2026-09-24T06:19:40Z. Delivery is possible, but a
+   `collectors.enroll`-scoped key can call nothing read-only, so there is NO
+   non-mutating liveness probe -> design uses a canary of exactly 1 then the
+   remaining 27 (matching `DeliveryHealthGate.probe_limit()==1` in HALF_OPEN).
+
+Design covers: 8-step state machine, exact-28 selection with positive proof
+that the 22 are still `delivered` + markered, identity/idempotency
+preservation, R3.1 gate restore + hard stop when OPEN, dry-run readiness mode
+with a write-refusing gate store, transactional all-or-nothing accounting,
+B4 retained-raw handling, `unexplained = 0` identity equation summing to 28,
+pre-mutation backup, 4 evidence artifacts, 13 focused tests, explicit
+PASS/FAIL criteria. Full-success post-state would be delivered 3334 /
+delivering 0; partial outcomes are legitimate, not failures.
+
+AWAITING OWNER APPROVAL before implementing. Phase B not built, not executed.
+After the 28 close: permanent durable receipt/reconciliation mechanism BEFORE
+the ~122k backlog, then the product pivot (Windows telemetry coverage ->
+Endpoint Event Journal -> Command Intelligence -> Device Trajectory ->
+endpoint investigation UI -> prevention/response).
