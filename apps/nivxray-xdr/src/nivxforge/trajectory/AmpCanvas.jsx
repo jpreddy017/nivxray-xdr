@@ -255,7 +255,7 @@ export default function AmpCanvas({
               <rect x={x - 26} y={AXIS_H} width={52} height={height - AXIS_H}
                     fill={C.band} pointerEvents="none" />
               <g transform={`translate(${x},${AXIS_H - 22})`}
-                 style={{ cursor: "pointer" }}
+                 style={{ cursor: "default" }}
                  onClick={(ev) => { ev.stopPropagation(); onSelect(e); }}
                  data-testid={`amp-compromise-marker-${e.event_iid}`}>
                 <CompromiseMarker />
@@ -467,7 +467,7 @@ export default function AmpCanvas({
               {marks.map((m) => (
                 <g key={m.primary.event_iid}
                    transform={`translate(${GUTTER + m.x},${mid})`}
-                   style={{ cursor: "pointer" }}
+                   style={{ cursor: "default" }}
                    onMouseEnter={() => setHover({ x: GUTTER + m.x, y: mid,
                                                   mark: m })}
                    onClick={(e) => { e.stopPropagation();

@@ -34,6 +34,7 @@ import { useAuth } from "@/lib/auth";
 import { brandFor } from "@/productScope";
 
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
+import CustomerPicker from "./components/CustomerPicker";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import "./nivxforge.css";
 import "./nvf-ops.css";
@@ -283,32 +284,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
           Endpoint detection &amp; response
         </span>
         <span style={{ flex: 1 }} />
-        <span className="pill" data-testid="nvf-customer-pill"
-              data-customer={tenant || ""}
-              data-customer-basis={sess?.tenant_scope?.all_tenants
-                ? "CROSS_TENANT_ROLE" : "AUTHORIZED_TENANTS"}
-              title="Customer scope. Every tenant-bound EDR surface is read
- under this customer; the platform has no default tenant.">
-          <span className="k">Customer</span>
-          {tenants.length ? (
-            <select value={tenant || ""}
-                    data-testid="nvf-customer-select"
-                    onChange={(e) => {
-                      setActiveTenant(e.target.value);
-                      window.location.reload();
-                    }}
-                    style={{ background: "transparent", border: "none",
-                             color: tenant ? "var(--mint)" : "var(--amber)",
-                             fontFamily: "var(--mono)", fontSize: 10,
-                             outline: "none", maxWidth: 190 }}>
-              {tenant ? null : <option value="">◇ SELECT CUSTOMER</option>}
-              {tenants.map((t) => (
-                <option key={t} value={t}>{t}</option>))}
-            </select>
-          ) : (
-            <span className="v">◇ NOT RESOLVED</span>
-          )}
-        </span>
+        <CustomerPicker withEvidence={tenants} />
         {/* EDR → XDR product pivot. Resolved through `productOrigins` so
             it becomes an absolute cross-origin URL the moment XDR gets
             its own hostname, and stays an in-app route while both

@@ -1,5 +1,46 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · ONBOARDING PROOF PREPARATION + TWO P0 DEFECTS FOUND & FIXED
+
+Owner decisions recorded: benchmark = Cisco Secure Endpoint-class
+operational depth (NOT a pixel clone, NOT copied vendor assets); no Cisco
+captures available, so documented behaviour is the reference and the owner
+reviews surface by surface; P0→P5 tree is the accepted foundation and must
+not be redrawn. Next milestone = FIRST REAL WINDOWS ENDPOINT ONBOARDING
+PROOF. Runbook: `/app/memory/WINDOWS_ONBOARDING_PROOF_RUNBOOK.md`.
+Benchmark roadmap: `/app/memory/NIVXFORGE_EDR_AMP_PARITY_ROADMAP.md`.
+
+- **Checkpoint**: the accepted P0→P5 wave is commit `474ee17b`.
+- **New harness** `/app/tools/edr_onboarding_proof.py`:
+  `rehearse` (throwaway tenant, SYNTHETIC, archived afterwards) exercises
+  every server-side transition; `watch --tenant <id>` is a READ-ONLY
+  evidence collector for the real proof. CONNECTED is never asserted by
+  the harness — it is read back from the platform.
+- **P0 defect found by the rehearsal and FIXED**: `EndpointRecord`
+  (`extra="forbid"`) rejected the placement fields written at enrolment
+  (`group_id`, `policy_id`, `placement_basis`, `placement_at`), so every
+  PLACED endpoint received **HTTP 500 on `/api/edr/agent/telemetry`** after
+  its evidence had been stored; the canonical bridge never ran. Second
+  effect: Command Intelligence and Trajectory reported
+  `ENDPOINT_NOT_RESOLVED` for a brand-new computer. Both green now
+  (telemetry 200 → canonicalised → CONNECTED → detections_24h=1 →
+  Command Intelligence RESOLVED + DETECTION_MATCHED). Regression test:
+  `tests/test_edr_fleet_detection_counts.py::
+  test_the_endpoint_record_accepts_the_placement_the_platform_writes`.
+- **Customer picker** (`nivforge/components/CustomerPicker.jsx`): the EDR
+  header now lists ACTIVE tenants from the tenant REGISTRY
+  (`GET /api/xdr/tenants`), searchable, showing display names and marking
+  the ones that already hold evidence. Before this, the selector was built
+  from tenants that already had data, so the empty proof tenant
+  (`ten_f1a5479243e901cf159e230fa0` · G1 Windows proof) **could not be
+  selected at all** and the UI-driven onboarding was impossible. Internal
+  tenant ids are no longer shown as the header label.
+- **Trajectory cursors** (owner reports): `grab` on the canvas and
+  `ew-resize` on the navigator band/handles are gone; SVG timeline
+  surfaces use the default cursor. Window handles and drag behaviour were
+  kept, per owner decision.
+
+
 ## 2026-06 · NIVXFORGE EDR · FLEET OPERATIONS WAVE (P0→P5) — DELIVERED · VISUALLY QA'd
 
 Owner directive: build the premium EDR console under `/edr/*` (Downloads ·

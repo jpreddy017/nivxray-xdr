@@ -147,6 +147,41 @@ def test_the_window_is_declared_on_every_row(seeded):
     assert row["detections_window_hours"] == 168
 
 
+# ── enrolment record · placement fields (regression) ──────────────
+def test_the_endpoint_record_accepts_the_placement_the_platform_writes():
+    """Regression · the onboarding rehearsal found this as an HTTP 500.
+
+    `assign_default_placement()` writes `group_id`, `policy_id`,
+    `placement_basis` and `placement_at` onto the enrolment record at
+    enrolment. `EndpointRecord` forbids extra fields, so every PLACED
+    endpoint failed validation on the authenticated telemetry path
+    (`store.get_endpoint` → `EndpointRecord(**r)`) and the sensor received a
+    500 *after* its evidence had been stored — the canonical bridge never
+    ran, so Command Intelligence and Trajectory reported
+    ENDPOINT_NOT_RESOLVED for a brand-new computer.
+    """
+    from edr_plane.enrollment.identity import EndpointRecord
+
+    for field in ("group_id", "policy_id", "placement_basis",
+                  "placement_at"):
+        assert field in EndpointRecord.model_fields, field
+    rec = EndpointRecord(tenant_id=TENANT, endpoint_id=EP_HOT,
+                         group_id="grp_default_windows",
+                         policy_id="pol_default_windows",
+                         placement_basis="DEFAULT_AT_ENROLMENT",
+                         placement_at=_iso(0))
+    assert rec.group_id == "grp_default_windows"
+    # the three lifecycles stay independent of placement
+    assert rec.trust_summary()["telemetry_trusted"] is False
+
+
+def test_command_intelligence_reports_an_unresolved_endpoint_honestly():
+    """An unresolvable endpoint must say so, never return [] as if the
+    computer were quiet."""
+    source = inspect.getsource(edr_router.list_endpoint_commands)
+    assert "unresolved_envelope" in source
+
+
 # ── Command Intelligence authority ────────────────────────────────
 def test_command_intelligence_does_not_read_the_response_plane():
     source = inspect.getsource(edr_router.list_endpoint_commands)

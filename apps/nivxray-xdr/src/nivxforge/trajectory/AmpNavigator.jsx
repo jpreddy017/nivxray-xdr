@@ -337,7 +337,7 @@ export default function AmpNavigator({
                 <rect key={`hit-${b.bin}`}
                       x={PAD + (b.bin / DAY_BINS) * innerW - 3} y={8}
                       width={7} height={30} fill="transparent"
-                      style={{ cursor: "pointer" }}
+                      style={{ cursor: "default" }}
                       onClick={() => onFocusTime(
                         Date.parse(b.first_timestamp), b.first_event_iid)}
                       data-testid={`amp-nav-bin-hit-${b.bin}`}>
@@ -359,13 +359,13 @@ export default function AmpNavigator({
                     fill={C.navWindow} pointerEvents="none" />
 
               <rect x={xs} y={8} width={Math.max(1, xe - xs)} height={30}
-                    fill="transparent" style={{ cursor: "ew-resize" }}
+                    fill="transparent" style={{ cursor: "default" }}
                     onPointerDown={down("band")} onMouseDown={down("band")}
                     data-testid="amp-nav-band" />
 
               {/* triangle handles, as in the Cisco band */}
               {[["left", xs], ["right", xe]].map(([side, x]) => (
-                <g key={side} style={{ cursor: "ew-resize" }}
+                <g key={side} style={{ cursor: "default" }}
                    onPointerDown={down(side)} onMouseDown={down(side)}
                    data-testid={`amp-nav-handle-${side}`}>
                   <rect x={x - 8} y={0} width={16} height={44}

@@ -128,6 +128,15 @@ class EndpointRecord(BaseModel):
     lifecycle_reported: Optional[str] = None
     outbox_queue_depth: Optional[int] = None
 
+    # Fleet placement, assigned by the PLATFORM at enrolment (never by the
+    # sensor). These are durable endpoint facts, so they belong on the
+    # record; leaving them off made every placed endpoint fail validation
+    # on the telemetry path with `extra_forbidden`.
+    group_id: Optional[str] = None
+    policy_id: Optional[str] = None
+    placement_basis: Optional[str] = None
+    placement_at: Optional[str] = None
+
     def trust_summary(self) -> dict:
         """Directive §10 acceptance criterion: **no ambiguity about trust
         state.** Returns the three dimensions plus a single explicit
