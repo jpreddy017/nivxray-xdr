@@ -14,17 +14,33 @@
 #
 # WHAT IT DOES
 #   1. writer guard + pinned tool lineage
-#   2. validates the exact-50 authority file (pass=true, 22 canonical + 28
+#   2. establishes the SAME delivery environment the historically successful
+#      G1/R5 deliveries exported (NIVX_INGEST_URL, NIVX_INGEST_AUTH_MODE,
+#      XDR_STATE_DIR, XDR_AUTO_START_CONNECTORS=0) and refuses to start if an
+#      ingest token is already lying around in the session
+#   3. validates the exact-50 authority file (pass=true, 22 canonical + 28
 #      retryable, not the FAILED-UNTRUSTED sibling)
-#   3. authority banner + explicitly named credential prompt, classified from
+#   4. authority banner + explicitly named credential prompt, classified from
 #      the actual request destination
-#   4. credential-free readiness probes: login 422, unauthenticated reconcile
+#   5. credential-free readiness probes: login 422, unauthenticated reconcile
 #      403 from the SAME python client (edge-1010 asymmetry guard)
-#   5. READINESS pass: read-only (SQLite mode=ro), zero wire calls, proves the
-#      28 are selected, the 22 are intact and excluded, and nothing moved
-#   6. only when $Apply = $true: backup, then canary(1) -> reconcile ->
+#   6. READINESS pass: read-only (SQLite mode=ro), zero wire calls, NO ingest
+#      secret, proves the 28 are selected, the 22 are intact and excluded, and
+#      nothing moved
+#   7. only when $Apply = $true: prompt for the existing authorised collector
+#      ingest credential, assert PRESENCE (never values) of url/auth-mode/
+#      token/collector-id/autostart, back up, then canary(1) -> reconcile ->
 #      remainder(27 in batches of 7) -> one reconciliation of all 28 ->
 #      transactional accounting
+#
+# SECRET HANDLING
+#   The collector ingest credential is read as a SecureString, handed to the
+#   child python process through this session's environment only, and cleared
+#   in a `finally` block on EVERY exit path (readiness return, canary stop,
+#   reconciliation failure, success, hard stop, exception). It is never
+#   printed, logged, hashed, serialised or written to any evidence file, and
+#   only its PRESENCE is ever asserted. NIVX_XDR_API_KEY is NOT a substitute:
+#   IngestClient reads NIVX_INGEST_TOKEN.
 #
 # WHAT IT NEVER DOES
 #   never constructs Outbox (its constructor resets delivering -> queued) .
@@ -152,6 +168,35 @@ try {
   }
   Write-Host ("  outbox.db sha256 (pre): " + (Get-FileHash $db -Algorithm SHA256).Hash)
   Write-Host '  no writer running; both tools verified' -ForegroundColor Green
+
+  # ---- 0b . DELIVERY ENVIRONMENT (the R6-B gap that stopped the canary)
+  # `IngestClient` has no config file and no bootstrap object: every field is
+  # an `os.environ` property read fresh per call, and `configured()` is
+  # literally `bool(NIVX_INGEST_URL)`. The historical successful deliveries
+  # (G1_STEP2_EXECUTION_COPY.ps1:506, G1_R5_DELIVERY_DRAIN_EXECUTION_COPY
+  # .ps1:246) exported this environment into the PowerShell process; the
+  # first R6-B wrapper did not, so the guard correctly refused before the
+  # canary. This establishes exactly that historical set - no more.
+  Write-Host "`n=== 0b . DELIVERY ENVIRONMENT ===" -ForegroundColor Cyan
+  $env:NIVX_INGEST_URL           = "$BaseUrl/api/xdr/ingest/telemetry"
+  $env:NIVX_INGEST_AUTH_MODE     = 'api_key'
+  $env:XDR_STATE_DIR             = $StateDir
+  $env:XDR_AUTO_START_CONNECTORS = '0'
+  Write-Host ("  NIVX_INGEST_URL           = " + $env:NIVX_INGEST_URL)
+  Write-Host ("  NIVX_INGEST_AUTH_MODE     = " + $env:NIVX_INGEST_AUTH_MODE)
+  Write-Host ("  XDR_STATE_DIR             = " + $env:XDR_STATE_DIR)
+  Write-Host ("  XDR_AUTO_START_CONNECTORS = " + $env:XDR_AUTO_START_CONNECTORS +
+              "   (an accidental service start cannot acquire)")
+  Write-Host ("  NIVX_COLLECTOR_ID         = " + $env:NIVX_COLLECTOR_ID)
+  # NIVX_XDR_API_KEY is the standalone auditd forwarder's variable and is NOT
+  # a substitute: IngestClient reads NIVX_INGEST_TOKEN. Setting the wrong one
+  # yields url-set/token-missing -> 401/403 -> RETRYABLE -> canary stop.
+  if (-not [string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)) {
+    throw ('NIVX_INGEST_TOKEN is already present in this session. READINESS ' +
+           'must be credential-free, and APPLY prompts for it deliberately. ' +
+           'Open a clean elevated window. Nothing was attempted.')
+  }
+  Write-Host '  NIVX_INGEST_TOKEN         = (absent, as required for readiness)' -ForegroundColor Green
 
   # ---- 1 . authority file ---------------------------------------------
   Write-Host "`n=== 1 . AUTHORITY FILE ===" -ForegroundColor Cyan
@@ -307,6 +352,43 @@ print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
   [GC]::Collect()
   Write-Host '  authenticated (token held in memory only)' -ForegroundColor Green
 
+  # ---- 4b . COLLECTOR INGEST CREDENTIAL (APPLY only) -----------------
+  # The existing authorised collector ingest credential. It is neither
+  # created, rotated nor revoked here, and it is never printed, logged,
+  # hashed, serialised or written to any evidence file. It is handed to the
+  # child python process through this session's environment only, and cleared
+  # in the finally block on EVERY exit path.
+  Write-Host "`n=== 4b . COLLECTOR INGEST CREDENTIAL (APPLY only) ===" -ForegroundColor Cyan
+  Write-Host  '   Authority    : NivXForge EDR Collector ingest credential'
+  Write-Host ("   Destination  : " + $env:NIVX_INGEST_URL)
+  Write-Host  '   Header       : X-XDR-API-Key (auth_mode api_key)'
+  Write-Host  '   Required perm: collectors.enroll'
+  $ingestSecret = Read-Host '  NivXRay XDR PREVIEW Collector Ingest API Key (not echoed, not stored)' -AsSecureString
+  $env:NIVX_INGEST_TOKEN = Get-PlainFromSecure $ingestSecret
+  Remove-Variable ingestSecret -ErrorAction SilentlyContinue
+  [GC]::Collect()
+
+  # ---- 4c . PRE-CANARY PRECONDITIONS (presence only, never values) ---
+  Write-Host "`n=== 4c . PRE-CANARY PRECONDITIONS (presence only) ===" -ForegroundColor Cyan
+  $preconditions = [ordered]@{
+    'NIVX_INGEST_URL present'            = -not [string]::IsNullOrWhiteSpace($env:NIVX_INGEST_URL)
+    'NIVX_INGEST_AUTH_MODE is api_key'   = ($env:NIVX_INGEST_AUTH_MODE -ceq 'api_key')
+    'NIVX_INGEST_TOKEN present'          = -not [string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)
+    'NIVX_COLLECTOR_ID present'          = -not [string]::IsNullOrWhiteSpace($env:NIVX_COLLECTOR_ID)
+    'XDR_AUTO_START_CONNECTORS is 0'     = ($env:XDR_AUTO_START_CONNECTORS -eq '0')
+    'NIVX_RECONCILE_TOKEN present'       = -not [string]::IsNullOrWhiteSpace($env:NIVX_RECONCILE_TOKEN)
+  }
+  foreach ($name in $preconditions.Keys) {
+    Write-Host ("  " + $name.PadRight(36) + " : " + $preconditions[$name]) `
+               -ForegroundColor $(if ($preconditions[$name]) { 'Green' } else { 'Red' })
+  }
+  $unmet = @($preconditions.Keys | Where-Object { -not $preconditions[$_] })
+  if ($unmet.Count -gt 0) {
+    throw ('pre-canary preconditions unmet: ' + ($unmet -join '; ') +
+           '. Nothing was delivered or changed. (Only presence was checked; ' +
+           'no secret value was inspected, printed or stored.)')
+  }
+
   # ---- 5 . backup before the first mutating operation -----------------
   Write-Host "`n=== 5 . BACKUP BEFORE THE FIRST MUTATING OPERATION ===" -ForegroundColor Cyan
   $stamp  = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
@@ -331,7 +413,9 @@ print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
             --remainder-batch $RemainderBatch `
             --apply
   $appExit = $LASTEXITCODE
+  # earliest possible clear; the finally block is the backstop
   Remove-Item Env:\NIVX_RECONCILE_TOKEN -ErrorAction SilentlyContinue
+  Remove-Item Env:\NIVX_INGEST_TOKEN    -ErrorAction SilentlyContinue
   [GC]::Collect()
   ($app -join "`n") | Write-Host
   Write-Host ("`n  apply exit code: " + $appExit + "   (3 = canary stop, nothing accounted)")
@@ -396,9 +480,24 @@ print(json.dumps({
   return 1
 }
 catch {
-  Remove-Item Env:\NIVX_RECONCILE_TOKEN -ErrorAction SilentlyContinue
   Write-Host ("`nHARD STOP: " + $_.Exception.Message) -ForegroundColor Red
   return 1
+}
+finally {
+  # EVERY exit path: readiness return, canary stop, reconciliation failure,
+  # success, hard stop and exception. Secrets outlive nothing.
+  Remove-Item Env:\NIVX_RECONCILE_TOKEN -ErrorAction SilentlyContinue
+  Remove-Item Env:\NIVX_INGEST_TOKEN    -ErrorAction SilentlyContinue
+  [GC]::Collect()
+  $leaked = @()
+  if (-not [string]::IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN))    { $leaked += 'NIVX_INGEST_TOKEN' }
+  if (-not [string]::IsNullOrWhiteSpace($env:NIVX_RECONCILE_TOKEN)) { $leaked += 'NIVX_RECONCILE_TOKEN' }
+  if ($leaked.Count -gt 0) {
+    Write-Host ("`n*** WARNING: could not clear " + ($leaked -join ', ') +
+                ' from this session. Close this window. ***') -ForegroundColor Red
+  } else {
+    Write-Host "`n  session secrets cleared (ingest + reconciliation)" -ForegroundColor Green
+  }
 }
 }
 

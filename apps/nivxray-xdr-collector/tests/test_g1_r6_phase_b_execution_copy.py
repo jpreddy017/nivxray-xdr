@@ -134,8 +134,9 @@ def test_every_failure_returns_non_zero(block):
     catch_body = catch[1].split("\n}", 1)[0]
     assert "HARD STOP" in catch_body
     assert re.search(r"^\s*return 1\s*$", catch_body, re.MULTILINE)
-    assert "Remove-Item Env:\\NIVX_RECONCILE_TOKEN" in catch_body, (
-        "the token must be cleared even on the failure path")
+    # clearing now lives in the finally block, which also covers the catch
+    assert "\nfinally {" in block, (
+        "the token must be cleared on every exit path, not just this one")
     assert "$NivxExit = Invoke-G1R6PhaseB" in block
     assert "if ($null -eq $NivxExit) { $NivxExit = 1 }" in block
     assert "if ($PSCommandPath) { exit $NivxExit }" in block
@@ -164,3 +165,122 @@ def test_unregistered_hosts_stay_ambiguous(block):
     rows = _HOST_ROW.findall(block)
     for host in ("edr.nivxforge.com", "localhost", "evil.attacker.test"):
         assert not [r for r in rows if fnmatch.fnmatchcase(host, r[0])], host
+
+
+# ---------------------------------------------------------------------------
+# Ingest configuration remediation. The first APPLY stopped before the canary
+# because `IngestClient.configured()` is literally `bool(NIVX_INGEST_URL)` and
+# the wrapper never exported the delivery environment the historically
+# successful G1/R5 runs did. These guards keep that gap closed, and keep the
+# collector ingest secret out of everything.
+# ---------------------------------------------------------------------------
+_HISTORICAL_ENV = {
+    "NIVX_INGEST_URL": '"$BaseUrl/api/xdr/ingest/telemetry"',
+    "NIVX_INGEST_AUTH_MODE": "'api_key'",
+    "XDR_STATE_DIR": "$StateDir",
+    "XDR_AUTO_START_CONNECTORS": "'0'",
+}
+
+
+@pytest.mark.parametrize("name,value", sorted(_HISTORICAL_ENV.items()))
+def test_wrapper_establishes_the_historical_delivery_environment(block, name,
+                                                                 value):
+    assert re.search(r"\$env:" + name + r"\s*=\s*" + re.escape(value), block), (
+        f"{name} must be exported exactly as the working G1/R5 blocks did")
+
+
+def test_delivery_environment_is_established_before_readiness(block):
+    env_set = block.index("$env:NIVX_INGEST_URL")
+    readiness = block.index("--authority")
+    assert env_set < readiness
+
+
+def test_readiness_requires_no_ingest_secret(block):
+    """The token prompt must sit behind the $Apply branch."""
+    readiness_return = block.index("STOP (READINESS ONLY)")
+    prompt = block.index("Collector Ingest API Key")
+    assert readiness_return < prompt, (
+        "readiness must complete and return before any ingest secret is asked "
+        "for")
+    # and a pre-existing token in the session is refused outright
+    assert "NIVX_INGEST_TOKEN is already present in this session" in block
+    assert "(absent, as required for readiness)" in block
+
+
+def test_apply_asserts_presence_of_every_precondition(block):
+    for check in ("'NIVX_INGEST_URL present'",
+                  "'NIVX_INGEST_AUTH_MODE is api_key'",
+                  "'NIVX_INGEST_TOKEN present'",
+                  "'NIVX_COLLECTOR_ID present'",
+                  "'XDR_AUTO_START_CONNECTORS is 0'",
+                  "'NIVX_RECONCILE_TOKEN present'"):
+        assert check in block, check
+    assert "pre-canary preconditions unmet" in block
+    # presence only - never the value
+    assert "IsNullOrWhiteSpace($env:NIVX_INGEST_TOKEN)" in block
+    assert "no secret value was inspected, printed or stored" in block
+    # and the gate sits before the delivery call
+    assert block.index("pre-canary preconditions unmet") < block.index("--apply")
+
+
+def test_auth_mode_is_asserted_case_sensitively(block):
+    assert "$env:NIVX_INGEST_AUTH_MODE -ceq 'api_key'" in block, (
+        "auth_mode must be exactly api_key: `bearer` would route the key down "
+        "the JWT path where it can only fail")
+
+
+def test_the_wrong_variable_is_not_used_as_a_substitute(block):
+    code = "\n".join(line for line in block.splitlines()
+                     if not line.strip().startswith("#"))
+    assert "NIVX_XDR_API_KEY" not in code, (
+        "IngestClient reads NIVX_INGEST_TOKEN; the forwarder's variable is "
+        "not a substitute")
+    assert "$env:NIVX_INGEST_TOKEN = Get-PlainFromSecure $ingestSecret" in block
+    assert "-AsSecureString" in block
+
+
+def test_the_secret_cannot_reach_stdout_logs_or_evidence(block):
+    """No line may both reference the token and emit or persist it."""
+    emitters = ("Write-Host", "Out-File", "Set-Content", "Add-Content",
+                "ConvertTo-Json", "Get-FileHash", "Export-Csv", "Tee-Object")
+    for line in block.splitlines():
+        if "NIVX_INGEST_TOKEN" not in line and "ingestSecret" not in line:
+            continue
+        if "IsNullOrWhiteSpace" in line:          # presence check only
+            continue
+        if "(absent, as required" in line:        # fixed, value-free label
+            continue
+        if "Remove-Item Env:" in line:            # clearing, not emitting
+            continue
+        for emitter in emitters:
+            assert emitter not in line, (
+                f"a line references the ingest secret and {emitter}: {line!r}")
+    # the only Write-Host mentioning it prints a fixed, value-free label
+    assert ("Write-Host '  NIVX_INGEST_TOKEN         = (absent, as required "
+            "for readiness)' -ForegroundColor Green") in block
+
+
+def test_secret_is_cleared_on_every_exit_path_via_finally(block):
+    finally_block = block.split("\nfinally {", 1)
+    assert len(finally_block) == 2, (
+        "clearing must be in a finally block, not only on the happy path")
+    body = finally_block[1].split("\n}", 1)[0]
+    assert "Remove-Item Env:\\NIVX_INGEST_TOKEN" in body
+    assert "Remove-Item Env:\\NIVX_RECONCILE_TOKEN" in body
+    assert "could not clear" in body, (
+        "the wrapper must say so if a secret survived the clear")
+    # finally runs after both the success and failure returns
+    assert block.index("return 0") < block.index("\nfinally {")
+    assert block.index("\ncatch {") < block.index("\nfinally {")
+
+
+def test_engine_and_reconciliation_client_remain_byte_identical(block):
+    """The remediation is wrapper-only; the pinned SHAs prove it."""
+    assert re.search(
+        r"\$ExpectToolSha\s*=\s*'"
+        + _sha(os.path.join(_SCRIPTS, "g1_r6_phase_b_exact28_recovery.py"))
+        + r"'", block)
+    assert re.search(
+        r"\$ExpectExact50Sha\s*=\s*'"
+        + _sha(os.path.join(_SCRIPTS, "g1_r5_inflight50_reconcile.py"))
+        + r"'", block)

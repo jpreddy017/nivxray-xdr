@@ -20296,3 +20296,48 @@ url set but token missing; token never written to evidence/log/disk; env
 cleared on the failure path; static guards that the wrapper sets the four vars
 before readiness and prompts for the key only under `$Apply`.
 AWAITING OWNER DECISION. No implementation, no endpoint execution.
+
+### G1-R6 Phase B · ingest configuration remediation (2026-06, wrapper-only)
+Owner-approved, implemented, tested, committed. **APPLY NOT executed; the
+endpoint was never contacted and no recovery state was read or mutated.**
+Frozen state remains delivered 3306 / delivering 28 / queued 121993 /
+retrying 125 / total 125452, 22 G1-R6-A markers, 0 G1-R6-B markers, outbox
+SHA `4DAE94B3...9622`. Backup NOT restored.
+
+Changed ONLY `memory/G1_R6_PHASE_B_EXECUTION_COPY.ps1`
+(`9707C75BC53AE07FF6E15D8B7B9E1621273C9CB84C10437CC8974808E855877B`) and its
+guard test. New step 0b exports exactly the historical delivery environment
+(`NIVX_INGEST_URL="$BaseUrl/api/xdr/ingest/telemetry"`,
+`NIVX_INGEST_AUTH_MODE='api_key'`, `XDR_STATE_DIR`,
+`XDR_AUTO_START_CONNECTORS='0'`) BEFORE readiness, and hard-stops if an
+ingest token is already present in the session so readiness stays
+credential-free. New step 4b (APPLY only, behind the `$Apply` branch) prompts
+for the EXISTING authorised collector ingest key as a SecureString into
+`$env:NIVX_INGEST_TOKEN`. New step 4c asserts PRESENCE only of
+url / auth-mode (`-ceq 'api_key'`) / token / collector-id /
+`XDR_AUTO_START_CONNECTORS=0` / reconcile-token before the canary. A
+`finally` block clears BOTH tokens on every exit path (readiness return,
+canary stop, reconciliation failure, success, hard stop, exception) and warns
+loudly if either survived. `NIVX_XDR_API_KEY` is explicitly not used.
+
+Unchanged and proven by hash: Phase B engine
+`E11642144105941439003E1C4E6590E71B26A7BC33CA134A99A96A5CC843E547`,
+exact-50 reconciliation client
+`D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A`,
+Phase A repair `C92FA282...`. `git status` on `framework/` and `backend/`
+returns zero lines: `IngestClient`, `runtime.py`, reconciliation semantics,
+the R3.1 gate, SQLite, the exact-28 population, Phase-A accounting and
+acquisition are all untouched. No credential created, rotated or revoked; no
+`collectors.test` permission added (ingest-preflight stays unavailable and the
+canary remains the liveness proof).
+
+Tests: 12 new guards (26 in the wrapper file), 48 Phase-B tests, **full
+collector regression 439 passed**. Notable guards: readiness completes and
+returns BEFORE the secret prompt; no line may both reference the secret and
+call Write-Host/Out-File/Set-Content/ConvertTo-Json/Get-FileHash/etc;
+clearing must live in `finally`; auth-mode asserted case-sensitively; both
+pinned engine SHAs must equal the real files.
+
+NEXT: Save to Github -> endpoint pull -> verify wrapper SHA `9707C75B...` ->
+run committed `$Apply = $false` readiness as shipped -> owner inspects PASS ->
+bounded APPLY with one canary.
