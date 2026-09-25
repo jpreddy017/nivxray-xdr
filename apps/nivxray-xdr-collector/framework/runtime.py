@@ -3,13 +3,16 @@ CollectorRuntime · Phase B.5.
 
 Owns the collection→outbox→delivery pipeline:
 
-    transport → deliver() → dedup → Outbox.record() → DeliveryWorker
+    transport → deliver() → dedup → Outbox.record() → delivery worker
 
-The runtime never claims an event is delivered; only the delivery
-worker does, and only after the ingest API returns 2xx.
+The runtime never claims an event is delivered. With the legacy worker only
+the worker does, and only after the ingest API returns 2xx. With the durable
+delivery protocol (`NIVX_DURABLE_DELIVERY`) even a 2xx is not enough: a row
+becomes DELIVERED only after a verified authoritative receipt.
 """
 from __future__ import annotations
 
+import os
 import platform
 from typing import Any, List
 
@@ -18,8 +21,9 @@ from framework.acquisition_state import AcquisitionState
 from framework.dedup      import DedupCache
 from framework.delivery   import IngestClient
 from framework.delivery_worker import DeliveryWorker
+from framework.durable_delivery import DurableDeliveryWorker
 from framework.m365_activity import M365ManagementActivityConnector
-from framework.outbox     import Outbox
+from framework.outbox     import Outbox, RestartRecovery
 from framework.rest_poller import RestPollerConnector
 from framework.scheduler  import PollerScheduler
 from framework.syslog     import SyslogConnector, SyslogRunner
@@ -29,13 +33,27 @@ from framework.identity import collector_id
 
 
 class CollectorRuntime:
+    #: The durable delivery protocol (receipt-verified delivery + automatic
+    #: UNKNOWN_COMMIT_STATE reconciliation) is selected by deployment, so a
+    #: running fleet is not switched underneath itself by an upgrade. When it
+    #: is on, restart recovery RECONCILES instead of blindly re-queuing.
+    DURABLE_ENV = "NIVX_DURABLE_DELIVERY"
+
     def __init__(self) -> None:
         self.scheduler = PollerScheduler()
         self.syslog    = SyslogRunner()
         self.dedup     = DedupCache()
-        self.outbox    = Outbox()
+        self.durable_delivery = (
+            os.environ.get(self.DURABLE_ENV, "").strip().lower()
+            in ("1", "true", "yes"))
+        self.outbox    = Outbox(
+            restart_recovery=(RestartRecovery.RECONCILE
+                              if self.durable_delivery
+                              else RestartRecovery.RESET_TO_QUEUED))
         self.ingest    = IngestClient()
-        self.worker    = DeliveryWorker(self.outbox, self.ingest)
+        self.worker    = (DurableDeliveryWorker(self.outbox, self.ingest)
+                          if self.durable_delivery
+                          else DeliveryWorker(self.outbox, self.ingest))
         # Durable acquisition state lives in the SAME store as the outbox,
         # so "the vendor gave it to us" and "the ingest accepted it" are
         # decided inside one durability boundary.

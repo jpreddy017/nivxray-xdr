@@ -98,6 +98,37 @@ class DeliveryClassification:
     AUTHORITATIVE_TERMINAL = "AUTHORITATIVE_TERMINAL"
 
 
+class CommitState:
+    """What this attempt proves about a possible BACKEND COMMIT.
+
+    The distinction the R5/R6 recovery had to reconstruct by hand: a request
+    that never left the endpoint cannot have been committed, while a request
+    that was sent and whose answer was lost MAY have been committed and must
+    never be blindly re-sent as though it had not.
+    """
+    #: The request provably never reached the destination application.
+    NOT_SENT = "NOT_SENT"
+    #: The destination answered 2xx: it CLAIMS acceptance. Not proof of
+    #: canonicalisation, and not a receipt.
+    CLAIMED = "COMMIT_CLAIMED"
+    #: Sent, and the outcome is unknown: timeout, reset, 5xx, or a refusal
+    #: that cannot be attributed to the authoritative application.
+    UNKNOWN = "UNKNOWN"
+    #: The application itself refused this delivery.
+    TERMINAL_CLAIMED = "TERMINAL_CLAIMED"
+
+
+#: Transport failures that provably happened BEFORE the request was sent.
+_NOT_SENT_TRANSPORT = ("ConnectError", "ConnectTimeout", "ProxyError",
+                       "UnsupportedProtocol", "InvalidURL")
+
+
+def _transport_commit_state(exc: Exception) -> str:
+    return (CommitState.NOT_SENT
+            if type(exc).__name__ in _NOT_SENT_TRANSPORT
+            else CommitState.UNKNOWN)
+
+
 # Present on every application response; absent when no backend answered.
 APP_ATTRIBUTION_HEADER = "X-Request-ID"
 
@@ -208,9 +239,11 @@ class IngestClient:
                 classification=DeliveryClassification.RETRYABLE,
                 reason="ingest_not_configured", url=None)
             self.last_failure_detail = detail
+            detail["commit_state"] = CommitState.NOT_SENT
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "commit_state": CommitState.NOT_SENT,
                      "failure_detail": detail,
                      "reason":    "ingest_not_configured"}
 
@@ -249,10 +282,12 @@ class IngestClient:
                 reason=self.last_error, url=self.url,
                 app_attributed=False)
             detail["transport_error"] = type(e).__name__
+            detail["commit_state"] = _transport_commit_state(e)
             self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "commit_state": detail["commit_state"],
                      "failure_detail": detail,
                      "reason": self.last_error}
         except Exception as e:                                  # noqa: BLE001
@@ -264,10 +299,12 @@ class IngestClient:
                 reason=self.last_error, url=self.url,
                 app_attributed=False)
             detail["transport_error"] = type(e).__name__
+            detail["commit_state"] = _transport_commit_state(e)
             self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0,
                      "classification": DeliveryClassification.RETRYABLE,
+                     "commit_state": detail["commit_state"],
                      "failure_detail": detail,
                      "reason": self.last_error}
 
@@ -287,6 +324,7 @@ class IngestClient:
             return {"outcome": IngestOutcome.OK, "delivered": len(batch),
                      "classification": DeliveryClassification.ACCEPTED,
                      "app_attributed": app_attributed,
+                     "commit_state": CommitState.CLAIMED,
                      "status_code": code}
 
         if code in (408, 429) or 500 <= code < 600:
@@ -297,11 +335,18 @@ class IngestClient:
                 classification=DeliveryClassification.RETRYABLE,
                 reason=self.last_error, status_code=code,
                 app_attributed=app_attributed, resp=resp, url=self.url)
+            # 429 is an explicit refusal to process, so nothing was committed.
+            # A 408 or a 5xx was received BY something: the commit state of
+            # the delivery behind it is unknown.
+            commit = (CommitState.NOT_SENT if code == 429
+                      else CommitState.UNKNOWN)
+            detail["commit_state"] = commit
             self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0, "status_code": code,
                      "classification": DeliveryClassification.RETRYABLE,
                      "app_attributed": app_attributed,
+                     "commit_state": commit,
                      "failure_detail": detail,
                      "reason": self.last_error}
 
@@ -320,11 +365,13 @@ class IngestClient:
                 classification=DeliveryClassification.UNATTRIBUTED_FAILURE,
                 reason=self.last_error, status_code=code,
                 app_attributed=app_attributed, resp=resp, url=self.url)
+            detail["commit_state"] = CommitState.UNKNOWN
             self.last_failure_detail = detail
             return {"outcome": IngestOutcome.RETRYABLE,
                      "delivered": 0, "status_code": code,
                      "classification": DeliveryClassification.UNATTRIBUTED_FAILURE,
                      "app_attributed": app_attributed,
+                     "commit_state": CommitState.UNKNOWN,
                      "failure_detail": detail,
                      "reason": self.last_error}
 
@@ -337,10 +384,12 @@ class IngestClient:
             classification=DeliveryClassification.AUTHORITATIVE_TERMINAL,
             reason=self.last_error, status_code=code,
             app_attributed=app_attributed, resp=resp, url=self.url)
+        detail["commit_state"] = CommitState.TERMINAL_CLAIMED
         self.last_failure_detail = detail
         return {"outcome": IngestOutcome.FATAL,
                  "delivered": 0, "status_code": code,
                  "classification": DeliveryClassification.AUTHORITATIVE_TERMINAL,
                  "app_attributed": app_attributed,
+                 "commit_state": CommitState.TERMINAL_CLAIMED,
                  "failure_detail": detail,
                  "reason": self.last_error}

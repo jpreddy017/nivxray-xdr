@@ -66,7 +66,14 @@ BUCKETS = (BUCKET_CANONICAL, BUCKET_RETAINED, BUCKET_OPEN,
 #: Endpoint-side dispositions that assert the destination accepted the row.
 _ENDPOINT_CLAIMS_SUCCESS = ("delivered",)
 #: Endpoint-side dispositions that are still in the retry/queue machinery.
-_ENDPOINT_STILL_OPEN = ("queued", "retrying", "delivering", "received")
+#: `unknown_commit_state` belongs here: the endpoint dispatched the delivery
+#: and never learned the outcome, so if the authoritative plane holds no
+#: claim, no retained raw and no refusal for the identity, the delivery
+#: genuinely never landed and a retry cannot duplicate evidence. Calling that
+#: UNEXPLAINED would mislabel the one case the durable receipt protocol exists
+#: to resolve.
+_ENDPOINT_STILL_OPEN = ("queued", "retrying", "delivering", "received",
+                        "unknown_commit_state")
 
 _TERMINAL_CLAIM_OK = ("COMPLETED", "PROCESSED")
 

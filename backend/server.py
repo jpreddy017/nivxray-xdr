@@ -353,6 +353,8 @@ from routers.xdr_scope import router as xdr_scope_router
 app.include_router(xdr_scope_router)
 from routers.xdr_api_keys import router as xdr_api_keys_router
 app.include_router(xdr_api_keys_router)
+from routers.xdr_delivery_receipts import router as xdr_delivery_receipts_router
+app.include_router(xdr_delivery_receipts_router)
 from routers.xdr_tenancy import (organizations_router as xdr_organizations_router,
                                  tenants_router as xdr_tenants_router)
 app.include_router(xdr_organizations_router)
