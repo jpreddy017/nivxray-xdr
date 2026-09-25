@@ -20445,3 +20445,86 @@ remains 3306 delivered / 28 delivering / 121993 queued / 125 retrying.
 NEXT (after the owner reports the metadata block): one fresh readiness
 (wrapper changed) -> 1 canary -> authoritative reconcile -> PASS -> 27 in
 [7,7,7,6] -> reconcile exact 28 -> local accounting -> close R6-B.
+
+### P0 · PERMANENT DURABLE DELIVERY RECEIPT / RECONCILIATION (2026-06, owner-authorised)
+R4/R5/R6-A/R6-B are CLOSED and FROZEN (28 = 28 canonical, 0 retained-raw,
+0 retryable, 0 terminal, 0 unexplained; local 3334 delivered / 0 delivering /
+121993 queued / 125 retrying / 125452 total). Nothing in this gate reopened,
+re-ran or reinterpreted them, and nothing touched the endpoint, the backlog,
+acquisition or the normal worker.
+
+INVARIANT IMPLEMENTED: no delivery is DELIVERED until an authoritative backend
+disposition is durably evidenced AND locally verified. Full design:
+`memory/DURABLE_DELIVERY_RECEIPT_ARCHITECTURE.md`. Commit `a202a0a2` on
+`feature/rc2-alignment` (NOT pushed: the pod has no `origin` remote — owner
+must click "Save to Github").
+
+ARCHITECTURE
+- `framework/receipts.py` (NEW) — stable delivery identity byte-identical to
+  `services.ingest_idempotency.event_identity`, the `nivx.delivery.receipt/1`
+  contract, fail-closed verification (tenant / collector / delivery_key / ref /
+  source_event_id / bucket) and the disposition -> local-action mapping.
+- `framework/receipt_client.py` (NEW) — machine-authenticated receipt client
+  (same credential as delivery; `NIVX_RECEIPT_URL`, else derived from
+  `NIVX_INGEST_URL`).
+- `framework/durable_delivery.py` (NEW) — `DurableDeliveryWorker`: dispatch →
+  UNKNOWN_COMMIT_STATE → receipt → verified transition, plus automatic
+  reconciliation of every unresolved commit state on every tick and on
+  restart. Legacy `DeliveryWorker` untouched.
+- `framework/outbox.py` — `UNKNOWN_COMMIT_STATE`; explicit `RestartRecovery`
+  policy (RESET_TO_QUEUED legacy default / RECONCILE / NONE) replacing the
+  silent constructor reset; additive nullable columns `delivery_key`,
+  `receipt_json`, `receipt_basis`, `receipt_verified_at`,
+  `dispatch_started_at`, `unknown_since`, `reconcile_attempts` +
+  `ix_env_delivery_key`; `mark_receipt_verified` (refuses a row without a
+  verified receipt), `mark_terminal_accounted`, `mark_unknown_commit`,
+  `rows_by_status`, `stale_dispatching`, `note_reconcile_attempt`.
+- `framework/delivery.py` — `CommitState` on every outcome: NOT_SENT
+  (connect/proxy/bad-URL/not-configured/429), UNKNOWN (timeout/read/write/
+  protocol, 5xx, 408, unattributed 4xx incl. 404), COMMIT_CLAIMED (2xx),
+  TERMINAL_CLAIMED (attributed 4xx). Only NOT_SENT may retry without asking.
+- `framework/runtime.py` — `NIVX_DURABLE_DELIVERY` selects the protocol AND
+  the restart policy. Default OFF.
+- `backend/routers/xdr_delivery_receipts.py` (NEW) —
+  `POST /api/xdr/ingest/delivery/receipts`, `collectors.enroll`, tenant =
+  credential's tenant (never a header, never cross-tenant), collector must
+  exist in that tenant, every identity must belong to it; accounting reuses
+  `services.delivery_reconciliation` (read-only, one implementation shared
+  with the analyst surface).
+- `backend/services/delivery_reconciliation.py` — `unknown_commit_state` is an
+  OPEN endpoint outcome, so a dispatched delivery with no server record is
+  RETRYABLE_STILL_QUEUED (proven absence), not UNEXPLAINED.
+
+TESTS
+- `tests/test_durable_delivery_receipts.py` (NEW, 50 tests) — the full failure
+  matrix incl. commit-then-lost-response, timeout-before-commit, never-sent,
+  canonical, B4 retained raw, terminal refusal, needs-review, live claim,
+  accounted-without-evidence, silent receipt, crash while DISPATCHING, restart
+  recovery, stale dispatch, receipt unavailable, duplicate reconciliation,
+  delivered-row-cannot-reopen, stable identity across retry+restart, identity
+  == server claim key, tenant/collector/delivery-key mismatch, unknown bucket,
+  gate OPEN before dispatch, gate opening mid-batch, reconcile-while-OPEN,
+  corrupt persisted receipt, local write failure during apply, acquisition not
+  advanced by an unresolved delivery, restart-policy matrix, deployment wiring.
+- `backend/tests/test_delivery_receipt_surface.py` (NEW, 15 tests) — surface
+  authority, scope gate, canonical/retained/absent/unexplained reporting,
+  foreign-tenant collector, unknown collector, identity mismatch, cross-tenant
+  evidence invisibility, header cannot widen scope, unidentifiable identity,
+  500-identity bound, writes-nothing.
+- `scripts/e2e_durable_receipt_proof.py` (NEW) — the CRITICAL case over the
+  real wire (real collector code, real backend, real Mongo, no fakes):
+  committed + response lost + restart + reconcile -> exactly one canonical
+  event, row DELIVERED with a verified receipt, ZERO retransmissions.
+  Executed: VERDICT PASS.
+
+RESULTS: collector suite 515 passed (was 465). Backend focused 15/15 + the
+G1-R5 reconciliation and collector-api-key suites 73 passed. The broad backend
+slice `-k "ingest or delivery or reconcil or idempotency or routing or outbox
+or retention"` is IDENTICAL to the pre-change baseline (23 failed / 12 errors
+before and after) — those are the known pre-existing RC5 machine-credential /
+import-environment faults, not regressions.
+
+STILL OPEN (unchanged): B4 raw retention policy (P1), controlled remainder
+drain of the 121,993 queued (P2), coverage visibility for
+SOURCE_RECORD_NOT_SUPPORTED (P2), the ~73 pre-existing RC5 environment test
+faults (P2). NEXT MILESTONE: NivXForge Windows Device Onboarding V1.
