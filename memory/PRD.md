@@ -20229,3 +20229,70 @@ NEXT: owner runs the readiness pass, reviews `r6-phaseB-readiness.json`, then
 authorises `$Apply = $true`. After the 28 are accounted: permanent durable
 receipt/reconciliation mechanism BEFORE the ~122k backlog, then the product
 pivot.
+
+### G1-R6 Phase B · ingest-client configuration RCA (2026-06, read-only)
+APPLY stopped at the intended pre-delivery guard: "the ingest client is not
+configured on this endpoint... Nothing was attempted." 0 of 28 sent, outbox
+SHA identical pre/post (`4DAE94B3...9622`), 22 G1-R6-A markers, 0 G1-R6-B.
+Backup NOT restored, nothing rerun, nothing mutated.
+
+EXPECTED CONTRACT (`framework/delivery.py` `IngestClient`, properties read
+env FRESH per call - there is no config file, no state row, no bootstrap
+object to "load"):
+- `NIVX_INGEST_URL` -> `.url`; **`configured()` is literally `bool(self.url)`**
+- `NIVX_INGEST_TOKEN` -> `.token`; `NIVX_INGEST_AUTH_MODE` (`api_key` default,
+  sent as `X-XDR-API-Key`; `bearer` sends `Authorization`, and presenting both
+  is rejected as ambiguous credentials); `NIVX_INGEST_TIMEOUT` (default 10)
+- `X-Tenant-Id` is derived from the BATCH's tenant_id (falling back to
+  `tenant_id()`), so a mis-set env cannot masquerade; `X-Principal-Id` is
+  `collector:<collector_id()>`; `X-Principal-Kind: system`
+- destination route `POST /api/xdr/ingest/telemetry`, permission
+  `collectors.enroll`
+
+ROOT CAUSE: **a wrapper precondition gap, not a code defect and not a missing
+credential.** The historical working deliveries set the ingest env INSIDE the
+PowerShell block - `G1_STEP2_EXECUTION_COPY.ps1:506` and
+`G1_R5_DELIVERY_DRAIN_EXECUTION_COPY.ps1:246` both do
+`$env:NIVX_INGEST_URL = "$BaseUrl/api/xdr/ingest/telemetry"` plus
+`NIVX_INGEST_AUTH_MODE='api_key'`, `XDR_STATE_DIR`,
+`XDR_AUTO_START_CONNECTORS='0'`. `G1_R6_PHASE_B_EXECUTION_COPY.ps1` asserts
+only `NIVX_COLLECTOR_ID` and never sets or asserts `NIVX_INGEST_*`. The
+writer guard also proves no collector process was running, so no environment
+could be inherited. Config was therefore absent from that elevated session,
+`configured()` returned False, and Phase B refused - correctly.
+
+CREDENTIAL (unchanged, nothing created/rotated/revoked): tenant
+`ten_f1a5479243e901cf159e230fa0` holds 7 keys, 6 revoked, ONE live -
+`key_1318617827ee44ada0f7` / prefix `nvx_5866032d`, scopes
+`['collectors.enroll']`, `last_used_at 2026-09-24T06:19:40Z`. Scope matches
+the telemetry route, so delivery authority exists. Its secret is NOT in this
+repo or in any evidence file - it is supplied out-of-band into
+`NIVX_INGEST_TOKEN` at execution time.
+
+NAMING DIVERGENCE (flagged, not changed): `PRODUCTION_COLLECTOR_ENROLMENT`
+and `W2-1A` runbooks export `NIVX_XDR_API_KEY` / `NIVX_TENANT_ID` for the
+standalone auditd forwarder, while `IngestClient` reads `NIVX_INGEST_TOKEN`.
+Setting only `NIVX_XDR_API_KEY` yields url-set/token-missing -> 401/403 ->
+RETRYABLE, i.e. a canary stop.
+
+PREFLIGHT IS NOT AVAILABLE TO THIS COLLECTOR: `POST
+/api/xdr/collector/ingest-preflight` exists but requires permission
+`collectors.test` (verified live: 403 `{"permission":"collectors.test"}`), and
+ZERO enabled unrevoked keys in this tenant hold it. So the canary-of-1 remains
+the only liveness proof - the earlier design conclusion stands.
+
+SMALLEST SAFE REMEDIATION (wrapper only, no tool change, no guard weakening,
+no bypass of `configured()`): in `G1_R6_PHASE_B_EXECUTION_COPY.ps1`, before
+readiness, set `$env:NIVX_INGEST_URL = "$BaseUrl/api/xdr/ingest/telemetry"`,
+`$env:NIVX_INGEST_AUTH_MODE='api_key'`, `$env:XDR_STATE_DIR=$StateDir`,
+`$env:XDR_AUTO_START_CONNECTORS='0'` (exactly the historical set), prompt for
+the ingest key as a SecureString into `$env:NIVX_INGEST_TOKEN` only in APPLY
+mode, assert PRESENCE (never value) of url+token before the canary, and clear
+it in both the success and catch paths. Readiness stays credential-free.
+Requires NO code change: endpoint/session configuration only.
+
+Tests required: readiness still passes with no ingest env; APPLY refuses when
+url set but token missing; token never written to evidence/log/disk; env
+cleared on the failure path; static guards that the wrapper sets the four vars
+before readiness and prompts for the key only under `$Apply`.
+AWAITING OWNER DECISION. No implementation, no endpoint execution.
