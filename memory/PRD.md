@@ -20398,3 +20398,50 @@ On the outer-vs-logical SHA discrepancy: agreed - SQLite touches file
 metadata on open, so the outer file hash is not evidence of a row mutation.
 The authority is the logical snapshot (`4dae94...`) plus the per-population
 row fingerprints and bookmark hash, all unchanged.
+
+### G1-R6-B credential closure · fail-closed format gate (2026-06, owner-approved)
+Owner decision: defense in depth (both layers), plus owner-local key minting
+so the plaintext never enters Emergent/tool logs.
+
+IMPLEMENTED (code, tested, committed `8597bf52`)
+1. `memory/G1_R6_PHASE_B_EXECUTION_COPY.ps1` - new step **4b1 CREDENTIAL
+   FORMAT GATE**: after the SecureString conversion and before any delivery,
+   the value must satisfy `^nvx_[0-9a-f]{48}$` (`-cmatch`, case-sensitive)
+   AND be exactly 52 chars. No trim/normalise/case-fold/repair. On mismatch:
+   clears `NIVX_INGEST_TOKEN` and hard-stops before the canary. Displays only
+   the 12-char public prefix; the prompt now tells the operator to paste the
+   full 52-char secret, not the prefix. `$ExpectToolSha` re-pinned to
+   `212240B8...5BA6`.
+2. `scripts/g1_r6_phase_b_exact28_recovery.py` - `INGEST_KEY_PATTERN` +
+   `assert_ingest_credential(client)`, called in APPLY right after
+   `client.configured()` and BEFORE `report["canary_delivery"]`. Refuses a
+   non-`api_key` auth_mode, a missing/non-string token and any value failing
+   `fullmatch`. Returns non-secret metadata only (`public_prefix`, length 52).
+   Independent of the wrapper: a direct invocation cannot reach
+   `IngestClient.deliver()` with a malformed credential.
+3. Tests: 14 parametrized malformed cases (prefix-only, uppercase hex,
+   leading/trailing whitespace, trailing newline, +/-1 length, missing
+   `nvx_`, key_id, non-hex, empty, absent) + valid-key, bearer-mode,
+   no-token-attribute, "no wire call and DB unchanged" and ordering proofs;
+   6 static PS guards. Collector suite: **465 passed**.
+
+SERVER-SIDE FACT (read-only, verified this session via
+`GET /api/xdr/api-keys?limit=50`, tenant `ten_f1a5479243e901cf159e230fa0`):
+7 keys, all `collectors.enroll`. Six are revoked; the only enabled one,
+`key_1318617827ee44ada0f7` (`nvx_5866032d`), has `expires_at`
+2026-09-24T18:13:33Z and is **expired**. Usable ingest credentials = 0.
+Nothing was created, rotated or revoked by the agent.
+
+EXIT: **OWNER_KEY_CREATION_REQUIRED**. There is no API-keys UI and
+`POST /api/xdr/api-keys` returns the one-time plaintext in its body, so the
+owner mints it locally with `memory/G1_R6_B_MINT_RECOVERY_KEY.ps1` (one key,
+tenant `ten_f1a5479243e901cf159e230fa0`, scope `collectors.enroll` only,
+24h TTL, name `G1-R6-B-recovery-<stamp>`; prints the secret on the owner's
+console only, then re-reads the key server-side and prints only non-secret
+metadata). NOT DONE by design: no canary, no APPLY, no remainder, no
+acquisition, no worker, no backlog touch, no local state change - endpoint
+remains 3306 delivered / 28 delivering / 121993 queued / 125 retrying.
+
+NEXT (after the owner reports the metadata block): one fresh readiness
+(wrapper changed) -> 1 canary -> authoritative reconcile -> PASS -> 27 in
+[7,7,7,6] -> reconcile exact 28 -> local accounting -> close R6-B.
