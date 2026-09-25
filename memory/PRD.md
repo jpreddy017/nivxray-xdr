@@ -20341,3 +20341,60 @@ pinned engine SHAs must equal the real files.
 NEXT: Save to Github -> endpoint pull -> verify wrapper SHA `9707C75B...` ->
 run committed `$Apply = $false` readiness as shipped -> owner inspects PASS ->
 bounded APPLY with one canary.
+
+### G1-R6-B canary 401 · collector credential RCA (2026-06, read-only)
+Canary stopped exactly as designed: 1 attempted, 401, reconciled
+NOT_FOUND/RETRYABLE_STILL_QUEUED, remaining 27 NOT sent, zero accounting,
+28 rows still `delivering`, protected populations and bookmarks unchanged,
+both secrets cleared. Backup NOT restored, nothing rerun, nothing mutated.
+
+TWO INDEPENDENT BLOCKERS FOUND.
+
+1. `malformed-api-key` is a PURE SYNTAX GATE, before any DB lookup
+   (`routers/xdr_rbac.py:731-732`): `_API_KEY_RE = ^nvx_[0-9a-f]{48}$`
+   (line 658), i.e. `nvx_` + 48 LOWERCASE hex = 52 chars exactly. Because it
+   fires pre-lookup, the value never reached the credential store, which is
+   why the reason is NOT `unknown-api-key`, `api-key-revoked`,
+   `api-key-disabled`, `api-key-expired`, `api-key-tenant-mismatch` or
+   `scope-not-granted` - each of those is a distinct later branch (lines
+   744-778). Most probable input: the 12-char PUBLIC PREFIX
+   `nvx_5866032d` (the only part recorded anywhere) rather than the full
+   52-char secret. Secondary possibility: whitespace contamination -
+   `IngestClient.token` is `os.environ.get("NIVX_INGEST_TOKEN") or None` with
+   NO `.strip()` (delivery.py:167-168), so a trailing space breaks the regex
+   (a newline would be rejected by httpx before sending).
+   NO WRAPPER DEFECT: `Read-Host -AsSecureString` excludes the Enter and
+   `SecureStringToBSTR`/`PtrToStringBSTR` is an exact round-trip that adds no
+   quotes, spaces or newlines. Header path is
+   prompt -> `$env:NIVX_INGEST_TOKEN` -> `.token` -> `X-XDR-API-Key`
+   (delivery.py:230), with `X-Tenant-Id` derived from the BATCH's tenant.
+
+2. THE KEY RECORD IS EXPIRED. `key_1318617827ee44ada0f7` /
+   prefix `nvx_5866032d`, tenant `ten_f1a5479243e901cf159e230fa0`,
+   `scopes ['collectors.enroll']`, `enabled true`, `revoked_at null`,
+   `collector_id null`, sha256 hash present (64 hex),
+   **`expires_at 2026-09-24T18:13:33Z`** (12h TTL from creation
+   06:13:34Z). Server now `2026-09-25T14:46:54Z` -> expired ~20.5 h ago.
+   USABLE ingest keys in that tenant (enabled + unrevoked + unexpired +
+   `collectors.enroll`) = **0**.
+   So even the correct original secret would now fail `api-key-expired` (403).
+
+PASS/FAIL FOR ANOTHER SINGLE CANARY: **FAIL - it cannot succeed.** A
+credential action is required first and is the OWNER's decision; none was
+taken here. Mint/rotate route: `POST /api/xdr/api-keys` (and
+`/{key_id}/rotate`), admin JWT, tenant
+`ten_f1a5479243e901cf159e230fa0`, scope `collectors.enroll`, TTL covering the
+run. The plaintext is returned once at creation - it is never recoverable
+afterwards, only the prefix and sha256 hash are stored.
+
+PROPOSED WRAPPER HARDENING (not implemented, owner approval required): in
+step 4c validate the entered value against `^nvx_[0-9a-f]{48}$` LOCALLY
+(format only, never the value, never logged) and hard-stop before the canary
+on mismatch, so a prefix/typo can never again consume a canary attempt.
+Optionally also print the entered value's PREFIX-ONLY first 12 chars for
+operator confirmation against the non-secret record prefix.
+
+On the outer-vs-logical SHA discrepancy: agreed - SQLite touches file
+metadata on open, so the outer file hash is not evidence of a row mutation.
+The authority is the logical snapshot (`4dae94...`) plus the per-population
+row fingerprints and bookmark hash, all unchanged.
