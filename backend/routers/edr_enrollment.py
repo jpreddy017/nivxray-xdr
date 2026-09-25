@@ -207,11 +207,19 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
             "required_one_of": ["processor_id", "machine_guid", "device_iid",
                                 "hostname"]})
     try:
-        return await store.enroll(
+        enrolled = await store.enroll(
             _db, tenant_id=body.tenant_id,
             presented_token=body.enrollment_token, endpoint_id=endpoint_id,
             hostname=body.hostname, platform=body.platform,
             sensor_version=body.sensor_version, device_iid=body.device_iid)
+        # Onboarding V1 · a newly enrolled computer lands in the default
+        # group and policy instead of nowhere. Existing placements are never
+        # overwritten, so a reinstall cannot move a computer out of its group.
+        from routers.edr_onboarding import assign_default_placement
+        placement = await assign_default_placement(body.tenant_id,
+                                                   endpoint_id)
+        return {**enrolled, **placement,
+                "placement_basis": "DEFAULT_AT_ENROLMENT"}
     except EnrollmentError as e:
         await rejection.record_rejection(
             _db, tenant_id=body.tenant_id,

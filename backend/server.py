@@ -683,6 +683,8 @@ from routers.edr_enrollment import admin as edr_enrollment_admin_router
 from routers.edr_enrollment import agent as edr_agent_router
 api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
+from routers.edr_onboarding import router as edr_onboarding_router
+api.include_router(edr_onboarding_router)
 
 
 # v2 · Additive next-generation namespace (Phase 3+).
