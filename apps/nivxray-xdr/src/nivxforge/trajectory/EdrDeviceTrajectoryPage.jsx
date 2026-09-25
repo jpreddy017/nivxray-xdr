@@ -187,6 +187,21 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
             : { t0: startOfDayUTC(b), t1: startOfDayUTC(b) + DAY_MS }));
           if (preset === "all") setPreset("1d");
         }
+        // Progressive completion: the first paint is a BOUNDED projection
+        // of the most recent observations. The complete, viewport-invariant
+        // axis is being built server-side, so re-read once it is ready
+        // instead of making the analyst wait for it up front.
+        if (data.projection?.state === "BOUNDED_RECENT") {
+          for (let i = 0; i < 12 && !dead; i += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => window.setTimeout(r, 2500));
+            if (dead) return;
+            // eslint-disable-next-line no-await-in-loop
+            const next = await loadMeta(selectedDay != null
+              ? dayKeyOf(selectedDay) : null);
+            if (next?.projection?.state === "COMPLETE") break;
+          }
+        }
       } catch (x) {
         if (!dead) setStatus({ loading: false,
                                err: x?.response?.data?.detail?.reason
@@ -795,6 +810,24 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
           <div style={{ marginBottom: 8 }}>{filterStrip}</div>
           <div style={{ marginBottom: 8 }}>{navigator_}</div>
         </>
+      )}
+
+      {meta?.projection?.state === "BOUNDED_RECENT" && (
+        <div data-testid="amp-projection-bounded"
+             style={{ background: C.paper, border: `1px solid ${C.grid}`,
+                      borderLeft: `2px solid ${C.selectionStrong}`,
+                      padding: "6px 12px", fontSize: 10.5, color: C.inkDim,
+                      marginBottom: 6 }}>
+          Showing the most recent{" "}
+          <strong>{(meta.projection.observations_projected || 0)
+            .toLocaleString()}</strong>{" "}
+          of{" "}
+          <strong>{(meta.projection.observations_all_time || 0)
+            .toLocaleString()}</strong>{" "}
+          recorded observations. The complete endpoint-wide axis is being
+          built and will replace this view automatically — counts shown are
+          exact, not estimated.
+        </div>
       )}
 
       {device && status.loading && !meta && (

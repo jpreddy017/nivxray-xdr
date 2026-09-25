@@ -31,6 +31,7 @@ so unassessed activity is reported as UNKNOWN_NOT_ASSESSED.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -38,6 +39,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from services.edr.endpoint_query import endpoint_predicate
+from deps import sync_collection
 
 ENGINE_ID = "nivxray::edr_plane::trajectory_window"
 COLLECTION = "v2_shadow_observations"
@@ -82,6 +84,12 @@ DETECTION_OUTCOME = "DETECTION_MATCHED"
 # record.
 _SCAN_TTL_S = 90.0
 _SCAN_MAX = 6
+#: First-paint budget. Bounded by DOCUMENTS, not by time, so an endpoint
+#: that was quiet for a week still paints its most recent real activity
+#: instead of an empty screen.
+BOUNDED_DOCS = 4000
+#: keys whose COMPLETE projection is already being built
+_warming: set = set()
 _proj_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
 
@@ -222,13 +230,20 @@ async def _detection_attribution(db, docs: List[Dict[str, Any]],
     tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
     if not refs:
         return {}
+    query = {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
+             "derivations.outcome": DETECTION_OUTCOME}
+    fields = {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
+              "derivations": 1}
+    raws = [r async for r in db[RAW_COLLECTION].find(query, fields)]
+    return _attribution_from_raws(raws, tenants)
+
+
+def _attribution_from_raws(raws: List[Dict[str, Any]],
+                           tenants: set) -> Dict[str, Dict[str, Any]]:
+    """Pure join, shared by the async request path and the threaded warm
+    path so one authority answers both."""
     out: Dict[str, Dict[str, Any]] = {}
-    cursor = db[RAW_COLLECTION].find(
-        {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
-         "derivations.outcome": DETECTION_OUTCOME},
-        {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
-         "derivations": 1})
-    async for raw in cursor:
+    for raw in raws:
         if tenants and str(raw.get("tenant_id")) not in tenants:
             continue
         for deriv in (raw.get("derivations") or []):
@@ -240,6 +255,72 @@ async def _detection_attribution(db, docs: List[Dict[str, Any]],
             cev = deriv.get("event_id")
             if cev:
                 out[str(cev)] = merged
+    return out
+
+
+def _attribution_sync(docs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    refs = {str(d.get("collector_id") or d.get("connector_id"))
+            for d in docs if d.get("collector_id") or d.get("connector_id")}
+    tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
+    if not refs:
+        return {}
+    raws = list(sync_collection(RAW_COLLECTION).find(
+        {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
+         "derivations.outcome": DETECTION_OUTCOME},
+        {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
+         "derivations": 1}))
+    return _attribution_from_raws(raws, tenants)
+
+
+def _project_all_sync(ref_set: List[str]) -> Dict[str, Any]:
+    """The COMPLETE projection, built entirely OFF the event loop.
+
+    Cooperative `await` points are not enough here: `build_lane_catalogue`
+    and the 200k-row sort are monolithic CPU phases, so while they ran the
+    loop belonged to them and an unrelated request measured 18 s. This
+    runs in a worker thread against the sync client; the loop stays free.
+    """
+    docs = list(sync_collection(COLLECTION).find(
+        endpoint_predicate(ref_set, COLLECTION), {"_id": 0}))
+    attribution = _attribution_sync(docs)
+    cat = build_lane_catalogue(docs, attribution)
+    rows: List[Dict[str, Any]] = []
+    for doc in docs:
+        _, lane_id, _ = _group_and_key(_ev(doc))
+        lane = cat["by_id"].get(lane_id)
+        if lane:
+            rows.append(_project(doc, lane,
+                                 _attr_of(doc, _ev(doc), attribution)))
+    rows.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
+    return _with_derived({"cat": cat, "rows": rows, "bounded": False,
+                          "docs_read": len(docs)})
+
+
+def _with_derived(out: Dict[str, Any]) -> Dict[str, Any]:
+    """GATE 10 · aggregates that are a property of the PROJECTION.
+
+    `_type_counts`, `_activity` and the observed extent used to be
+    recomputed on EVERY read — three more full passes over 208k rows,
+    plus a lane scan, which is where the remaining ~0.6-1.4 s of a
+    cache-HIT read was spent. They are computed once, with the
+    projection, and travel with it in the cache. The values are
+    identical; a filtered or history-pinned read still computes its own,
+    because a filter legitimately changes the population.
+
+    Both projection builders (`_projected` and the off-loop
+    `_project_all_sync`) go through here, so the two paths can never
+    again disagree about what a cached projection carries.
+    """
+    rows = out["rows"]
+    stamps = [r["timestamp"] for r in rows if r["timestamp"]]
+    by_lane: Dict[int, List[Dict[str, Any]]] = {}
+    for r in rows:
+        by_lane.setdefault(r["lane_index"], []).append(r)
+    out["by_lane"] = by_lane
+    out["observed_start"] = min(stamps) if stamps else None
+    out["observed_end"] = max(stamps) if stamps else None
+    out["type_counts"] = _type_counts(rows)
+    out["activity_unfiltered"] = _activity(rows, None)
     return out
 
 
@@ -256,15 +337,23 @@ def _attr_of(doc: Dict[str, Any], ev: Dict[str, Any],
 
 
 async def _projected(db, *, ident: Dict[str, Any],
-                     refs: Optional[List[str]] = None) -> Dict[str, Any]:
+                     refs: Optional[List[str]] = None,
+                     docs_limit: Optional[int] = None) -> Dict[str, Any]:
     """The endpoint's whole observed history, projected once.
 
     Deliberately NOT time filtered: the lane axis is invariant to the
     viewport, which is what makes deep activity rows resolve at every
     zoom level.
+
+    `docs_limit` asks for the BOUNDED projection instead — the most recent
+    N observations, used for the first paint so an analyst is not made to
+    wait for a 205k-observation history before seeing evidence. A bounded
+    projection is cached under its own key and is never mistaken for the
+    complete one: the caller labels it and the lane axis says its scope.
     """
-    key = _identity_key(ident) + "|" + ",".join(
-        sorted(str(r) for r in (refs or []) if r))
+    bounded = bool(docs_limit)
+    key = ("bounded:" if bounded else "") + _identity_key(ident) + "|" \
+        + ",".join(sorted(str(r) for r in (refs or []) if r))
     now = time.time()
     hit = _proj_cache.get(key)
     if hit and hit[0] > now:
@@ -280,25 +369,94 @@ async def _projected(db, *, ident: Dict[str, Any],
         if v and str(v) not in ref_set:
             ref_set.append(str(v))
     if not ref_set:
-        return {"cat": build_lane_catalogue([]), "rows": []}
-    docs = [d async for d in db[COLLECTION].find(
-        endpoint_predicate(ref_set, COLLECTION), {"_id": 0})]
+        return {"cat": build_lane_catalogue([]), "rows": [],
+                "bounded": False}
+    predicate = endpoint_predicate(ref_set, COLLECTION)
+    cursor = db[COLLECTION].find(predicate, {"_id": 0})
+    if bounded:
+        cursor = cursor.sort("event.ts", -1).limit(int(docs_limit))
+    docs = []
+    async for d in cursor:
+        docs.append(d)
+        # The COMPLETE projection reads ~200k documents. Without an
+        # explicit yield the loop belongs to this one background task and
+        # every concurrent analyst request waits behind it (measured: an
+        # 18 s wait on a request whose own work was 0.9 s).
+        if not bounded and len(docs) % 500 == 0:
+            await asyncio.sleep(0)
     attribution = await _detection_attribution(db, docs)
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
-    for doc in docs:
+    for i, doc in enumerate(docs):
         _, lane_id, _ = _group_and_key(_ev(doc))
         lane = cat["by_id"].get(lane_id)
         if lane:
             rows.append(_project(doc, lane,
                                  _attr_of(doc, _ev(doc), attribution)))
+        if not bounded and i % 500 == 0:
+            await asyncio.sleep(0)
     rows.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
-    out = {"cat": cat, "rows": rows}
+    out = _with_derived({"cat": cat, "rows": rows, "bounded": bounded,
+                         "docs_read": len(docs)})
 
     if len(_proj_cache) >= _SCAN_MAX:
         _proj_cache.pop(next(iter(_proj_cache)), None)
     _proj_cache[key] = (now + _SCAN_TTL_S, out)
     return out
+
+
+def _complete_is_warm(ident: Dict[str, Any],
+                      refs: Optional[List[str]]) -> bool:
+    key = _identity_key(ident) + "|" + ",".join(
+        sorted(str(r) for r in (refs or []) if r))
+    hit = _proj_cache.get(key)
+    return bool(hit and hit[0] > time.time())
+
+
+def _warm_complete(db, ident: Dict[str, Any],
+                   refs: Optional[List[str]]) -> None:
+    """Project the full history in the background, after the first paint.
+
+    The bounded response has already been sent, so this work never sits
+    in front of the analyst. It fills the same cache the next request
+    reads, which is how the viewport-invariant axis arrives without the
+    first screen waiting for it.
+
+    Single-flight ON PURPOSE: without it, four consecutive first paints
+    scheduled four concurrent 200k-document projections and every one of
+    them competed for the same loop — the measured effect was a bounded
+    read that should cost 1.4 s taking 14 s.
+    """
+    key = _identity_key(ident) + "|" + ",".join(
+        sorted(str(r) for r in (refs or []) if r))
+    if key in _warming:
+        return
+    _warming.add(key)
+
+    async def run() -> None:
+        # Let the bounded response flush first, then do the heavy work in
+        # a worker thread so no phase of it can block the loop.
+        await asyncio.sleep(0.5)
+        try:
+            ref_set = [str(r) for r in (refs or []) if r]
+            for v in (ident.get("device_iid"), ident.get("hostname")):
+                if v and str(v) not in ref_set:
+                    ref_set.append(str(v))
+            if not ref_set:
+                return
+            out = await asyncio.to_thread(_project_all_sync, ref_set)
+            if len(_proj_cache) >= _SCAN_MAX:
+                _proj_cache.pop(next(iter(_proj_cache)), None)
+            _proj_cache[key] = (time.time() + _SCAN_TTL_S, out)
+        except Exception:                                    # noqa: BLE001
+            pass                 # a failed warm leaves the bounded truth
+        finally:
+            _warming.discard(key)
+    try:
+        asyncio.get_running_loop().create_task(run())
+    except RuntimeError:
+        _warming.discard(key)
+
 
 
 def _depth(iid: Optional[str], parents: Dict[str, Optional[str]],
@@ -762,17 +920,41 @@ async def query_window(db, *, identity: Dict[str, Any],
                        hist_day: Optional[str] = None,
                        refs: Optional[List[str]] = None) -> Dict[str, Any]:
     limit = max(1, min(int(limit), MAX_LIMIT))
-    proj = await _projected(db, ident=identity, refs=refs)
+    # First paint is BOUNDED: the most recent observations, fetched through
+    # the endpoint index, so evidence is on screen in well under a second
+    # even on a 205k-observation endpoint. The complete, viewport-invariant
+    # projection is warmed behind the response and served to the next
+    # request. A filtered, paged or history-pinned read always uses the
+    # complete projection, because a bounded slice cannot answer it.
+    wants_complete = bool(cursor or hist_day or kinds or q or dispositions
+                          or time_start or time_end)
+    complete = wants_complete or _complete_is_warm(identity, refs)
+    proj = await _projected(db, ident=identity, refs=refs,
+                            docs_limit=None if complete else BOUNDED_DOCS)
+    if not complete:
+        _warm_complete(db, identity, refs)
     cat = proj["cat"]
     all_rows = proj["rows"]
+    bounded = bool(proj.get("bounded"))
+    observations_all_time = len(all_rows)
+    if bounded:
+        observations_all_time = await db[COLLECTION].count_documents(
+            endpoint_predicate([str(r) for r in (refs or []) if r]
+                               or [str(identity.get("device_iid")
+                                       or identity.get("hostname"))],
+                               COLLECTION))
 
     kind_set = ({k.strip().lower() for k in kinds.split(",") if k.strip()}
                 if kinds else None)
     disp_set = ({d.strip().upper() for d in dispositions.split(",")
                  if d.strip()} if dispositions else None)
     needle = q.strip().lower() if q and q.strip() else None
-    filtered = [r for r in all_rows
-                if _matches(r, kind_set, needle, disp_set)]
+    unfiltered = not (kind_set or disp_set or needle)
+    # No filter ⇒ the population IS the projection. Copying 208k rows to
+    # say so cost a full pass per read and answered the same thing.
+    filtered = (all_rows if unfiltered
+                else [r for r in all_rows
+                      if _matches(r, kind_set, needle, disp_set)])
 
     # A filter is an explicit analyst action, and Cisco visibly reduces
     # the trajectory to the matching artefacts. So when a filter is
@@ -782,7 +964,8 @@ async def query_window(db, *, identity: Dict[str, Any],
     # is filter-scoped and says so.
     axis_lanes = cat["lanes"]
     axis_version = cat["lane_axis_version"]
-    axis_scope = "ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT"
+    axis_scope = ("BOUNDED_RECENT_OBSERVATIONS_PENDING_COMPLETE_PROJECTION"
+                  if bounded else "ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT")
     if kind_set or disp_set or needle:
         keep_ids = {r["lane_id"] for r in filtered}
         kept = [ln for ln in cat["lanes"] if ln["lane_id"] in keep_ids]
@@ -815,11 +998,24 @@ async def query_window(db, *, identity: Dict[str, Any],
             rebound.append(row)
         filtered = rebound
 
-    in_time = [r for r in filtered
-               if (not time_start or (r["timestamp"] or "") >= time_start)
-               and (not time_end or (r["timestamp"] or "") <= time_end)]
-    in_lane = [r for r in in_time
-               if lane_start <= r["lane_index"] < lane_end]
+    no_time_bound = not (time_start or time_end)
+    in_time = (filtered if no_time_bound
+               else [r for r in filtered
+                     if (not time_start or (r["timestamp"] or "")
+                         >= time_start)
+                     and (not time_end or (r["timestamp"] or "") <= time_end)])
+    if unfiltered and no_time_bound and lane_end - lane_start <= 64:
+        # The lane axis is already bucketed on the cached projection, so a
+        # viewport read touches only the lanes it asked for instead of
+        # scanning every row of the endpoint's history.
+        picked: List[Dict[str, Any]] = []
+        for li in range(lane_start, lane_end):
+            picked.extend(proj["by_lane"].get(li, ()))
+        picked.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
+        in_lane = picked
+    else:
+        in_lane = [r for r in in_time
+                   if lane_start <= r["lane_index"] < lane_end]
     after = _cursor_decode(cursor)
     if after:
         in_lane = [r for r in in_lane
@@ -830,7 +1026,8 @@ async def query_window(db, *, identity: Dict[str, Any],
     nxt = (_cursor_encode(page[-1]["timestamp"] or "", page[-1]["event_iid"])
            if page and has_more else None)
 
-    stamps = [r["timestamp"] for r in all_rows if r["timestamp"]]
+    stamps_start = proj.get("observed_start")
+    stamps_end = proj.get("observed_end")
     lane_fields = ("lane_id", "lane_index", "group", "label", "depth",
                    "process_iid", "parent_iid", "parent_lane_index",
                    "parent_label", "parent_state", "end_state",
@@ -843,8 +1040,8 @@ async def query_window(db, *, identity: Dict[str, Any],
         "endpoint": identity,
         "time_range": {"requested_start": time_start,
                        "requested_end": time_end,
-                       "observed_start": min(stamps) if stamps else None,
-                       "observed_end": max(stamps) if stamps else None},
+                       "observed_start": stamps_start,
+                       "observed_end": stamps_end},
         "lane_axis": {"lane_start": lane_start, "lane_end": lane_end,
                       "lane_axis_version": axis_version,
                       "total_lanes": len(axis_lanes),
@@ -860,13 +1057,30 @@ async def query_window(db, *, identity: Dict[str, Any],
         "matched_in_window": len(in_lane),
         "matched_in_time_range": len(in_time),
         "matched_after_filters": len(filtered),
-        "observations_all_time": len(all_rows),
-        "activity": _activity(filtered, hist_day),
+        "observations_all_time": observations_all_time,
+        "projection": {
+            "state": "BOUNDED_RECENT" if bounded else "COMPLETE",
+            "observations_projected": len(all_rows),
+            "observations_all_time": observations_all_time,
+            "bounded_docs_limit": BOUNDED_DOCS if bounded else None,
+            "complete_projection": "WARMING_IN_BACKGROUND" if bounded
+                                   else "SERVED",
+            "basis": ("the most recent observations, read through the "
+                      "endpoint index so evidence is on screen immediately; "
+                      "the complete viewport-invariant projection is being "
+                      "built behind this response and the next read serves "
+                      "it. Counts above are exact, not estimated."
+                      if bounded else
+                      "every observation recorded for this endpoint"),
+        },
+        "activity": (proj["activity_unfiltered"]
+                     if unfiltered and not hist_day
+                     else _activity(filtered, hist_day)),
         "filters_applied": {"kinds": sorted(kind_set) if kind_set else [],
                             "q": needle,
                             "dispositions": sorted(disp_set) if disp_set
                             else []},
-        "event_type_counts": _type_counts(all_rows),
+        "event_type_counts": proj["type_counts"],
         "total_or_estimate": {"value": len(in_time), "basis": "EXACT_COUNT_"
                               "OF_OBSERVATIONS_IN_REQUESTED_TIME_RANGE"},
         "provenance": {"source": COLLECTION,

@@ -328,6 +328,83 @@ def resolve(device_ref: str, cross_tenant: bool) -> Optional[Dict[str, Any]]:
     return None
 
 
+def resolve_fast(device_ref: str, cross_tenant: Any
+                 ) -> Optional[Dict[str, Any]]:
+    """Resolve ONE endpoint with a targeted, indexed lookup.
+
+    `resolve()` projects the ENTIRE device directory (a scan of the
+    observation store) just to answer "which device is this?" — measured
+    at 3.85 s on the preview substrate. Resolution consumers read only the
+    identity fields (`device_iid`, `hostname`, `identity_confidence`,
+    tenant attribution), never the directory aggregates, so this path
+    answers with one indexed query.
+
+    The directory aggregates are deliberately absent rather than faked:
+    `observation_count` and friends are marked NOT_PROJECTED_BY_FAST_PATH
+    so no caller can mistake them for zero. Returns ``None`` when nothing
+    matches, and the caller then falls back to the full projection — this
+    path can only ever be faster, never looser.
+    """
+    if not device_ref:
+        return None
+    supplied = str(device_ref).strip()
+    if not supplied:
+        return None
+    aliases = _endpoint_id_aliases(supplied)
+    via_endpoint = bool(aliases)
+    needles = sorted({supplied} | set(aliases))
+    all_tenants, tenant_ids = _norm_scope(cross_tenant)
+    if not all_tenants and not tenant_ids:
+        return []  # type: ignore[return-value]
+
+    for field, via in (("event.device_iid", "device_iid"),
+                       ("device_iid", "device_iid"),
+                       ("event.raw.computer", "hostname"),
+                       ("event.raw.hostname", "hostname"),
+                       ("event.computer", "hostname")):
+        doc = _obs.find_one({field: {"$in": needles}}, {"_id": 0})
+        if not doc:
+            continue
+        ev = _event_of(doc)
+        row = _new_row(ev.get("device_iid") or _hostname(ev),
+                       ev.get("device_iid") or None, _hostname(ev))
+        # Tenancy is decided over EVERY observation of this device, not
+        # over the one document we happened to read: the conflict and
+        # mismatch rules exist precisely to fail closed when a device
+        # appears in two customers. `distinct` over the endpoint index
+        # keeps that exact semantics at index cost.
+        scope_q = {field: {"$in": needles}}
+        agg = list(_obs.aggregate([
+            {"$match": scope_q},
+            {"$group": {"_id": None,
+                        "tenants": {"$addToSet": "$tenant_id"},
+                        "collectors": {"$addToSet": "$collector_id"},
+                        "connectors": {"$addToSet": "$connector_id"}}},
+        ]))
+        facts = agg[0] if agg else {}
+        row["_tenant_ids"] = {t for t in (facts.get("tenants") or []) if t}
+        row["_connector_ids"] = {c for c in
+                                 (list(facts.get("collectors") or [])
+                                  + list(facts.get("connectors") or [])) if c}
+        for key in ("observation_count", "first_seen", "last_seen"):
+            row[key] = None
+        row["lane_counts"] = None
+        row["aggregates_basis"] = "NOT_PROJECTED_BY_FAST_PATH"
+        row = _attribute(row, _endpoint_owners())
+        if not all_tenants:
+            # Exactly the ownership rule `list_devices` applies — using my
+            # own looser/stricter variant here is how the fast path silently
+            # fell back to the 5 s directory scan on every scoped request.
+            if not (row["tenant_attribution"].startswith("ATTRIBUTED")
+                    and row["tenant_id"] in set(tenant_ids)):
+                return None
+        return {**row,
+                "resolved_via": "endpoint_id" if via_endpoint else via,
+                "endpoint_id": supplied if via_endpoint else None,
+                "resolution_path": "INDEXED_SINGLE_LOOKUP"}
+    return None
+
+
 def _addresses(doc: Dict[str, Any], ev: Dict[str, Any],
                refs: set) -> bool:
     """Does this observation belong to the resolved endpoint?

@@ -25,6 +25,12 @@ class _Scope:
         self.tenant = f"t_{uuid.uuid4().hex[:12]}"
         self.endpoint = f"ep_{uuid.uuid4().hex[:16]}"
         self.incident = f"inc_{uuid.uuid4().hex[:20]}"
+        # `workspace_cases` carries a UNIQUE index on `incident_number`
+        # (`uniq_incident_number`).  A literal number made every test in
+        # this file collide as soon as they ran concurrently (pytest-xdist)
+        # or against a database that already held that number, so the
+        # insert raised DuplicateKeyError before the story was ever built.
+        self.incident_number = f"INC-T-{uuid.uuid4().hex[:16].upper()}"
 
     async def __aenter__(self):
         self.client = AsyncIOMotorClient(os.environ["MONGO_URL"])
@@ -82,7 +88,7 @@ class _Scope:
     async def incident_with(self, detections, **campaign):
         await self.db["workspace_cases"].insert_one(
             {"tenant_id": self.tenant, "id": self.incident,
-             "incident_number": "INC000000999", "title": "story test",
+             "incident_number": self.incident_number, "title": "story test",
              "incident_state": "new", "incident_priority": "P1",
              "endpoint_campaign": {
                  "endpoint_id": self.endpoint, "hostname": "story-host",
@@ -250,7 +256,7 @@ async def test_a_non_endpoint_incident_gets_no_invented_story():
     async with _Scope() as s:
         await s.db["workspace_cases"].insert_one(
             {"tenant_id": s.tenant, "id": s.incident,
-             "incident_number": "INC000001000", "title": "not endpoint"})
+             "incident_number": s.incident_number, "title": "not endpoint"})
         out = await s.build()
         assert out["error"] == "NOT_AN_ENDPOINT_CAMPAIGN"
         assert "Nothing is invented" in out["reason"]

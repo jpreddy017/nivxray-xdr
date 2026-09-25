@@ -1005,8 +1005,19 @@ async def endpoint_trajectory_window(
     """
     from deps import db as _db
     from edr_plane import trajectory_window as tw
+    import asyncio
+    import logging, time as _t
+    _log = logging.getLogger("nvx.edr.trajectory")
+    _t0 = _t.perf_counter()
 
-    res = eq.resolve_endpoint(endpoint_id, _tenant_scope(user, tenant_id))
+    # GATE 10 · identity resolution is a SYNC pymongo path (it has to be —
+    # it is the one resolver, shared with the sync surfaces), so calling it
+    # inline blocked this single-worker event loop for its whole duration
+    # and every concurrent trajectory read queued behind it. Same function,
+    # same scope, same result — just not on the loop.
+    res = await asyncio.to_thread(eq.resolve_endpoint, endpoint_id,
+                                  _tenant_scope(user, tenant_id))
+    _t1 = _t.perf_counter()
     if not res:
         return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
                 "lane_axis": {"total_lanes": 0, "lanes": []},
@@ -1022,6 +1033,7 @@ async def endpoint_trajectory_window(
         lane_start=max(0, lane_start), lane_end=max(1, lane_end),
         cursor=cursor, limit=limit, kinds=kinds, q=q,
         dispositions=dispositions, hist_day=hist_day, refs=res.refs)
+    _t2 = _t.perf_counter()
     ep = await _db["edr_endpoints"].find_one(
         res.predicate("edr_endpoints"), {"_id": 0})
     out["identity"] = res.descriptor()
@@ -1031,6 +1043,12 @@ async def endpoint_trajectory_window(
         observations_all_time=out["observations_all_time"],
         observations_in_window=out["matched_in_window"])
     out["computer"] = _computer_header(identity, ep, out)
+    _log.info("[trajectory] resolve=%.2fs projection=%.2fs tail=%.2fs "
+              "total=%.2fs state=%s observations=%s",
+              _t1 - _t0, _t2 - _t1, _t.perf_counter() - _t2,
+              _t.perf_counter() - _t0,
+              (out.get("projection") or {}).get("state"),
+              (out.get("projection") or {}).get("observations_projected"))
     return out
 
 

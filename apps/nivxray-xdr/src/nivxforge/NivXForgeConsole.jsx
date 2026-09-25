@@ -241,6 +241,13 @@ export default function NivXForgeConsole({ activeTab, children }) {
       window.removeEventListener("nx-theme", onTheme); };
   }, []);
 
+  // The document root carries the theme too, so surfaces outside this
+  // console (the `body` canvas, portalled overlays) follow the same
+  // choice on FIRST paint — not only after the toggle is pressed.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-nx-theme", theme);
+  }, [theme]);
+
   // One theme truth across both products — shared service, not a copy.
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";

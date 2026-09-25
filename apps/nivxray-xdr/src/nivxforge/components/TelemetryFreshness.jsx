@@ -18,15 +18,15 @@ import { getTelemetryFreshness } from "@/nivxforge/edrApi";
 
 const TONE = {
   DELIVERING:        { color: "var(--mint)",  Icon: Activity,      label: "DELIVERING" },
-  STALE:             { color: "#ffb454",       Icon: AlertTriangle, label: "STALE" },
-  BLIND_NO_DELIVERY: { color: "#ff6b6b",       Icon: EyeOff,        label: "BLIND · NO DELIVERY" },
+  STALE:             { color: "var(--amber)",       Icon: AlertTriangle, label: "STALE" },
+  BLIND_NO_DELIVERY: { color: "var(--red)",       Icon: EyeOff,        label: "BLIND · NO DELIVERY" },
 };
 
 const FLEET_TONE = {
   DELIVERING:           "var(--mint)",
-  PARTIALLY_DELIVERING: "#ffb454",
-  FLEET_BLIND:          "#ff6b6b",
-  NEVER_DELIVERED:      "#ff6b6b",
+  PARTIALLY_DELIVERING: "var(--amber)",
+  FLEET_BLIND:          "var(--red)",
+  NEVER_DELIVERED:      "var(--red)",
   NO_ENROLLED_ENDPOINTS: "var(--faint)",
 };
 
@@ -82,7 +82,7 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
     return (
       <div className="x-empty" data-testid="edr-freshness-error"
            style={{ textAlign: "left", padding: "8px 10px", fontSize: 11,
-                    color: "#ff9494" }}>
+                    color: "var(--red)" }}>
         TELEMETRY FRESHNESS UNAVAILABLE ({String(error)}) — the console
         cannot currently prove whether this product is receiving anything.
       </div>);
@@ -149,7 +149,7 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
           {scoped.delivery.thresholds.formula}
         </div>)}
       {fleet?.state !== "DELIVERING" && (
-        <div style={{ marginTop: 6, fontSize: 10.5, color: "#ffb454" }}
+        <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--amber)" }}
              data-testid="edr-freshness-blindness-note">
           {data?.note}
         </div>)}

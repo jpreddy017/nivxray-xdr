@@ -103,7 +103,11 @@ def resolve_endpoint(supplied: Optional[str],
     if not supplied or not str(supplied).strip():
         return None
     supplied = str(supplied).strip()
-    identity = dir_svc.resolve(supplied, scope)
+    # Targeted indexed lookup first; the full directory projection remains
+    # the fallback, so resolution can never become NARROWER than before.
+    identity = dir_svc.resolve_fast(supplied, scope) or None
+    if not identity or not isinstance(identity, dict):
+        identity = dir_svc.resolve(supplied, scope)
     if not identity:
         return None
     refs = dir_svc.identity_refs(identity, supplied,

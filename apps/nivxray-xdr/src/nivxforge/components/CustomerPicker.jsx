@@ -118,7 +118,7 @@ export default function CustomerPicker({ withEvidence = [] }) {
                       style={{ display: "flex", width: "100%", gap: 8,
                                alignItems: "center", textAlign: "left",
                                background: t.id === current
-                                 ? "#101a24" : "transparent",
+                                 ? "var(--surf-active)" : "transparent",
                                border: "none",
                                borderBottom: "1px solid var(--border-sf)",
                                padding: "7px 11px", cursor: "pointer" }}>

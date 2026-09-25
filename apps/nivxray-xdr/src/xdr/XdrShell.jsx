@@ -283,6 +283,11 @@ export default function XdrShell({ children, flush = false }) {
     window.addEventListener("nx-theme", onTheme);
     return () => window.removeEventListener("nx-theme", onTheme);
   }, []);
+  // Same authority as the EDR console: the document root carries the
+  // theme so the canvas behind the shell is never the other theme.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-nx-theme", theme);
+  }, [theme]);
 
   /** Focus mode: full-width investigation consoles drop the product nav. */
   const focusMode = /^\/xdr\/endpoints\/[^/]+/.test(pathname)

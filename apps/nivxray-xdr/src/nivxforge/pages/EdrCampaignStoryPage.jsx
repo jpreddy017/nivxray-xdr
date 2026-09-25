@@ -23,15 +23,15 @@ import NivXForgeConsole, { useIncidentContext } from
 import api from "@/lib/api";
 
 const STATE_COLOR = {
-  OBSERVED: "#5FD4A0", NOT_OBSERVED: "#FFB454", NOT_COLLECTED: "#FFB454",
-  NOT_SUPPORTED: "#8A93A0", PARSER_FAILED: "#FF8A8A", UNKNOWN: "#FFB454",
-  OK: "#5FD4A0",
+  OBSERVED: "var(--mint)", NOT_OBSERVED: "var(--amber)", NOT_COLLECTED: "var(--amber)",
+  NOT_SUPPORTED: "var(--muted)", PARSER_FAILED: "var(--red)", UNKNOWN: "var(--amber)",
+  OK: "var(--mint)",
 };
 
 const Tag = ({ children, color, testid }) => (
   <span className="mono" data-testid={testid}
         style={{ fontSize: 9, padding: "1px 6px", borderRadius: 2,
-                 border: `1px solid ${color || "#2A3540"}`,
+                 border: `1px solid ${color || "var(--border)"}`,
                  color: color || "var(--text-dim)" }}>
     {children}
   </span>
@@ -57,7 +57,7 @@ function Activity({ a, i }) {
   const p = a.process || {};
   return (
     <div data-testid={`story-activity-${i}`}
-         style={{ borderBottom: "1px solid #141C24" }}>
+         style={{ borderBottom: "1px solid var(--panel)" }}>
       <div onClick={() => setOpen((o) => !o)}
            data-testid={`story-activity-toggle-${i}`}
            style={{ display: "flex", gap: 10, alignItems: "center",
@@ -68,7 +68,7 @@ function Activity({ a, i }) {
                                         color: "var(--cyan)" }}>
           {(a.at || "").slice(11, 19)}
         </span>
-        <Tag color={a.verdict === "MALICIOUS" ? "#FF8A8A" : "#FFB454"}
+        <Tag color={a.verdict === "MALICIOUS" ? "var(--red)" : "var(--amber)"}
              testid={`story-activity-verdict-${i}`}>
           {a.verdict} {a.score}
         </Tag>
@@ -86,12 +86,12 @@ function Activity({ a, i }) {
             : `parent ${a.evidence_states?.parent_process}`}
         </span>
         {(a.rule_ids || []).map((r) => (
-          <Tag key={r} color="#7FB3FF"
+          <Tag key={r} color="var(--link)"
                testid={`story-activity-rule-${r}-${i}`}>{r}</Tag>
         ))}
       </div>
       {open && (
-        <div style={{ padding: "2px 4px 14px 26px", background: "#080C10" }}
+        <div style={{ padding: "2px 4px 14px 26px", background: "var(--bg)" }}
              data-testid={`story-activity-detail-${i}`}>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap",
                         marginTop: 8 }}>
@@ -163,16 +163,16 @@ function Response({ r }) {
   const ok = r.proof?.success_claimed;
   return (
     <div data-testid={`story-response-${r.command_id}`}
-         style={{ padding: "8px 4px", borderBottom: "1px solid #141C24" }}>
+         style={{ padding: "8px 4px", borderBottom: "1px solid var(--panel)" }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center",
                     flexWrap: "wrap" }}>
-        {ok ? <ShieldCheck size={12} color="#5FD4A0" />
-            : <AlertTriangle size={12} color="#FFB454" />}
+        {ok ? <ShieldCheck size={12} color="var(--mint)" />
+            : <AlertTriangle size={12} color="var(--amber)" />}
         <span className="mono" style={{ fontSize: 10.5,
                                         color: "var(--text)" }}>
           {r.action}
         </span>
-        <Tag color={ok ? "#5FD4A0" : "#FFB454"}
+        <Tag color={ok ? "var(--mint)" : "var(--amber)"}
              testid={`story-response-proof-${r.command_id}`}>
           {r.proof?.proof}
         </Tag>
@@ -197,7 +197,7 @@ function Response({ r }) {
             ⊘ no post-action evidence — nothing about the effect is proven
           </div>
         )}
-        <div style={{ marginTop: 4, color: "#8C7A5A" }}
+        <div style={{ marginTop: 4, color: "var(--yellow)" }}
              data-testid={`story-response-link-${r.command_id}`}>
           Link · {r.link_basis} ({r.link_strength})
         </div>
@@ -210,7 +210,7 @@ const Section = ({ title, sub, children, testid }) => (
   <section style={{ marginTop: 22 }} data-testid={testid}>
     <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".7px",
                   textTransform: "uppercase", color: "var(--cyan)",
-                  borderBottom: "1px solid #17202A", paddingBottom: 5 }}>
+                  borderBottom: "1px solid var(--panel2)", paddingBottom: 5 }}>
       {title}
     </div>
     {sub && (
@@ -263,7 +263,7 @@ export default function EdrCampaignStoryPage() {
         </div>
       )}
       {state.err && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--red)" }}
              data-testid="story-error">{String(state.err)}</div>
       )}
 
@@ -329,7 +329,7 @@ export default function EdrCampaignStoryPage() {
                           flexWrap: "wrap" }}
                  data-testid="story-veee-contributors">
               {(s.reasoning.veee?.contributors || []).map((c, i) => (
-                <Tag key={i} color="#7FB3FF">
+                <Tag key={i} color="var(--link)">
                   {c.source} +{c.weight} · {c.detail}
                 </Tag>
               ))}

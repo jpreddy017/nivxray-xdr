@@ -1,5 +1,91 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · PRODUCTION GATES PROGRAM OPENED · A1 + A2 CLOSED · GATES 3/6/10/12 ADVANCED
+
+Owner directive: **high-throughput parallel execution** — independent
+workstreams run concurrently, anything touching tenant authority,
+credentials, enrolment, response authority, persistence schema, canonical
+evidence identity or historical evidence is **serialised**. Exit
+condition is unchanged: **all mandatory production gates PASS with
+objective evidence**, and PRODUCTION READY may not be declared while any
+gate is BLOCKED/FAILED/NOT_STARTED.
+
+**Evidence now lives in `/app/memory/production-gates/`** — one document
+per gate plus `MASTER_GATE_INDEX.md` (row only: Gate → Status → Commit →
+Tests → Live proof → Blocker → Evidence document). Status vocabulary:
+`NOT_STARTED · IN_PROGRESS · BLOCKED · FAILED · PASS · FROZEN`.
+
+- **A1 · test regression CLOSED** (`GATE_14_TEST_INTEGRITY_A1.md`). It was
+  **not** the trajectory optimisation. Two separate defects: (a)
+  `test_p0_f7_campaign_story.py` used a LITERAL `incident_number` against
+  a UNIQUE index, so every test collided under pytest-xdist
+  (`DuplicateKeyError` — the `_insert_one` trace in the handoff); (b)
+  `test_p0_f4_endpoint_process_tree.py` predated P0-2C — the process-tree
+  projection now resolves endpoint identity **under the caller's scope**,
+  so a call with no scope correctly returns `ENDPOINT_NOT_RESOLVED`. The
+  premise was corrected, not the assertions, and the three honest empty
+  states are now asserted separately (+2 new tests, incl. "widening
+  identity never widens authorisation"). `tests/edr`: **347→380 passed,
+  24→13 failed**; the 13 are pre-existing stale *live-contract* suites,
+  itemised in the index.
+- **A2 · Light/Dark CLOSED** (`GATE_12_UI_UX_TWO_THEME.md`, **PASS**).
+  Root cause was structural, in two layers: `.nvf-console` declared the
+  palette unconditionally dark with **no light block at all**, and the
+  console renders a NESTED `.nvf-console` (the embedded body) that
+  re-declared the dark tokens for its whole subtree — measured live:
+  outer `rgb(245,248,251)`, inner `rgb(10,12,17)` in the same render.
+  Fixed in the token layer only: semantic tokens for the 38 CSS + 38
+  inline literals that were painting over the palette, ONE light block
+  (including `[data-nx-theme="light"] .nvf-console`), document-root theme
+  on first paint in both consoles. New gate
+  `scripts/nvf_contrast_audit.py` → **0 failures both themes**; it found
+  **68 real pairs** first run, including the never-measured dark theme
+  (`--faint` 2.46:1, `--border` 1.31:1) — token values corrected for both
+  themes. `nx_contrast_audit.py` still 0. 10 real-SPA captures, light and
+  dark. Not covered: responsive breakpoints, XDR's own surfaces.
+- **Gate 3 · Detection & Prevention Fabric — contracts frozen + bounded
+  skeleton landed** (`GATE_03_DETECTION_PREVENTION_FABRIC.md`).
+  `backend/edr_plane/fabric/`: the `Finding` contract enforces the
+  invariants BY CONSTRUCTION (no finding without cited evidence; a score
+  must declare its scale; features always digestible; an ML finding must
+  carry `model_id`+`model_version`; ML carries no verdict field at all),
+  three distinct outcomes (`EVALUATED_NO_FINDING` ≠ `NOT_EVALUATED` ≠
+  `EVALUATION_FAILED`), a registry that refuses an analyzer which does
+  not declare its own blind spots, and a new `edr_findings` collection
+  with content-addressed ids (idempotent re-evaluation). ONE real
+  producer: `deterministic.rule` projects the platform's OWN ingest
+  detections — it invents no engine. Proof: **15 contract tests** +
+  `scripts/gate3_fabric_real_evidence_proof.py` (read-only) → **400
+  findings / 400 distinct ids** from real detections, with 745
+  `NOT_EVALUATED` stated honestly. NO ML model exists; no correlation
+  engine; no UI consumer.
+- **Gate 6 · Retrospection — design frozen, implementation not started**
+  (`GATE_06_RETROSPECTION.md`): re-evaluation emits NEW findings,
+  supersedes by LINK (never edits), never writes to raw/canonical
+  evidence, keeps `observed_at` and `evaluation_time` separate, declares
+  its corpus and reports `EVIDENCE_NOT_RETAINED` instead of "no match".
+- **Gate 10 · trajectory performance** (`GATE_10_SCALE_AND_PERFORMANCE.md`):
+  first paint on 208,754 observations went from 1.5-2.6 s to **1.06-1.82 s
+  across 8/8 reads** (warm slice 0.42 s, real SPA paint 1.26 s) via three
+  semantic no-ops — identity resolution moved off the event loop, a
+  covered index `obs_device_identity_facts` (0.33→0.22 s), and derived
+  aggregates computed once with the projection instead of on every read.
+  A 500 was introduced and caught by measurement (two projection builders
+  fill one cache; only one carried the new keys) and is now guarded
+  structurally. NOT PASS: p95 under concurrency unmeasured, legacy
+  `/edr/device-trajectory` still 6.1 s.
+- **Cisco AMP 360 parity matrix delivered** (read-only, no vendor assets):
+  `production-gates/CISCO_AMP_360_PARITY_MATRIX.md` — 19 surfaces ×
+  capability/flow/UX/backend/NivXForge-today/missing-capability/
+  missing-backend/missing-UI/security-dependency/test/acceptance.
+  Absent entirely: Outbreak Control, Exclusions, estate-wide Events,
+  live query, policy authoring, EDR audit.
+- **Gates 5, 7 and 11 are deliberately UNNAMED** in the index: their
+  verbatim titles are not quoted anywhere in this workspace and will not
+  be invented. **Owner action: restate those three titles.**
+- Windows real-endpoint proof (Gate 1) stays **QUEUED · MANDATORY BEFORE
+  PRODUCTION EXIT** — postponed for the host, not waived.
+
 ## 2026-06 · ONBOARDING PROOF PREPARATION + TWO P0 DEFECTS FOUND & FIXED
 
 Owner decisions recorded: benchmark = Cisco Secure Endpoint-class

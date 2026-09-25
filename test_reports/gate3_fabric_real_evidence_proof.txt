@@ -1,0 +1,71 @@
+read 1545 real raw events (read-only)
+
+outcome distribution (three DIFFERENT facts, never merged):
+  NOT_EVALUATED                    745
+  FINDINGS                         400
+  EVALUATED_NO_FINDING             400
+
+findings produced: 400
+
+one finding, verbatim:
+{
+  "tenant_id": "default",
+  "analyzer_id": "deterministic.rule",
+  "analyzer_class": "DETERMINISTIC",
+  "analyzer_version": "nivxray::detection_content::nivxray_native_sigma",
+  "label": "deterministic detection content matched EDR-LNX-001",
+  "evidence_refs": [
+    "cev_3fcaea4cbbf2a1fc505f498c_0"
+  ],
+  "observed_at": "2026-09-06T10:16:17.287398+00:00",
+  "evaluation_time": "2026-09-06T10:16:17.711359+00:00",
+  "endpoint_ref": "ep_2d57cbe6f80152062109",
+  "model_id": null,
+  "model_version": null,
+  "score": null,
+  "score_scale": null,
+  "severity_hint": "LOW",
+  "features": {
+    "rule_ids": [
+      "EDR-LNX-001"
+    ],
+    "detection_content_version": "nivxray::detection_content::nivxray_native_sigma",
+    "ingest_verdict_label": "LIKELY_BENIGN"
+  },
+  "feature_digest": "e01306a560715b901838e1b75f630586f5981348d34f73e87c3df59ef335ebd2",
+  "attck": [],
+  "analysis_basis": "projected from the detection derivation recorded at ingest; this analyzer does not re-run detection and does not invent a rule that was not recorded",
+  "inference_location": "BACKEND",
+  "state": "EMITTED",
+  "suppressed_by": null,
+  "retrospection": null,
+  "finding_id": "fnd_c274f16259b669f42a88be6b85e5c00b"
+}
+
+distinct content-addressed ids: 400 of 400 findings (repeats are the SAME evaluation of the same evidence, recognised rather than duplicated)
+
+declared capability of the fabric TODAY:
+[
+  {
+    "analyzer_id": "deterministic.rule",
+    "analyzer_class": "DETERMINISTIC",
+    "version": "1.0.0",
+    "inference_location": "BACKEND",
+    "evaluates": [
+      "process activity against the platform's own deterministic detection content"
+    ],
+    "cannot": [
+      "file reputation",
+      "static file analysis",
+      "machine-learned scoring",
+      "behavioural sequences",
+      "anomaly detection",
+      "anything the endpoint sensor does not observe (files, network, registry)"
+    ],
+    "requires": [
+      "a detection derivation recorded at ingest (detection_content_version)"
+    ]
+  }
+]
+
+NOTHING WAS WRITTEN. 0 findings persisted, 0 evidence rows touched.

@@ -911,6 +911,35 @@ async def _startup():
         await _raw_db["v2_shadow_observations"].create_index(
             [("tenant_id", 1), ("activity_identity", 1)],
             name="tenant_activity_identity", sparse=True)
+        # P0-TRAJ · the observation store was endpoint-keyed but NOT
+        # endpoint-INDEXED, so every Device Trajectory read and every
+        # endpoint resolution examined the whole collection (measured:
+        # 3.85 s to resolve + 10.2 s to project one 205k-observation
+        # endpoint). These indexes cover the declared identity fields of
+        # the store and the time axis the trajectory sorts on.
+        for spec, name in (
+            ([("event.device_iid", 1), ("event.ts", -1)], "obs_device_ts"),
+            ([("event.raw.computer", 1), ("event.ts", -1)], "obs_computer_ts"),
+            ([("event.raw.hostname", 1), ("event.ts", -1)], "obs_hostname_ts"),
+            ([("event.computer", 1), ("event.ts", -1)], "obs_evcomputer_ts"),
+            ([("collector_id", 1), ("event.ts", -1)], "obs_collector_ts"),
+            ([("connector_id", 1), ("event.ts", -1)], "obs_connector_ts"),
+            ([("device_iid", 1), ("event.ts", -1)], "obs_deviceiid_ts"),
+        ):
+            await _raw_db["v2_shadow_observations"].create_index(
+                spec, name=name, sparse=True, background=True)
+        # GATE 10 · endpoint identity resolution aggregates the tenant /
+        # collector / connector facts over EVERY observation of the device
+        # (that is deliberate — tenancy is decided over all of them, not
+        # over one document). With only `(device_iid, ts)` available the
+        # group had to fetch documents; this index lets it stay inside the
+        # index. Measured on the 208k-observation endpoint:
+        # 0.33 s -> 0.22 s, same result.
+        await _raw_db["v2_shadow_observations"].create_index(
+            [("event.device_iid", 1), ("tenant_id", 1),
+             ("collector_id", 1), ("connector_id", 1)],
+            name="obs_device_identity_facts", sparse=True, background=True)
+
         log.info("[startup] edr_raw_events + enrollment indexes ensured "
                  "(append-only)")
     except Exception as e:  # noqa: BLE001

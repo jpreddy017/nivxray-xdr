@@ -5,15 +5,17 @@
  */
 
 .nvf-console {
+  color-scheme: dark;
+
   --bg:         #0A0C11;
   --panel:      #11141C;
   --panel2:     #0D1016;
-  --border:     #212736;
-  --border-sf:  #191E2A;
+  --border:     #343D4F;
+  --border-sf:  #2A3242;
   --text:       #E7E9EF;
   --text-dim:   #B4B9C6;
-  --muted:      #78808F;
-  --faint:      #4A5162;
+  --muted:      #8C95A6;
+  --faint:      #7E8797;
   --purple:     #9B7BF0;
   --purple-dim: #2A2145;
   --mint:       #3CE8B8;
@@ -22,6 +24,34 @@
   --yellow:     #E8C547;
   --red:        #EF5B5B;
   --red-dim:    #331A1D;
+
+  /* ── A2 · semantic surfaces, seams, rings and tints ──────────────
+   * Every one of these used to be a literal hex or rgba() painted on
+   * top of the palette, which is exactly why the platform theme
+   * toggle repainted nothing inside `/edr/*`: the tokens changed and
+   * the literals did not. They are declared here ONCE and overridden
+   * ONCE in the light block below — no route-level CSS patching. */
+  --surf-hover:        #141A24;   /* control hover                     */
+  --surf-active:       #101A24;   /* selected navigation row           */
+  --surf-accent-soft:  #0E1A24;   /* active segment / active step      */
+  --surf-row-hover:    #131926;   /* dense table row hover             */
+  --surf-row-sel:      #111A24;   /* dense table row selected          */
+  --surf-th:           #0C0F15;   /* sticky table header + NI stripe   */
+  --surf-chip:         #1A2028;   /* avatar / identity chip            */
+  --mint-soft:         #0F1F1A;   /* verified-healthy button fill      */
+  --border-hover:      #3C4557;   /* card hover seam                   */
+  --on-accent:         #0A0C11;   /* text ON a saturated accent fill   */
+  --ring-cyan:         rgba(63,193,232,.12);
+  --sk-a:              #12161F;   /* skeleton shimmer, low             */
+  --sk-b:              #1A202C;   /* skeleton shimmer, high            */
+
+  --link:              #7FB3FF;   /* pivot / cross-plane reference     */
+
+  --ok-bd:   rgba(60,232,184,.45);  --ok-bg:   rgba(60,232,184,.07);
+  --warn-bd: rgba(245,166,35,.45);  --warn-bg: rgba(245,166,35,.07);
+  --bad-bd:  rgba(239,91,91,.45);   --bad-bg:  rgba(239,91,91,.06);
+  --info-bd: rgba(63,193,232,.45);  --info-bg: rgba(63,193,232,.07);
+  --att-bd:  rgba(155,123,240,.45); --att-bg:  rgba(155,123,240,.08);
 
   --sans: 'Inter','Segoe UI',system-ui,sans-serif;
   --mono: 'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
@@ -33,6 +63,64 @@
   font-family: var(--sans);
   font-size: 13px;
   display: flex; flex-direction: column;
+}
+
+/* ══ LIGHT · the SAME tokens, one authority ═══════════════════════
+ * `data-nx-theme` is written by the platform toggle onto the console
+ * root (`NivXForgeConsole` sets it on `.nvf-console`, `XdrShell` on
+ * `.xdr-console`, and both persist `nx.theme` + broadcast `nx-theme`),
+ * so this single block repaints EVERY `/edr/*` surface — tables,
+ * contextual panes, steppers, evidence chains, command rows, chips,
+ * honest-state surfaces, skeletons and refusals included.
+ * Green stays reserved for verified-healthy, cyan for
+ * selection/action, amber for attention, red for refusal. */
+.nvf-console[data-nx-theme="light"],
+.nvf-product[data-nx-theme="light"],
+/* A nested console (the embedded body is itself `.nvf-console`) would
+ * otherwise RE-DECLARE the dark block above and reset every token for
+ * its whole subtree — which is precisely why the toggle repainted only
+ * the product chrome. Descendant consoles inherit the chosen theme. */
+[data-nx-theme="light"] .nvf-console {
+  color-scheme: light;
+
+  --bg:         #F5F8FB;
+  --panel:      #FFFFFF;
+  --panel2:     #F1F5F9;
+  --border:     #AEBBCC;
+  --border-sf:  #C3CDDA;
+  --text:       #0F172A;
+  --text-dim:   #334155;
+  --muted:      #4A5769;
+  --faint:      #5A6777;
+  --purple:     #6D28D9;
+  --purple-dim: #EDE9FE;
+  --mint:       #046B4E;
+  --cyan:       #0B6076;
+  --amber:      #8F4D06;
+  --yellow:     #7A5407;
+  --red:        #B91C1C;
+  --red-dim:    #FEE2E2;
+
+  --surf-hover:        #E6ECF3;
+  --surf-active:       #E1F0F6;
+  --surf-accent-soft:  #E1F0F6;
+  --surf-row-hover:    #EFF4F9;
+  --surf-row-sel:      #DDEEF5;
+  --surf-th:           #EBF0F6;
+  --surf-chip:         #E2E8F0;
+  --mint-soft:         #E3F5EC;
+  --border-hover:      #A8B5C6;
+  --on-accent:         #FFFFFF;
+  --ring-cyan:         rgba(14,116,144,.18);
+  --sk-a:              #E9EEF4;
+  --sk-b:              #D8E0EA;
+  --link:              #1D4ED8;
+
+  --ok-bd:   rgba(4,120,87,.42);    --ok-bg:   rgba(4,120,87,.08);
+  --warn-bd: rgba(168,91,8,.42);    --warn-bg: rgba(168,91,8,.08);
+  --bad-bd:  rgba(185,28,28,.42);   --bad-bg:  rgba(185,28,28,.07);
+  --info-bd: rgba(14,116,144,.42);  --info-bg: rgba(14,116,144,.08);
+  --att-bd:  rgba(109,40,217,.40);  --att-bg:  rgba(109,40,217,.07);
 }
 
 /* ── Top bar ───────────────────────────────────────────────────── */
@@ -54,7 +142,7 @@
   width: 22px; height: 22px; border-radius: 5px;
   background: linear-gradient(135deg, var(--mint), var(--cyan));
   display: flex; align-items: center; justify-content: center;
-  font-weight: 900; color: #0A0C11; font-size: 12px;
+  font-weight: 900; color: var(--on-accent); font-size: 12px;
 }
 .nvf-console .brand .accent { color: var(--mint); }
 .nvf-console .top-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
@@ -65,7 +153,7 @@
 }
 .nvf-console .user-chip {
   width: 26px; height: 26px; border-radius: 50%;
-  background: #1a2028; border: 1px solid var(--border);
+  background: var(--surf-chip); border: 1px solid var(--border);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 10px; font-weight: 800; color: var(--mint);
   text-decoration: none;
@@ -100,7 +188,7 @@
 }
 .nvf-console .sidebar .nav-item:hover { background: var(--panel); color: var(--text); }
 .nvf-console .sidebar .nav-item.active {
-  background: #101a24; color: var(--text);
+  background: var(--surf-active); color: var(--text);
   border-left-color: var(--cyan);
 }
 .nvf-console .sidebar .nav-item.active .ic { color: var(--cyan); }
@@ -113,8 +201,8 @@
 /* ── Incident-context banner ───────────────────────────────────── */
 .nvf-console .ctx-banner {
   padding: 10px 14px;
-  border: 1px solid rgba(155,123,240,.5);
-  background: linear-gradient(90deg, rgba(155,123,240,.10), rgba(63,193,232,.06));
+  border: 1px solid var(--att-bd);
+  background: linear-gradient(90deg, var(--att-bg), var(--info-bg));
   border-radius: var(--radius);
   display: flex; flex-wrap: wrap; gap: 14px 18px;
   align-items: center; margin-bottom: 14px;
@@ -195,9 +283,9 @@
   font-size: 11px; font-weight: 700; letter-spacing: .2px;
   cursor: pointer;
 }
-.nvf-console .btn:hover { background: #141a24; color: var(--text); }
+.nvf-console .btn:hover { background: var(--surf-hover); color: var(--text); }
 .nvf-console .btn:disabled { opacity: .5; cursor: not-allowed; }
-.nvf-console .btn.mint { background: #0f1f1a; border-color: var(--mint); color: var(--mint); }
+.nvf-console .btn.mint { background: var(--mint-soft); border-color: var(--mint); color: var(--mint); }
 
 /* ── Embedded in the XDR shell (P0-F.13.3) ─────────────────────────
    The EDR plane is a child of the platform shell, not an application:
