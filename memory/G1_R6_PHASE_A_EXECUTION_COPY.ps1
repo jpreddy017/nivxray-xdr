@@ -1,68 +1,86 @@
 # =====================================================================
-# G1-R6 PHASE A . LOCAL ACCOUNTING REPAIR OF THE 22 PROVEN ROWS
+# G1-R6 PHASE A . LOCAL ACCOUNTING REPAIR OF THE EXACT 22 CANONICAL ROWS
 # ELEVATED PowerShell (Run as Administrator) on DESKTOP-A9HGFJJ.
 #
-# WHAT THIS IS
-#   R5 proved, at identity level, that of the 50 rows the interrupted worker
-#   left in `delivering`:
-#       22 are DELIVERED_CANONICAL server-side  -> local accounting is stale
-#       28 are RETRYABLE_STILL_QUEUED           -> genuinely not delivered
-#   This block repairs ONLY those 22, and only locally: delivering -> delivered.
+# WHY THIS EXISTS
+#   The exact-50 recovery produced per-row authority: of the 50 rows the
+#   interrupted worker left in `delivering`, 22 are DELIVERED_CANONICAL
+#   server-side and 28 are RETRYABLE_STILL_QUEUED. The endpoint's accounting
+#   for those 22 is stale - the delivery is not. This block repairs ONLY that
+#   local bookkeeping: delivering -> delivered.
 #
-# WHAT IT DOES NOT DO
-#   NO network delivery . NO redelivery . NO retry . NO requeue .
-#   NO touch of the 28 retryable rows . NO touch of the 400 proven rows .
-#   NO acquisition . NO Event Log read . NO bookmark write . NO Outbox
-#   construction (so R3.1 restart recovery never runs and cannot requeue the
-#   28 as a side effect) . NO backlog widening . NO deploy .
+# WHAT IT DOES
+#   1. writer guard + tool lineage (pinned SHA-256)
+#   2. validates the authority file: pass=true, 50 rows, exactly 22 canonical
+#      and 28 retryable, and that it is NOT the FAILED-UNTRUSTED sibling
+#   3. reports whether `envelopes.recovery_json` exists (the audit column the
+#      repair marker is written into)
+#   4. DRY RUN: plans the 22, proves the database bytes, histogram, bookmarks
+#      and the 28 retryable rows are untouched
+#   5. only when $Apply = $true: backs up outbox.db, then applies the 22
+#      transitions in ONE SQLite transaction after every precondition passes
 #
-# AUTHORITY FOR EVERY MUTATION
-#   each repaired row must appear in r5-server-reconciliation.json as
-#   bucket=DELIVERED_CANONICAL with a resolvable evidence_ref and a
-#   canonical_event_id, AND its locally recomputed delivery identity must
-#   equal the identity the server answered about. Any mismatch refuses the
-#   ENTIRE repair - the update is one transaction.
+# WHAT IT NEVER DOES
+#   no network I/O of any kind . no reconciliation request . no ingest client .
+#   no Outbox construction . no DeliveryWorker . no delivery / redelivery /
+#   requeue / retry . no acquisition . no EvtSubscribe . no bookmark write .
+#   no change to the 28 retryable rows, their status, attempts,
+#   next_attempt_at or last_error . no Phase B . no backlog processing
 #
-# STAGES
-#   0  locate the R5 proof, verify counts (22 / 28) and tool lineage
-#   1  writer guard + SHA-256 verified backup
-#   2  independent read-only pre-evidence
-#   3  DRY RUN (opens the database read-only; writes nothing)
-#   4  APPLY (only when $Apply = $true) - one transaction, 22 rows
-#   5  independent post-evidence + exact pre/post accounting
-#   6  optional post-repair reconciliation of the SAME 22 identities
-#   7  verdict, then STOP
+#   There is no credential prompt and no authentication in this phase,
+#   because there is no network destination. (Operational convention: when a
+#   script DOES need a credential it must name the authority explicitly, e.g.
+#   "NivXRay XDR PREVIEW Admin Password".)
 #
-# OUTPUT (C:\nivx\g1-proof\r6\)
-#   r6-pre-endpoint-evidence.json      r6-phaseA-dryrun.json
-#   r6-phaseA-apply.json               r6-post-endpoint-evidence.json
-#   r6-phaseA-verdict.json
+# EXPECTED PRE-STATE      EXPECTED POST-STATE (only after $Apply = $true)
+#   delivered    3284       delivered    3306   (+22)
+#   delivering     50       delivering     28   (-22)
+#   queued     121993       queued     121993
+#   retrying      125       retrying      125
+#   dead_letter     0       dead_letter     0
+#   total      125452       total      125452
+#   bookmarks unchanged in BOTH modes.
+#
+# FAILURE SEMANTICS
+#   EVERY failure path returns a NON-ZERO process exit code. Exit 0 requires
+#   the tool to report pass=true. Any refused row, any count mismatch, any
+#   identity mismatch and any violated invariant rolls the whole transaction
+#   back - the repair is all-or-nothing.
+#
+# OUTPUT (C:\ProgramData\NivXForge\state\g1_r6_evidence\)
+#   r6-phaseA-dryrun.json   (always)
+#   r6-phaseA-apply.json    (only when $Apply = $true)
 # =====================================================================
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
 
+# ============ THE ONLY SWITCH IN THIS BLOCK ==========================
+# Leave $false to plan and prove without touching anything. Set $true ONLY
+# after reading r6-phaseA-dryrun.json and confirming: planned 22, refused 0,
+# retryable_untouched 28, every invariant true.
+$Apply = $false
+# =====================================================================
+
 function Invoke-G1R6PhaseA {
 
 # ---- configuration ---------------------------------------------------
-$StateDir    = 'C:\ProgramData\NivXForge\state'
-$Work        = 'C:\nivx'
-$Repo        = "$Work\nivxray-xdr-collector"
-$VenvPy      = "$Work\.venv\Scripts\python.exe"
-$R5Proof     = "$Work\g1-proof\r5\r5-server-reconciliation.json"
-$ProofDir    = "$Work\g1-proof\r6"
-$BackupDir   = "$Work\g1-proof\backup"
-$Tool        = "$Repo\scripts\g1_r6_local_accounting_repair.py"
-$BaseUrl     = 'https://greeting-app-5782.preview.emergentagent.com'
+$StateDir = 'C:\ProgramData\NivXForge\state'
+$Work     = 'C:\nivx'
+# The collector lives UNDER apps\ in the monorepo.
+$Repo     = "$Work\apps\nivxray-xdr-collector"
+$VenvPy   = "$Work\.venv\Scripts\python.exe"
+$Tool     = "$Repo\scripts\g1_r6_local_accounting_repair.py"
+$ProofDir = "$Work\g1-proof\r5"
+$Authority = "$ProofDir\r5-inflight-50-server-reconciliation.json"
+$EvidenceDir = "$StateDir\g1_r6_evidence"
 
 $ExpectCanonical = 22
 $ExpectRetryable = 28
 $ExpectTotalRows = 125452
 
-# ---- THE ONLY SWITCH -------------------------------------------------
-#   $false = dry run only (database opened read-only, nothing written)
-#   $true  = apply the 22-row local status repair, transactionally
-$Apply       = $false
+# Lineage of the repair tool this block was written for.
+$ExpectToolSha = 'C92FA282CEB1A6F7F9EAAD30FAA43471071498BE6D8DE4EB7E4D9CB1A47A2B64'
 
 try {
   if (-not ([Security.Principal.WindowsPrincipal] `
@@ -71,286 +89,215 @@ try {
     throw 'not elevated. Nothing was attempted.'
   }
   $db = Join-Path $StateDir 'outbox.db'
-  if (-not (Test-Path $VenvPy))  { throw "venv python not found at $VenvPy" }
-  if (-not (Test-Path $db))      { throw "outbox database not found at $db" }
-  if (-not (Test-Path $R5Proof)) {
-    throw ("R5 proof not found at $R5Proof . That file is written at stage 4 " +
-           'of the reconcile-only run, BEFORE the optional control, so it ' +
-           'should exist even though the script terminated later. Nothing was attempted.')
+  if (-not (Test-Path $VenvPy))    { throw "venv python not found at $VenvPy" }
+  if (-not (Test-Path $db))        { throw "outbox database not found at $db" }
+  if (-not (Test-Path $Tool))      {
+    throw ("tool not found at $Tool . The collector lives UNDER apps\ in the " +
+           "monorepo; confirm $Repo exists after the pull. Nothing was attempted.")
   }
-  if (-not (Test-Path $Tool))    { throw "tool not found at $Tool (publish the branch and pull)" }
+  if (-not (Test-Path $Authority)) {
+    throw ("the exact-50 authority file was not found at $Authority . Phase A " +
+           'consumes per-row server proof and refuses to infer it. Nothing ' +
+           'was attempted.')
+  }
   if ([string]::IsNullOrWhiteSpace($env:NIVX_COLLECTOR_ID)) {
-    throw 'NIVX_COLLECTOR_ID is not set in this window. The delivery identity that binds the server proof to a local row is derived from it. Nothing was attempted.'
+    throw 'NIVX_COLLECTOR_ID is not set in this window. The delivery identity that binds each server proof to a local row is derived from it. Nothing was attempted.'
   }
-  New-Item -ItemType Directory -Force -Path $ProofDir  | Out-Null
-  New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
-  # ---- 0 . proof + lineage -------------------------------------------
-  Write-Host "`n=== 0 . R5 PROOF + TOOL LINEAGE ===" -ForegroundColor Cyan
-  $proof = Get-Content $R5Proof -Raw | ConvertFrom-Json
-  $prows = @($proof.rows)
-  $inflight  = @($prows | Where-Object { $_.endpoint_outcome -eq 'delivering' })
-  $canonical = @($inflight | Where-Object { $_.bucket -eq 'DELIVERED_CANONICAL' })
-  $retryable = @($inflight | Where-Object { $_.bucket -eq 'RETRYABLE_STILL_QUEUED' })
-  Write-Host ("  proof rows: " + $prows.Count +
-              "  in-flight: " + $inflight.Count +
-              "  canonical: " + $canonical.Count +
-              "  retryable: " + $retryable.Count)
-  if ($canonical.Count -ne $ExpectCanonical -or $retryable.Count -ne $ExpectRetryable) {
-    throw ("the proof splits in-flight rows as " + $canonical.Count + '/' +
-           $retryable.Count + ', expected ' + $ExpectCanonical + '/' +
-           $ExpectRetryable + '. Nothing was attempted.')
-  }
-  Write-Host ("  tool sha256: " + (Get-FileHash $Tool -Algorithm SHA256).Hash)
-  $help = (& $VenvPy $Tool --help) -join ' '
-  foreach ($opt in @('proof', 'expect-canonical', 'expect-retryable', 'apply')) {
-    if ($help -notmatch $opt) { throw "the tool has no --$opt option; the checkout is stale." }
-  }
-  Write-Host '  proof and tool verified' -ForegroundColor Green
+  $bar = '=' * 60
+  Write-Host ''
+  Write-Host "  $bar" -ForegroundColor Cyan
+  Write-Host '   NivXRay XDR - G1-R6 Phase A Local Accounting Repair' -ForegroundColor Cyan
+  Write-Host "  $bar" -ForegroundColor Cyan
+  Write-Host  '   Product      : NivXRay XDR / NivXForge EDR Collector'
+  Write-Host  '   Scope        : LOCAL SQLite BOOKKEEPING ONLY'
+  Write-Host ("   Endpoint DB  : " + $db)
+  Write-Host ("   Authority    : " + (Split-Path $Authority -Leaf))
+  Write-Host  '   Network      : NONE - no destination, no credential required'
+  Write-Host ("   Mode         : " + $(if ($Apply) { 'APPLY (mutating, transactional)' }
+                                       else { 'DRY RUN (read-only)' })) `
+             -ForegroundColor $(if ($Apply) { 'Red' } else { 'Yellow' })
+  Write-Host  '   Operation    : delivering -> delivered for exactly 22 rows'
+  Write-Host "  $bar" -ForegroundColor Cyan
 
-  # ---- 1 . writer guard + backup -------------------------------------
-  Write-Host "`n=== 1 . WRITER GUARD + VERIFIED BACKUP ===" -ForegroundColor Cyan
+  # ---- 0 . writer guard + lineage ------------------------------------
+  Write-Host "`n=== 0 . WRITER GUARD + LINEAGE ===" -ForegroundColor Cyan
   $live = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" |
             Where-Object { $_.CommandLine -like '*uvicorn*' -or
                            $_.CommandLine -like '*nivx*' -or
                            $_.CommandLine -like '*collector*' }
   if ($live) {
     $live | ForEach-Object { Write-Host ("  running collector pid " + $_.ProcessId) -ForegroundColor Red }
-    throw 'a collector process is running. Stop it first. Nothing was attempted.'
+    throw 'a collector process is running. Stop it first: it would race the repair and could requeue the 28. Nothing was attempted.'
   }
-  $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
-  $bak = Join-Path $BackupDir ("outbox.pre-r6a.$stamp.db")
-  foreach ($suf in @('', '-wal', '-shm')) {
-    if (Test-Path "$db$suf") {
-      Copy-Item "$db$suf" ("$bak" + $suf) -Force
-      $a = (Get-FileHash "$db$suf" -Algorithm SHA256).Hash
-      $b = (Get-FileHash ("$bak"+$suf) -Algorithm SHA256).Hash
-      if ($a -ne $b) { throw "backup hash mismatch for $db$suf" }
+  $toolSha = (Get-FileHash $Tool -Algorithm SHA256).Hash
+  Write-Host ("  pinned repair tool sha256: " + $toolSha)
+  if ($toolSha -ne $ExpectToolSha) {
+    throw ('tool sha256 is ' + $toolSha + ', expected ' + $ExpectToolSha +
+           '. The checkout is not the reviewed Phase A tool. Pull ' +
+           'feature/rc2-alignment again. Nothing was attempted.')
+  }
+  Write-Host ("  authority sha256:          " + (Get-FileHash $Authority -Algorithm SHA256).Hash)
+  Write-Host ("  outbox.db sha256 (pre):    " + (Get-FileHash $db -Algorithm SHA256).Hash)
+  Write-Host '  no writer running; tool lineage verified' -ForegroundColor Green
+
+  # ---- 1 . validate the authority file -------------------------------
+  Write-Host "`n=== 1 . AUTHORITY FILE ===" -ForegroundColor Cyan
+  $auth = Get-Content $Authority -Raw | ConvertFrom-Json
+  if ($auth.PSObject.Properties.Name -contains 'VERDICT') {
+    throw ('this file is the FAILED/UNTRUSTED forensic sibling, not authority ' +
+           'for R6: ' + $auth.VERDICT + ' . Nothing was attempted.')
+  }
+  if ($auth.pass -ne $true) { throw 'the authority file does not carry pass=true. Nothing was attempted.' }
+  $rowCount  = @($auth.rows).Count
+  $canonical = @($auth.rows | Where-Object { $_.bucket -eq 'DELIVERED_CANONICAL' }).Count
+  $retryable = @($auth.rows | Where-Object { $_.bucket -eq 'RETRYABLE_STILL_QUEUED' }).Count
+  Write-Host ("  rows=" + $rowCount + "  canonical=" + $canonical +
+              "  retryable=" + $retryable +
+              "   (require 50 / $ExpectCanonical / $ExpectRetryable)")
+  if ($rowCount -ne ($ExpectCanonical + $ExpectRetryable) -or
+      $canonical -ne $ExpectCanonical -or $retryable -ne $ExpectRetryable) {
+    throw 'the authority file does not carry exactly 22 canonical + 28 retryable rows. Nothing was attempted.'
+  }
+  $noEvidence = @($auth.rows | Where-Object {
+      $_.bucket -eq 'DELIVERED_CANONICAL' -and
+      ([string]::IsNullOrWhiteSpace($_.evidence_ref) -or
+       [string]::IsNullOrWhiteSpace($_.claim.canonical_event_id)) }).Count
+  Write-Host ("  canonical rows lacking evidence_ref/canonical_event_id: " + $noEvidence + "   (require 0)")
+  if ($noEvidence -ne 0) {
+    throw 'some canonical rows carry no resolvable server evidence. Nothing was attempted.'
+  }
+  Write-Host '  authority file is the per-row PASS record' -ForegroundColor Green
+
+  # ---- 2 . audit column -----------------------------------------------
+  Write-Host "`n=== 2 . AUDIT COLUMN (recovery_json) ===" -ForegroundColor Cyan
+  $colProbe = @'
+import json, sqlite3, sys
+con = sqlite3.connect("file:%s?mode=ro" % sys.argv[1], uri=True)
+cols = [c[1] for c in con.execute("PRAGMA table_info(envelopes)")]
+print(json.dumps({"has_recovery_json": "recovery_json" in cols,
+                  "columns": cols}))
+'@
+  $cFile = Join-Path $env:TEMP ("nivx_r6_cols_" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".py")
+  Set-Content -Path $cFile -Value $colProbe -Encoding UTF8
+  $cols = (& $VenvPy $cFile $db) -join "`n" | ConvertFrom-Json
+  Remove-Item $cFile -ErrorAction SilentlyContinue
+  Write-Host ("  envelopes.recovery_json present: " + $cols.has_recovery_json)
+  if (-not $cols.has_recovery_json) {
+    Write-Host '  the repair marker has nowhere to be written. APPLY would' -ForegroundColor Yellow
+    Write-Host '  hard-stop unless the column is added (additive, as R4 did).' -ForegroundColor Yellow
+    Write-Host '  Report this instead of improvising: the owner decides whether' -ForegroundColor Yellow
+    Write-Host '  --allow-schema-add is authorised.' -ForegroundColor Yellow
+    if ($Apply) {
+      throw ('APPLY refused: envelopes has no recovery_json column, so the ' +
+             'repair could not be recorded on the row itself. Nothing was ' +
+             'changed. Re-authorise with --allow-schema-add if you want the ' +
+             'additive column.')
     }
   }
-  Write-Host ("  backup verified: " + $bak) -ForegroundColor Green
 
-  # ---- independent read-only evidence helper -------------------------
-  $snap = @'
-import hashlib, json, sqlite3, sys
-con = sqlite3.connect("file:%s?mode=ro" % sys.argv[1], uri=True)
-con.row_factory = sqlite3.Row
-out = {"counts_by_status": {r[0]: r[1] for r in con.execute(
-    "SELECT status, COUNT(*) FROM envelopes GROUP BY status")}}
-out["total"] = con.execute("SELECT COUNT(*) FROM envelopes").fetchone()[0]
-tables = {r[0] for r in con.execute(
-    "SELECT name FROM sqlite_master WHERE type='table'")}
-if "windows_channel_state" in tables:
-    h, rows = hashlib.sha256(), 0
-    for r in con.execute("SELECT * FROM windows_channel_state ORDER BY rowid"):
-        rows += 1
-        h.update(("|".join("" if v is None else str(v)
-                           for v in tuple(r))).encode("utf-8"))
-    out["bookmarks"] = {"rows": rows, "sha256": h.hexdigest()}
-else:
-    out["bookmarks"] = {"rows": None, "sha256": None}
-if "delivery_health_gate" in tables:
-    r = con.execute("SELECT * FROM delivery_health_gate").fetchone()
-    out["delivery_health_gate"] = None if r is None else {
-        k: r[k] for k in r.keys()}
-print(json.dumps(out, indent=2))
-'@
-  $sFile = Join-Path $env:TEMP ("nivx_r6_snap_" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".py")
-  Set-Content -Path $sFile -Value $snap -Encoding UTF8
-  function Snapshot { return (& $VenvPy $sFile $db) -join "`n" | ConvertFrom-Json }
-
-  # ---- 2 . pre-evidence ----------------------------------------------
-  Write-Host "`n=== 2 . PRE-REPAIR EVIDENCE (read-only) ===" -ForegroundColor Cyan
-  $pre = Snapshot
-  $pre | ConvertTo-Json -Depth 8 |
-      Set-Content (Join-Path $ProofDir 'r6-pre-endpoint-evidence.json') -Encoding UTF8
-  Write-Host ("  queued="      + $pre.counts_by_status.queued +
-              "  delivering="  + $pre.counts_by_status.delivering +
-              "  delivered="   + $pre.counts_by_status.delivered +
-              "  retrying="    + $pre.counts_by_status.retrying +
-              "  dead_letter=" + $pre.counts_by_status.dead_letter +
-              "  total="       + $pre.total)
-  if ($pre.total -ne $ExpectTotalRows) {
-    throw ("total rows is " + $pre.total + ", expected " + $ExpectTotalRows + '. HARD STOP.')
+  # ---- 3 . DRY RUN ----------------------------------------------------
+  Write-Host "`n=== 3 . DRY RUN (read-only plan + proof) ===" -ForegroundColor Cyan
+  $dry = & $VenvPy $Tool `
+            --state-dir        $StateDir `
+            --proof            $Authority `
+            --evidence-dir     $EvidenceDir `
+            --expect-canonical $ExpectCanonical `
+            --expect-retryable $ExpectRetryable `
+            --expect-total     $ExpectTotalRows
+  $dryExit = $LASTEXITCODE
+  ($dry -join "`n") | Write-Host
+  Write-Host ("`n  dry-run exit code: " + $dryExit)
+  if ($dryExit -ne 0) {
+    throw ('the dry run did not pass (exit ' + $dryExit + '). Nothing was ' +
+           'changed. Do not set $Apply until this is green.')
   }
-  if ([int]$pre.counts_by_status.delivering -ne ($ExpectCanonical + $ExpectRetryable)) {
-    throw ("delivering is " + $pre.counts_by_status.delivering + ", expected " +
-           ($ExpectCanonical + $ExpectRetryable) + '. HARD STOP.')
-  }
-  Write-Host '  frozen endpoint state confirmed' -ForegroundColor Green
-
-  # ---- 3 . DRY RUN ---------------------------------------------------
-  Write-Host "`n=== 3 . DRY RUN (database opened read-only) ===" -ForegroundColor Cyan
-  & $VenvPy $Tool --state-dir $StateDir --proof $R5Proof `
-      --evidence-dir $ProofDir --expect-canonical $ExpectCanonical `
-      --expect-retryable $ExpectRetryable --expect-total $ExpectTotalRows
-  if ($LASTEXITCODE -ne 0) { throw "dry run did not pass (exit $LASTEXITCODE). Nothing was changed." }
-  $dry = Get-Content (Join-Path $ProofDir 'r6-phaseA-dryrun.json') -Raw | ConvertFrom-Json
-  Write-Host ("  planned=" + $dry.planned.Count + "  refused=" + $dry.refused.Count +
-              "  retryable_untouched=" + $dry.retryable_untouched.Count)
-  $di = $dry.invariants
-  Write-Host ("  all planned rows locally 'delivering' = " +
-              (@($dry.planned | Where-Object { $_.local_status -ne 'delivering' }).Count -eq 0))
-  Write-Host ("  every planned row has evidence_ref + canonical_event_id = " +
-              (@($dry.planned | Where-Object { -not $_.evidence_ref -or
-                                               -not $_.canonical_event_id }).Count -eq 0))
-  Write-Host ("  delivering set matches the proof (22+28) = " + $di.delivering_set_matches_the_proof.holds)
-  Write-Host ("  database bytes unchanged (read-only)    = " + $di.database_file_unchanged.holds)
-  Write-Host ("  retryable rows untouched (status/attempts/next_attempt) = " +
-              $di.retryable_rows_untouched_exactly.holds)
-  Write-Host ("  canonical rows untouched in dry run     = " + $di.canonical_rows_untouched_in_dry_run.holds)
-  Write-Host ("  queued/retrying/dead unchanged          = " + $di.no_other_status_changed.holds)
-  Write-Host ("  total rows " + $dry.post_snapshot.total + " unchanged and expected = " +
-              ($di.total_rows_unchanged.holds -and $di.expected_total_rows.holds))
-  Write-Host ("  bookmarks unchanged                     = " + $di.bookmarks_unchanged.holds)
-  Write-Host ("  no delivery surface imported            = " + $di.no_delivery_surface_loaded.holds)
-  Write-Host ("  dry-run overall pass                    = " + $dry.'pass')
-  if ($dry.planned.Count -ne $ExpectCanonical) {
-    throw ('the dry run planned ' + $dry.planned.Count + ' rows, expected ' +
-           $ExpectCanonical + '. Nothing was changed.')
-  }
+  Write-Host ("  outbox.db sha256 (post dry run): " + (Get-FileHash $db -Algorithm SHA256).Hash) -ForegroundColor Green
 
   if (-not $Apply) {
-    Write-Host "`n=== DRY RUN COMPLETE . NOTHING WAS CHANGED ===" -ForegroundColor Yellow
-    Write-Host "  Review r6-phaseA-dryrun.json, then set `$Apply = `$true and re-run." -ForegroundColor Yellow
-    return
+    Write-Host "`n=== 4 . STOP (DRY RUN ONLY) ===" -ForegroundColor Cyan
+    Write-Host '  Nothing was changed. outbox.db is byte-identical and the 50' -ForegroundColor Yellow
+    Write-Host '  rows are all still `delivering`.' -ForegroundColor Yellow
+    Write-Host ("  Review " + (Join-Path $EvidenceDir 'r6-phaseA-dryrun.json')) -ForegroundColor Yellow
+    Write-Host '  Confirm: planned 22, refused 0, retryable_untouched 28, every' -ForegroundColor Yellow
+    Write-Host '  invariant true. Then set $Apply = $true and re-run.' -ForegroundColor Yellow
+    Write-Host '  Phase B (the 28) was NOT built and NOT executed.' -ForegroundColor Yellow
+    return 0
   }
 
-  # ---- 4 . APPLY -----------------------------------------------------
-  Write-Host "`n=== 4 . APPLY . 22-ROW LOCAL ACCOUNTING REPAIR ===" -ForegroundColor Cyan
-  & $VenvPy $Tool --state-dir $StateDir --proof $R5Proof `
-      --evidence-dir $ProofDir --expect-canonical $ExpectCanonical `
-      --expect-retryable $ExpectRetryable --expect-total $ExpectTotalRows --apply
-  $applyExit = $LASTEXITCODE
-  $applied = Get-Content (Join-Path $ProofDir 'r6-phaseA-apply.json') -Raw | ConvertFrom-Json
-  Write-Host ("  repaired rows: " + $applied.repair.updated.Count +
-              "  repair_id: " + $applied.repair.repair_id)
-  Write-Host ("  delivered delta = " + $applied.invariants.delivered_delta_exact.actual +
-              "  delivering delta = " + $applied.invariants.delivering_delta_exact.actual)
-
-  # ---- 5 . post-evidence ---------------------------------------------
-  Write-Host "`n=== 5 . POST-REPAIR EVIDENCE (independent, read-only) ===" -ForegroundColor Cyan
-  $post = Snapshot
-  $post | ConvertTo-Json -Depth 8 |
-      Set-Content (Join-Path $ProofDir 'r6-post-endpoint-evidence.json') -Encoding UTF8
-  Write-Host ("  queued="      + $post.counts_by_status.queued +
-              "  delivering="  + $post.counts_by_status.delivering +
-              "  delivered="   + $post.counts_by_status.delivered +
-              "  retrying="    + $post.counts_by_status.retrying +
-              "  dead_letter=" + $post.counts_by_status.dead_letter +
-              "  total="       + $post.total)
-  $deliveredDelta   = [int]$post.counts_by_status.delivered   - [int]$pre.counts_by_status.delivered
-  $deliveringDelta  = [int]$post.counts_by_status.delivering  - [int]$pre.counts_by_status.delivering
-  $queuedSame       = ([int]$post.counts_by_status.queued      -eq [int]$pre.counts_by_status.queued)
-  $retryingSame     = ([int]$post.counts_by_status.retrying    -eq [int]$pre.counts_by_status.retrying)
-  $deadSame         = ([int]$post.counts_by_status.dead_letter -eq [int]$pre.counts_by_status.dead_letter)
-  $totalSame        = (($pre.total -eq $post.total) -and ($post.total -eq $ExpectTotalRows))
-  $bookmarksSame    = ($pre.bookmarks.sha256 -eq $post.bookmarks.sha256)
-  $retryableHeld    = ([int]$post.counts_by_status.delivering -eq $ExpectRetryable)
-  Write-Host ("  delivered +" + $deliveredDelta + " (expected +" + $ExpectCanonical + ")")
-  Write-Host ("  delivering " + $deliveringDelta + " (expected -" + $ExpectCanonical + ")")
-  Write-Host ("  queued/retrying/dead unchanged = " + ($queuedSame -and $retryingSame -and $deadSame))
-  Write-Host ("  total rows unchanged = " + $totalSame + "   bookmarks unchanged = " + $bookmarksSame)
-  Write-Host ("  the 28 retryable rows still delivering = " + $retryableHeld)
-
-  # ---- 6 . post-repair reconciliation of the SAME 22 -----------------
-  Write-Host "`n=== 6 . POST-REPAIR RECONCILIATION (read-only, optional) ===" -ForegroundColor Cyan
-  $reconOk = $null
-  $reconStatus = $null
-  try {
-    function Get-PlainFromSecure([System.Security.SecureString]$sec) {
-      $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-      try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
-      finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
-    }
-    $adminEmail  = Read-Host '  NivXRay admin e-mail (blank to skip)'
-    if (-not [string]::IsNullOrWhiteSpace($adminEmail)) {
-      $adminSecret = Read-Host '  NivXRay admin password (not echoed)' -AsSecureString
-      $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" `
-        -ContentType 'application/json' -TimeoutSec 30 `
-        -Body (@{ email = $adminEmail
-                  password = (Get-PlainFromSecure $adminSecret) } | ConvertTo-Json)
-      $jwt = $login.access_token
-      Remove-Variable login, adminSecret, adminEmail -ErrorAction SilentlyContinue
-      [GC]::Collect()
-      $body = @{ identities = @($canonical | ForEach-Object {
-        @{ ref = $_.ref; delivery_key = $_.delivery_key
-           source_event_id = $_.source_event_id
-           collector_id = $_.collector_id
-           endpoint_outcome = 'delivered' } }) }
-      $re = Invoke-RestMethod -Method Post `
-        -Uri "$BaseUrl/api/xdr/ingest/routing/reconcile" `
-        -Headers @{ Authorization = "Bearer $jwt" } `
-        -ContentType 'application/json' -TimeoutSec 120 `
-        -Body ($body | ConvertTo-Json -Depth 6)
-      Remove-Variable jwt -ErrorAction SilentlyContinue; [GC]::Collect()
-      $re | ConvertTo-Json -Depth 8 |
-          Set-Content (Join-Path $ProofDir 'r6-post-repair-reconciliation.json') -Encoding UTF8
-      Write-Host ("  canonical=" + $re.buckets.DELIVERED_CANONICAL +
-                  "  unexplained=" + $re.unexplained + "  pass=" + $re.'pass')
-      $reconOk = (([int]$re.buckets.DELIVERED_CANONICAL -eq $ExpectCanonical) -and
-                  ([int]$re.unexplained -eq 0))
-    } else {
-      Write-Host '  skipped by operator' -ForegroundColor Yellow
-    }
-  } catch {
-    if ($_.Exception.Response) { $reconStatus = [int]$_.Exception.Response.StatusCode }
-    Write-Host ("  post-repair reconciliation could not run (HTTP " + $reconStatus +
-                "); recorded as inconclusive. The local repair above is unaffected.") -ForegroundColor Yellow
+  # ---- 4 . BACKUP, then APPLY -----------------------------------------
+  Write-Host "`n=== 4 . BACKUP BEFORE THE ONLY MUTATING STEP ===" -ForegroundColor Cyan
+  $stamp  = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+  $backup = Join-Path $ProofDir ("outbox-pre-r6a-" + $stamp + ".db")
+  Copy-Item $db $backup
+  foreach ($side in @("$db-wal", "$db-shm")) {
+    if (Test-Path $side) { Copy-Item $side ($backup + [IO.Path]::GetExtension($side)) }
   }
+  Write-Host ("  backup: " + $backup)
+  Write-Host ("  backup sha256: " + (Get-FileHash $backup -Algorithm SHA256).Hash)
 
-  # ---- 7 . verdict ---------------------------------------------------
+  Write-Host "`n=== 5 . APPLY (one transaction, 22 rows) ===" -ForegroundColor Cyan
+  $app = & $VenvPy $Tool `
+            --state-dir        $StateDir `
+            --proof            $Authority `
+            --evidence-dir     $EvidenceDir `
+            --expect-canonical $ExpectCanonical `
+            --expect-retryable $ExpectRetryable `
+            --expect-total     $ExpectTotalRows `
+            --apply
+  $appExit = $LASTEXITCODE
+  ($app -join "`n") | Write-Host
+  Write-Host ("`n  apply exit code: " + $appExit)
+
+  # ---- 6 . independent post-state re-check ----------------------------
+  Write-Host "`n=== 6 . INDEPENDENT POST-STATE RE-CHECK ===" -ForegroundColor Cyan
+  $hist = @'
+import json, sqlite3, sys
+con = sqlite3.connect("file:%s?mode=ro" % sys.argv[1], uri=True)
+print(json.dumps({
+    "counts_by_status": {r[0]: r[1] for r in con.execute(
+        "SELECT status, COUNT(*) FROM envelopes GROUP BY status")},
+    "total": con.execute("SELECT COUNT(*) FROM envelopes").fetchone()[0],
+    "repaired_marker_rows": con.execute(
+        "SELECT COUNT(*) FROM envelopes WHERE recovery_json LIKE '%G1-R6-A%'"
+        ).fetchone()[0]}))
+'@
+  $hFile = Join-Path $env:TEMP ("nivx_r6_hist_" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".py")
+  Set-Content -Path $hFile -Value $hist -Encoding UTF8
+  $after = (& $VenvPy $hFile $db) -join "`n" | ConvertFrom-Json
+  Remove-Item $hFile -ErrorAction SilentlyContinue
+  $c = $after.counts_by_status
+  Write-Host ("  delivered="   + $c.delivered + "  delivering=" + $c.delivering +
+              "  queued="      + $c.queued    + "  retrying="   + $c.retrying +
+              "  dead_letter=" + $c.dead_letter + "  total="     + $after.total)
+  Write-Host ("  rows carrying the G1-R6-A repair marker: " + $after.repaired_marker_rows)
+  $ok = ($appExit -eq 0 -and [int]$c.delivered -eq 3306 -and
+         [int]$c.delivering -eq 28 -and [int]$c.queued -eq 121993 -and
+         [int]$c.retrying -eq 125 -and [int]$after.total -eq $ExpectTotalRows -and
+         [int]$after.repaired_marker_rows -eq $ExpectCanonical)
+  Write-Host ("  contracted post-state reached: " + $ok) -ForegroundColor $(
+    if ($ok) { 'Green' } else { 'Red' })
+
   Write-Host "`n=== 7 . VERDICT ===" -ForegroundColor Cyan
-  $pass = ($applyExit -eq 0) -and
-          ($applied.repair.updated.Count -eq $ExpectCanonical) -and
-          ($applied.refused.Count -eq 0) -and
-          ($deliveredDelta -eq $ExpectCanonical) -and
-          ($deliveringDelta -eq (-1 * $ExpectCanonical)) -and
-          $queuedSame -and $retryingSame -and $deadSame -and
-          $totalSame -and $bookmarksSame -and $retryableHeld -and
-          ($reconOk -ne $false)
-  $verdict = [pscustomobject]@{
-    at = (Get-Date).ToUniversalTime().ToString('o')
-    phase = 'G1-R6 Phase A . local accounting repair of the 22 proven rows'
-    network_delivery_performed = $false
-    rows_redelivered = 0
-    repaired = $applied.repair.updated.Count
-    repair_id = $applied.repair.repair_id
-    refused = $applied.refused.Count
-    retryable_untouched = $ExpectRetryable
-    pre_histogram = $pre.counts_by_status
-    post_histogram = $post.counts_by_status
-    delivered_delta = $deliveredDelta
-    delivering_delta = $deliveringDelta
-    queued_unchanged = $queuedSame
-    retrying_unchanged = $retryingSame
-    dead_letter_unchanged = $deadSame
-    total_rows = $post.total
-    total_rows_unchanged = $totalSame
-    bookmarks_unchanged = $bookmarksSame
-    bookmark_sha256 = $post.bookmarks.sha256
-    delivery_health_gate = $post.delivery_health_gate
-    post_repair_reconciliation_ok = $reconOk
-    post_repair_reconciliation_http = $reconStatus
-    backup = $bak
-    overall_pass = $pass
-    next_decision = 'the 28 RETRYABLE_STILL_QUEUED rows remain in `delivering` and are untouched; Phase B is a separate owner authorisation'
+  if ($ok) {
+    Write-Host '  R6 PHASE A: PASS - 22 rows repaired as local accounting only.' -ForegroundColor Green
+    Write-Host '  The 28 retryable rows are UNTOUCHED and still `delivering`.' -ForegroundColor Green
+    Write-Host '  Phase B was NOT built and NOT executed.' -ForegroundColor Green
+    return 0
   }
-  $verdict | ConvertTo-Json -Depth 8 |
-      Set-Content (Join-Path $ProofDir 'r6-phaseA-verdict.json') -Encoding UTF8
-  $verdict | ConvertTo-Json -Depth 6 | Write-Host
-
-  if ($pass) {
-    Write-Host "`n=== PHASE A: PASS . 22 ROWS CORRECTED, 0 REDELIVERED ===" -ForegroundColor Green
-  } else {
-    Write-Host "`n=== PHASE A: FAIL . REVIEW BEFORE ANY FURTHER ACTION ===" -ForegroundColor Red
-  }
-  Write-Host "`nSTOP. The 28 retryable rows were not touched and nothing was" -ForegroundColor Yellow
-  Write-Host 'delivered. Send r6-phaseA-verdict.json back before Phase B.' -ForegroundColor Yellow
+  Write-Host '  R6 PHASE A: FAIL - report before any further action.' -ForegroundColor Red
+  Write-Host ("  restore from: " + $backup) -ForegroundColor Yellow
+  return 1
 }
 catch {
   Write-Host ("`nHARD STOP: " + $_.Exception.Message) -ForegroundColor Red
+  return 1
 }
 }
 
-Invoke-G1R6PhaseA
+$NivxExit = Invoke-G1R6PhaseA
+if ($null -eq $NivxExit) { $NivxExit = 1 }
+Write-Host ("`nPROCESS EXIT CODE: " + $NivxExit) -ForegroundColor $(
+  if ($NivxExit -eq 0) { 'Green' } else { 'Red' })
+$global:LASTEXITCODE = $NivxExit
+if ($PSCommandPath) { exit $NivxExit }

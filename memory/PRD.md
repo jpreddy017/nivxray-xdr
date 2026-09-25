@@ -20076,3 +20076,55 @@ Files: `...EXECUTION_COPY.ps1`
 `tests/test_g1_r5_execution_copy_wrapper.py`
 (`1D1E52499116206883736C34661186A94072A0EB9F44225288306821C4D38AFE`).
 Exact-50 NOT executed, R6 NOT run, endpoint delivery state untouched.
+
+### G1-R6 Phase A · final readiness review vs the exact-50 authority (2026-06)
+R5 exact-50 CLOSED (22 DELIVERED_CANONICAL / 28 RETRYABLE_STILL_QUEUED,
+db+bookmarks+delivering set unchanged, authority at
+`C:\nivx\g1-proof\r5\r5-inflight-50-server-reconciliation.json`).
+
+VERDICT: **READY / PASS — the existing `g1_r6_local_accounting_repair.py`
+already satisfies the contract and was NOT rewritten** (SHA
+`C92FA282CEB1A6F7F9EAAD30FAA43471071498BE6D8DE4EB7E4D9CB1A47A2B64`,
+unchanged). Compatibility confirmed against
+`services/delivery_reconciliation._resolve()`: rows carry `endpoint_outcome`
+normalised to lowercase `"delivering"` (matching `load_proof`'s filter),
+`delivery_key`, `claim.canonical_event_id` and `evidence_ref`
+(`xdr_canonical_events/<id>`), which are exactly the four fields
+`_row_checks` binds a repair to. The exact-50 tool writes `rows` at the top
+level on PASS, which is what `load_proof` reads.
+
+Contract coverage: consumes the authority JSON; canonical must be exactly 22,
+retryable exactly 28, `other` 0; pre `delivering` set must equal canonical ∪
+retryable; each of the 22 must be locally `delivering` AND carry evidence_ref
++ canonical_event_id AND have a locally recomputed delivery identity equal to
+the server's `delivery_key`; the 28 are fingerprinted on
+status+attempts+next_attempt_at+last_error in BOTH modes; one
+`BEGIN IMMEDIATE` transaction with per-row `rowcount != 1` rollback; marker
+records `network_delivery_performed: false` and the server-reconciliation
+basis; no ingest client / Outbox / DeliveryWorker import (so R3.1 restart
+recovery cannot requeue the 28).
+
+New rehearsal `tests/test_g1_r6_consumes_exact50_authority.py` (7 tests)
+builds an outbox with the REAL frozen histogram (3284/50/121993/125, total
+125452) plus an authority document in the exact shape the exact-50 tool
+writes, and proves: dry run plans 22 / refuses 0 / leaves bytes, bookmarks and
+all 28 untouched; APPLY reaches the contracted post-state **delivered 3306,
+delivering 28, queued 121993, retrying 125, total 125452** with 22 rows
+carrying the `G1-R6-A` marker and the 28 keeping `attempts=3` and no marker;
+a second apply refuses; missing per-row evidence refuses; 21/29 and 23/27
+refuse; the FAILED-UNTRUSTED sibling is not consumable.
+
+`memory/G1_R6_PHASE_A_EXECUTION_COPY.ps1` rewritten
+(`DBDA12836923A983F1A7DD4684203FD2D24443DBF72F927F454AAF1FBE728102`):
+`$Apply = $false` default, `apps\` path, pinned tool SHA, writer guard,
+authority validation (pass=true, 50/22/28, VERDICT-banner refusal, per-row
+evidence), `recovery_json` column probe, dry-run gate before apply,
+pre-apply backup of outbox.db (+ -wal/-shm), independent post-state re-check,
+non-zero exit on every failure. No network, no credential prompt, no
+Read-Host, no Phase B. 10 static guards in
+`tests/test_g1_r6_phase_a_execution_copy.py`. 66 exact-50/R6 tests pass.
+
+OPEN PRECONDITION: if the endpoint's `envelopes` table has no `recovery_json`
+column, APPLY refuses rather than improvise; the dry run reports it and the
+owner decides whether `--allow-schema-add` is authorised.
+Phase A NOT executed from here. Phase B NOT built. The 28 untouched.
