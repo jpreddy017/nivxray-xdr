@@ -359,7 +359,7 @@ export default function AmpNavigator({
                     fill={C.navWindow} pointerEvents="none" />
 
               <rect x={xs} y={8} width={Math.max(1, xe - xs)} height={30}
-                    fill="transparent" style={{ cursor: "grab" }}
+                    fill="transparent" style={{ cursor: "ew-resize" }}
                     onPointerDown={down("band")} onMouseDown={down("band")}
                     data-testid="amp-nav-band" />
 

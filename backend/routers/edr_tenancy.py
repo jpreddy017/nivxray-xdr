@@ -61,6 +61,18 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("GET", "/api/edr/context"): TENANT_SCOPED,
     ("GET", "/api/edr/endpoints/{endpoint_id}/linked-incidents"): TENANT_SCOPED,
     ("GET", "/api/edr/endpoints/{endpoint_id}/trajectory/focus"): TENANT_SCOPED,
+    # ── routers/edr.py · observed endpoint command evidence (1) ───────
+    #: Command Intelligence. Tenant-scoped through the SAME resolver the
+    #: other evidence reads use; it is NOT the response plane.
+    ("GET", "/api/edr/endpoint-commands"): TENANT_SCOPED,
+    # ── routers/edr_onboarding.py · management surfaces (4) ───────────
+    #: The sensor build catalog describes artifacts on disk and carries no
+    #: customer evidence, so it is product metadata, not tenant data.
+    ("GET", "/api/edr/onboarding/packages"): PRODUCT_METADATA,
+    ("GET", "/api/edr/onboarding/packages/{package_id}/file/{name}"):
+        PRODUCT_METADATA,
+    ("GET", "/api/edr/onboarding/computers"): TENANT_SCOPED,
+    ("GET", "/api/edr/onboarding/computers/{endpoint_id}"): TENANT_SCOPED,
     # ── routers/edr_response.py · analyst response plane (5) ──────────
     ("POST", "/api/edr/response/actions"): TENANT_SCOPED,
     ("GET", "/api/edr/response/actions"): TENANT_SCOPED,

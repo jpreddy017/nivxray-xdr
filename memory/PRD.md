@@ -1,5 +1,86 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 · NIVXFORGE EDR · FLEET OPERATIONS WAVE (P0→P5) — DELIVERED · VISUALLY QA'd
+
+Owner directive: build the premium EDR console under `/edr/*` (Downloads ·
+Computers with aggregated detection counts · Add Device · Device Overview ·
+Trajectory · Command Intelligence), permanent IA with honest
+NOT_IMPLEMENTED, no N+1, no fabricated data, real visual QA.
+Next wave (AMP parity) is recorded in
+`/app/memory/NIVXFORGE_EDR_AMP_PARITY_ROADMAP.md` and is **blocked on owner
+reference captures + an IP-boundary confirmation**.
+
+### Backend
+- `GET /api/edr/onboarding/computers` now carries **real** tenant-scoped
+  `detections_24h` + `detections_total` + `last_detection_at`, produced for
+  the WHOLE grid in **ONE** aggregation over `edr_raw_events`
+  (`$match` tenant+refs+`derivations.outcome` → `$project` `$size/$filter` →
+  `$group` with conditional window sum). No `$facet` (it would scan the
+  matched set twice), no per-row query. Index used:
+  `tenant_id_1_endpoint_ref_1`. 222 rows in ~0.75 s.
+  **Semantics enforced**: `0` = evaluated and genuinely zero; `null` = not
+  evaluated (endpoint carries no queryable reference) — never merged.
+  `detection_window_hours` is declared on the response and on every row.
+- New `GET /api/edr/onboarding/computers/{endpoint_id}` — Device Overview
+  projection (enrolment · credential · sensor as three independent facts;
+  credential id deliberately NOT disclosed to the console).
+- New `GET /api/edr/endpoint-commands` — **Command Intelligence**. Owner
+  correction honoured: `/edr/response/actions` (`edr_response_commands`) is
+  the DISPATCH authority and is NOT used. Source is observed evidence:
+  `edr_raw_events.payload (activity=PROCESS)` + `derivations[]` +
+  content-addressed decoder join `sha256(command_line)` →
+  `v2_decoded_payloads` (ONE batched read per page). Returns the chain
+  parent → process → raw command → decoder → decoded → canonical evidence →
+  detection → ATT&CK, with NOT OBSERVED / DECODE_NOT_RECORDED where evidence
+  is absent.
+- `routers/edr_tenancy.ROUTE_CLASSIFICATION`: the 4 onboarding routes (left
+  unclassified by the previous wave, so the governance gate was RED) plus
+  `endpoint-commands` are now classified — packages = PRODUCT_METADATA,
+  computers/commands = TENANT_SCOPED.
+
+### Frontend (`/app/apps/nivxray-xdr` — the served app)
+- Permanent IA in `NivXForgeConsole`: Operations (Dashboard · Computers ·
+  Detections · Events) · Investigate (Device Trajectory · Process Tree ·
+  Campaign Story · Hunt · Files · Network · Forensics · Live Query) ·
+  Respond (Response · Policies) · Management (Downloads · Audit).
+  Unimplemented rows are **disabled with their reason**, never enabled links
+  to functional-looking pages.
+- New surfaces: `/edr/management/downloads`, `/edr/computers`,
+  `/edr/computers/add`, `/edr/computers/:endpointId/:tab`
+  (Overview · Trajectory · Command Intelligence + 4 declared-N/I lenses),
+  `/edr/events|policies|audit` (NOT_IMPLEMENTED with reason). All lazy
+  chunks inside the `/edr/*` bundle.
+- Add Device: Choose Windows → Download → Generate enrolment → Install
+  command → Waiting → Authenticated telemetry → CONNECTED. The token is
+  single-use, 1 h, tenant-bound, enrolment-purpose, held in the tab only.
+  CONNECTED is read back from the fleet, never claimed by the screen.
+- Trajectory reuses the AMP-class renderer via a new `embedded` prop (no
+  duplication). Device head is fetched BEFORE the lens mounts.
+- Customer selector added to the EDR header (tenant-bound reads fail closed
+  with TENANT_REQUIRED without it); `XdrContextBar` no longer duplicates or
+  contradicts customer/plane inside `/edr`.
+- Design layer `nvf-ops.css` (dense table, metric rail, contextual pane,
+  stepper, evidence chain, honest-state surfaces). Polish pass after owner
+  review: type scale up, green reserved for verified-healthy only,
+  cyan for selection/action, softer borders, roomier header.
+  Grab/hand cursor removed from the trajectory canvas (owner report).
+
+### Proof
+- `tests/test_edr_fleet_detection_counts.py` **6 passed** (asserts ONE
+  aggregation, `$match/$project/$group` shape, 6 total vs 3 in-window,
+  `null` ≠ `0`, and that Command Intelligence does not read the response
+  plane) · `tests/test_edr_onboarding_v1.py` **17 passed** ·
+  `tests/test_edr_route_tenant_authority.py` **169 passed** (was failing) ·
+  `tests/edr/test_p0_2c_alias_invariant.py` green · production build PASS.
+- Real-SPA visual QA on the preview host: Computers (+ contextual pane),
+  Downloads, Add Device, Device Overview (CONNECTED and
+  ENROLLED_NO_TELEMETRY), Trajectory (204,081 observations, embedded),
+  Command Intelligence (expanded evidence chain), Events NOT_IMPLEMENTED,
+  ENDPOINT_NOT_RESOLVED state, Dashboard, Detections.
+- Known latency (pre-existing, not introduced): the trajectory meta
+  projection takes ~18 s on the 200 k-observation endpoint and, being a
+  sync Mongo read, it blocks the single-worker event loop while it runs.
+
 ## 2026-06 · G1 · WINDOWS EVENT LOG ENDPOINT PROOF — STEP 1 DELIVERED · AWAITING OWNER PRE-FLIGHT JSON
 
 Full record: `/app/memory/G1_WINDOWS_EVENTLOG_ENDPOINT_PROOF.md`.

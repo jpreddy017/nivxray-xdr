@@ -99,6 +99,16 @@ const EdrLiveQueryPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages"
 // reserved stub.
 const EdrResponsePage   = lazy(() => import("@/nivxforge/pages/EdrResponsePage"));
 
+// NivXForge EDR · Fleet Operations wave. Each surface is its own lazy
+// chunk inside the /edr/* product bundle, so the EDR console can move to
+// its own hostname without a rewrite.
+const EdrComputersPage  = lazy(() => import("@/nivxforge/pages/EdrComputersPage"));
+const EdrAddDevicePage  = lazy(() => import("@/nivxforge/pages/EdrAddDevicePage"));
+const EdrDownloadsPage  = lazy(() => import("@/nivxforge/pages/EdrDownloadsPage"));
+const EdrDevicePage     = lazy(() => import("@/nivxforge/device/EdrDevicePage"));
+const EdrNotImplementedPage =
+  lazy(() => import("@/nivxforge/pages/EdrNotImplementedPage"));
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -360,6 +370,34 @@ export default function App() {
         <Route path="/edr/forensics"     element={<Protected><EdrForensicsPage /></Protected>} />
         <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
         <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
+
+        {/* Fleet operations · the Computers plane and the device workspace.
+            `add` is matched before `:endpointId` so the workflow route is
+            never swallowed by an endpoint identifier. */}
+        <Route path="/edr/computers"     element={<Protected><EdrComputersPage /></Protected>} />
+        <Route path="/edr/computers/add" element={<Protected><EdrAddDevicePage /></Protected>} />
+        <Route path="/edr/computers/:endpointId"      element={<Protected><EdrDevicePage /></Protected>} />
+        <Route path="/edr/computers/:endpointId/:tab" element={<Protected><EdrDevicePage /></Protected>} />
+        <Route path="/edr/management/downloads" element={<Protected><EdrDownloadsPage /></Protected>} />
+        <Route path="/edr/management"    element={<Navigate to="/edr/management/downloads" replace />} />
+
+        {/* Permanent information architecture. These destinations exist in
+            the product and are NOT implemented in this wave: each states the
+            capability and why it is unavailable, and the navigation renders
+            them disabled rather than as an enabled link. */}
+        <Route path="/edr/events" element={<Protected><EdrNotImplementedPage
+          navKey="events" heading="Events"
+          body="A source-agnostic endpoint event explorer over the raw and canonical evidence stores, with per-field filters and shareable deep links."
+          why="Not implemented in this wave. Event-level evidence is reachable per computer through Device Trajectory and Command Intelligence, both of which read the same authoritative stores." /></Protected>} />
+        <Route path="/edr/policies" element={<Protected><EdrNotImplementedPage
+          navKey="policies" heading="Policies"
+          body="Policy authoring and assignment: collection profile, prevention posture, exclusions and group placement."
+          why="Policy authoring is not implemented. Every newly enrolled computer lands in the default Windows policy (DETECT_ONLY, prevention not enabled), and its enforcement state is reported per computer rather than claimed here." /></Protected>} />
+        <Route path="/edr/audit" element={<Protected><EdrNotImplementedPage
+          navKey="audit" heading="Audit"
+          body="Who did what in the EDR plane: enrolments, credential rotations, policy changes and response authorisations."
+          why="The EDR-scoped audit surface is not implemented in this wave. Platform audit records continue to be written and are readable in NivXRay XDR." /></Protected>} />
+
 
         {/* Scope-aware catch-all. Previously this was a hard
             `Navigate to="/xdr"`, which meant an unknown path on the EDR

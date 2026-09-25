@@ -14,6 +14,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
 import { getSessionContext } from "@/nivxforge/edrApi";
+import { activeTenant } from "@/lib/tenant";
 
 /** Route → breadcrumb trail. Deterministic, no fetch, no guessing. */
 const TRAILS = [
@@ -37,6 +38,18 @@ const TRAILS = [
   [/^\/xdr\/assets/, ["Assets"]],
   [/^\/xdr\/edr\/device-trajectory/,
    ["NivXRay EDR", "Device Trajectory"]],
+  [/^\/edr\/computers\/add/, ["NivXRay EDR", "Computers", "Add device"]],
+  [/^\/edr\/computers\/[^/]+\/trajectory/,
+   ["NivXRay EDR", "Computers", "Device", "Trajectory"]],
+  [/^\/edr\/computers\/[^/]+\/commands/,
+   ["NivXRay EDR", "Computers", "Device", "Command Intelligence"]],
+  [/^\/edr\/computers\/[^/]+/, ["NivXRay EDR", "Computers", "Device"]],
+  [/^\/edr\/computers/, ["NivXRay EDR", "Computers"]],
+  [/^\/edr\/management\/downloads/,
+   ["NivXRay EDR", "Management", "Downloads"]],
+  [/^\/edr\/events/, ["NivXRay EDR", "Events"]],
+  [/^\/edr\/policies/, ["NivXRay EDR", "Policies"]],
+  [/^\/edr\/audit/, ["NivXRay EDR", "Audit"]],
   [/^\/edr\/detections/, ["NivXRay EDR", "Detections"]],
   [/^\/edr\/process-tree/, ["NivXRay EDR", "Process Tree"]],
   [/^\/edr\/campaign-story/, ["NivXRay EDR", "Campaign Story"]],
@@ -89,14 +102,21 @@ export default function XdrContextBar() {
   const cev = params.get("canonical_event_id");
   const proc = params.get("process_iid");
   const cust = sess?.active_customer;
-  const custLabel = cust?.value
+  // ONE customer truth on screen. When the operator has selected a customer
+  // (the scope every tenant-bound read is actually performed under) the bar
+  // states THAT, so it can never contradict the console's own selector.
+  const selected = activeTenant();
+  const custLabel = selected
+    || cust?.value
     || (cust?.basis === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
       ? "All Authorized Tenants" : "◇ NOT RESOLVED");
 
   return (
     <div data-testid="xdr-context-bar"
          data-plane={plane}
-         data-customer={cust?.value || ""}
+         data-customer={selected || cust?.value || ""}
+         data-customer-basis={selected ? "OPERATOR_SELECTED_TENANT"
+           : (cust?.basis || "")}
          data-device={device || ""}
          data-incident={incident || ""}
          style={{ display: "flex", alignItems: "center", gap: 8,
@@ -123,7 +143,13 @@ export default function XdrContextBar() {
         ))}
       </nav>
       <span style={{ flex: 1 }} />
-      <Chip k="Customer" v={custLabel} testid="xdr-ctx-customer" />
+      {/* Inside the NivXForge EDR console the product header already owns
+          the customer selector and the product identity, so repeating them
+          here only creates competing chrome. The bar keeps the facts the
+          header does NOT carry: the trail and the investigation context. */}
+      {plane === "NIVXFORGE_EDR" ? null : (
+        <Chip k="Customer" v={custLabel} testid="xdr-ctx-customer" />
+      )}
       {device && <Chip k="Endpoint" v={device} testid="xdr-ctx-endpoint" />}
       {incident && (
         <Link to={`/xdr/incidents/${encodeURIComponent(incident)}`}
@@ -136,8 +162,9 @@ export default function XdrContextBar() {
         <Chip k="Evidence" v={raw || cev} testid="xdr-ctx-evidence" />
       )}
       {proc && <Chip k="Process" v={proc} testid="xdr-ctx-process" />}
-      <Chip k="Plane" v={plane === "NIVXFORGE_EDR"
-        ? "NivXRay EDR" : "XDR investigation"} testid="xdr-ctx-plane" />
+      {plane === "NIVXFORGE_EDR" ? null : (
+        <Chip k="Plane" v="XDR investigation" testid="xdr-ctx-plane" />
+      )}
     </div>
   );
 }

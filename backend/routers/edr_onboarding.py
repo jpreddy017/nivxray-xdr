@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -30,6 +30,9 @@ from fastapi.responses import PlainTextResponse
 from deps import db as _db, get_current_user
 from edr_plane.enrollment import store
 from routers.edr_enrollment import _tenant
+from services.edr import endpoint_query as eq
+
+RAW_EVENTS = "edr_raw_events"
 
 router = APIRouter(prefix="/edr/onboarding", tags=["nivxforge-edr-onboarding"])
 
@@ -174,9 +177,9 @@ async def list_packages(user: dict = Depends(get_current_user),
         "available": sum(1 for p in packages if p["available"]),
         "onboarding_workflow": [
             "download the reusable installer",
-            "mint an enrollment token (POST /api/edr/enrollment/tokens)",
-            "run the installer elevated with -BackendUrl -TenantId "
-            "-EnrollmentToken",
+            "generate a bounded enrolment credential in the console",
+            "run the installer elevated on the endpoint with the backend, "
+            "customer and enrolment credential",
             "the platform mints the endpoint identity and a per-device "
             "credential",
             "the computer appears under Computers and becomes CONNECTED only "
@@ -313,66 +316,210 @@ def _protection(policy: dict | None, record: dict) -> dict[str, Any]:
     }
 
 
+DETECTION_WINDOW_HOURS = 24
+
+
+def _refs(record: dict) -> list[str]:
+    """Every identifier that addresses this endpoint in the raw store."""
+    return [str(v) for v in (record.get("endpoint_id"),
+                             record.get("device_iid")) if v]
+
+
+async def _detection_counts(tenant: str, records: list[dict],
+                            window_hours: int = DETECTION_WINDOW_HOURS
+                            ) -> dict[str, dict[str, Any]]:
+    """Real detection counts for the WHOLE grid in ONE aggregation.
+
+    No per-row query: a single tenant-scoped pipeline over
+    `edr_raw_events` (index `tenant_id_1_endpoint_ref_1`) produces the
+    windowed count and the all-time count together by conditional
+    grouping — a `$facet` would scan the matched set twice for the same
+    answer.
+
+    `0` means evaluated and genuinely zero. A missing entry means the
+    endpoint carries no queryable reference, and the caller reports that
+    as unavailable — never as zero.
+    """
+    ref_to_endpoint: dict[str, str] = {}
+    for record in records:
+        endpoint_id = record.get("endpoint_id")
+        if not endpoint_id:
+            continue
+        for ref in _refs(record):
+            ref_to_endpoint[ref] = endpoint_id
+    if not ref_to_endpoint:
+        return {}
+    since = (_now() - timedelta(hours=window_hours)).isoformat()
+    predicate = eq.endpoint_predicate(list(ref_to_endpoint), RAW_EVENTS)
+    matched = {"$filter": {"input": {"$ifNull": ["$derivations", []]},
+                           "as": "d",
+                           "cond": {"$eq": ["$$d.outcome",
+                                            "DETECTION_MATCHED"]}}}
+    pipeline = [
+        {"$match": {"tenant_id": tenant, **predicate,
+                    "derivations.outcome": "DETECTION_MATCHED"}},
+        {"$project": {"_id": 0, "endpoint_ref": 1, "ingest_time": 1,
+                      "matched": {"$size": matched}}},
+        {"$group": {
+            "_id": "$endpoint_ref",
+            "detections_total": {"$sum": "$matched"},
+            "detections_window": {"$sum": {"$cond": [
+                {"$gte": ["$ingest_time", since]}, "$matched", 0]}},
+            "last_detection_at": {"$max": "$ingest_time"},
+        }},
+    ]
+    out: dict[str, dict[str, Any]] = {}
+    async for row in _db[RAW_EVENTS].aggregate(pipeline):
+        endpoint_id = ref_to_endpoint.get(row["_id"])
+        if not endpoint_id:
+            continue
+        agg = out.setdefault(endpoint_id, {
+            "detections_total": 0, "detections_window": 0,
+            "last_detection_at": None})
+        agg["detections_total"] += row.get("detections_total") or 0
+        agg["detections_window"] += row.get("detections_window") or 0
+        if (row.get("last_detection_at") or "") > (
+                agg["last_detection_at"] or ""):
+            agg["last_detection_at"] = row.get("last_detection_at")
+    # An endpoint that IS addressable but produced no matched derivation
+    # was evaluated and is genuinely zero.
+    for record in records:
+        endpoint_id = record.get("endpoint_id")
+        if endpoint_id and _refs(record) and endpoint_id not in out:
+            out[endpoint_id] = {"detections_total": 0,
+                                "detections_window": 0,
+                                "last_detection_at": None}
+    return out
+
+
+def _row(record: dict, policy: dict | None, group: dict | None,
+         detections: dict[str, Any] | None,
+         window_hours: int) -> dict[str, Any]:
+    state = _status(record)
+    addressable = bool(_refs(record))
+    return {
+        "endpoint_id": record.get("endpoint_id"),
+        "hostname": record.get("hostname"),
+        "os": record.get("platform"),
+        "os_version": record.get("os_version"),
+        "architecture": record.get("architecture"),
+        "group": (group or {}).get("name"),
+        "group_id": record.get("group_id"),
+        "policy": (policy or {}).get("name"),
+        "policy_id": record.get("policy_id"),
+        "sensor_version": record.get("sensor_version"),
+        "protection": _protection(policy, record),
+        "telemetry": {
+            "last_telemetry_at": record.get("last_telemetry_at"),
+            "last_heartbeat_at": record.get("last_heartbeat_at"),
+            "event_count": record.get("event_count") or 0,
+            "queue_depth_at_sensor": record.get("outbox_queue_depth"),
+            "report_interval_seconds": record.get("report_interval_seconds"),
+        },
+        "last_seen": record.get("last_seen"),
+        "enrollment_state": record.get("enrollment_state"),
+        "credential_state": record.get("credential_state"),
+        "sensor_state": record.get("sensor_state"),
+        "status": state["status"],
+        "status_basis": state["basis"],
+        #: Real, tenant-scoped detection truth. `null` is NOT evaluated;
+        #: `0` is evaluated and genuinely zero. They are never merged.
+        "detections_window_hours": window_hours,
+        "detections_24h": ((detections or {}).get("detections_window")
+                           if addressable else None),
+        "detections_total": ((detections or {}).get("detections_total")
+                             if addressable else None),
+        "last_detection_at": (detections or {}).get("last_detection_at"),
+        "detections_basis": (
+            "counted from edr_raw_events.derivations[] "
+            "(outcome=DETECTION_MATCHED) for this tenant"
+            if addressable else
+            "this enrolment record carries no endpoint reference the raw "
+            "evidence store can be addressed by, so no count was evaluated"),
+        "unavailable_fields": [
+            name for name, value in (
+                ("os_version", record.get("os_version")),
+                ("architecture", record.get("architecture")),
+                ("sensor_version", record.get("sensor_version")),
+                ("group", (group or {}).get("name")),
+                ("policy", (policy or {}).get("name")),
+            ) if not value],
+    }
+
+
+STATUS_CONTRACT = (
+    "CONNECTED requires authenticated endpoint telemetry inside the sensor's "
+    "own declared cadence. Enrolment, a heartbeat or an accepted install are "
+    "never sufficient.")
+
+
 @router.get("/computers")
 async def computers(user: dict = Depends(get_current_user),
-                    request: Request = None) -> dict[str, Any]:
+                    request: Request = None,
+                    detection_window_hours: int = DETECTION_WINDOW_HOURS
+                    ) -> dict[str, Any]:
     """The Computers grid, entirely from recorded endpoint truth."""
     tenant = _tenant(user, request)
+    window = max(1, min(int(detection_window_hours), 24 * 90))
     records = await store.list_endpoints(_db, tenant_id=tenant)
     policies = {doc["id"]: doc async for doc in
                 _db[POLICIES].find({"tenant_id": tenant})}
     groups = {doc["id"]: doc async for doc in
               _db[GROUPS].find({"tenant_id": tenant})}
-    rows = []
-    for record in records:
-        policy = policies.get(record.get("policy_id"))
-        group = groups.get(record.get("group_id"))
-        state = _status(record)
-        rows.append({
-            "endpoint_id": record.get("endpoint_id"),
-            "hostname": record.get("hostname"),
-            "os": record.get("platform"),
-            "os_version": record.get("os_version"),
-            "architecture": record.get("architecture"),
-            "group": (group or {}).get("name"),
-            "group_id": record.get("group_id"),
-            "policy": (policy or {}).get("name"),
-            "policy_id": record.get("policy_id"),
-            "sensor_version": record.get("sensor_version"),
-            "protection": _protection(policy, record),
-            "telemetry": {
-                "last_telemetry_at": record.get("last_telemetry_at"),
-                "last_heartbeat_at": record.get("last_heartbeat_at"),
-                "event_count": record.get("event_count") or 0,
-                "queue_depth_at_sensor": record.get("outbox_queue_depth"),
-                "report_interval_seconds": record.get(
-                    "report_interval_seconds"),
-            },
-            "last_seen": record.get("last_seen"),
-            "enrollment_state": record.get("enrollment_state"),
-            "credential_state": record.get("credential_state"),
-            "sensor_state": record.get("sensor_state"),
-            "status": state["status"],
-            "status_basis": state["basis"],
-            #: Detections are owned by the detection plane; this surface does
-            #: not invent a count it has not read.
-            "detections": None,
-            "detections_basis": "NOT_WIRED_IN_THIS_WAVE",
-            "unavailable_fields": [
-                name for name, value in (
-                    ("os_version", record.get("os_version")),
-                    ("architecture", record.get("architecture")),
-                    ("sensor_version", record.get("sensor_version")),
-                    ("group", (group or {}).get("name")),
-                    ("policy", (policy or {}).get("name")),
-                ) if not value],
-        })
+    counts = await _detection_counts(tenant, records, window)
+    rows = [_row(record,
+                 policies.get(record.get("policy_id")),
+                 groups.get(record.get("group_id")),
+                 counts.get(record.get("endpoint_id")),
+                 window)
+            for record in records]
     return {
         "tenant_id": tenant,
         "count": len(rows),
         "computers": rows,
-        "status_contract": (
-            "CONNECTED requires authenticated endpoint telemetry inside the "
-            "sensor's own declared cadence. Enrolment, a heartbeat or an "
-            "accepted install are never sufficient."),
+        "detection_window_hours": window,
+        "detection_count_method": (
+            "ONE aggregation over edr_raw_events for the whole grid "
+            "(conditional grouping produces the window and the all-time "
+            "count in a single pass). No per-row query."),
+        "status_contract": STATUS_CONTRACT,
+    }
+
+
+@router.get("/computers/{endpoint_id}")
+async def computer(endpoint_id: str,
+                   user: dict = Depends(get_current_user),
+                   request: Request = None,
+                   detection_window_hours: int = DETECTION_WINDOW_HOURS
+                   ) -> dict[str, Any]:
+    """Device Overview — the same recorded truth, for one computer."""
+    tenant = _tenant(user, request)
+    window = max(1, min(int(detection_window_hours), 24 * 90))
+    record = await _db[store.ENDPOINTS].find_one(
+        {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})
+    if record is None:
+        raise HTTPException(404, detail={
+            "code": "COMPUTER_NOT_FOUND",
+            "reason": ("no enrolment record for this endpoint in the tenant "
+                       "you are authorised for")})
+    policy = await _db[POLICIES].find_one(
+        {"tenant_id": tenant, "id": record.get("policy_id")}, {"_id": 0})
+    group = await _db[GROUPS].find_one(
+        {"tenant_id": tenant, "id": record.get("group_id")}, {"_id": 0})
+    counts = await _detection_counts(tenant, [record], window)
+    return {
+        "tenant_id": tenant,
+        "computer": _row(record, policy, group,
+                         counts.get(endpoint_id), window),
+        "enrolment": {
+            "enrolled_at": record.get("enrolled_at"),
+            "enrollment_state": record.get("enrollment_state"),
+            "credential_id": None,
+            "credential_state": record.get("credential_state"),
+            "revoked_at": record.get("revoked_at"),
+            "device_iid": record.get("device_iid"),
+            "basis": ("the credential identifier is platform-internal and is "
+                      "deliberately not disclosed to the console"),
+        },
+        "status_contract": STATUS_CONTRACT,
     }

@@ -170,7 +170,7 @@ export default function AmpCanvas({
   return (
     <div ref={boxRef} data-testid="amp-canvas"
          style={{ position: "relative", background: C.paper,
-                  overflow: "hidden", height, cursor: "grab", flex: 1,
+                  overflow: "hidden", height, cursor: "default", flex: 1,
                   minWidth: 0 }}
          onMouseDown={onMouseDown}
          data-wheel-navigation="rows|shift-time|ctrl-zoom"

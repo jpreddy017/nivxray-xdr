@@ -18,7 +18,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import {
   LayoutGrid, ShieldAlert, Radar, GitBranch, FileText, Wifi,
   Search, Camera, Terminal, ArrowRightLeft,
-  ArrowLeft,
+  ArrowLeft, Download, List, ScrollText, SlidersHorizontal,
   BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
@@ -34,30 +34,73 @@ import { useAuth } from "@/lib/auth";
 import { brandFor } from "@/productScope";
 
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
+import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import "./nivxforge.css";
+import "./nvf-ops.css";
 
 const EDR_BRAND = brandFor("edr");
 
-const TABS = [
-  { key: "overview",       label: "Overview",         icon: LayoutGrid,      to: "/edr" },
-  { key: "detections",     label: "Detections",       icon: ShieldAlert,     to: "/edr/detections" },
-  // P0-F.13.3 · ONE canonical Device Trajectory in the operational EDR
-  // navigation — the AMP renderer. The XDR case-context projection is
-  // reachable from XDR → Endpoint / Entity 360, not duplicated here.
-  // P0-W.F-2 · the nav now addresses the CANONICAL EDR route directly.
-  // `/xdr/edr/device-trajectory` remains a permanent context-preserving
-  // redirect (D-2) for external deep links, but the EDR product no
-  // longer routes its own primary navigation through the XDR namespace.
-  { key: "device-trajectory", label: "Device Trajectory", icon: Radar,       to: "/edr/device-trajectory" },
-  { key: "process-tree",   label: "Process Tree",     icon: GitBranch,       to: "/edr/process-tree" },
-  { key: "campaign-story", label: "Campaign Story",   icon: BookOpen,        to: "/edr/campaign-story" },
-  { key: "files",          label: "Files",            icon: FileText,        to: "/edr/files" },
-  { key: "network",        label: "Network",          icon: Wifi,            to: "/edr/network" },
-  { key: "hunting",        label: "Threat Hunting",   icon: Search,          to: "/edr/hunting" },
-  { key: "forensics",      label: "Forensics",        icon: Camera,          to: "/edr/forensics" },
-  { key: "live-query",     label: "Live Query",       icon: Terminal,        to: "/edr/live-query" },
-  { key: "response",       label: "Response",         icon: ArrowRightLeft,  to: "/edr/response" },
+/**
+ * The PERMANENT NivXForge EDR information architecture.
+ *
+ * Every destination the product will own is present, so the console never
+ * hides the shape of the product. A capability that is not implemented in
+ * this wave is rendered DISABLED with its reason — it is never an enabled
+ * link into a page that looks functional.
+ */
+const NAV = [
+  { title: "Operations", items: [
+    { key: "overview",    label: "Dashboard",   icon: LayoutGrid, to: "/edr" },
+    { key: "computers",   label: "Computers",   icon: Monitor,
+      to: "/edr/computers" },
+    { key: "detections",  label: "Detections",  icon: ShieldAlert,
+      to: "/edr/detections" },
+    { key: "events",      label: "Events",      icon: List,
+      reason: "An endpoint-wide event explorer is not implemented in this "
+        + "wave. Event evidence is reachable per computer through Device "
+        + "Trajectory and Command Intelligence." },
+  ] },
+  { title: "Investigate", items: [
+    { key: "device-trajectory", label: "Device Trajectory", icon: Radar,
+      to: "/edr/device-trajectory" },
+    { key: "process-tree",   label: "Process Tree",   icon: GitBranch,
+      to: "/edr/process-tree" },
+    { key: "campaign-story", label: "Campaign Story", icon: BookOpen,
+      to: "/edr/campaign-story" },
+    { key: "hunting", label: "Hunt", icon: Search,
+      reason: "Endpoint hunting over the raw evidence store is not "
+        + "implemented in this wave." },
+    { key: "files", label: "Files", icon: FileText,
+      reason: "The sensor does not collect file-system observation yet, so "
+        + "there is no file evidence to present." },
+    { key: "network", label: "Network", icon: Wifi,
+      reason: "Endpoint-observed connections and DNS are not collected by "
+        + "the current sensor." },
+    { key: "forensics", label: "Forensics", icon: Camera,
+      reason: "No forensic collection capability exists on the endpoint "
+        + "sensor yet." },
+    { key: "live-query", label: "Live Query", icon: Terminal,
+      reason: "Live query requires an endpoint execution channel with "
+        + "approval, which is not implemented." },
+  ] },
+  { title: "Respond", items: [
+    { key: "response", label: "Response", icon: ArrowRightLeft,
+      to: "/edr/response" },
+    { key: "policies", label: "Policies", icon: SlidersHorizontal,
+      reason: "Policy authoring is not implemented. The default Windows "
+        + "policy is DETECT_ONLY and is shown per computer, where its "
+        + "enforcement state is reported honestly." },
+  ] },
+  { title: "Management", items: [
+    { key: "downloads", label: "Downloads", icon: Download,
+      to: "/edr/management/downloads" },
+    { key: "audit", label: "Audit", icon: ScrollText,
+      reason: "The EDR audit surface is not implemented in this wave; "
+        + "platform audit remains in NivXRay XDR." },
+  ] },
 ];
+
+const TABS = NAV.flatMap((s) => s.items).filter((i) => i.to);
 
 /** Incident-context nav hints from the URL. The browser may NAME an
  *  incident; only the server decides whether it may be seen and what it
@@ -163,6 +206,23 @@ export default function NivXForgeConsole({ activeTab, children }) {
 
   const { user, logout } = useAuth();
   const [sess, setSess] = useState(null);
+  const [tenant, setTenant] = useState(() => activeTenant());
+  const tenants = useMemo(() => {
+    const named = (sess?.customers || []).map((c) => c.customer);
+    const scoped = sess?.tenant_scope?.tenant_ids || [];
+    return Array.from(new Set([...scoped, ...named])).filter(Boolean);
+  }, [sess]);
+
+  // A principal authorised for exactly ONE customer has no choice to make,
+  // so the console selects it rather than failing every tenant-bound read
+  // with TENANT_REQUIRED. It never invents a tenant for anyone else.
+  useEffect(() => {
+    if (!tenant && tenants.length === 1) {
+      setActiveTenant(tenants[0]);
+      setTenant(tenants[0]);
+    }
+  }, [tenant, tenants]);
+
   const [theme, setTheme] = useState(() => {
     try {
       return window.localStorage.getItem("nx.theme") === "light"
@@ -224,15 +284,30 @@ export default function NivXForgeConsole({ activeTab, children }) {
         </span>
         <span style={{ flex: 1 }} />
         <span className="pill" data-testid="nvf-customer-pill"
-              data-customer={sess?.active_customer?.value || ""}
-              title="Customer scope resolved by the server">
+              data-customer={tenant || ""}
+              data-customer-basis={sess?.tenant_scope?.all_tenants
+                ? "CROSS_TENANT_ROLE" : "AUTHORIZED_TENANTS"}
+              title="Customer scope. Every tenant-bound EDR surface is read
+ under this customer; the platform has no default tenant.">
           <span className="k">Customer</span>
-          <span className="v">
-            {sess?.active_customer?.value
-              || (sess?.active_customer?.basis
-                === "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"
-                ? "All Authorized Tenants" : "◇ NOT RESOLVED")}
-          </span>
+          {tenants.length ? (
+            <select value={tenant || ""}
+                    data-testid="nvf-customer-select"
+                    onChange={(e) => {
+                      setActiveTenant(e.target.value);
+                      window.location.reload();
+                    }}
+                    style={{ background: "transparent", border: "none",
+                             color: tenant ? "var(--mint)" : "var(--amber)",
+                             fontFamily: "var(--mono)", fontSize: 10,
+                             outline: "none", maxWidth: 190 }}>
+              {tenant ? null : <option value="">◇ SELECT CUSTOMER</option>}
+              {tenants.map((t) => (
+                <option key={t} value={t}>{t}</option>))}
+            </select>
+          ) : (
+            <span className="v">◇ NOT RESOLVED</span>
+          )}
         </span>
         {/* EDR → XDR product pivot. Resolved through `productOrigins` so
             it becomes an absolute cross-origin URL the moment XDR gets
@@ -276,23 +351,41 @@ export default function NivXForgeConsole({ activeTab, children }) {
       <div className="nvf-console nvf-embedded">
         <div className="body">
           <aside className="sidebar" data-testid="nvf-sidebar">
-            <div className="nav-title">Endpoint plane</div>
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              const isActive = t.key === active;
-              return (
-                <button
-                  key={t.key}
-                  className={`nav-item ${isActive ? "active" : ""}`}
-                  onClick={() => navigate(propagate(t.to))}
-                  data-active={isActive || undefined}
-                  data-testid={`nvf-nav-${t.key}`}
-                >
-                  <span className="ic"><Icon size={13} /></span>
-                  {t.label}
-                </button>
-              );
-            })}
+            {NAV.map((section) => (
+              <React.Fragment key={section.title}>
+                <div className="nav-title">{section.title}</div>
+                {section.items.map((t) => {
+                  const Icon = t.icon;
+                  if (!t.to) {
+                    return (
+                      <button key={t.key} className="nav-item disabled"
+                              disabled title={t.reason}
+                              data-testid={`nvf-nav-${t.key}`}
+                              data-state="NOT_IMPLEMENTED">
+                        <span className="ic"><Icon size={13} /></span>
+                        {t.label}
+                        <span className="chip"
+                              style={{ marginLeft: "auto", fontSize: 8,
+                                       padding: "0 4px" }}>N/I</span>
+                      </button>
+                    );
+                  }
+                  const isActive = t.key === active;
+                  return (
+                    <button
+                      key={t.key}
+                      className={`nav-item ${isActive ? "active" : ""}`}
+                      onClick={() => navigate(propagate(t.to))}
+                      data-active={isActive || undefined}
+                      data-testid={`nvf-nav-${t.key}`}
+                    >
+                      <span className="ic"><Icon size={13} /></span>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </aside>
           <main className="main" data-testid="nvf-main">
             <XdrContextBar />

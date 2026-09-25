@@ -45,9 +45,10 @@ const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
 const DETAILS_W = 348;
 
-export default function EdrDeviceTrajectoryPage() {
+export default function EdrDeviceTrajectoryPage({ embedded = false,
+                                                 device: deviceProp = null }) {
   const [params, setParams] = useSearchParams();
-  const device = params.get("device") || "";
+  const device = deviceProp || params.get("device") || "";
 
   /** Cisco ships both a dark and a light console; the analyst picks.
    *  Applied before children render so one palette drives every part. */
@@ -919,6 +920,19 @@ export default function EdrDeviceTrajectoryPage() {
            style={{ position: "fixed", inset: 0, zIndex: 2000,
                     background: C.shell, overflow: "auto",
                     padding: "12px 16px" }}>
+        {body}
+      </div>
+    );
+  }
+
+  if (embedded) {
+    // Rendered inside the device workspace: the console chrome and the
+    // page header belong to the parent, so only the canvas is returned.
+    return (
+      <div data-testid="amp-page-surface" data-embedded="true"
+           style={{ background: C.page,
+                    border: `1px solid ${C.gridStrong}`, borderRadius: 6,
+                    padding: "12px 14px 14px" }}>
         {body}
       </div>
     );

@@ -13,6 +13,7 @@ Owner-locked rules (Slice 2 · P0 · 2026-08-29):
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -517,6 +518,190 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
                  "not an absence of malicious activity."),
     }
 
+
+
+@router.get("/endpoint-commands")
+async def list_endpoint_commands(endpoint_id: str, hours: int = 24,
+                                 limit: int = 200,
+                                 user=Depends(get_current_user),
+                                 tenant_id: str = Depends(edr_tenant)):
+    """Command Intelligence — OBSERVED endpoint command execution.
+
+    This is deliberately NOT the response plane. `/edr/response/actions`
+    records commands NivXRay *sent* to a sensor; this surface records
+    commands the endpoint was *observed executing*, read from the
+    immutable raw sensor evidence:
+
+        parent process -> process -> raw command line -> decoder ->
+        decoded command -> canonical evidence -> detection -> ATT&CK
+
+    Every link is rendered only where the evidence carries it. The
+    decoder join is content-addressed (`sha256(command_line)` ->
+    `v2_decoded_payloads`), so a command with no persisted decode reads
+    DECODE_NOT_RECORDED instead of being decoded in the browser.
+    """
+    scope = _tenant_scope(user, tenant_id)
+    res = eq.resolve_endpoint(endpoint_id, scope)
+    window = max(1, min(hours, 24 * 90))
+    cap = max(1, min(limit, 500))
+    if not res:
+        return {**eq.unresolved_envelope(endpoint_id),
+                "window_hours": window, "commands": [], "count": 0,
+                "processes_observed": 0, "truncated": False,
+                "source": "edr_raw_events.payload (activity=PROCESS)"}
+    since = (datetime.now(timezone.utc)
+             - timedelta(hours=window)).isoformat()
+    observations: List[Dict[str, Any]] = []
+    scanned = 0
+    cursor = sync_collection("edr_raw_events").find(
+        {**res.predicate("edr_raw_events"),
+         "ingest_time": {"$gte": since}},
+        {"_id": 0, "raw_id": 1, "payload": 1, "derivations": 1,
+         "ingest_time": 1, "trust_state": 1, "telemetry_quality": 1,
+         "sensor_version": 1}).sort("ingest_time", -1).limit(cap * 8)
+    for raw in cursor:
+        scanned += 1
+        try:
+            p = json.loads(raw.get("payload") or "{}")
+        except ValueError:
+            continue
+        if p.get("activity") != "PROCESS" or not p.get("command_line"):
+            continue
+        matched, evaluated_state, rules, verdict, engine = [], None, [], None, None
+        canonical_ids = []
+        for d in (raw.get("derivations") or ()):
+            outcome = d.get("outcome")
+            if d.get("event_id") and d["event_id"] not in canonical_ids:
+                canonical_ids.append(d["event_id"])
+            if outcome == "DETECTION_MATCHED":
+                evaluated_state = "DETECTION_MATCHED"
+                rules += [r.strip() for r in
+                          str(d.get("reason") or "").replace("rules:", "")
+                          .split(",") if r.strip()]
+                verdict = d.get("verdict_version") or verdict
+                engine = d.get("detection_content_version") or engine
+                matched.append(d)
+            elif (outcome == "DETECTION_EVALUATED_NO_MATCH"
+                  and evaluated_state is None):
+                evaluated_state = "EVALUATED_NO_MATCH"
+            elif (outcome == "DETECTION_NOT_EVALUATED"
+                  and evaluated_state is None):
+                evaluated_state = "NOT_EVALUATED"
+        command_line = str(p["command_line"])
+        observations.append({
+            "raw_id": raw.get("raw_id"),
+            "observed_at": p.get("observed_at"),
+            "start_time": p.get("start_time"),
+            "ingest_time": raw.get("ingest_time"),
+            "pid": p.get("pid"),
+            "ppid": p.get("ppid"),
+            "user": p.get("user"),
+            "image": p.get("image"),
+            "image_path": p.get("image_path"),
+            "sha256": p.get("sha256"),
+            "command_line": command_line,
+            "command_sha256": hashlib.sha256(
+                command_line.encode()).hexdigest(),
+            "parent": {
+                "image": p.get("parent_image"),
+                "image_path": p.get("parent_image_path"),
+                "lookup_state": p.get("parent_lookup_state")
+                                or "NOT_OBSERVED",
+            },
+            "collection_method": p.get("collection_method"),
+            "sensor_version": p.get("sensor_version")
+                              or raw.get("sensor_version"),
+            "not_observed": list(p.get("not_observed") or []),
+            "trust_state": raw.get("trust_state"),
+            "telemetry_quality": raw.get("telemetry_quality"),
+            "canonical_event_ids": canonical_ids,
+            "detection": {
+                "state": evaluated_state or "NOT_RECORDED",
+                "rule_ids": sorted(set(rules)),
+                "verdict": verdict,
+                "engine": engine,
+                "basis": ("read from the detection derivations written onto "
+                          "this raw event; NOT_EVALUATED is a detection gap, "
+                          "not an absence of malicious activity"),
+            },
+        })
+        if len(observations) >= cap:
+            break
+    # ONE content-addressed decoder join for the whole page — no per-row read.
+    digests = sorted({o["command_sha256"] for o in observations})
+    decoded = {}
+    if digests:
+        for doc in sync_collection("v2_decoded_payloads").find(
+                {"_id": {"$in": digests}},
+                {"_id": 1, "report": 1, "command_binary": 1}):
+            decoded[doc["_id"]] = doc
+    # Child links come from observed pids inside the SAME window only.
+    by_ppid: Dict[Any, List[Dict[str, Any]]] = {}
+    for o in observations:
+        by_ppid.setdefault(o.get("ppid"), []).append(o)
+    techniques: Dict[str, Dict[str, Any]] = {}
+    for o in observations:
+        doc = decoded.get(o["command_sha256"])
+        report = (doc or {}).get("report") or {}
+        trace = report.get("trace") or []
+        mitre = []
+        for layer in trace:
+            for hint in (layer.get("mitre_hints") or []):
+                if hint.get("id"):
+                    mitre.append(hint)
+                    techniques.setdefault(hint["id"], {
+                        "id": hint["id"],
+                        "technique": hint.get("technique"),
+                        "tactic": hint.get("tactic"),
+                        "source": "DECODER_EVIDENCE",
+                        "commands": 0})
+                    techniques[hint["id"]]["commands"] += 1
+        o["decode"] = {
+            "state": "DECODED" if doc else "DECODE_NOT_RECORDED",
+            "decoded_command": report.get("output"),
+            "layers": [{"layer": t.get("layer"), "decoder": t.get("decoder"),
+                        "why": t.get("why"), "confidence": t.get("confidence"),
+                        "preview": t.get("preview")} for t in trace],
+            "mitre_hints": mitre,
+            "lolbas": [h for t in trace for h in (t.get("lolbas_hits") or [])],
+            "tradecraft": [f for t in trace
+                           for f in (t.get("tradecraft") or [])],
+            "basis": ("content-addressed join on sha256(command_line) into "
+                      "the persisted decoder store; a command with no "
+                      "persisted decode is reported, never decoded here"),
+        }
+        o["children_observed"] = [
+            {"pid": c.get("pid"), "image": c.get("image"),
+             "command_line": c.get("command_line"),
+             "observed_at": c.get("observed_at")}
+            for c in by_ppid.get(o.get("pid"), []) if c is not o]
+    return {
+        "endpoint_id": endpoint_id,
+        "window_hours": window,
+        "identity": {"resolved": True,
+                     "resolved_via": res.identity.get("resolved_via"),
+                     "device_iid": res.device_iid,
+                     "hostname": res.hostname,
+                     "addressed_by": res.refs},
+        "commands": observations,
+        "count": len(observations),
+        "distinct_commands": len({o["command_sha256"] for o in observations}),
+        "decoded_count": sum(1 for o in observations
+                             if o["decode"]["state"] == "DECODED"),
+        "detected_count": sum(1 for o in observations
+                              if o["detection"]["state"]
+                              == "DETECTION_MATCHED"),
+        "attack_techniques": sorted(techniques.values(),
+                                    key=lambda t: -t["commands"]),
+        "raw_events_scanned": scanned,
+        "truncated": len(observations) >= cap,
+        "source": ("edr_raw_events.payload (activity=PROCESS) + "
+                   "derivations[] + v2_decoded_payloads"),
+        "note": ("Observed endpoint command execution. Response actions "
+                 "dispatched BY the platform are a different authority "
+                 "(/edr/response/actions) and are never presented as "
+                 "observed endpoint execution."),
+    }
 
 
 @router.get("/process-tree")

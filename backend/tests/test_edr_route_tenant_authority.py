@@ -71,6 +71,10 @@ SAMPLES: dict[tuple, dict] = {
     ("GET", "/api/edr/wave0/raw-events/replay-candidates"): {"url": "/api/edr/wave0/raw-events/replay-candidates"},
     ("GET", "/api/edr/enrollment/tokens"): {"url": "/api/edr/enrollment/tokens"},
     ("GET", "/api/edr/enrollment/endpoints"): {"url": "/api/edr/enrollment/endpoints"},
+    # ── Fleet Operations wave · Computers + Command Intelligence ──────
+    ("GET", "/api/edr/onboarding/computers"): {"url": "/api/edr/onboarding/computers"},
+    ("GET", "/api/edr/onboarding/computers/{endpoint_id}"): {"url": "/api/edr/onboarding/computers/probe"},
+    ("GET", "/api/edr/endpoint-commands"): {"url": "/api/edr/endpoint-commands?endpoint_id=probe"},
     ("POST", "/api/edr/response/actions"): {
         "url": "/api/edr/response/actions", "mutating": True,
         "json": {"endpoint_id": "probe", "action": "isolate",
@@ -326,6 +330,11 @@ _METADATA_URLS = {
     ("GET", "/api/edr/wave0/filter-taxonomy"): "/api/edr/wave0/filter-taxonomy",
     ("GET", "/api/edr/wave0/detection-rule-bindings"): "/api/edr/wave0/detection-rule-bindings",
     ("GET", "/api/edr/enrollment/rejections"): "/api/edr/enrollment/rejections",
+    # The sensor build catalog describes artifacts on disk, not customers.
+    ("GET", "/api/edr/onboarding/packages"): "/api/edr/onboarding/packages",
+    ("GET", "/api/edr/onboarding/packages/{package_id}/file/{name}"):
+        "/api/edr/onboarding/packages/windows-x64/file/"
+        "Install-NivXForgeSensor.ps1",
 }
 
 
