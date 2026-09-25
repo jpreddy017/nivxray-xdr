@@ -20169,3 +20169,63 @@ After the 28 close: permanent durable receipt/reconciliation mechanism BEFORE
 the ~122k backlog, then the product pivot (Windows telemetry coverage ->
 Endpoint Event Journal -> Command Intelligence -> Device Trajectory ->
 endpoint investigation UI -> prevention/response).
+
+### G1-R6 Phase B IMPLEMENTED, NOT EXECUTED (2026-06, owner-authorised)
+Built, tested, and stopped for owner review. Endpoint never contacted.
+
+New `scripts/g1_r6_phase_b_exact28_recovery.py`
+(`E11642144105941439003E1C4E6590E71B26A7BC33CA134A99A96A5CC843E547`):
+- Never constructs `Outbox` (its `__init__` -> `_reset_stuck_delivering()`
+  would reset delivering -> queued). Owns its own sqlite3 connection, `mode=ro`
+  in readiness; imports only the pure `Envelope` dataclass. A runtime guard
+  `_own_forbidden_usage()` scans its own source for `Outbox(`,
+  `DeliveryWorker(`, `EvtSubscribe`, `next_batch(`, `release_delivering(` and
+  is asserted empty in the report.
+- Selection: exact-50 authority only; refuses the FAILED-UNTRUSTED sibling,
+  `pass != true`, any split other than 22 canonical + 28 retryable, hard bound
+  MAX_TARGET=28. Positive proof Phase A is intact: each of the 22 must be
+  locally `delivered` AND carry a `G1-R6-A` marker; each of the 28 must be
+  `delivering`, carry no `G1-R6-A` marker, and recompute to the authority's
+  `delivery_key`.
+- R3.1 gate restored from the persisted row through a store adapter (no
+  Outbox). Gate not permitting delivery -> hard stop, zero wire calls.
+  Readiness uses a WRITE-REFUSING store, so a dry run cannot rewrite the
+  gate's memory.
+- Canary boundary: 1 identity -> `IngestClient.deliver` -> RECONCILE that one
+  -> continue only on canonical/retained-raw WITH evidence AND gate still
+  open. Retryable canary raises `PhaseBStop` (exit 3, remaining 27 NOT sent,
+  nothing accounted); terminal/unexplained/evidence-less -> stop. A 2xx alone
+  authorises nothing.
+- Remainder 27 in batches of 7, then ONE reconciliation of all 28, strict 1:1
+  refs, `unexplained = 0`, equation sums to 28.
+- Accounting: single `BEGIN IMMEDIATE`, per-row `rowcount != 1` -> full
+  rollback. `delivering -> delivered` only for CANONICAL/RETAINED with
+  resolvable evidence; marker records `network_delivery_performed: true`,
+  disposition, `retained_raw` flag (B4: retained raw never relabelled
+  canonical) and the authority SHA. Retryable/terminal rows keep status,
+  attempts, next_attempt_at, last_error byte-identical.
+- A PARTIAL OUTCOME IS A PASS. Full success -> delivered 3334 / delivering 0;
+  20+8 -> delivered 3326 / delivering 8.
+
+`memory/G1_R6_PHASE_B_EXECUTION_COPY.ps1`
+(`F5C3C5CB1E19731C962AE3BDF967A03DC7AAA2EFA214EDA2644E61D7FDAA06F1`):
+readiness by default, `apps\` path, BOTH tool SHAs pinned (Phase B +
+exact-50 library), writer guard, authority validation, authority banner with
+`NivXRay XDR PREVIEW Admin` prompt, credential-free login-422 +
+same-python-client reconcile-403/edge_banned=false probes BEFORE the prompt,
+readiness gate before apply, backup (+ -wal/-shm) before the first mutating
+call, independent post-state re-check enforcing CONSERVATION
+(`delivered + delivering == 3334`, phase_b_markers == delivered - 3306,
+phase_a_markers == 22, queued 121993, retrying 125, total 125452) rather than
+a particular split, exit 3 surfaced distinctly for a canary stop, non-zero on
+every failure, token cleared on the failure path.
+
+Tests: 22 in `test_g1_r6_phase_b_exact28.py` + 14 in
+`test_g1_r6_phase_b_execution_copy.py`. **Whole collector suite: 427 passed.**
+`framework/` and `backend/` untouched; exact-50 (`D624C632...`) and Phase A
+(`C92FA282...`) tools byte-identical.
+
+NEXT: owner runs the readiness pass, reviews `r6-phaseB-readiness.json`, then
+authorises `$Apply = $true`. After the 28 are accounted: permanent durable
+receipt/reconciliation mechanism BEFORE the ~122k backlog, then the product
+pivot.
