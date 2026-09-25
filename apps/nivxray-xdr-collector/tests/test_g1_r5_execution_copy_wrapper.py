@@ -12,6 +12,7 @@ this repository and that no HARD STOP path can yield 0.
 """
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import os
 import re
@@ -138,3 +139,133 @@ def test_read_only_reconciliation_invariants_are_preserved(block):
     for forbidden in ("--apply", "$Apply", "Start-Service",
                       "DeliveryWorker(", "Outbox("):
         assert forbidden not in block, forbidden
+
+
+# ---------------------------------------------------------------------------
+# Auth-prompt authority: the operator must know WHICH product+environment is
+# asking before typing anything. Four authorities now exist (NivXRay XDR and
+# NivXForge EDR, each PREVIEW and PRODUCTION), so a bare "Admin password:"
+# prompt is a real mis-credentialling risk.
+# ---------------------------------------------------------------------------
+_HOST_ROW = re.compile(
+    r"HostPattern\s*=\s*'([^']+)'\s*\n\s*Product\s*=\s*'([^']+)'\s*\n\s*"
+    r"Environment\s*=\s*'([^']+)'\s*\n\s*Database\s*=\s*'([^']+)'\s*\n\s*"
+    r"AuthScope\s*=\s*'([^']+)'")
+
+
+def _registry(block: str):
+    rows = [{"pattern": m.group(1), "product": m.group(2),
+             "environment": m.group(3), "database": m.group(4),
+             "scope": m.group(5)} for m in _HOST_ROW.finditer(block)]
+    assert rows, "the authority registry ($AuthTargets) could not be parsed"
+    return rows
+
+
+def _classify(block: str, host: str):
+    """Mirror the script's `-like` first-match resolution."""
+    for row in _registry(block):
+        if fnmatch.fnmatchcase(host, row["pattern"]):
+            return row
+    return None
+
+
+@pytest.mark.parametrize("host,product,environment,database", [
+    ("greeting-app-5782.preview.emergentagent.com", "NivXRay XDR", "PREVIEW",
+     "test_database"),
+    ("some-other-pod.preview.emergentagent.com", "NivXRay XDR", "PREVIEW",
+     "test_database"),
+    ("nivxray.nivxforge.com", "NivXRay XDR", "PRODUCTION",
+     "NOT DISCLOSED BY THIS SCRIPT"),
+])
+def test_known_hosts_classify_to_the_right_authority(block, host, product,
+                                                     environment, database):
+    row = _classify(block, host)
+    assert row is not None, f"{host} did not classify"
+    assert (row["product"], row["environment"], row["database"]) == (
+        product, environment, database)
+    assert row["scope"] == "Cross-Tenant Administrator"
+
+
+def test_the_configured_base_url_classifies_as_xdr_preview(block):
+    host = _assign(block, "BaseUrl").split("//", 1)[1].split("/", 1)[0]
+    row = _classify(block, host)
+    assert row is not None, f"the configured $BaseUrl host {host} is ambiguous"
+    assert row["product"] == "NivXRay XDR"
+    assert row["environment"] == "PREVIEW"
+    assert row["database"] == "test_database"
+
+
+@pytest.mark.parametrize("host", [
+    "edr.nivxforge.com",                  # NivXForge EDR prod - not registered
+    "nivxforge-edr.preview.example.com",  # NivXForge EDR preview - unknown
+    "localhost",
+    "evil.attacker.test",
+])
+def test_unknown_hosts_are_ambiguous_and_must_not_prompt(block, host):
+    assert _classify(block, host) is None, (
+        f"{host} must NOT silently classify; an unregistered host has to hard "
+        "stop rather than mislabel the environment")
+
+
+def test_ambiguous_target_hard_stops_before_asking_for_credentials(block):
+    assert "HARD STOP - AUTH TARGET AMBIGUOUS" in block
+    # both guards: unknown host, and a banner host that differs from the host
+    # the requests would actually reach
+    assert block.count("HARD STOP - AUTH TARGET AMBIGUOUS") >= 2
+    ambiguous = block.index("matches no ")
+    prompt = block.index("Read-Host (\"  \" + $principal + \" Email\")")
+    assert ambiguous < prompt, (
+        "the ambiguity guard must run BEFORE the credential prompt")
+    assert "No credential was requested" in block
+
+
+def test_prompts_name_the_product_and_environment(block):
+    assert ("$principal = $Target.Product + ' ' + $Target.Environment + "
+            "' Admin'") in block
+    assert 'Read-Host ("  " + $principal + " Email")' in block
+    assert ('Read-Host ("  " + $principal + " Password (not echoed, not '
+            'stored)") -AsSecureString') in block
+    # the old ambiguous prompts must be gone
+    assert "NivXRay admin e-mail" not in block
+    assert "NivXRay admin password" not in block
+    assert not re.search(r"Read-Host\s+'[^']*[Pp]assword", block), (
+        "no literal password prompt may bypass the qualified $principal label")
+
+
+def test_banner_fields_are_derived_not_decorative(block):
+    for field in ("Product      : ", "Environment  : ", "Backend      : ",
+                  "Database     : ", "Auth Scope   : ", "Operation    : "):
+        assert field in block, field
+    # every banner value except the fixed Operation line comes from $Target or
+    # the request destination itself
+    assert '("   Product      : " + $Target.Product)' in block
+    assert '("   Environment  : " + $Target.Environment)' in block
+    assert '("   Backend      : " + $BaseUrl)' in block
+    assert '("   Database     : " + $Target.Database)' in block
+    assert '("   Auth Scope   : " + $Target.AuthScope)' in block
+    assert "R5 Exact-50 READ-ONLY RECONCILIATION" in block
+
+
+def test_displayed_backend_is_asserted_to_be_the_request_destination(block):
+    # both URLs are composed from the single $BaseUrl the banner prints, and
+    # the reconcile path is read out of the tool rather than restated here
+    assert '$loginUri     = "$BaseUrl/api/auth/login"' in block
+    assert '$reconcileUri = "$BaseUrl" + $toolReconcilePath' in block
+    assert "print(m.RECONCILE_PATH)" in block
+    assert "([Uri]$loginUri).Host -ne $bannerHost" in block
+    assert "([Uri]$reconcileUri).Host -ne $bannerHost" in block
+    # and the login call uses that asserted URI, not a re-spelled string
+    assert "Invoke-RestMethod -Method Post -Uri $loginUri" in block
+    assert '-Uri "$BaseUrl/api/auth/login"' not in block
+
+
+def test_future_authority_naming_convention_is_recorded(block):
+    for label in ("NivXRay XDR PREVIEW Admin", "NivXRay XDR PRODUCTION Admin",
+                  "NivXForge EDR PREVIEW Admin",
+                  "NivXForge EDR PRODUCTION Admin"):
+        assert label in block, label
+
+
+def test_production_environment_is_visually_distinct(block):
+    assert ("if ($Target.Environment -eq 'PRODUCTION') { 'Red' } "
+            "else { 'Yellow' }") in block

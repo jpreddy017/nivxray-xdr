@@ -19,13 +19,20 @@
 #      /api/auth/login with an invalid shape must answer 422, and
 #      /api/xdr/ingest/routing/reconcile unauthenticated must answer 403.
 #      Anything else hard-stops BEFORE the password prompt.
-#   6. issues ONE read-only reconciliation request for those 50 identities
-#   7. verifies 22 DELIVERED_CANONICAL + 28 RETRYABLE_STILL_QUEUED,
+#   6. AUTHORITY BANNER, before any credential is requested: product,
+#      environment, backend, database, auth scope and operation, all
+#      CLASSIFIED FROM THE REQUEST DESTINATION. An unregistered host, or a
+#      displayed backend that differs from the host the requests would reach,
+#      hard-stops with HARD STOP - AUTH TARGET AMBIGUOUS. The prompt then
+#      names the authority explicitly ("NivXRay XDR PREVIEW Admin Password"),
+#      never a bare "Admin password:".
+#   7. issues ONE read-only reconciliation request for those 50 identities
+#   8. verifies 22 DELIVERED_CANONICAL + 28 RETRYABLE_STILL_QUEUED,
 #      0 retained raw, 0 terminal, 0 unexplained, and a strict 1:1 ref
 #      correspondence (no missing, no foreign, no duplicate refs)
-#   8. read-only post-snapshot: file bytes, histogram, total, bookmarks and
+#   9. read-only post-snapshot: file bytes, histogram, total, bookmarks and
 #      the delivering set must all be identical
-#   9. writes the authoritative per-row evidence file ONLY on full PASS
+#  10. writes the authoritative per-row evidence file ONLY on full PASS
 #
 # WHAT IT NEVER DOES
 #   no SQLite write . no Outbox construction . no DeliveryWorker . no ingest
@@ -90,6 +97,32 @@ $ExpectHistogram = 'delivered=3284,delivering=50,queued=121993,retrying=125,dead
 # reconciliation request). A mismatch means the pull did not land that
 # correction, or the checkout is stale.
 $ExpectToolSha = 'D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A'
+
+# ---- authority registry ----------------------------------------------
+# Which product + environment does a given backend host represent? The
+# operator is never asked for an unqualified "admin password": the authority
+# is classified from the REQUEST DESTINATION and printed before the prompt.
+# Add a row here (never a hard-coded banner string) when a new environment
+# appears. A host that matches no row is AMBIGUOUS and the run hard-stops
+# BEFORE asking for anything.
+$AuthTargets = @(
+  @{ HostPattern = '*.preview.emergentagent.com'
+     Product     = 'NivXRay XDR'
+     Environment = 'PREVIEW'
+     Database    = 'test_database'
+     AuthScope   = 'Cross-Tenant Administrator' }
+  @{ HostPattern = 'nivxray.nivxforge.com'
+     Product     = 'NivXRay XDR'
+     Environment = 'PRODUCTION'
+     Database    = 'NOT DISCLOSED BY THIS SCRIPT'
+     AuthScope   = 'Cross-Tenant Administrator' }
+  # NivXForge EDR PREVIEW / PRODUCTION hosts are deliberately NOT listed:
+  # they are not known to this script, and inventing them would produce a
+  # banner that lies. Add the real hosts when they exist; until then those
+  # targets hard-stop as AMBIGUOUS rather than mislabel an environment.
+)
+$Target = $AuthTargets | Where-Object { ([Uri]$BaseUrl).Host -like $_.HostPattern } |
+            Select-Object -First 1
 
 try {
   if (-not ([Security.Principal.WindowsPrincipal] `
@@ -238,6 +271,12 @@ print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
   $pFile = Join-Path $env:TEMP ("nivx_r5_pyprobe_" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".py")
   Set-Content -Path $pFile -Value $pyProbe -Encoding UTF8
   $toolUa = (& $VenvPy -c "import importlib.util,sys;s=importlib.util.spec_from_file_location('t',r'$Tool');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.USER_AGENT)") -join ''
+  # The reconcile path is read OUT OF THE TOOL, so the banner cannot claim a
+  # destination different from the one the tool will actually call.
+  $toolReconcilePath = (& $VenvPy -c "import importlib.util,sys;s=importlib.util.spec_from_file_location('t',r'$Tool');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.RECONCILE_PATH)") -join ''
+  if ([string]::IsNullOrWhiteSpace($toolReconcilePath)) {
+    throw 'could not read RECONCILE_PATH from the tool. Nothing was attempted.'
+  }
   Write-Host ("  python client User-Agent: " + $toolUa)
   $pyRes = (& $VenvPy $pFile $BaseUrl $toolUa) -join "`n" | ConvertFrom-Json
   Remove-Item $pFile -ErrorAction SilentlyContinue
@@ -260,18 +299,64 @@ print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
   Write-Host '  the python client signature is accepted by the edge; 403 is FastAPI' -ForegroundColor Green
   Write-Host '  both routes bound on the same backend; reconcile still protected' -ForegroundColor Green
 
-  Write-Host "`n=== 3 . AUTHENTICATE (read-only reconciliation) ===" -ForegroundColor Cyan
+  Write-Host "`n=== 3 . AUTH TARGET + AUTHENTICATE (read-only reconciliation) ===" -ForegroundColor Cyan
   function Get-PlainFromSecure([System.Security.SecureString]$sec) {
     $b = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
     try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) }
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
   }
+
+  # ---- authority banner ----------------------------------------------
+  # The operator must never be asked for "the admin password" when four
+  # distinct authorities exist. Product and environment are CLASSIFIED FROM
+  # THE ACTUAL REQUEST DESTINATION ($BaseUrl, the same variable both requests
+  # are built from) - not from decorative text that could drift away from it.
+  # OPERATIONAL CONVENTION for every future script:
+  #   NivXRay XDR PREVIEW Admin   /  NivXRay XDR PRODUCTION Admin
+  #   NivXForge EDR PREVIEW Admin /  NivXForge EDR PRODUCTION Admin
+  # plus explicit labels for service/collector credentials. Never a bare
+  # "Admin password:".
+  $loginUri     = "$BaseUrl/api/auth/login"
+  $reconcileUri = "$BaseUrl" + $toolReconcilePath
+  $bannerHost   = ([Uri]$BaseUrl).Host
+  if (([Uri]$loginUri).Host -ne $bannerHost -or
+      ([Uri]$reconcileUri).Host -ne $bannerHost) {
+    throw ('HARD STOP - AUTH TARGET AMBIGUOUS: the displayed backend (' +
+           $bannerHost + ') is not the host that would receive login (' +
+           ([Uri]$loginUri).Host + ') and reconciliation (' +
+           ([Uri]$reconcileUri).Host + '). No credential was requested.')
+  }
+  if (-not $Target) {
+    throw ('HARD STOP - AUTH TARGET AMBIGUOUS: ' + $bannerHost + ' matches no ' +
+           'known NivXRay XDR / NivXForge EDR product+environment. Refusing to ' +
+           'ask for credentials when the authority cannot be named. No ' +
+           'credential was requested and nothing was read or changed.')
+  }
+  $bar = '=' * 60
+  Write-Host ''
+  Write-Host "  $bar" -ForegroundColor Cyan
+  Write-Host ("   " + $Target.Product + " - R5 Exact-50 Reconciliation") -ForegroundColor Cyan
+  Write-Host "  $bar" -ForegroundColor Cyan
+  Write-Host ("   Product      : " + $Target.Product)
+  Write-Host ("   Environment  : " + $Target.Environment) -ForegroundColor $(
+    if ($Target.Environment -eq 'PRODUCTION') { 'Red' } else { 'Yellow' })
+  Write-Host ("   Backend      : " + $BaseUrl)
+  Write-Host ("   Database     : " + $Target.Database)
+  Write-Host ("   Auth Scope   : " + $Target.AuthScope)
+  Write-Host  "   Operation    : R5 Exact-50 READ-ONLY RECONCILIATION"
+  Write-Host ("   Login URL    : " + $loginUri)
+  Write-Host ("   Reconcile    : " + $reconcileUri + "   (path read from the tool)")
+  Write-Host "  $bar" -ForegroundColor Cyan
+  $principal = $Target.Product + ' ' + $Target.Environment + ' Admin'
+  Write-Host ''
+  Write-Host ("  Enter " + $principal + " credentials") -ForegroundColor Cyan
   Write-Host '  NOTE: five failed logins in 5 minutes for the same (e-mail, IP)'
   Write-Host '  returns HTTP 429 with Retry-After. Type carefully.'
-  $adminEmail  = Read-Host '  NivXRay admin e-mail'
-  $adminSecret = Read-Host '  NivXRay admin password (not echoed, not stored)' -AsSecureString
+  Write-Host ''
+  $adminEmail  = Read-Host ("  " + $principal + " Email")
+  $adminSecret = Read-Host ("  " + $principal + " Password (not echoed, not stored)") -AsSecureString
   try {
-    $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/auth/login" `
+    $login = Invoke-RestMethod -Method Post -Uri $loginUri `
       -ContentType 'application/json' -TimeoutSec 30 `
       -Body (@{ email    = $adminEmail
                 password = (Get-PlainFromSecure $adminSecret) } | ConvertTo-Json)

@@ -20032,3 +20032,47 @@ so budget remains.
 NEXT ACTION (one): re-run the corrected block using the PREVIEW admin
 credential from `backend/.env` / `memory/test_credentials.md`, e-mail exactly
 lowercase and untrimmed.
+
+### OPERATIONAL CONVENTION (permanent) · credential prompts must name the authority
+Four authorities now exist and will grow: **NivXRay XDR PREVIEW Admin**,
+**NivXRay XDR PRODUCTION Admin**, **NivXForge EDR PREVIEW Admin**,
+**NivXForge EDR PRODUCTION Admin**, plus service/collector credentials. Every
+operational script that asks a human for a credential MUST, before the prompt:
+print Product / Environment / Backend / Database / Auth Scope / Operation,
+classify product+environment FROM THE ACTUAL REQUEST DESTINATION (never a
+hard-coded banner string that can drift), assert the displayed backend is the
+host that will receive the requests, and label the prompt with the full
+authority name. A bare `Admin password:` prompt is forbidden. An unregistered
+host must `HARD STOP - AUTH TARGET AMBIGUOUS` *before* asking for anything
+rather than mislabel an environment.
+
+### G1-R5 exact-50 · authority banner added to the wrapper (2026-06, UX/safety only)
+`memory/G1_R5_INFLIGHT50_RECONCILE_EXECUTION_COPY.ps1` now carries an
+`$AuthTargets` registry keyed on backend host (`*.preview.emergentagent.com`
+-> NivXRay XDR / PREVIEW / `test_database`; `nivxray.nivxforge.com` ->
+NivXRay XDR / PRODUCTION / `NOT DISCLOSED BY THIS SCRIPT`). NivXForge EDR
+hosts are deliberately NOT listed because they are unknown here — inventing
+them would produce a banner that lies, so they hard-stop as AMBIGUOUS. Both
+request URLs are composed from the single `$BaseUrl` the banner prints, and
+the reconcile path is read out of the tool (`RECONCILE_PATH`) so the banner
+cannot claim a destination the tool will not call; host equality between
+banner, login and reconcile is asserted before the prompt. PRODUCTION renders
+in red. Prompts are now `NivXRay XDR PREVIEW Admin Email` /
+`... Admin Password`; the old `NivXRay admin e-mail` / `NivXRay admin
+password` strings are gone and a test forbids any literal password prompt.
+
+Authentication semantics, credentials, roles and tenants unchanged; the python
+tool is byte-identical (`D624C632...`). 13 new tests (34 total exact-50 tests
+pass), including data-driven classification of the registry: the configured
+`$BaseUrl` -> XDR/PREVIEW/test_database, `nivxray.nivxforge.com` ->
+XDR/PRODUCTION, and `edr.nivxforge.com`, `nivxforge-edr.preview.example.com`,
+`localhost`, `evil.attacker.test` all correctly AMBIGUOUS; plus an ordering
+test proving the ambiguity guard precedes the credential prompt. pwsh is
+unavailable in the container, so these are static/data-driven guards over the
+published block, not an executed PowerShell run.
+
+Files: `...EXECUTION_COPY.ps1`
+(`13638892E93F4700DE7EBEE94B9D3815887CDF3226DC211B79C3D3410F00FCF3`),
+`tests/test_g1_r5_execution_copy_wrapper.py`
+(`1D1E52499116206883736C34661186A94072A0EB9F44225288306821C4D38AFE`).
+Exact-50 NOT executed, R6 NOT run, endpoint delivery state untouched.
