@@ -28,7 +28,9 @@
 #      secret, proves the 28 are selected, the 22 are intact and excluded, and
 #      nothing moved
 #   7. only when $Apply = $true: prompt for the existing authorised collector
-#      ingest credential, assert PRESENCE (never values) of url/auth-mode/
+#      ingest credential, refuse it locally unless it satisfies the server's
+#      own issuance syntax ^nvx_[0-9a-f]{48}$ (fail-closed, no repair, only
+#      the 12-char public prefix ever shown), assert PRESENCE of url/auth-mode/
 #      token/collector-id/autostart, back up, then canary(1) -> reconcile ->
 #      remainder(27 in batches of 7) -> one reconciliation of all 28 ->
 #      transactional accounting
@@ -95,7 +97,7 @@ $ExpectRetrying = 125
 $ExpectTotalRows = 125452
 $RemainderBatch = 7
 
-$ExpectToolSha    = 'E11642144105941439003E1C4E6590E71B26A7BC33CA134A99A96A5CC843E547'
+$ExpectToolSha    = '212240B8ACA2F035BD62BCE483A3B2C8C49083670A9D32D020C3E883E2095BA6'
 $ExpectExact50Sha = 'D624C632808B4E1D6F5ECD559D3C176EF8AF82B749CC4B43851CB3D67A3A3C0A'
 
 # ---- authority registry (see the exact-50 block for the convention) --
@@ -363,10 +365,39 @@ print(json.dumps({"status": code, "edge_banned": "error code: 1010" in body,
   Write-Host ("   Destination  : " + $env:NIVX_INGEST_URL)
   Write-Host  '   Header       : X-XDR-API-Key (auth_mode api_key)'
   Write-Host  '   Required perm: collectors.enroll'
+  Write-Host  '   Paste the FULL 52-character secret (nvx_ + 48 lowercase hex).'
+  Write-Host  '   The 12-character public prefix alone is NOT the credential.'
   $ingestSecret = Read-Host '  NivXRay XDR PREVIEW Collector Ingest API Key (not echoed, not stored)' -AsSecureString
   $env:NIVX_INGEST_TOKEN = Get-PlainFromSecure $ingestSecret
   Remove-Variable ingestSecret -ErrorAction SilentlyContinue
   [GC]::Collect()
+
+  # ---- 4b1 . CREDENTIAL FORMAT GATE (local, fail-closed) -------------
+  # The first APPLY spent the canary on a value the server rejected as
+  # `malformed-api-key` before it ever reached credential lookup. This gate
+  # refuses that class of paste locally, BEFORE any delivery. It never
+  # trims, normalises, case-folds or repairs the value: a malformed
+  # credential is rejected so operator intent stays explicit. Only the
+  # 12-character public prefix may ever be displayed. The recovery engine
+  # enforces the identical requirement independently (defense in depth).
+  Write-Host "`n=== 4b1 . CREDENTIAL FORMAT GATE (local, fail-closed) ===" -ForegroundColor Cyan
+  $ingestLen = ([string]$env:NIVX_INGEST_TOKEN).Length
+  $ingestFormatOk = ((([string]$env:NIVX_INGEST_TOKEN) -cmatch '^nvx_[0-9a-f]{48}$') -and
+                     ($ingestLen -eq 52))
+  if (-not $ingestFormatOk) {
+    Remove-Item Env:\NIVX_INGEST_TOKEN -ErrorAction SilentlyContinue
+    [GC]::Collect()
+    throw ('the collector ingest credential does not satisfy ' +
+           '^nvx_[0-9a-f]{48}$ (length ' + $ingestLen + ', expected 52). ' +
+           'It was NOT trimmed, case-folded or repaired, and it was NOT sent: ' +
+           'the canary was not spent. Nothing was delivered or changed. ' +
+           'Re-run and paste the full 52-character secret exactly.')
+  }
+  $ingestPrefix = ([string]$env:NIVX_INGEST_TOKEN).Substring(0, 12)
+  Write-Host '  format       : OK (nvx_ + 48 lowercase hex, 52 chars)' -ForegroundColor Green
+  Write-Host ('  public prefix: ' + $ingestPrefix +
+              '   (the remaining 40 characters are never displayed)')
+  Remove-Variable ingestPrefix, ingestLen, ingestFormatOk -ErrorAction SilentlyContinue
 
   # ---- 4c . PRE-CANARY PRECONDITIONS (presence only, never values) ---
   Write-Host "`n=== 4c . PRE-CANARY PRECONDITIONS (presence only) ===" -ForegroundColor Cyan

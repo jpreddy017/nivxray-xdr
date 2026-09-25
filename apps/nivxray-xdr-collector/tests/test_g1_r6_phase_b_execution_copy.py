@@ -284,3 +284,69 @@ def test_engine_and_reconciliation_client_remain_byte_identical(block):
         r"\$ExpectExact50Sha\s*=\s*'"
         + _sha(os.path.join(_SCRIPTS, "g1_r5_inflight50_reconcile.py"))
         + r"'", block)
+
+
+# ---------------------------------------------------------------------------
+# Credential format gate. The first APPLY spent the canary on a value the
+# server refused as `malformed-api-key` before credential lookup. The wrapper
+# now refuses that class of paste locally, and the engine enforces the same
+# requirement independently.
+# ---------------------------------------------------------------------------
+def test_wrapper_validates_the_credential_format_case_sensitively(block):
+    assert "-cmatch '^nvx_[0-9a-f]{48}$'" in block, (
+        "the guard must be case-sensitive: uppercase hex is not an issued key")
+    assert "$ingestLen -eq 52" in block
+    assert "CREDENTIAL FORMAT GATE" in block
+
+
+def test_the_format_gate_sits_between_the_prompt_and_any_delivery(block):
+    prompt = block.index("$env:NIVX_INGEST_TOKEN = Get-PlainFromSecure")
+    gate = block.index("-cmatch '^nvx_[0-9a-f]{48}$'")
+    apply_call = block.index("--apply")
+    assert prompt < gate < apply_call, (
+        "validation must happen after the SecureString conversion and before "
+        "any delivery")
+
+
+def test_a_malformed_credential_hard_stops_and_clears_the_session(block):
+    gate = block.index("CREDENTIAL FORMAT GATE")
+    tail = block[gate:block.index("=== 4c .")]
+    assert "if (-not $ingestFormatOk) {" in tail
+    assert "Remove-Item Env:\\NIVX_INGEST_TOKEN" in tail
+    assert "throw (" in tail
+    assert "the canary was not spent" in tail
+
+
+def test_the_gate_never_repairs_or_normalises_the_value(block):
+    gate = block[block.index("CREDENTIAL FORMAT GATE"):
+                 block.index("=== 4c .")]
+    for forbidden in (".Trim(", ".ToLower(", ".ToUpper(", "-replace",
+                      "-imatch", "-match "):
+        assert forbidden not in gate, forbidden
+    assert "NOT trimmed, case-folded or repaired" in block
+
+
+def test_only_the_public_prefix_may_be_displayed(block):
+    assert "$ingestPrefix = ([string]$env:NIVX_INGEST_TOKEN).Substring(0, 12)" \
+        in block
+    assert "the remaining 40 characters are never displayed" in block
+    # the displayed value comes from the prefix variable, never the token
+    for line in block.splitlines():
+        if "Write-Host" in line and "$ingestPrefix" in line:
+            assert "NIVX_INGEST_TOKEN" not in line
+
+
+def test_the_operator_is_told_to_paste_the_full_secret(block):
+    assert "Paste the FULL 52-character secret" in block
+    assert "public prefix alone is NOT the credential" in block
+
+
+def test_engine_enforces_the_identical_format_gate():
+    """Defense in depth: the wrapper is not the only gate."""
+    with open(os.path.join(_SCRIPTS, "g1_r6_phase_b_exact28_recovery.py"),
+              encoding="utf-8") as fh:
+        engine = fh.read()
+    assert r'INGEST_KEY_PATTERN = r"^nvx_[0-9a-f]{48}$"' in engine
+    assert "def assert_ingest_credential(" in engine
+    assert engine.index("assert_ingest_credential(client)") < engine.index(
+        'report["canary_delivery"]')

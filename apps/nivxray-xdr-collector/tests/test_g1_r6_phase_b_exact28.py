@@ -158,6 +158,7 @@ class FakeClient:
         self.outcomes = list(outcomes or [])
         self.url = "https://ingest.invalid/api/xdr/ingest/telemetry"
         self.auth_mode = "api_key"
+        self.token = "nvx_" + "0123456789abcdef" * 3
         self.timeout = 30.0
 
     def configured(self):
@@ -579,3 +580,101 @@ def test_an_unconfigured_ingest_client_is_refused_before_any_attempt(frozen):
         _run(frozen["dir"], proof, True, client=client)
     assert "not configured" in str(ex.value)
     assert client.calls == []
+
+
+# ── 9 · credential format gate (second, independent fail-closed layer) ─
+_VALID_KEY = "nvx_" + "0123456789abcdef" * 3
+
+
+class _Cred:
+    """Minimal client stand-in: only what the credential gate reads."""
+
+    def __init__(self, token, auth_mode="api_key"):
+        self.token = token
+        self.auth_mode = auth_mode
+        self.url = "https://ingest.invalid/api/xdr/ingest/telemetry"
+        self.timeout = 30.0
+        self.calls = []
+
+    def configured(self):
+        return True
+
+    async def deliver(self, envelopes):           # pragma: no cover
+        self.calls.append([e.source_event_id for e in envelopes])
+        raise AssertionError("a malformed credential reached deliver()")
+
+
+def test_a_valid_52_char_credential_passes_the_gate():
+    meta = pb.assert_ingest_credential(_Cred(_VALID_KEY))
+    assert meta["format_valid"] is True
+    assert meta["length"] == 52
+    assert meta["public_prefix"] == _VALID_KEY[:12]
+    assert len(meta["public_prefix"]) == 12
+    # the gate never echoes the secret remainder
+    assert _VALID_KEY not in json.dumps(meta)
+
+
+@pytest.mark.parametrize("token,why", [
+    ("nvx_0123456789ab",                      "prefix-only paste"),
+    (_VALID_KEY[:12],                         "12-char public prefix only"),
+    (_VALID_KEY.upper(),                      "uppercase hex"),
+    ("nvx_" + "0123456789ABCDEF" * 3,         "uppercase hex body"),
+    (" " + _VALID_KEY,                        "leading whitespace"),
+    (_VALID_KEY + " ",                        "trailing whitespace"),
+    (_VALID_KEY + "\n",                       "trailing newline"),
+    (_VALID_KEY[:-1],                         "one char too short"),
+    (_VALID_KEY + "0",                        "one char too long"),
+    ("0123456789abcdef" * 3,                  "missing nvx_ prefix"),
+    ("key_1318617827ee44ada0f7",              "key id instead of secret"),
+    ("nvx_" + "g" * 48,                       "non-hex body"),
+    ("",                                      "empty"),
+    (None,                                    "absent"),
+])
+def test_malformed_credentials_are_refused_without_repair(token, why):
+    with pytest.raises(pb.PhaseBRefusal) as ex:
+        pb.assert_ingest_credential(_Cred(token))
+    message = str(ex.value)
+    assert "^nvx_[0-9a-f]{48}$" in message, why
+    assert "Nothing was attempted" in message
+    if isinstance(token, str) and token.strip():
+        assert token.strip() not in message, "the rejected value must not leak"
+
+
+def test_bearer_auth_mode_is_refused_even_with_a_valid_key():
+    with pytest.raises(pb.PhaseBRefusal) as ex:
+        pb.assert_ingest_credential(_Cred(_VALID_KEY, auth_mode="bearer"))
+    assert "api_key" in str(ex.value)
+
+
+def test_a_client_without_a_token_attribute_fails_closed():
+    class NoToken:
+        auth_mode = "api_key"
+    with pytest.raises(pb.PhaseBRefusal):
+        pb.assert_ingest_credential(NoToken())
+
+
+def test_apply_refuses_a_malformed_credential_before_any_wire_call(frozen,
+                                                                   tmp_path):
+    directory = _copy(frozen, tmp_path)
+    proof = _write_authority(directory, _authority(frozen))
+    client = _Cred(_VALID_KEY[:12])
+    with pytest.raises(pb.PhaseBRefusal) as ex:
+        _run(directory, proof, True, client=client)
+    assert "^nvx_[0-9a-f]{48}$" in str(ex.value)
+    assert client.calls == [], "no delivery may be attempted"
+    conn = sqlite3.connect(os.path.join(directory, "outbox.db"))
+    try:
+        histogram = {r[0]: r[1] for r in conn.execute(
+            "SELECT status, COUNT(*) FROM envelopes GROUP BY status")}
+    finally:
+        conn.close()
+    assert histogram[pb.DELIVERING] == 28
+    assert histogram[pb.DELIVERED] == FROZEN["delivered"]
+
+
+def test_the_gate_runs_before_the_canary_is_delivered(frozen, tmp_path):
+    """Ordering proof: the guard precedes the first deliver() in run()."""
+    import inspect
+    body = inspect.getsource(pb.run)
+    assert body.index("assert_ingest_credential") < body.index(
+        'report["canary_delivery"]')

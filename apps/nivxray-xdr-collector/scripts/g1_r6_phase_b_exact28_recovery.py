@@ -45,6 +45,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import sys
 from datetime import datetime, timezone
@@ -84,6 +85,11 @@ EXCLUDED_COUNT = 22
 MAX_TARGET = 28
 DEFAULT_REMAINDER_BATCH = 7
 DESTINATION_KEY = "nivx-ingest"
+
+#: The server's own issuance format (`nvx_` + 48 lowercase hex) and the exact
+#: syntax gate `authenticate_api_key()` applies before any credential lookup.
+INGEST_KEY_PATTERN = r"^nvx_[0-9a-f]{48}$"
+_INGEST_KEY_RE = re.compile(INGEST_KEY_PATTERN)
 
 
 class PhaseBRefusal(Exception):
@@ -298,6 +304,37 @@ def verify_preconditions(conn: sqlite3.Connection, authority: Dict[str, Any],
             "local_status": row["status"],
         })
     return plan
+
+
+# ── credential format gate (second, independent fail-closed layer) ────
+def assert_ingest_credential(client: Any) -> Dict[str, Any]:
+    """Refuse a malformed ingest credential BEFORE any delivery path.
+
+    The first APPLY spent the canary on a value the server rejected as
+    `malformed-api-key`, i.e. it never even reached credential lookup. The
+    PowerShell wrapper now catches that locally, but this engine enforces the
+    identical requirement independently so a direct invocation - or a future
+    wrapper edit - still cannot hand a malformed credential to
+    `IngestClient.deliver()`. Nothing is stripped, normalised, case-folded or
+    repaired: a malformed credential is rejected, never silently fixed.
+    """
+    mode = getattr(client, "auth_mode", None)
+    if mode != "api_key":
+        raise PhaseBRefusal(
+            f"the ingest client is in auth_mode {mode!r}; this bounded "
+            "recovery delivers only with an `api_key` collector credential. "
+            "Nothing was attempted.")
+    token = getattr(client, "token", None)
+    if not isinstance(token, str) or not _INGEST_KEY_RE.fullmatch(token):
+        length = len(token) if isinstance(token, str) else None
+        raise PhaseBRefusal(
+            "the collector ingest credential does not satisfy the required "
+            f"format {INGEST_KEY_PATTERN} (length {length}, expected 52). "
+            "It would be refused as `malformed-api-key` before credential "
+            "lookup, so the canary was NOT spent on it. The value was not "
+            "trimmed, case-folded or repaired. Nothing was attempted.")
+    return {"format": INGEST_KEY_PATTERN, "format_valid": True,
+            "auth_mode": mode, "public_prefix": token[:12], "length": 52}
 
 
 # ── delivery ──────────────────────────────────────────────────────────
@@ -648,6 +685,8 @@ def run(*, state_dir: str, authority_path: str, base_url: str, token: str,
                 "the ingest client is not configured on this endpoint, so a "
                 "delivery attempt could only ever be recorded as a failure. "
                 "Nothing was attempted.")
+        # fail closed on the credential's syntax before the canary is spent
+        report["ingest_credential"] = assert_ingest_credential(client)
         report["ingest_target"] = {"url": client.url,
                                    "auth_mode": client.auth_mode,
                                    "timeout": client.timeout}
