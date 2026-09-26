@@ -21482,3 +21482,25 @@ has NO git remote and NO push credentials — the agent cannot push):
 BLOCKER: the owner must click **Save to Github** in the chat input.
 Afterwards the remote HEAD can be re-verified via the same public API and
 Phase 0 file equivalence proven before Stage 2 (backend republish).
+
+## 2026-06 · PHASE 0 SOURCE PROMOTION — STAGE 1: PASS (push landed; NO production deploy)
+Report: `/app/memory/production-gates/PHASE0_STAGE1_PUSH_VERIFICATION.md`.
+- REMOTE HEAD `8f370c7d` on `feature/rc2-alignment`; `bea8852b` IS an
+  ancestor; all 10 Phase 0 files SHA-256-identical at remote HEAD.
+- Save-to-GitHub DID trigger Vercel, but **every deployment from
+  `8f370c7d` is PREVIEW**. The only Production deployments in the repo's
+  entire history are from `f7a25183` (15:55/15:58) and `9fcd53a5`.
+  Live `build-info.json` on both hosts still reads 15:55/15:58 and the
+  served TelemetryFreshness chunks have 0 `investigability` markers →
+  **production consoles UNCHANGED, Phase 0 UI NOT live.**
+- `Vercel – nivxray-xdr` failure is **BY DESIGN**: that legacy project's
+  Root Directory is the repo root, so it runs
+  `scripts/refuse-root-deployment.sh` (guard from `f083b8d7`). It failed
+  identically on the previous push (`f7a25183`, 15:45). **Do not retry** —
+  a passing root build is the unsafe outcome. Fix = set Root Directory to
+  `apps/nivxray-xdr` or delete the project.
+- Production BACKEND unchanged: `/api/openapi.json` byte-identical
+  (862 paths, sha `8c04168feebf43f0`) before/after the push. Phase 0
+  canonical bridge is **still not in production** → STAGE 2 REQUIRED.
+- Counters: DB writes 0, orgs 0, tenants 0, tokens 0, endpoints 0,
+  response actions 0, secrets 0, retries 0.
