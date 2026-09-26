@@ -1,5 +1,37 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-26 · P0-INFRA-1 · PREVIEW RUNTIME STABILITY — **OPEN · BLOCKS P0-D**
+
+Owner directive: *STOP P0-D — PREVIEW AVAILABILITY INCIDENT*. P0-D not
+started; no EDR/XDR behaviour altered; nothing re-published.
+Evidence: `/app/memory/production-gates/P0INFRA1_PREVIEW_RUNTIME_STABILITY.md`.
+
+- **Root cause is platform-side pod recreation, not an app crash.** PID 1
+  (`entrypoint.sh`) age resets, supervisord cold-starts, and the **pod IP
+  changes every boot** (`10.208.140.207 → .132.160 → .132.176 → .131.102`).
+  14 recreations on 2026-09-26 (…08:17, 09:06, 09:09, 09:28 UTC). The
+  owner's 502 at 09:07:10 sits inside the 09:06:21 recreation.
+- **Every boot is healthy**: all services RUNNING in 1–6 s, no FATAL, no
+  BACKOFF, no exit codes; uvicorn on 0.0.0.0:8001, Vite on 0.0.0.0:3000
+  "ready in <1 s". Memory 2.1/8 GiB, `oom_kill 0` (counter resets with
+  the pod), `/` 16 %, `/app` 62 % — no OOM, no disk eviction. CPU quota
+  is **2 cores** for six services.
+- **09:28:24 recreation happened while idle** (only a 20 s probe running),
+  which argues against our own CPU load being the sole trigger.
+- **Not knowable from inside**: the kubelet termination reason. Escalate
+  to support@emergent.sh with entity `630704a1-621f-478b-9b86-a321772d01bf`,
+  timestamps 09:06:21 / 09:09:32 / 09:28:24 UTC, Ray IDs
+  `a4111de3fabc2e33`, `a4111de62b452e33`.
+- **Measurement added, not a workaround**: `/app/memory/availability_probe.sh`
+  → `availability_probe.log` (20 s sweeps over `/`, `/xdr/control-center`,
+  `/edr/computers`, an EDR trajectory route, `/api/health`, with PID-1 age
+  and service uptimes). A gap in the log IS an outage record.
+- **Proof**: 09:10:57 → 09:24:35 UTC · 40 sweeps · 200 on all five routes,
+  0 non-200, no backend/frontend restart. Then the pod was recreated again
+  at 09:28:24 → **incident NOT closed**.
+- Do **not** re-publish repeatedly: it masks the condition. P0-D resumes
+  only after this is closed.
+
 ## 2026-09-26 · P0-C · DURABLE EDR FINDINGS — CLOSED · STOPPED FOR OWNER REVIEW
 
 Evidence: `/app/memory/production-gates/P0C_DURABLE_FINDINGS.md`.
