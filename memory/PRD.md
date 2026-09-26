@@ -21269,3 +21269,9 @@ empty (P0-PROD-4 not closed). The four newly exposed crypto keys still hold
 PLACEHOLDER values and are refused in production until real values are entered.
 Focused validation: 102 passed, health 200, 862 source routes. STATUS: READY FOR
 OWNER REPUBLISH.
+Status 2026-06 (awaiting owner): pre-republish readiness accepted by owner. Agent
+is HOLDING for the owner to (a) apply the Secrets-panel changes, (b) set
+NIVX_DEPLOYMENT_ENV=production last, (c) Re-publish. On the owner saying
+"REPUBLISH COMPLETED", run scripts/verify_production_sync.py and report the
+Production Backend Sync verdict. No console sync, tenant bootstrap, P0-PROD-4 or
+P0-PROD-6 until that verdict is PASS.
