@@ -21504,3 +21504,21 @@ Report: `/app/memory/production-gates/PHASE0_STAGE1_PUSH_VERIFICATION.md`.
   canonical bridge is **still not in production** → STAGE 2 REQUIRED.
 - Counters: DB writes 0, orgs 0, tenants 0, tokens 0, endpoints 0,
   response actions 0, secrets 0, retries 0.
+
+## 2026-06 · PHASE 0 PROMOTION — STAGE 2: BLOCKED (safety gate PASS, owner click required)
+Report: `/app/memory/production-gates/PHASE0_STAGE2_BACKEND_REPUBLISH.md`.
+- Gate re-verified live: remote HEAD `8f370c7d`; `compare/bea8852b...8f370c7d`
+  = ahead_by 3, behind_by 0, and those 3 files are `.emergent/emergent.yml`,
+  `memory/PRD.md`, the precheck report — **no code after Phase 0**.
+- DB migration/collection/index/backfill/secret/env changes: ALL **NO**.
+  Response authority FAIL-CLOSED. `windows_eventlog` imports and declares
+  exactly the 8 authorised families.
+- Pre-publish production baseline: `/api/health` ok; openapi 862 paths
+  sha `8c04168feebf43f0`; current publish = Publish 100 / build `4e76891`.
+- BLOCKER: the agent **cannot** republish (owner-only UI action, confirmed
+  with the platform). Owner: Republish → Manage Publishes → Deploy.
+  Secrets/env are preserved automatically; the republish is whole-app but
+  Phase 0 touched no `/app/frontend` file, and the Vercel consoles are
+  separate (Stage 3). Rollback = Manage Publishes → Overview → ↺ on
+  Publish 100 / `4e76891` (2-3 min, no DB rollback needed).
+- Post-publish read-only verification is scripted and ready to run.
