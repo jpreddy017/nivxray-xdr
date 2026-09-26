@@ -38,7 +38,15 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstr
 ADMIN_EMAIL = "admin@nivxray.com"
 ADMIN_PASSWORD = "uulVDp5cCSB3Hva99s7UUAwK"
 SCOPED_EMAIL = "analyst@nivx-live.com"
-SCOPED_PASSWORD = "NivxLive!Analyst2026"
+_LIVE_CRED_PREREQUISITE = (
+    "TEST_ANALYST_NIVXLIVE_PASSWORD is not supplied by the test "
+    "environment. This live suite needs the nivx-live analyst "
+    "credential and will NOT substitute a default password (P0-PROD-1: "
+    "no credential value is committed). Export it in the CI or shell "
+    "environment to run this suite.")
+SCOPED_PASSWORD = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
+if not SCOPED_PASSWORD:
+    pytest.skip(_LIVE_CRED_PREREQUISITE, allow_module_level=True)
 
 TENANT_A = "default"                                   # registered · ACTIVE
 TENANT_B = "nivx-live"                                 # registered · ACTIVE

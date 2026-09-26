@@ -30,7 +30,15 @@ BASE = _base_url()
 ADMIN_EMAIL = "admin@nivxray.com"
 ADMIN_PASS  = "uulVDp5cCSB3Hva99s7UUAwK"
 ANALYST_EMAIL = "analyst@nivx-live.com"
-ANALYST_PASS  = "NivxLive!Analyst2026"
+_LIVE_CRED_PREREQUISITE = (
+    "TEST_ANALYST_NIVXLIVE_PASSWORD is not supplied by the test "
+    "environment. This live suite needs the nivx-live analyst "
+    "credential and will NOT substitute a default password (P0-PROD-1: "
+    "no credential value is committed). Export it in the CI or shell "
+    "environment to run this suite.")
+ANALYST_PASS = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
+if not ANALYST_PASS:
+    pytest.skip(_LIVE_CRED_PREREQUISITE, allow_module_level=True)
 
 
 def _login(email, password):

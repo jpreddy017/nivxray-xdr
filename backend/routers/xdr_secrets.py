@@ -50,27 +50,33 @@ def _get_coll():
 # Master key material.  In production this arrives from the platform
 # KMS.  For self-hosted deployments we accept a base64 URL-safe key
 # via env, or derive one deterministically from a passphrase.
+from security import secret_policy  # noqa: E402
+
+_KEY_CACHE: dict[str, tuple] = {}
+#: Ciphertext written after P0-PROD-1 is self-describing:
+#: ``nivxk1.<key_id>.<fernet token>``. A row without this prefix was
+#: written under the previous, repository-derivable development key.
+_CT_PREFIX = "nivxk1."
+
+
 def _master_key() -> bytes:
-    raw = os.environ.get("XDR_SECRETS_MASTER")
-    if raw:
-        # Accept either a Fernet key (44-char urlsafe b64) or a raw
-        # passphrase.  Any non-Fernet input is stretched via HKDF.
-        try:
-            Fernet(raw.encode() if isinstance(raw, str) else raw)
-            return raw.encode() if isinstance(raw, str) else raw
-        except (ValueError, TypeError):
-            stretched = HKDF(
-                algorithm=hashes.SHA256(), length=32,
-                salt=b"xdr-secrets-master", info=b"master-stretch",
-            ).derive(raw.encode() if isinstance(raw, str) else raw)
-            return base64.urlsafe_b64encode(stretched)
-    # Dev/test fallback — deterministic, NOT for production.
-    stretched = HKDF(
-        algorithm=hashes.SHA256(), length=32,
-        salt=b"xdr-secrets-master",
-        info=b"xdr-secrets-master-do-not-use-in-prod",
-    ).derive(b"xdr-secrets-master-do-not-use-in-prod")
-    return base64.urlsafe_b64encode(stretched)
+    """P0-PROD-1 · resolved through the secret policy, which has NO
+    repository fallback. Production requires XDR_SECRETS_MASTER and fails
+    closed without it; preview/CI derive an instance-local key labelled
+    DERIVED_INSTANCE_LOCAL and domain-separated to this purpose alone."""
+    return _master_material()[0]
+
+
+def _master_material() -> tuple[bytes, str]:
+    if "k" not in _KEY_CACHE:
+        key, kid, _basis = secret_policy.resolve_fernet(
+            "XDR_SECRETS_MASTER", secret_policy.PURPOSE_CONNECTOR_SECRETS)
+        _KEY_CACHE["k"] = (key, kid)
+    return _KEY_CACHE["k"]
+
+
+def active_key_id() -> str:
+    return _master_material()[1]
 
 
 def _tenant_dek(tenant_id: str) -> bytes:
@@ -86,12 +92,32 @@ def _tenant_dek(tenant_id: str) -> bytes:
 
 def _encrypt(tenant_id: str, plaintext: str) -> str:
     tok = Fernet(_tenant_dek(tenant_id)).encrypt(plaintext.encode("utf-8"))
-    return tok.decode("ascii")
+    return f"{_CT_PREFIX}{active_key_id()}.{tok.decode('ascii')}"
 
 
 def _decrypt(tenant_id: str, ciphertext: str) -> str:
+    """P0-PROD-1 · a ciphertext belonging to another key is reported as
+    exactly that. It is never a 500, and no plaintext is invented."""
+    recorded, token = None, ciphertext
+    if ciphertext.startswith(_CT_PREFIX):
+        _, recorded, token = ciphertext.split(".", 2)
+    if recorded != active_key_id():
+        raise HTTPException(status_code=409, detail={
+            "code": "SECRET_UNDECRYPTABLE_UNDER_CURRENT_KEY",
+            "recorded_key_id": recorded,
+            "active_key_id": active_key_id(),
+            "classification": secret_policy.LEGACY_CLASSIFICATION,
+            "also_possible": ("a stored value whose key identity is absent "
+                              "may equally have been MODIFIED in storage; "
+                              "this read path cannot tell the two apart and "
+                              "does not guess between them"),
+            "reason": ("this secret was encrypted under different key "
+                       "material. It is not recoverable here and nothing "
+                       "will be substituted for it — re-enter or rotate "
+                       "the credential at its authoritative provider and "
+                       "store it again under the active key")})
     try:
-        pt = Fernet(_tenant_dek(tenant_id)).decrypt(ciphertext.encode("ascii"))
+        pt = Fernet(_tenant_dek(tenant_id)).decrypt(token.encode("ascii"))
     except InvalidToken as exc:
         raise HTTPException(
             status_code=422,

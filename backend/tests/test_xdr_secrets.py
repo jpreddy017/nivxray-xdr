@@ -207,16 +207,45 @@ def test_tamper_ciphertext_detected():
     created = client.post("/api/xdr/secrets", headers=_hdrs(TEN_A),
                                     json={"name": "tamper-key", "kind": "generic",
                                               "value": "authentic-value"}).json()["data"]
-    # Corrupt ciphertext directly in Mongo — Fernet AEAD MUST reject it.
+    # P0-PROD-1 · ciphertext is now self-describing
+    # (nivxk1.<key_id>.<token>), so corruption has TWO distinguishable
+    # shapes and each is reported truthfully.
+    #
+    # (a) the AEAD payload is corrupted while the ACTIVE key identity is
+    #     intact → this is verifiable material that fails authentication,
+    #     and must still be reported as tampering.
+    stored = sec._get_coll().find_one({"id": created["id"],
+                                       "tenant_id": TEN_A})["ciphertext"]
+    prefix, key_id, _token = stored.split(".", 2)
     sec._get_coll().update_one(
         {"id": created["id"], "tenant_id": TEN_A},
-        {"$set": {"ciphertext": "gAAAAABm-invalid-ciphertext-blob"}},
+        {"$set": {"ciphertext":
+                  f"{prefix}.{key_id}.gAAAAABm-invalid-ciphertext-blob"}},
     )
     r = client.post(f"/api/xdr/secrets/{created['id']}/reveal",
                           headers=_hdrs(TEN_A, **{"X-Secret-Reveal": "yes"}))
     assert r.status_code == 422
     assert "tampered" in r.json()["detail"].lower() \
              or "authentic" in r.json()["detail"].lower()
+
+    # (b) the key identity is absent altogether (a pre-P0-PROD-1 row, or a
+    #     value whose prefix was stripped) → the platform cannot tell a
+    #     legacy row from a modified one and refuses to guess. It reports
+    #     the undecryptable state and BOTH possibilities, never a
+    #     fabricated plaintext and never a 500.
+    sec._get_coll().update_one(
+        {"id": created["id"], "tenant_id": TEN_A},
+        {"$set": {"ciphertext": "gAAAAABm-invalid-ciphertext-blob"}},
+    )
+    r2 = client.post(f"/api/xdr/secrets/{created['id']}/reveal",
+                           headers=_hdrs(TEN_A, **{"X-Secret-Reveal": "yes"}))
+    assert r2.status_code == 409
+    d = r2.json()["detail"]
+    assert d["code"] == "SECRET_UNDECRYPTABLE_UNDER_CURRENT_KEY"
+    assert d["recorded_key_id"] is None
+    assert "REPLACEMENT_REQUIRED_BEFORE_PRODUCTION_USE" in d["classification"]
+    assert "MODIFIED" in d["also_possible"]
+    assert "authentic-value" not in r2.text
 
 
 def test_delete_removes_and_audits():

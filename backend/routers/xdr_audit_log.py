@@ -49,15 +49,32 @@ _coll = _get_coll()  # for tests that reference al._coll directly
 
 
 # ── Signing key (per-tenant HMAC) ────────────────────────────────
-# In production this is fetched from the platform KMS envelope.  For
-# now we derive it deterministically from a platform master secret so
-# the chain is verifiable in-process; rotation is a future concern.
-_MASTER = (os.environ.get("XDR_AUDIT_MASTER_SECRET")
-                 or "xdr-audit-master-do-not-use-in-prod").encode()
+# P0-PROD-1 · the master comes from the secret policy, which refuses a
+# repository constant. Production requires an operator-configured
+# XDR_AUDIT_MASTER_SECRET and fails closed without it; preview/CI derive
+# an instance-local key labelled DERIVED_INSTANCE_LOCAL. Resolution is
+# lazy so importing this module can never raise.
+from security import secret_policy  # noqa: E402
+
+_PURPOSE = secret_policy.PURPOSE_AUDIT_SIGNING
+_KEY_CACHE: dict[str, tuple] = {}
+
+
+def _master() -> tuple[bytes, str]:
+    if "k" not in _KEY_CACHE:
+        material, kid, _basis = secret_policy.resolve(
+            "XDR_AUDIT_MASTER_SECRET", _PURPOSE)
+        _KEY_CACHE["k"] = (material, kid)
+    return _KEY_CACHE["k"]
+
+
+def active_key_id() -> str:
+    return _master()[1]
 
 
 def _tenant_key(tenant_id: str) -> bytes:
-    return hmac.new(_MASTER, tenant_id.encode(), hashlib.sha256).digest()
+    return hmac.new(_master()[0], tenant_id.encode(),
+                    hashlib.sha256).digest()
 
 
 def _canonical(event: dict) -> bytes:
@@ -109,6 +126,10 @@ def emit_audit(
         "correlation_id": correlation_id or event_id,
         "source": source, "metadata": metadata or {},
         "at": now,
+        # P0-PROD-1 · WHICH key signed this record. Inside the signed
+        # payload, so the key identity is itself tamper-evident. Its
+        # absence on a historical row is a fact, not a forgery.
+        "sig_key_id": active_key_id(),
     }
     sig = _sign(tenant_id, base, prev_sig)
     doc = {**base, "prev_sig": prev_sig, "sig": sig}
@@ -135,6 +156,8 @@ class AuditEvent(BaseModel):
     at: str
     prev_sig: str
     sig: str
+    #: P0-PROD-1 · absent on rows written before key identity existed.
+    sig_key_id: str | None = None
 
 
 def _principal(req: Request) -> tuple[str, str, str]:
@@ -239,13 +262,23 @@ def get_event(event_id: str, request: Request):
                      dependencies=[Depends(_lazy_require("audit.read"))])
 def verify_chain(request: Request, limit: int = Query(500, ge=1, le=5000)):
     """Walk the tenant's chain from oldest to newest, recomputing each
-    signature.  Returns the first break (if any) or 'valid'."""
+    signature.  Returns the first break (if any) or 'valid'.
+
+    P0-PROD-1 · key rotation is NOT tampering. A row signed before the
+    active key existed, or signed under a different key id, cannot be
+    recomputed here — that is reported as its own state and never as
+    evidence of modification. A row that IS verifiable and does not match
+    still produces CHAIN_BROKEN.
+    """
     if _get_coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
     ten, _, _ = _principal(request)
     cur = _get_coll().find({"tenant_id": ten}, {"_id": 0}).sort("at", ASCENDING).limit(limit)
     prev = "genesis"
     checked = 0
+    active = active_key_id()
+    states = {"VERIFIED": 0, "UNVERIFIABLE_NO_KEY_ID_RECORDED": 0,
+              "SIGNED_UNDER_DIFFERENT_KEY_ID": 0}
     for doc in cur:
         expected_prev = doc.get("prev_sig")
         if expected_prev != prev:
@@ -254,17 +287,43 @@ def verify_chain(request: Request, limit: int = Query(500, ge=1, le=5000)):
                                                           "reason": "prev_sig_mismatch",
                                                           "expected": prev,
                                                           "actual": expected_prev,
-                                                          "checked": checked}}
-        base = {k: v for k, v in doc.items() if k not in ("sig", "prev_sig")}
-        recomputed = _sign(ten, base, prev)
-        if recomputed != doc.get("sig"):
-            return {"ok": True, "data": {"status": "chain_broken",
-                                                          "at_event": doc["id"],
-                                                          "reason": "signature_mismatch",
-                                                          "checked": checked}}
+                                                          "checked": checked,
+                                                          "active_key_id": active,
+                                                          "states": states}}
+        recorded = doc.get("sig_key_id")
+        if recorded is None:
+            states["UNVERIFIABLE_NO_KEY_ID_RECORDED"] += 1
+        elif recorded != active:
+            states["SIGNED_UNDER_DIFFERENT_KEY_ID"] += 1
+        else:
+            base = {k: v for k, v in doc.items() if k not in ("sig", "prev_sig")}
+            recomputed = _sign(ten, base, prev)
+            if recomputed != doc.get("sig"):
+                return {"ok": True, "data": {"status": "chain_broken",
+                                                              "at_event": doc["id"],
+                                                              "reason": "signature_mismatch",
+                                                              "checked": checked,
+                                                              "active_key_id": active,
+                                                              "states": states}}
+            states["VERIFIED"] += 1
         prev = doc["sig"]
         checked += 1
-    return {"ok": True, "data": {"status": "valid", "checked": checked}}
+    return {"ok": True, "data": {
+        "status": "valid", "checked": checked,
+        "active_key_id": active, "states": states,
+        "state_meaning": {
+            "VERIFIED": "recomputed under the active key and matched",
+            "UNVERIFIABLE_NO_KEY_ID_RECORDED": (
+                "signed before key identity was recorded; the signature "
+                "cannot be recomputed here. This is NOT evidence of "
+                "tampering and must never be presented as such"),
+            "SIGNED_UNDER_DIFFERENT_KEY_ID": (
+                "signed under a key that is not the active one; verifying "
+                "it requires that key. Rotation is not modification"),
+        },
+        "note": ("the linkage (prev_sig) is checked for EVERY row, "
+                 "including rows whose signature cannot be recomputed, so "
+                 "an insertion or deletion is still detected")}}
 
 
 # ── POST /emit — direct emit endpoint used by XDR UI + tests ─────

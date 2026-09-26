@@ -1,5 +1,50 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-26 · P0-PROD-1 · PRODUCTION SECRET CLOSURE — **PASS · OWNER REVIEW**
+
+Evidence: `/app/memory/production-gates/P0PROD1_SECRET_CLOSURE.md`.
+**NOT deployed. No production secret generated/installed. No DB
+migration. No Vercel deploy. P0-PROD-2 / P0-D NOT started.**
+
+- **New authority** `backend/security/secret_policy.py`: `resolve()` /
+  `resolve_fernet()` / `assert_production_ready()` / `report()`.
+  Three repository cryptographic fallbacks **deleted** —
+  `xdr_audit_log.py` (`"xdr-audit-master-do-not-use-in-prod"` → forgeable
+  audit chain), `xdr_secrets.py` (source-decryptable connector secrets),
+  `v2/report/bundle.py` (reproducible bundle signatures).
+- **`NIVX_DEPLOYMENT_ENV`** = `preview|test|production`, declared
+  explicitly in `backend/.env` as `preview`; `prod`/`Production`/typos
+  **fail configuration validation** and can never downgrade to preview.
+- **Production fails closed** via `deps.validate_config()` on any of the
+  six mandatory secrets missing/blank/placeholder, and on forbidden
+  runtime credentials (`VERCEL_TOKEN`, `TEST_ANALYST_NIVXLIVE_PASSWORD`).
+  Names and key ids only — never values. Production **never derives**.
+- **Preview/CI** derive instance-local keys (HKDF over this pod's
+  `JWT_SECRET`), **purpose-separated** (`audit-signing`,
+  `connector-secret-encryption`, `evidence-bundle-signing`,
+  `credential-vault-root` → 4 distinct keys, proven).
+- **Rotation ≠ tampering**: new audit rows carry `sig_key_id` *inside*
+  the signed payload; `verify_chain` now reports `VERIFIED` /
+  `SIGNED_UNDER_DIFFERENT_KEY_ID` / `UNVERIFIABLE_NO_KEY_ID_RECORDED` /
+  `chain_broken`, and still checks `prev_sig` linkage on every row.
+- **Legacy 12 connector + 6 webhook secrets**: untouched, classified
+  `PREVIEW_LEGACY_SECRET — REPLACEMENT_REQUIRED_BEFORE_PRODUCTION_USE`;
+  read path returns 409 `SECRET_UNDECRYPTABLE_UNDER_CURRENT_KEY` with the
+  recorded key id and both possibilities (legacy **or** modified).
+- **.env hygiene**: both `VERCEL_TOKEN` and `TEST_ANALYST_NIVXLIVE_PASSWORD`
+  removed; the committed credential literal removed from 4 test files,
+  which now require a CI/shell-injected value and **skip with a stated
+  prerequisite** otherwise (never a default).
+- **Regression**: new suite **28 passed** · `tests/edr` **494/1 skipped** ·
+  tenant-authority + RBAC **328 passed** · audit+secrets **16 passed** ·
+  broad selection **1938 passed / 28 failed / 18 errors** vs baseline
+  **1911 / 28 / 18** on the stashed pre-P0-PROD-1 tree → **identical
+  failure set, zero in P0-PROD-1 code**. Guarded console builds: **XDR
+  PASS · EDR PASS** (no deploy).
+- **Next gate (proposed, not started)**: P0-PROD-2 token-based endpoint
+  enrolment — closes `scripts/nivxforge_sensor_supervise.py:73-83`, which
+  bootstraps with `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
+
 ## 2026-09-26 · PRODUCTION DEPLOYMENT READINESS AUDIT — **NOT READY · OWNER REVIEW**
 
 Read-only audit per owner directive. Nothing deployed, no prod config

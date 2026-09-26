@@ -16,7 +16,16 @@ if not BASE:
                 BASE = line.split("=", 1)[1].strip().rstrip("/")
 
 ADMIN = ("admin@nivxray.com", "uulVDp5cCSB3Hva99s7UUAwK")
-ANALYST_LIVE = ("analyst@nivx-live.com", "NivxLive!Analyst2026")
+_LIVE_CRED_PREREQUISITE = (
+    "TEST_ANALYST_NIVXLIVE_PASSWORD is not supplied by the test "
+    "environment. This live suite needs the nivx-live analyst "
+    "credential and will NOT substitute a default password (P0-PROD-1: "
+    "no credential value is committed). Export it in the CI or shell "
+    "environment to run this suite.")
+_ANALYST_PW = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
+if not _ANALYST_PW:
+    pytest.skip(_LIVE_CRED_PREREQUISITE, allow_module_level=True)
+ANALYST_LIVE = ("analyst@nivx-live.com", _ANALYST_PW)
 
 LIVE_DEV = "dev_42e8c6dc74b9"
 LIVE_EP = "ep_2d57cbe6f80152062109"
