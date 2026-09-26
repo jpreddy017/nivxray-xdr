@@ -21292,3 +21292,15 @@ routers/xdr_respond_boundary.py; preview unchanged.
 Focused: 29+29+25+29+8+72 passed, health 200, no new regressions.
 NOTE: the live value of TEST_ANALYST_NIVXLIVE_PASSWORD was disclosed in a chat
 screenshot -> rotate the analyst@nivx-live credential (no production effect).
+
+### 2026-06 · PRODUCTION BACKEND SYNC: PASS (Publish 100 / 4e76891)
+Verifier result: health 200 · source 862 · production 862 · missing 0 · extra 0.
+All 29 previously-absent EDR/XDR probes now ROUTED (401/403/405, no 404), all 10
+protected routes refuse unauthenticated callers, zero unauthenticated 2xx,
+POST /api/edr/response/actions -> 403 (destructive response not reachable).
+Successful production boot proves the inert keys are inert and the PLACEHOLDER
+crypto keys were replaced with real values. Evidence: PRODUCTION_SYNC_BACKEND.md
+§16. Rollback anchor remains Publish 100/e075550 -> now 99/3308216.
+NEXT controlled stage: XDR + EDR console sync (Vercel), then production tenant
+bootstrap, then real endpoint enrolment. P0-PROD-4 before destructive response;
+P0-PROD-6 before replica-unsafe background work.

@@ -690,3 +690,95 @@ longer a blocker; `XDR_RESPONSE_SERVICE_URL` no longer needs clearing. The
 remaining owner actions are the genuine secrets: the four PLACEHOLDER
 crypto keys, plus fresh `EDR_AUTH_PEPPER`, `JWT_SECRET`, `ADMIN_PASSWORD`,
 the two TTL settings, and `NIVX_DEPLOYMENT_ENV=production` **last**.
+
+---
+
+## 16 · POST-REPUBLISH VERIFICATION — PASS (2026-06)
+
+Deployment: **Publish 100 · build `4e76891`** (supersedes the pre-republish
+live build `e075550`, which remains the rollback anchor).
+
+Command (read-only, unauthenticated probes only, no database, no
+credential):
+
+```
+python3 /app/scripts/verify_production_sync.py \
+    --prod https://nivxray.nivxforge.com \
+    --source http://localhost:8001
+```
+
+### 16.1 · Release gates
+
+| Gate | Before | After | Verdict |
+|---|---|---|---|
+| `/api/health` | 200 | **200** | PASS |
+| Source routes | 862 | **862** | — |
+| Production routes | 795 | **862** | PASS |
+| Missing routes | 67 | **0** | PASS |
+| Unexpected routes in production only | 0 | **0** | PASS |
+
+### 16.2 · Previously absent planes — all 29 probes now ROUTED
+
+```
+403  /api/edr/policies            403  /api/edr/exclusions
+403  /api/edr/policies/audit      403  /api/edr/exclusions/sets
+403  /api/edr/policies/deployment 403  /api/edr/exclusions/taxonomy
+403  /api/edr/groups              403  /api/edr/exclusions/enforcement-proof
+401  /api/edr/agent/policy        405  /api/edr/agent/exclusion-enforcement
+405  /api/edr/agent/policy-ack
+403  /api/edr/findings            403  /api/edr/audit
+403  /api/edr/findings/evaluation-state
+403  /api/edr/findings/taxonomy   403  /api/edr/audit/facets
+403  /api/edr/events              403  /api/edr/events/facets
+403  /api/edr/onboarding/computers
+403  /api/edr/onboarding/packages
+403  /api/edr/connector/releases  403  /api/edr/connector/deployments
+403  /api/edr/saved-views         403  /api/edr/endpoint-commands
+405  /api/edr/enrollment/tokens/{token_id}/revoke   ← P0-PROD-2, now live
+403  /api/xdr/rbac/me/effective   403  /api/xdr/scope/authorized
+405  /api/xdr/scope/select        403  /api/xdr/windows/configuration
+```
+
+`401/403` = deployed and protected. `405` = deployed, wrong verb for a
+read-only probe (POST-only routes) — nothing disclosed. **No 404.**
+
+### 16.3 · Authority
+
+All ten protected management/agent routes refuse unauthenticated callers
+(`403`, or `401` on the agent surface, `405` on POST-only heartbeat).
+**Zero unauthenticated 2xx.** Routing was gained without loosening
+authentication.
+
+### 16.4 · Response authority
+
+`POST /api/edr/response/actions` unauthenticated → **403**. Destructive
+response is not reachable.
+
+Honest limit: `403` proves authentication is enforced **before** the
+authority check, so an unauthenticated probe cannot demonstrate the
+`503 RESPONSE_AUTHORITY_NOT_CONFIGURED` state from outside. That state is
+guaranteed by §15.5 (production treats a loopback authority as NOT
+CONFIGURED) and its five focused tests, not by this probe. Proving 503
+end-to-end would require an authenticated production analyst session,
+which was deliberately not created.
+
+### 16.5 · Inert keys / production mode
+
+The production process **booted and is serving all 862 routes**, which is
+only possible if `assert_production_ready()` passed. Since the owner set
+`NIVX_DEPLOYMENT_ENV=production` while `VERCEL_TOKEN` and
+`TEST_ANALYST_NIVXLIVE_PASSWORD` still hold live values (the platform will
+not clear them), the successful boot **is** the proof that both are inert
+and that the four PLACEHOLDER crypto keys were replaced with real values —
+a placeholder or a missing mandatory secret would have refused startup.
+Neither inert value was read, and neither is readable from outside.
+
+### 16.6 · Safety confirmations
+
+Production MongoDB not touched · no migration · no tenant created · no
+endpoint enrolled · no Vercel deployment · no code, config or DB change
+made during verification · P0-PROD-4 and P0-PROD-6 not started · no full
+test suite run.
+
+**PRODUCTION BACKEND SYNC: PASS.** Rollback not required. Next controlled
+stage: **XDR + EDR console sync** (§11).
