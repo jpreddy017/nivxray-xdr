@@ -27,6 +27,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from edr_plane import windows_eventlog as winlog
 from edr_plane.contracts.identity import ProcessIdentity
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
 from services import event_time_basis
@@ -35,6 +36,11 @@ from services import provenance_timestamps as pts
 PARSER_NAME = "nivxforge-linux-sensor"
 PARSER_VERSION = "1.0.0"
 NORMALIZER_VERSION = "1.0.0"
+#: Phase 0 · the Windows connector delivers Windows Event Log records, not
+#: the Linux connector's `activity` shape. Both are canonicalised here so
+#: there is ONE bridge, one provenance model and one detection handoff.
+WINDOWS_PARSER_NAME = "nivxforge-windows-sensor"
+WINDOWS_PARSER_VERSION = "1.0.0"
 
 #: What the sensor genuinely cannot produce. Recorded as NOT_SUPPORTED so
 #: a downstream consumer never reads a gap as "nothing happened".
@@ -57,6 +63,15 @@ def activity_identity(ev: dict[str, Any], endpoint_id: str) -> str:
     appears in the trajectory as if it had started many times, which
     inflates activity and corrupts first-seen reasoning.
     """
+    if winlog.is_windows_envelope(ev):
+        # A Windows Event Log record is already uniquely identified by its
+        # channel and EventRecordID on its host, so a redelivery is the
+        # same activity observed twice rather than new activity.
+        w = ev.get("winlog") or {}
+        parts = (winlog.ENVELOPE_KIND, w.get("channel"), w.get("event_id"),
+                 w.get("record_id"))
+        joined = "\x1f".join(str(p) for p in (endpoint_id, *parts))
+        return "act_" + hashlib.sha256(joined.encode()).hexdigest()[:24]
     activity = ev.get("activity")
     if activity == "PROCESS":
         parts = ("PROCESS", ev.get("pid"), ev.get("start_time"),
@@ -73,8 +88,16 @@ def activity_identity(ev: dict[str, Any], endpoint_id: str) -> str:
 
 
 def parse(line: str) -> dict[str, Any]:
-    """Sensor JSON line → the authoritative canonical telemetry shape."""
+    """Sensor JSON line → the authoritative canonical telemetry shape.
+
+    Two connector dialects reach this one function: the Linux connector's
+    `activity` shape, and the Windows connector's `WINDOWS_EVENT_LOG`
+    envelope. Dispatch is on the envelope the sensor actually sent, never
+    on a guess.
+    """
     ev = json.loads(line)
+    if winlog.is_windows_envelope(ev):
+        return _parse_windows(ev)
     activity = ev.get("activity")
     if activity not in ("PROCESS", "FILE", "NETWORK"):
         raise ValueError(f"unknown sensor activity {activity!r}")
@@ -270,6 +293,106 @@ def parse(line: str) -> dict[str, Any]:
     return canonical
 
 
+def _parse_windows(ev: dict[str, Any]) -> dict[str, Any]:
+    """`WINDOWS_EVENT_LOG` envelope → the same canonical shape.
+
+    The Windows evidence classes the source genuinely supports —
+    PROCESS, FILE, NETWORK, REGISTRY, DNS and AUTHENTICATION — are carried
+    as their OWN blocks. Registry activity is not filed as a file event
+    and a DNS query is not filed as a network connection just because
+    those lanes already existed.
+    """
+    w = winlog.to_canonical(ev)
+    activity = w["activity"]
+    wl = w["winlog"]
+    observed = _iso(w.get("observed_at"))
+    activity_time = _iso(w.get("activity_time"))
+    _clock = datetime.now(timezone.utc).isoformat()
+    etb = event_time_basis.resolve(
+        activity=([(activity_time,
+                    f"winlog:{wl.get('family')} UtcTime/TimeCreated")]
+                  if activity_time else ()),
+        observation=([(observed, "sensor:observed_at")] if observed else ()),
+        clock=_clock,
+        clock_source="pipeline:canonical_bridge clock",
+        activity_absent_reason=("the Windows record carried no UtcTime and "
+                                "no TimeCreated, so when the activity "
+                                "happened was not stated by the source"),
+        observation_absent_reason=("the connector envelope carried no "
+                                   "observed_at; when the sensor read this "
+                                   "record was never reported"))
+
+    canonical: dict[str, Any] = {
+        "source_vendor": w["source_vendor"],
+        "source_product": w["source_product"],
+        "event_time": etb.event_time,
+        "ingest_time": datetime.now(timezone.utc).isoformat(),
+        "provenance": {
+            "timestamps": pts.block(
+                **etb.stamps(),
+                collector_received_at=pts.stamp(
+                    status=pts.NOT_APPLICABLE,
+                    reason="no collector boundary exists on the sensor "
+                           "path: the sensor delivers straight to NivX "
+                           "ingress"),
+            ),
+        },
+        "additional_fields": {
+            "payload_format": winlog.PAYLOAD_FORMAT,
+            "activity_type": activity,
+            "operation": (w["file"].get("operation")
+                          or w["registry"].get("operation")),
+            "collection_method": w["collection_method"],
+            "winlog": wl,
+            **etb.declarations(),
+            "epistemic_state": {
+                "not_observed": list(w.get("not_observed") or ()),
+                "not_supported": list(w.get("not_supported") or ()),
+                "note": ("Fields under not_observed were absent from THIS "
+                         "Windows record. Fields under not_supported "
+                         "cannot be produced by Windows Event Log "
+                         "collection at all. Neither means the activity "
+                         "did not occur."),
+            },
+        },
+        "host": {},
+        "identity": {k: v for k, v in (w.get("identity") or {}).items()
+                     if v is not None},
+        "process": {k: v for k, v in (w.get("process") or {}).items()
+                    if v is not None},
+        "file": {k: v for k, v in (w.get("file") or {}).items()
+                 if v is not None},
+        "network": {k: v for k, v in (w.get("network") or {}).items()
+                    if v is not None},
+        "registry": {k: v for k, v in (w.get("registry") or {}).items()
+                     if v is not None},
+        "dns": {k: v for k, v in (w.get("dns") or {}).items()
+                if v is not None},
+        "authentication": {k: v for k, v in
+                           (w.get("authentication") or {}).items()
+                           if v is not None},
+    }
+    # The identity QUALITY the Windows module determined is the
+    # attribution state downstream reads, so one vocabulary serves both
+    # connectors. ProcessGuid identity is authoritative and is NOT
+    # downgraded by endpoint binding.
+    proc = canonical["process"]
+    quality = proc.get("identity_quality")
+    if quality == winlog.IDENTITY_PROCESS_GUID:
+        proc["attribution_state"] = "SOURCE_PROCESS_IDENTITY"
+        proc["attribution_reason"] = proc.get("identity_reason")
+    elif quality == winlog.IDENTITY_PID_ONLY:
+        proc["attribution_state"] = "PID_ONLY_NOT_AUTHORITATIVE"
+        proc["attribution_reason"] = proc.get("identity_reason")
+    else:
+        proc["attribution_state"] = "NOT_OBSERVED"
+        proc["attribution_reason"] = proc.get("identity_reason")
+    canonical["additional_fields"]["lineage_state"] = proc.get(
+        "ancestry_state") or "PARENT_NOT_OBSERVED"
+    canonical["additional_fields"]["identity_quality"] = quality
+    return canonical
+
+
 def bind_process_identity(canonical: dict[str, Any],
                           endpoint_id: Optional[str]) -> dict[str, Any]:
     """Apply the ENDPOINT scope to a pending process identity.
@@ -281,6 +404,17 @@ def bind_process_identity(canonical: dict[str, Any],
     """
     proc = canonical.get("process")
     if not isinstance(proc, dict):
+        return canonical
+    # A Windows ProcessGuid already identifies one process LIFETIME on its
+    # host, so the endpoint scope is applied to it rather than a PID and
+    # the authoritative identity is never downgraded by binding.
+    guid = proc.get("process_guid")
+    if guid:
+        if endpoint_id:
+            proc["process_iid"] = ProcessIdentity.mint(
+                endpoint_id=endpoint_id, pid=str(guid), start_time=None)
+            proc.setdefault("field_provenance", {})["process_iid"] = (
+                "nivx:ProcessIdentity.mint(endpoint_id, ProcessGuid)")
         return canonical
     state = proc.get("attribution_state")
     if state not in ("ENDPOINT_SCOPE_PENDING", None):
@@ -326,6 +460,9 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     try:
         canonical = parse(payload)
     except Exception as e:  # noqa: BLE001
+        reason = (f"sensor payload could not be parsed; the raw bytes are "
+                  f"retained and replayable after a parser fix: "
+                  f"{str(e)[:200]}")
         await add_derivation(db, tenant_id=tenant_id, raw_id=raw_id,
                              derivation=Derivation(
                                  replay_generation=gen,
@@ -336,11 +473,31 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                                  parser_state="FAILED",
                                  parser_notes=[str(e)[:300]],
                                  outcome="NO_CANONICAL_EVIDENCE",
-                                 reason=("sensor payload could not be "
-                                         "parsed; the raw bytes are "
-                                         "retained and replayable after a "
-                                         "parser fix")))
+                                 reason=reason))
+        # P0-C truthfulness · a parse failure means the evidence was
+        # NEVER EVALUATED. Without this row the event would simply have no
+        # finding, which a console can read as "evaluated and clean". The
+        # evaluation state is recorded against the RAW event, because no
+        # canonical event exists to record it against.
+        evaluation: dict[str, Any] = {"recorded": False}
+        try:
+            from edr_plane.findings_intake import record_endpoint_detection
+            evaluation = await record_endpoint_detection(
+                db, tenant_id=tenant_id, endpoint_ref=endpoint_id,
+                canonical_event_id=f"cev_{raw_id[4:]}_{gen}", raw_ref=raw_id,
+                payload=payload, observed_at=None,
+                derivation={
+                    "outcome": "DETECTION_NOT_EVALUATED",
+                    "event_id": f"cev_{raw_id[4:]}_{gen}",
+                    "reason": ("canonicalisation failed, so no detection "
+                               "ran on this evidence. NOT_EVALUATED is not "
+                               "CLEAN: " + reason),
+                    "derived_at": datetime.now(timezone.utc).isoformat()})
+        except Exception as inner:  # noqa: BLE001
+            evaluation = {"recorded": False, "error": str(inner)[:200]}
         return {"canonicalized": False, "parser_state": "FAILED",
+                "evaluation_state": "NOT_EVALUATED",
+                "finding_plane": evaluation,
                 "reason": str(e)[:300]}
 
     canonical["event_id"] = f"cev_{raw_id[4:]}_{gen}"
@@ -429,7 +586,10 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
 
     obs_id = await persist_live_observation(
         db, canonical,
-        envelope={"source": "nivxforge-linux-sensor",
+        envelope={"source": (WINDOWS_PARSER_NAME
+                             if canonical["additional_fields"].get(
+                                 "payload_format")
+                             == winlog.PAYLOAD_FORMAT else PARSER_NAME),
                   "connector_id": endpoint_id,
                   "collector_id": endpoint_id,
                   "collection_method": canonical["additional_fields"].get(

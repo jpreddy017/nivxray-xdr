@@ -40,6 +40,12 @@ def canonical_to_ces(canonical: dict[str, Any], *,
     fil = canonical.get("file") or {}
     extra = canonical.get("additional_fields") or {}
     hashes = proc.get("hashes") or fil.get("hashes") or {}
+    # Phase 0 · Windows evidence classes. Absent for every other producer,
+    # so this projection is byte-identical for them.
+    reg = canonical.get("registry") or {}
+    dns = canonical.get("dns") or {}
+    auth = canonical.get("authentication") or {}
+    wl = extra.get("winlog") or {}
 
     prov = IngestionProvenance(
         origin=LIVE_ORIGIN,
@@ -53,15 +59,25 @@ def canonical_to_ces(canonical: dict[str, Any], *,
 
     return CanonicalEventRecord(
         timestamp=_s(canonical.get("event_time")),
-        provider=" ".join(p for p in (_s(canonical.get("source_vendor")),
-                                      _s(canonical.get("source_product"))) if p),
-        event_id=None,
-        channel=_s(extra.get("payload_format")).upper(),
+        # A Windows record names its own provider, and `_resolve_kind()`
+        # already owns Sysmon / Win-Sec event-id semantics. Every other
+        # producer keeps the vendor+product provider it always had.
+        provider=_s(wl.get("provider")) or " ".join(
+            p for p in (_s(canonical.get("source_vendor")),
+                        _s(canonical.get("source_product"))) if p),
+        event_id=wl.get("event_id"),
+        channel=_s(wl.get("channel")) or _s(extra.get("payload_format")).upper(),
         computer=_s(host.get("hostname")) or _s(host.get("host_id")),
         user=_s(ident.get("username")),
+        sid=_s(ident.get("sid")) or _s(auth.get("target_sid")),
+        logon_id=_s(ident.get("logon_id")),
+        process_guid=_s(proc.get("process_guid")),
         process_id=_s(proc.get("pid")),
+        parent_process_guid=_s(proc.get("parent_process_guid")),
         image=_s(proc.get("executable_path")) or _s(proc.get("name")),
         command_line=_s(proc.get("command_line")),
+        current_directory=_s(proc.get("current_directory")),
+        integrity_level=_s(proc.get("integrity_level")),
         # Real parent evidence only. A source that carries no parent field
         # (CEF/LEEF do not) leaves these empty, so no ancestry is invented.
         parent_process_id=_s(proc.get("parent_pid")),
@@ -71,14 +87,26 @@ def canonical_to_ces(canonical: dict[str, Any], *,
         file_hash_md5=_s(hashes.get("md5")),
         file_hash_sha1=_s(hashes.get("sha1")),
         file_hash_sha256=_s(hashes.get("sha256")),
+        registry_key=_s(reg.get("key")),
+        registry_value=_s(reg.get("value_name")),
+        registry_data=_s(reg.get("value_data")),
         src_ip=_s(net.get("src_ip")),
         src_port=_s(net.get("src_port")),
         dst_ip=_s(net.get("dest_ip")),
         dst_port=_s(net.get("dest_port")),
         protocol=_s(net.get("protocol")),
-        dns_query=_s(net.get("dns_query")),
+        dns_query=_s(net.get("dns_query")) or _s(dns.get("query_name")),
+        dns_answer=", ".join(dns.get("answers") or ()) or "",
+        logon_type=_s(auth.get("logon_type")),
         raw_event={"canonical_event_id": canonical.get("event_id"),
                    "raw_ref": canonical.get("raw_ref") or {},
+                   # The Windows evidence blocks travel with the record so
+                   # the investigation surfaces read source truth rather
+                   # than a lossy flattening of it.
+                   **({"registry": reg} if reg else {}),
+                   **({"dns": dns} if dns else {}),
+                   **({"authentication": auth} if auth else {}),
+                   **({"winlog": wl} if wl else {}),
                    "envelope": {k: envelope.get(k) for k in
                                 ("source", "connector_id", "collector_id",
                                  "collection_method", "parser_version",

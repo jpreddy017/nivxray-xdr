@@ -22,6 +22,76 @@ from services.edr.endpoint_health import (BLINDNESS_NOTE, DELIVERY_STATES,
                                           resolve_delivery_freshness)
 
 _ENDPOINTS = "edr_endpoints"
+_OBSERVATIONS = "v2_shadow_observations"
+
+#: Phase 0 · DELIVERY is not INVESTIGABILITY.
+#:
+#: `last_telemetry_at` and `event_count` advance on the RAW authenticated
+#: write, which is correct — the endpoint really did deliver. But an
+#: endpoint whose payloads cannot be canonicalised delivers raw evidence
+#: and produces NO investigable evidence: its Device Trajectory, Process
+#: Tree, detections and findings are all empty while it reports as fresh.
+#: That is exactly the confusion P0-3 exists to prevent, arriving from the
+#: other side, so the two facts are now reported separately. No existing
+#: field changes meaning.
+INVESTIGABLE = "INVESTIGABLE"
+RAW_ONLY = "RAW_ONLY_NOT_INVESTIGABLE"
+NO_DELIVERY = "NO_DELIVERY_TO_ASSESS"
+UNKNOWN_INVESTIGABILITY = "UNKNOWN_NOT_ASSESSED"
+
+INVESTIGABILITY_NOTE = (
+    "DELIVERING describes transport: raw authenticated events arrived. "
+    "INVESTIGABLE describes evidence: those events became canonical "
+    "evidence an analyst can actually investigate. An endpoint that is "
+    "DELIVERING but RAW_ONLY_NOT_INVESTIGABLE is a canonicalisation gap, "
+    "not a healthy endpoint and not an absence of activity — the raw "
+    "bytes are retained and replayable.")
+
+
+def _canonical_counts(endpoint_ids: List[str], tenants: Any
+                      ) -> Dict[str, int]:
+    """Canonical observations per endpoint. One bounded aggregation."""
+    if not endpoint_ids:
+        return {}
+    match: Dict[str, Any] = {"connector_id": {"$in": endpoint_ids}}
+    if tenants is not None:
+        match["tenant_id"] = {"$in": tenants}
+    try:
+        rows = sync_collection(_OBSERVATIONS).aggregate([
+            {"$match": match},
+            {"$group": {"_id": "$connector_id", "n": {"$sum": 1}}},
+        ])
+        return {str(r["_id"]): int(r["n"] or 0) for r in rows}
+    except Exception:                                        # noqa: BLE001
+        # A projection failure must not be reported as "no evidence".
+        return {}
+
+
+def investigability(doc: Dict[str, Any], canonical_count: Optional[int]
+                    ) -> Dict[str, Any]:
+    raw_events = int(doc.get("event_count") or 0)
+    if canonical_count is None:
+        state, statement = UNKNOWN_INVESTIGABILITY, (
+            "whether this endpoint's delivered evidence became canonical "
+            "evidence could not be determined; this is unknown, not clean")
+    elif raw_events == 0:
+        state, statement = NO_DELIVERY, (
+            "this endpoint has delivered no raw event, so there is nothing "
+            "to canonicalise and nothing to investigate yet")
+    elif canonical_count == 0:
+        state, statement = RAW_ONLY, (
+            f"{raw_events} raw authenticated event(s) arrived and NOT ONE "
+            f"became canonical evidence. Device Trajectory, Process Tree, "
+            f"detections and findings are empty for this endpoint because "
+            f"of a canonicalisation gap, not because nothing happened")
+    else:
+        state, statement = INVESTIGABLE, (
+            f"{canonical_count} canonical observation(s) exist for this "
+            f"endpoint, so its delivered activity can be investigated")
+    return {"state": state, "statement": statement,
+            "raw_events": raw_events,
+            "canonical_observations": canonical_count,
+            "note": INVESTIGABILITY_NOTE}
 
 #: Enrolled endpoints that have never delivered anything are counted, but
 #: they are NOT the fleet's blindness signal — an endpoint that was
@@ -120,6 +190,14 @@ def fleet_freshness(scope: Any, *, endpoint: Optional[str] = None,
         docs, _ = _rows(scope, None)
 
     rows = [endpoint_freshness(d, now) for d in docs]
+    tenants = (list((scope or {}).get("tenant_ids") or [])
+               if isinstance(scope, dict) and not scope.get("all_tenants")
+               else None)
+    counts = _canonical_counts([str(d.get("endpoint_id")) for d in docs
+                                if d.get("endpoint_id")], tenants)
+    for row, doc in zip(rows, docs):
+        row["investigability"] = investigability(
+            doc, counts.get(str(doc.get("endpoint_id")), 0))
     if addressed and len(rows) == 1:
         # The row IS the endpoint that was addressed, so it carries how it
         # was addressed. Consumers should not have to correlate the row

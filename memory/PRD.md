@@ -21372,3 +21372,73 @@ supplies id + display name; agent prepares the authenticated API call; owner
 approves). Blocker: owner decision only.
 No changes made: code 0, DB 0, tenant 0, endpoint 0, secrets 0, commits 0,
 deploys 0, response actions 0.
+
+---
+
+## 2026-06 · PHASE 0 · WINDOWS CANONICAL TELEMETRY BRIDGE (PASS)
+
+**Stage A finding (read-only audit):** the Windows sensor's
+`WINDOWS_EVENT_LOG` payload was refused by `canonical_bridge.parse()`
+(`unknown sensor activity None`). A real Windows endpoint would enrol,
+authenticate, heartbeat and deliver raw telemetry successfully while
+Device Trajectory, Process Tree, detections and findings stayed empty —
+and still report as fresh and delivering.
+
+**Phase 0 (implemented, preview-proven):**
+- `edr_plane/windows_eventlog.py` (NEW): Sysmon 1/3/11/12/13/22 +
+  Security 4688/4624 → canonical evidence. Sysmon `ProcessGuid` is the
+  authoritative process identity; absent it, `identity_quality =
+  PID_ONLY_NOT_AUTHORITATIVE` (a QUALITY state — the PID/image/parent are
+  preserved, never replaced). No ProcessGuid is ever fabricated.
+- Canonical classes PROCESS · FILE · NETWORK · REGISTRY · DNS ·
+  AUTHENTICATION. Registry is not filed as FILE; DNS is not filed as
+  NETWORK. Trajectory `GROUPS` extended to all six. **No CES schema
+  migration** — CES already mirrored the Sysmon + Win-Sec union.
+- Detection reuses the SAME DSM and `process_event_through_pipeline`.
+  No new detection engine.
+- Truthfulness fix A: a canonicalisation failure now records
+  `DETECTION_NOT_EVALUATED` (previously it recorded nothing, which a
+  console can read as "evaluated and clean").
+- Truthfulness fix B: `[object Object]` freshness render fixed
+  (`readableError()`), plus an additive per-endpoint `investigability`
+  state distinguishing TRANSPORT freshness from INVESTIGABLE evidence
+  (`RAW_ONLY_NOT_INVESTIGABLE` names the Stage A failure mode).
+- Tests: 41 added; 411/414 passed across 27 focused suites. 1 failure is
+  pre-existing harness debt (`_agent_tenant()` missing `oracle`,
+  P0-PROD-2 era) in an untouched file.
+- Production mutations: 0. Deployments: 0. Preview DB written and cleaned
+  up by the self-cleaning e2e probe.
+
+**Grade:** `PROVEN_PREVIEW`. No real Windows host has produced any of
+this. Console changes are `IMPLEMENTED_NOT_RUNTIME_VERIFIED` (the EDR
+console builds from `apps/nivxray-xdr` and was not rebuilt/deployed).
+
+### Reports
+- `memory/production-gates/P1_TENANT_BOOTSTRAP_PRECHECK.md`
+- `memory/production-gates/STAGE_A_WINDOWS_PRODUCTION_READINESS.md`
+- `memory/production-gates/PHASE0_WINDOWS_CANONICAL_BRIDGE.md`
+
+### NEXT (owner-gated · P0)
+1. **Production tenant bootstrap** — org `kind=VENDOR` +
+   tenant `kind=INTERNAL_VALIDATION`, `slug=nivx-machines`, opaque
+   `ten_…`. Two writes, prepared and NOT sent. Issue serially; the
+   registry has **no unique index** and the audit write follows the
+   insert, so verify before any retry.
+2. **Mint one enrolment token**, then enrol the first real Windows host
+   (needs Python 3.11+ and Sysmon configured).
+3. **Rebuild/redeploy the consoles** so the investigability chip and the
+   error render actually ship.
+
+### BACKLOG (unchanged, tracked)
+- P1: Findings UI (P0-C has no consumer), token-revoke UI, exclusion
+  approve/revoke UI, enrolment-rejections feed.
+- P2: outbox size cap + rotation (currently unbounded — disk-full risk);
+  sensor crash recovery (ONSTART-only task); signed installer + bundled
+  Python runtime; secure token delivery (currently a CLI argument).
+- P3: PowerShell 4104 / Module Logging / AMSI; process exit; signer and
+  signature verification; ETW; endpoint-local detection/prevention;
+  DPAPI/TPM; mTLS; Gate 2 endpoint event journal; Gate 12 mobile.
+- P0-PROD-4 (response authority) and P0-PROD-6 (replica safety) remain
+  deliberately closed. Response stays FAIL-CLOSED.
+- Harness debt: `test_b4b5_tenant_registry_authority::
+  test_edr_and_xdr_resolve_the_same_authority` needs the `oracle` kwarg.

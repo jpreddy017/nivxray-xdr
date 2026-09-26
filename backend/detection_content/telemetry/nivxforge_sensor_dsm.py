@@ -53,7 +53,9 @@ class NivXForgeSensorParser:
             raise NivXForgeSensorParseError("SENSOR_PARSE_FAILED",
                                             str(e)[:200]) from None
         return {"parser_id": self.id, "raw": ev, "canonical": canonical,
-                "event_type": ev.get("activity")}
+                "event_type": (ev.get("activity")
+                               or (canonical.get("additional_fields") or {}
+                                   ).get("activity_type"))}
 
 
 class NivXForgeSensorNormalizer:
@@ -129,6 +131,14 @@ class NivXForgeSensorDSM:
     def supports(self, ev: Any) -> bool:
         if not isinstance(ev, dict):
             return False
+        # Phase 0 · the Windows connector declares its evidence with the
+        # `WINDOWS_EVENT_LOG` envelope rather than an `activity` key. It is
+        # claimed on the SAME rule: the source must declare itself, so an
+        # unrelated event carrying a lookalike field is never attributed to
+        # an endpoint.
+        from edr_plane import windows_eventlog as _winlog
+        if _winlog.is_windows_envelope(ev):
+            return True
         # An endpoint event is identified by its own declared activity plus
         # the sensor's collection method. A bare dict with an `activity`
         # key is NOT claimed — that would let an unrelated source be

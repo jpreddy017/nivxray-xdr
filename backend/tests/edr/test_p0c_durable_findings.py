@@ -416,11 +416,20 @@ async def test_an_exclusion_suppressed_evaluation_is_not_reported_as_clean():
 # ── 12 · the ingest path is actually wired ──────────────────────────────
 def test_the_authenticated_ingest_path_records_the_finding_plane():
     """Structural: if this call is removed, detections stop becoming
-    durable findings silently. The bridge must record BOTH the detection
-    outcome and the not-evaluated outcome."""
+    durable findings silently. The bridge must record EVERY outcome:
+    the detection outcome, the detection-fabric-unreachable outcome, and
+    (Phase 0) the canonicalisation-failure outcome. A parse failure that
+    recorded nothing left evidence with no finding at all, which a console
+    can read as "evaluated and clean"."""
     import pathlib
     src = pathlib.Path("/app/backend/edr_plane/canonical_bridge.py").read_text()
-    assert src.count("record_endpoint_detection(") == 2, (
-        "the canonical bridge must hand BOTH the detection outcome and the "
-        "DETECTION_NOT_EVALUATED outcome to the finding plane")
+    assert src.count("record_endpoint_detection(") >= 3, (
+        "the canonical bridge must hand the detection outcome, the "
+        "DETECTION_NOT_EVALUATED outcome AND the parse-failure outcome to "
+        "the finding plane")
     assert "DETECTION_NOT_EVALUATED" in src
+    # The parse-failure branch must reach the finding plane, not return early.
+    failure = src.split('parser_state="FAILED"', 1)[1].split("return", 1)[0]
+    assert "record_endpoint_detection(" in failure, (
+        "a canonicalisation failure must record NOT_EVALUATED before it "
+        "returns; otherwise the evidence simply has no finding")

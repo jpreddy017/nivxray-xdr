@@ -49,7 +49,7 @@ COLLECTION = "v2_shadow_observations"
 #: observation an analyst is looking at carries the detection that was
 #: actually made about it.
 RAW_COLLECTION = "edr_raw_events"
-GROUPS = ("PROCESS", "FILE", "NETWORK")
+GROUPS = ("PROCESS", "FILE", "NETWORK", "REGISTRY", "DNS", "AUTHENTICATION")
 MAX_LIMIT = 4000
 
 #: Canonical kinds → lane group. Anything unrecognised goes to PROCESS
@@ -58,8 +58,16 @@ MAX_LIMIT = 4000
 #: to.
 _FILE_KINDS = {"file_create", "file_write", "file_delete", "file_modify",
                "file_rename", "image_load", "file"}
-_NET_KINDS = {"network_connect", "network", "dns_query", "dns",
+_NET_KINDS = {"network_connect", "network",
               "network_accept", "network_listen", "http_request"}
+#: Phase 0 · Windows evidence classes that are NOT process, file or
+#: network. A registry write is not a file write and a DNS query is not a
+#: TCP connection: filing them on a borrowed lane would make an analyst
+#: read the wrong evidence.
+_REGISTRY_KINDS = {"registry_create", "registry_value_set",
+                   "registry_delete", "registry_rename", "registry"}
+_DNS_KINDS = {"dns_query", "dns"}
+_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff"}
 
 DISPOSITION_MALICIOUS = "MALICIOUS"
 DISPOSITION_SUSPICIOUS = "SUSPICIOUS"
@@ -137,6 +145,18 @@ def _group_and_key(ev: Dict[str, Any]) -> Tuple[str, str, str]:
         path = raw.get("target") or raw.get("file") or raw.get("path")
         if path:
             return "FILE", f"file::{path}", str(path)
+    if kind in _REGISTRY_KINDS:
+        key = raw.get("registry_key") or raw.get("target")
+        if key:
+            return "REGISTRY", f"reg::{key}", str(key)
+    if kind in _DNS_KINDS:
+        query = raw.get("dns_query") or raw.get("target")
+        if query:
+            return "DNS", f"dns::{query}", str(query)
+    if kind in _AUTH_KINDS:
+        who = raw.get("user") or raw.get("sid") or raw.get("target")
+        if who:
+            return "AUTHENTICATION", f"auth::{who}", str(who)
     if kind in _NET_KINDS:
         peer = (raw.get("remote_ip") or raw.get("destination")
                 or raw.get("entity") or raw.get("dns_query"))

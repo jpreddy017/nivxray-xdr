@@ -323,6 +323,15 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "pid":           ces.process_id or None,
             "ppid":          ces.parent_process_id or None,
             "image_path":    ces.image or None,
+            # Named explicitly so a lane can key on the evidence class it
+            # actually is. `target` collapses five different things into
+            # one string and cannot tell a registry key from a file path.
+            "registry_key":  ces.registry_key or None,
+            "registry_value":ces.registry_data or None,
+            "dns_query":     ces.dns_query or None,
+            "dns_answer":    ces.dns_answer or None,
+            "logon_type":    ces.logon_type or None,
+            "sid":           ces.sid or None,
             "sha256":        hashlib.sha256(evt_key.encode()).hexdigest(),
         },
         "process": {
