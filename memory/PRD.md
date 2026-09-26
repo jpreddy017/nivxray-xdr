@@ -21466,3 +21466,19 @@ Report: `/app/memory/production-gates/PHASE0_PROMOTION_PRECHECK.md`.
   proved live read-only). 2 SKIPPED = credential-gated live suites
   (P0-PROD-1 policy). None block promotion.
 - Production mutations in this precheck: 0 across every counter.
+
+## 2026-06 · PHASE 0 SOURCE PROMOTION — STAGE 1: BLOCKED (one owner action)
+Pre-push integrity gate PASS. Branch `feature/rc2-alignment`, local HEAD
+`0f6e4c0a` (docs-only on top of Phase 0 code `bea8852b`, which is an
+ancestor; `git diff bea8852b HEAD -- backend apps frontend` is EMPTY).
+Worktree clean except untracked `memory/availability_probe.log`.
+Secret scan: no secret VALUES, only secret NAMES in prose. No tracked
+`.env`, `dist/`, `build/`, `node_modules/`. No preview DB artifacts.
+GitHub remote is verifiable READ-ONLY via the public API (the pod itself
+has NO git remote and NO push credentials — the agent cannot push):
+  github.com/jpreddy017/nivxray-xdr @ feature/rc2-alignment
+  REMOTE HEAD = f7a25183  → 5 unpushed local commits
+  bea8852b ANCESTOR OF REMOTE HEAD = NO (not yet pushed)
+BLOCKER: the owner must click **Save to Github** in the chat input.
+Afterwards the remote HEAD can be re-verified via the same public API and
+Phase 0 file equivalence proven before Stage 2 (backend republish).
