@@ -21597,3 +21597,31 @@ Report: `/app/memory/production-gates/PHASE0_STAGE3_POST_PROMOTION_VERIFICATION.
   Windows host (Sysmon first) → live canonicalisation proof. AFTER that:
   the Full Investigation Surface milestone (Hunt, Files, Network,
   Forensics, Live Query — real, never cosmetic).
+
+## 2026-06 · NIVX MACHINES TENANT BOOTSTRAP — HALTED (entity already exists)
+Report: `/app/memory/production-gates/NIVX_MACHINES_TENANT_BOOTSTRAP.md`.
+- CORRECTION TO HANDOFF: production is NOT clean. An authenticated read of
+  the authoritative registry shows a NivX Machines org + INTERNAL_VALIDATION
+  tenant already created 2026-09-17 by admin@nivxray.com:
+    ORG    org_55f6dc202dbf8995369db989ad  slug=nivxmachines  "NivXMachines"  VENDOR  ACTIVE
+    TENANT ten_e759b7288598bd882e3dcac49d  slug=internal-validation  "Internal Validation"
+           INTERNAL_VALIDATION  ACTIVE  products ["XDR","EDR"]  → org above
+    ENDPOINTS on tenant: 0 (NO_ENROLLED_ENDPOINTS)
+- NO WRITE PERFORMED. Creating org+tenant now would duplicate NivX Machines
+  (kinds already match; only slug/display/casing differ), which the owner
+  authorization forbids and the registry has no unique index to prevent.
+- Admin JWT obtained in memory (password NOT persisted). Login worked on
+  1st candidate; auth rate limit is 5 fails/5min → 15min lockout.
+- OWNER DECISION NEEDED: (1) REUSE ten_e759b7288598bd882e3dcac49d and go
+  straight to token mint [recommended, zero writes]; (2) rename slug to
+  nivx-machines [separate sensitive op]; (3) create a parallel new one
+  [not recommended].
+
+## 2026-06 · TENANT BOOTSTRAP — RESOLVED BY REUSE (owner decision)
+- Owner authorised REUSE of existing tenant `ten_e759b7288598bd882e3dcac49d`
+  (org `org_55f6dc202dbf8995369db989ad`, VENDOR/INTERNAL_VALIDATION/ACTIVE,
+  products XDR+EDR, 0 endpoints). No rename, NO new org/tenant created.
+- Final read-back: still exactly 1 org / 1 tenant, enforcing=True. Zero
+  production writes performed in this stage.
+- NEXT (owner-gated): mint exactly ONE single-use Windows enrollment token
+  for `ten_e759b7288598bd882e3dcac49d`, then STOP before endpoint install.
