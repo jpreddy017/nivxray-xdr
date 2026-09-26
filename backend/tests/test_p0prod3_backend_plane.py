@@ -351,3 +351,35 @@ def test_response_authority_is_unconfigured_absence_not_permission():
     finally:
         if saved is not None:
             os.environ["XDR_RESPONSE_SERVICE_URL"] = saved
+
+
+# ── 6 · production configurability (deployment-mechanism reality) ──
+
+def test_every_mandatory_production_key_is_exposed_for_configuration():
+    """The deployment's Secrets tab can only EDIT keys that already exist
+    in `backend/.env`; brand-new key names cannot be added there. So a key
+    that is absent from `.env` is a key the owner CANNOT configure in
+    production — and production then refuses to boot. Each mandatory name
+    must therefore be present, with a value that is either a preview value
+    or an explicit placeholder (placeholders are refused in production, so
+    exposure never becomes a weak default).
+    """
+    text = Path("/app/backend/.env").read_text()
+    names = {line.split("=", 1)[0].strip() for line in text.splitlines()
+             if "=" in line and not line.strip().startswith("#")}
+    required = set(secret_policy.MANDATORY_PRODUCTION_SECRETS) | \
+        set(secret_policy.MANDATORY_PRODUCTION_CONFIG) | \
+        {"NIVX_DEPLOYMENT_ENV"}
+    missing = sorted(required - names)
+    assert not missing, (
+        f"not configurable in the production deployment: {missing}")
+    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
+        assert name not in names
+
+
+def test_placeholder_values_are_refused_in_production(prod_env):
+    prod_env.setenv("XDR_ROOT_KEY",
+                    "PLACEHOLDER-SET-REAL-VALUE-IN-PRODUCTION-SECRETS-TAB")
+    with pytest.raises(secret_policy.SecretPolicyError) as e:
+        secret_policy.assert_production_ready()
+    assert "XDR_ROOT_KEY" in str(e.value)

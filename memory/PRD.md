@@ -21223,3 +21223,37 @@ production tenant → NivXRay XDR + NivXForge EDR Vercel sync → console
 verification → real endpoint enrolment/telemetry/detection.
 Still gated: P0-PROD-4 (destructive response, keep XDR_RESPONSE_SERVICE_URL
 unset), P0-PROD-6 (replica-unsafe background loops).
+
+---
+
+## 2026-06 · PRODUCTION SYNC (BACKEND) · PHASE 1 COMPLETE — REPUBLISH PENDING OWNER
+
+Evidence: `memory/production-gates/PRODUCTION_SYNC_BACKEND.md`
+
+Phase 1 (pre-deployment configuration) is complete. Phase 2 (republish) CANNOT be
+performed by the agent: the agent has no deployment-pod access. The owner must
+(1) set the production secrets/settings in Manage Publishes -> Secrets and
+(2) click Re-publish changes.
+
+Required enablement discovered and fixed: the four crypto key NAMES
+(XDR_AUDIT_MASTER_SECRET, XDR_SECRETS_MASTER, NIVXRAY_SIGNING_SECRET,
+XDR_ROOT_KEY) were absent from backend/.env after P0-PROD-1, and the platform's
+Secrets tab can only edit keys that already exist in .env — so production was
+unconfigurable. They are now exposed with explicit PLACEHOLDER values, which
+production REFUSES (fail-closed) and preview ignores (derived instance-local
+keys, unchanged). Locked by test.
+
+Production configuration order (must be followed): 7 fresh secrets ->
+4 settings (XDR_RESPONSE_SERVICE_URL empty) -> confirm VERCEL_TOKEN and
+TEST_ANALYST_NIVXLIVE_PASSWORD absent -> NIVX_DEPLOYMENT_ENV=production LAST ->
+Re-publish -> run `python3 scripts/verify_production_sync.py`.
+
+Pre-republish baseline captured: 862 source routes vs 795 production, 67 absent,
+0 removed. EDR policy/exclusions/findings/audit/events all 404 in production.
+Rollback: Manage Publishes -> Overview (last 3 deployments); record the current
+deployment ID before publishing. Do NOT rotate EDR_AUTH_PEPPER on rollback.
+
+Still gated: P0-PROD-4 (destructive response stays fail-closed, keep
+XDR_RESPONSE_SERVICE_URL empty), P0-PROD-6 (replica-unsafe background loops,
+platform default is 2 replicas). Production tenant registration documented, NOT
+executed. No DB migration, no Vercel deployment, no endpoint enrolled.
