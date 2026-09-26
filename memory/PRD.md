@@ -21304,3 +21304,16 @@ crypto keys were replaced with real values. Evidence: PRODUCTION_SYNC_BACKEND.md
 NEXT controlled stage: XDR + EDR console sync (Vercel), then production tenant
 bootstrap, then real endpoint enrolment. P0-PROD-4 before destructive response;
 P0-PROD-6 before replica-unsafe background work.
+
+### 2026-06 · Console Sync · pre-deploy PASS, deploy BLOCKED on owner
+Both live consoles already target the production API (no preview/localhost), but
+their deployed bundles are STALE vs current source (xdr index-dQhjKK0o vs local
+index-DWES00xC; edr index-5e0IbMeq vs local index-Dyygw0sM). Both scoped
+production builds PASS locally with the build guard, and the new artifacts
+contain the routes that were 404 until the backend republish. The agent has no
+Vercel credential, so nothing was deployed: owner must redeploy both Vercel
+projects (Root apps/nivxray-xdr, build `bash scripts/vercel-build.sh`, output
+dist, XDR_PROD_API_ORIGIN=https://nivxray.nivxforge.com, EDR project needs
+NIVX_PRODUCT_SCOPE=edr, no build cache). Details in
+PRODUCTION_SYNC_BACKEND.md §17. Contract note: neither console artifact calls
+/api/edr/findings yet (P0-C API live but unused by the UI).

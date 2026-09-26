@@ -782,3 +782,118 @@ test suite run.
 
 **PRODUCTION BACKEND SYNC: PASS.** Rollback not required. Next controlled
 stage: **XDR + EDR console sync** (§11).
+
+---
+
+## 17 · CONSOLE SYNC — PRE-DEPLOY CHECK COMPLETE · BLOCKED ON OWNER (2026-06)
+
+### 17.1 · Live console state (read-only)
+
+| | XDR | EDR |
+|---|---|---|
+| Host | `xdr.nivxforge.com` → 307 → `/xdr` → **200** | `edr.nivxforge.com` → 307 → `/edr` → **200** |
+| Deployed entry bundle | `/assets/index-dQhjKK0o.js` | `/assets/index-5e0IbMeq.js` |
+| API origin baked in | `https://nivxray.nivxforge.com` | `https://nivxray.nivxforge.com` |
+| Preview / localhost origin | **none** | **none** |
+
+Both live consoles already target the production API — no stale preview
+dependency. Both hostnames serve and the product-scope redirect works.
+
+### 17.2 · The consoles are STALE relative to current source
+
+Local production builds of current source (`feature/rc2-alignment`,
+commit `f345a705`) produce:
+
+| | local build entry | deployed entry | same? |
+|---|---|---|---|
+| XDR | `index-DWES00xC.js` | `index-dQhjKK0o.js` | **NO** |
+| EDR | `index-Dyygw0sM.js` | `index-5e0IbMeq.js` | **NO** |
+
+So a Vercel redeploy is genuinely required — this is not a cosmetic
+refresh.
+
+### 17.3 · Both scoped builds PASS locally, before any deploy
+
+```
+NIVX_PRODUCT_SCOPE=xdr bash scripts/vercel-build.sh
+  ok · no unauthorised origin outside the allow-list
+  ok · product scope declared "xdr" (/edr/* cannot render here)
+  ok · landed collector base https://nivxray.nivxforge.com/api/xdr/collector
+  XDR PRODUCTION BUILD GUARD · PASSED     (173 assets)
+
+NIVX_PRODUCT_SCOPE=edr bash scripts/vercel-build.sh
+  ok · product scope declared "edr" (/xdr/* cannot render here)
+  EDR PRODUCTION BUILD GUARD · PASSED     (173 assets)
+```
+
+The new artifacts contain the routes that were 404 in production until
+this republish — `edr/policies`, `edr/exclusions`, `edr/audit`,
+`endpoint-commands`, `xdr/rbac/me/effective`, `xdr/scope/authorized`,
+`xdr/windows/configuration` — so the redeploy is what finally lines the
+console up with the 862-route backend.
+
+Factual contract note, not a blocker and **no UI work performed**: neither
+artifact references `/api/edr/findings`. The durable-findings API (P0-C) is
+live in production but the current console does not consume it yet.
+
+### 17.4 · Production API is ready for the consoles
+
+`POST /api/auth/login` with a wrong password → **401 "Invalid
+credentials"** (the authentication path is alive; no real credential was
+used, and none is needed to prove this).
+
+### 17.5 · BLOCKED — the agent cannot deploy Vercel
+
+No Vercel credential exists in this environment (`VERCEL_TOKEN` is absent
+from the agent runtime, deliberately — it is a deployment-plane authority
+the application must never hold), and the Vercel projects are owned by the
+owner's account. **Nothing was deployed.**
+
+Minimum owner action:
+
+```
+Vercel → project "nivxray-xdr-production"  (host xdr.nivxforge.com)
+  Settings → Environment Variables (Production):
+      XDR_PROD_API_ORIGIN = https://nivxray.nivxforge.com
+      NIVX_PRODUCT_SCOPE  = xdr        (or leave unset — default is xdr)
+  Deployments → Redeploy (latest commit of feature/rc2-alignment)
+      → UNCHECK "use existing build cache"
+
+Vercel → EDR project                      (host edr.nivxforge.com)
+  Settings → Environment Variables (Production):
+      XDR_PROD_API_ORIGIN = https://nivxray.nivxforge.com
+      NIVX_PRODUCT_SCOPE  = edr        ← REQUIRED, not cosmetic
+  Deployments → Redeploy (same commit, no build cache)
+```
+
+Both projects must keep: Root Directory `apps/nivxray-xdr`, Build Command
+`bash scripts/vercel-build.sh`, Output Directory `dist`, Install
+`yarn install --production=false`.
+
+Leave `NIVX_CROSS_PRODUCT_ORIGINS` **off** for now.
+
+If `NIVX_PRODUCT_SCOPE` is missing on the EDR project the build **fails
+loudly** (`FATAL: NIVX_PRODUCT_SCOPE must be 'xdr' or 'edr'`) rather than
+shipping an unscoped artifact — the product boundary cannot silently
+disappear.
+
+### 17.6 · Post-deploy verification (say the word and I will run it)
+
+Read-only, ~1 minute: fetch each host, extract the entry bundle hash,
+confirm it matches the current source build, assert the only API origin in
+the artifact is `https://nivxray.nivxforge.com` with no preview/localhost,
+confirm the scope guard (`/edr/*` must not render on the XDR host and vice
+versa), and confirm the console's API calls resolve against production
+rather than 404.
+
+```
+CONSOLE SYNC: BLOCKED (owner Vercel action)
+XDR build:          local PASS · deployed artifact STALE
+EDR build:          local PASS · deployed artifact STALE
+XDR URL:            https://xdr.nivxforge.com  (200)
+EDR URL:            https://edr.nivxforge.com  (200)
+Production API:     https://nivxray.nivxforge.com  (auth 401 on bad password)
+EDR product scope:  NIVX_PRODUCT_SCOPE=edr required on the EDR project
+Deployment:         NOT PERFORMED — no Vercel credential in this environment
+Blocker:            owner must redeploy both Vercel projects (§17.5)
+```
