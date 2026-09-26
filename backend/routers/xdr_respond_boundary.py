@@ -35,7 +35,31 @@ router = APIRouter(prefix="/xdr/respond", tags=["xdr-respond-boundary"])
 
 
 def _service_url() -> Optional[str]:
-    return (os.environ.get("XDR_RESPONSE_SERVICE_URL") or "").rstrip("/") or None
+    """The response authority, or None when there is none.
+
+    PRODUCTION RULE (P0-PROD-SYNC): a loopback/link-local address is
+    treated as NOT CONFIGURED under `NIVX_DEPLOYMENT_ENV=production`. A
+    production backend can never legitimately reach a response authority
+    on its own localhost, so such a value is a leftover preview setting,
+    not an authority. Honouring it would mean dialling a port that either
+    refuses or — far worse — belongs to some unrelated process. Refusing
+    is the fail-closed reading, and it also means the gate does not depend
+    on an operator being able to blank a key the deployment UI will not
+    let them blank.
+    """
+    raw = (os.environ.get("XDR_RESPONSE_SERVICE_URL") or "").rstrip("/")
+    if not raw:
+        return None
+    from security.secret_policy import is_production
+    if is_production() and _is_loopback(raw):
+        return None
+    return raw
+
+
+def _is_loopback(url: str) -> bool:
+    host = url.split("//", 1)[-1].split("/", 1)[0].split(":", 1)[0].lower()
+    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") \
+        or host.startswith("127.")
 
 
 def _timeout() -> float:

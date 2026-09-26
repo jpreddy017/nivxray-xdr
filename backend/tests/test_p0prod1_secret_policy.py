@@ -123,15 +123,38 @@ def test_production_startup_lists_every_missing_secret(clean_env):
 
 
 def test_production_refuses_a_forbidden_runtime_credential(clean_env):
+    """The hard-refusal mechanism itself.
+
+    `VERCEL_TOKEN` moved to `INERT_IN_PRODUCTION` in the P0-PROD-SYNC
+    phase, because the deployment platform will not let an operator
+    delete or blank it and nothing in the backend runtime reads it (that
+    absence is asserted by
+    `test_inert_production_keys_have_no_production_consumer`). So the
+    refusal machinery is proven here against a declared forbidden name
+    rather than against a key the platform makes unremovable.
+    """
     clean_env.setenv(sp.ENV_VAR, "production")
     for name in sp.MANDATORY_PRODUCTION_SECRETS:
         clean_env.setenv(name, f"configured-{name.lower()}-0123456789")
     assert sp.assert_production_ready()["enforced"] is True
-    clean_env.setenv("VERCEL_TOKEN", "deploy-plane-authority")
+    clean_env.setattr(sp, "FORBIDDEN_IN_PRODUCTION",
+                      ("A_DEPLOY_PLANE_CREDENTIAL",))
+    clean_env.setenv("A_DEPLOY_PLANE_CREDENTIAL", "deploy-plane-authority")
     with pytest.raises(sp.SecretPolicyError) as e:
         sp.assert_production_ready()
-    assert "VERCEL_TOKEN" in str(e.value)
+    assert "A_DEPLOY_PLANE_CREDENTIAL" in str(e.value)
     assert "deploy-plane-authority" not in str(e.value)
+
+
+def test_an_unremovable_platform_key_is_inert_not_fatal(clean_env):
+    clean_env.setenv(sp.ENV_VAR, "production")
+    for name in sp.MANDATORY_PRODUCTION_SECRETS:
+        clean_env.setenv(name, f"configured-{name.lower()}-0123456789")
+    clean_env.setenv("VERCEL_TOKEN", "a-live-value")
+    out = sp.assert_production_ready()
+    assert out["enforced"] is True
+    assert "VERCEL_TOKEN" in out["inert_present"]
+    assert "a-live-value" not in str(out)
 
 
 def test_the_startup_validator_enforces_the_policy(clean_env):
@@ -242,10 +265,10 @@ def test_the_application_env_holds_no_deploy_or_test_credential():
     text = pathlib.Path("/app/backend/.env").read_text()
     names = [line.split("=", 1)[0].strip() for line in text.splitlines()
              if "=" in line and not line.strip().startswith("#")]
-    assert "VERCEL_TOKEN" not in names, (
-        "deployment-plane authority must not live in application runtime "
-        "configuration")
-    assert "TEST_ANALYST_NIVXLIVE_PASSWORD" not in names
+    for name in sp.FORBIDDEN_IN_PRODUCTION + sp.INERT_IN_PRODUCTION:
+        assert name not in names, (
+            "deployment-plane or test authority must not live in "
+            "application runtime configuration")
     assert "NIVX_DEPLOYMENT_ENV" in names
     assert "NIVX_DEPLOYMENT_ENV=preview" in text
 
@@ -258,6 +281,8 @@ def test_no_test_file_substitutes_a_default_live_credential():
                  and "NivxLive" + "!" in p.read_text(errors="ignore")]
     assert offenders == [], f"a credential literal is committed: {offenders}"
     for path in root.rglob("*.py"):
+        if path.resolve() == this_file:
+            continue          # this file IS the guard, not a consumer
         text = path.read_text(errors="ignore")
         if "TEST_ANALYST_NIVXLIVE_PASSWORD" in text:
             assert ("allow_module_level=True" in text

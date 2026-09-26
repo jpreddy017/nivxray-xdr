@@ -21275,3 +21275,20 @@ NIVX_DEPLOYMENT_ENV=production last, (c) Re-publish. On the owner saying
 "REPUBLISH COMPLETED", run scripts/verify_production_sync.py and report the
 Production Backend Sync verdict. No console sync, tenant bootstrap, P0-PROD-4 or
 P0-PROD-6 until that verdict is PASS.
+
+### 2026-06 · Platform secret-constraint fix (PRODUCTION_SYNC_BACKEND.md §15)
+The deployment UI cannot delete or blank TEST_ANALYST_NIVXLIVE_PASSWORD, so a
+policy that refused production merely because the key EXISTS made production
+unreachable. Fix: FORBIDDEN_IN_PRODUCTION is now empty (mechanism still tested)
+and a new INERT_IN_PRODUCTION = (VERCEL_TOKEN, TEST_ANALYST_NIVXLIVE_PASSWORD)
+is reported but never consumed — backed by a test that scans the whole backend
+runtime and fails if any module names them. Nothing else relaxed: mandatory
+secrets and placeholder rejection still refuse.
+XDR_RESPONSE_SERVICE_URL was made STRICTER instead of inert: in production a
+loopback authority (localhost/127.x/::1/0.0.0.0) counts as NOT CONFIGURED ->
+503 RESPONSE_AUTHORITY_NOT_CONFIGURED. Owner therefore does NOT need to blank
+it before republish. Applied in edr_plane/authority.py and
+routers/xdr_respond_boundary.py; preview unchanged.
+Focused: 29+29+25+29+8+72 passed, health 200, no new regressions.
+NOTE: the live value of TEST_ANALYST_NIVXLIVE_PASSWORD was disclosed in a chat
+screenshot -> rotate the analyst@nivx-live credential (no production effect).

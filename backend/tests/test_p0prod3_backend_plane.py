@@ -211,7 +211,8 @@ def prod_env(monkeypatch):
     """
     for name in (secret_policy.MANDATORY_PRODUCTION_SECRETS
                  + secret_policy.MANDATORY_PRODUCTION_CONFIG
-                 + secret_policy.FORBIDDEN_IN_PRODUCTION):
+                 + secret_policy.FORBIDDEN_IN_PRODUCTION
+                 + secret_policy.INERT_IN_PRODUCTION):
         monkeypatch.delenv(name, raising=False)
     for k, v in PROD_TEST_ENV.items():
         monkeypatch.setenv(k, v)
@@ -245,11 +246,14 @@ def test_production_start_is_refused_without_the_edr_ttl_settings(
         assert name in str(e.value)
 
 
-def test_production_refuses_a_forbidden_deployment_credential(prod_env):
-    prod_env.setenv("VERCEL_TOKEN", "not-a-real-token")
+def test_production_refuses_a_declared_forbidden_credential(prod_env):
+    prod_env.setattr(secret_policy, "FORBIDDEN_IN_PRODUCTION",
+                     ("A_DEPLOY_PLANE_CREDENTIAL",))
+    prod_env.setenv("A_DEPLOY_PLANE_CREDENTIAL", "not-a-real-token")
     with pytest.raises(secret_policy.SecretPolicyError) as e:
         secret_policy.assert_production_ready()
-    assert "VERCEL_TOKEN" in str(e.value)
+    assert "A_DEPLOY_PLANE_CREDENTIAL" in str(e.value)
+    assert "not-a-real-token" not in str(e.value)
 
 
 def test_the_production_contract_passes_with_a_complete_environment(prod_env):
@@ -338,9 +342,10 @@ def test_enrolment_cannot_create_tenancy():
 def test_response_authority_has_no_default_url_and_fails_closed():
     src = Path("/app/backend/edr_plane/authority.py").read_text()
     assert 'os.environ.get("XDR_RESPONSE_SERVICE_URL") or ""' in src
-    assert "localhost" not in src, (
-        "the response authority must not carry a preview default")
     assert "RESPONSE_AUTHORITY_NOT_CONFIGURED" in src
+    # The only mention of a loopback host is the production REFUSAL rule,
+    # never a default value.
+    assert 'XDR_RESPONSE_SERVICE_URL", "http' not in src
 
 
 def test_response_authority_is_unconfigured_absence_not_permission():
@@ -373,7 +378,8 @@ def test_every_mandatory_production_key_is_exposed_for_configuration():
     missing = sorted(required - names)
     assert not missing, (
         f"not configurable in the production deployment: {missing}")
-    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
+    for name in (secret_policy.FORBIDDEN_IN_PRODUCTION
+                 + secret_policy.INERT_IN_PRODUCTION):
         assert name not in names
 
 
@@ -387,21 +393,15 @@ def test_placeholder_values_are_refused_in_production(prod_env):
 
 # ── 7 · pre-republish production configuration closure ────────────
 
-def test_an_emptied_forbidden_credential_is_accepted(prod_env):
+def test_an_emptied_inert_credential_is_accepted(prod_env):
     """The deployment UI edits values; it does not always let a key be
     deleted. Emptying each name in `FORBIDDEN_IN_PRODUCTION` must
     therefore be as good as removing it — while a populated value stays
     refused."""
-    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
+    for name in secret_policy.INERT_IN_PRODUCTION:
         prod_env.setenv(name, "")
-    assert secret_policy.assert_production_ready()["enforced"] is True
-    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
-        prod_env.setenv(name, "a-live-value")
-        with pytest.raises(secret_policy.SecretPolicyError) as e:
-            secret_policy.assert_production_ready()
-        assert name in str(e.value)
-        assert "a-live-value" not in str(e.value), "a value was printed"
-        prod_env.setenv(name, "")
+    out = secret_policy.assert_production_ready()
+    assert out["enforced"] is True and out["inert_present"] == []
 
 
 def test_production_is_ready_with_an_empty_response_authority(prod_env):
@@ -415,3 +415,98 @@ def test_production_is_ready_with_an_empty_response_authority(prod_env):
         secret_policy.MANDATORY_PRODUCTION_SECRETS
     assert "XDR_RESPONSE_SERVICE_URL" not in \
         secret_policy.MANDATORY_PRODUCTION_CONFIG
+
+
+# ── 8 · platform-managed inert keys (production unblocked, not weakened) ──
+
+def test_inert_production_keys_have_no_production_consumer():
+    """The load-bearing proof behind `INERT_IN_PRODUCTION`.
+
+    Scans EVERY backend runtime file (all of `/app/backend` except
+    `tests/` and the policy module that declares the names) and fails if
+    any of them so much as mentions an inert key. If somebody later wires
+    a consumer, this breaks and the key must go back to being a hard
+    refusal.
+    """
+    policy = Path("/app/backend/security/secret_policy.py").resolve()
+    offenders: list[str] = []
+    for path in Path("/app/backend").rglob("*.py"):
+        p = path.resolve()
+        if p == policy or "/tests/" in str(p) or "/__pycache__/" in str(p):
+            continue
+        text = path.read_text(errors="ignore")
+        for name in secret_policy.INERT_IN_PRODUCTION:
+            if name in text:
+                offenders.append(f"{path}:{name}")
+    assert not offenders, (
+        "a production runtime path consumes a key declared INERT; it must "
+        f"return to FORBIDDEN_IN_PRODUCTION: {offenders}")
+
+
+def test_production_is_ready_while_an_inert_key_holds_a_live_value(prod_env):
+    """The platform refuses to save these keys blank, so production must
+    boot with them populated — provided every genuinely mandatory secret
+    is valid."""
+    for name in secret_policy.INERT_IN_PRODUCTION:
+        prod_env.setenv(name, "a-live-value-the-platform-will-not-let-us-clear")
+    out = secret_policy.assert_production_ready()
+    assert out["enforced"] is True
+    assert sorted(out["inert_present"]) == sorted(
+        secret_policy.INERT_IN_PRODUCTION)
+    # Presence is reported, never the value.
+    assert "a-live-value" not in str(out)
+
+
+def test_a_mandatory_secret_is_still_refused_with_inert_keys_present(
+        prod_env):
+    """The narrowing must not have become a general weakening."""
+    for name in secret_policy.INERT_IN_PRODUCTION:
+        prod_env.setenv(name, "a-live-value")
+    for name in secret_policy.MANDATORY_PRODUCTION_SECRETS:
+        prod_env.delenv(name, raising=False)
+        with pytest.raises(secret_policy.SecretPolicyError) as e:
+            secret_policy.assert_production_ready()
+        assert name in str(e.value)
+        prod_env.setenv(name, PROD_TEST_ENV[name])
+
+
+def test_the_test_analyst_credential_has_no_production_effect():
+    """It cannot create, authenticate, seed or authorise anything: the
+    only consumers in the repository are a development proof script and
+    the test suite, neither of which ships in the backend deployment."""
+    name = secret_policy.INERT_IN_PRODUCTION[1]
+    for module in ("deps.py", "server.py"):
+        assert name not in Path(f"/app/backend/{module}").read_text()
+    seeded = Path("/app/backend/deps.py").read_text()
+    assert "def seed_admin" in seeded and name not in seeded
+
+
+@pytest.mark.parametrize("url", ["http://localhost:8056",
+                                 "http://127.0.0.1:8056",
+                                 "https://0.0.0.0:8056"])
+def test_a_loopback_response_authority_is_refused_in_production(url,
+                                                                prod_env):
+    """The deployment UI will not save an empty value for this key, so a
+    leftover preview URL must be refused by POLICY rather than relying on
+    an operator clearing it."""
+    from edr_plane import authority
+    from routers import xdr_respond_boundary as boundary
+    prod_env.setenv("XDR_RESPONSE_SERVICE_URL", url)
+    assert authority._service_url() is None
+    assert boundary._service_url() is None
+    # and production readiness is unaffected either way
+    assert secret_policy.assert_production_ready()["enforced"] is True
+
+
+def test_a_real_response_authority_is_honoured_when_p0prod4_closes(prod_env):
+    from edr_plane import authority
+    prod_env.setenv("XDR_RESPONSE_SERVICE_URL",
+                    "https://response.internal.nivxforge.com")
+    assert authority._service_url() == "https://response.internal.nivxforge.com"
+
+
+def test_preview_is_unchanged_by_the_loopback_rule(prod_env):
+    from edr_plane import authority
+    prod_env.setenv("NIVX_DEPLOYMENT_ENV", "preview")
+    prod_env.setenv("XDR_RESPONSE_SERVICE_URL", "http://localhost:8056")
+    assert authority._service_url() == "http://localhost:8056"

@@ -61,10 +61,28 @@ MANDATORY_PRODUCTION_CONFIG: Tuple[str, ...] = (
     "EDR_AGENT_SESSION_TTL_SECONDS",
 )
 
-#: Development and deployment-plane credentials that must not exist in a
-#: production application runtime. A deploy token in the app's own
-#: environment is a privilege the app has no business holding.
-FORBIDDEN_IN_PRODUCTION: Tuple[str, ...] = (
+#: Credentials that must not exist in a production application runtime and
+#: for which presence is a HARD REFUSAL. A key belongs here only when a
+#: production code path could actually consume it — refusing to boot is a
+#: proportionate response to real authority the app should not hold.
+FORBIDDEN_IN_PRODUCTION: Tuple[str, ...] = ()
+
+#: Keys the deployment platform will not let an operator delete or blank
+#: (the Secrets panel offers Edit only, and rejects an empty value), AND
+#: which no production runtime path consumes.
+#:
+#: Refusing to boot because one of these merely EXISTS would mean the
+#: application could never run in production at all — a fail-closed check
+#: that cannot be satisfied is not security, it is an outage. So they are
+#: INERT: reported loudly on every readiness report, never consumed.
+#:
+#: Membership here is not a promise, it is an assertion under test:
+#: `test_inert_production_keys_have_no_production_consumer` scans the
+#: entire backend runtime (everything except `tests/`) and fails if any
+#: module so much as names one of these. The moment somebody wires a
+#: consumer, the build breaks and the key must move back to
+#: FORBIDDEN_IN_PRODUCTION.
+INERT_IN_PRODUCTION: Tuple[str, ...] = (
     "VERCEL_TOKEN",
     "TEST_ANALYST_NIVXLIVE_PASSWORD",
 )
@@ -242,7 +260,15 @@ def assert_production_ready() -> Dict[str, object]:
             "mandatory_secrets_configured": list(
                 MANDATORY_PRODUCTION_SECRETS),
             "mandatory_config_configured": list(MANDATORY_PRODUCTION_CONFIG),
-            "forbidden_absent": list(FORBIDDEN_IN_PRODUCTION)}
+            "forbidden_absent": list(FORBIDDEN_IN_PRODUCTION),
+            "inert_present": [n for n in INERT_IN_PRODUCTION
+                              if (os.environ.get(n) or "").strip()],
+            "inert_note": (
+                "These keys are present in the production environment "
+                "because the deployment platform does not permit deleting "
+                "or blanking them. No production runtime path reads them; "
+                "that is asserted by a test that scans the whole backend "
+                "runtime. They confer nothing.")}
 
 
 def report() -> Dict[str, object]:

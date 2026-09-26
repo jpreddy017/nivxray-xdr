@@ -87,9 +87,33 @@ class AuthorityError(Exception):
                                  "dispatched or executed")}
 
 
+def _is_loopback(url: str) -> bool:
+    host = url.split("//", 1)[-1].split("/", 1)[0].split(":", 1)[0].lower()
+    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") \
+        or host.startswith("127.")
+
+
 def _service_url() -> Optional[str]:
-    return (os.environ.get("XDR_RESPONSE_SERVICE_URL") or "").rstrip("/") \
-        or None
+    """The response authority, or None when there is none.
+
+    PRODUCTION RULE (P0-PROD-SYNC): under
+    `NIVX_DEPLOYMENT_ENV=production` a loopback address is treated as NOT
+    CONFIGURED. A production backend cannot legitimately reach a response
+    authority on its own localhost, so such a value is a leftover preview
+    setting rather than an authority — and honouring it would mean
+    dialling whatever happens to own that port. `None` here yields
+    `RESPONSE_AUTHORITY_NOT_CONFIGURED` (503), which is the correct state
+    until P0-PROD-4 closes. It also means the fail-closed guarantee does
+    not depend on an operator being able to blank a key that the
+    deployment UI refuses to save empty.
+    """
+    raw = (os.environ.get("XDR_RESPONSE_SERVICE_URL") or "").rstrip("/")
+    if not raw:
+        return None
+    from security.secret_policy import is_production
+    if is_production() and _is_loopback(raw):
+        return None
+    return raw
 
 
 def _timeout() -> float:

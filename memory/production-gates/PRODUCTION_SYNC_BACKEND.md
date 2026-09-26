@@ -545,3 +545,148 @@ planes ROUTED, every protected route still refusing, and
 `POST /api/edr/response/actions` never `200`.
 
 **STATUS: READY FOR OWNER REPUBLISH** once §14.4 and §14.7 are done.
+
+---
+
+## 15 · PLATFORM SECRET CONSTRAINT — POLICY FIX (2026-06)
+
+### 15.1 · Root cause
+
+`TEST_ANALYST_NIVXLIVE_PASSWORD` cannot be removed and the deployment UI
+**refuses to save it blank** ("Couldn't save"). Yet
+`assert_production_ready()` refused production purely because the key
+*existed*. Those two facts together made production **unreachable by any
+sequence of allowed operator actions** — a fail-closed check that cannot
+be satisfied is not security, it is an outage.
+
+The original rule was written for a key that a production path might
+consume. Neither of these keys is such a key. Verified by scanning the
+whole repository: the **only** references to
+`TEST_ANALYST_NIVXLIVE_PASSWORD` outside the policy module and the test
+suite are in `scripts/p0_3_sensor_recovery_proof.py` (a development proof
+harness that never ships or runs in the deployment). `VERCEL_TOKEN` has
+**zero** references anywhere outside the policy declaration itself.
+
+### 15.2 · Exact policy change
+
+`backend/security/secret_policy.py`
+
+```
+FORBIDDEN_IN_PRODUCTION = ()                  # hard refusal; mechanism intact
+INERT_IN_PRODUCTION     = ("VERCEL_TOKEN",
+                           "TEST_ANALYST_NIVXLIVE_PASSWORD")
+```
+
+An INERT key may be present, is **reported on every readiness report**
+(`inert_present: [...]`, names only), and is **never consumed**.
+Membership is not a promise — it is an assertion under test:
+
+`test_inert_production_keys_have_no_production_consumer` scans **every**
+`.py` file under `/app/backend` except `tests/` and the declaring module,
+and fails if any of them so much as names an inert key. The moment
+somebody wires a consumer, the build breaks and the key must return to
+`FORBIDDEN_IN_PRODUCTION`.
+
+The hard-refusal machinery is still tested — against a declared forbidden
+name rather than against a key the platform makes unremovable
+(`test_production_refuses_a_declared_forbidden_credential`,
+`test_production_refuses_a_forbidden_runtime_credential`).
+
+### 15.3 · Proof that the test credential cannot affect production
+
+- Absent from `deps.py` (which owns `seed_admin`, password hashing and JWT
+  issuance) and from `server.py`
+  (`test_the_test_analyst_credential_has_no_production_effect`).
+- Cannot create or authenticate a user, seed or reset an account, affect
+  authorisation, be logged, or be returned by an API — there is no code
+  path that reads it.
+- Not present in `backend/.env`, so it cannot re-enter the runtime through
+  configuration (asserted).
+- Tests and the development harness may continue to use it **outside**
+  production, unchanged.
+
+### 15.4 · Nothing else was weakened
+
+`test_a_mandatory_secret_is_still_refused_with_inert_keys_present` deletes
+each mandatory secret in turn **while both inert keys hold live values**
+and asserts production still refuses, naming the missing key. Placeholder
+values are still refused. Live behaviour, simulated with a
+production-declared environment:
+
+```
+enforced True   inert_present ['VERCEL_TOKEN', 'TEST_ANALYST_NIVXLIVE_PASSWORD']
+XDR_ROOT_KEY = PLACEHOLDER-…  →  still refused
+```
+
+### 15.5 · `XDR_RESPONSE_SERVICE_URL` — NOT made inert, made STRICTER
+
+The owner asked whether this key can actually be cleared in the UI.
+**Assume it cannot** — it is a custom key in the same panel that just
+refused an empty save. So the fail-closed guarantee was made independent
+of the operator's ability to blank it, by **tightening** the rule rather
+than relaxing it:
+
+> Under `NIVX_DEPLOYMENT_ENV=production`, a **loopback** response
+> authority (`localhost`, `127.0.0.0/8`, `::1`, `0.0.0.0`) is treated as
+> **NOT CONFIGURED**.
+
+A production backend cannot legitimately reach a response authority on its
+own localhost, so a leftover `http://localhost:8056` is a stale preview
+setting, not an authority — and honouring it would mean dialling whatever
+owns that port. `None` yields `503 RESPONSE_AUTHORITY_NOT_CONFIGURED`,
+which is the correct state until P0-PROD-4.
+
+Applied in both readers: `edr_plane/authority.py` and
+`routers/xdr_respond_boundary.py`. Preview is unchanged (localhost still
+honoured there). A real private production authority, when P0-PROD-4
+closes, is honoured normally. Five focused tests cover all three cases.
+
+**Consequence: the owner no longer has to blank `XDR_RESPONSE_SERVICE_URL`
+before republishing.** Leaving the stale localhost value is now safe. If
+they prefer, they may still set it to any non-loopback placeholder host —
+but no action is required.
+
+### 15.6 · Files changed
+
+| File | Change |
+|---|---|
+| `backend/security/secret_policy.py` | `FORBIDDEN_IN_PRODUCTION` → `()`; new `INERT_IN_PRODUCTION`; readiness report gains `inert_present` + `inert_note` |
+| `backend/edr_plane/authority.py` | production loopback response authority = NOT CONFIGURED |
+| `backend/routers/xdr_respond_boundary.py` | same rule, same wording |
+| `backend/tests/test_p0prod3_backend_plane.py` | +9 tests (29 total) |
+| `backend/tests/test_p0prod1_secret_policy.py` | refusal mechanism retargeted; new inert-key test; `.env` hygiene now covers both tuples; the literal-scan guard no longer scans itself |
+
+No production DB, tenant, endpoint, Vercel deployment, response authority
+or background worker was touched.
+
+### 15.7 · Focused results
+
+```
+tests/test_p0prod3_backend_plane.py             29 passed
+tests/test_p0prod1_secret_policy.py             29 passed
+tests/edr/test_p0prod2_enrollment_hardening.py  25 passed
+tests/edr/test_p0_a2_enrollment.py              29 passed
+tests/edr/test_p0a_response_authority_live.py    8 passed
+tests/test_a05_tenant_scope_contract.py         72 passed
+preview backend /api/health                        200
+```
+
+No full-suite run. No new regressions.
+
+### 15.8 · SECURITY NOTICE — DISCLOSED CREDENTIAL
+
+The owner's screenshot revealed the **plaintext live value** of
+`TEST_ANALYST_NIVXLIVE_PASSWORD` in chat. The value was not copied into
+any file, test, log or command here, and must not be. It should be treated
+as **disclosed and rotated** at the owner's convenience for the
+`analyst@nivx-live` account. It confers nothing in production (§15.3), so
+this is hygiene, not an incident — but it is a real disclosure and is
+recorded as one.
+
+### 15.9 · Verdict
+
+**SAFE TO CONTINUE SECRET CONFIGURATION.** The two unremovable keys are no
+longer a blocker; `XDR_RESPONSE_SERVICE_URL` no longer needs clearing. The
+remaining owner actions are the genuine secrets: the four PLACEHOLDER
+crypto keys, plus fresh `EDR_AUTH_PEPPER`, `JWT_SECRET`, `ADMIN_PASSWORD`,
+the two TTL settings, and `NIVX_DEPLOYMENT_ENV=production` **last**.
