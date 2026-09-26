@@ -21257,3 +21257,15 @@ Still gated: P0-PROD-4 (destructive response stays fail-closed, keep
 XDR_RESPONSE_SERVICE_URL empty), P0-PROD-6 (replica-unsafe background loops,
 platform default is 2 replicas). Production tenant registration documented, NOT
 executed. No DB migration, no Vercel deployment, no endpoint enrolled.
+
+### 2026-06 · Pre-republish closure addendum
+Owner-supplied production facts recorded in PRODUCTION_SYNC_BACKEND.md §14:
+live = Publish 100 / e075550; rollback = Publish 99 / 3308216 and 98 / 540d478;
+resources = Scale / 2 vCPU / 8 GB / 450 credits. Three confirmed production
+config defects are OWNER actions, no code change needed (source already fails
+closed): VERCEL_TOKEN and TEST_ANALYST_NIVXLIVE_PASSWORD have Live values and
+must be emptied/removed; XDR_RESPONSE_SERVICE_URL has a Live value and must be
+empty (P0-PROD-4 not closed). The four newly exposed crypto keys still hold
+PLACEHOLDER values and are refused in production until real values are entered.
+Focused validation: 102 passed, health 200, 862 source routes. STATUS: READY FOR
+OWNER REPUBLISH.

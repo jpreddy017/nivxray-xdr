@@ -415,3 +415,133 @@ VERCEL:                           NOT DEPLOYED (plan prepared, §11)
 
 **STOPPING FOR OWNER REVIEW.** The deployment is not manufactured green:
 route parity is FAIL today and will stay FAIL until the republish happens.
+
+---
+
+## 14 · PRE-REPUBLISH CLOSURE — OWNER-SUPPLIED PRODUCTION FACTS (2026-06)
+
+Supersedes the UNKNOWN entries in §3 and §4. Supplied by the owner from
+Manage Publishes; not inferred, not read by the agent.
+
+### 14.1 · Deployment identity and rollback
+
+| | Publish | Build id |
+|---|---|---|
+| **Current live** | **100** | **e075550** |
+| Rollback target 1 | 99 | 3308216 |
+| Rollback target 2 | 98 | 540d478 |
+
+Two usable rollback targets exist → the "no usable rollback target" stop
+condition is **not** triggered.
+
+### 14.2 · Production resources
+
+**Scale tier · 2 vCPU · 8 GB RAM · 450 credits/month.**
+
+Sufficient to boot and run the proven backend (the same image already runs
+there). Not a sync blocker. Replica count is autoscaled by the platform
+(default 2) — which is exactly the condition P0-PROD-6 exists for (§9);
+recorded, not turned into a project.
+
+### 14.3 · Secrets panel state as inspected by the owner
+
+Visible as **"Added, not live yet"** — these are the four names this phase
+exposed in `backend/.env` (§2) plus the environment declaration, so the
+enablement worked as intended:
+`XDR_AUDIT_MASTER_SECRET`, `XDR_ROOT_KEY`, `XDR_SECRETS_MASTER`,
+`NIVXRAY_SIGNING_SECRET`, `NIVX_DEPLOYMENT_ENV`.
+
+**These four carry the `PLACEHOLDER-…` value from `backend/.env` and are
+NOT production-ready.** Production refuses a placeholder, so publishing
+with `NIVX_DEPLOYMENT_ENV=production` before the real values are entered
+would correctly refuse to serve. Re-verified this run by
+`test_placeholder_values_are_refused_in_production`.
+
+Already present: `JWT_SECRET`, `ADMIN_PASSWORD`, `EDR_AUTH_PEPPER`,
+`EDR_AGENT_SESSION_TTL_SECONDS`, `EDR_ENROLLMENT_TOKEN_TTL_SECONDS`.
+
+### 14.4 · Three confirmed production configuration defects (owner action)
+
+| Key | Current production state | Required | Why |
+|---|---|---|---|
+| `VERCEL_TOKEN` | **Live value present** | removed, or **set to empty** | a deployment-plane token is authority the application must never hold; production refuses to serve while it is populated |
+| `TEST_ANALYST_NIVXLIVE_PASSWORD` | **Live value present** | removed, or **set to empty** | a test credential must not exist in a production runtime; production refuses to serve while it is populated |
+| `XDR_RESPONSE_SERVICE_URL` | **Live value present** | **empty** | it would point production at a response authority that has not passed P0-PROD-4. Empty = `503 RESPONSE_AUTHORITY_NOT_CONFIGURED` = correct |
+
+**No code change was required for any of the three** — current source
+already fails closed on all of them. Two facts that matter for the UI:
+
+1. **Emptying is sufficient.** The policy tests
+   `(os.environ.get(name) or "").strip()`, so a blank value is treated as
+   absent. Proven this run by
+   `test_an_emptied_forbidden_credential_is_accepted`, which also asserts
+   that a populated value is still refused **and that no value is ever
+   printed in the refusal**.
+2. **The agent cannot do it.** There is no supported mechanism for an
+   agent without deployment-pod access to change a production secret.
+   Nothing was performed; this is an owner action.
+
+Neither forbidden secret's value was read, logged, tested against or
+reproduced anywhere.
+
+### 14.5 · Response safety re-verified with an empty authority
+
+`test_production_is_ready_with_an_empty_response_authority`: production
+readiness **passes** with `XDR_RESPONSE_SERVICE_URL` empty,
+`authority._service_url()` is `None`, and the key is in neither mandatory
+list — so an empty response authority can never block startup, and the
+backend cannot silently fall back to a local executor or a second
+authority. No response URL was invented to make a check green.
+
+### 14.6 · Focused validation this run
+
+```
+tests/test_p0prod3_backend_plane.py            20 passed  (+2 this phase)
+tests/test_p0prod1_secret_policy.py            28 passed
+tests/edr/test_p0prod2_enrollment_hardening.py 25 passed
+tests/edr/test_p0_a2_enrollment.py             29 passed
+                                              ----------
+                                              102 passed · 0 failed
+preview backend /api/health                    200
+source route inventory                         862
+```
+
+No full-suite run. No database work. No tenant. No endpoint. No Vercel.
+No production mutation of any kind.
+
+### 14.7 · Owner click sequence
+
+```
+Manage Publishes → Secrets
+  1. XDR_AUDIT_MASTER_SECRET   ← fresh strong value (replace PLACEHOLDER)
+  2. XDR_SECRETS_MASTER        ← fresh strong value (replace PLACEHOLDER)
+  3. NIVXRAY_SIGNING_SECRET    ← fresh strong value (replace PLACEHOLDER)
+  4. XDR_ROOT_KEY              ← fresh strong value (replace PLACEHOLDER)
+  5. EDR_AUTH_PEPPER           ← fresh strong value (NEVER the preview one)
+  6. JWT_SECRET                ← fresh strong value
+  7. ADMIN_PASSWORD            ← fresh strong credential
+  8. EDR_ENROLLMENT_TOKEN_TTL_SECONDS = 900
+  9. EDR_AGENT_SESSION_TTL_SECONDS    = 300
+ 10. XDR_RESPONSE_SERVICE_URL         = (empty)
+ 11. VERCEL_TOKEN                     = (empty / removed)
+ 12. TEST_ANALYST_NIVXLIVE_PASSWORD   = (empty / removed)
+ 13. NIVX_DEPLOYMENT_ENV              = production      ← LAST
+Manage Publishes → Overview → Re-publish changes
+```
+
+Rollback if anything fails: Overview → ↺ on **Publish 99 / 3308216**.
+Do **not** rotate `EDR_AUTH_PEPPER` as part of a rollback.
+
+### 14.8 · Post-republish verifier
+
+```bash
+python3 /app/scripts/verify_production_sync.py \
+    --prod https://nivxray.nivxforge.com \
+    --source http://localhost:8001
+```
+
+Target: `862 / 862`, missing `0`, health `200`, all previously-absent
+planes ROUTED, every protected route still refusing, and
+`POST /api/edr/response/actions` never `200`.
+
+**STATUS: READY FOR OWNER REPUBLISH** once §14.4 and §14.7 are done.

@@ -383,3 +383,35 @@ def test_placeholder_values_are_refused_in_production(prod_env):
     with pytest.raises(secret_policy.SecretPolicyError) as e:
         secret_policy.assert_production_ready()
     assert "XDR_ROOT_KEY" in str(e.value)
+
+
+# ── 7 · pre-republish production configuration closure ────────────
+
+def test_an_emptied_forbidden_credential_is_accepted(prod_env):
+    """The deployment UI edits values; it does not always let a key be
+    deleted. Emptying each name in `FORBIDDEN_IN_PRODUCTION` must
+    therefore be as good as removing it — while a populated value stays
+    refused."""
+    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
+        prod_env.setenv(name, "")
+    assert secret_policy.assert_production_ready()["enforced"] is True
+    for name in secret_policy.FORBIDDEN_IN_PRODUCTION:
+        prod_env.setenv(name, "a-live-value")
+        with pytest.raises(secret_policy.SecretPolicyError) as e:
+            secret_policy.assert_production_ready()
+        assert name in str(e.value)
+        assert "a-live-value" not in str(e.value), "a value was printed"
+        prod_env.setenv(name, "")
+
+
+def test_production_is_ready_with_an_empty_response_authority(prod_env):
+    """P0-PROD-4 is not closed, so production must be READY while
+    destructive response is deliberately unavailable."""
+    from edr_plane import authority
+    prod_env.setenv("XDR_RESPONSE_SERVICE_URL", "")
+    assert secret_policy.assert_production_ready()["enforced"] is True
+    assert authority._service_url() is None
+    assert "XDR_RESPONSE_SERVICE_URL" not in \
+        secret_policy.MANDATORY_PRODUCTION_SECRETS
+    assert "XDR_RESPONSE_SERVICE_URL" not in \
+        secret_policy.MANDATORY_PRODUCTION_CONFIG
