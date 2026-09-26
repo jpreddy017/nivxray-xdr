@@ -21442,3 +21442,27 @@ console builds from `apps/nivxray-xdr` and was not rebuilt/deployed).
   deliberately closed. Response stays FAIL-CLOSED.
 - Harness debt: `test_b4b5_tenant_registry_authority::
   test_edr_and_xdr_resolve_the_same_authority` needs the `oracle` kwarg.
+
+## 2026-06 · PHASE 0 PRODUCTION PROMOTION PRECHECK — PASS (read-only)
+Report: `/app/memory/production-gates/PHASE0_PROMOTION_PRECHECK.md`.
+- Phase 0 is fully committed as ONE code commit `bea8852b` on
+  `feature/rc2-alignment`; nothing uncommitted. 4 commits are unpushed
+  (3 docs-only + `bea8852b`). No git remote in the pod, so GitHub HEAD
+  is NOT verifiable here — verify the hash after the owner's push.
+- Production backend does NOT contain Phase 0 (proven by lineage;
+  route parity is 862/862 and is therefore meaningless here).
+  Both production consoles still lack the investigability chip —
+  proven by fetching the live `TelemetryFreshness-*.js` chunks.
+- DB: no migration, no new collection, no new index (existing
+  `obs_connector_ts` serves the new aggregation), no backfill, no
+  secret/env change.
+- Security: no auth/tenant/RBAC/endpoint-auth regression; response
+  authority untouched and FAIL-CLOSED. 193 passed / 2 skipped across 9
+  security suites; 51 passed on the Phase 0 + P0-C suites.
+- 3 test exceptions: 1 FAILED = `test_edr_and_xdr_resolve_the_same_authority`
+  classified **TEST_ONLY_HARNESS_DEBT** (`oracle` kwarg added 2026-09-26
+  03:47 in `1b2a2fdd`; test last touched 2026-09-18; the ONLY stale caller
+  is the test — both production callers pass it, and convergence was
+  proved live read-only). 2 SKIPPED = credential-gated live suites
+  (P0-PROD-1 policy). None block promotion.
+- Production mutations in this precheck: 0 across every counter.
