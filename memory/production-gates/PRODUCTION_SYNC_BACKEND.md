@@ -1052,3 +1052,58 @@ BLOCKER:                         source not pushed to GitHub
 
 No redeploy was performed. No code, config or database change was made.
 No tenant, no endpoint, no P0-PROD-4/6.
+
+---
+
+## 19 · GITHUB SOURCE SYNC VERIFICATION — **PASS** (2026-06)
+
+The owner's concern was reasonable but the evidence resolves it: GitHub's
+commit page shows **only that commit's own diff**, not the branch's
+accumulated diff. `f7a2518` is the final auto-commit of the save (a
+`created_at` timestamp in `.emergent/emergent.yml`); the frontend work
+arrived in the **earlier commits of the same push**.
+
+| Check | Result |
+|---|---|
+| Local HEAD | `f7a25183` |
+| GitHub branch tip (owner screenshot) | `f7a2518`, parent `a37ebd3` |
+| Local HEAD parent | `a37ebd39` — **identical**, so local and remote are the same commit |
+| `git status --short -- apps/nivxray-xdr` | **0 files** — no unpushed console work |
+| Uncommitted anywhere | only `memory/availability_probe.log` (untracked log) |
+| `git diff --shortstat 9fcd53a..HEAD -- apps/nivxray-xdr` | **32 files changed, 5,318 insertions(+), 150 deletions(-)** |
+
+Origin could not be queried directly (`git fetch` → "Please make sure you
+have the correct access rights"; the agent holds no GitHub credential, by
+design). The equality is established instead by commit identity: the tip
+hash **and** its parent hash both match local exactly, and a commit hash
+covers its entire ancestry — so the remote branch contains every one of
+those 32 files.
+
+Commits that introduced the console work, all ancestors of `f7a25183`:
+`474ee17b` (Fleet Operations wave) · `29459f7f` · `ff8d1aa2` ·
+`1b2a2fdd` · `0898c8e4`.
+
+The six planes, verified **at the pushed commit** `f7a25183` (not merely
+in the working tree):
+
+```
+edr/policies          4 files      edr/events            3 files
+edr/exclusions        3 files      onboarding/computers  1 file
+edr/audit             3 files      endpoint-commands     2 files
+```
+
+```
+GITHUB SOURCE SYNC:                 PASS
+Local HEAD:                         f7a25183
+Remote HEAD:                        f7a2518 (same commit; parent a37ebd3 matches)
+Ahead/behind:                       0 / 0
+Frontend files changed vs 9fcd53a:  32
+Frontend insertions/deletions:      +5,318 / -150
+Required six planes present:        YES
+Safe Vercel target commit:          f7a2518
+```
+
+Nothing was pushed, force-pushed or rewritten by the agent (git write
+actions belong to the owner's **Save to Github**). No Vercel deployment.
+No tests. Expected artifact after the redeploy: XDR
+`index-DWES00xC.js`, EDR `index-Dyygw0sM.js`.
