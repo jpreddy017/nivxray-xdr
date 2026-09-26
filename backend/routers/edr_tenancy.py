@@ -158,6 +158,14 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("GET", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
     ("PATCH", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
     ("DELETE", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
+    # ── routers/edr_findings.py · P0-C durable findings (4) ───────────
+    #: The finding TAXONOMY is product truth (which detection sources
+    #: exist, which are implemented, what each evaluation state means).
+    #: Findings and evaluation state are tenant evidence.
+    ("GET", "/api/edr/findings/taxonomy"): PRODUCT_METADATA,
+    ("GET", "/api/edr/findings"): TENANT_SCOPED,
+    ("GET", "/api/edr/findings/evaluation-state"): TENANT_SCOPED,
+    ("GET", "/api/edr/findings/{finding_id}"): TENANT_SCOPED,
 }
 
 

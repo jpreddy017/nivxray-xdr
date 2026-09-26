@@ -521,6 +521,25 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                 reason=("rules: " + ", ".join(
                     r for r in detection["rule_ids"] if r))
                 if detection["matched"] else None))
+        # P0-C · the detection outcome is now made DURABLE as an EDR
+        # finding plus a recorded evaluation state. It projects what the
+        # XDR pipeline just produced and says so; it invents nothing and
+        # it cannot fail the ingest.
+        from edr_plane.findings_intake import record_endpoint_detection
+        detection["finding_plane"] = await record_endpoint_detection(
+            db, tenant_id=tenant_id, endpoint_ref=endpoint_id,
+            canonical_event_id=canonical["event_id"], raw_ref=raw_id,
+            payload=payload, observed_at=canonical.get("event_time"),
+            derivation={
+                "outcome": ("DETECTION_MATCHED" if detection["matched"]
+                            else "DETECTION_EVALUATED_NO_MATCH"),
+                "event_id": canonical["event_id"],
+                "reason": ("rules: " + ", ".join(
+                    r for r in detection["rule_ids"] if r))
+                if detection["matched"] else None,
+                "detection_content_version": det.get("engine_id"),
+                "verdict_version": verdict.get("label"),
+                "derived_at": datetime.now(timezone.utc).isoformat()})
     except Exception as e:  # noqa: BLE001
         detection = {"evaluated": False, "reason": str(e)[:300]}
         await add_derivation(
@@ -535,6 +554,22 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                         "event; canonical evidence EXISTS and the raw bytes "
                         "are replayable — this is a detection gap, not an "
                         "absence of activity: " + str(e)[:200])))
+        # P0-C · NOT_EVALUATED is recorded as its own fact. Without this
+        # row the evidence would simply have no finding, which a console
+        # could read as "evaluated and clean".
+        from edr_plane.findings_intake import record_endpoint_detection
+        detection["finding_plane"] = await record_endpoint_detection(
+            db, tenant_id=tenant_id, endpoint_ref=endpoint_id,
+            canonical_event_id=canonical["event_id"], raw_ref=raw_id,
+            payload=payload, observed_at=canonical.get("event_time"),
+            derivation={
+                "outcome": "DETECTION_NOT_EVALUATED",
+                "event_id": canonical["event_id"],
+                "reason": ("the detection fabric could not be reached for "
+                           "this event; the evidence EXISTS and is "
+                           "replayable — this is a detection gap, not an "
+                           "absence of activity: " + str(e)[:200]),
+                "derived_at": datetime.now(timezone.utc).isoformat()})
 
     return {"canonicalized": True, "parser_state": "OK",
             "canonical_event_id": canonical["event_id"],

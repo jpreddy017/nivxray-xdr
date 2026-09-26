@@ -1232,7 +1232,7 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
             reported = _report_enforcement(api, ident, session, journal,
                                            policy)
             print(f"[{_now()}] commands={served} collected={len(batch)} "
-                  f"excluded_at_endpoint={excluded} sent={sent} "
+                  f"collection_suppressed_at_endpoint={excluded} sent={sent} "
                   f"held={failed} heartbeat={beat} "
                   f"policy={policy.get('policy_id')}"
                   f"v{policy.get('version')}"

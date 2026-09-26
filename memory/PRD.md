@@ -1,5 +1,60 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-26 · P0-C · DURABLE EDR FINDINGS — CLOSED · STOPPED FOR OWNER REVIEW
+
+Evidence: `/app/memory/production-gates/P0C_DURABLE_FINDINGS.md`.
+Owner sequence: P0-A ✅ → P0-A.1 ✅ → P0-B ✅ → **P0-C ✅ (this wave)** →
+OWNER REVIEW → next controlled gate + Secure Endpoint UI/workflow parity
+planning. **P0-D not started. Gate 12 CSS not touched. No Findings UI
+(deliberate — the console will be designed against the AMP reference as
+one pass).**
+
+- **Durable findings** in `edr_findings`: content-addressed identity
+  (tenant + analyzer + version + **detection_source** + **rule_id** +
+  evidence + feature digest), write-once analysis (`$ifNull` on every
+  analytic field, so a historical finding is structurally unrewritable),
+  recurrence accounting only (`last_seen`, `recurrence_count`,
+  `last_recorded_at`), tenant-partitioned keyset reads.
+- **Provenance is mandatory and enforced by construction**: a finding
+  claiming `NIVXFORGE_ENDPOINT_BEHAVIORAL` / `_PREVENTION` /
+  `_BACKEND_REPUTATION` / `_BACKEND_ML`, or `inference_location=ENDPOINT`,
+  **cannot be constructed**. Only
+  `XDR_PLATFORM_DETERMINISTIC_DETECTION` is implemented, and every
+  finding names the XDR pipeline as its producer. NivXForge still has no
+  local behavioural engine and the taxonomy says so.
+- **Negative explainability** in a new ledger `edr_finding_evaluations`:
+  `FINDINGS_PRESENT · EVALUATED_NO_FINDING · NOT_EVALUATED ·
+  EVALUATION_FAILED · EVALUATION_SUPPRESSED_BY_EXCLUSION` (P0-B), written
+  only from real evaluation attempts; evidence with no row reads
+  `NOT_EVALUATED · NO_EVALUATION_RECORDED`. An empty findings array never
+  means "evaluated and clean".
+- **Write path is the real one**: `canonical_bridge` hands both the
+  detection outcome and the `DETECTION_NOT_EVALUATED` outcome to
+  `edr_plane/findings_intake.py`, through the **P0-B exclusion gate**. It
+  cannot fail ingest; a fault is `EVALUATION_FAILED`, not silence.
+- **Defect found by measurement**: the XDR pipeline canonicalises under
+  its own id (`cev_raw_<raw>_pl`) while the EDR plane uses `cev_<raw>_0`,
+  so the per-rule citations joined on neither — `rule_version`,
+  `rule_name` and ATT&CK read absent on the live edge. Now joined on the
+  canonical id **and** the ingest trace (`raw_id`).
+- **Read plane** (4 routes, classified): `GET /api/edr/findings`,
+  `/findings/{id}` (resolved evidence; 404 across tenants with no
+  disclosure), `/findings/evaluation-state`, `/findings/taxonomy`
+  (PRODUCT_METADATA).
+- **Proof**: live end-to-end on the preview host — a real world-writable
+  execution on the enrolled Linux endpoint produced
+  `fnd_a85c8e99… · EDR-LNX-002 v1 · MEDIUM · confidence_label 'high' ·
+  T1059,T1036`, survived a backend restart and resolved its evidence.
+  `tests/edr` **494 passed · 1 skipped** (was 471/1),
+  `test_edr_route_tenant_authority` **308 passed** (was 292), Gate 3
+  proof 515 findings over 1 845 real events, nothing written. 7
+  pre-existing failures (`test_edr_onboarding_v1`, `test_edr_context_p0_f13_3`)
+  proven identical on the pre-P0-C tree — carried, not reported green.
+- **Remaining risks**: no backfill (historical detections stay
+  NOT_EVALUATED); the ledger is current-state, not full history (Gate 6);
+  confidence is categorical at source so numeric confidence stays null;
+  no retention policy for the evaluation ledger; one producer only; no UI.
+
 ## 2026-06 (cont.) · OWNER LOCKS: EDR INDEPENDENCE · DETECTION SOURCES · TEST BASELINE GREEN
 
 - **Test baseline RESOLVED** — `tests/edr` **400 passed / 0 failed / 1

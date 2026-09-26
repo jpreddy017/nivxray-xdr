@@ -5,11 +5,24 @@ release directory, and `tests/edr/test_gate7_endpoint_enforcement.py`
 asserts the copies are byte-identical to this one. One evaluator, one
 behaviour, on every platform.
 
-The endpoint engine this file implements is `endpoint.collection`: a
-matching exclusion means the connector **does not deliver the event at
-all**. That is real endpoint enforcement — the evidence never leaves the
-machine — and it is why `ENDPOINT_EXCLUSION_APPLIED` can be earned
-rather than asserted.
+P0-B · an exclusion now declares WHAT it suppresses:
+
+    DETECTION  (default) the event IS collected and IS delivered. Only the
+               verdict is suppressed, by the server engine that owns
+               verdicts. The evidence survives the exclusion, so it stays
+               in the trajectory and can be re-evaluated later.
+    COLLECTION the connector does not deliver the matching event at all.
+               The evidence never leaves the machine. That is real
+               endpoint enforcement and a real, deliberate visibility
+               loss — it is why `ENDPOINT_EXCLUSION_APPLIED` can be
+               earned rather than asserted, and why it must be asked for
+               explicitly.
+    PREVENTION refused: this connector has no prevention engine.
+
+An exclusion that arrives with no scope is treated as COLLECTION, because
+that is exactly what every pre-P0-B exclusion already did on this
+endpoint. A migration must never silently change what a live exclusion
+does.
 
 `endpoint.prevention` is deliberately NOT implemented here: the released
 connector has no prevention engine, so an exclusion aimed at it is
@@ -29,13 +42,22 @@ import json
 import os
 import time
 
-EVALUATOR_VERSION = "1.0.0"
+EVALUATOR_VERSION = "1.1.0"
 
 #: The engine this evaluator IS.
 ENGINE = "endpoint.collection"
 
 #: Engines the released connector cannot honour locally.
 UNSUPPORTED_ENGINES = ("endpoint.prevention",)
+
+#: P0-B · what an exclusion may suppress. PREVENTION is declared by the
+#: platform and refused here, never silently accepted.
+SCOPE_COLLECTION = "COLLECTION"
+SCOPE_DETECTION = "DETECTION"
+SCOPE_PREVENTION = "PREVENTION"
+SUPPORTED_SCOPES = (SCOPE_COLLECTION, SCOPE_DETECTION)
+#: A scope-less exclusion keeps the behaviour it already had.
+LEGACY_SCOPE = SCOPE_COLLECTION
 
 SUPPORTED_TYPES = ("PATH", "FILE_EXTENSION", "FILE_HASH", "PROCESS",
                    "PROCESS_COMMANDLINE", "NETWORK_ADDRESS")
@@ -45,11 +67,20 @@ HONOURED = "HONOURED"
 REFUSED_UNSUPPORTED_TYPE = "REFUSED_UNSUPPORTED_TYPE"
 REFUSED_UNSUPPORTED_ENGINE = "REFUSED_UNSUPPORTED_ENGINE"
 REFUSED_MALFORMED = "REFUSED_MALFORMED"
+REFUSED_UNSUPPORTED_SCOPE = "REFUSED_UNSUPPORTED_SCOPE"
 
 ATTRIBUTE = {"PATH": "path", "FILE_EXTENSION": "path",
              "FILE_HASH": "file_hash", "PROCESS": "process",
              "PROCESS_COMMANDLINE": "command_line",
              "NETWORK_ADDRESS": "network_address"}
+
+
+def scope_of(exclusion: dict) -> str:
+    """The enforcement scope of one exclusion, legacy records included."""
+    raw = (exclusion or {}).get("enforcement_scope")
+    if raw in (SCOPE_COLLECTION, SCOPE_DETECTION, SCOPE_PREVENTION):
+        return raw
+    return LEGACY_SCOPE
 
 
 def _sha(value: str) -> str:
@@ -76,6 +107,8 @@ def validate(exclusion: dict) -> str:
         return REFUSED_MALFORMED
     if etype not in SUPPORTED_TYPES:
         return REFUSED_UNSUPPORTED_TYPE
+    if scope_of(exclusion) not in SUPPORTED_SCOPES:
+        return REFUSED_UNSUPPORTED_SCOPE
     engines = exclusion.get("affected_engines")
     if isinstance(engines, list) and engines and ENGINE not in engines:
         return REFUSED_UNSUPPORTED_ENGINE
@@ -148,6 +181,7 @@ def evaluate(event: dict, honoured: list[dict]) -> dict | None:
         if _match(exclusion, str(observed)):
             return {"exclusion_id": exclusion["exclusion_id"],
                     "type": exclusion.get("type"),
+                    "enforcement_scope": scope_of(exclusion),
                     "match": exclusion.get("match"),
                     "matched_attribute": attribute,
                     "observed_value_sha256": _sha(observed),
@@ -203,6 +237,12 @@ class Journal:
         e["type"] = fact.get("type")
         e["matched_attribute"] = fact.get("matched_attribute")
         e["honoured_count"] = int(e.get("honoured_count") or 0) + 1
+        scope = fact.get("enforcement_scope") or LEGACY_SCOPE
+        e["enforcement_scope"] = scope
+        key = ("collection_suppressed_count" if scope == SCOPE_COLLECTION
+               else "detection_suppression_requested_count")
+        e[key] = int(e.get(key) or 0) + 1
+        e["evidence_retained"] = scope == SCOPE_DETECTION
         e.setdefault("first_at", now)
         e["last_at"] = now
         e["policy_id"] = policy.get("policy_id")
@@ -220,9 +260,20 @@ def partition(events: list[dict], exclusions: list[dict], journal: Journal,
               policy: dict) -> tuple[list[dict], int]:
     """Split collected events into DELIVER and ENFORCED-LOCALLY.
 
-    The enforced events are dropped here, on the endpoint. They are never
-    queued, never transmitted and never reach the backend — which is the
-    difference between endpoint enforcement and server-side suppression.
+    P0-B · only a COLLECTION-scoped match is dropped here, on the
+    endpoint: those events are never queued, never transmitted and never
+    reach the backend, which is the difference between endpoint
+    enforcement and server-side suppression — and a deliberate,
+    irreversible loss of evidence.
+
+    A DETECTION-scoped match is DELIVERED. The event carries the
+    enforcement fact so the platform can show which exclusion applies to
+    it, and the verdict is suppressed by the engine that owns verdicts.
+    The telemetry and the evidence are retained.
+
+    The returned count is the number of events SUPPRESSED FROM
+    COLLECTION, because that is the only number that means "this evidence
+    does not exist". The per-exclusion journal carries both counts.
     """
     honoured = []
     for exclusion in exclusions:
@@ -242,7 +293,23 @@ def partition(events: list[dict], exclusions: list[dict], journal: Journal,
         fact = evaluate(event, honoured)
         if fact is None:
             keep.append(event)
-        else:
-            journal.record_enforcement(fact, policy)
-            enforced += 1
+            continue
+        journal.record_enforcement(fact, policy)
+        if fact.get("enforcement_scope") == SCOPE_DETECTION:
+            # Delivered, annotated, retained. The endpoint states what it
+            # matched; it does not decide the verdict.
+            marks = event.setdefault("endpoint_exclusion_matches", [])
+            marks.append({"exclusion_id": fact["exclusion_id"],
+                          "enforcement_scope": SCOPE_DETECTION,
+                          "matched_attribute": fact.get("matched_attribute"),
+                          "observed_value_sha256":
+                              fact.get("observed_value_sha256"),
+                          "evaluator_version": EVALUATOR_VERSION,
+                          "note": ("the endpoint honoured a DETECTION-scoped "
+                                   "exclusion: the evidence was retained and "
+                                   "delivered, and the verdict is suppressed "
+                                   "by the server engine that owns it")})
+            keep.append(event)
+            continue
+        enforced += 1
     return keep, enforced

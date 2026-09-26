@@ -483,7 +483,7 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
         reported = _report_enforcement(api, ident, session, journal, policy)
         report = {"at": _now(), "collected": len(events), "sent": sent,
                   "failed": failed, "queue_depth": _queue_depth(),
-                  "excluded_at_endpoint": excluded,
+                  "collection_suppressed_at_endpoint": excluded,
                   "policy_id": policy.get("policy_id"),
                   "policy_version": policy.get("version"),
                   "policy_stale": bool(policy.get("stale")),

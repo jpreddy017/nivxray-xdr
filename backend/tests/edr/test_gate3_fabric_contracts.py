@@ -22,9 +22,9 @@ from edr_plane import fabric
 from edr_plane.fabric import registry, store
 from edr_plane.fabric.analyzers.deterministic_rule import ANALYZER
 from edr_plane.fabric.contracts import (AnalyzerClass, AnalyzerResult,
-                                        EvidenceUnit, Finding,
-                                        InferenceLocation, Outcome, Severity,
-                                        feature_digest)
+                                        DetectionSource, EvidenceUnit,
+                                        Finding, InferenceLocation, Outcome,
+                                        Severity, feature_digest)
 
 
 def _unit(**over):
@@ -42,6 +42,14 @@ def _finding(**over):
                 analyzer_class=AnalyzerClass.DETERMINISTIC,
                 analyzer_version="1.0.0", label="matched EDR-LNX-001",
                 evidence_refs=["cev_x_0"],
+                #: P0-C · provenance and the three absence bases are part
+                #: of the contract now: a finding must say who produced it
+                #: and why any unavailable value is unavailable.
+                detection_source=(
+                    DetectionSource.XDR_PLATFORM_DETERMINISTIC_DETECTION),
+                detection_source_detail="test projection",
+                severity_basis="test", confidence_basis="test",
+                attck_basis="test",
                 analysis_basis="test")
     base.update(over)
     return Finding(**base)
@@ -113,10 +121,10 @@ def test_the_store_recognises_a_repeated_evaluation_instead_of_duplicating():
         second = store.persist([f])
         assert first["inserted"] == 1 and first["already_present"] == 0
         assert second["inserted"] == 0 and second["already_present"] == 1
-        rows = store.read(tenant)
+        rows, _ = store.read(tenant)
         assert len(rows) == 1 and rows[0]["finding_id"] == f.finding_id
         # tenant partitioned: another tenant sees nothing
-        assert store.read(f"{tenant}-other") == []
+        assert store.read(f"{tenant}-other")[0] == []
     finally:
         from deps import sync_collection
         sync_collection(store.COLLECTION).delete_many({"tenant_id": tenant})
@@ -166,7 +174,13 @@ def test_the_deterministic_analyzer_projects_the_recorded_detection():
     assert res.outcome == Outcome.FINDINGS.value
     f = res.findings[0]
     assert f.evidence_refs == ["cev_x_0"]
-    assert f.features["rule_ids"] == ["EDR-LNX-001"]
+    #: P0-C · ONE finding per producing rule, and the rule is named on the
+    #: finding itself instead of only inside a features blob.
+    assert f.rule_id == "EDR-LNX-001"
+    assert f.features["rule_id"] == "EDR-LNX-001"
+    assert f.features["all_matched_rule_ids"] == ["EDR-LNX-001"]
+    assert f.detection_source == (
+        DetectionSource.XDR_PLATFORM_DETERMINISTIC_DETECTION.value)
     assert f.analyzer_version == (
         "nivxray::detection_content::nivxray_native_sigma")
     # the ingest label is a hint, and it is NOT promoted to a verdict
@@ -183,7 +197,8 @@ def test_a_matched_rule_with_no_rule_id_is_named_not_invented():
         {"outcome": "DETECTION_MATCHED", "event_id": "cev_x_0",
          "reason": None, "detection_content_version": "v1"}]))
     assert "unnamed rule" in res.findings[0].label
-    assert res.findings[0].features["rule_ids"] == []
+    assert res.findings[0].rule_id is None
+    assert res.findings[0].features["all_matched_rule_ids"] == []
 
 
 # ── the registry is a contract ──────────────────────────────────────────

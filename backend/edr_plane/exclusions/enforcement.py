@@ -24,9 +24,10 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
-from edr_plane.exclusions.contracts import (ENDPOINT_ENGINE_CAPABILITY,
+from edr_plane.exclusions.contracts import (DETECTION_SUPPRESSING_SCOPES,
+                                            ENDPOINT_ENGINE_CAPABILITY,
                                             EnforcementPoint, TruthState,
-                                            matches)
+                                            enforcement_scope_of, matches)
 from edr_plane.fabric.contracts import (AnalyzerResult, EvidenceUnit,
                                         FindingState, Outcome)
 
@@ -45,6 +46,10 @@ class ExclusionDecision:
     basis: str = ""
     matched_attribute: Optional[str] = None
     observed_value: Optional[str] = None
+    #: P0-B · WHAT was suppressed, and whether the evidence survived it.
+    enforcement_scope: Optional[str] = None
+    enforcement_scope_basis: Optional[str] = None
+    evidence_retained: Optional[bool] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -119,9 +124,17 @@ def payload_activity(payload: str) -> Dict[str, Any]:
 
 def decide(*, exclusions: List[Dict[str, Any]], engine: str,
            candidate: Dict[str, Optional[str]]) -> ExclusionDecision:
-    """First matching exclusion aimed at THIS engine wins."""
+    """First matching exclusion aimed at THIS engine wins.
+
+    P0-B · only a COLLECTION- or DETECTION-scoped exclusion suppresses a
+    verdict. One aimed solely at PREVENTION is NOT allowed to become
+    detection blindness, so it is skipped here and the engine runs.
+    """
     for e in exclusions:
         if engine not in (e.get("affected_engines") or []):
+            continue
+        scope, scope_basis = enforcement_scope_of(e)
+        if scope not in DETECTION_SUPPRESSING_SCOPES:
             continue
         if not matches(e, candidate):
             continue
@@ -139,10 +152,19 @@ def decide(*, exclusions: List[Dict[str, Any]], engine: str,
             set_id=e.get("set_id"), type=e.get("type"), value=e.get("value"),
             reason=e.get("reason"), matched_attribute=attribute,
             observed_value=(candidate.get(attribute) if attribute else None),
+            enforcement_scope=scope,
+            enforcement_scope_basis=scope_basis,
+            evidence_retained=(scope == "DETECTION"),
             basis=(f"exclusion {e.get('exclusion_id')} "
                    f"({e.get('type')} {e.get('match')} '{e.get('value')}') "
                    f"is approved, effective and in scope, and it is aimed at "
-                   f"{engine}; the engine was bypassed for this evidence"))
+                   f"{engine}; the engine was bypassed for this evidence. "
+                   f"Enforcement scope {scope}: "
+                   + ("the verdict is suppressed and the underlying "
+                      "evidence is retained"
+                      if scope == "DETECTION" else
+                      "the endpoint does not deliver this activity at all, "
+                      "so the evidence does not exist to re-evaluate")))
     return NOT_EXCLUDED
 
 

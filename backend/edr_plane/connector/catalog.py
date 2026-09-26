@@ -72,8 +72,10 @@ RELEASES: List[Dict[str, Any]] = [
                      "elevated PowerShell for installation"],
         "release_notes": [
             "Adds ENDPOINT-SIDE EXCLUSION ENFORCEMENT: exclusions carried "
-            "by the applied policy version are evaluated locally and "
-            "matching events are never delivered.",
+            "by the applied policy version are evaluated locally. A "
+            "COLLECTION-scoped exclusion means the matching event is never "
+            "delivered; a DETECTION-scoped exclusion (the default) delivers "
+            "the evidence and lets the server suppress only the verdict.",
             "Adds policy fetch + acknowledgement of the exact config "
             "digest, and reporting of what the local engine actually "
             "enforced (counts and value digests only — never the excluded "
@@ -108,7 +110,8 @@ RELEASES: List[Dict[str, Any]] = [
                      "NET_ADMIN for the containment engine"],
         "release_notes": [
             "Adds ENDPOINT-SIDE EXCLUSION ENFORCEMENT with the same "
-            "canonical evaluator as the Windows release.",
+            "canonical evaluator as the Windows release, including "
+            "COLLECTION vs DETECTION enforcement scope.",
             "Process, network and watched-path observation.",
             "Kernel-level containment with read-back proof. No "
             "file-content prevention engine.",

@@ -61,6 +61,52 @@ ENDPOINT_ENGINE_CAPABILITY = {
 }
 
 
+class EnforcementScope(str, Enum):
+    """P0-B · WHAT an exclusion suppresses. Orthogonal to `scope`, which
+    says WHERE (tenant / group / endpoint) it applies.
+
+    `DETECTION` is the default for ordinary analyst tuning: the verdict is
+    suppressed and the underlying telemetry is still collected, delivered
+    and retained, so the evidence survives the exclusion.
+
+    `COLLECTION` is a high-impact visibility decision: the endpoint never
+    delivers the matching event at all. It must be asked for explicitly,
+    because the evidence is destroyed at the source and cannot be
+    recovered or retrospectively re-evaluated.
+
+    `PREVENTION` is declared but unsupported: the released connector has
+    no prevention engine, so the connector REFUSES it and reports the
+    refusal rather than silently skipping it.
+    """
+    COLLECTION = "COLLECTION"
+    DETECTION = "DETECTION"
+    PREVENTION = "PREVENTION"
+
+
+#: An exclusion written before P0-B carries no scope. Its ACTUAL behaviour
+#: was collection suppression at the endpoint, so that is what it keeps —
+#: a migration must never silently change what a live exclusion does.
+LEGACY_ENFORCEMENT_SCOPE = EnforcementScope.COLLECTION.value
+LEGACY_ENFORCEMENT_SCOPE_BASIS = "LEGACY_PRE_P0B_COLLECTION_PRESERVED"
+DECLARED_ENFORCEMENT_SCOPE_BASIS = "OPERATOR_DECLARED"
+
+
+def enforcement_scope_of(doc: Dict[str, Any]) -> tuple:
+    """(scope, basis) for one exclusion record, legacy records included."""
+    raw = (doc or {}).get("enforcement_scope")
+    if raw in tuple(s.value for s in EnforcementScope):
+        return raw, (doc.get("enforcement_scope_basis")
+                     or DECLARED_ENFORCEMENT_SCOPE_BASIS)
+    return LEGACY_ENFORCEMENT_SCOPE, LEGACY_ENFORCEMENT_SCOPE_BASIS
+
+
+#: Scopes that suppress a DETECTION verdict. `PREVENTION` does not: an
+#: exclusion aimed only at a prevention engine must never quietly turn
+#: into detection blindness.
+DETECTION_SUPPRESSING_SCOPES = (EnforcementScope.COLLECTION.value,
+                                EnforcementScope.DETECTION.value)
+
+
 class EnforcementPoint(str, Enum):
     SERVER_FABRIC = "SERVER_FABRIC"
     ENDPOINT = "ENDPOINT"
@@ -125,6 +171,10 @@ class ExclusionDraft(BaseModel):
                         description="Why this protection blind spot is "
                                     "accepted. Recorded verbatim.")
     affected_engines: List[ExclusionEngine] = Field(min_length=1)
+    #: P0-B · DETECTION by default: suppress the verdict, keep the
+    #: evidence. COLLECTION destroys telemetry at the endpoint and must be
+    #: chosen deliberately.
+    enforcement_scope: EnforcementScope = EnforcementScope.DETECTION
     scope: ExclusionScope = Field(default_factory=ExclusionScope)
     effective_from: Optional[str] = None
     expires_at: Optional[str] = None

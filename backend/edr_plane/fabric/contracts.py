@@ -49,6 +49,69 @@ class InferenceLocation(str, Enum):
     BACKEND = "BACKEND"
 
 
+class DetectionSource(str, Enum):
+    """P0-C · WHO actually produced the detection this finding represents.
+
+    This is provenance, not a label of convenience. A finding derived
+    from the NivXRay XDR ingest detection pipeline stays identified as
+    XDR-produced; it is never re-presented as a NivXForge endpoint or
+    offline EDR detection, because no such engine exists yet.
+    """
+    XDR_PLATFORM_DETERMINISTIC_DETECTION = \
+        "XDR_PLATFORM_DETERMINISTIC_DETECTION"
+    NIVXFORGE_ENDPOINT_BEHAVIORAL = "NIVXFORGE_ENDPOINT_BEHAVIORAL"
+    NIVXFORGE_ENDPOINT_PREVENTION = "NIVXFORGE_ENDPOINT_PREVENTION"
+    NIVXFORGE_BACKEND_REPUTATION = "NIVXFORGE_BACKEND_REPUTATION"
+    NIVXFORGE_BACKEND_ML = "NIVXFORGE_BACKEND_ML"
+
+
+#: The ONLY sources that may appear on a persisted finding today, because
+#: they are the only ones that genuinely produce a detection in this
+#: build. Adding a value here is a product claim and must arrive WITH the
+#: engine that justifies it.
+IMPLEMENTED_DETECTION_SOURCES = frozenset({
+    DetectionSource.XDR_PLATFORM_DETERMINISTIC_DETECTION.value,
+})
+
+DETECTION_SOURCE_DISCLOSURE: Dict[str, Dict[str, Any]] = {
+    DetectionSource.XDR_PLATFORM_DETERMINISTIC_DETECTION.value: {
+        "implemented": True,
+        "produced_by": "NivXRay XDR ingest detection pipeline",
+        "nivxforge_role": ("NivXForge EDR delivers the endpoint evidence "
+                           "and projects the detection the XDR pipeline "
+                           "recorded; it does not re-evaluate it and does "
+                           "not claim it as a local endpoint detection"),
+    },
+    DetectionSource.NIVXFORGE_ENDPOINT_BEHAVIORAL.value: {
+        "implemented": False,
+        "produced_by": None,
+        "nivxforge_role": ("NivXForge has NO local behavioural detection "
+                           "engine today; a finding may not claim this "
+                           "source"),
+    },
+    DetectionSource.NIVXFORGE_ENDPOINT_PREVENTION.value: {
+        "implemented": False,
+        "produced_by": None,
+        "nivxforge_role": ("NivXForge has NO prevention engine today; the "
+                           "connector refuses a PREVENTION-scoped "
+                           "exclusion for the same reason"),
+    },
+    DetectionSource.NIVXFORGE_BACKEND_REPUTATION.value: {
+        "implemented": False,
+        "produced_by": None,
+        "nivxforge_role": "no reputation analyzer exists today",
+    },
+    DetectionSource.NIVXFORGE_BACKEND_ML.value: {
+        "implemented": False,
+        "produced_by": None,
+        "nivxforge_role": ("no model is shipped, loaded or executed "
+                           "anywhere in this build"),
+    },
+}
+
+NOT_RECORDED_BY_SOURCE = "NOT_RECORDED_BY_SOURCE"
+
+
 class Severity(str, Enum):
     INFORMATIONAL = "INFORMATIONAL"
     LOW = "LOW"
@@ -88,6 +151,20 @@ class Finding(BaseModel):
     analyzer_version: str
     label: str
     evidence_refs: List[str]
+    #: P0-C · provenance is MANDATORY. A finding that cannot say who
+    #: produced it cannot exist.
+    detection_source: DetectionSource
+    detection_source_detail: str
+    severity_basis: str
+    confidence_basis: str
+    attck_basis: str
+    rule_id: Optional[str] = None
+    rule_version: Optional[str] = None
+    rule_name: Optional[str] = None
+    severity: Optional[Severity] = None
+    confidence: Optional[float] = None
+    confidence_scale: Optional[str] = None
+    confidence_label: Optional[str] = None
     observed_at: Optional[str] = None
     evaluation_time: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -128,14 +205,37 @@ class Finding(BaseModel):
                 "unversioned inference may not enter the evidence chain")
         if self.suppressed_by and self.state != FindingState.SUPPRESSED.value:
             raise ValueError("suppressed_by requires state=SUPPRESSED")
+        if self.detection_source not in IMPLEMENTED_DETECTION_SOURCES:
+            raise ValueError(
+                f"detection_source {self.detection_source} is not "
+                f"implemented in this build — a finding may not claim a "
+                f"producing engine that does not exist. NivXForge has no "
+                f"local behavioural, prevention, reputation or ML engine "
+                f"today; only "
+                f"{sorted(IMPLEMENTED_DETECTION_SOURCES)} may be persisted")
+        if self.inference_location == InferenceLocation.ENDPOINT.value:
+            raise ValueError(
+                "no endpoint-side inference engine exists in NivXForge "
+                "today, so a finding may not claim ENDPOINT inference; the "
+                "endpoint delivers evidence and reports what it enforced")
+        if self.confidence is not None and not self.confidence_scale:
+            raise ValueError(
+                "a numeric confidence must declare its scale — the "
+                "producing source's own scale, never an invented one")
         object.__setattr__(self, "finding_id", self.identity())
         return self
 
     def identity(self) -> str:
         """Content-addressed identity: re-running the same analyzer over
         the same evidence with the same features yields the SAME id, so
-        re-evaluation (and retrospection) is idempotent by construction."""
+        re-evaluation (and retrospection) is idempotent by construction.
+
+        P0-C · the producing SOURCE and the producing RULE are part of the
+        identity: the same evidence detected by a different source, or by
+        a different rule, is a different finding — never an overwrite of
+        an existing one."""
         parts = [self.tenant_id, self.analyzer_id, self.analyzer_version,
+                 self.detection_source, self.rule_id or "",
                  self.model_id or "", self.model_version or "",
                  "|".join(sorted(self.evidence_refs)),
                  self.feature_digest or ""]
@@ -168,6 +268,11 @@ class EvidenceUnit(BaseModel):
     observed_at: Optional[str] = None
     activity: Dict[str, Any] = Field(default_factory=dict)
     derivations: List[Dict[str, Any]] = Field(default_factory=list)
+    #: P0-C · the producing source's OWN per-rule records for this
+    #: evidence (rule id, rule version, its severity, its confidence, the
+    #: MITRE techniques IT declared). Handed to the analyzer so a finding
+    #: can carry the source's real values instead of an approximation.
+    detection_citations: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class AnalyzerResult(BaseModel):

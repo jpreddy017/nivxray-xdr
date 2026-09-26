@@ -20,9 +20,11 @@ from edr_plane.enrollment import store as enrollment_store
 from edr_plane.exclusions import enforcement, store as exclusion_store
 from edr_plane.exclusions.contracts import (AUTHORITY_CONTRACT, ApprovalState,
                                             ENDPOINT_ENGINES, ExclusionDraft,
+                                            EnforcementScope,
                                             ExclusionEngine, ExclusionType,
                                             LifecycleState, MatchKind,
-                                            SERVER_ENGINES, TruthState)
+                                            SERVER_ENGINES, TruthState,
+                                            enforcement_scope_of)
 from edr_plane.fabric.analyzers.deterministic_rule import ANALYZER
 from edr_plane.fabric.contracts import EvidenceUnit, Outcome
 from edr_plane.policy import store as policy_store
@@ -62,6 +64,32 @@ async def taxonomy(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
                      "implemented": e.value in SERVER_ENGINES}
                     for e in ExclusionEngine],
         "truth_states": [s.value for s in TruthState],
+        "enforcement_scopes": [
+            {"scope": EnforcementScope.DETECTION.value, "default": True,
+             "suppresses": "the detection verdict only",
+             "evidence_retained": True,
+             "impact": ("ordinary analyst tuning: the endpoint keeps "
+                        "collecting, delivering and retaining the evidence, "
+                        "so it stays in the trajectory and can be "
+                        "re-evaluated later")},
+            {"scope": EnforcementScope.COLLECTION.value, "default": False,
+             "suppresses": "collection of the activity itself",
+             "evidence_retained": False,
+             "impact": ("HIGH IMPACT: the endpoint never delivers the "
+                        "matching activity, so the evidence does not exist "
+                        "and cannot be recovered. Choose it deliberately")},
+            {"scope": EnforcementScope.PREVENTION.value, "default": False,
+             "suppresses": "nothing today",
+             "evidence_retained": True,
+             "impact": ("the released connector has no prevention engine, "
+                        "so the connector REFUSES this scope and reports "
+                        "the refusal")},
+        ],
+        "enforcement_scope_migration": (
+            "An exclusion created before enforcement scopes existed carries "
+            "no declared scope. It is read as COLLECTION with basis "
+            "LEGACY_PRE_P0B_COLLECTION_PRESERVED, because that is exactly "
+            "what it already did; nothing was silently re-scoped."),
         "lifecycle_states": [s.value for s in LifecycleState],
         "approval_states": [s.value for s in ApprovalState],
         "authority_contract": AUTHORITY_CONTRACT,
@@ -133,6 +161,27 @@ async def list_exclusions(set_id: Optional[str] = None,
             await exclusion_store.endpoint_enforcement_map(
                 _db, tenant_id=tenant, endpoint_id=ep["endpoint_id"])
     for r in rows:
+        # P0-B · every read discloses WHAT this exclusion suppresses and
+        # whether the evidence survives it, including for legacy records
+        # that carry no declared scope.
+        scope, scope_basis = enforcement_scope_of(r)
+        r["enforcement_scope"] = scope
+        r["enforcement_scope_basis"] = scope_basis
+        r["evidence_retained"] = scope == "DETECTION"
+        r["enforcement_scope_disclosure"] = (
+            "the verdict is suppressed; the endpoint still collects, "
+            "delivers and retains the underlying evidence"
+            if scope == "DETECTION" else
+            ("the endpoint does not deliver this activity at all — this is "
+             "a deliberate visibility loss and the evidence cannot be "
+             "recovered or re-evaluated later"
+             + (" (declared before enforcement scopes existed; its "
+                "behaviour is preserved unchanged)"
+                if scope_basis == "LEGACY_PRE_P0B_COLLECTION_PRESERVED"
+                else "")
+             if scope == "COLLECTION" else
+             "aimed only at a prevention engine, which the released "
+             "connector does not have; it suppresses nothing"))
         points = []
         for engine in (r.get("affected_engines") or []):
             if engine in SERVER_ENGINES:

@@ -703,6 +703,9 @@ from routers.edr_audit import router as edr_audit_router
 api.include_router(edr_audit_router)
 from routers.edr_saved_views import router as edr_saved_views_router
 api.include_router(edr_saved_views_router)
+# P0-C · durable EDR findings (read plane).
+from routers.edr_findings import router as edr_findings_router
+api.include_router(edr_findings_router)
 
 
 # v2 · Additive next-generation namespace (Phase 3+).
@@ -993,6 +996,20 @@ async def _startup():
         log.warning(f"[startup] policy/exclusion/events indexes failed: {e}")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
+    # P0-C · durable EDR findings + the evaluation-state ledger. Its OWN
+    # try block: a legacy index conflict elsewhere must not leave the
+    # findings plane unindexed.
+    try:
+        import asyncio as _asyncio
+        from edr_plane.fabric import (evaluation_state as _ev_state,
+                                      store as _finding_store)
+        await _asyncio.to_thread(_finding_store.ensure_indexes)
+        await _asyncio.to_thread(_ev_state.ensure_indexes)
+        log.info("[startup] EDR findings + evaluation-state indexes ensured")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] EDR findings indexes failed: {e}")
+
 
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:

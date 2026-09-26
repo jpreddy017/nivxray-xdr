@@ -80,3 +80,17 @@ planned guides are listed as NOT YET WRITTEN.
 `scripts/gate5_7_11_live_proof.py` · **all live assertions PASSED**
 (policy lifecycle, exclusion enforcement, events explorer, connector
 deployment) against the preview host.
+
+## P0-C · Durable EDR findings — CLOSED 2026-09-26
+
+Findings are durable, content-addressed, tenant-partitioned and
+write-once (`edr_findings`), and every evaluation records its state
+(`edr_finding_evaluations`) so `EVALUATED_NO_FINDING`, `NOT_EVALUATED`,
+`EVALUATION_FAILED` and `EVALUATION_SUPPRESSED_BY_EXCLUSION` are four
+different answers instead of one empty array. Provenance is mandatory
+and a finding may not claim an engine that does not exist — NivXForge
+still has no local behavioural engine. No UI, no triage, no
+retrospection (Gate 6).
+Evidence: `P0C_DURABLE_FINDINGS.md`.
+Baseline: `tests/edr` **494 passed · 1 skipped**;
+`tests/test_edr_route_tenant_authority.py` **308 passed**.

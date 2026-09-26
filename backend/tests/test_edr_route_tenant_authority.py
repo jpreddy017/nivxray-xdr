@@ -91,6 +91,81 @@ SAMPLES: dict[tuple, dict] = {
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/revoke"): {
         "url": "/api/edr/enrollment/endpoints/probe/revoke", "mutating": True,
         "json": {"reason": "route-authority-probe"}},
+    # ── P0-A.1 · probes for the surfaces added in the Policy / Exclusions /
+    #    Events / Saved-Views / Audit / Connector-deployment wave. Every
+    #    TENANT_SCOPED operation carries a parameter-complete probe so the
+    #    request reaches the AUTHORITY check instead of schema validation.
+    #    Mutating probes are driven for the REFUSAL cases only, so this
+    #    suite still creates no policy, exclusion, view or deployment.
+    ("GET", "/api/edr/policies"): {"url": "/api/edr/policies"},
+    ("GET", "/api/edr/policies/{policy_id}"): {
+        "url": "/api/edr/policies/probe"},
+    ("GET", "/api/edr/policies/audit"): {"url": "/api/edr/policies/audit"},
+    ("GET", "/api/edr/policies/deployment"): {
+        "url": "/api/edr/policies/deployment"},
+    ("POST", "/api/edr/policies"): {
+        "url": "/api/edr/policies", "mutating": True,
+        "json": {"name": "route-authority-probe", "os": "LINUX"}},
+    ("POST", "/api/edr/policies/{policy_id}/versions"): {
+        "url": "/api/edr/policies/probe/versions", "mutating": True,
+        "json": {"config": {}, "notes": "route-authority-probe"}},
+    ("POST", "/api/edr/policies/{policy_id}/assign"): {
+        "url": "/api/edr/policies/probe/assign", "mutating": True,
+        "json": {"scope_type": "ENDPOINT", "scope_id": "probe-endpoint"}},
+    ("GET", "/api/edr/groups"): {"url": "/api/edr/groups"},
+    ("POST", "/api/edr/groups"): {
+        "url": "/api/edr/groups", "mutating": True,
+        "json": {"name": "route-authority-probe"}},
+    ("GET", "/api/edr/exclusions"): {"url": "/api/edr/exclusions"},
+    ("GET", "/api/edr/exclusions/sets"): {"url": "/api/edr/exclusions/sets"},
+    ("GET", "/api/edr/exclusions/enforcement-proof"): {
+        "url": "/api/edr/exclusions/enforcement-proof?sample=10"},
+    ("POST", "/api/edr/exclusions"): {
+        "url": "/api/edr/exclusions", "mutating": True,
+        "json": {"set_id": "probe-set", "type": "PATH",
+                 "value": "/opt/route-authority-probe",
+                 "match": "EXACT",
+                 "reason": "route authority probe · never approved",
+                 "affected_engines": ["endpoint.collection"]}},
+    ("POST", "/api/edr/exclusions/sets"): {
+        "url": "/api/edr/exclusions/sets", "mutating": True,
+        "json": {"name": "route-authority-probe", "os": "LINUX"}},
+    ("POST", "/api/edr/exclusions/{exclusion_id}/approval"): {
+        "url": "/api/edr/exclusions/probe/approval", "mutating": True,
+        "json": {"decision": "REJECTED", "note": "route-authority-probe"}},
+    ("POST", "/api/edr/exclusions/{exclusion_id}/revoke"): {
+        "url": "/api/edr/exclusions/probe/revoke", "mutating": True,
+        "json": {"reason": "route-authority-probe"}},
+    ("GET", "/api/edr/events"): {"url": "/api/edr/events?limit=1"},
+    ("GET", "/api/edr/events/facets"): {"url": "/api/edr/events/facets"},
+    ("GET", "/api/edr/events/{raw_id}"): {"url": "/api/edr/events/probe"},
+    ("GET", "/api/edr/saved-views"): {"url": "/api/edr/saved-views"},
+    ("GET", "/api/edr/saved-views/{view_id}"): {
+        "url": "/api/edr/saved-views/probe"},
+    ("POST", "/api/edr/saved-views"): {
+        "url": "/api/edr/saved-views", "mutating": True,
+        "json": {"name": "route-authority-probe", "surface": "events"}},
+    ("PATCH", "/api/edr/saved-views/{view_id}"): {
+        "url": "/api/edr/saved-views/probe", "mutating": True,
+        "json": {"name": "route-authority-probe", "surface": "events"}},
+    ("DELETE", "/api/edr/saved-views/{view_id}"): {
+        "url": "/api/edr/saved-views/probe", "mutating": True},
+    # P0-C · durable findings. Read-only probes; the id is deliberately one
+    # that cannot exist, so a registered tenant is answered by the authority
+    # and not by another customer's evidence.
+    ("GET", "/api/edr/findings"): {"url": "/api/edr/findings?limit=1"},
+    ("GET", "/api/edr/findings/evaluation-state"): {
+        "url": "/api/edr/findings/evaluation-state"},
+    ("GET", "/api/edr/findings/{finding_id}"): {
+        "url": "/api/edr/findings/fnd_probe_does_not_exist"},
+    ("GET", "/api/edr/audit"): {"url": "/api/edr/audit?days=1&limit=1"},
+    ("GET", "/api/edr/audit/facets"): {"url": "/api/edr/audit/facets?days=1"},
+    ("GET", "/api/edr/connector/deployments"): {
+        "url": "/api/edr/connector/deployments"},
+    ("POST", "/api/edr/connector/deployments"): {
+        "url": "/api/edr/connector/deployments", "mutating": True,
+        "json": {"release_id": "nvf-connector-linux-0.2.0-x64",
+                 "group_id": "probe-group", "ttl_seconds": 300}},
 }
 
 _TENANT_SCOPED_OPS = sorted(k for k, v in ROUTE_CLASSIFICATION.items()
@@ -335,6 +410,20 @@ _METADATA_URLS = {
     ("GET", "/api/edr/onboarding/packages/{package_id}/file/{name}"):
         "/api/edr/onboarding/packages/windows-x64/file/"
         "Install-NivXForgeSensor.ps1",
+    # P0-A.1 · the connector RELEASE catalog and the exclusion taxonomy are
+    # product metadata: the same released artifact and the same typed
+    # vocabulary for every customer. These probes assert exactly that — if
+    # either ever differs per tenant it must be reclassified TENANT_SCOPED.
+    ("GET", "/api/edr/connector/releases"): "/api/edr/connector/releases",
+    ("GET", "/api/edr/connector/releases/{release_id}"):
+        "/api/edr/connector/releases/nvf-connector-linux-0.2.0-x64",
+    ("GET", "/api/edr/connector/releases/{release_id}/artifact/{name}"):
+        "/api/edr/connector/releases/nvf-connector-linux-0.2.0-x64/artifact/"
+        "nivxforge_sensor.py",
+    ("GET", "/api/edr/exclusions/taxonomy"): "/api/edr/exclusions/taxonomy",
+    # P0-C · the finding taxonomy states which detection sources exist and
+    # which are implemented. Product truth, identical for every customer.
+    ("GET", "/api/edr/findings/taxonomy"): "/api/edr/findings/taxonomy",
 }
 
 

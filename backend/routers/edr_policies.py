@@ -26,6 +26,7 @@ from edr_plane.enrollment import store as enrollment_store
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from edr_plane.enrollment.transport import get_authenticated_endpoint
 from edr_plane.exclusions import store as exclusion_store
+from edr_plane.exclusions.contracts import enforcement_scope_of
 from edr_plane.policy import store as policy_store
 from edr_plane.policy.contracts import (LIFECYCLE_CONTRACT, PolicyConfig,
                                         PolicyState, ScopeType,
@@ -268,7 +269,17 @@ async def fetch_policy(who: AuthenticatedEndpoint = Depends(
                    "config": assigned["config"]},
         "exclusions": [{"exclusion_id": e["exclusion_id"],
                         "type": e["type"], "match": e["match"],
-                        "value": e["value"]} for e in exclusions],
+                        "value": e["value"],
+                        # P0-B · the connector must know WHAT to suppress
+                        # and WHICH engine the exclusion is aimed at.
+                        # Without both, a connector can only guess, and a
+                        # guess here is either lost evidence or an
+                        # unenforced exclusion.
+                        "enforcement_scope": enforcement_scope_of(e)[0],
+                        "enforcement_scope_basis": enforcement_scope_of(e)[1],
+                        "affected_engines": list(
+                            e.get("affected_engines") or [])}
+                       for e in exclusions],
         "state": PolicyState.DELIVERED.value,
         "delivered_at": delivered_at,
         "ack_required": True,

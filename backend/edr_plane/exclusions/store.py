@@ -12,7 +12,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from edr_plane.exclusions.contracts import (ApprovalState, ENFORCEABLE_STATES,
+from edr_plane.exclusions.contracts import (ApprovalState,
+                                            DECLARED_ENFORCEMENT_SCOPE_BASIS,
+                                            ENFORCEABLE_STATES,
                                             ExclusionDraft, in_scope,
                                             lifecycle_state, new_exclusion_id,
                                             new_set_id)
@@ -193,6 +195,8 @@ async def create_exclusion(db: Any, *, tenant_id: str, draft: ExclusionDraft,
         "match": draft.match,
         "reason": draft.reason,
         "affected_engines": list(draft.affected_engines),
+        "enforcement_scope": draft.enforcement_scope,
+        "enforcement_scope_basis": DECLARED_ENFORCEMENT_SCOPE_BASIS,
         "scope": draft.scope.model_dump(),
         "effective_from": draft.effective_from or at,
         "expires_at": draft.expires_at,
