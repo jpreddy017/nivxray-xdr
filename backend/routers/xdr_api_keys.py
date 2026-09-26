@@ -35,6 +35,7 @@ from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import _valid_permission, require_permission
+from services import tenant_registry
 
 router = APIRouter(prefix="/api/xdr/api-keys", tags=["xdr-api-keys"])
 
@@ -52,13 +53,41 @@ def _coll():
 
 # ── Principal ────────────────────────────────────────────────────
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    """ONE tenancy authority — delegated, never re-implemented here.
+
+    2026-06 DEFECT CLOSED (caught by `tests/test_p0_security_gate.py`): this
+    resolved the tenant through the registry ONLY. That proves the tenant
+    EXISTS; it never asked whether the caller is AUTHORIZED for it, so a
+    principal holding `api_keys.read` in tenant A could read tenant B's credential inventory
+    simply by naming B in `X-Tenant-Id`. It now delegates to
+    `xdr_rbac.resolve_principal`, the single resolver that runs
+    `authorize_requested_tenant()`.
+
+    Naming a tenant is therefore a REQUEST, never an authorisation.
+    """
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
+
+
+def _verified_principal(req: Request) -> str:
+    """A0.5 · T-RISK-2 · identity from VERIFIED authentication only.
+
+    The previous body read `X-Principal-Id` and, when absent, substituted
+    the literal `"admin@nivxray.com"`, so a credential could be minted and
+    attributed to the platform administrator by a caller who proved no
+    identity at all.
+    """
+    from fastapi import HTTPException
+
+    from routers.xdr_rbac import verified_actor
+    pid, _ = verified_actor(req)
+    if not pid:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED",
+            "reason": ("no verified principal; a client-supplied identity "
+                            "header is never an identity"),
+            "risk": "T-RISK-2", "fail_closed": True})
+    return str(pid)
 
 
 # ── Key format / hashing ─────────────────────────────────────────
@@ -83,9 +112,35 @@ def _mask(doc: dict) -> dict:
     return {k: v for k, v in doc.items() if k not in ("hash", "_id")}
 
 
+_TENANT_EVIDENCE = ("xdr_users", "xdr_roles", "xdr_collectors", "xdr_api_keys")
+
+
+def _tenant_is_known(tenant_id: str) -> bool:
+    """True when the tenant already owns at least one control-plane object.
+
+    Used to refuse minting a credential for a mistyped tenant id.
+    """
+    if _client is None:
+        return False
+    db = _client[_DB_NAME]
+    for name in _TENANT_EVIDENCE:
+        if db[name].find_one({"tenant_id": tenant_id}, {"_id": 1}):
+            return True
+    return False
+
+
 # ── Pydantic bodies ──────────────────────────────────────────────
 class CreateKeyBody(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    #: P1 issuance safeguard — the operator must restate the tenant the key
+    #: will be bound to.  A typo in `X-Tenant-Id` can no longer silently mint
+    #: a credential for the wrong (or a non-existent) tenant.
+    confirm_tenant_id: str = Field(min_length=1, max_length=128)
+    #: DEPRECATED (tenant registry) — tenancy is created only by
+    #: `POST /api/xdr/tenants`. Kept for one release so nothing that still
+    #: sends it breaks; with `NIVX_TENANT_REGISTRY_ENFORCE` on, sending
+    #: `true` is refused instead of silently bootstrapping a tenant.
+    allow_new_tenant: bool = False
     description: str | None = None
     scopes: list[str] = Field(default_factory=list,
                                                 description="Permission strings, e.g. 'lolbas.sync'")
@@ -109,6 +164,40 @@ def create_key(body: CreateKeyBody, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
     ten, pid, pkd = _principal(request)
+    # ── P1 · issuance confirmation ────────────────────────────────
+    # The tenant a key is bound to is decided here and is immutable
+    # afterwards, so it is confirmed twice and checked for existence.
+    if body.confirm_tenant_id.strip() != ten:
+        raise HTTPException(status_code=400, detail={
+            "code": "TENANT_CONFIRMATION_MISMATCH",
+            "resolved_tenant": ten,
+            "confirm_tenant_id": body.confirm_tenant_id,
+            "reason": ("confirm_tenant_id must exactly match the tenant the "
+                            "key will be minted for")})
+    if not _tenant_is_known(ten) and not body.allow_new_tenant:
+        if tenant_registry.enforcing():
+            # Unreachable in practice: `_principal()` already refused an
+            # unregistered tenant. Kept so the failure can never invert into
+            # "mint anyway" if the guard above is ever relaxed.
+            raise HTTPException(status_code=403, detail={
+                "code": "TENANT_NOT_FOUND",
+                "resolved_tenant": ten,
+                "reason": tenant_registry.IMPLICIT_TENANT_FORBIDDEN})
+        raise HTTPException(status_code=400, detail={
+            "code": "UNKNOWN_TENANT",
+            "resolved_tenant": ten,
+            "reason": ("no users, roles, collectors or keys exist for this "
+                            "tenant — this is usually a typo.  Re-send with "
+                            "allow_new_tenant=true to mint the first "
+                            "credential for a genuinely new tenant.")})
+    if body.allow_new_tenant and tenant_registry.enforcing():
+        # DEPRECATED path. Creating tenancy while minting a credential is
+        # exactly the implicit-tenancy defect B4 describes.
+        raise HTTPException(status_code=400, detail={
+            "code": "ALLOW_NEW_TENANT_DEPRECATED",
+            "resolved_tenant": ten,
+            "reason": ("allow_new_tenant is deprecated: " +
+                            tenant_registry.IMPLICIT_TENANT_FORBIDDEN)})
     # Validate scopes against the canonical permission catalog.
     for s in body.scopes:
         if not _valid_permission(s):

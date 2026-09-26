@@ -1,0 +1,39 @@
+{
+  "id": "xor-single-4",
+  "category": "ps-crypto",
+  "algorithm": "XOR-single",
+  "command_line": "$h='5949425e4b5941590a0549584f4b5e4f0a055e440a5f5a4e0a055e580a6910764f5c4346044f524f0a0559490a454446454d4544'; $b = -split ($h -replace '..','& ') | %{[Convert]::ToByte($_,16)}; $dec = -join($b | %{ [char]($_ -bxor 0x2a) }); IEX $dec",
+  "stage_ladder": [
+    {
+      "name": "hex-decode",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-single-decrypt",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "schtasks /create /tn upd /tr C:\\evil.exe /sc onlogon",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.8,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

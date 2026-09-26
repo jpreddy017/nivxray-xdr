@@ -1,0 +1,39 @@
+{
+  "id": "gpg-symmetric-1",
+  "category": "cmd-crypto",
+  "algorithm": "GPG-symmetric",
+  "command_line": "gpg -d --pinentry-mode loopback --passphrase p4ssw0rd  c:\\temp\\c2.gpg",
+  "stage_ladder": [
+    {
+      "name": "gpg-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "gpg-cast5-decrypt",
+      "recoverable": false,
+      "reason": "GPG runtime primitive."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [
+    "payload.gpg",
+    "enc.gpg",
+    "c2.gpg"
+  ],
+  "expected_lolbins": [
+    "gpg.exe",
+    "gpg",
+    "gpg2"
+  ],
+  "expected_mitre": [
+    "T1140",
+    "T1027.006"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_confidence_min": 0.6,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

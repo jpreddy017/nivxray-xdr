@@ -185,7 +185,7 @@
         "identical": [
           {
             "axis": "die.command.v1 envelope",
-            "hash": "6cd5794c94b5dda98e39a89c19a081b1320d95b91d72b469e9de48f80397477a",
+            "hash": "5639e8ad6d1453089dc27b7a4030e92308e9ceebba04302184e14735bfb21dda",
             "note": "router-dispatched invocation is byte-identical to inline"
           },
           {
@@ -239,7 +239,7 @@
         "text_head": "powershell.exe -EncodedCommand SGVsbG8="
       },
       "legacy": {
-        "envelope_hash": "6cd5794c94b5dda98e39a89c19a081b1320d95b91d72b469e9de48f80397477a",
+        "envelope_hash": "5639e8ad6d1453089dc27b7a4030e92308e9ceebba04302184e14735bfb21dda",
         "envelope_keys": [
           "ast",
           "attack_intent",
@@ -276,7 +276,7 @@
             "error": null,
             "error_type": null,
             "implementation": "services.die.api:analyze",
-            "result_hash": "6cd5794c94b5dda98e39a89c19a081b1320d95b91d72b469e9de48f80397477a",
+            "result_hash": "5639e8ad6d1453089dc27b7a4030e92308e9ceebba04302184e14735bfb21dda",
             "status": "success",
             "step_id": "s00_die_command_v1"
           },

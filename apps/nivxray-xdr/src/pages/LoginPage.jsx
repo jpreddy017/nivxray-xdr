@@ -9,16 +9,33 @@ import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { NivxrayLockup } from "@/components/brand/NivxrayBrand";
+import { WORKSPACE_URL } from "@/productOrigins";
+import { PRODUCT_SCOPE, brandFor } from "@/productScope";
 
-export default function LoginPage() {
+/** Y1 · D-3 · ONE authentication engine, TWO product entry points.
+ *  `product="NIVXFORGE_EDR"` only changes identity and destination; the
+ *  credential exchange and every authorisation decision stay
+ *  server-side and identical.
+ *
+ *  The default is derived from the DEPLOYMENT SCOPE, never hard-coded: this
+ *  component also serves the generic `/login` route, which is the entry point
+ *  BOTH hostnames land on. A hard-coded `"NIVXRAY_XDR"` default is why
+ *  edr.nivxforge.com rendered XDR branding. `/edr/login` may still pass the
+ *  product explicitly, and an unscoped build keeps the XDR identity. */
+export default function LoginPage({
+  product = PRODUCT_SCOPE === "edr" ? "NIVXFORGE_EDR" : "NIVXRAY_XDR",
+}) {
   const { login } = useAuth();
   const navigate  = useNavigate();
   const [params]  = useSearchParams();
-  const returnTo  = params.get("returnTo") || "/xdr";
+  const returnTo  = params.get("returnTo") || null;
 
   const [email, setEmail]   = useState("");
   const [pw, setPw]         = useState("");
   const [busy, setBusy]     = useState(false);
+  const isEdr = product === "NIVXFORGE_EDR";
+  const brand = brandFor(isEdr ? "edr" : "xdr");
+  const home  = isEdr ? "/edr" : "/xdr";
   const [err, setErr]       = useState(null);
 
   const submit = async (e) => {
@@ -26,7 +43,10 @@ export default function LoginPage() {
     setBusy(true); setErr(null);
     try {
       await login(email, pw);
-      navigate(returnTo || "/xdr", { replace: true });
+      // A product login never lands the analyst in the OTHER product.
+      const dest = returnTo && returnTo.startsWith(isEdr ? "/edr" : "/xdr")
+        ? returnTo : home;
+      navigate(dest, { replace: true });
     } catch (e) {
       setErr(e?.response?.data?.detail || e?.message || "Login failed.");
     } finally { setBusy(false); }
@@ -43,10 +63,22 @@ export default function LoginPage() {
           width: 380, background: "#11141C", border: "1px solid #212736",
           borderRadius: 8, padding: 22, boxShadow: "0 20px 60px rgba(0,0,0,.5)",
         }}
-        data-testid="xdr-login-form"
+        data-testid={isEdr ? "edr-login-form" : "xdr-login-form"}
+        data-product={product}
       >
         <div style={{ marginBottom: 18 }}>
-          <NivxrayLockup size={40} />
+          <NivxrayLockup size={40} scope={brand.scope} />
+          <div data-testid="login-product-identity"
+               style={{ marginTop: 9, fontSize: 12.5, fontWeight: 700,
+                        letterSpacing: .3, color: "#E6E9F0" }}>
+            {brand.name}{" "}
+            <span style={{ color: "#22B8CF" }}>{brand.nameSuffix}</span>
+          </div>
+          <div style={{ marginTop: 2, fontSize: 10, color: "#78808F",
+                        letterSpacing: .5, textTransform: "uppercase" }}
+               data-testid="login-product-subtitle">
+            {brand.subtitle}
+          </div>
         </div>
 
         <label style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".4px", color: "#78808F", fontWeight: 700 }}>
@@ -99,9 +131,16 @@ export default function LoginPage() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
 
-        <div style={{ marginTop: 14, fontSize: 10.5, color: "#78808F" }}>
-          Signed in? You can also open <a href="/" style={{ color: "#3FC1E8", textDecoration: "underline" }}>NivXRay Workspace</a>.
-        </div>
+        {WORKSPACE_URL ? (
+          <div style={{ marginTop: 14, fontSize: 10.5, color: "#78808F" }}
+               data-testid="login-workspace-link">
+            Signed in? You can also open{" "}
+            <a href={WORKSPACE_URL}
+               style={{ color: "#3FC1E8", textDecoration: "underline" }}>
+              NivXRay Workspace
+            </a>.
+          </div>
+        ) : null}
       </form>
     </div>
   );

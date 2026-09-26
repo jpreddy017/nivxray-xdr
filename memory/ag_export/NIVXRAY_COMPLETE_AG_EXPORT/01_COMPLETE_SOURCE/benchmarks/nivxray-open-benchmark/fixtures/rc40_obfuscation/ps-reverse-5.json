@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-5",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.athsm'; $x = -join ($s[-1..-9]); Invoke-Expression $x",
+  "expected_keywords": [
+    "mshta."
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

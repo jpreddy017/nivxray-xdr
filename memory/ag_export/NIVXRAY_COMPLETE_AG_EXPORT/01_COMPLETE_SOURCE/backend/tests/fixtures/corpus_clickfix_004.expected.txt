@@ -1,0 +1,1 @@
+http://clickfix-4.example.test/robot.hta

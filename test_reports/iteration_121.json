@@ -1,0 +1,68 @@
+{
+  "iteration": 121,
+  "testing_type": "frontend only",
+  "summary": "Re-tested the four fixes from iteration_120 plus the dark-theme contrast sweep that iteration_120 could not reach. F1, F3, F4 verified fixed via DOM. F2 is PARTIALLY fixed: the not-wired NxSection is now present with data-nx-state=NOT_CONFIGURED and the WAITING_APPROVAL token is gone, but the raw token 'VITE_XDR_RESPONSE_URL' still leaks through the xdr-approvals-error path (XdrApprovalsPage.jsx:49). Dark-theme sweep found (a) active nav / theme-toggle amber pill fails the 3:1 threshold on every route (contrast 1.96), and (b) '⊘ RESPONSE RECORD UNREACHABLE' badge on /xdr/admin/edr-response renders with identical fg=bg (ratio 1.00 — text is invisible).",
+  "verification_results": {
+    "F1_investigation_workspace": {
+      "status": "FIXED",
+      "detail": "open-case-<id> now routes to /xdr/investigations/<caseId>/_engine?tab=story (verified with case_golden_cobalt_strike_36fae8f5). data-testid 'investigation-workspace-tabs' present. All 8 tabs (story, trajectory, process, graph, security_state, evidence, verdict, attack) render content and are visible. case-artifacts-table renders with headers ['Artifact / stage','Type','SHA-256','Decoded output','Stop reason'] and the empty state title 'No extracted artifact is recorded' shows when there are no artifacts."
+    },
+    "F2_approvals": {
+      "status": "PARTIAL - still 1 raw token leak",
+      "detail": "xdr-approvals-not-wired NxSection present, NxState chip has data-nx-state=NOT_CONFIGURED. 'WAITING_APPROVAL' token is gone from body. BUT 'VITE_XDR_RESPONSE_URL' still leaks via the xdr-approvals-error banner: XdrApprovalsPage.jsx line 49 still writes 'Response Engine URL not set (VITE_XDR_RESPONSE_URL).' when listPendingApprovals throws RESPONSE_ENGINE_NOT_DEPLOYED. Same wording also present in XdrAutomationRuleEditorPage.jsx:85, XdrEvidenceRefPage.jsx:45, AnalystResponseDrawer.jsx:87 and playbook designer — full estate should be de-tokenised."
+    },
+    "F3_evidence_explorer": {
+      "status": "FIXED",
+      "detail": "evidence-table ALWAYS renders with headers ['Artifact','Case / host','Decoder','SHA-256','Decoded output','Stop reason']. Old 'NO MATCHING EVIDENCE' block gone; empty-state title 'No matching evidence' surfaces from the table itself."
+    },
+    "F4_rules_and_playbooks": {
+      "status": "FIXED (functional) - cosmetic stray-glyph bug",
+      "detail": "xdr-rules-table and xdr-playbooks-table both render when the store is empty; xdr-rules-not-wired and xdr-playbooks-not-wired NxSections co-exist. Headers non-empty. Created 1 rule -> row visible with 'Draft' lifecycle chip -> Duplicate added a 2nd row -> Delete removed both. Same lifecycle for playbook create/duplicate/delete. HOWEVER: a stray '}' text node renders under the rules table (and, by parity, the playbooks table). It comes from an orphan JSX text child on XdrAutomationRulesPage.jsx:138 and XdrPlaybooksPage.jsx:140 (a leftover ')}' from the removed short-circuit — Babel parses it as JSX text). Cosmetic only, but user-visible."
+    },
+    "dark_theme_contrast": {
+      "status": "ISSUES FOUND",
+      "routes_checked": ["/xdr/control-center","/xdr/detections","/xdr/investigations","/xdr/respond/approvals","/xdr/evidence-explorer","/xdr/admin/edr-response"],
+      "violations": [
+        {"where": "all 6 routes", "element": "active primary-nav pill + xdr-theme-toggle button", "fg": "rgb(241,245,249)", "bg": "rgb(245,158,11) (amber)", "ratio": 1.96, "note": "Active nav row (Control Center / Incidents / Investigate / Automate / Administration when selected) and the DARK toggle chip have white text on amber; below 3:1 threshold. Affects every dark-mode page."},
+        {"where": "/xdr/admin/edr-response", "element": "⊘ RESPONSE RECORD UNREACHABLE badge", "fg": "rgb(136,150,168)", "bg": "rgb(136,150,168)", "ratio": 1.00, "note": "Foreground colour is identical to background — the badge text is effectively invisible in dark mode."}
+      ]
+    }
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "XdrApprovalsPage", "issue": "Raw token 'VITE_XDR_RESPONSE_URL' still leaks through xdr-approvals-error banner when the response engine is not deployed", "selector": "[data-testid=\"xdr-approvals-error\"]", "priority": "HIGH"},
+      {"component": "XdrAutomationRulesPage / XdrPlaybooksPage", "issue": "Stray '}' text node rendered under the table (leftover ')}' after removing the short-circuit)", "selector": "section.panel below xdr-rules-table / xdr-playbooks-table", "priority": "LOW"},
+      {"component": "Primary nav active pill + xdr-theme-toggle", "issue": "White text on amber background — WCAG contrast 1.96 in dark mode on every route tested", "selector": "[data-testid^=\"xdr-nav-\"] (active) and [data-testid=\"xdr-theme-toggle\"]", "priority": "MEDIUM"},
+      {"component": "Response Verification badge on /xdr/admin/edr-response", "issue": "Foreground colour equals background colour in dark mode (rgb(136,150,168)); '⊘ RESPONSE RECORD UNREACHABLE' text is invisible", "selector": "span badge inside admin edr-response page", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dark theme, all routes", "issues": ["Active primary-nav pill uses amber fill with white text — 1.96 contrast ratio"]},
+      {"screen": "Dark theme, /xdr/admin/edr-response", "issues": ["'⊘ RESPONSE RECORD UNREACHABLE' badge fg == bg (invisible text)"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "XdrApprovalsPage.jsx:49 — drop the '(VITE_XDR_RESPONSE_URL)' token from the error string; the NxSection above it already carries the operator meaning. Same clean-up for XdrAutomationRuleEditorPage.jsx:85, XdrEvidenceRefPage.jsx:45, AnalystResponseDrawer.jsx:87 and XdrPlaybookDesignerPage.jsx:183.",
+    "Remove the stray ')}' left-over on XdrAutomationRulesPage.jsx ~line 138 and XdrPlaybooksPage.jsx ~line 140 (renders as a visible '}' under the table).",
+    "Fix dark-mode contrast on the active primary-nav pill and the xdr-theme-toggle chip — the amber (rgb(245,158,11)) fill fails 3:1 against rgb(241,245,249) text. Either darken the text (near-black on amber gives ~7:1) or drop the amber to a darker accent.",
+    "Fix the invisible '⊘ RESPONSE RECORD UNREACHABLE' badge on /xdr/admin/edr-response — foreground and background are the same colour in dark mode."
+  ],
+  "critical_code_review_comments": [
+    "Both Rules and Playbooks pages carry a real orphan JSX text child ('}') where the old short-circuit used to close; parses because JSX treats it as text, so the tests still pass, but the character is visible to the user. Worth a lint rule to catch stray ')' / '}' glyphs at JSX top level.",
+    "Machine-token error strings ('VITE_XDR_RESPONSE_URL.') are duplicated verbatim across 5 files. Centralise the operator-facing wording in one place (e.g. a helper next to responseEngineApi.RESPONSE_ENGINE_CONFIGURED) so 'do not leak build-flag names' is enforced in one edit."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "F1 100%, F2 ~75% (1 leak remains), F3 100%, F4 100% functional (cosmetic bug), dark-contrast: 2 issues on all routes"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (worked; tenant scope did not need re-selecting for these routes since admin is CROSS_TENANT_ROLE and the four target pages honour the cross-tenant view directly).",
+  "seed_data_creation": "Rules and playbooks created via localStorage were duplicated + deleted; final state is empty for both stores.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login works but the preview backend is slow / sometimes rate-limited by Cloudflare — space page.goto by >=3s and re-login when document.body.innerText.length drops below ~50 chars. Selectors used: [data-testid='investigation-workspace-tabs'] (NxTabs) with per-tab child [data-testid='investigation-workspace-tabs-<key>']; content wrappers use tab-<key>-content EXCEPT security_state whose content id is 'tab-security-state-content' (dash, not underscore) — kept for parity but worth aligning with the tab key. Dark mode theme toggle does NOT set document-level data-nx-theme; it visibly changes the palette but the attribute is empty — evaluate colours via getComputedStyle rather than the html/body attribute.",
+  "rca_of_the_issue": {
+    "F2_VITE_leak": "The list-pending-approvals fetch throws Engine.RESPONSE_ENGINE_NOT_DEPLOYED when RESPONSE_ENGINE_CONFIGURED is false; XdrApprovalsPage catches it (line 47-52) and sets the user-visible error string to 'Response Engine URL not set (VITE_XDR_RESPONSE_URL).', which is then rendered inside data-testid='xdr-approvals-error'. The migration to the NxSection/NxState 'not-wired' block replaced the empty-state prose but left the error-branch prose untouched, so the raw build-flag name still reaches the DOM whenever the queue is polled while unconfigured.",
+    "F4_stray_brace": "The pre-migration render was `{rows.length === 0 ? <BespokeEmpty/> : <NxDataTable ... />}`. When the ternary was removed, the closing `)}` of the JSX expression was left behind as a stray text child under the section; Babel parses it as JSX text so it does not fail compilation, but it renders as a visible '}' beneath the table.",
+    "dark_contrast_active_nav": "The active primary-nav item uses --nx-accent (amber ~ rgb(245,158,11)) as its background with the standard --nx-text (rgb(241,245,249)) foreground. That pairing is <3:1 regardless of theme, but only becomes user-visible in dark mode where the pill dominates the sidebar."
+  }
+}

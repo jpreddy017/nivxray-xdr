@@ -1,0 +1,1655 @@
+{
+  "corpus_matrix_path": "/app/backend/workspace_recovery/artifacts/phase3_ab_matrix.json",
+  "current_ops_direct_imports": {
+    "imports": [
+      {
+        "kind": "from",
+        "module": "__future__",
+        "names": [
+          "annotations"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "base64"
+      },
+      {
+        "kind": "import",
+        "module": "hashlib"
+      },
+      {
+        "kind": "import",
+        "module": "logging"
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "from",
+        "module": "typing",
+        "names": [
+          "Any",
+          "Dict",
+          "List",
+          "Optional"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "fastapi",
+        "names": [
+          "APIRouter",
+          "Depends",
+          "File",
+          "HTTPException",
+          "UploadFile"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "pydantic",
+        "names": [
+          "BaseModel"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "schemas",
+        "names": [
+          "RecipeStep",
+          "RunRecipeIn",
+          "RunRecipeOut",
+          "AutoIn",
+          "MagicIn",
+          "ShellcodeIn",
+          "CommandAnalyzeIn"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "deps",
+        "names": [
+          "db",
+          "get_current_user",
+          "load_osint_keys"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "OPERATIONS",
+          "list_operations",
+          "run_operation",
+          "detect_payload_type"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "smart_decoder",
+        "names": [
+          "smart_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "magic_decoder",
+        "names": [
+          "magic_decode"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "models_studio"
+      },
+      {
+        "kind": "from",
+        "module": "routers.helpers.decode_offload",
+        "names": [
+          "run_offloaded"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "command_analyzer",
+        "names": [
+          "extract_iocs",
+          "map_mitre",
+          "detect_lolbins",
+          "detect_interpreter"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "command_analyzer",
+        "names": [
+          "analyze_command"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "shellcode_analyzer",
+        "names": [
+          "analyze"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "analysis_core",
+        "names": [
+          "deterministic_best_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "analysis_core",
+        "names": [
+          "deterministic_best_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "payload_sanitizer",
+        "names": [
+          "sanitize_encapsulated_payload",
+          "find_all_base64_spans"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "reasoning.candidate_engine",
+        "names": [
+          "score_candidates",
+          "classify_unknown",
+          "best_candidate",
+          "HIGH_THRESHOLD",
+          "MIN_ACCEPT"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.input_understanding",
+        "names": [
+          "understand"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "routers.auto_investigate",
+        "names": [
+          "_osint_lookup"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.ingress_gate",
+        "names": [
+          "apply_ingress_gate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "_atomic_ioc_kind"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "investigate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.crypto_api_annotator",
+        "names": [
+          "_find_all"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "layer_metadata",
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "asyncio"
+      },
+      {
+        "kind": "from",
+        "module": "layer_360",
+        "names": [
+          "enrich_layers_360"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "investigation_report",
+        "names": [
+          "synthesize_report"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "routers.history",
+        "names": [
+          "record_investigation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.crypto_api_annotator",
+        "names": [
+          "_find_all"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "from",
+        "module": "deps",
+        "names": [
+          "semantic_engine_v2_enabled"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "engine.exec_graph",
+        "names": [
+          "SCHEMA_VERSION"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.semantic.ps_semantic",
+        "names": [
+          "analyze"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "investigate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.cim",
+        "names": [
+          "compose"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.cim.fact_substrate",
+        "names": [
+          "from_analysis_result"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.cim.fact_substrate",
+        "names": [
+          "from_analysis_result"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation",
+        "names": [
+          "build_cio"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "timeline",
+        "names": [
+          "record"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.semantic.ps_recovery",
+        "names": [
+          "recover_powershell_from_b64"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "learning.booster",
+        "names": [
+          "boost"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "learning.feedback",
+        "names": [
+          "record_auto"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "_fallback_card",
+          "_FALLBACK_REASON"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "pathlib",
+        "names": [
+          "Path"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "hashlib"
+      },
+      {
+        "kind": "import",
+        "module": "json"
+      },
+      {
+        "kind": "from",
+        "module": "datetime",
+        "names": [
+          "datetime",
+          "timezone"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "routers.auto_investigate",
+        "names": [
+          "_fallback_naked_powershell"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.summary_composer",
+        "names": [
+          "compose_summary"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.input_understanding",
+        "names": [
+          "understand"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.verdict_engine",
+        "names": [
+          "refresh_verdict"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.recursive",
+        "names": [
+          "recursively_investigate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.osint_enricher",
+        "names": [
+          "enrich_cio"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "shellcode_analyzer",
+        "names": [
+          "extract_iocs"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.cmd_runtime_reconstruct",
+        "names": [
+          "run_cmd_runtime_reconstruct",
+          "render_report",
+          "DEFAULT_PROFILE"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "nivxforge.investigation.verdict_engine",
+        "names": [
+          "refresh_verdict"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "ops_extended",
+        "names": [
+          "_wordhits"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "ops_extended",
+        "names": [
+          "_score_downstream_magic"
+        ]
+      }
+    ]
+  },
+  "baseline_ops_direct_imports": {
+    "imports": [
+      {
+        "kind": "from",
+        "module": "__future__",
+        "names": [
+          "annotations"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "base64"
+      },
+      {
+        "kind": "import",
+        "module": "hashlib"
+      },
+      {
+        "kind": "import",
+        "module": "logging"
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "from",
+        "module": "typing",
+        "names": [
+          "Any",
+          "Dict",
+          "List",
+          "Optional"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "fastapi",
+        "names": [
+          "APIRouter",
+          "Depends",
+          "File",
+          "HTTPException",
+          "UploadFile"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "pydantic",
+        "names": [
+          "BaseModel"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "schemas",
+        "names": [
+          "RecipeStep",
+          "RunRecipeIn",
+          "RunRecipeOut",
+          "AutoIn",
+          "MagicIn",
+          "ShellcodeIn",
+          "CommandAnalyzeIn"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "deps",
+        "names": [
+          "db",
+          "get_current_user"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "OPERATIONS",
+          "list_operations",
+          "run_operation",
+          "detect_payload_type"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "smart_decoder",
+        "names": [
+          "smart_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "magic_decoder",
+        "names": [
+          "magic_decode"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "models_studio"
+      },
+      {
+        "kind": "from",
+        "module": "routers.helpers.decode_offload",
+        "names": [
+          "run_offloaded"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "command_analyzer",
+        "names": [
+          "analyze_command"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "shellcode_analyzer",
+        "names": [
+          "analyze"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "analysis_core",
+        "names": [
+          "deterministic_best_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "analysis_core",
+        "names": [
+          "deterministic_best_decode"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "payload_sanitizer",
+        "names": [
+          "sanitize_encapsulated_payload",
+          "find_all_base64_spans"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "reasoning.candidate_engine",
+        "names": [
+          "score_candidates",
+          "classify_unknown",
+          "best_candidate",
+          "HIGH_THRESHOLD",
+          "MIN_ACCEPT"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "_atomic_ioc_kind"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "investigate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.crypto_api_annotator",
+        "names": [
+          "_find_all"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "layer_metadata",
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "extract_iocs",
+          "mitre_map"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "asyncio"
+      },
+      {
+        "kind": "from",
+        "module": "layer_360",
+        "names": [
+          "enrich_layers_360"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "investigation_report",
+        "names": [
+          "synthesize_report"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "routers.history",
+        "names": [
+          "record_investigation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.crypto_api_annotator",
+        "names": [
+          "_find_all"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "import",
+        "module": "re"
+      },
+      {
+        "kind": "from",
+        "module": "deps",
+        "names": [
+          "semantic_engine_v2_enabled"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "engine.exec_graph",
+        "names": [
+          "SCHEMA_VERSION"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.semantic.ps_semantic",
+        "names": [
+          "analyze"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.investigation.pipeline",
+        "names": [
+          "investigate"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "lolbas",
+        "names": [
+          "scan_lolbas"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "timeline",
+        "names": [
+          "record"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "v2.semantic.ps_recovery",
+        "names": [
+          "recover_powershell_from_b64"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "learning.booster",
+        "names": [
+          "boost"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "learning.feedback",
+        "names": [
+          "record_auto"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "_fallback_card",
+          "_FALLBACK_REASON"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "evidence_extractor",
+        "names": [
+          "build_verdict_card"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "pathlib",
+        "names": [
+          "Path"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "hashlib"
+      },
+      {
+        "kind": "import",
+        "module": "json"
+      },
+      {
+        "kind": "from",
+        "module": "datetime",
+        "names": [
+          "datetime",
+          "timezone"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "operations",
+        "names": [
+          "run_operation"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "routers.auto_investigate",
+        "names": [
+          "_fallback_naked_powershell"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "shellcode_analyzer",
+        "names": [
+          "extract_iocs"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "decoders.cmd_runtime_reconstruct",
+        "names": [
+          "run_cmd_runtime_reconstruct",
+          "render_report",
+          "DEFAULT_PROFILE"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "ops_extended",
+        "names": [
+          "_wordhits"
+        ]
+      },
+      {
+        "kind": "from",
+        "module": "ops_extended",
+        "names": [
+          "_score_downstream_magic"
+        ]
+      }
+    ]
+  },
+  "per_sample_behavior_chains": [
+    {
+      "sample_id": "S01_ps_b64_utf16le",
+      "family": "Multi-layer PowerShell Base64 (UTF-16LE)",
+      "first_divergence_stage": "interpreter",
+      "first_divergent_op": "ps-encodedcommand-recovery",
+      "baseline_ops": [
+        "extract-b64",
+        "utf16le-or-utf8-decode"
+      ],
+      "current_ops": [
+        "ps-encodedcommand-recovery",
+        "extract-payload",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/operations.py",
+        "/app/backend/engine/orchestrator.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "engine.orchestrator",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "rc22_adapter",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "analysis_core",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S02_bash_xxd_b64_rev",
+      "family": "Bash \u2192 xxd \u2192 Base64 \u2192 rev",
+      "first_divergence_stage": "interpreter",
+      "first_divergent_op": "powershell-alias-normalize",
+      "baseline_ops": [
+        "extract-payload",
+        "base64-decode"
+      ],
+      "current_ops": [
+        "powershell-alias-normalize"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/decoders/ps_alias_normalizer.py",
+        "/app/backend/magic_decoder.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.ps_alias_normalizer",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "server",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ],
+        [
+          {
+            "module": "magic_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S03_cmd_caret_escaped",
+      "family": "CMD ^-escaped",
+      "first_divergence_stage": "interpreter",
+      "first_divergent_op": "cmd-runtime-reconstruct",
+      "baseline_ops": [
+        "strip-carets",
+        "extract-b64",
+        "utf16le-or-utf8-decode"
+      ],
+      "current_ops": [
+        "cmd-runtime-reconstruct",
+        "extract-payload",
+        "base64-decode",
+        "utf16le-or-utf8-decode"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/decoders/cmd_runtime_reconstruct.py",
+        "/app/backend/magic_decoder.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.cmd_runtime_reconstruct",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "magic_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S04_ps_alias_heavy",
+      "family": "PowerShell alias-heavy pipeline",
+      "first_divergence_stage": "decoder_chain",
+      "first_divergent_op": "ps-reconstruct",
+      "baseline_ops": [
+        "ps-string-concat"
+      ],
+      "current_ops": [
+        "ps-reconstruct",
+        "powershell-alias-normalize",
+        "ioc-extract"
+      ],
+      "owning_files_current": [
+        "/app/backend/operations.py",
+        "/app/backend/decoders/ps_reconstruct.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.ps_reconstruct",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S05_nested_b64_gzip",
+      "family": "Nested Base64 + GZIP",
+      "first_divergence_stage": "decoder_chain",
+      "first_divergent_op": "crypto-detect",
+      "baseline_ops": [
+        "extract-payload",
+        "base64-decode",
+        "gzip-decompress"
+      ],
+      "current_ops": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "owning_files_current": [
+        "/app/backend/operations.py",
+        "/app/backend/decoders/crypto_symmetric.py",
+        "/app/backend/nivxforge/investigation/customer_report.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.crypto_symmetric",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ],
+        [
+          {
+            "module": "nivxforge.investigation.customer_report",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "nivxforge.investigation.analyst_narrative",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "nivxforge.investigation.summary_composer",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S07_rc4_openssl",
+      "family": "Crypto-wrapped payload (RC4/OpenSSL-style)",
+      "first_divergence_stage": "decoder_chain",
+      "first_divergent_op": "rot47",
+      "baseline_ops": [
+        "extract-payload"
+      ],
+      "current_ops": [
+        "rot47"
+      ],
+      "owning_files_current": [
+        "/app/backend/operations.py",
+        "/app/backend/decoders/rot47.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.rot47",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S08_unicode_obfuscation",
+      "family": "Unicode / UTF obfuscation",
+      "first_divergence_stage": "decoder_chain",
+      "first_divergent_op": "extract-payload",
+      "baseline_ops": [],
+      "current_ops": [
+        "extract-payload",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/operations.py",
+        "/app/backend/nivxforge/investigation/customer_report.py",
+        "/app/backend/analysis_core.py",
+        "/app/backend/smart_decoder.py",
+        "/app/backend/magic_decoder.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "nivxforge.investigation.customer_report",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "nivxforge.investigation.analyst_narrative",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "nivxforge.investigation.summary_composer",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "analysis_core",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "smart_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "magic_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S09_hex_b64_gzip_chain",
+      "family": "Mixed chain: Hex \u2192 Base64 \u2192 GZIP",
+      "first_divergence_stage": "interpreter",
+      "first_divergent_op": "base64-decode",
+      "baseline_ops": [
+        "hex-decode",
+        "base58-decode",
+        "xor-brute",
+        "powershell-backtick-normalize",
+        "powershell-alias-normalize"
+      ],
+      "current_ops": [
+        "hex-decode",
+        "base64-decode"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/operations.py",
+        "/app/backend/decoders/base64.py",
+        "/app/backend/engine/orchestrator.py",
+        "/app/backend/analysis_core.py",
+        "/app/backend/smart_decoder.py",
+        "/app/backend/magic_decoder.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "operations",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.base64",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ],
+        [
+          {
+            "module": "engine.orchestrator",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "rc22_adapter",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "analysis_core",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "analysis_core",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "smart_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "magic_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    },
+    {
+      "sample_id": "S10_bash_with_powershell_comment",
+      "family": "Bash with literal token 'powershell' inside a comment (interpreter-routing regression guard)",
+      "first_divergence_stage": "interpreter",
+      "first_divergent_op": "powershell-alias-normalize",
+      "baseline_ops": [],
+      "current_ops": [
+        "powershell-alias-normalize"
+      ],
+      "owning_files_current": [
+        "/app/backend/routers/ops.py",
+        "/app/backend/decoders/ps_alias_normalizer.py",
+        "/app/backend/magic_decoder.py"
+      ],
+      "behavior_chains": [
+        [
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ],
+        [
+          {
+            "module": "decoders.ps_alias_normalizer",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "server",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          }
+        ],
+        [
+          {
+            "module": "magic_decoder",
+            "classification": "Behavioral (candidate for restore / isolation)"
+          },
+          {
+            "module": "routers.ops",
+            "classification": "Workspace-owned (entry point)"
+          }
+        ]
+      ]
+    }
+  ],
+  "module_rollup": [
+    {
+      "module": "routers.ops",
+      "classification": "Workspace-owned (entry point)",
+      "samples_touched": [
+        "S01_ps_b64_utf16le",
+        "S02_bash_xxd_b64_rev",
+        "S03_cmd_caret_escaped",
+        "S04_ps_alias_heavy",
+        "S05_nested_b64_gzip",
+        "S07_rc4_openssl",
+        "S08_unicode_obfuscation",
+        "S09_hex_b64_gzip_chain",
+        "S10_bash_with_powershell_comment"
+      ],
+      "sample_count": 9
+    },
+    {
+      "module": "operations",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S01_ps_b64_utf16le",
+        "S04_ps_alias_heavy",
+        "S05_nested_b64_gzip",
+        "S07_rc4_openssl",
+        "S08_unicode_obfuscation",
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 6
+    },
+    {
+      "module": "magic_decoder",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S02_bash_xxd_b64_rev",
+        "S03_cmd_caret_escaped",
+        "S08_unicode_obfuscation",
+        "S09_hex_b64_gzip_chain",
+        "S10_bash_with_powershell_comment"
+      ],
+      "sample_count": 5
+    },
+    {
+      "module": "analysis_core",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S01_ps_b64_utf16le",
+        "S08_unicode_obfuscation",
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 3
+    },
+    {
+      "module": "engine.orchestrator",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S01_ps_b64_utf16le",
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "rc22_adapter",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S01_ps_b64_utf16le",
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "decoders.ps_alias_normalizer",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S02_bash_xxd_b64_rev",
+        "S10_bash_with_powershell_comment"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "server",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S02_bash_xxd_b64_rev",
+        "S10_bash_with_powershell_comment"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "nivxforge.investigation.customer_report",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S05_nested_b64_gzip",
+        "S08_unicode_obfuscation"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "nivxforge.investigation.analyst_narrative",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S05_nested_b64_gzip",
+        "S08_unicode_obfuscation"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "nivxforge.investigation.summary_composer",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S05_nested_b64_gzip",
+        "S08_unicode_obfuscation"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "smart_decoder",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S08_unicode_obfuscation",
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 2
+    },
+    {
+      "module": "decoders.cmd_runtime_reconstruct",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S03_cmd_caret_escaped"
+      ],
+      "sample_count": 1
+    },
+    {
+      "module": "decoders.ps_reconstruct",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S04_ps_alias_heavy"
+      ],
+      "sample_count": 1
+    },
+    {
+      "module": "decoders.crypto_symmetric",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S05_nested_b64_gzip"
+      ],
+      "sample_count": 1
+    },
+    {
+      "module": "decoders.rot47",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S07_rc4_openssl"
+      ],
+      "sample_count": 1
+    },
+    {
+      "module": "decoders.base64",
+      "classification": "Behavioral (candidate for restore / isolation)",
+      "samples_touched": [
+        "S09_hex_b64_gzip_chain"
+      ],
+      "sample_count": 1
+    }
+  ]
+}

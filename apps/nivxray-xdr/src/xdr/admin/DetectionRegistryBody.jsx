@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, ShieldCheck, ShieldAlert, ShieldOff, BookOpen,
                  CheckCircle2, XCircle } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 export default function DetectionRegistryBody() {
@@ -43,7 +44,7 @@ export default function DetectionRegistryBody() {
         setVersions(vs?.data?.data?.versions || []);
         setSrcCat(sc?.data?.data || null);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "load failed");
+        setErr(refusalText(e, "load failed"));
       } finally { setBusy(false); }
     })();
   }, [refresh, q, filter]);
@@ -56,7 +57,7 @@ export default function DetectionRegistryBody() {
       await api.post(url);
       setRefresh((n) => n + 1);
     } catch (e) {
-      alert(JSON.stringify(e?.response?.data?.detail || e?.message));
+      alert(JSON.stringify(refusalText(e)));
     } finally { setSyncing(false); }
   };
 

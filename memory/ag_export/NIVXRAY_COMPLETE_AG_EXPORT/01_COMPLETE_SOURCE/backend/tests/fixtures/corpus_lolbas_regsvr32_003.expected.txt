@@ -1,0 +1,1 @@
+http://regsvr-3.example.test/c.sct

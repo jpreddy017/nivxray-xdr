@@ -111,11 +111,11 @@
   color: var(--nx-purple);
   border-radius: 8px;
 }
-.nx-kpi-icon-critical { background: #FEF2F2; color: var(--nx-critical); }
-.nx-kpi-icon-high     { background: #FFF7ED; color: var(--nx-high); }
-.nx-kpi-icon-medium   { background: #FFFBEB; color: var(--nx-medium); }
-.nx-kpi-icon-benign   { background: #ECFDF5; color: var(--nx-benign); }
-.nx-kpi-icon-info     { background: #EFF6FF; color: var(--nx-low); }
+.nx-kpi-icon-critical { background: var(--nx-critical-bg); color: var(--nx-critical); }
+.nx-kpi-icon-high     { background: var(--nx-suspicious-bg); color: var(--nx-high); }
+.nx-kpi-icon-medium   { background: var(--nx-medium-bg); color: var(--nx-medium); }
+.nx-kpi-icon-benign   { background: var(--nx-benign-bg); color: var(--nx-benign); }
+.nx-kpi-icon-info     { background: var(--nx-info-bg); color: var(--nx-low); }
 
 .nx-kpi-body { min-width: 0; }
 .nx-kpi-value {
@@ -301,10 +301,10 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-.nx-pill-benign   { color: var(--nx-benign);   background: #ECFDF5; border: 1px solid #A7F3D0; }
-.nx-pill-amber    { color: var(--nx-medium);   background: #FFFBEB; border: 1px solid #FCD34D; }
-.nx-pill-critical { color: var(--nx-critical); background: #FEF2F2; border: 1px solid #FCA5A5; }
-.nx-pill-info     { color: var(--nx-low);      background: #EFF6FF; border: 1px solid #BFDBFE; }
+.nx-pill-benign   { color: var(--nx-benign);   background: var(--nx-benign-bg); border: 1px solid var(--nx-benign-bd); }
+.nx-pill-amber    { color: var(--nx-medium);   background: var(--nx-medium-bg); border: 1px solid var(--nx-medium-bd); }
+.nx-pill-critical { color: var(--nx-critical); background: var(--nx-critical-bg); border: 1px solid var(--nx-critical); }
+.nx-pill-info     { color: var(--nx-low);      background: var(--nx-info-bg); border: 1px solid var(--nx-low-bd); }
 .nx-pill-purple   { color: var(--nx-purple);   background: var(--nx-purple-dim); border: 1px solid rgba(109,78,224,0.24); }
 .nx-pill-faint    { color: var(--nx-muted);    background: var(--nx-surf-inset); border: 1px solid var(--nx-bd-quiet); }
 
@@ -321,6 +321,24 @@
   border-left: 3px solid var(--nx-purple);
   border-radius: 6px;
 }
+/* E2E-1 · `.nx-empty` is a `44px | 1fr` grid for an icon it does not always
+   have. Without this modifier an icon-less empty state dropped its title into
+   the 44px column and wrapped one word per line. Same defect class as the
+   Slice-1 `.nx-kpi--noicon` fix; fixed once, for every page. */
+.nx-empty--noicon { grid-template-columns: 1fr; gap: 0; }
+.nx-empty__title {
+  font-family: var(--sans);
+  font-size: 13.5px; font-weight: 650;
+  color: var(--nx-text);
+  margin-bottom: 5px;
+}
+.nx-empty__hint {
+  font-size: 12px; line-height: 1.6;
+  color: var(--nx-text-dim);
+  max-width: 78ch;
+}
+.nx-empty__cta { margin-top: 10px; }
+.nx-empty--compact { padding: 12px 14px; }
 .nx-empty-icon {
   width: 40px; height: 40px;
   display: inline-flex; align-items: center; justify-content: center;

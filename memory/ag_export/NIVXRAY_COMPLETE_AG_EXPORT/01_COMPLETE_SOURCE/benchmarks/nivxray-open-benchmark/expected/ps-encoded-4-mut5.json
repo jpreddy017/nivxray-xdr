@@ -1,0 +1,9 @@
+{
+  "id": "ps-encoded-4-mut5",
+  "category": "ps-encoded",
+  "expected_keywords": [
+    "hello",
+    "sgvsbg8="
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

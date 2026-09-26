@@ -1,0 +1,1584 @@
+"""NivXRay — Shared analysis-pipeline helpers.
+
+- Deterministic winner picker (smart vs magic) — the Feb-2026 Auto Investigate fix.
+- Local TI cross-reference (`lookup_ti_hits`).
+- Rich AI describe+verdict schema prompt (`ai_describe_and_verdict`).
+- Shared `analysis_context` used by both /analyze and /report.
+- IOC extraction reused by the quality gate.
+"""
+from __future__ import annotations
+import asyncio
+import json
+import os
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
+from operations import extract_iocs, mitre_map, yara_lite_scan, risk_score
+from smart_decoder import smart_decode
+from magic_decoder import magic_decode, score_output as magic_score
+from osint import enrich_iocs
+from lolbas import scan_lolbas
+
+from deps import db, load_osint_keys, llm_json
+
+
+# ============================================================================
+# UI-DEF-02 · One authoritative MITRE surface (ADR-0010m · 2026-08-12)
+#
+# `/api/analyze` historically produced its MITRE list from the regex-based
+# `operations.mitre_map(text)` — a projection that diverged from the DIE
+# analyzer's evidence-backed catalogue (rip-08 lost T1140 from recursive
+# decode; rip-07 could miss T1562.004 depending on which mapper ran).
+#
+# ADR-0023 §3c "MITRE Convergence" locks: NivXRay must maintain ONE
+# authoritative MITRE technique surface. This helper produces that surface:
+#
+#   services.die.api.analyze(text)          → base analyzer techniques
+#     · AST detections
+#     · LOLBIN → technique mapping
+#     · Chain-analyzer aggregation
+#     · Recursive-decode synthesis (Item-3, T1140)
+#     · T1562.004 signature (Item-4)
+#   canonical_bridge narrative rules        → prose / vendor-narrative rules
+#   csv_edr_analyzer                        → tabular EDR log rules
+#   mitre_evidence_chain.enforce_evidence…  → drops any technique without
+#                                             structured provenance (P0.2)
+#
+# The regex `operations.mitre_map()` remains available for legacy callers
+# (chain_analyzer, layer_360) but is treated as a diagnostic-only signal
+# — surfaced under the additive `mitre_regex_extra` provenance chip so
+# analysts can see what the regex path saw that the authoritative surface
+# did not. This is the "provenance chip during transition" allowance
+# ADR-0010m explicitly permits.
+# ============================================================================
+def _authoritative_mitre_normalized(techs: List[Dict[str, Any]]
+                                     ) -> List[Dict[str, Any]]:
+    """Flatten each authoritative technique into the shape `/api/analyze`
+    historically returned (`{id, technique, tactic, evidence, source}`) so
+    downstream consumers (risk_score, response envelope, UI panels) see no
+    contract change."""
+    from canonical.projections.attck import _TECHNIQUE_META
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for t in techs or []:
+        if not isinstance(t, dict):
+            continue
+        tid = t.get("id")
+        if not tid or tid in seen:
+            continue
+        seen.add(tid)
+        meta = _TECHNIQUE_META.get(tid) or {}
+        tactic = t.get("tactic") or meta.get("tactic") or ""
+        # Preserve any provenance chain already on the technique.
+        rule_family = t.get("rule_family") or "die.analyzer_catalogue"
+        entry = {
+            "id":          tid,
+            "technique":   t.get("name") or t.get("technique") or "",
+            "tactic":      _title_case_tactic(tactic),
+            "evidence":    t.get("evidence") or "",
+            "source":      "authoritative",
+            "rule_family": rule_family,
+        }
+        # Preserve structured evidence records (P0.2 gate output) when present.
+        if isinstance(t.get("evidence"), list):
+            entry["evidence_records"] = t["evidence"]
+            entry["evidence"] = _first_evidence_snippet(t["evidence"])
+        out.append(entry)
+    return out
+
+
+def _title_case_tactic(s: str) -> str:
+    if not s:
+        return ""
+    s = str(s).replace("_", " ").replace("-", " ").strip()
+    return " ".join(w.capitalize() if w.lower() != "and" else "and"
+                    for w in s.split())
+
+
+def _first_evidence_snippet(records: List[Any]) -> str:
+    for r in records or []:
+        if isinstance(r, dict):
+            v = r.get("observed_value") or r.get("field") or r.get("event_or_rule")
+            if v:
+                return str(v)
+        elif isinstance(r, str):
+            return r
+    return ""
+
+
+def get_authoritative_mitre(text: str
+                             ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Return `(mitre_list, provenance_meta)` for `/api/analyze`.
+
+    `mitre_list` — flattened, evidence-backed authoritative techniques.
+    `provenance_meta` — diagnostic-only surface exposing:
+      · `source: "die.investigation_results"`
+      · `regex_extra: [ids the regex path found but authoritative did not]`
+      · `suppressed_count: int`  (evidence-chain drops)
+    """
+    provenance: Dict[str, Any] = {
+        "source":            "die.investigation_results",
+        "regex_extra":       [],
+        "suppressed_count":  0,
+    }
+
+    if not text:
+        return [], provenance
+
+    # ── Authoritative surface ────────────────────────────────────────
+    # The DIE analyzer catalogue is the single source of truth. Its
+    # `techniques[]` output already fuses AST detections, LOLBIN mapping,
+    # chain aggregation, recursive-decode synthesis (Item-3), and the
+    # T1562.004 signature (Item-4). Each carries a free-text `evidence`
+    # snippet emitted by the catalogue. We wrap it into a structured
+    # provenance record (source / event_or_rule / field / observed_value
+    # / evidence_ref) BEFORE passing through the P0.2 gate, so DIE-
+    # catalogue findings are never spuriously dropped.
+    #
+    # Narrative + CSV/EDR emitters (canonical_bridge) then contribute
+    # additional evidence via the same augment path.
+    from services.die.api import analyze as _die_analyze
+    from services.die.canonical_bridge import augment_investigation_results
+    from services.die.mitre_evidence_chain import (enforce_evidence_chain,
+                                                    _short_ref)
+
+    authoritative: List[Dict[str, Any]] = []
+    try:
+        env = _die_analyze(text)
+    except Exception as exc:  # noqa: BLE001
+        provenance["source"] = "authoritative_unavailable"
+        provenance["error"] = str(exc)[:200]
+        env = None
+
+    if isinstance(env, dict):
+        for t in (env.get("techniques") or []):
+            if not isinstance(t, dict) or not t.get("id"):
+                continue
+            tid = t["id"]
+            snippet = (t.get("evidence") or "").strip()
+            # Structured provenance — deterministic, non-fabricated
+            # (`observed_value` is the exact analyzer-emitted snippet).
+            record = {
+                "source":         "die.analyzer_catalogue",
+                "event_or_rule":  f"die.analyzer.{tid}",
+                "field":          "analyzer_evidence",
+                "observed_value": snippet or t.get("name") or tid,
+                "evidence_ref":   _short_ref(f"die|{tid}|{snippet}"),
+                "confidence":     "medium",
+            }
+            authoritative.append({
+                "id":          tid,
+                "name":        t.get("name") or "",
+                "tactic":      t.get("tactic") or "",
+                "rule_family": "die.analyzer_catalogue",
+                "evidence":    [record],   # already structured for the gate
+            })
+
+    # ── Narrative + CSV/EDR merge via canonical_bridge ────────────────
+    # Feed the DIE-analyzer techniques we already normalised into a
+    # synthetic `result.object.mitre` and let `augment_investigation_
+    # results` add narrative-rule + csv_edr techniques on top. The
+    # evidence-chain gate then runs uniformly across all sources.
+    try:
+        base = {
+            "object": {
+                "mitre": [
+                    # Bridge expects `evidence` field but doesn't require
+                    # structure at this point — the gate at the end enforces
+                    # structure. We pass through with structured records.
+                    dict(t) for t in authoritative
+                ],
+            },
+        }
+        merged = augment_investigation_results(base, text)
+        merged_obj = (merged or {}).get("object") or {}
+        gated = merged_obj.get("mitre") or []
+        provenance["suppressed_count"] = int(
+            merged_obj.get("mitre_suppressed_count") or 0
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Bridge unavailable → fall back to just the DIE-analyzer set,
+        # still gated locally to guarantee structured provenance.
+        provenance["source"] = "die.analyzer_only"
+        provenance["error"] = str(exc)[:200]
+        gated, _dropped = enforce_evidence_chain(authoritative)
+        provenance["suppressed_count"] = len(_dropped)
+
+    kept = _authoritative_mitre_normalized(gated)
+
+    # ── Diagnostic-only regex chip ────────────────────────────────────
+    try:
+        regex_ids = {t.get("id") for t in mitre_map(text) if isinstance(t, dict)}
+        auth_ids = {t["id"] for t in kept}
+        provenance["regex_extra"] = sorted(regex_ids - auth_ids)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return kept, provenance
+
+
+# ============================================================================
+# Deterministic winner picker (smart vs magic) — Auto Investigate parity fix
+# ============================================================================
+def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Rule R23 · Post-decode recursive peel guarantee.
+
+    If a preflight engine (Convergence / RC2.2 Orchestrator) returned
+    a result whose ``output`` STILL contains an obvious inner loader
+    (``FromBase64String(...)`` + GZipStream / IEX), continue peeling
+    deterministically with the recursive_decoder.  Merges the deeper
+    IOCs (URLs / IPs) back into the result so the workspace shows the
+    final payload's indicators, not just the outer wrapper's.
+
+    Safe / additive — never overwrites a healthy result; only runs
+    when the deeper loader signature is detected.
+    """
+    if not isinstance(result, dict):
+        return result
+    text = (result.get("output") or "")
+    if not text:
+        return result
+    # Cheap sniff — only fire on the canonical loader shape.
+    sniff = text.lower()
+    if not ("frombase64string" in sniff and ("gzip" in sniff or "iex" in sniff
+                                                or "invoke-expression" in sniff)):
+        return result
+    try:
+        from services.die.preprocessor.recursive_decoder import peel_recursively
+        from services.die.ioc_semantic import extract_iocs
+    except Exception:  # pragma: no cover
+        return result
+    try:
+        peeled, layers = peel_recursively(text)
+    except Exception:  # pragma: no cover
+        return result
+    if not peeled or peeled == text or not layers:
+        return result
+    # Harvest ASCII-embedded IOCs from any shellcode terminal layer
+    # (Sophos / Cobalt Strike-style beacon configs) BEFORE the regular
+    # extract_iocs pass so shellcode-only inputs still surface indicators.
+    deep_iocs = {}
+    for _l in layers:
+        for tok in ((_l.get("meta") or {}).get("embedded_iocs") or []):
+            if ":" not in tok:
+                continue
+            kind, _, val = tok.partition(":")
+            if val:
+                deep_iocs.setdefault(kind.lower(), []).append(val)
+    try:
+        for i in (extract_iocs(peeled) or []):
+            if isinstance(i, dict):
+                k = (i.get("kind") or "").lower()
+                v = i.get("value") or ""
+                if k and v:
+                    deep_iocs.setdefault(k, []).append(v)
+    except Exception:  # pragma: no cover
+        pass
+    outer_iocs = result.get("iocs") or {}
+    if isinstance(outer_iocs, dict):
+        for k, vs in deep_iocs.items():
+            bag = outer_iocs.get(k) or []
+            for v in vs:
+                if v not in bag:
+                    bag.append(v)
+            outer_iocs[k] = bag
+        result["iocs"] = outer_iocs
+    # Append the deeper output as a follow-up "decoded (recursive)"
+    # block so the analyst sees BOTH the outer decoded PowerShell AND
+    # the final payload, without losing provenance.
+    result["output"] = (
+        text.rstrip() + "\n\n# --- decoded (recursive) ---\n" + peeled.rstrip()
+    )
+    # Extend the recipe / all_steps trace so the layer count reflects
+    # the additional work.
+    for l in layers:
+        recipe = result.get("recipe") or []
+        recipe.append({
+            "op":     f"deep-peel-{l.get('stage','?')}",
+            "args":   {"bytes_in": l.get("bytes_in"),
+                        "bytes_out": l.get("bytes_out")},
+            "reason": f"R23 recursive peel · layer {l.get('layer')}",
+        })
+        result["recipe"] = recipe
+    # ── reached_shellcode propagation ─────────────────────────────
+    # A deep-peel layer whose meta declares ``shellcode: True`` (or
+    # whose stage is a known terminal-shellcode stager such as
+    # ``byte_array_xor_loop``) has surfaced the terminal payload —
+    # flip the workspace-level flag so the SOC Verdict panel + Attack
+    # Story recognise that shellcode has been reached even when the
+    # preflight engine's own ``reached_shellcode`` heuristic didn't
+    # detect a known prologue in the synthetic tag output.
+    if not result.get("reached_shellcode"):
+        for l in layers:
+            meta = l.get("meta") or {}
+            if meta.get("shellcode") is True:
+                result["reached_shellcode"] = True
+                break
+            if str(l.get("stage") or "").lower() in (
+                "byte_array_xor_loop", "shellcode_payload"):
+                result["reached_shellcode"] = True
+                break
+    return result
+
+
+def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> Dict[str, Any]:
+    """Recursive deep-decode wrapper — keeps peeling nested obfuscation layers.
+
+    After each single-pass decode, we re-run the pipeline on the OUTPUT as if
+    it were a fresh payload. This continues until:
+      * output stabilises (identical to previous iteration), OR
+      * no new deterministic ops apply (candidate picker returns empty), OR
+      * MAX_ITER passes (safety cap, prevents runaway on adversarial inputs), OR
+      * we reach raw shellcode (terminal state — no further decoding possible).
+
+    RC2.2 (Jul 2026) — Orchestrator preflight
+    ----------------------------------------
+    Before entering the legacy smart/magic race, try the modern
+    Orchestrator (`engine.orchestrator`) which owns the RC2.2 plugin set
+    (`custom-hex-slash`, `nibble-swap`, `reverse-string`, `ps-reconstruct`,
+    `utf16-decode`, `data-uri-extract`, `ioc-extractor`, `python-exec`
+    wrapper, family plugins, etc). When it produces a meaningful chain
+    (≥2 layers AND a clean terminal state), we adopt its result directly
+    — same output shape, plus MITRE / LOLBAS / IOCs / verdict populated
+    from the orchestrator's post-decode intelligence pass.
+
+    If the orchestrator can't do better than the legacy pipeline, we fall
+    through so nothing regresses.
+    """
+    # ── M6 · Convergence Engine preflight (certificate-driven selector) ──
+    try:
+        from workspace.convergence.selector import convergence_decode
+        adopted = convergence_decode(payload)
+        if adopted is not None:
+            # Rule R23 · Recursive peel — if the convergence output
+            # still contains an inner FromBase64String + GZip loader
+            # (or any other decodable layer), continue peeling.
+            adopted = _r23_deep_peel_and_merge(adopted)
+            return adopted
+    except Exception:
+        pass
+
+    # ── RC2.2 · Orchestrator preflight ────────────────────────────────────
+    try:
+        from rc22_adapter import try_orchestrator_first
+        adopted = try_orchestrator_first(payload, analysis_mode=analysis_mode)
+        if adopted:
+            adopted = _r23_deep_peel_and_merge(adopted)
+            return adopted
+    except Exception:
+        pass
+
+    # ── Reasoning Engine — text-mode linguistic hypothesis pass ──────────
+    # When mode is balanced/deep AND the input characterizes as ``text_like``
+    # (mostly letters, low entropy, no structural magic), invoke the
+    # reasoning engine FIRST. It brute-scans ROT-N (n=1..25), Atbash,
+    # Reverse, and single-byte XOR ranked by linguistic-score delta.
+    # If it finds a transform that meaningfully improves linguistic score,
+    # the resulting output is fed BACK into the deterministic pipeline so
+    # any further structural obfuscation (e.g. -EncodedCommand) can peel.
+    # For non-text inputs (base64, gzip, hex, PE, script wrappers) this
+    # block is a no-op — the classic pipeline handles them as today.
+    if analysis_mode in ("balanced", "deep"):
+        try:
+            from reasoning import characterize as _char, reason as _reason
+            _prof0 = _char(payload)
+            if _prof0.kind == "text_like":
+                _rr = _reason(payload, mode=analysis_mode)
+                if (_rr.chain and _rr.final_output
+                        and _rr.final_output != payload):
+                    # Continue the pipeline on the reasoned output so any
+                    # newly-revealed wrapper (e.g. PowerShell -EncodedCommand)
+                    # gets peeled by the classic core.
+                    payload = _rr.final_output
+                    # Seed all_steps with the linguistic chain so the final
+                    # recipe carries it as the first layer(s).
+                    _reasoning_seed = [
+                        {"op": s["op"], "args": s.get("args") or {},
+                         "reason": s.get("reason") or f"reasoning: {s['op']}"}
+                        for s in _rr.chain
+                    ]
+                else:
+                    _reasoning_seed = []
+                _reasoning_trace = _rr.as_dict()
+            else:
+                _reasoning_seed = []
+                _reasoning_trace = None
+        except Exception:
+            _reasoning_seed = []
+            _reasoning_trace = None
+    else:
+        _reasoning_seed = []
+        _reasoning_trace = None
+
+    MAX_ITER = 6
+    all_steps: List[Dict[str, Any]] = list(_reasoning_seed)
+    engines: List[str] = ["reasoning"] if _reasoning_seed else []
+    current = payload
+    last_output = None
+    final_result: Dict[str, Any] = {}
+
+    for iteration in range(MAX_ITER):
+        r = _deterministic_best_decode_single_pass(current)
+        out = r.get("output") or ""
+        steps = r.get("steps") or []
+        engine = r.get("engine")
+
+        # ── FORENSIC RULE — corrupted container terminates recursion ────
+        # If any layer detected a corrupted magic-byte container, do NOT
+        # keep peeling; that state is the analyst's answer.
+        if r.get("corrupted_container"):
+            all_steps.extend(steps)
+            if engine and engine not in engines:
+                engines.append(engine)
+            final_result = r
+            final_result["steps"] = all_steps
+            final_result["output"] = out
+            final_result["engine"] = "+".join(engines) if len(engines) > 1 else engine
+            final_result["iterations"] = iteration + 1
+            return final_result
+
+        # ── FORENSIC RULE — terminal archetype (Feb 2026) ────────────────
+        # A `terminal_archetype` fires when the winning archetype produces a
+        # forensic REPORT (e.g. certutil hexdump summary) rather than a
+        # further-decodable payload. The recursive wrapper MUST NOT re-enter
+        # smart/magic on that output — it would strip the report and re-run
+        # base64-extract on the embedded blob, clobbering the analyst view.
+        if r.get("terminal_archetype"):
+            all_steps.extend(steps)
+            if engine and engine not in engines:
+                engines.append(engine)
+            final_result = r
+            final_result["steps"] = all_steps
+            final_result["output"] = out
+            final_result["engine"] = "+".join(engines) if len(engines) > 1 else engine
+            final_result["iterations"] = iteration + 1
+            return final_result
+
+        # No progress → stop.
+        if not steps or not out.strip() or out == current or out == last_output:
+            if iteration == 0:
+                final_result = r  # nothing decoded — return the single-pass verdict
+            break
+
+        # Progress — accumulate the steps and treat the output as the new input.
+        all_steps.extend(steps)
+        if engine and engine not in engines:
+            engines.append(engine)
+        final_result = r  # keep the latest single-pass result as base
+        current = out     # advance BEFORE the reached-shellcode check so the
+                          # final terminal state = the shellcode bytes, not the wrapper.
+        # Terminal: reached shellcode — no point decoding further.
+        if r.get("reached_shellcode"):
+            break
+        last_output = current
+
+    if all_steps:
+        final_result = dict(final_result)
+        final_result["output"] = current
+        final_result["steps"] = all_steps
+        final_result["engine"] = "+".join(engines) if len(engines) > 1 else (engines[0] if engines else final_result.get("engine"))
+        final_result["iterations"] = iteration + 1 if iteration else 1
+
+    # === Reasoning Engine trace (Feb-2026) ============================
+    # Attach an explainability trace so analysts can see WHY the winning
+    # chain was picked and what alternatives were considered. In "fast"
+    # mode this is skipped for latency. Never breaks the response even
+    # if the reasoning module misbehaves — wrapped in try/except.
+    if analysis_mode in ("balanced", "deep"):
+        try:
+            from reasoning import (
+                characterize as _char, linguistic_score as _lscore,
+                compute_confidence as _compute_conf,
+                explain_reasoning as _explain_reason,
+            )
+            _prof_in = _char(payload).as_dict()
+            _prof_out = _char(final_result.get("output") or "").as_dict()
+            _in_score = _lscore(payload)
+            _out_score = _lscore(final_result.get("output") or "")
+            _delta = round(_out_score - _in_score, 4)
+            # Weighted 4-dim confidence — the "explainable verdict" surface.
+            _conf = _compute_conf(
+                final_result.get("output") or "", input_text=payload,
+            )
+            # Compile the reasoning trace into a human-readable narrative.
+            _narrative = _explain_reason(
+                _reasoning_trace, confidence=_conf.confidence,
+            ) if _reasoning_trace else None
+            final_result["reasoning"] = {
+                "mode": analysis_mode,
+                "input_profile": _prof_in,
+                "output_profile": _prof_out,
+                "input_linguistic_score": round(_in_score, 4),
+                "output_linguistic_score": round(_out_score, 4),
+                "linguistic_delta": _delta,
+                "confidence": _conf.as_dict(),
+                "explanation": _explain_chain(
+                    payload, final_result.get("output") or "",
+                    all_steps or final_result.get("steps") or [],
+                    _delta,
+                ),
+                "narrative": _narrative,
+                "trace": _reasoning_trace,
+            }
+        except Exception as _e:
+            final_result["reasoning"] = {"mode": analysis_mode, "error": str(_e)}
+
+    # Feb 2026 v1.3.0 · Wire PS cosmetic normalizer into the decode chain.
+    # Strips backticks in identifiers, resolves format-string operators,
+    # collapses string concatenations — the three cosmetic layers PowerShell's
+    # tokenizer removes at parse-time.
+    try:
+        from ps_normalize import normalize_if_powershell
+        out_text = final_result.get("output") or ""
+        if out_text:
+            cleaned, applied = normalize_if_powershell(out_text)
+            if applied and cleaned != out_text:
+                final_result["output"] = cleaned
+                final_result.setdefault("post_processing", {})["ps_normalize"] = {
+                    "applied":       applied,
+                    "original_len":  len(out_text),
+                    "cleaned_len":   len(cleaned),
+                }
+    except Exception:
+        # Normalizer must never break decode
+        pass
+
+    # Feb 2026 v1.3.5 · Post-decode reverse-string catcher.
+    # If the FINAL output looks like reversed base64 (starts with `==` and
+    # matches the b64 alphabet), try reversing + decoding. Handles the
+    # `... | base64 | rev` tradecraft that some multi-stage stagers use
+    # AFTER hex/utf16 layers have been peeled — magic_decoder's chain
+    # doesn't include reverse-string, so we catch it here as a safety net.
+    try:
+        import re, base64, gzip, zlib
+        out_text = final_result.get("output") or ""
+        stripped = out_text.strip()
+        # Trigger conditions: starts with `==` (b64 padding at *start* = reversed)
+        # OR the whole thing is a long pure-b64 blob that fails to decode forward
+        # but decodes cleanly when reversed.
+        looks_reversed_b64 = (
+            len(stripped) >= 40
+            and stripped.startswith("==")
+            and re.fullmatch(r"[A-Za-z0-9+/=\s]+", stripped)
+        )
+        if looks_reversed_b64:
+            rev = stripped[::-1]
+            b64_only = re.sub(r"[^A-Za-z0-9+/=]", "", rev)
+            pad = b64_only + "=" * (-len(b64_only) % 4)
+            try:
+                raw = base64.b64decode(pad, validate=False)
+                # Accept if printable OR contains recognisable command markers
+                # OR has known magic. Lower threshold (0.4) because reversed
+                # payloads often have URL-encoded chunks + interspersed binary.
+                is_printable = sum(1 for b in raw[:400] if 32 <= b < 127 or b in (9, 10, 13)) / max(1, min(400, len(raw))) >= 0.4
+                is_magic = raw[:2] in (b"\x1f\x8b", b"MZ") or raw[:4] == b"\x7fELF"
+                has_markers = any(mk in raw[:800].lower() for mk in (b"cmd.exe", b"powershell", b".exe", b"%temp%", b"http://", b"https://", b"invoke-"))
+                if is_printable or is_magic or has_markers:
+                    decoded = raw.decode("utf-8", errors="replace") if is_printable else raw.hex(" ")
+                    # Also unwrap gzip if present
+                    if raw[:2] == b"\x1f\x8b":
+                        try:
+                            decoded = gzip.decompress(raw).decode("utf-8", errors="replace")
+                        except Exception:
+                            pass
+                    final_result["output"] = decoded
+                    (final_result.setdefault("steps") or []).extend([
+                        {"op": "reverse", "args": {},
+                         "reason": "Post-decode: output was reversed base64 (starts with `==` padding at head)"},
+                        {"op": "base64-decode", "args": {},
+                         "reason": "Post-decode: reversed → base64 → plaintext"},
+                    ])
+                    final_result.setdefault("post_processing", {})["reverse_b64"] = {
+                        "original_len": len(out_text),
+                        "cleaned_len":  len(decoded),
+                    }
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.5 · Shellcode family annotation.
+    # When the final output is raw shellcode bytes (Latin1-encoded on the
+    # transit as a str), replace it with an analyst-friendly card: family
+    # tag, arch, hex dump, extracted UAs / IOCs / API names, and a hint
+    # to run through `speakeasy` or `scdbg`.
+    try:
+        from shellcode_analyzer import annotate_shellcode, starts_with_known_prologue
+        out_text = final_result.get("output") or ""
+        if out_text and final_result.get("reached_shellcode"):
+            # Reconstruct raw bytes from the latin1-transit string.
+            try:
+                raw = out_text.encode("latin1", errors="replace")
+            except Exception:
+                raw = b""
+            if raw and starts_with_known_prologue(raw):
+                card = annotate_shellcode(raw)
+                if card:
+                    final_result["output"] = card
+                    final_result.setdefault("post_processing", {})["shellcode_annotate"] = {
+                        "raw_bytes": len(raw),
+                        "card_len":  len(card),
+                    }
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.5 · Trim binary tail from mixed text/binary outputs.
+    # Common after UTF-16LE decoding a payload whose tail bytes aren't
+    # actually UTF-16 text (script header + shellcode blob spliced together).
+    # We look for: printable-prefix (≥30 chars) followed by ≥20 consecutive
+    # non-printable / NUL bytes. Split into `<prefix>` + `[trailing binary:
+    # N bytes · hex preview]`.
+    try:
+        import re
+        out_text = final_result.get("output") or ""
+        if out_text and 40 < len(out_text) < 32_000 and "─── Shellcode" not in out_text:
+            # Find first index where 12+ non-printable chars appear in a row.
+            m = re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]{12,}", out_text)
+            if m and m.start() >= 30:
+                head = out_text[:m.start()].rstrip()
+                tail = out_text[m.start():]
+                tail_bytes = tail.encode("latin1", errors="replace")
+                hex_prev = " ".join(f"{b:02x}" for b in tail_bytes[:32])
+                trimmed = (
+                    f"{head}\n\n"
+                    f"# ─── Trailing binary blob ({len(tail_bytes)} bytes · not text) ───\n"
+                    f"# hex preview: {hex_prev}"
+                    + (" …" if len(tail_bytes) > 32 else "")
+                )
+                final_result["output"] = trimmed
+                final_result.setdefault("post_processing", {})["binary_tail_trim"] = {
+                    "prefix_len": len(head),
+                    "tail_bytes": len(tail_bytes),
+                }
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.5 · `where`-wildcard resolver annotation.
+    # `where c*d.e?e` → cmd.exe · `where c*u*r*l.e?e` → curl.exe etc.
+    # Inline-annotate the canonical binary next to each wildcard pattern so
+    # analysts don't have to mentally resolve the string obfuscation.
+    try:
+        import re as _re
+        _WHERE_WILDCARDS = [
+            (_re.compile(r"where\s+(c\*d\.e\?e)", _re.IGNORECASE),           "cmd.exe"),
+            (_re.compile(r"where\s+(c\*u\*r\*l\.e\?e)", _re.IGNORECASE),     "curl.exe"),
+            (_re.compile(r"where\s+(p\*ell\.exe)", _re.IGNORECASE),          "powershell.exe"),
+            (_re.compile(r"where\s+(p\*w?\*ell\.e\?e)", _re.IGNORECASE),     "powershell.exe"),
+            (_re.compile(r"where\s+(wmi[a-z*?]+\.exe)", _re.IGNORECASE),     "wmic.exe"),
+            (_re.compile(r"where\s+(mshta\.e\?e)", _re.IGNORECASE),          "mshta.exe"),
+        ]
+        _out = final_result.get("output") or ""
+        if _out:
+            annotations = []
+            for pat, canon in _WHERE_WILDCARDS:
+                for m in pat.finditer(_out):
+                    annotations.append((m.group(1), canon))
+            if annotations:
+                seen = set()
+                unique = [(w, c) for w, c in annotations if not ((w, c) in seen or seen.add((w, c)))]
+                # Inline-substitute the wildcard pattern with the canonical
+                # binary name so analysts see `cmd.exe` directly, not `c*d.e?e`.
+                cleaned = _out
+                for wildcard, canon in unique:
+                    cleaned = cleaned.replace(wildcard, canon)
+                # Keep a small annotation footer noting what was resolved.
+                block = "\n\n# ─── Wildcard LOLBIN resolution (v1.3.6) ───\n"
+                for wildcard, canon in unique:
+                    block += f"#   {wildcard:20s} → {canon}\n"
+                final_result["output"] = cleaned + block
+                final_result.setdefault("post_processing", {})["wildcard_resolve"] = {
+                    "resolved": [f"{w} → {c}" for w, c in unique],
+                }
+    except Exception:
+        pass
+
+    # Feb 2026 v1.3.7 · Plaintext command-line fallback.
+    # If nothing decoded (empty output, no chain) but the input looks like a
+    # command-line (contains `.exe`, `-flag`, `/switch`, backslash paths, or
+    # cmdlet syntax), echo the input as the output so the MITRE / LOLBIN /
+    # IOC enrichment pipeline can still tag it. Prevents "Undecoded · empty"
+    # for pre-decoded plaintext commands like `-k netsvcs -p` or `reg ADD ...`.
+    try:
+        _out = final_result.get("output") or ""
+        _steps = final_result.get("steps") or []
+        _input = payload or ""
+        if not _out.strip() and not _steps and _input.strip():
+            import re as _re
+            _cmd_signal = _re.search(
+                r"\.exe\b|\.dll\b|\.bat\b|\.cmd\b|\.ps1\b|\\[A-Za-z]"
+                r"|\s-[A-Za-z]{1,20}(?:\s|=)|\s/[A-Za-z]{1,10}(?:\s|:)"
+                r"|\bpowershell\b|\bcmd\b|\breg\s+add\b|\bschtasks\b"
+                r"|\brundll32\b|\bregsvr32\b|\bwmic\b|\bmshta\b"
+                r"|HKLM|HKCU|HKEY_",
+                _input, _re.IGNORECASE,
+            )
+            if _cmd_signal and len(_input) < 4000:
+                final_result["output"] = _input
+                final_result["steps"] = [{
+                    "op": "plaintext-command",
+                    "args": {},
+                    "reason": "Input is already plaintext command-line — analysed as-is",
+                }]
+                final_result.setdefault("post_processing", {})["plaintext_echo"] = {
+                    "input_len": len(_input),
+                }
+    except Exception:
+        pass
+
+    # RC4.1 · Feb 2026 · Crypto-API honest-verdict annotation.
+    # Regardless of what chain won, scan the ORIGINAL input for crypto
+    # patterns (AES, RC4, ChaCha20, DPAPI, DES/3DES, RijndaelManaged,
+    # OpenSSL, GPG, MachineGuid-derived, C2-fetched keys) and merge the
+    # findings into `final_result["mitre"]`, `final_result["crypto_hints"]`,
+    # and prepend the annotation to `final_result["output"]`. This is the
+    # "distinguish decoder-gap from malware-design-limitation" layer.
+    try:
+        from decoders.crypto_api_annotator import _find_all as _crypto_find  # type: ignore
+        _crypto_hits = _crypto_find((payload or "").lower())
+        if _crypto_hits:
+            _existing_mitre = final_result.get("mitre") or []
+            _seen_mitre = {(m.get("id") if isinstance(m, dict) else str(m))
+                            for m in _existing_mitre}
+            for h in _crypto_hits:
+                for mid in h.get("mitre") or []:
+                    if mid in _seen_mitre:
+                        continue
+                    _seen_mitre.add(mid)
+                    _existing_mitre.append({
+                        "id":        mid,
+                        "technique": h.get("algorithm", "Cryptography"),
+                        "tactic":    "Defense Evasion",
+                        "evidence":  f"{h.get('algorithm')} · key_source={h.get('key_source')} "
+                                     f"· recovery={h.get('recovery')}",
+                        "source":    "rc41-crypto-annotator",
+                    })
+            final_result["mitre"] = _existing_mitre
+            final_result["crypto_hints"] = _crypto_hits
+
+            # Recompute honest-verdict recovery ladder.
+            _recoverable = sum(
+                1 for h in _crypto_hits if h.get("recovery") == "static-complete"
+            )
+            _runtime = sum(
+                1 for h in _crypto_hits if h.get("recovery") == "runtime-required"
+            )
+            final_result["static_recovery"] = {
+                "static_stages":  _recoverable,
+                "runtime_stages": _runtime,
+                "verdict":        (
+                    "static-recovery-complete · runtime-decryption-required"
+                    if _runtime > 0 else
+                    "static-recovery-complete"
+                ),
+            }
+            # Prepend a compact human banner to output_raw so text-search
+            # harnesses (like the RC4.1 golden regression) see the algorithm
+            # keywords in the response.
+            banner = "▼ CRYPTO API DETECTED (RC4.1 · honest-verdict)\n" + "\n".join(
+                f"  · {h['algorithm']:<24} key_source={h['key_source']} "
+                f"recovery={h['recovery']}"
+                for h in _crypto_hits
+            ) + "\n\n"
+            final_result["output_raw"] = banner + str(final_result.get("output_raw") or "")
+    except Exception:
+        pass
+
+    return final_result
+
+
+def _explain_chain(inp: str, out: str, chain: List[Dict[str, Any]],
+                    linguistic_delta: float) -> str:
+    """Analyst-facing one-paragraph "why" explanation of the decoding chain."""
+    if not chain:
+        if linguistic_delta > 0.10:
+            return ("Input already resembles readable text; no transformation "
+                    "improved linguistic clarity beyond a small margin.")
+        return "No structural or linguistic signal supported a transformation."
+    ops = " → ".join(c.get("op") or "?" for c in chain)
+    delta_word = ("substantially improved" if linguistic_delta > 0.20
+                  else "improved" if linguistic_delta > 0.05
+                  else "did not linguistically improve")
+    return (f"Chain [{ops}] {delta_word} readability "
+            f"(Δ={linguistic_delta:+.3f} linguistic score). "
+            f"Selected by evidence-based scoring: structural validity, "
+            f"printable ratio, English density, and analyst-keyword hits.")
+
+
+def _deterministic_best_decode_single_pass(payload: str) -> Dict[str, Any]:
+    """Run BOTH `smart_decode` and `magic_decode` and return the winner.
+
+    Rationale: `smart_decode` is a greedy single-path chain runner — it stops
+    the first time no rule in `_apply_next` matches, even if `magic_decode`
+    could continue peeling. This function is the single source of truth for
+    "the deepest deterministic decode the platform can produce", so
+    `AUTO INVESTIGATE` and `MAGIC` produce IDENTICAL terminal states on
+    multi-layer payloads (base64 → gzip → base64 → xor → shellcode, etc.).
+
+    Winner selection:
+      1. Shellcode terminal state wins unconditionally (only one engine reaches it).
+      2. Otherwise the higher `magic_score` output wins.
+      3. Tie-breaker: longer chain wins (more layers peeled).
+
+    Returns a normalized dict: {steps: [{op, args}], output, engine, reached_shellcode}.
+    """
+    # ─── Named Wrapper Archetypes — permanent fix for known payload shapes ─
+    # If a payload matches a registered archetype (e.g. PS_MemoryStream_Gzip_IEX),
+    # its dedicated handler runs FIRST and its result wins with confidence 100%.
+    # No more relying on the greedy race to accidentally get it right.
+    try:
+        from wrapper_archetypes import try_archetypes
+        arch = try_archetypes(payload)
+        if arch and (arch.get("output") or "").strip():
+            # Re-check `reached_shellcode` on the (possibly chained) terminal
+            # output — Stage-2 archetypes return raw shellcode bytes that must
+            # trigger the SOC Verdict panel.
+            try:
+                from shellcode_analyzer import starts_with_known_prologue
+                out_s = arch["output"]
+                raw = (out_s.encode("latin-1") if all(ord(c) < 256 for c in out_s)
+                       else out_s.encode("utf-8", errors="replace"))
+                arch["reached_shellcode"] = starts_with_known_prologue(raw)
+            except Exception:
+                pass
+            # v1.5.1 — populate escalation trace so the UI ladder renders on
+            # the archetype-match fast path too. Archetype-match is L0 — even
+            # cheaper than L1 heuristics — so we emit a synthetic "matched"
+            # L0 entry + skipped L1/L2 entries the UI can grey out.
+            arch["layer_trace"] = [
+                {
+                    "layer": "L0",
+                    "engine": "archetype",
+                    "chain_len": len(arch.get("steps") or []),
+                    "score": 1.0,
+                    "verdict": "matched",
+                },
+                {"layer": "L1", "engine": "smart", "chain_len": 0, "score": 0.0, "verdict": "skipped"},
+                {"layer": "L2", "engine": "magic", "chain_len": 0, "score": 0.0, "verdict": "skipped"},
+            ]
+            return arch
+    except Exception:
+        pass
+
+    try:
+        smart = smart_decode(payload)
+    except Exception as e:
+        smart = {"steps": [], "output": "", "notes": [f"smart-decode error: {e}"]}
+
+    try:
+        m = magic_decode(payload, max_depth=6, max_branches=5, top_n=3)
+        # ── FORENSIC RULE — corrupted-container short-circuit ────────────
+        # If magic detected a valid container magic (GZIP/ZLIB/LZMA/BZIP2)
+        # whose decompression failed CRC / truncated-stream integrity, we
+        # bypass ALL scoring and return the corrupted-container terminal
+        # state. Falling back to smart_decode (which happily xor-brutes the
+        # raw bytes) would be a forensic false positive.
+        if m.get("corrupted_container"):
+            cc = m["corrupted_container"]
+            top0 = (m.get("top_results") or [{}])[0]
+            chain = top0.get("chain") or []
+            # Prepend the base64-decode step to the chain if the payload was
+            # a base64-encoded corrupted container — the analyst wants to
+            # see BOTH the base64 layer AND the failed decompression.
+            def _reason(step):
+                if step.get("_magic_locked"):
+                    return ("Container magic detected — integrity check "
+                            f"FAILED: {cc.get('reason')}")
+                if step.get("op") == "base64-decode":
+                    return "Base64-encoded payload detected"
+                return f"Applied {step.get('op')}"
+            return {
+                "steps":  [{"op": s.get("op"), "args": s.get("args") or {},
+                            "reason": _reason(s)}
+                           for s in chain],
+                "output": top0.get("output") or f"[Corrupted {cc.get('kind')} container]",
+                "engine": "magic",
+                "score":  0.0,
+                "reached_shellcode": False,
+                "corrupted_container": cc,
+                "notes":  [
+                    f"Container magic detected: {cc.get('kind')} (magic bytes preserved).",
+                    f"Integrity check failed: {cc.get('reason')}",
+                    "Deterministic decoder will NOT brute-force inside a corrupted container. "
+                    "Enable Aggressive Recovery (?aggressive=true) to attempt salvage.",
+                ],
+            }
+        # Pick the magic candidate whose OUTPUT scores best under `magic_score`
+        # (i.e. deepest AND most-clean), not just top_results[0] which is sorted
+        # by the internal score-with-chain-complete-bonus. This avoids losing
+        # to smart when magic promoted a slightly-lower-raw-score deeper chain.
+        _mags = m.get("top_results") or []
+        def _raw(r):
+            out = r.get("output") or ""
+            base = magic_score(out).get("score", 0.0) if out else 0.0
+            # Feb 2026 — respect the internal wrapper-decode boost recorded
+            # by the magic walker. Its `score_breakdown.score` includes the
+            # +0.40 bonus for wrapper-hint chains (e.g. `echo <hex>` → decode,
+            # `echo <b64> | base64 -d` → decode). Without this, the outer
+            # winner picker would rescore short decoded plaintexts on their
+            # own merits and lose to the wrapper's higher English score.
+            internal = (r.get("score_breakdown") or {}).get("score", 0.0)
+            return max(base, internal)
+        # ── FORENSIC RULE — shellcode-reached candidate wins unconditionally ─
+        # Feb 2026 fix (Meterpreter b64+xor case): magic-internal ranking sorts
+        # by chain-completion + score, so a SHORTER chain that leaves the b64
+        # blob as text can score above a DEEPER chain that peels through to
+        # actual shellcode bytes. Correct selection is: if ANY candidate
+        # reached a shellcode-terminal state, prefer that one; break ties by
+        # longer chain (more layers peeled) then by output-quality score.
+        _sc_mags = [r for r in _mags if r.get("is_shellcode")]
+        if _sc_mags:
+            top = max(_sc_mags,
+                       key=lambda r: (len(r.get("chain") or []), _raw(r)))
+        elif _mags:
+            top = max(_mags, key=_raw)
+        else:
+            top = {}
+    except Exception as e:
+        top = {"chain": [], "output": "", "is_shellcode": False, "score_breakdown": {"score": 0.0},
+               "_err": str(e)}
+
+    smart_out = smart.get("output") or ""
+    magic_out = top.get("output") or ""
+
+    # Detect nonsense chains where the same op is repeated (e.g. rot13 → rot13
+    # → rot13 on already-clean text). This penalises magic when it over-decodes.
+    def _has_repeated_op(chain):
+        ops = [c.get("op") for c in chain or []]
+        for i in range(1, len(ops)):
+            if ops[i] == ops[i - 1] and ops[i] not in ("extract-payload",):
+                return True
+        return False
+
+    magic_has_loop = _has_repeated_op(top.get("chain") or [])
+    smart_has_loop = _has_repeated_op(smart.get("steps") or [])
+    # Detect "over-decoding" — a chain whose FINAL op is a self-inverse
+    # transform (rot13, reverse) applied on top of an already-clean result.
+    # Common false-positive pattern: `base64 → zlib → rot13("Hello!")` where
+    # the tail rot13 mangles readable output into gibberish (`Uryyb!`).
+    def _tail_self_inverse(chain):
+        return chain and chain[-1].get("op") in ("rot13", "reverse")
+    magic_tail_bad = _tail_self_inverse(top.get("chain") or [])
+    smart_tail_bad = _tail_self_inverse(smart.get("steps") or [])
+
+    smart_reached_sc = False
+    magic_reached_sc = bool(top.get("is_shellcode"))
+    try:
+        from shellcode_analyzer import starts_with_known_prologue
+        if smart_out:
+            raw_s = smart_out.encode("latin-1") if all(ord(c) < 256 for c in smart_out) \
+                                                 else smart_out.encode("utf-8", errors="replace")
+            smart_reached_sc = starts_with_known_prologue(raw_s)
+    except Exception:
+        pass
+
+    # ── Terminal-stager idiom detection (2026-02-fork · Issue #2) ──
+    # If EITHER engine's recipe contains a byte-array XOR loop step,
+    # or the output text carries the ``[byte-array XOR loop decoded``
+    # synthetic tag, the analyst has demonstrably reached shellcode.
+    # The prologue heuristic returns False on that synthetic tag block
+    # (it isn't a real MSFvenom prologue) so we lift the flag here.
+    def _saw_terminal_xor_loop(recipe_steps, out_text) -> bool:
+        for step in recipe_steps or []:
+            op = str((step or {}).get("op") or "").lower()
+            if "byte_array_xor_loop" in op or "byte-array-xor-loop" in op:
+                return True
+        return "[byte-array XOR loop decoded" in (out_text or "")
+    if _saw_terminal_xor_loop(smart.get("steps"), smart_out):
+        smart_reached_sc = True
+    if _saw_terminal_xor_loop(top.get("chain"), magic_out):
+        magic_reached_sc = True
+
+    # Score BOTH outputs with the same scoring function so english-density,
+    # printable-ratio, structure-bonuses are directly comparable.
+    smart_breakdown = magic_score(smart_out) if smart_out else {"score": 0.0}
+    magic_breakdown = top.get("score_breakdown") or {"score": 0.0}
+    smart_score = smart_breakdown.get("score", 0.0)
+    # For magic use the RAW magic_score of its output — NOT the chain-completion
+    # bonus'd score from top_results (which artificially inflates repeated-op
+    # chains like `rot13 × 5` above a clean shorter chain).
+    #
+    # EXCEPT for the "wrapper-hint decode" boost recorded in
+    # score_breakdown.score by the magic walker: when the chain successfully
+    # decoded a wrapper (`echo <hex>`, `echo <b64> | base64 -d`, etc.), the
+    # short decoded plaintext must beat the un-decoded wrapper text — see the
+    # `_then_hex` / `_then_b64` handlers.
+    _magic_raw = magic_score(magic_out).get("score", 0.0) if magic_out else 0.0
+    _magic_internal = (top.get("score_breakdown") or {}).get("score", 0.0)
+    magic_score_val = max(_magic_raw, _magic_internal)
+
+    if magic_reached_sc:
+        magic_score_val += 0.35
+    if smart_reached_sc:
+        smart_score += 0.35
+    # Loop penalty — repeated ops on the SAME layer signal over-decoding
+    if magic_has_loop:
+        magic_score_val -= 0.20
+    if smart_has_loop:
+        smart_score -= 0.20
+    # Tail self-inverse penalty — final rot13/reverse on already-clean text
+    # is over-decoding (Feb-2026 fix for the `Hello Compression!` regression).
+    # BUT: only penalize when the decoded output has NO extra signal
+    # (english density, PS/shell keywords, URLs, or structure) compared to
+    # the input. A rot13 that turns `vq;jubnzv;ubfganzr` into
+    # `id;whoami;hostname` (adds shell-keywords match on `whoami` +
+    # `hostname`) is a WIN, not over-decoding.
+    def _has_extra_signal(chain_out: str, source: str) -> bool:
+        try:
+            from magic_decoder import (
+                _english_density, _PS_KWORDS, _SHELL_KWORDS, _URL_RE,
+            )
+            def _sig(t: str) -> float:
+                sc = _english_density(t)
+                if _PS_KWORDS.search(t): sc += 0.35
+                if _SHELL_KWORDS.search(t): sc += 0.15
+                if _URL_RE.search(t): sc += 0.20
+                return sc
+            return _sig(chain_out) > _sig(source) + 0.03
+        except Exception:
+            return False
+    if magic_tail_bad and not _has_extra_signal(magic_out, payload):
+        magic_score_val -= 0.25
+    if smart_tail_bad and not _has_extra_signal(smart_out, payload):
+        smart_score -= 0.25
+
+    def _layer_trace() -> List[Dict[str, Any]]:
+        """v1.5.1 · Zero-Miss escalation ladder — what each layer produced."""
+        return [
+            {
+                "layer": "L1",
+                "engine": "smart",
+                "chain_len": len(smart.get("steps") or []),
+                "score": round(smart_score, 4),
+                "verdict": (
+                    "reached-shellcode" if smart_reached_sc
+                    else ("decoded" if (smart.get("steps") or []) else "zero-chain")
+                ),
+            },
+            {
+                "layer": "L2",
+                "engine": "magic",
+                "chain_len": len(top.get("chain") or []),
+                "score": round(magic_score_val, 4),
+                "verdict": (
+                    "reached-shellcode" if magic_reached_sc
+                    else ("decoded" if (top.get("chain") or []) else "zero-chain")
+                ),
+            },
+        ]
+
+    def _pack_smart() -> Dict[str, Any]:
+        return {
+            "steps": [{"op": s["op"], "args": s.get("args") or {}} for s in smart.get("steps") or []],
+            "output": smart_out,
+            "engine": "smart",
+            "reached_shellcode": smart_reached_sc,
+            "score": round(smart_score, 4),
+            "notes": smart.get("notes") or [],
+            "layer_trace": _layer_trace(),
+        }
+
+    def _pack_magic() -> Dict[str, Any]:
+        return {
+            "steps": [{"op": c["op"], "args": c.get("args") or {}}
+                      for c in (top.get("chain") or [])],
+            "output": magic_out,
+            "engine": "magic",
+            "reached_shellcode": magic_reached_sc,
+            "score": round(magic_score_val, 4),
+            "output_hex": top.get("output_hex"),
+            "output_bytes_len": top.get("output_bytes_len"),
+            "layer_trace": _layer_trace(),
+        }
+
+    if magic_reached_sc and not smart_reached_sc:
+        return _pack_magic()
+    if smart_reached_sc and not magic_reached_sc:
+        return _pack_smart()
+
+    if magic_score_val > smart_score + 0.02:
+        return _pack_magic()
+    if smart_score > magic_score_val + 0.02:
+        return _pack_smart()
+
+    smart_chain_len = len(smart.get("steps") or [])
+    magic_chain_len = len(top.get("chain") or [])
+    if magic_chain_len > smart_chain_len:
+        return _pack_magic()
+    if smart_chain_len > magic_chain_len:
+        return _pack_smart()
+
+    # ── v1.5.0 · L3 LLM decoder fallback ────────────────────────────────
+    # Both L1 (smart) and L2 (magic) reached the same dead-end. Try L3
+    # (Claude 4.5) ONLY IF neither engine produced any usable chain.
+    # This closes the "Undecoded" gap for novel wrappers.
+    if smart_chain_len == 0 and magic_chain_len == 0 and payload and len(payload) >= 4:
+        try:
+            from llm_decoder import llm_decode_fallback
+            l3 = llm_decode_fallback(payload)
+            if l3 and (l3.get("output") or l3.get("steps")):
+                # Attach the L1/L2 escalation trace so the UI can show WHY L3
+                # fired (both prior layers zero-chained).
+                l3.setdefault("layer_trace", _layer_trace())
+                l3["layer_trace"].append({
+                    "layer": "L3", "engine": "llm-l3",
+                    "chain_len": len(l3.get("steps") or []),
+                    "score": l3.get("score", 0.5),
+                    "verdict": "decoded" if (l3.get("steps") or []) else "gave-up",
+                })
+                return l3
+        except Exception as _e:  # noqa: BLE001
+            pass
+
+    return _pack_smart() if smart_chain_len else _pack_magic()
+
+
+# ============================================================================
+# IOC helper reused by quality gate
+# ============================================================================
+def extract_iocs_from_text(text: str) -> Dict[str, List[str]]:
+    from command_analyzer import extract_iocs as _ex
+    r = _ex(text or "")
+    flat = {"urls": r.get("urls") or [], "ips": r.get("ips") or [],
+            "regkeys": r.get("regkeys") or [], "file_paths": r.get("file_paths") or []}
+    h = r.get("hashes") or {}
+    flat["hashes"] = (h.get("md5") or []) + (h.get("sha1") or []) + (h.get("sha256") or [])
+    return flat
+
+
+# ============================================================================
+# TI cross-reference
+# ============================================================================
+async def lookup_ti_hits(iocs: Dict[str, List[str]],
+                          layer_iocs: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Cross-reference extracted IOCs against local TI DB + live OSINT.
+
+    v1.5.4: When `layer_iocs` is supplied (per-layer surfacing from the
+    decode pipeline), each returned hit is annotated with `layer` (int) and
+    `revealed_by_op` (str) so the analyst can see WHICH decode step
+    unmasked the malicious indicator.
+    """
+    # Build a reverse map: value → (layer_number, op) — first-seen wins
+    # so the EARLIEST layer to reveal an IOC takes attribution credit.
+    _attribution: Dict[str, Dict[str, Any]] = {}
+    for record in (layer_iocs or []):
+        layer_num = record.get("layer")
+        op_id = record.get("op") or ""
+        for kind, values in ((record.get("iocs") or {}) or {}).items():
+            if not isinstance(values, list):
+                continue
+            for v in values:
+                if v and v not in _attribution:
+                    _attribution[v] = {"layer": layer_num, "revealed_by_op": op_id}
+    exact_values: List[str] = []
+    for k in ("urls", "ips", "domains", "md5", "sha1", "sha256"):
+        for v in iocs.get(k) or []:
+            if v and v not in exact_values:
+                exact_values.append(v)
+
+    # URL → hostname fallback
+    derived_hosts: List[str] = []
+    for u in iocs.get("urls") or []:
+        try:
+            host = (urlparse(u).hostname or "").lower().strip(".")
+            if host and host not in derived_hosts:
+                derived_hosts.append(host)
+        except Exception:
+            continue
+
+    if not exact_values and not derived_hosts:
+        return []
+
+    seen = set()
+    hits: List[Dict[str, Any]] = []
+
+    # 1) Exact-value match across all kinds
+    if exact_values:
+        async for doc in db.iocs.find({"value": {"$in": exact_values}}, {"_id": 0}):
+            key = (doc.get("kind"), doc.get("value"))
+            if key not in seen:
+                seen.add(key)
+                hits.append(doc)
+
+    # 2) URL → hostname fallback — only look up matches in the `domain` kind
+    if derived_hosts:
+        async for doc in db.iocs.find(
+            {"kind": "domain", "value": {"$in": derived_hosts}},
+            {"_id": 0},
+        ):
+            key = (doc.get("kind"), doc.get("value"))
+            if key not in seen:
+                seen.add(key)
+                d = dict(doc)
+                # Tag the hit so the UI can show "matched via URL hostname"
+                extra = dict(d.get("extra") or {})
+                extra.setdefault("matched_via", "url-hostname")
+                d["extra"] = extra
+                hits.append(d)
+
+    # ── v1.5.3 · Live OSINT provider hits merged into TI-HITS ──────────
+    # The local `db.iocs` is only ONE source of intel. When live providers
+    # (VT / AbuseIPDB / OTX / URLScan / Shodan / Hybrid Analysis / abuse.ch)
+    # report an IOC as malicious, that MUST also surface in the TI-HITS
+    # panel — otherwise analysts miss real threats.
+    try:
+        from osint import enrich_iocs
+        from deps import load_osint_keys
+        keys = await load_osint_keys()
+        if any(keys.values()):
+            live = await enrich_iocs(iocs, keys, max_per_type=6)
+            def _maybe_add(bucket_row: Dict[str, Any], kind_label: str):
+                if not isinstance(bucket_row, dict):
+                    return
+                val = bucket_row.get("value")
+                if not val:
+                    return
+                vt = (bucket_row.get("virustotal") or {})
+                ab = (bucket_row.get("abuseipdb") or {})
+                otx = (bucket_row.get("otx") or {})
+                urlscan = (bucket_row.get("urlscan") or {})
+                hybrid = (bucket_row.get("hybrid_analysis") or {})
+                shodan = (bucket_row.get("shodan") or {})
+                greynoise = (bucket_row.get("greynoise") or {})
+                vt_mal = (vt.get("malicious") or 0) + (vt.get("suspicious") or 0)
+                ab_score = ab.get("abuse_confidence_score") or ab.get("abuseConfidenceScore") or 0
+                otx_pulses = otx.get("pulse_count") or len(otx.get("pulses") or [])
+                greynoise_class = (greynoise or {}).get("classification") or ""
+                is_bad = (
+                    vt_mal > 0 or ab_score > 25 or otx_pulses > 0
+                    or greynoise_class == "malicious"
+                    or bool((hybrid or {}).get("threat_score"))
+                )
+                if not is_bad:
+                    return
+                key_id = (kind_label, val)
+                if key_id in seen:
+                    return
+                seen.add(key_id)
+                # Build a summary "source" string like "VT:3 · OTX:2 pulses · AbuseIPDB:87%"
+                badges = []
+                if vt_mal:      badges.append(f"VT:{vt_mal}")
+                if ab_score:    badges.append(f"AbuseIPDB:{ab_score}%")
+                if otx_pulses:  badges.append(f"OTX:{otx_pulses} pulses")
+                if greynoise_class: badges.append(f"GreyNoise:{greynoise_class}")
+                if (hybrid or {}).get("threat_score"): badges.append(f"HybridAnalysis:{hybrid['threat_score']}")
+                hits.append({
+                    "kind":         kind_label,
+                    "value":        val,
+                    "source":       "live-osint",
+                    "confidence":   min(100, vt_mal * 10 + ab_score + otx_pulses * 5),
+                    "tags":         ["osint-live"] + [b.split(":")[0].lower() for b in badges],
+                    "extra": {
+                        "badges":       badges,
+                        "virustotal":   vt,
+                        "abuseipdb":    ab,
+                        "otx":          otx,
+                        "urlscan":      urlscan,
+                        "hybrid_analysis": hybrid,
+                        "shodan":       shodan,
+                        "greynoise":    greynoise,
+                    },
+                })
+            for row in (live.get("ips") or []):     _maybe_add(row, "ip")
+            for row in (live.get("domains") or []): _maybe_add(row, "domain")
+            for row in (live.get("urls") or []):    _maybe_add(row, "url")
+            for row in (live.get("hashes") or []):  _maybe_add(row, "hash")
+    except Exception as _e:  # noqa: BLE001
+        # Live OSINT is best-effort; local hits still return.
+        pass
+
+    for _e in list(hits):
+        _v = _e.get("value")
+        if _v and _v in _attribution:
+            _e["layer"] = _attribution[_v]["layer"]
+            _e["revealed_by_op"] = _attribution[_v]["revealed_by_op"]
+    return hits
+
+
+# ============================================================================
+# Remediation Item 5 · Bounded TI-lookup latency (ADR-0010l · 2026-08-12)
+#
+# The unbounded `lookup_ti_hits()` above can stall arbitrarily long if a
+# provider (Mongo, VT, AbuseIPDB, …) becomes unresponsive. Real-Investigation
+# Proof §10 required a strict wall-clock budget so the deterministic
+# investigation pipeline is never held hostage by a slow feed.
+#
+# Semantics (locked):
+#   • Success within budget → identical return shape (list of TI hit dicts).
+#   • Timeout → return `[]` (never fabricate, never invent, never raise).
+#   • Provider exception → return `[]` (best-effort, no verdict impact).
+#   • Callers may inspect `.ti_lookup_meta` on the returned list-like via the
+#     tuple-return variant `lookup_ti_hits_bounded_meta()`.
+#
+# The budget is deterministic, env-controlled, and default 500 ms per
+# ADR-0010e §10 Item 5.
+# ============================================================================
+def _ti_deadline_seconds() -> float:
+    raw = os.environ.get("NIVX_TI_LOOKUP_DEADLINE_MS", "500")
+    try:
+        ms = float(raw)
+    except (TypeError, ValueError):
+        ms = 500.0
+    if ms < 1.0:
+        ms = 500.0
+    return ms / 1000.0
+
+
+async def lookup_ti_hits_bounded(
+    iocs: Dict[str, List[str]],
+    layer_iocs: Optional[List[Dict[str, Any]]] = None,
+    deadline_s: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    """Bounded wrapper around `lookup_ti_hits()`. See module note above."""
+    hits, _meta = await lookup_ti_hits_bounded_meta(
+        iocs, layer_iocs=layer_iocs, deadline_s=deadline_s
+    )
+    return hits
+
+
+async def lookup_ti_hits_bounded_meta(
+    iocs: Dict[str, List[str]],
+    layer_iocs: Optional[List[Dict[str, Any]]] = None,
+    deadline_s: Optional[float] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Same as `lookup_ti_hits_bounded` but also returns a diagnostic meta
+    dict `{status: 'ok'|'timeout'|'error', elapsed_ms, deadline_ms}`. The
+    meta dict is used by regression tests and structured logs; it does NOT
+    influence verdict, risk score, MITRE mapping, or evidence.
+    """
+    budget = deadline_s if (deadline_s is not None) else _ti_deadline_seconds()
+    t0 = time.perf_counter()
+    meta: Dict[str, Any] = {
+        "status": "ok",
+        "elapsed_ms": 0.0,
+        "deadline_ms": round(budget * 1000.0, 3),
+    }
+    try:
+        hits = await asyncio.wait_for(
+            lookup_ti_hits(iocs, layer_iocs=layer_iocs), timeout=budget
+        )
+    except asyncio.TimeoutError:
+        meta["status"] = "timeout"
+        meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+        return [], meta
+    except Exception:  # noqa: BLE001
+        # Provider or DB exception — treat as no hits, never raise into the
+        # analyze pipeline (parity with the pre-existing catch-and-continue
+        # pattern inside `lookup_ti_hits` for the OSINT branch).
+        meta["status"] = "error"
+        meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+        return [], meta
+    meta["elapsed_ms"] = round((time.perf_counter() - t0) * 1000.0, 3)
+    return hits, meta
+
+
+# ============================================================================
+async def ai_describe_and_verdict(inp, out, iocs, mitre, yara, osint, want_verdict, want_describe,
+                                   lolbas=None,
+                                   persona: Optional[Dict[str, Any]] = None,
+                                   provider: Optional[Dict[str, Any]] = None,
+                                   playbook: str = ""):
+    """Single LLM call producing rich narrative description + verdict JSON.
+
+    v1.6.1 — SHA1 response cache. The /api/analyze route was re-hitting
+    Claude for identical inputs and timing out at 55s every time. Now the
+    exact (input, output, want_verdict, want_describe) tuple is cached in
+    `db.ai_describe_cache` for 30 days → instant returns for repeat cases
+    (e.g. re-opening a saved workspace case).
+    """
+    import hashlib as _hl
+    _key_src = "|".join([
+        (inp or "")[:2000], (out or "")[:2000],
+        str(bool(want_verdict)), str(bool(want_describe)),
+        (playbook or "")[:200],
+    ])
+    _cache_key = _hl.sha1(_key_src.encode("utf-8", errors="replace")).hexdigest()
+    try:
+        from deps import db as _db
+        _cached = await _db.ai_describe_cache.find_one({"_id": _cache_key})
+        if _cached and _cached.get("response"):
+            r = dict(_cached["response"])
+            r["cache_hit"] = True
+            return r
+    except Exception:
+        pass
+
+    parts = []
+    if want_describe:
+        parts.append(
+            '"description": {\n'
+            '  "summary": "2-3 sentence executive summary of what the decoded script/command does",\n'
+            '  "malware_family": {\n'
+            '     "name": "concrete family/tooling name if identifiable (e.g. Cobalt Strike, AsyncRAT, Emotet, Nanocore, XORDDoS, Empire, custom Python loader) or null if unknown",\n'
+            '     "confidence": "low|medium|high",\n'
+            '     "rationale": "why this family — cite specific TTPs, string patterns, key material, structure, or matches to public reports"\n'
+            '  },\n'
+            '  "mitre_techniques": [\n'
+            '     {"id": "Txxxx or Txxxx.xxx", "technique": "name", "tactic": "MITRE tactic (Execution|Defense Evasion|...)", "evidence": "specific line/token in the decoded output that supports this mapping"}\n'
+            '  ],\n'
+            '  "attack_chain": [\n'
+            '     {\n'
+            '        "step": 1,\n'
+            '        "title": "SHORT TECHNICAL LABEL (e.g. WRAPPER DEOBFUSCATION, CONTEXT ADJUSTMENT, STEALTH STAGER LOAD, ROLLING XOR DECRYPTION, FILELESS MEMORY INJECTION, C2 BEACONING, PERSISTENCE INSTALL, SHADOW COPY DESTROY)",\n'
+            '        "summary": "2-3 sentence plain-English narrative of what THIS step does. Be specific: name the API/function invoked, files touched, algorithms used.",\n'
+            '        "technical_detail": "optional: paste concrete artifact from the payload (e.g. hex key, filename, URL, IP, argv) that supports this step. null if none.",\n'
+            '        "kind": "ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact"\n'
+            '     }\n'
+            '  ],\n'
+            '  "entity_graph": {\n'
+            '     "nodes": [\n'
+            '        {"id": "e1", "label": "ADVERSARY OBJECTIVE ONLY — describe WHAT the attacker is achieving on the victim, not the script mechanic. Good examples: \'Initial Foothold via Malicious Document\', \'Encrypted Stager Delivery\', \'Fileless In-Memory Execution\', \'Defense Evasion via Extension Masquerade\', \'C2 Beacon Establishment\', \'Credential Harvesting\', \'Data Exfiltration\', \'Shadow Copy Destruction (Anti-Recovery)\'. BAD examples that must NEVER appear: \'python.exe\', \'instructions.docx\', \'XOR Key 4fab...\', \'base64.b64decode()\', \'os.chdir\', \'exec()\', filenames, function calls, hex strings, variable names.", "type": "action|ip|url|user|device", "tactic": "MITRE ATT&CK tactic — REQUIRED — Reconnaissance|Resource Development|Initial Access|Execution|Persistence|Privilege Escalation|Defense Evasion|Credential Access|Discovery|Lateral Movement|Collection|Command and Control|Exfiltration|Impact", "malicious": true, "note": "optional 1-line summary of the attacker\'s intent at this step"}\n'
+            '     ],\n'
+            '     "edges": [\n'
+            '        {"from": "e1", "to": "e2", "label": "attacker progression verb (Enables, Escalates To, Leverages For, Feeds Into, Culminates In, Establishes, Exfiltrates To). NEVER script mechanic verbs like Reads, Loads, Decrypts, Parent Of."}\n'
+            '     ]\n'
+            '  },\n'
+            '  "flow_graph": {\n'
+            '     "nodes": [\n'
+            '        {"id": "n1", "label": "short verb-phrase e.g. \'chdir to python.exe folder\'", "kind": "start|filesystem|network|crypto|execution|persistence|discovery|c2|impact|end"}\n'
+            '     ],\n'
+            '     "edges": [\n'
+            '        {"from": "n1", "to": "n2", "label": "optional: describes transition / data flow"}\n'
+            '     ]\n'
+            '  },\n'
+            '  "behavior": ["bullet points describing each behavior observed"],\n'
+            '  "ioc_narrative": "1-2 paragraph narrative discussing extracted IOCs, referencing OSINT enrichment where present (VT verdict, AbuseIPDB score, Shodan ports, TI-hits, geolocation). Be specific with values.",\n'
+            '  "attribution_hints": "any hints about actor / campaign / open-source tooling / commodity vs targeted",\n'
+            '  "recommended_actions": ["array of concrete containment / IR actions"]\n'
+            '}'
+        )
+    if want_verdict:
+        parts.append(
+            '"verdict": {\n'
+            '  "verdict": "Malicious|Suspicious|Benign",\n'
+            '  "confidence": 0-100,\n'
+            '  "summary": "1-2 sentence rationale — always mention malware family if identified",\n'
+            '  "key_findings": ["short strings"],\n'
+            '  "recommended_actions": ["short strings"]\n'
+            '}'
+        )
+    schema = "{\n" + ",\n".join(parts) + "\n}"
+
+    default_system = (
+        "You are a senior DFIR analyst reviewing a decoded payload. "
+        "Write like an incident-report analyst: precise, factual, technical, cite specific IOC values / OSINT results / TI hits.\n"
+        "For malware_family: only claim a family if there is strong evidence (unique strings, C2 patterns, packer, algorithm signatures, or matches to VT/OTX threat labels).\n"
+        "For mitre_techniques: derive from the DECODED BEHAVIOR, not the outer wrapper. For each technique cite the specific evidence in the decoded output.\n"
+        "For attack_chain: model 3-8 sequential steps that describe the ATTACK CHAIN (what the malware does step by step). Each step should have a strong technical title (short caps phrase) + 2-3 sentence plain-English summary + optional technical_detail (hex keys, filenames, URLs cited verbatim from the payload). Order MUST be causal. Use kinds: ingestion|deobfuscation|context|filesystem|network|crypto|execution|persistence|discovery|c2|impact.\n"
+        "For entity_graph: this is a TACTICAL ATTACK CHAIN describing what THE ATTACKER is achieving on the victim system — NOT a technical decoder trace of the script's operations. Extract 5-10 ATTACKER GOALS/OUTCOMES, each mapped to a MITRE ATT&CK tactic. Frame every node from the adversary's perspective (their objectives on the target).\n"
+        "  STRICT RULES:\n"
+        "  - Do NOT create nodes for filenames, functions, APIs, variables, hex keys, or script internals (e.g. 'python.exe', 'instructions.docx', 'XOR Key 4fab…', 'base64.b64decode', 'os.chdir'). These are HOW the attacker operates, not WHAT they achieve.\n"
+        "  - DO create nodes for adversary objectives (e.g. 'Initial Foothold via Malicious Document', 'Encrypted Stager Delivery', 'In-Memory Fileless Execution', 'Defense Evasion via Extension Masquerade', 'C2 Establishment', 'Credential Harvesting Attempt', 'Data Exfiltration', 'Shadow Copy Destruction (Anti-Recovery)').\n"
+        "  - Node type should usually be 'action' (attacker action/objective) except for concrete external entities such as C2 IPs/URLs (type ip/url) or targeted victim entities (type user/device).\n"
+        "  - Every node MUST carry a MITRE ATT&CK tactic. Order the graph as a kill-chain timeline (Initial Access → Execution → Defense Evasion → Persistence → Credential Access → Discovery → Command and Control → Collection → Exfiltration → Impact).\n"
+        "  - Edges must express attacker progression (e.g. 'Enables', 'Escalates To', 'Leverages For', 'Feeds Into', 'Culminates In') — NOT script data-flow like 'Reads', 'Loads', 'Decrypts'.\n"
+        "  - Include the malicious flag on adversary-controlled nodes.\n"
+        "  Example: for a Python XOR loader dropping a stager, DO NOT list 'python.exe','base64','XOR key','instructions.docx'. INSTEAD produce nodes like: {label:'Initial Foothold (Signed LOLBin Abuse)', tactic:'Initial Access'} → {label:'Encrypted Stager Retrieval', tactic:'Defense Evasion'} → {label:'Rolling-Key Deobfuscation of Second Stage', tactic:'Defense Evasion'} → {label:'Fileless In-Memory Payload Execution', tactic:'Execution'} → {label:'C2 Beacon Establishment', tactic:'Command and Control'}.\n"
+        "For flow_graph: additionally produce a compact node/edge structure for visualization — 4-10 nodes.\n"
+        "Return STRICT JSON only with the keys shown in the schema. No markdown, no prose outside JSON."
+    )
+    if persona and (persona.get("config") or {}).get("system_prompt"):
+        persona_prompt = persona["config"]["system_prompt"].strip()
+        system = (
+            persona_prompt
+            + "\n\nIMPORTANT — OUTPUT CONTRACT (in addition to your normal analysis):\n"
+            + "Return your final analysis as STRICT JSON only, matching the schema below. "
+            + "Fold your persona-specific findings into the `summary`, `attack_chain`, `behavior`, and `ioc_narrative` fields. "
+            + "No markdown, no prose outside JSON."
+        )
+    else:
+        system = default_system
+
+    if playbook:
+        system = system + "\n" + playbook
+
+    llm_provider = ((provider or {}).get("config") or {}).get("provider") or "anthropic"
+    llm_model = ((provider or {}).get("config") or {}).get("model") or "claude-sonnet-4-5-20250929"
+
+    prompt = (
+        f"SCHEMA:\n{schema}\n\n"
+        f"RAW INPUT:\n{inp[:3500]}\n\n"
+        f"DECODED OUTPUT:\n{out[:3500]}\n\n"
+        f"EXTRACTED IOCs:\n{json.dumps(iocs)[:1200]}\n\n"
+        f"HEURISTIC MITRE (from wrapper text):\n{json.dumps(mitre)[:1200]}\n\n"
+        f"HEURISTIC YARA:\n{json.dumps(yara)[:1200]}\n\n"
+        f"LOLBAS MATCHES:\n{json.dumps(lolbas or [])[:1500]}\n\n"
+        f"OSINT ENRICHMENT:\n{json.dumps(osint)[:2500]}\n\n"
+        "Return only JSON."
+    )
+    resp = await llm_json(
+        "describe-" + str(datetime.now(timezone.utc).timestamp()),
+        system, prompt,
+        provider=llm_provider, model=llm_model,
+    )
+    # v1.6.1 — persist to cache so repeat re-runs of the same case return
+    # instantly instead of paying the 15-55s Claude latency again.
+    try:
+        from deps import db as _db
+        await _db.ai_describe_cache.update_one(
+            {"_id": _cache_key},
+            {"$set": {"response": resp, "cached_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+    except Exception:
+        pass
+    return resp
+
+
+# ============================================================================
+# /report shared context (used by both /report and /report/{fmt})
+# ============================================================================
+async def analysis_context(body, user) -> Dict[str, Any]:
+    """Shared analysis pipeline used by both JSON /report and multi-format /report/{fmt}."""
+    text = (body.output or "") + "\n" + body.input
+    iocs = extract_iocs(text)
+    mitre_hits = mitre_map(text)
+    yara = yara_lite_scan(text)
+    lolbas = scan_lolbas(text)
+    risk = risk_score(mitre_hits, yara, iocs)
+    ti_hits = await lookup_ti_hits(iocs)
+    osint = None
+    description = None
+    verdict = None
+    if body.enrich_osint:
+        try:
+            keys = await load_osint_keys()
+            osint = await asyncio.wait_for(enrich_iocs(iocs, keys),
+                                           timeout=float(os.environ.get("NIVX_OSINT_DEADLINE_S", "20")))
+        except asyncio.TimeoutError:
+            osint = {"error": "OSINT timed out — falling back to local TI hits only"}
+        except Exception as e:
+            osint = {"error": str(e)}
+    if body.describe or body.use_ai_verdict:
+        try:
+            ai_bundle = await asyncio.wait_for(
+                ai_describe_and_verdict(
+                    body.input, body.output or "", iocs, mitre_hits, yara, osint or {},
+                    lolbas=lolbas,
+                    want_verdict=body.use_ai_verdict, want_describe=body.describe,
+                ),
+                timeout=float(os.environ.get("NIVX_AI_DEADLINE_S", "25")),
+            )
+            description = ai_bundle.get("description")
+            verdict = ai_bundle.get("verdict")
+        except asyncio.TimeoutError:
+            description = {"error": "AI verdict timed out — pipeline proceeded without LLM narrative"}
+        except Exception as e:
+            description = {"error": str(e)}
+    merged_mitre = list(mitre_hits)
+    if description and not description.get("error"):
+        ai_mitre = description.get("mitre_techniques") or []
+        seen_ids = {m["id"] for m in merged_mitre}
+        for m in ai_mitre:
+            if isinstance(m, dict) and m.get("id") and m["id"] not in seen_ids:
+                merged_mitre.append({**m, "source": "ai"})
+                seen_ids.add(m["id"])
+        for m in merged_mitre:
+            m.setdefault("source", "heuristic")
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "iocs": iocs, "mitre": merged_mitre, "yara": yara, "lolbas": lolbas,
+        "risk": risk, "ti_hits": ti_hits, "osint": osint,
+        "description": description, "verdict": verdict,
+    }

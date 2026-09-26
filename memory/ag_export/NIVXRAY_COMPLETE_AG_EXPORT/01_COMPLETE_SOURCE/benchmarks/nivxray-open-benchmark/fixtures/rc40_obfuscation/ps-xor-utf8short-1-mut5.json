@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-utf8short-1-mut5",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('n1x'); $b=[byte[]](13,80,20,13,31,29,22,84); for($i=0;$i -lt $b.Length;$i++){ $b[$i] -bxor $k[$i % $k.Length] }\n# comment-5",
+  "expected_keywords": [
+    "calc.exe"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

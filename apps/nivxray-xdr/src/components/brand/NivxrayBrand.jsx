@@ -9,6 +9,8 @@
  */
 import React from "react";
 
+import { BRAND, brandFor } from "@/productScope";
+
 /**
  * The mark on its own, sized by `size` (px).
  * Used inside dense chrome (top bars) where space is tight.
@@ -72,14 +74,16 @@ export function NivxrayMark({ size = 28, boxed = true, className, ...rest }) {
  * Full lockup — mark + wordmark ("NIVXRAY" white, "XDR" mint).
  * Suitable for the login page and any large hero.
  */
-export function NivxrayLockup({ size = 40 }) {
+export function NivxrayLockup({ size = 40, scope }) {
+  const brand = scope ? brandFor(scope) : BRAND;
   return (
     <div
       style={{
         display: "inline-flex", alignItems: "center", gap: 12,
         userSelect: "none",
       }}
-      data-testid="xdr-brand-lockup"
+      data-testid={`${brand.scope}-brand-lockup`}
+      data-brand-scope={brand.scope}
     >
       <NivxrayMark size={size} />
       <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
@@ -91,7 +95,7 @@ export function NivxrayLockup({ size = 40 }) {
             color: "#E7E9EF",
           }}
         >
-          NIVXRAY <span style={{ color: "#3CE8B8" }}>XDR</span>
+          NIVXRAY <span style={{ color: "#3CE8B8" }}>{brand.suffix}</span>
         </div>
         <div
           style={{
@@ -101,8 +105,9 @@ export function NivxrayLockup({ size = 40 }) {
             letterSpacing: "2.5px",
             color: "#78808F",
           }}
+          data-testid="brand-lockup-tagline"
         >
-          EXTENDED  DETECTION  &nbsp;/&nbsp;  RESPONSE
+          {brand.taglineLead}  DETECTION  &nbsp;/&nbsp;  RESPONSE
         </div>
       </div>
     </div>
@@ -124,7 +129,7 @@ export function NivxrayBrand({ size = 22, "data-testid": testId = "xdr-brand" })
       data-testid={testId}
     >
       <NivxrayMark size={size} boxed={false} />
-      NIVXRAY <span style={{ color: "#3CE8B8" }}>XDR</span>
+      NIVXRAY <span style={{ color: "#3CE8B8" }}>{BRAND.suffix}</span>
     </span>
   );
 }

@@ -1,0 +1,26 @@
+{
+  "summary": "P0-F.7 Campaign Story validated end-to-end. Ran the 9 unit tests in /app/backend/tests/edr/test_p0_f7_campaign_story.py (9/9 pass) and added a new live preview-URL integration suite /app/backend/tests/edr/test_p0_f7_live_api.py covering all 8 review points (14/14 pass). Frontend UI validated with Playwright against the deployed preview URL — every advertised data-testid is present, all 15 activities render, expand shows the full provenance chain + evidence-state chips + evidence-plane epistemic note, response block shows 5 correlated actions with 2 VERIFIED KILL_PROCESS and the CAPABILITY_UNAVAILABLE/VERIFICATION_FAILED ones NOT presented as success, gaps + pivots rendered, sidebar Campaign Story tab exists and preserves the OPENED FROM INCIDENT banner, empty-state (no incident_id) and error-state (bogus incident_id: 'no incident … in this tenant') both correct. Regression pages /edr/process-tree and /xdr/admin/edr-response still load and work.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/edr/test_p0_f7_campaign_story.py",
+    "/app/backend/tests/edr/test_p0_f7_live_api.py",
+    "/app/test_reports/pytest/p0_f7_pytest.xml",
+    "/app/test_reports/pytest/p0_f7_live.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "campaign_story.py is a strict projection — no writes, no verdict recomputation, all six-state vocabulary honoured, canonical id divergence surfaced as an explicit gap rather than hidden. No issues.",
+    "EdrCampaignStoryPage.jsx correctly renders backend fields verbatim; no derived verdicts, no fabricated statuses. No issues.",
+    "Minor (non-blocking): /app/backend/conftest.py force-sets DB_NAME=nivxray_ci_local, which shadows the .env-configured DB when running live-preview tests. New test file loads .env with override=True to work around this; consider making conftest respect a pre-existing DB_NAME or introducing a marker for live-preview tests."
+  ],
+  "updated_files": [
+    "/app/backend/tests/edr/test_p0_f7_live_api.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None. Tests are read-only against the real INC000000231/inc_c253027ba781494684db incident; verified repeated GETs create no new collections.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0-F.7 Campaign Story is projection-only, provenance-preserving, and honestly gapped. 9 unit tests + 14 live-preview integration tests all pass. Regression pages P0-F.6 (/xdr/admin/edr-response) and P0-F.10 process-tree pivot are unaffected. Frontend UI has full data-testid coverage. If retesting, use load_dotenv override=True in Mongo-touching tests because conftest.py hard-sets DB_NAME=nivxray_ci_local."
+}

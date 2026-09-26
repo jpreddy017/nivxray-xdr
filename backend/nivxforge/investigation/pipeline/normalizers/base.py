@@ -29,10 +29,19 @@ def _try_parse_dt(v: Any) -> Optional[datetime]:
         except (OSError, ValueError, OverflowError):
             return None
     if isinstance(v, str):
+        v = v.strip()
         for fmt in (
             "%Y-%m-%dT%H:%M:%S.%f%z",
             "%Y-%m-%dT%H:%M:%S%z",
             "%Y-%m-%dT%H:%M:%SZ",
+            #: W2 · TIMEZONE SAFETY. Sysmon writes `UtcTime` as
+            #: `2026-06-01 12:33:44.123` — space separated WITH fractional
+            #: seconds. That format was missing, so the value fell through to
+            #: the ISO fallback below, which returned an OFFSET-NAIVE
+            #: datetime and made every later comparison against an aware
+            #: timestamp raise. Sysmon's own field name declares the zone, so
+            #: a naive value here is UTC by the source's contract.
+            "%Y-%m-%d %H:%M:%S.%f",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%dT%H:%M:%S.%f",
@@ -42,11 +51,14 @@ def _try_parse_dt(v: Any) -> Optional[datetime]:
                 return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
-        # ISO fallback
+        # ISO fallback — ALSO coerced. It used to return the naive datetime
+        # it parsed, which is how offset-naive timestamps entered the
+        # pipeline in the first place.
         try:
-            return datetime.fromisoformat(v.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
         except ValueError:
             return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     return None
 
 

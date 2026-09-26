@@ -1,0 +1,76 @@
+[
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_CRASH_WINDOW",
+    "version": 1,
+    "state_hash": "hash_uncommitted_dangling",
+    "previous_state_hash": null,
+    "entity_ref": {
+      "entity_id": "host-crash",
+      "category": "DEVICE",
+      "tenant_id": "TENANT_DISTRIBUTED"
+    },
+    "epistemic_status": "DERIVED",
+    "classification": "CONFIRMED_ATTACK",
+    "active_capabilities": [
+      "CAP_ADMIN_EXECUTION"
+    ],
+    "observed_facts": [],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "NO_ATTACK",
+    "reachability": {},
+    "impact": {},
+    "intervention_plan": {},
+    "evidence_references": [],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:11.856963+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:11.856993+00:00",
+    "created_at": "2026-09-04T01:50:11.856999+00:00",
+    "engine_version": "1.0.0"
+  },
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_CRASH_WINDOW",
+    "version": 2,
+    "state_hash": "hash_dangling_v2",
+    "previous_state_hash": "hash_uncommitted_dangling",
+    "entity_ref": {
+      "entity_id": "host-crash",
+      "category": "DEVICE",
+      "tenant_id": "TENANT_DISTRIBUTED"
+    },
+    "epistemic_status": "DERIVED",
+    "classification": "CONFIRMED_ATTACK",
+    "active_capabilities": [
+      "CAP_ADMIN_EXECUTION"
+    ],
+    "observed_facts": [],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {},
+    "impact": {},
+    "intervention_plan": {},
+    "evidence_references": [],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:11.901100+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "PENDING_LEDGER",
+    "evaluated_at": "2026-09-04T01:50:11.901131+00:00",
+    "created_at": "2026-09-04T01:50:11.901136+00:00",
+    "engine_version": "1.0.0"
+  }
+]

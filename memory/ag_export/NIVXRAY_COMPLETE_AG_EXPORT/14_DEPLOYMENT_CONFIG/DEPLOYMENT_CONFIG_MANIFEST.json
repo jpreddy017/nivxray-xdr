@@ -1,0 +1,253 @@
+{
+  "category": "14_DEPLOYMENT_CONFIG",
+  "title": "Deployment Blueprints, Docker, Vercel & Tooling Configurations",
+  "description": "Containerization, cloud deployment configurations, shell scripts, and workspace metadata.",
+  "file_count": 27,
+  "total_bytes": 377073,
+  "total_lines": 8178,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/Projects.code-workspace",
+      "size_bytes": 60,
+      "sha256": "69e7b37e2ebdaf8fc313bf6cb74882fed65895e5f853736e65759bafb333bc6b",
+      "lines_of_code": 0,
+      "last_modified": "2026-09-05 00:54:26",
+      "classification": "other",
+      "status": "MODIFIED_BY_AG"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/vercel.json",
+      "size_bytes": 440,
+      "sha256": "8fbfe4c7232e181bcf5c8dc908e40b5e615fdce6852d36d070d14e1022cf40e1",
+      "lines_of_code": 15,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/.github/workflows/docs-screenshots.yml",
+      "size_bytes": 5463,
+      "sha256": "2534a89589b22a3c5327bf84bd3fb81539702020decf8084857a62275372880f",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/.github/workflows/rc4x_quality_gate.yml",
+      "size_bytes": 5301,
+      "sha256": "417b38f3ebb51ad529dea18953948bc129ef86be31d4931d15b396d4419e7e13",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/.github/workflows/rc5_gates.yml",
+      "size_bytes": 7694,
+      "sha256": "c1e06993f3e95ba0792d143d89808f6843959c7fc8af29d3549342a0e440236c",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/.github/workflows/rc5_golden_corpus_gate.yml",
+      "size_bytes": 7866,
+      "sha256": "8005092a7409012e85707e26058ed1642bcbc44aab99379727ed9e367c68648b",
+      "lines_of_code": 194,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "fixture",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/deploy/.env.example",
+      "size_bytes": 1754,
+      "sha256": "6ee0e78ae1d2321cd3dd5648a8322287493bb72bcc926554dbb48f8ddf22ae62",
+      "lines_of_code": 0,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "other",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/deploy/docker-compose.yml",
+      "size_bytes": 3164,
+      "sha256": "bbf34d313eefb54988b13a5c4ae116be72c9c38b6137abeb2bcafeba0a3e4d85",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/deploy/README.md",
+      "size_bytes": 4282,
+      "sha256": "c55a4dabe5b9402f86c698560f644b2f9a9f7b4ab28401f5eda9a878d3a01b76",
+      "lines_of_code": 100,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/build_audit_pdf.py",
+      "size_bytes": 2365,
+      "sha256": "4d96238a3939ed766a5fadd867cc0a12ccad3bcfe8d015b5bd932e28d85af8e5",
+      "lines_of_code": 57,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/build_customer_deck.py",
+      "size_bytes": 51344,
+      "sha256": "26af1cf746fb1f5212ad381489045b593f691fb14df5925d9d99cee688b97306",
+      "lines_of_code": 979,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/build_nivxray_docs.py",
+      "size_bytes": 9339,
+      "sha256": "c9a96edfc6e1675eab807e4dcce7fb4e19fcf158d36ee024d318c05181926941",
+      "lines_of_code": 223,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/build_source_export.py",
+      "size_bytes": 10147,
+      "sha256": "ab5b0de71f1fd1cb9df150dd31b6d892e7847157da848bd36665f30025b85523",
+      "lines_of_code": 224,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/fine_tune.sh",
+      "size_bytes": 4056,
+      "sha256": "4ef23a8750e21c54b84dd978a98178bb9ab54c94e6296e0a1488d2ec0a3eb6d3",
+      "lines_of_code": 104,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/generate_capability_registry.py",
+      "size_bytes": 43012,
+      "sha256": "24122767595e1802f34f0196c1ec111739395969940cafb94730ce7403df2a6b",
+      "lines_of_code": 741,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/generate_investor_deck_v1_2.py",
+      "size_bytes": 50175,
+      "sha256": "eb32039e3568c58e5066de89da1a6a57cf75922fb28f6d67676da155589d8e2f",
+      "lines_of_code": 1064,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc40_batch_500.py",
+      "size_bytes": 33431,
+      "sha256": "4008fdf79cba554e43b27499d116713320257c222a60895f62b88b3bfd413ee1",
+      "lines_of_code": 746,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc41_crypto_corpus.py",
+      "size_bytes": 42040,
+      "sha256": "66c1ed22b81717eda2c893b30bc82dfc9c71ba543bf67d3ca4abdb2ab5f5d904",
+      "lines_of_code": 962,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc41_crypto_runner.py",
+      "size_bytes": 14474,
+      "sha256": "e14197bf86ccf13397302861049d7de66ee8fb575735055378506eb6c7e47e55",
+      "lines_of_code": 354,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc43_ai_vs_det.py",
+      "size_bytes": 13952,
+      "sha256": "2cb90619751db709ec70501da74c2183058d9ebbc8fb6db363eee387acecd630",
+      "lines_of_code": 320,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc43_generate_pdf.py",
+      "size_bytes": 16558,
+      "sha256": "47faa17fa11d074bd29317640327087def96f03d42007b650e4ecaede9d6cc5a",
+      "lines_of_code": 327,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc43_generate_ppt.py",
+      "size_bytes": 11402,
+      "sha256": "3526034271d263ca0938603bfaa26629deaf314f03b123afd0b08828a5432dae",
+      "lines_of_code": 225,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc44_open_benchmark.py",
+      "size_bytes": 18330,
+      "sha256": "d41a85da30dc8ec0e416cca9c419d1c35e017049292cfbbe0b28313008aa76df",
+      "lines_of_code": 458,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc454_backfill_case_confidence.py",
+      "size_bytes": 2389,
+      "sha256": "00630b978aa49d5f0cdb23476b61c9ee4f3aa9e7c63e5a2602967644d26be6f5",
+      "lines_of_code": 79,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc45_prev_prod_parity.py",
+      "size_bytes": 7840,
+      "sha256": "583e006bc1ad96929c08fda757609733aabfc59fff34d9cbae7938fe25337fc2",
+      "lines_of_code": 191,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/rc5_delta_report.py",
+      "size_bytes": 4994,
+      "sha256": "a0762309ea713675ceeee64691755bc15b91b382bae4cd395c3e4048ce69be81",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/scripts/v1_5_0_release_metrics.py",
+      "size_bytes": 5201,
+      "sha256": "0fe8e2f0446433c05b86aebdddbb186ae76d539a30a5895764f9e310ca5a098a",
+      "lines_of_code": 134,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}

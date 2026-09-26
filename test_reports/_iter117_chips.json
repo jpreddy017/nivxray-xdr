@@ -1,0 +1,82 @@
+{
+  "all_chips": {
+    "inv-findings-ev-": [
+      {
+        "testid": "inv-findings-ev-fnd_e69f8284232acb5fea6f",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-ev-fnd_bc52d7a705491491de3b",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-ev-fnd_017bab2868f31f72f6b9",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-ev-fnd_e7e81fd4f17bc19c7e43",
+        "disabled": false
+      }
+    ],
+    "inv-findings-ent-": [],
+    "inv-findings-mitre-": [],
+    "inv-findings-inspect-": [
+      {
+        "testid": "inv-findings-inspect-fnd_e69f8284232acb5fea6f",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-inspect-fnd_bc52d7a705491491de3b",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-inspect-fnd_017bab2868f31f72f6b9",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-inspect-fnd_e7e81fd4f17bc19c7e43",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-inspect-fnd_50a82ed6ddcbba4f6781",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-inspect-fnd_21f96ddb4840f8de5dd2",
+        "disabled": false
+      }
+    ],
+    "inv-findings-pivot-": [
+      {
+        "testid": "inv-findings-pivot-fnd_e69f8284232acb5fea6f",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-pivot-fnd_bc52d7a705491491de3b",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-pivot-fnd_017bab2868f31f72f6b9",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-pivot-fnd_e7e81fd4f17bc19c7e43",
+        "disabled": false
+      },
+      {
+        "testid": "inv-findings-pivot-fnd_50a82ed6ddcbba4f6781",
+        "disabled": true
+      },
+      {
+        "testid": "inv-findings-pivot-fnd_21f96ddb4840f8de5dd2",
+        "disabled": true
+      }
+    ]
+  },
+  "entities_chip": {
+    "missing_globally": true
+  },
+  "mitre_chip": {
+    "missing_globally": true
+  }
+}

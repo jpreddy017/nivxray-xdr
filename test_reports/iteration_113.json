@@ -1,0 +1,71 @@
+{
+  "summary": "Frontend-only sweep of Wave B2-NAV (control-center + rail + scope navigator), B2-INV (unified incident workspace with engine-depth), Hunting, Reports, Clients, and SPA robustness. 34+ programmatic assertions across ~15 routes. Most requirements PASS; one CRITICAL React crash on /xdr/data-sources; one legacy engine deep-link redirect miss (?tab=evidence); one honesty/wording regression ('ALL CUSTOMERS' still shown in Control Center top-bar meta chip).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DataSourcesPage / NxPageShell",
+        "issue": "/xdr/data-sources renders a completely BLANK page (0 chars body, sidebar unmounts). React error boundary triggered inside a <span> in NxPageShell during DataSourcesPage render. Reproduces on every navigation and after hard refresh. Rail row xdr-nav-data-sources still points here so the user is stranded (no rail, no content). Not a redirect loop, not a 404 — a runtime crash.",
+        "selector": "[data-testid=\"xdr-nav-data-sources\"] -> /xdr/data-sources",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "Control Center top-bar meta chip",
+        "issue": "Legacy wording 'CUSTOMER  ALL CUSTOMERS' is still rendered in a <span> in the top meta strip on /xdr/control-center (and /xdr/clients). The Scope Navigator pill itself correctly reads 'All Authorized Tenants', but the separate top-bar chip retained the retired label. On other routes the same chip reads 'CUSTOMER  NOT RESOLVED' or the tenant name, so the wording is inconsistent and B2-NAV retirement is incomplete.",
+        "selector": "top-bar span containing 'ALL CUSTOMERS'",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "xdr-tenant-pill",
+        "issue": "The Scope Navigator pill DOM element contains both the scope label and the signed-in account email in the same subtree, so pill.text_content() concatenates to 'All Authorized Tenantsadmin@nivxray.com' (or 'p0f-aa5a24a3 · Incident lockedadmin@nivxray.com' when locked). Visually fine (separate columns), but any automated assertion on textContent will trip; consider wrapping the label in its own testid.",
+        "selector": "[data-testid=\"xdr-tenant-pill\"]",
+        "priority": "LOW"
+      },
+      {
+        "component": "Incident detail — intelligence overlay fetch",
+        "issue": "404 on GET /api/intelligence-overlays/?incident_id=<id>&target_kind=exec_summary&target_id=<id>&field_key=content when landing on /xdr/incidents/<id>. Non-fatal, but two 404s per incident open pollute the network panel; either the endpoint moved or the UI should not call it when no overlay exists.",
+        "selector": "IncidentIntelligenceContext",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "B2-INV legacy engine deep-link redirect (?tab=evidence)",
+        "issue": "/xdr/investigations/<id>?tab=evidence does NOT redirect to /xdr/incidents/<id>?tab=evidence — it stays on the investigations path. All other legacy engine tabs redirect correctly (trajectory→timeline, process→story, graph→entities, verdict→overview, security_state→overview, attack→mitre). Likely a missing mapping in App.jsx ENGINE_TAB_TO_ANALYST_TAB (`evidence` -> `evidence` identity case dropped) or the InvestigationRedirect() early-returns when src===dst.",
+        "affected_selectors": ["/xdr/investigations/<id>?tab=evidence"]
+      },
+      {
+        "flow": "Data-Sources permission errors",
+        "issue": "403s from GET /api/xdr/collectors, /api/xdr/collector/outbox/health, /api/xdr/collector/connectors, /api/xdr/collector/collectors, /api/edr/endpoints. These fire regardless of visible page (also from /xdr/admin, /xdr/assets). Whether the 403 is intentional-scoping or a real auth wiring bug, DataSourcesPage's crash is downstream of trying to render the response (or absence of a state guard).",
+        "affected_selectors": ["/xdr/data-sources","/xdr/admin","/xdr/assets"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "CRITICAL — Fix the React crash in DataSourcesPage/NxPageShell so /xdr/data-sources renders. Add an error boundary around the page body so a single-page crash does not unmount the XdrShell rail. Suspected trigger: rendering a null/undefined child inside a <span> when the collectors API returns 403.",
+    "MEDIUM — In App.jsx InvestigationRedirect(), ensure `evidence -> evidence` is still redirected from /xdr/investigations/<id> to /xdr/incidents/<id> preserving ?tab=evidence.",
+    "MEDIUM — Remove the legacy 'ALL CUSTOMERS' wording from the top-bar meta chip on Control Center and Clients; it should read 'All Authorized Tenants' (or match the Scope Navigator pill) per the B2-NAV rule.",
+    "LOW — Wrap the Scope Navigator label in its own data-testid (e.g. xdr-tenant-pill-label) so automated assertions can read the label without also picking up the account email.",
+    "LOW — Either implement the /api/intelligence-overlays/?target_kind=exec_summary endpoint or gate the client call so incident-open does not fire a request guaranteed to 404.",
+    "INFO — 403s on /api/xdr/collector/* and /api/edr/endpoints across multiple pages: confirm whether these are expected under the current admin scope or a wiring miss."
+  ],
+  "critical_code_review_comments": [
+    "DataSourcesPage lacks a defensive render when the collectors API returns non-200; the crash bubbles up to NxPageShell and takes down the shell — every heavy page should have a local error boundary.",
+    "XdrScopeNavigator pill correctly wires the incident lock (server-side `locked: true, basis: INHERITED_FROM_INCIDENT` is observed and the UI disables the menu and adds the '· Incident locked' suffix). Good.",
+    "InvestigationRedirect ENGINE_TAB_TO_ANALYST_TAB map appears to miss the `evidence` case — identity mapping is still a mapping and must be included.",
+    "The tab-button testids on the incident workspace are `incident-header-tabs-<key>` (not the generic `nx-tabs-<key>` suggested by the review request docs). Consumers writing tests should be told."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "n/a (frontend-only per request)",
+    "frontend": "~90% (all Control Center panels, all rail primaries+children, scope navigator+lock, hunting, reports, clients, investigations, B2-INV tabs+depth, SPA refresh all pass; data-sources crash + evidence redirect + ALL CUSTOMERS wording are the three failures)"
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Correct testids as observed on the live preview: incident tab buttons = incident-header-tabs-<key>; tab bodies = incident-tab-<key> (only the ACTIVE tab renders its body). Engine depth panels use ids like engine-depth-verdict-security_state, engine-depth-story-process, engine-depth-trajectory, engine-depth-evidence, engine-depth-graph, engine-depth-attack, with corresponding engine-depth-toggle-<suffix>. Hunting search takes 4-8s to resolve — wait at least 6s before asserting xdr-hunting-results or xdr-hunting-no-match. cc-needs-attention rows use testid cc-needs-attention-row-<incident_id>. The scope-select POST correctly returns basis=INHERITED_FROM_INCIDENT with locked=true and lock_reason when incident_id is bound, so the incident-tenant-lock behaviour is server-authoritative and the UI wires it correctly. Legacy `/xdr/mss-dashboard/_legacy` still renders `xdr-mss-dashboard` (rollback preserved). Do NOT re-test the incident queue internals per prior agent notes.",
+  "rca of the issue": "1) /xdr/data-sources: DataSourcesPage (imported at src/xdr/datasources/DataSourcesPage.jsx) throws inside a <span> child during render, caught by NxPageShell's error surface which then rethrows/unmounts, taking XdrShell with it. Console shows the classic 'The above error occurred in the <span> component' trace with no useful message (production build eats it). Reproduction: log in → click rail row 'Data Sources' or hard-refresh at /xdr/data-sources — body innerText is 0 chars and the rail disappears. Mitigation: wrap DataSourcesPage in a local <ErrorBoundary> that renders the honest 'NOT AVAILABLE — data-sources view failed to render, see console' block and, importantly, wrap NxPageShell's page slot too so the rail survives page-level crashes. 2) `?tab=evidence` legacy: the ENGINE_TAB_TO_ANALYST_TAB map in App.jsx does not include `evidence: 'evidence'` (identity), so InvestigationRedirect skips it. Add the identity entry (or default the redirect to always run for known engine tabs). 3) 'ALL CUSTOMERS' wording: an untouched span in the top meta chip still renders the legacy literal; grep for 'ALL CUSTOMERS' across /app/apps/nivxray-xdr/src and replace with the scopeLabel() output (or hide when scope is all_authorized)."
+}

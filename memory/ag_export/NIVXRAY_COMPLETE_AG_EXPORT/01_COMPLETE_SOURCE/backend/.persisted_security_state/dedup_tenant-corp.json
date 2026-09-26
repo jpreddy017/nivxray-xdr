@@ -1,0 +1,282 @@
+{
+  "tier_a:tenant-corp:144062f5-8f89-4c0e-a271-c4ba5174b190": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:144062f5-8f89-4c0e-a271-c4ba5174b190",
+    "source_id": "edr-agent-01",
+    "first_seen_at": "2026-09-03T23:48:24.780724+00:00",
+    "expires_at_epoch": 1788565704.7807226
+  },
+  "tier_a:tenant-corp:2e717ea4-e2f7-4564-98d3-934ed2fb0377": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:2e717ea4-e2f7-4564-98d3-934ed2fb0377",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:48:24.821968+00:00",
+    "expires_at_epoch": 1788565704.8219676
+  },
+  "tier_b:tenant-corp:6a0c8263b43af0279ba832883ca96d239ce4051a6c5bfb688a5680dc492411a3": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:6a0c8263b43af0279ba832883ca96d239ce4051a6c5bfb688a5680dc492411a3",
+    "source_id": "remediated-source-01",
+    "first_seen_at": "2026-09-03T23:48:24.856761+00:00",
+    "expires_at_epoch": 1788565704.8567584
+  },
+  "tier_a:tenant-corp:24dfedbc-2b7c-4489-b6fb-68c9fbc11ab1": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:24dfedbc-2b7c-4489-b6fb-68c9fbc11ab1",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:48:24.901881+00:00",
+    "expires_at_epoch": 1788565704.9018805
+  },
+  "tier_a:tenant-corp:d82ec3c6-875c-4ade-819e-1a3cfe5cb6b7": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:d82ec3c6-875c-4ade-819e-1a3cfe5cb6b7",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:48:24.931070+00:00",
+    "expires_at_epoch": 1788565704.9310696
+  },
+  "tier_a:tenant-corp:f9985b7b-b045-4e08-95ca-53c7346a5e7e": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:f9985b7b-b045-4e08-95ca-53c7346a5e7e",
+    "source_id": "edr-agent-01",
+    "first_seen_at": "2026-09-03T23:48:47.065090+00:00",
+    "expires_at_epoch": 1788565727.0650878
+  },
+  "tier_a:tenant-corp:2c726872-d9b6-4e54-b749-492a2fba2c25": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:2c726872-d9b6-4e54-b749-492a2fba2c25",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:48:47.154314+00:00",
+    "expires_at_epoch": 1788565727.1543117
+  },
+  "tier_a:tenant-corp:a4b7b926-fac1-4599-b9bb-26416fc58321": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:a4b7b926-fac1-4599-b9bb-26416fc58321",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:48:47.205097+00:00",
+    "expires_at_epoch": 1788565727.2050946
+  },
+  "tier_a:tenant-corp:1e826ac3-3cfe-44a9-9f96-09105cbabbca": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:1e826ac3-3cfe-44a9-9f96-09105cbabbca",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:48:47.226281+00:00",
+    "expires_at_epoch": 1788565727.2262805
+  },
+  "tier_b:tenant-corp:aa128262ec346b02130d14e6532bd2cf1110ace036e83c6bf2e26eaded23a0f8": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:aa128262ec346b02130d14e6532bd2cf1110ace036e83c6bf2e26eaded23a0f8",
+    "source_id": "remediated-source-01",
+    "first_seen_at": "2026-09-03T23:48:47.321525+00:00",
+    "expires_at_epoch": 1788565727.3215244
+  },
+  "tier_b:tenant-corp:5e6cd7395a571ed49ea805e7e8cb27a3bc97d9f4fa0e6a46a9b8efc2f4f7b665": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:5e6cd7395a571ed49ea805e7e8cb27a3bc97d9f4fa0e6a46a9b8efc2f4f7b665",
+    "source_id": "replay-equivalence_test",
+    "first_seen_at": "2026-09-03T23:48:47.367218+00:00",
+    "expires_at_epoch": 1788565727.3672173
+  },
+  "tier_b:tenant-corp:a69d33e3fdba5410b9bdb2d2c90bd9ab03882ec365cd40e54a49717cfbd9d09a": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:a69d33e3fdba5410b9bdb2d2c90bd9ab03882ec365cd40e54a49717cfbd9d09a",
+    "source_id": "replay-equivalence_test",
+    "first_seen_at": "2026-09-03T23:48:47.390628+00:00",
+    "expires_at_epoch": 1788565727.390625
+  },
+  "tier_a:tenant-corp:e2915b08-1682-45da-9703-a0d9b9623bcf": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:e2915b08-1682-45da-9703-a0d9b9623bcf",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:48:47.448989+00:00",
+    "expires_at_epoch": 1788565727.4489877
+  },
+  "tier_a:tenant-corp:f627e65d-45f8-4ae1-a388-6974824d10a0": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:f627e65d-45f8-4ae1-a388-6974824d10a0",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:48:47.474443+00:00",
+    "expires_at_epoch": 1788565727.4744415
+  },
+  "tier_a:tenant-corp:9b2007eb-bae8-48df-93fc-5ad01da58efc": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:9b2007eb-bae8-48df-93fc-5ad01da58efc",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:48:47.515775+00:00",
+    "expires_at_epoch": 1788565727.515774
+  },
+  "tier_a:tenant-corp:ac6c7c01-6920-4b97-a895-ce287628c474": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:ac6c7c01-6920-4b97-a895-ce287628c474",
+    "source_id": "edr-agent-01",
+    "first_seen_at": "2026-09-03T23:49:22.934980+00:00",
+    "expires_at_epoch": 1788565762.9349797
+  },
+  "tier_a:tenant-corp:de4b198f-8a7f-467a-b4cd-2e132d9e890b": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:de4b198f-8a7f-467a-b4cd-2e132d9e890b",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:22.997436+00:00",
+    "expires_at_epoch": 1788565762.9974353
+  },
+  "tier_a:tenant-corp:fbef0d66-0a8c-430e-a328-73664d29b2d2": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:fbef0d66-0a8c-430e-a328-73664d29b2d2",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:23.039192+00:00",
+    "expires_at_epoch": 1788565763.0391908
+  },
+  "tier_a:tenant-corp:43bc6487-0732-48e5-8af2-1675ac9d44dc": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:43bc6487-0732-48e5-8af2-1675ac9d44dc",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:23.061954+00:00",
+    "expires_at_epoch": 1788565763.0619526
+  },
+  "tier_b:tenant-corp:fea0c80454389e2db233f3eac7f8446fe26c89efaeed491b8640648f213af114": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:fea0c80454389e2db233f3eac7f8446fe26c89efaeed491b8640648f213af114",
+    "source_id": "remediated-source-01",
+    "first_seen_at": "2026-09-03T23:49:23.168371+00:00",
+    "expires_at_epoch": 1788565763.16837
+  },
+  "tier_a:tenant-corp:21a7254a-26dc-4d26-a7ab-0db7a8e83495": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:21a7254a-26dc-4d26-a7ab-0db7a8e83495",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:23.222670+00:00",
+    "expires_at_epoch": 1788565763.2226691
+  },
+  "tier_a:tenant-corp:b0d589e9-f764-4b7c-bf36-117294a03cb4": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:b0d589e9-f764-4b7c-bf36-117294a03cb4",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:23.274813+00:00",
+    "expires_at_epoch": 1788565763.2748115
+  },
+  "tier_a:tenant-corp:856e5884-a1e8-4c6e-8e1f-d3e29fa4a097": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:856e5884-a1e8-4c6e-8e1f-d3e29fa4a097",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:23.325069+00:00",
+    "expires_at_epoch": 1788565763.325067
+  },
+  "tier_a:tenant-corp:00cca814-ab05-4f87-98ec-7d4d351aa78b": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:00cca814-ab05-4f87-98ec-7d4d351aa78b",
+    "source_id": "edr-agent-01",
+    "first_seen_at": "2026-09-03T23:49:35.420262+00:00",
+    "expires_at_epoch": 1788565775.4202619
+  },
+  "tier_a:tenant-corp:6e781114-9742-4e71-813e-d78e4803be5b": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:6e781114-9742-4e71-813e-d78e4803be5b",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:35.487824+00:00",
+    "expires_at_epoch": 1788565775.4878237
+  },
+  "tier_a:tenant-corp:6e4660f3-bc15-4408-b4a8-8205ef4699d8": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:6e4660f3-bc15-4408-b4a8-8205ef4699d8",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:35.533944+00:00",
+    "expires_at_epoch": 1788565775.533942
+  },
+  "tier_a:tenant-corp:35767925-75d2-4f19-8b31-e1ca85bc8683": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:35767925-75d2-4f19-8b31-e1ca85bc8683",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:49:35.555894+00:00",
+    "expires_at_epoch": 1788565775.5558932
+  },
+  "tier_b:tenant-corp:13e9e9d477a1a58f76e97c07218d2dc44b94def76116117d6f0df609121063a5": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:13e9e9d477a1a58f76e97c07218d2dc44b94def76116117d6f0df609121063a5",
+    "source_id": "remediated-source-01",
+    "first_seen_at": "2026-09-03T23:49:35.663426+00:00",
+    "expires_at_epoch": 1788565775.6634245
+  },
+  "tier_a:tenant-corp:33295ae3-23ff-4577-9586-4c6181f2a9c7": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:33295ae3-23ff-4577-9586-4c6181f2a9c7",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:35.743173+00:00",
+    "expires_at_epoch": 1788565775.7431712
+  },
+  "tier_a:tenant-corp:460e9c36-413b-4c30-ad1a-665b876e2830": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:460e9c36-413b-4c30-ad1a-665b876e2830",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:35.803603+00:00",
+    "expires_at_epoch": 1788565775.8035996
+  },
+  "tier_a:tenant-corp:c3f18048-d27a-4b7a-bb28-d1011a8d8607": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:c3f18048-d27a-4b7a-bb28-d1011a8d8607",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:49:35.856000+00:00",
+    "expires_at_epoch": 1788565775.855997
+  },
+  "tier_a:tenant-corp:56c22d3a-1aca-40bb-bc4f-14131a5e73ee": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:56c22d3a-1aca-40bb-bc4f-14131a5e73ee",
+    "source_id": "edr-agent-01",
+    "first_seen_at": "2026-09-03T23:50:15.836199+00:00",
+    "expires_at_epoch": 1788565815.836198
+  },
+  "tier_a:tenant-corp:9da5f045-338d-4685-9d21-836f8384fbaf": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:9da5f045-338d-4685-9d21-836f8384fbaf",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:50:15.892454+00:00",
+    "expires_at_epoch": 1788565815.8924534
+  },
+  "tier_a:tenant-corp:ff6387bf-ad01-46f3-b1a4-f7ec3cdb7b0c": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:ff6387bf-ad01-46f3-b1a4-f7ec3cdb7b0c",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:50:15.930216+00:00",
+    "expires_at_epoch": 1788565815.930214
+  },
+  "tier_a:tenant-corp:cbfb472b-3e4a-4731-b1f6-2a81f5440be8": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:cbfb472b-3e4a-4731-b1f6-2a81f5440be8",
+    "source_id": "source-1",
+    "first_seen_at": "2026-09-03T23:50:15.950217+00:00",
+    "expires_at_epoch": 1788565815.9502156
+  },
+  "tier_b:tenant-corp:636f9238d4b4d2f56ccd37a00ba6f0d7f27705254119049d5bce1f374155e2ae": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_b:tenant-corp:636f9238d4b4d2f56ccd37a00ba6f0d7f27705254119049d5bce1f374155e2ae",
+    "source_id": "remediated-source-01",
+    "first_seen_at": "2026-09-03T23:50:16.049088+00:00",
+    "expires_at_epoch": 1788565816.0490873
+  },
+  "tier_a:tenant-corp:9842181d-d012-44b3-b705-bc3052e6ebf4": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:9842181d-d012-44b3-b705-bc3052e6ebf4",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:50:16.133867+00:00",
+    "expires_at_epoch": 1788565816.1338658
+  },
+  "tier_a:tenant-corp:e4f216dd-8061-4a49-8c99-64c6ff6be3fa": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:e4f216dd-8061-4a49-8c99-64c6ff6be3fa",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:50:16.191828+00:00",
+    "expires_at_epoch": 1788565816.1918266
+  },
+  "tier_a:tenant-corp:3674a0d6-9ac3-4e53-b3ed-9fed0d5e0b81": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:3674a0d6-9ac3-4e53-b3ed-9fed0d5e0b81",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:50:16.239883+00:00",
+    "expires_at_epoch": 1788565816.2398818
+  },
+  "tier_a:tenant-corp:9cad91ca-2c49-4c9f-a1ad-e222cada91d1": {
+    "tenant_id": "tenant-corp",
+    "event_fingerprint": "tier_a:tenant-corp:9cad91ca-2c49-4c9f-a1ad-e222cada91d1",
+    "source_id": "stream-source",
+    "first_seen_at": "2026-09-03T23:50:16.328187+00:00",
+    "expires_at_epoch": 1788565816.3281846
+  }
+}

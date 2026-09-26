@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only regression for CI slice fix + Feb-2026 data-integrity sprint. Fast slice (default addopts `-m \"not slow\"`) completes in 18.45s with 800 passed / 0 failed / 0 xfailed — well under the 60s target and the 20-min workflow ceiling. Slow gate runnable via explicit `-m slow -o addopts='-n 2 --dist loadscope'` (3 corpus-determinism tests pass in 0.79s; corpus-coverage file also carries the marker). All 8 sprint tests in test_feb2026_sprint.py pass. Live API verified against /api/rc5/golden/summary (all new fields present: category_coverage=15 cats, latency dict with p50/p95/mean, mitre_technique_count=14, mitre_technique_ids sorted, has_data=true, total=88, pass_rate=100.0), /api/rc5/golden/history?limit=3 (ascending ts, p50/p95/mean/mitre_technique_count/pass_rate all present per entry), /api/benchmark/cache/stats shape correct with all 6 keys, two sequential /real-world calls produced exactly 1 miss + 1 hit (hit_rate=0.5), key=(mtime_ns, corpus_len). Cache invalidation verified via unit test (test_invalidate_forces_miss + test_mtime_change_invalidates_cache). Parse regression sanity: benign cmd echo → Benign / T1059 / cmd LOLBAS; iwr downloader → Suspicious / T1105; reflective load → T1620 Reflective Code Loading. Sprint additions are purely additive and non-regressive.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/benchmark/refresh", "issue": "Live call from preview URL exceeded 120s wait window; refresh_once() triggers real OSINT feed pulls (MalwareBazaar 401 seen in backend logs). Cache-invalidation side-effect is fully covered by unit tests; only the outer /refresh HTTP wrapper is slow. Not caused by this sprint."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/rc5/unit/data_integrity/test_feb2026_sprint.py",
+    "/app/backend/pytest.ini",
+    "/app/backend/tests/rc5/unit/evidence_graph/test_corpus_determinism.py",
+    "/app/backend/tests/rc5/unit/evidence_graph/test_corpus_coverage.py"
+  ],
+  "action_items": [
+    "Optional: Skip corpus_refresh.refresh_once() when NIVXRAY_OFFLINE=true or add a 15s outer timeout to /api/benchmark/refresh so pod-facing curl doesn't hang when external feeds throttle. Not blocking for the CI slice fix.",
+    "Restoring `CI=true craco build` (mentioned as P1 pending) is a frontend concern and outside this backend-only iteration."
+  ],
+  "critical_code_review_comments": [
+    "pytest.ini addopts include `-m \"not slow\"` — this is a *default* filter; any developer running `pytest -m foo` will unknowingly OR it with `not slow`. Considered acceptable since the marker's intent is exactly that (opt-in only), but worth a comment in pytest.ini for future maintainers.",
+    "routers/benchmark.py::_invalidate_cache does not reset hits/misses counters intentionally so telemetry survives invalidations — matches unit-test expectation (test_invalidate_forces_miss asserts hits=1, misses=2). Good.",
+    "routers/rc5_golden.py::golden_summary correctly returns empty containers + has_data=False when no run exists (safety net verified). category_coverage/latency/mitre fields align 1:1 with GoldenRunReport."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md, verified working via /api/auth/login)",
+  "seed_data_creation": "None — used existing golden corpus + persisted golden runs in Mongo.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CI slice baseline is now 800 passed in ~18s with `-m \"not slow\"` (default). Slow-marked files: test_corpus_determinism.py, test_corpus_coverage.py. Full gate is `-m 'slow or not slow'` (nightly). Golden summary/history include mitre_technique_count/ids + latency dict. Benchmark cache key = (REPORT_JSON.mtime_ns, len(CORPUS)), stats endpoint public at /api/benchmark/cache/stats. Live /api/benchmark/refresh can be slow (>120s) due to OSINT feed calls — prefer unit tests for cache-invalidation coverage.",
+  "rca of the issue": "n/a — regression verification only, no bug reproduced."
+}

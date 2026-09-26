@@ -1,0 +1,841 @@
+{
+  "sample": "S4_iex_binary_download",
+  "payload": "\u2022 Invoke-Expression (New-Object \"`N`e`T`.`W`e`B`C`l`i`e`N`T\").\"`D`o`w`N`l`o`A`d`S`T`R`i`N`g\"(  powershell   -NonIn  -NoProf     IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100101{1101100{1101100{1101111>100000{1010111>1101111>1110010m1101100O1100100a100001O100111&100000@101101&1000110<1101111a1110010&1100101&1100111O1110010r1101111r1110101<1101110O1100100m1000011{1101111>1101100m1101111{1110010m100000{1000111a1110010>1100101>1100101m1101110&111011O100000r1010111&1110010l1101001{1110100{1100101r101101@1001000&1101111>1110011<1110100&100000>100111a1001111{1100010a1100110@1110101{1110011&1100011r1100001@1110100l1101001>1101111a1101110a100000@1010010a1101111r1100011a1101011m1110011{100001<100111a100000{101101@1000110a1101111{1110010m1100101a1100111>1110010l1101111m1110101l1101110@1100100r1000011&1101111r1101100O1101111m1110010a100000@1000111@1110010O1100101@1100101@1101110'.Split( 'l@>{r<mOa&') | ForEach-Object{ ( [Convert]::ToInt16(( [String]$_ ) , 2 ) -As[Char]) } ))",
+  "smart": {
+    "recipe": [
+      {
+        "op": "ps-binary-split-decode",
+        "args": {},
+        "reason": "Applied ps-binary-split-decode"
+      }
+    ],
+    "output": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:PS_BINARY_SPLIT_TOINT16 \u00b7 conf 100/100\n  Chain:       ps-binary-split-decode\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n\n  LOLBIN       powershell.exe\n\n  Behavior\n    1. Executes downloaded content in-memory with IEX (no disk\n        write)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: PowerShell '<binary+junk>'.Split(delims) | ForEach{[Convert]::ToInt16($_, 2/10/16) -As[Char]} \u2014 Invoke-Obfuscation binary/hex-array shape"
+    ],
+    "detected_type": null,
+    "engine": "archetype:PS_BINARY_SPLIT_TOINT16",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "ps-binary-split-decode",
+        "args": {},
+        "reason": "Applied ps-binary-split-decode",
+        "output_preview": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+        "output_length": 104,
+        "evidence": {
+          "encoding": "PowerShell binary-split / ToInt16",
+          "op": "ps-binary-split-decode",
+          "length": 104,
+          "ascii": true,
+          "entropy": 4.364,
+          "hex_preview": "57 72 69 74 65 2d 48 6f 73 74 20 27 48 65 6c 6c \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "ps-binary-split-decode"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "ps-generic",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "base64-decode",
+            "gzip-decompress",
+            "download-shell-bg"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 1050,
+        "length_bucket": "l",
+        "entropy": 3.271,
+        "b64_density": 0.843,
+        "has_powershell": true,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "script_wrapper",
+        "entropy": 3.271,
+        "length": 1050,
+        "letter_ratio": 0.166,
+        "digit_ratio": 0.677,
+        "punct_ratio": 0.129,
+        "space_ratio": 0.029,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.253,
+        "priors": [
+          "extract-payload",
+          "powershell-encoded",
+          "powershell-deobfuscate"
+        ],
+        "reasons": [
+          "script-marker"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 4.364,
+        "length": 104,
+        "letter_ratio": 0.808,
+        "digit_ratio": 0.0,
+        "punct_ratio": 0.106,
+        "space_ratio": 0.087,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.167,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 1.0,
+      "output_linguistic_score": 0.9194,
+      "linguistic_delta": -0.0806,
+      "confidence": {
+        "confidence": 0.7491,
+        "band": "medium",
+        "structural": 0.7,
+        "readability": 0.9637,
+        "entropy_sanity": 0.95,
+        "context": 0.3,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.92",
+          "entropy: natural-text-entropy=4.36",
+          "context: wrapper-implied-payload-but-no-command-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9637,
+            "reason": "printable=1.00, linguistic=0.92"
+          },
+          "entropy_sanity": {
+            "score": 0.95,
+            "reason": "natural-text-entropy=4.36"
+          },
+          "context": {
+            "score": 0.3,
+            "reason": "wrapper-implied-payload-but-no-command-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [ps-binary-split-decode] did not linguistically improve readability (\u0394=-0.081 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Suspicious",
+      "confidence": 45,
+      "reason": "Peeled 1 encoding layer(s) without an executable signature \u2014 reviewer confirmation required.",
+      "indicators": [
+        {
+          "label": "Low entropy (4.36) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "PowerShell binary-split / ToInt16 layer peeled",
+          "kind": "neutral"
+        }
+      ],
+      "recommended_action": "Escalate to IR for behavioural sandbox / dynamic analysis and confirm the terminal payload against threat-intel."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Suspicious",
+      "level": "suspicious",
+      "score": 45
+    },
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell (hidden)",
+        "tactic": "Execution"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "powershell.exe",
+        "purposes": [
+          "Execute",
+          "Download"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1197"
+        ],
+        "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+        "snippet": "`A`d`S`T`R`i`N`g\"( powershell -NonIn -NoProf IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "\u2022 Invoke-Expression (New-Object \"`N`e`T`.`W`e`B`C`l`i`e`N`T\").\"`D`o`w`N`l`o`A`d`S`T`R`i`N`g\"(  powershell   -NonIn  -NoProf     IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100101{1101100{1101100{1101111>100000{1010111>1101111>1110010m1101100O1100100a100001O100111&100000@101101&1000110<1101111a1110010&1100101&1100111O1110010r110",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "powershell.exe",
+            "purposes": [
+              "Execute",
+              "Download"
+            ],
+            "mitre": [
+              "T1059.001",
+              "T1197"
+            ],
+            "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+            "snippet": "`A`d`S`T`R`i`N`g\"( powershell -NonIn -NoProf IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1059.001",
+            "technique": "PowerShell (hidden)",
+            "tactic": "Execution"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "IEX_Invocation",
+            "severity": "high",
+            "match": "Invoke-Expression",
+            "description": "In-memory execution via IEX"
+          },
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Invoke",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          },
+          {
+            "rule": "PS_String_Split_Evasion",
+            "severity": "medium",
+            "match": ".Split( 'l@>{r<mOa&')",
+            "description": "String .Split() with 3+ char junk separator \u2014 delimiter-strip obfuscation"
+          },
+          {
+            "rule": "PS_ToInt16_Binary_Hex",
+            "severity": "high",
+            "match": "ToInt16(( [String]$_ ) , 2 )",
+            "description": "PowerShell ToInt16 base-2/base-16 conversion \u2014 binary/hex payload reassembly"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 26,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "ForegroundColor",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      }
+    ],
+    "output_raw": "Write-Host 'Hello World!' -ForegroundColor Green; Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      archetype:PS_BINARY_SPLIT_TOINT16 \u00b7 conf 100/100\n  Chain:       ps-binary-split-decode\n\n  MITRE ATT&CK\n    T1059.001    \u00b7 Execution\n\n  LOLBIN       powershell.exe\n\n  Behavior\n    1. Executes downloaded content in-memory with IEX (no disk\n        write)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  },
+  "magic": {
+    "initial_score": {
+      "score": 0.45,
+      "printable": 1.0,
+      "english": 0.0,
+      "entropy": 1.445,
+      "size": 45,
+      "reasons": [
+        "printable=1.00"
+      ]
+    },
+    "candidates_explored": 1,
+    "isolation_note": "Isolated 45-char base64 payload from script wrapper",
+    "top_results": [
+      {
+        "chain": [
+          {
+            "op": "extract-payload",
+            "args": {}
+          }
+        ],
+        "output": "1010010a1101111r1100011a1101011m1110011100001",
+        "score_breakdown": {
+          "score": 0.45,
+          "printable": 1.0,
+          "english": 0.0,
+          "entropy": 1.445,
+          "size": 45,
+          "reasons": [
+            "printable=1.00"
+          ]
+        },
+        "path_scores": [
+          0.45
+        ],
+        "entropy": 1.445,
+        "is_shellcode": false
+      }
+    ],
+    "corrupted_container": null
+  },
+  "ai_decode": {
+    "reasoning": "Input already appears to be plaintext \u2014 no decoding needed.",
+    "recipe": [],
+    "output": "",
+    "steps_output": [],
+    "detected_type": {
+      "type": "plaintext",
+      "label": "Plain text \u2014 no encoding detected"
+    },
+    "errors": [],
+    "winner_engine": "plaintext-guard",
+    "confidence": 100,
+    "quality_reasons": [
+      "input is already plaintext (\u226595% printable, no encoding markers)"
+    ],
+    "stopped_gracefully": true,
+    "graceful_message": "Input appears to be plaintext already \u2014 no base64 / hex / gzip / XOR encoding detected. AI DECODE only helps unwrap encoded/obfuscated layers. Use ANALYZE + OSINT (or AUTO INVESTIGATE) to run MITRE mapping, IOC extraction, and AI verdict on this commandline directly.",
+    "alternate": {
+      "engine": "none",
+      "confidence": 0,
+      "recipe": []
+    }
+  },
+  "analyze": {
+    "iocs": {
+      "urls": [],
+      "ips": [],
+      "domains": [],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1059.001",
+        "technique": "PowerShell (hidden)",
+        "tactic": "Execution",
+        "source": "heuristic"
+      }
+    ],
+    "yara": [
+      {
+        "rule": "IEX_Invocation",
+        "severity": "high",
+        "match": "IEX",
+        "description": "In-memory execution via IEX"
+      },
+      {
+        "rule": "PS_CaseMixed_Obfuscation",
+        "severity": "low",
+        "match": "ForegroundColor",
+        "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+      },
+      {
+        "rule": "PS_String_Split_Evasion",
+        "severity": "medium",
+        "match": ".Split( 'l@>{r<mOa&')",
+        "description": "String .Split() with 3+ char junk separator \u2014 delimiter-strip obfuscation"
+      },
+      {
+        "rule": "PS_ToInt16_Binary_Hex",
+        "severity": "high",
+        "match": "ToInt16(( [String]$_ ) , 2 )",
+        "description": "PowerShell ToInt16 base-2/base-16 conversion \u2014 binary/hex payload reassembly"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "powershell.exe",
+        "purposes": [
+          "Execute",
+          "Download"
+        ],
+        "mitre": [
+          "T1059.001",
+          "T1197"
+        ],
+        "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+        "snippet": "ion LOLBIN powershell.exe Behavior 1. Executes downloaded content in-memory with IEX (no disk write) Per-layer decoded outputs available in the Cha",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+        "source": "curated"
+      }
+    ],
+    "risk": {
+      "score": 71,
+      "verdict": "Malicious",
+      "level": "high"
+    },
+    "osint": {
+      "ips": [],
+      "domains": [],
+      "urls": [],
+      "hashes": [],
+      "sources_used": [
+        "ip-api.com (geolocation, no key)",
+        "system DNS (reverse lookup, resolution)",
+        "AbuseIPDB",
+        "URLScan.io",
+        "AlienVault OTX",
+        "Hybrid Analysis"
+      ]
+    },
+    "ti_hits": [],
+    "ai_verdict": {
+      "error": "AI timed out (>55s) \u2014 narrative skipped"
+    },
+    "description": {
+      "error": "AI timed out (>55s) \u2014 narrative skipped"
+    },
+    "corrupt_payload": null
+  },
+  "predict_tree": {
+    "tree": {
+      "tree_id": "c04eccdcea",
+      "platform": "windows",
+      "root": {
+        "node_id": "f118d9adcd",
+        "parent_node_id": null,
+        "process": "powershell.exe",
+        "command_line": "powershell -NonIn -NoProf IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100101{1101100{1101100{1101111>100000{1010111>1101111>1110010m1101100O1100100a100001O100111&100000@101101&1000110<1101111a1110010&1100101&1100111O1110010r1101111r1110101<1101110O1100100m1000011{1101111>1101100m1101111{1110010m100000{1000111a1110010>1100101>1100101m1101110&111011O100000r1010111&1110010l1101001{1110100{1100101r101101@1001000&1101111>1110011<1110100&100000>100111a1001111{1100010a1100110@1110101{1110011&1100011r1100001@1110100l1101001>1101111a1101110a100000@1010010a1101111r1100011a1101011m1110011{100001<100111a100000{101101@1000110a1101111{1110010m1100101a1100111>1110010l1101111m1110101l1101110@1100100r1000011&1101111r1101100O1101111m1110010a100000@1000111@1110010O1100101@1100101@1101110'.Split( 'l@>{r<mOa&') | ForEach-Object{ ( [Convert]::ToInt16(( [String]$_ ) , 2 ) -As[Char]) } ))",
+        "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "hashes": {},
+        "signer": "Microsoft Windows",
+        "pid": null,
+        "ppid": null,
+        "user": null,
+        "integrity_level": "medium",
+        "action": "Execute obfuscated binary-encoded PowerShell payload via IEX",
+        "lolbin": true,
+        "mitre_ids": [
+          "T1059.001",
+          "T1027",
+          "T1140"
+        ],
+        "tactic": "execution",
+        "ts_delta_ms": 0,
+        "timestamp": null,
+        "evidence": {
+          "citation": "powershell -NonIn -NoProf IEX",
+          "layer_index": 0,
+          "inferred": false,
+          "confidence": 1.0
+        },
+        "children": [
+          {
+            "node_id": "4944365199",
+            "parent_node_id": null,
+            "process": "powershell.exe",
+            "command_line": "Write-Host 'Hello World!' -ForegroundColor Green",
+            "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "hashes": {},
+            "signer": "Microsoft Windows",
+            "pid": null,
+            "ppid": null,
+            "user": null,
+            "integrity_level": "medium",
+            "action": "Display benign console output (likely evasion test)",
+            "lolbin": true,
+            "mitre_ids": [
+              "T1059.001"
+            ],
+            "tactic": "execution",
+            "ts_delta_ms": 50,
+            "timestamp": null,
+            "evidence": {
+              "citation": "Write-Host 'Hello World!' -ForegroundColor Green",
+              "layer_index": 1,
+              "inferred": false,
+              "confidence": 1.0
+            },
+            "children": []
+          },
+          {
+            "node_id": "e974d7e081",
+            "parent_node_id": null,
+            "process": "powershell.exe",
+            "command_line": "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+            "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "hashes": {},
+            "signer": "Microsoft Windows",
+            "pid": null,
+            "ppid": null,
+            "user": null,
+            "integrity_level": "medium",
+            "action": "Display benign console output (likely evasion test)",
+            "lolbin": true,
+            "mitre_ids": [
+              "T1059.001"
+            ],
+            "tactic": "execution",
+            "ts_delta_ms": 100,
+            "timestamp": null,
+            "evidence": {
+              "citation": "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+              "layer_index": 1,
+              "inferred": false,
+              "confidence": 1.0
+            },
+            "children": []
+          }
+        ]
+      },
+      "rationale": {
+        "verdict": "Obfuscated PowerShell execution using binary-encoding with benign payload (likely tradecraft test)",
+        "severity": "medium",
+        "confidence": 0.95,
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "hashes": [],
+          "files": []
+        },
+        "lolbins": [
+          "powershell.exe"
+        ],
+        "mitre_ids": [
+          "T1059.001",
+          "T1027",
+          "T1140"
+        ],
+        "tactics": [
+          "execution",
+          "defense-evasion"
+        ],
+        "sigma_opportunities": [
+          "Sigma: PowerShell with -NonInteractive/-NoProfile and IEX in command line",
+          "Sigma: PowerShell [Convert]::ToInt16 binary string decoding pattern",
+          "Sigma: PowerShell ForEach-Object with char-type casting after ToInt16"
+        ],
+        "yara_opportunities": [
+          "YARA: string \"[Convert]::ToInt16\" combined with \"Split(\" and \"ForEach-Object\"",
+          "YARA: regex pattern for binary string sequences (1010111, 1110010, etc.) with delimiter characters",
+          "YARA: PowerShell IEX(-Join construction with binary-to-char conversion"
+        ],
+        "evidence_refs": [
+          "powershell -NonIn -NoProf IEX",
+          "[Convert]::ToInt16",
+          "Split( 'l@>{r<mOa&')",
+          "ForEach-Object",
+          "Write-Host 'Hello World!' -ForegroundColor Green",
+          "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green"
+        ],
+        "analyst_summary": "This payload demonstrates multi-layer PowerShell obfuscation using binary-string encoding combined with delimiter-based splitting (Bohannon US-17 'Split/Replace junk' variant). The RAW_INPUT contains backtick-per-character obfuscation in the New-Object instantiation (`N`e`T`.`W`e`B`C`l`i`e`N`T` and `D`o`w`N`l`o`A`d`S`T`R`i`N`g), a known Revoke-Obfuscation signature. The inner payload uses [Convert]::ToInt16 to decode binary strings (split by multi-character delimiter 'l@>{r<mOa&') into ASCII characters, ultimately revealing two benign Write-Host statements. While the decoded payload is harmless, the tradecraft matches APT/red-team obfuscation techniques designed to evade signature-based detections. The -NonInteractive/-NoProfile flags and IEX invocation are standard OPSEC for fileless execution. Recommend correlation with parent process, user context, and network activity to determine if this is legitimate testing or an actual intrusion attempt."
+      },
+      "evidence_source": "insufficient",
+      "warnings": [
+        "root citation missing/uncorroborated \u2014 evidence_source=insufficient"
+      ],
+      "generated_ts": "2026-07-19T00:57:59.052193+00:00"
+    },
+    "edge_list": {
+      "tree_id": "c04eccdcea",
+      "platform": "windows",
+      "evidence_source": "insufficient",
+      "nodes": [
+        {
+          "node_id": "f118d9adcd",
+          "parent_node_id": null,
+          "process": "powershell.exe",
+          "command_line": "powershell -NonIn -NoProf IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@1101111l1110011l1110100a100000<100111m1001000r1100101{1101100{1101100{1101111>100000{1010111>1101111>1110010m1101100O1100100a100001O100111&100000@101101&1000110<1101111a1110010&1100101&1100111O1110010r1101111r1110101<1101110O1100100m1000011{1101111>1101100m1101111{1110010m100000{1000111a1110010>1100101>1100101m1101110&111011O100000r1010111&1110010l1101001{1110100{1100101r101101@1001000&1101111>1110011<1110100&100000>100111a1001111{1100010a1100110@1110101{1110011&1100011r1100001@1110100l1101001>1101111a1101110a100000@1010010a1101111r1100011a1101011m1110011{100001<100111a100000{101101@1000110a1101111{1110010m1100101a1100111>1110010l1101111m1110101l1101110@1100100r1000011&1101111r1101100O1101111m1110010a100000@1000111@1110010O1100101@1100101@1101110'.Split( 'l@>{r<mOa&') | ForEach-Object{ ( [Convert]::ToInt16(( [String]$_ ) , 2 ) -As[Char]) } ))",
+          "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "hashes": {},
+          "signer": "Microsoft Windows",
+          "pid": null,
+          "ppid": null,
+          "user": null,
+          "integrity_level": "medium",
+          "action": "Execute obfuscated binary-encoded PowerShell payload via IEX",
+          "lolbin": true,
+          "mitre_ids": [
+            "T1059.001",
+            "T1027",
+            "T1140"
+          ],
+          "tactic": "execution",
+          "ts_delta_ms": 0,
+          "timestamp": null,
+          "evidence": {
+            "citation": "powershell -NonIn -NoProf IEX",
+            "layer_index": 0,
+            "inferred": false,
+            "confidence": 1.0
+          }
+        },
+        {
+          "node_id": "4944365199",
+          "parent_node_id": "f118d9adcd",
+          "process": "powershell.exe",
+          "command_line": "Write-Host 'Hello World!' -ForegroundColor Green",
+          "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "hashes": {},
+          "signer": "Microsoft Windows",
+          "pid": null,
+          "ppid": null,
+          "user": null,
+          "integrity_level": "medium",
+          "action": "Display benign console output (likely evasion test)",
+          "lolbin": true,
+          "mitre_ids": [
+            "T1059.001"
+          ],
+          "tactic": "execution",
+          "ts_delta_ms": 50,
+          "timestamp": null,
+          "evidence": {
+            "citation": "Write-Host 'Hello World!' -ForegroundColor Green",
+            "layer_index": 1,
+            "inferred": false,
+            "confidence": 1.0
+          }
+        },
+        {
+          "node_id": "e974d7e081",
+          "parent_node_id": "f118d9adcd",
+          "process": "powershell.exe",
+          "command_line": "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+          "executable_path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "hashes": {},
+          "signer": "Microsoft Windows",
+          "pid": null,
+          "ppid": null,
+          "user": null,
+          "integrity_level": "medium",
+          "action": "Display benign console output (likely evasion test)",
+          "lolbin": true,
+          "mitre_ids": [
+            "T1059.001"
+          ],
+          "tactic": "execution",
+          "ts_delta_ms": 100,
+          "timestamp": null,
+          "evidence": {
+            "citation": "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green",
+            "layer_index": 1,
+            "inferred": false,
+            "confidence": 1.0
+          }
+        }
+      ],
+      "edges": [
+        {
+          "parent": "f118d9adcd",
+          "child": "4944365199"
+        },
+        {
+          "parent": "f118d9adcd",
+          "child": "e974d7e081"
+        }
+      ],
+      "rationale": {
+        "verdict": "Obfuscated PowerShell execution using binary-encoding with benign payload (likely tradecraft test)",
+        "severity": "medium",
+        "confidence": 0.95,
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "hashes": [],
+          "files": []
+        },
+        "lolbins": [
+          "powershell.exe"
+        ],
+        "mitre_ids": [
+          "T1059.001",
+          "T1027",
+          "T1140"
+        ],
+        "tactics": [
+          "execution",
+          "defense-evasion"
+        ],
+        "sigma_opportunities": [
+          "Sigma: PowerShell with -NonInteractive/-NoProfile and IEX in command line",
+          "Sigma: PowerShell [Convert]::ToInt16 binary string decoding pattern",
+          "Sigma: PowerShell ForEach-Object with char-type casting after ToInt16"
+        ],
+        "yara_opportunities": [
+          "YARA: string \"[Convert]::ToInt16\" combined with \"Split(\" and \"ForEach-Object\"",
+          "YARA: regex pattern for binary string sequences (1010111, 1110010, etc.) with delimiter characters",
+          "YARA: PowerShell IEX(-Join construction with binary-to-char conversion"
+        ],
+        "evidence_refs": [
+          "powershell -NonIn -NoProf IEX",
+          "[Convert]::ToInt16",
+          "Split( 'l@>{r<mOa&')",
+          "ForEach-Object",
+          "Write-Host 'Hello World!' -ForegroundColor Green",
+          "Write-Host 'Obfuscation Rocks!' -ForegroundColor Green"
+        ],
+        "analyst_summary": "This payload demonstrates multi-layer PowerShell obfuscation using binary-string encoding combined with delimiter-based splitting (Bohannon US-17 'Split/Replace junk' variant). The RAW_INPUT contains backtick-per-character obfuscation in the New-Object instantiation (`N`e`T`.`W`e`B`C`l`i`e`N`T` and `D`o`w`N`l`o`A`d`S`T`R`i`N`g), a known Revoke-Obfuscation signature. The inner payload uses [Convert]::ToInt16 to decode binary strings (split by multi-character delimiter 'l@>{r<mOa&') into ASCII characters, ultimately revealing two benign Write-Host statements. While the decoded payload is harmless, the tradecraft matches APT/red-team obfuscation techniques designed to evade signature-based detections. The -NonInteractive/-NoProfile flags and IEX invocation are standard OPSEC for fileless execution. Recommend correlation with parent process, user context, and network activity to determine if this is legitimate testing or an actual intrusion attempt."
+      },
+      "warnings": [
+        "root citation missing/uncorroborated \u2014 evidence_source=insufficient"
+      ]
+    },
+    "ascii": "[WINDOWS] tree_id=c04eccdcea \u00b7 source=insufficient\nverdict : Obfuscated PowerShell execution using binary-encoding with benign payload (likely tradecraft test)  (medium)\nMITRE   : T1059.001, T1027, T1140\nLOLBins : powershell.exe\n\n\u2514\u2500 powershell.exe  [T1059.001,T1027,T1140]\n     cmd : powershell -NonIn -NoProf IEX( -Join ('1010111<1110010>1101001a1110100>1100101r101101{1001000@110...\n     \u2192 Execute obfuscated binary-encoded PowerShell payload via IEX\n   \u251c\u2500 powershell.exe  [T1059.001]\n   \u2502    cmd : Write-Host 'Hello World!' -ForegroundColor Green\n   \u2502    \u2192 Display benign console output (likely evasion test)\n   \u2514\u2500 powershell.exe  [T1059.001]\n        cmd : Write-Host 'Obfuscation Rocks!' -ForegroundColor Green\n        \u2192 Display benign console output (likely evasion test)\n\nSUMMARY:\n  This payload demonstrates multi-layer PowerShell obfuscation using binary-string encoding combined with delimiter-based splitting (Bohannon US-17 'Split/Replace junk' variant). The RAW_INPUT contains backtick-per-character obfuscation in the New-Object instantiation (`N`e`T`.`W`e`B`C`l`i`e`N`T` and `D`o`w`N`l`o`A`d`S`T`R`i`N`g), a known Revoke-Obfuscation signature. The inner payload uses [Convert]::ToInt16 to decode binary strings (split by multi-character delimiter 'l@>{r<mOa&') into ASCII characters, ultimately revealing two benign Write-Host statements. While the decoded payload is harmless, the tradecraft matches APT/red-team obfuscation techniques designed to evade signature-based detections. The -NonInteractive/-NoProfile flags and IEX invocation are standard OPSEC for fileless execution. Recommend correlation with parent process, user context, and network activity to determine if this is legitimate testing or an actual intrusion attempt."
+  }
+}

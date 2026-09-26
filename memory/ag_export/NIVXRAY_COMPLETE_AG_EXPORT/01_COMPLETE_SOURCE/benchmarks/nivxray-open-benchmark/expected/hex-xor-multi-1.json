@@ -1,0 +1,23 @@
+{
+  "id": "hex-xor-multi-1",
+  "algorithm": "Hex+XOR-multi",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "hex-decode",
+    "utf8-key",
+    "xor-multi-inline-key",
+    "utf8-decode"
+  ],
+  "runtime_stages": [],
+  "expected_verdict": "malicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete"
+}

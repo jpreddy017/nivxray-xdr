@@ -7,8 +7,9 @@ import api from "@/lib/api";
 export async function listIncidents({
   limit = 100, lens = null, state = null, priority = null, severity = null,
   verdict = null, confidence = null, customer = null,
-  detection_source = null, technique = null,
+  detection_source = null, technique = null, assignment = null,
   sort = "updated_at", order = "desc",
+  ...rest
 } = {}) {
   const params = { limit, sort, order };
   if (lens) params.lens = lens;
@@ -20,6 +21,17 @@ export async function listIncidents({
   if (customer) params.customer = customer;
   if (detection_source) params.detection_source = detection_source;
   if (technique) params.technique = technique;
+  // Assignment is WORK MANAGEMENT, not visibility (P0-2b):
+  // unassigned | mine | team.
+  if (assignment) params.assignment = assignment;
+  // Column search + allow-listed negative predicates.
+  for (const k of ["number", "name", "assignee",
+                       "exclude_customer", "exclude_assignee",
+                       "exclude_detection_source", "exclude_priority",
+                       "exclude_severity", "exclude_verdict",
+                       "exclude_mitre"]) {
+    if (rest?.[k]) params[k] = rest[k];
+  }
   const { data } = await api.get("/incidents", { params });
   return data;
 }
@@ -104,9 +116,66 @@ export async function getIncident(incidentId) {
   return data;
 }
 
+/** Task 3A · Investigation pivots. The SERVER decides which pivot exists:
+ *  a native console link is only ever present when the tenant's own
+ *  integration record declares it. Nothing here is built client-side. */
+export async function getIncidentPivots(incidentId) {
+  const { data } = await api.get(
+    `/incidents/${encodeURIComponent(incidentId)}/pivots`,
+  );
+  return data;
+}
+
 export async function getIncidentSummary(incidentId) {
   const { data } = await api.get(
     `/incidents/${encodeURIComponent(incidentId)}/summary`,
+  );
+  return data;
+}
+
+/** S3-A · the causal analysis this incident is associated with.
+ *
+ *  Authority: `S2-mini` — the server resolves the caller's tenant and only
+ *  answers for an incident they are authorized for, and it states whether
+ *  causal analysis is associated with this incident at all
+ *  (`engine_association.state`). The frontend NEVER infers association from
+ *  an empty payload, and never substitutes another case. */
+export async function getIncidentCausalAnalysis(incidentId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/investigation`
+    + `?limit=500&profile=soc_balanced`,
+  );
+  return data;
+}
+
+/** S3-B · the engine's deterministic "why isn't this <pattern>?" answer for
+ *  ONE hypothesis. Same authority as the causal analysis read: the server
+ *  resolves the tenant and only answers for an incident this principal is
+ *  authorized for. Read-only — the frontend never proposes a hypothesis the
+ *  engine did not list, and never computes its own. */
+export async function getIncidentVerdictHypothesis(incidentId, patternId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/investigation/explain/`
+    + `${encodeURIComponent(patternId)}?profile=soc_balanced`,
+  );
+  return data;
+}
+
+/** S3-C · the device trajectory frames — the authoritative, time-bearing
+ *  evidence events the causal milestones cite. Same authority as the causal
+ *  analysis read. Each frame carries its own `ts` (activity time) and its own
+ *  `provenance` (source · normalizer · ingest job · ingested_at), which is
+ *  why a milestone never needs a clock of its own. */
+export async function getIncidentDeviceTrajectory(incidentId) {
+  const { data } = await api.get(
+    `/v2/cases/${encodeURIComponent(incidentId)}/trajectory/device?limit=500`,
+  );
+  return data;
+}
+
+export async function getIncidentCanonicalEvidence(incidentId) {
+  const { data } = await api.get(
+    `/incidents/${encodeURIComponent(incidentId)}/canonical-evidence`,
   );
   return data;
 }

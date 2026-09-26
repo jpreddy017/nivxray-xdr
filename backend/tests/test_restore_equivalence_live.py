@@ -33,11 +33,32 @@ from bson import ObjectId
 sys.path.insert(0, "/app/backend")
 # ── The live test targets the DEPLOYED backend which runs on
 # ``DB_NAME=test_database`` (per /app/backend/.env).  The pytest
-# conftest sets ``DB_NAME=nivxray_ci_local`` for in-process tests —
-# override that here so our sync inserts land in the same Mongo DB
-# that the live backend reads from.  Must run BEFORE deps imports.
-os.environ["MONGO_URL"] = os.environ.get("LIVE_MONGO_URL", "mongodb://localhost:27017")
-os.environ["DB_NAME"]   = os.environ.get("LIVE_DB_NAME",   "test_database")
+# conftest sets ``DB_NAME=nivxray_ci_local`` for in-process tests, so this
+# module's own sync inserts must land in the live DB instead.
+#
+# P0.5: this override used to run at IMPORT time, which repointed
+# ``MONGO_URL``/``DB_NAME`` for the WHOLE pytest process. In a full run every
+# suite collected after this file therefore talked to the preview database
+# instead of ``nivxray_ci_local`` — the single biggest source of "shared
+# database contention" failures, and a live-data write hazard. It is now
+# scoped to this module and restored afterwards.
+LIVE_MONGO_URL = os.environ.get("LIVE_MONGO_URL", "mongodb://localhost:27017")
+LIVE_DB_NAME = os.environ.get("LIVE_DB_NAME", "test_database")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _live_db_env():
+    saved = {k: os.environ.get(k) for k in ("MONGO_URL", "DB_NAME")}
+    os.environ["MONGO_URL"] = LIVE_MONGO_URL
+    os.environ["DB_NAME"] = LIVE_DB_NAME
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",

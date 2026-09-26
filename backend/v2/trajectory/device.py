@@ -114,6 +114,16 @@ def build_device_trajectory(
 
         frames.append(TrajectoryFrame(
             frame_iid=frame_iid,
+            # P1 · EVIDENCE NAMESPACE BRIDGE. The canonical evidence identity
+            # the ingest pipeline ALREADY persisted on the observation
+            # (`v2_shadow_observations.canonical_event_id` =
+            # `xdr_canonical_evidence.event_id`) travels with the frame. It
+            # used to be dropped here, which is why a causal anchor could not
+            # deterministically join a row of incident evidence. No new
+            # namespace: `frame_iid` and the observation `iid` keep their own
+            # identity. Absent on pre-bridge observations → None, never
+            # reconstructed from labels or timestamps.
+            canonical_evidence_id=ev.get("canonical_event_id") or None,
             ts=ts,
             lane=lane,
             action=kind,
@@ -154,6 +164,11 @@ async def build_from_observations(
     events: list[dict[str, Any]] = []
     async for row in cursor:
         ev = row.get("event") or {}
+        # P1 · the canonical evidence identity is persisted on the
+        # OBSERVATION row, not inside the CEM event. Carry the persisted
+        # value across so the frame can reference it; never invent one.
+        if row.get("canonical_event_id"):
+            ev.setdefault("canonical_event_id", row["canonical_event_id"])
         # Shadow adapter doesn't emit a device_iid — synthesise a
         # stable pseudo-device from the sha16 of the case_id so the
         # UI can group frames coherently even in the seed phase.

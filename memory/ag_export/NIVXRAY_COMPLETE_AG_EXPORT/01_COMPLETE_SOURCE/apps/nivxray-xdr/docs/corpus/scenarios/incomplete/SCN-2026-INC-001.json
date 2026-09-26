@@ -1,0 +1,43 @@
+{
+  "id": "SCN-2026-INC-001",
+  "category": "incomplete",
+  "title": "Detection fires but process metadata is missing",
+  "description": "A network sensor observed an outbound connection to a known-bad C2 domain, but the endpoint sensor never delivered the correlated process_create event. The engine MUST NOT fabricate a process name; verdict remains 'suspicious — process context missing'.",
+  "raw_events": [
+    { "kind": "network_connect", "ts": "2026-02-10T09:22:04Z",
+      "src": "HOST-77", "dst_ip": "45.55.66.77", "dst_port": 443,
+      "dst_domain": "known-bad.example" }
+  ],
+  "normalized_evidence": [
+    { "type": "ip", "value": "45.55.66.77" },
+    { "type": "domain", "value": "known-bad.example" }
+  ],
+  "expected_entities": {
+    "hosts": ["HOST-77"], "users": [], "processes": [],
+    "iocs": ["45.55.66.77", "known-bad.example"]
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [
+    { "rule_id": "known_bad_c2", "match": "matched",
+      "fields": { "dst_domain": "known-bad.example" },
+      "technique": "T1071.001" }
+  ],
+  "expected_mitre": ["T1071.001"],
+  "expected_attack_story": [
+    "Outbound connection observed from HOST-77 to known-bad.example.",
+    "Endpoint process context UNAVAILABLE — sensor did not deliver correlated event."
+  ],
+  "expected_verdict": {
+    "verdict": "suspicious", "confidence": 0.62, "severity": "medium",
+    "reason": "Malicious IOC + host attribution BUT missing process / user"
+  },
+  "expected_severity": "medium",
+  "expected_recommendations": [
+    { "kind": "collect", "action": "collect_endpoint_evidence", "priority": "high" },
+    { "kind": "enrich",  "action": "request_edr_backfill",     "priority": "high" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "PENDING_COLLECTION" },
+  "expected_report_sections": ["executive_summary", "investigation_gaps",
+                                                 "supporting_evidence", "final_conclusion"]
+}

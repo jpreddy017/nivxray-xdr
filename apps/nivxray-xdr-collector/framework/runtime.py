@@ -3,34 +3,67 @@ CollectorRuntime · Phase B.5.
 
 Owns the collection→outbox→delivery pipeline:
 
-    transport → deliver() → dedup → Outbox.record() → DeliveryWorker
+    transport → deliver() → dedup → Outbox.record() → delivery worker
 
-The runtime never claims an event is delivered; only the delivery
-worker does, and only after the ingest API returns 2xx.
+The runtime never claims an event is delivered. With the legacy worker only
+the worker does, and only after the ingest API returns 2xx. With the durable
+delivery protocol (`NIVX_DURABLE_DELIVERY`) even a 2xx is not enough: a row
+becomes DELIVERED only after a verified authoritative receipt.
 """
 from __future__ import annotations
 
+import os
+import platform
 from typing import Any, List
 
 from framework.base       import Connector, Envelope, Health
+from framework.acquisition_state import AcquisitionState
 from framework.dedup      import DedupCache
 from framework.delivery   import IngestClient
 from framework.delivery_worker import DeliveryWorker
-from framework.outbox     import Outbox
+from framework.durable_delivery import DurableDeliveryWorker
+from framework.m365_activity import M365ManagementActivityConnector
+from framework.outbox     import Outbox, RestartRecovery
 from framework.rest_poller import RestPollerConnector
 from framework.scheduler  import PollerScheduler
 from framework.syslog     import SyslogConnector, SyslogRunner
 from framework.webhook    import WebhookConnector
+from framework.windows_eventlog import WindowsEventLogConnector
+from framework.identity import collector_id
 
 
 class CollectorRuntime:
+    #: The durable delivery protocol (receipt-verified delivery + automatic
+    #: UNKNOWN_COMMIT_STATE reconciliation) is selected by deployment, so a
+    #: running fleet is not switched underneath itself by an upgrade. When it
+    #: is on, restart recovery RECONCILES instead of blindly re-queuing.
+    DURABLE_ENV = "NIVX_DURABLE_DELIVERY"
+
     def __init__(self) -> None:
         self.scheduler = PollerScheduler()
         self.syslog    = SyslogRunner()
         self.dedup     = DedupCache()
-        self.outbox    = Outbox()
+        self.durable_delivery = (
+            os.environ.get(self.DURABLE_ENV, "").strip().lower()
+            in ("1", "true", "yes"))
+        self.outbox    = Outbox(
+            restart_recovery=(RestartRecovery.RECONCILE
+                              if self.durable_delivery
+                              else RestartRecovery.RESET_TO_QUEUED))
         self.ingest    = IngestClient()
-        self.worker    = DeliveryWorker(self.outbox, self.ingest)
+        self.worker    = (DurableDeliveryWorker(self.outbox, self.ingest)
+                          if self.durable_delivery
+                          else DeliveryWorker(self.outbox, self.ingest))
+        # Durable acquisition state lives in the SAME store as the outbox,
+        # so "the vendor gave it to us" and "the ingest accepted it" are
+        # decided inside one durability boundary.
+        self.acquisition = AcquisitionState(
+            connection=self.outbox._conn)          # noqa: SLF001
+
+    def reconcile_acquisition(self) -> dict:
+        """Boot + post-delivery reconciliation: commit what was accepted and
+        advance only the windows that are genuinely complete."""
+        return self.acquisition.reconcile(self.outbox)
 
     # ── envelope pipeline ────────────────────────────────────
     async def deliver(self, conn: Connector, envs: List[Envelope]) -> None:
@@ -45,11 +78,120 @@ class CollectorRuntime:
                 continue
             rid, status = self.outbox.record(e)
             conn.metrics.events_accepted += 1
-            # Update per-connector "lag" telemetry — how long the
-            # oldest queued row is waiting for delivery.
+        # An envelope in the outbox is QUEUED, not ACCEPTED. Reconcile so
+        # that anything the ingest has since acknowledged can commit.
+        if isinstance(conn, M365ManagementActivityConnector):
+            self.acquisition.reconcile(self.outbox,
+                                       tenant_id=conn.tenant_id,
+                                       connector_id_=conn.identity)
+
+    # ── Windows Event Log · Read → Make Durable → Advance ─────
+    async def deliver_windows(self, conn: WindowsEventLogConnector,
+                              envs: List[Envelope]) -> set:
+        """Make the read durable and report WHICH channels are durable.
+
+        The acquisition position may only advance for a channel whose
+        records the outbox has accepted. A record the outbox already holds
+        (same tenant + connector + source_event_id) is durable too — it is
+        the same evidence, not a second one — so the channel still counts.
+        """
+        durable: set = set()
+        for e in envs:
+            channel = ((e.raw or {}).get("channel")
+                       or (e.canonical or {}).get("channel"))
+            if e.source_event_id and self.dedup.seen(conn.identity,
+                                                     e.source_event_id):
+                conn.metrics.events_duplicated += 1
+                if channel:
+                    durable.add(channel)
+                continue
+            rid, _status = self.outbox.record(e)
+            if not rid:
+                continue
+            conn.metrics.events_accepted += 1
+            if channel:
+                durable.add(channel)
+        return durable
+
+    async def _start_windows_eventlog(self, conn: WindowsEventLogConnector
+                                       ) -> dict:
+        """The production acquisition lifecycle for this connector.
+
+        configuration validation → schedule → Read → Make Durable →
+        Advance Acquisition → (stop) → (restart → rehydrate → resume).
+
+        Fail closed: a profile in which NO declared channel is collectible
+        never starts, and the connector reports ERROR rather than a healthy
+        subscription that can never read anything.
+        """
+        problems = conn.profile.validate()
+        declared = list(conn.profile.channels)
+        blocked = {p.get("channel") for p in problems if p.get("channel")}
+        if not declared or blocked >= set(declared):
+            conn.health = Health.ERROR
+            conn.metrics.last_error = "no collectible channel in profile"
+            return {"ok": False, "reason": "no_collectible_channel",
+                    "collector_id": conn.collector_id,
+                    "declared_channels": declared, "problems": problems}
+
+        # G1/S3 · acquisition capability is decided BEFORE a subscription is
+        # claimed. On Windows the native bindings are a hard requirement: a
+        # connector that cannot bind `EvtSubscribe` can only ever acquire
+        # zero events, and reporting that as CONNECTED is the exact silent
+        # failure this gate removes. Fail closed instead.
+        capability = conn.acquisition_capability()
+        if platform.system() == "Windows" and not capability.get("bound"):
+            conn.health = Health.ERROR
+            conn.metrics.last_error = (
+                f"{capability.get('code')}: {capability.get('reason')}")
+            return {"ok": False, "reason": "native_binding_unavailable",
+                    "collector_id": conn.collector_id,
+                    "declared_channels": declared,
+                    "acquisition_capability": capability}
+
+        async def _on_envs(c: WindowsEventLogConnector,
+                           envs: List[Envelope]) -> None:
+            durable = await self.deliver_windows(c, envs)
+            # A channel that read OK and returned nothing has no evidence at
+            # risk, so its position may advance. A channel that failed to
+            # read is NOT in this set and is therefore re-read.
+            for channel, report in (c.channel_reports or {}).items():
+                if report.get("state") == "READ_OK" \
+                        and not report.get("events_read"):
+                    durable.add(channel)
+            c.advance(durable_channels=durable)
+
+        def _on_error(c: WindowsEventLogConnector, exc: Exception) -> None:
+            c.health = Health.ERROR
+            c.metrics.last_error = f"{type(exc).__name__}: {exc}"
+
+        await self.scheduler.start(conn, _on_envs, on_error=_on_error,
+                                   always_callback=True)
+        conn.health = Health.CONNECTED
+        return {"ok": True, "mode": "eventlog-subscription",
+                "collector_id": conn.collector_id,
+                "declared_channels": declared,
+                "channel_problems": problems,
+                "acquisition_capability": capability,
+                "durable_acquisition_state": True,
+                "note": ("subscribed channels are read on the interval; a "
+                         "position advances only after the outbox holds the "
+                         "records")}
 
     # ── lifecycle ─────────────────────────────────────────────
     async def start(self, conn: Connector) -> dict:
+        if isinstance(conn, WindowsEventLogConnector):
+            return await self._start_windows_eventlog(conn)
+        if isinstance(conn, M365ManagementActivityConnector):
+            conn.attach_state(self.acquisition, self.outbox)
+            self.reconcile_acquisition()
+            await conn.start()
+
+            async def _on_envs(c, envs): await self.deliver(c, envs)
+            await self.scheduler.start(conn, _on_envs)
+            return {"ok": True, "mode": "polling",
+                    "durable_acquisition_state": True,
+                    "subscriptions": conn.subscriptions_started}
         if isinstance(conn, RestPollerConnector):
             async def _on_envs(c, envs): await self.deliver(c, envs)
             await self.scheduler.start(conn, _on_envs)
@@ -70,7 +212,14 @@ class CollectorRuntime:
                  "reason": f"unsupported_connector_kind:{type(conn).__name__}"}
 
     async def stop(self, conn: Connector) -> dict:
-        if isinstance(conn, RestPollerConnector):
+        if isinstance(conn, WindowsEventLogConnector):
+            await self.scheduler.stop(conn.identity)
+            conn.health = Health.DISCONNECTED
+            return {"ok": True, "mode": "eventlog-subscription",
+                    "collector_id": conn.collector_id,
+                    "pending_bookmarks": list(conn._pending.keys())}
+        if isinstance(conn, (RestPollerConnector,
+                             M365ManagementActivityConnector)):
             await self.scheduler.stop(conn.identity)
             conn.health = Health.DISCONNECTED
             return {"ok": True}
@@ -107,7 +256,7 @@ class CollectorRuntime:
                 source               = conn.label,
                 source_event_id      = str(eid) if eid is not None else None,
                 connector_id         = conn.identity,
-                collector_id         = "collector-local",
+                collector_id         = collector_id(),
                 collection_method    = "rest-poll",
                 parser_version       = "phaseB.rest-poller.inject.1",
                 source_timestamp     = str(ts) if ts else None,

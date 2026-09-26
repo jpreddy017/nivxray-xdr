@@ -18,6 +18,12 @@ import os
 import uuid
 
 import pytest
+
+#: L3 (LLM decoder fallback) is opt-in and irrelevant to these planes. It is
+#: disabled here because its dedicated-loop worker keeps a Starlette
+#: threadpool slot busy, which makes the application's shutdown — and hence
+#: this module's teardown — hang for the full pytest timeout.
+os.environ.setdefault("NIVX_L3_DISABLE", "1")
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("XDR_AUDIT_MASTER_SECRET", "test-master-secret")
@@ -27,30 +33,44 @@ from routers import xdr_audit_log as al
 from routers import xdr_secrets as sec
 from server import app
 
+from tests._verified_session import admin_token, hdrs, register_tenants
+
+#: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
+#: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
+#: had kept speaking that dialect, so every request was correctly refused.
+#: See `tests/_verified_session.py`. Nothing was relaxed server-side.
+
 client = TestClient(app)
 
 TEN_A = f"tenant-a-{uuid.uuid4().hex[:8]}"
 TEN_B = f"tenant-b-{uuid.uuid4().hex[:8]}"
 
+_TOKEN: list[str] = []
+
 
 def _hdrs(tenant, principal="tester@nivxray", kind="user", **extra):
-    h = {"X-Tenant-Id": tenant,
-             "X-Principal-Id": principal, "X-Principal-Kind": kind}
-    h.update(extra)
-    return h
+    return hdrs(_TOKEN[0], tenant, **extra)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _clean():
-    if sec._get_coll() is not None:
-        sec._get_coll().delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
-    yield
-    if sec._get_coll() is not None:
-        sec._get_coll().delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
-    if al._get_coll() is not None:
-        al._get_coll().delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
+    # ONE client for the whole module, context-managed so the application
+    # lifespan (config validation + database init) is live for every request.
+    # Mixing a lifespan client with a second non-lifespan client puts the two
+    # on different event loops, which surfaces as a `Task ... got Future
+    # attached to a different loop` 500 rather than as a test failure.
+    global client
+    with TestClient(app) as c:
+        client = c
+        _TOKEN.append(admin_token(c))
+        register_tenants(TEN_A, TEN_B, label="secrets")
+        for coll in (sec._get_coll(), al._get_coll()):
+            if coll is not None:
+                coll.delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
+        yield
+        for coll in (sec._get_coll(), al._get_coll()):
+            if coll is not None:
+                coll.delete_many({"tenant_id": {"$in": [TEN_A, TEN_B]}})
 
 
 def _skip_if_no_mongo():
@@ -187,16 +207,45 @@ def test_tamper_ciphertext_detected():
     created = client.post("/api/xdr/secrets", headers=_hdrs(TEN_A),
                                     json={"name": "tamper-key", "kind": "generic",
                                               "value": "authentic-value"}).json()["data"]
-    # Corrupt ciphertext directly in Mongo — Fernet AEAD MUST reject it.
+    # P0-PROD-1 · ciphertext is now self-describing
+    # (nivxk1.<key_id>.<token>), so corruption has TWO distinguishable
+    # shapes and each is reported truthfully.
+    #
+    # (a) the AEAD payload is corrupted while the ACTIVE key identity is
+    #     intact → this is verifiable material that fails authentication,
+    #     and must still be reported as tampering.
+    stored = sec._get_coll().find_one({"id": created["id"],
+                                       "tenant_id": TEN_A})["ciphertext"]
+    prefix, key_id, _token = stored.split(".", 2)
     sec._get_coll().update_one(
         {"id": created["id"], "tenant_id": TEN_A},
-        {"$set": {"ciphertext": "gAAAAABm-invalid-ciphertext-blob"}},
+        {"$set": {"ciphertext":
+                  f"{prefix}.{key_id}.gAAAAABm-invalid-ciphertext-blob"}},
     )
     r = client.post(f"/api/xdr/secrets/{created['id']}/reveal",
                           headers=_hdrs(TEN_A, **{"X-Secret-Reveal": "yes"}))
     assert r.status_code == 422
     assert "tampered" in r.json()["detail"].lower() \
              or "authentic" in r.json()["detail"].lower()
+
+    # (b) the key identity is absent altogether (a pre-P0-PROD-1 row, or a
+    #     value whose prefix was stripped) → the platform cannot tell a
+    #     legacy row from a modified one and refuses to guess. It reports
+    #     the undecryptable state and BOTH possibilities, never a
+    #     fabricated plaintext and never a 500.
+    sec._get_coll().update_one(
+        {"id": created["id"], "tenant_id": TEN_A},
+        {"$set": {"ciphertext": "gAAAAABm-invalid-ciphertext-blob"}},
+    )
+    r2 = client.post(f"/api/xdr/secrets/{created['id']}/reveal",
+                           headers=_hdrs(TEN_A, **{"X-Secret-Reveal": "yes"}))
+    assert r2.status_code == 409
+    d = r2.json()["detail"]
+    assert d["code"] == "SECRET_UNDECRYPTABLE_UNDER_CURRENT_KEY"
+    assert d["recorded_key_id"] is None
+    assert "REPLACEMENT_REQUIRED_BEFORE_PRODUCTION_USE" in d["classification"]
+    assert "MODIFIED" in d["also_possible"]
+    assert "authentic-value" not in r2.text
 
 
 def test_delete_removes_and_audits():
@@ -264,6 +313,7 @@ def test_resolve_secret_helper_returns_plaintext_no_audit():
     """Server-internal accessor used by OSINT/webhook routers."""
     _skip_if_no_mongo()
     ten = f"tenant-r-{uuid.uuid4().hex[:8]}"
+    register_tenants(ten, label="secrets-resolve")
     client.post("/api/xdr/secrets", headers=_hdrs(ten),
                     json={"name": "svc-key", "kind": "api_key",
                               "value": "internal-plaintext-42"})

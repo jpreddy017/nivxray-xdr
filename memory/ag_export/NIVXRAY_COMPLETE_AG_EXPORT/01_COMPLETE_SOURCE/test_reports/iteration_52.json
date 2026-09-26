@@ -1,0 +1,34 @@
+{
+  "summary": "Independent PR-2 (L1 Investigation API) backend validation for ARB. Wrote a from-scratch pytest suite (42 tests) targeting the LIVE preview URL (REACT_APP_BACKEND_URL) covering every ARB scenario: auth gate on all 15 endpoints, case CRUD, invalid mode / duplicate / auto-uuid, owner-scoping (SEC-003) with a second minted-JWT user, single-call hydration of all 7 L2 services, byte-identical determinism for workspace_bundle + each of 7 per-service endpoints, Workspace State GET/PUT idempotency + invalid mode/lens 400s, full state-machine happy path new\u2192collecting\u2192correlating\u2192reviewing\u2192completed\u2192reported, illegal transition 409, invalid target 400, reopen loop, audit-log actor/reason recorded, DELETE 204 + subsequent 404, GET nonexistent 404. All 42/42 passed. L0 damage-prevention runners: dcs_runner --strict returned 17/17 byte-identical, r1_runner --strict returned 107/107 byte-identical. Full regression across tests/investigation + tests/l2_investigation = 637 passed / 0 failed. No behavioural deviations from Blueprint v1.1 \u00a78.1 / \u00a78.2 / \u00a78.3 or L1_INVESTIGATION_API_PLAYBOOK. PR-2 is READY for PR-3 (first UI) per ARB gate.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "n/a", "issue": "FastAPI on_event startup/shutdown are deprecated; consider migrating server.py to the lifespan handler (harmless warning, not a PR-2 blocker)."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/l2_investigation/test_pr2_independent.py",
+    "/app/test_reports/pytest/pr2_independent.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "workspace_investigation.py cleanly reuses SEC-003 owner-scoping pattern (403 mismatch, 404 not-found) \u2013 correct.",
+    "case_store.transition_state uses find_one_and_update with $push+$set atomically \u2013 good for concurrent transitions.",
+    "WorkspaceState.to_dict uses sort_keys / canonical JSON \u2013 determinism verified: two GETs return byte-identical response bodies (content-level, not just fingerprint).",
+    "Router registers all 7 per-service endpoints via a small factory; consistent envelope with fingerprint \u2013 verified deterministic across the wire.",
+    "State transition endpoint returns actor=<jwt.sub> and reason correctly; audit log accumulates in state_history (verified).",
+    "Minor: create_case body payload with `bundle: null` would 500; suggest tightening the CreateCaseIn.bundle type to reject None (currently only exercised via {} which works). Not a required fix for PR-2.",
+    "Minor: /investigation list has no pagination cursor; hard-coded limit=100 in case_store.list. Fine for PR-2 but flag for PR-3 when UI paginates."
+  ],
+  "updated_files": [
+    "/app/backend/tests/l2_investigation/test_pr2_independent.py (new; 42 tests)"
+  ],
+  "success_rate": {"backend": "100% (42/42 independent + 637/637 regression)", "frontend": "n/a"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md and backend/.env)",
+  "seed_data_creation": "Second user 'ind-other-<rand>@nivxray.test' inserted directly into users collection with role=analyst (no public register endpoint exists). JWT minted via deps.create_token to exercise SEC-003 owner-scoping. All ind-* test cases and the second user are cleaned up in module-scope fixtures.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Independent test file at /app/backend/tests/l2_investigation/test_pr2_independent.py; run with `cd /app/backend && PYTHONPATH=/app/backend python -m pytest tests/l2_investigation/test_pr2_independent.py -v`. Note that /app/backend/conftest.py forcibly setdefaults ADMIN_PASSWORD=ci-only-not-a-real-secret and MONGO_URL=mongodb://localhost:27017 for CI harnesses; the test file overrides these keys from backend/.env explicitly (strips wrapping quotes) so the live preview login works. All 42 tests are hermetic (cleanup fixture purges cases prefixed 'ind-'). L0 strict runners: dcs=17/17, r1=107/107. Full regression: 637 passed.",
+  "rca of the issue": "n/a \u2013 no functional bugs found in PR-2."
+}

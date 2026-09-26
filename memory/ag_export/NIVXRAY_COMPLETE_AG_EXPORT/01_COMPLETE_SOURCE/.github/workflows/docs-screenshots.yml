@@ -1,0 +1,141 @@
+name: Docs Screenshots
+
+# ── Feb 2026 v1.2.0 hotfix ──────────────────────────────────────────────
+# GitHub tightened default GITHUB_TOKEN permissions — the release-upload
+# step (softprops/action-gh-release@v2) needs `contents: write` explicitly,
+# otherwise it fails with "Resource not accessible by integration".
+# Also declares the minimum surface needed; everything else stays read-only.
+permissions:
+  contents: write
+  actions: read
+
+on:
+  # Manual trigger by the team (Actions tab → Run workflow), optionally
+  # scoped to a single workflow id.
+  workflow_dispatch:
+    inputs:
+      workflow_id:
+        description: "Workflow id to capture (blank = --all)"
+        required: false
+        default: ""
+  # Also run once whenever the team publishes a Release — team action too.
+  release:
+    types: [published]
+
+concurrency:
+  group: docs-screenshots-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NIVXRAY_BASE_URL:       ${{ secrets.NIVXRAY_BASE_URL }}
+      NIVXRAY_ADMIN_EMAIL:    ${{ secrets.NIVXRAY_ADMIN_EMAIL }}
+      NIVXRAY_ADMIN_PASSWORD: ${{ secrets.NIVXRAY_ADMIN_PASSWORD }}
+      NIVXRAY_WORKFLOW:       ${{ github.event.inputs.workflow_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch full history so the auto-commit step can push cleanly
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          # Use the docs-only requirements file — the full requirements.txt
+          # pulls in emergentintegrations (custom PyPI index) + capstone +
+          # cryptography which aren't needed for the docs pipeline and are
+          # brittle in GitHub Actions. All dep management stays inside
+          # /backend so future changes only touch this file.
+          pip install -r requirements-docs.txt
+          # Diagnostic
+          pip list | grep -iE '^(pyyaml|reportlab|svglib|pypdf|python-docx|pillow|rank-bm25|playwright)' || true
+
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps chromium
+
+      - name: Preflight — verify backend is reachable
+        run: |
+          curl -fsS -o /dev/null -w "backend HTTP %{http_code}\n" \
+            "${NIVXRAY_BASE_URL}/api/docs/stats" \
+            -H "Authorization: Bearer dummy" || true
+
+      - name: Capture screenshots
+        run: bash backend/scripts/run_docs_capture.sh
+
+      - name: List captured artefacts
+        run: |
+          echo "Captured PNGs:"
+          find backend/docs/screenshots -type f -name '*.png' | sort
+
+      - name: Upload screenshots as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-screenshots
+          path: backend/docs/screenshots/**/*.png
+          if-no-files-found: warn
+          retention-days: 30
+
+      # ─── Release-triggered docs refresh (Phase-3 pipeline) ─────────
+      # After screenshots are fresh, regenerate the PDF / HTML / DOCX
+      # exports so the artifact bundle contains a complete guide.
+      - name: Generate guide exports
+        if: always()
+        working-directory: backend
+        env:
+          MONGO_URL:  ${{ secrets.NIVXRAY_MONGO_URL }}
+          DB_NAME:    ${{ secrets.NIVXRAY_DB_NAME }}
+        run: |
+          python -c "
+          from docs.pdf_generator import create_user_guide
+          from docs.exporters import generate_html, generate_docx
+          from pathlib import Path
+          out = Path('docs/exports')
+          out.mkdir(exist_ok=True)
+          for aud in ('user', 'admin', 'developer', 'all'):
+              (out / f'nivxray-{aud}-guide.pdf').write_bytes(create_user_guide(aud))
+              (out / f'nivxray-{aud}-guide.html').write_text(generate_html(aud))
+              (out / f'nivxray-{aud}-guide.docx').write_bytes(generate_docx(aud))
+          print('Generated guide exports:')
+          for p in sorted(out.iterdir()):
+              print(f'  {p.name}: {p.stat().st_size:,} bytes')
+          "
+
+      - name: Upload guide exports as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-guides
+          path: backend/docs/exports/*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Attach guide exports to the GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: backend/docs/exports/*
+          fail_on_unmatched_files: false
+
+      - name: Commit refreshed screenshots (main only)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          if [[ -z "$(git status --porcelain backend/docs/screenshots)" ]]; then
+            echo "No screenshot changes to commit."
+            exit 0
+          fi
+          git config user.name  "nivxray-docs-bot"
+          git config user.email "bot@nivxray.local"
+          git add backend/docs/screenshots
+          git commit -m "docs(screenshots): auto-refresh $(date -u +%Y-%m-%d)"
+          git push

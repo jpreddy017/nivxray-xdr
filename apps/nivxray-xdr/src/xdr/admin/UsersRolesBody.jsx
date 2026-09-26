@@ -23,7 +23,9 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
+import AdminTenantGate from "@/xdr/admin/AdminTenantGate";
 
 
 // ── Small helpers ─────────────────────────────────────────────────
@@ -54,7 +56,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
         const r = await api.get("/xdr/rbac/users");
         setUsers(r?.data?.data?.users || []); setErr(null);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "list failed");
+        setErr(refusalText(e, "list failed"));
         setUsers([]);
       }
     })();
@@ -65,14 +67,14 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
       const r = await api.put(`/xdr/rbac/users/${u.id}`,
                                           { enabled: !u.enabled });
       setLastAudit(r?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
   const removeUser = async (u) => {
     if (!window.confirm(`Remove user ${u.email}?`)) return;
     try {
       const r = await api.delete(`/xdr/rbac/users/${u.id}`);
       setLastAudit(r?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
 
   return (
@@ -95,7 +97,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
           </span>
         )}
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>{err}</div>}
       <div data-testid="rbac-user-rows"
                 style={{ border: "1px solid var(--border)", borderRadius: 3,
                                 overflow: "hidden" }}>
@@ -148,7 +150,7 @@ function UsersTab({ rolesById, refresh, onRefresh }) {
               <button className="btn ghost" title="Delete"
                            data-testid={`rbac-user-delete-${u.id}`}
                            onClick={() => removeUser(u)}
-                           style={{ ...iconBtn, color: "#f87171" }}>
+                           style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                 <Trash2 size={11} />
               </button>
             </div>
@@ -190,8 +192,7 @@ function AddUserModal({ roles, onClose, onCreated }) {
       const r = await api.post("/xdr/rbac/users", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   const toggleRole = (name) => setF((s) => ({
@@ -224,7 +225,7 @@ function AddUserModal({ roles, onClose, onCreated }) {
           ))}
         </div>
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-user-add-error">{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
@@ -254,8 +255,7 @@ function AssignRoleModal({ user, roles, onClose, onAssigned }) {
                                           { role_id: selected, scope: {} });
       onAssigned?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "assign failed");
+      setErr(refusalText(e, "assign failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -273,7 +273,7 @@ function AssignRoleModal({ user, roles, onClose, onAssigned }) {
           ))}
         </select>
       </label>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
         <button className="btn ghost" onClick={onClose}
@@ -303,7 +303,7 @@ function EffectiveModal({ user, onClose }) {
   return (
     <ModalShell title={`EFFECTIVE ACCESS · ${user.email}`} onClose={onClose} wide>
       {!eff && <div style={{ fontSize: 11, color: "var(--faint)" }}>Loading…</div>}
-      {eff?.error && <div style={{ color: "#f87171", fontSize: 11 }}>load failed</div>}
+      {eff?.error && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>load failed</div>}
       {eff && !eff.error && (
         <>
           <div style={{ fontSize: 11, marginBottom: 8, color: "var(--text-dim)" }}>
@@ -341,7 +341,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
     try {
       const res = await api.post(`/xdr/rbac/roles/${r.id}/clone`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
-    } catch (e) { setErr(e?.response?.data?.detail || e?.message); }
+    } catch (e) { setErr(refusalText(e)); }
   };
   const remove = async (r) => {
     if (r.type === "SYSTEM") return;
@@ -350,7 +350,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
       const res = await api.delete(`/xdr/rbac/roles/${r.id}`);
       setLastAudit(res?.data?.audit_ref); onRefresh();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message);
+      setErr(refusalText(e));
     }
   };
 
@@ -376,7 +376,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
           </span>
         )}
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-role-error">{err}</div>}
       <div data-testid="rbac-role-rows"
                 style={{ border: "1px solid var(--border)", borderRadius: 3,
@@ -408,7 +408,7 @@ function RolesTab({ roles, refresh, onRefresh }) {
                 <button className="btn ghost" title="Delete"
                              data-testid={`rbac-role-delete-${r.name}`}
                              onClick={() => remove(r)}
-                             style={{ ...iconBtn, color: "#f87171" }}>
+                             style={{ ...iconBtn, color: "var(--nx-critical)" }}>
                   <Trash2 size={11} />
                 </button>
               )}
@@ -454,8 +454,7 @@ function AddRoleModal({ onClose, onCreated }) {
       const r = await api.post("/xdr/rbac/roles", f);
       onCreated?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message || "create failed");
+      setErr(refusalText(e, "create failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -519,7 +518,7 @@ function AddRoleModal({ onClose, onCreated }) {
           </div>
         ))}
       </div>
-      {err && <div style={{ marginTop: 6, color: "#f87171", fontSize: 11 }}
+      {err && <div style={{ marginTop: 6, color: "var(--nx-critical)", fontSize: 11 }}
                               data-testid="rbac-role-add-error">{err}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
         <span style={{ flex: 1 }} />
@@ -549,7 +548,7 @@ function PermissionsTab() {
     })();
   }, []);
   if (!d) return <div style={{ fontSize: 11, color: "var(--faint)" }}>Loading…</div>;
-  if (d.error) return <div style={{ color: "#f87171", fontSize: 11 }}>load failed</div>;
+  if (d.error) return <div style={{ color: "var(--nx-critical)", fontSize: 11 }}>load failed</div>;
   return (
     <div data-testid="rbac-tab-permissions">
       <div style={{ fontSize: 11, color: "var(--faint)", marginBottom: 6 }}>
@@ -601,7 +600,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
       });
       setRes(r?.data?.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "simulate failed");
+      setErr(refusalText(e, "simulate failed"));
     } finally { setBusy(false); }
   };
   return (
@@ -641,7 +640,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
           </button>
         </div>
       </div>
-      {err && <div style={{ color: "#f87171", fontSize: 11, marginTop: 8 }}>{err}</div>}
+      {err && <div style={{ color: "var(--nx-critical)", fontSize: 11, marginTop: 8 }}>{err}</div>}
       {res && (
         <div data-testid="rbac-sim-result" style={{ marginTop: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8,
@@ -651,7 +650,7 @@ function SimulatorTab({ users, permissionsCatalog }) {
                             background: "var(--panel2)" }}>
             {res.decision === "ALLOW"
               ? <CheckCircle2 size={14} style={{ color: "var(--mint)" }} />
-              : <XCircle       size={14} style={{ color: "#f87171" }} />}
+              : <XCircle       size={14} style={{ color: "var(--nx-critical)" }} />}
             <b style={{ color: res.decision === "ALLOW"
                                 ? "var(--mint)" : "#f87171",
                               fontFamily: "var(--mono)" }}>
@@ -705,6 +704,15 @@ function ModalShell({ title, onClose, wide, children }) {
 
 // ── Main body ────────────────────────────────────────────────────
 export default function UsersRolesBody() {
+  return (
+    <AdminTenantGate label="Users & Roles">
+      <UsersRolesContent />
+    </AdminTenantGate>
+  );
+}
+
+
+function UsersRolesContent() {
   const [tab, setTab] = useState("users");
   const [tick, setTick] = useState(0);
   const [roles, setRoles] = useState([]);

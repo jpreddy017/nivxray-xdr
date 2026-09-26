@@ -1,0 +1,9 @@
+{
+  "max_ms": 5000,
+  "expect_fixed_point": true,
+  "expect_decode_stages_minimum": [
+    "ps_encodedcommand",
+    "gzip"
+  ],
+  "note": "SLO checks GENERIC engine invariants (reaches fixed-point deterministically + exercises two well-known stages), NOT sample-specific decode outcomes.  The stage list is a MINIMUM — future capability additions will grow it automatically."
+}

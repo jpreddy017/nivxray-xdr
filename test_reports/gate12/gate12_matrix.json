@@ -1,0 +1,482 @@
+[
+ {
+  "theme": "dark",
+  "bp": "desktop",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12676,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "desktop",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13152,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "desktop",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2719,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "desktop",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6636,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "desktop",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9513,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "tablet",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12677,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "tablet",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13152,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "tablet",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2719,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "tablet",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6636,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "tablet",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9503,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "phone",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12655,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "phone",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13152,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "phone",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2719,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "phone",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6636,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [
+   "step:44",
+   "t:56",
+   "step:27",
+   "t:39"
+  ],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "dark",
+  "bp": "phone",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9504,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "desktop",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12661,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "desktop",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13151,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "desktop",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2718,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "desktop",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6635,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "desktop",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9499,
+  "tiny": [
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "tablet",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12678,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "tablet",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13151,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "tablet",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2718,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "tablet",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6635,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "tablet",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9500,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "phone",
+  "page": "events",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 12676,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "phone",
+  "page": "policies",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 13151,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "phone",
+  "page": "exclusions",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 2718,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "phone",
+  "page": "downloads",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 6635,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [
+   "step:44",
+   "t:56",
+   "step:27",
+   "t:39"
+  ],
+  "navReachable": true,
+  "blank": false
+ },
+ {
+  "theme": "light",
+  "bp": "phone",
+  "page": "audit",
+  "ok": false,
+  "docOverflow": 0,
+  "bodyText": 9500,
+  "tiny": [
+   "nvf-product-brand:20",
+   "nvf-customer-open:15",
+   "edr-breadcrumb-root:14"
+  ],
+  "overflowers": [],
+  "navReachable": true,
+  "blank": false
+ }
+]

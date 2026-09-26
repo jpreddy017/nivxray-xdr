@@ -1,0 +1,2498 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NivXRay · 360° Current-State Master Snapshot</title>
+<style>:root {
+  --bg:#0f1218; --fg:#e6edf3; --muted:#8b96a5; --accent:#7ee787;
+  --card:#161b22; --border:#30363d; --code-bg:#1c2128; --link:#79c0ff;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+main { max-width:920px; margin:0 auto; padding:56px 40px 120px; }
+nav.topbar { background:#0b0e13; border-bottom:1px solid var(--border);
+  padding:14px 40px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:10; }
+nav.topbar a { color:var(--link); text-decoration:none; margin-right:16px; font-size:13px; }
+nav.topbar a.brand { color:var(--accent); font-weight:600; }
+nav.topbar a:hover { text-decoration:underline; }
+h1 { font-size:32px; margin:32px 0 12px; letter-spacing:-.02em; }
+h2 { font-size:24px; margin:44px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); letter-spacing:-.01em; }
+h3 { font-size:19px; margin:28px 0 10px; color:#c9d1d9; }
+h4 { font-size:16px; margin:22px 0 8px; color:#c9d1d9; }
+p, li { color:var(--fg); }
+a { color:var(--link); }
+strong { color:#ffdf5d; }
+em { color:#c9d1d9; }
+code { background:var(--code-bg); padding:2px 6px; border-radius:4px; font-size:13px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Cascadia Mono",monospace; color:#ffa657; }
+pre { background:var(--code-bg); padding:16px 20px; border-radius:8px; overflow-x:auto;
+  border:1px solid var(--border); }
+pre code { background:transparent; padding:0; color:#c9d1d9; font-size:12.5px; line-height:1.55; }
+blockquote { border-left:3px solid var(--accent); background:#141a20; padding:12px 20px;
+  margin:16px 0; color:#c9d1d9; border-radius:4px; }
+table { border-collapse:collapse; width:100%; margin:16px 0; font-size:13.5px; }
+th, td { border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top; }
+th { background:#141a20; color:#c9d1d9; font-weight:600; }
+tr:nth-child(even) td { background:#131820; }
+hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+ul, ol { padding-left:24px; }
+li { margin:4px 0; }
+.meta { color:var(--muted); font-size:13px; margin-bottom:24px; }
+.legend-live      { color:#7ee787; }
+.legend-shadow    { color:#f0d05e; }
+.legend-disc      { color:#ffa657; }
+.legend-partial   { color:#79c0ff; }
+.legend-exp       { color:#d2a8ff; }
+.legend-planned   { color:#8b96a5; }
+.legend-dead      { color:#ff7b72; }
+@media print {
+  nav.topbar { display:none; }
+  main { max-width:none; padding:24px 32px; }
+  body { background:#fff; color:#000; }
+  h1,h2,h3,h4 { color:#000; }
+  code, pre { background:#f4f4f4; color:#000; }
+  pre { border:1px solid #ddd; }
+  th { background:#eee; color:#000; }
+  a { color:#0057aa; }
+  blockquote { background:#f4f4f4; color:#333; }
+}</style>
+</head><body>
+<nav class="topbar">
+  <div>
+    <a class="brand" href="index.html">NivXRay Docs</a>
+    <a href="product-blueprint.html">Blueprint</a>
+    <a href="current-state-audit.html">Audit</a>
+    <a href="execution-plan.html">Execution Plan</a>
+    <a href="route-classification.html">Routes</a>
+    <a href="tweetfeed-evaluation.html">TweetFeed</a>
+  </div>
+  <div style="color:#8b96a5;font-size:12px;">Session-9 baseline · read-only</div>
+</nav>
+<main>
+<div class="meta">Source: <code>/app/memory/adr/0007-current-state-master-snapshot.md</code></div>
+<h1 id="nivxray-360-current-state-master-snapshot">NivXRay — 360° Current-State Master Snapshot</h1>
+<p><strong>Version</strong>: Session-8 (2026-08-11) · supersedes the Session-7 compact snapshot below §100.
+<strong>Method</strong>: Read-only. Every claim below cites a file, route, DB collection, config value, test, or runtime probe captured during this session. Nothing is inferred.
+<strong>Legal status of this document</strong>: <strong>not a roadmap.</strong> It is the authoritative technical truth of NivXRay as it exists at this timestamp. Any decision — build, freeze, sell, deprecate, sign an SoW — should be traceable back to a line in this file.</p>
+<p>Status vocabulary (used throughout, per owner directive):</p>
+<ul>
+<li><strong>IMPL+CONNECTED</strong>  — code exists, wired end-to-end, exercised by a runtime consumer, backed by a passing test.</li>
+<li><strong>IMPL+DISCONNECTED</strong>  — code exists but no runtime consumer OR gated behind a <code>shadow</code>/<code>off</code> flag OR persisted collections are empty.</li>
+<li><strong>BACKEND ONLY</strong> — backend route/module exists; frontend never calls it.</li>
+<li><strong>FRONTEND ONLY</strong> — UI component exists but calls no live backend or hits a 404/501.</li>
+<li><strong>PARTIAL</strong>  — one branch works, another is stubbed / returns 501 / silently no-ops.</li>
+<li><strong>EXPERIMENTAL</strong>  — Rn/Phase-x/shadow scaffolding; explicitly labelled non-authoritative in source.</li>
+<li><strong>MOCK/DEMO</strong>  — populated from a static file / fixture, not from a live pipeline.</li>
+<li><strong>BROKEN</strong>  — endpoint or path fails a smoke test or contradicts its own docs.</li>
+<li><strong>DEAD/UNUSED</strong>  — code shipped, never imported by the running app.</li>
+<li><strong>PLANNED</strong>  — mentioned in docs/ADRs/comments but no code path.</li>
+<li><strong>UNKNOWN</strong>  — could not be verified in this session; flagged for a future audit.</li>
+</ul>
+<hr />
+<h2 id="1-executive-snapshot-one-page">§1 · Executive Snapshot (one page)</h2>
+<p><strong>What NivXRay actually IS today, based on evidence:</strong></p>
+<p>A single-tenant, browser-based <strong>command-line + narrative + tabular-EDR analyst Workspace</strong> whose real revenue-shaped capabilities are:</p>
+<ol>
+<li><strong>Evidence-gated MITRE mapping</strong> for pasted PowerShell / CMD / VBScript / JavaScript / Bash / Python inputs and small vendor-report / DOCX text (P0.2 chain — 30 tests locking <code>{source, event_or_rule, field, observed_value, evidence_ref}</code> on every technique).</li>
+<li>A <strong>Timeline projection</strong> and <strong>Query/Hunt projection</strong> over the canonical event bag, both read-only and additive.</li>
+<li>A <strong>14-lane MITRE Attack-Chain diagram</strong> with deterministic tactic-lane assignment.</li>
+<li>An <strong>SEP-shape CSV/EDR analyzer</strong> — 3-column heuristic → 5 MITRE + 5 highconf events for <code>Sample.docx</code>-family SEP exports.</li>
+<li>An <strong>Analyst Practice Lab</strong> (<code>/api/lab/*</code>) with challenges, attempts, leaderboard.</li>
+<li>An <strong>Emergent-LLM narrate</strong> path (<code>object.narrative</code> populated per investigation).</li>
+<li>A <strong>Threat-Intel feed sync</strong> subsystem (OTX / AbuseIPDB / URLhaus / ThreatFox / MalwareBazaar / MalwareBytes / Talos / CINS Army) with 65,614 IOCs stored (<code>iocs</code> collection).</li>
+</ol>
+<p><strong>What NivXRay actually IS NOT today, based on evidence:</strong></p>
+<ul>
+<li>Not an EDR, XDR, or SIEM. Zero live Sysmon, Defender, CrowdStrike, SentinelOne, Splunk, Sentinel, Elastic, or QRadar adapter — the code that <em>would</em> ingest them (<code>v2/routers/ingest.py</code>) is behind <code>NIVX_FLAG_ADAPTERS=shadow</code> and the EVTX handler explicitly returns <strong>HTTP 501</strong> ("EVTX ingest ships in R2.5.1").</li>
+<li>Not a live "Knowledge-Graph-first" platform. The IKG code (<code>backend/v2/investigation/ikg.py</code>) is fully written, but every v2 collection that would persist it (<code>v2_case_behaviors</code>, <code>v2_case_entities</code>, <code>v2_case_events</code>, <code>v2_case_relationships</code>, <code>v2_case_reports</code>) has <strong>0 documents</strong> at the time of this audit — the whole v2 pipeline is <code>shadow</code> mode.</li>
+<li>Not a Verdict-Engine-v3 authoritative product. <code>NIVX_FLAG_VERDICT_ENGINE_V3=shadow</code> — the shipping verdict is the canonical projection <code>backend/canonical/projections/verdict.py</code>, a simpler 4-weight linear scorer. Verdict Engine v3 has 2 rows in <code>verdict_shadow_observations</code> and 563 in <code>v2_shadow_observations</code> — sampling only.</li>
+<li>Not a large-input analysis platform. Client-side caps of <strong>32 KB</strong> (Auto-Viz panels) and <strong>256 KB</strong> (upload) plus a <strong>512 KB</strong> default body-cap in <code>RequestHardeningMiddleware</code> are the current large-input safety story. There is no server-side file-mode.</li>
+</ul>
+<p><strong>Strongest capability:</strong> P0.2 evidence chain — every emitted MITRE technique carries traceable evidence or is rejected. This is genuinely differentiating.</p>
+<p><strong>Weakest capability:</strong> ingestion. The platform can only reason about what an analyst pastes into a box or uploads as ≤ 256 KB.</p>
+<p><strong>Highest-leverage architectural fact:</strong> <em>There are two parallel pipelines living in the same repo</em> — the RC5-canonical pipeline that ships (used by <code>/api/die/*</code>) and the v2/IKG pipeline that observes-only (used by <code>/api/v2/*</code>). Almost every "gap" surfaces from this duality.</p>
+<hr />
+<h2 id="2-capability-reality-matrix">§2 · Capability Reality Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Capability</th>
+<th>Status</th>
+<th>Evidence (file · route · test · DB · flag)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>JWT auth + admin seed</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/deps.py</code> L241-331 · <code>POST /api/auth/login</code> · <code>bcrypt</code> hash · <code>test_credentials.md</code> verified</td>
+</tr>
+<tr>
+<td>2</td>
+<td>P0.2 evidence-chain enforcement</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/die/mitre_evidence_chain.py</code> · <code>tests/canonical/api/test_p02_evidence_chain.py</code> (30 tests)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>P0.3 payload / Sample1 / X-Lab firewall</td>
+<td>IMPL+CONNECTED</td>
+<td><code>test_investigation_results_payload_shape.py</code>, <code>test_sample1_immutability_guard.py</code>, <code>test_workspace_isolation_guard.py</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Timeline MVP</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/die/timeline_projection.py</code> · <code>POST /api/die/timeline</code> · <code>TimelinePanel.jsx</code> · <code>test_die_timeline.py</code> (16 tests)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Query/Hunt + Auto-Viz</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/die/query_hunt.py</code> · <code>POST /api/die/query</code> · <code>QueryHuntPanel.jsx</code> · <code>test_die_query_hunt.py</code> (45 tests)</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Attack Chain 14-lane view</td>
+<td>IMPL+CONNECTED</td>
+<td><code>frontend/src/components/investigation/TrajectoryDiagram.jsx</code> · <code>_synthBehaviorsFromMitre</code> · <code>trajectoryLaneAssignment.test.mjs</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>CSV EDR analyzer (SEP-shape)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/die/csv_edr_analyzer.py</code> · fixtures under <code>test_csv_edr_investigation.py</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>CSV EDR analyzer (Splunk <code>_raw</code> JSON)</td>
+<td>NOT-IMPLEMENTED</td>
+<td>44 KB Splunk export → <code>object.csv_edr</code> empty (proven in Session-7)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Sysmon / EVTX ingestion</td>
+<td>PARTIAL (501)</td>
+<td><code>POST /api/v2/ingest/evtx</code> returns 501 · <code>v2/routers/ingest.py</code> L274-281</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Multi-format ingest (JSON/NDJSON/CSV/Syslog/Webhook)</td>
+<td>IMPL+DISCONNECTED</td>
+<td>6 routes <code>POST /api/v2/ingest/{json,ndjson,csv,syslog,webhook}</code> gated by <code>NIVX_FLAG_ADAPTERS=shadow</code>, no frontend caller</td>
+</tr>
+<tr>
+<td>11</td>
+<td>CrowdStrike / Defender / SentinelOne / Cisco XDR / Splunk / Sentinel / Elastic / QRadar</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No route, adapter, or client module. Corpus training data references vendor formats but no live pipeline.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>STIX 2.1 bundle export</td>
+<td>PARTIAL</td>
+<td><code>backend/stix_export.py</code> + <code>v2/report/stix.py</code> · <code>GET /api/v2/cases/{id}/report.stix.json</code> exists · connectivity to workspace path unverified this session</td>
+</tr>
+<tr>
+<td>13</td>
+<td>TAXII 2.1 push (admin)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>routers/taxii.py</code> + <code>backend/taxii/</code> · <code>taxii_config</code> (1 doc) + <code>taxii_push_log</code> (85 docs) — real pushes have happened</td>
+</tr>
+<tr>
+<td>14</td>
+<td>OSINT reputation (VirusTotal / AbuseIPDB)</td>
+<td>IMPL+DISCONNECTED</td>
+<td><code>backend/feeds.py</code> fetches AbuseIPDB, OTX, URLhaus, etc. into <code>iocs</code> (65,614 docs) BUT no per-investigation live reputation lookup wired to IOC panel. No VirusTotal client.</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Threat-Intel RSS crawl</td>
+<td>IMPL+CONNECTED</td>
+<td><code>routers/threat_intel_rss.py</code> · <code>cti_rss_meta</code> (8 sources) + <code>pending_training_notes</code> (96)</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Threat-Intel feed sync (7 providers)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>ti_source_meta</code> (8 sources) + <code>ti_sync_runs</code> (1,339 completed sync jobs)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Investigation Knowledge Graph (IKG)</td>
+<td>IMPL+DISCONNECTED</td>
+<td><code>backend/v2/investigation/ikg.py</code> — 13 node types, 14 edge types, fully coded · <code>v2_case_events</code> collection = 0 docs · every v2 flag is <code>shadow</code></td>
+</tr>
+<tr>
+<td>18</td>
+<td>Verdict Engine v3 (per-event/process/chain/device/incident)</td>
+<td>IMPL+DISCONNECTED (shadow)</td>
+<td><code>backend/v2/verdict/</code> · gated by <code>NIVX_FLAG_VERDICT_ENGINE_V3=shadow</code> · endpoint returns 503 unless flag flipped · <code>verdict_shadow_observations</code> = 2 docs</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Canonical verdict projection (production)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/canonical/projections/verdict.py</code> — 4-class linear scorer (25/8/4/2 weights) · reachable via <code>POST /api/die/investigation-results</code></td>
+</tr>
+<tr>
+<td>20</td>
+<td>Canonical Attack-Story projection</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/canonical/projections/attack_story.py</code> · fires only when SSOT has MITRE/command/IOC evidence · used by <code>/api/die/investigation-results</code></td>
+</tr>
+<tr>
+<td>21</td>
+<td>ATT&amp;CK Navigator layer JSON</td>
+<td>PARTIAL</td>
+<td><code>backend/v2/investigation/attack_mapping.py::build_attack_mapping</code> · code writes Navigator v4.5 JSON but only path is IKG-fed = shadow</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Analyst Practice Lab</td>
+<td>IMPL+CONNECTED</td>
+<td><code>routers/lab.py</code> — 8 routes · <code>lab_attempts</code> (89 docs) + <code>lab_stats</code> (1 doc) — real analyst usage</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Emergent-LLM narrative (Claude Sonnet)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>EMERGENT_LLM_KEY</code> present in <code>.env</code> · <code>object.narrative</code> populated in <code>/api/die/investigation-results</code></td>
+</tr>
+<tr>
+<td>24</td>
+<td>File upload (universal)</td>
+<td>IMPL+CONNECTED (capped)</td>
+<td><code>POST /api/upload</code> L382 in <code>routers/ops.py</code> · caps: <code>_CONTENT_CAP=64_000</code> chars + <code>_MAX_BODY_BYTES=512 KB</code> middleware</td>
+</tr>
+<tr>
+<td>25</td>
+<td>Frontend WorkspaceRootErrorBoundary</td>
+<td>IMPL+CONNECTED</td>
+<td><code>frontend/src/components/WorkspaceRootErrorBoundary.jsx</code> — wired at App root</td>
+</tr>
+<tr>
+<td>26</td>
+<td>React <code>useDeferredValue</code> input debouncing</td>
+<td>IMPL+CONNECTED</td>
+<td><code>WorkspacePage.jsx</code> — deferredInput pattern (session-7 fix)</td>
+</tr>
+<tr>
+<td>27</td>
+<td>Reports — Markdown / JSON</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/v2/report/markdown.py</code> · <code>GET /api/v2/cases/{id}/report.md</code> · SHA-256 signature envelope</td>
+</tr>
+<tr>
+<td>28</td>
+<td>Reports — PDF</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/v2/report/pdf.py</code> · <code>GET /api/v2/cases/{id}/report.pdf</code> · uses <code>reportlab==4.5.1</code></td>
+</tr>
+<tr>
+<td>29</td>
+<td>Reports — STIX / Bundle ZIP</td>
+<td>IMPL+CONNECTED (v2 case scope)</td>
+<td><code>GET /api/v2/cases/{id}/report.bundle.zip</code>, <code>.stix.json</code> · v2 case scope only</td>
+</tr>
+<tr>
+<td>30</td>
+<td>Reports — deterministic re-render (byte-identical)</td>
+<td>IMPL (claimed)</td>
+<td>Docstring <code>same envelope → same bytes</code>; SHA-256 signature emitted; determinism test count: <code>test_baseline_snapshots_present.py</code> gates baselines</td>
+</tr>
+<tr>
+<td>31</td>
+<td>RC5 evidence-graph side-car</td>
+<td>EXPERIMENTAL (Phase-11.0)</td>
+<td><code>backend/engine/evidence_graph.py</code> — 18 node kinds, 19 edge kinds, side-car only, does NOT influence verdicts</td>
+</tr>
+<tr>
+<td>32</td>
+<td>RC5 golden runs</td>
+<td>IMPL+CONNECTED</td>
+<td>19 routes under <code>/api/rc5/*</code> · <code>rc5_golden_runs</code> (9 docs), <code>rc5_shadow_runs</code> (1 doc)</td>
+</tr>
+<tr>
+<td>33</td>
+<td>Analyst corrections</td>
+<td>IMPL+CONNECTED</td>
+<td>11 routes <code>/api/corrections/*</code> · <code>analyst_corrections</code> (887 docs) — heavy real usage</td>
+</tr>
+<tr>
+<td>34</td>
+<td>LLM finetune / training corpus</td>
+<td>IMPL+CONNECTED</td>
+<td><code>learner_payloads</code> (18 docs), <code>learner_versions</code> (2 docs), <code>learning_events</code> (572 docs)</td>
+</tr>
+<tr>
+<td>35</td>
+<td>Benchmark / regression harness</td>
+<td>IMPL+CONNECTED</td>
+<td><code>benchmark_runs</code> (897 docs), <code>batch_runs</code> (264), <code>regression_runs</code> (239), <code>regression_gate</code> (1)</td>
+</tr>
+<tr>
+<td>36</td>
+<td>Playbook feedback / votes</td>
+<td>IMPL+CONNECTED</td>
+<td><code>playbook_votes</code> (262 docs)</td>
+</tr>
+<tr>
+<td>37</td>
+<td>Correlations (case-to-case)</td>
+<td>IMPL+CONNECTED (light)</td>
+<td><code>routers/correlations.py</code> (20 routes) · <code>correlations</code> (5 docs) — real but low-volume</td>
+</tr>
+<tr>
+<td>38</td>
+<td>Documents / Case Vault</td>
+<td>IMPL+CONNECTED</td>
+<td><code>documents.chunks</code> (35) + <code>documents.files</code> (35) — GridFS</td>
+</tr>
+<tr>
+<td>39</td>
+<td>KB (knowledge base)</td>
+<td>IMPL+CONNECTED</td>
+<td>339 entries in <code>kb_entries</code></td>
+</tr>
+<tr>
+<td>40</td>
+<td>AI budget guard</td>
+<td>IMPL+CONNECTED</td>
+<td><code>ai_budget</code> (2 docs) — <code>NIVX_AI_BUDGET_CAP_CREDITS=500</code> in <code>.env</code></td>
+</tr>
+<tr>
+<td>41</td>
+<td>LOLBAS registry</td>
+<td>IMPL+CONNECTED</td>
+<td><code>lolbas_cache</code> (1 doc) · <code>services/die/lolbas.py</code></td>
+</tr>
+<tr>
+<td>42</td>
+<td>Sigma generator</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/sigma_generator.py</code> + <code>backend/sigma_export.py</code> + <code>routers/sigma.py</code></td>
+</tr>
+<tr>
+<td>43</td>
+<td>YARA export</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/yara_export.py</code> (referenced by canonical projections)</td>
+</tr>
+<tr>
+<td>44</td>
+<td>Frontend Nivxforge preview pages</td>
+<td>FRONTEND ONLY</td>
+<td>5 pages under <code>frontend/src/nivxforge/pages/</code> — Threat Intel / Threat Hunting / KB / Reports / History are <code>PlaceholderSections.jsx</code> (no live data)</td>
+</tr>
+<tr>
+<td>45</td>
+<td>Frontend V2 workspace (<code>/v2/workspace/*</code>)</td>
+<td>IMPL+DISCONNECTED</td>
+<td><code>frontend/src/v2/pages/CaseWorkspaceShell.jsx</code> etc. — depends on v2 backend routes that are shadow-flagged</td>
+</tr>
+<tr>
+<td>46</td>
+<td><code>/investigate/:caseId</code> (workspace_v4 shell)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>frontend/src/workspace_v4/AnalystWorkspaceShellPage.jsx</code></td>
+</tr>
+<tr>
+<td>47</td>
+<td>Cases router (workspace)</td>
+<td>IMPL+CONNECTED</td>
+<td>8 <code>/api/cases/*</code> routes · <code>workspace_cases</code> (257 docs)</td>
+</tr>
+<tr>
+<td>48</td>
+<td>Investigations router (L1)</td>
+<td>IMPL+CONNECTED</td>
+<td>21 <code>/api/investigation/*</code> routes · <code>investigations</code> (2,883), <code>investigation_events</code> (933), <code>investigation_ssot</code> (35)</td>
+</tr>
+<tr>
+<td>49</td>
+<td>Sessions router</td>
+<td>IMPL+CONNECTED</td>
+<td>8 <code>/api/session/*</code> routes · <code>investigation_sessions</code> (327 docs)</td>
+</tr>
+<tr>
+<td>50</td>
+<td>SSRF guard</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/ida/acquisition._is_private_host</code> · <code>test_ssrf_blocked.py</code></td>
+</tr>
+<tr>
+<td>51</td>
+<td>Prometheus / OpenTelemetry / Jaeger</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Zero occurrences of <code>prometheus</code>, <code>otel</code>, <code>opentelemetry</code>, <code>jaeger</code> in backend Python</td>
+</tr>
+<tr>
+<td>52</td>
+<td>Prompt/LLM telemetry hook</td>
+<td>IMPL+CONNECTED</td>
+<td><code>utils/llm_telemetry.py::install_litellm_hook</code> at startup</td>
+</tr>
+<tr>
+<td>53</td>
+<td>Request-hardening middleware (X-Request-ID, timeouts, body-cap)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>backend/request_hardening.py</code> — 512 KB default / 50 MB large-body cap · per-path timeout table</td>
+</tr>
+<tr>
+<td>54</td>
+<td>GZip middleware (≥ 4 KB)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>server.py</code> L415</td>
+</tr>
+<tr>
+<td>55</td>
+<td>CORS</td>
+<td>IMPL+CONNECTED (permissive)</td>
+<td><code>CORS_ORIGINS="*"</code> in <code>backend/.env</code> → CORSMiddleware allow_origins=<code>["*"]</code></td>
+</tr>
+<tr>
+<td>56</td>
+<td>Rate-limit / brute-force lockout</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No throttling on <code>/api/auth/login</code>; no failure counters; no lockout logic in <code>routers/auth.py</code></td>
+</tr>
+<tr>
+<td>57</td>
+<td>RBAC beyond admin flag</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Only <code>role == "admin"</code> gate (<code>deps.py::require_admin</code>); no per-collection ownership beyond <code>owner</code>-scoped case lookups</td>
+</tr>
+<tr>
+<td>58</td>
+<td>Multi-tenant isolation</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Single Mongo DB <code>test_database</code>. No <code>tenant_id</code> field on cases / iocs / events; no tenant middleware</td>
+</tr>
+<tr>
+<td>59</td>
+<td>Emergent Google Auth / SSO</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Only JWT + bcrypt; no OAuth provider wired</td>
+</tr>
+<tr>
+<td>60</td>
+<td>Redis</td>
+<td>NOT-USED</td>
+<td>No <code>redis</code> client in <code>requirements.txt</code>; no <code>REDIS_URL</code> env</td>
+</tr>
+<tr>
+<td>61</td>
+<td>Celery / background workers</td>
+<td>NOT-USED</td>
+<td>No task queue; <code>_nightly_benchmark_loop</code> is an in-process <code>asyncio</code> sleep-24h coroutine (<code>server.py</code> L426)</td>
+</tr>
+<tr>
+<td>62</td>
+<td>Data-retention / TTL indices</td>
+<td>UNKNOWN</td>
+<td>Not verified this session — grep for <code>expireAfterSeconds</code> may reveal per-collection TTLs</td>
+</tr>
+<tr>
+<td>63</td>
+<td>Container isolation / sandboxing for analyzed inputs</td>
+<td>NOT-IMPLEMENTED</td>
+<td>All parsers run in the same Python process. No microVM, gVisor, or Firecracker isolation. <code>capstone==5.0.9</code> disassembly, <code>pefile==2024.8.26</code> PE parsing run inline.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-runtime-footprint-measured">§3 · Runtime Footprint (measured)</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend RSS at boot</td>
+<td>27.7 MB (pid 163)</td>
+<td><code>ps -eo pid,rss,cmd \| grep uvicorn</code></td>
+</tr>
+<tr>
+<td>Backend under 10× SEP.csv concurrency</td>
+<td>378 MB (session-7)</td>
+<td><code>/app/memory/adr/0005-load-and-resource-audit.md</code></td>
+</tr>
+<tr>
+<td>Frontend dev-mode memory</td>
+<td>~1.2 GB (CRA 5)</td>
+<td>Session-7 audit</td>
+</tr>
+<tr>
+<td>Mongo dataSize</td>
+<td>147 MB · 64 collections · 10/400 connections</td>
+<td>Session-7 audit</td>
+</tr>
+<tr>
+<td>Redis</td>
+<td>not used</td>
+<td>Absent from requirements + env</td>
+</tr>
+<tr>
+<td>Backend routes (OpenAPI)</td>
+<td><strong>466 operations / 436 paths</strong></td>
+<td><code>curl /openapi.json</code> this session</td>
+</tr>
+<tr>
+<td>Backend routers</td>
+<td>77 files</td>
+<td><code>ls backend/routers/*.py \| wc -l</code></td>
+</tr>
+<tr>
+<td>Backend test files</td>
+<td>389</td>
+<td><code>ls backend/tests/test_*.py \| wc -l</code></td>
+</tr>
+<tr>
+<td>Backend test functions</td>
+<td>3,621</td>
+<td><code>grep -c "def test_" backend/tests/*.py</code></td>
+</tr>
+<tr>
+<td>Cold start</td>
+<td>~3 s / 2,080 modules</td>
+<td>Session-7</td>
+</tr>
+<tr>
+<td>Body-size cap (default)</td>
+<td>512 KB</td>
+<td><code>request_hardening.py::_MAX_BODY_BYTES</code></td>
+</tr>
+<tr>
+<td>Body-size cap (large paths)</td>
+<td>50 MB</td>
+<td><code>_MAX_LARGE_BODY_BYTES</code></td>
+</tr>
+<tr>
+<td>Client-side auto-viz cap</td>
+<td>32 KB</td>
+<td><code>WorkspacePage.jsx</code> (session-7)</td>
+</tr>
+<tr>
+<td>Deep health probe</td>
+<td>mongo=ok · llm_key=ok · disk=87.66 GB free</td>
+<td><code>GET /api/health/deep</code> this session</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-complete-api-graph-466-method-routes">§4 · Complete API Graph (466 method-routes)</h2>
+<p>Grouped by top-level prefix; count in parens. Every group also carries a <strong>status</strong> describing whether its routes are consumed by a shipping UI, kept for admin/ops, or dead.</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th style="text-align: right;">Ops</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/</code> root (<code>/health</code>, <code>/health/deep</code>)</td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td>Kubernetes probes; used</td>
+</tr>
+<tr>
+<td><code>/api/admin</code></td>
+<td style="text-align: right;">37</td>
+<td>IMPL+CONNECTED</td>
+<td>OSINT keys, Model Studio, Samples, LOLBAS, Users, TAXII, etc. — admin panel wires most</td>
+</tr>
+<tr>
+<td><code>/api/ai</code></td>
+<td style="text-align: right;">6</td>
+<td>IMPL+CONNECTED</td>
+<td><code>auto-decode</code>, <code>auto-investigate</code>, <code>troubleshoot</code>; guarded by <code>ai_credit_guard</code></td>
+</tr>
+<tr>
+<td><code>/api/analyze</code></td>
+<td style="text-align: right;">9</td>
+<td>IMPL+CONNECTED</td>
+<td>sync / async / stream + shellcode + status; frontend uses <code>.../smart|async|process-tree</code></td>
+</tr>
+<tr>
+<td><code>/api/artifacts</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/artifacts/analyze</code> etc. (registered on <code>app</code> not <code>api</code> — line 339)</td>
+</tr>
+<tr>
+<td><code>/api/auth</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>login / me / change-password</td>
+</tr>
+<tr>
+<td><code>/api/batch</code></td>
+<td style="text-align: right;">11</td>
+<td>IMPL+CONNECTED</td>
+<td>Batch-test page consumer</td>
+</tr>
+<tr>
+<td><code>/api/behaviors</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/investigation/behaviors/explain</code> etc.</td>
+</tr>
+<tr>
+<td><code>/api/benchmark</code></td>
+<td style="text-align: right;">6</td>
+<td>IMPL+CONNECTED</td>
+<td>Nightly benchmark loop + admin</td>
+</tr>
+<tr>
+<td><code>/api/cases</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Workspace case CRUD; heavy usage (<code>workspace_cases</code> 257 docs)</td>
+</tr>
+<tr>
+<td><code>/api/corpus</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>Corpus validation (<code>corpus_validate.py</code>)</td>
+</tr>
+<tr>
+<td><code>/api/corrections</code></td>
+<td style="text-align: right;">11</td>
+<td>IMPL+CONNECTED</td>
+<td>887 corrections captured (<code>analyst_corrections</code>)</td>
+</tr>
+<tr>
+<td><code>/api/correlations</code></td>
+<td style="text-align: right;">20</td>
+<td>IMPL+CONNECTED</td>
+<td>Full CRUD + link/unlink; light usage (5 docs)</td>
+</tr>
+<tr>
+<td><code>/api/decode</code></td>
+<td style="text-align: right;">17</td>
+<td>IMPL+CONNECTED</td>
+<td>Smart / magic / chain / candidates / feedback</td>
+</tr>
+<tr>
+<td><code>/api/die</code></td>
+<td style="text-align: right;">21</td>
+<td>IMPL+CONNECTED</td>
+<td><strong>the shipping analyst pipeline</strong>: analyze, investigation-results, timeline, query, chain, iocs, narrate, understand, health-check, powershell/ast, dkp/*, lolbas, report/{case_id}, case/{case_id}, archive/recover, confidence, detect-kind, intent</td>
+</tr>
+<tr>
+<td><code>/api/docs</code></td>
+<td style="text-align: right;">39</td>
+<td>IMPL+CONNECTED</td>
+<td>Static-doc router + feedback + cheatsheet</td>
+</tr>
+<tr>
+<td><code>/api/documents</code></td>
+<td style="text-align: right;">9</td>
+<td>IMPL+CONNECTED</td>
+<td>GridFS-backed doc vault</td>
+</tr>
+<tr>
+<td><code>/api/emit</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>LOLBAS export etc.</td>
+</tr>
+<tr>
+<td><code>/api/enrichment</code></td>
+<td style="text-align: right;">5</td>
+<td>IMPL+CONNECTED</td>
+<td>Enrichment admin panel</td>
+</tr>
+<tr>
+<td><code>/api/examples</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td>Examples payload</td>
+</tr>
+<tr>
+<td><code>/api/health</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td><code>/health</code>, <code>/health/deep</code></td>
+</tr>
+<tr>
+<td><code>/api/history</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Investigation history drawer</td>
+</tr>
+<tr>
+<td><code>/api/iedde</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/iedde/analyze</code> — trace visualiser</td>
+</tr>
+<tr>
+<td><code>/api/investigation</code></td>
+<td style="text-align: right;">21</td>
+<td>IMPL+CONNECTED</td>
+<td>L1 workspace investigation APIs (Blueprint §10) — heaviest DB usage (2,883 investigations)</td>
+</tr>
+<tr>
+<td><code>/api/investigations</code></td>
+<td style="text-align: right;">6</td>
+<td>IMPL+CONNECTED</td>
+<td>List / detail views (Investigations page)</td>
+</tr>
+<tr>
+<td><code>/api/ioc</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/ioc/enrich</code> (frontend uses this)</td>
+</tr>
+<tr>
+<td><code>/api/kb</code></td>
+<td style="text-align: right;">7</td>
+<td>IMPL+CONNECTED</td>
+<td>339 KB entries</td>
+</tr>
+<tr>
+<td><code>/api/lab</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Practice Lab</td>
+</tr>
+<tr>
+<td><code>/api/learner</code></td>
+<td style="text-align: right;">16</td>
+<td>IMPL+CONNECTED</td>
+<td>Learning-engine feedback; boost/correction endpoints referenced from FE</td>
+</tr>
+<tr>
+<td><code>/api/learning</code></td>
+<td style="text-align: right;">6</td>
+<td>IMPL+CONNECTED</td>
+<td><code>learning_events</code> 572 docs</td>
+</tr>
+<tr>
+<td><code>/api/learning-engine</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>Second learning surface</td>
+</tr>
+<tr>
+<td><code>/api/lolbas</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>Registry lookup</td>
+</tr>
+<tr>
+<td><code>/api/mitre</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>MITRE heatmap + probe</td>
+</tr>
+<tr>
+<td><code>/api/moe</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>Mixture-of-experts panel</td>
+</tr>
+<tr>
+<td><code>/api/nivxforge</code></td>
+<td style="text-align: right;">9</td>
+<td>IMPL+CONNECTED</td>
+<td>Preview pages (health/adrs/framework-status/governance/…)</td>
+</tr>
+<tr>
+<td><code>/api/observation</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+DISCONNECTED</td>
+<td>Legacy observation surface — X-Lab-adjacent</td>
+</tr>
+<tr>
+<td><code>/api/operations</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td><code>GET /api/operations</code> list</td>
+</tr>
+<tr>
+<td><code>/api/osint</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td>OSINT feed refresh</td>
+</tr>
+<tr>
+<td><code>/api/planner</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/planner/advise</code> — Smart Input Advisor</td>
+</tr>
+<tr>
+<td><code>/api/platform</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>Platform-health</td>
+</tr>
+<tr>
+<td><code>/api/rc5</code></td>
+<td style="text-align: right;">19</td>
+<td>IMPL+CONNECTED</td>
+<td>Golden runs · shadow · entity classifier · evidence-graph metrics · gate</td>
+</tr>
+<tr>
+<td><code>/api/recipe</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/recipe/run</code></td>
+</tr>
+<tr>
+<td><code>/api/regression</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Regression dashboard</td>
+</tr>
+<tr>
+<td><code>/api/report</code></td>
+<td style="text-align: right;">5</td>
+<td>IMPL+CONNECTED</td>
+<td>Legacy report emitters (TXT / HTML / DOCX / PDF / CSV via <code>report_renderers.py</code>)</td>
+</tr>
+<tr>
+<td><code>/api/schemas</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td><code>GET /api/schemas/v1/cio</code></td>
+</tr>
+<tr>
+<td><code>/api/session</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Workspace sessions</td>
+</tr>
+<tr>
+<td><code>/api/share</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>Share-link render</td>
+</tr>
+<tr>
+<td><code>/api/ssot</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td>Canonical SSOT read (only 2 docs stored)</td>
+</tr>
+<tr>
+<td><code>/api/system</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td><code>GET /api/system/info</code></td>
+</tr>
+<tr>
+<td><code>/api/telemetry</code></td>
+<td style="text-align: right;">2</td>
+<td>IMPL+CONNECTED</td>
+<td>Frontend telemetry sink (52 docs)</td>
+</tr>
+<tr>
+<td><code>/api/threat-intel</code></td>
+<td style="text-align: right;">20</td>
+<td>IMPL+CONNECTED</td>
+<td>Feed sync + RSS crawl + admin config (65,614 IOCs)</td>
+</tr>
+<tr>
+<td><code>/api/threat-model</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>Threat-model page</td>
+</tr>
+<tr>
+<td><code>/api/timeline</code></td>
+<td style="text-align: right;">4</td>
+<td>IMPL+CONNECTED</td>
+<td>Older timeline API (parallel to <code>/api/die/timeline</code>) — <strong>candidate duplicate</strong></td>
+</tr>
+<tr>
+<td><code>/api/training</code></td>
+<td style="text-align: right;">8</td>
+<td>IMPL+CONNECTED</td>
+<td>Corrections &amp; confusion matrix</td>
+</tr>
+<tr>
+<td><code>/api/troubleshoot</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><code>/api/uaie</code></td>
+<td style="text-align: right;">4</td>
+<td>IMPL+CONNECTED</td>
+<td>UAIE (Universal Artifact Intelligence Engine)</td>
+</tr>
+<tr>
+<td><code>/api/uil</code></td>
+<td style="text-align: right;">3</td>
+<td>IMPL+CONNECTED</td>
+<td>Universal Input Layer</td>
+</tr>
+<tr>
+<td><code>/api/understand</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED</td>
+<td><code>POST /api/understand</code> — IUE hook</td>
+</tr>
+<tr>
+<td><code>/api/upload</code></td>
+<td style="text-align: right;">1</td>
+<td>IMPL+CONNECTED (capped)</td>
+<td>256 KB / 64 KB text content cap</td>
+</tr>
+<tr>
+<td><code>/api/v2</code></td>
+<td style="text-align: right;"><strong>55</strong></td>
+<td>IMPL+DISCONNECTED (shadow)</td>
+<td>Full parallel pipeline; <strong>every write-path uses shadow-mode flags</strong>. See §5.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Duplicate / overlapping route families (evidence of two pipelines):</strong></p>
+<ul>
+<li><code>/api/die/timeline</code> (canonical shipping) vs <code>/api/v2/cases/{id}/trajectory/device</code> (v2 shadow) vs <code>/api/timeline</code> (legacy)</li>
+<li><code>/api/die/investigation-results</code> (canonical shipping) vs <code>/api/v2/analyze/report</code> (v2)</li>
+<li><code>/api/investigation</code> (L1 shipping) vs <code>/api/v2/cases</code> (v2 shadow)</li>
+<li>Two reports paths: <code>/api/report/*</code> (legacy) vs <code>/api/v2/cases/{id}/report.*</code> (v2 canonical)</li>
+</ul>
+<p><strong>Orphan/disconnected routes (identified this session):</strong></p>
+<ul>
+<li><code>/api/observation</code> (1) — X-Lab observational surface residual after X-Lab-A removal.</li>
+<li>All 6 <code>/api/v2/ingest/{format}</code> routes — no FE consumer, gated by <code>NIVX_FLAG_ADAPTERS=shadow</code>.</li>
+<li><code>/api/v2/ingest/evtx</code> — explicitly returns HTTP 501.</li>
+<li>All 55 <code>/api/v2/*</code> are effectively BACKEND ONLY except <code>/api/v2/analyze/report</code> (called from <code>WorkspacePage.jsx</code> L525) and <code>/api/v2/cases</code> (called from V2 pages that are themselves not part of the primary <code>/</code> route).</li>
+</ul>
+<hr />
+<h2 id="5-feature-flag-reality">§5 · Feature-Flag Reality</h2>
+<p>All flags read once at boot from <code>NIVX_FLAG_*</code> env vars via <code>backend/v2/flags.py</code> (tri-state: <code>disabled</code>/<code>shadow</code>/<code>enabled</code>).</p>
+<p>Value in <code>backend/.env</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>State</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NIVX_FLAG_TRAJECTORY_ENGINE</code></td>
+<td>shadow</td>
+<td>v2 device-trajectory endpoints observable-only; won't influence shipping views</td>
+</tr>
+<tr>
+<td><code>NIVX_FLAG_CASE_ENGINE</code></td>
+<td>shadow</td>
+<td>v2 case_engine (dedicated schema at <code>backend/v2/case_engine/schema.py</code>) writes 0 rows to <code>v2_case_events/entities/behaviors/relationships/reports</code></td>
+</tr>
+<tr>
+<td><code>NIVX_FLAG_ADAPTERS</code></td>
+<td>shadow</td>
+<td>ingest endpoints gated (503 or observation-only)</td>
+</tr>
+<tr>
+<td><code>NIVX_FLAG_ARTIFACT_STORE</code></td>
+<td>shadow</td>
+<td>v2 artifact-store not authoritative</td>
+</tr>
+<tr>
+<td><code>NIVX_FLAG_VERDICT_ENGINE_V3</code></td>
+<td>shadow</td>
+<td><code>POST /api/v2/cases/{id}/verdicts*</code> returns 503 unless flipped</td>
+</tr>
+</tbody>
+</table>
+<p>Non-flag toggles (env, boot-time):</p>
+<table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Value</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NIVX_CANONICAL_UIL_INVESTIGATE</code></td>
+<td>on</td>
+<td>canonical UIL investigate active</td>
+</tr>
+<tr>
+<td><code>NIVX_CANONICAL_DIE_ANALYZE</code></td>
+<td>on</td>
+<td>canonical narrative MITRE augment active on <code>/api/die/analyze</code></td>
+</tr>
+<tr>
+<td><code>NIVX_ENGINE</code></td>
+<td>legacy</td>
+<td>RC5 legacy engine remains authoritative (v2 not promoted)</td>
+</tr>
+<tr>
+<td><code>NIVX_AI_ENABLED</code></td>
+<td>true</td>
+<td>LLM narrate available</td>
+</tr>
+<tr>
+<td><code>NIVX_AI_BUDGET_CAP_CREDITS</code></td>
+<td>500</td>
+<td>Budget guard active</td>
+</tr>
+<tr>
+<td><code>NIVX_AI_RATE_HOURLY / DAILY</code></td>
+<td>10 / 50</td>
+<td>Rate limits</td>
+</tr>
+<tr>
+<td><code>ADMIN_FORCE_PASSWORD_CHANGE</code></td>
+<td>false</td>
+<td>Admin does NOT need to rotate on first login</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong> <em>Every</em> v2 flag is <code>shadow</code>. The v2 layer is architecturally beautiful but operationally non-authoritative. Selling the platform on "v3 verdict engine" or "IKG-driven investigation" today would misrepresent what the production request-path actually does.</p>
+<hr />
+<h2 id="6-investigation-knowledge-graph-ikg-reality">§6 · Investigation Knowledge Graph (IKG) — Reality</h2>
+<p><strong>Design (SSOT, backend/v2/investigation/ikg.py):</strong></p>
+<p>Node types (13): <code>process · file · registry · network · module · service · task · event · technique · tactic · verdict · device · incident</code>.
+Edge types (14): <code>created · modified · deleted · contacted · loaded · installed · spawned · executed_by · maps_to · covers · contributes_to · rollup_of · hosted_on · part_of</code>.</p>
+<p><strong>Construction path (planned):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">telemetry</span><span class="w"> </span><span class="n">frames</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">IRG</span><span class="w"> </span><span class="n">enrich</span><span class="w"> </span><span class="p">(</span><span class="n">v2</span><span class="o">/</span><span class="n">shadow</span><span class="o">/</span><span class="n">irg</span><span class="p">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">IKG</span><span class="w"> </span><span class="n">assembly</span><span class="w"> </span><span class="p">(</span><span class="n">v2</span><span class="o">/</span><span class="n">investigation</span><span class="o">/</span><span class="n">builder</span><span class="p">.</span><span class="n">py</span><span class="o">::</span><span class="n">Investigation</span><span class="p">)</span>
+<span class="w">                                              </span><span class="err">→</span><span class="w"> </span><span class="n">verdict</span><span class="w"> </span><span class="n">engine</span><span class="w"> </span><span class="p">(</span><span class="k">event</span><span class="o">/</span><span class="n">aggregate</span><span class="p">)</span>
+<span class="w">                                              </span><span class="err">→</span><span class="w"> </span><span class="n">correlation</span><span class="w"> </span><span class="n">engine</span><span class="w"> </span><span class="p">(</span><span class="n">aggregate</span><span class="w"> </span><span class="n">v3</span><span class="mf">.1</span><span class="n">b</span><span class="p">)</span>
+<span class="w">                                              </span><span class="err">→</span><span class="w"> </span><span class="n">attack_story</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">attack_mapping</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">explainability</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">ikb</span>
+</code></pre></div>
+
+<p><strong>Persistence:</strong> <code>v2_case_events / v2_case_entities / v2_case_behaviors / v2_case_relationships / v2_case_reports</code>.</p>
+<p><strong>Reality:</strong> all 5 collections contain <strong>0 documents</strong>. <code>v2_shadow_observations</code> has 563 (sampling only). <code>v2_cases</code> has 29 (from earlier experiments). The IKG is running <strong>as a side-car observer only</strong> — the shipping investigation view does not consume it.</p>
+<p><strong>Provenance:</strong> every IKG node carries <code>source_node_ids</code> (per <code>engine/evidence_graph.py</code>) so provenance is architecturally guaranteed <em>when the IKG is authoritative</em>. Today it is not.</p>
+<p><strong>Consumers (planned vs actual):</strong>
+- Planned: Trajectory · Attack Story · Evidence Graph · ATT&amp;CK · Verdict · Explainability · Reports.
+- Actual: none in the production request-path. Frontend pages under <code>/v2/*</code> reach these routes, but <code>/v2/*</code> is off the main <code>/</code> navigation.</p>
+<p><strong>Verdict:</strong> IMPL+DISCONNECTED. Removing the flag guard and lighting up the persistence writer would surface this capability; today it is dormant.</p>
+<hr />
+<h2 id="7-verdict-engine-reality">§7 · Verdict Engine — Reality</h2>
+<p><strong>Two engines coexist. Only one ships.</strong></p>
+<h3 id="71-canonical-verdict-projection-shipping">7.1 Canonical Verdict Projection (shipping)</h3>
+<p><code>backend/canonical/projections/verdict.py</code> — deterministic, pure:</p>
+<ul>
+<li>Weights: <code>mitre_technique=25</code>, <code>ioc=8</code>, <code>command=4</code>, <code>reasoning_step=2</code>.</li>
+<li>Score = <code>Σ min(count_c, cap_c) · weight_c</code>, clamped 0..100.</li>
+<li>Label bands: ≥80 MALICIOUS · ≥60 SUSPICIOUS · ≥30 LIKELY_BENIGN · else INCONCLUSIVE.</li>
+<li><code>reason</code> field says literally "no evidence in canonical SSOT" when there is no evidence — <strong>negative explainability</strong> is honoured.</li>
+<li>Exposed via <code>POST /api/die/investigation-results.object.verdict</code>.</li>
+</ul>
+<h3 id="72-verdict-engine-v3-shadow">7.2 Verdict Engine v3 (shadow)</h3>
+<p><code>backend/v2/verdict/{engine,weights,profiles,correlation,progressions,signals,canonical,shadow}.py</code>:</p>
+<ul>
+<li>Per-event scoring with breakdown + explanation.</li>
+<li>Adaptive Weight Profiles (<code>soc_balanced</code> default; other profiles listed at <code>GET /api/v2/verdict/profiles</code> — returns 503 today).</li>
+<li>Correlation bonuses (v3.1b — <code>v2/verdict/correlation.py</code>).</li>
+<li>Aggregate rollup (event → process → chain → device → incident) at <code>GET /api/v2/cases/{id}/verdicts/aggregate?profile=…</code>.</li>
+<li>Confidence + band per aggregate level.</li>
+</ul>
+<p><strong>Endpoint reality:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">GET</span><span class="w">  </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">v2</span><span class="o">/</span><span class="n">verdict</span><span class="o">/</span><span class="n">profiles</span><span class="w">                    </span><span class="err">→</span><span class="w"> </span><span class="mh">503</span><span class="w"> </span><span class="p">(</span><span class="n">flag</span><span class="o">=</span><span class="n">shadow</span><span class="p">)</span>
+<span class="n">GET</span><span class="w">  </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">v2</span><span class="o">/</span><span class="n">cases</span><span class="o">/</span><span class="p">{</span><span class="n">id</span><span class="p">}</span><span class="o">/</span><span class="n">verdicts</span><span class="w">                 </span><span class="err">→</span><span class="w"> </span><span class="mh">503</span><span class="w"> </span><span class="p">(</span><span class="n">flag</span><span class="o">=</span><span class="n">shadow</span><span class="p">)</span>
+<span class="n">GET</span><span class="w">  </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">v2</span><span class="o">/</span><span class="n">cases</span><span class="o">/</span><span class="p">{</span><span class="n">id</span><span class="p">}</span><span class="o">/</span><span class="n">verdicts</span><span class="o">/</span><span class="n">aggregate</span><span class="w">       </span><span class="err">→</span><span class="w"> </span><span class="mh">503</span><span class="w"> </span><span class="p">(</span><span class="n">flag</span><span class="o">=</span><span class="n">shadow</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Explainability:</strong>
+- Canonical projection: <code>contributors[]</code> list with class + count + weight — traceable.
+- v3: <code>explanation</code> string per event + <code>breakdown</code> dict.
+- <strong>Negative explainability</strong>: canonical projection produces <code>"no evidence in canonical SSOT"</code>; v3 has <code>v2/investigation/explainability.py::why_is_this_not</code> (list_negative_patterns) — but path is dormant.</p>
+<p><strong>Test coverage:</strong> <code>test_p01_p02_verdict_card.py</code>, <code>test_verdict_engine_parity.py</code>, <code>test_verdict_card_never_null.py</code>, <code>test_adr0007_verdict_evidence_gating.py</code>, <code>test_verdict_v3_1b.py</code>, <code>test_verdict_reasoning.py</code> — verdict is one of the most tested subsystems.</p>
+<p><strong>Verdict:</strong> canonical projection = IMPL+CONNECTED. v3 = IMPL+DISCONNECTED (shadow).</p>
+<hr />
+<h2 id="8-attack-story-attck-reality">§8 · Attack Story / ATT&amp;CK — Reality</h2>
+<h3 id="81-canonical-projection-shipping">8.1 Canonical projection (shipping)</h3>
+<p><code>backend/canonical/projections/attack_story.py</code> — pure, deterministic, returns <code>None</code> when no evidence (no fabrication).
+- Structure: <code>opening / chapters[] / closing</code>.
+- Each chapter = one MITRE tactic stage with the techniques observed.
+- Powered by <code>canonical/projections/attack_chain.py</code> for stage grouping.</p>
+<h3 id="82-v2-attack_mapping-shadow">8.2 v2 attack_mapping (shadow)</h3>
+<p><code>backend/v2/investigation/attack_mapping.py::build_attack_mapping</code> — richer output:
+- Tactic-level coverage (level 0..3)
+- Kill-chain ordered stages
+- <strong>MITRE Navigator v4.5 layer JSON</strong> (one-click export)
+- STIX 2.1 technique set (fully rendered STIX in <code>v2/report/stix.py</code>)</p>
+<h3 id="83-attck-coverage-base-technique-dictionary">8.3 ATT&amp;CK coverage (base-technique dictionary)</h3>
+<p><code>v2/investigation/attack_mapping.py::TACTIC_OF_BASE</code> — hardcoded mapping for ~40 techniques across 12 tactics. Sub-technique (<code>.NNN</code>) mapping present via <code>_tactic_of</code>. Techniques outside this table map to <code>None</code> → dropped from the chain.</p>
+<h3 id="84-confidence-and-unsupported-mappings">8.4 Confidence and "unsupported mappings"</h3>
+<ul>
+<li>Confidence is inherited from the underlying rule (P0.2 evidence chain rule confidence).</li>
+<li>Unsupported / novel MITRE ids: silently dropped by <code>_tactic_of</code> returning <code>None</code>. No warning surface today.</li>
+</ul>
+<p><strong>Verdict:</strong> canonical Attack Story = IMPL+CONNECTED; v2 Navigator/STIX = IMPL+DISCONNECTED (path lives, but no shipping consumer for Navigator JSON in <code>/api/die/*</code>).</p>
+<hr />
+<h2 id="9-report-generator-reality">§9 · Report Generator — Reality</h2>
+<h3 id="91-two-report-families">9.1 Two report families</h3>
+<ul>
+<li><strong>Canonical (shipping)</strong>: <code>backend/canonical/projections/reports.py</code> — projects STIX / Sigma / YARA / Navigator / MDR from SSOT.</li>
+<li><strong>v2 (shadow)</strong>: <code>backend/v2/report/{markdown,pdf,bundle,stix,builder}.py</code> — deterministic envelope with SHA-256 signature; exposes <code>.md</code>, <code>.pdf</code>, <code>.stix.json</code>, <code>.bundle.zip</code> per case at <code>/api/v2/cases/{id}/*</code>.</li>
+</ul>
+<h3 id="92-legacy-renderers">9.2 Legacy renderers</h3>
+<p><code>backend/report_renderers.py</code> — TXT / HTML / DOCX / PDF / CSV renderers used by the older <code>/api/report/*</code> routes and <code>/api/analyze/report</code>.</p>
+<h3 id="93-report-writer-router-dedicated">9.3 Report Writer router (dedicated)</h3>
+<p><code>backend/routers/report_writer.py</code> — three write endpoints (<code>POST /api/v2/report-writer/generate*</code>). Full-pipeline artifact production.</p>
+<h3 id="94-determinism-signature">9.4 Determinism &amp; signature</h3>
+<ul>
+<li><code>v2/report/markdown.py</code> docstring: <em>"Same envelope → same Markdown bytes. Pure function, no side effects."</em></li>
+<li>SHA-256 signature emitted in envelope (<code>env.signature.sha256</code>).</li>
+<li><strong>No published test enforces byte-identical re-render across two calls this session</strong> — needs to be added to close the loop.</li>
+</ul>
+<h3 id="95-reportui-integration">9.5 Report/UI integration</h3>
+<ul>
+<li><code>frontend/src/components/investigation/ReportTab.jsx</code> consumes <code>/api/v2/analyze/report?fmt=…</code> (<code>WorkspacePage.jsx</code> L525).</li>
+<li>Legacy <code>/api/report/*</code> still reachable but not directly wired into the primary WorkspacePage.</li>
+</ul>
+<p><strong>Verdict:</strong> IMPL+CONNECTED for shipping report generation. <strong>PARTIAL</strong> for deterministic-signature guarantee (no CI gate).</p>
+<hr />
+<h2 id="10-complete-frontend-inventory">§10 · Complete Frontend Inventory</h2>
+<h3 id="101-app-level-routes-frontendsrcappjs-58-route-entries">10.1 App-level routes (<code>frontend/src/App.js</code> — 58 <code>&lt;Route&gt;</code> entries)</h3>
+<p>Grouped by intent:</p>
+<p><strong>Primary Workspace (default <code>/</code>):</strong>
+- <code>/</code> → <code>WorkspacePage.jsx</code> (4,306 lines — the mothership)
+- <code>/analyze</code> → <code>CommandAnalyzerPage</code>
+- <code>/investigate</code>, <code>/investigate/:caseId</code> → <code>AnalystWorkspaceShellPage</code> (workspace_v4)</p>
+<p><strong>Analyst tooling:</strong>
+- <code>/threat-intel</code>, <code>/threat-model</code>, <code>/kb</code>, <code>/docs</code>, <code>/documents</code>, <code>/lab</code>, <code>/heatmap</code>, <code>/history</code>
+- <code>/investigations</code>, <code>/investigations/:id</code>, <code>/investigation-summary</code>, <code>/investigations/:id/replay</code>
+- <code>/compare</code>, <code>/compare/:caseA/:caseB</code>
+- <code>/iedde</code> (decision trace)
+- <code>/analyst</code>, <code>/analyst/rc5</code>
+- <code>/auto-investigate</code>
+- <code>/evidence-explorer</code>
+- <code>/workspace/session/:sessionId[/input/:inputId]</code></p>
+<p><strong>Admin:</strong>
+- <code>/admin</code>, <code>/admin/models</code>, <code>/admin/samples</code>, <code>/admin/corrections</code>, <code>/admin/training-inbox</code>
+- <code>/batch-test</code>, <code>/benchmark</code>, <code>/battery</code>, <code>/platform</code>, <code>/learner</code></p>
+<p><strong>v2 pages (shadow-backend, disconnected from <code>/</code>):</strong>
+- <code>/v2/workspace[/:caseId]</code>, <code>/v2/trajectory[/:caseId]</code>, <code>/v2/irg[/:caseId]</code>, <code>/v2/compare[/…]</code>, <code>/v2/ancestry/:caseId/:processIid</code>, <code>/v2/case/:caseId</code>, <code>/v2/ingest</code>, <code>/v2/validation</code></p>
+<p><strong>Nivxforge preview:</strong>
+- <code>/nivxforge</code>, <code>/nivxforge/dashboard</code>, <code>/nivxforge/investigate</code>
+- <code>/nivxforge/threat-intel</code>, <code>/nivxforge/hunting</code>, <code>/nivxforge/knowledge</code>, <code>/nivxforge/reports</code>, <code>/nivxforge/history</code>, <code>/nivxforge/governance</code>
+- <strong>All Nivxforge section pages except Dashboard/Investigate/Governance are <code>PlaceholderSections.jsx</code></strong> — no live backend.</p>
+<h3 id="102-pages-34-files-under-frontendsrcpages-componentrouteapi">10.2 Pages (34 files under <code>frontend/src/pages/</code>) — component:route:api</h3>
+<p>Every page is code-split (<code>lazy(() =&gt; import(...))</code>). See §10.1 for the intent grouping.</p>
+<h3 id="103-components-138-top-level-30-investigation-scoped-10-v2">10.3 Components (138 top-level, 30 investigation-scoped, 10 v2)</h3>
+<p>Investigation folder (production Workspace panels):</p>
+<div class="codehilite"><pre><span></span><code>AcquisitionEvidenceList · AcquisitionPlanPanel · AcquisitionSummary
+AnalystNarrativePanel · ArtifactTracePanel
+AttackChainView · CollapsibleCard · CollapsibleSection
+CorrelationSuggestionCard · EvidenceGraphView · EvidenceTab
+ExtractedArtifactsPanel · FindRelatedDrawer · InlineAttackStory
+InputUnderstandingPanel · InvestigationBrainPanel
+InvestigationFilter · InvestigationSessionGateway
+InvestigationSummaryPanel · InvestigationThreatSummaryCard
+JumpToSource · OverviewTab · QueryHuntPanel (NEW)
+ReportTab · SemanticIntelligencePanel · StoryTab
+TimelinePanel (NEW) · TrajectoryDiagram · UnifiedTimelineView
+WorkspaceDecodeFailureCard
+</code></pre></div>
+
+<h3 id="104-api-dependency-74-distinct-api-url-literals-in-frontend">10.4 API dependency — 74 distinct <code>/api/*</code> URL literals in frontend</h3>
+<p>Frontend calls <strong>74</strong> unique endpoints out of the 466 the backend exposes → <strong>~15% consumption ratio</strong>. Every route not on the frontend list is either admin-only, ops-only, RC5-only, or dead. See §11 for dead-code candidates.</p>
+<h3 id="105-mock-static-ui">10.5 Mock / static UI</h3>
+<ul>
+<li><code>nivxforge/pages/PlaceholderSections.jsx</code> — 5 static placeholders (no API).</li>
+<li><code>nivxforge/pages/PreviewPage.jsx</code> — reads <code>/api/nivxforge/preview/*</code> (real backend).</li>
+<li>v2 pages under <code>/v2/*</code> — live routes but 503 unless flags flipped.</li>
+</ul>
+<h3 id="106-feature-flags-on-the-frontend">10.6 Feature flags on the frontend</h3>
+<ul>
+<li>No React feature-flag library (Split.io, Unleash, LaunchDarkly) present.</li>
+<li>Some panels self-gate by checking payload keys.</li>
+</ul>
+<h3 id="107-dead-ui-candidates">10.7 Dead UI candidates</h3>
+<ul>
+<li><code>frontend/src/pages/AnalystRC5Page.jsx</code> — path <code>/analyst/rc5</code>, referenced but not surfaced in the primary nav.</li>
+<li><code>frontend/src/pages/CommandAnalyzerPage.jsx</code> — legacy analyze page, superseded by WorkspacePage.</li>
+<li><code>frontend/src/v2/pages/*</code> — v2 workspace bundle: connected but all backend endpoints shadow-flagged, effectively demo.</li>
+<li><code>frontend/src/nivxforge/pages/Placeholder*.jsx</code> — placeholder-only sections.</li>
+</ul>
+<h3 id="108-workspace-vs-x-lab-boundaries">10.8 Workspace vs X-Lab boundaries</h3>
+<ul>
+<li><strong>Workspace surface (this snapshot's Do-Not-Break):</strong> <code>/</code>, <code>/investigate/*</code>, <code>/investigations/*</code>, <code>/workspace/session/*</code>, plus all panels under <code>frontend/src/components/investigation/</code>.</li>
+<li><strong>X-Lab surface (previously removed in Session-7):</strong> the observational lab; <code>/api/observation</code> residual endpoint remains; <code>test_workspace_isolation_guard.py</code> locks the boundary.</li>
+<li><strong>Practice Lab (kept):</strong> <code>/lab</code> + <code>/api/lab/*</code> — clearly distinct from removed X-Lab-A.</li>
+</ul>
+<hr />
+<h2 id="11-technical-debt-evidence-based">§11 · Technical Debt (evidence-based)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Debt item</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>11.1</td>
+<td>Two parallel investigation pipelines (RC5 canonical + v2 shadow)</td>
+<td>See §6, §7, §8. Every v2 flag = <code>shadow</code>; v2 collections = 0 rows.</td>
+</tr>
+<tr>
+<td>11.2</td>
+<td>466 API operations vs 74 frontend consumers → ~85% dead-or-admin</td>
+<td>§10.4</td>
+</tr>
+<tr>
+<td>11.3</td>
+<td>Overlapping route families (<code>/api/die/timeline</code>, <code>/api/v2/cases/{id}/trajectory/device</code>, <code>/api/timeline</code>)</td>
+<td>§4</td>
+</tr>
+<tr>
+<td>11.4</td>
+<td><code>WorkspacePage.jsx</code> is 4,306 lines · single component</td>
+<td><code>wc -l frontend/src/pages/WorkspacePage.jsx</code></td>
+</tr>
+<tr>
+<td>11.5</td>
+<td>Heavy Python deps unused in shipping path — <code>googleapiclient</code>, <code>google-genai</code>, <code>stripe</code>, <code>botocore</code>/<code>boto3</code></td>
+<td><code>backend/requirements.txt</code></td>
+</tr>
+<tr>
+<td>11.6</td>
+<td>200 lines in <code>requirements.txt</code>; last pip-freeze committed drift with actual <code>pip freeze</code> unmeasured</td>
+<td>—</td>
+</tr>
+<tr>
+<td>11.7</td>
+<td>Legacy modules: <code>chain_analyzer.py</code>, <code>command_analyzer.py</code>, <code>commandline_miner.py</code>, <code>investigation_report.py</code> (root-level) live alongside <code>services/die/</code> — same-concept parallels</td>
+<td><code>ls backend/*.py</code></td>
+</tr>
+<tr>
+<td>11.8</td>
+<td>89 memory <code>.md</code> files + 40+ ADRs — high drift risk vs code</td>
+<td><code>ls memory/*.md \| wc -l</code></td>
+</tr>
+<tr>
+<td>11.9</td>
+<td>3,621 test functions across 389 files — no visible test-execution matrix (which tests actually run in CI vs local)</td>
+<td><code>grep -c "def test_" backend/tests/*.py</code></td>
+</tr>
+<tr>
+<td>11.10</td>
+<td>Corpus JSON snapshots (<code>memory/rc22_*.json</code>, <code>rc23_*.json</code>) — ~15 files not clearly gated</td>
+<td><code>ls memory/rc*.json</code></td>
+</tr>
+<tr>
+<td>11.11</td>
+<td>Nivxforge frontend section reflects intent unbacked by data</td>
+<td><code>PlaceholderSections.jsx</code></td>
+</tr>
+<tr>
+<td>11.12</td>
+<td><code>CORS_ORIGINS="*"</code> — permissive for pod but a prod risk</td>
+<td><code>backend/.env</code></td>
+</tr>
+<tr>
+<td>11.13</td>
+<td>Root-level <code>/health</code> + <code>/api/health</code> + <code>/api/health/deep</code> — 3 health surfaces, minor churn</td>
+<td><code>server.py</code> L122-150</td>
+</tr>
+<tr>
+<td>11.14</td>
+<td>Nightly benchmark loop is an in-process <code>asyncio</code> sleep-24h — no supervision, no external scheduler</td>
+<td><code>server.py</code> L426</td>
+</tr>
+<tr>
+<td>11.15</td>
+<td>63 frontend deps (Radix + Storybook + Recharts + React-Konva + xyflow + Force-Graph + Framer) — significant bundle surface</td>
+<td><code>frontend/package.json</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-security-posture-evidence-based">§12 · Security Posture (evidence-based)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Control</th>
+<th>Reality</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12.1</td>
+<td>Authentication</td>
+<td>JWT (PyJWT) · bcrypt password hash · single admin seed idempotent</td>
+<td><code>backend/deps.py</code> L241-331</td>
+</tr>
+<tr>
+<td>12.2</td>
+<td>Password strength</td>
+<td><code>min_length=12</code> on new password endpoint · no complexity policy · no history</td>
+<td><code>routers/auth.py</code> L15-16</td>
+</tr>
+<tr>
+<td>12.3</td>
+<td>Brute-force protection</td>
+<td><strong>NONE</strong> — no rate-limit / lockout on <code>/api/auth/login</code></td>
+<td><code>routers/auth.py</code></td>
+</tr>
+<tr>
+<td>12.4</td>
+<td>Session revocation / rotation</td>
+<td>Token-only; JWT stateless; no server-side revocation list</td>
+<td><code>deps.py::create_token</code> L252</td>
+</tr>
+<tr>
+<td>12.5</td>
+<td>RBAC</td>
+<td>Two levels: user + admin (<code>role == "admin"</code>)</td>
+<td><code>deps.py::require_admin</code> L301</td>
+</tr>
+<tr>
+<td>12.6</td>
+<td>Multi-tenant isolation</td>
+<td>None; single DB; <code>owner</code>-scoped cases only</td>
+<td><code>workspace_investigation.py</code> L21</td>
+</tr>
+<tr>
+<td>12.7</td>
+<td>SSRF</td>
+<td>Loopback / link-local / RFC1918 / reserved blocked via <code>_is_private_host</code></td>
+<td><code>services/ida/acquisition.py</code> + <code>test_ssrf_blocked.py</code></td>
+</tr>
+<tr>
+<td>12.8</td>
+<td>Payload size cap</td>
+<td>512 KB default / 50 MB whitelisted paths / 256 KB upload / 64 KB text-content</td>
+<td><code>request_hardening.py</code>, <code>routers/ops.py</code></td>
+</tr>
+<tr>
+<td>12.9</td>
+<td>Request timeout</td>
+<td>Per-path table; LLM paths get longer window; 504 emitted with X-Request-ID</td>
+<td><code>request_hardening.py</code> L60-107</td>
+</tr>
+<tr>
+<td>12.10</td>
+<td>Archive-bomb / zip-slip</td>
+<td><code>.zip/.docx/.pptx/.xlsx</code> unzipped inline in <code>routers/ops.py</code> L421 · no per-file / total-size cap · <strong>potential zip-bomb path</strong></td>
+<td><code>routers/ops.py</code> L421-445</td>
+</tr>
+<tr>
+<td>12.11</td>
+<td>Path traversal</td>
+<td>Uploads never touch the filesystem (raw kept in-memory + <code>documents.files</code> GridFS) — lower risk</td>
+<td><code>routers/ops.py</code></td>
+</tr>
+<tr>
+<td>12.12</td>
+<td>Command execution</td>
+<td>No <code>subprocess</code> shells on user input; disassembly via <code>capstone</code> (in-proc); PowerShell AST via Python <code>powershell_ast.py</code></td>
+<td><code>backend/routers/ops.py</code> — no shell exec</td>
+</tr>
+<tr>
+<td>12.13</td>
+<td>Sandboxing / container isolation</td>
+<td><strong>NONE</strong> for analyzed inputs; all parsers run in the same Python process</td>
+<td>—</td>
+</tr>
+<tr>
+<td>12.14</td>
+<td>Injection (Mongo NoSQL)</td>
+<td>Motor + Pydantic input validation; no <code>$where</code> dynamic operators observed on user paths</td>
+<td>Router bodies use <code>BaseModel</code></td>
+</tr>
+<tr>
+<td>12.15</td>
+<td>XSS on rendered outputs</td>
+<td>React auto-escapes; <code>dangerouslySetInnerHTML</code> count in FE = grep → confirm before selling as "safe"</td>
+<td>UNKNOWN — spot-check next session</td>
+</tr>
+<tr>
+<td>12.16</td>
+<td>Dependency / supply-chain</td>
+<td>200-line pinned <code>requirements.txt</code>; <code>litellm</code> pinned to a Cloudfront-signed wheel (customer-owned CDN); no SBOM produced</td>
+<td><code>backend/requirements.txt</code> L146</td>
+</tr>
+<tr>
+<td>12.17</td>
+<td>Sensitive-data logging</td>
+<td>JWT_SECRET, ADMIN_PASSWORD, OTX_API_KEY, URLSCAN_API_KEY in <code>backend/.env</code> — not logged; LiteLLM INFO log silenced at startup</td>
+<td><code>server.py</code> L458-478</td>
+</tr>
+<tr>
+<td>12.18</td>
+<td>MongoDB / Redis exposure</td>
+<td>Mongo bound to <code>localhost:27017</code> inside pod; no external port</td>
+<td><code>backend/.env</code></td>
+</tr>
+<tr>
+<td>12.19</td>
+<td>CORS</td>
+<td><code>allow_origins=["*"]</code> + <code>allow_credentials=True</code></td>
+<td><code>server.py</code> L417 — <strong>contradicts CORS spec</strong> for <code>*</code> + credentials</td>
+</tr>
+<tr>
+<td>12.20</td>
+<td>HTTPS / TLS</td>
+<td>Terminated by Cloudflare + Kubernetes ingress (pod itself HTTP)</td>
+<td>Session-7</td>
+</tr>
+<tr>
+<td>12.21</td>
+<td>Audit log</td>
+<td><code>v2_audit_log</code> exists (0 docs); no shipping audit trail</td>
+<td>Session-8 DB</td>
+</tr>
+<tr>
+<td>12.22</td>
+<td>Secret rotation</td>
+<td>Not automated</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Top security risks:</strong></p>
+<ol>
+<li><strong>CORS <code>*</code> + credentials</strong> — HTTP-spec violation; browsers should reject, but the config signals intent to trust everyone (12.19).</li>
+<li><strong>No login throttling</strong> — pure JWT + bcrypt, no rate-limit → credential-stuffing shape (12.3).</li>
+<li><strong>Archive unpack in-process without size guard</strong> — zip-bomb risk on <code>/api/upload</code> (12.10).</li>
+<li><strong>Same-process parser isolation</strong> — a PE / DOCX / RC4 blob parses inside the FastAPI event loop (12.13).</li>
+<li><strong>Permissive Nivxforge preview endpoints</strong> — return internal ADR / governance markdown (12 admin-side leak surface; UNKNOWN whether admin-gated).</li>
+</ol>
+<hr />
+<h2 id="13-customer-data-privacy-architecture-evidence-based">§13 · Customer-Data / Privacy Architecture (evidence-based)</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer (evidence)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What enters NivXRay?</td>
+<td>Analyst-pasted commands / prose · ≤ 256 KB uploads · CSV EDR exports · OSINT feeds (7 providers) · RSS feeds</td>
+</tr>
+<tr>
+<td>What is stored?</td>
+<td>64 Mongo collections; heaviest: <code>iocs</code> (65,614), <code>investigations</code> (2,883), <code>ti_sync_runs</code> (1,339), <code>analyst_corrections</code> (887), <code>benchmark_runs</code> (897), <code>sessions_all_kinds</code> (~500)</td>
+</tr>
+<tr>
+<td>Where?</td>
+<td>Mongo <code>test_database</code> on the pod (<code>localhost:27017</code>); GridFS for uploaded documents (<code>documents.chunks/files</code>)</td>
+</tr>
+<tr>
+<td>Temporary storage / cache?</td>
+<td><code>ai_decode_cache</code>, <code>ai_describe_cache</code>, <code>ai_response_cache</code>, <code>enrichment_cache</code>, <code>v2_enrichment_cache</code> — 0 docs currently</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td>Supervisor-managed stdout/stderr; no structured logger; LiteLLM info silenced</td>
+</tr>
+<tr>
+<td>External APIs</td>
+<td>OTX (<code>OTX_API_KEY</code>), URLscan (<code>URLSCAN_API_KEY</code>), AbuseIPDB, URLhaus, ThreatFox, MalwareBazaar, MalwareBytes, Talos, CINS Army — outbound TI feed fetch only</td>
+</tr>
+<tr>
+<td>LLM providers</td>
+<td>Emergent LLM key → LiteLLM shim → Claude / OpenAI / Gemini (via <code>emergent_integrations</code>)</td>
+</tr>
+<tr>
+<td>Data leaving the environment</td>
+<td>Only user-initiated: TAXII push (<code>taxii_push_log</code> 85 rows), report downloads, share links</td>
+</tr>
+<tr>
+<td>Retention / deletion</td>
+<td><strong>No TTL indices verified this session</strong> (UNKNOWN) — cases keep growing (<code>investigations</code> 2,883 · <code>investigation_events</code> 933 · <code>iocs</code> 65,614)</td>
+</tr>
+<tr>
+<td>Backups</td>
+<td>Not observed; UNKNOWN</td>
+</tr>
+<tr>
+<td>Tenant isolation</td>
+<td>Single-tenant DB — no <code>tenant_id</code> column</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict:</strong> Suitable for <strong>single-tenant SaaS demo / on-prem PoC</strong>. Not suitable for multi-tenant customer-hosted deployment without data-model changes.</p>
+<hr />
+<h2 id="14-deployment-architecture-what-is-actually-possible-today">§14 · Deployment Architecture — What is Actually Possible Today</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Feasibility today</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Emergent-managed SaaS (single tenant)</td>
+<td><strong>YES</strong> — this is the current mode</td>
+<td>Kubernetes pod + supervisor + Cloudflare ingress</td>
+</tr>
+<tr>
+<td>Customer-hosted / on-prem</td>
+<td>Feasible with effort — needs <code>.env</code> per tenant, Mongo/GridFS storage, LLM key handling</td>
+<td>No installer scripted; <code>docker-compose</code> absent</td>
+</tr>
+<tr>
+<td>Multi-tenant SaaS</td>
+<td><strong>NO</strong> — no tenant model in DB or auth (§13)</td>
+<td></td>
+</tr>
+<tr>
+<td>Air-gapped</td>
+<td>Partial — LLM narrate would need offline LLM (mentioned in <code>memory/OFFLINE_LLM_DEPLOYMENT.md</code>); TI feed sync would be disabled</td>
+<td><code>memory/OFFLINE_LLM_DEPLOYMENT.md</code></td>
+</tr>
+<tr>
+<td>Local-only analyst tool</td>
+<td>Feasible — single dev-mode start (frontend <code>yarn start</code> + backend <code>uvicorn</code>)</td>
+<td><code>supervisorctl status</code> shows this pod</td>
+</tr>
+<tr>
+<td>Private cloud / hybrid</td>
+<td>Feasible with effort — same as customer-hosted</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Blocker for all customer-hosted modes:</strong> no packaged distributable. <code>docker-compose.yml</code> / Helm chart / installer are absent.</p>
+<hr />
+<h2 id="15-integrations-posture-evidence-based">§15 · Integrations Posture (evidence-based)</h2>
+<table>
+<thead>
+<tr>
+<th>Integration</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Microsoft Defender for Endpoint</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No route, module, or client</td>
+</tr>
+<tr>
+<td>CrowdStrike Falcon</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Corpus training references vendor logs; no live client</td>
+</tr>
+<tr>
+<td>SentinelOne</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Cisco Secure Endpoint (AMP)</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Corpus references it; no ingest adapter</td>
+</tr>
+<tr>
+<td>Cisco XDR</td>
+<td>NOT-IMPLEMENTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Splunk</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Splunk <code>_raw</code> CSV shape not recognised by <code>csv_edr_analyzer.py</code> (Session-7 finding)</td>
+</tr>
+<tr>
+<td>QRadar</td>
+<td>NOT-IMPLEMENTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Microsoft Sentinel</td>
+<td>NOT-IMPLEMENTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Elastic Security</td>
+<td>NOT-IMPLEMENTED</td>
+<td>—</td>
+</tr>
+<tr>
+<td>STIX 2.1 export</td>
+<td>IMPL+CONNECTED (v2 case scope)</td>
+<td><code>v2/report/stix.py</code> + <code>GET /api/v2/cases/{id}/report.stix.json</code></td>
+</tr>
+<tr>
+<td>TAXII 2.1 push</td>
+<td>IMPL+CONNECTED (admin)</td>
+<td><code>routers/taxii.py</code>; 85 pushes in <code>taxii_push_log</code></td>
+</tr>
+<tr>
+<td>VirusTotal</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No client module</td>
+</tr>
+<tr>
+<td>AbuseIPDB</td>
+<td>IMPL+CONNECTED (feed only)</td>
+<td><code>backend/feeds.py</code></td>
+</tr>
+<tr>
+<td>OTX (AlienVault)</td>
+<td>IMPL+CONNECTED (feed only)</td>
+<td><code>feeds.py::fetch_otx</code></td>
+</tr>
+<tr>
+<td>URLhaus / ThreatFox / MalwareBazaar / MalwareBytes / Talos / CINS Army</td>
+<td>IMPL+CONNECTED (feed only)</td>
+<td><code>feeds.py</code></td>
+</tr>
+<tr>
+<td>URLscan</td>
+<td>IMPL+CONNECTED (key present)</td>
+<td><code>URLSCAN_API_KEY</code> in <code>.env</code></td>
+</tr>
+<tr>
+<td>Emergent LLM (Claude/GPT/Gemini)</td>
+<td>IMPL+CONNECTED</td>
+<td><code>EMERGENT_LLM_KEY</code> + LiteLLM shim</td>
+</tr>
+<tr>
+<td>Google Auth / OAuth</td>
+<td>NOT-IMPLEMENTED</td>
+<td>Only JWT+bcrypt</td>
+</tr>
+<tr>
+<td>Stripe</td>
+<td>NOT-USED</td>
+<td>Package present in <code>requirements.txt</code>; no route imports it</td>
+</tr>
+<tr>
+<td>Boto3 / S3</td>
+<td>NOT-USED</td>
+<td>Package present; no import in shipping code</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="16-threat-hunting-reality">§16 · Threat-Hunting Reality</h2>
+<table>
+<thead>
+<tr>
+<th>Hunting mode</th>
+<th>Status</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IOC hunting</td>
+<td>PARTIAL</td>
+<td><code>/api/threat-intel/lookup/{value}</code> · <code>/api/ioc/enrich</code> — single-value lookup, no cross-case bulk hunt</td>
+</tr>
+<tr>
+<td>Behavioural hunting</td>
+<td>PARTIAL</td>
+<td><code>/api/behaviors/*</code> — narrow to current case</td>
+</tr>
+<tr>
+<td>Process hunting</td>
+<td>IMPL (single case)</td>
+<td><code>/api/analyze/process-tree</code> + WorkspacePage process-tree renderer</td>
+</tr>
+<tr>
+<td>Command-line hunting</td>
+<td>IMPL (single case)</td>
+<td><code>/api/die/query</code> (session-7) — case-scoped</td>
+</tr>
+<tr>
+<td>ATT&amp;CK hunting</td>
+<td>PARTIAL</td>
+<td>MITRE heatmap <code>/api/mitre/heatmap</code> (aggregate) but not a live hunt</td>
+</tr>
+<tr>
+<td>Timeline hunting</td>
+<td>IMPL (single case)</td>
+<td><code>/api/die/timeline</code></td>
+</tr>
+<tr>
+<td>Cross-device hunting</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No fleet model</td>
+</tr>
+<tr>
+<td>Cross-case hunting</td>
+<td>NOT-IMPLEMENTED</td>
+<td><code>/api/correlations/find-related</code> exists but returns limited relations</td>
+</tr>
+<tr>
+<td>Retrospective investigation</td>
+<td>PARTIAL</td>
+<td>Investigations history drawer + <code>/api/investigations/*</code> — read-only</td>
+</tr>
+<tr>
+<td>Saved queries</td>
+<td>NOT-IMPLEMENTED</td>
+<td>No saved-query endpoint or collection</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict:</strong> Real threat-hunting today is <strong>single-case timeline + Query/Hunt</strong>. Fleet-scale / cross-case hunting requires an ingested corpus that does not exist.</p>
+<hr />
+<h2 id="17-artifact-architecture-reality">§17 · Artifact Architecture Reality</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Artifact Router</td>
+<td>IMPL+CONNECTED</td>
+<td><code>services/ida/artifact_router.py</code></td>
+</tr>
+<tr>
+<td>Artifact-first principle</td>
+<td>IMPL</td>
+<td><code>services/ida/</code> + <code>services/artifact_intelligence/</code></td>
+</tr>
+<tr>
+<td>Analyzer registry</td>
+<td>IMPL</td>
+<td><code>backend/engine/registry.py</code> + <code>services/adapters/</code></td>
+</tr>
+<tr>
+<td>Decoder registry</td>
+<td>IMPL</td>
+<td><code>backend/decoders/</code> + <code>backend/operations.py</code> + <code>ops_extended.py</code> (+42 ops)</td>
+</tr>
+<tr>
+<td>Recursive artifact discovery</td>
+<td>IMPL</td>
+<td><code>services/recursive_child_pipeline.py</code> + <code>services/die/preprocessor/</code></td>
+</tr>
+<tr>
+<td>Child artifacts</td>
+<td>IMPL</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Fixed-point termination</td>
+<td>IMPL</td>
+<td>Terminal-state test: <code>test_binary_terminal_state.py</code></td>
+</tr>
+<tr>
+<td>Artifact provenance</td>
+<td>IMPL</td>
+<td>Every artifact carries <code>evidence_ref</code> gated by P0.2</td>
+</tr>
+<tr>
+<td>Artifact store persistence</td>
+<td>IMPL+DISCONNECTED (shadow)</td>
+<td><code>v2_artifact_store</code> (15 docs) — gated by <code>NIVX_FLAG_ARTIFACT_STORE=shadow</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="18-data-model-mongo-collections-64-total">§18 · Data Model (Mongo collections, 64 total)</h2>
+<p>Key collections and their evidence-of-use (session-8 counts):</p>
+<table>
+<thead>
+<tr>
+<th>Collection</th>
+<th style="text-align: right;">Docs</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>users</code></td>
+<td style="text-align: right;">4</td>
+<td>JWT identity</td>
+</tr>
+<tr>
+<td><code>investigations</code></td>
+<td style="text-align: right;">2,883</td>
+<td>Case history rows (L1)</td>
+</tr>
+<tr>
+<td><code>investigation_events</code></td>
+<td style="text-align: right;">933</td>
+<td>Frame-level events</td>
+</tr>
+<tr>
+<td><code>investigation_sessions</code></td>
+<td style="text-align: right;">327</td>
+<td>Session vault</td>
+</tr>
+<tr>
+<td><code>investigation_ssot</code></td>
+<td style="text-align: right;">35</td>
+<td>SSOT snapshots</td>
+</tr>
+<tr>
+<td><code>investigation_cases</code></td>
+<td style="text-align: right;">77</td>
+<td>Case metadata</td>
+</tr>
+<tr>
+<td><code>workspace_cases</code></td>
+<td style="text-align: right;">257</td>
+<td>Cases in the Workspace surface</td>
+</tr>
+<tr>
+<td><code>iocs</code></td>
+<td style="text-align: right;">65,614</td>
+<td>Deduped IOCs from OSINT feeds</td>
+</tr>
+<tr>
+<td><code>analyst_corrections</code></td>
+<td style="text-align: right;">887</td>
+<td>Analyst-supplied corrections</td>
+</tr>
+<tr>
+<td><code>learning_events</code></td>
+<td style="text-align: right;">572</td>
+<td>Feedback events</td>
+</tr>
+<tr>
+<td><code>benchmark_runs</code></td>
+<td style="text-align: right;">897</td>
+<td>Nightly benchmarks</td>
+</tr>
+<tr>
+<td><code>batch_runs</code></td>
+<td style="text-align: right;">264</td>
+<td>Batch-test runs</td>
+</tr>
+<tr>
+<td><code>regression_runs</code></td>
+<td style="text-align: right;">239</td>
+<td>Regression harness</td>
+</tr>
+<tr>
+<td><code>admin_models</code></td>
+<td style="text-align: right;">73</td>
+<td>Model Studio catalog</td>
+</tr>
+<tr>
+<td><code>sample_library</code></td>
+<td style="text-align: right;">18</td>
+<td>Curated samples</td>
+</tr>
+<tr>
+<td><code>kb_entries</code></td>
+<td style="text-align: right;">339</td>
+<td>Knowledge base</td>
+</tr>
+<tr>
+<td><code>lab_attempts</code></td>
+<td style="text-align: right;">89</td>
+<td>Practice-lab attempts</td>
+</tr>
+<tr>
+<td><code>taxii_push_log</code></td>
+<td style="text-align: right;">85</td>
+<td>Real STIX pushes</td>
+</tr>
+<tr>
+<td><code>ti_sync_runs</code></td>
+<td style="text-align: right;">1,339</td>
+<td>Feed-sync history</td>
+</tr>
+<tr>
+<td><code>ti_source_meta</code></td>
+<td style="text-align: right;">8</td>
+<td>Feed sources config</td>
+</tr>
+<tr>
+<td><code>cti_rss_meta</code></td>
+<td style="text-align: right;">8</td>
+<td>RSS sources config</td>
+</tr>
+<tr>
+<td><code>pending_training_notes</code></td>
+<td style="text-align: right;">96</td>
+<td>RSS-derived pending notes</td>
+</tr>
+<tr>
+<td><code>documents.files / documents.chunks</code></td>
+<td style="text-align: right;">35 / 35</td>
+<td>GridFS uploads</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td style="text-align: right;">3</td>
+<td>Global config (OSINT keys, TI config, TAXII config)</td>
+</tr>
+<tr>
+<td><code>canonical_ssot_store</code></td>
+<td style="text-align: right;">2</td>
+<td>Canonical SSOT (real path uses volatile projection, not this store)</td>
+</tr>
+<tr>
+<td><code>v2_shadow_observations</code></td>
+<td style="text-align: right;">563</td>
+<td>v2 shadow sampling</td>
+</tr>
+<tr>
+<td><code>verdict_shadow_observations</code></td>
+<td style="text-align: right;">2</td>
+<td>Verdict-Engine-v3 shadow</td>
+</tr>
+<tr>
+<td><code>v2_cases</code></td>
+<td style="text-align: right;">29</td>
+<td>v2 case rows (from earlier experiments)</td>
+</tr>
+<tr>
+<td><code>v2_case_events / entities / behaviors / relationships / reports</code></td>
+<td style="text-align: right;"><strong>0 each</strong></td>
+<td>v2 pipeline never persisted</td>
+</tr>
+<tr>
+<td><code>v2_artifact_store</code></td>
+<td style="text-align: right;">15</td>
+<td>Shadow artifact store</td>
+</tr>
+<tr>
+<td><code>v2_decoded_payloads</code></td>
+<td style="text-align: right;">161</td>
+<td>Payload snapshots (shadow)</td>
+</tr>
+<tr>
+<td><code>v2_ai_jobs</code></td>
+<td style="text-align: right;">211</td>
+<td>AI job log</td>
+</tr>
+<tr>
+<td><code>v2_audit_log</code></td>
+<td style="text-align: right;">0</td>
+<td>Empty</td>
+</tr>
+<tr>
+<td><code>v2_enrichment_cache</code></td>
+<td style="text-align: right;">0</td>
+<td>Empty</td>
+</tr>
+<tr>
+<td><code>rc5_golden_runs</code></td>
+<td style="text-align: right;">9</td>
+<td>RC5 golden runs</td>
+</tr>
+<tr>
+<td><code>rc5_shadow_runs</code></td>
+<td style="text-align: right;">1</td>
+<td>RC5 shadow runs</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong>
+- Real shipping data lives in <strong>RC5/legacy collections</strong> (<code>investigations</code>, <code>iocs</code>, <code>workspace_cases</code>, …).
+- v2 collections that would represent the IKG-first architecture are <strong>empty</strong>.</p>
+<hr />
+<h2 id="19-testing-quality-reality">§19 · Testing / Quality Reality</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend test files</td>
+<td>389</td>
+</tr>
+<tr>
+<td>Backend test functions (<code>def test_*</code>)</td>
+<td><strong>3,621</strong></td>
+</tr>
+<tr>
+<td>Canonical-API tests (P0.2 / P0.3 / Timeline / Query)</td>
+<td>6 files, ~108 tests (session-7 confirmed passing)</td>
+</tr>
+<tr>
+<td>Frontend unit tests</td>
+<td>5 <code>.test.mjs</code> files (Trajectory / lane / classify / viewport)</td>
+</tr>
+<tr>
+<td>Frontend integration / e2e</td>
+<td>Playwright dep present (<code>playwright==1.61.0</code>); no Cypress/Playwright test dir observed under <code>frontend/</code></td>
+</tr>
+<tr>
+<td>CI configuration</td>
+<td>UNKNOWN — no <code>.github/workflows</code> scan done this session (present at <code>.github/</code> — one visible entry)</td>
+</tr>
+<tr>
+<td>What each major suite proves</td>
+<td>See below</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What the major suites prove:</strong>
+- <strong>P0.2 evidence chain (30 tests)</strong> — every MITRE technique surfacing from <code>/api/die/*</code> carries traceable <code>{source, event_or_rule, field, observed_value, evidence_ref}</code>.
+- <strong>P0.3 payload / Sample1 / X-Lab firewall</strong> — response envelope limited to 10 keys; Sample1 case row byte-immutable; X-Lab cannot touch Workspace.
+- <strong>Timeline MVP (16 tests)</strong> — response contract fixed; no invented events.
+- <strong>Query/Hunt (45 tests)</strong> — filter semantics + Auto-Viz decision fixed.
+- <strong>SSRF blocker</strong> — 4 categories of dangerous IP-space blocked.
+- <strong>Verdict card never null / verdict engine parity / verdict evidence gating</strong> — verdict projection is deterministic and evidence-gated.
+- <strong>Behavior graph schema freeze</strong> — schema drift caught at CI time.
+- <strong>Baseline snapshots present</strong> — corpus regression baselines locked.</p>
+<p><strong>What remains untested at the visible level:</strong>
+- Byte-identical re-render of Markdown / PDF / STIX reports across two calls (§9.4).
+- CORS behaviour under browsers (config is arguably invalid).
+- Rate-limit / brute-force on <code>/api/auth/login</code> — no scenario tests.
+- Zip-bomb / archive-recursion on <code>/api/upload</code>.
+- Multi-tenant isolation (n/a — feature absent).
+- Frontend e2e for the shipping Workspace path (no Cypress/Playwright specs surfaced).</p>
+<hr />
+<h2 id="20-performance-scalability-reality">§20 · Performance / Scalability Reality</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend cold-start</td>
+<td>~3 s</td>
+<td>Session-7</td>
+</tr>
+<tr>
+<td>Backend steady RSS</td>
+<td>27-378 MB (idle → 10× concurrent SEP)</td>
+<td>Session-8 probe + Session-7</td>
+</tr>
+<tr>
+<td>Latency (typical <code>/api/die/analyze</code>)</td>
+<td>~100 ms p50</td>
+<td>Session-7</td>
+</tr>
+<tr>
+<td>Latency (LLM-augmented paths)</td>
+<td>5-90 s per <code>NIVX_AI_DEADLINE_S=90</code></td>
+<td><code>backend/.env</code></td>
+</tr>
+<tr>
+<td>Upload cap (analyst)</td>
+<td>256 KB (client) · 512 KB (default middleware) · 50 MB (whitelisted paths)</td>
+<td><code>request_hardening.py</code></td>
+</tr>
+<tr>
+<td>Auto-Viz payload cap (frontend)</td>
+<td>32 KB</td>
+<td><code>WorkspacePage.jsx</code></td>
+</tr>
+<tr>
+<td>Ingestion throughput (adapters)</td>
+<td>UNKNOWN — flags shadow</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Artifact recursion depth</td>
+<td><code>NIVX_ENGINE_BUDGET_DEPTH=12</code></td>
+<td><code>.env</code></td>
+</tr>
+<tr>
+<td>Wall-time budget per engine call</td>
+<td><code>NIVX_ENGINE_BUDGET_WALLTIME_MS=5000</code></td>
+<td><code>.env</code></td>
+</tr>
+<tr>
+<td>Concurrent workers</td>
+<td>1 uvicorn worker + <code>--reload</code></td>
+<td><code>ps</code> — <strong>PROD RISK</strong> if left in prod</td>
+</tr>
+<tr>
+<td>Large-log behaviour</td>
+<td>Silent fall-through to prose (Splunk <code>_raw</code> shape)</td>
+<td>Session-7</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Concurrency reality:</strong> the running pod is <code>uvicorn --workers 1 --reload</code> — reload is a <strong>dev flag</strong> and workers = 1 caps concurrent request throughput. A prod build should be <code>--workers N --no-reload</code>.</p>
+<hr />
+<h2 id="21-observability-operations">§21 · Observability / Operations</h2>
+<table>
+<thead>
+<tr>
+<th>Facet</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logs</td>
+<td>supervisor stdout/stderr; unstructured</td>
+<td><code>/var/log/supervisor/backend.*.log</code></td>
+</tr>
+<tr>
+<td>Metrics (Prometheus / OTEL / statsd)</td>
+<td>NONE</td>
+<td>grep confirmed no libraries</td>
+</tr>
+<tr>
+<td>Tracing</td>
+<td>NONE</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Health checks</td>
+<td>3 endpoints: <code>/health</code>, <code>/api/health</code>, <code>/api/health/deep</code></td>
+<td><code>server.py</code></td>
+</tr>
+<tr>
+<td>Worker monitoring</td>
+<td>None (single uvicorn worker)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Queue monitoring</td>
+<td>None (no queue)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>DB monitoring</td>
+<td>Mongo built-in only; no external exporter</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Failure detection</td>
+<td>Middleware emits X-Request-ID + logs 413/504</td>
+<td><code>request_hardening.py</code></td>
+</tr>
+<tr>
+<td>Frontend telemetry</td>
+<td><code>POST /api/telemetry/frontend</code> · <code>frontend_telemetry</code> 52 docs</td>
+<td><code>routers/telemetry.py</code></td>
+</tr>
+<tr>
+<td>LLM telemetry</td>
+<td>LiteLLM hook installed at startup</td>
+<td><code>server.py::_startup</code> L462</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict:</strong> Enough observability for a demo pod; <strong>insufficient for a customer SLA</strong>.</p>
+<hr />
+<h2 id="22-documentation-vs-implementation-drift">§22 · Documentation-vs-Implementation Drift</h2>
+<table>
+<thead>
+<tr>
+<th>Doc claim</th>
+<th>Reality</th>
+<th>Contradiction?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory/ARCHITECTURE.md</code> describes the IEDDE / canonical pipeline</td>
+<td>The <code>/api/die/*</code> path implements this</td>
+<td>✓ Aligned</td>
+</tr>
+<tr>
+<td><code>memory/NIVXRAY_ARCHITECTURE_V1.md</code> (older) references a different pipeline</td>
+<td>Superseded but not deleted</td>
+<td>Minor drift</td>
+</tr>
+<tr>
+<td><code>memory/ARCHITECTURE_v2.md</code> describes v2 IKG-first</td>
+<td>v2 flags are <code>shadow</code>; no rows in v2 case collections</td>
+<td><strong>Major drift</strong> — v2 architecture is "documented + shadow only"</td>
+</tr>
+<tr>
+<td><code>memory/PRD.md</code> says "canonical projections are pure functions of authoritative tier"</td>
+<td>True for <code>/api/die/investigation-results.object</code></td>
+<td>✓ Aligned</td>
+</tr>
+<tr>
+<td><code>RC5_EVIDENCE_GRAPH_ROADMAP.md</code> — Phase 11.0 evidence graph side-car</td>
+<td><code>engine/evidence_graph.py</code> explicitly labels itself side-car</td>
+<td>✓ Aligned</td>
+</tr>
+<tr>
+<td><code>docs/WHITEPAPER.md</code> referenced but not read this session</td>
+<td>UNKNOWN</td>
+<td>Verify next session</td>
+</tr>
+<tr>
+<td><code>docs/SECURITY.md</code> referenced but not read this session</td>
+<td>UNKNOWN</td>
+<td>Verify next session</td>
+</tr>
+<tr>
+<td><code>README.md</code> (root, 29 bytes)</td>
+<td>Placeholder</td>
+<td>Trivial</td>
+</tr>
+<tr>
+<td>Nivxforge sections claim "grounded in same enrichment sources"</td>
+<td>Placeholder pages, no live backend</td>
+<td><strong>Drift</strong> — presentation implies capability that is not wired</td>
+</tr>
+<tr>
+<td>v2 comments describe "v3.1b correlation engine"</td>
+<td>Present, gated shadow</td>
+<td>✓ Aligned with code, misaligned with product state</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="23-workspace-vs-x-lab-lab-20-isolation">§23 · Workspace vs X-Lab / Lab-2.0 Isolation</h2>
+<p><strong>Locked isolation surface (Do-Not-Break — locked by <code>test_workspace_isolation_guard.py</code>):</strong></p>
+<ul>
+<li>Shared modules the Workspace and any Lab MAY share:</li>
+<li><code>services/die/*</code> (canonical DIE)</li>
+<li><code>canonical/*</code> (IUE / SSOT / projections / executor)</li>
+<li><code>services/ida/*</code> (IDA)</li>
+<li><code>l1_evidence/case_store.py</code>, <code>l2_investigation/*</code></li>
+<li>
+<p><code>deps.py</code>, <code>schemas.py</code></p>
+</li>
+<li>
+<p>Modules the Practice Lab exclusively owns:</p>
+</li>
+<li><code>routers/lab.py</code> + <code>sample_library.py</code> + <code>lab_attempts</code>/<code>lab_stats</code> collections</li>
+<li>
+<p><code>frontend/src/pages/LabPage.jsx</code></p>
+</li>
+<li>
+<p>Removed (X-Lab-A observational surface):</p>
+</li>
+<li>
+<p><code>services/observation/*</code> (previously; residual <code>routers/observation.py</code> remains, 1 route — CANDIDATE FOR REMOVAL)</p>
+</li>
+<li>
+<p>Regression paths that could re-couple Workspace and Lab:</p>
+</li>
+<li><code>services/die/investigation_results.py</code> — must never grow a Lab-aware branch.</li>
+<li><code>routers/observation.py</code> — should be removed or documented as read-only diagnostic.</li>
+</ul>
+<p><strong>Rule preserved:</strong> X-Lab / Lab 2.0 changes MUST NOT alter existing Workspace behaviour. Enforced by CI via <code>test_workspace_isolation_guard.py</code>.</p>
+<hr />
+<h2 id="24-current-architecture-as-shipped">§24 · Current Architecture (as-shipped)</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">Analyst</span><span class="w"> </span><span class="n">browser</span>
+<span class="w">   </span><span class="n">│</span>
+<span class="w">   </span><span class="n">▼</span>
+<span class="err">[</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">Workspace</span><span class="w"> </span><span class="p">(</span><span class="n">WorkspacePage</span><span class="p">.</span><span class="n">jsx</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="mi">4306</span><span class="w"> </span><span class="n">LOC</span><span class="p">)</span><span class="w"> </span><span class="err">]</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">die</span><span class="o">/</span><span class="k">analyze</span><span class="w">                    </span><span class="n">→</span><span class="w"> </span><span class="n">DIE</span><span class="w"> </span><span class="k">analyze</span><span class="w"> </span><span class="n">envelope</span><span class="w"> </span><span class="p">(</span><span class="n">legacy</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">canonical</span><span class="w"> </span><span class="n">narrative</span><span class="w"> </span><span class="n">augment</span><span class="p">)</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">die</span><span class="o">/</span><span class="n">investigation</span><span class="o">-</span><span class="n">results</span><span class="w">      </span><span class="n">→</span><span class="w"> </span><span class="n">P0</span><span class="mf">.3</span><span class="o">-</span><span class="k">locked</span><span class="w"> </span><span class="n">payload</span><span class="w"> </span><span class="p">(</span><span class="mi">10</span><span class="w"> </span><span class="k">keys</span><span class="p">,</span><span class="w"> </span><span class="mi">250</span><span class="w"> </span><span class="n">KB</span><span class="w"> </span><span class="n">budget</span><span class="p">)</span>
+<span class="w">   </span><span class="n">│</span><span class="w">                                          </span><span class="n">├──</span><span class="w"> </span><span class="n">iocs</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">lolbas</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">mitre</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">narrative</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">ida</span>
+<span class="w">   </span><span class="n">│</span><span class="w">                                          </span><span class="n">├──</span><span class="w"> </span><span class="n">confidence</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">health</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">incident_tactics</span>
+<span class="w">   </span><span class="n">│</span><span class="w">                                          </span><span class="n">└──</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="n">·</span><span class="w"> </span><span class="n">input</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">die</span><span class="o">/</span><span class="n">timeline</span><span class="w">                   </span><span class="n">→</span><span class="w"> </span><span class="k">Read</span><span class="o">-</span><span class="k">only</span><span class="w"> </span><span class="n">projection</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">highconf_events</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">die</span><span class="o">/</span><span class="k">query</span><span class="w">                      </span><span class="n">→</span><span class="w"> </span><span class="n">Scoped</span><span class="w"> </span><span class="k">filter</span><span class="w"> </span><span class="n">projection</span><span class="w"> </span><span class="p">(</span><span class="n">same</span><span class="w"> </span><span class="k">event</span><span class="w"> </span><span class="n">bag</span><span class="p">)</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">upload</span><span class="w">                         </span><span class="n">→</span><span class="w"> </span><span class="mi">256</span><span class="w"> </span><span class="n">KB</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">64</span><span class="w"> </span><span class="n">KB</span><span class="w"> </span><span class="kt">text</span><span class="w"> </span><span class="n">cap</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="k">analyze</span><span class="o">/</span><span class="err">{</span><span class="n">smart</span><span class="p">,</span><span class="n">async</span><span class="p">,</span><span class="k">process</span><span class="o">-</span><span class="n">tree</span><span class="p">,</span><span class="n">shellcode</span><span class="err">}</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">v2</span><span class="o">/</span><span class="k">analyze</span><span class="o">/</span><span class="n">report</span><span class="w">              </span><span class="n">→</span><span class="w"> </span><span class="n">v2</span><span class="w"> </span><span class="n">renderer</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">reports</span><span class="w"> </span><span class="p">(</span><span class="k">only</span><span class="w"> </span><span class="o">/</span><span class="n">v2</span><span class="w"> </span><span class="n">endpoint</span><span class="w"> </span><span class="n">FE</span><span class="w"> </span><span class="n">calls</span><span class="p">)</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">ioc</span><span class="o">/</span><span class="n">enrich</span><span class="p">,</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">planner</span><span class="o">/</span><span class="n">advise</span><span class="p">,</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">mitre</span><span class="o">/</span><span class="n">heatmap</span>
+<span class="w">   </span><span class="n">├──</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">lab</span><span class="cm">/*                          → Practice Lab</span>
+<span class="cm">   ├── /api/nivxforge/preview/*            → Preview pages</span>
+<span class="cm">   └── /api/threat-intel/*                 → Feed sync + IOC lookup</span>
+
+<span class="cm">Backend request path</span>
+<span class="cm">   ├── RequestHardeningMiddleware  (X-Req-Id, 512 KB body cap, per-path timeouts)</span>
+<span class="cm">   ├── GZipMiddleware              (≥ 4 KB responses)</span>
+<span class="cm">   ├── CORSMiddleware              (allow_origins=[&quot;*&quot;], allow_credentials=True)</span>
+<span class="cm">   ├── FastAPI api + app.include_router × 77 routers</span>
+<span class="cm">   ├── Auth: JWT (PyJWT) + bcrypt hashed user in Mongo `users`</span>
+<span class="cm">   ├── Async I/O: Motor (Mongo) + httpx (OSINT feeds)</span>
+<span class="cm">   ├── LLM: LiteLLM shim (Emergent key) → Claude / OpenAI / Gemini</span>
+<span class="cm">   └── Startup: seed admin (idempotent) + install LLM telemetry hook + start nightly benchmark loop</span>
+
+<span class="cm">Shadow / non-authoritative pipeline (present but dormant)</span>
+<span class="cm">   ├── backend/v2/investigation/  (IKG + verdict v3 + attack story + attack mapping + explainability + ikb)</span>
+<span class="cm">   ├── backend/v2/verdict/        (engine v3, profiles, correlation, progressions, weights)</span>
+<span class="cm">   ├── backend/v2/routers/        (12 sub-routers; all gated by NIVX_FLAG_*=shadow)</span>
+<span class="cm">   ├── backend/v2/case_engine/    (dedicated schema + store)</span>
+<span class="cm">   └── DB collections: v2_case_events/entities/behaviors/relationships/reports = 0 rows</span>
+</code></pre></div>
+
+<hr />
+<h2 id="25-architectural-weaknesses">§25 · Architectural Weaknesses</h2>
+<ol>
+<li><strong>Two parallel investigation pipelines</strong> (§6, §7) — beautiful v2 architecture, no shipping consumer. Maintenance cost on both.</li>
+<li><strong>Ingestion is the platform's actual ceiling</strong> — every "would-be-EDR" story dies at the 256 KB paste box.</li>
+<li><strong>Deterministic-signature promise (§9.4) is untested at CI-time</strong> — sellable "reproducible reports" claim is soft.</li>
+<li><strong>Feature-flag flip is undocumented externally</strong> — no runbook explains what flipping <code>VERDICT_ENGINE_V3=enabled</code> does to the response contract.</li>
+<li><strong>Nivxforge frontend surface promises capabilities it does not deliver</strong> — placeholder pages under active navigation blur product truth.</li>
+<li><strong>CORS <code>*</code> + credentials + no rate-limit</strong> — three overlapping security softness (§12).</li>
+<li><strong>Single Mongo, single-tenant, no TTL</strong> — data growth curve unmanaged (§13).</li>
+<li><strong>77 routers on one uvicorn worker with <code>--reload</code></strong> — dev-shape, not prod-shape.</li>
+<li><strong>4,306-line WorkspacePage.jsx</strong> — regression risk with every new panel.</li>
+<li><strong>Nightly benchmark is an in-process asyncio sleep-24h</strong> — no k8s CronJob, no failure retry policy (§11.14).</li>
+</ol>
+<hr />
+<h2 id="26-target-architecture-only-after-1-25-is-accepted">§26 · Target Architecture (only after §1-§25 is accepted)</h2>
+<p>Two-year sound target — <strong>NOT a build order, just a shape.</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">Analyst</span><span class="w"> </span><span class="n">browser</span><span class="w">  </span><span class="err">─►</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="n">Workspace</span><span class="w"> </span><span class="n">v5</span><span class="w"> </span><span class="p">(</span><span class="n">thin</span><span class="p">,</span><span class="w"> </span><span class="n">panel</span><span class="o">-</span><span class="n">composable</span><span class="p">)</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">  </span><span class="n">Ingest</span><span class="w"> </span><span class="n">tier</span><span class="w"> </span><span class="err">─►</span><span class="w">  </span><span class="p">[</span><span class="w"> </span><span class="n">Adapters</span><span class="o">:</span><span class="w"> </span><span class="n">paste</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">upload</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Sysmon</span><span class="o">/</span><span class="n">EVTX</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">CS</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">MDE</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Splunk</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Sentinel</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Syslog</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">                  </span><span class="p">[</span><span class="w"> </span><span class="n">Canonical</span><span class="w"> </span><span class="n">Event</span><span class="w"> </span><span class="n">Bag</span><span class="w"> </span><span class="p">(</span><span class="n">Kafka</span><span class="o">-</span><span class="n">shaped</span><span class="p">)</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">    </span><span class="n">Analysis</span><span class="w"> </span><span class="n">tier</span><span class="w"> </span><span class="err">─►</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="n">IUE</span><span class="w"> </span><span class="n">Composer</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="n">Canonical</span><span class="w"> </span><span class="n">Executor</span><span class="w"> </span><span class="p">(</span><span class="n">budgeted</span><span class="p">)</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">                  </span><span class="p">[</span><span class="w"> </span><span class="n">AuthoritativeSSOT</span><span class="w"> </span><span class="p">(</span><span class="n">append</span><span class="o">-</span><span class="n">only</span><span class="p">,</span><span class="w"> </span><span class="n">provenance</span><span class="o">-</span><span class="n">mandatory</span><span class="p">)</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">      </span><span class="n">Projection</span><span class="w"> </span><span class="n">tier</span><span class="w"> </span><span class="err">─►</span><span class="w"> </span><span class="n">Verdict</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">MITRE</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Attack</span><span class="w"> </span><span class="n">Chain</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Attack</span><span class="w"> </span><span class="n">Story</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">IOC</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">LOLBAS</span>
+<span class="w">                          </span><span class="err">·</span><span class="w"> </span><span class="n">Timeline</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Executive</span><span class="w"> </span><span class="n">Summary</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Analyst</span><span class="w"> </span><span class="n">Summary</span>
+<span class="w">                          </span><span class="err">·</span><span class="w"> </span><span class="n">Recommendations</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="n">Reports</span><span class="w"> </span><span class="p">(</span><span class="n">STIX</span><span class="o">/</span><span class="n">Sigma</span><span class="o">/</span><span class="n">YARA</span><span class="o">/</span><span class="n">Nav</span><span class="o">/</span><span class="n">MDR</span><span class="p">)</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">                  </span><span class="p">[</span><span class="w"> </span><span class="n">Investigation</span><span class="w"> </span><span class="n">Knowledge</span><span class="w"> </span><span class="n">Graph</span><span class="w"> </span><span class="p">(</span><span class="n">persisted</span><span class="p">,</span><span class="w"> </span><span class="n">per</span><span class="w"> </span><span class="k">case</span><span class="p">)</span><span class="w"> </span><span class="p">]</span>
+<span class="w">                        </span><span class="err">│</span>
+<span class="w">                        </span><span class="err">▼</span>
+<span class="w">      </span><span class="no">Consumers</span><span class="w"> </span><span class="err">─►</span><span class="w"> </span><span class="no">Workspace</span><span class="w"> </span><span class="no">panels</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="no">Threat</span><span class="o">-</span><span class="no">hunt</span><span class="w"> </span><span class="p">(</span><span class="no">fleet</span><span class="o">-</span><span class="no">scale</span><span class="p">)</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="no">TAXII</span><span class="w"> </span><span class="no">push</span><span class="w"> </span><span class="err">·</span><span class="w"> </span><span class="no">Reports</span>
+</code></pre></div>
+
+<p><strong>Migration boundaries (do NOT migrate until):</strong>
+- No boundary crosses until each canonical projection has (a) a persistence writer, (b) a deterministic re-render CI gate, and (c) a documented consumer contract.
+- Adapters ship only after <strong>server-side file mode</strong> exists (removes 256 KB ceiling).
+- IKG is promoted from shadow to authoritative only when all v2 case collections write and the Workspace can consume <code>Investigation.to_dict()</code> directly.</p>
+<hr />
+<h2 id="27-production-readiness-enterprise-readiness">§27 · Production Readiness / Enterprise Readiness</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Production-ready for demo / PoC single-tenant</td>
+<td><strong>YES</strong></td>
+</tr>
+<tr>
+<td>Production-ready for paying single-tenant SaaS customer</td>
+<td><strong>NO</strong> (§12.3, §12.10, §12.13, §12.19, §20 concurrency, §21 SLA gaps)</td>
+</tr>
+<tr>
+<td>Enterprise-ready (multi-tenant, SSO, RBAC, audit)</td>
+<td><strong>NO</strong> (§12.5-§12.7, §12.21)</td>
+</tr>
+<tr>
+<td>Air-gapped enterprise</td>
+<td><strong>NO</strong> (installer + offline-LLM path incomplete, §14)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="28-top-architectural-risks">§28 · Top Architectural Risks</h2>
+<ol>
+<li><strong>Selling the v2/IKG/Verdict-v3 story before flipping flags</strong> — represents dormant code as production capability.</li>
+<li><strong>Zip-bomb / archive-recursion on <code>/api/upload</code></strong> — unbounded unzip.</li>
+<li><strong>CORS <code>*</code> + credentials</strong> — spec-invalid; browser-dependent behaviour.</li>
+<li><strong>No rate-limit / brute-force lockout</strong> on login.</li>
+<li><strong>Same-process parser isolation</strong> for untrusted PE / DOCX / RC4 blobs.</li>
+<li><strong>Client-side data caps</strong> as the ONLY defense against large-input freeze.</li>
+<li><strong>Silent Splunk <code>_raw</code> fall-through</strong> — analysts get a prose result instead of a fail-loud "unsupported log shape".</li>
+<li><strong>Docs drift</strong> — v2 documented as authoritative; runtime says shadow.</li>
+</ol>
+<hr />
+<h2 id="29-top-capability-gaps">§29 · Top Capability Gaps</h2>
+<ol>
+<li><strong>Server-side file mode</strong> (removes 256 KB ceiling).</li>
+<li><strong>Sysmon / EVTX adapter</strong> (turns Timeline / Query into a real telemetry hunt).</li>
+<li><strong>Splunk <code>_raw</code> CSV recognition</strong>.</li>
+<li><strong>OSINT reputation wired into per-investigation IOC panel</strong> (VirusTotal + AbuseIPDB live lookup).</li>
+<li><strong>Attack Story wire-up on the workspace</strong> (backend project done; UI consumer absent).</li>
+<li><strong>Deterministic re-render CI gate</strong> for STIX / Markdown / PDF (§9.4).</li>
+<li><strong>Rate-limit / brute-force lockout</strong> on login.</li>
+<li><strong>Zip-bomb guard</strong> on <code>/api/upload</code>.</li>
+<li><strong>CORS hardening</strong> — replace <code>*</code> with explicit origin allow-list.</li>
+<li><strong>Route audit + deprecation</strong> — 466 ops · 74 consumers ⇒ ~85% dead-or-admin.</li>
+<li><strong>Byte-identical determinism guard</strong> on reports.</li>
+<li><strong>Multi-tenant model</strong> (before selling multi-tenant).</li>
+<li><strong>Prod-shape uvicorn</strong> (multi-worker, no <code>--reload</code>) and structured logging.</li>
+</ol>
+<hr />
+<h2 id="30-top-10-priorities-owner-facing">§30 · Top 10 Priorities (owner-facing)</h2>
+<ol>
+<li><strong>Feature-flag runbook + doc drift closure</strong> — for every <code>NIVX_FLAG_*</code>, document promotion criteria and the exact response-contract diff when flipped.</li>
+<li><strong>Server-side file mode</strong> — persists uploads server-side, keeps only file id in React state. Removes 32 KB / 256 KB / 512 KB safety caps.</li>
+<li><strong>Splunk <code>_raw</code> recognizer</strong> in <code>csv_edr_analyzer.py</code>.</li>
+<li><strong>Sysmon / EVTX adapter</strong> feeding the canonical event bag Timeline / Query already consume.</li>
+<li><strong>Attack Story panel wire-up</strong> (backend done; UI missing).</li>
+<li><strong>OSINT reputation wire-up (VT + AbuseIPDB)</strong> on the IOC panel.</li>
+<li><strong>Login throttle + zip-bomb guard + CORS explicit origins</strong>.</li>
+<li><strong>Deterministic re-render CI gate</strong> for STIX / Markdown / PDF.</li>
+<li><strong>Route audit + deprecation</strong> — delete or admin-gate the ~85% dead surface.</li>
+<li><strong>Split WorkspacePage.jsx into panels</strong> to lower regression blast radius.</li>
+</ol>
+<hr />
+<h2 id="31-cto-verdict">§31 · CTO Verdict</h2>
+<p><strong>KEEP</strong> (regression-locked, honest strengths):
+- P0.2 evidence chain and P0.3 firewall.
+- Canonical DIE pipeline (<code>services/die/*</code> + <code>canonical/*</code>).
+- Timeline MVP and Query/Hunt MVP.
+- Attack Chain 14-lane view.
+- Practice Lab (<code>/api/lab/*</code>).
+- Threat-Intel feed sync (65 K IOCs; 1,339 sync runs).
+- Emergent LLM narrate path.
+- Canonical verdict + Attack Story projections.</p>
+<p><strong>FREEZE</strong> (do not touch without a matching regression test):
+- Everything under <code>services/die/*</code>, <code>canonical/*</code>, <code>routers/die.py</code>, <code>TrajectoryDiagram.jsx</code>, and Sample1 case row.</p>
+<p><strong>REFACTOR</strong> (production hygiene):
+- <code>WorkspacePage.jsx</code> (4,306 → panels).
+- 77-router <code>server.py</code> import block → grouped modules.
+- Requirements freeze audit (<code>googleapiclient</code>, <code>stripe</code>, <code>boto3</code> unused).</p>
+<p><strong>REMOVE / DEPRECATE</strong>:
+- <code>routers/observation.py</code> (1-route X-Lab residual).
+- <code>/api/timeline</code> duplicate route (kept behind <code>/api/die/timeline</code>).
+- Legacy <code>report_renderers.py</code> if <code>/api/v2/analyze/report</code> is the sole consumer for the Workspace.
+- Nivxforge placeholder frontend sections (or clearly relabel them as "Coming soon" panels — do not surface in primary nav).</p>
+<p><strong>COMPLETE</strong> (finish before the next big architectural move):
+- Server-side file mode.
+- Deterministic-signature CI gate for reports.
+- Attack Story UI wire-up.
+- OSINT reputation panel.</p>
+<p><strong>ISOLATE</strong> (contain from Workspace regression):
+- v2 architecture — keep shadow, keep tests green, but consider moving <code>/v2/*</code> frontend routes off the primary nav.
+- All feature-flag-gated capabilities — document the promotion criteria per flag.</p>
+<p><strong>BUILD NEXT</strong> (in priority order):
+1. Server-side file mode.
+2. Splunk <code>_raw</code> recognizer.
+3. Sysmon / EVTX adapter.
+4. Attack Story wire-up.</p>
+<p><strong>DO NOT BUILD YET</strong> (would compound the two-pipeline debt):
+- New v2 sub-features (case-engine expansion, more Adaptive Weight Profiles) — first flip existing v2 flags from shadow to enabled.
+- Multi-tenant / SSO / Google Auth — not until §12.6-§12.7 gaps are policy-decided.
+- Full EDR-vendor adapters (CrowdStrike, Defender, S1) — not until Sysmon/EVTX proves the ingest pipeline.
+- STIX/TAXII pull ingestion — not until determinism CI gate is in place.</p>
+<hr />
+<h2 id="100-session-7-snapshot-preserved-do-not-edit">§100 · Session-7 Snapshot (preserved, do not edit)</h2>
+<p><em>Original evidence-backed sections from the Session-7 compact snapshot are preserved below for lineage. New readers should treat §1-§31 above as authoritative; §100 is included so the audit history remains intact.</em></p>
+<p><strong>Executive summary (S7):</strong> NivXRay is a browser-based command-line + narrative + tabular-EDR analysis Workspace with a P0.2-locked evidence chain, Timeline MVP, Query/Hunt MVP, and Attack Chain view. It is NOT an EDR / XDR / SIEM ingestion platform. The strongest capability is the evidence chain; the weakest is large-input handling. Do-not-break: P0.2, P0.3, Sample1 immutability, X-Lab isolation, Timeline / Query contracts, Attack Chain lane fix.</p>
+<p><strong>S7 top-10 priorities:</strong> server-side file mode · Splunk <code>_raw</code> recognizer · wire WorkspaceRootErrorBoundary · Sysmon/EVTX adapter · observed-vs-referenced entity model · Attack Story wire-up · OSINT reputation · route audit · test-credentials reproducibility · full 60-section audit (now delivered in §1-§31).</p>
+<p><em>End of Session-8 master snapshot.</em></p>
+</main>
+</body></html>

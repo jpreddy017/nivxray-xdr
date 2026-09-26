@@ -1,0 +1,10 @@
+{
+  "id": "ps-regex-swap-1-mut5",
+  "category": "ps-regex-swap",
+  "command_line": "$s = 'exe.notepad' -replace '(\\w+)\\.(\\w+)','$2.$1'; Start-Process $s\n# comment-5",
+  "expected_keywords": [
+    "notepa"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

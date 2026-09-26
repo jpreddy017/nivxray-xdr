@@ -1,0 +1,569 @@
+/* NivXForge EDR · operational surface system (Wave: Fleet Operations).
+ *
+ * Scoped under `.nvf-console` so it inherits the product tokens and can
+ * never leak into the XDR console. Dense-first: this is a fleet console,
+ * not a marketing page — hairlines, mono numerals, left-aligned truth.
+ */
+
+/* ── page header ──────────────────────────────────────────────── */
+.nvf-console .ops-head {
+  display: flex; align-items: flex-end; gap: 16px;
+  padding-bottom: 10px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.nvf-console .ops-head .ttl {
+  font-size: 19px; font-weight: 700; letter-spacing: -.2px;
+  color: var(--text); margin: 0; line-height: 1.15;
+}
+.nvf-console .ops-head .eyebrow {
+  font-size: 9.4px; letter-spacing: 1.3px; text-transform: uppercase;
+  color: var(--muted); font-weight: 800; margin-bottom: 6px;
+  display: block;
+}
+.nvf-console .ops-head .sub {
+  font-size: 11.8px; color: var(--muted); margin-top: 4px;
+  line-height: 1.5; max-width: 780px;
+}
+.nvf-console .ops-head .spacer { flex: 1; }
+.nvf-console .ops-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── metric rail (no giant cards) ─────────────────────────────── */
+.nvf-console .kpi-rail {
+  display: flex; flex-wrap: wrap;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  margin-bottom: 14px; overflow: hidden;
+}
+.nvf-console .kpi {
+  padding: 11px 20px; min-width: 124px;
+  border-right: 1px solid var(--border-sf);
+  animation: nvf-in .32s ease both;
+}
+.nvf-console .kpi:last-child { border-right: none; }
+.nvf-console .kpi .k {
+  font-size: 9.4px; letter-spacing: .9px; text-transform: uppercase;
+  color: var(--muted); font-weight: 800; white-space: nowrap;
+}
+.nvf-console .kpi .v {
+  font-family: var(--mono); font-size: 21px; font-weight: 700;
+  color: var(--text); margin-top: 3px; letter-spacing: -.5px;
+  display: flex; align-items: baseline; gap: 6px;
+}
+.nvf-console .kpi .v .unit {
+  font-size: 9.5px; color: var(--faint); letter-spacing: 0;
+  font-weight: 600;
+}
+.nvf-console .kpi.mint .v { color: var(--mint); }
+.nvf-console .kpi.amber .v { color: var(--amber); }
+.nvf-console .kpi.red   .v { color: var(--red); }
+.nvf-console .kpi.void  .v { color: var(--faint); font-size: 13px;
+  font-family: var(--sans); font-weight: 700; }
+
+@keyframes nvf-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── toolbar ──────────────────────────────────────────────────── */
+.nvf-console .ops-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 9px; margin-bottom: -1px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.nvf-console .ops-search {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 8px; height: 26px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.nvf-console .ops-search:focus-within {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px var(--ring-cyan);
+}
+.nvf-console .ops-search input {
+  background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--mono); font-size: 11.8px;
+  width: 230px;
+}
+.nvf-console .ops-search input::placeholder { color: var(--faint); }
+.nvf-console .seg {
+  display: inline-flex; border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden; background: var(--bg);
+}
+.nvf-console .seg button {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--muted); font-family: var(--sans); font-weight: 700;
+  font-size: 10px; letter-spacing: .4px; text-transform: uppercase;
+  padding: 6px 10px; transition: background-color .14s ease, color .14s ease;
+}
+.nvf-console .seg button + button { border-left: 1px solid var(--border-sf); }
+.nvf-console .seg button:hover { color: var(--text); background: var(--surf-hover); }
+.nvf-console .seg button[data-on="true"] {
+  background: var(--surf-accent-soft); color: var(--cyan);
+}
+.nvf-console .ops-count {
+  margin-left: auto; font-family: var(--mono); font-size: 11.2px;
+  color: var(--muted);
+}
+
+/* ── dense table ──────────────────────────────────────────────── */
+.nvf-console .tbl-wrap {
+  border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--panel); overflow: auto; max-height: calc(100vh - 300px);
+}
+.nvf-console table.tbl {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: 12px;
+}
+.nvf-console table.tbl thead th {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--surf-th); color: var(--muted);
+  font-size: 9.6px; letter-spacing: .8px; text-transform: uppercase;
+  font-weight: 800; text-align: left; white-space: nowrap;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.nvf-console table.tbl thead th:hover { color: var(--text-dim); }
+.nvf-console table.tbl thead th .ar { color: var(--cyan); margin-left: 4px; }
+.nvf-console table.tbl tbody td {
+  padding: 7px 10px; border-bottom: 1px solid var(--border-sf);
+  color: var(--text-dim); vertical-align: middle; white-space: nowrap;
+}
+.nvf-console table.tbl tbody tr {
+  cursor: pointer;
+  transition: background-color .12s ease, box-shadow .12s ease;
+}
+.nvf-console table.tbl tbody tr:hover { background: var(--surf-row-hover); }
+.nvf-console table.tbl tbody tr[data-sel="true"] {
+  background: var(--surf-row-sel);
+  box-shadow: inset 2px 0 0 var(--cyan);
+}
+.nvf-console table.tbl td.mono,
+.nvf-console table.tbl td .mono { font-family: var(--mono); }
+.nvf-console table.tbl td.num {
+  font-family: var(--mono); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nvf-console table.tbl .host {
+  color: var(--text); font-weight: 700; font-size: 12.6px;
+}
+.nvf-console table.tbl .sub2 {
+  color: var(--faint); font-size: 9.6px; font-family: var(--mono);
+  margin-top: 2px;
+}
+.nvf-console .na { color: var(--faint); font-style: normal; }
+
+/* ── state tokens ─────────────────────────────────────────────── */
+.nvf-console .st {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9.8px; font-weight: 800; letter-spacing: .55px;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--border); color: var(--text-dim);
+  background: var(--panel2); white-space: nowrap;
+}
+.nvf-console .st .dot {
+  width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
+.nvf-console .st.ok    { color: var(--mint);  border-color: var(--ok-bd);  background: var(--ok-bg); }
+.nvf-console .st.warn  { color: var(--amber); border-color: var(--warn-bd);  background: var(--warn-bg); }
+.nvf-console .st.bad   { color: var(--red);   border-color: var(--bad-bd);   background: var(--bad-bg); }
+.nvf-console .st.info  { color: var(--cyan);  border-color: var(--info-bd);  background: var(--info-bg); }
+.nvf-console .st.void  { color: var(--faint); border-style: dashed; background: transparent; }
+
+/* ── contextual side pane ─────────────────────────────────────── */
+.nvf-console .ops-split { display: flex; gap: 12px; align-items: flex-start; }
+.nvf-console .ops-split > .ops-main { flex: 1; min-width: 0; }
+.nvf-console .ctx-pane {
+  width: 392px; flex: 0 0 392px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel); overflow: hidden;
+  animation: nvf-slide .22s ease both;
+  position: sticky; top: 0;
+  max-height: calc(100vh - 150px); overflow-y: auto;
+}
+@keyframes nvf-slide {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.nvf-console .ctx-pane .ph {
+  padding: 11px 13px; border-bottom: 1px solid var(--border);
+  background: var(--panel2);
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.nvf-console .ctx-pane .ph .h {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  line-height: 1.2; word-break: break-all;
+}
+.nvf-console .ctx-pane .ph .x {
+  margin-left: auto; background: transparent; border: none;
+  color: var(--faint); cursor: pointer; font-size: 14px; line-height: 1;
+}
+.nvf-console .ctx-pane .ph .x:hover { color: var(--text); }
+.nvf-console .ctx-sec { padding: 11px 13px; border-bottom: 1px solid var(--border-sf); }
+.nvf-console .ctx-sec > .lbl {
+  font-size: 9.4px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--faint); font-weight: 800; margin-bottom: 7px;
+}
+.nvf-console .kv { display: grid; grid-template-columns: 116px 1fr; gap: 5px 10px; }
+.nvf-console .kv .k { font-size: 11px; color: var(--muted); }
+.nvf-console .kv .v {
+  font-size: 11.4px; color: var(--text-dim); font-family: var(--mono);
+  word-break: break-all;
+}
+.nvf-console .basis {
+  font-size: 11px; color: var(--muted); line-height: 1.55;
+  border-left: 2px solid var(--border); padding-left: 8px;
+}
+
+/* ── code / command block ─────────────────────────────────────── */
+.nvf-console .cmd {
+  position: relative; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 9px 38px 9px 10px;
+  font-family: var(--mono); font-size: 11.4px; line-height: 1.65;
+  color: var(--text-dim); white-space: pre-wrap; word-break: break-all;
+}
+.nvf-console .cmd .copy {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 4px; cursor: pointer;
+  padding: 3px 5px; line-height: 1;
+  transition: color .14s ease, border-color .14s ease;
+}
+.nvf-console .cmd .copy:hover { color: var(--cyan); border-color: var(--cyan); }
+
+/* ── workflow stepper ─────────────────────────────────────────── */
+.nvf-console .steps {
+  display: flex; gap: 0; margin-bottom: 16px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel2); overflow: hidden;
+}
+.nvf-console .steps .step {
+  flex: 1; padding: 9px 12px; min-width: 0;
+  border-right: 1px solid var(--border-sf);
+  transition: background-color .18s ease;
+}
+.nvf-console .steps .step:last-child { border-right: none; }
+.nvf-console .steps .step .n {
+  font-family: var(--mono); font-size: 9px; color: var(--faint);
+  letter-spacing: .8px; font-weight: 700;
+}
+.nvf-console .steps .step .t {
+  font-size: 11.8px; font-weight: 700; color: var(--muted); margin-top: 3px;
+}
+.nvf-console .steps .step[data-state="active"] { background: var(--surf-accent-soft); }
+.nvf-console .steps .step[data-state="active"] .t { color: var(--cyan); }
+.nvf-console .steps .step[data-state="active"] .n { color: var(--cyan); }
+.nvf-console .steps .step[data-state="done"] .t { color: var(--text-dim); }
+.nvf-console .steps .step[data-state="done"] .n { color: var(--cyan); }
+
+/* ── evidence chain ───────────────────────────────────────────── */
+.nvf-console .chain {
+  display: flex; align-items: stretch; gap: 0; flex-wrap: wrap;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel2); overflow: hidden;
+}
+.nvf-console .chain .lnk {
+  padding: 8px 12px 9px; min-width: 0; flex: 1 1 130px;
+  border-right: 1px solid var(--border-sf);
+  position: relative;
+}
+.nvf-console .chain .lnk:last-child { border-right: none; }
+.nvf-console .chain .lnk .k {
+  font-size: 9.2px; letter-spacing: .95px; text-transform: uppercase;
+  color: var(--faint); font-weight: 800;
+}
+.nvf-console .chain .lnk .v {
+  font-family: var(--mono); font-size: 11.3px; color: var(--text);
+  margin-top: 4px; word-break: break-all; line-height: 1.45;
+}
+.nvf-console .chain .lnk[data-evidence="absent"] { background: transparent; }
+.nvf-console .chain .lnk[data-evidence="absent"] .v { color: var(--faint); }
+.nvf-console .chain .lnk[data-evidence="present"] .k { color: var(--cyan); }
+
+/* ── tabs (device shell) ──────────────────────────────────────── */
+.nvf-console .dev-tabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--border);
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.nvf-console .dev-tabs button {
+  background: transparent; border: none; cursor: pointer;
+  padding: 8px 13px 9px; color: var(--muted);
+  font-family: var(--sans); font-size: 11.4px; font-weight: 700;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color .15s ease, border-color .15s ease;
+}
+.nvf-console .dev-tabs button:hover { color: var(--text); }
+.nvf-console .dev-tabs button[data-on="true"] {
+  color: var(--text); border-bottom-color: var(--cyan);
+}
+.nvf-console .dev-tabs button:disabled {
+  color: var(--faint); cursor: not-allowed; opacity: .65;
+}
+
+/* ── honest states ────────────────────────────────────────────── */
+.nvf-console .ni {
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  background: repeating-linear-gradient(135deg,
+    var(--panel2), var(--panel2) 9px, var(--surf-th) 9px, var(--surf-th) 18px);
+  padding: 26px 22px; max-width: 880px;
+}
+.nvf-console .ni .tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 9px; letter-spacing: 1.1px; text-transform: uppercase;
+  font-weight: 800; color: var(--amber);
+  border: 1px solid var(--warn-bd); border-radius: 3px;
+  padding: 3px 8px; background: var(--warn-bg);
+}
+.nvf-console .ni .h { font-size: 15px; font-weight: 700; color: var(--text); margin: 11px 0 6px; }
+.nvf-console .ni .b { font-size: 11.5px; color: var(--text-dim); line-height: 1.65; max-width: 620px; }
+.nvf-console .ni .why {
+  margin-top: 12px; font-size: 10.5px; color: var(--muted);
+  border-left: 2px solid var(--warn-bd); padding-left: 9px;
+  line-height: 1.6;
+}
+
+/* ── card grid used sparingly (downloads) ─────────────────────── */
+.nvf-console .pkg-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+.nvf-console .pkg {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel); overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.nvf-console .pkg:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+.nvf-console .pkg[data-available="false"] { opacity: .78; }
+.nvf-console .pkg .ph {
+  padding: 11px 13px; border-bottom: 1px solid var(--border-sf);
+  display: flex; align-items: center; gap: 9px;
+  background: var(--panel2);
+}
+.nvf-console .pkg .ph .n { font-size: 12.6px; font-weight: 700; color: var(--text); }
+.nvf-console .pkg .ph .arch {
+  font-family: var(--mono); font-size: 9.4px; color: var(--cyan);
+  border: 1px solid var(--info-bd); border-radius: 3px;
+  padding: 1px 5px;
+}
+.nvf-console .pkg .pb { padding: 11px 13px; display: flex; flex-direction: column; gap: 10px; }
+.nvf-console .pkg .pf {
+  margin-top: auto; padding: 10px 13px;
+  border-top: 1px solid var(--border-sf); background: var(--panel2);
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.nvf-console .file-row {
+  display: flex; align-items: baseline; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  padding: 5px 0; border-bottom: 1px dashed var(--border-sf);
+}
+.nvf-console .file-row .nm { color: var(--text); }
+.nvf-console .file-row .sz { color: var(--faint); }
+.nvf-console .file-row .sha {
+  color: var(--faint); font-size: 9.4px; margin-left: auto;
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis;
+}
+.nvf-console .chipline { display: flex; gap: 6px; flex-wrap: wrap; }
+.nvf-console .chip {
+  font-size: 10.3px; color: var(--text-dim); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px;
+  font-family: var(--mono);
+}
+.nvf-console .chip.mint { color: var(--mint); border-color: var(--ok-bd); }
+.nvf-console .chip.att  { color: var(--purple); border-color: var(--att-bd); }
+
+/* ── command intelligence rows ────────────────────────────────── */
+.nvf-console .ci-row {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel); margin-bottom: 8px; overflow: hidden;
+}
+.nvf-console .ci-row .ci-h {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 11px; cursor: pointer;
+  transition: background-color .14s ease;
+}
+.nvf-console .ci-row .ci-h:hover { background: var(--surf-row-hover); }
+.nvf-console .ci-row .ci-h .t {
+  font-family: var(--mono); font-size: 11.6px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+.nvf-console .ci-row .ci-h .ts {
+  font-family: var(--mono); font-size: 10.4px; color: var(--faint);
+  white-space: nowrap;
+}
+.nvf-console .ci-body { padding: 0 11px 12px; display: flex; flex-direction: column; gap: 11px; }
+.nvf-console .ci-grid {
+  display: grid; gap: 11px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* ── loading skeleton ─────────────────────────────────────────── */
+.nvf-console .sk {
+  height: 11px; border-radius: 3px; margin: 7px 0;
+  background: linear-gradient(90deg, var(--sk-a) 25%, var(--sk-b) 37%, var(--sk-a) 63%);
+  background-size: 400% 100%; animation: nvf-sk 1.15s ease infinite;
+}
+@keyframes nvf-sk { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* ── refusal / error ──────────────────────────────────────────── */
+.nvf-console .refusal {
+  border: 1px solid var(--bad-bd); background: var(--bad-bg);
+  border-radius: var(--radius); padding: 13px 15px; max-width: 840px;
+}
+.nvf-console .refusal .h {
+  font-size: 11px; font-weight: 800; color: var(--red);
+  letter-spacing: .5px; text-transform: uppercase;
+}
+.nvf-console .refusal .b {
+  font-size: 11.4px; color: var(--text-dim); margin-top: 6px; line-height: 1.6;
+}
+
+@media (max-width: 1280px) {
+  .nvf-console .ctx-pane { width: 330px; flex-basis: 330px; }
+}
+@media (max-width: 1080px) {
+  .nvf-console .ops-split { flex-direction: column; }
+  .nvf-console .ctx-pane { width: 100%; flex-basis: auto; position: static; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   GATE 5 / 7 / 11 · form controls for the management surfaces.
+   Inputs and selects inherit the dense console geometry and the two
+   themes through the same tokens every other surface reads, so a new
+   page cannot drift out of the theme contract.
+   ───────────────────────────────────────────────────────────────────── */
+.nvf-console input[type="text"],
+.nvf-console input[type="number"],
+.nvf-console input:not([type]),
+.nvf-console select,
+.nvf-console textarea {
+  background: var(--panel2);
+  border: 1px solid var(--border-sf);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  padding: 4px 7px;
+  min-width: 170px;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.nvf-console input:focus,
+.nvf-console select:focus,
+.nvf-console textarea:focus { border-color: var(--mint); }
+.nvf-console input::placeholder,
+.nvf-console textarea::placeholder { color: var(--faint); }
+.nvf-console select:disabled,
+.nvf-console input:disabled { opacity: .55; cursor: not-allowed; }
+.nvf-console .kv .v input,
+.nvf-console .kv .v select { width: 100%; max-width: 420px; }
+.nvf-console .ops-toolbar select { min-width: 150px; }
+
+/* Selected release card in Management -> Downloads. */
+.nvf-console .pkg[data-sel="true"] {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 1px var(--mint) inset;
+}
+
+/* Exclusion engine chips double as toggles. */
+.nvf-console button.chip {
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  transition: background-color 140ms ease, border-color 140ms ease,
+              color 140ms ease;
+}
+.nvf-console button.chip:hover { border-color: var(--mint); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   GATE 12 · RESPONSIVE. Measured, not assumed.
+   A 30-combination audit (2 themes x 3 breakpoints x 5 surfaces) found
+   the console had NO responsive behaviour: the 200px sidebar stayed
+   fixed and pushed 525px of content off-screen on a phone and 80px on a
+   tablet, in BOTH themes. Media queries existing is not the gate; the
+   document not overflowing is.
+   Everything below is layout only — no colour is redefined, so the two
+   themes keep their single token source of truth.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* A table must scroll INSIDE its own frame. When the document scrolls
+   horizontally instead, the navigation and header slide away and the
+   operator loses their place. */
+.nvf-console .tbl-wrap,
+.nvf-console .ops-table-wrap { overflow-x: auto; }
+
+@media (max-width: 1100px) {
+  /* The investigation split collapses: a 320px context pane beside a
+     table is unreadable before it is narrow. */
+  .nvf-console .ops-split { display: block; }
+  .nvf-console .ctx-pane {
+    width: auto; max-width: none; margin-top: 14px; position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  /* The shell stacks. The sidebar becomes a horizontally scrolling nav
+     strip so every destination stays REACHABLE — hiding navigation
+     behind a hamburger would hide the disabled/NOT IMPLEMENTED states
+     the product deliberately shows. */
+  .nvf-console .body { display: block; }
+  .nvf-console .sidebar {
+    width: auto; min-width: 0; border-right: none;
+    border-bottom: 1px solid var(--border-sf);
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
+    overflow-x: auto; padding: 7px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nvf-console .sidebar .nav-title {
+    flex: 0 0 auto; margin: 0 4px 0 10px; opacity: .8;
+  }
+  .nvf-console .sidebar .nav-title:first-child { margin-left: 0; }
+  .nvf-console .sidebar .nav-item {
+    flex: 0 0 auto; white-space: nowrap; min-height: 32px;
+  }
+  .nvf-console .main { overflow-y: visible; padding: 14px 16px 32px; }
+  .nvf-console .topbar { flex-wrap: wrap; row-gap: 8px; padding: 8px 14px; }
+  .nvf-console .top-actions { margin-left: 0; flex-wrap: wrap; }
+
+  /* Headers, toolbars and rails wrap instead of pushing the page. */
+  .nvf-console .ops-head { flex-wrap: wrap; row-gap: 10px; }
+  .nvf-console .ops-head .spacer { flex-basis: 100%; height: 0; }
+  .nvf-console .ops-actions { flex-wrap: wrap; }
+  .nvf-console .ops-toolbar { flex-wrap: wrap; row-gap: 8px; }
+  .nvf-console .ops-toolbar .spacer { flex-basis: 100%; height: 0; }
+  .nvf-console .kpi-rail { flex-wrap: wrap; }
+  .nvf-console .pkg-grid,
+  .nvf-console .steps { grid-template-columns: 1fr; }
+
+  /* Touch targets. 20px is a mouse target, not a finger. */
+  .nvf-console .btn,
+  .nvf-console input,
+  .nvf-console select { min-height: 32px; }
+  .nvf-console .seg button { min-height: 32px; padding: 0 12px; }
+
+  /* Long digests, commands and paths must wrap or scroll, never widen
+     the page. */
+  .nvf-console .cmd { overflow-x: auto; }
+  .nvf-console .mono,
+  .nvf-console .kv .v { overflow-wrap: anywhere; }
+  .nvf-console .file-row { flex-wrap: wrap; row-gap: 3px; }
+}
+
+@media (max-width: 560px) {
+  .nvf-console .main { padding: 12px 12px 28px; }
+  .nvf-console .ops-search { width: 100%; }
+  .nvf-console .ops-search input { flex: 1; min-width: 0; }
+  .nvf-console .kv { grid-template-columns: 1fr; row-gap: 2px; }
+  .nvf-console .kv .k { margin-top: 7px; }
+  .nvf-console .kv .v input,
+  .nvf-console .kv .v select { max-width: none; }
+  .nvf-console input,
+  .nvf-console select { min-width: 0; width: 100%; }
+  .nvf-console .kpi-rail > * { flex: 1 1 140px; }
+  .nvf-console .ttl { font-size: 20px; }
+}

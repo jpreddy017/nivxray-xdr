@@ -1,0 +1,21 @@
+/* NivXRay XDR standalone — minimal document reset.
+ * Component-scoped styles live inside their own CSS files
+ * (`xdr-console.css`, `nivxforge.css`).
+ */
+:root {
+  color-scheme: dark;
+}
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #0A0C11;
+  color: #E7E9EF;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+*, *::before, *::after { box-sizing: border-box; }
+
+button { cursor: pointer; font-family: inherit; }
+a { color: inherit; }

@@ -1,0 +1,137 @@
+{
+  "behavior": {
+    "behaviors": [
+      {
+        "label": "Execution Policy Bypass",
+        "mitre": [
+          "T1562.001"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "label": "MSI Installer Execution",
+        "mitre": [
+          "T1218.007"
+        ],
+        "mitre_tactics": [
+          "Execution"
+        ]
+      },
+      {
+        "label": "Network Configuration Discovery",
+        "mitre": [
+          "T1016"
+        ],
+        "mitre_tactics": [
+          "Discovery"
+        ]
+      },
+      {
+        "label": "PowerShell Execution Policy Bypass",
+        "mitre": [
+          "T1059.001",
+          "T1562"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "label": "Reverse SSH Tunnel",
+        "mitre": [
+          "T1071",
+          "T1572"
+        ],
+        "mitre_tactics": [
+          "Command and Control"
+        ]
+      },
+      {
+        "label": "Volume Shadow Copy Deletion",
+        "mitre": [
+          "T1490"
+        ],
+        "mitre_tactics": [
+          "Defense Evasion",
+          "Impact"
+        ]
+      }
+    ],
+    "timeline": [
+      {
+        "event": "MSI Installer Execution",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Execution"
+        ]
+      },
+      {
+        "event": "Execution Policy Bypass",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "event": "PowerShell Execution Policy Bypass",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion"
+        ]
+      },
+      {
+        "event": "Network Configuration Discovery",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Discovery"
+        ]
+      },
+      {
+        "event": "Reverse SSH Tunnel",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Command and Control"
+        ]
+      },
+      {
+        "event": "Volume Shadow Copy Deletion",
+        "kind": "behavior",
+        "mitre_tactics": [
+          "Defense Evasion",
+          "Impact"
+        ]
+      }
+    ]
+  },
+  "evidence": {
+    "email": [
+      "attacker@evil.tld"
+    ],
+    "url": [
+      "http://evil.tld/loader.msi"
+    ]
+  },
+  "explainability": {
+    "decoder_path": [],
+    "engine_health": {
+      "die_analyze": "ok",
+      "health": "ok",
+      "ice_correlate": "ok",
+      "iocs": "ok",
+      "iue": "ok",
+      "paste_synthesis": "ok",
+      "preprocessor": "ok"
+    }
+  },
+  "graph": {
+    "layer_count": 0,
+    "stages": []
+  },
+  "verdict": {
+    "confidence": null,
+    "family": "",
+    "severity": ""
+  }
+}

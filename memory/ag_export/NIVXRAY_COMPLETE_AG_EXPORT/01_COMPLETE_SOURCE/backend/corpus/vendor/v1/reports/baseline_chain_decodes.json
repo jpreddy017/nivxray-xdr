@@ -1,0 +1,683 @@
+{
+  "corpus_id": "vendor-v1",
+  "engine_probed": "chain_analyzer::decode_single_stage",
+  "entries": [
+    {
+      "fixture_id": "talos.001",
+      "n_commands": 3,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 3,
+          "n_steps": 2,
+          "n_yara": 2,
+          "output_bytes": 56,
+          "reached_shellcode": false,
+          "risk_level": "medium",
+          "risk_score": 44,
+          "risk_verdict": "Suspicious",
+          "stage_index": 0,
+          "step_ops": [
+            "extract-payload",
+            "powershell-alias-normalize"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 0,
+          "n_yara": 1,
+          "output_bytes": 67,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": []
+        },
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 1,
+          "n_steps": 0,
+          "n_yara": 1,
+          "output_bytes": 49,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 2,
+          "step_ops": []
+        }
+      ],
+      "vendor": "talos"
+    },
+    {
+      "fixture_id": "talos.002",
+      "n_commands": 3,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "convergence",
+          "n_iocs": 2,
+          "n_lolbas": 1,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 4,
+          "output_bytes": 93,
+          "reached_shellcode": false,
+          "risk_level": "high",
+          "risk_score": 82,
+          "risk_verdict": "Malicious",
+          "stage_index": 0,
+          "step_ops": [
+            "semantic-ps-alias-expand"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 1,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 50,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 15,
+          "risk_verdict": "Low Risk",
+          "stage_index": 1,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 53,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 2,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "talos"
+    },
+    {
+      "fixture_id": "talos.003",
+      "n_commands": 3,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "archetype:NATIVE_CMD_EXPLAINER",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 3,
+          "output_bytes": 404,
+          "reached_shellcode": false,
+          "risk_level": "medium",
+          "risk_score": 59,
+          "risk_verdict": "Suspicious",
+          "stage_index": 0,
+          "step_ops": [
+            "native-cmd-explain"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 0,
+          "n_yara": 2,
+          "output_bytes": 29,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 34,
+          "risk_verdict": "Low Risk",
+          "stage_index": 1,
+          "step_ops": []
+        },
+        {
+          "confidence": 70,
+          "engine": "reasoning",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 2,
+          "output_bytes": 41,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 34,
+          "risk_verdict": "Low Risk",
+          "stage_index": 2,
+          "step_ops": [
+            "reverse"
+          ]
+        }
+      ],
+      "vendor": "talos"
+    },
+    {
+      "fixture_id": "securelist.001",
+      "n_commands": 3,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 1,
+          "n_lolbas": 2,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 58,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 18,
+          "risk_verdict": "Low Risk",
+          "stage_index": 0,
+          "step_ops": [
+            "extract-payload"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 1,
+          "n_steps": 0,
+          "n_yara": 1,
+          "output_bytes": 56,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": []
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 28,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 2,
+          "step_ops": [
+            "powershell-alias-normalize"
+          ]
+        }
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "fixture_id": "securelist.002",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 42,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 1,
+          "n_lolbas": 1,
+          "n_mitre": 2,
+          "n_steps": 2,
+          "n_yara": 2,
+          "output_bytes": 22,
+          "reached_shellcode": false,
+          "risk_level": "medium",
+          "risk_score": 45,
+          "risk_verdict": "Suspicious",
+          "stage_index": 1,
+          "step_ops": [
+            "extract-payload",
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "fixture_id": "securelist.003",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 68,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": [
+            "family-emotet"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 63,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "fixture_id": "mandiant.001",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 2,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 3,
+          "n_yara": 2,
+          "output_bytes": 61,
+          "reached_shellcode": false,
+          "risk_level": "medium",
+          "risk_score": 40,
+          "risk_verdict": "Suspicious",
+          "stage_index": 0,
+          "step_ops": [
+            "powershell-alias-normalize",
+            "ioc-extract",
+            "family-cobaltstrike"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 0,
+          "n_steps": 1,
+          "n_yara": 0,
+          "output_bytes": 25,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 0,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "mandiant"
+    },
+    {
+      "fixture_id": "mandiant.002",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 42,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 47,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "mandiant"
+    },
+    {
+      "fixture_id": "microsoft.001",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 2,
+          "n_steps": 2,
+          "n_yara": 1,
+          "output_bytes": 35,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": [
+            "extract-payload",
+            "family-emotet"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "convergence",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 2,
+          "output_bytes": 30,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 39,
+          "risk_verdict": "Low Risk",
+          "stage_index": 1,
+          "step_ops": [
+            "semantic-ps-alias-expand"
+          ]
+        }
+      ],
+      "vendor": "microsoft"
+    },
+    {
+      "fixture_id": "microsoft.002",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 65,
+          "engine": "reasoning+magic",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 1,
+          "n_steps": 2,
+          "n_yara": 2,
+          "output_bytes": 51,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 34,
+          "risk_verdict": "Low Risk",
+          "stage_index": 0,
+          "step_ops": [
+            "reverse",
+            "extract-payload"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "archetype:NATIVE_CMD_EXPLAINER",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 2,
+          "output_bytes": 307,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 34,
+          "risk_verdict": "Low Risk",
+          "stage_index": 1,
+          "step_ops": [
+            "native-cmd-explain"
+          ]
+        }
+      ],
+      "vendor": "microsoft"
+    },
+    {
+      "fixture_id": "elastic.001",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "archetype:CERTUTIL_DOWNLOAD_DECODE_WORKFLOW",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 2,
+          "output_bytes": 121,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 34,
+          "risk_verdict": "Low Risk",
+          "stage_index": 0,
+          "step_ops": [
+            "certutil-annotate"
+          ]
+        },
+        {
+          "confidence": 70,
+          "engine": "archetype:LOLBAS_WMIC_PROCESS_CALL+magic",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 6,
+          "n_yara": 1,
+          "output_bytes": 54,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "wmic-annotate",
+            "extract-payload",
+            "wmic-annotate",
+            "extract-payload",
+            "wmic-annotate",
+            "extract-payload"
+          ]
+        }
+      ],
+      "vendor": "elastic"
+    },
+    {
+      "fixture_id": "elastic.002",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 1,
+          "n_steps": 0,
+          "n_yara": 1,
+          "output_bytes": 63,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": []
+        },
+        {
+          "confidence": 100,
+          "engine": "llm-l3",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 0,
+          "n_steps": 0,
+          "n_yara": 0,
+          "output_bytes": 17,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 0,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": []
+        }
+      ],
+      "vendor": "elastic"
+    },
+    {
+      "fixture_id": "huntress.001",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "convergence",
+          "n_iocs": 0,
+          "n_lolbas": 2,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 55,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 0,
+          "step_ops": [
+            "content-ps-operator-case-normalize"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 1,
+          "n_mitre": 1,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 38,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 9,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "huntress"
+    },
+    {
+      "fixture_id": "huntress.002",
+      "n_commands": 2,
+      "stages": [
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 1,
+          "n_lolbas": 1,
+          "n_mitre": 2,
+          "n_steps": 1,
+          "n_yara": 1,
+          "output_bytes": 61,
+          "reached_shellcode": false,
+          "risk_level": "low",
+          "risk_score": 20,
+          "risk_verdict": "Low Risk",
+          "stage_index": 0,
+          "step_ops": [
+            "ioc-extract"
+          ]
+        },
+        {
+          "confidence": 100,
+          "engine": "rc2-orchestrator",
+          "n_iocs": 0,
+          "n_lolbas": 0,
+          "n_mitre": 2,
+          "n_steps": 2,
+          "n_yara": 1,
+          "output_bytes": 35,
+          "reached_shellcode": false,
+          "risk_level": "safe",
+          "risk_score": 14,
+          "risk_verdict": "Benign",
+          "stage_index": 1,
+          "step_ops": [
+            "powershell-alias-normalize",
+            "ioc-extract"
+          ]
+        }
+      ],
+      "vendor": "huntress"
+    }
+  ],
+  "fixture_count": 14,
+  "purpose": "ADR-004 Amendment A1 \u00b7 chain decode baseline",
+  "schema_version": "1.0"
+}

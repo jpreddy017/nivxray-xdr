@@ -208,6 +208,8 @@ async def save_case(body: SaveCaseIn, user=Depends(get_current_user)):
     else:
         doc = {
             "id":         str(uuid.uuid4()),
+            # P0-1 · explicit document-type discriminator.
+            "doc_type":   "analysis_case",
             "created_at": now,
             **doc_body,
         }

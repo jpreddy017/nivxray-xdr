@@ -1,0 +1,1750 @@
+{
+  "id": "3db79c4a-088b-4df7-b65a-f68b367b7677",
+  "created_at": "2026-08-10T04:57:27.520418+00:00",
+  "user_email": "admin@nivxray.com",
+  "name": "Sample1",
+  "input": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+  "output": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n▼ DECODED OUTPUT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nSW?\nVjb)cq\nuK'Bi\n-@;!\nFv:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkkI\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNIVXRAY INVESTIGATION SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  Verdict:     Partial Decode · 25/100\n  Engine:      convergence · conf 25/100\n  Chain:       structural-cmd-caret-strip → content-backtick-escape-strip\n\n  IOCs\n    MD5       7d2b361f20c7042d71636fee1118beb9\n    MD5       9beb8111eef63617d2407c02f163b2d7\n    SHA-1     961d0f8f064d0a7ecac08da4f80a5ad75af64805\n    SHA-1     50846fa57da5a08f4ad80cace7a0d460f8f0d169\n    SHA-256   3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n    SHA-256   7a326847b3c59e160209036c7f4865c4b04b7953f24f39b195a2f7de217b5193\n\n  Per-layer decoded outputs available in the Chain / Trace panel ↑\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+  "engine": "convergence",
+  "confidence": 25,
+  "chain_ids": [
+    null,
+    null,
+    null
+  ],
+  "verdict": "Partial",
+  "iocs": {
+    "urls": [],
+    "ips": [],
+    "domains": [],
+    "emails": [],
+    "md5": [
+      "7d2b361f20c7042d71636fee1118beb9",
+      "9beb8111eef63617d2407c02f163b2d7"
+    ],
+    "sha1": [
+      "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+      "50846fa57da5a08f4ad80cace7a0d460f8f0d169"
+    ],
+    "sha256": [
+      "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+      "7a326847b3c59e160209036c7f4865c4b04b7953f24f39b195a2f7de217b5193"
+    ],
+    "bitcoin_addresses": []
+  },
+  "input_len": 4003,
+  "output_len": 4975,
+  "updated_at": "2026-08-10T04:57:27.520418+00:00",
+  "investigation_summary": {
+    "classification": {
+      "label": "Undetermined",
+      "tier": "Info"
+    },
+    "confidence": {
+      "score": 60,
+      "tier": "Info"
+    },
+    "overall_assessment": "240 PowerShell command(s) were analyzed. The chain exhibits no distinctive behaviors. Behaviors span 0 kill-chain phase(s), producing 0 deduplicated behavior node(s) across 0 evidence item(s).",
+    "observed_behaviors": [],
+    "inferred_objectives": [],
+    "kill_chain_lanes": {},
+    "mitre_techniques": [],
+    "attack_story": [],
+    "recommendations": [],
+    "conclusion": "Classification: Undetermined. Confidence: Info. 0 distinct behavior(s) across 0 kill-chain phase(s). 0 MITRE ATT&CK technique(s) identified. Recommend immediate hunt on the domains / URLs / hashes observed in the source commands.",
+    "folded_input": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nFv:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkkI\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+    "line_count": 240
+  },
+  "verdict_card": {
+    "verdict": "Partial",
+    "label": "Partial Decode",
+    "risk_score": 25,
+    "confidence": 25,
+    "summary": "Pipeline peeled layers but terminal output isn't recognisable plaintext.",
+    "reasons": [
+      "Chain applied 2 layer(s) but terminal bytes have < 2 shell/English tokens.",
+      "No IOCs/LOLBAS/MITRE surfaced from decode.",
+      "Likely over-shot (extra XOR/brute pass) OR under-shot (nested obfuscation not fully unwrapped).",
+      "Try: disable XOR-brute in ADVANCED, or add manual `custom-hex-slash`/`ps-hex-escape` step."
+    ],
+    "family": null,
+    "undecoded": false,
+    "partial": true,
+    "wrapper_only": false
+  },
+  "mitre": [],
+  "lolbas": [],
+  "reached_shellcode": false,
+  "reinvestigated_at": "2026-08-10T04:57:27.520418+00:00",
+  "ssot_ref": {
+    "id": "6f7eb8c2-29d8-436c-9ec9-98f4cfbe44fb",
+    "checksum": "2c9d4107e27becfedf8daa7c2d2af401c11834441770ee308daf6e46f9aeeeec",
+    "version": {
+      "schema": "1.0",
+      "engine": "legacy",
+      "uaie": "phase1",
+      "baseline": "R27"
+    }
+  },
+  "ssot": {
+    "version": {
+      "schema": "1.0",
+      "engine": "legacy",
+      "uaie": "phase1",
+      "baseline": "R27"
+    },
+    "understanding": {
+      "input_type": "command_chain",
+      "label": "Multi-command Investigation",
+      "confidence": 0.85,
+      "reasoning": [
+        "Multiple command steps detected (11 explicit separators, 240 lines)."
+      ],
+      "contents": {
+        "commands": 0,
+        "executables": 0,
+        "registry_keys": 0,
+        "file_paths": 0,
+        "urls": 0,
+        "ips": 0,
+        "hashes": 3,
+        "process_edges": 0,
+        "stages": 0,
+        "encoded_layers": 0
+      },
+      "decode_required": false,
+      "decode_reason": "No encoded payload detected — proceeding directly to semantic analysis.",
+      "decode_layers": [],
+      "next_engine": "Chain Analyzer → DIE per step",
+      "next_engine_reason": "Multiple commands present — analyse each independently, then aggregate.",
+      "plan": [
+        {
+          "id": "classify",
+          "label": "Classify input type",
+          "engine": "iue",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "understand",
+          "label": "Summarise input contents",
+          "engine": "preprocessor",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "extract",
+          "label": "Extract commands / registry / paths / IOCs",
+          "engine": "preprocessor",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "stages",
+          "label": "Build ordered investigation stages",
+          "engine": "preprocessor",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "die",
+          "label": "Run DIE (semantic AST + MITRE)",
+          "engine": "die",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "dkp",
+          "label": "DKP enrichment (family / tactic / narrative)",
+          "engine": "dkp",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "intent",
+          "label": "Classify Attack Intent (ATT&CK tactic mix)",
+          "engine": "die",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "story",
+          "label": "Build Attack Story",
+          "engine": "attack_story",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        },
+        {
+          "id": "report",
+          "label": "Generate deterministic Report",
+          "engine": "report",
+          "status": "planned",
+          "ms": null,
+          "detail": ""
+        }
+      ],
+      "confidence_matrix": {
+        "input_classification": 0.85,
+        "decode_path": 0.98,
+        "language_detection": 0.98,
+        "estimated_recovery": 0.85
+      },
+      "execution_trace": [],
+      "engine_version": "iue-1.1.0",
+      "hero_sentence": "This is a multi-command investigation. Splitting into ordered stages and analysing each independently.",
+      "engines_selected": [
+        "Preprocessor",
+        "Chain Analyzer",
+        "DIE (Semantic AST)",
+        "DKP (Decoder Knowledge Pack)",
+        "Attack Intent",
+        "Attack Story",
+        "Report Generator"
+      ],
+      "engines_skipped": [
+        "Decoder",
+        "CRE (Command Reconstruction)",
+        "Investigation Confidence",
+        "Artifact Intelligence",
+        "IOC Enrichment"
+      ],
+      "pipeline_flow": [
+        "Input",
+        "Understanding",
+        "Preprocessor",
+        "DIE + DKP",
+        "Attack Story",
+        "Report"
+      ]
+    },
+    "analyst_narrative": {
+      "executive_summary": "",
+      "analyst_summary": "",
+      "recommended_actions": [],
+      "sigma_hunts": [],
+      "yara_ideas": [],
+      "threat_actor_context": "",
+      "mitre_matrix": []
+    },
+    "inline_story_preproc": {
+      "raw": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+      "normalized_text": "[BINARY FILE - Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\nuD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!( )]DY \\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5 0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9? x4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh, jt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nFv:f\nU BV\ny4,C\njE#?\n2?7 -^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkkI\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+      "artifacts": [
+        {
+          "id": "art_4193ac0bcf",
+          "type": "hash",
+          "subtype": "md5",
+          "raw_text": "7d2b361f20c7042d71636fee1118beb9",
+          "normalized_text": "7d2b361f20c7042d71636fee1118beb9",
+          "line_number": 4,
+          "start_offset": 101,
+          "end_offset": 133,
+          "confidence": 1,
+          "source": "preprocessor",
+          "attributes": {
+            "route": "ioc"
+          }
+        },
+        {
+          "id": "art_47e8d94a9b",
+          "type": "hash",
+          "subtype": "sha1",
+          "raw_text": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+          "normalized_text": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+          "line_number": 5,
+          "start_offset": 142,
+          "end_offset": 182,
+          "confidence": 1,
+          "source": "preprocessor",
+          "attributes": {
+            "route": "ioc"
+          }
+        },
+        {
+          "id": "art_49188f0417",
+          "type": "hash",
+          "subtype": "sha256",
+          "raw_text": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+          "normalized_text": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+          "line_number": 6,
+          "start_offset": 191,
+          "end_offset": 255,
+          "confidence": 1,
+          "source": "preprocessor",
+          "attributes": {
+            "route": "ioc"
+          }
+        }
+      ],
+      "stages": [],
+      "process_edges": [],
+      "stats": {
+        "input_bytes": 4003,
+        "artifact_count": 3,
+        "stage_count": 0,
+        "edge_count": 0,
+        "types": {
+          "hash": 3
+        },
+        "families": {}
+      },
+      "decode_layers": []
+    },
+    "investigation_object": {
+      "metadata": {
+        "version": "1.0",
+        "schema": "investigation-v1",
+        "engine_version": "iue-2.0.0-slice-3",
+        "engine_versions": {
+          "iue": "2.0.0",
+          "die": "1.4.0",
+          "preprocessor": "1.5.0",
+          "bee": "1.0.0",
+          "intent": "1.2.0",
+          "narrative": "1.1.0",
+          "ida": "1.0.0-slice-1"
+        },
+        "ruleset_version": "2026.03.01",
+        "input_bytes": 4003,
+        "language": "unknown",
+        "performance": {
+          "telemetry_id": "telem_bae9632599b04400",
+          "backend_ms": 350.46,
+          "stages_ms": {
+            "health": 1.06,
+            "iue": 44.92,
+            "preprocessor": 36.43,
+            "die_analyze": 162.78,
+            "iocs": 4.85,
+            "ice_correlate": 0.3,
+            "paste_synthesis": 79.35
+          },
+          "warnings": [],
+          "budget_total_ms": 3000,
+          "budget_hit": false,
+          "peak_memory_mb": 0.32,
+          "peak_rss_kb": 403092,
+          "decode_layers": [],
+          "truncation": {
+            "behaviors_capped": false,
+            "budget_hit": false
+          },
+          "engine_health": {
+            "health": "ok",
+            "iue": "ok",
+            "preprocessor": "ok",
+            "die_analyze": "ok",
+            "iocs": "ok",
+            "ice_correlate": "ok",
+            "paste_synthesis": "ok"
+          },
+          "input_bytes": 4021,
+          "frontend_layout_ms": null,
+          "frontend_render_ms": null,
+          "frontend_paint_ms": null,
+          "frontend_total_ms": null
+        },
+        "pipeline_timings": {
+          "total_ms": 350.46,
+          "stages_ms": {
+            "health": 1.06,
+            "iue": 44.92,
+            "preprocessor": 36.43,
+            "die_analyze": 162.78,
+            "iocs": 4.85,
+            "ice_correlate": 0.3,
+            "paste_synthesis": 79.35
+          },
+          "warnings": [],
+          "budget_total_ms": 3000,
+          "budget_hit": false
+        }
+      },
+      "input": {
+        "raw": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h"
+      },
+      "health": {
+        "ok": true,
+        "ready": true,
+        "bytes": 4003,
+        "issues": [],
+        "checks": [
+          {
+            "id": "empty",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "oversize",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "binary-magic",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "base64",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "encoded-command",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "control-chars",
+            "issues": [],
+            "passed": true
+          },
+          {
+            "id": "password-hint",
+            "issues": [],
+            "passed": true
+          }
+        ]
+      },
+      "profiling": {
+        "input_type": "command_chain",
+        "label": "Multi-command Investigation",
+        "confidence": 0.85,
+        "reasoning": [
+          "Multiple command steps detected (11 explicit separators, 240 lines)."
+        ],
+        "contents": {
+          "commands": 0,
+          "executables": 0,
+          "registry_keys": 0,
+          "file_paths": 0,
+          "urls": 0,
+          "ips": 0,
+          "hashes": 3,
+          "process_edges": 0,
+          "stages": 0,
+          "encoded_layers": 0
+        }
+      },
+      "understanding": {
+        "input_type": "command_chain",
+        "label": "Multi-command Investigation",
+        "confidence": 0.85,
+        "reasoning": [
+          "Multiple command steps detected (11 explicit separators, 240 lines)."
+        ],
+        "contents": {
+          "commands": 0,
+          "executables": 0,
+          "registry_keys": 0,
+          "file_paths": 0,
+          "urls": 0,
+          "ips": 0,
+          "hashes": 3,
+          "process_edges": 0,
+          "stages": 0,
+          "encoded_layers": 0
+        },
+        "decode_required": false,
+        "decode_reason": "No encoded payload detected — proceeding directly to semantic analysis.",
+        "decode_layers": [],
+        "next_engine": "Chain Analyzer → DIE per step",
+        "next_engine_reason": "Multiple commands present — analyse each independently, then aggregate.",
+        "plan": [
+          {
+            "id": "classify",
+            "label": "Classify input type",
+            "engine": "iue",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "understand",
+            "label": "Summarise input contents",
+            "engine": "preprocessor",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "extract",
+            "label": "Extract commands / registry / paths / IOCs",
+            "engine": "preprocessor",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "stages",
+            "label": "Build ordered investigation stages",
+            "engine": "preprocessor",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "die",
+            "label": "Run DIE (semantic AST + MITRE)",
+            "engine": "die",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "dkp",
+            "label": "DKP enrichment (family / tactic / narrative)",
+            "engine": "dkp",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "intent",
+            "label": "Classify Attack Intent (ATT&CK tactic mix)",
+            "engine": "die",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "story",
+            "label": "Build Attack Story",
+            "engine": "attack_story",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          },
+          {
+            "id": "report",
+            "label": "Generate deterministic Report",
+            "engine": "report",
+            "status": "planned",
+            "ms": null,
+            "detail": ""
+          }
+        ],
+        "confidence_matrix": {
+          "input_classification": 0.85,
+          "decode_path": 0.98,
+          "language_detection": 0.98,
+          "estimated_recovery": 0.85
+        },
+        "execution_trace": [],
+        "engine_version": "iue-1.1.0",
+        "hero_sentence": "This is a multi-command investigation. Splitting into ordered stages and analysing each independently.",
+        "engines_selected": [
+          "Preprocessor",
+          "Chain Analyzer",
+          "DIE (Semantic AST)",
+          "DKP (Decoder Knowledge Pack)",
+          "Attack Intent",
+          "Attack Story",
+          "Report Generator"
+        ],
+        "engines_skipped": [
+          "Decoder",
+          "CRE (Command Reconstruction)",
+          "Investigation Confidence",
+          "Artifact Intelligence",
+          "IOC Enrichment"
+        ],
+        "pipeline_flow": [
+          "Input",
+          "Understanding",
+          "Preprocessor",
+          "DIE + DKP",
+          "Attack Story",
+          "Report"
+        ]
+      },
+      "plan": [
+        {
+          "engine": "iue",
+          "action": "classify-input",
+          "reason": "Determine input type + language + encoding",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "die",
+          "action": "decode-skip",
+          "reason": "No encoded payload detected — proceeding directly to semantic analysis.",
+          "required": false,
+          "status": "skipped"
+        },
+        {
+          "engine": "preprocessor",
+          "action": "extract-stages",
+          "reason": "Deterministic decomposition into command stages (0 built)",
+          "required": true,
+          "status": "empty"
+        },
+        {
+          "engine": "preprocessor",
+          "action": "run-preprocessor",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "chain analyzer",
+          "action": "run-chain analyzer",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "die (semantic ast)",
+          "action": "run-die (semantic ast)",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "dkp (decoder knowledge pack)",
+          "action": "run-dkp (decoder knowledge pack)",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "attack intent",
+          "action": "run-attack intent",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "attack story",
+          "action": "run-attack story",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        },
+        {
+          "engine": "report generator",
+          "action": "run-report generator",
+          "reason": "Requested by IUE routing plan",
+          "required": true,
+          "status": "done"
+        }
+      ],
+      "commands": [],
+      "iocs": {},
+      "lolbas": [],
+      "mitre": [],
+      "dkp": [],
+      "artifacts": [
+        {
+          "id": "art-001-hash",
+          "type": "hash",
+          "value": "7d2b361f20c7042d71636fee1118beb9",
+          "canonical": "7d2b361f20c7042d71636fee1118beb9",
+          "source": {
+            "offset": 101,
+            "length": 32,
+            "line": 4,
+            "extractor": "ida.hash"
+          },
+          "metadata": {
+            "kind": "md5"
+          }
+        },
+        {
+          "id": "art-002-hash",
+          "type": "hash",
+          "value": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+          "canonical": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+          "source": {
+            "offset": 142,
+            "length": 40,
+            "line": 5,
+            "extractor": "ida.hash"
+          },
+          "metadata": {
+            "kind": "sha1"
+          }
+        },
+        {
+          "id": "art-003-hash",
+          "type": "hash",
+          "value": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+          "canonical": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+          "source": {
+            "offset": 191,
+            "length": 64,
+            "line": 6,
+            "extractor": "ida.hash"
+          },
+          "metadata": {
+            "kind": "sha256"
+          }
+        }
+      ],
+      "artifact_summary": {
+        "hash": 3
+      },
+      "ida": {
+        "ida_class": "ioc_list",
+        "confidence": 0.88,
+        "reasoning": [
+          "No commands detected; 3 IOC(s) across 1 kind(s) — pure IOC list."
+        ],
+        "url_intent": null
+      },
+      "acquisition_plan": [
+        {
+          "id": "ida-1",
+          "title": "Identify Input",
+          "engine": "IDA-1 Input Classifier",
+          "detail": "Classify the paste as raw analyst-provided text.",
+          "status": "done"
+        },
+        {
+          "id": "ida-2",
+          "title": "Determine Resource Type",
+          "engine": "IDA-2 Artifact Splitter",
+          "detail": "Split the paste into command / IOC artifacts.",
+          "status": "done"
+        },
+        {
+          "id": "ida-3",
+          "title": "Acquire Resource",
+          "engine": "Paste Synthesis",
+          "detail": "Paste is already the acquired content — no network fetch.",
+          "status": "done"
+        },
+        {
+          "id": "ida-4",
+          "title": "Extract Commands",
+          "engine": "Behavior Extractor",
+          "detail": "Deterministic behavior extraction yielded 0 behavior(s).",
+          "status": "done"
+        },
+        {
+          "id": "die",
+          "title": "Decode / Deobfuscate",
+          "engine": "DIE",
+          "detail": "PowerShell constant folding + recursive base64 decode applied.",
+          "status": "done"
+        },
+        {
+          "id": "ssot",
+          "title": "Assemble SSOT",
+          "engine": "SSOT",
+          "detail": "Unified Canonical Investigation Object with synthetic evidence.",
+          "status": "done"
+        },
+        {
+          "id": "report",
+          "title": "Generate Investigation Report",
+          "engine": "IVE",
+          "detail": "Project the NIST IR sections + Evidence Completeness surface.",
+          "status": "done"
+        }
+      ],
+      "acquired_document": {
+        "ok": true,
+        "url": "",
+        "final_url": "",
+        "status_code": 0,
+        "content_type": "text/plain",
+        "fetched_bytes": 4021,
+        "truncated": false,
+        "duration_ms": 0,
+        "title": "Analyst Paste",
+        "sitename": "Analyst Paste",
+        "language": "",
+        "article_text": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+        "article_chars": 4003,
+        "outbound_links": [],
+        "structured_blocks": [
+          "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h"
+        ],
+        "engine": "paste_synthesis",
+        "source_kind": "analyst_paste",
+        "fallback_chain": [],
+        "error_code": "",
+        "error_detail": "",
+        "synthetic": true,
+        "line_count": 240,
+        "behavior_count": 0
+      },
+      "document_profile": {},
+      "report_extraction": {},
+      "preprocessor": {
+        "raw": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nF`v:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkk`I\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+        "normalized_text": "[BINARY FILE - Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 21 00 00 41   PK..........!..A\n00000010  db 5e b5 01 00 00 1c 09 00 00 13 00 08 02 5b 43   .^............[C\n00000020  6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d   ontent_Types].xm\n00000030  6c 20 a2 04 02 28 a0 00 02 00 00 00 00 00 00 00   l ...(..........\n00000040  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000000f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000100  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000110  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000120  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000140  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n00000190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n000001f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................\n\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\nuD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!( )]DY \\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5 0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9? x4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh, jt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nS^W?\nVjb)cq\nuK'Bi\n-@;!\nFv:f\nU BV\ny4,C\njE#?\n2?7 -^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkkI\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+        "artifacts": [
+          {
+            "id": "art_4193ac0bcf",
+            "type": "hash",
+            "subtype": "md5",
+            "raw_text": "7d2b361f20c7042d71636fee1118beb9",
+            "normalized_text": "7d2b361f20c7042d71636fee1118beb9",
+            "line_number": 4,
+            "start_offset": 101,
+            "end_offset": 133,
+            "confidence": 1,
+            "source": "preprocessor",
+            "attributes": {
+              "route": "ioc"
+            }
+          },
+          {
+            "id": "art_47e8d94a9b",
+            "type": "hash",
+            "subtype": "sha1",
+            "raw_text": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+            "normalized_text": "961d0f8f064d0a7ecac08da4f80a5ad75af64805",
+            "line_number": 5,
+            "start_offset": 142,
+            "end_offset": 182,
+            "confidence": 1,
+            "source": "preprocessor",
+            "attributes": {
+              "route": "ioc"
+            }
+          },
+          {
+            "id": "art_49188f0417",
+            "type": "hash",
+            "subtype": "sha256",
+            "raw_text": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+            "normalized_text": "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+            "line_number": 6,
+            "start_offset": 191,
+            "end_offset": 255,
+            "confidence": 1,
+            "source": "preprocessor",
+            "attributes": {
+              "route": "ioc"
+            }
+          }
+        ],
+        "stages": [],
+        "process_edges": [],
+        "stats": {
+          "input_bytes": 4003,
+          "artifact_count": 3,
+          "stage_count": 0,
+          "edge_count": 0,
+          "types": {
+            "hash": 3
+          },
+          "families": {}
+        },
+        "decode_layers": []
+      },
+      "intent": {
+        "objective": "Uncategorised",
+        "rule": "none",
+        "categories": [],
+        "confidence": 0.3,
+        "evidence": [],
+        "mitre": [],
+        "observed_phases": [
+          "Uncategorised"
+        ],
+        "missing_phases": [
+          "Initial Access",
+          "Execution",
+          "Persistence",
+          "Privilege Escalation",
+          "Defense Evasion",
+          "Credential Access",
+          "Discovery",
+          "Lateral Movement",
+          "Collection",
+          "Command and Control",
+          "Exfiltration",
+          "Impact",
+          "Impair Defenses"
+        ],
+        "progress": 0.083
+      },
+      "narrative": {
+        "executive_summary": "",
+        "analyst_summary": "",
+        "recommended_actions": [],
+        "sigma_hunts": [],
+        "yara_ideas": [],
+        "threat_actor_context": "",
+        "mitre_matrix": []
+      },
+      "behaviour": {
+        "chain": "",
+        "stages": []
+      },
+      "explanations": [],
+      "explanation_coverage": {
+        "recognised_targets": 0,
+        "explained": 0,
+        "percentage": 100,
+        "gaps": []
+      },
+      "confidence": {
+        "overall": 30,
+        "label": "Low",
+        "ai_inference": false,
+        "signals": [
+          {
+            "id": "health",
+            "label": "Input Health",
+            "status": "passed",
+            "detail": "No corruption detected"
+          },
+          {
+            "id": "decoder",
+            "label": "Decoder",
+            "status": "skipped",
+            "detail": "No encoded payload detected — proceeding directly to semantic analysis."
+          },
+          {
+            "id": "parser",
+            "label": "Parser",
+            "status": "missing",
+            "detail": "No commands parsed"
+          },
+          {
+            "id": "mitre",
+            "label": "MITRE Mapping",
+            "status": "missing",
+            "detail": "No techniques identified"
+          },
+          {
+            "id": "lolbas",
+            "label": "LOLBAS Mapping",
+            "status": "missing",
+            "detail": "No LOLBAS observed"
+          },
+          {
+            "id": "ioc",
+            "label": "IOC Extraction",
+            "status": "missing",
+            "detail": "No IOCs found"
+          },
+          {
+            "id": "dkp",
+            "label": "DKP Match",
+            "status": "missing",
+            "detail": "No DKP family match"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "status": "missing",
+            "detail": "No evidence excerpts"
+          },
+          {
+            "id": "ai",
+            "label": "AI Inference",
+            "status": "skipped",
+            "detail": "Not used — deterministic pipeline"
+          }
+        ]
+      },
+      "engines_selected": [
+        "Preprocessor",
+        "Chain Analyzer",
+        "DIE (Semantic AST)",
+        "DKP (Decoder Knowledge Pack)",
+        "Attack Intent",
+        "Attack Story",
+        "Report Generator"
+      ],
+      "engines_skipped": [
+        "Decoder",
+        "CRE (Command Reconstruction)",
+        "Investigation Confidence",
+        "Artifact Intelligence",
+        "IOC Enrichment"
+      ],
+      "ice": {
+        "incident": {
+          "summary": {
+            "id": "incident:root",
+            "title": "Threat Investigation",
+            "vendor": "",
+            "actor": null,
+            "malware": [],
+            "objective": "Investigation in progress",
+            "severity": "low",
+            "confidence_percent": 0,
+            "status": "under_investigation",
+            "tactics_observed": [],
+            "cluster_count": 0,
+            "mitre_count": 0
+          },
+          "behaviors": [],
+          "phases": [],
+          "mitre": [],
+          "timeline": [],
+          "graph": {
+            "nodes": [
+              {
+                "id": "incident:root",
+                "kind": "incident",
+                "label": "Incident",
+                "vendor": ""
+              }
+            ],
+            "edges": []
+          },
+          "evidence": {
+            "commands": [],
+            "investigations": [],
+            "actors": [],
+            "malware": []
+          },
+          "completeness": {
+            "dimensions": [
+              {
+                "dim": "Commands",
+                "state": "missing",
+                "found": 0,
+                "investigated": 0,
+                "errors": 0
+              },
+              {
+                "dim": "MITRE",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "LOLBAS",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "IOCs (URLs+Hashes+IPs+Domains)",
+                "state": "missing",
+                "found": 0,
+                "breakdown": {
+                  "urls": 0,
+                  "hashes": 0,
+                  "ips": 0,
+                  "domains": 0
+                }
+              },
+              {
+                "dim": "Registry",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "Timeline",
+                "state": "relative",
+                "found": 0
+              },
+              {
+                "dim": "YARA",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "Sigma",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "Threat Actor",
+                "state": "missing",
+                "found": 0
+              },
+              {
+                "dim": "Malware",
+                "state": "missing",
+                "found": 0
+              }
+            ],
+            "overall_percent": 5,
+            "complete_count": 0,
+            "relative_count": 1,
+            "applicable": 10
+          },
+          "readiness": {
+            "bars": [
+              {
+                "dim": "Commands",
+                "percent": 0,
+                "state": "missing"
+              },
+              {
+                "dim": "IOCs",
+                "percent": 0,
+                "state": "missing"
+              },
+              {
+                "dim": "Behaviors",
+                "percent": 0,
+                "state": "missing"
+              },
+              {
+                "dim": "Timeline",
+                "percent": 20,
+                "state": "partial"
+              },
+              {
+                "dim": "Network",
+                "percent": 20,
+                "state": "partial",
+                "hint": "Enrich URL / IP artifacts via IOC lane (Talos, XForce, VT)"
+              },
+              {
+                "dim": "Memory",
+                "percent": 0,
+                "state": "missing",
+                "hint": "Collect a memory image from the affected host"
+              },
+              {
+                "dim": "EDR",
+                "percent": 0,
+                "state": "missing",
+                "hint": "Pull EDR telemetry for the affected host and time window"
+              },
+              {
+                "dim": "Report",
+                "percent": 0,
+                "state": "missing"
+              }
+            ],
+            "overall_percent": 5,
+            "recommended_next": "Collect a memory image from the affected host",
+            "confidence_label": "low"
+          },
+          "gaps": [
+            {
+              "dim": "Timeline",
+              "reason": "No article-published timeline; execution order is relative only.",
+              "action": "Correlate command execution with EDR / process telemetry."
+            },
+            {
+              "dim": "CVEs",
+              "reason": "No CVEs referenced in the acquired document.",
+              "action": "Cross-reference commands + malware against NVD / vendor advisories."
+            },
+            {
+              "dim": "YARA",
+              "reason": "No YARA rules published with this report.",
+              "action": "Author internal YARA from extracted malware family + IOC set."
+            },
+            {
+              "dim": "Memory",
+              "reason": "No memory acquisition performed.",
+              "action": "Collect memory image from affected host(s)."
+            },
+            {
+              "dim": "EDR Telemetry",
+              "reason": "No EDR telemetry ingested for this incident.",
+              "action": "Pull EDR process / network / file events for the affected host + window."
+            }
+          ],
+          "recommendations": [
+            {
+              "priority": "P1",
+              "title": "Collect a memory image from the affected host",
+              "reason": "Highest-value evidence dimension currently missing."
+            },
+            {
+              "priority": "P3",
+              "title": "Correlate command execution with EDR / process telemetry.",
+              "reason": "Investigation gap: Timeline."
+            },
+            {
+              "priority": "P3",
+              "title": "Cross-reference commands + malware against NVD / vendor advisories.",
+              "reason": "Investigation gap: CVEs."
+            }
+          ],
+          "provenance": {
+            "source_url": "",
+            "source_vendor": "",
+            "source_title": "",
+            "fetched_at_ms": null,
+            "acquired_bytes": null
+          }
+        },
+        "behavior_clusters": [],
+        "attack_phases": [],
+        "mitre_matrix": [],
+        "timeline": [],
+        "incident_graph": {
+          "nodes": [
+            {
+              "id": "incident:root",
+              "kind": "incident",
+              "label": "Incident",
+              "vendor": ""
+            }
+          ],
+          "edges": []
+        },
+        "evidence_completeness": {
+          "dimensions": [
+            {
+              "dim": "Commands",
+              "state": "missing",
+              "found": 0,
+              "investigated": 0,
+              "errors": 0
+            },
+            {
+              "dim": "MITRE",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "LOLBAS",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "IOCs (URLs+Hashes+IPs+Domains)",
+              "state": "missing",
+              "found": 0,
+              "breakdown": {
+                "urls": 0,
+                "hashes": 0,
+                "ips": 0,
+                "domains": 0
+              }
+            },
+            {
+              "dim": "Registry",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Timeline",
+              "state": "relative",
+              "found": 0
+            },
+            {
+              "dim": "YARA",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Sigma",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Threat Actor",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Malware",
+              "state": "missing",
+              "found": 0
+            }
+          ],
+          "overall_percent": 5,
+          "complete_count": 0,
+          "relative_count": 1,
+          "applicable": 10
+        },
+        "investigation_readiness": {
+          "bars": [
+            {
+              "dim": "Commands",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "IOCs",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "Behaviors",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "Timeline",
+              "percent": 20,
+              "state": "partial"
+            },
+            {
+              "dim": "Network",
+              "percent": 20,
+              "state": "partial",
+              "hint": "Enrich URL / IP artifacts via IOC lane (Talos, XForce, VT)"
+            },
+            {
+              "dim": "Memory",
+              "percent": 0,
+              "state": "missing",
+              "hint": "Collect a memory image from the affected host"
+            },
+            {
+              "dim": "EDR",
+              "percent": 0,
+              "state": "missing",
+              "hint": "Pull EDR telemetry for the affected host and time window"
+            },
+            {
+              "dim": "Report",
+              "percent": 0,
+              "state": "missing"
+            }
+          ],
+          "overall_percent": 5,
+          "recommended_next": "Collect a memory image from the affected host",
+          "confidence_label": "low"
+        },
+        "investigation_gaps": [
+          {
+            "dim": "Timeline",
+            "reason": "No article-published timeline; execution order is relative only.",
+            "action": "Correlate command execution with EDR / process telemetry."
+          },
+          {
+            "dim": "CVEs",
+            "reason": "No CVEs referenced in the acquired document.",
+            "action": "Cross-reference commands + malware against NVD / vendor advisories."
+          },
+          {
+            "dim": "YARA",
+            "reason": "No YARA rules published with this report.",
+            "action": "Author internal YARA from extracted malware family + IOC set."
+          },
+          {
+            "dim": "Memory",
+            "reason": "No memory acquisition performed.",
+            "action": "Collect memory image from affected host(s)."
+          },
+          {
+            "dim": "EDR Telemetry",
+            "reason": "No EDR telemetry ingested for this incident.",
+            "action": "Pull EDR process / network / file events for the affected host + window."
+          }
+        ],
+        "recommended_actions": [
+          {
+            "priority": "P1",
+            "title": "Collect a memory image from the affected host",
+            "reason": "Highest-value evidence dimension currently missing."
+          },
+          {
+            "priority": "P3",
+            "title": "Correlate command execution with EDR / process telemetry.",
+            "reason": "Investigation gap: Timeline."
+          },
+          {
+            "priority": "P3",
+            "title": "Cross-reference commands + malware against NVD / vendor advisories.",
+            "reason": "Investigation gap: CVEs."
+          }
+        ],
+        "provenance": {
+          "source_url": "",
+          "source_vendor": "",
+          "source_title": "",
+          "fetched_at_ms": null,
+          "acquired_bytes": null
+        },
+        "totals": {
+          "clusters": 0,
+          "phases": 0,
+          "mitre": 0,
+          "timeline": 0,
+          "graph_nodes": 1,
+          "graph_edges": 0,
+          "gaps": 5,
+          "recommended": 3
+        }
+      },
+      "incident": {
+        "summary": {
+          "id": "incident:root",
+          "title": "Threat Investigation",
+          "vendor": "",
+          "actor": null,
+          "malware": [],
+          "objective": "Investigation in progress",
+          "severity": "low",
+          "confidence_percent": 0,
+          "status": "under_investigation",
+          "tactics_observed": [],
+          "cluster_count": 0,
+          "mitre_count": 0
+        },
+        "behaviors": [],
+        "phases": [],
+        "mitre": [],
+        "timeline": [],
+        "graph": {
+          "nodes": [
+            {
+              "id": "incident:root",
+              "kind": "incident",
+              "label": "Incident",
+              "vendor": ""
+            }
+          ],
+          "edges": []
+        },
+        "evidence": {
+          "commands": [],
+          "investigations": [],
+          "actors": [],
+          "malware": []
+        },
+        "completeness": {
+          "dimensions": [
+            {
+              "dim": "Commands",
+              "state": "missing",
+              "found": 0,
+              "investigated": 0,
+              "errors": 0
+            },
+            {
+              "dim": "MITRE",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "LOLBAS",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "IOCs (URLs+Hashes+IPs+Domains)",
+              "state": "missing",
+              "found": 0,
+              "breakdown": {
+                "urls": 0,
+                "hashes": 0,
+                "ips": 0,
+                "domains": 0
+              }
+            },
+            {
+              "dim": "Registry",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Timeline",
+              "state": "relative",
+              "found": 0
+            },
+            {
+              "dim": "YARA",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Sigma",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Threat Actor",
+              "state": "missing",
+              "found": 0
+            },
+            {
+              "dim": "Malware",
+              "state": "missing",
+              "found": 0
+            }
+          ],
+          "overall_percent": 5,
+          "complete_count": 0,
+          "relative_count": 1,
+          "applicable": 10
+        },
+        "readiness": {
+          "bars": [
+            {
+              "dim": "Commands",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "IOCs",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "Behaviors",
+              "percent": 0,
+              "state": "missing"
+            },
+            {
+              "dim": "Timeline",
+              "percent": 20,
+              "state": "partial"
+            },
+            {
+              "dim": "Network",
+              "percent": 20,
+              "state": "partial",
+              "hint": "Enrich URL / IP artifacts via IOC lane (Talos, XForce, VT)"
+            },
+            {
+              "dim": "Memory",
+              "percent": 0,
+              "state": "missing",
+              "hint": "Collect a memory image from the affected host"
+            },
+            {
+              "dim": "EDR",
+              "percent": 0,
+              "state": "missing",
+              "hint": "Pull EDR telemetry for the affected host and time window"
+            },
+            {
+              "dim": "Report",
+              "percent": 0,
+              "state": "missing"
+            }
+          ],
+          "overall_percent": 5,
+          "recommended_next": "Collect a memory image from the affected host",
+          "confidence_label": "low"
+        },
+        "gaps": [
+          {
+            "dim": "Timeline",
+            "reason": "No article-published timeline; execution order is relative only.",
+            "action": "Correlate command execution with EDR / process telemetry."
+          },
+          {
+            "dim": "CVEs",
+            "reason": "No CVEs referenced in the acquired document.",
+            "action": "Cross-reference commands + malware against NVD / vendor advisories."
+          },
+          {
+            "dim": "YARA",
+            "reason": "No YARA rules published with this report.",
+            "action": "Author internal YARA from extracted malware family + IOC set."
+          },
+          {
+            "dim": "Memory",
+            "reason": "No memory acquisition performed.",
+            "action": "Collect memory image from affected host(s)."
+          },
+          {
+            "dim": "EDR Telemetry",
+            "reason": "No EDR telemetry ingested for this incident.",
+            "action": "Pull EDR process / network / file events for the affected host + window."
+          }
+        ],
+        "recommendations": [
+          {
+            "priority": "P1",
+            "title": "Collect a memory image from the affected host",
+            "reason": "Highest-value evidence dimension currently missing."
+          },
+          {
+            "priority": "P3",
+            "title": "Correlate command execution with EDR / process telemetry.",
+            "reason": "Investigation gap: Timeline."
+          },
+          {
+            "priority": "P3",
+            "title": "Cross-reference commands + malware against NVD / vendor advisories.",
+            "reason": "Investigation gap: CVEs."
+          }
+        ],
+        "provenance": {
+          "source_url": "",
+          "source_vendor": "",
+          "source_title": "",
+          "fetched_at_ms": null,
+          "acquired_bytes": null
+        }
+      }
+    },
+    "investigation_mode": true,
+    "verdict_card": null,
+    "decode_trace": [
+      {
+        "op": "stage-1",
+        "args": {},
+        "reason": "Stage 1 · engine=rc2-orchestrator · conf=100/100",
+        "output_preview": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7",
+        "output_length": 255
+      },
+      {
+        "op": "stage-2",
+        "args": {},
+        "reason": "Stage 2 · engine=magic · conf=45/100",
+        "output_preview": "C000000206f6e74656e745f54797065735d2e786dontent",
+        "output_length": 47
+      },
+      {
+        "op": "stage-3",
+        "args": {},
+        "reason": "Stage 3 · engine=convergence · conf=100/100",
+        "output_preview": "── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@",
+        "output_length": 1245
+      }
+    ],
+    "decode_winner_engine": "chain (3 stages)",
+    "decode_confidence": 82,
+    "iedde": null,
+    "iedde_terminal_state": null,
+    "canonical_confidence": null,
+    "canonical_confidence_reason": null,
+    "mitre": [],
+    "lolbas": [],
+    "semantic": null,
+    "reached_shellcode": false,
+    "corrupted_container": null,
+    "chain": [
+      {
+        "op": "stage-1",
+        "reason": "rc2-orchestrator · conf=100/100 · [BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/a",
+        "output_preview": "[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712e"
+      },
+      {
+        "op": "stage-2",
+        "reason": "magic · conf=45/100 · ── HEX DUMP (first 512 bytes) ──\n00000000  50 4b 03 04 14 00 06 00 08 00 00 00 2",
+        "output_preview": "C000000206f6e74656e745f54797065735d2e786dontent"
+      },
+      {
+        "op": "stage-3",
+        "reason": "convergence · conf=100/100 · ── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rel",
+        "output_preview": "── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n"
+      }
+    ],
+    "steps": [
+      {
+        "op": "stage-1",
+        "args": {}
+      },
+      {
+        "op": "stage-2",
+        "args": {}
+      },
+      {
+        "op": "stage-3",
+        "args": {}
+      }
+    ],
+    "predicted_tree": null,
+    "analysis": {
+      "iocs": {
+        "urls": [],
+        "ips": [],
+        "domains": [],
+        "emails": [],
+        "md5": [
+          "7d2b361f20c7042d71636fee1118beb9"
+        ],
+        "sha1": [
+          "961d0f8f064d0a7ecac08da4f80a5ad75af64805"
+        ],
+        "sha256": [
+          "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7"
+        ],
+        "bitcoin_addresses": []
+      },
+      "mitre": [],
+      "lolbins": [],
+      "lolbas": [],
+      "yara": [
+        {
+          "rule": "PS_CaseMixed_Obfuscation",
+          "severity": "low",
+          "match": "BINARY",
+          "description": "Alternating-case keyword obfuscation to evade string-signature detection",
+          "first_seen_stage": 0
+        },
+        {
+          "rule": "CMD_Obfuscation_Caret",
+          "severity": "medium",
+          "match": "^B",
+          "description": "CMD.exe caret-based obfuscation",
+          "first_seen_stage": 2
+        }
+      ],
+      "risk": {
+        "score": 26,
+        "verdict": "Low Risk",
+        "level": "low"
+      },
+      "family": null,
+      "ai_verdict": {
+        "verdict": "Low Risk",
+        "confidence": 26,
+        "summary": "3 stages · chain-amplified"
+      },
+      "chain_result": {
+        "stage_count": 3,
+        "aggregate": {
+          "iocs": {
+            "urls": [],
+            "ips": [],
+            "domains": [],
+            "emails": [],
+            "md5": [
+              "7d2b361f20c7042d71636fee1118beb9"
+            ],
+            "sha1": [
+              "961d0f8f064d0a7ecac08da4f80a5ad75af64805"
+            ],
+            "sha256": [
+              "3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7"
+            ],
+            "bitcoin_addresses": []
+          },
+          "mitre": [],
+          "lolbas": [],
+          "yara": [
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "BINARY",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection",
+              "first_seen_stage": 0
+            },
+            {
+              "rule": "CMD_Obfuscation_Caret",
+              "severity": "medium",
+              "match": "^B",
+              "description": "CMD.exe caret-based obfuscation",
+              "first_seen_stage": 2
+            }
+          ],
+          "family": null,
+          "risk": {
+            "score": 26,
+            "verdict": "Low Risk",
+            "level": "low"
+          },
+          "kill_chain": [],
+          "concatenated_output": "[Stage 0] engine=rc2-orchestrator conf=100\n[BINARY FILE — Sample.docx]\nSize: 40786 bytes\nType: ZIP archive (docx/xlsx/jar/apk possible)\nMD5:    7d2b361f20c7042d71636fee1118beb9\nSHA1:   961d0f8f064d0a7ecac08da4f80a5ad75af64805\nSHA256: 3915b712ed7f2a591b93f42f3597b40b4c5684f7c630902061e95c3b748623a7\n\n───── stage boundary ─────\n\n[Stage 1] engine=magic conf=45\nC000000206f6e74656e745f54797065735d2e786dontent\n\n───── stage boundary ─────\n\n[Stage 2] engine=convergence conf=100\n── EXTRACTED STRINGS (top 200) ──\n[Content_Types].xml \n/RyG\nD4Id\n^B]9\n_rels/.rels \nHw{#BAAd}\nn2!I\n7'd6_\nword/document.xml\ne[vh\nbx>c\n$byVda\n0b|p\n!F7Ii\n\"$ju\nQy!hB\nE_Gm\nPoEH*\nkM1li\n4bBf4\nFgS0\n]@ ld\n}#C_\n8F#M\n0Kh*\nZ*4i]\ni~#B\nD~@K!r\nEd<p\nh@PO7|\nM6/e\n1Zfy\nw'vw.\nu#Js6\n,K\\Y\n/*f1\nqC.Y\nRL4}C\nfo*5\n_a_a\n8PSn\n)J{W\n96tL\n'.rl\n*$+$_G\n<*$+$\nCS'W\n,,Ox\nPjAcC)\nt/Bp\nabmJ\n&cbm?\n7)Ux\n Ukq\nrGb+\n2d[v\n4zt\"AT\nCfQ;\n7;*/\naz{@\nDKwR(|\n^7K&\nB|WW\n{#TBD\n\\_;V\n)`</\n(Jf1?u\n3t-0L\nRq!:Q\n\\GvyQW\n\"dlL,{\n__uD\n^5sw\nNs*~=]\ngtKc\n<VW3\nD.4M\nu(LU\nGlZm\nIi|QF\n*;y@K\nl]{D\n;k!(^\n)]DY^\n\\U0/\n$$=l\n>hu$\n'#sk'Y\n%MPx\n(5Pj\n+5Pj\n+5Pj\n^-=;\n2d[v\n7rF;?\nH6l>o\n6c4>9\n<@c~\nj(+:K\nrQ.Hi\"\nR3z!\n~R5^\n0\\\"~M\ns<Www>\n4|xL O)\nyUog\n>&fr\nsL:_)\n~Yh[7\n*Y9?^\nx4bQ\nVZXuD\nTpf* $\n\\6Jn\nGQ?Ca\n+}tu\nZh,^\njt10\nI/7|\nZ7U{?\ne>.R\ni!(Y}\n&3vn\nqv|[\n,Ipf\ni~A*m\nZ]hp\nSW?\nVjb)cq\nuK'Bi\n-@;!\nFv:f\nU BV\ny4,C\njE#?\n2?7\\\n-^AG\n<N0h\nw:z5\n4J'o\neG2*\nI0;Z\ndqXx\nj_ENq\nkkI\n+i9U4\n0U4 <-\n8\"LJ\nj/Fl\nm:HH\nk2Wm\n!u)3\ny{+W\n)3&W\nword/_rels/document.xml.rels \n+L~:\n(C|n0I\nword/footnotes.xml\n$K71F\nLoVc\nqrF,\n/JPNB;\nzhCc\nword/endnotes.xml\nIpS W\nZq}sb\n12@H\n\"2WD0$\n#]pn>\nNp!)\n  ^!z2\n28,-L\nk7S<(A\nd7EP\n|xPr\nl8u5\n/)0`{8\nv=o{\nzhK#\nword/footer1.xml\n6R_{-\n2M[3\n\"#{`P\n8,{Wkt-\n{kpoa\nTco{:$\n|!69C/\nl2\"M\n@Y%|\nU,ur\n\\$sW\nBJ#3\nqVdXJ\nFBh+OC{\n)%}(\n#rnM\nd(/TE;\nUh_ %\n>Xo_\n}^'6h",
+          "ti_hits": []
+        },
+        "labels": [
+          null,
+          null,
+          null
+        ],
+        "timestamp": "2026-08-10T04:57:02.340652+00:00",
+        "history_id": "6a7201c42289c658dce48792"
+      },
+      "streaming": false
+    },
+    "persisted_at": "2026-08-10T04:57:27.520418+00:00"
+  },
+  "ssot_version": "1.0"
+}

@@ -141,7 +141,7 @@ export default function ProcessTreePanel({ incident }) {
   return (
     <section data-testid="xdr-process-tree-panel" style={{ marginTop: 14 }}>
       <div style={header}>
-        <Cpu size={13} style={{ color: "#a78bfa" }} />
+        <Cpu size={13} style={{ color: "var(--nx-purple)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 12,
                                 letterSpacing: 0.3 }}>PREDICTED PROCESS TREE</b>
         <span style={metaChip}>
@@ -301,7 +301,7 @@ export default function ProcessTreePanel({ incident }) {
                        onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center",
                                     gap: 8, marginBottom: 8 }}>
-              <Cpu size={13} style={{ color: "#a78bfa" }} />
+              <Cpu size={13} style={{ color: "var(--nx-purple)" }} />
               <b style={{ fontFamily: "var(--mono)", fontSize: 13 }}>
                 PREDICTED PROCESS TREE
               </b>
@@ -736,7 +736,7 @@ const popoutInner = {
   width: "100%", maxWidth: 1600,
   maxHeight: "calc(100vh - 48px)",
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   padding: 16, display: "flex", flexDirection: "column",
   overflow: "hidden",
 };

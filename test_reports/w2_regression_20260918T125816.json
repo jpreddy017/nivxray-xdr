@@ -1,0 +1,80 @@
+{
+  "harness": "w2_regression",
+  "at": "2026-09-18T12:58:16.946106+00:00",
+  "scope": "PREVIEW/LOCAL ONLY \u2014 production is never contacted",
+  "selected": [
+    "dedupe_contract",
+    "ingest_idempotency",
+    "dedupe_hardening",
+    "collector_plane_auth",
+    "tenant_registry_authority"
+  ],
+  "skipped": [],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0
+  },
+  "verdict": "PASS",
+  "gates": [
+    {
+      "gate": "dedupe_contract",
+      "description": "delivery-identity + idempotency contract on the deployed module (Sysmon-shaped identities)",
+      "defends": [
+        "W1-E2",
+        "W2-D"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "seconds": 0.7,
+      "tail": "PASS    delivery_count after one replay (1696991): got=2 want=2\nPASS    original trace reported back (1696991): got='probe_1696991' want='probe_1696991'\nPASS  replay of DESKTOP-A9HGFJJ|1696992: got='DUPLICATE' want='DUPLICATE'\nPASS    duplicate_count after one replay (1696992): got=1 want=1\nPASS    delivery_count after one replay (1696992): got=2 want=2\nPASS    original trace reported back (1696992): got='probe_1696992' want='probe_1696992'\nPASS  a NEW record id is NOT suppressed: got='FRESH' want='FRESH'\nPASS  same id + different payload is NOT suppressed: got='FRESH' want='FRESH'\nPASS  same delivery in another tenant is NOT suppressed: got='FRESH' want='FRESH'\nPASS  unique index on delivery key exists: got=True want=True\n\nRESULT: CONTRACT PROVEN (preview, deployed code)"
+    },
+    {
+      "gate": "ingest_idempotency",
+      "description": "end-to-end replay: no second raw row, canonical event, detection or incident; retention bounded",
+      "defends": [
+        "W2-D",
+        "W2-F"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "seconds": 163.1,
+      "tail": "    PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n    return self.__pydantic_serializer__.to_python(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n13 passed, 25 warnings in 162.77s (0:02:42)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback"
+    },
+    {
+      "gate": "dedupe_hardening",
+      "description": "fault injection: the idempotency store must not fail open and must not permit an extra chain after a crash",
+      "defends": [
+        "W2-D",
+        "W2-F"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "seconds": 161.4,
+      "tail": "    PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n    return self.__pydantic_serializer__.to_python(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n19 passed, 25 warnings in 161.04s (0:02:41)\n/root/.venv/lib/python3.11/site-packages/pydantic/main.py:475: UserWarning: Pydantic serializer warnings:\n  PydanticSerializationUnexpectedValue(Expected 10 fields but got 5: Expected `Message` - serialized value may not be as expected [field_name='message', input_value=Message(content='```json\\...ields={'refusal': None}), input_type=Message])\n  PydanticSerializationUnexpectedValue(Expected `StreamingChoices` - serialized value may not be as expected [field_name='choices', input_value=Choices(finish_reason='st...ider_specific_fields={}), input_type=Choices])\n  return self.__pydantic_serializer__.to_python(\n/root/.venv/lib/python3.11/site-packages/litellm/llms/custom_httpx/async_client_cleanup.py:78: RuntimeWarning: coroutine 'close_litellm_async_clients' was never awaited\n  loop.close()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback"
+    },
+    {
+      "gate": "collector_plane_auth",
+      "description": "collector plane is authenticated, RBAC-gated and tenant-isolated (fail-closed route classification)",
+      "defends": [
+        "W2-A",
+        "W2-G"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "seconds": 2.7,
+      "tail": "bringing up nodes...\nbringing up nodes...\n\n........................................................................ [ 64%]\n........................................                                 [100%]\n112 passed in 2.33s"
+    },
+    {
+      "gate": "tenant_registry_authority",
+      "description": "tenancy exists only via the registry; data-plane writes never create a tenant",
+      "defends": [
+        "W2-A"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "seconds": 5.2,
+      "tail": "server.py:1003\nserver.py:1003\n  /app/backend/server.py:1003: DeprecationWarning: \n          on_event is deprecated, use lifespan event handlers instead.\n  \n          Read more about it in the\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n          \n    @app.on_event(\"shutdown\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n30 passed, 24 warnings in 4.83s"
+    }
+  ]
+}

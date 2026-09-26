@@ -1,0 +1,9 @@
+{
+  "id": "ps-encoded-5-mut4",
+  "category": "ps-encoded",
+  "expected_keywords": [
+    "backdoor",
+    "net user"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

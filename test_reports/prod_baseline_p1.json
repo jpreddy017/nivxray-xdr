@@ -1,0 +1,51 @@
+{
+  "health": {
+    "status": 200,
+    "body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}"
+  },
+  "openapi_status": 200,
+  "paths": 785,
+  "schemas": 275,
+  "create_key_body_props": [
+    "name",
+    "description",
+    "scopes",
+    "expires_at"
+  ],
+  "telemetry_receipt_props": [
+    "accepted",
+    "parse_errors",
+    "normalize_errors",
+    "collector_state",
+    "collector_state_reason",
+    "reasoned",
+    "observations_created",
+    "incidents_promoted",
+    "reasoning"
+  ],
+  "ingest_unknown_key": {
+    "status": 403,
+    "body": "{\"detail\":\"Not authenticated\"}",
+    "ratelimit_headers": {}
+  },
+  "ingest_anonymous": {
+    "status": 403,
+    "body": "{\"detail\":\"Not authenticated\"}"
+  },
+  "legacy_header_rbac": {
+    "status": 403,
+    "body": "{\"detail\":\"Not authenticated\"}"
+  },
+  "auth_alive": {
+    "status": 401,
+    "body": "{\"detail\":\"Invalid credentials\"}"
+  },
+  "workspace_root": {
+    "status": 200,
+    "bundle": "static/js/main.46cdaa0a.js",
+    "html_sha256": "e2237fb72ecf339a"
+  },
+  "workspace_auto_investigate": {
+    "status": 200
+  }
+}

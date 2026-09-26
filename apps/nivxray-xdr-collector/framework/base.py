@@ -54,9 +54,15 @@ class Envelope:
     event_type:           str
     raw:                  Dict[str, Any]
     canonical:            Dict[str, Any] = field(default_factory=dict)
+    #: D15 · what this delivery DECLARES itself to be at the authoritative
+    #: ingest boundary. The core refuses an undeclared delivery
+    #: (DECLARATION_REQUIRED) and never guesses from content, so a connector
+    #: that knows its source must say so. `None` is honest for the generic
+    #: transports, which do not know what a caller pointed them at.
+    declared_source:      Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "tenant_id":            self.tenant_id,
             "source":               self.source,
             "source_event_id":      self.source_event_id,
@@ -70,6 +76,9 @@ class Envelope:
             "raw":                  self.raw,
             "canonical":            self.canonical,
         }
+        if self.declared_source:
+            d["declared_source"] = self.declared_source
+        return d
 
 
 # ── Checkpoint · restart-safe, tenant + connector scoped ───────────

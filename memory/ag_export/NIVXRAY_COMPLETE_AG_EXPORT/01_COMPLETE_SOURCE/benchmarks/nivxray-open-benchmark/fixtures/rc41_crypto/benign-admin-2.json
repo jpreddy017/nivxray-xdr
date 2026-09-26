@@ -1,0 +1,23 @@
+{
+  "id": "benign-admin-2",
+  "category": "benign",
+  "algorithm": "Key-generation",
+  "command_line": "ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519",
+  "stage_ladder": [
+    {
+      "name": "plain-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "n/a",
+  "expected_plaintext": "ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519",
+  "expected_iocs": [],
+  "expected_lolbins": [],
+  "expected_mitre": [],
+  "expected_verdict": "benign",
+  "expected_confidence_min": 0.0,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

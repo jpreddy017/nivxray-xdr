@@ -1,0 +1,1 @@
+http://one-4.example.test/init.cmd

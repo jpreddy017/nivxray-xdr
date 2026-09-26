@@ -1,0 +1,763 @@
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import Header from "@/components/Header";
+import api from "@/lib/api";
+import {
+  Plus, Trash2, Save, TestTube2, Sparkles, Cog, Zap, Cpu,
+  Check, X, ChevronDown, ChevronRight, AlertTriangle, Play, ExternalLink,
+} from "lucide-react";
+
+const KIND_META = {
+  detection_rule: { label: "DETECTION RULES", icon: Zap, color: "var(--warn)",
+    blurb: "Custom LOLBAS-style rules matched against decoded output. Extend the LOLBAS scanner with private/org-specific rules." },
+  decode_recipe: { label: "DECODE RECIPES", icon: Cog, color: "var(--accent)",
+    blurb: "Auto-applied decode chains. If input matches the regex, Smart Decode / Auto-Investigate runs your recipe first." },
+  ai_persona: { label: "AI PERSONAS", icon: Sparkles, color: "var(--high)",
+    blurb: "Alternative system prompts for the AI Describe step. Analysts opt-in per investigation. Flagship: NivX Cognis." },
+  ai_provider: { label: "LLM PROVIDERS", icon: Cpu, color: "#c58af9",
+    blurb: "Switch between Claude, GPT, or Gemini for the AI analysis step. Uses the Emergent Universal Key." },
+  playbook: { label: "PLAYBOOKS", icon: Sparkles, color: "#f7c17b",
+    blurb: "Free-form analyst guidance auto-appended to every AI investigation. Teach the tool your triage rules, decoding techniques, and org-specific IOC context." },
+  training_note: { label: "TRAINING NOTES", icon: Sparkles, color: "#7ee3c9",
+    blurb: "Always-on global directives PREPENDED to every AI investigation (ranked above playbooks). Feedback-weighted — 👍/👎 votes reorder priority for future prompts. Use for org-wide corrections the LLM should always apply." },
+};
+const KINDS = ["detection_rule", "decode_recipe", "ai_persona", "ai_provider", "playbook", "training_note"];
+
+export default function ModelStudioPage() {
+  const { user } = useAuth();
+  const [activeKind, setActiveKind] = useState("detection_rule");
+  const [models, setModels] = useState([]);
+  const [catalog, setCatalog] = useState(null);
+  const [editing, setEditing] = useState(null); // null | new-shape | existing model with .id
+  const [testSample, setTestSample] = useState("");
+  const [testResult, setTestResult] = useState(null);
+  const [testingId, setTestingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    try {
+      const [m, c] = await Promise.all([
+        api.get("/admin/models"),
+        api.get("/admin/models/catalog"),
+      ]);
+      setModels(m.data);
+      setCatalog(c.data);
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  useEffect(() => { if (user?.role === "admin") load(); }, [user]);
+
+  const filtered = useMemo(() => models.filter((m) => m.kind === activeKind), [models, activeKind]);
+
+  if (user?.role !== "admin") {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <Header />
+        <div style={{ padding: 40, color: "var(--text-mute)" }}>Admin access required.</div>
+      </div>
+    );
+  }
+
+  const saveModel = async () => {
+    if (!editing) return;
+    setSaving(true); setError("");
+    try {
+      if (editing.id) {
+        await api.put(`/admin/models/${editing.id}`, {
+          name: editing.name,
+          enabled: editing.enabled,
+          config: editing.config,
+        });
+      } else {
+        await api.post("/admin/models", {
+          kind: editing.kind,
+          name: editing.name,
+          enabled: editing.enabled ?? true,
+          config: editing.config,
+        });
+      }
+      setEditing(null);
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteModel = async (id) => {
+    if (!window.confirm("Delete this model? This cannot be undone.")) return;
+    try {
+      await api.delete(`/admin/models/${id}`);
+      await load();
+    } catch (e) {
+      alert(e?.response?.data?.detail || e.message);
+    }
+  };
+
+  const toggleEnabled = async (m) => {
+    await api.put(`/admin/models/${m.id}`, { enabled: !m.enabled });
+    await load();
+  };
+
+  const runTest = async (id) => {
+    setTestingId(id); setTestResult(null);
+    try {
+      const r = await api.post(`/admin/models/${id}/test`, { sample: testSample });
+      setTestResult(r.data);
+    } catch (e) {
+      setTestResult({ error: e?.response?.data?.detail || e.message });
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const startNew = () => {
+    const templates = {
+      detection_rule: { binary_regex: "", argv_regex: "", mitre: [], purposes: [], severity: "medium", description: "" },
+      decode_recipe:  { match_regex: "", ops: [{ op: "base64-decode" }], notes: "" },
+      ai_persona:     { system_prompt: "", notes: "" },
+      ai_provider:    { provider: "anthropic", model: "claude-sonnet-4-5-20250929", default: false },
+      playbook:       { body: "", applies_to: ["ai"] },
+      training_note:  { body: "" },
+    };
+    setEditing({ id: null, kind: activeKind, name: "", enabled: true, config: templates[activeKind] });
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)" }} data-testid="model-studio-page">
+      <Header />
+      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
+        <div className="brut-border" style={{ background: "var(--surface)", padding: 20, marginBottom: 20 }}>
+          <h1 className="mono" style={{ fontSize: 22, letterSpacing: "0.16em", margin: 0, color: "var(--accent)" }}>
+            ▸ MODEL STUDIO
+          </h1>
+          <p className="mono" style={{ fontSize: 12, color: "var(--text-mute)", marginTop: 8, lineHeight: 1.6 }}>
+            Teach NivXRay new tricks. Add custom detection rules, decode recipes, AI personas, or switch LLM providers.
+            Every change takes effect immediately on the next investigation.
+          </p>
+        </div>
+
+        {/* Kind tabs */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }} data-testid="ms-kind-tabs">
+          {KINDS.map((k) => {
+            const KM = KIND_META[k];
+            const Icon = KM.icon;
+            const count = models.filter((m) => m.kind === k).length;
+            return (
+              <button
+                key={k}
+                className={`nvx-btn ${activeKind === k ? "primary" : "ghost"}`}
+                onClick={() => { setActiveKind(k); setEditing(null); setTestResult(null); }}
+                data-testid={`ms-tab-${k}`}
+              >
+                <Icon size={12} /> {KM.label} <span style={{ opacity: 0.7 }}>· {count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {error && (
+          <div className="brut-border" style={{ padding: 12, background: "rgba(217,108,108,0.1)", borderColor: "var(--high)", marginBottom: 16 }}>
+            <AlertTriangle size={13} style={{ marginRight: 6 }} /> {error}
+          </div>
+        )}
+
+        <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", marginBottom: 12, lineHeight: 1.6 }}>
+          {KIND_META[activeKind].blurb}
+        </div>
+
+        {/* Toolbar */}
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
+          <button className="nvx-btn primary" onClick={startNew} data-testid="ms-btn-new">
+            <Plus size={12} /> NEW {KIND_META[activeKind].label.replace(/S$/, "")}
+          </button>
+          <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)" }}>
+            {filtered.length} model{filtered.length !== 1 ? "s" : ""} · {filtered.filter((m) => m.enabled).length} enabled
+          </div>
+        </div>
+
+        {/* List */}
+        <div style={{ display: "grid", gap: 10 }} data-testid="ms-list">
+          {filtered.map((m) => (
+            <ModelRow key={m.id} model={m} onEdit={() => { setEditing(m); setTestResult(null); }}
+                       onDelete={() => deleteModel(m.id)}
+                       onToggle={() => toggleEnabled(m)} />
+          ))}
+          {filtered.length === 0 && (
+            <div className="mono" style={{ color: "var(--text-mute)", fontSize: 12, padding: 20, textAlign: "center", border: "1px dashed var(--border)" }}>
+              No {activeKind.replace("_", " ")}s yet. Click <b>NEW</b> above to create one.
+            </div>
+          )}
+        </div>
+
+        {/* Editor drawer */}
+        {editing && (
+          <ModelEditor
+            model={editing}
+            catalog={catalog}
+            onChange={setEditing}
+            onCancel={() => { setEditing(null); setTestResult(null); }}
+            onSave={saveModel}
+            saving={saving}
+            testSample={testSample}
+            setTestSample={setTestSample}
+            onTest={() => editing.id ? runTest(editing.id) : setTestResult({ note: "Save first to enable Test" })}
+            testResult={testResult}
+            testing={testingId === editing.id}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlaybookScorecard({ pos, neg, weight, rowId }) {
+  const weightColor = weight > 0 ? "var(--good, #4ade80)"
+                     : weight < 0 ? "var(--high, #f87171)"
+                     : "var(--text-mute)";
+  return (
+    <span
+      data-testid={`ms-playbook-scorecard-${rowId}`}
+      title={`${pos} 👍 / ${neg} 👎 · weight = ${weight}`}
+      className="mono"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "2px 8px", fontSize: 10, letterSpacing: "0.1em",
+        border: `1px solid ${weightColor}`, color: weightColor,
+        background: `${weightColor}0F`, borderRadius: 2,
+      }}
+    >
+      👍 {pos} · 👎 {neg} · w{weight >= 0 ? `+${weight}` : weight}
+    </span>
+  );
+}
+
+function ModelRow({ model, onEdit, onDelete, onToggle }) {
+  const KM = KIND_META[model.kind];
+  const Icon = KM.icon;
+  const cfg = model.config || {};
+  const summary = model.kind === "detection_rule" ? `${cfg.binary_regex || "—"}${cfg.argv_regex ? "  ▸  " + cfg.argv_regex : ""}`
+                : model.kind === "decode_recipe" ? `match: ${cfg.match_regex} → ${(cfg.ops || []).map((o) => o.op).join(" → ")}`
+                : model.kind === "ai_persona" ? (cfg.system_prompt || "").slice(0, 140) + "…"
+                : model.kind === "playbook" ? `applies_to: ${(cfg.applies_to || ["ai"]).join(", ")} · ${(cfg.body || "").slice(0, 100)}…`
+                : model.kind === "training_note" ? `always-on · ${(cfg.body || "").slice(0, 140)}…`
+                : `${cfg.provider} · ${cfg.model}${cfg.default ? " · DEFAULT" : ""}`;
+
+  // Inline test drawer state — one per row, collapsed by default
+  const [testOpen, setTestOpen] = useState(false);
+  const [sample, setSample] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const runInlineTest = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const r = await api.post(`/admin/models/${model.id}/test`, { sample });
+      setResult(r.data);
+    } catch (e) {
+      setResult({ error: e?.response?.data?.detail || e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Preload a sensible default sample when opening the drawer for the first time
+  const openTest = () => {
+    if (!testOpen && !sample) {
+      const defaults = {
+        detection_rule: "powershell.exe -NoP -W Hidden -Enc SGVsbG8=",
+        decode_recipe:  "SGVsbG8sIE5pdlhSYXkh",           // Base64("Hello, NivXRay!")
+        ai_persona:     "This is a sample encoded payload to describe.",
+        ai_provider:    "(connectivity is validated at Auto-Investigate time)",
+        playbook:       "(this playbook is auto-appended — trigger Auto-Investigate to see effect)",
+        training_note:  "(this note is auto-prepended — trigger Auto-Investigate to see effect)",
+      };
+      setSample(defaults[model.kind] || "");
+    }
+    setTestOpen((o) => !o);
+  };
+
+  return (
+    <div className="brut-border" style={{ padding: 14, background: "var(--surface)", display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}
+         data-testid={`ms-row-${model.id}`}>
+      <div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+          <Icon size={14} color={KM.color} />
+          <span className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 700 }}>{model.name}</span>
+          {model.protected && <span className="badge">BUILT-IN</span>}
+          {!model.enabled && <span className="badge" style={{ opacity: 0.6 }}>DISABLED</span>}
+          {model.kind === "playbook" && (
+            <PlaybookScorecard
+              pos={model.feedback_pos || 0}
+              neg={model.feedback_neg || 0}
+              weight={model.feedback_weight || 0}
+              rowId={model.id}
+            />
+          )}
+          {model.kind === "training_note" && (
+            <PlaybookScorecard
+              pos={model.feedback_pos || 0}
+              neg={model.feedback_neg || 0}
+              weight={model.feedback_weight || 0}
+              rowId={model.id}
+            />
+          )}
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginLeft: "auto" }}>
+            used {model.usage_count || 0}×
+          </span>
+        </div>
+        <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", wordBreak: "break-all", lineHeight: 1.5 }}>
+          {summary}
+        </div>
+
+        {/* Inline test drawer — expands when TEST is toggled */}
+        {testOpen && (
+          <div
+            className="brut-border"
+            style={{ marginTop: 10, padding: 10, background: "var(--bg)" }}
+            data-testid={`ms-inline-test-${model.id}`}
+          >
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", color: "var(--text-mute)", marginBottom: 4, textTransform: "uppercase" }}>
+              Sample input
+            </div>
+            <textarea
+              className="brut-input"
+              style={{ width: "100%", minHeight: 60, fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}
+              value={sample}
+              onChange={(e) => setSample(e.target.value)}
+              placeholder="Paste a sample payload to run through this model…"
+              data-testid={`ms-inline-test-sample-${model.id}`}
+            />
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
+              <button
+                className="nvx-btn sm ghost"
+                onClick={() => { setTestOpen(false); setResult(null); }}
+                data-testid={`ms-inline-test-close-${model.id}`}
+              >
+                <X size={11} /> CLOSE
+              </button>
+              <button
+                className="nvx-btn sm primary"
+                onClick={runInlineTest}
+                disabled={busy || !sample.trim()}
+                data-testid={`ms-inline-test-run-${model.id}`}
+              >
+                <Play size={11} /> {busy ? "RUNNING…" : "RUN TEST"}
+              </button>
+            </div>
+            {result && (
+              <div style={{ marginTop: 8 }}>
+                {result.error ? (
+                  <div className="mono" style={{ fontSize: 11, color: "var(--high)", borderLeft: "3px solid var(--high)", padding: "6px 10px" }}
+                       data-testid={`ms-inline-test-error-${model.id}`}>
+                    ERROR: {result.error}
+                  </div>
+                ) : (
+                  <pre
+                    className="mono"
+                    style={{ margin: 0, padding: 10, background: "var(--surface)", border: "1px solid var(--border)",
+                             fontSize: 11, color: "var(--text)", whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto" }}
+                    data-testid={`ms-inline-test-result-${model.id}`}
+                  >
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+        <button className="nvx-btn sm ghost" onClick={onToggle} data-testid={`ms-toggle-${model.id}`}>
+          {model.enabled ? <X size={11} /> : <Check size={11} />}
+          {model.enabled ? "DISABLE" : "ENABLE"}
+        </button>
+        <button
+          className={`nvx-btn sm ${testOpen ? "primary" : "ghost"}`}
+          onClick={openTest}
+          data-testid={`ms-test-${model.id}`}
+          title="Run this model against a sample input"
+        >
+          <TestTube2 size={11} /> TEST
+        </button>
+        <button className="nvx-btn sm" onClick={onEdit} data-testid={`ms-edit-${model.id}`}>EDIT</button>
+        {!model.protected && (
+          <button className="nvx-btn sm ghost" onClick={onDelete} data-testid={`ms-delete-${model.id}`}
+                  style={{ borderColor: "var(--high)", color: "var(--high)" }}>
+            <Trash2 size={11} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ModelEditor({ model, catalog, onChange, onCancel, onSave, saving, testSample, setTestSample, onTest, testResult, testing }) {
+  const KM = KIND_META[model.kind];
+  const cfg = model.config || {};
+  const set = (patch) => onChange({ ...model, ...patch });
+  const setCfg = (patch) => onChange({ ...model, config: { ...cfg, ...patch } });
+  return (
+    <div className="brut-border" style={{ background: "var(--inset)", padding: 20, marginTop: 20 }} data-testid="ms-editor">
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+        <div className="mono" style={{ fontSize: 12, color: KM.color, letterSpacing: "0.2em" }}>
+          ▸ {model.id ? "EDIT" : "NEW"} {KM.label.replace(/S$/, "")}
+        </div>
+        <button className="nvx-btn sm ghost" onClick={onCancel}><X size={11} /> CLOSE</button>
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        <div>
+          <Label>Name</Label>
+          <input className="brut-input" value={model.name} onChange={(e) => set({ name: e.target.value })} placeholder="Descriptive name" data-testid="ms-input-name" />
+        </div>
+
+        {model.kind === "detection_rule" && <DetectionRuleFields cfg={cfg} setCfg={setCfg} />}
+        {model.kind === "decode_recipe"  && <DecodeRecipeFields  cfg={cfg} setCfg={setCfg} catalog={catalog} />}
+        {model.kind === "ai_persona"     && <AiPersonaFields     cfg={cfg} setCfg={setCfg} />}
+        {model.kind === "ai_provider"    && <AiProviderFields    cfg={cfg} setCfg={setCfg} catalog={catalog} />}
+        {model.kind === "playbook"       && <PlaybookFields      cfg={cfg} setCfg={setCfg} />}
+        {model.kind === "training_note"  && <TrainingNoteFields  cfg={cfg} setCfg={setCfg} />}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={model.enabled ?? true} onChange={(e) => set({ enabled: e.target.checked })} id="enabled-cb" data-testid="ms-input-enabled" />
+          <label htmlFor="enabled-cb" className="mono" style={{ fontSize: 12, color: "var(--text)" }}>ENABLED — applied to live investigations</label>
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="nvx-btn primary" onClick={onSave} disabled={saving || !model.name} data-testid="ms-btn-save">
+            <Save size={12} /> {saving ? "SAVING…" : "SAVE"}
+          </button>
+          <button className="nvx-btn ghost" onClick={onCancel}>CANCEL</button>
+        </div>
+
+        {/* Test surface */}
+        <div className="brut-border" style={{ padding: 14, background: "var(--bg)", marginTop: 8 }}>
+          <div className="mono" style={{ fontSize: 11, color: "var(--accent)", letterSpacing: "0.2em", marginBottom: 8 }}>
+            ▸ TEST
+          </div>
+          <textarea className="brut-input" style={{ minHeight: 100, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+            placeholder={model.kind === "ai_persona" || model.kind === "ai_provider"
+              ? "Optional: paste a sample decoded payload the persona/provider would receive."
+              : "Paste a sample input — matches, decodes, or checks show live below."}
+            value={testSample} onChange={(e) => setTestSample(e.target.value)}
+            data-testid="ms-input-test-sample" />
+          <div style={{ marginTop: 8 }}>
+            <button className="nvx-btn" onClick={onTest} disabled={testing} data-testid="ms-btn-test">
+              <Play size={11} /> {testing ? "TESTING…" : "RUN TEST"}
+            </button>
+          </div>
+          {testResult && <TestResult result={testResult} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetectionRuleFields({ cfg, setCfg }) {
+  return (
+    <>
+      <div>
+        <Label>Binary regex <Hint>(required — matched against decoded output)</Hint></Label>
+        <input className="brut-input" value={cfg.binary_regex || ""} onChange={(e) => setCfg({ binary_regex: e.target.value })}
+               placeholder="\\brundll32(?:\\.exe)?\\b" data-testid="ms-input-binary-regex" />
+      </div>
+      <div>
+        <Label>Argv regex <Hint>(optional — matched in the 500 chars after the binary match)</Hint></Label>
+        <input className="brut-input" value={cfg.argv_regex || ""} onChange={(e) => setCfg({ argv_regex: e.target.value })}
+               placeholder="shell32\\.dll,Control_RunDLL" data-testid="ms-input-argv-regex" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div>
+          <Label>MITRE technique IDs <Hint>(comma-separated)</Hint></Label>
+          <input className="brut-input" value={(cfg.mitre || []).join(", ")}
+                 onChange={(e) => setCfg({ mitre: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                 placeholder="T1218.011, T1059.003" data-testid="ms-input-mitre" />
+        </div>
+        <div>
+          <Label>Purposes <Hint>(comma-separated)</Hint></Label>
+          <input className="brut-input" value={(cfg.purposes || []).join(", ")}
+                 onChange={(e) => setCfg({ purposes: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                 placeholder="Execute, AWL Bypass" />
+        </div>
+      </div>
+      <div>
+        <Label>Severity</Label>
+        <select className="brut-input" value={cfg.severity || "medium"} onChange={(e) => setCfg({ severity: e.target.value })}>
+          <option value="low">LOW</option>
+          <option value="medium">MEDIUM</option>
+          <option value="high">HIGH</option>
+          <option value="critical">CRITICAL</option>
+        </select>
+      </div>
+      <div>
+        <Label>Description</Label>
+        <textarea className="brut-input" style={{ minHeight: 60 }} value={cfg.description || ""}
+                  onChange={(e) => setCfg({ description: e.target.value })}
+                  placeholder="What this rule detects and why it matters." />
+      </div>
+    </>
+  );
+}
+
+function DecodeRecipeFields({ cfg, setCfg, catalog }) {
+  const ops = cfg.ops || [];
+  const setOp = (i, patch) => {
+    const next = [...ops]; next[i] = { ...next[i], ...patch };
+    setCfg({ ops: next });
+  };
+  const addOp = () => setCfg({ ops: [...ops, { op: "base64-decode" }] });
+  const removeOp = (i) => setCfg({ ops: ops.filter((_, k) => k !== i) });
+  const moveUp = (i) => {
+    if (i === 0) return;
+    const next = [...ops]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; setCfg({ ops: next });
+  };
+  return (
+    <>
+      <div>
+        <Label>Match regex <Hint>(required — applied to raw input; if it fires, this recipe runs)</Hint></Label>
+        <input className="brut-input" value={cfg.match_regex || ""} onChange={(e) => setCfg({ match_regex: e.target.value })}
+               placeholder="^[A-Fa-f0-9]{20,}$" data-testid="ms-input-match-regex" />
+      </div>
+      <div>
+        <Label>Ops chain <Hint>(runs top → bottom on the raw input)</Hint></Label>
+        <div style={{ display: "grid", gap: 6 }} data-testid="ms-recipe-ops">
+          {ops.map((step, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "24px 1fr 24px 24px", gap: 6, alignItems: "center" }}>
+              <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>{String(i + 1).padStart(2, "0")}</span>
+              <select className="brut-input" value={step.op} onChange={(e) => setOp(i, { op: e.target.value })} data-testid={`ms-op-select-${i}`}>
+                {(catalog?.operations || []).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <button className="nvx-btn sm ghost" onClick={() => moveUp(i)} disabled={i === 0} title="Move up">↑</button>
+              <button className="nvx-btn sm ghost" onClick={() => removeOp(i)} title="Remove"
+                      style={{ borderColor: "var(--high)", color: "var(--high)" }}>×</button>
+            </div>
+          ))}
+        </div>
+        <button className="nvx-btn sm" onClick={addOp} style={{ marginTop: 6 }} data-testid="ms-btn-add-op">
+          <Plus size={11} /> ADD STEP
+        </button>
+      </div>
+      <div>
+        <Label>Notes</Label>
+        <textarea className="brut-input" style={{ minHeight: 50 }} value={cfg.notes || ""} onChange={(e) => setCfg({ notes: e.target.value })} />
+      </div>
+    </>
+  );
+}
+
+function AiPersonaFields({ cfg, setCfg }) {
+  return (
+    <>
+      <div>
+        <Label>System prompt <Hint>(required — this replaces the default Threat-Analyst prompt when selected)</Hint></Label>
+        <textarea className="brut-input" style={{ minHeight: 260, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+                  value={cfg.system_prompt || ""} onChange={(e) => setCfg({ system_prompt: e.target.value })}
+                  placeholder="ROLE AND PURPOSE: You are ..." data-testid="ms-input-system-prompt" />
+        <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 4 }}>
+          Tip: NivXRay auto-appends a JSON output contract so the persona still fills the standard Threat Analysis tabs.
+        </div>
+      </div>
+      <div>
+        <Label>Notes</Label>
+        <textarea className="brut-input" style={{ minHeight: 50 }} value={cfg.notes || ""} onChange={(e) => setCfg({ notes: e.target.value })} />
+      </div>
+    </>
+  );
+}
+
+function AiProviderFields({ cfg, setCfg, catalog }) {
+  const presets = catalog?.providers || [];
+  return (
+    <>
+      <div>
+        <Label>Preset <Hint>(pick a preset or edit provider/model manually below)</Hint></Label>
+        <select className="brut-input" value={`${cfg.provider}|${cfg.model}`} onChange={(e) => {
+          const [p, m] = e.target.value.split("|");
+          setCfg({ provider: p, model: m });
+        }}>
+          {presets.map((p) => <option key={p.model} value={`${p.provider}|${p.model}`}>{p.label} — {p.provider}/{p.model}</option>)}
+          <option value={`${cfg.provider}|${cfg.model}`}>(custom)</option>
+        </select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+        <div>
+          <Label>Provider</Label>
+          <select className="brut-input" value={cfg.provider || "anthropic"} onChange={(e) => setCfg({ provider: e.target.value })}>
+            <option value="anthropic">anthropic</option>
+            <option value="openai">openai</option>
+            <option value="google">google</option>
+          </select>
+        </div>
+        <div>
+          <Label>Model</Label>
+          <input className="brut-input" value={cfg.model || ""} onChange={(e) => setCfg({ model: e.target.value })}
+                 placeholder="claude-sonnet-4-5-20250929" />
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={!!cfg.default} onChange={(e) => setCfg({ default: e.target.checked })} id="provider-default" />
+        <label htmlFor="provider-default" className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
+          Use as DEFAULT provider when no explicit choice is made
+        </label>
+      </div>
+    </>
+  );
+}
+
+function PlaybookFields({ cfg, setCfg }) {
+  const applies = cfg.applies_to || ["ai"];
+  const toggle = (t) => setCfg({ applies_to: applies.includes(t) ? applies.filter((x) => x !== t) : [...applies, t] });
+  return (
+    <>
+      <div>
+        <Label>Playbook body <Hint>(required — free-form guidance / rules / instructions appended to every AI investigation)</Hint></Label>
+        <textarea
+          className="brut-input"
+          style={{ minHeight: 300, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+          value={cfg.body || ""}
+          onChange={(e) => setCfg({ body: e.target.value })}
+          placeholder={"WHEN YOU SEE X, DO Y.\n\nEXAMPLE:\n- H4sIA prefix -> base64 then gzip-decompress\n- [Byte[]]$var_code = ... -> isolate quoted base64 first\n- If a -bxor <N> loop is present, apply XOR with key N after base64 decode"}
+          data-testid="ms-input-playbook-body"
+        />
+      </div>
+      <div>
+        <Label>Applies to</Label>
+        <div style={{ display: "flex", gap: 12 }}>
+          {["ai", "magic", "smart"].map((t) => (
+            <label key={t} className="mono" style={{ fontSize: 12, color: "var(--text)", display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="checkbox" checked={applies.includes(t)} onChange={() => toggle(t)} data-testid={`ms-applies-${t}`} />
+              {t.toUpperCase()}
+            </label>
+          ))}
+        </div>
+        <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 4 }}>
+          <b>ai</b> — appended to every AI investigation system prompt (recommended). <b>magic</b>/<b>smart</b> reserved for future deterministic hooks.
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+
+function TrainingNoteFields({ cfg, setCfg }) {
+  const [uploadInfo, setUploadInfo] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleFileUpload = (e) => {
+    setUploadError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // 8 MB safety cap — training notes shouldn't be larger
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError(`File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB (max 8 MB)`);
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || "");
+      setCfg({ body: content });
+      setUploadInfo({ name: file.name, size: file.size, lines: content.split("\n").length });
+    };
+    reader.onerror = () => setUploadError("Failed to read file — is it a text file?");
+    reader.readAsText(file);
+    // Reset input so re-selecting same file re-fires
+    e.target.value = "";
+  };
+
+  return (
+    <>
+      <div>
+        <Label>Training note body <Hint>(required — the directive the LLM should ALWAYS follow, OR a payload sample)</Hint></Label>
+
+        {/* File upload row — Feb 2026 addition */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 8,
+          padding: "8px 10px", background: "var(--surface)",
+          border: "1px dashed var(--border)", borderRadius: 4,
+        }}>
+          <label
+            htmlFor="tn-file-upload"
+            className="mono"
+            data-testid="ms-training-note-upload-label"
+            style={{
+              cursor: "pointer", padding: "6px 12px", background: "var(--accent-dim)",
+              border: "1px solid var(--accent)", color: "var(--accent)",
+              fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
+            }}
+          >
+            📄 Upload File
+          </label>
+          <input
+            id="tn-file-upload"
+            type="file"
+            accept=".txt,.csv,.json,.log,.md,.b64,.hex,.ps1,.psm1,.bat,.cmd,.sh,.py,.js,.xml,.yaml,.yml,.ini,.conf"
+            onChange={handleFileUpload}
+            style={{ display: "none" }}
+            data-testid="ms-training-note-upload-input"
+          />
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-mute)" }}>
+            {uploadInfo
+              ? <>Loaded: <b style={{ color: "var(--accent)" }}>{uploadInfo.name}</b> · {(uploadInfo.size / 1024).toFixed(1)} KB · {uploadInfo.lines} lines</>
+              : "Drop a payload/sample file — content auto-fills the body below (max 8 MB, text formats only)"}
+          </span>
+        </div>
+        {uploadError && (
+          <div className="mono" style={{ fontSize: 10, color: "var(--high)", marginBottom: 6 }} data-testid="ms-training-note-upload-error">
+            {uploadError}
+          </div>
+        )}
+
+        <textarea
+          className="brut-input"
+          style={{ minHeight: 240, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+          value={cfg.body || ""}
+          onChange={(e) => setCfg({ body: e.target.value })}
+          placeholder={"E.g.:\n- ALWAYS defang URLs in the final report (hxxp:// instead of http://)\n- Whenever you see a Cobalt Strike stager, prioritize the shellcode disassembly in the verdict\n- Our SOC treats T1218.011 rundll32 as CRITICAL even without a network IOC\n- Never claim a payload is benign without at least one decoded layer of evidence\n\n— OR —\nPaste / upload a raw payload sample the tool should always learn from."}
+          data-testid="ms-input-training-note-body"
+        />
+        <div className="mono" style={{ fontSize: 10, color: "var(--text-mute)", marginTop: 6, lineHeight: 1.6 }}>
+          Training notes are <b style={{ color: "var(--accent)" }}>always-on</b> and PREPENDED to every AI
+          investigation system prompt (above playbooks). Analyst 👍/👎 on any investigation adjusts this
+          note&apos;s ordering for future prompts — feedback-weighted, no fine-tuning required.
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+
+function TestResult({ result }) {
+  if (result.error) return (
+    <div className="mono" style={{ fontSize: 11, color: "var(--high)", padding: 10, marginTop: 10, borderLeft: "3px solid var(--high)" }}>
+      ERROR: {result.error}
+    </div>
+  );
+  if (result.note) return <div className="mono" style={{ fontSize: 11, color: "var(--text-mute)", padding: 10, marginTop: 10 }}>{result.note}</div>;
+  return (
+    <div style={{ marginTop: 12, padding: 12, background: "var(--surface)", border: "1px solid var(--border)" }} data-testid="ms-test-result">
+      <pre className="mono" style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: 11, color: "var(--text)", maxHeight: 340, overflow: "auto" }}>
+        {JSON.stringify(result, null, 2)}
+      </pre>
+    </div>
+  );
+}
+
+function Label({ children }) {
+  return (
+    <div className="mono" style={{ fontSize: 10, letterSpacing: "0.16em", color: "var(--text-mute)", marginBottom: 4, textTransform: "uppercase" }}>
+      {children}
+    </div>
+  );
+}
+function Hint({ children }) {
+  return <span style={{ opacity: 0.6, fontWeight: 400, marginLeft: 6 }}>{children}</span>;
+}

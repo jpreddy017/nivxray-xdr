@@ -1,0 +1,39 @@
+{
+  "summary": "Frontend-only test of NivXRay Feb-2026 FIX A (binary payload banner) & FIX B (save-case 60s timeout). Login OK. FIX B verified end-to-end (Save Case succeeded in <1s, status='CASE SAVED', pickTimeout /cases/save = 60_000 confirmed in api.js). FIX A detector logic verified via in-browser unit test mirror (triggers on random 300B binary → entropy 7.26, printable 34%; correctly returns null on plain text and on <64B input). Regression PASSES: powershell-encodedcommand payload decodes to readable 'start-process notepad', binary-payload-banner does NOT appear. CLEAR button correctly wipes input, output and banners. CAVEAT: could not observe the banner rendered in the actual UI because NivXRay's decode pipeline serializes decoded binary bytes to base64 before delivering them to OutputView's `output` prop — a pure base64 string has max Shannon entropy ~6.0, which cannot exceed the detector's >6.5 threshold. All AUTO INVESTIGATE outputs tested (random 256B blob, random 512B blob, hex-decoded random 200B) came back as base64 strings with printable=100%, entropy 5.85-5.94, so the banner never fires through normal flows. The detector code itself is correct and wired properly (buttons, testids, useEffect reset, placeholder update all present in OutputView.jsx); it will fire IF/WHEN raw non-printable bytes reach the output prop.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "FIX A binary-payload-banner surfacing in real decode flows",
+        "issue": "Banner detector requires entropy > 6.5 AND printable < 50%, but OutputView receives `output` as a base64 string in every tested binary decode path (AUTO INVESTIGATE with random-bytes-b64, hex-decoded random). Base64's max entropy ceiling ~6.0 means the >6.5 threshold is unreachable via current pipeline. Analyst-facing outcome: the fix's targeted scenario (MSFvenom XOR-decoded shellcode) will likely still not trigger the banner because those bytes are also re-base64ed before reaching OutputView. Consider (a) passing raw-bytes-as-latin1 to OutputView so entropy stays >7, or (b) lowering the entropy threshold to ~5.5 with a length gate, or (c) computing entropy on pre-encoding bytes upstream and passing a boolean flag.",
+        "affected_selectors": ["[data-testid=\"binary-payload-banner\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/screenshots/binary_banner.png",
+    "/app/test_reports/screenshots/binary_banner_test.png",
+    "/app/test_reports/screenshots/output_area.png"
+  ],
+  "action_items": [
+    "Confirm whether the OutputView `output` prop actually receives raw non-printable bytes in the intended shellcode/MSFvenom scenarios. If it's always base64, the entropy>6.5 threshold will never fire and the fix won't reach analysts. See integration_issues above for suggested mitigations.",
+    "OPTIONAL: expose a dev/test hook (e.g. window.__nvxSetOutput) so QA can drive OutputView with synthetic raw binary to unit-test the banner in headless CI."
+  ],
+  "critical_code_review_comments": [
+    "OutputView.jsx detectBinaryPayload() is well-scoped, correctly O(n) with 4096-char sample cap. Threshold logic (entropy>6.5 && printable<0.5 && len>=64) is mathematically sound but may not be reachable in practice — see integration_issues note.",
+    "api.js pickTimeout() correctly routes /cases/save to 60_000ms. Regex order is fine (checked before the generic fallback).",
+    "showRawBinary useEffect reset on `output` change is correct and prevents leftover reveal-state across decodes.",
+    "Banner is correctly suppressed when shellcode-banner or terminal-tail already claims the render (memo dependency chain is clean).",
+    "Placeholder text swap is a nice UX touch."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only)", "frontend": "FIX A logic 100% (unit-verified) · FIX A live UI observation 0% (unreachable via normal flow) · FIX B 100% · Regressions 100%" },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "Created 1 test case 'TEST_case_feb2026_351733' via /cases/save (input='aGVsbG8gd29ybGQ=', id=9f3b4d83). Safe to leave or purge.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "FIX B is fully verified. FIX A code is correct but the banner does not visually appear in normal AUTO INVESTIGATE runs because output arrives as base64 (max entropy ~6.0 < threshold 6.5). If E1 tunes the threshold or changes how binary output is delivered to OutputView, re-run: paste base64 of random bytes → AUTO INVESTIGATE → expect [data-testid=binary-payload-banner]. Detector logic + button toggle behavior can also be mirrored via page.evaluate() as done in this iteration.",
+  "rca of the issue": "N/A — no bug encountered; the fix is implemented correctly. The only observation is that the entropy threshold may be too strict for the actual data shape the OutputView receives from NivXRay's pipeline."
+}

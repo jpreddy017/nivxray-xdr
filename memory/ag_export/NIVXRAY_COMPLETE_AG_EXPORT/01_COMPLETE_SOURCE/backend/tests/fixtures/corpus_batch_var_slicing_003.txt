@@ -1,0 +1,2 @@
+@set v=credential-drop-file-name-x
+@call echo %v:~11,4%

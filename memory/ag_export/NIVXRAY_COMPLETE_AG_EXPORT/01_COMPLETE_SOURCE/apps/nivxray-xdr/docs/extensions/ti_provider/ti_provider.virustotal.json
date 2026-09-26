@@ -1,0 +1,20 @@
+{
+  "capability_id": "ti_provider.virustotal",
+  "name": "VirusTotal",
+  "type": "TI_PROVIDER",
+  "provider": "virustotal",
+  "version": "0.9.0",
+  "vendor": "Google (VirusTotal)",
+  "description": "File / IP / URL / domain reputation lookup. Contributes evidence to the deterministic Verdict engine — NEVER an authoritative verdict on its own.",
+  "authentication": ["api_key"],
+  "permissions": ["read:reputation"],
+  "supported_operations": ["lookup_hash", "lookup_ip", "lookup_url", "lookup_domain"],
+  "input_schema": { "api_key": "secret", "rate_limit_per_min": "int" },
+  "output_schema": { "reputation": "object", "sources": "array" },
+  "health_check": { "kind": "api_key_probe", "interval_seconds": 3600 },
+  "lifecycle": "AVAILABLE",
+  "adapter_status": "STUB",
+  "transport": "REST",
+  "risk": "low",
+  "execution_mode": "sync"
+}

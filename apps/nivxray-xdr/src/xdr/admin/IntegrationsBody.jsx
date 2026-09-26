@@ -31,8 +31,10 @@ import {
 } from "lucide-react";
 
 import * as C from "@/xdr/admin/collectorApi";
+import { activeTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
+import { refusalText } from "@/lib/refusal";
 
 // ── 12-tile catalog mapped to Phase-B transports ────────────
 const CATALOG = [
@@ -79,9 +81,9 @@ const STATUS_MAP = {
   disconnected:         { label: "Disconnected",     color: "var(--faint)",  Icon: X },
   never_connected:      { label: "Never Connected",  color: "var(--faint)",  Icon: AlertTriangle },
   degraded:             { label: "Degraded",         color: "var(--amber)",  Icon: AlertTriangle },
-  authentication_failed:{ label: "Auth Failed",      color: "#ff5b5b",       Icon: ShieldAlert },
+  authentication_failed:{ label: "Auth Failed",      color: "var(--nx-text-dim)",       Icon: ShieldAlert },
   rate_limited:         { label: "Rate Limited",     color: "var(--amber)",  Icon: AlertTriangle },
-  error:                { label: "Error",            color: "#ff5b5b",       Icon: X },
+  error:                { label: "Error",            color: "var(--nx-text-dim)",       Icon: X },
   not_started:          { label: "Not Started",      color: "var(--faint)",  Icon: AlertTriangle },
 };
 function StatusPill({ status }) {
@@ -120,7 +122,7 @@ export default function IntegrationsBody() {
       if (e?.code === "COLLECTOR_RUNTIME_NOT_DEPLOYED") {
         setState("not_deployed");
       } else {
-        setError(e?.response?.data?.detail || e?.message || "Load failed.");
+        setError(refusalText(e, "Load failed."));
         setState("error");
       }
     }
@@ -241,8 +243,8 @@ export default function IntegrationsBody() {
         )}
         {state === "error" && (
           <div style={{ padding: 20 }}>
-            <HonestBadge label="ERROR" color="#ff5b5b" />
-            <div style={{ marginTop: 8, color: "#ff9494", fontSize: 12 }}>
+            <HonestBadge label="ERROR" color="var(--nx-text-dim)" />
+            <div style={{ marginTop: 8, color: "var(--nx-critical)", fontSize: 12 }}>
               {String(error)}
             </div>
           </div>
@@ -337,7 +339,7 @@ function IngestHealthStrip({ state, health, onRefresh }) {
     healthy:        { label: "HEALTHY",         color: "var(--mint)" },
     degraded:       { label: "DEGRADED",        color: "var(--amber)" },
     idle:           { label: "IDLE",            color: "var(--faint)" },
-    not_configured: { label: "INGEST NOT CONFIGURED", color: "#ff5b5b" },
+    not_configured: { label: "INGEST NOT CONFIGURED", color: "var(--nx-text-dim)" },
   };
   const m = map[st] || { label: String(st).toUpperCase(), color: "var(--faint)" };
   return (
@@ -357,12 +359,12 @@ function IngestHealthStrip({ state, health, onRefresh }) {
       </span>
       <span className="mono" style={{ fontSize: 11, color: "var(--text-dim)" }}>
         <b style={{ color: "var(--faint)" }}>DEAD LETTER</b>{" "}
-        <b style={{ color: (health.outbox?.counts?.dead_letter || 0) > 0 ? "#ff5b5b" : "var(--text)" }}>
+        <b style={{ color: (health.outbox?.counts?.dead_letter || 0) > 0 ? "var(--nx-text-dim)" : "var(--text)" }}>
           {health.outbox?.counts?.dead_letter ?? 0}
         </b>
       </span>
       {health.ingest?.last_error && (
-        <span className="mono" style={{ fontSize: 11, color: "#ff9494" }}>
+        <span className="mono" style={{ fontSize: 11, color: "var(--nx-critical)" }}>
           <b style={{ color: "var(--faint)" }}>LAST ERROR</b>{" "}
           {String(health.ingest.last_error).slice(0, 80)}
         </span>
@@ -450,7 +452,7 @@ function ConnectorRow({ row, onEdit, onDelete, onToggle, onTest }) {
                     data-testid={`xdr-int-edit-${row.id}`}>
             Edit
           </button>
-          <button className="btn ghost" style={{ padding: "3px 8px", color: "#ff9494" }}
+          <button className="btn ghost" style={{ padding: "3px 8px", color: "var(--nx-critical)" }}
                     onClick={() => onDelete(row)}
                     data-testid={`xdr-int-delete-${row.id}`}>
             <Trash2 size={11} /> Delete
@@ -470,7 +472,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
   const [cfg,     setCfg]     = useState(() => (editing?.config || {}));
   const [saving,  setSaving]  = useState(false);
   const [err,     setErr]     = useState(null);
-  const [tenant,  setTenant]  = useState("default");
+  const [tenant,  setTenant]  = useState(activeTenant() || "");
 
   const patch = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   const patchCred = (k, v) =>
@@ -487,7 +489,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
       }
       onCreated();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Save failed.");
+      setErr(refusalText(e, "Save failed."));
     } finally {
       setSaving(false);
     }
@@ -534,7 +536,7 @@ function ConnectorWizard({ category, editing, onClose, onCreated }) {
         {err && (
           <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
                           background: "rgba(255,91,91,.1)",
-                          border: "1px solid #ff5b5b", color: "#ff9494",
+                          border: "1px solid var(--nx-bd-quiet)", color: "var(--nx-critical)",
                           fontSize: 11.5 }}
                  data-testid="xdr-int-wizard-error">
             {String(err)}

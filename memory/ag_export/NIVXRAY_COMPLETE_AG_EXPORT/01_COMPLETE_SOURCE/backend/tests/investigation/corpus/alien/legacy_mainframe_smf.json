@@ -1,0 +1,16 @@
+{
+  "smf_type": "TYPE30",
+  "sysplex": "PLEX01",
+  "lpar": "LPARA",
+  "jobname": "BILLNGT1",
+  "stepname": "STEP03",
+  "userid": "PROD005",
+  "reader_date_julian": "2026.033",
+  "cpu_seconds": 42.183,
+  "region_kb": 65536,
+  "return_code": "CC=0000",
+  "dsname_read": "PROD.MASTER.CUST.KSDS",
+  "dsname_written": "PROD.OUTPUT.INVOICE.SEQ",
+  "started_task": "CICSPROD",
+  "console_command": "D IPLINFO"
+}

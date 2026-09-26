@@ -1,0 +1,37 @@
+{
+  "summary": "P0 SSOT Persistence — FRONTEND validation. Verified via live Playwright run against production preview URL that (a) a full workspace investigation saved to /api/cases/save with the SSOT bundle can be restored from the Case Library drawer with ZERO recomputation (no /api/die/understand, /api/die/analyze or /api/die/narrate calls fired) and (b) a legacy case (saved without ssot) triggers the fallback path that DOES re-fire all three /die/* endpoints. Status ribbons match the spec exactly. All P0 acceptance criteria PASS.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Case Library drawer (CasesDrawer.jsx rows 176-232)",
+        "issues": [
+          "Informational (task called out as non-blocker): case rows do NOT visually differentiate SSOT-backed vs legacy cases. The GET /api/cases response includes has_ssot per case, but the drawer does not render any badge/pill (e.g. '📦 SSOT v1.0' vs '⚠ legacy'). Would help analysts predict restore behaviour before clicking OPEN."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ssot_persistence_live.py",
+    "/app/backend/tests/test_ssot_persistence.py",
+    "/app/test_reports/iteration_67.json"
+  ],
+  "action_items": [
+    "OPTIONAL (informational, not a P0 blocker): add a visual badge in CasesDrawer.jsx to differentiate has_ssot=true vs has_ssot=false rows so analysts can tell at-a-glance which cases will restore instantly vs recompute."
+  ],
+  "critical_code_review_comments": [
+    "WorkspacePage.jsx line 2418: <VerdictCard/> render is commented out (`{/* {verdictCard && (<VerdictCard verdict={verdictCard} testidPrefix=\"workspace-verdict\" />)} */}`). The saveCase() bundle still ships verdict_card in the SSOT and rehydrateFromHistory / CasesDrawer onRestore both restore it into state — but nothing in the workspace actually paints it any more. Either delete the dead state/prop plumbing or re-enable the render. Not a P0 SSOT blocker (Analyst Brief and Investigation panels render fine from SSOT), but tests using [data-testid=verdict-card] will always miss.",
+    "WorkspacePage.jsx is 3631 lines — well above the 700-line guideline. Splitting SaveCase / CasesDrawer restore / rehydrateFromHistory into a `useCaseHydration` hook would reduce cognitive load and make the SSOT contract single-sourced (currently duplicated at ~L393 rehydrateFromHistory and ~L3451 CasesDrawer onRestore).",
+    "The legacy fallback (WorkspacePage.jsx L3527-3546) fires three uncoordinated api.post() calls with no cancellation on unmount and no combined loading indicator — if the analyst closes the case mid-recompute the promises still resolve into stale setState. Consider AbortController + a single legacy_recompute() helper."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (skipped per request)", "frontend": "100% on P0 SSOT acceptance criteria (5/5 core assertions passed; 1 non-P0 selector miss on commented-out VerdictCard)" },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created 2 cases during test (auto-cleanable): pytest-ssot-frontend-6c3894a8 (id=b6a811fc-70b6-4dff-bbc6-a58183e85d05, has_ssot=true, engine=convergence) and pytest-legacy-9d984159 (id=357d6e8b-1db7-45d9-9f8c-251d71534d64, has_ssot=false, engine=manual). Both live under admin@nivxray.com.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0 SSOT Persistence is fully verified end-to-end (backend iteration_67 · 7/7 pytest, frontend iteration_68 · 5/5 live Playwright). Contract: (1) SaveCase → POST /api/cases/save with { name, input, output, engine, confidence, chain_ids, verdict, iocs, ssot:{version:'1.0', understanding, analyst_narrative, inline_story_preproc, investigation_object, investigation_mode, verdict_card, decode_trace, ...} }. (2) GET /api/cases returns has_ssot boolean per row. (3) Restore hits GET /api/cases/{id} and hydrates all workspace state from caseDoc.ssot without re-firing /die/*. Status ribbon copy: '▸ OPENED \"<name>\" · SSOT v1.0 · no recomputation' for SSOT path; '▸ OPENED \"<name>\" (<engine> · <conf>%) · legacy · recomputing panels…' for legacy. If a future change modifies WorkspacePage.jsx L3448-3548 (CasesDrawer onRestore) or L1804-1900 (saveCase ssotBundle) — re-run this playbook.",
+  "rca of the issue": "N/A — no defect. The 'FAIL' line in the raw test log for [data-testid=verdict-card] is a false negative caused by the VerdictCard component being intentionally commented out at WorkspacePage.jsx:2418. All SSOT-restored panels visible in the final screenshot (Input Understanding, Investigation Object, IEDDE steps DONE, Analyst Brief) confirm hydration worked. Detailed live run evidence: SSOT restore ribbon `▸ OPENED \"pytest-ssot-frontend-6c3894a8\" · SSOT v1.0 · no recomputation`, network-observed /die/* calls during restore = 0. Legacy restore ribbon `▸ OPENED \"pytest-legacy-9d984159\" (manual · 42%) · legacy · recomputing panels…`, network-observed /die/* calls = 3 (understand, analyze, narrate)."
+}

@@ -1,0 +1,47 @@
+{
+  "summary": "Frontend-only Playwright validation of the AMP-clone Device Trajectory (/xdr/edr/device-trajectory) against endpoint dev_42e8c6dc74b9. All ~40 requested UX behaviours were exercised end-to-end. The previously reported deep-lane defect is confirmed FIXED — deep rows 300..321 render 22 events / 44 lifelines / 22 connectors and rows 421..442 render 4 events / 44 lifelines / 22 connectors, with the same 'ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT' activity axis. Filters, presets, search, hour-bin/day-cell navigation, drag-pan, event selection, context menu, deep-link locate, fullscreen and legacy regression all pass. No mock data observed anywhere; empty windows honestly show amp-events-empty + amp-canvas-empty + amp-computer-epistemic.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: expose an `amp-nav-window` data-testid summarising the current window start/end (the review request references it). Currently the window text is embedded inside amp-status and inside the hour-band SEP-6 label; not blocking, but adding the testid would let external tools assert on it directly.",
+    "Optional: differentiate the preset click's status feedback — 1d/7d/14d/30d all left amp-status rows count unchanged because window position was preserved; consider updating amp-status or a dedicated amp-nav-window testid when preset changes span."
+  ],
+  "critical_code_review_comments": [
+    "Data honesty is respected: 'not collected' labels rendered for Group/Policy/Internal IP/External IP/Definitions Last Updated; Vulnerabilities panel states 'Vulnerability data is not collected by NivXForge — this is an absence of collection, not an absence of vulnerabilities.' Empty windows use amp-events-empty + amp-canvas-empty + amp-computer-epistemic — no fabricated demo values found.",
+    "The activity axis is proven endpoint-wide (status text shows axis id '31e681f099dc1ab3 (ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT)') and stays stable while scrolling from row 0 to 300 to 421. This is the exact fix intended for the deep-lane defect.",
+    "Parent process column is honest — different parent/child pairs observed (python3.11/bash, python3.11/dash, python3.11/sleep) — child name is not simply repeated as the parent."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not-tested (skipped by request)", "frontend": "100% (all requested flows verified)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Deep-lane defect is confirmed fixed. To reproduce: login → /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9 → wait ~5s → set [data-testid=amp-vscroll].scrollTop = 300*15.5 (also 421*15.5). Confirm amp-lane-label-{n}, amp-lifeline-* and amp-connector-* elements. Filters live inside amp-filters-menu (opened by amp-filters-button) — presets amp-preset-{1d,7d,14d,30d,all} are inside that same menu, not on the top bar. Event iids contain '#' which must be URL-encoded when building deep-link URLs. The activity axis id shown in amp-status is the stable proof marker.",
+  "verified_flows": [
+    "Deep rows 300-321 and 421-442 render real events/lifelines/connectors (defect FIXED)",
+    "Deep rows still resolve after selecting 2026-09-06 day (narrow window)",
+    "Computer card: hostname agent-env-630704a1..., LINUX, connector 0.1.0, ENROLLED, group/policy/int-ip/ext-ip/definitions = 'not collected'",
+    "amp-computer-collapse, amp-navigator-collapse, amp-isolation-row → amp-isolation-detail all functional",
+    "Action buttons: scan/diagnose/move-group present (greyed footer message), forensics/live-query/events/process-tree/campaign/response enabled",
+    "amp-nav-sparkline present; 30 day cells (2026-08-08 → 2026-09-06); amp-nav-day-red-2026-09-06 present",
+    "amp-nav-hour-band with 38 hit bins; hour-bin click centres window (status changes)",
+    "Filter type=detection reduces to '4 / 6356 observations' + 4 amp-compromise-marker-* + 4 amp-compromise-band-* + 4 lanes",
+    "amp-filters-clear resets to 6356/6356",
+    "amp-filter-search 'zzz_no_such_indicator_zzz' → 0/6356 + amp-events-empty + amp-canvas-empty + amp-computer-epistemic",
+    "Presets amp-preset-1d/7d/14d/30d/all all present and clickable inside filters menu",
+    "Horizontal mouse-drag in amp-canvas moves window (status observation count changed)",
+    "Event mark click → URL gains ?event=<iid>, amp-details-type/timestamp/disposition populated, amp-detected-by-none rendered for non-detection events",
+    "Right-click event → amp-context-menu with process-tree/campaign-story/filter-indicator/focus/copy-digest/file-trajectory; filter-indicator populates amp-filter-search with 'python3.11'",
+    "amp-events-panel lists rows matching amp-events-count; row click selects event and updates URL; details-type='Process created'",
+    "Parent process column shows real parent names (bash, dash, sleep) — not child-name repetition",
+    "amp-fullscreen-toggle enters amp-fullscreen overlay preserving selection/window",
+    "Deep-link with an event outside window → amp-locate-deeplink banner appears; clicking it locates & selects the observation (amp-details-type populated)",
+    "Regression: /edr/trajectory, /edr, /edr/detections, /edr/process-tree, /edr/campaign-story all load 200 with no console errors"
+  ]
+}

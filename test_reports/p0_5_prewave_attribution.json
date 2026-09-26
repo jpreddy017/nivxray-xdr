@@ -1,0 +1,77 @@
+{
+  "tests/test_xdr_data_sources_collectors.py": {
+    "prewave": {
+      "error": 20
+    },
+    "head": {
+      "error": 20
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/test_xdr_correlation.py": {
+    "prewave": {
+      "error": 17
+    },
+    "head": {
+      "error": 17
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/test_xdr_content_pipeline.py": {
+    "prewave": {
+      "failed": 8,
+      "passed": 15
+    },
+    "head": {
+      "failed": 8,
+      "passed": 15
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/test_edr_context_p0_f13_3.py": {
+    "prewave": {
+      "failed": 5,
+      "passed": 1
+    },
+    "head": {
+      "failed": 5,
+      "passed": 1
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/test_collector_api_key_adversarial_regression.py": {
+    "prewave": {
+      "failed": 5,
+      "passed": 9,
+      "error": 4
+    },
+    "head": {
+      "failed": 5,
+      "passed": 9,
+      "error": 4
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/test_p1_machine_credential_hardening.py": {
+    "prewave": {
+      "failed": 3,
+      "passed": 8
+    },
+    "head": {
+      "failed": 3,
+      "passed": 8
+    },
+    "verdict": "PRE_EXISTING"
+  },
+  "tests/edr/test_cross_tenant.py": {
+    "prewave": {
+      "failed": 1,
+      "passed": 11
+    },
+    "head": {
+      "failed": 1,
+      "passed": 11
+    },
+    "verdict": "PRE_EXISTING"
+  }
+}

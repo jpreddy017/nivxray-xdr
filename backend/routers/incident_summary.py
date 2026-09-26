@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from deps import get_current_user, sync_collection
+from routers.incidents import authorized_incident
 
 router = APIRouter(prefix="/incidents", tags=["incidents-summary"])
 
@@ -156,9 +157,8 @@ def _project_summary(doc: Dict[str, Any]) -> Dict[str, Any]:
 @router.get("/{incident_id}/summary")
 async def get_incident_summary(incident_id: str,
                                   user=Depends(get_current_user)):
-    doc = _col.find_one({"id": incident_id})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+    # S1 · the summary carries the incident's own verdict, IOCs and SSOT, so
+    # it is resolved inside the caller's tenant authorization. An
+    # out-of-scope incident is indistinguishable from a missing one.
+    doc, _ = authorized_incident(incident_id, user)
     return _project_summary(doc)

@@ -1,0 +1,45 @@
+{
+  "id": "SCN-2026-AMB-001",
+  "category": "ambiguous",
+  "title": "PsExec used by IT — cannot yet distinguish maintenance vs lateral movement",
+  "description": "PsExec launched from an IT jump box against three production servers. The user is legitimate; the timing is inside change-management window but the target set includes a domain controller. Verdict must remain ambiguous until identity + change-record enrichment lands.",
+  "raw_events": [
+    { "kind": "process_create", "ts": "2026-02-10T21:07:00Z",
+      "image": "PsExec.exe", "parent_image": "cmd.exe",
+      "user": "admin.ops", "host": "IT-JUMP-01",
+      "command_line": "PsExec.exe \\\\DC-01 -s ipconfig" }
+  ],
+  "normalized_evidence": [
+    { "type": "process", "image": "PsExec.exe", "user": "admin.ops",
+      "host": "IT-JUMP-01",
+      "target_host": "DC-01" }
+  ],
+  "expected_entities": {
+    "hosts": ["IT-JUMP-01", "DC-01"], "users": ["admin.ops"],
+    "processes": ["PsExec.exe"], "iocs": []
+  },
+  "expected_correlations": [],
+  "expected_rules_matched": [
+    { "rule_id": "remote_admin_tool", "match": "matched",
+      "fields": { "image": "PsExec.exe", "target_host": "DC-01" },
+      "technique": "T1021.002" }
+  ],
+  "expected_mitre": ["T1021.002"],
+  "expected_attack_story": [
+    "PsExec launched against DC-01 by admin.ops during scheduled maintenance window."
+  ],
+  "expected_verdict": {
+    "verdict": "ambiguous", "confidence": 0.55, "severity": "medium",
+    "reason": "Approved admin + maintenance window BUT DC target requires validation"
+  },
+  "expected_severity": "medium",
+  "expected_recommendations": [
+    { "kind": "enrich",      "action": "correlate_change_ticket",   "priority": "high" },
+    { "kind": "enrich",      "action": "verify_operator_identity",  "priority": "high" },
+    { "kind": "investigate", "action": "process_tree",              "priority": "medium" }
+  ],
+  "expected_playbook": null,
+  "expected_response_outcome": { "state": "PENDING_VALIDATION" },
+  "expected_report_sections": ["executive_summary", "investigation_gaps",
+                                                 "supporting_evidence", "final_conclusion"]
+}

@@ -1,0 +1,36 @@
+{
+  "summary": "Verified new NivXRay changes end-to-end. Backend: all 4 new /api/rc5/entities/* endpoints respond 200 with correct payloads (classify, classify-token, kinds, correlate). Correlate on empty graph returns ok:true with temporal_spans/dependency_chains/contradictions arrays and stats block. Frontend: admin login lands on Workspace; CorpusHealthPill renders next to wordmark with data-testid=corpus-health-pill showing 'CORPUS · 88/88' and data-gate=pass. All 7 primary nav tabs present (nav-workspace/dashboard/batch-test/heatmap/documents/benchmark/battery). BATTERY icon SVG is visually distinct from BENCHMARK Gauge icon (different <path> geometry). QuickOpenPalette opens on Ctrl+K (data-testid=quick-open-palette), on open it fires all 6 expected /api calls (investigations, admin/samples, training-inbox, batch/history, documents, mitre/heatmap), rows render with quick-open-row-* testids, Escape closes cleanly, typing filters. .nvx-btn buttons render with JetBrains Mono uppercase treatment (verified via computed style). Dashboard latency-trend-chart renders, Training Inbox filter tabs render, Documents/Benchmark heroes render (visual confirmation via screenshot). No blocking console errors on any route.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/rc5/entities/classify", "issue": "For text 'AssemblyVersion(\"9.0.0.0\") and Connect(\"1.2.3.4\", 443) plus 10.0.26100.1' the token 1.2.3.4 is classified as software_version (confidence 0.95) instead of ipv4, because the 'AssemblyVersion' keyword remains inside the token's context window. Test spec expected results to include an ipv4 classification. windows_build and software_version are correctly detected; ipv4 bucket ends up empty. Heuristic tuning may be needed (e.g., reset version-context after Connect/host-shaped call sites)."},
+      {"endpoint": "GET /api/training-inbox?limit=200", "issue": "Returns 404 — endpoint does not exist in backend routers. QuickOpenPalette calls it as one of its 6 sources; it is caught by the palette's per-endpoint try/catch, but pollutes the console with a 404 network error every time the palette opens. Either add the endpoint or drop the call from QuickOpenPalette."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "QuickOpenPalette", "issue": "React 'Encountered two children with the same key' warnings when palette populates — flatResults key is `${kind}:${item.id || item._id || label}`; when items lack ids and share the same label (e.g., 8x TEST_upload.txt in documents, MITRE seed+heatmap merge), keys collide.", "selector": "[data-testid=\"quick-open-palette\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/screenshots/nvx_workspace.png"],
+  "action_items": [
+    "Tune entity_classifier so a version-context keyword does not leak across syntactic boundaries (e.g., reset after Connect/host/port cues) — so 1.2.3.4 inside Connect(...) classifies as ipv4.",
+    "Either add GET /api/training-inbox endpoint (backend) or remove the '/training-inbox?limit=200' call from QuickOpenPalette to eliminate the recurring 404.",
+    "Fix duplicate React key generation in QuickOpenPalette.flatResults by appending array index or hashing label+sub when id/_id are absent."
+  ],
+  "critical_code_review_comments": [
+    "QuickOpenPalette gracefully degrades on 404 (per-endpoint try/catch) — good pattern, but the console noise from /api/training-inbox 404 should be resolved.",
+    "rc5_entities router correctly avoids DB writes and returns pure classifier output — verdict-neutral as documented.",
+    "Correlate endpoint validates payload via EvidenceGraph.model_validate and returns ok:false on bad input rather than 500 — nice defensive shape."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4 new endpoints reachable and returning expected shape; 1 minor classification heuristic quirk)", "frontend": "~95% (all requested UI elements present, 1 duplicate-key React warning + 1 upstream 404)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK — verified working",
+  "seed_data_creation": "None — 88 golden entries + 8 documents already seeded.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "CorpusHealthPill polls /api/rc5/golden/summary; renders 'CORPUS · 88/88' with data-gate=pass. QuickOpenPalette (Ctrl+K) fires 6 backend calls on open; /api/training-inbox 404s (missing endpoint). Entity classifier context window is greedy — AssemblyVersion keyword still influences later tokens like 1.2.3.4. Benchmark/Admin page heroes may not use PageHeader component (no page-header testid on those routes) but do render titles.",
+  "rca of the issue": "training-inbox 404: QuickOpenPalette.jsx line 131 calls api.get('/training-inbox?limit=200'), but no matching route exists in /app/backend/routers/. Available training routes are /admin/training-notes/sync-url and RSS pending. Classification heuristic: engine.entity_classifier scans version-context keywords in a broad window without resetting on syntactic breakers, so 'AssemblyVersion' still tags 1.2.3.4 despite intervening 'Connect(' call site."
+}

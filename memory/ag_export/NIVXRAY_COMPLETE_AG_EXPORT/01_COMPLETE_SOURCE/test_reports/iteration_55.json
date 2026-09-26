@@ -1,0 +1,47 @@
+{
+  "summary": "PR-4 (Executive Summary + Attack Story lenses) backend-only validation. Wrote /app/backend/tests/test_pr4_api_endpoints.py (14 API-level integration tests) covering enriched summary/story shape, determinism, auth, owner-scoping, workspace state persistence, workspace bundle aggregation, and regression (list_cases + state transition). All 14 API tests pass against the public preview URL (REACT_APP_BACKEND_URL). Also re-ran the L2 unit suite: 87/87 pass (test_pr4_summary_and_story = 16 [not 17 as request claimed], plus contracts/determinism/state_machine/workspace_state).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "public preview URL (greeting-app-5782.preview.emergentagent.com)", "issue": "Cloudflare 502 / ReadTimeout observed intermittently during initial run — same infra flake noted in the review request. Retry succeeds; not a PR-4 code issue."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pr4_api_endpoints.py",
+    "/app/test_reports/pytest/pr4_api_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "workspace_investigation.py routers/_service_endpoint uses `out.to_dict() | {\"fingerprint\": ...}` which will silently overwrite a body-level 'fingerprint' key if a future L2 service ever emits one. Non-blocking but worth guarding.",
+    "Owner-scoping test had to seed a second user directly into MongoDB because there is NO public /api/auth/register endpoint and no /api/admin/users create endpoint. Consider adding an admin-only user create endpoint to make multi-user auth flows testable end-to-end without direct DB writes.",
+    "/app/backend/conftest.py forces DB_NAME=nivxray_ci_local for pytest, which does NOT match the running backend's DB_NAME (test_database from .env). Any integration test that seeds Mongo via env vars will hit the wrong DB. My test explicitly parses /app/backend/.env to work around this — worth documenting or reconciling.",
+    "PR-4 unit-test count in the review request says '17 tests' but the file test_pr4_summary_and_story.py has 16 tests. Cosmetic doc drift."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pr4_api_endpoints.py (new)"
+  ],
+  "success_rate": {"backend": "100% (14/14 PR-4 API + 87/87 L2 unit)", "frontend": "not tested (backend-only scope)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Each test-run creates a case with case_id=TEST-PR4-<uuid8> via POST /api/investigation using the synthetic bundle (mirror of tests/l2_investigation/_fixtures.synthetic_bundle). Case is DELETE'd in fixture teardown. Owner-scoping test also seeds+deletes a temporary user (TEST_pr4-<hex>@example.com) directly in Mongo.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_pr4_api_endpoints.py can be re-run any time: `cd /app/backend && python -m pytest tests/test_pr4_api_endpoints.py -v -o addopts=`. It defaults to REACT_APP_BACKEND_URL (public preview); override with PR4_TEST_BASE_URL=http://localhost:8001 if the preview URL is flaky. Owner-scoping test seeds directly into MongoDB using values from /app/backend/.env (NOT env vars, because conftest.py overrides DB_NAME during pytest). All 14 PR-4 API tests + 87 L2 unit tests currently pass.",
+  "verified_endpoints": [
+    "POST /api/auth/login (admin)",
+    "POST /api/investigation (create case)",
+    "GET  /api/investigation (list cases)",
+    "GET  /api/investigation/{case_id} (workspace bundle — contains 0.2.0-pr4 markers)",
+    "GET  /api/investigation/{case_id}/summary (version=0.2.0-pr4, verdict/risk=critical|high/risk_score∈[50,100]/family=cobalt_strike/top_iocs≤3/top_actions with action_id+priority+text+anchor{kind∈ioc,capability,mitre}/bullets with bullet_id+text+anchor)",
+    "GET  /api/investigation/{case_id}/story (version=0.2.0-pr4, 4 events with event_id/iteration/pass_name/chapter/transformation/text/anchor{kind=transformation}, chapters ordered Unwrap→Normalize→Decode→Interpret with event_count≥1, non-empty deterministic narrative mentioning cobalt_strike)",
+    "GET  /api/investigation/{case_id}/workspace",
+    "PUT  /api/investigation/{case_id}/workspace (selected_evidence_id, mode, active_lens, filters — all persist and echo back)",
+    "POST /api/investigation/{case_id}/state/transition",
+    "GET  /api/investigation/{case_id}/state",
+    "DELETE /api/investigation/{case_id} (owner-scoped)",
+    "Auth: 401/403 on unauthenticated GET /summary and /story",
+    "404 with detail='case_not_found:<id>' on unknown case",
+    "403 cross-owner (user B cannot read user A's case /summary or /story)",
+    "Determinism: identical response body (r1.text == r2.text) on repeat GET /summary and GET /story"
+  ]
+}

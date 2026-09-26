@@ -40,6 +40,17 @@ function fmtHour(d) {
   return `${h}:${m}Z`;
 }
 
+/** Axis label resolution follows the zoom level, so scrubbing into a
+ *  second-level cluster stops printing identical minute labels. */
+function fmtTick(d, spanMs) {
+  const p = (n) => String(n).padStart(2, "0");
+  if (spanMs <= 5 * 60 * 1000) {
+    return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+  }
+  if (spanMs <= 36 * 60 * 60 * 1000) return fmtHour(d);
+  return `${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}h`;
+}
+
 export default function TrajectoryTimelineCanvas({
   events,
   lanes,
@@ -83,6 +94,17 @@ export default function TrajectoryTimelineCanvas({
     const clamped = Math.min(Math.max(t, tStart), tEnd);
     return LANE_LABEL_W + ((clamped - tStart) / span) * laneAreaW;
   }, [tStart, tEnd, span, laneAreaW]);
+
+  // Inverse of xFor — pixel → timestamp.  Used by every interaction.
+  const tForX = useCallback((px) => {
+    const x = Math.min(Math.max(px, LANE_LABEL_W), LANE_LABEL_W + laneAreaW);
+    return tStart + ((x - LANE_LABEL_W) / laneAreaW) * span;
+  }, [tStart, span, laneAreaW]);
+
+  const localX = useCallback((clientX) => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    return clientX - (r?.left || 0);
+  }, []);
 
   // Filter markers to enabled lanes.
   const visible = useMemo(
@@ -146,7 +168,7 @@ export default function TrajectoryTimelineCanvas({
       ctx.stroke();
       ctx.setLineDash([]);
       const d = new Date(tStart + frac * span);
-      ctx.fillText(fmtHour(d), x, 12);
+      ctx.fillText(fmtTick(d, span), x, 12);
     }
     ctx.textAlign = "start";
 
@@ -180,7 +202,7 @@ export default function TrajectoryTimelineCanvas({
           const y = laneY(evt.lane);
           const isSel   = selectedId === evt.id;
           const isHover = hoverId === evt.id;
-          const stroke  = isSel ? "#3ce8b8" : "#0a0c11";
+          const stroke  = isSel ? "#3ce8b8" : "var(--nx-bd-strong)";
           const r = isSel ? MARKER_R + 2 : isHover ? MARKER_R + 1 : MARKER_R;
           return (
             <g key={evt.id}
@@ -204,8 +226,8 @@ export default function TrajectoryTimelineCanvas({
                     width={250}
                     height={26}
                     rx={4}
-                    fill="#11141c"
-                    stroke="#212736"
+                    fill="var(--nx-surf-inset)"
+                    stroke="var(--nx-bd-strong)"
                   />
                   <text
                     x={Math.min(x + 16, canvasW - 252)}

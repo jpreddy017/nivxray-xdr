@@ -1,0 +1,4 @@
+# Analyst note — recovered AES-CBC key & IV from RE
+# key(b64): BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+# iv(b64):  BBBBBBBBBBBBBBBBBBBBBB==
+# plaintext (post-decrypt): 'http://aes-2.example.test/y'

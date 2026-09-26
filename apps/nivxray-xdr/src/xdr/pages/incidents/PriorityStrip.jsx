@@ -72,7 +72,7 @@ export default function PriorityStrip({ activeLens, onLensClick }) {
       })}
       {error && (
         <div style={{ gridColumn: "1 / -1", fontSize: 10.5,
-                      fontFamily: "var(--qs-mono)", color: "#DC2626" }}>
+                      fontFamily: "var(--qs-mono)", color: "var(--nx-critical)" }}>
           KPI FEED: {error}
         </div>
       )}

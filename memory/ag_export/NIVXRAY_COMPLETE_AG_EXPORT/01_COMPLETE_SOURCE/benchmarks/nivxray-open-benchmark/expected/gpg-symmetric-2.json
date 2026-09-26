@@ -1,0 +1,27 @@
+{
+  "id": "gpg-symmetric-2",
+  "algorithm": "GPG-symmetric",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "gpg-cli-parse"
+  ],
+  "runtime_stages": [
+    "gpg-cast5-decrypt"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_iocs": [
+    "payload.gpg",
+    "enc.gpg",
+    "c2.gpg"
+  ],
+  "expected_lolbins": [
+    "gpg.exe",
+    "gpg",
+    "gpg2"
+  ],
+  "expected_mitre": [
+    "T1140",
+    "T1027.006"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

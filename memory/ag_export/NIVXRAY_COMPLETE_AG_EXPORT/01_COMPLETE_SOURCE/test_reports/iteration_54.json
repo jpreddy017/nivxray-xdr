@@ -1,0 +1,34 @@
+{
+  "summary": "PR-2.1.2 Phase A+B backend testing complete. Unit tests (12/12), DCS strict runner (17/17 byte-identical), R1 strict runner (107/107 byte-identical), and 7/8 new API parity tests PASS. ARB Criterion 0 cross-endpoint canonical parity is CONFIRMED for benign PS -EncodedCommand and malicious IEX/WebClient inputs (decoded_output, chain_ids, input_hash, output_hash, terminal_state all match between /api/decode/smart and /api/analyze/status/{job_id}). All standard response fields are intact. Recursive-safety invariant holds. `content-ps-operator-case-normalize` never appears as Unknown operation. ONE regression found: /api/decode/smart returns early on atomic-IOC input and does NOT include the canonical_artifact field, breaking the criterion that ALL inputs on that endpoint emit canonical_artifact.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/decode/smart",
+        "issue": "For atomic IOC inputs (e.g. '8.8.8.8'), the endpoint's atomic-ioc short-circuit at routers/ops.py:689-713 returns BEFORE the canonical_artifact block at routers/ops.py:938/1110. Response has no 'canonical_artifact' key. This violates PR-2.1.2 Phase A acceptance: `/api/decode/smart` must always attach canonical_artifact (the shared service explicitly encodes an 'atomic_ioc' terminal_state for exactly this case, but it is never invoked for bare IOCs on this endpoint). Also means cross-endpoint parity with /api/analyze/async is impossible for atomic IOCs.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pr212_canonical_evidence_recovery.py",
+    "/app/backend/tests/test_pr212_api_parity.py"
+  ],
+  "action_items": [
+    "In /app/backend/routers/ops.py, before the atomic-IOC short-circuit `return` at ~line 692-713, invoke recover_canonical_evidence_async(body.input) (which naturally yields terminal_state=='atomic_ioc') and include its .to_dict() as 'canonical_artifact' in the returned payload. Alternatively, move the atomic-IOC branch INSIDE the canonical-recovery flow so canonical_artifact is always attached regardless of terminal_state. This restores full ARB Criterion 0 parity for atomic IOCs."
+  ],
+  "critical_code_review_comments": [
+    "routers/ops.py has 2535 lines — exceeds the 700-line guideline; the Phase A wiring is fine but the module needs to be split into decode-smart, atomic-ioc-guard, PS-encoded-guard, and canonical-artifact-assembly sub-modules for maintainability.",
+    "The atomic-IOC short-circuit at ops.py:689 was NOT updated in Phase A; this is an incomplete refactor. Any future 'always include canonical_artifact' invariant will regress here.",
+    "Test suite `test_pr212_canonical_evidence_recovery.py` covers the shared service unit-level but does NOT cover the /api/decode/smart HTTP surface for the atomic-IOC path — adding an API-level test would have caught this gap."
+  ],
+  "updated_files": ["/app/backend/tests/test_pr212_api_parity.py (new API parity regression suite)"],
+  "success_rate": {"backend": "95%", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (verified working)",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "PR-2.1.2 is otherwise clean. Only remaining gap is the atomic-IOC branch of /api/decode/smart not attaching canonical_artifact. After main agent fix, re-run: `PYTHONPATH=/app/backend python -m pytest /app/backend/tests/test_pr212_api_parity.py -v` (expect 8/8) and re-verify DCS/R1 runners (should stay 17/17 and 107/107). Pre-existing failures in test_auto_investigate_recursion_parity.py and l2_investigation/test_pr2_independent.py auth-gate tests were NOT re-tested per main agent's directive.",
+  "rca of the issue": "Root cause: routers/ops.py has TWO independent short-circuits before the canonical-artifact assembly block: (1) atomic-IOC guard at line 689 and (2) PS-EncodedCommand malformed-blob guard around line 715. Phase A refactor wired canonical_artifact assembly into the main deterministic path (line 938/1110) but left the atomic-IOC early return untouched — that branch returns a dict without the new 'canonical_artifact' key. Reproduction: `curl -H 'Authorization: Bearer $TOKEN' -X POST $URL/api/decode/smart -d '{\"input\":\"8.8.8.8\"}'` returns 200 with keys {recipe, output, input, confidence, confidence_source, trace, atomic_ioc, semantic, investigation} — no canonical_artifact. Fix: call recover_canonical_evidence_async before/inside the atomic-IOC branch and merge its .to_dict() into the response."
+}

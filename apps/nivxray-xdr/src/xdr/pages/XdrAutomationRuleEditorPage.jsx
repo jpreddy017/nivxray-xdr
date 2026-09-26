@@ -82,7 +82,7 @@ export default function XdrAutomationRuleEditorPage() {
       setLiveResult(res);
     } catch (e) {
       setLiveResult({ error: e?.code === "RESPONSE_ENGINE_NOT_DEPLOYED"
-        ? "Response Engine URL not set (VITE_XDR_RESPONSE_URL)."
+        ? "Response Engine URL not set."
         : (e?.message || String(e)) });
     } finally { setLiveBusy(false); }
   };
@@ -360,7 +360,7 @@ export default function XdrAutomationRuleEditorPage() {
                              fontSize: 11, color: "var(--text-dim)" }}
                     data-testid="xdr-rule-sim-result">
               {sim.error
-                ? <span style={{ color: "#ff9494" }}>{sim.error}</span>
+                ? <span style={{ color: "var(--nx-critical)" }}>{sim.error}</span>
                 : <>
                     <div><b style={{ color: sim.matched ? "var(--mint)" : "var(--amber)" }}>
                       {sim.matched ? "MATCH" : "NO MATCH"}
@@ -379,13 +379,13 @@ export default function XdrAutomationRuleEditorPage() {
           {liveResult && (
             <div style={{ marginTop: 10, padding: 8, borderRadius: 4,
                              background: "var(--panel2)",
-                             border: `1px solid ${liveResult.error ? "#ff5b5b"
+                             border: `1px solid ${liveResult.error ? "var(--nx-bd-quiet)"
                                                                  : liveResult.matched ? "var(--mint)"
                                                                  : "var(--amber)"}`,
                              fontSize: 11, color: "var(--text-dim)" }}
                     data-testid="xdr-rule-live-result">
               {liveResult.error
-                ? <span style={{ color: "#ff9494" }}>{liveResult.error}</span>
+                ? <span style={{ color: "var(--nx-critical)" }}>{liveResult.error}</span>
                 : <>
                     <div><b style={{ color: liveResult.matched ? "var(--mint)" : "var(--amber)" }}>
                       LIVE · {liveResult.matched ? "DISPATCHED" : "NO MATCH"}

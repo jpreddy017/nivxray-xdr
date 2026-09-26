@@ -41,7 +41,7 @@
   background: var(--nx-benign);
   flex: 0 0 8px;
 }
-.platform-overview .po-health-operational .po-health-dot { background: #10B981; }
+.platform-overview .po-health-operational .po-health-dot { background: var(--nx-benign); }
 .platform-overview .po-health-degraded    .po-health-dot { background: var(--nx-medium); }
 .platform-overview .po-health-critical    .po-health-dot { background: var(--nx-critical); }
 .platform-overview .po-health-unknown     .po-health-dot { background: var(--nx-faint); }
@@ -60,7 +60,7 @@
   margin-top: 2px;
 }
 .platform-overview .po-health-icon {
-  color: #10B981;
+  color: var(--nx-benign);
   flex: 0 0 auto;
 }
 
@@ -231,11 +231,11 @@
   flex: 0 0 8px;
   transform: translateY(-1px);
 }
-.platform-overview .po-ioc-dot-purple { background: #6D4EE0; }
-.platform-overview .po-ioc-dot-blue   { background: #2563EB; }
-.platform-overview .po-ioc-dot-teal   { background: #0D9488; }
-.platform-overview .po-ioc-dot-amber  { background: #F59E0B; }
-.platform-overview .po-ioc-dot-faint  { background: #9CA3AF; }
+.platform-overview .po-ioc-dot-purple { background: var(--nx-purple); }
+.platform-overview .po-ioc-dot-blue   { background: var(--nx-low); }
+.platform-overview .po-ioc-dot-teal   { background: var(--nx-teal); }
+.platform-overview .po-ioc-dot-amber  { background: var(--nx-medium); }
+.platform-overview .po-ioc-dot-faint  { background: var(--nx-faint); }
 .platform-overview .po-ioc-legend-label {
   color: var(--nx-text-dim);
   font-weight: 500;
@@ -269,11 +269,11 @@
 }
 .platform-overview .po-ops-delta-up {
   color: var(--nx-benign);
-  background: #ECFDF5;
+  background: var(--nx-benign-bg);
 }
 .platform-overview .po-ops-delta-down {
   color: var(--nx-high);
-  background: #FFF7ED;
+  background: var(--nx-suspicious-bg);
 }
 .platform-overview .po-ops-delta-sub {
   color: var(--nx-muted);
@@ -384,10 +384,10 @@
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
-.platform-overview .po-pill-benign { color: var(--nx-benign);   background: #ECFDF5; border: 1px solid #A7F3D0; }
-.platform-overview .po-pill-amber  { color: var(--nx-medium);   background: #FFFBEB; border: 1px solid #FCD34D; }
+.platform-overview .po-pill-benign { color: var(--nx-benign);   background: var(--nx-benign-bg); border: 1px solid var(--nx-benign-bd); }
+.platform-overview .po-pill-amber  { color: var(--nx-medium);   background: var(--nx-medium-bg); border: 1px solid var(--nx-medium-bd); }
 .platform-overview .po-pill-faint  { color: var(--nx-muted);    background: var(--nx-surf-inset); border: 1px solid var(--nx-bd-quiet); }
-.platform-overview .po-pill-critical { color: var(--nx-critical); background: #FEF2F2; border: 1px solid #FCA5A5; }
+.platform-overview .po-pill-critical { color: var(--nx-critical); background: var(--nx-critical-bg); border: 1px solid var(--nx-critical-bd); }
 
 /* ── Insights list ─────────────────────────────────────────────── */
 
@@ -459,7 +459,7 @@
 .platform-overview .po-skel {
   background: linear-gradient(90deg,
     var(--nx-surf-inset) 25%,
-    #FFFFFF 37%,
+    var(--nx-surf-primary) 37%,
     var(--nx-surf-inset) 63%);
   background-size: 400% 100%;
   animation: po-shimmer 1.4s ease-in-out infinite;
