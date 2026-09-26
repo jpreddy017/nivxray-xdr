@@ -21548,3 +21548,26 @@ Report: `/app/memory/production-gates/PHASE0_STAGE2_POST_PUBLISH_VERIFICATION.md
 - NEXT: **Stage 3 — promote both Vercel production consoles** from the
   same source, then verify the served TelemetryFreshness chunk on both
   hosts, then NivX Machines tenant, then the first real Windows host.
+
+## 2026-06 · PHASE 0 PROMOTION — STAGE 3: BLOCKED (gate PASS, owner Vercel promote required)
+Report: `/app/memory/production-gates/PHASE0_STAGE3_CONSOLE_PROMOTION.md`.
+- Agent cannot deploy Vercel: no credentials/CLI in pod, and production
+  promotion in these projects is a manual dashboard action (last one:
+  push 15:44 → Previews 15:45 → Production 15:55/15:58 by hand).
+- Pre-deployment gate PASS: production build emulated locally with the
+  real `vercel-build.sh` + `verify-production-build.js` guard, once per
+  scope. Both PASSED: no preview origin (174 artifacts scanned), no
+  cross-product host dependency, api_origin
+  https://nivxray.nivxforge.com, correct product_scope, and the Phase 0
+  markers (`investigability`, `RAW_ONLY_NOT_INVESTIGABLE`) present.
+  `[object Object]` path replaced by `readableError()`.
+  XDR artifacts index-jibR6pJH.js / TelemetryFreshness-C5Y1RAEl.js;
+  EDR artifacts index-Jn2JDa9x.js / TelemetryFreshness-niZ7i_uq.js.
+- Pre-promotion live baseline: xdr built_at 15:55:50 (index-DWES00xC.js),
+  edr built_at 15:58:00 (index-Dyygw0sM.js), both with 0 Phase 0 markers.
+- OWNER ACTION: in each of `nivxray-xdr-production` and
+  `nivxray-edr-production` → Deployments → the `8f370c7d` deployment →
+  Promote to Production (or Redeploy to Production without build cache).
+  Do NOT touch legacy `nivxray-xdr` or `nivxmachines-workspace`.
+- Counters all 0; response authority FAIL-CLOSED; Hunt/Files/Network/
+  Forensics/Live Query untouched (still honestly N/I).
