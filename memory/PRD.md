@@ -21192,3 +21192,34 @@ Not done / next (owner-approved order):
 - P0-PROD-6 (replica/background-job correctness) required before those jobs run.
 - Carried debt, explicitly NOT touched: 547 failed / 128 errored whole-suite
   baseline and 3 collection-aborting modules.
+
+---
+
+## 2026-06 · P0-PROD-3 · PRODUCTION EDR BACKEND PLANE — PASS (owner review pending)
+
+Evidence: `memory/production-gates/P0PROD3_BACKEND_PLANE.md`
+
+Root cause of the missing production EDR plane: **the production backend runs an
+older build of the same application.** Production serves 795 of 862 source
+routes — a strict subset, 0 routes removed/renamed — and EDR routers are
+registered unconditionally with no product-scope or environment guard anywhere.
+Remedy is a REPUBLISH plus production configuration, not a code change.
+
+Not deployed in production today (404): policy plane, exclusions plane, durable
+findings plane, EDR audit, events, onboarding, connector, saved-views,
+endpoint-commands, and the new `tokens/{id}/revoke`. Plus 30 XDR routes,
+including 4 the current console calls.
+
+Code change (single, necessary): `security/secret_policy.py` now enforces
+`MANDATORY_PRODUCTION_CONFIG` = EDR_ENROLLMENT_TOKEN_TTL_SECONDS,
+EDR_AGENT_SESSION_TTL_SECONDS — production refuses to boot without them instead
+of 500-ing at the first enrolment. 16 new focused tests
+(`tests/test_p0prod3_backend_plane.py`); 0 new regressions.
+
+Next (owner-approved order): PRODUCTION SYNC — fresh production secrets
+(EDR_AUTH_PEPPER must NOT be copied from preview) → set NIVX_DEPLOYMENT_ENV
+last → Emergent backend Republish → production API verification → register
+production tenant → NivXRay XDR + NivXForge EDR Vercel sync → console
+verification → real endpoint enrolment/telemetry/detection.
+Still gated: P0-PROD-4 (destructive response, keep XDR_RESPONSE_SERVICE_URL
+unset), P0-PROD-6 (replica-unsafe background loops).

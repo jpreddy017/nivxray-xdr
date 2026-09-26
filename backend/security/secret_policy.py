@@ -51,6 +51,16 @@ MANDATORY_PRODUCTION_SECRETS: Tuple[str, ...] = (
     "XDR_ROOT_KEY",               # credential vault root key
 )
 
+#: Non-secret settings the EDR endpoint plane READS DIRECTLY at use time
+#: (`os.environ[...]`). Absent in production, the plane would not fail at
+#: boot — it would 500 at the first enrolment or session exchange, which
+#: is a production incident disguised as a configuration omission. Each
+#: must parse as a positive integer.
+MANDATORY_PRODUCTION_CONFIG: Tuple[str, ...] = (
+    "EDR_ENROLLMENT_TOKEN_TTL_SECONDS",
+    "EDR_AGENT_SESSION_TTL_SECONDS",
+)
+
 #: Development and deployment-plane credentials that must not exist in a
 #: production application runtime. A deploy token in the app's own
 #: environment is a privilege the app has no business holding.
@@ -205,11 +215,22 @@ def assert_production_ready() -> Dict[str, object]:
                           if not _configured(n)]
     forbidden: List[str] = [n for n in FORBIDDEN_IN_PRODUCTION
                             if (os.environ.get(n) or "").strip()]
-    if missing or forbidden:
+    badconfig: List[str] = []
+    for name in MANDATORY_PRODUCTION_CONFIG:
+        raw = (os.environ.get(name) or "").strip()
+        try:
+            if int(raw) <= 0:
+                raise ValueError
+        except ValueError:
+            badconfig.append(name)
+    if missing or forbidden or badconfig:
         parts = []
         if missing:
             parts.append(f"missing or invalid mandatory secret(s): "
                          f"{missing}")
+        if badconfig:
+            parts.append(f"missing or non-positive mandatory setting(s): "
+                         f"{badconfig}")
         if forbidden:
             parts.append(f"forbidden development/deployment credential(s) "
                          f"present in the production runtime: {forbidden}")
@@ -220,6 +241,7 @@ def assert_production_ready() -> Dict[str, object]:
     return {"deployment_env": env, "enforced": True,
             "mandatory_secrets_configured": list(
                 MANDATORY_PRODUCTION_SECRETS),
+            "mandatory_config_configured": list(MANDATORY_PRODUCTION_CONFIG),
             "forbidden_absent": list(FORBIDDEN_IN_PRODUCTION)}
 
 
