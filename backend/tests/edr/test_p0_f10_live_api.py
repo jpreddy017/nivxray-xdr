@@ -110,7 +110,17 @@ def test_policy_write_rejects_missing_verification_target(h):
 
 # ── authorised action + kill regression ────────────────────────────────
 
-def test_isolate_action_carries_authorized_step(h):
+def test_isolate_action_requires_an_authoritative_approval(h):
+    """P0-A · OLD behaviour: a direct isolate returned AUTHORIZED.
+
+    NEW behaviour: containment is declared destructive and
+    approval-required by the response authority, and NivXForge EDR issues
+    no approvals of its own. A direct, unapproved isolate is refused with
+    403 APPROVAL_REQUIRED and NOTHING is recorded. The approved path runs
+    through the authoritative workflow
+    (`/api/xdr/respond/execute` → `/api/xdr/respond/approve/{id}`), which
+    dispatches into this same EDR route carrying the approval reference.
+    """
     # ensure a real policy exists first
     requests.put(f"{BASE}/api/edr/response/isolation-policy",
                  json={"allow_list": ["10.9.9.9"], "allow_dns": True,
@@ -123,35 +133,25 @@ def test_isolate_action_carries_authorized_step(h):
               "action": "ISOLATE_ENDPOINT", "target": {},
               "reason": "iter93-live-probe"},
         headers=h, timeout=30)
-    # If endpoint is revoked, the platform must refuse cleanly.
-    if r.status_code != 200:
-        assert r.status_code in (400, 403, 409), r.text
-        return
-    cmd = r.json()
-    assert cmd["state"] == "AUTHORIZED", cmd
-    assert [h_["state"] for h_ in cmd["history"]][:2] == \
-        ["REQUESTED", "AUTHORIZED"]
-    a = cmd["authorisation"]
-    assert a and a["control_channel_protected"] is True
-    assert "authorised_by" in a and "policy_version" in a \
-        and "policy_source" in a and "basis" in a
-    assert "policy" in cmd["target"]
+    assert r.status_code == 403, r.text
+    detail = (r.json().get("detail") or {})
+    assert detail.get("error") == "APPROVAL_REQUIRED", detail
+    assert "respond/approve" in str(detail.get("workflow") or "")
 
 
-def test_kill_action_still_two_step_no_authorisation(h):
-    # This may 400 if there is no observed pid; either way, it MUST NOT
-    # return AUTHORIZED for KILL_PROCESS.
+def test_kill_action_requires_an_authoritative_approval(h):
+    """P0-A · OLD: a direct kill was recorded as REQUESTED (or refused for
+    a missing identity). NEW: a kill is destructive and approval-required,
+    so an unapproved direct request is refused before anything is
+    recorded. KILL_PROCESS itself is unchanged — only its authorization
+    was hardened."""
     r = requests.post(
         f"{BASE}/api/edr/response/actions",
         json={"endpoint_id": "ep_2d57cbe6f80152062109",
               "action": "KILL_PROCESS", "target": {"pid": 1},
               "reason": "iter93-kill-shape-probe"},
         headers=h, timeout=30)
-    if r.status_code == 200:
-        cmd = r.json()
-        assert cmd["state"] == "REQUESTED"
-        assert cmd.get("authorisation") is None
-    else:
-        # Refusal is fine — the accepted P0-F.5 shape is not asserted
-        # here, only that KILL is never silently promoted to AUTHORIZED.
-        assert r.status_code in (400, 403, 409), r.text
+    assert r.status_code == 403, r.text
+    detail = (r.json().get("detail") or {})
+    assert detail.get("error") == "APPROVAL_REQUIRED", detail
+    assert detail.get("required_action_id") == "endpoint.kill_process"

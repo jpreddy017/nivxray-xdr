@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from edr_plane.isolation_policy import bind as bind_policy
 from edr_plane.isolation_policy import get_policy
+from pymongo.errors import DuplicateKeyError
 from services.edr.endpoint_query import endpoint_predicate
 
 COLLECTION = "edr_response_commands"
@@ -49,6 +50,14 @@ async def ensure_indexes(db) -> None:
                                        ("state", 1)], name="cmd_lookup")
     await db[COLLECTION].create_index("command_id", unique=True,
                                       name="cmd_id_unique")
+    # P0-A · one authority-issued approval authorises exactly ONE command.
+    # Uniqueness is enforced by the STORE, so a replayed approval cannot
+    # win a race against its own first use.
+    await db[COLLECTION].create_index(
+        [("tenant_id", 1), ("authority.approval_ref", 1)], unique=True,
+        name="cmd_approval_ref_unique",
+        partialFilterExpression={
+            "authority.approval_ref": {"$type": "string"}})
 
 
 async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
@@ -123,10 +132,31 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
                             .get("iid"))}
 
 
+#: P0-A · a request that reached this function without an authority
+#: decision did not come from an API surface. `expire_isolations` is the
+#: only such caller, and it is recorded as what it is.
+INTERNAL_AUTHORITY: Dict[str, Any] = {
+    "decision": "INTERNAL_POLICY_AUTOMATION",
+    "principal": "policy:auto_release",
+    "approval_required": False,
+    "approval_requirement_basis": "IN_PROCESS_POLICY_AUTOMATION",
+    "authorization_basis": "no external principal; raised by the isolation "
+                           "policy from an already VERIFIED isolation",
+}
+
+
 async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
                          target: Dict[str, Any], requested_by: str,
-                         reason: str) -> Dict[str, Any]:
-    """Authorise, then record the REQUEST. Nothing is executed here."""
+                         reason: str,
+                         authority: Optional[Dict[str, Any]] = None
+                         ) -> Dict[str, Any]:
+    """Authorise, then record the REQUEST. Nothing is executed here.
+
+    `authority` is the validated decision produced by
+    `edr_plane.authority.authorize` and is supplied by every externally
+    reachable route. There is no API path that reaches this function
+    without one.
+    """
     if action not in ACTIONS:
         raise ResponseError("UNKNOWN_ACTION", f"{action} is not a response "
                             f"action this platform performs")
@@ -140,6 +170,29 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         raise ResponseError("ENDPOINT_REVOKED",
                             "this endpoint's enrolment is revoked; it holds "
                             "no valid credential to act on a command")
+
+    # P0-A · a release is IDEMPOTENT. Repeating it against an endpoint that
+    # is not contained must not mint a second containment transition that
+    # will later read as a successful release of something never isolated.
+    if action == "RELEASE_ISOLATION" and authority is not None:
+        state = (ep.get("isolation") or {}).get("state")
+        if state in (None, "RELEASED"):
+            prior = await db[COLLECTION].find_one(
+                {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
+                 "action": "RELEASE_ISOLATION"},
+                sort=[("requested_at", -1)])
+            if prior:
+                prior.pop("_id", None)
+                return {**prior, "idempotent_replay": True,
+                        "honesty_note": (
+                            "this endpoint is not contained; the existing "
+                            "release record is returned unchanged and NO new "
+                            "command was created")}
+            raise ResponseError(
+                "NO_ACTIVE_ISOLATION",
+                "this endpoint holds no isolation to release; nothing was "
+                "recorded, because a release of an endpoint that was never "
+                "contained would be a false containment transition", 409)
 
     if action == "KILL_PROCESS":
         # Identity, not a bare pid. Killing by pid alone is how a response
@@ -188,10 +241,21 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
         "engine_id": ENGINE_ID,
         "dispatched_at": None, "executed_at": None, "verified_at": None,
         "authorisation": authorisation,
+        # P0-A · WHO was allowed to ask for this, on WHAT authority, and
+        # which approval artifact was consumed. Stamped from the validated
+        # decision; never from the request body.
+        "authority": dict(authority or INTERNAL_AUTHORITY),
         "sensor_result": None, "verification": None,
         "history": [{"state": "REQUESTED", "at": _now(),
                      "actor": requested_by}],
     }
+    if (authority or {}).get("approval_validated"):
+        doc["history"].append(
+            {"state": "APPROVAL_VALIDATED", "at": _now(),
+             "actor": authority["approved_by"],
+             "reason": (f"approval {authority['approval_ref']} validated "
+                        f"against the response authority and bound to this "
+                        f"tenant, endpoint and action")})
     if authorisation:
         doc["state"] = "AUTHORIZED"
         doc["authorised_at"] = authorisation["at"]
@@ -201,7 +265,16 @@ async def request_action(db, *, tenant_id: str, endpoint_id: str, action: str,
              "reason": (f"policy v{authorisation['policy_version']} "
                         f"({authorisation['policy_source']}) bound; control "
                         f"channel protected")})
-    await db[COLLECTION].insert_one(dict(doc))
+    try:
+        await db[COLLECTION].insert_one(dict(doc))
+    except DuplicateKeyError:
+        # The approval was already consumed by an earlier command. A
+        # replay must never produce a second execution.
+        raise ResponseError(
+            "APPROVAL_ALREADY_CONSUMED",
+            f"approval {(authority or {}).get('approval_ref')} has already "
+            f"authorised a command on this tenant; an approval authorises "
+            f"exactly one action and cannot be replayed", 409) from None
     doc.pop("_id", None)
     return {**doc,
             "honesty_note": ("Recorded only. This command has not reached "

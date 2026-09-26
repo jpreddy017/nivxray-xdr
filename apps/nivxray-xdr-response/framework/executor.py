@@ -293,6 +293,17 @@ class Executor:
                                                          "action_id":    spec.action_id,
                                                          "execution_id": exec_id,
                                                          "bearer":       self._bearers.get(key),
+                                                         # P0-A · the approval artifact this run
+                                                         # carries. A product adapter may have to
+                                                         # PROVE to the downstream product that an
+                                                         # approval exists; it never mints one.
+                                                         "approval": {
+                                                             "ref":         row.get("approval_ref"),
+                                                             "status":      row.get("approval_status"),
+                                                             "approved_by": row.get("approved_by"),
+                                                             "approved_at": row.get("approved_at"),
+                                                             "execution_id": exec_id,
+                                                         },
                                                          "reason":       row.get("approval_reason")})
         except Exception as e:                                  # noqa: BLE001
             adapter_out = {"ok": False,
@@ -434,6 +445,12 @@ class Executor:
             "action_id":        row["action_id"],
             "invoker":          row.get("invoker") or {},
             "tenant_id":        row["tenant_id"],
+            # P0-A · an approval must be INDEPENDENTLY verifiable by the
+            # product that will act on it, which means the artifact has to
+            # disclose WHAT was approved. Read-only disclosure of the
+            # approved parameters and resolved target; no new state.
+            "parameters":       row.get("parameters") or {},
+            "canonical_target": row.get("canonical") or {},
             "started_at":       row.get("started_at"),
             "completed_at":     row.get("completed_at"),
             "requested_at":     row.get("requested_at"),

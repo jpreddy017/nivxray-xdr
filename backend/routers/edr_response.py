@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from deps import db as _db, get_current_user
+from edr_plane import authority as authz
 from edr_plane import isolation_policy
 from edr_plane import response as resp
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
@@ -29,12 +30,21 @@ def _fail(e: resp.ResponseError):
                         detail={"error": e.code, "reason": e.reason})
 
 
+def _refuse(e: authz.AuthorityError):
+    """An authority refusal is returned verbatim and nothing is recorded."""
+    raise HTTPException(status_code=e.http, detail=e.as_detail()) from None
+
+
 class ActionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     endpoint_id: str
     action: str
     target: Dict[str, Any] = {}
     reason: str = ""
+    #: P0-A · the authority-issued approval this request consumes. It is
+    #: the response authority's own execution id; EDR validates it and
+    #: never mints one.
+    approval_ref: Optional[str] = None
 
 
 class ResultBody(BaseModel):
@@ -75,12 +85,26 @@ async def request_action(body: ActionBody,
     """
     endpoint_id = await _canonical_endpoint_id(
         body.endpoint_id, tenant_id, edr_scope(tenant_id, user))
+    requester = str(user.get("email") or user.get("sub") or "user")
+    # P0-A · authority BEFORE anything is recorded. The permission comes
+    # from the platform's own RBAC and the approval from the single
+    # response-engine approval authority; EDR issues neither.
+    decision = None
+    if body.action in resp.ACTIONS:
+        try:
+            decision = await authz.authorize(
+                verb=body.action, tenant_id=tenant_id,
+                endpoint_id=endpoint_id, requester=requester,
+                session_role=user.get("role"),
+                approval_ref=body.approval_ref, db=_db)
+        except authz.AuthorityError as e:
+            _refuse(e)
     try:
         return await resp.request_action(
             _db, tenant_id=tenant_id,
             endpoint_id=endpoint_id, action=body.action,
             target=body.target, reason=body.reason,
-            requested_by=str(user.get("sub") or user.get("email") or "user"))
+            requested_by=requester, authority=decision)
     except resp.ResponseError as e:
         _fail(e)
 
@@ -175,10 +199,24 @@ async def read_isolation_policy(
 async def write_isolation_policy(
         body: PolicyBody, user: dict = Depends(get_current_user),
         tenant_id: str = Depends(edr_tenant)) -> dict:
+    # P0-A · this policy decides what stays reachable while a host is
+    # contained, so writing it requires the same response authority as
+    # performing a response.
+    updated_by = str(user.get("email") or user.get("sub") or "user")
+    edr_scope(tenant_id, user)
+    perms, basis = await authz.permissions_for(tenant_id, updated_by,
+                                               user.get("role"), db=_db)
+    if authz.PERMISSION_EXECUTE not in perms:
+        _refuse(authz.AuthorityError(
+            "RESPONSE_EXECUTE_NOT_AUTHORIZED",
+            f"{updated_by} does not hold {authz.PERMISSION_EXECUTE}, so the "
+            f"containment policy cannot be changed", 403,
+            required_permission=authz.PERMISSION_EXECUTE,
+            authorization_basis=basis))
     try:
         return await isolation_policy.put_policy(
             _db, tenant_id=tenant_id,
-            updated_by=str(user.get("sub") or user.get("email") or "user"),
+            updated_by=updated_by,
             allow_list=body.allow_list, allow_dns=body.allow_dns,
             extra_control_hosts=body.extra_control_hosts,
             verification_target=body.verification_target,

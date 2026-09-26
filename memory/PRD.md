@@ -20929,3 +20929,61 @@ in this repo; A–K match the prior recorded structure, L–O were audited
 as the remaining Secure Endpoint domains and are flagged for label
 confirmation (classifications unaffected by renaming).
 
+
+## 2026-09-26 · P0-A · EDR RESPONSE AUTHORITY — COMPLETE (owner review pending)
+
+Owner directive *OWNER DECISION — P0-A RESPONSE AUTHORITY*. Closes the
+highest-severity finding of the read-only audit (C3). **P0-B was not
+started.** Full evidence:
+`/app/memory/production-gates/P0A_RESPONSE_AUTHORITY.md`.
+
+ONE approval authority, consumed not duplicated:
+identity+RBAC (`routers/xdr_rbac.py`) → response-engine approval
+authority (`/api/respond/*`) → validated exact-action approval
+(`edr_plane/authority.py`, NEW) → EDR adapter → endpoint → result →
+independent verification.
+
+Implemented:
+* `response.execute` required on `POST /api/edr/response/actions` and on
+  `PUT /api/edr/response/isolation-policy`.
+* `ISOLATE_ENDPOINT` / `KILL_PROCESS` require an authority-issued
+  `approval_ref`, validated for existence, approved status, exact action,
+  exact tenant, exact endpoint, exact requester, approver recorded,
+  approver ≠ requester, approver holds `response.approve`, and freshness
+  (`EDR_APPROVAL_MAX_AGE_SECONDS`, default 900 s).
+* Replay refused at the store (unique partial index) →
+  409 `APPROVAL_ALREADY_CONSUMED`.
+* Fail closed: unreachable/unconfigured authority or an action the
+  authority does not declare → 503, never an authorization.
+* `RELEASE_ISOLATION` permission-gated, never second-person gated, and
+  now idempotent (`NO_ACTIVE_ISOLATION`, or the existing record replayed)
+  so a release never mints a false containment transition.
+* Authority stamped on every command; internal auto-release labelled
+  `INTERNAL_POLICY_AUTOMATION`.
+* Two authority-integrity fixes found while wiring: the XDR boundary
+  stripped client-supplied `approval_ref`/`approved_by` (the engine read
+  them as a pre-approval — self-pre-approval hole), and the EDR adapter
+  now forwards `X-Tenant-Id` (the orchestrated dispatch was being
+  rejected `TENANT_REQUIRED`).
+
+Behaviour change (approved by owner): OLD direct isolate/kill →
+`AUTHORIZED`/`REQUESTED`; NEW direct isolate/kill without an
+authoritative approval → **403 `APPROVAL_REQUIRED`** and nothing
+recorded. Two live tests updated to assert the new contract. No frontend
+change — the console never posted to `/edr/response/actions`.
+
+Tests: `tests/edr` **460 passed / 1 skipped / 0 failed** (baseline
+425/1/0, +35 new security tests: 27 deterministic + 8 wired-live).
+Response-engine suite 27 passed. 24 negative cases and the full approved
+end-to-end path (two real operators) proven.
+
+Next, awaiting owner review: **P0-B** exclusion scope
+(`COLLECTION | DETECTION | PREVENTION`, default `DETECTION`), then P0-C
+durable findings, P0-D policy provenance on evidence, P0-E telemetry
+truth / loss accounting. Windows telemetry expansion, prevention, ML,
+Live Query, forensics, File Trajectory and Gate 12 CSS remain BLOCKED
+behind the foundation gate.
+
+Recorded later slices: EDR-console approval-request UI (authority stays
+backend-owned); a real `expires_at` on the authority artifact.
+

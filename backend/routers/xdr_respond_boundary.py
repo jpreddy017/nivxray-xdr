@@ -243,6 +243,17 @@ async def execute(body: Dict[str, Any], request: Request,
                     "honesty_note": ("no response action was requested, "
                                      "approved, dispatched or executed")})
     authz = dict(payload.get("authorization") or {})
+    # P0-A · a client may NEVER pre-approve its own request. The engine
+    # treats `approval_ref` + `approved_by` on intake as a pre-approval
+    # and skips WAITING_APPROVAL, so these fields are stripped here: an
+    # approval is only ever created by POST /approve/{execution_id}, where
+    # the approver is the session principal and must hold response.approve.
+    stripped = [k for k in ("approval_ref", "approved_by", "approved_at")
+                if k in authz]
+    for k in stripped:
+        authz.pop(k, None)
+    if stripped:
+        authz["client_supplied_approval_fields_refused"] = sorted(stripped)
     authz["bearer"] = _bearer(request)
     authz["scopes"] = scopes
     authz["authorization_basis"] = basis

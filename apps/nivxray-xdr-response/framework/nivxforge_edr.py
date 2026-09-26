@@ -107,8 +107,24 @@ async def dispatch(params: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, Any
                 target[k] = params[k]
 
     headers = {"Authorization": f"Bearer {token}"}
+    # The EDR control plane has no default tenant: the authoritative
+    # tenant travels explicitly. It is the tenant the response authority
+    # resolved from the acting principal's session — the EDR still
+    # validates that this principal holds that tenant.
+    tenant = str((ctx or {}).get("tenant_id") or "").strip()
+    if tenant:
+        headers["X-Tenant-Id"] = tenant
     body = {"endpoint_id": str(endpoint_id), "action": verb,
             "target": target,
+            # P0-A · NivXForge EDR validates the APPROVAL, it does not
+            # issue one. The authoritative reference is this EXECUTION ID,
+            # because that is the artifact the EDR can independently fetch
+            # and bind to {tenant, endpoint, action, requester}. The
+            # engine's internal approval_ref is not fetchable and is
+            # therefore not what travels.
+            "approval_ref": str(ctx.get("execution_id")
+                                or (ctx.get("approval") or {}).get("ref")
+                                or "") or None,
             "reason": (ctx.get("reason")
                        or f"XDR response orchestration · execution "
                           f"{ctx.get('execution_id') or ''}".strip())}

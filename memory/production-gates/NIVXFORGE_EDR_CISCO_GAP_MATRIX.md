@@ -92,7 +92,9 @@ fabric outage is recorded honestly as `DETECTION_NOT_EVALUATED`
 unevaluated, because no re-evaluation path consumes it (Gate 6).
 
 **C3 · Response has tenant authority but no action-level authority.**
-`routers/edr_response.py:54-58` requires only an authenticated user plus
+**CLOSED 2026-09-26 by P0-A** (`P0A_RESPONSE_AUTHORITY.md`). The finding
+as audited was:
+`routers/edr_response.py:54-58` required only an authenticated user plus
 `edr_tenant`/`edr_scope` (`routers/edr_tenancy.py:198-223`). There is no
 role check, no approver distinct from the requester, and no two-person
 rule: for `ISOLATE_ENDPOINT` the record is self-authorised by
@@ -215,7 +217,7 @@ is refused (`:130`).
 | Isolation on Windows | **NOT IMPLEMENTED** | win `:70-72` declares it unimplemented |
 | Auto-release of isolation raises a new authorised command, never flips a state on a timer | **IMPLEMENTED + PROVEN** | `response.py:211-241`; `test_p0_f10_isolation.py` **[T]** |
 | Tenant isolation of the response plane | **IMPLEMENTED + PROVEN** | `routers/edr_tenancy.py:198`; `test_cross_tenant.py`, `test_security_state_isolation.py` **[T]**; 21 PASS live **[L]** |
-| **Action-level RBAC / approval separate from the requester** | **NOT IMPLEMENTED** | see **C3** — critical |
+| **Action-level RBAC / approval separate from the requester** | **CLOSED 2026-09-26 · IMPLEMENTED + PROVEN** (P0-A) | `edr_plane/authority.py`; `response.execute` required, destructive verbs require an authority-issued approval bound to {tenant, endpoint, action, requester}, self-approval and replay refused. `tests/edr/test_p0a_response_authority.py` 27 **[T]** + `test_p0a_response_authority_live.py` 8 **[T/L]**; `P0A_RESPONSE_AUTHORITY.md` |
 | Quarantine / file retrieval / forensic snapshot / live query / scan / remove-persistence | **NOT IMPLEMENTED** | not in `ACTIONS`; `_execute_command:1054` returns `unknown action` |
 | Automated response from a detection (no human in the loop) | **NOT IMPLEMENTED** | no path from a finding to `request_action` **[S]** |
 
@@ -445,10 +447,12 @@ RBAC · automated response.
 
 ## 3 · Critical security / correctness gaps (ranked)
 
-1. **No action-level authority on destructive response.** Any
-   tenant-authorised console user can isolate a host or kill a process;
-   the requester authorises themselves. `edr_response_commands` already
-   holds 82 real records. **Highest-severity finding of this audit.**
+1. **No action-level authority on destructive response.** **CLOSED
+   2026-09-26 by P0-A** — see `P0A_RESPONSE_AUTHORITY.md`. `response.execute`
+   is now required, destructive verbs require an approval issued by the
+   single response authority and bound to {tenant, endpoint, action,
+   requester}, self-approval and replay fail closed, and release is
+   permission-gated and idempotent.
 2. **Endpoint exclusions destroy evidence.** The only endpoint engine is
    `endpoint.collection`; a tuning exclusion silently and irreversibly
    removes forensic telemetry. Needs `scope: COLLECTION | DETECTION |
