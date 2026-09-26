@@ -21333,3 +21333,24 @@ agent status, isolation, risk — no production endpoint enrolled yet.
 Genuinely not implemented: network, DNS, outbreak control, Files in EDR (F-3).
 Real defect found, not fixed: TelemetryFreshness.jsx:64 renders [object Object]
 when the error detail is an object.
+
+### 2026-06 · CONSOLE SYNC: CLOSED (PRODUCTION_SYNC_BACKEND.md §20)
+Both consoles verified serving f7a2518: XDR index-DWES00xC.js, EDR
+index-Dyygw0sM.js — both match local builds of the pushed commit (hashes
+predicted in §18 before deployment). All six previously-unpublished planes found
+in the deployed chunk sets of both hosts (162 chunks each scanned). Sole API
+origin https://nivxray.nivxforge.com. Scope isolation proven behaviourally:
+xdr host /edr and edr host /xdr both render WRONG PRODUCT HOST. Protected API
+boundary re-verified after promotion: 862/862, 0 missing, nothing anonymously
+accessible.
+STILL REQUIRED (UI wiring, nothing implemented): findings + evaluation-state +
+taxonomy, token revoke button, exclusion approval/revoke/enforcement-proof,
+enrolment rejections feed, connector, saved views, [object Object] render fix,
+Files-in-EDR (F-3), network/DNS/outbreak (no backend), Gate 12 mobile,
+P0-PROD-4, P0-PROD-6, rotate disclosed analyst credential.
+BLOCKED until a real endpoint exists (do NOT fake): telemetry freshness,
+device/customer/user context.
+SUPERSEDED: blanking XDR_RESPONSE_SERVICE_URL, blanking the two inert platform
+secrets, the pre-republish route-parity FAIL.
+NEXT: master pending/skipped/partial-work reconciliation, then production tenant
+bootstrap + first endpoint enrolment.

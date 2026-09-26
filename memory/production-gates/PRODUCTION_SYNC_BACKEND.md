@@ -1107,3 +1107,125 @@ Nothing was pushed, force-pushed or rewritten by the agent (git write
 actions belong to the owner's **Save to Github**). No Vercel deployment.
 No tests. Expected artifact after the redeploy: XDR
 `index-DWES00xC.js`, EDR `index-Dyygw0sM.js`.
+
+---
+
+## 20 · CONSOLE SYNC — VERIFIED AND CLOSED (2026-06)
+
+Both Vercel projects were promoted to Production by the owner from
+`feature/rc2-alignment` / **`f7a2518`**.
+
+### 20.1 · Bundle identity — read from the deployed artifacts, not assumed
+
+| Host | deployed entry bundle | local build of `f7a2518` | match |
+|---|---|---|---|
+| `xdr.nivxforge.com` | `/assets/index-DWES00xC.js` | `index-DWES00xC.js` | **YES** |
+| `edr.nivxforge.com` | `/assets/index-Dyygw0sM.js` | `index-Dyygw0sM.js` | **YES** |
+
+Both were fetched live and compared against the hashes predicted in §18
+before the deployment — the prediction held, which is what makes this a
+verification rather than an assumption. 162 lazy chunks per host were
+downloaded (two passes over nested dynamic imports) and searched.
+
+### 20.2 · SIX PLANES DEPLOYED: **PASS**
+
+Found in the deployed chunk set of **both** hosts:
+
+```
+edr/policies  ✓    edr/events            ✓
+edr/exclusions ✓   onboarding/computers  ✓
+edr/audit      ✓   endpoint-commands     ✓
+```
+
+`telemetry/freshness` and `device-trajectory` also present (12 chunks).
+This closes the §18.2 finding: the six previously-unpublished planes are
+now genuinely in the production artifact, matching the owner's visual
+confirmation of Computers / Events / Policies / Exclusions / Audit.
+
+### 20.3 · API origin and scope isolation
+
+Production API origin in both artifacts: **`https://nivxray.nivxforge.com`
+only** — no preview origin, no `localhost:8001`, nothing else.
+
+Scope isolation proven **behaviourally**, not by inspection (a grep is
+inconclusive because both route tables carry both literals):
+
+- `https://xdr.nivxforge.com/edr` → *"WRONG PRODUCT HOST — This deployment
+  serves NivXRay XDR. /edr belongs to NivXRay EDR… Nothing was loaded from
+  the other product."*
+- `https://edr.nivxforge.com/xdr` → the mirror refusal for XDR.
+
+Root redirects are consistent with the compiled scope
+(`HOME_PATH = /${PRODUCT_SCOPE}`): XDR root → `/xdr`, EDR root → `/edr`.
+
+### 20.4 · PROTECTED API BOUNDARY: **PASS**
+
+Re-ran the read-only verifier after the console promotion:
+
+```
+health 200 · source 862 · production 862 · missing 0
+no NOT REFUSED · no UNEXPECTED · no STILL ABSENT
+PRODUCTION SYNC VERIFICATION: PASS
+```
+
+Nothing became anonymously accessible as a result of deploying the
+consoles. Every protected management/agent route still refuses
+unauthenticated callers, and `POST /api/edr/response/actions` is still
+refused.
+
+### 20.5 · Console/API mismatches — recorded, NOT fixed
+
+1. `/api/edr/findings` · `findings/evaluation-state` ·
+   `findings/taxonomy` — live in production, **absent from both deployed
+   artifacts** (0 chunks). Confirmed again post-deployment.
+2. `POST /api/edr/enrollment/tokens/{token_id}/revoke` — live, no console
+   caller (no `tokens/{id}` path in any chunk).
+3. `TelemetryFreshness.jsx:64` renders `[object Object]` when the API
+   error `detail` is a list/dict.
+
+### 20.6 · Follow-up reconciliation (nothing implemented)
+
+| Item | Status | Note |
+|---|---|---|
+| Push source to GitHub | **CLOSED** | §19 — `f7a2518` verified |
+| Publish the six planes to the consoles | **CLOSED** | §20.2 |
+| Backend production sync (862/862) | **CLOSED** | §16 |
+| Findings Console (`/api/edr/findings`) | **STILL REQUIRED** | P0-C API live since this session, no UI in any revision |
+| Findings evaluation-state / `NOT_EVALUATED` visibility | **STILL REQUIRED** | the negative-explainability surface; the point of P0-C |
+| Findings taxonomy | **STILL REQUIRED** | small; belongs with the findings page |
+| Token Revoke button (P0-PROD-2) | **STILL REQUIRED** | route live, console has no caller |
+| Exclusion approval / revoke / enforcement-proof (P0-B) | **STILL REQUIRED** | exclusions list is deployed; the approval authority has no UI |
+| Enrolment rejections feed | **STILL REQUIRED** | `/api/edr/enrollment/rejections` live, unused |
+| Connector releases / deployments | **STILL REQUIRED** | routes live, no console caller |
+| Saved views | **STILL REQUIRED** | route live, no console caller |
+| Freshness `[object Object]` defect | **STILL REQUIRED** | one-line render fix |
+| Telemetry freshness "unavailable" state | **BLOCKED** | no production tenant, no enrolled endpoint — correct and must not be faked |
+| Device / Customer / User "Not provided" | **BLOCKED** | same cause |
+| Network / DNS / outbreak control UI | **STILL REQUIRED (not started)** | registry grades them `NOT_IMPLEMENTED`; no backend exists |
+| Files in the EDR product (F-3) | **STILL REQUIRED** | implemented, delivered by the XDR-hosted fleet view; EDR route unwired |
+| `XDR_RESPONSE_SERVICE_URL` must be blanked by the owner | **SUPERSEDED** | §15.5 — production now treats a loopback authority as NOT CONFIGURED |
+| Blank / remove the two unremovable platform secrets | **SUPERSEDED** | §15.2 — reclassified as inert, proven unconsumed |
+| Pre-republish route-parity FAIL | **SUPERSEDED** | §16 — now 862/862 |
+| Gate 12 mobile responsive (pre-existing) | **STILL REQUIRED** | untouched by this work |
+| P0-PROD-4 response authority | **STILL REQUIRED** | destructive response stays fail-closed |
+| P0-PROD-6 replica safety | **STILL REQUIRED** | background loops still run per replica |
+| Rotate the disclosed analyst credential | **STILL REQUIRED** | owner action; no production effect |
+
+### 20.7 · Verdict
+
+```
+XDR CONSOLE SYNC:        PASS
+EDR CONSOLE SYNC:        PASS
+XDR DEPLOYED COMMIT:     f7a2518 (feature/rc2-alignment)
+EDR DEPLOYED COMMIT:     f7a2518 (feature/rc2-alignment)
+XDR BUNDLE:              /assets/index-DWES00xC.js  (matches source build)
+EDR BUNDLE:              /assets/index-Dyygw0sM.js  (matches source build)
+PRODUCTION API ORIGIN:   https://nivxray.nivxforge.com (sole origin in both)
+SIX PLANES DEPLOYED:     PASS
+PROTECTED API BOUNDARY:  PASS
+EXACT BLOCKERS:          none for Console Sync
+```
+
+**CONSOLE SYNC: CLOSED.** No code edited, nothing committed or pushed, no
+redeploy, no Vercel configuration change, no production DB change, no
+tenant, no endpoint, no workers, no P0-PROD-4/6, no response action.
