@@ -1,5 +1,46 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-09-26 · PRODUCTION DEPLOYMENT READINESS AUDIT — **NOT READY · OWNER REVIEW**
+
+Read-only audit per owner directive. Nothing deployed, no prod config
+changed, no DB migrated, no agent touched, P0-D still paused.
+Report: `/app/memory/production-gates/NIVX_PRODUCTION_DEPLOYMENT_READINESS.md`.
+P0-INFRA-1 reclassified as **PREVIEW PLATFORM LIMITATION / NOT AN
+APPLICATION DEFECT** (no app logic changed for it).
+
+**Two discoveries reshape the decision:**
+1. **Production already exists and is LIVE** — `https://nivxray.nivxforge.com`
+   (health 200) plus Vercel consoles `xdr.nivxforge.com` (built 09-18) and
+   `edr.nivxforge.com` (built 09-09). So "first deploy migrates the preview
+   DB" does NOT apply.
+2. **Emergent deploys `/app/frontend` (CRA), which has ZERO `/xdr/*` or
+   `/edr/*` routes** (catch-all → `/`). The console under review is
+   `/app/apps/nivxray-xdr` (Vite) → deployed on Vercel.
+3. **Prod backend predates the EDR control plane**: `/api/edr/policies`,
+   `/exclusions`, `/findings`, `/agent/policy` all **404** in prod (403/401 in
+   preview) → no exclusions, no durable findings, **no sensor can enrol**.
+
+**8 blockers**: B1 wrong frontend deployed · B2 prod backend missing EDR
+control+agent plane · B3 no response authority in a deployment
+(`XDR_RESPONSE_SERVICE_URL→localhost:8056`; authority fails closed 503) ·
+B4 dev fallback secrets unset (`XDR_AUDIT_MASTER_SECRET`,
+`XDR_SECRETS_MASTER`, `NIVXRAY_SIGNING_SECRET` — audit HMAC / secret
+envelope / bundle signatures derivable from source) · B5 `VERCEL_TOKEN`
++ test creds in `backend/.env` · B6 tier_0 (250m CPU) already caused
+520/524 liveness-kill on this app per platform RCAs · B7 sensor bootstrap
+uses ADMIN creds · B8 never migrate `test_database` (284/290 `default`
+endpoints synthetic LAB-*, 93 test tenants, 321 stale agent credentials,
+test operator accounts, 1.5 M docs).
+
+**Good news**: both frontends BUILD (Vite 4.75 s, craco 59 s); agents are
+clean — `--api` is REQUIRED with no default, TLS verification on, Windows
+installer already takes `-BackendUrl`; localhost coupling is
+configuration only (supervisor confs + `scripts/nivxforge_sensor_supervise.py:99`).
+Auth is Bearer/localStorage so CORS `*` forces credentials off safely.
+EDR surface classified 60 TENANT_SCOPED / 16 PRODUCT_METADATA / 11
+SENSOR_SCOPED. P0-C truth invariant survives deployment: a fresh prod DB
+reads `NOT_EVALUATED · NO_EVALUATION_RECORDED`, never clean.
+
 ## 2026-09-26 · P0-INFRA-1 · PREVIEW RUNTIME STABILITY — **OPEN · BLOCKS P0-D**
 
 Owner directive: *STOP P0-D — PREVIEW AVAILABILITY INCIDENT*. P0-D not
