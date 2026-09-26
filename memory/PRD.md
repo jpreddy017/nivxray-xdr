@@ -21571,3 +21571,29 @@ Report: `/app/memory/production-gates/PHASE0_STAGE3_CONSOLE_PROMOTION.md`.
   Do NOT touch legacy `nivxray-xdr` or `nivxmachines-workspace`.
 - Counters all 0; response authority FAIL-CLOSED; Hunt/Files/Network/
   Forensics/Live Query untouched (still honestly N/I).
+
+## 2026-06 · PHASE 0 PROMOTION — STAGE 3 POST-PROMOTION: PASS
+Report: `/app/memory/production-gates/PHASE0_STAGE3_POST_PROMOTION_VERIFICATION.md`.
+- Both production consoles now serve commit `8f370c7d`:
+  xdr.nivxforge.com built_at 18:19:37Z, entry `index-jibR6pJH.js`,
+  chunk `TelemetryFreshness-C5Y1RAEl.js`;
+  edr.nivxforge.com built_at 18:20:24Z, entry `index-Jn2JDa9x.js`,
+  chunk `TelemetryFreshness-niZ7i_uq.js` (served sha == locally emulated
+  production build sha `3d257c12a0ce53b9` → byte-identical artifact).
+  First fetch was `x-vercel-cache: MISS`, `age: 0`.
+- SERVED chunks contain `investigability`, `RAW_ONLY_NOT_INVESTIGABLE`,
+  `NO_DELIVERY_TO_ASSESS`; zero `object Object`; zero preview origin;
+  api_origin https://nivxray.nivxforge.com only.
+- Product-host isolation ENFORCED both ways (live browser check):
+  `xdr…/edr/overview` and `edr…/xdr/dashboard` both render
+  "WRONG PRODUCT HOST"; `/` 307s to the correct product; 0 cross-product
+  host refs in either bundle. `edr…/edr` → login → NIVXRAY EDR.
+- Backend untouched: health 200, routes 862, openapi sha unchanged,
+  response authority FAIL-CLOSED.
+- Mutations: 0 across every counter. Legacy `nivxray-xdr` and
+  `nivxmachines-workspace` untouched.
+- Windows bridge status remains PRESENT_IN_PUBLISHED_SOURCE_NOT_LIVE_PROVEN.
+- NEXT: NivX Machines tenant bootstrap → 1 enrollment token → 1 real
+  Windows host (Sysmon first) → live canonicalisation proof. AFTER that:
+  the Full Investigation Surface milestone (Hunt, Files, Network,
+  Forensics, Live Query — real, never cosmetic).
