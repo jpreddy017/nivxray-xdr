@@ -897,3 +897,158 @@ EDR product scope:  NIVX_PRODUCT_SCOPE=edr required on the EDR project
 Deployment:         NOT PERFORMED — no Vercel credential in this environment
 Blocker:            owner must redeploy both Vercel projects (§17.5)
 ```
+
+---
+
+## 18 · EDR PRODUCTION UI REVIEW — FRESH BUNDLE, BUT AN OLDER SOURCE (2026-06)
+
+### 18.1 · FRESH BUNDLE: **YES** — but of the wrong commit
+
+The redeploy did serve a new artifact (no CDN staleness):
+
+| | before redeploy | now | changed |
+|---|---|---|---|
+| XDR entry | `index-dQhjKK0o.js` | `index-CNxYXeAC.js` | yes |
+| EDR entry | `index-5e0IbMeq.js` | `index-nIdrJMjb.js` | yes |
+
+**But neither matches a build of current source.** Local production builds
+of `/app` HEAD produce `index-DWES00xC.js` (XDR) and `index-Dyygw0sM.js`
+(EDR).
+
+### 18.2 · ROOT CAUSE OF THE MISSING FEATURES
+
+`9fcd53a` — the commit Vercel built — is **21 commits behind `/app` HEAD**,
+and those commits changed **32 files / +5,318 lines inside
+`apps/nivxray-xdr`** (including "Fleet Operations wave", "Gate 5 + Gate 7 +
+Gate 11 + Connector Productization", "EDR suite green…"). Vercel builds
+from GitHub; the working branch in this pod was never pushed. **The console
+the owner is looking at is genuinely older console source — the features
+were built, they were never published.**
+
+Proof by source comparison — API paths referenced in
+`apps/nivxray-xdr/src`:
+
+| API the console should call | at `9fcd53a` (deployed) | at HEAD (unpushed) |
+|---|---|---|
+| `/api/edr/policies` | **0 files** | 4 files |
+| `/api/edr/exclusions` | **0 files** | 3 files |
+| `/api/edr/audit` | **0 files** | 3 files |
+| `/api/edr/events` | **0 files** | 3 files |
+| `/api/edr/onboarding/computers` | **0 files** | 1 file |
+| `/api/edr/endpoint-commands` | **0 files** | 2 files |
+| `/api/edr/enrollment/tokens` | 1 file | 2 files |
+| `/api/edr/findings` | **0 files** | **0 files** |
+| device-trajectory · process-tree · file-trajectory · telemetry/freshness · wave0/capabilities | present | present (unchanged) |
+
+So one **Save to Github + redeploy** recovers policy, exclusions, audit,
+events, onboarding and endpoint-commands in the console. Findings is the
+one real frontend gap.
+
+### 18.3 · BACKEND AVAILABLE BUT UI NOT WIRED
+
+**A · Built but unpublished** (fixed by pushing, no code work):
+`/api/edr/policies` · `/api/edr/exclusions` · `/api/edr/audit` ·
+`/api/edr/events` (+`/events/facets`) · `/api/edr/onboarding/computers` ·
+`/api/edr/endpoint-commands` · the newer `/api/edr/enrollment/tokens`
+surface.
+
+**B · Genuinely never wired in any revision** (real frontend work):
+- `GET /api/edr/findings` and `/api/edr/findings/{id}` — P0-C durable
+  findings, live in production, consumed by **no** console revision
+- `GET /api/edr/findings/evaluation-state` — negative explainability
+  (`NOT_EVALUATED != CLEAN`), the whole point of P0-C, with no surface
+- `GET /api/edr/findings/taxonomy`
+- `POST /api/edr/enrollment/tokens/{token_id}/revoke` — P0-PROD-2
+  revocation, live, no button anywhere
+- `/api/edr/exclusions/{id}/approval` · `/{id}/revoke` ·
+  `/exclusions/enforcement-proof` — P0-B approval authority has no UI
+- `/api/edr/enrollment/rejections` — the rejected-enrolment feed
+- `/api/edr/connector/releases` · `/connector/deployments`
+- `/api/edr/saved-views`
+
+### 18.4 · UI WIRED BUT NEEDS REAL PRODUCTION DATA (do NOT "fix" these)
+
+These are honest empty states, and the owner's instinct is right — they
+must not be faked:
+
+- **Telemetry freshness** — nothing is enrolled, so the pipeline cannot be
+  proven live
+- **Device / Customer / User "Not provided"** — no endpoint context exists
+  yet
+- **Agent status / Isolation "Not assessed on this surface"** — correct:
+  this overview does not assess them
+- **Risk "—"** · Detections, Device Trajectory, Process Tree, Campaign
+  Story, Threat Hunting, Forensics, Live Query — wired, awaiting a real
+  endpoint
+
+### 18.5 · GENUINELY NOT IMPLEMENTED
+
+- **Network** investigation (`network_ui`) and **DNS** (`dns_ui`) — the
+  registry grades them `NOT_IMPLEMENTED`; there is no network
+  investigation backend. The console page is an honest reserved page.
+- **Outbreak control** (`outbreak_control_ui`).
+- **Files in the EDR product** (`file_trajectory_ui`) — implemented, but
+  delivered by the XDR-hosted Fleet File Trajectory; the EDR route is not
+  wired (F-3 class). The card says exactly that.
+
+### 18.6 · WRONG / STALE UI LABELS
+
+1. **`TELEMETRY FRESHNESS UNAVAILABLE ([object Object])`** — a real defect,
+   present in both revisions. `TelemetryFreshness.jsx:64` assigns
+   `e?.response?.data?.detail` which, for FastAPI validation errors, is a
+   list/dict; `String(error)` then renders `[object Object]`. The banner's
+   *claim* is honest; its rendering is broken. One-line fix, not applied
+   (no code change was authorised in this step).
+2. The capability grades — `IMPLEMENTED · NOT RUNTIME VERIFIED`,
+   `NOT WIRED IN THIS PRODUCT`, `NOT IMPLEMENTED` — are **NOT stale UI
+   text**. They come from the backend registry
+   (`edr_plane/capability/inventory.py`, served by
+   `GET /api/edr/wave0/capabilities`): `BACKEND_IMPLEMENTED` and
+   `NOT_IMPLEMENTED` respectively. They are the platform telling the truth
+   about itself and should not be edited to look better.
+3. Nothing else observed in the screenshot is stale or wrong.
+
+### 18.7 · MINIMUM WORK REQUIRED
+
+**Step 1 — zero code (recovers six planes):** owner uses **Save to
+Github** on branch `feature/rc2-alignment`, then redeploys both Vercel
+projects without build cache. Expected result: XDR entry
+`index-DWES00xC.js`, EDR entry `index-Dyygw0sM.js`, and policy /
+exclusions / audit / events / onboarding / endpoint-commands present in
+the console.
+
+**Step 2 — the one real frontend gap, findings (smallest honest slice):**
+
+| File | Work |
+|---|---|
+| `apps/nivxray-xdr/src/nivxforge/api.js` | add `getFindings`, `getFinding`, `getFindingsEvaluationState`, `getFindingsTaxonomy` |
+| `apps/nivxray-xdr/src/nivxforge/pages/Findings.jsx` *(new)* | findings list + detail drawer; must render `NOT_EVALUATED` distinctly from `CLEAN`, and `UNKNOWN/ERROR` distinctly from `ABSENT` |
+| `apps/nivxray-xdr/src/nivxforge/NivxForgeShell.jsx` (or the EDR route table) | add the `Findings` nav entry between Detections and Device Trajectory |
+| `apps/nivxray-xdr/src/nivxforge/components/EvaluationState.jsx` *(new)* | the evaluation-state badge, reused by Detections and Findings |
+
+**Step 3 — small, high-value follow-ups** (each independent):
+enrolment-token revoke button (P0-PROD-2), exclusion approval/revoke UI
+(P0-B), the rejected-enrolment feed, and the `[object Object]` render fix.
+
+### 18.8 · Verdict
+
+```
+FRESH BUNDLE:                    YES (new hashes served) — but built from
+                                 9fcd53a, which is 21 commits behind source
+BACKEND AVAILABLE, UI UNPUBLISHED: policies, exclusions, audit, events,
+                                 onboarding, endpoint-commands
+BACKEND AVAILABLE, UI NEVER WIRED: findings, findings/evaluation-state,
+                                 findings/taxonomy, token revoke, exclusion
+                                 approval/revoke, enrolment rejections,
+                                 connector, saved-views
+NEEDS REAL DATA (do not fake):   telemetry freshness, device/customer/user,
+                                 agent status, isolation, risk, detections,
+                                 trajectory, process tree
+GENUINELY NOT IMPLEMENTED:       network, DNS, outbreak control, Files in
+                                 the EDR product (F-3)
+WRONG LABEL:                     TelemetryFreshness.jsx:64 → [object Object]
+BLOCKER:                         source not pushed to GitHub
+```
+
+No redeploy was performed. No code, config or database change was made.
+No tenant, no endpoint, no P0-PROD-4/6.

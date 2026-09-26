@@ -21317,3 +21317,19 @@ dist, XDR_PROD_API_ORIGIN=https://nivxray.nivxforge.com, EDR project needs
 NIVX_PRODUCT_SCOPE=edr, no build cache). Details in
 PRODUCTION_SYNC_BACKEND.md §17. Contract note: neither console artifact calls
 /api/edr/findings yet (P0-C API live but unused by the UI).
+
+### 2026-06 · EDR production UI review (PRODUCTION_SYNC_BACKEND.md §18)
+Fresh bundles ARE being served (new hashes), but Vercel built commit 9fcd53a,
+which is 21 commits behind /app HEAD (32 files, +5318 lines in apps/nivxray-xdr
+unpushed). Source comparison proves the deployed console has ZERO references to
+edr/policies, edr/exclusions, edr/audit, edr/events, onboarding/computers,
+endpoint-commands, while HEAD has all of them. FIX = Save to Github + redeploy,
+no code work.
+Genuine frontend gaps (never wired in any revision): /api/edr/findings,
+findings/evaluation-state, findings/taxonomy, enrollment token revoke,
+exclusion approval/revoke, enrolment rejections, connector, saved-views.
+Honest empty states (DO NOT fake): telemetry freshness, device/customer/user,
+agent status, isolation, risk — no production endpoint enrolled yet.
+Genuinely not implemented: network, DNS, outbreak control, Files in EDR (F-3).
+Real defect found, not fixed: TelemetryFreshness.jsx:64 renders [object Object]
+when the error detail is an object.
