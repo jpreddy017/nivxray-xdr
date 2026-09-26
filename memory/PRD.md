@@ -21522,3 +21522,29 @@ Report: `/app/memory/production-gates/PHASE0_STAGE2_BACKEND_REPUBLISH.md`.
   separate (Stage 3). Rollback = Manage Publishes → Overview → ↺ on
   Publish 100 / `4e76891` (2-3 min, no DB rollback needed).
 - Post-publish read-only verification is scripted and ready to run.
+
+## 2026-06 · PHASE 0 PROMOTION — STAGE 2 POST-PUBLISH: PASS
+Report: `/app/memory/production-gates/PHASE0_STAGE2_POST_PUBLISH_VERIFICATION.md`.
+- Production is LIVE on **Publish 100 / build `10f49a6`** (was `4e76891`).
+  `10f49a6` is an Emergent build id, NOT a git SHA — identity established
+  via: published tree == local HEAD (bea8852b is ancestor, Phase 0 code
+  diff EMPTY) == remote `8f370c7d` (10/10 SHA-256), plus the build id
+  change and Live status.
+- Health ok. Routes 862/862, 0 missing, 0 added; openapi byte-identical
+  (`8c04168feebf43f0`) — expected, since Phase 0 adds no route/model.
+- All Phase 0 items (8 families, DETECTION_NOT_EVALUATED, investigability,
+  RAW_ONLY_NOT_INVESTIGABLE, ProcessGuid authority, PID-only fallback,
+  raw→canonical provenance) = **PRESENT_IN_PUBLISHED_SOURCE**.
+  No zero-write live proof exists: no new route/model, prod has 0
+  endpoints so the freshness rows are empty, and `/api/v2/parse` is the
+  command-line adapter (not the Windows bridge). Live proof arrives with
+  the first authorised Windows endpoint.
+- Security (read-only GET probes): all protected routes refuse unauth
+  (403); RBAC returns ACCESS_DENIED/tenants.read; response authority
+  FAIL-CLOSED (`response.py` last changed in `901f5651`, pre-Phase 0).
+  215 passed / 1 skipped across 9 focused suites.
+- Counters: migrations 0, backfills 0, prod DB writes 0, orgs 0, tenants 0,
+  tokens 0, endpoints 0, response actions 0, secrets 0, Vercel 0.
+- NEXT: **Stage 3 — promote both Vercel production consoles** from the
+  same source, then verify the served TelemetryFreshness chunk on both
+  hosts, then NivX Machines tenant, then the first real Windows host.
