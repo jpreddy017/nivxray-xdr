@@ -28,6 +28,7 @@ from edr_plane.contracts.identity import EndpointIdentity
 from edr_plane.enrollment import store
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from edr_plane.enrollment import rejection
+from edr_plane.enrollment.security import digest as _digest
 from edr_plane.enrollment.store import EnrollmentError
 from edr_plane.enrollment.transport import (get_authenticated_endpoint,
                                             transport_status)
@@ -239,11 +240,26 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
         # Onboarding V1 · a newly enrolled computer lands in the default
         # group and policy instead of nowhere. Existing placements are never
         # overwritten, so a reinstall cannot move a computer out of its group.
-        from routers.edr_onboarding import assign_default_placement
-        placement = await assign_default_placement(body.tenant_id,
-                                                   endpoint_id)
-        return {**enrolled, **placement,
-                "placement_basis": "DEFAULT_AT_ENROLMENT"}
+        # Connector productization: when the enrolment credential was minted
+        # by a Management -> Downloads DEPLOYMENT, the chosen group travels
+        # with the credential, so the computer registers into the group the
+        # administrator selected without the artifact carrying anything.
+        from routers.edr_onboarding import (assign_default_placement,
+                                            assign_deployment_placement)
+        tok = await _db[store.TOKENS].find_one(
+            {"tenant_id": body.tenant_id,
+             "token_hash": _digest(body.enrollment_token)},
+            {"_id": 0, "group_id": 1, "deployment_id": 1})
+        if tok and tok.get("group_id"):
+            placement = await assign_deployment_placement(
+                body.tenant_id, endpoint_id, tok["group_id"],
+                tok.get("deployment_id"))
+            basis = "CONNECTOR_DEPLOYMENT"
+        else:
+            placement = await assign_default_placement(body.tenant_id,
+                                                       endpoint_id)
+            basis = "DEFAULT_AT_ENROLMENT"
+        return {**enrolled, **placement, "placement_basis": basis}
     except EnrollmentError as e:
         await rejection.record_rejection(
             _db, tenant_id=body.tenant_id,

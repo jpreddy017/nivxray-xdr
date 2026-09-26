@@ -29,6 +29,8 @@ from fastapi.responses import PlainTextResponse
 
 from deps import db as _db, get_current_user
 from edr_plane.enrollment import store
+from edr_plane.policy import store as policy_store
+from edr_plane.policy.contracts import PolicyConfig
 from routers.edr_enrollment import _tenant
 from services.edr import endpoint_query as eq
 
@@ -49,6 +51,13 @@ DEFAULT_POLICY = {"id": "pol_default_detect_only",
                   "declared_capabilities": ["WINDOWS_EVENT_LOG_COLLECTION"],
                   "not_enforced": ["ransomware_prevention",
                                    "exploit_prevention", "device_control"]}
+
+#: The default policy's Gate 5 config. DETECT_ONLY, process collection
+#: only — exactly what the released connector actually does.
+DEFAULT_POLICY_CONFIG = {"mode": "DETECT_ONLY", "prevention_enabled": False,
+                         "report_interval_seconds": 60,
+                         "heartbeat_interval_seconds": 60,
+                         "collect_process_events": True}
 
 #: Anything that looks like a credential must NOT be in a reusable build.
 _SECRET_SHAPES = (
@@ -219,17 +228,39 @@ async def download_artifact(package_id: str, name: str,
 
 # ── default placement (group + policy) ────────────────────────────
 async def ensure_default_placement(tenant_id: str) -> dict[str, str]:
-    """The default group and policy every newly enrolled computer lands in."""
+    """The default group and policy every newly enrolled computer lands in.
+
+    The default policy is written through the SAME authority as every
+    authored policy (Gate 5): it gets a real, immutable version 1 with a
+    config digest, so a computer in the default group has a policy the
+    connector can actually be delivered and can acknowledge. Without the
+    version there is no digest, and without a digest there is nothing for
+    an endpoint to acknowledge — the computer would honestly but
+    uselessly read POLICY_UNASSIGNED forever.
+    """
     await _db[GROUPS].update_one(
         {"tenant_id": tenant_id, "id": DEFAULT_GROUP["id"]},
         {"$setOnInsert": {**DEFAULT_GROUP, "tenant_id": tenant_id,
                           "is_default": True,
-                          "created_at": _now().isoformat()}}, upsert=True)
+                          "created_at": _now().isoformat()},
+         "$set": {"policy_id": DEFAULT_POLICY["id"]}}, upsert=True)
+    config = PolicyConfig(**DEFAULT_POLICY_CONFIG)
     await _db[POLICIES].update_one(
         {"tenant_id": tenant_id, "id": DEFAULT_POLICY["id"]},
         {"$setOnInsert": {**DEFAULT_POLICY, "tenant_id": tenant_id,
                           "is_default": True,
-                          "created_at": _now().isoformat()}}, upsert=True)
+                          "created_at": _now().isoformat(),
+                          "created_by": "platform"},
+         "$set": {"current_version": 1, "os": "WINDOWS"}}, upsert=True)
+    await _db[policy_store.VERSIONS].update_one(
+        {"tenant_id": tenant_id, "policy_id": DEFAULT_POLICY["id"],
+         "version": 1},
+        {"$setOnInsert": {"config": config.model_dump(),
+                          "config_digest": config.digest(),
+                          "created_at": _now().isoformat(),
+                          "created_by": "platform", "immutable": True,
+                          "notes": "platform default, created at first "
+                                   "enrolment"}}, upsert=True)
     return {"group_id": DEFAULT_GROUP["id"], "policy_id": DEFAULT_POLICY["id"]}
 
 
@@ -241,6 +272,31 @@ async def assign_default_placement(tenant_id: str, endpoint_id: str) -> dict:
          "$or": [{"group_id": None}, {"group_id": {"$exists": False}}]},
         {"$set": {**placement,
                   "placement_basis": "DEFAULT_AT_ENROLMENT",
+                  "placement_at": _now().isoformat()}})
+    return placement
+
+
+async def assign_deployment_placement(tenant_id: str, endpoint_id: str,
+                                      group_id: str,
+                                      deployment_id: str | None = None
+                                      ) -> dict:
+    """Placement chosen by the administrator at Management -> Downloads.
+
+    The group travelled with the enrolment credential, not with the
+    artifact. The policy is whatever that group carries — a computer can
+    never land in a group and a contradicting policy.
+    """
+    group = await _db[GROUPS].find_one({"tenant_id": tenant_id,
+                                        "id": group_id}, {"_id": 0})
+    if group is None:
+        return await assign_default_placement(tenant_id, endpoint_id)
+    placement = {"group_id": group_id, "policy_id": group.get("policy_id")}
+    await _db[store.ENDPOINTS].update_one(
+        {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
+         "$or": [{"group_id": None}, {"group_id": {"$exists": False}}]},
+        {"$set": {**placement,
+                  "placement_basis": "CONNECTOR_DEPLOYMENT",
+                  "deployment_id": deployment_id,
                   "placement_at": _now().isoformat()}})
     return placement
 
@@ -293,22 +349,34 @@ def _status(record: dict) -> dict[str, Any]:
                       f"ago, beyond {int(limit)}s, and no recent heartbeat")}
 
 
-def _protection(policy: dict | None, record: dict) -> dict[str, Any]:
+def _protection(policy: dict | None, record: dict,
+                policy_state: dict | None = None) -> dict[str, Any]:
     if policy is None:
         return {"state": "UNAVAILABLE",
                 "basis": "no policy is assigned to this computer"}
+    st = policy_state or {}
     return {
         "state": ("DETECT_ONLY" if policy.get("mode") == "DETECT_ONLY"
                   else str(policy.get("mode") or "UNAVAILABLE")),
         "prevention_enabled": bool(policy.get("prevention_enabled")),
         "not_enforced": list(policy.get("not_enforced") or []),
+        #: GATE 5 · the five facts, never collapsed. `enforced` stays
+        #: False because the released connector enforces nothing; that is
+        #: a capability fact, separate from the delivery lifecycle.
         "policy_lifecycle": {
             "configured": True,
-            "assigned": bool(record.get("policy_id")),
-            "received_by_sensor": record.get("policy_received_at") is not None,
+            "assigned": bool(st.get("assigned_policy_id")),
+            "delivered": bool(st.get("delivered_at")),
+            "acknowledged": bool(st.get("acknowledged_at")),
+            "applied": bool(st.get("applied_at")),
+            "verified": bool(st.get("verified_at")),
+            "state": st.get("state"),
             "enforced": False,
-            "verified": False,
         },
+        "policy_state": st.get("state"),
+        "policy_state_basis": st.get("basis"),
+        "policy_version": st.get("assigned_version"),
+        "policy_confirmed_by_endpoint": bool(st.get("confirmed_by_endpoint")),
         "basis": ("the assigned policy declares this mode; the Windows V1 "
                   "sensor collects and reports and enforces nothing, so "
                   "enforcement is reported as not enforced rather than as "
@@ -394,7 +462,8 @@ async def _detection_counts(tenant: str, records: list[dict],
 
 def _row(record: dict, policy: dict | None, group: dict | None,
          detections: dict[str, Any] | None,
-         window_hours: int) -> dict[str, Any]:
+         window_hours: int,
+         policy_state: dict | None = None) -> dict[str, Any]:
     state = _status(record)
     addressable = bool(_refs(record))
     return {
@@ -408,7 +477,7 @@ def _row(record: dict, policy: dict | None, group: dict | None,
         "policy": (policy or {}).get("name"),
         "policy_id": record.get("policy_id"),
         "sensor_version": record.get("sensor_version"),
-        "protection": _protection(policy, record),
+        "protection": _protection(policy, record, policy_state),
         "telemetry": {
             "last_telemetry_at": record.get("last_telemetry_at"),
             "last_heartbeat_at": record.get("last_heartbeat_at"),
@@ -467,12 +536,15 @@ async def computers(user: dict = Depends(get_current_user),
     groups = {doc["id"]: doc async for doc in
               _db[GROUPS].find({"tenant_id": tenant})}
     counts = await _detection_counts(tenant, records, window)
-    rows = [_row(record,
-                 policies.get(record.get("policy_id")),
-                 groups.get(record.get("group_id")),
-                 counts.get(record.get("endpoint_id")),
-                 window)
-            for record in records]
+    rows = []
+    for record in records:
+        state = await policy_store.endpoint_policy_state(
+            _db, tenant_id=tenant, endpoint=record)
+        rows.append(_row(record,
+                         policies.get(record.get("policy_id")),
+                         groups.get(record.get("group_id")),
+                         counts.get(record.get("endpoint_id")),
+                         window, state))
     return {
         "tenant_id": tenant,
         "count": len(rows),
@@ -507,10 +579,13 @@ async def computer(endpoint_id: str,
     group = await _db[GROUPS].find_one(
         {"tenant_id": tenant, "id": record.get("group_id")}, {"_id": 0})
     counts = await _detection_counts(tenant, [record], window)
+    policy_state = await policy_store.endpoint_policy_state(
+        _db, tenant_id=tenant, endpoint=record)
     return {
         "tenant_id": tenant,
         "computer": _row(record, policy, group,
-                         counts.get(endpoint_id), window),
+                         counts.get(endpoint_id), window, policy_state),
+        "policy_state": policy_state,
         "enrolment": {
             "enrolled_at": record.get("enrolled_at"),
             "enrollment_state": record.get("enrollment_state"),

@@ -20796,3 +20796,76 @@ STILL OPEN (unchanged): B4 raw retention policy (P1), controlled remainder
 drain of the 121,993 queued (P2), coverage visibility for
 SOURCE_RECORD_NOT_SUPPORTED (P2), the ~73 pre-existing RC5 environment test
 faults (P2). NEXT MILESTONE: NivXForge Windows Device Onboarding V1.
+
+---
+
+# 2026-09-26 · Gate 5 / 7 / 11 + Connector Productization — DELIVERED
+
+Owner decision of this fork (verbatim intent preserved):
+
+1. **Build order — modified parallel.** Shared policy authority first,
+   then Gate 5 / Gate 7 / Gate 11 / Connector concurrently. Policy and
+   Exclusions MUST share one authoritative policy/version/delivery
+   mechanism. No duplicate authorities for speed. Not a waterfall.
+2. **Policy APPLIED proof — endpoint ACK only.** Delivery never
+   produces APPLIED. Lifecycle: CREATED → ASSIGNED → PENDING_DELIVERY
+   → DELIVERED → ACKNOWLEDGED → APPLIED → VERIFIED, plus FAILED,
+   STALE, OUT_OF_SYNC. `ASSIGNED != DELIVERED != APPLIED != VERIFIED`.
+3. **Connector downloads — Cisco Secure Endpoint methodology.** The
+   connector is a released product artifact built ONCE. Deployment
+   context is generated around the release; the binary is never
+   rebuilt per endpoint, group or tenant. No artifact →
+   `ARTIFACT_NOT_PUBLISHED`. Object storage is NOT an architectural
+   requirement; storage/distribution is separately gated.
+4. **Exclusions — server AND endpoint enforcement, truth preserved.**
+   Six distinct truth states; an exclusion must change a named engine's
+   behaviour. A MongoDB record alone is a FAIL.
+5. **Documentation** stays in this fork, written only behind passed
+   implementation.
+
+## Status
+
+| Gate | Status | Evidence |
+|---|---|---|
+| 5 · Policy authority | PASS (server-side lifecycle) | `production-gates/GATE_05_POLICY_AUTHORITY.md` |
+| 7 · Exclusions | PASS (server enforcement proven) | `production-gates/GATE_07_EXCLUSIONS.md` |
+| 8 · Policy application semantics | PASS | GATE_05 |
+| 9 · Exclusions affect engines | PASS | GATE_07 |
+| 11 · Events explorer | PASS | `production-gates/GATE_11_EVENTS_EXPLORER.md` |
+| Connector productization | PASS (release + deployment lifecycle) | `production-gates/CONNECTOR_PRODUCTIZATION.md` |
+
+`tests/edr` 400 passed / 1 skipped. `scripts/gate5_7_11_live_proof.py`
+all live assertions PASSED.
+
+## Prioritized backlog after this wave
+
+**P0**
+* Gate 1 — real Windows endpoint onboarding proof (owner must supply a
+  Windows host). The connector release, deployment workflow and policy
+  ACK path are now ready to be exercised by it.
+* Gate 3 — move the detection fabric from one deterministic projector
+  to real additional engines. No fake ML.
+
+**P1**
+* Gate 12 — responsive validation of light/dark at mobile/tablet
+  breakpoints, now including Events, Policies, Exclusions, Downloads.
+* Gate 6 — retrospection over `edr_findings` without mutating
+  provenance (the fabric still never writes to evidence stores).
+* Gate 17 — vendor-neutral detection-source adapters so XDR can intake
+  NivXForge, CrowdStrike, Defender and Cortex uniformly.
+* Connector: endpoint-side exclusion evaluation + a signed artifact, so
+  `EXCLUSION_NOT_SUPPORTED_BY_ENGINE` can become
+  `ENDPOINT_EXCLUSION_APPLIED`.
+* EDR Audit surface (`/edr/audit`) — the records already exist
+  (`edr_policy_audit`, exclusion `audit[]`); only the surface is
+  missing.
+* Documentation: extend to Device Trajectory, Command Intelligence,
+  Response, Administration, API, XDR integration, Troubleshooting,
+  Compatibility matrix, Release notes, Upgrade/rollback.
+
+**P2**
+* Events: saved searches, shareable deep links, CSV export.
+* Gate 4 offline protection; Gate 13 production operations; Gate 15
+  backup/restore equivalence.
+* Cisco visual parity — still BLOCKED on owner-supplied reference
+  screenshots.

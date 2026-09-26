@@ -105,6 +105,11 @@ const EdrResponsePage   = lazy(() => import("@/nivxforge/pages/EdrResponsePage")
 const EdrComputersPage  = lazy(() => import("@/nivxforge/pages/EdrComputersPage"));
 const EdrAddDevicePage  = lazy(() => import("@/nivxforge/pages/EdrAddDevicePage"));
 const EdrDownloadsPage  = lazy(() => import("@/nivxforge/pages/EdrDownloadsPage"));
+// GATE 11 / GATE 5 / GATE 7 · Events, Policies and Exclusions are now
+// implemented EDR-native surfaces, not placeholders.
+const EdrEventsPage     = lazy(() => import("@/nivxforge/pages/EdrEventsPage"));
+const EdrPoliciesPage   = lazy(() => import("@/nivxforge/pages/EdrPoliciesPage"));
+const EdrExclusionsPage = lazy(() => import("@/nivxforge/pages/EdrExclusionsPage"));
 const EdrDevicePage     = lazy(() => import("@/nivxforge/device/EdrDevicePage"));
 const EdrNotImplementedPage =
   lazy(() => import("@/nivxforge/pages/EdrNotImplementedPage"));
@@ -381,18 +386,16 @@ export default function App() {
         <Route path="/edr/management/downloads" element={<Protected><EdrDownloadsPage /></Protected>} />
         <Route path="/edr/management"    element={<Navigate to="/edr/management/downloads" replace />} />
 
+        {/* GATE 11 · estate-wide Events explorer (implemented). */}
+        <Route path="/edr/events" element={<Protected><EdrEventsPage /></Protected>} />
+        {/* GATE 5 · policy authority + GATE 7 exclusion sets (implemented). */}
+        <Route path="/edr/policies" element={<Protected><EdrPoliciesPage /></Protected>} />
+        <Route path="/edr/exclusions" element={<Protected><EdrExclusionsPage /></Protected>} />
+
         {/* Permanent information architecture. These destinations exist in
             the product and are NOT implemented in this wave: each states the
             capability and why it is unavailable, and the navigation renders
             them disabled rather than as an enabled link. */}
-        <Route path="/edr/events" element={<Protected><EdrNotImplementedPage
-          navKey="events" heading="Events"
-          body="A source-agnostic endpoint event explorer over the raw and canonical evidence stores, with per-field filters and shareable deep links."
-          why="Not implemented in this wave. Event-level evidence is reachable per computer through Device Trajectory and Command Intelligence, both of which read the same authoritative stores." /></Protected>} />
-        <Route path="/edr/policies" element={<Protected><EdrNotImplementedPage
-          navKey="policies" heading="Policies"
-          body="Policy authoring and assignment: collection profile, prevention posture, exclusions and group placement."
-          why="Policy authoring is not implemented. Every newly enrolled computer lands in the default Windows policy (DETECT_ONLY, prevention not enabled), and its enforcement state is reported per computer rather than claimed here." /></Protected>} />
         <Route path="/edr/audit" element={<Protected><EdrNotImplementedPage
           navKey="audit" heading="Audit"
           body="Who did what in the EDR plane: enrolments, credential rotations, policy changes and response authorisations."

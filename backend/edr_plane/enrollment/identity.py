@@ -136,6 +136,13 @@ class EndpointRecord(BaseModel):
     policy_id: Optional[str] = None
     placement_basis: Optional[str] = None
     placement_at: Optional[str] = None
+    #: Set when the group came from a Management -> Downloads deployment
+    #: (the group travelled with the enrolment credential, not with the
+    #: artifact), and when an operator overrode the policy per endpoint.
+    deployment_id: Optional[str] = None
+    policy_source: Optional[str] = None
+    policy_assigned_at: Optional[str] = None
+    policy_assigned_by: Optional[str] = None
 
     def trust_summary(self) -> dict:
         """Directive §10 acceptance criterion: **no ambiguity about trust

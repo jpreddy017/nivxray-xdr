@@ -107,6 +107,43 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("GET", "/api/edr/wave0/contracts/{name}/schema"): PRODUCT_METADATA,
     ("GET", "/api/edr/wave0/filter-taxonomy"): PRODUCT_METADATA,
     ("GET", "/api/edr/wave0/detection-rule-bindings"): PRODUCT_METADATA,
+    # ── routers/edr_policies.py · GATE 5 policy authority (8) ─────────
+    ("GET", "/api/edr/policies"): TENANT_SCOPED,
+    ("POST", "/api/edr/policies"): TENANT_SCOPED,
+    ("GET", "/api/edr/policies/deployment"): TENANT_SCOPED,
+    ("GET", "/api/edr/policies/audit"): TENANT_SCOPED,
+    ("GET", "/api/edr/policies/{policy_id}"): TENANT_SCOPED,
+    ("POST", "/api/edr/policies/{policy_id}/versions"): TENANT_SCOPED,
+    ("POST", "/api/edr/policies/{policy_id}/assign"): TENANT_SCOPED,
+    ("GET", "/api/edr/groups"): TENANT_SCOPED,
+    ("POST", "/api/edr/groups"): TENANT_SCOPED,
+    #: The connector's own policy surface. Tenant comes from the
+    #: authenticated endpoint session; fetching is DELIVERY and the ACK is
+    #: the only route to APPLIED.
+    ("GET", "/api/edr/agent/policy"): SENSOR_SCOPED,
+    ("POST", "/api/edr/agent/policy-ack"): SENSOR_SCOPED,
+    # ── routers/edr_exclusions.py · GATE 7 (7) ────────────────────────
+    ("GET", "/api/edr/exclusions/taxonomy"): PRODUCT_METADATA,
+    ("GET", "/api/edr/exclusions/sets"): TENANT_SCOPED,
+    ("POST", "/api/edr/exclusions/sets"): TENANT_SCOPED,
+    ("GET", "/api/edr/exclusions"): TENANT_SCOPED,
+    ("POST", "/api/edr/exclusions"): TENANT_SCOPED,
+    ("POST", "/api/edr/exclusions/{exclusion_id}/approval"): TENANT_SCOPED,
+    ("POST", "/api/edr/exclusions/{exclusion_id}/revoke"): TENANT_SCOPED,
+    ("GET", "/api/edr/exclusions/enforcement-proof"): TENANT_SCOPED,
+    # ── routers/edr_events.py · GATE 11 estate-wide events (3) ────────
+    ("GET", "/api/edr/events"): TENANT_SCOPED,
+    ("GET", "/api/edr/events/facets"): TENANT_SCOPED,
+    ("GET", "/api/edr/events/{raw_id}"): TENANT_SCOPED,
+    # ── routers/edr_connector.py · release catalog + deployments (5) ──
+    #: A connector RELEASE is product truth: the same artifact, the same
+    #: identity, for every tenant. Deployment context is tenant data.
+    ("GET", "/api/edr/connector/releases"): PRODUCT_METADATA,
+    ("GET", "/api/edr/connector/releases/{release_id}"): PRODUCT_METADATA,
+    ("GET", "/api/edr/connector/releases/{release_id}/artifact/{name}"):
+        PRODUCT_METADATA,
+    ("POST", "/api/edr/connector/deployments"): TENANT_SCOPED,
+    ("GET", "/api/edr/connector/deployments"): TENANT_SCOPED,
 }
 
 

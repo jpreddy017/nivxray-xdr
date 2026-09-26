@@ -18,7 +18,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import {
   LayoutGrid, ShieldAlert, Radar, GitBranch, FileText, Wifi,
   Search, Camera, Terminal, ArrowRightLeft,
-  ArrowLeft, Download, List, ScrollText, SlidersHorizontal,
+  ArrowLeft, Download, List, ScrollText, SlidersHorizontal, ShieldOff,
   BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
@@ -57,9 +57,7 @@ const NAV = [
     { key: "detections",  label: "Detections",  icon: ShieldAlert,
       to: "/edr/detections" },
     { key: "events",      label: "Events",      icon: List,
-      reason: "An endpoint-wide event explorer is not implemented in this "
-        + "wave. Event evidence is reachable per computer through Device "
-        + "Trajectory and Command Intelligence." },
+      to: "/edr/events" },
   ] },
   { title: "Investigate", items: [
     { key: "device-trajectory", label: "Device Trajectory", icon: Radar,
@@ -88,9 +86,9 @@ const NAV = [
     { key: "response", label: "Response", icon: ArrowRightLeft,
       to: "/edr/response" },
     { key: "policies", label: "Policies", icon: SlidersHorizontal,
-      reason: "Policy authoring is not implemented. The default Windows "
-        + "policy is DETECT_ONLY and is shown per computer, where its "
-        + "enforcement state is reported honestly." },
+      to: "/edr/policies" },
+    { key: "exclusions", label: "Exclusions", icon: ShieldOff,
+      to: "/edr/exclusions" },
   ] },
   { title: "Management", items: [
     { key: "downloads", label: "Downloads", icon: Download,

@@ -430,3 +430,52 @@
   .nvf-console .ops-split { flex-direction: column; }
   .nvf-console .ctx-pane { width: 100%; flex-basis: auto; position: static; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   GATE 5 / 7 / 11 · form controls for the management surfaces.
+   Inputs and selects inherit the dense console geometry and the two
+   themes through the same tokens every other surface reads, so a new
+   page cannot drift out of the theme contract.
+   ───────────────────────────────────────────────────────────────────── */
+.nvf-console input[type="text"],
+.nvf-console input[type="number"],
+.nvf-console input:not([type]),
+.nvf-console select,
+.nvf-console textarea {
+  background: var(--panel2);
+  border: 1px solid var(--border-sf);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  padding: 4px 7px;
+  min-width: 170px;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.nvf-console input:focus,
+.nvf-console select:focus,
+.nvf-console textarea:focus { border-color: var(--mint); }
+.nvf-console input::placeholder,
+.nvf-console textarea::placeholder { color: var(--faint); }
+.nvf-console select:disabled,
+.nvf-console input:disabled { opacity: .55; cursor: not-allowed; }
+.nvf-console .kv .v input,
+.nvf-console .kv .v select { width: 100%; max-width: 420px; }
+.nvf-console .ops-toolbar select { min-width: 150px; }
+
+/* Selected release card in Management -> Downloads. */
+.nvf-console .pkg[data-sel="true"] {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 1px var(--mint) inset;
+}
+
+/* Exclusion engine chips double as toggles. */
+.nvf-console button.chip {
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  transition: background-color 140ms ease, border-color 140ms ease,
+              color 140ms ease;
+}
+.nvf-console button.chip:hover { border-color: var(--mint); }

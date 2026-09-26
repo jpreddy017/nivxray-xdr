@@ -7573,3 +7573,68 @@ tests/edr 22 failed (0 new) · core set 48 identical · XDR build exit 0.
 Candidate: HEAD 0fc9be8a + 7 uncommitted files; cumulative vs e7195597 =
 27 files, +1145/-183; `/api/*` path count unchanged at 795.
 PRODUCTION NOT REPUBLISHED — awaiting owner approval.
+
+## 2026-09-26 · Gate 5 + Gate 7 + Gate 11 + Connector Productization
+
+Owner directive executed as four bounded vertical slices sharing ONE
+policy authority (no duplicate authorities, no waterfall).
+
+### Stream A · shared policy authority (Gate 5, Gate 8)
+- `backend/edr_plane/policy/{contracts,store}.py` — nine-state
+  lifecycle, immutable versions, config digests, group/endpoint
+  assignment, delivery + acknowledgement recording, single state
+  derivation.
+- `routers/edr_policies.py` — admin surface (+ `/edr/groups`) and the
+  connector surface `GET /edr/agent/policy` (delivery) /
+  `POST /edr/agent/policy-ack` (the only route to APPLIED/VERIFIED).
+- `pages/EdrPoliciesPage.jsx` — per-computer delivery truth.
+- `edr_onboarding.ensure_default_placement` now writes the platform
+  default policy THROUGH the same authority (real version 1 + digest).
+- `EndpointRecord` gained `deployment_id`, `policy_source`,
+  `policy_assigned_at`, `policy_assigned_by`.
+
+### Stream B · Gate 11 Events Explorer
+- `routers/edr_events.py` (+ `/facets`, `/{raw_id}`) over
+  `edr_raw_events`; keyset cursor on `(ingest_time, raw_id)`; three new
+  indexes; measured (not asserted) activity coverage.
+- `pages/EdrEventsPage.jsx`.
+
+### Stream C · connector productization
+- `backend/edr_plane/connector/catalog.py` — release catalog with
+  on-disk artifact truth (`PUBLISHED` /
+  `ARTIFACT_NOT_PUBLISHED` / `ARTIFACT_INCOMPLETE` /
+  `ARTIFACT_REFUSED_EMBEDDED_CREDENTIAL`).
+- `routers/edr_connector.py` — releases, artifact download, deployment
+  context created AROUND the release (artifact identity unchanged,
+  `rebuild_required_per_endpoint: false`). The chosen group travels
+  with the enrolment credential server-side.
+- `pages/EdrDownloadsPage.jsx` rewritten to the Cisco-class workflow.
+
+### Stream D · Gate 7 Exclusions (Gate 9)
+- `backend/edr_plane/exclusions/{contracts,store,enforcement}.py` —
+  six truth states kept distinct, two-operator approval, retained
+  revocation, policy-version binding, and a real fabric gate.
+- `routers/edr_exclusions.py` incl.
+  `GET /edr/exclusions/enforcement-proof` — runs the real fabric with
+  and without the gate over real evidence and reports the delta.
+- `pages/EdrExclusionsPage.jsx`.
+
+### Stream E · documentation
+- `/app/docs/nivxforge-edr/` — README, Quick Start, User Guide,
+  Connector Deployment Guide, Policy Guide, Exclusions Guide, Events
+  Guide. Implemented truth only.
+
+### Verification
+- `tests/edr` 400 passed / 1 skipped / 0 failed.
+- `scripts/gate5_7_11_live_proof.py` — all live assertions PASSED.
+- `scripts/seed_edr_approver.py` — second operator required to prove
+  the exclusion approval path (self-approval is refused).
+- Light + dark screenshots of all four new surfaces; honest empty
+  states verified on an isolation-control tenant.
+
+### Also fixed
+- Empty-customer states on Policies and Events now name the CUSTOMER
+  selector instead of rendering bare zeros (reported by the owner).
+- All 20 new EDR routes registered in
+  `routers/edr_tenancy.ROUTE_CLASSIFICATION` (75 EDR routes, 0
+  unclassified).

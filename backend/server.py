@@ -685,6 +685,20 @@ api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
 from routers.edr_onboarding import router as edr_onboarding_router
 api.include_router(edr_onboarding_router)
+# GATE 5 · policy authority + GATE 7 exclusions + GATE 11 events explorer
+# + connector productization (Management -> Downloads).
+from routers.edr_policies import (agent as edr_policy_agent,
+                                  groups_router as edr_groups_router,
+                                  router as edr_policies_router)
+api.include_router(edr_policies_router)
+api.include_router(edr_groups_router)
+api.include_router(edr_policy_agent)
+from routers.edr_exclusions import router as edr_exclusions_router
+api.include_router(edr_exclusions_router)
+from routers.edr_events import router as edr_events_router
+api.include_router(edr_events_router)
+from routers.edr_connector import releases as edr_connector_router
+api.include_router(edr_connector_router)
 
 
 # v2 · Additive next-generation namespace (Phase 3+).
@@ -940,8 +954,37 @@ async def _startup():
              ("collector_id", 1), ("connector_id", 1)],
             name="obs_device_identity_facts", sparse=True, background=True)
 
+        # GATE 11 · the Events Explorer paginates on the keyset
+        # (ingest_time, raw_id); the index for that is ensured in its own
+        # block below so a legacy index conflict here cannot skip it.
         log.info("[startup] edr_raw_events + enrollment indexes ensured "
                  "(append-only)")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
+    # GATE 5 / GATE 7 / GATE 11 · policy authority, exclusion plane and the
+    # estate-wide Events Explorer keyset. Deliberately its OWN try block:
+    # an unrelated legacy index conflict above must not skip these.
+    try:
+        from edr_plane.policy.store import ensure_indexes as _ensure_pol
+        from edr_plane.exclusions.store import ensure_indexes as _ensure_exc
+        from deps import db as _pol_db
+        await _ensure_pol(_pol_db)
+        await _ensure_exc(_pol_db)
+        for spec, name in (
+            ([("tenant_id", 1), ("ingest_time", -1), ("raw_id", -1)],
+             "events_keyset"),
+            ([("tenant_id", 1), ("derivations.outcome", 1),
+              ("ingest_time", -1)], "events_detection_time"),
+            ([("tenant_id", 1), ("payload_sha256", 1)],
+             "events_payload_hash"),
+        ):
+            await _pol_db["edr_raw_events"].create_index(
+                spec, name=name, background=True)
+        log.info("[startup] policy authority + exclusion + events indexes "
+                 "ensured")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] policy/exclusion/events indexes failed: {e}")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] edr_raw_events indexes failed: {e}")
 
