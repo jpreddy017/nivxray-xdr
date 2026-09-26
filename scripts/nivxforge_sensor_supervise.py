@@ -69,15 +69,74 @@ def _post(url: str, body: dict, bearer: str | None = None) -> dict:
         return json.loads(r.read())
 
 
+def _production() -> bool:
+    return (os.environ.get("NIVX_DEPLOYMENT_ENV") or "").strip().lower() \
+        == "production"
+
+
+def _provisioned_token() -> str | None:
+    """The enrolment token, provisioned to this endpoint by the installer.
+
+    Two accepted shapes, in order: an environment variable, or a file
+    whose path is given by `NIVXFORGE_ENROLLMENT_TOKEN_FILE`. The file is
+    DELETED after it is read — the token is single-use server-side, so
+    leaving a spent bearer secret on the endpoint's disk buys nothing and
+    costs a credential at rest.
+    """
+    tok = (os.environ.get("NIVXFORGE_ENROLLMENT_TOKEN") or "").strip()
+    if tok:
+        return tok
+    path = (os.environ.get("NIVXFORGE_ENROLLMENT_TOKEN_FILE") or "").strip()
+    if path and Path(path).exists():
+        tok = Path(path).read_text().strip()
+        try:
+            Path(path).unlink()
+        except OSError:
+            pass
+        return tok or None
+    return None
+
+
 def _enrol(api: str, tenant: str, state: Path, env: dict[str, str]) -> None:
+    """P0-PROD-2 · bootstrap with a provisioned one-time enrolment token.
+
+    The endpoint no longer holds, needs or logs in with an
+    administrator/operator credential. It presents a short-lived,
+    single-use, tenant-bound token that some authorised backend principal
+    minted for it, and receives its own endpoint-scoped credential.
+    """
+    token = _provisioned_token()
+    if token:
+        os.execv(sys.executable,
+                 [sys.executable, str(SENSOR), "enrol", "--api", api,
+                  "--tenant", tenant, "--token", token])
+        return
+
+    if _production():
+        sys.exit(
+            "cannot bootstrap enrolment: no enrolment token is provisioned "
+            "(NIVXFORGE_ENROLLMENT_TOKEN or NIVXFORGE_ENROLLMENT_TOKEN_FILE). "
+            "Under NIVX_DEPLOYMENT_ENV=production the legacy "
+            "administrator-credential bootstrap is REMOVED and there is no "
+            "fallback. Mint a token from the console "
+            "(POST /api/edr/enrollment/tokens) and provision it to this "
+            "endpoint. Refusing to start; the console will correctly report "
+            "this endpoint as blind.")
+
+    # ── NON-PRODUCTION ONLY ──────────────────────────────────────────
+    # Development/lab convenience: mint a token on the endpoint's behalf
+    # using an operator credential. This path is unavailable in production
+    # (checked above) and must never be relied upon by an installer.
     email = os.environ.get("NIVXFORGE_ENROL_EMAIL") or env.get("ADMIN_EMAIL")
     password = (os.environ.get("NIVXFORGE_ENROL_PASSWORD")
                 or env.get("ADMIN_PASSWORD"))
     if not email or not password:
-        sys.exit("cannot bootstrap enrolment: no operator credential is "
-                 "configured (NIVXFORGE_ENROL_EMAIL/PASSWORD or "
-                 "ADMIN_EMAIL/ADMIN_PASSWORD). Refusing to start; the "
-                 "console will correctly report this endpoint as blind.")
+        sys.exit("cannot bootstrap enrolment: no enrolment token is "
+                 "provisioned and no non-production operator credential is "
+                 "configured. Refusing to start; the console will correctly "
+                 "report this endpoint as blind.")
+    print("[supervise] WARNING: non-production operator-credential "
+          "bootstrap. This path does not exist in production.", flush=True)
     token = _post(f"{api}/api/auth/login",
                   {"email": email, "password": password}).get("access_token")
     if not token:
@@ -95,7 +154,7 @@ def _enrol(api: str, tenant: str, state: Path, env: dict[str, str]) -> None:
 
 
 def main() -> None:
-    env = _env_file()
+    env = {} if _production() else _env_file()
     api = os.environ.get("NIVXFORGE_SENSOR_API", "http://localhost:8001")
     tenant = os.environ.get("NIVXFORGE_SENSOR_TENANT", "default")
     interval = os.environ.get("NIVXFORGE_SENSOR_INTERVAL", "15")

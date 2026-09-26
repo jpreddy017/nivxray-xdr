@@ -21160,3 +21160,35 @@ behind the foundation gate.
 Recorded later slices: EDR-console approval-request UI (authority stays
 backend-owned); a real `expires_at` on the authority artifact.
 
+
+---
+
+## 2026-06 · P0-PROD-2 · SECURE ENDPOINT ENROLMENT — PASS (owner review pending)
+
+Evidence: `memory/production-gates/P0PROD2_ENDPOINT_ENROLLMENT.md`
+
+Delivered:
+- Unused-enrolment-token revocation (`POST /api/edr/enrollment/tokens/{token_id}/revoke`),
+  kept strictly distinct from endpoint-identity revocation.
+- Truthful token state model ACTIVE / CONSUMED / EXPIRED / REVOKED; a malformed
+  document never resolves to ACTIVE; `legacy_state` retained for the console.
+- New append-only `edr_enrollment_audit` (TOKEN_CREATED, TOKEN_REVOKED,
+  ENROLLMENT_SUCCEEDED, ENROLLMENT_REJECTED), surfaced via the existing
+  `GET /api/edr/audit?category=ENROLMENT`, with redaction enforced in code.
+- Linux supervised launcher no longer logs in with ADMIN_EMAIL/ADMIN_PASSWORD:
+  token-first bootstrap, and under `NIVX_DEPLOYMENT_ENV=production` the
+  operator-credential path is REMOVED with no fallback.
+- Windows installer confirmed already token-only; locked by test.
+- 25 new focused tests; 0 new regressions vs BASELINE_PYTEST_PRE_P0PROD2.json.
+
+Not done / next (owner-approved order):
+- P0-PROD-3 Production EDR backend plane (dependencies enumerated in §26 of the
+  evidence doc: required routes, EDR_AUTH_PEPPER as a fresh production secret,
+  ensure_indexes at startup, production tenant registration).
+- Then PRODUCTION SYNC: production secrets/resources → Emergent republish →
+  production API smoke → NivXRay XDR Vercel → NivXForge EDR Vercel → console
+  verification.
+- P0-PROD-4 (response authority) required before destructive response is enabled.
+- P0-PROD-6 (replica/background-job correctness) required before those jobs run.
+- Carried debt, explicitly NOT touched: 547 failed / 128 errored whole-suite
+  baseline and 3 collection-aborting modules.

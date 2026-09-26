@@ -26,6 +26,7 @@ from edr_plane import raw_events as raw
 from edr_plane.canonical_bridge import bridge
 from edr_plane.contracts.identity import EndpointIdentity
 from edr_plane.enrollment import store
+from edr_plane.enrollment import audit as enrollment_audit
 from edr_plane.enrollment.identity import AuthenticatedEndpoint
 from edr_plane.enrollment import rejection
 from edr_plane.enrollment.security import digest as _digest
@@ -124,6 +125,30 @@ async def list_tokens(request: Request,
                      "or its stored digest.")}
 
 
+class RevokeTokenBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=3,
+                        description="Recorded verbatim in the audit record.")
+
+
+@admin.post("/tokens/{token_id}/revoke")
+async def revoke_token(token_id: str, body: RevokeTokenBody, request: Request,
+                       user: dict = Depends(get_current_user)) -> dict:
+    """Revoke an UNUSED enrolment token.
+
+    Deliberately distinct from endpoint revocation: this closes a
+    bootstrap authority that has not been spent yet and never retracts an
+    identity that was already issued.
+    """
+    try:
+        return await store.revoke_enrollment_token(
+            _db, tenant_id=_tenant(user, request), token_id=token_id,
+            revoked_by=(user or {}).get("email") or "unknown",
+            reason=body.reason)
+    except EnrollmentError as e:
+        _fail(e)
+
+
 @admin.get("/endpoints")
 async def list_enrolled(request: Request,
                         user: dict = Depends(get_current_user)) -> dict:
@@ -220,6 +245,13 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
                     "tenant; the caller is told only that the token is "
                     "not valid"),
             path="/api/edr/agent/enroll", endpoint_id=None)
+        await enrollment_audit.record_safe(
+            _db, tenant_id=body.tenant_id,
+            event=enrollment_audit.ENROLLMENT_REJECTED,
+            actor="unknown-endpoint", outcome="REJECTED",
+            reason_code="TENANT_NOT_AUTHORITATIVE",
+            presented_secret=body.enrollment_token,
+            source_ip=(request.client.host if request.client else None))
         _fail(e)
     try:
         endpoint_id = EndpointIdentity.mint(
@@ -267,6 +299,13 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
             source_ip=(request.client.host if request.client else None),
             code=e.code, reason=e.reason or e.code, path="/api/edr/agent/enroll",
             endpoint_id=endpoint_id)
+        await enrollment_audit.record_safe(
+            _db, tenant_id=body.tenant_id,
+            event=enrollment_audit.ENROLLMENT_REJECTED,
+            actor=endpoint_id, outcome="REJECTED", reason_code=e.code,
+            endpoint_id=endpoint_id,
+            presented_secret=body.enrollment_token,
+            source_ip=(request.client.host if request.client else None))
         _fail(e)
 
 

@@ -215,6 +215,25 @@ async def _enrolment(tenant: str, since: str) -> List[Dict[str, Any]]:
             detail={"group_id": e.get("group_id"),
                     "policy_id": e.get("policy_id"),
                     "deployment_id": e.get("deployment_id")}))
+    # P0-PROD-2 · the enrolment-token lifecycle, read from the store the
+    # operation itself wrote. Never contains token or credential material.
+    async for a in _db["edr_enrollment_audit"].find(
+            {"tenant_id": tenant, "at": {"$gte": since}},
+            {"_id": 0}).sort("at", -1).limit(PER_SOURCE_CAP):
+        out.append(_rec(
+            at=a.get("at"), actor=a.get("actor"), action=a.get("event"),
+            category="ENROLMENT",
+            target=a.get("token_id") or a.get("endpoint_id") or "enrolment",
+            target_type=("ENROLLMENT_TOKEN" if a.get("token_id")
+                         else "ENDPOINT"),
+            new_state=a.get("outcome"), reason=a.get("reason_code"),
+            endpoint_id=a.get("endpoint_id"), result=a.get("outcome"),
+            evidence_ref=(a.get("token_id") or a.get("secret_fingerprint")
+                          or a.get("at")),
+            source_store="edr_enrollment_audit",
+            detail={**(a.get("detail") or {}),
+                    "source_ip": a.get("source_ip"),
+                    "secret_fingerprint": a.get("secret_fingerprint")}))
     return out
 
 

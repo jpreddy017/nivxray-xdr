@@ -28,6 +28,7 @@ from uuid import uuid4
 
 from pymongo import ASCENDING, ReturnDocument
 
+from . import audit
 from .identity import (CredentialState, EndpointRecord, EnrollmentState,
                        SensorState)
 from .security import (PREFIX_CREDENTIAL, PREFIX_ENROLLMENT, PREFIX_SESSION,
@@ -77,9 +78,13 @@ def _session_ttl() -> int:
 
 
 async def ensure_indexes(db: Any) -> None:
+    await audit.ensure_indexes(db)
     await db[TOKENS].create_index(
         [("tenant_id", ASCENDING), ("token_hash", ASCENDING)], unique=True,
         name="uniq_tenant_token")
+    await db[TOKENS].create_index(
+        [("tenant_id", ASCENDING), ("token_id", ASCENDING)], unique=True,
+        name="uniq_tenant_token_id")
     # TTL is CLEANUP, not authorisation. Every read also checks expires_at,
     # because MongoDB's TTL monitor runs on a delay and an expired document
     # can still be present.
@@ -110,9 +115,10 @@ async def mint_enrollment_token(db: Any, *, tenant_id: str, issued_by: str,
     now = _now()
     ttl = ttl_seconds or _token_ttl()
     expires = now + timedelta(seconds=ttl)
+    token_id = f"tok_{uuid4().hex[:16]}"
     await db[TOKENS].insert_one({
         "tenant_id": tenant_id,
-        "token_id": f"tok_{uuid4().hex[:16]}",
+        "token_id": token_id,
         "token_hash": digest(plaintext),
         "label": label,
         "issued_by": issued_by,
@@ -122,11 +128,100 @@ async def mint_enrollment_token(db: Any, *, tenant_id: str, issued_by: str,
         "ttl_seconds": ttl,
         "used_at": None,
         "used_by_endpoint_id": None,
+        "revoked_at": None,
+        "revoked_by": None,
+        "revoke_reason": None,
     })
-    return {"enrollment_token": plaintext, "expires_at": _iso(expires),
+    await audit.record(db, tenant_id=tenant_id, event=audit.TOKEN_CREATED,
+                       actor=issued_by, outcome="CREATED", token_id=token_id,
+                       detail={"ttl_seconds": ttl, "label": label,
+                               "single_use": True})
+    return {"enrollment_token": plaintext, "token_id": token_id,
+            "expires_at": _iso(expires),
             "ttl_seconds": ttl, "single_use": True,
             "warning": ("Shown once. It cannot be retrieved again. Store it "
                         "in the agent's protected configuration.")}
+
+
+TOKEN_STATE_ACTIVE = "ACTIVE"
+TOKEN_STATE_CONSUMED = "CONSUMED"
+TOKEN_STATE_EXPIRED = "EXPIRED"
+TOKEN_STATE_REVOKED = "REVOKED"
+
+
+def token_state(doc: dict, now: datetime | None = None) -> str:
+    """The truthful state of one token.
+
+    Precedence is deliberate: REVOKED and CONSUMED are FACTS that already
+    happened, so they outrank the merely temporal EXPIRED. An unknown or
+    malformed document never resolves to ACTIVE — absence of an expiry is
+    treated as expired rather than as permission.
+    """
+    now = now or _now()
+    if doc.get("revoked_at"):
+        return TOKEN_STATE_REVOKED
+    if doc.get("used_at"):
+        return TOKEN_STATE_CONSUMED
+    raw_expiry = doc.get("expires_at")
+    try:
+        expires = datetime.fromisoformat(raw_expiry)
+    except (TypeError, ValueError):
+        return TOKEN_STATE_EXPIRED
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return TOKEN_STATE_EXPIRED if expires <= now else TOKEN_STATE_ACTIVE
+
+
+async def revoke_enrollment_token(db: Any, *, tenant_id: str, token_id: str,
+                                  revoked_by: str, reason: str) -> dict:
+    """Revoke an UNUSED enrolment token.
+
+    Two things this deliberately is not:
+
+      * It is not retroactive. A token that was already consumed keeps its
+        CONSUMED state and the endpoint identity it minted stays valid —
+        killing that identity is `revoke_endpoint()`, a separate security
+        decision with its own audit record.
+      * It is not a read-then-write. The conditional update carries
+        `used_at: None, revoked_at: None`, so a revocation racing a live
+        enrolment cannot half-happen: either the enrolment burned the
+        token or the revocation closed it.
+    """
+    now = _now()
+    doc = await db[TOKENS].find_one_and_update(
+        {"tenant_id": tenant_id, "token_id": token_id,
+         "used_at": None, "revoked_at": None},
+        {"$set": {"revoked_at": _iso(now), "revoked_by": revoked_by,
+                  "revoke_reason": reason}},
+        projection={"_id": 0, "token_hash": 0},
+        return_document=ReturnDocument.AFTER)
+    if not doc:
+        existing = await db[TOKENS].find_one(
+            {"tenant_id": tenant_id, "token_id": token_id},
+            {"_id": 0, "token_hash": 0})
+        if not existing:
+            raise EnrollmentError("ENROLLMENT_TOKEN_NOT_FOUND", 404,
+                                  "no such enrolment token in this tenant")
+        state = token_state(existing, now)
+        raise EnrollmentError(
+            "ENROLLMENT_TOKEN_NOT_REVOCABLE", 409,
+            f"this token is {state}; only an unused token can be revoked. "
+            + ("Revoking the token would not undo the enrolment it already "
+               "performed — use the endpoint revoke route to kill that "
+               "endpoint's identity." if state == TOKEN_STATE_CONSUMED else
+               "It can no longer be used for enrolment in any case."))
+    await audit.record(db, tenant_id=tenant_id, event=audit.TOKEN_REVOKED,
+                       actor=revoked_by, outcome="REVOKED", token_id=token_id,
+                       reason_code="OPERATOR_REVOKED",
+                       detail={"reason": reason, "label": doc.get("label")})
+    return {
+        "token_id": token_id, "state": TOKEN_STATE_REVOKED,
+        "revoked_at": doc["revoked_at"], "revoked_by": revoked_by,
+        "reason": reason,
+        "note": ("Enrolment-token revocation only. No endpoint identity or "
+                 "agent credential was touched — those are revoked "
+                 "separately and audited separately."),
+    }
 
 
 async def consume_enrollment_token(db: Any, *, tenant_id: str,
@@ -138,7 +233,8 @@ async def consume_enrollment_token(db: Any, *, tenant_id: str,
     now = _now()
     doc = await db[TOKENS].find_one_and_update(
         {"tenant_id": tenant_id, "token_hash": digest(presented),
-         "used_at": None, "expires_at_dt": {"$gt": now}},
+         "used_at": None, "revoked_at": None,
+         "expires_at_dt": {"$gt": now}},
         {"$set": {"used_at": _iso(now)}},
         projection={"_id": 0, "token_id": 1, "label": 1},
         return_document=ReturnDocument.BEFORE)
@@ -164,6 +260,9 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
     """
     token = await consume_enrollment_token(
         db, tenant_id=tenant_id, presented=presented_token)
+    await db[TOKENS].update_one(
+        {"tenant_id": tenant_id, "token_id": token.get("token_id")},
+        {"$set": {"used_by_endpoint_id": endpoint_id}})
 
     now = _now()
     credential = new_secret(PREFIX_CREDENTIAL)
@@ -225,6 +324,13 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
         stored["sensor_state"] = healed
     sensor_state = (stored.get("sensor_state")
                     or SensorState.ENROLLED_NEVER_REPORTED.value)
+    await audit.record(
+        db, tenant_id=tenant_id, event=audit.ENROLLMENT_SUCCEEDED,
+        actor=endpoint_id, outcome="ENROLLED",
+        token_id=token.get("token_id"), endpoint_id=endpoint_id,
+        detail={"credential_id": credential_id, "platform": platform,
+                "hostname": hostname, "sensor_version": sensor_version,
+                "sensor_state": sensor_state})
     return {
         "endpoint_id": endpoint_id,
         "credential_id": credential_id,
@@ -514,8 +620,14 @@ async def list_tokens(db: Any, *, tenant_id: str) -> list[dict]:
         {"_id": 0, "token_hash": 0}).sort("created_at", -1).to_list(length=200)
     now = _now()
     for r in rows:
-        expired = datetime.fromisoformat(r["expires_at"]) <= now
-        r["state"] = ("USED" if r.get("used_at")
-                      else "EXPIRED" if expired else "PENDING")
+        state = token_state(r, now)
+        r["state"] = state
+        # Legacy vocabulary, kept so an older console rendering does not
+        # silently show a blank state during the transition.
+        r["legacy_state"] = {TOKEN_STATE_ACTIVE: "PENDING",
+                             TOKEN_STATE_CONSUMED: "USED",
+                             TOKEN_STATE_REVOKED: "USED",
+                             TOKEN_STATE_EXPIRED: "EXPIRED"}[state]
+        r["usable"] = state == TOKEN_STATE_ACTIVE
         r["single_use"] = True
     return rows
