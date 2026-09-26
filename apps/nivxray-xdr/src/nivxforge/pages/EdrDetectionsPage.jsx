@@ -119,10 +119,14 @@ const EndpointDetections = ({ endpointId, incidentId }) => {
                     {r.raw_id} → {r.canonical_event_id}
                   </td>
                   <td>
-                    {/* Hand off on the stable identifier, so the
-                        trajectory opens on THIS observation. */}
+                    {/* EDR-NATIVE pivot. This linked to
+                        `/xdr/edr/device-trajectory`, which meant an
+                        ordinary endpoint investigation step (detection →
+                        trajectory) left the NivXForge product. The
+                        EDR-native route carries the same identifiers, so
+                        the trajectory still opens on THIS observation. */}
                     <Link
-                      to={`/xdr/edr/device-trajectory?device=`
+                      to={`/edr/device-trajectory?device=`
                         + `${encodeURIComponent(endpointId)}`
                         + `&raw_event_id=${encodeURIComponent(r.raw_id)}`
                         + (r.canonical_event_id

@@ -208,18 +208,35 @@ def _func(rel: str, name: str):
 
 def test_every_live_route_resolves_identity():
     """Route-contract half of the guard: each enumerated live surface
-    must call the authoritative resolver itself."""
+    must reference the authoritative resolver ITSELF.
+
+    A surface may call it directly, or hand it to `asyncio.to_thread`
+    (the resolver is a sync pymongo path, and an async route that calls
+    it inline blocks the event loop — see
+    `production-gates/GATE_10_SCALE_AND_PERFORMANCE.md`). Both forms name
+    the same single authority, which is what this invariant protects;
+    what stays forbidden is a route resolving identity some other way,
+    or not resolving it at all.
+    """
     missing = []
     for rel, name in LIVE_ENDPOINT_ROUTES:
         fn = _func(rel, name)
         if fn is None:
             missing.append(f"{rel}::{name} NOT FOUND")
             continue
-        calls = {(n.func.attr if isinstance(n.func, ast.Attribute)
-                  else getattr(n.func, "id", None))
-                 for n in ast.walk(fn) if isinstance(n, ast.Call)}
-        if "resolve_endpoint" not in calls:
-            missing.append(f"{rel}::{name} does not call resolve_endpoint")
+        names = set()
+        for n in ast.walk(fn):
+            if isinstance(n, ast.Call):
+                names.add(n.func.attr if isinstance(n.func, ast.Attribute)
+                          else getattr(n.func, "id", None))
+            # `to_thread(eq.resolve_endpoint, ...)` — the resolver appears
+            # as a callable argument rather than as the called function.
+            elif isinstance(n, ast.Attribute):
+                names.add(n.attr)
+            elif isinstance(n, ast.Name):
+                names.add(n.id)
+        if "resolve_endpoint" not in names:
+            missing.append(f"{rel}::{name} does not use resolve_endpoint")
     assert not missing, ("P0-2C ROUTE CONTRACT VIOLATION:\n  " +
                          "\n  ".join(missing))
 

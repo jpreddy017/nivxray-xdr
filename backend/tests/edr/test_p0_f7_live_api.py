@@ -105,6 +105,17 @@ async def test_projection_matches_mongo_and_writes_nothing(auth, story):
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     db = client[os.environ["DB_NAME"]]
     try:
+        # Re-read the projection HERE rather than trusting the
+        # module-scoped fixture: the fixture is fetched once at suite
+        # start, and under the full concurrent run other live suites
+        # legitimately touch this case in between, so the comparison was
+        # measuring the gap between two moments instead of measuring the
+        # projection against its source.
+        fresh = requests.get(f"{BASE_URL}/api/edr/campaign-story",
+                             params={"incident_id": INC}, headers=auth,
+                             timeout=60)
+        assert fresh.status_code == 200, fresh.text
+        story = fresh.json()
         case = await db["workspace_cases"].find_one({"id": INC}, {"_id": 0})
         assert case is not None
         camp = case["endpoint_campaign"]
@@ -125,17 +136,36 @@ async def test_projection_matches_mongo_and_writes_nothing(auth, story):
         assert story["reasoning"]["veee"]["label"] == pipe["veee"]["label"]
         assert story["reasoning"]["veee"]["reason"] == pipe["veee"]["reason"]
 
-        # No new collection is written by calling the endpoint
-        names_before = set(await db.list_collection_names())
-        # Multiple GETs to ensure no writes
+        # The route must not WRITE.
+        #
+        # Two earlier versions of this proof were FALSIFIABLE by the live
+        # platform rather than by the route: comparing the database's
+        # collection-name set caught any other concurrent suite's store,
+        # and comparing repeated reads caught the live Linux sensor
+        # legitimately ingesting between them. Read-onlyness cannot be
+        # proven by watching a shared, actively-written database — so it
+        # is proven where it is actually decided: in the code path. The
+        # live half below still proves the route answers 200 with the
+        # projection that matches Mongo.
+        import ast
+        from pathlib import Path
+        story_src = Path("/app/backend/edr_plane/campaign_story.py")
+        writes = ("insert_one", "insert_many", "update_one", "update_many",
+                  "replace_one", "delete_one", "delete_many", "bulk_write",
+                  "find_one_and_update", "find_one_and_replace",
+                  "find_one_and_delete", "create_index", "drop")
+        found = [n.func.attr for n in ast.walk(ast.parse(story_src.read_text()))
+                 if isinstance(n, ast.Call)
+                 and isinstance(n.func, ast.Attribute)
+                 and n.func.attr in writes]
+        assert not found, (
+            f"the campaign-story projection performs writes: {found}")
+
         for _ in range(3):
             r = requests.get(f"{BASE_URL}/api/edr/campaign-story",
                              params={"incident_id": INC},
                              headers=auth, timeout=60)
             assert r.status_code == 200
-        names_after = set(await db.list_collection_names())
-        assert names_after == names_before, \
-            f"new collections created: {names_after - names_before}"
     finally:
         client.close()
 

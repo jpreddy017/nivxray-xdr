@@ -62,16 +62,28 @@ def _tenant(user: dict, req: Request | None = None) -> str:
         raise HTTPException(status_code=e.http, detail=e.detail()) from None
 
 
-def _agent_tenant(tenant_id: str) -> str:
+def _agent_tenant(tenant_id: str, *, oracle: str) -> str:
     """Tenant presented by a sensor. The one-time token / credential is
     tenant-scoped, so a wrong value already fails to match; the registry adds
     "and it must be a registered, ACTIVE tenant". Enrolment never creates
-    tenancy."""
+    tenancy.
+
+    ERROR-ORACLE RULE (P0-A.2): this surface is UNAUTHENTICATED, so the
+    registry's own `TENANT_NOT_FOUND` / inactive refusals may not reach
+    it — an attacker could otherwise enumerate which tenant ids exist by
+    watching 403 against 401, before presenting any credential at all.
+    An unregistered tenant is therefore indistinguishable from an
+    unknown, expired, reused or foreign token: the caller gets the one
+    generic 401. The admin surfaces keep the specific refusal, because
+    there the caller has already proven who they are.
+    """
     try:
         return tenant_registry.authoritative(tenant_id,
                                              purpose="edr.agent")
-    except tenant_registry.TenantRegistryError as e:
-        raise HTTPException(status_code=e.http, detail=e.detail()) from None
+    except tenant_registry.TenantRegistryError:
+        raise EnrollmentError(oracle, 401, store.GENERIC_TOKEN_FAILURE
+                              if oracle == "ENROLLMENT_TOKEN_INVALID"
+                              else "agent credential is not valid") from None
 
 
 def _fail(e: EnrollmentError):
@@ -195,7 +207,19 @@ async def enroll(body: EnrollBody, request: Request) -> dict:
     in that precedence because it is the only attribute an attacker can
     trivially change.
     """
-    _agent_tenant(body.tenant_id)
+    try:
+        _agent_tenant(body.tenant_id, oracle="ENROLLMENT_TOKEN_INVALID")
+    except EnrollmentError as e:
+        await rejection.record_rejection(
+            _db, tenant_id=body.tenant_id,
+            presented_secret=body.enrollment_token,
+            source_ip=(request.client.host if request.client else None),
+            code="TENANT_NOT_AUTHORITATIVE",
+            reason=("the presented tenant is not a registered, active "
+                    "tenant; the caller is told only that the token is "
+                    "not valid"),
+            path="/api/edr/agent/enroll", endpoint_id=None)
+        _fail(e)
     try:
         endpoint_id = EndpointIdentity.mint(
             tenant_id=body.tenant_id, processor_id=body.processor_id,
@@ -239,7 +263,19 @@ class SessionBody(BaseModel):
 @agent.post("/session")
 async def open_session(body: SessionBody, request: Request) -> dict:
     """Exchange the durable credential for a short-lived scoped session."""
-    _agent_tenant(body.tenant_id)
+    try:
+        _agent_tenant(body.tenant_id, oracle="AGENT_CREDENTIAL_INVALID")
+    except EnrollmentError as e:
+        await rejection.record_rejection(
+            _db, tenant_id=body.tenant_id,
+            presented_secret=body.agent_credential,
+            source_ip=(request.client.host if request.client else None),
+            code="TENANT_NOT_AUTHORITATIVE",
+            reason=("the presented tenant is not a registered, active "
+                    "tenant; the caller is told only that the credential "
+                    "is not valid"),
+            path="/api/edr/agent/session", endpoint_id=None)
+        _fail(e)
     try:
         return await store.open_session(
             _db, tenant_id=body.tenant_id,

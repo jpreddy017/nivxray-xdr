@@ -1,5 +1,65 @@
 # NivXRay — Master Reminders + Product Requirements
 
+## 2026-06 (cont.) · OWNER LOCKS: EDR INDEPENDENCE · DETECTION SOURCES · TEST BASELINE GREEN
+
+- **Test baseline RESOLVED** — `tests/edr` **400 passed / 0 failed / 1
+  skipped** (session start 347/24). Every failure classified
+  (`production-gates/GATE_18_TEST_BASELINE_CLASSIFICATION.md`) and fixed,
+  not silenced. Two were REAL: (a) **a security defect** — the
+  unauthenticated agent surfaces leaked tenant existence (401 for a known
+  tenant vs 403 `TENANT_NOT_FOUND` for an unknown one), letting anyone
+  enumerate tenant ids before presenting a credential; now one generic
+  401 on both paths, recorded internally as `TENANT_NOT_AUTHORITATIVE`,
+  with admin surfaces keeping the specific refusal; (b) a regression I
+  introduced in the P0-2C route contract when the resolver moved onto
+  `asyncio.to_thread`. Live-suite nondeterminism (edge 429 login bursts,
+  Cloudflare 504) is now handled in `tests/edr/conftest.py` — gateway
+  statuses retried, product 4xx/5xx never retried.
+- **GATE 16 · EDR independence — gate live.** Audited every `/xdr`
+  reference in the EDR bundle and classified all 10
+  (`GATE_16_EDR_INDEPENDENCE.md`). Three ILLEGAL dependencies found and
+  fixed: Detections → `/xdr/edr/device-trajectory` (an ordinary
+  detection→trajectory pivot left the product) now `/edr/device-trajectory`;
+  the breadcrumb root inside the EDR console was `NivXRay XDR → /xdr`,
+  now **`NivXForge EDR → /edr`**; the incident context chip was a bare
+  link into XDR, now context-only inside EDR. The two sanctioned pivots
+  are relabelled **"Return to NivXRay XDR incident ↗"** and
+  **"Investigate in NivXRay XDR ↗"**. New static gate
+  `test_gate16_edr_independence.py` (5 tests) fails CI on any undeclared
+  EDR→XDR navigation, on an unlabelled pivot, on importing an XDR page
+  component, and on a nav item that is not `/edr/*` — and it also scans
+  the shared components the EDR console mounts, which is how the
+  breadcrumb leak was caught.
+- **Product identity corrected**: the EDR product is **NivXForge EDR**
+  (wordmark, label, document title) — it had been shipping as "NivXRay
+  EDR", i.e. presenting itself as the XDR product.
+- **WAVE UI-1 started (light-first)**: the Cisco Secure Endpoint console
+  is light-first, so NivXForge EDR now **defaults to light** when no
+  preference is stored (XDR keeps its dark default; a stored preference
+  always wins). Verified live at 1920×800.
+- **GATE 17 · vendor-neutral Detection Source architecture — DESIGN
+  FROZEN** (`GATE_17_DETECTION_SOURCE_ARCHITECTURE.md`): source
+  alert/detection → normalised finding with mandatory `detection_source`
+  → XDR correlation → XDR incident; peer sources (NivXForge, CrowdStrike,
+  Defender, SentinelOne, Cortex, future); per-integration capability
+  discovery with truthful unsupported states; response requests never
+  bypass the endpoint authority; **no database coupling**; and NivXForge
+  gets **no private pathway** — it uses the same adapter/intake chain.
+- **Gates 5, 7, 11 assigned by the owner**: 5 = Policy authority &
+  endpoint policy enforcement (nine states, acknowledgement identifies
+  the exact version applied); 7 = Exclusions & declared blind spots
+  (serialised behind 5 and 3); 11 = Estate-wide Events explorer
+  (server-side filtering, cursoring, deep links — independent, can run in
+  parallel).
+- **Gate 12 recorded as PASS_DESKTOP / RESPONSIVE_VALIDATION_PENDING**,
+  and every new surface inherits the two-theme release requirement.
+- **NOT DONE / honest**: the Cisco visual replication wave beyond the
+  light-first default. The console is behind Cisco authentication and the
+  public User Guide PDF yielded no measurable geometry, so there is no
+  reference to measure against — reference captures are needed for
+  pixel-level fidelity (nav width, header height, row height, control
+  height, radii, type scale).
+
 ## 2026-06 · PRODUCTION GATES PROGRAM OPENED · A1 + A2 CLOSED · GATES 3/6/10/12 ADVANCED
 
 Owner directive: **high-throughput parallel execution** — independent

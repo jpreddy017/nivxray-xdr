@@ -182,12 +182,16 @@ export function IncidentContextBanner() {
           <span className="v">◇ {err}</span>
         </span>
       )}
+      {/* EXPLICIT cross-product pivot: the analyst arrived from a NivXRay
+          XDR incident, so this returns THERE. It is labelled as leaving
+          the product (↗) because ordinary EDR navigation must never end
+          up in XDR silently. */}
       <Link
         to={inv?.href || `/xdr/incidents/${encodeURIComponent(ctx.incident_id)}`}
         className="ret"
         data-testid="edr-return-to-incident"
       >
-        <ArrowLeft size={11} /> Return to Incident
+        <ArrowLeft size={11} /> Return to NivXRay XDR incident ↗
       </Link>
     </div>
   );
@@ -224,11 +228,17 @@ export default function NivXForgeConsole({ activeTab, children }) {
     }
   }, [tenant, tenants]);
 
+  // WAVE UI-1 · the Cisco Secure Endpoint console is LIGHT-FIRST, and the
+  // benchmark for this product is that console — so NivXForge EDR opens
+  // light when the analyst has expressed no preference. A stored
+  // preference (either value) always wins, and NivXRay XDR keeps its own
+  // dark default: this changes the EDR product's default only.
   const [theme, setTheme] = useState(() => {
     try {
-      return window.localStorage.getItem("nx.theme") === "light"
-        ? "light" : "dark";
-    } catch { return "dark"; }
+      const stored = window.localStorage.getItem("nx.theme");
+      if (stored === "light" || stored === "dark") return stored;
+      return "light";
+    } catch { return "light"; }
   });
 
   useEffect(() => {
@@ -315,7 +325,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
                 title={isCrossOrigin("xdr")
                   ? `Investigate in NivXRay XDR (${productHref("xdr", "/xdr")})`
                   : "Investigate in NivXRay XDR"}>
-          Investigate in NivXRay XDR
+          Investigate in NivXRay XDR ↗
         </button>
         {/* EDR → Workspace hand-off. A SEPARATE frontend at its own
             origin, so it opens in a new tab and is never routed to. */}

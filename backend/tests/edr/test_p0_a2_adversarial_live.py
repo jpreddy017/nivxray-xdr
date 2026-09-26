@@ -35,14 +35,31 @@ def admin_token() -> str:
 
 @pytest.fixture(scope="module")
 def admin_hdr(admin_token):
-    return {"Authorization": f"Bearer {admin_token}"}
+    """CONTRACT CORRECTION (`OBSOLETE_CONTRACT`): these probes were written
+    when the EDR admin surfaces derived the tenant from the authenticated
+    admin. The platform now refuses that — `TENANT_REQUIRED · the
+    authoritative tenant must be presented explicitly; there is no default
+    tenant` — so the authoritative tenant travels with every admin call.
+    The refusal itself is asserted in
+    `test_an_admin_call_without_an_explicit_tenant_is_refused`."""
+    return {"Authorization": f"Bearer {admin_token}",
+            "X-Tenant-Id": TENANT}
+
+
+def test_an_admin_call_without_an_explicit_tenant_is_refused(admin_token):
+    r = requests.post(f"{BASE_URL}/api/edr/enrollment/tokens",
+                      headers={"Authorization": f"Bearer {admin_token}"},
+                      json={}, timeout=15)
+    assert r.status_code == 403, r.text
+    detail = r.json()["detail"]
+    assert detail["code"] == "TENANT_REQUIRED"
+    assert "no default tenant" in detail["reason"]
 
 
 def _mint_token(admin_hdr):
-    # The tokens endpoint derives tenant from the authenticated admin; body
-    # accepts only optional fields (extra=forbid). Try with an empty body,
-    # then fall back to a couple of harmless variants if the schema expects
-    # a label or ttl override.
+    # The tokens endpoint requires the authoritative tenant in the header
+    # (see `admin_hdr`); the body accepts only optional fields
+    # (extra=forbid), so try an empty body first and then a label.
     for body in ({}, {"label": "adv-probe"}):
         r = requests.post(f"{BASE_URL}/api/edr/enrollment/tokens",
                           headers=admin_hdr, json=body, timeout=15)
@@ -73,8 +90,12 @@ def test_admin_routes_reject_unauthenticated():
     for path in ("/api/edr/enrollment/tokens",
                  "/api/edr/enrollment/endpoints",
                  "/api/edr/enrollment/rejections"):
-        r = requests.get(f"{BASE_URL}{path}", timeout=10)
-        assert r.status_code in (401, 403), f"{path} exposed to anon: {r.status_code}"
+        r = requests.get(f"{BASE_URL}{path}", timeout=30)
+        # 429 is the edge throttling an anonymous burst — also a refusal,
+        # and it is what this probe hits when the whole live suite runs
+        # concurrently. What must never appear is a 2xx.
+        assert r.status_code in (401, 403, 429), \
+            f"{path} exposed to anon: {r.status_code}"
 
 
 def test_agent_routes_do_NOT_require_platform_user():

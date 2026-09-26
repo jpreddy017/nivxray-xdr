@@ -37,31 +37,31 @@ const TRAILS = [
   [/^\/xdr\/admin/, ["Administration"]],
   [/^\/xdr\/assets/, ["Assets"]],
   [/^\/xdr\/edr\/device-trajectory/,
-   ["NivXRay EDR", "Device Trajectory"]],
-  [/^\/edr\/computers\/add/, ["NivXRay EDR", "Computers", "Add device"]],
+   ["NivXForge EDR", "Device Trajectory"]],
+  [/^\/edr\/computers\/add/, ["NivXForge EDR", "Computers", "Add device"]],
   [/^\/edr\/computers\/[^/]+\/trajectory/,
-   ["NivXRay EDR", "Computers", "Device", "Trajectory"]],
+   ["NivXForge EDR", "Computers", "Device", "Trajectory"]],
   [/^\/edr\/computers\/[^/]+\/commands/,
-   ["NivXRay EDR", "Computers", "Device", "Command Intelligence"]],
-  [/^\/edr\/computers\/[^/]+/, ["NivXRay EDR", "Computers", "Device"]],
-  [/^\/edr\/computers/, ["NivXRay EDR", "Computers"]],
+   ["NivXForge EDR", "Computers", "Device", "Command Intelligence"]],
+  [/^\/edr\/computers\/[^/]+/, ["NivXForge EDR", "Computers", "Device"]],
+  [/^\/edr\/computers/, ["NivXForge EDR", "Computers"]],
   [/^\/edr\/management\/downloads/,
-   ["NivXRay EDR", "Management", "Downloads"]],
-  [/^\/edr\/events/, ["NivXRay EDR", "Events"]],
-  [/^\/edr\/policies/, ["NivXRay EDR", "Policies"]],
-  [/^\/edr\/audit/, ["NivXRay EDR", "Audit"]],
-  [/^\/edr\/detections/, ["NivXRay EDR", "Detections"]],
-  [/^\/edr\/process-tree/, ["NivXRay EDR", "Process Tree"]],
-  [/^\/edr\/campaign-story/, ["NivXRay EDR", "Campaign Story"]],
-  [/^\/edr\/device-trajectory/, ["NivXRay EDR", "Device Trajectory"]],
-  [/^\/edr\/files/, ["NivXRay EDR", "Files"]],
-  [/^\/edr\/network/, ["NivXRay EDR", "Network"]],
-  [/^\/edr\/hunting/, ["NivXRay EDR", "Threat Hunting"]],
-  [/^\/edr\/forensics/, ["NivXRay EDR", "Forensics"]],
-  [/^\/edr\/live-query/, ["NivXRay EDR", "Live Query"]],
-  [/^\/edr\/response/, ["NivXRay EDR", "Response"]],
-  [/^\/edr\/trajectory/, ["NivXRay EDR", "Device Trajectory (legacy)"]],
-  [/^\/edr/, ["NivXRay EDR"]],
+   ["NivXForge EDR", "Management", "Downloads"]],
+  [/^\/edr\/events/, ["NivXForge EDR", "Events"]],
+  [/^\/edr\/policies/, ["NivXForge EDR", "Policies"]],
+  [/^\/edr\/audit/, ["NivXForge EDR", "Audit"]],
+  [/^\/edr\/detections/, ["NivXForge EDR", "Detections"]],
+  [/^\/edr\/process-tree/, ["NivXForge EDR", "Process Tree"]],
+  [/^\/edr\/campaign-story/, ["NivXForge EDR", "Campaign Story"]],
+  [/^\/edr\/device-trajectory/, ["NivXForge EDR", "Device Trajectory"]],
+  [/^\/edr\/files/, ["NivXForge EDR", "Files"]],
+  [/^\/edr\/network/, ["NivXForge EDR", "Network"]],
+  [/^\/edr\/hunting/, ["NivXForge EDR", "Threat Hunting"]],
+  [/^\/edr\/forensics/, ["NivXForge EDR", "Forensics"]],
+  [/^\/edr\/live-query/, ["NivXForge EDR", "Live Query"]],
+  [/^\/edr\/response/, ["NivXForge EDR", "Response"]],
+  [/^\/edr\/trajectory/, ["NivXForge EDR", "Device Trajectory (legacy)"]],
+  [/^\/edr/, ["NivXForge EDR"]],
 ];
 
 const Chip = ({ k, v, testid, tone }) => (
@@ -92,9 +92,17 @@ export default function XdrContextBar() {
   }, []);
 
   if (pathname === "/login") return null;
-  const trail = (TRAILS.find(([re]) => re.test(pathname)) || [null, []])[1];
   const plane = pathname.startsWith("/edr")
     || pathname.startsWith("/xdr/edr") ? "NIVXFORGE_EDR" : "NIVXRAY_XDR";
+  const rawTrail = (TRAILS.find(([re]) => re.test(pathname))
+                    || [null, []])[1];
+  // The root link already names the product, so the trail must not repeat
+  // it inside the EDR console (it read "NivXForge EDR › NivXForge EDR ›
+  // Computers"). Outside the EDR console the segment IS the product name
+  // and stays.
+  const trail = plane === "NIVXFORGE_EDR"
+    ? rawTrail.filter((s) => s !== "NivXForge EDR")
+    : rawTrail;
 
   const device = params.get("device") || params.get("endpoint_id");
   const incident = params.get("incident_id") || params.get("incident");
@@ -126,10 +134,21 @@ export default function XdrContextBar() {
       <nav data-testid="xdr-breadcrumbs"
            style={{ display: "flex", alignItems: "center", gap: 4,
                     fontSize: 10.6, color: "var(--muted)" }}>
-        <Link to="/xdr" style={{ color: "var(--muted)",
-                                 textDecoration: "none" }}>
-          NivXRay XDR
-        </Link>
+        {/* PRODUCT ROOT. Inside the NivXForge EDR console the trail must
+            root in the EDR product — this used to root in `NivXRay XDR`
+            and link to `/xdr`, which made the very first breadcrumb of
+            every EDR page a silent exit from the product. */}
+        {plane === "NIVXFORGE_EDR" ? (
+          <Link to="/edr" data-testid="edr-breadcrumb-root"
+                style={{ color: "var(--muted)", textDecoration: "none" }}>
+            NivXForge EDR
+          </Link>
+        ) : (
+          <Link to="/xdr" style={{ color: "var(--muted)",
+                                   textDecoration: "none" }}>
+            NivXRay XDR
+          </Link>
+        )}
         {trail.map((seg, i) => (
           <span key={seg} style={{ display: "flex", alignItems: "center",
                                    gap: 4 }}>
@@ -152,11 +171,21 @@ export default function XdrContextBar() {
       )}
       {device && <Chip k="Endpoint" v={device} testid="xdr-ctx-endpoint" />}
       {incident && (
+        plane === "NIVXFORGE_EDR" ? (
+          /* Inside the EDR product the incident is CONTEXT, not a door:
+             this chip was a bare link to `/xdr/incidents/…`, so clicking
+             the incident in NivXForge silently left the product. The
+             labelled pivots ("Return to NivXRay XDR incident ↗",
+             "Investigate in NivXRay XDR ↗") own that transition. */
+          <Chip k="Incident" v={incident} testid="xdr-ctx-incident"
+                tone="var(--cyan)" />
+        ) : (
         <Link to={`/xdr/incidents/${encodeURIComponent(incident)}`}
               style={{ textDecoration: "none" }}>
           <Chip k="Incident" v={incident} testid="xdr-ctx-incident"
                 tone="var(--cyan)" />
         </Link>
+        )
       )}
       {(raw || cev) && (
         <Chip k="Evidence" v={raw || cev} testid="xdr-ctx-evidence" />
