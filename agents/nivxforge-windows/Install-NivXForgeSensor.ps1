@@ -110,6 +110,10 @@ try {
   Write-Host "`n=== 1 . STAGE ===" -ForegroundColor Cyan
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   Copy-Item (Join-Path $PSScriptRoot 'nivxforge_sensor.py') $InstallDir -Force
+  # The canonical endpoint exclusion evaluator ships with the release and
+  # is imported by the connector. Without it the connector cannot honour
+  # an exclusion, so a missing copy must fail the install loudly.
+  Copy-Item (Join-Path $PSScriptRoot 'nivxforge_exclusions.py') $InstallDir -Force
   Write-Host ('  sensor    : ' + $Sensor)
   Write-Host ('  python    : ' + $python)
 

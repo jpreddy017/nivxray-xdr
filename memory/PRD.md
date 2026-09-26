@@ -20869,3 +20869,63 @@ all live assertions PASSED.
   backup/restore equivalence.
 * Cisco visual parity — still BLOCKED on owner-supplied reference
   screenshots.
+
+## 2026-09-26 · OWNER DIRECTIVE · READ-ONLY EDR CISCO GAP AUDIT (COMPLETE)
+
+Read-only engineering audit of NivXForge EDR against Cisco Secure
+Endpoint capability families. **Zero implementation / code / sensor /
+CSS / test changes** (verified: only the running sensor's own
+`.state/*` runtime files and the pytest cache changed on disk).
+
+Written:
+* `/app/memory/production-gates/NIVXFORGE_EDR_CISCO_GAP_MATRIX.md`
+* `/app/memory/production-gates/NIVXFORGE_EDR_IMPLEMENTATION_PLAN.md`
+
+Evidence standard: `IMPLEMENTED + PROVEN` = code path (file+line) **and**
+a passing deterministic test or committed live proof. Provenance tagged
+`[T]` test / `[L]` historical live proof / `[S]` current-session
+read-only verification. Current-session baseline re-run:
+`tests/edr` **425 passed, 1 skipped, 0 failed**.
+
+Three material corrections to previously recorded status:
+1. `KILL_PROCESS` IS implemented and is the best-evidenced response verb
+   (identity-bound, pid-reuse-refusing, independently verified) — it was
+   wrongly recorded as NOT IMPLEMENTED; but the release catalog declares
+   no response actions at all.
+2. There is **no EDR-owned detection engine**. `deterministic_rule.py`
+   projects derivations produced by the XDR pipeline; `fabric/store.py`
+   has no caller and `edr_findings` holds 0 documents — findings are
+   computed then discarded.
+3. Response has tenant authority but **no action-level RBAC and no
+   approver separate from the requester**; exclusions do enforce two
+   operators. Strongest control sits on the least destructive surface.
+
+Roll-up: 34 rows IMPLEMENTED + PROVEN · 8 IMPLEMENTED + UNPROVEN · 12/14
+PARTIAL · prevention, endpoint-local detection, ML, quarantine, live
+query, forensics, File Trajectory, DNS/registry telemetry, signing,
+self-protection, macOS, reporting and public API all NOT IMPLEMENTED.
+
+Backlog re-sequenced (plan doc has acceptance evidence per item):
+* **P0** response RBAC · exclusion `COLLECTION|DETECTION|PREVENTION`
+  scope · findings persistence · policy stamping on evidence ·
+  telemetry field completeness **before** new classes · drop accounting
+  · Windows object telemetry · response-verb declaration.
+* **P1** endpoint-local detection + offline plane · prevention v1
+  (terminate + quarantine/restore) · retrospection · File Trajectory ·
+  outbreak control · connector/policy signing · self-protection ·
+  **Gate 12 responsive closure (still failing, recurrence 2)** · audit
+  export + weekly exclusion digest · evidence-ref resolvability ·
+  `AUDIT` mode + safe rollback.
+* **P2** live query · forensics · behavioural/ransomware · validated ML
+  · exploit/memory protection · macOS · public API + reporting · filter
+  taxonomy (blocked on owner's verbatim 43 items).
+
+Standing blockers: Gate 1 Windows real-host proof (owner-provided host,
+never to be simulated); Gate 12 responsive; owner review of this audit
+gates all implementation.
+
+Note: the verbatim A–O family list from the directive is not preserved
+in this repo; A–K match the prior recorded structure, L–O were audited
+as the remaining Secure Endpoint domains and are flagged for label
+confirmation (classifications unaffected by renaming).
+

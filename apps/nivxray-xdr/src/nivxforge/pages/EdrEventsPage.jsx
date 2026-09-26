@@ -8,10 +8,13 @@
  * than silently missing.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, RefreshCw, Search, X } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Bookmark, ChevronDown, Link2, RefreshCw, Search, Trash2, X }
+  from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
-import { getEvent, getEventFacets, listEvents }
+import { createSavedView, deleteSavedView, getEvent, getEventFacets,
+         getSavedView, listEvents, listSavedViews }
   from "@/nivxforge/managementApi";
 import { Ago, Kpi, NA, OpsTable, Refusal, Skeleton, StateChip }
   from "@/nivxforge/components/OpsPrimitives";
@@ -127,7 +130,79 @@ function EventPane({ rawId, onClose }) {
   );
 }
 
+/**
+ * A saved view stores the QUERY, never the results: opening one re-queries
+ * the evidence the operator is currently authorised for. The URL carries
+ * only a view id — no filters, no tokens, no evidence — and the tenant
+ * predicate is applied server-side when it is resolved.
+ */
+function SavedViews({ views, activeId, onOpen, onSave, onDelete, onClear }) {
+  const [name, setName] = useState("");
+  const [shared, setShared] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const active = views.find((v) => v.view_id === activeId);
+
+  return (
+    <div className="ops-toolbar" data-testid="edr-events-saved-views">
+      <Bookmark size={11} />
+      <select value={activeId || ""} data-testid="edr-saved-view-select"
+              onChange={(e) => (e.target.value
+                ? onOpen(e.target.value) : onClear())}>
+        <option value="">No saved view — ad hoc query</option>
+        {views.map((v) => (
+          <option key={v.view_id} value={v.view_id}>
+            {v.name}{v.shared ? " · shared" : ""}
+            {v.is_owner ? "" : ` (${v.owner})`}
+          </option>))}
+      </select>
+      {active ? (
+        <>
+          <button className="btn" data-testid="edr-saved-view-share"
+                  onClick={() => {
+                    const url = window.location.origin + active.deep_link;
+                    navigator.clipboard?.writeText(url);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}>
+            <Link2 size={11} /> {copied ? "Link copied" : "Copy link"}
+          </button>
+          {active.is_owner ? (
+            <button className="btn" data-testid="edr-saved-view-delete"
+                    onClick={() => onDelete(active.view_id)}>
+              <Trash2 size={11} /> Delete
+            </button>
+          ) : null}
+        </>
+      ) : null}
+      <div className="spacer" />
+      <input value={name} placeholder="Save these filters as…"
+             onChange={(e) => setName(e.target.value)}
+             data-testid="edr-saved-view-name" />
+      <label className="basis" style={{ display: "flex", alignItems: "center",
+                                        gap: 5 }}>
+        <input type="checkbox" checked={shared} style={{ minWidth: 0 }}
+               onChange={(e) => setShared(e.target.checked)}
+               data-testid="edr-saved-view-shared" />
+        shareable
+      </label>
+      <button className="btn mint" disabled={busy || name.trim().length < 2}
+              data-testid="edr-saved-view-save"
+              onClick={async () => {
+                setBusy(true);
+                try { await onSave(name.trim(), shared); setName(""); }
+                finally { setBusy(false); }
+              }}>
+        {busy ? "Saving…" : "Save view"}
+      </button>
+    </div>
+  );
+}
+
 export default function EdrEventsPage() {
+  const [search, setSearch] = useSearchParams();
+  const [views, setViews] = useState([]);
+  const [activeView, setActiveView] = useState(search.get("view") || null);
   const [hours, setHours] = useState(24);
   const [activity, setActivity] = useState("");
   const [detection, setDetection] = useState("");
@@ -166,6 +241,81 @@ export default function EdrEventsPage() {
   }, [params]);
 
   useEffect(() => { load(false, null); }, [load]);
+
+  const loadViews = useCallback(() => {
+    listSavedViews("events").then((d) => setViews(d.views || []))
+      .catch(() => setViews([]));
+  }, []);
+  useEffect(loadViews, [loadViews]);
+
+  // Resolving a deep link is a SERVER call: the tenant predicate is
+  // applied there, which is why a shared URL cannot reach another
+  // customer's evidence.
+  const openView = useCallback((viewId) => {
+    getSavedView(viewId)
+      .then((v) => {
+        const f = v.filters || {};
+        setActivity(f.activity || "");
+        setDetection(f.detection || "");
+        setEndpoint(f.endpoint_id || "");
+        setQ(f.q || "");
+        setTerm(f.q || "");
+        setSort(v.sort || "desc");
+        if (v.time?.mode === "RELATIVE" && v.time?.hours) {
+          setHours(v.time.hours);
+        }
+        setActiveView(viewId);
+        setErr(null);
+        const next = new URLSearchParams(search);
+        next.set("view", viewId);
+        setSearch(next, { replace: true });
+      })
+      .catch((e) => {
+        setActiveView(null);
+        setErr(apiErrorText(e, "saved view unavailable"));
+      });
+  }, [search, setSearch]);
+
+  useEffect(() => {
+    const fromUrl = search.get("view");
+    if (fromUrl && fromUrl !== activeView) openView(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.get("view")]);
+
+  const saveView = async (name, shared) => {
+    try {
+      const filters = {};
+      if (activity) filters.activity = activity;
+      if (detection) filters.detection = detection;
+      if (endpoint) filters.endpoint_id = endpoint;
+      if (term) filters.q = term;
+      const v = await createSavedView({
+        name, surface: "events", filters, sort, columns: [],
+        time: { mode: "RELATIVE", hours }, shared });
+      loadViews();
+      setActiveView(v.view_id);
+      const next = new URLSearchParams(search);
+      next.set("view", v.view_id);
+      setSearch(next, { replace: true });
+    } catch (e) {
+      setErr(apiErrorText(e, "view refused"));
+    }
+  };
+
+  const removeView = async (viewId) => {
+    try { await deleteSavedView(viewId); } catch (e) {
+      setErr(apiErrorText(e, "delete refused")); return;
+    }
+    loadViews();
+    clearView();
+  };
+
+  const clearView = () => {
+    setActiveView(null);
+    const next = new URLSearchParams(search);
+    next.delete("view");
+    setSearch(next, { replace: true });
+  };
 
   useEffect(() => {
     let live = true;
@@ -247,6 +397,10 @@ export default function EdrEventsPage() {
                testid="edr-kpi-activity-classes" />
         </div>
       ) : null}
+
+      <SavedViews views={views} activeId={activeView} onOpen={openView}
+                  onSave={saveView} onDelete={removeView}
+                  onClear={clearView} />
 
       <div className="ops-toolbar" data-testid="edr-events-toolbar">
         <div className="seg">

@@ -122,6 +122,8 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     #: the only route to APPLIED.
     ("GET", "/api/edr/agent/policy"): SENSOR_SCOPED,
     ("POST", "/api/edr/agent/policy-ack"): SENSOR_SCOPED,
+    #: GATE 7 · the endpoint's own statement of what its engine enforced.
+    ("POST", "/api/edr/agent/exclusion-enforcement"): SENSOR_SCOPED,
     # ── routers/edr_exclusions.py · GATE 7 (7) ────────────────────────
     ("GET", "/api/edr/exclusions/taxonomy"): PRODUCT_METADATA,
     ("GET", "/api/edr/exclusions/sets"): TENANT_SCOPED,
@@ -144,6 +146,18 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
         PRODUCT_METADATA,
     ("POST", "/api/edr/connector/deployments"): TENANT_SCOPED,
     ("GET", "/api/edr/connector/deployments"): TENANT_SCOPED,
+    # ── routers/edr_audit.py · EDR-native audit aggregator (2) ────────
+    ("GET", "/api/edr/audit"): TENANT_SCOPED,
+    ("GET", "/api/edr/audit/facets"): TENANT_SCOPED,
+    # ── routers/edr_saved_views.py · saved investigation views (5) ────
+    #: A saved view is tenant data holding QUERY state only. Tenant
+    #: authority is applied on every read, so a shared deep link cannot
+    #: reach another customer's evidence.
+    ("GET", "/api/edr/saved-views"): TENANT_SCOPED,
+    ("POST", "/api/edr/saved-views"): TENANT_SCOPED,
+    ("GET", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
+    ("PATCH", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
+    ("DELETE", "/api/edr/saved-views/{view_id}"): TENANT_SCOPED,
 }
 
 

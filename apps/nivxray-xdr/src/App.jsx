@@ -110,6 +110,7 @@ const EdrDownloadsPage  = lazy(() => import("@/nivxforge/pages/EdrDownloadsPage"
 const EdrEventsPage     = lazy(() => import("@/nivxforge/pages/EdrEventsPage"));
 const EdrPoliciesPage   = lazy(() => import("@/nivxforge/pages/EdrPoliciesPage"));
 const EdrExclusionsPage = lazy(() => import("@/nivxforge/pages/EdrExclusionsPage"));
+const EdrAuditPage      = lazy(() => import("@/nivxforge/pages/EdrAuditPage"));
 const EdrDevicePage     = lazy(() => import("@/nivxforge/device/EdrDevicePage"));
 const EdrNotImplementedPage =
   lazy(() => import("@/nivxforge/pages/EdrNotImplementedPage"));
@@ -391,15 +392,13 @@ export default function App() {
         {/* GATE 5 · policy authority + GATE 7 exclusion sets (implemented). */}
         <Route path="/edr/policies" element={<Protected><EdrPoliciesPage /></Protected>} />
         <Route path="/edr/exclusions" element={<Protected><EdrExclusionsPage /></Protected>} />
+        {/* EDR-native audit, aggregated from the authoritative stores. */}
+        <Route path="/edr/audit" element={<Protected><EdrAuditPage /></Protected>} />
 
         {/* Permanent information architecture. These destinations exist in
             the product and are NOT implemented in this wave: each states the
             capability and why it is unavailable, and the navigation renders
             them disabled rather than as an enabled link. */}
-        <Route path="/edr/audit" element={<Protected><EdrNotImplementedPage
-          navKey="audit" heading="Audit"
-          body="Who did what in the EDR plane: enrolments, credential rotations, policy changes and response authorisations."
-          why="The EDR-scoped audit surface is not implemented in this wave. Platform audit records continue to be written and are readable in NivXRay XDR." /></Protected>} />
 
 
         {/* Scope-aware catch-all. Previously this was a hard

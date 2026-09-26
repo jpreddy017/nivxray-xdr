@@ -94,8 +94,7 @@ const NAV = [
     { key: "downloads", label: "Downloads", icon: Download,
       to: "/edr/management/downloads" },
     { key: "audit", label: "Audit", icon: ScrollText,
-      reason: "The EDR audit surface is not implemented in this wave; "
-        + "platform audit remains in NivXRay XDR." },
+      to: "/edr/audit" },
   ] },
 ];
 

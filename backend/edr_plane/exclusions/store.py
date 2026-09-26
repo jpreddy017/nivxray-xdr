@@ -19,6 +19,9 @@ from edr_plane.exclusions.contracts import (ApprovalState, ENFORCEABLE_STATES,
 
 SETS = "edr_exclusion_sets"
 EXCLUSIONS = "edr_exclusions"
+#: What endpoints reported their OWN engines actually enforced. This is
+#: the only source `ENDPOINT_EXCLUSION_APPLIED` may be derived from.
+ENFORCEMENT = "edr_endpoint_exclusion_enforcement"
 
 
 class ExclusionError(Exception):
@@ -38,6 +41,103 @@ async def ensure_indexes(db: Any) -> None:
                                       unique=True, name="uniq_tenant_excl")
     await db[EXCLUSIONS].create_index([("tenant_id", 1), ("set_id", 1)],
                                       name="tenant_set")
+    await db[ENFORCEMENT].create_index(
+        [("tenant_id", 1), ("endpoint_id", 1), ("exclusion_id", 1)],
+        unique=True, name="uniq_tenant_endpoint_exclusion")
+    await db[ENFORCEMENT].create_index([("tenant_id", 1), ("exclusion_id", 1)],
+                                       name="tenant_exclusion")
+
+
+async def record_endpoint_enforcement(db: Any, *, tenant_id: str,
+                                      endpoint_id: str, engine: str,
+                                      evaluator_version: Optional[str],
+                                      policy: Dict[str, Any],
+                                      stale: bool,
+                                      reports: List[Dict[str, Any]]
+                                      ) -> Dict[str, Any]:
+    """Persist what an endpoint said its own engine enforced.
+
+    Every reported exclusion id is re-validated against THIS tenant. An
+    id the tenant does not own is recorded as
+    `REJECTED_NOT_IN_TENANT` and can never contribute to an enforcement
+    state — a connector cannot assert enforcement of another tenant's
+    exclusion by naming its id.
+    """
+    at = _now()
+    accepted, rejected = 0, []
+    for r in reports:
+        exclusion_id = str(r.get("exclusion_id") or "")
+        owned = await db[EXCLUSIONS].find_one(
+            {"tenant_id": tenant_id, "exclusion_id": exclusion_id},
+            {"_id": 0, "exclusion_id": 1})
+        if not owned:
+            rejected.append(exclusion_id)
+            await db[ENFORCEMENT].update_one(
+                {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
+                 "exclusion_id": exclusion_id},
+                {"$set": {"acceptance": "REJECTED_NOT_IN_TENANT",
+                          "honoured_count": 0, "engine": engine,
+                          "reported_at": at,
+                          "basis": ("the endpoint named an exclusion this "
+                                    "tenant does not own; the report is "
+                                    "retained and contributes nothing")},
+                 "$setOnInsert": {"created_at": at}}, upsert=True)
+            continue
+        accepted += 1
+        await db[ENFORCEMENT].update_one(
+            {"tenant_id": tenant_id, "endpoint_id": endpoint_id,
+             "exclusion_id": exclusion_id},
+            {"$set": {"engine": r.get("engine") or engine,
+                      "acceptance": r.get("acceptance"),
+                      "honoured_count": int(r.get("honoured_count") or 0),
+                      "matched_attribute": r.get("matched_attribute"),
+                      "observed_value_digests":
+                          list(r.get("observed_value_digests") or [])[:5],
+                      "first_at": r.get("first_at"),
+                      "last_at": r.get("last_at"),
+                      "policy_id": r.get("policy_id") or policy.get("policy_id"),
+                      "policy_version": (r.get("policy_version")
+                                         or policy.get("version")),
+                      "config_digest": (r.get("config_digest")
+                                        or policy.get("config_digest")),
+                      "evaluator_version": evaluator_version,
+                      "policy_stale_at_endpoint": bool(stale),
+                      "reported_at": at},
+             "$setOnInsert": {"created_at": at}}, upsert=True)
+    return {"recorded": accepted, "rejected_not_in_tenant": rejected,
+            "reported_at": at}
+
+
+async def endpoint_enforcement_map(db: Any, *, tenant_id: str,
+                                   endpoint_id: Optional[str] = None
+                                   ) -> Dict[str, Dict[str, Any]]:
+    """`exclusion_id` -> the endpoint enforcement record.
+
+    With no endpoint filter the records are folded across the estate:
+    counts are summed and the strongest acceptance wins, so an exclusion
+    is APPLIED on the estate as soon as ONE endpoint proves it enforced
+    it — while the per-endpoint distribution stays available.
+    """
+    q: Dict[str, Any] = {"tenant_id": tenant_id}
+    if endpoint_id:
+        q["endpoint_id"] = endpoint_id
+    out: Dict[str, Dict[str, Any]] = {}
+    async for r in db[ENFORCEMENT].find(q, {"_id": 0}):
+        key = r["exclusion_id"]
+        cur = out.get(key)
+        if cur is None:
+            out[key] = {**r, "endpoints_reporting": 1}
+            continue
+        cur["endpoints_reporting"] += 1
+        cur["honoured_count"] = (int(cur.get("honoured_count") or 0)
+                                 + int(r.get("honoured_count") or 0))
+        if r.get("acceptance") == "HONOURED":
+            cur["acceptance"] = "HONOURED"
+            cur["matched_attribute"] = (cur.get("matched_attribute")
+                                        or r.get("matched_attribute"))
+        if str(r.get("last_at") or "") > str(cur.get("last_at") or ""):
+            cur["last_at"] = r.get("last_at")
+    return out
 
 
 # ── sets ─────────────────────────────────────────────────────────────

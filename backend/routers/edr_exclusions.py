@@ -66,7 +66,11 @@ async def taxonomy(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
         "approval_states": [s.value for s in ApprovalState],
         "authority_contract": AUTHORITY_CONTRACT,
         "connector_capabilities": catalog.capabilities(
-            "nvf-connector-windows-0.1.0-x64"),
+            "nvf-connector-windows-0.2.0-x64"),
+        "endpoint_enforcement_contract": (
+            "ENDPOINT_EXCLUSION_APPLIED is derived ONLY from an enforcement "
+            "report the endpoint produced on its own authenticated session. "
+            "A delivered configuration proves nothing about enforcement."),
     }
 
 
@@ -111,13 +115,23 @@ async def list_exclusions(set_id: Optional[str] = None,
     tenant = _scoped(tenant_id, user)
     rows = await exclusion_store.list_exclusions(_db, tenant_id=tenant,
                                                  set_id=set_id)
-    caps = catalog.capabilities("nvf-connector-windows-0.1.0-x64")
     endpoints = [e async for e in _db[enrollment_store.ENDPOINTS].find(
         {"tenant_id": tenant}, {"_id": 0})]
-    states = {}
+    states, caps = {}, {}
     for ep in endpoints:
         states[ep["endpoint_id"]] = await policy_store.endpoint_policy_state(
             _db, tenant_id=tenant, endpoint=ep)
+        #: Capability is read from the release the endpoint is ACTUALLY
+        #: running, not from the newest release in the catalog.
+        caps[ep["endpoint_id"]] = catalog.capabilities_for_connector_version(
+            ep.get("sensor_version"), ep.get("platform"))
+    enforcement_map = await exclusion_store.endpoint_enforcement_map(
+        _db, tenant_id=tenant)
+    per_endpoint = {}
+    for ep in endpoints:
+        per_endpoint[ep["endpoint_id"]] = \
+            await exclusion_store.endpoint_enforcement_map(
+                _db, tenant_id=tenant, endpoint_id=ep["endpoint_id"])
     for r in rows:
         points = []
         for engine in (r.get("affected_engines") or []):
@@ -133,17 +147,32 @@ async def list_exclusions(set_id: Optional[str] = None,
                               else r["lifecycle"]["basis"])})
             elif engine in ENDPOINT_ENGINES:
                 per = [enforcement.endpoint_truth_state(
-                    r, engine=engine, connector_capabilities=caps,
-                    endpoint_policy_state=st) for st in states.values()]
+                    r, engine=engine,
+                    connector_capabilities=caps.get(eid) or {},
+                    endpoint_policy_state=st,
+                    enforcement=(per_endpoint.get(eid) or {}).get(
+                        r["exclusion_id"]))
+                    for eid, st in states.items()]
                 counts = Counter(p["truth_state"] for p in per)
+                #: The estate state is the STRONGEST proven state: one
+                #: endpoint that genuinely enforced it is enforcement.
+                applied = TruthState.ENDPOINT_EXCLUSION_APPLIED.value
+                estate = (applied if counts.get(applied) else
+                          (per[0]["truth_state"] if per else
+                           TruthState
+                           .EXCLUSION_NOT_SUPPORTED_BY_ENGINE.value))
+                folded = enforcement_map.get(r["exclusion_id"]) or {}
                 points.append({
                     "engine": engine, "enforcement_point": "ENDPOINT",
-                    "truth_state": (per[0]["truth_state"] if per else
-                                    TruthState
-                                    .EXCLUSION_NOT_SUPPORTED_BY_ENGINE.value),
+                    "truth_state": estate,
                     "endpoint_distribution": dict(counts),
-                    "basis": (per[0]["basis"] if per else
-                              "no endpoint is enrolled in this tenant")})
+                    "endpoints_enforcing": counts.get(applied, 0),
+                    "honoured_count": folded.get("honoured_count") or 0,
+                    "last_enforced_at": folded.get("last_at"),
+                    "evaluator_version": folded.get("evaluator_version"),
+                    "basis": (next((p["basis"] for p in per
+                                    if p["truth_state"] == estate), None)
+                              or ("no endpoint is enrolled in this tenant"))})
         r["enforcement"] = points
     return {"tenant_id": tenant, "exclusions": rows, "count": len(rows),
             "authority_contract": AUTHORITY_CONTRACT}

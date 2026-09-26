@@ -479,3 +479,91 @@
               color 140ms ease;
 }
 .nvf-console button.chip:hover { border-color: var(--mint); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   GATE 12 · RESPONSIVE. Measured, not assumed.
+   A 30-combination audit (2 themes x 3 breakpoints x 5 surfaces) found
+   the console had NO responsive behaviour: the 200px sidebar stayed
+   fixed and pushed 525px of content off-screen on a phone and 80px on a
+   tablet, in BOTH themes. Media queries existing is not the gate; the
+   document not overflowing is.
+   Everything below is layout only — no colour is redefined, so the two
+   themes keep their single token source of truth.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* A table must scroll INSIDE its own frame. When the document scrolls
+   horizontally instead, the navigation and header slide away and the
+   operator loses their place. */
+.nvf-console .tbl-wrap,
+.nvf-console .ops-table-wrap { overflow-x: auto; }
+
+@media (max-width: 1100px) {
+  /* The investigation split collapses: a 320px context pane beside a
+     table is unreadable before it is narrow. */
+  .nvf-console .ops-split { display: block; }
+  .nvf-console .ctx-pane {
+    width: auto; max-width: none; margin-top: 14px; position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  /* The shell stacks. The sidebar becomes a horizontally scrolling nav
+     strip so every destination stays REACHABLE — hiding navigation
+     behind a hamburger would hide the disabled/NOT IMPLEMENTED states
+     the product deliberately shows. */
+  .nvf-console .body { display: block; }
+  .nvf-console .sidebar {
+    width: auto; min-width: 0; border-right: none;
+    border-bottom: 1px solid var(--border-sf);
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
+    overflow-x: auto; padding: 7px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nvf-console .sidebar .nav-title {
+    flex: 0 0 auto; margin: 0 4px 0 10px; opacity: .8;
+  }
+  .nvf-console .sidebar .nav-title:first-child { margin-left: 0; }
+  .nvf-console .sidebar .nav-item {
+    flex: 0 0 auto; white-space: nowrap; min-height: 32px;
+  }
+  .nvf-console .main { overflow-y: visible; padding: 14px 16px 32px; }
+  .nvf-console .topbar { flex-wrap: wrap; row-gap: 8px; padding: 8px 14px; }
+  .nvf-console .top-actions { margin-left: 0; flex-wrap: wrap; }
+
+  /* Headers, toolbars and rails wrap instead of pushing the page. */
+  .nvf-console .ops-head { flex-wrap: wrap; row-gap: 10px; }
+  .nvf-console .ops-head .spacer { flex-basis: 100%; height: 0; }
+  .nvf-console .ops-actions { flex-wrap: wrap; }
+  .nvf-console .ops-toolbar { flex-wrap: wrap; row-gap: 8px; }
+  .nvf-console .ops-toolbar .spacer { flex-basis: 100%; height: 0; }
+  .nvf-console .kpi-rail { flex-wrap: wrap; }
+  .nvf-console .pkg-grid,
+  .nvf-console .steps { grid-template-columns: 1fr; }
+
+  /* Touch targets. 20px is a mouse target, not a finger. */
+  .nvf-console .btn,
+  .nvf-console input,
+  .nvf-console select { min-height: 32px; }
+  .nvf-console .seg button { min-height: 32px; padding: 0 12px; }
+
+  /* Long digests, commands and paths must wrap or scroll, never widen
+     the page. */
+  .nvf-console .cmd { overflow-x: auto; }
+  .nvf-console .mono,
+  .nvf-console .kv .v { overflow-wrap: anywhere; }
+  .nvf-console .file-row { flex-wrap: wrap; row-gap: 3px; }
+}
+
+@media (max-width: 560px) {
+  .nvf-console .main { padding: 12px 12px 28px; }
+  .nvf-console .ops-search { width: 100%; }
+  .nvf-console .ops-search input { flex: 1; min-width: 0; }
+  .nvf-console .kv { grid-template-columns: 1fr; row-gap: 2px; }
+  .nvf-console .kv .k { margin-top: 7px; }
+  .nvf-console .kv .v input,
+  .nvf-console .kv .v select { max-width: none; }
+  .nvf-console input,
+  .nvf-console select { min-width: 0; width: 100%; }
+  .nvf-console .kpi-rail > * { flex: 1 1 140px; }
+  .nvf-console .ttl { font-size: 20px; }
+}

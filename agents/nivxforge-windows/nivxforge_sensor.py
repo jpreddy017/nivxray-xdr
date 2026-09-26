@@ -39,7 +39,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.1.0-windows"
+SENSOR_VERSION = "0.2.0-windows"
 PLATFORM = "WINDOWS"
 
 STATE_DIR = Path(os.environ.get(
@@ -79,6 +79,16 @@ CAPABILITIES = {
         "unavailable, never as an absence of activity",
     ],
 }
+
+
+# GATE 7 · the CANONICAL endpoint exclusion evaluator, shipped beside
+# this file in the connector release. Imported, never reimplemented, so
+# the Windows and Linux connectors cannot drift apart.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nivxforge_exclusions as nvx_excl        # noqa: E402
+
+POLICY_FILE = STATE_DIR / "policy.json"
+EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
 
 
 def _now() -> str:
@@ -271,6 +281,103 @@ def collect() -> tuple[list[dict], dict]:
     return events, {"channels_unavailable": unavailable, "bookmarks": marks}
 
 
+def _get(api: str, path: str, bearer: str) -> dict:
+    req = urllib.request.Request(
+        f"{api}{path}",
+        headers={"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
+                 "Authorization": f"Bearer {bearer}"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
+
+
+def _sync_policy(api: str, ident: dict, session: dict) -> dict:
+    """Fetch the assigned policy, apply it locally, acknowledge it.
+
+    Fetching is what the platform records as DELIVERED. Only this
+    connector's acknowledgement of the EXACT config digest can make the
+    platform report APPLIED. A fetch failure keeps the last applied
+    policy enforcing and marks the report `policy_stale`.
+    """
+    try:
+        persisted = json.loads(POLICY_FILE.read_text())
+    except (OSError, ValueError):
+        persisted = {}
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        out = _get(api, "/api/edr/agent/policy", session["token"])
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        base = persisted or {"exclusions": []}
+        return {**base, "stale": True, "stale_reason": str(e)[:120]}
+
+    policy = out.get("policy")
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    if not policy:
+        POLICY_FILE.write_text(json.dumps({"exclusions": [],
+                                           "state": out.get("state"),
+                                           "synced_at": _now()}))
+        return {"exclusions": [], "state": out.get("state"), "stale": False}
+
+    applied = {"policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "config": policy.get("config") or {},
+               "exclusions": out.get("exclusions") or [],
+               "synced_at": _now(), "stale": False}
+    POLICY_FILE.write_text(json.dumps(applied))
+    honoured = sum(1 for x in applied["exclusions"]
+                   if nvx_excl.validate(x) == nvx_excl.HONOURED)
+    try:
+        _post(api, "/api/edr/agent/policy-ack",
+              {"policy_id": applied["policy_id"],
+               "version": applied["version"],
+               "config_digest": applied["config_digest"],
+               "applied": True,
+               "running_config_digest": applied["config_digest"],
+               "connector_version": SENSOR_VERSION,
+               "exclusions_applied": honoured},
+              bearer=session["token"])
+        applied["acknowledged"] = True
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        applied["acknowledged"] = False
+        applied["ack_error"] = str(e)[:120]
+    return applied
+
+
+def _report_enforcement(api: str, ident: dict, session: dict,
+                        journal, policy: dict) -> str:
+    """Report what the LOCAL engine enforced: counts and value digests
+    only. The excluded events were dropped on this machine and are never
+    transmitted."""
+    entries = journal.report()
+    if not entries:
+        return "NOTHING_TO_REPORT"
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        _post(api, "/api/edr/agent/exclusion-enforcement",
+              {"evaluator_version": nvx_excl.EVALUATOR_VERSION,
+               "engine": nvx_excl.ENGINE,
+               "policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "policy_stale": bool(policy.get("stale")),
+               "exclusions": entries},
+              bearer=session["token"])
+        return f"SENT:{len(entries)}"
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return f"FAILED:{str(e)[:80]}"
+
+
 # ── durable journal ───────────────────────────────────────────────
 def _enqueue(events: list[dict]) -> None:
     """Journal FIRST, fsync, and only then let delivery try. Acquisition is
@@ -359,13 +466,30 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
     ident = _read_identity()
     session: dict = {"token": None}
     while True:
+        policy = _sync_policy(api, ident, session)
         events, state = collect()
+        # GATE 7 · endpoint exclusion enforcement. Matching events are
+        # dropped HERE — before the durable outbox — so an exclusion
+        # cannot be defeated by a replay, and the excluded evidence never
+        # leaves this machine.
+        journal = nvx_excl.Journal(EXCLUSION_JOURNAL)
+        events, excluded = nvx_excl.partition(
+            events, policy.get("exclusions") or [], journal, policy)
+        journal.save()
         _enqueue(events)
         _save_bookmarks(state["bookmarks"])
         sent, failed = _drain(api, ident, session, interval)
         _heartbeat(api, ident, session, interval)
+        reported = _report_enforcement(api, ident, session, journal, policy)
         report = {"at": _now(), "collected": len(events), "sent": sent,
                   "failed": failed, "queue_depth": _queue_depth(),
+                  "excluded_at_endpoint": excluded,
+                  "policy_id": policy.get("policy_id"),
+                  "policy_version": policy.get("version"),
+                  "policy_stale": bool(policy.get("stale")),
+                  "exclusions_delivered":
+                      len(policy.get("exclusions") or []),
+                  "enforcement_report": reported,
                   "channels_unavailable": state["channels_unavailable"]}
         print(json.dumps(report))
         if once:

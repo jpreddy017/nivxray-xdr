@@ -149,3 +149,36 @@ export async function downloadReleaseArtifact(releaseId, name) {
   window.URL.revokeObjectURL(url);
   return res.headers?.["x-nivxforge-sha256"] || null;
 }
+
+// ── EDR-native audit (aggregated from authoritative stores) ────────
+export async function getAudit(params = {}) {
+  const { data } = await api.get("/edr/audit", { params });
+  return data;
+}
+
+export async function getAuditFacets(days = 30) {
+  const { data } = await api.get("/edr/audit/facets", { params: { days } });
+  return data;
+}
+
+// ── saved investigation views (query state only) ───────────────────
+export async function listSavedViews(surface) {
+  const { data } = await api.get("/edr/saved-views",
+                                 { params: surface ? { surface } : {} });
+  return data;
+}
+
+export async function getSavedView(viewId) {
+  const { data } = await api.get(`/edr/saved-views/${encodeURIComponent(viewId)}`);
+  return data;
+}
+
+export async function createSavedView(body) {
+  const { data } = await api.post("/edr/saved-views", body);
+  return data;
+}
+
+export async function deleteSavedView(viewId) {
+  const { data } = await api.delete(`/edr/saved-views/${encodeURIComponent(viewId)}`);
+  return data;
+}

@@ -56,14 +56,14 @@ _V1_CAPABILITIES: Dict[str, bool] = {
 
 RELEASES: List[Dict[str, Any]] = [
     {
-        "release_id": "nvf-connector-windows-0.1.0-x64",
+        "release_id": "nvf-connector-windows-0.2.0-x64",
         "product": "NivXForge Windows Connector",
-        "connector_version": "0.1.0",
+        "connector_version": "0.2.0",
         "os": "WINDOWS",
         "architecture": "x64",
         "channel": "PREVIEW",
         "support_status": "PREVIEW_NOT_FOR_PRODUCTION",
-        "release_date": "2026-09-06",
+        "release_date": "2026-09-26",
         "end_of_support": None,
         "signing_status": "UNSIGNED",
         "supported_os": ["Windows 10 21H2+", "Windows 11",
@@ -71,20 +71,81 @@ RELEASES: List[Dict[str, Any]] = [
         "requires": ["Python 3.11+ on the endpoint",
                      "elevated PowerShell for installation"],
         "release_notes": [
-            "Authenticated enrolment with a one-time, tenant-bound "
-            "credential; the artifact itself carries no credential.",
-            "Process event collection with an on-disk delivery outbox.",
-            "Heartbeat and declared report cadence.",
-            "Policy fetch and acknowledgement over the authenticated "
-            "session.",
-            "No prevention, no file/network/registry observation and no "
-            "local exclusion evaluation in this release.",
+            "Adds ENDPOINT-SIDE EXCLUSION ENFORCEMENT: exclusions carried "
+            "by the applied policy version are evaluated locally and "
+            "matching events are never delivered.",
+            "Adds policy fetch + acknowledgement of the exact config "
+            "digest, and reporting of what the local engine actually "
+            "enforced (counts and value digests only — never the excluded "
+            "content).",
+            "An exclusion this connector cannot honour is REFUSED and "
+            "reported as refused, rather than silently skipped.",
+            "Still no prevention engine, and no file/network/registry "
+            "observation on Windows.",
         ],
-        "declared_capabilities": dict(_V1_CAPABILITIES),
+        "declared_capabilities": {**_V1_CAPABILITIES,
+                                  "endpoint_exclusions": True},
         "artifact": {"directory": "nivxforge-windows",
                      "files": ["Install-NivXForgeSensor.ps1",
-                               "nivxforge_sensor.py"],
+                               "nivxforge_sensor.py",
+                               "nivxforge_exclusions.py"],
                      "entrypoint": "Install-NivXForgeSensor.ps1"},
+    },
+    {
+        "release_id": "nvf-connector-linux-0.2.0-x64",
+        "product": "NivXForge Linux Connector",
+        "connector_version": "0.2.0",
+        "os": "LINUX",
+        "architecture": "x64",
+        "channel": "PREVIEW",
+        "support_status": "PREVIEW_NOT_FOR_PRODUCTION",
+        "release_date": "2026-09-26",
+        "end_of_support": None,
+        "signing_status": "UNSIGNED",
+        "supported_os": ["Linux with /proc (process + network + watched "
+                         "path observation)"],
+        "requires": ["Python 3.11+", "root for installation",
+                     "NET_ADMIN for the containment engine"],
+        "release_notes": [
+            "Adds ENDPOINT-SIDE EXCLUSION ENFORCEMENT with the same "
+            "canonical evaluator as the Windows release.",
+            "Process, network and watched-path observation.",
+            "Kernel-level containment with read-back proof. No "
+            "file-content prevention engine.",
+        ],
+        "declared_capabilities": {**_V1_CAPABILITIES,
+                                  "endpoint_exclusions": True,
+                                  "network_event_collection": True,
+                                  "file_event_collection": True},
+        "artifact": {"directory": "nivxforge-linux",
+                     "files": ["nivxforge_sensor.py",
+                               "nivxforge_exclusions.py"],
+                     "entrypoint": "nivxforge_sensor.py"},
+    },
+    {
+        "release_id": "nvf-connector-windows-0.1.0-x64",
+        "product": "NivXForge Windows Connector",
+        "connector_version": "0.1.0",
+        "os": "WINDOWS",
+        "architecture": "x64",
+        "channel": "PREVIEW",
+        "support_status": "SUPERSEDED",
+        "release_date": "2026-09-06",
+        "end_of_support": "2026-09-26",
+        "signing_status": "UNSIGNED",
+        "supported_os": ["Windows 10 21H2+", "Windows 11",
+                         "Windows Server 2019", "Windows Server 2022"],
+        "requires": ["Python 3.11+ on the endpoint"],
+        "release_notes": [
+            "Superseded by 0.2.0. Collection, telemetry, heartbeat and "
+            "policy ACK only — no endpoint-side exclusion enforcement.",
+        ],
+        "declared_capabilities": dict(_V1_CAPABILITIES),
+        #: The 0.1.0 bytes are no longer published. Endpoints still
+        #: RUNNING 0.1.0 continue to read its declared capability, which
+        #: is why the entry is retained rather than deleted.
+        "artifact": {"directory": "nivxforge-windows-0.1.0", "files": [],
+                     "entrypoint": None},
     },
     {
         "release_id": "nvf-connector-windows-arm64",
@@ -102,25 +163,6 @@ RELEASES: List[Dict[str, Any]] = [
         "release_notes": [],
         "declared_capabilities": {},
         "artifact": {"directory": "nivxforge-windows-arm64", "files": [],
-                     "entrypoint": None},
-    },
-    {
-        "release_id": "nvf-connector-linux-0.1.0-x64",
-        "product": "NivXForge Linux Connector",
-        "connector_version": "0.1.0",
-        "os": "LINUX",
-        "architecture": "x64",
-        "channel": "PREVIEW",
-        "support_status": "PREVIEW_NOT_FOR_PRODUCTION",
-        "release_date": "2026-09-06",
-        "end_of_support": None,
-        "signing_status": "UNSIGNED",
-        "supported_os": ["Linux with auditd or journald"],
-        "requires": ["Python 3.11+", "root for installation"],
-        "release_notes": ["Authenticated enrolment and process event "
-                          "collection. No prevention."],
-        "declared_capabilities": dict(_V1_CAPABILITIES),
-        "artifact": {"directory": "nivxforge-linux", "files": [],
                      "entrypoint": None},
     },
 ]
@@ -226,17 +268,30 @@ def capabilities(release_id: Optional[str]) -> Dict[str, bool]:
     return dict((r or {}).get("declared_capabilities") or {})
 
 
-def capabilities_for_connector_version(version: Optional[str]
+def capabilities_for_connector_version(version: Optional[str],
+                                       os_family: Optional[str] = None
                                        ) -> Dict[str, bool]:
     """Capabilities of whichever release matches a reported connector
-    version string (the sensor reports e.g. `0.1.0-windows`)."""
+    version string (the sensor reports e.g. `0.2.0-windows`).
+
+    `os_family` matters: two releases can share a version number and
+    declare different capabilities, so a Linux endpoint must never
+    inherit the Windows release's declaration.
+    """
     if not version:
         return {}
+    want = str(os_family or "").upper() or None
+    candidates = []
     for r in RELEASES:
         cv = r.get("connector_version")
         if cv and str(version).startswith(cv):
-            return dict(r.get("declared_capabilities") or {})
-    return {}
+            candidates.append(r)
+    if want:
+        exact = [r for r in candidates if str(r.get("os")) == want]
+        if exact:
+            candidates = exact
+    return dict((candidates[0] if candidates else {}).get(
+        "declared_capabilities") or {})
 
 
 DISTRIBUTION_CONTRACT = (

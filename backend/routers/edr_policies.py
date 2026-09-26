@@ -105,7 +105,7 @@ async def create_policy(body: CreatePolicyBody,
     return {**created,
             "not_enforced": unsupported_settings(
                 body.config, catalog.capabilities(
-                    "nvf-connector-windows-0.1.0-x64")),
+                    "nvf-connector-windows-0.2.0-x64")),
             "state": PolicyState.CREATED.value,
             "note": ("CREATED only. A policy affects nothing until it is "
                      "assigned, delivered and acknowledged.")}
@@ -148,7 +148,7 @@ async def get_policy(policy_id: str, user: dict = Depends(get_current_user),
         _fail(e)
     rows, counts = await policy_store.deployment_matrix(
         _db, tenant_id=tenant, policy_id=policy_id)
-    caps = catalog.capabilities("nvf-connector-windows-0.1.0-x64")
+    caps = catalog.capabilities("nvf-connector-windows-0.2.0-x64")
     current = next((v for v in detail["versions"]
                     if v["version"] == detail["policy"].get(
                         "current_version")), None)
@@ -177,7 +177,7 @@ async def create_version(policy_id: str, body: CreateVersionBody,
     return {"version": version,
             "not_enforced": unsupported_settings(
                 body.config, catalog.capabilities(
-                    "nvf-connector-windows-0.1.0-x64")),
+                    "nvf-connector-windows-0.2.0-x64")),
             "note": ("a new version supersedes the assigned version, so "
                      "every endpoint holding the previous one becomes "
                      "OUT_OF_SYNC until it acknowledges this one")}
@@ -315,3 +315,64 @@ async def policy_ack(body: PolicyAckBody,
         _db, tenant_id=who.tenant_id, endpoint=rec)
     return {**result, "effective": state,
             "lifecycle_contract": LIFECYCLE_CONTRACT}
+
+
+class EnforcementReport(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    exclusion_id: str
+    engine: Optional[str] = None
+    acceptance: str
+    honoured_count: int = Field(default=0, ge=0)
+    matched_attribute: Optional[str] = None
+    observed_value_digests: List[str] = Field(default_factory=list)
+    value_sha256: Optional[str] = None
+    type: Optional[str] = None
+    match: Optional[str] = None
+    first_at: Optional[str] = None
+    last_at: Optional[str] = None
+    policy_id: Optional[str] = None
+    policy_version: Optional[int] = None
+    config_digest: Optional[str] = None
+
+
+class ExclusionEnforcementBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evaluator_version: Optional[str] = None
+    engine: str
+    policy_id: Optional[str] = None
+    version: Optional[int] = None
+    config_digest: Optional[str] = None
+    policy_stale: bool = False
+    exclusions: List[EnforcementReport] = Field(default_factory=list)
+
+
+@agent.post("/exclusion-enforcement")
+async def exclusion_enforcement(body: ExclusionEnforcementBody,
+                                who: AuthenticatedEndpoint = Depends(
+                                    get_authenticated_endpoint)
+                                ) -> Dict[str, Any]:
+    """GATE 7 · what the endpoint's OWN engine actually enforced.
+
+    This is the only source `ENDPOINT_EXCLUSION_APPLIED` may be derived
+    from. The endpoint reports the enforcement FACT — the exclusion id,
+    the attribute that matched, a count and SHA-256 digests of the
+    observed values. It deliberately does NOT report the excluded
+    content: re-uploading it would defeat the exclusion the operator
+    asked for.
+
+    Every id is re-validated against this endpoint's tenant, so naming
+    another tenant's exclusion asserts nothing.
+    """
+    result = await exclusion_store.record_endpoint_enforcement(
+        _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
+        engine=body.engine, evaluator_version=body.evaluator_version,
+        policy={"policy_id": body.policy_id, "version": body.version,
+                "config_digest": body.config_digest},
+        stale=body.policy_stale,
+        reports=[r.model_dump() for r in body.exclusions])
+    return {**result, "endpoint_id": who.endpoint_id,
+            "contract": ("an enforcement report is evidence, not a claim: "
+                         "ENDPOINT_EXCLUSION_APPLIED is derived from a "
+                         "non-zero honoured count on an exclusion this "
+                         "tenant owns, carried by a policy version this "
+                         "endpoint acknowledged applying")}

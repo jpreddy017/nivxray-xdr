@@ -51,9 +51,12 @@ ENDPOINT_ENGINES = (ExclusionEngine.ENDPOINT_PREVENTION.value,
                     ExclusionEngine.ENDPOINT_COLLECTION.value)
 
 #: engine -> the connector capability key that must be true for endpoint
-#: enforcement to be possible at all.
+#: enforcement to be possible at all. `endpoint.prevention` maps to a
+#: capability NO release declares, because the released connector has no
+#: prevention engine: the collection evaluator must never be mistaken
+#: for one.
 ENDPOINT_ENGINE_CAPABILITY = {
-    ExclusionEngine.ENDPOINT_PREVENTION.value: "endpoint_exclusions",
+    ExclusionEngine.ENDPOINT_PREVENTION.value: "endpoint_prevention",
     ExclusionEngine.ENDPOINT_COLLECTION.value: "endpoint_exclusions",
 }
 
@@ -68,6 +71,12 @@ class TruthState(str, Enum):
     NOT_EVALUATED_DUE_TO_EXCLUSION = "NOT_EVALUATED_DUE_TO_EXCLUSION"
     SERVER_EXCLUSION_APPLIED = "SERVER_EXCLUSION_APPLIED"
     ENDPOINT_EXCLUSION_APPLIED = "ENDPOINT_EXCLUSION_APPLIED"
+    #: The endpoint acknowledged the policy version carrying this
+    #: exclusion and its engine is consulting it, but nothing has matched
+    #: yet. Distinct from APPLIED: nothing has actually been enforced, so
+    #: claiming APPLIED would be a claim without evidence.
+    ENDPOINT_EXCLUSION_ACTIVE_NO_MATCH_YET = \
+        "ENDPOINT_EXCLUSION_ACTIVE_NO_MATCH_YET"
     EXCLUSION_PENDING_POLICY = "EXCLUSION_PENDING_POLICY"
     EXCLUSION_NOT_SUPPORTED_BY_ENGINE = "EXCLUSION_NOT_SUPPORTED_BY_ENGINE"
 

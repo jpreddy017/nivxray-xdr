@@ -76,11 +76,14 @@ def candidate_from_unit(unit: EvidenceUnit) -> Dict[str, Optional[str]]:
         return None
 
     cand = {
-        "path": first(a.get("image_path"), a.get("path"), a.get("image"),
+        # `image_path` is a path; `image` is the process NAME (comm on
+        # Linux). Treating `image` as a path made PATH exclusions match
+        # a bare name and PROCESS exclusions match nothing.
+        "path": first(a.get("image_path"), a.get("path"),
                       raw.get("target"), ev_raw.get("target")),
         "process": first(a.get("process"), a.get("process_name"),
-                         raw.get("entity"), ev_raw.get("entity"),
-                         a.get("dproc")),
+                         a.get("image"), raw.get("entity"),
+                         ev_raw.get("entity"), a.get("dproc")),
         "command_line": first(a.get("command_line"), a.get("commandline"),
                               raw.get("text"), ev_raw.get("text"),
                               a.get("text")),
@@ -183,14 +186,24 @@ def suppress(result: AnalyzerResult,
 def endpoint_truth_state(exclusion: Dict[str, Any], *,
                          engine: str,
                          connector_capabilities: Dict[str, bool],
-                         endpoint_policy_state: Dict[str, Any]
+                         endpoint_policy_state: Dict[str, Any],
+                         enforcement: Optional[Dict[str, Any]] = None
                          ) -> Dict[str, Any]:
     """What is REALLY happening on the endpoint for this exclusion.
 
-    Three genuinely different answers, and none of them is assumed:
-      * the connector cannot honour it at all
-      * it is carried by a policy version the endpoint has not applied
-      * the endpoint applied that exact version, so it is enforced there
+    Five genuinely different answers, and none is assumed:
+
+      * the released connector cannot honour it at all,
+      * the CONNECTOR ITSELF refused it (it said so on its own session),
+      * it is carried by a policy version the endpoint has not applied,
+      * the endpoint applied that version and its engine is consulting
+        the exclusion, but nothing has matched yet,
+      * the endpoint reported it actually enforced it — the only state
+        that earns `ENDPOINT_EXCLUSION_APPLIED`.
+
+    `ENDPOINT_EXCLUSION_APPLIED` is NEVER derived from a delivered
+    configuration. It requires an enforcement record the endpoint
+    produced.
     """
     capability = ENDPOINT_ENGINE_CAPABILITY.get(engine)
     if capability and not connector_capabilities.get(capability, False):
@@ -198,26 +211,58 @@ def endpoint_truth_state(exclusion: Dict[str, Any], *,
                 TruthState.EXCLUSION_NOT_SUPPORTED_BY_ENGINE.value,
                 "enforcement_point": EnforcementPoint.ENDPOINT.value,
                 "engine": engine,
-                "basis": ("the released connector does not declare "
-                          f"{capability}, so this exclusion cannot be "
-                          "enforced on the endpoint; server-side "
-                          "enforcement is unaffected")}
+                "basis": ("the connector release installed on this endpoint "
+                          f"does not declare {capability}, so this exclusion "
+                          "cannot be enforced there; server-side enforcement "
+                          "is unaffected")}
+
+    acceptance = (enforcement or {}).get("acceptance")
+    if acceptance and acceptance != "HONOURED":
+        return {"truth_state":
+                TruthState.EXCLUSION_NOT_SUPPORTED_BY_ENGINE.value,
+                "enforcement_point": EnforcementPoint.ENDPOINT.value,
+                "engine": engine, "acceptance": acceptance,
+                "basis": ("the connector reported on its own authenticated "
+                          f"session that it refused this exclusion: "
+                          f"{acceptance}. It is not being enforced on the "
+                          "endpoint and the platform does not claim it is")}
+
     bindings = exclusion.get("policy_version_bindings") or []
     applied_policy = endpoint_policy_state.get("assigned_policy_id")
     applied_version = endpoint_policy_state.get("applied_version")
     confirmed = endpoint_policy_state.get("confirmed_by_endpoint")
-    if confirmed and any(b.get("policy_id") == applied_policy
-                         and int(b.get("version") or -1) == int(
-                             applied_version or -2) for b in bindings):
-        return {"truth_state": TruthState.ENDPOINT_EXCLUSION_APPLIED.value,
+    carried = any(b.get("policy_id") == applied_policy
+                  and int(b.get("version") or -1) == int(applied_version or -2)
+                  for b in bindings)
+    if not (confirmed and carried):
+        return {"truth_state": TruthState.EXCLUSION_PENDING_POLICY.value,
                 "enforcement_point": EnforcementPoint.ENDPOINT.value,
                 "engine": engine,
-                "basis": (f"the endpoint acknowledged applying policy "
-                          f"{applied_policy} v{applied_version}, which "
-                          "carries this exclusion")}
-    return {"truth_state": TruthState.EXCLUSION_PENDING_POLICY.value,
+                "basis": ("no policy version carrying this exclusion has "
+                          "been acknowledged as applied by the endpoint, so "
+                          "it is not being enforced there yet")}
+
+    count = int((enforcement or {}).get("honoured_count") or 0)
+    if count > 0:
+        return {"truth_state": TruthState.ENDPOINT_EXCLUSION_APPLIED.value,
+                "enforcement_point": EnforcementPoint.ENDPOINT.value,
+                "engine": engine, "honoured_count": count,
+                "matched_attribute": (enforcement or {}).get(
+                    "matched_attribute"),
+                "first_at": (enforcement or {}).get("first_at"),
+                "last_at": (enforcement or {}).get("last_at"),
+                "evaluator_version": (enforcement or {}).get(
+                    "evaluator_version"),
+                "basis": (f"the endpoint reported that its {engine} engine "
+                          f"enforced this exclusion {count} time(s) while "
+                          f"running policy {applied_policy} "
+                          f"v{applied_version}; the matching evidence was "
+                          "never delivered to the platform")}
+    return {"truth_state":
+            TruthState.ENDPOINT_EXCLUSION_ACTIVE_NO_MATCH_YET.value,
             "enforcement_point": EnforcementPoint.ENDPOINT.value,
-            "engine": engine,
-            "basis": ("no policy version carrying this exclusion has been "
-                      "acknowledged as applied by the endpoint, so it is "
-                      "not being enforced there yet")}
+            "engine": engine, "honoured_count": 0,
+            "basis": ("the endpoint applied the policy version carrying this "
+                      "exclusion and its engine is consulting it, but nothing "
+                      "has matched yet — so nothing has been enforced and "
+                      "APPLIED would be a claim without evidence")}

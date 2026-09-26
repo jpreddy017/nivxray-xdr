@@ -699,6 +699,10 @@ from routers.edr_events import router as edr_events_router
 api.include_router(edr_events_router)
 from routers.edr_connector import releases as edr_connector_router
 api.include_router(edr_connector_router)
+from routers.edr_audit import router as edr_audit_router
+api.include_router(edr_audit_router)
+from routers.edr_saved_views import router as edr_saved_views_router
+api.include_router(edr_saved_views_router)
 
 
 # v2 · Additive next-generation namespace (Phase 3+).
@@ -968,9 +972,11 @@ async def _startup():
     try:
         from edr_plane.policy.store import ensure_indexes as _ensure_pol
         from edr_plane.exclusions.store import ensure_indexes as _ensure_exc
+        from routers.edr_saved_views import ensure_indexes as _ensure_views
         from deps import db as _pol_db
         await _ensure_pol(_pol_db)
         await _ensure_exc(_pol_db)
+        await _ensure_views(_pol_db)
         for spec, name in (
             ([("tenant_id", 1), ("ingest_time", -1), ("raw_id", -1)],
              "events_keyset"),

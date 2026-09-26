@@ -45,7 +45,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.1.0"
+SENSOR_VERSION = "0.2.0"
 STATE_DIR = Path(os.environ.get("NIVXFORGE_SENSOR_STATE",
                                 "/var/lib/nivxforge-sensor"))
 IDENTITY_FILE = STATE_DIR / "identity.json"      # mode 0600
@@ -97,6 +97,16 @@ CAPABILITIES = {
         "no eBPF, so no syscall-level fidelity",
     ],
 }
+
+
+# GATE 7 · the CANONICAL endpoint exclusion evaluator, shipped beside
+# this file in the connector release. It is imported rather than
+# reimplemented so Windows and Linux cannot drift apart.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nivxforge_exclusions as nvx_excl        # noqa: E402
+
+POLICY_FILE = STATE_DIR / "policy.json"
+EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
 
 
 def _now() -> str:
@@ -584,6 +594,104 @@ def _get(api: str, path: str, bearer: str) -> dict:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
+
+
+def _sync_policy(api: str, ident: dict, session: dict) -> dict:
+    """Fetch the assigned policy, apply it locally, and acknowledge it.
+
+    Fetching is what the platform records as DELIVERED. Applying it is
+    what this connector then acknowledges with the EXACT config digest,
+    which is the only thing that can make the platform report APPLIED.
+
+    A fetch failure does NOT disable enforcement: the last policy this
+    connector applied is persisted and keeps being enforced, and the
+    report is marked `policy_stale` so the platform can tell an
+    enforcing-but-stale endpoint from an unconfigured one.
+    """
+    persisted = {}
+    try:
+        persisted = json.loads(POLICY_FILE.read_text())
+    except (OSError, ValueError):
+        persisted = {}
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        out = _get(api, "/api/edr/agent/policy", session["token"])
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return {**persisted, "stale": True,
+                "stale_reason": str(e)[:120]} if persisted else {
+            "stale": True, "stale_reason": str(e)[:120], "exclusions": []}
+
+    policy = out.get("policy")
+    if not policy:
+        POLICY_FILE.write_text(json.dumps({"exclusions": [],
+                                           "state": out.get("state"),
+                                           "synced_at": _now()}))
+        return {"exclusions": [], "state": out.get("state"), "stale": False}
+
+    applied = {"policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "config": policy.get("config") or {},
+               "exclusions": out.get("exclusions") or [],
+               "synced_at": _now(), "stale": False}
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    POLICY_FILE.write_text(json.dumps(applied))
+
+    honoured = sum(1 for x in applied["exclusions"]
+                   if nvx_excl.validate(x) == nvx_excl.HONOURED)
+    try:
+        _post(api, "/api/edr/agent/policy-ack",
+              {"policy_id": applied["policy_id"],
+               "version": applied["version"],
+               "config_digest": applied["config_digest"],
+               "applied": True,
+               "running_config_digest": applied["config_digest"],
+               "connector_version": SENSOR_VERSION,
+               "exclusions_applied": honoured},
+              bearer=session["token"])
+        applied["acknowledged"] = True
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        # The policy IS applied locally. Failing to say so must never be
+        # reported as applied by the platform, so the ACK simply retries
+        # next cycle and the platform keeps reading DELIVERED.
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        applied["acknowledged"] = False
+        applied["ack_error"] = str(e)[:120]
+    return applied
+
+
+def _report_enforcement(api: str, ident: dict, session: dict,
+                        journal, policy: dict) -> str:
+    """Tell the platform what the LOCAL engine actually enforced.
+
+    Counts and value digests only. The excluded events themselves were
+    dropped on this machine and are never transmitted — that is the
+    whole point of an endpoint exclusion.
+    """
+    entries = journal.report()
+    if not entries:
+        return "NOTHING_TO_REPORT"
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        _post(api, "/api/edr/agent/exclusion-enforcement",
+              {"evaluator_version": nvx_excl.EVALUATOR_VERSION,
+               "engine": nvx_excl.ENGINE,
+               "policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "policy_stale": bool(policy.get("stale")),
+               "exclusions": entries},
+              bearer=session["token"])
+        return f"SENT:{len(entries)}"
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return f"FAILED:{str(e)[:80]}"
 
 
 def _isolation_capability() -> dict:
@@ -1099,20 +1207,38 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
         # Nothing is lost by continuing: unsent events stay in the durable
         # outbox and replay, and the failure is printed with the cycle.
         try:
+            policy = _sync_policy(api, ident, session)
             batch = collect_processes(seen_pids) + collect_network(seen_conns)
             if watch:
                 batch += collect_files(watch, known_files)
             for e in batch:
                 e.update({"sensor_version": SENSOR_VERSION,
                           "collection_method": "PROC_POLL"})
+            # GATE 7 · endpoint exclusion enforcement. Matching events are
+            # dropped HERE: they are never queued, never transmitted and
+            # never reach the platform. Enforcement happens before the
+            # durable outbox precisely so an exclusion cannot be defeated
+            # by a replay.
+            journal = nvx_excl.Journal(EXCLUSION_JOURNAL)
+            batch, excluded = nvx_excl.partition(
+                batch, policy.get("exclusions") or [], journal, policy)
+            journal.save()
             if batch:
                 _enqueue(batch)
             _save_observed(seen_pids, seen_conns, known_files, baselined)
             beat = _heartbeat(api, ident, session, interval)
             sent, failed = _drain(api, ident, session, interval)
             served = _serve_commands(api, ident, session)
+            reported = _report_enforcement(api, ident, session, journal,
+                                           policy)
             print(f"[{_now()}] commands={served} collected={len(batch)} "
-                  f"sent={sent} held={failed} heartbeat={beat} "
+                  f"excluded_at_endpoint={excluded} sent={sent} "
+                  f"held={failed} heartbeat={beat} "
+                  f"policy={policy.get('policy_id')}"
+                  f"v{policy.get('version')}"
+                  f"{'(stale)' if policy.get('stale') else ''} "
+                  f"exclusions={len(policy.get('exclusions') or [])} "
+                  f"enforcement_report={reported} "
                   f"queued={_queue_depth()} "
                   f"endpoint={ident['endpoint_id']}", flush=True)
         except Exception as e:          # noqa: BLE001 — see the note above
