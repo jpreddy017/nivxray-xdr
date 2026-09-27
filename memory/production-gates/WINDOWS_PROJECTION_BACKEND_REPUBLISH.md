@@ -78,3 +78,63 @@ token. It prints PASS/FAIL for:
 
 The defect is CLOSED only when 2-7 all pass. Deployment success alone is not
 acceptance.
+
+---
+
+## CORRECTION (post-publish) — the OpenAPI hash proves nothing
+
+Publish 100 (`d85f369`) is **already completed and green**. My earlier
+statement that "production is still on the pre-projection build" was **wrong**,
+and the owner was right to reject it.
+
+Evidence that the inference was invalid: the preview pod, which definitely runs
+the patched code, serves `/api/openapi.json` with **862 paths, sha256
+`8c04168feebf43f0`** — byte-identical to production. The projection patch adds
+no route, no parameter and no schema, so the OpenAPI document cannot change.
+The hash is a deploy-identity signal only when signatures change; here it is
+noise. §3's baseline is retained as a route-inventory record, not as a build
+marker.
+
+## A valid build fingerprint (behavioural)
+
+`GET /api/edr/events?activity=AUTHENTICATION`
+
+| Build | Response |
+|---|---|
+| pre-patch (`86e02057^`, `edr_events.py:227-231`) | `422 {"code":"ACTIVITY_INVALID"}` — `AUTHENTICATION` is not in `ACTIVITY_CLASSES` |
+| patched | `200`, `filters_applied.activity == "AUTH"` via `projection_class()` |
+
+Validated against the preview pod (patched code): `HTTP 200`,
+`filters_applied.activity='AUTH'`, while `activity=BOGUS` still returns
+`422 ACTIVITY_INVALID` — so validation was not weakened. This is step 1 of the
+acceptance script and it answers "is Publish 100 live?" without a deploy log.
+
+## Authentication boundary
+
+Production acceptance needs an authenticated read. The admin password is
+**owner-held**; per standing policy the agent does not know it, does not ask
+for it, and no bearer token may be pasted into chat. The verification is
+therefore packaged as an owner-run script:
+
+```
+python3 memory/production-gates/prod_projection_verify.py
+```
+
+It prompts with `getpass` (nothing echoed, nothing written to disk), performs
+one `POST /api/auth/login` to mint your own session, then issues **GET requests
+only**, and prints PASS / FAIL per criterion plus a final ACCEPTED /
+NOT ACCEPTED verdict. Criteria: build fingerprint · validation not weakened ·
+endpoint resolves in tenant · PROCESS and AUTH facets > 0 · `AUTHENTICATION`
+never unprojected · `activity=PROCESS` / `activity=AUTH` return only their own
+class, all with `canonical_event_id` · per-record sysmon 1/3/11/12/13/22 and
+winsec 4688/4624 mapping · unsupported families stay `activity: null` with a
+truthful basis · foreign tenant refused with no `events` key · trajectory focus
+resolves with provenance · trajectory window returns real evidence.
+
+Mechanics validated end-to-end against the preview pod (16 criteria executed;
+the data-dependent ones necessarily fail there because the production Windows
+endpoint does not exist in the preview database — which is exactly what the new
+"endpoint resolves in this tenant" preflight reports).
+
+Supervisor health-check finding: recorded as a **false positive / out-of-scope
+platform config**, not modified. Repo SQLite/WAL hygiene: deferred by owner.

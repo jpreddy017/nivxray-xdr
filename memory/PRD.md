@@ -164,3 +164,17 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   Sysmon 1→PROCESS, PROCESS filter returns real records, unsupported families
   stay explicit gaps, tenant isolation holds, and Device Trajectory resolves
   real canonical process evidence.
+
+## 2026-06 · CORRECTION + production acceptance harness
+- Publish 100 (`d85f369`) IS already live. The earlier "production is still
+  pre-projection" claim was WRONG: preview (patched) serves the same OpenAPI
+  hash `8c04168feebf43f0` / 862 paths, because the patch adds no route.
+- Valid build fingerprint instead: `GET /api/edr/events?activity=AUTHENTICATION`
+  → pre-patch 422 ACTIVITY_INVALID (edr_events.py:227-231 @ 86e02057^) vs
+  patched 200 with `filters_applied.activity == "AUTH"`. Confirmed on preview,
+  and `activity=BOGUS` still 422 (validation intact).
+- Owner-run acceptance script: memory/production-gates/prod_projection_verify.py
+  (getpass, one login POST, GETs only, PASS/FAIL per criterion). Agent cannot
+  run it: admin password is owner-held and no token may enter chat.
+- Supervisor health-check finding = false positive, untouched. SQLite/WAL repo
+  hygiene deferred.
