@@ -172,3 +172,27 @@ previously observed flakes passed).
 - Broader Windows event-family coverage (5379, 4798, 4648, 4672, …).
 - Storing the canonical activity class on the derivation at ingest, so
   reads stop re-deriving from raw text.
+
+## 7 · Push + CI reality check (read-only, before the owner clicks)
+
+- Remote `feature/rc2-alignment` head = `33061132` (06:26:51Z,
+  "Auto-generated changes"). **`86e02057` is NOT pushed.** The agent cannot
+  push; the owner's "Save to Github" is required.
+- CI that will fire on that push: **RC4.x Quality Gate**
+  (`.github/workflows/rc4x_quality_gate.yml`, id 346759487). Its `push`
+  trigger is scoped to `main, feature/rc2, feature/rc2.1b, feature/rc4,
+  feature/rc4.5` — NOT `feature/rc2-alignment` — but **PR #1
+  (feature/rc2-alignment → main) is open**, so the `pull_request` trigger
+  fires. The last four runs on this branch all succeeded.
+- **That gate does NOT run `tests/edr`.** Its steps are a fixed list
+  (RC2.3 baseline, RC4.0 decoder pack, RC4.2 semantic evaluator, RC4.3/4.4/
+  4.5 normalizers, ReDoS perf, RC2.3 chain-completeness benchmark). The 41
+  Windows projection tests are therefore NOT executed by the authoritative
+  CI as configured.
+- Making CI cover them requires a WORKFLOW change (add a `tests/edr` step,
+  and/or add this branch to the `push` triggers). That is a change to the
+  approved patch, so it is returned for owner review rather than made.
+- The Windows Installer workflow will not run on this push (its paths
+  filter is `agents/nivxforge-windows/**`).
+- Local authoritative evidence meanwhile: `pytest tests/edr` →
+  **673 passed, 3 skipped**.
