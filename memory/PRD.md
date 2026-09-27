@@ -21758,3 +21758,12 @@ Report: `/app/memory/production-gates/WINDOWS_INSTALLER_STAGE4_SERVICE_FIX.md`.
 - RECOVERY for ep_1989031c8c1d0085812f: rebuild via CI, then elevated
   `.\NivXForgeEDRSetup.exe install --backend https://nivxray.nivxforge.com`
   with NO token/tenant → resume → service starts. Do NOT use --re-enrol.
+
+## 2026-06 · STAGE 4 FIX COMMITTED LOCALLY — PUSH BLOCKED ON OWNER CLICK
+- Fix committed locally as `ad4a58ef` (3 files: nivxforge_setup.py,
+  test_windows_installer_v1.py, new test_windows_installer_service_stage4.py).
+- Remote HEAD is still `9f5ab8f5`; the fix is NOT on GitHub (verified: the
+  remote copy of nivxforge_setup.py has 0 matches for the new code).
+- The agent cannot push (no git remote, no credentials in pod). Owner must
+  click **Save to Github**; the Windows workflow then auto-triggers because
+  it watches `agents/nivxforge-windows/**`.
