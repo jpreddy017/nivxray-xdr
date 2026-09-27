@@ -21714,3 +21714,19 @@ Report: `/app/memory/production-gates/WINDOWS_INSTALLER_ARTIFACT_VERIFICATION.md
   `enr_[A-Za-z0-9_-]{30,}` via stdin instead.
 - State: 1 ACTIVE token (1h TTL, single-use), 1 REVOKED, 0 endpoints,
   0 telemetry, 0 response actions, EDR_AUTH_PEPPER untouched.
+
+## 2026-06 · TOKEN STATUS CHECK (read-only) — tok_9cca5b436ad2400d STILL VALID
+- Checked 2026-09-27T04:02Z: state=ACTIVE, usable=true, used_at=null,
+  used_by_endpoint_id=null, revoked_at=null, expires 04:52:36Z (~50 min left).
+  NO replacement minted; no production mutation (reads + login only).
+- The failed installer attempt (literal "<TOKEN>") is audited as
+  rej_d18e1e84513c42dd @03:59:46Z, path /api/edr/agent/enroll,
+  code ENROLLMENT_TOKEN_INVALID, generic reason (no tenant/endpoint oracle),
+  source_ip 35.227.215.211, tenant_resolution=RESOLVED,
+  prospective endpoint_id ep_1989031c8c1d0085812f, payload_retained=false,
+  evidence_eligibility=NEVER_EVIDENCE. Fail-closed path worked exactly.
+- ENDPOINTS ENROLLED: still 0.
+- MINOR COSMETIC DEFECT (not fixed, not blocking): the revoked token
+  tok_8bf42c2a7df74255 reports `legacy_state: "USED"` while `used_at` is
+  null and `state` is REVOKED — a legacy field mislabel that could make a
+  UI claim a token was used when it never was.
