@@ -146,3 +146,21 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - PRODUCTION REPUBLISH STILL ON HOLD pending owner approval. After republish:
   verify 4624→AUTH, Sysmon 1→PROCESS, facets populated, PROCESS filter
   returns processes, Device Trajectory shows real process evidence.
+
+## 2026-06 · Backend republish APPROVED by owner — blocked on the owner's click
+- Pre-publish safety gate re-verified read-only: no frontend file, no .env /
+  requirements, no new env reads in production code, no schema/index/migration/
+  backfill, collection policy and the 8 SUPPORTED families unchanged, response
+  authority fail-closed unchanged, sensor untouched.
+- Production BEFORE baseline: /api/health ok, openapi 862 paths
+  sha256 8c04168feebf43f0 (still the pre-projection build).
+- Platform constraint (unchanged): republish is an OWNER-ONLY click in the
+  Emergent UI; the agent cannot trigger it and it cannot be scoped
+  backend-only (frontend diff is empty, so the rebuild is a frontend no-op).
+- Acceptance script ready: memory/production-gates/prod_projection_verify.sh
+  (read-only GETs; needs a console bearer token the owner pastes into their own
+  shell). Gate doc: WINDOWS_PROJECTION_BACKEND_REPUBLISH.md
+- Defect closes only when facets AUTH/PROCESS > 0, per-record 4624→AUTH and
+  Sysmon 1→PROCESS, PROCESS filter returns real records, unsupported families
+  stay explicit gaps, tenant isolation holds, and Device Trajectory resolves
+  real canonical process evidence.
