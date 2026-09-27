@@ -178,3 +178,24 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   run it: admin password is owner-held and no token may enter chat.
 - Supervisor health-check finding = false positive, untouched. SQLite/WAL repo
   hygiene deferred.
+
+## 2026-06 · Production gate recorded: S1-S5 PASSED · S6 HELD
+- Owner will not accept Device Trajectory as final. New workstream:
+  DEVICE TRAJECTORY V2 — operational (not visual) parity with Cisco Secure
+  Endpoint-class investigation. No Cisco assets/CSS/code/branding.
+- PHASE A COMPLETE (read-only, no code change):
+  memory/production-gates/DEVICE_TRAJECTORY_V2_GAP_ANALYSIS.md
+- Findings in brief: V1 already has windowed cursor paging, endpoint-wide
+  lineage-ordered axis, lifelines, parent→child connectors, 30-day + 24-hour
+  navigator with drag handles, filters, pivots, and a focus handoff endpoint.
+  Real gaps: no Events→Trajectory entry point (EdrEventsPage has zero
+  trajectory links); no first-class relationships[]/detections[]/density[]/
+  coverage[] in the contract; no search match navigation; no RAW evidence tab
+  (though GET /api/edr/events/{raw_id} exists); no keyboard ops; inspector
+  fixed at 348px; URL uses replace so Back does not step; no request abort.
+- Telemetry-limited (NOT UI bugs): no Sysmon 5 process end, no signer/
+  integrity, 4688 lacks ProcessGuid+hashes, no file-read/module/WMI coverage.
+- Per-dimension parity: UI PARTIAL · NAV PARTIAL · TIMELINE GOOD ·
+  RELATIONSHIP PARTIAL · SEARCH/FILTER PARTIAL · EVIDENCE PARTIAL ·
+  TELEMETRY COVERAGE HONEST/NARROW. No aggregate score, by owner rule.
+- NEXT: await owner approval, then Phase B architecture doc. No code yet.
