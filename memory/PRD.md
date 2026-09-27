@@ -87,3 +87,19 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 ## Known issues
 - `test_sensor_runtime_state_is_never_committed` flakes under the parallel
   full suite (git invocation); passes in isolation.
+
+## 2026-06 · Push gate status (owner-approved, Option A)
+- Owner approved CI-only commit `d03d8523` AS PRESENTED. Decision: INCLUDE
+  both intermittent tests (`test_sensor_runtime_state_is_never_committed`,
+  `test_production_launcher_refuses_admin_credential_bootstrap`). NO
+  exclusions added for them — verified: workflow has no `-k`/`--deselect`
+  naming either test.
+- `86e02057` (projection patch) left byte-identical. patch-id
+  `0479b1adb6b28e76b44b7c6927e923fbd5a002a5`; full `git show` sha256
+  `8c8e72bdcee0535b0a7028ad6d3a1782e3abe9bad25e59a7de646bd0aea4880f`.
+- Local branch `feature/rc2-alignment`; order preserved:
+  `86e02057` → (report commit) → `d03d8523` = HEAD.
+- Zero edits made this turn. Awaiting owner "Save to GitHub", then
+  authoritative CI observation. On first failure of either intermittent
+  test: capture evidence, NO rerun, NO exclusion, STOP for owner review.
+- Republish remains BLOCKED pending owner review of CI evidence.
