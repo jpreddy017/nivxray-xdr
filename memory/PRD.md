@@ -21672,3 +21672,45 @@ Reports: `NIVXFORGE_WINDOWS_INSTALLER_V1_GATE0.md`,
 - Legacy Vercel `nivxray-xdr` refusal untouched (expected failure by design).
 - NEXT OWNER ACTION: Save to GitHub → the Windows workflow reruns → expect
   Build/Verify/Upload all green → then verify EXE SHA-256 → then mint ONE token.
+
+## 2026-06 · WINDOWS INSTALLER CI GREEN · ARTIFACT CI-ATTESTED
+Report: `/app/memory/production-gates/WINDOWS_INSTALLER_ARTIFACT_VERIFICATION.md`.
+- Run `36284860051` (windows-latest) SUCCESS at commit `9f5ab8f5`; all steps
+  green including `Verify artifact contract` and `upload-artifact`
+  (configured `if-no-files-found: error`, so all 3 files existed).
+- Artifact `NivXForgeEDRSetup-windows-x64` id `10919569686`, 8,963,879 B zip,
+  not expired, bound to that run/sha.
+- Installer source files at `9f5ab8f5` are SHA-256 identical to local; the
+  exit-code fix is present in the remote workflow (3 guardExit refs).
+- Runner PROVED on the binary: PE MZ (twice), frozen `version` runs with NO
+  separate Python, service name present, localhost guard refuses non-zero,
+  credential-shape scan clean, manifest+build-info emitted. Workflow uses
+  no secrets (`permissions: contents: read`).
+- LIMIT: agent CANNOT download the artifact — GitHub returns 401 for artifact
+  zips even on public repos, and job logs are 403; no GH token in pod. So
+  EXE SIZE / EXE SHA-256 / MANIFEST SHA-256 / BUILD-INFO COMMIT are
+  CI-attested, NOT independently reproduced. Owner closes this with
+  `Get-FileHash` after downloading, or by supplying a read-only PAT
+  (Actions: read).
+- NEXT: hash verification → THEN mint exactly ONE enrollment token for
+  ten_e759b7288598bd882e3dcac49d → install on the Sysmon PC.
+
+## 2026-06 · ENROLMENT TOKEN MINTED (2nd; 1st revoked after self-inflicted leak)
+- Pre-checks: tenant ten_e759b7288598bd882e3dcac49d ACTIVE / INTERNAL_VALIDATION
+  under org_55f6dc202dbf8995369db989ad; 0 prior tokens; 0 endpoints.
+- INCIDENT: my own "is it persisted?" check ran `grep -rl <plaintext> /app`,
+  putting the token in a PROCESS COMMAND LINE. The Linux sensor running in
+  this preview pod (--api http://localhost:8001, tenant `default`) captured
+  and ALREADY DELIVERED it. Blast radius = PREVIEW ONLY; never reached
+  production; no customer data.
+- Remediation: journal redacted in place with SAME-LENGTH placeholder
+  (offsets preserved, size identical); 1 doc purged from preview
+  edr_raw_events + 1 from v2_shadow_observations; token 1
+  (tok_8bf42c2a7df74255) REVOKED with audited reason, consumed_at=None so it
+  was never used; token 2 (tok_9cca5b436ad2400d) minted and kept out of every
+  command line (re-verified 0 hits).
+- STANDING RULE: never put a secret in a shell command line in this pod —
+  a local sensor collects process command lines. Match on the pattern
+  `enr_[A-Za-z0-9_-]{30,}` via stdin instead.
+- State: 1 ACTIVE token (1h TTL, single-use), 1 REVOKED, 0 endpoints,
+  0 telemetry, 0 response actions, EDR_AUTH_PEPPER untouched.
