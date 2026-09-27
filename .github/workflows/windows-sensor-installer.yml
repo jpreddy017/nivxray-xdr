@@ -40,6 +40,7 @@ jobs:
       - name: Verify artifact contract
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $dist = 'agents/nivxforge-windows/dist'
           $exe  = Join-Path $dist 'NivXForgeEDRSetup.exe'
           if (-not (Test-Path $exe)) { throw 'no installer produced' }
@@ -48,17 +49,28 @@ jobs:
           if ($b[0] -ne 0x4D -or $b[1] -ne 0x5A) { throw 'not a Windows PE' }
           # Runs without Python installed separately: the frozen binary must
           # answer `version` using only what it bundles.
-          $out = & $exe version | Out-String
+          $out = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "frozen CLI exited $LASTEXITCODE" }
           Write-Host $out
           if ($out -notmatch 'sensor_version') { throw 'frozen CLI did not respond' }
           if ($out -notmatch 'NivXForgeSensor') { throw 'service name missing' }
-          # Refuse non-production backends (guard must be live in the binary)
-          $bad = & $exe install --backend http://localhost:8001 --tenant t --token x 2>&1 | Out-String
+          # Refuse non-production backends (guard must be live in the binary).
+          # A NON-ZERO exit is the REQUIRED outcome here, so the exit code is
+          # captured and cleared deliberately: GitHub's pwsh wrapper appends
+          # `exit $LASTEXITCODE`, and a leaked 1 from this intentional refusal
+          # would fail the step even though every assertion passed.
+          $bad = (& $exe install --backend http://localhost:8001 --tenant t --token x 2>&1 | Out-String)
+          $guardExit = $LASTEXITCODE
+          Write-Host $bad
+          if ($guardExit -eq 0) { throw 'production-origin guard exited 0 for localhost' }
           if ($bad -notmatch 'refusing to install') {
             throw 'production-origin guard did not refuse localhost'
           }
+          $global:LASTEXITCODE = 0
           Get-Content (Join-Path $dist 'build-info.json')
           Get-Content (Join-Path $dist 'SHA256SUMS.txt')
+          Write-Host 'ARTIFACT CONTRACT: PASS'
+          exit 0
 
       - uses: actions/upload-artifact@v4
         with:

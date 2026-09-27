@@ -145,8 +145,12 @@ def _install_service(api: str, interval: int) -> None:
 
 def install(api: str, tenant: str | None, token: str | None,
             interval: int, re_enrol: bool) -> None:
-    _assert_admin()
+    # Pure argument validation FIRST: it has no side effects, so it is safe
+    # to run before the elevation check, and it makes the refusal
+    # deterministic on any host (including an already-elevated CI runner).
+    # Nothing is written until _assert_admin() has passed.
     api = _assert_backend(api)
+    _assert_admin()
     print(f"=== 1 . STAGE ===\n  install dir : {INSTALL_DIR}")
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
     source = _self_path()

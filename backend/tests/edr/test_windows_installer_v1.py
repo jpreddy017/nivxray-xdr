@@ -178,6 +178,38 @@ def test_install_requires_elevation():
     assert text.index("_assert_admin()") < text.index("=== 1 . STAGE ===")
 
 
+def test_argument_guards_run_before_the_elevation_check():
+    """Pure validation first, so a refusal is deterministic on any host
+    (including an elevated CI runner) — but still nothing is written
+    before elevation is proven."""
+    body = SETUP.read_text(encoding="utf-8")
+    body = body[body.index("def install("):body.index("def uninstall(")]
+    # Compare executable statements only: a comment naming a guard must not
+    # be mistaken for the call site.
+    code = "\n".join(line for line in body.splitlines()
+                     if not line.strip().startswith("#"))
+    assert code.index("_assert_backend(api)") < code.index("_assert_admin()")
+    assert code.index("_assert_admin()") < code.index("INSTALL_DIR.mkdir")
+
+
+def test_ci_verify_step_does_not_leak_the_intentional_guard_exit_code():
+    """The guard probe MUST exit non-zero; GitHub's pwsh wrapper appends
+    `exit $LASTEXITCODE`, so that 1 must be captured and cleared or the
+    step fails despite every assertion passing."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    verify = text[text.index("Verify artifact contract"):
+                  text.index("- uses: actions/upload-artifact")]
+    assert "$guardExit = $LASTEXITCODE" in verify
+    assert "if ($guardExit -eq 0) { throw" in verify, (
+        "a guard that exits 0 for localhost must still fail the build")
+    assert "$global:LASTEXITCODE = 0" in verify
+    assert verify.rstrip().endswith("exit 0")
+    # Security assertions must all survive the fix.
+    for kept in ("not a Windows PE", "refusing to install", "sensor_version",
+                 "NivXForgeSensor", "build-info.json", "SHA256SUMS.txt"):
+        assert kept in verify
+
+
 def test_cli_contract_is_stable(setup_mod):
     parser = setup_mod.build_parser()
     args, _ = parser.parse_known_args(

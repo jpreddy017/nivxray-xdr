@@ -125,3 +125,87 @@ been installed, started or uninstalled, and the frozen CLI has never executed. T
 proven only by the CI job (which asserts the PE header, runs `version`, and asserts the
 localhost guard refuses) and then by the first controlled install. Signing:
 `UNSIGNED_INTERNAL_VALIDATION_BUILD` — **not** customer-production-ready.
+
+---
+
+# CI RUN 1 · FAILURE ROOT CAUSE + MINIMUM FIX
+
+Run `36283667278`, job `108520219204`, head `d88a9035` (remote HEAD `d88a903`).
+Step-level result read from the public Actions API (job **logs** require auth → `403`,
+so the cause was derived from the code path, not guessed):
+
+```
+Set up job                     success
+actions/checkout@v4            success
+actions/setup-python@v5        success
+Build installer                success   ← PyInstaller produced the EXE; the build
+                                           script's own PE-header check, credential
+                                           scan and manifest writing all passed
+Verify artifact contract       FAILURE   ← exit code 1
+actions/upload-artifact@v4     skipped
+```
+
+## Remote source question (A/B/C/D) → **A + D**
+
+All five installer files are present on `feature/rc2-alignment` at HEAD `d88a9035` and are
+**SHA-256 identical to local**:
+
+```
+PRESENT+MATCH  .github/workflows/windows-sensor-installer.yml
+PRESENT+MATCH  agents/nivxforge-windows/nivxforge_setup.py
+PRESENT+MATCH  agents/nivxforge-windows/build/build_windows_installer.ps1
+PRESENT+MATCH  backend/tests/edr/test_windows_installer_v1.py
+PRESENT+MATCH  backend/routers/edr_onboarding.py
+```
+
+Save-to-GitHub did **not** fail. The "1 file changed / `.emergent/emergent.yml`" screenshot is
+a later **metadata-only** commit (`d88a903`, parent `8471748`); the installer files arrived in
+the parent commit on the same branch. Nothing needed rewriting.
+
+## ROOT CAUSE — my CI step leaked an exit code it had itself requested
+
+`Build installer` **passed**, so the binary, the PE header, the credential scan and the
+manifest were all fine. The defect was entirely inside my `Verify artifact contract` step:
+
+1. The step deliberately invokes the installer with a bad backend to prove the
+   production-origin guard is live in the binary: `& $exe install --backend http://localhost:8001 …`.
+   **That invocation must exit non-zero** — that is the passing condition.
+2. The remaining statements were PowerShell **cmdlets** (`Get-Content`), which do **not**
+   reset `$LASTEXITCODE`.
+3. GitHub's `pwsh` shell appends `if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit $LASTEXITCODE }`
+   to every step script. So the leaked `1` from the intentional refusal became the step's exit
+   code — the step failed **even though every assertion had passed**.
+
+Classification: **CI CONTRACT DEFECT**, not a build defect, not a security defect, not a
+sensor defect.
+
+A second, latent non-determinism was fixed at the same time: `install()` called
+`_assert_admin()` **before** `_assert_backend()`, so on a non-elevated host the refusal text
+would have been the elevation message and the assertion would have failed for the wrong
+reason.
+
+## FIX (minimum, no verification weakened)
+
+1. `.github/workflows/windows-sensor-installer.yml` — capture the guard's exit code
+   (`$guardExit = $LASTEXITCODE`), **fail the build if it is 0** (a guard that permits
+   localhost is now a hard failure — this *strengthens* the check), then clear
+   `$global:LASTEXITCODE = 0` and end with an explicit `exit 0`. Added
+   `$ErrorActionPreference = 'Stop'` and an exit-code check on the `version` probe.
+2. `agents/nivxforge-windows/nivxforge_setup.py` — `install()` now validates `--backend`
+   (pure, side-effect-free) **before** `_assert_admin()`. Nothing is written before elevation
+   is proven; `INSTALL_DIR.mkdir` still comes after the admin check (test-enforced).
+
+**Every security assertion is retained**: genuine PE (`MZ`), credential/secret shapes,
+no preview origin, no localhost, production-origin guard, explicit `ten_…` tenant,
+P0-PROD-2 enrolment authority, no duplicated sensor. Nothing was bypassed.
+
+## Verification here
+
+- `test_windows_installer_v1.py` → **35 passed** (2 new tests lock the exit-code contract and
+  the guard ordering; 2 earlier failures were my own test slices — a comment naming
+  `_assert_admin()` and a slice running past `exit 0` — and were corrected, not silenced).
+- Live code-path simulation: `install('http://localhost:8001', …)` →
+  `refusing to install: --backend must be https (got http)`, raised **before** the elevation
+  check and before any write.
+- Regression: **93 passed** across enrolment hardening, P0-A.2 and the Phase 0 bridge.
+- Legacy Vercel `nivxray-xdr` root-deployment refusal: **untouched, still failing by design.**

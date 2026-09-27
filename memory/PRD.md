@@ -21651,3 +21651,24 @@ Reports: `NIVXFORGE_WINDOWS_INSTALLER_V1_GATE0.md`,
 - NEXT OWNER ACTIONS: Save to GitHub → run the Windows Actions workflow →
   download NivXForgeEDRSetup.exe (+ verify SHA-256) → THEN authorise exactly
   one production enrollment token for ten_e759b7288598bd882e3dcac49d.
+
+## 2026-06 · WINDOWS INSTALLER CI RUN 1: FAILED → FIXED (awaiting rerun)
+- Remote HEAD `d88a9035`; all 5 installer files present and SHA-256 identical
+  to local (Save-to-GitHub did NOT fail; the "1 file changed" screenshot was
+  the later metadata-only commit `d88a903`).
+- `Build installer` PASSED (EXE produced, PE + credential scan + manifest OK).
+  `Verify artifact contract` failed with exit 1.
+- ROOT CAUSE = CI CONTRACT DEFECT: the step deliberately runs the installer
+  with `--backend http://localhost:8001` to prove the guard is live, which
+  MUST exit non-zero; the following statements were cmdlets (no
+  $LASTEXITCODE reset) and GitHub's pwsh wrapper appends
+  `exit $LASTEXITCODE`, so the intentional 1 became the step's exit code.
+- FIX: capture `$guardExit`, FAIL if it is 0 (strengthened), clear
+  `$global:LASTEXITCODE`, explicit `exit 0`, `$ErrorActionPreference=Stop`,
+  exit-code check on the `version` probe. Also reordered `install()` so
+  `_assert_backend` runs before `_assert_admin` (deterministic refusal;
+  still nothing written before elevation).
+- No security assertion weakened. Tests: 35 installer + 93 regression pass.
+- Legacy Vercel `nivxray-xdr` refusal untouched (expected failure by design).
+- NEXT OWNER ACTION: Save to GitHub → the Windows workflow reruns → expect
+  Build/Verify/Upload all green → then verify EXE SHA-256 → then mint ONE token.
