@@ -21625,3 +21625,29 @@ Report: `/app/memory/production-gates/NIVX_MACHINES_TENANT_BOOTSTRAP.md`.
   production writes performed in this stage.
 - NEXT (owner-gated): mint exactly ONE single-use Windows enrollment token
   for `ten_e759b7288598bd882e3dcac49d`, then STOP before endpoint install.
+
+## 2026-06 · WINDOWS INSTALLER V1 — TRACK A READY / TRACK B AUTHORED
+Reports: `NIVXFORGE_WINDOWS_INSTALLER_V1_GATE0.md`,
+`TRACK_A_FIRST_WINDOWS_INSTALL_RUNBOOK.md`.
+- Gate 0 inventory: existing `nivxforge_sensor.py` (enrol/run/status, wevtutil
+  collection, durable outbox, heartbeat, policy ACK, Gate 7 exclusions) is
+  sound and REUSED. Existing `Install-NivXForgeSensor.ps1` works but needs
+  Python 3.11+ and uses an ONSTART scheduled task; no EXE/MSI existed.
+- BLOCKER (unchanged): a Windows PE cannot be built on this Linux pod
+  (PyInstaller does not cross-compile; no wine; no signing cert). Nothing
+  was faked.
+- TRACK A: package scanned clean (no credential/preview/localhost), runbook
+  prepared. HELD — no token minted, nothing installed.
+- TRACK B authored: `agents/nivxforge-windows/nivxforge_setup.py` (real
+  Windows Service via pywin32 + sc.exe auto-start/crash-recovery, production
+  origin + tenant guards, elevation check, icacls credential dir, uninstall
+  with evidence retention); `build/build_windows_installer.ps1` (PyInstaller
+  onefile, PE check, credential scan, SHA256SUMS + build-info);
+  `.github/workflows/windows-sensor-installer.yml` (windows-latest, zero
+  secrets); `backend/tests/edr/test_windows_installer_v1.py` (33 pass);
+  `edr_onboarding.py` new artifact-gated `windows-x64-exe` package
+  (reports INCOMPLETE until CI drops the binary).
+- Regression: 185 passed across 8 EDR/enrollment/exclusion/response suites.
+- NEXT OWNER ACTIONS: Save to GitHub → run the Windows Actions workflow →
+  download NivXForgeEDRSetup.exe (+ verify SHA-256) → THEN authorise exactly
+  one production enrollment token for ten_e759b7288598bd882e3dcac49d.

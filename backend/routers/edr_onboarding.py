@@ -87,6 +87,30 @@ PACKAGES = {
             ".\\Install-NivXForgeSensor.ps1 -BackendUrl <backend> "
             "-TenantId <tenant> -EnrollmentToken <token>"),
     },
+    # Track B · the frozen one-file installer. PyInstaller cannot
+    # cross-compile a Windows PE, so this artifact is produced only by the
+    # `windows-latest` GitHub Actions job and dropped into
+    # `agents/nivxforge-windows/dist`. Until then `_describe()` reports it
+    # as NOT_BUILT — the package is never fabricated.
+    "windows-x64-exe": {
+        "id": "windows-x64-exe",
+        "os": "WINDOWS",
+        "architecture": "x64",
+        "display_name": "NivXForge Sensor Setup · Windows x64 (EXE)",
+        "directory": "nivxforge-windows/dist",
+        "files": ["NivXForgeEDRSetup.exe"],
+        "entrypoint": "NivXForgeEDRSetup.exe",
+        "release_status": "CI_BUILD_REQUIRED",
+        "signing_status": "UNSIGNED_INTERNAL_VALIDATION_BUILD",
+        "supported_windows": ["Windows 10 21H2+", "Windows 11",
+                              "Windows Server 2019", "Windows Server 2022"],
+        "requires": ["elevated prompt for installation"],
+        "startup_mechanism": "WINDOWS_SERVICE",
+        "silent_install": (
+            "NivXForgeEDRSetup.exe install "
+            "--backend https://nivxray.nivxforge.com "
+            "--tenant <tenant> --token <enrollment-token>"),
+    },
     "windows-arm64": {
         "id": "windows-arm64", "os": "WINDOWS", "architecture": "arm64",
         "display_name": "NivXForge Sensor · Windows ARM64",

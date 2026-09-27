@@ -1,0 +1,71 @@
+name: NivXForge Windows Installer (V1)
+
+# Builds the genuine Windows artifact ON WINDOWS. PyInstaller cannot
+# cross-compile a Windows PE from Linux, so this workflow is the only
+# place NivXForgeEDRSetup.exe can legitimately come from.
+#
+# SECURITY: this build needs NO secret of any kind — no production admin
+# credential, no JWT, no enrolment token, no EDR_AUTH_PEPPER, no endpoint
+# credential. The artifact is generic; enrolment happens only when an
+# authorised operator installs it with an owner-supplied token.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'agents/nivxforge-windows/**'
+      - '.github/workflows/windows-sensor-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build NivXForgeEDRSetup.exe (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 `
+            -PythonExe python -Commit $env:GITHUB_SHA
+
+      - name: Verify artifact contract
+        shell: pwsh
+        run: |
+          $dist = 'agents/nivxforge-windows/dist'
+          $exe  = Join-Path $dist 'NivXForgeEDRSetup.exe'
+          if (-not (Test-Path $exe)) { throw 'no installer produced' }
+          # Genuine PE
+          $b = [System.IO.File]::ReadAllBytes($exe)
+          if ($b[0] -ne 0x4D -or $b[1] -ne 0x5A) { throw 'not a Windows PE' }
+          # Runs without Python installed separately: the frozen binary must
+          # answer `version` using only what it bundles.
+          $out = & $exe version | Out-String
+          Write-Host $out
+          if ($out -notmatch 'sensor_version') { throw 'frozen CLI did not respond' }
+          if ($out -notmatch 'NivXForgeSensor') { throw 'service name missing' }
+          # Refuse non-production backends (guard must be live in the binary)
+          $bad = & $exe install --backend http://localhost:8001 --tenant t --token x 2>&1 | Out-String
+          if ($bad -notmatch 'refusing to install') {
+            throw 'production-origin guard did not refuse localhost'
+          }
+          Get-Content (Join-Path $dist 'build-info.json')
+          Get-Content (Join-Path $dist 'SHA256SUMS.txt')
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NivXForgeEDRSetup-windows-x64
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
