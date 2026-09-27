@@ -43,6 +43,24 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   `memory/production-gates/WINDOWS_INSTALLER_STAGE4_POST_PUSH_VERIFICATION.md`.
 
 ## Backlog
+- P0: **Windows activity projection fix implemented (commit `86e02057`,
+  LOCAL, not pushed, not deployed)** — one resolver
+  `windows_eventlog.envelope_activity` + `flat_view` + facet/filter
+  predicates generated from `SUPPORTED`; consumers updated:
+  `edr_events._row`, activity facet, activity filter, `edr.py`
+  detections + process/trajectory surface, `response.py` targeting.
+  Second mismatch found and fixed: canonical `AUTHENTICATION` vs the
+  console vocabulary `AUTH` (projection alias, both names in the row
+  basis). 41 new tests; `tests/edr` 673 passed. Report:
+  `memory/production-gates/WINDOWS_ACTIVITY_PROJECTION_FIX.md`.
+  Awaiting owner review → Save to Github → backend republish only (no
+  migration, no backfill).
+- P1 (recorded, deliberately out of that patch): Windows derivations
+  report `parser_name=nivxforge-linux-sensor`; sensor `<Events>`
+  batch-wrapper defect (~1 record per 100 refused as malformed XML);
+  sensor `_attr()` cannot read single-quoted attributes; broader Windows
+  event-family coverage (5379, 4798, 4648, 4672); store the canonical
+  activity class on the derivation at ingest.
 - P0: **Windows canonicalization gap — diagnosis DONE, patch NOT applied.**
   Canonical bridge works (Sysmon 1 → PROCESS, observation
   `kind=process_create`, detection evaluated). First broken boundary is the
