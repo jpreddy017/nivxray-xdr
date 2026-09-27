@@ -32,9 +32,20 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   recognition, real create→start→RUNNING→stop→STOPPED→delete lifecycle).
   See `memory/production-gates/WINDOWS_INSTALLER_STAGE4_SCM_RUNTIME_FIX.md`.
 
+- **2026-06 · Post-push verification (read-only)**: pushed as `3700d3f3`
+  (platform bookkeeping commit on top of `56a4d130`; installer files byte
+  identical remote-vs-local). Run **36296416653** SUCCESS on windows-latest:
+  all four gates green including the real SCM lifecycle
+  CREATE→START→RUNNING→STOP→STOPPED→DELETE. Artifact
+  `NivXForgeEDRSetup-windows-x64` id 10924240416 (17,932,393 B zip).
+  Job logs (403) and artifact bytes (401) need repo-admin auth, so the EXE
+  SHA-256 and `sc qc` text are NOT independently obtained. See
+  `memory/production-gates/WINDOWS_INSTALLER_STAGE4_POST_PUSH_VERIFICATION.md`.
+
 ## Backlog
-- P0: push `56a4d130`, read the Actions run, report run ID / commit SHA /
-  EXE SHA-256 / build-info / gate evidence. No laptop action until approved.
+- P0: owner PASS/HOLD on the artifact, then endpoint repair instructions.
+- P1: close evidence-access gaps — read-only GitHub PAT (logs + artifact
+  hash), and make `service.log` presence a hard CI assertion.
 - P0: live Windows canonicalization proof (endpoint online, Sysmon ingested,
   canonical evidence + Device Trajectory).
 - P1: full investigation surface (Hunt, Files, Network, Forensics, Live Query).
