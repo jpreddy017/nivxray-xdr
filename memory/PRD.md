@@ -237,3 +237,41 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   DEVICE_TRAJECTORY_V2_PUBLIC_REFERENCE_ADDENDUM.md.
 - No deploy, no DB write/migration, no sensor, no canonicalization/detection
   semantics, no response authority. DT2-1 NOT started. Awaiting owner approval.
+
+## 2026-06 · DT2-0 ACCEPTED by owner · DT2-1 AUTHORIZED but CI-BLOCKED
+- Owner accepted DT2-0 (commit `114e06d6`) subject to the authoritative
+  GitHub CI gate. DT2-1 (timeline/navigation/interaction engine) authorized
+  for that slice ONLY. DT2-2+ forbidden.
+- Owner decisions for DT2-1: (1) push only via owner "Save to Github" after
+  agent diff inspection — agent must not push; (2) **DT2-1 implementation is
+  BLOCKED until authoritative CI is GREEN for `114e06d6`; local pytest is NOT
+  a substitute**; (3) mouse/trackpad acceptance = synthetic WheelEvent
+  simulation only, report "PHYSICAL HARDWARE UX VALIDATION: NOT PERFORMED",
+  owner does physical acceptance; (4) frontend scope = minimum safe substrate
+  (navigation/interaction engine + bounded windowed rendering, KEEP the
+  existing lane/node renderer, no virtualization rewrite — STOP and report if
+  a measured blocker forces expansion); (5) layered test harness — frontend
+  unit/interaction (existing JS runner) + backend pytest (contract/tenant/
+  cursor/focus/V1) + focused Playwright (deltaMode, gestures, anchored zoom,
+  scroll-domain isolation, URL PUSH/REPLACE, Back/Forward, A→B→C stale
+  rejection, inspector-vs-trajectory scroll). All 50 required cases must be
+  mapped UNIT / PLAYWRIGHT / PYTEST / MANUAL-HARDWARE; no case passes on
+  design description alone.
+- **Commit inspection DONE (this turn, read-only):**
+  `memory/production-gates/DT2_0_COMMIT_INSPECTION_RECORD.md` — `114e06d6` =
+  5 files, +1387/−0, approved scope only, zero secrets, zero runtime
+  artifacts (no sqlite/wal/shm/log/env), no frontend/CI/deps/sensor/env/
+  supervisor change, no migration, `edr.py` change is 3 additive edits with
+  V2 inside try/except after all V1 keys are written. patch-id
+  `7a23172106bba1cdc543bfebb5d1192ec2df87c5`, `git show` sha256
+  `6e7a29c34ad4e5522f111122361ea16bdb5ec9231973c65b88487ec577978b2a`.
+  Verified the DT2-0 suite is NOT in the workflow's 10 `--ignore` entries and
+  is hermetic ⇒ CI will really execute it.
+- No `origin`/upstream exists in this pod, so the agent structurally cannot
+  push. Owner "Save to Github" is the only path.
+- Open hygiene item for the owner before the click: untracked
+  `memory/availability_probe.log` (44 KB, secret-clean, regenerable) would be
+  swept into the auto-commit — recommend deleting it first. Tracked
+  SQLite/WAL/SHM files are unmodified, so they cannot be swept in.
+- STOPPED. Awaiting: Save to Github → GREEN authoritative CI for `114e06d6`
+  → then DT2-1 implementation begins.
