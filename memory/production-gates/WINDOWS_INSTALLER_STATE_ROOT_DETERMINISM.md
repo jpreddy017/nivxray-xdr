@@ -118,3 +118,32 @@ Added:
 Committed locally; awaiting "Save to Github" and the rerun. No endpoint
 instructions, no artifact download recommended — the previous artifact was
 correctly not published.
+
+## 7 · Run 36298304927 — state root PROVEN, shutdown record race fixed
+
+Owner-pasted CI evidence confirmed the §2 hypothesis and the §3 fix:
+installer state dir == service state dir == `C:\ProgramData\NivXForge\sensor`,
+`explicit=True`, service reached RUNNING, `sc qc` showed AUTO_START /
+LocalSystem / the explicit `--state-dir`. The `not enrolled` cycle line is
+expected on a disposable runner and was retried, not fatal.
+
+Remaining failure: `stop diagnostics incomplete: 'STOPPED' absent from
+service.log`, while the SCM itself reached STOPPED and the log already held
+`control STOP received` and `stop event signalled — leaving run loop`.
+
+Root cause: `SvcRun`'s `finally` reported `SERVICE_STOPPED` to the SCM and
+only THEN wrote the final record. Once STOPPED is reported the SCM may tear
+the process down immediately, so the last line was a race the service lost.
+
+Fix (no sleeps, no weakened assertion):
+- the final record is written **before** the SCM is told STOPPED;
+- `_service_log` now `flush()` + `os.fsync()`, so a record survives an
+  immediate teardown instead of dying in a buffer.
+
+Regression tests (4 new, 96 passing in the installer suites): the real
+service class is driven against minimal SCM stubs and must emit
+`START_PENDING → RUNNING → control STOP received → stop event signalled →
+STOPPED` **in order**; a further test asserts that at the moment
+`SERVICE_STOPPED` is reported the record is ALREADY on disk; another proves
+an unenrolled cycle is retried and the service still stops cleanly; and a
+source test pins both the fsync and the write-before-report ordering.
