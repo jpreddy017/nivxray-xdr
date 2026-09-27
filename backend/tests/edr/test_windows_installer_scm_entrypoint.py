@@ -207,6 +207,20 @@ def test_a_failed_cycle_does_not_stop_the_service():
     assert "except (Exception, SystemExit) as ex:" in text
 
 
+@pytest.mark.parametrize("line", [
+    "service entrypoint reached",
+    "START_PENDING",
+    "RUNNING",
+    "control STOP received",
+    "stop event signalled",
+    "STOPPED",
+])
+def test_the_lifecycle_lines_the_ci_gate_asserts_are_emitted(line):
+    """CI fails the build unless service.log contains these, so the source
+    must keep emitting them: the two must not drift apart."""
+    assert line in SETUP.read_text()
+
+
 # ── 6 · the SERVICE IMAGE must be a onedir host, not the onefile ──
 def test_service_binpath_points_at_the_onedir_service_host(mod):
     create = _sc_create_line(mod)
@@ -304,6 +318,17 @@ def test_ci_workflow_runs_a_real_scm_lifecycle_smoke_test():
     assert "STOPPED" in wf
     assert "sc.exe delete" in wf
     assert "stage-host" in wf, "CI must prove the service host unpacks"
+    # service.log is an ACCEPTANCE ASSERTION, not optional output
+    assert "service diagnostics missing" in wf
+    assert "service diagnostics incomplete" in wf
+    assert "stop diagnostics incomplete" in wf
+    assert "'service entrypoint reached', 'START_PENDING'" in wf
+    assert "'control STOP received'" in wf
+    assert "Remove-Item $log" in wf, (
+        "the log must be cleared first so the assertions prove the SERVICE "
+        "wrote it, not an earlier gate")
+    assert "if (Test-Path $log) { Write-Host (Get-Content $log -Raw) }" not in wf, (
+        "the diagnostics check must not be conditional")
     assert "invalid choice" in wf, (
         "CI must fail explicitly if the SCM command line reaches the "
         "installer's subcommand parser again")

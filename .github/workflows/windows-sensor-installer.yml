@@ -130,6 +130,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # The diagnostics file must be proved to be written by the SERVICE
+          # itself, so anything an earlier gate left behind is removed first.
+          $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
+          Remove-Item $log -Force -ErrorAction SilentlyContinue
           @'
           import sys
           sys.path.insert(0, r"agents/nivxforge-windows")
@@ -154,7 +158,25 @@ jobs:
           Write-Host (& sc.exe qc $svc | Out-String)
 
           $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
-          if (Test-Path $log) { Write-Host (Get-Content $log -Raw) }
+          # MANDATORY diagnostics: another 1053 must never be silent, so the
+          # lifecycle trail is an ACCEPTANCE ASSERTION, not optional output.
+          $deadline = (Get-Date).AddSeconds(60)
+          do {
+            $logText = if (Test-Path $log) { Get-Content $log -Raw } else { '' }
+            if ($logText -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          if (-not (Test-Path $log)) {
+            throw "service diagnostics missing: $log was never written by the service"
+          }
+          Write-Host $logText
+          foreach ($needle in @('service entrypoint reached', 'START_PENDING',
+                                'RUNNING')) {
+            if ($logText -notmatch [regex]::Escape($needle)) {
+              throw "service diagnostics incomplete: '$needle' absent from service.log"
+            }
+          }
+          Write-Host 'SERVICE DIAGNOSTICS: START_PENDING -> RUNNING RECORDED'
 
           & sc.exe stop $svc | Out-Null
           $deadline = (Get-Date).AddSeconds(90)
@@ -166,7 +188,20 @@ jobs:
           Write-Host $q
           if ($q -notmatch 'STOPPED') { throw "service did not stop cleanly: $q" }
           Write-Host 'SERVICE STATE: STOPPED (clean)'
-          if (Test-Path $log) { Write-Host (Get-Content $log -Raw) }
+          $deadline = (Get-Date).AddSeconds(60)
+          do {
+            $logText = Get-Content $log -Raw
+            if ($logText -match 'STOPPED') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $logText
+          foreach ($needle in @('control STOP received',
+                                'stop event signalled', 'STOPPED')) {
+            if ($logText -notmatch [regex]::Escape($needle)) {
+              throw "stop diagnostics incomplete: '$needle' absent from service.log"
+            }
+          }
+          Write-Host 'SERVICE DIAGNOSTICS: CLEAN STOP RECORDED'
           & sc.exe delete $svc | Out-Null
           $global:LASTEXITCODE = 0
           Write-Host 'WINDOWS SCM LIFECYCLE: PASS'
