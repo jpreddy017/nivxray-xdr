@@ -102,8 +102,29 @@ def _assert_admin() -> None:
                          "(Administrator). Nothing was installed.")
 
 
-def _sc(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["sc.exe", *args], capture_output=True, text=True)
+def _sc(cmdline: str) -> subprocess.CompletedProcess:
+    """Run `sc.exe` from a RAW command line.
+
+    `sc.exe` uses `key= value` syntax where the space after `=` is an
+    ARGUMENT SEPARATOR, not part of the value: `start=` and `auto` must
+    arrive as two distinct argv tokens. Passing a Python list means
+    `subprocess.list2cmdline` quotes any element containing a space, so
+    `"start= auto"` reached sc as one quoted token and it answered
+    `ERROR: Invalid start= field`. On Windows a string command line is
+    handed to CreateProcess verbatim, which is the only way to control
+    that tokenisation exactly — including quoting a binPath value that
+    itself contains spaces and its own arguments.
+    """
+    return subprocess.run(cmdline, capture_output=True, text=True)
+
+
+def _service_exists() -> bool:
+    q = _sc(f'sc.exe query "{SERVICE_NAME}"')
+    return q.returncode == 0
+
+
+def _service_config() -> str:
+    return _sc(f'sc.exe qc "{SERVICE_NAME}"').stdout or ""
 
 
 # ── install ───────────────────────────────────────────────────────
@@ -123,24 +144,58 @@ def _protect_state_dir() -> None:
 
 
 def _install_service(api: str, interval: int) -> None:
-    bin_path = f'"{INSTALLED_EXE}" --service-run --backend {api} ' \
-               f'--interval {interval}'
-    _sc("stop", SERVICE_NAME)
-    _sc("delete", SERVICE_NAME)
-    created = _sc("create", SERVICE_NAME, f"binPath= {bin_path}",
-                  "start= auto", f"DisplayName= {SERVICE_DISPLAY}",
-                  "obj= LocalSystem")
+    # binPath value is quoted as a whole; the exe path is quoted INSIDE it so
+    # Windows can tell the image path from the arguments.
+    bin_value = (f'\\"{INSTALLED_EXE}\\" --service-run '
+                 f'--backend {api} --interval {interval}')
+    if _service_exists():
+        print(f"  existing service found — replacing {SERVICE_NAME}")
+        _sc(f'sc.exe stop "{SERVICE_NAME}"')
+        _sc(f'sc.exe delete "{SERVICE_NAME}"')
+    created = _sc(
+        f'sc.exe create "{SERVICE_NAME}" binPath= "{bin_value}" '
+        f'start= auto obj= LocalSystem DisplayName= "{SERVICE_DISPLAY}"')
     if created.returncode != 0:
         raise SystemExit("service creation failed: "
                          f"{(created.stdout or created.stderr).strip()[:300]}")
-    _sc("description", SERVICE_NAME, SERVICE_DESCRIPTION)
+    _sc(f'sc.exe description "{SERVICE_NAME}" "{SERVICE_DESCRIPTION}"')
     # Crash recovery: restart after 60s, three times, counter resets daily.
-    _sc("failure", SERVICE_NAME, "reset= 86400",
-        "actions= restart/60000/restart/60000/restart/60000")
-    started = _sc("start", SERVICE_NAME)
+    _sc(f'sc.exe failure "{SERVICE_NAME}" reset= 86400 '
+        f'actions= restart/60000/restart/60000/restart/60000')
+    started = _sc(f'sc.exe start "{SERVICE_NAME}"')
     if started.returncode != 0:
         raise SystemExit("service did not start: "
                          f"{(started.stdout or started.stderr).strip()[:300]}")
+    # Prove the SCM actually recorded what we asked for.
+    config = _service_config()
+    if "AUTO_START" not in config:
+        raise SystemExit("service was created but is not AUTO_START: "
+                         f"{config.strip()[:300]}")
+
+
+def _validate_identity() -> dict:
+    """Fail-closed check on an existing enrolment.
+
+    A resume must only skip enrolment when the local identity is genuinely
+    complete. A truncated or half-written identity.json must NOT be treated
+    as "already enrolled", because that would leave a computer permanently
+    unable to deliver evidence while looking installed.
+    """
+    try:
+        ident = json.loads(sensor.IDENTITY_FILE.read_text())
+    except (OSError, ValueError) as ex:
+        raise SystemExit(
+            f"existing {sensor.IDENTITY_FILE} is unreadable ({type(ex).__name__}). "
+            "Refusing to guess. Re-run with --re-enrol and a fresh token, or "
+            "remove the file deliberately.") from None
+    missing = [k for k in ("tenant_id", "endpoint_id", "credential_id",
+                           "agent_credential") if not ident.get(k)]
+    if missing:
+        raise SystemExit(
+            f"existing enrolment is incomplete (missing: {', '.join(missing)}). "
+            "Refusing to start a service that cannot authenticate. Re-run with "
+            "--re-enrol and a fresh token.")
+    return ident
 
 
 def install(api: str, tenant: str | None, token: str | None,
@@ -155,6 +210,9 @@ def install(api: str, tenant: str | None, token: str | None,
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
     source = _self_path()
     if source != INSTALLED_EXE:
+        # A running service holds the binary open; stop it before replacing.
+        if _service_exists():
+            _sc(f'sc.exe stop "{SERVICE_NAME}"')
         shutil.copy2(source, INSTALLED_EXE)
     print(f"  binary      : {INSTALLED_EXE}")
 
@@ -164,9 +222,15 @@ def install(api: str, tenant: str | None, token: str | None,
 
     print("\n=== 3 . ENROLMENT ===")
     if sensor.IDENTITY_FILE.exists() and not re_enrol:
-        existing = json.loads(sensor.IDENTITY_FILE.read_text())
-        print(f"  already enrolled: endpoint_id={existing.get('endpoint_id')}")
-        print("  keeping this computer's existing identity and credential")
+        # RESUME. This computer is already enrolled, so no token is required
+        # and none is consumed: recovering from a later-stage failure must
+        # never cost an enrolment token or a second endpoint identity.
+        existing = _validate_identity()
+        print(f"  RESUME: already enrolled — endpoint_id="
+              f"{existing['endpoint_id']}")
+        print(f"  tenant      : {existing['tenant_id']}")
+        print("  credential  : present (kept; never re-issued here)")
+        print("  no enrolment request sent, no token required or consumed")
     else:
         tenant = _assert_tenant(tenant or "")
         if not (token or "").strip():
@@ -187,8 +251,8 @@ def install(api: str, tenant: str | None, token: str | None,
 
 def uninstall(purge: bool) -> None:
     _assert_admin()
-    _sc("stop", SERVICE_NAME)
-    _sc("delete", SERVICE_NAME)
+    _sc(f'sc.exe stop "{SERVICE_NAME}"')
+    _sc(f'sc.exe delete "{SERVICE_NAME}"')
     if INSTALL_DIR.exists():
         shutil.rmtree(INSTALL_DIR, ignore_errors=True)
     if purge and sensor.STATE_DIR.exists():

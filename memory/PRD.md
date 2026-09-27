@@ -21730,3 +21730,31 @@ Report: `/app/memory/production-gates/WINDOWS_INSTALLER_ARTIFACT_VERIFICATION.md
   tok_8bf42c2a7df74255 reports `legacy_state: "USED"` while `used_at` is
   null and `state` is REVOKED — a legacy field mislabel that could make a
   UI claim a token was used when it never was.
+
+## 2026-06 · LIVE WINDOWS HOST: ENROLMENT OK · STAGE 4 SERVICE DEFECT FIXED
+Report: `/app/memory/production-gates/WINDOWS_INSTALLER_STAGE4_SERVICE_FIX.md`.
+- REAL endpoint enrolled in production: `ep_1989031c8c1d0085812f`, tenant
+  `ten_e759b7288598bd882e3dcac49d`, credential present, sensor 0.2.0-windows.
+  Token tok_9cca5b436ad2400d consumed by that successful enrolment.
+- ROOT CAUSE of `ERROR: Invalid start= field`: sc.exe `key= value` needs the
+  key and value as SEPARATE argv tokens; passing a list meant
+  subprocess.list2cmdline QUOTED `"start= auto"` as one token. Same latent
+  bug for binPath=/obj=/DisplayName=/reset=/actions=.
+- FIX: `_sc()` now uses a RAW command line string (Windows CreateProcess
+  verbatim); added `_service_exists()`/`_service_config()`; `_install_service`
+  replaces an existing service, creates with correct syntax, sets description
+  + recovery (reset=86400, restart/60000 x3), starts, then asserts `sc qc`
+  reports AUTO_START.
+- RESUME SAFETY: new `_validate_identity()` (fail-closed on incomplete or
+  corrupt identity.json); `install()` resumes with NO --tenant/--token, sends
+  NO second enrolment, preserves the credential byte-for-byte, and stops a
+  running service before replacing the binary. `--re-enrol` still demands
+  tenant+token.
+- TESTS: new test_windows_installer_service_stage4.py (16), V1 suite (35),
+  181 passed overall incl. P0-A.2, P0-PROD-2, Phase 0 bridge, Gate 7, P0-C.
+  (2 V1 assertions updated because my refactor changed the literals they
+  matched; intent preserved.)
+- NEW ARTIFACT REQUIRED: YES — the fix is frozen into the EXE.
+- RECOVERY for ep_1989031c8c1d0085812f: rebuild via CI, then elevated
+  `.\NivXForgeEDRSetup.exe install --backend https://nivxray.nivxforge.com`
+  with NO token/tenant → resume → service starts. Do NOT use --re-enrol.

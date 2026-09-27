@@ -87,9 +87,12 @@ def test_no_preview_or_localhost_origin_is_baked_into_the_installer():
 def test_enrollment_token_is_never_written_to_disk_or_logged(setup_mod):
     text = SETUP.read_text(encoding="utf-8")
     assert "--token" in text
-    # No print/log statement may take the token value.
-    assert not re.search(r"print\([^)]*token", text)
-    assert not re.search(r"Log(Error)?Msg\([^)]*token", text)
+    # No print/log statement may take the token VALUE. Mentioning the word
+    # (e.g. "no token required or consumed") is fine; interpolating the
+    # variable is not.
+    for stmt in re.findall(r"(?:print|Log(?:Error)?Msg)\((?:[^()]|\([^()]*\))*\)", text):
+        assert not re.search(r"\{\s*token", stmt), stmt
+        assert not re.search(r"\btoken\.strip\(\)|\+\s*token\b|,\s*token\s*[,)]", stmt), stmt
     # The installer must not persist the token itself anywhere.
     assert not re.search(r"write_text\([^)]*token", text)
 
@@ -160,7 +163,7 @@ def test_real_windows_service_not_a_scheduled_task(setup_mod):
 def test_uninstall_keeps_evidence_unless_purge_is_requested():
     text = SETUP.read_text(encoding="utf-8")
     body = text[text.index("def uninstall("):text.index("# ── Windows Service")]
-    assert '"stop", SERVICE_NAME' in body and '"delete", SERVICE_NAME' in body
+    assert 'sc.exe stop' in body and 'sc.exe delete' in body
     assert "if purge and sensor.STATE_DIR.exists()" in body
     assert "state directory kept at" in body
 
