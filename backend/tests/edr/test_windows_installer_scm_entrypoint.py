@@ -393,6 +393,120 @@ def test_version_reports_the_state_dir_for_comparison(mod, capsys):
     assert out["state_dir"] == str(mod.sensor.STATE_DIR)
 
 
+# ── 8 · the shutdown record must survive the teardown race ────────
+@pytest.fixture()
+def pywin32_stubs(monkeypatch):
+    """Minimal SCM stand-ins so the real service class can be driven here.
+
+    pywin32 does not exist on this platform, but the lifecycle ORDER is
+    platform-independent and is what the CI gate asserts.
+    """
+    import types
+
+    reported: list[tuple[int, str]] = []
+
+    class ServiceFramework:
+        def __init__(self, args):
+            self.args = args
+
+        def ReportServiceStatus(self, status, waitHint=None):  # noqa: N802
+            log = mod_log()
+            reported.append((status, log))
+
+    win32service = types.SimpleNamespace(
+        SERVICE_STOPPED=1, SERVICE_START_PENDING=2,
+        SERVICE_STOP_PENDING=3, SERVICE_RUNNING=4)
+    win32event = types.SimpleNamespace(
+        WAIT_OBJECT_0=0,
+        CreateEvent=lambda *a: object(),
+        SetEvent=lambda e: None,
+        WaitForSingleObject=lambda e, ms: 0)
+    servicemanager = types.SimpleNamespace(
+        LogInfoMsg=lambda m: None, LogErrorMsg=lambda m: None,
+        Initialize=lambda: None, PrepareToHostSingle=lambda c: None,
+        StartServiceCtrlDispatcher=lambda: None)
+    for name, module in (
+            ("win32service", win32service),
+            ("win32event", win32event),
+            ("servicemanager", servicemanager),
+            ("win32serviceutil",
+             types.SimpleNamespace(ServiceFramework=ServiceFramework))):
+        monkeypatch.setitem(sys.modules, name, module)
+    return types.SimpleNamespace(reported=reported, win32event=win32event,
+                                 win32service=win32service)
+
+
+_LOG_HOLDER: dict[str, Path] = {}
+
+
+def mod_log() -> str:
+    log = _LOG_HOLDER.get("path")
+    return log.read_text() if log and log.exists() else ""
+
+
+def _drive_lifecycle(mod, pywin32_stubs, monkeypatch):
+    _LOG_HOLDER["path"] = mod.sensor.STATE_DIR / "service.log"
+    cls = mod._service_class("https://nivxray.nivxforge.com", 30)
+    svc = cls(["NivXForgeSensor"])
+    # the host is not enrolled — exactly the CI runner's situation
+    monkeypatch.setattr(mod.sensor, "run",
+                        lambda *a, **k: sys.exit("not enrolled"))
+    stopped = {"done": False}
+
+    def wait(event, ms):
+        if not stopped["done"]:          # the SCM stops us mid-wait
+            stopped["done"] = True
+            svc.SvcStop()
+        return 0
+    pywin32_stubs.win32event.WaitForSingleObject = wait
+    svc.SvcRun()
+    return svc
+
+
+def test_the_service_emits_the_full_lifecycle_in_order(mod, pywin32_stubs,
+                                                       monkeypatch):
+    _drive_lifecycle(mod, pywin32_stubs, monkeypatch)
+    log = (mod.sensor.STATE_DIR / "service.log").read_text()
+    order = ["START_PENDING", "RUNNING", "control STOP received",
+             "stop event signalled", "STOPPED"]
+    positions = []
+    for needle in order:
+        assert needle in log, f"{needle} was never recorded"
+        positions.append(log.index(needle))
+    assert positions == sorted(positions), f"out of order:\n{log}"
+
+
+def test_stopped_is_on_disk_before_the_scm_is_told(mod, pywin32_stubs,
+                                                   monkeypatch):
+    """The exact defect: reporting SERVICE_STOPPED first let the SCM tear
+    the process down before the final record reached disk."""
+    _drive_lifecycle(mod, pywin32_stubs, monkeypatch)
+    stopped_reports = [snapshot for status, snapshot
+                       in pywin32_stubs.reported
+                       if status == pywin32_stubs.win32service.SERVICE_STOPPED]
+    assert stopped_reports, "SERVICE_STOPPED was never reported to the SCM"
+    assert "STOPPED" in stopped_reports[-1], (
+        "the shutdown record must already be on disk when the SCM is told "
+        "STOPPED — afterwards is a race the service loses")
+
+
+def test_the_service_survives_an_unenrolled_cycle_and_still_stops(
+        mod, pywin32_stubs, monkeypatch):
+    _drive_lifecycle(mod, pywin32_stubs, monkeypatch)
+    log = (mod.sensor.STATE_DIR / "service.log").read_text()
+    assert "cycle failed — retrying" in log and "not enrolled" in log
+    assert "STOPPED" in log
+
+
+def test_the_shutdown_record_is_flushed_to_disk():
+    text = SETUP.read_text()
+    assert "os.fsync(fh.fileno())" in text
+    # and the write must precede the SCM notification in the source
+    finally_block = text.split("self.SvcDoRun()", 1)[1][:600]
+    assert finally_block.index('_service_log("STOPPED")') < \
+        finally_block.index("ReportServiceStatus(win32service.SERVICE_STOPPED)")
+
+
 # ── 5 · CI must accept the artifact on a REAL service lifecycle ───
 def test_ci_workflow_runs_a_real_scm_lifecycle_smoke_test():
     wf = Path("/app/.github/workflows/windows-sensor-installer.yml").read_text()

@@ -338,7 +338,12 @@ def _service_log(message: str) -> None:
         with open(sensor.STATE_DIR / "service.log", "a",
                   encoding="utf-8") as fh:
             fh.write(f"{sensor._now()} {message}\n")
-    except (OSError, AttributeError):
+            # Flushed to DISK, not just to the OS buffer: the final record
+            # is written while the SCM may already be tearing the process
+            # down, so a buffered line would simply be lost.
+            fh.flush()
+            os.fsync(fh.fileno())
+    except (OSError, AttributeError, ValueError):
         pass                                    # logging must never kill it
 
 
@@ -400,8 +405,13 @@ def _service_class(api: str, interval: int):
             try:
                 self.SvcDoRun()
             finally:
-                self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+                # ORDER IS THE CONTRACT: the final record is written and
+                # fsynced BEFORE the SCM is told STOPPED. Once SERVICE_STOPPED
+                # is reported the SCM may tear the process down immediately,
+                # so a line written afterwards is a race the service loses —
+                # which is exactly why the shutdown record went missing.
                 _service_log("STOPPED")
+                self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
         def SvcDoRun(self):                      # noqa: N802
             while True:
