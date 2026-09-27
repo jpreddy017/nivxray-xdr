@@ -43,6 +43,17 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   `memory/production-gates/WINDOWS_INSTALLER_STAGE4_POST_PUSH_VERIFICATION.md`.
 
 ## Backlog
+- P0: **Windows canonicalization gap — diagnosis DONE, patch NOT applied.**
+  Canonical bridge works (Sysmon 1 → PROCESS, observation
+  `kind=process_create`, detection evaluated). First broken boundary is the
+  PROJECTION layer: `edr_events._row` (line 126), the activity facet
+  (322-326), the activity filter (233), `edr.py` 494/568 and
+  `response.py` 94 all read the Linux dialect `payload["activity"]`, which
+  a `WINDOWS_EVENT_LOG` envelope does not have. Secondary sensor defects:
+  `<Events>` wrapper corrupts ~1 record per 100-record batch; `_attr()`
+  cannot read single-quoted attributes. Full A–F report:
+  `memory/production-gates/WINDOWS_PHASE0_CANONICALIZATION_GAP_DIAGNOSTIC.md`.
+  Awaiting owner approve/reject of the minimal patch.
 - P0: owner PASS/HOLD on the artifact, then endpoint repair instructions.
 - P1: close evidence-access gaps — read-only GitHub PAT (logs + artifact
   hash), and make `service.log` presence a hard CI assertion.
