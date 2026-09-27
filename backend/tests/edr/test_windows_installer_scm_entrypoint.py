@@ -56,16 +56,40 @@ def mod(tmp_path, monkeypatch):
     return m
 
 
-def _sc_create_line(mod, api="https://nivxray.nivxforge.com", interval=30):
+@pytest.fixture()
+def patch_run(monkeypatch):
+    """Install a fake `subprocess.run` for the lifetime of ONE test.
+
+    `mod.subprocess` IS the stdlib module singleton, so the previous
+    `mod.subprocess.run = fake` poisoned every later test in the same
+    xdist worker — the next list-argv call reached the fake and raised
+    `'list' object has no attribute 'startswith'`. pytest owns the
+    lifecycle here and restores the real callable at teardown.
+    """
+    def install(fake):
+        monkeypatch.setattr(subprocess, "run", fake)
+        return fake
+    return install
+
+
+def _sc_run(calls: list[str]):
+    """Fake `sc.exe` runner that tolerates EITHER command representation
+    the production code may pass — a raw command line today, a list if
+    that ever changes — instead of assuming `str`."""
+    def fake_run(cmdline, **kw):
+        line = cmdline if isinstance(cmdline, str) \
+            else subprocess.list2cmdline(cmdline)
+        calls.append(line)
+        out = "AUTO_START" if line.startswith("sc.exe qc") else ""
+        return subprocess.CompletedProcess(cmdline, 0, out, "")
+    return fake_run
+
+
+def _sc_create_line(mod, patch_run, api="https://nivxray.nivxforge.com",
+                    interval=30):
     """The real `sc.exe create` command line the installer emits."""
     calls: list[str] = []
-
-    def fake_run(cmdline, **kw):
-        calls.append(cmdline)
-        out = "AUTO_START" if cmdline.startswith("sc.exe qc") else ""
-        return subprocess.CompletedProcess(cmdline, 0, out, "")
-
-    mod.subprocess.run = fake_run
+    patch_run(_sc_run(calls))
     mod._install_service(api, interval)
     return next(c for c in calls if c.startswith("sc.exe create"))
 
@@ -86,28 +110,29 @@ def _scm_argv(create_line: str) -> list[str]:
 
 
 # ── 1 · the defect, reproduced from the real command line ─────────
-def test_installer_subcommand_parser_rejects_the_real_scm_invocation(mod):
+def test_installer_subcommand_parser_rejects_the_real_scm_invocation(
+        mod, patch_run):
     """Proof of root cause: the SCM argv IS invalid to the installer CLI,
     so nothing may route it there."""
-    argv = _scm_argv(_sc_create_line(mod))
+    argv = _scm_argv(_sc_create_line(mod, patch_run))
     assert argv[0] == "--service-run"
     with pytest.raises(SystemExit) as ex:
         mod.build_parser().parse_args(argv)
     assert ex.value.code == 2, "argparse exits 2 — the 1053 the SCM saw"
 
 
-def test_parse_known_args_also_fails_on_the_scm_invocation(mod):
+def test_parse_known_args_also_fails_on_the_scm_invocation(mod, patch_run):
     """The previous implementation used parse_known_args and still died:
     an unknown OPTION is tolerated, the positional after it is not."""
-    argv = _scm_argv(_sc_create_line(mod))
+    argv = _scm_argv(_sc_create_line(mod, patch_run))
     with pytest.raises(SystemExit):
         mod.build_parser().parse_known_args(argv)
 
 
 # ── 2 · main() must reach the SCM dispatcher, not the CLI ─────────
 def test_main_routes_the_real_scm_invocation_to_the_service_dispatcher(
-        mod, monkeypatch):
-    argv = _scm_argv(_sc_create_line(mod))
+        mod, monkeypatch, patch_run):
+    argv = _scm_argv(_sc_create_line(mod, patch_run))
     seen: list[list[str]] = []
     monkeypatch.setattr(mod, "_run_as_service", lambda a: seen.append(a))
     monkeypatch.setattr(mod, "install", lambda *a, **k:
@@ -117,10 +142,11 @@ def test_main_routes_the_real_scm_invocation_to_the_service_dispatcher(
 
 
 def test_service_dispatch_happens_before_any_argument_parsing(mod,
-                                                              monkeypatch):
+                                                              monkeypatch,
+                                                              patch_run):
     """Regression on the exact failure: `invalid choice` must be
     impossible for the SCM invocation, whatever the parser looks like."""
-    argv = _scm_argv(_sc_create_line(mod))
+    argv = _scm_argv(_sc_create_line(mod, patch_run))
     monkeypatch.setattr(mod, "build_parser", lambda:
                         pytest.fail("the installer parser must never see "
                                     "the SCM command line"))
@@ -146,9 +172,10 @@ def test_install_is_still_routed_to_install(mod, monkeypatch):
 
 # ── 3 · service arguments come from the passed argv ───────────────
 def test_service_args_are_read_from_the_scm_argv_not_a_global(mod,
-                                                              monkeypatch):
+                                                              monkeypatch,
+                                                              patch_run):
     argv = _scm_argv(_sc_create_line(
-        mod, "https://nivxray.nivxforge.com", 45))
+        mod, patch_run, "https://nivxray.nivxforge.com", 45))
     monkeypatch.setattr(sys, "argv", ["NivXForgeSensor.exe"])  # empty global
     api, interval = mod._service_args(argv)
     assert api == "https://nivxray.nivxforge.com"
@@ -222,8 +249,8 @@ def test_the_lifecycle_lines_the_ci_gate_asserts_are_emitted(line):
 
 
 # ── 6 · the SERVICE IMAGE must be a onedir host, not the onefile ──
-def test_service_binpath_points_at_the_onedir_service_host(mod):
-    create = _sc_create_line(mod)
+def test_service_binpath_points_at_the_onedir_service_host(mod, patch_run):
+    create = _sc_create_line(mod, patch_run)
     assert str(mod.SERVICE_EXE) in create.replace('\\"', '')
     assert "NivXForgeSensor.exe" in create
     assert "NivXForgeEDRSetup.exe" not in create, (
@@ -306,16 +333,16 @@ def test_build_freezes_a_onedir_service_host_and_embeds_it():
 
 
 # ── 7 · the STATE ROOT must be told, never inferred ───────────────
-def test_binpath_carries_the_installer_resolved_state_dir(mod):
-    create = _sc_create_line(mod)
+def test_binpath_carries_the_installer_resolved_state_dir(mod, patch_run):
+    create = _sc_create_line(mod, patch_run)
     assert "--state-dir" in create
     assert str(mod.sensor.STATE_DIR) in create.replace('\\"', '')
     argv = _scm_argv(create)
     assert mod._argv_value(argv, "--state-dir") == str(mod.sensor.STATE_DIR)
 
 
-def test_the_service_command_line_carries_no_secret(mod):
-    create = _sc_create_line(mod)
+def test_the_service_command_line_carries_no_secret(mod, patch_run):
+    create = _sc_create_line(mod, patch_run)
     for shape in ("nvx_", "nvxenr_", "nvxses_", "nvxcrd_", "--token",
                   "agent_credential"):
         assert shape not in create, f"{shape} must never reach the SCM"

@@ -46,6 +46,21 @@ def mod(tmp_path, monkeypatch):
     return m
 
 
+@pytest.fixture()
+def patch_run(monkeypatch):
+    """Install a fake `subprocess.run` for the lifetime of ONE test.
+
+    `mod.subprocess` IS the stdlib module singleton, so the previous
+    `mod.subprocess.run = fake` leaked out of this file and poisoned
+    every later test in the same xdist worker. pytest restores the real
+    callable at teardown.
+    """
+    def install(fake):
+        monkeypatch.setattr(subprocess, "run", fake)
+        return fake
+    return install
+
+
 def _valid_identity(mod):
     mod.sensor.IDENTITY_FILE.write_text(json.dumps({
         "tenant_id": "ten_e759b7288598bd882e3dcac49d",
@@ -67,7 +82,8 @@ def test_list_form_reproduces_the_invalid_start_field_defect():
         "this quoting is exactly what produced ERROR: Invalid start= field")
 
 
-def test_raw_command_line_keeps_start_and_auto_as_separate_tokens(mod):
+def test_raw_command_line_keeps_start_and_auto_as_separate_tokens(mod,
+                                                                  patch_run):
     seen: list[str] = []
 
     def fake_run(cmdline, **kw):
@@ -77,7 +93,7 @@ def test_raw_command_line_keeps_start_and_auto_as_separate_tokens(mod):
         seen.append(cmdline)
         return subprocess.CompletedProcess(cmdline, 0, "AUTO_START", "")
 
-    mod.subprocess.run = fake_run
+    patch_run(fake_run)
     mod._install_service("https://nivxray.nivxforge.com", 30)
     create = next(c for c in seen if c.startswith("sc.exe create"))
     assert "start= auto" in create
@@ -86,15 +102,17 @@ def test_raw_command_line_keeps_start_and_auto_as_separate_tokens(mod):
 
 
 # ── 2 · corrected sc.exe contract ─────────────────────────────────
-def test_service_creation_uses_the_approved_design(mod):
+def test_service_creation_uses_the_approved_design(mod, patch_run):
     calls: list[str] = []
 
     def fake_run(cmdline, **kw):
-        calls.append(cmdline)
-        out = "AUTO_START" if cmdline.startswith("sc.exe qc") else ""
+        line = cmdline if isinstance(cmdline, str) \
+            else subprocess.list2cmdline(cmdline)
+        calls.append(line)
+        out = "AUTO_START" if line.startswith("sc.exe qc") else ""
         return subprocess.CompletedProcess(cmdline, 0, out, "")
 
-    mod.subprocess.run = fake_run
+    patch_run(fake_run)
     mod._install_service("https://nivxray.nivxforge.com", 30)
     joined = "\n".join(calls)
     create = next(c for c in calls if c.startswith("sc.exe create"))
@@ -112,40 +130,46 @@ def test_service_creation_uses_the_approved_design(mod):
     assert 'sc.exe qc "NivXForgeSensor"' in joined      # config verified
 
 
-def test_service_creation_failure_is_surfaced_not_swallowed(mod):
+def test_service_creation_failure_is_surfaced_not_swallowed(mod, patch_run):
     def fake_run(cmdline, **kw):
-        if cmdline.startswith("sc.exe create"):
+        line = cmdline if isinstance(cmdline, str) \
+            else subprocess.list2cmdline(cmdline)
+        if line.startswith("sc.exe create"):
             return subprocess.CompletedProcess(
                 cmdline, 1, "ERROR: Invalid start= field", "")
         return subprocess.CompletedProcess(cmdline, 0, "", "")
 
-    mod.subprocess.run = fake_run
+    patch_run(fake_run)
     with pytest.raises(SystemExit) as ex:
         mod._install_service("https://nivxray.nivxforge.com", 30)
     assert "service creation failed" in str(ex.value)
 
 
-def test_service_created_but_not_auto_start_is_rejected(mod):
+def test_service_created_but_not_auto_start_is_rejected(mod, patch_run):
     def fake_run(cmdline, **kw):
-        out = "START_TYPE : 3 DEMAND_START" if cmdline.startswith("sc.exe qc") else ""
+        line = cmdline if isinstance(cmdline, str) \
+            else subprocess.list2cmdline(cmdline)
+        out = "START_TYPE : 3 DEMAND_START" if line.startswith("sc.exe qc") else ""
         return subprocess.CompletedProcess(cmdline, 0, out, "")
 
-    mod.subprocess.run = fake_run
+    patch_run(fake_run)
     with pytest.raises(SystemExit) as ex:
         mod._install_service("https://nivxray.nivxforge.com", 30)
     assert "not AUTO_START" in str(ex.value)
 
 
-def test_existing_service_is_replaced_not_duplicated(mod):
+def test_existing_service_is_replaced_not_duplicated(mod, patch_run):
     calls: list[str] = []
 
     def fake_run(cmdline, **kw):
-        calls.append(cmdline)
+        line = cmdline if isinstance(cmdline, str) \
+            else subprocess.list2cmdline(cmdline)
+        calls.append(line)
         rc = 0
-        out = "AUTO_START" if cmdline.startswith("sc.exe qc") else ""
+        out = "AUTO_START" if line.startswith("sc.exe qc") else ""
         return subprocess.CompletedProcess(cmdline, rc, out, "")
 
-    mod.subprocess.run = fake_run          # query returns 0 → service exists
+    patch_run(fake_run)                    # query returns 0 → service exists
     mod._install_service("https://nivxray.nivxforge.com", 30)
     assert any(c.startswith('sc.exe stop') for c in calls)
     assert any(c.startswith('sc.exe delete') for c in calls)
