@@ -129,3 +129,20 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - Marker-based test classification proposed only:
   memory/production-gates/RC4X_TEST_MARKER_PROPOSAL.md
 - AWAITING OWNER REVIEW before push. Republish still on HOLD.
+
+## 2026-06 · RC4.x CI GREEN on the authoritative runner (read-only verified)
+- Remote `jpreddy017/nivxray-xdr` @ `feature/rc2-alignment`, HEAD `8c53c002`.
+- RC4.x Quality Gate SUCCESS on push (run 36308919817) and pull_request
+  (36308923628); step "Unit tests — EDR plane (deterministic scope)" green in
+  both, with no `continue-on-error`/`|| true` ⇒ 0 failures, 0 errors.
+- Commit order intact: `86e02057` → `d03d8523` → `3aadd519`; `86e02057`
+  resolves on the remote unchanged (5 files, +679 −11).
+- Remote workflow + all 7 relevant test files hash-match local.
+- Literal pytest count lines NOT retrievable read-only (log download needs
+  admin; no PAT used) — documented as a limitation.
+- `Vercel – nivxray-xdr` red = legacy root project, OUT OF SCOPE;
+  `nivxray-xdr-production` and `nivxray-edr-production` are green.
+- Evidence: memory/production-gates/RC4X_CI_ACCEPTANCE_RECORD.md
+- PRODUCTION REPUBLISH STILL ON HOLD pending owner approval. After republish:
+  verify 4624→AUTH, Sysmon 1→PROCESS, facets populated, PROCESS filter
+  returns processes, Device Trajectory shows real process evidence.
