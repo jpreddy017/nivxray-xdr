@@ -103,3 +103,14 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   authoritative CI observation. On first failure of either intermittent
   test: capture evidence, NO rerun, NO exclusion, STOP for owner review.
 - Republish remains BLOCKED pending owner review of CI evidence.
+
+## 2026-06 · FIRST CI FAILURE — STOP (read-only triage, nothing changed)
+- RC4.x Quality Gate RED on push + pull_request. HOLD on republish.
+- Classified: (A) CI env — `JWT_SECRET`/`EMERGENT_LLM_KEY` absent on runner,
+  `deps.validate_config()` fail-closed → durable-findings/f4/f3/gate3;
+  (B) CI data-seed — `resolve_tenant_scope` reads `users` collection, empty
+  mongo:7 → f13_5 403; (C) harness leakage — `mod.subprocess.run = fake_run`
+  mutates the stdlib `subprocess` singleton for the whole xdist worker,
+  poisoning the two owner-protected tests; (D) NO projection defect, 41/41 pass.
+- Full evidence: memory/production-gates/RC4X_CI_FIRST_FAILURE_TRIAGE.md
+- Remediation PROPOSED only, awaiting owner approval. No reruns, no exclusions.
