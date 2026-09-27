@@ -199,3 +199,19 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   RELATIONSHIP PARTIAL · SEARCH/FILTER PARTIAL · EVIDENCE PARTIAL ·
   TELEMETRY COVERAGE HONEST/NARROW. No aggregate score, by owner rule.
 - NEXT: await owner approval, then Phase B architecture doc. No code yet.
+
+## 2026-06 · PHASE B COMPLETE (design only) — Device Trajectory V2
+- memory/production-gates/DEVICE_TRAJECTORY_V2_ARCHITECTURE.md (61 sections,
+  flowcharts A-R, component diagram, contract, parity matrix, DT2-0..DT2-9,
+  rollback, risks, open decisions, 35-answer exit gate).
+- Decision: extend V1, replace nothing (REPLACE: none). Add 4 first-class
+  contract objects: relationships[], detections[], density[], coverage[] —
+  additive keys, V1 clients unaffected.
+- Coverage truth is 7-state with an UNKNOWN-first rule; fabricated
+  NOT_COLLECTED intervals forbidden.
+- PUSH/REPLACE history rules defined (fixes V1 indiscriminate replace:true).
+- Perf harness saved: memory/production-gates/dt2_perf_baseline.py.
+  BASELINE NOT YET CAPTURED — prod needs owner token; preview pod services were
+  restarting (~25s uptime) so local numbers would be noise. Substrate found:
+  test_database has 236,444 observations, device dev_42e8c6dc74b9 = 232,379.
+- NO code/deploy/DB write/sensor/response change. Awaiting approval for DT2-0.
