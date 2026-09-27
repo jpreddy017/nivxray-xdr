@@ -18,6 +18,7 @@ from __future__ import annotations
 import collections
 import getpass
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -81,14 +82,32 @@ def main() -> int:
     st, health = call("/api/health")
     record("API healthy", health.get("status") == "ok", json.dumps(health))
 
-    pw = getpass.getpass(f"password for {EMAIL} (not echoed, not stored): ")
-    st, out = call("/api/auth/login", body={"email": EMAIL, "password": pw})
-    token = out.get("access_token") or out.get("token")
-    del pw
-    if not token:
-        print(f"  [FAIL] login → HTTP {st} {json.dumps(out)[:160]}")
-        return 1
-    print("  [PASS] authenticated (token held in memory only)\n")
+    # Standing policy: a SHORT-LIVED JWT is the preferred credential and a
+    # password is never required. If NIVXJWT is exported, no login happens
+    # at all and this script performs GET requests only.
+    token = os.environ.get("NIVXJWT", "").strip()
+    if token:
+        print("  [PASS] using the session token from $NIVXJWT "
+              "(no login, GETs only)\n")
+    else:
+        if not sys.stdin.isatty():
+            print("  [STOP] no $NIVXJWT and no interactive terminal.\n"
+                  "         Either export a short-lived console token:\n"
+                  "           export NIVXJWT='<token from your signed-in "
+                  "console>'\n"
+                  "         or run this script in your own terminal, where "
+                  "it can prompt.")
+            return 2
+        pw = getpass.getpass(f"password for {EMAIL} "
+                             "(not echoed, not stored): ")
+        st, out = call("/api/auth/login",
+                       body={"email": EMAIL, "password": pw})
+        token = out.get("access_token") or out.get("token")
+        del pw
+        if not token:
+            print(f"  [FAIL] login → HTTP {st} {json.dumps(out)[:160]}")
+            return 1
+        print("  [PASS] authenticated (token held in memory only)\n")
 
     # ── 1 · is production actually running the new code? ──────────
     # Pre-patch code REFUSED activity=AUTHENTICATION with 422
