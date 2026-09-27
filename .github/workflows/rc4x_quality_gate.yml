@@ -7,14 +7,26 @@ on:
       - 'backend/**'
       - '.github/workflows/rc4x_quality_gate.yml'
   push:
-    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5]
+    branches: [main, feature/rc2, feature/rc2.1b, feature/rc4, feature/rc4.5,
+               feature/rc2-alignment]
     paths:
       - 'backend/**'
+      - '.github/workflows/rc4x_quality_gate.yml'
 
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+
+    # The EDR plane persists evidence in MongoDB, and two of its gates are
+    # a Mongo aggregation and a Mongo query (the activity facet and the
+    # activity filter). Those cannot be proved in Python, so CI gets a
+    # real database rather than a mock.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
 
     steps:
       - name: Checkout
@@ -111,6 +123,41 @@ jobs:
         run: |
           python -m pytest \
             tests/test_mitre_redos_perf.py \
+            -q --no-header
+
+      # ─── EDR plane · deterministic scope (tenant isolation, Windows
+      # canonicalization + activity projection, response authority,
+      # findings, trajectory, installer contracts) ───
+      # `tests/edr` is NOT run wholesale: ten suites in that directory
+      # authenticate against the running preview edge (`/api/auth/login`)
+      # and are live-integration by design — they cannot pass on a GitHub
+      # runner and are excluded by name, exactly as the RC4.2/RC4.3 HTTP
+      # suites above are. Everything else in `tests/edr` is deterministic
+      # and IS a release gate: without this step the official quality gate
+      # stayed green while tenant isolation, Windows canonicalization,
+      # response authorization or findings could regress.
+      - name: Unit tests — EDR plane (deterministic scope)
+        working-directory: backend
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: nivxray_ci
+        run: |
+          # ~20 of these suites assert about the repository at its DEPLOYED
+          # path (`/app/backend/...`, `/app/agents/...`). Pointing /app at
+          # the checkout makes those assertions true on a runner, rather
+          # than rewriting twenty test files inside a CI-only commit.
+          sudo ln -sfn "$GITHUB_WORKSPACE" /app
+          python -m pytest tests/edr \
+            --ignore=tests/edr/test_iter107_p0_3_freshness_review.py \
+            --ignore=tests/edr/test_iteration_82_activation.py \
+            --ignore=tests/edr/test_p0_a2_adversarial_live.py \
+            --ignore=tests/edr/test_p0_f10_live_api.py \
+            --ignore=tests/edr/test_p0_f6_response_ui_backend.py \
+            --ignore=tests/edr/test_p0_f7_live_api.py \
+            --ignore=tests/edr/test_p0a_response_authority_live.py \
+            --ignore=tests/edr/test_p0c_durable_findings_live.py \
+            --ignore=tests/edr/test_p1_10_live_contract.py \
+            --ignore=tests/edr/test_wave0_api_smoke.py \
             -q --no-header
 
       # ─── RC2.3 chain-completeness benchmark (release gate — kept) ───
