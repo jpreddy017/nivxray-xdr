@@ -114,3 +114,18 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   poisoning the two owner-protected tests; (D) NO projection defect, 41/41 pass.
 - Full evidence: memory/production-gates/RC4X_CI_FIRST_FAILURE_TRIAGE.md
 - Remediation PROPOSED only, awaiting owner approval. No reruns, no exclusions.
+
+## 2026-06 · CI hermeticity hardening — local commit 3aadd519, NOT PUSHED
+- One commit: scoped installer `subprocess.run` fake via monkeypatch (+ new
+  `tests/edr/test_edr_suite_hermeticity.py` guard), explicit CI-only config in
+  the workflow step (`JWT_SECRET`, `EMERGENT_LLM_KEY`, `ADMIN_*`,
+  `NIVX_AI_ENABLED=false`), self-seeding `principal` fixture for
+  `test_p0_f13_5` + two 403 negative controls.
+- Proofs A–J with `backend/.env` absent (git worktree) and empty Mongo:
+  602 passed / 0 failed / 0 errors twice; 41/41 projection; both previously
+  contaminated tests pass in both orders and under `-n 2 --dist loadscope`.
+- `86e02057` still byte-identical. No app code, no deploy, no CI re-run.
+- Evidence: memory/production-gates/RC4X_CI_HERMETICITY_PREPUSH_PROOF.md
+- Marker-based test classification proposed only:
+  memory/production-gates/RC4X_TEST_MARKER_PROPOSAL.md
+- AWAITING OWNER REVIEW before push. Republish still on HOLD.
