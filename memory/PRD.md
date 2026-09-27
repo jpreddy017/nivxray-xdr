@@ -275,3 +275,24 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   SQLite/WAL/SHM files are unmodified, so they cannot be swept in.
 - STOPPED. Awaiting: Save to Github → GREEN authoritative CI for `114e06d6`
   → then DT2-1 implementation begins.
+
+## 2026-06 · Pre-GitHub housekeeping DONE — tree clean, ready for the click
+- Owner-approved deletion of the single untracked runtime artifact
+  `memory/availability_probe.log` executed. No commit made for the deletion
+  (the file was untracked). Generator `memory/availability_probe.sh` remains
+  tracked and intact.
+- `git status --short` is **empty**: nothing staged, zero tracked
+  modifications, zero untracked files, no SQLite/WAL/SHM/log/env pending.
+- Publish chain: `f1dcb454` → `114e06d6` (DT2-0 code) → `736c91b0` (DT2-0
+  report) → `521f9e1d` (platform auto-commit of the inspection record, PRD +
+  `DT2_0_COMMIT_INSPECTION_RECORD.md`, **memory/ docs only, zero code**).
+- HEAD is now `521f9e1d`, NOT `736c91b0` as the owner expected — the platform
+  auto-committed the previous turn's report. Both `114e06d6` and `736c91b0`
+  are verified ancestors of HEAD, so the CI checkout contains DT2-0, which
+  satisfies the owner's stated requirement.
+- `114e06d6` re-verified byte-identical: sha256
+  `6e7a29c34ad4e5522f111122361ea16bdb5ec9231973c65b88487ec577978b2a`,
+  patch-id `7a23172106bba1cdc543bfebb5d1192ec2df87c5`.
+- Tracked SQLite/WAL/SHM hygiene debt deliberately NOT touched — separate
+  debt, kept out of the DT2 chain per owner agreement.
+- DT2-1 still BLOCKED on GREEN authoritative CI. Nothing deployed.
