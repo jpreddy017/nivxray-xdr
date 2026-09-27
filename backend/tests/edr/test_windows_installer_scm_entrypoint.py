@@ -1,0 +1,309 @@
+"""Windows installer · Stage 4 SCM RUNTIME defect (error 1053).
+
+Live-host finding on the enrolled validation endpoint
+(`ep_1989031c8c1d0085812f`): enrolment resumed correctly, `sc.exe create`
+succeeded, `sc qc` proved WIN32_OWN_PROCESS / AUTO_START / LocalSystem and
+the expected binPath — yet the service failed with Windows 1053, and
+running the exact SCM command line by hand produced:
+
+    NivXForgeEDRSetup: error: argument cmd: invalid choice:
+    'https://nivxray.nivxforge.com' (choose from 'install', 'uninstall',
+    'status', 'version')
+
+Root cause: `main()` parsed the SCM command line with the INSTALLER's
+subcommand parser. `--backend` is not a top-level option there, so
+`parse_known_args` set it aside as unknown and then offered the NEXT
+token — the backend URL — to the subparsers as the positional command.
+argparse exited 2 before `StartServiceCtrlDispatcher()` was ever reached,
+so the process died without ever talking to the SCM.
+
+These tests derive the argv from the command line `_install_service`
+ACTUALLY writes (no hand-written string), and prove that argv reaches the
+service dispatcher.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+AGENT_DIR = Path("/app/agents/nivxforge-windows")
+SETUP = AGENT_DIR / "nivxforge_setup.py"
+
+
+@pytest.fixture()
+def mod(tmp_path, monkeypatch):
+    monkeypatch.setenv("NIVXFORGE_SENSOR_STATE", str(tmp_path / "state"))
+    sys.path.insert(0, str(AGENT_DIR))
+    for name in ("nivxforge_setup", "nivxforge_sensor"):
+        sys.modules.pop(name, None)
+    spec = importlib.util.spec_from_file_location("nivxforge_setup", SETUP)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    m.sensor.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    m.INSTALL_DIR = tmp_path / "program_files"
+    m.INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+    m.INSTALLED_EXE = m.INSTALL_DIR / "NivXForgeEDRSetup.exe"
+    m.INSTALLED_EXE.write_bytes(b"MZ stub")
+    m.SERVICE_DIR = m.INSTALL_DIR / "service"
+    m.SERVICE_DIR.mkdir(parents=True, exist_ok=True)
+    m.SERVICE_EXE = m.SERVICE_DIR / "NivXForgeSensor.exe"
+    m.SERVICE_EXE.write_bytes(b"MZ stub")
+    return m
+
+
+def _sc_create_line(mod, api="https://nivxray.nivxforge.com", interval=30):
+    """The real `sc.exe create` command line the installer emits."""
+    calls: list[str] = []
+
+    def fake_run(cmdline, **kw):
+        calls.append(cmdline)
+        out = "AUTO_START" if cmdline.startswith("sc.exe qc") else ""
+        return subprocess.CompletedProcess(cmdline, 0, out, "")
+
+    mod.subprocess.run = fake_run
+    mod._install_service(api, interval)
+    return next(c for c in calls if c.startswith("sc.exe create"))
+
+
+def _scm_argv(create_line: str) -> list[str]:
+    """argv[1:] the Windows SCM hands the image, from the real binPath.
+
+    The binPath VALUE is everything between `binPath= "` and the closing
+    quote that precedes ` start= `. Inside it the image path is quoted
+    (escaped as \\") so CreateProcess can tell the image from its
+    arguments — exactly the split reproduced here.
+    """
+    head = create_line.split('binPath= "', 1)[1]
+    value = head.rsplit('" start= ', 1)[0].replace('\\"', '"')
+    assert value.startswith('"'), f"image path must be quoted: {value}"
+    _image, _, rest = value[1:].partition('"')
+    return rest.split()
+
+
+# ── 1 · the defect, reproduced from the real command line ─────────
+def test_installer_subcommand_parser_rejects_the_real_scm_invocation(mod):
+    """Proof of root cause: the SCM argv IS invalid to the installer CLI,
+    so nothing may route it there."""
+    argv = _scm_argv(_sc_create_line(mod))
+    assert argv[0] == "--service-run"
+    with pytest.raises(SystemExit) as ex:
+        mod.build_parser().parse_args(argv)
+    assert ex.value.code == 2, "argparse exits 2 — the 1053 the SCM saw"
+
+
+def test_parse_known_args_also_fails_on_the_scm_invocation(mod):
+    """The previous implementation used parse_known_args and still died:
+    an unknown OPTION is tolerated, the positional after it is not."""
+    argv = _scm_argv(_sc_create_line(mod))
+    with pytest.raises(SystemExit):
+        mod.build_parser().parse_known_args(argv)
+
+
+# ── 2 · main() must reach the SCM dispatcher, not the CLI ─────────
+def test_main_routes_the_real_scm_invocation_to_the_service_dispatcher(
+        mod, monkeypatch):
+    argv = _scm_argv(_sc_create_line(mod))
+    seen: list[list[str]] = []
+    monkeypatch.setattr(mod, "_run_as_service", lambda a: seen.append(a))
+    monkeypatch.setattr(mod, "install", lambda *a, **k:
+                        pytest.fail("install must not run under the SCM"))
+    mod.main(argv)
+    assert seen == [argv], "the SCM command line must reach the service path"
+
+
+def test_service_dispatch_happens_before_any_argument_parsing(mod,
+                                                              monkeypatch):
+    """Regression on the exact failure: `invalid choice` must be
+    impossible for the SCM invocation, whatever the parser looks like."""
+    argv = _scm_argv(_sc_create_line(mod))
+    monkeypatch.setattr(mod, "build_parser", lambda:
+                        pytest.fail("the installer parser must never see "
+                                    "the SCM command line"))
+    monkeypatch.setattr(mod, "_run_as_service", lambda a: None)
+    mod.main(argv)
+
+
+def test_normal_cli_commands_are_unaffected(mod, monkeypatch, capsys):
+    monkeypatch.setattr(mod, "_run_as_service", lambda a:
+                        pytest.fail("version is not a service invocation"))
+    mod.main(["version"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["service_name"] == "NivXForgeSensor"
+
+
+def test_install_is_still_routed_to_install(mod, monkeypatch):
+    seen: list[tuple] = []
+    monkeypatch.setattr(mod, "install", lambda *a: seen.append(a))
+    mod.main(["install", "--backend", "https://nivxray.nivxforge.com",
+              "--tenant", "ten_x", "--token", "nvxenr_x"])
+    assert seen and seen[0][0] == "https://nivxray.nivxforge.com"
+
+
+# ── 3 · service arguments come from the passed argv ───────────────
+def test_service_args_are_read_from_the_scm_argv_not_a_global(mod,
+                                                              monkeypatch):
+    argv = _scm_argv(_sc_create_line(
+        mod, "https://nivxray.nivxforge.com", 45))
+    monkeypatch.setattr(sys, "argv", ["NivXForgeSensor.exe"])  # empty global
+    api, interval = mod._service_args(argv)
+    assert api == "https://nivxray.nivxforge.com"
+    assert interval == 45
+
+
+def test_service_args_default_when_the_scm_passes_nothing(mod):
+    api, interval = mod._service_args(["--service-run"])
+    assert api == mod.DEFAULT_BACKEND
+    assert interval == 30
+
+
+def test_service_refuses_a_non_production_backend_from_the_scm(mod):
+    with pytest.raises(SystemExit) as ex:
+        mod._service_args(["--service-run", "--backend",
+                           "http://localhost:8001"])
+    assert "refusing to install" in str(ex.value)
+
+
+def test_service_start_refusal_is_recorded_for_the_operator(mod):
+    with pytest.raises(SystemExit):
+        mod._run_as_service(["--service-run", "--backend",
+                             "http://localhost:8001"])
+    log = (mod.sensor.STATE_DIR / "service.log").read_text()
+    assert "service entrypoint reached" in log
+    assert "refused to start" in log
+
+
+def test_service_log_write_failure_never_breaks_the_service(mod,
+                                                            monkeypatch):
+    monkeypatch.setattr(mod.sensor.STATE_DIR.__class__, "mkdir",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("ro")))
+    mod._service_log("must not raise")
+
+
+# ── 4 · the source must implement a real SCM service ──────────────
+def test_source_implements_the_scm_dispatcher_and_control_handlers():
+    text = SETUP.read_text()
+    assert "win32serviceutil.ServiceFramework" in text
+    assert "servicemanager.StartServiceCtrlDispatcher()" in text
+    assert "servicemanager.PrepareToHostSingle" in text
+    assert "SERVICE_START_PENDING" in text
+    assert "SERVICE_RUNNING" in text
+    assert "SERVICE_STOPPED" in text
+    assert "def SvcStop" in text
+    assert "def SvcShutdown" in text        # shutdown is a stop, not a crash
+    # collection is REUSED, not reimplemented inside the service
+    assert "sensor.run(self.api, self.interval, once=True)" in text
+    assert text.count("def collect(") == 0
+
+
+def test_a_failed_cycle_does_not_stop_the_service():
+    """`sensor.run` calls sys.exit when the host is not enrolled yet; an
+    unhandled SystemExit inside the run loop would kill the service."""
+    text = SETUP.read_text()
+    assert "except (Exception, SystemExit) as ex:" in text
+
+
+# ── 6 · the SERVICE IMAGE must be a onedir host, not the onefile ──
+def test_service_binpath_points_at_the_onedir_service_host(mod):
+    create = _sc_create_line(mod)
+    assert str(mod.SERVICE_EXE) in create.replace('\\"', '')
+    assert "NivXForgeSensor.exe" in create
+    assert "NivXForgeEDRSetup.exe" not in create, (
+        "a PyInstaller ONE-FILE binary re-executes itself as a child "
+        "process, so the process the SCM started is not the one that "
+        "calls StartServiceCtrlDispatcher — that is a 1053 by design")
+
+
+def test_service_creation_refuses_a_missing_service_image(mod):
+    mod.SERVICE_EXE.unlink()
+    with pytest.raises(SystemExit) as ex:
+        mod._install_service("https://nivxray.nivxforge.com", 30)
+    assert "does not exist" in str(ex.value)
+
+
+def test_staging_unpacks_the_payload_carried_by_the_installer(mod,
+                                                              monkeypatch,
+                                                              tmp_path):
+    payload = tmp_path / "meipass" / "service"
+    payload.mkdir(parents=True)
+    (payload / "NivXForgeSensor.exe").write_bytes(b"MZ host")
+    (payload / "_internal").mkdir()
+    (payload / "_internal" / "python311.dll").write_bytes(b"dll")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"),
+                        raising=False)
+    monkeypatch.setattr(mod, "_service_exists", lambda: False)
+    staged = mod._stage_service_host()
+    assert staged == mod.SERVICE_EXE
+    assert mod.SERVICE_EXE.read_bytes() == b"MZ host"
+    assert (mod.SERVICE_DIR / "_internal" / "python311.dll").exists()
+
+
+def test_staging_is_idempotent_for_a_repair_install(mod, monkeypatch,
+                                                    tmp_path):
+    payload = tmp_path / "meipass" / "service"
+    payload.mkdir(parents=True)
+    (payload / "NivXForgeSensor.exe").write_bytes(b"MZ host v2")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"),
+                        raising=False)
+    monkeypatch.setattr(mod, "_service_exists", lambda: False)
+    mod._stage_service_host()
+    mod._stage_service_host()
+    assert mod.SERVICE_EXE.read_bytes() == b"MZ host v2"
+
+
+def test_staging_stops_a_running_service_before_overwriting_the_image(
+        mod, monkeypatch, tmp_path):
+    payload = tmp_path / "meipass" / "service"
+    payload.mkdir(parents=True)
+    (payload / "NivXForgeSensor.exe").write_bytes(b"MZ host")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"),
+                        raising=False)
+    monkeypatch.setattr(mod, "_service_exists", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(mod, "_sc", lambda c: calls.append(c))
+    mod._stage_service_host()
+    assert calls == [f'sc.exe stop "{mod.SERVICE_NAME}"']
+
+
+def test_a_build_without_a_service_payload_is_refused(mod, monkeypatch):
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    with pytest.raises(SystemExit) as ex:
+        mod._stage_service_host()
+    assert "no Windows service host payload" in str(ex.value)
+
+
+def test_version_declares_the_service_host_layout(mod, capsys):
+    mod.main(["version"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["service_host"] == "ONEDIR_PAYLOAD"
+    assert out["service_exe"].endswith("NivXForgeSensor.exe")
+
+
+def test_build_freezes_a_onedir_service_host_and_embeds_it():
+    ps1 = (AGENT_DIR / "build" / "build_windows_installer.ps1").read_text()
+    assert "--onedir --name NivXForgeSensor" in ps1
+    assert "--add-data" in ps1 and "';service'" in ps1
+    assert "--onefile" in ps1, "the installer download stays a single file"
+    assert "service_host_sha256" in ps1
+
+
+# ── 5 · CI must accept the artifact on a REAL service lifecycle ───
+def test_ci_workflow_runs_a_real_scm_lifecycle_smoke_test():
+    wf = Path("/app/.github/workflows/windows-sensor-installer.yml").read_text()
+    assert "--service-run" in wf, "CI must exercise the SCM invocation"
+    # the service is created by the PRODUCTION code path, not a hand-written
+    # sc.exe line that could drift from what the installer really does
+    assert "_install_service" in wf
+    assert "sc.exe query" in wf
+    assert "RUNNING" in wf
+    assert "sc.exe stop" in wf
+    assert "STOPPED" in wf
+    assert "sc.exe delete" in wf
+    assert "stage-host" in wf, "CI must prove the service host unpacks"
+    assert "invalid choice" in wf, (
+        "CI must fail explicitly if the SCM command line reaches the "
+        "installer's subcommand parser again")

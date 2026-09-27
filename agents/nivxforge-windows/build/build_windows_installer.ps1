@@ -51,6 +51,36 @@ Write-Host '=== 2 . FREEZE ===' -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $OutDir  | Out-Null
 New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
 
+$PyiCommon = @(
+  '--paths', $SensorDir,
+  '--hidden-import', 'nivxforge_sensor',
+  '--hidden-import', 'nivxforge_exclusions',
+  '--hidden-import', 'win32timezone',
+  '--hidden-import', 'servicemanager',
+  '--hidden-import', 'win32serviceutil',
+  '--hidden-import', 'win32service',
+  '--hidden-import', 'win32event',
+  '--noconfirm', '--clean'
+)
+
+# --- 2a. the SERVICE HOST: onedir, NOT onefile ------------------------
+# A one-file binary unpacks to a temp directory and re-executes itself as
+# a CHILD process, so the process the SCM started is not the process that
+# calls StartServiceCtrlDispatcher() — a documented cause of Windows
+# error 1053. The service image is therefore a onedir build, and it is
+# carried INSIDE the one-file installer as a payload.
+$SvcDist = Join-Path $PSScriptRoot 'work-svc'
+& $PythonExe -m PyInstaller --onedir --name NivXForgeSensor `
+  --distpath $SvcDist --workpath (Join-Path $SvcDist 'build') `
+  --specpath (Join-Path $SvcDist 'spec') @PyiCommon $Entry
+if ($LASTEXITCODE -ne 0) { throw 'PyInstaller service-host build failed' }
+
+$SvcHostDir = Join-Path $SvcDist 'NivXForgeSensor'
+$SvcHostExe = Join-Path $SvcHostDir 'NivXForgeSensor.exe'
+if (-not (Test-Path $SvcHostExe)) { throw 'service host exe was not produced' }
+Write-Host ('  service host (onedir): ' + $SvcHostExe)
+
+# --- 2b. the INSTALLER: onefile, carrying the service host ------------
 # `--paths $SensorDir` lets the frozen entry import the EXISTING sensor and
 # the Gate 7 exclusion evaluator unchanged — one implementation, not two.
 & $PythonExe -m PyInstaller `
@@ -59,16 +89,8 @@ New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
   --distpath $OutDir `
   --workpath $WorkDir `
   --specpath $WorkDir `
-  --paths $SensorDir `
-  --hidden-import nivxforge_sensor `
-  --hidden-import nivxforge_exclusions `
-  --hidden-import win32timezone `
-  --hidden-import servicemanager `
-  --hidden-import win32serviceutil `
-  --hidden-import win32service `
-  --hidden-import win32event `
-  --noconfirm `
-  --clean `
+  --add-data ($SvcHostDir + ';service') `
+  @PyiCommon `
   $Entry
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed' }
 
@@ -119,6 +141,9 @@ $sensorVersion = (Select-String -Path (Join-Path $SensorDir 'nivxforge_sensor.py
   python_required_on_endpoint = $false
   startup        = 'WINDOWS_SERVICE'
   service_name   = 'NivXForgeSensor'
+  service_host   = 'ONEDIR_PAYLOAD'
+  service_exe    = 'service\NivXForgeSensor.exe'
+  service_host_sha256 = (Get-FileHash $SvcHostExe -Algorithm SHA256).Hash.ToLower()
   default_backend = 'https://nivxray.nivxforge.com'
   commit         = $(if ($Commit) { $Commit } else { 'local' })
   built_at       = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')

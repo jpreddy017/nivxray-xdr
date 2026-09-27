@@ -54,6 +54,9 @@ jobs:
           Write-Host $out
           if ($out -notmatch 'sensor_version') { throw 'frozen CLI did not respond' }
           if ($out -notmatch 'NivXForgeSensor') { throw 'service name missing' }
+          if ($out -notmatch 'ONEDIR_PAYLOAD') {
+            throw 'installer does not declare a onedir service host'
+          }
           # Refuse non-production backends (guard must be live in the binary).
           # A NON-ZERO exit is the REQUIRED outcome here, so the exit code is
           # captured and cleared deliberately: GitHub's pwsh wrapper appends
@@ -70,6 +73,112 @@ jobs:
           Get-Content (Join-Path $dist 'build-info.json')
           Get-Content (Join-Path $dist 'SHA256SUMS.txt')
           Write-Host 'ARTIFACT CONTRACT: PASS'
+          exit 0
+
+      # ── ACCEPTANCE GATE 1 ─────────────────────────────────────────
+      # The one-file installer must be able to unpack the onedir SERVICE
+      # HOST it carries. This is the image the SCM will launch, so it is
+      # also the binary every later gate exercises.
+      - name: Service host unpacks from the installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          $out = (& $exe stage-host 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "stage-host exited $LASTEXITCODE`n$out" }
+          Write-Host $out
+          $svcExe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
+          if (-not (Test-Path $svcExe)) { throw "service host missing: $svcExe" }
+          Write-Host 'SERVICE HOST: STAGED'
+          exit 0
+
+      # ── ACCEPTANCE GATE 2 ─────────────────────────────────────────
+      # The SCM invocation must be RECOGNISED by the service image. The
+      # Stage-4 1053 defect was invisible to every mocked test: argparse
+      # consumed the backend URL as the positional subcommand and exited 2
+      # before StartServiceCtrlDispatcher() was ever called.
+      - name: SCM command line is recognised (not the installer CLI)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
+          $out = (& $exe --service-run `
+                    --backend https://nivxray.nivxforge.com `
+                    --interval 30 2>&1 | Out-String)
+          $global:LASTEXITCODE = 0
+          Write-Host $out
+          if ($out -match 'invalid choice') {
+            throw 'REGRESSION: the SCM command line reached the installer subcommand parser'
+          }
+          if ($out -match 'usage: NivXForgeEDRSetup') {
+            throw 'REGRESSION: --service-run fell through to the CLI usage path'
+          }
+          # Run by hand there is no SCM to connect to, so reaching the
+          # dispatcher is PROVED by Windows error 1063.
+          if ($out -notmatch 'StartServiceCtrlDispatcher' -and $out -notmatch '1063') {
+            throw 'the binary never reached the service control dispatcher'
+          }
+          Write-Host 'SCM ENTRYPOINT: RECOGNISED'
+          exit 0
+
+      # ── ACCEPTANCE GATE 3 ─────────────────────────────────────────
+      # The real thing: register the staged service host with the SCM
+      # through the PRODUCTION code path (`_install_service`), start it,
+      # prove RUNNING, stop it, prove STOPPED. The runner is NOT enrolled,
+      # so this also proves a failing sensor cycle does not kill the
+      # service instead of being retried.
+      - name: Real Windows SCM lifecycle (artifact acceptance gate)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import sys
+          sys.path.insert(0, r"agents/nivxforge-windows")
+          import nivxforge_setup as s
+          assert s.SERVICE_EXE.exists(), s.SERVICE_EXE
+          s._install_service("https://nivxray.nivxforge.com", 30)
+          print("PRODUCTION service creation path completed")
+          '@ | Out-File -FilePath scm_smoke.py -Encoding ascii
+          python scm_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'sc.exe create/start path failed' }
+
+          $svc = 'NivXForgeSensor'
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'RUNNING') { throw "service never reached RUNNING: $q" }
+          Write-Host 'SERVICE STATE: RUNNING'
+          Write-Host (& sc.exe qc $svc | Out-String)
+
+          $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
+          if (Test-Path $log) { Write-Host (Get-Content $log -Raw) }
+
+          & sc.exe stop $svc | Out-Null
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'STOPPED') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'STOPPED') { throw "service did not stop cleanly: $q" }
+          Write-Host 'SERVICE STATE: STOPPED (clean)'
+          if (Test-Path $log) { Write-Host (Get-Content $log -Raw) }
+          & sc.exe delete $svc | Out-Null
+          $global:LASTEXITCODE = 0
+          Write-Host 'WINDOWS SCM LIFECYCLE: PASS'
+          exit 0
+
+      - name: Remove the CI service if the gate failed
+        if: always()
+        shell: pwsh
+        run: |
+          & sc.exe stop NivXForgeSensor 2>&1 | Out-Null
+          & sc.exe delete NivXForgeSensor 2>&1 | Out-Null
+          $global:LASTEXITCODE = 0
           exit 0
 
       - uses: actions/upload-artifact@v4

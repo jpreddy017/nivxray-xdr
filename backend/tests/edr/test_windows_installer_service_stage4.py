@@ -35,8 +35,14 @@ def mod(tmp_path, monkeypatch):
     m.sensor.STATE_DIR.mkdir(parents=True, exist_ok=True)
     m.INSTALL_DIR = tmp_path / "program_files"
     m.INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-    m.INSTALLED_EXE = m.INSTALL_DIR / "NivXForgeSensor.exe"
+    m.INSTALLED_EXE = m.INSTALL_DIR / "NivXForgeEDRSetup.exe"
     m.INSTALLED_EXE.write_bytes(b"MZ stub")
+    m.SERVICE_DIR = m.INSTALL_DIR / "service"
+    m.SERVICE_DIR.mkdir(parents=True, exist_ok=True)
+    m.SERVICE_EXE = m.SERVICE_DIR / "NivXForgeSensor.exe"
+    m.SERVICE_EXE.write_bytes(b"MZ stub")
+    # the onedir service-host payload only exists inside a frozen build
+    m._stage_service_host = lambda: m.SERVICE_EXE
     return m
 
 

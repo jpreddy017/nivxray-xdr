@@ -48,7 +48,17 @@ SERVICE_DESCRIPTION = ("Collects authorised Windows security telemetry and "
 DEFAULT_BACKEND = "https://nivxray.nivxforge.com"
 INSTALL_DIR = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) \
     / "NivXForge" / "sensor"
-INSTALLED_EXE = INSTALL_DIR / "NivXForgeSensor.exe"
+#: the installer/CLI copy kept on the endpoint for status and uninstall
+INSTALLED_EXE = INSTALL_DIR / "NivXForgeEDRSetup.exe"
+#: The SERVICE image is a **onedir** build shipped as a payload inside the
+#: one-file installer. A PyInstaller one-file binary is a poor Windows
+#: service host: its bootloader unpacks to a temp dir and re-executes
+#: itself as a CHILD process, so the process the SCM started is not the
+#: process that calls StartServiceCtrlDispatcher(). That is a documented
+#: cause of "error 1053: the service did not respond in a timely fashion".
+#: The onedir host starts immediately in the SCM-launched process.
+SERVICE_DIR = INSTALL_DIR / "service"
+SERVICE_EXE = SERVICE_DIR / "NivXForgeSensor.exe"
 
 #: A tenant identifier that must never be accepted as a silent fallback.
 _FORBIDDEN_TENANTS = {"", "default", "test", "test_database", "preview",
@@ -143,10 +153,46 @@ def _protect_state_dir() -> None:
                    capture_output=True, text=True)
 
 
+def _service_payload_dir() -> Path | None:
+    """The onedir service host carried inside this one-file installer."""
+    base = getattr(sys, "_MEIPASS", None)
+    if not base:
+        return None
+    candidate = Path(base) / "service"
+    return candidate if (candidate / SERVICE_EXE.name).exists() else None
+
+
+def _stage_service_host() -> Path:
+    """Unpack the onedir service host next to the installer copy.
+
+    The service image must be a normal directory layout on disk: see
+    SERVICE_EXE. Staging is idempotent so a repair install overwrites the
+    host without touching the enrolment identity, which lives in the
+    separate protected state directory.
+    """
+    payload = _service_payload_dir()
+    if payload is None:
+        raise SystemExit(
+            "this build carries no Windows service host payload. Refusing "
+            "to create a service with no valid image. Use an installer "
+            "produced by the windows-sensor-installer workflow.")
+    if _service_exists():
+        _sc(f'sc.exe stop "{SERVICE_NAME}"')       # release the open image
+    SERVICE_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(payload, SERVICE_DIR, dirs_exist_ok=True)
+    if not SERVICE_EXE.exists():
+        raise SystemExit(f"service host staging failed: {SERVICE_EXE} "
+                         "is missing after unpack")
+    return SERVICE_EXE
+
+
 def _install_service(api: str, interval: int) -> None:
+    if not SERVICE_EXE.exists():
+        raise SystemExit(f"refusing to create a service: {SERVICE_EXE} does "
+                         "not exist (service host was not staged)")
     # binPath value is quoted as a whole; the exe path is quoted INSIDE it so
     # Windows can tell the image path from the arguments.
-    bin_value = (f'\\"{INSTALLED_EXE}\\" --service-run '
+    bin_value = (f'\\"{SERVICE_EXE}\\" --service-run '
                  f'--backend {api} --interval {interval}')
     if _service_exists():
         print(f"  existing service found — replacing {SERVICE_NAME}")
@@ -215,6 +261,8 @@ def install(api: str, tenant: str | None, token: str | None,
             _sc(f'sc.exe stop "{SERVICE_NAME}"')
         shutil.copy2(source, INSTALLED_EXE)
     print(f"  binary      : {INSTALLED_EXE}")
+    _stage_service_host()
+    print(f"  service host: {SERVICE_EXE}  (onedir, SCM-hosted)")
 
     print("\n=== 2 . PROTECTED STATE ===")
     _protect_state_dir()
@@ -265,51 +313,128 @@ def uninstall(purge: bool) -> None:
 
 
 # ── Windows Service host ──────────────────────────────────────────
-def _service_class():
-    """Built lazily so the CLI works on a host without pywin32."""
+SERVICE_FLAG = "--service-run"
+
+
+def _service_log(message: str) -> None:
+    """Append a service-lifecycle line to a file the SCM cannot swallow.
+
+    Error 1053 ("the service did not respond to the start request") is the
+    only thing Windows tells an operator when a service process dies
+    before it reaches the control dispatcher. That is exactly how the
+    argparse defect hid: the process exited with code 2 and left no trace
+    anywhere. This log makes the next such failure self-evident on the
+    endpoint instead of requiring a console repro.
+    """
+    try:
+        sensor.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(sensor.STATE_DIR / "service.log", "a",
+                  encoding="utf-8") as fh:
+            fh.write(f"{sensor._now()} {message}\n")
+    except (OSError, AttributeError):
+        pass                                    # logging must never kill it
+
+
+def _service_class(api: str, interval: int):
+    """Built lazily so the CLI works on a host without pywin32.
+
+    `api`/`interval` are baked into the class because the SCM constructs
+    the service object itself: the runtime must not re-read the process
+    argv (or any global) at construction time.
+    """
     import servicemanager                                  # noqa: PLC0415
     import win32event                                      # noqa: PLC0415
     import win32service                                    # noqa: PLC0415
     import win32serviceutil                                # noqa: PLC0415
 
+    def _event_log(kind: str, message: str) -> None:
+        """Event-log writes are best-effort: a missing message resource
+        must never be the reason the service fails to start."""
+        try:
+            if kind == "error":
+                servicemanager.LogErrorMsg(message)
+            else:
+                servicemanager.LogInfoMsg(message)
+        except Exception:                        # noqa: BLE001
+            pass
+
     class NivXForgeSensorService(win32serviceutil.ServiceFramework):
         _svc_name_ = SERVICE_NAME
         _svc_display_name_ = SERVICE_DISPLAY
         _svc_description_ = SERVICE_DESCRIPTION
+        api = ""
+        interval = 30
 
         def __init__(self, args):
             super().__init__(args)
             self.stop_event = win32event.CreateEvent(None, 0, 0, None)
-            self.api, self.interval = _service_args()
 
         def SvcStop(self):                       # noqa: N802
-            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+            _service_log("control STOP received")
+            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING,
+                                     waitHint=20000)
             win32event.SetEvent(self.stop_event)
 
+        def SvcShutdown(self):                   # noqa: N802
+            """Machine shutdown is a stop, not a crash."""
+            _service_log("control SHUTDOWN received")
+            self.SvcStop()
+
+        def SvcRun(self):                        # noqa: N802
+            # Reported explicitly (rather than relying on the framework
+            # default) so the transition SCM waits for is unambiguous.
+            self.ReportServiceStatus(win32service.SERVICE_START_PENDING,
+                                     waitHint=30000)
+            _service_log(f"START_PENDING api={self.api} "
+                         f"interval={self.interval}")
+            self.ReportServiceStatus(win32service.SERVICE_RUNNING)
+            _service_log("RUNNING")
+            _event_log("info", f"{SERVICE_NAME} running (api={self.api})")
+            try:
+                self.SvcDoRun()
+            finally:
+                self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+                _service_log("STOPPED")
+
         def SvcDoRun(self):                      # noqa: N802
-            servicemanager.LogMsg(
-                servicemanager.EVENTLOG_INFORMATION_TYPE,
-                servicemanager.PYS_SERVICE_STARTED,
-                (self._svc_name_, f" api={self.api}"))
             while True:
                 try:
                     # ONE cycle per iteration so a stop request is honoured
                     # promptly; the sensor owns collection and delivery.
                     sensor.run(self.api, self.interval, once=True)
-                except Exception as ex:          # noqa: BLE001
-                    servicemanager.LogErrorMsg(
-                        f"{SERVICE_NAME} cycle failed: {str(ex)[:400]}")
+                except (Exception, SystemExit) as ex:   # noqa: BLE001
+                    # A cycle failure (not enrolled yet, backend
+                    # unreachable, a channel unreadable) must NOT stop the
+                    # service: `sensor.run` raises SystemExit when there is
+                    # no local identity, and an unhandled SystemExit here
+                    # would make Windows report a service failure instead
+                    # of a retryable condition.
+                    detail = f"{type(ex).__name__}: {str(ex)[:300]}"
+                    _service_log(f"cycle failed — retrying: {detail}")
+                    _event_log("error",
+                               f"{SERVICE_NAME} cycle failed: {detail}")
                 if win32event.WaitForSingleObject(
                         self.stop_event,
                         max(5, self.interval) * 1000) == win32event.WAIT_OBJECT_0:
+                    _service_log("stop event signalled — leaving run loop")
                     break
 
+    NivXForgeSensorService.api = api
+    NivXForgeSensorService.interval = interval
     return NivXForgeSensorService
 
 
-def _service_args() -> tuple[str, int]:
-    """Backend/interval as the SCM passed them in the service binPath."""
-    argv = sys.argv
+def _service_args(argv: list[str]) -> tuple[str, int]:
+    """Backend/interval as the SCM passed them in the service binPath.
+
+    Parsed from the given argv WITHOUT argparse on purpose. The service
+    command line is written by `_install_service`, not by a human, and the
+    installer's subcommand parser must never see it: `--backend` is not a
+    top-level option there, so argparse treated the URL that follows it as
+    the positional subcommand and exited 2 ("invalid choice") long before
+    `StartServiceCtrlDispatcher()` — which is what Windows surfaced as
+    error 1053.
+    """
     api, interval = DEFAULT_BACKEND, 30
     for i, value in enumerate(argv):
         if value == "--backend" and i + 1 < len(argv):
@@ -322,11 +447,24 @@ def _service_args() -> tuple[str, int]:
     return _assert_backend(api), interval
 
 
-def _run_as_service() -> None:
+def _run_as_service(argv: list[str]) -> None:
+    _service_log(f"service entrypoint reached: {' '.join(argv)}")
+    try:
+        api, interval = _service_args(argv)
+    except SystemExit as ex:
+        _service_log(f"refused to start: {ex}")
+        raise
     import servicemanager                                  # noqa: PLC0415
-    servicemanager.Initialize()
-    servicemanager.PrepareToHostSingle(_service_class())
-    servicemanager.StartServiceCtrlDispatcher()
+    try:
+        servicemanager.Initialize()
+        servicemanager.PrepareToHostSingle(_service_class(api, interval))
+        servicemanager.StartServiceCtrlDispatcher()
+    except BaseException as ex:                  # noqa: BLE001
+        # Includes the expected failure when the binary is run by hand
+        # instead of by the SCM (error 1063): still logged, never silent.
+        _service_log(f"dispatcher exited: {type(ex).__name__}: "
+                     f"{str(ex)[:300]}")
+        raise
 
 
 # ── CLI ───────────────────────────────────────────────────────────
@@ -347,14 +485,23 @@ def build_parser() -> argparse.ArgumentParser:
     u.add_argument("--purge", action="store_true")
     sub.add_parser("status", help="local enrolment and queue state")
     sub.add_parser("version", help="installer and sensor versions")
+    sub.add_parser("stage-host",
+                   help="(internal) unpack the Windows service host only")
     return ap
 
 
 def main(argv: list[str] | None = None) -> None:
-    args, _unknown = build_parser().parse_known_args(argv)
-    if args.service_run:
-        _run_as_service()
+    raw = list(sys.argv[1:] if argv is None else argv)
+    # SERVICE DISPATCH FIRST. The SCM invokes this binary as
+    #   NivXForgeSensor.exe --service-run --backend <url> --interval <n>
+    # and that command line must never reach the installer's subcommand
+    # parser: `--backend` is unknown there, so argparse consumed the URL
+    # that follows it as the positional subcommand and exited 2 with
+    # "invalid choice", which Windows reported as error 1053.
+    if SERVICE_FLAG in raw:
+        _run_as_service(raw)
         return
+    args = build_parser().parse_known_args(raw)[0]
     if args.cmd == "install":
         install(args.backend, args.tenant, args.token, args.interval,
                 args.re_enrol)
@@ -362,10 +509,16 @@ def main(argv: list[str] | None = None) -> None:
         uninstall(args.purge)
     elif args.cmd == "status":
         print(json.dumps(sensor.status(), indent=2))
+    elif args.cmd == "stage-host":
+        _assert_admin()
+        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+        print(f"service host staged at {_stage_service_host()}")
     elif args.cmd == "version":
         print(json.dumps({"setup_version": SETUP_VERSION,
                           "sensor_version": sensor.SENSOR_VERSION,
                           "service_name": SERVICE_NAME,
+                          "service_exe": str(SERVICE_EXE),
+                          "service_host": "ONEDIR_PAYLOAD",
                           "default_backend": DEFAULT_BACKEND}, indent=2))
     else:
         build_parser().print_help()
