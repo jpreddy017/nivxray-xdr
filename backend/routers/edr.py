@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from deps import get_current_user, sync_collection
+from edr_plane import trajectory as dt2
 from edr_plane import windows_eventlog as win_eventlog
 from routers.edr_tenancy import edr_scope, edr_tenant
 from services.activity.projector import build_inventory
@@ -1005,6 +1006,7 @@ async def endpoint_trajectory_window(
     q: Optional[str] = None,
     dispositions: Optional[str] = None,
     hist_day: Optional[str] = None,
+    raw_event_id: Optional[str] = None,
     user=Depends(get_current_user),
     tenant_id: str = Depends(edr_tenant),
 ):
@@ -1054,6 +1056,21 @@ async def endpoint_trajectory_window(
         observations_all_time=out["observations_all_time"],
         observations_in_window=out["matched_in_window"])
     out["computer"] = _computer_header(identity, ep, out)
+    # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
+    # client simply ignores `dt2`. Read-only projection, no store.
+    try:
+        dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
+                     if raw_event_id else None)
+        dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
+                                         or endpoint_id),
+                    requested_start=time_start, requested_end=time_end,
+                    focus=dt2_focus)
+    except Exception as ex:                        # noqa: BLE001
+        # The V2 contract must never take the V1 surface down with it.
+        out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
+                      "state": "DT2_CONTRACT_UNAVAILABLE",
+                      "reason": type(ex).__name__}
+        _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
     _log.info("[trajectory] resolve=%.2fs projection=%.2fs tail=%.2fs "
               "total=%.2fs state=%s observations=%s",
               _t1 - _t0, _t2 - _t1, _t.perf_counter() - _t2,
