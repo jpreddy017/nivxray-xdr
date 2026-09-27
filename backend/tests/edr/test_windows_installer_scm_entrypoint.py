@@ -305,6 +305,94 @@ def test_build_freezes_a_onedir_service_host_and_embeds_it():
     assert "service_host_sha256" in ps1
 
 
+# ── 7 · the STATE ROOT must be told, never inferred ───────────────
+def test_binpath_carries_the_installer_resolved_state_dir(mod):
+    create = _sc_create_line(mod)
+    assert "--state-dir" in create
+    assert str(mod.sensor.STATE_DIR) in create.replace('\\"', '')
+    argv = _scm_argv(create)
+    assert mod._argv_value(argv, "--state-dir") == str(mod.sensor.STATE_DIR)
+
+
+def test_the_service_command_line_carries_no_secret(mod):
+    create = _sc_create_line(mod)
+    for shape in ("nvx_", "nvxenr_", "nvxses_", "nvxcrd_", "--token",
+                  "agent_credential"):
+        assert shape not in create, f"{shape} must never reach the SCM"
+
+
+def test_state_dir_is_applied_before_anything_state_dependent(mod,
+                                                              monkeypatch,
+                                                              tmp_path):
+    """The log must land in the dir the installer passed, which proves the
+    re-point happened before the FIRST state-dependent line."""
+    explicit = tmp_path / "canonical"
+    argv = ["--service-run", "--backend", "https://nivxray.nivxforge.com",
+            "--interval", "30", "--state-dir", f'"{explicit}"']
+    with pytest.raises(ModuleNotFoundError):        # no pywin32 on Linux
+        mod._run_as_service(argv)
+    log = (explicit / "service.log").read_text()
+    assert "service entrypoint reached" in log
+    assert f"state dir: {explicit} (explicit=True)" in log
+    assert not (mod.sensor.STATE_DIR / "service.log").exists() or \
+        mod.sensor.STATE_DIR == explicit
+
+
+def test_every_state_path_follows_the_state_root(mod, tmp_path):
+    root = tmp_path / "canonical"
+    mod.sensor.use_state_dir(root)
+    s = mod.sensor
+    assert s.STATE_DIR == root
+    assert s.IDENTITY_FILE == root / "identity.json"
+    assert s.QUEUE_FILE == root / "outbox.jsonl"
+    assert s.OFFSET_FILE == root / "outbox.offset"
+    assert s.BOOKMARK_FILE == root / "channels.json"
+    assert s.POLICY_FILE == root / "policy.json"
+    assert s.EXCLUSION_JOURNAL == root / "exclusion_enforcement.json"
+
+
+def test_repointing_only_the_log_would_not_be_enough(mod, tmp_path):
+    """Regression on the failure class: a service that logs in the right
+    place but reads the identity somewhere else looks healthy and delivers
+    nothing."""
+    root = tmp_path / "canonical"
+    mod.sensor.use_state_dir(root)
+    assert mod.sensor.IDENTITY_FILE.parent == root
+    assert mod.sensor.QUEUE_FILE.parent == root
+
+
+@pytest.mark.parametrize("env,expected", [
+    ({"ProgramData": r"D:\PD", "ALLUSERSPROFILE": r"D:\AUP"}, r"D:\PD"),
+    ({"ALLUSERSPROFILE": r"D:\AUP"}, r"D:\AUP"),          # ProgramData absent
+    ({"SystemDrive": "C:"}, "C:"),                        # bare service env
+    ({}, "/var/lib"),
+])
+def test_state_root_survives_a_localsystem_environment(mod, monkeypatch,
+                                                       env, expected):
+    """A LocalSystem service inherits services.exe's environment and may
+    not carry ProgramData at all. The fallback must never silently pick a
+    path that exists nowhere the installer wrote."""
+    for key in ("ProgramData", "ALLUSERSPROFILE", "SystemDrive"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    assert mod.sensor._default_state_root().startswith(expected)
+
+
+def test_explicit_state_dir_beats_the_environment(mod, monkeypatch,
+                                                  tmp_path):
+    monkeypatch.setenv("ProgramData", str(tmp_path / "wrong"))
+    explicit = tmp_path / "right"
+    mod.sensor.use_state_dir(explicit)
+    assert mod.sensor.IDENTITY_FILE == explicit / "identity.json"
+
+
+def test_version_reports_the_state_dir_for_comparison(mod, capsys):
+    mod.main(["version"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["state_dir"] == str(mod.sensor.STATE_DIR)
+
+
 # ── 5 · CI must accept the artifact on a REAL service lifecycle ───
 def test_ci_workflow_runs_a_real_scm_lifecycle_smoke_test():
     wf = Path("/app/.github/workflows/windows-sensor-installer.yml").read_text()
@@ -332,3 +420,22 @@ def test_ci_workflow_runs_a_real_scm_lifecycle_smoke_test():
     assert "invalid choice" in wf, (
         "CI must fail explicitly if the SCM command line reaches the "
         "installer's subcommand parser again")
+
+
+def test_ci_workflow_proves_installer_and_service_share_the_state_root():
+    wf = Path("/app/.github/workflows/windows-sensor-installer.yml").read_text()
+    assert "INSTALLER_STATE_DIR" in wf
+    assert "installer resolved an unexpected state dir" in wf
+    assert "state dir: $installerState" in wf
+    assert "explicit=True" in wf
+    assert "is not using the installer state dir" in wf
+
+
+def test_ci_workflow_dumps_evidence_before_asserting():
+    wf = Path("/app/.github/workflows/windows-sensor-installer.yml").read_text()
+    assert "EVIDENCE DUMP" in wf
+    assert "EXPECTED SERVICE LOG" in wf
+    assert "FOUND SERVICE LOG" in wf
+    assert "sc.exe qc" in wf
+    # the dump must precede the mandatory diagnostics assertions
+    assert wf.index("EVIDENCE DUMP") < wf.index("service diagnostics missing")

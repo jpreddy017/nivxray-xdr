@@ -42,10 +42,30 @@ from pathlib import Path
 SENSOR_VERSION = "0.2.0-windows"
 PLATFORM = "WINDOWS"
 
+def _default_state_root() -> str:
+    """Where ProgramData lives, WITHOUT trusting a single variable.
+
+    A LocalSystem service inherits its environment from services.exe and
+    does not reliably carry the variables an interactive session has, so
+    `ProgramData` alone is not a safe way to find the state root: a miss
+    would silently move the enrolment identity, the journal and the
+    bookmarks somewhere the installer never wrote them. For an INSTALLED
+    service the authoritative answer is the `--state-dir` the installer
+    passes (see `use_state_dir`); this chain is defence in depth.
+    """
+    for key in ("ProgramData", "ALLUSERSPROFILE"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    drive = os.environ.get("SystemDrive")
+    if drive:
+        return os.path.join(drive + os.sep, "ProgramData")
+    return "/var/lib"
+
+
 STATE_DIR = Path(os.environ.get(
     "NIVXFORGE_SENSOR_STATE",
-    os.path.join(os.environ.get("ProgramData", "/var/lib"),
-                 "NivXForge", "sensor")))
+    os.path.join(_default_state_root(), "NivXForge", "sensor")))
 IDENTITY_FILE = STATE_DIR / "identity.json"     # admin/SYSTEM only ACL
 QUEUE_FILE = STATE_DIR / "outbox.jsonl"
 OFFSET_FILE = STATE_DIR / "outbox.offset"
@@ -89,6 +109,28 @@ import nivxforge_exclusions as nvx_excl        # noqa: E402
 
 POLICY_FILE = STATE_DIR / "policy.json"
 EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
+
+
+def use_state_dir(path: str | os.PathLike) -> Path:
+    """Re-point EVERY state path at one explicit root.
+
+    Called by the service host with the directory the installer chose, so
+    the running service reads the same identity, journal, offset,
+    bookmarks, policy and enforcement journal the installer wrote — never
+    a second location it inferred from its own environment. Repointing
+    only the log would be worse than useless: the service would look
+    healthy while reading an identity that is not there.
+    """
+    global STATE_DIR, IDENTITY_FILE, QUEUE_FILE, OFFSET_FILE      # noqa: PLW0603
+    global BOOKMARK_FILE, POLICY_FILE, EXCLUSION_JOURNAL          # noqa: PLW0603
+    STATE_DIR = Path(path)
+    IDENTITY_FILE = STATE_DIR / "identity.json"
+    QUEUE_FILE = STATE_DIR / "outbox.jsonl"
+    OFFSET_FILE = STATE_DIR / "outbox.offset"
+    BOOKMARK_FILE = STATE_DIR / "channels.json"
+    POLICY_FILE = STATE_DIR / "policy.json"
+    EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
+    return STATE_DIR
 
 
 def _now() -> str:

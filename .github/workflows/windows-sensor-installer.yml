@@ -139,11 +139,19 @@ jobs:
           sys.path.insert(0, r"agents/nivxforge-windows")
           import nivxforge_setup as s
           assert s.SERVICE_EXE.exists(), s.SERVICE_EXE
+          print("INSTALLER_STATE_DIR=%s" % s.sensor.STATE_DIR)
           s._install_service("https://nivxray.nivxforge.com", 30)
           print("PRODUCTION service creation path completed")
           '@ | Out-File -FilePath scm_smoke.py -Encoding ascii
-          python scm_smoke.py
+          $smoke = (python scm_smoke.py 2>&1 | Out-String)
+          Write-Host $smoke
           if ($LASTEXITCODE -ne 0) { throw 'sc.exe create/start path failed' }
+          $installerState = ([regex]::Match($smoke,
+            'INSTALLER_STATE_DIR=(.+)')).Groups[1].Value.Trim()
+          Write-Host "INSTALLER STATE DIR: $installerState"
+          if ($installerState -ne (Split-Path $log -Parent)) {
+            throw "installer resolved an unexpected state dir: $installerState"
+          }
 
           $svc = 'NivXForgeSensor'
           $deadline = (Get-Date).AddSeconds(90)
@@ -156,6 +164,28 @@ jobs:
           if ($q -notmatch 'RUNNING') { throw "service never reached RUNNING: $q" }
           Write-Host 'SERVICE STATE: RUNNING'
           Write-Host (& sc.exe qc $svc | Out-String)
+
+          # EVIDENCE DUMP — printed BEFORE any assertion so a failure is
+          # always diagnosable from the log alone: service state, the
+          # registered command line, the expected diagnostics path, and
+          # every service.log anywhere it could have been written if the
+          # state root had been inferred instead of passed in. No
+          # credential content is read or printed.
+          Write-Host "EXPECTED SERVICE LOG: $log"
+          $searchRoots = @(
+            (Join-Path $env:SystemDrive 'ProgramData\NivXForge'),
+            (Join-Path $env:SystemDrive 'var'),
+            (Join-Path $env:SystemDrive 'Windows\System32\NivXForge'),
+            (Join-Path $env:SystemDrive 'Windows\SysWOW64\NivXForge'),
+            (Join-Path $env:ProgramFiles 'NivXForge')
+          )
+          foreach ($root in $searchRoots) {
+            if (Test-Path $root) {
+              Get-ChildItem -Path $root -Recurse -Filter 'service.log' `
+                -ErrorAction SilentlyContinue |
+                ForEach-Object { Write-Host ("FOUND SERVICE LOG: " + $_.FullName) }
+            }
+          }
 
           $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
           # MANDATORY diagnostics: another 1053 must never be silent, so the
@@ -176,6 +206,15 @@ jobs:
               throw "service diagnostics incomplete: '$needle' absent from service.log"
             }
           }
+          # installer state dir == service state dir, proved from the
+          # service's own diagnostics rather than assumed.
+          if ($logText -notmatch [regex]::Escape("state dir: $installerState")) {
+            throw "service is not using the installer state dir ($installerState)"
+          }
+          if ($logText -notmatch [regex]::Escape('(explicit=True)')) {
+            throw 'service inferred its state dir instead of being told'
+          }
+          Write-Host 'STATE ROOT: installer == service (explicit --state-dir)'
           Write-Host 'SERVICE DIAGNOSTICS: START_PENDING -> RUNNING RECORDED'
 
           & sc.exe stop $svc | Out-Null

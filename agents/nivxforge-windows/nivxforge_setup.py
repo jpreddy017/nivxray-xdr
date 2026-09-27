@@ -192,8 +192,15 @@ def _install_service(api: str, interval: int) -> None:
                          "not exist (service host was not staged)")
     # binPath value is quoted as a whole; the exe path is quoted INSIDE it so
     # Windows can tell the image path from the arguments.
+    # --state-dir is AUTHORITATIVE: the installer resolves the canonical
+    # state root here (as an elevated interactive user, with a full
+    # environment) and tells the service explicitly, because a LocalSystem
+    # service cannot be trusted to infer the same path. No credential,
+    # token or secret is ever placed on the command line — only a
+    # directory.
     bin_value = (f'\\"{SERVICE_EXE}\\" --service-run '
-                 f'--backend {api} --interval {interval}')
+                 f'--backend {api} --interval {interval} '
+                 f'--state-dir \\"{sensor.STATE_DIR}\\"')
     if _service_exists():
         print(f"  existing service found — replacing {SERVICE_NAME}")
         _sc(f'sc.exe stop "{SERVICE_NAME}"')
@@ -424,6 +431,18 @@ def _service_class(api: str, interval: int):
     return NivXForgeSensorService
 
 
+def _argv_value(argv: list[str], flag: str) -> str | None:
+    """Value after `flag`, with any wrapping quotes removed.
+
+    The Windows CRT strips the quotes the SCM stored around a path that
+    may contain spaces; this keeps the same argv usable in tests.
+    """
+    for i, value in enumerate(argv):
+        if value == flag and i + 1 < len(argv):
+            return argv[i + 1].strip('"')
+    return None
+
+
 def _service_args(argv: list[str]) -> tuple[str, int]:
     """Backend/interval as the SCM passed them in the service binPath.
 
@@ -435,20 +454,26 @@ def _service_args(argv: list[str]) -> tuple[str, int]:
     `StartServiceCtrlDispatcher()` — which is what Windows surfaced as
     error 1053.
     """
-    api, interval = DEFAULT_BACKEND, 30
-    for i, value in enumerate(argv):
-        if value == "--backend" and i + 1 < len(argv):
-            api = argv[i + 1]
-        if value == "--interval" and i + 1 < len(argv):
-            try:
-                interval = int(argv[i + 1])
-            except ValueError:
-                interval = 30
+    api = _argv_value(argv, "--backend") or DEFAULT_BACKEND
+    raw_interval = _argv_value(argv, "--interval")
+    try:
+        interval = int(raw_interval) if raw_interval else 30
+    except ValueError:
+        interval = 30
     return _assert_backend(api), interval
 
 
 def _run_as_service(argv: list[str]) -> None:
+    # STATE ROOT FIRST. Every later line — the diagnostics log, the
+    # enrolment identity, the durable journal, the offset, the bookmarks,
+    # the policy and the enforcement journal — resolves from it, so it is
+    # applied before ANY state-dependent work, including logging.
+    explicit = _argv_value(argv, "--state-dir")
+    if explicit:
+        sensor.use_state_dir(explicit)
     _service_log(f"service entrypoint reached: {' '.join(argv)}")
+    _service_log(f"state dir: {sensor.STATE_DIR} "
+                 f"(explicit={bool(explicit)})")
     try:
         api, interval = _service_args(argv)
     except SystemExit as ex:
@@ -519,6 +544,7 @@ def main(argv: list[str] | None = None) -> None:
                           "service_name": SERVICE_NAME,
                           "service_exe": str(SERVICE_EXE),
                           "service_host": "ONEDIR_PAYLOAD",
+                          "state_dir": str(sensor.STATE_DIR),
                           "default_backend": DEFAULT_BACKEND}, indent=2))
     else:
         build_parser().print_help()
