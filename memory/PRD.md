@@ -215,3 +215,25 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   restarting (~25s uptime) so local numbers would be noise. Substrate found:
   test_database has 236,444 observations, device dev_42e8c6dc74b9 = 232,379.
 - NO code/deploy/DB write/sensor/response change. Awaiting approval for DT2-0.
+
+## 2026-06 · DT2-0 IMPLEMENTED (local commit 114e06d6, NOT pushed/deployed)
+- New package backend/edr_plane/trajectory/{models,contract}.py: 13 typed
+  contract objects with constructor-time validation. Evidence-backed
+  relationships only (FORBIDDEN_BASES rejects temporal proximity etc.),
+  7-state coverage with UNKNOWN-first + proof requirement, density with no
+  severity field, process identity authority AUTHORITATIVE/DERIVED/UNSTABLE,
+  no invented process end, focus with 4 explicit states (no silent fallback).
+- Owner decisions implemented: retention truth (4 separate range fields),
+  UNATTRIBUTED artifacts kept, 4624 without binding gets no process edge,
+  inspector width per-session (nothing persisted), DETECTION→PROCESS only when
+  authoritative.
+- Wiring: GET /api/edr/endpoints/{id}/trajectory gains ADDITIVE `dt2` key +
+  optional `raw_event_id` focus param; V2 failure degrades to
+  dt2.state=DT2_CONTRACT_UNAVAILABLE and never breaks V1.
+- Tests: 45 new (A–AI list) + 148 focused regression green; ruff clean.
+- Live read-only preview check on a 232,379-observation device: V1 keys intact,
+  42 edges all with evidence+basis, focus FOCUS_RESOLVED, cross-tenant 403.
+- Reports: DEVICE_TRAJECTORY_V2_DT2_0_IMPLEMENTATION.md and
+  DEVICE_TRAJECTORY_V2_PUBLIC_REFERENCE_ADDENDUM.md.
+- No deploy, no DB write/migration, no sensor, no canonicalization/detection
+  semantics, no response authority. DT2-1 NOT started. Awaiting owner approval.
