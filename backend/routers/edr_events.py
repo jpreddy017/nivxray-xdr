@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from deps import db as _db, get_current_user
+from edr_plane import windows_eventlog as winlog
 from edr_plane.enrollment import store as enrollment_store
 from routers.edr_tenancy import edr_scope, edr_tenant
 
@@ -119,21 +120,47 @@ def _row(doc: Dict[str, Any], hosts: Dict[str, str]) -> Dict[str, Any]:
     parser = next((d.get("parser_state") for d in reversed(derivations)
                    if d.get("parser_state")), None)
     activity = operation = None
+    activity_basis = None
+    event_time = doc.get("event_time")
+    event_time_basis = "raw.event_time" if event_time else None
     if payload.startswith("{"):
         try:
             env = json.loads(payload)
             if isinstance(env, dict):
                 activity = env.get("activity")
                 operation = env.get("operation")
+                if activity:
+                    activity_basis = "sensor envelope"
+                elif winlog.is_windows_envelope(env):
+                    # A Windows envelope carries no flat `activity`; the
+                    # class lives in the canonical evidence the bridge
+                    # already wrote. Only stamp it when that evidence
+                    # exists, so an unsupported event family stays an
+                    # explicit coverage gap.
+                    resolved, reason = winlog.envelope_activity(env)
+                    if canonical and resolved:
+                        activity = winlog.projection_class(resolved)
+                        activity_basis = reason if activity == resolved else (
+                            f"{reason} → {resolved}, projected as {activity}")
+                    else:
+                        activity_basis = (
+                            reason if not resolved else
+                            "no canonical evidence is recorded for this "
+                            "event, so no activity class is claimed")
+                    if not event_time:
+                        event_time, event_time_basis = \
+                            winlog.envelope_event_time(env)
         except ValueError:
             pass
     return {
         "raw_id": doc.get("raw_id"),
         "ingest_time": doc.get("ingest_time"),
-        "event_time": doc.get("event_time"),
+        "event_time": event_time,
+        "event_time_basis": event_time_basis,
         "endpoint_ref": doc.get("endpoint_ref"),
         "hostname": hosts.get(str(doc.get("endpoint_ref"))),
         "activity": activity,
+        "activity_basis": activity_basis,
         "operation": operation,
         "source_kind": doc.get("source_kind"),
         "sensor_version": doc.get("sensor_version"),
@@ -224,18 +251,24 @@ async def list_events(
         query["payload"] = {"$regex": q, "$options": "i"}
         applied["q"] = q
     if activity:
-        act = activity.strip().upper()
+        act = winlog.projection_class(activity.strip().upper())
         if act not in ACTIVITY_CLASSES:
             raise HTTPException(422, detail={
                 "code": "ACTIVITY_INVALID",
                 "allowed": list(ACTIVITY_CLASSES)})
         existing = query.pop("payload", None)
         pattern = f'"activity"\\s*:\\s*"{act}"'
+        # Linux flat envelope OR a Windows record whose canonical evidence
+        # resolves to this class — one mapping, two dialects.
+        alternatives = ([{"payload": {"$regex": pattern}}]
+                        + winlog.activity_query_clauses(act))
+        match_activity = (alternatives[0] if len(alternatives) == 1
+                          else {"$or": alternatives})
         if existing:
             query["$and"] = query.get("$and", []) + [
-                {"payload": existing}, {"payload": {"$regex": pattern}}]
+                {"payload": existing}, match_activity]
         else:
-            query["payload"] = {"$regex": pattern}
+            query["$and"] = query.get("$and", []) + [match_activity]
         applied["activity"] = act
     if detection:
         key = detection.strip().lower()
@@ -320,12 +353,7 @@ async def facets(hours: int = Query(24, ge=1, le=24 * 365),
                           {"$group": {"_id": "$derivations.outcome",
                                       "count": {"$sum": 1}}}],
             "activity": [
-                {"$project": {"a": {"$let": {
-                    "vars": {"m": {"$regexFind": {
-                        "input": {"$ifNull": ["$payload", ""]},
-                        "regex": r'"activity"\s*:\s*"([A-Z_]+)"'}}},
-                    "in": {"$arrayElemAt": [
-                        {"$ifNull": ["$$m.captures", []]}, 0]}}}}},
+                {"$project": {"a": winlog.activity_projection_expr()}},
                 {"$group": {"_id": "$a", "count": {"$sum": 1}}},
                 {"$sort": {"count": -1}}],
             "total": [{"$count": "events"}],

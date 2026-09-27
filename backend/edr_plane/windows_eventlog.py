@@ -295,6 +295,243 @@ def _absent(data: Dict[str, str], *fields: str) -> List[str]:
     return [f for f in fields if not (data.get(f) or "").strip()]
 
 
+# ── read-side resolution ──────────────────────────────────────────────
+# Consumers (Events projection, facets, filters, process surface,
+# response targeting) were written for the Linux connector's flat
+# envelope, which carries a top-level `activity`. A Windows envelope does
+# not, so those consumers read nothing and reported NOT STAMPED even
+# though canonical evidence existed. Everything below RESOLVES the class
+# the bridge already derived, from the SAME `SUPPORTED` table `classify()`
+# uses. It never introduces a second mapping and never infers an activity
+# from a numeric EventID alone.
+
+#: Channel → provider family. A privileged channel is written by exactly
+#: one provider, so it identifies the family when the envelope did not
+#: carry the provider — and it is consulted ONLY then, never to override a
+#: provider that is present but unsupported.
+CHANNEL_FAMILY: Dict[str, str] = {
+    "microsoft-windows-sysmon/operational": "sysmon",
+    "security": "winsec",
+}
+
+#: Payload text signatures per family, for server-side aggregation where
+#: the envelope cannot be deserialised (Mongo `$regexMatch`).
+FAMILY_PAYLOAD_REGEX: Dict[str, str] = {
+    "sysmon": (r'"channel"\s*:\s*"Microsoft-Windows-Sysmon/Operational"'
+               r'|"provider"\s*:\s*"[^"]*Sysmon'),
+    "winsec": (r'"channel"\s*:\s*"Security"'
+               r'|"provider"\s*:\s*"[^"]*Security-Auditing'),
+}
+
+
+def _channel_family(channel: Any) -> Optional[str]:
+    return CHANNEL_FAMILY.get((str(channel or "")).strip().lower())
+
+
+#: Canonical class → the Events Explorer's filter/tile vocabulary. The
+#: canonical evidence keeps its own name; only the PROJECTION is aliased,
+#: because the console's class list came from the Linux connector and
+#: spells this class `AUTH`. Without the alias a Security 4624 would be
+#: counted under a class the console does not display, so the AUTH tile
+#: would have stayed NOT OBSERVED even with the activity resolved.
+PROJECTION_CLASS: Dict[str, str] = {ACTIVITY_AUTHENTICATION: "AUTH"}
+
+
+def projection_class(activity: Optional[str]) -> Optional[str]:
+    return PROJECTION_CLASS.get(activity or "", activity)
+
+
+def _provider_of(winlog: Dict[str, Any]) -> Optional[str]:
+    provider = _s(winlog.get("provider"))
+    if provider:
+        return provider
+    xml = winlog.get("xml")
+    if isinstance(xml, str):
+        found = re.search(r"<Provider[^>]*Name=['\"]([^'\"]+)['\"]", xml)
+        if found:
+            return _s(found.group(1))
+    return None
+
+
+def _event_id_of(winlog: Dict[str, Any]) -> Optional[int]:
+    event_id = _int(winlog.get("event_id"))
+    if event_id is not None:
+        return event_id
+    xml = winlog.get("xml")
+    if isinstance(xml, str):
+        found = re.search(r"<EventID[^>]*>\s*(\d+)\s*<", xml)
+        if found:
+            return _int(found.group(1))
+    return None
+
+
+def envelope_activity(ev: Any) -> Tuple[Optional[str], str]:
+    """`(activity, reason)` for a Windows envelope — the ONE resolver.
+
+    `(None, reason)` for anything outside `SUPPORTED`, so an unsupported
+    family stays an explicit coverage gap instead of being coerced into
+    the nearest lane. Classification is provider-or-privileged-channel
+    family **plus** EventID: an unrelated provider carrying the same
+    numeric EventID resolves to nothing.
+    """
+    if not is_windows_envelope(ev):
+        return None, "not a Windows Event Log envelope"
+    winlog = ev["winlog"]
+    provider = _provider_of(winlog)
+    if provider:
+        family = _provider_family(provider)
+        if family is None:
+            return None, (f"provider {provider!r} is not a supported Windows "
+                          f"evidence source in this build; retained raw and "
+                          f"not evidence of absence")
+    else:
+        family = _channel_family(winlog.get("channel"))
+        if family is None:
+            return None, ("the record named no supported provider and its "
+                          "channel is not a known privileged channel")
+    event_id = _event_id_of(winlog)
+    if event_id is None:
+        return None, "the record carried no EventID, so its meaning is unknown"
+    activity = SUPPORTED.get((family, event_id))
+    if activity is None:
+        return None, (f"{family} EventID {event_id} is not canonicalised in "
+                      f"this build; a coverage gap, not an absence of "
+                      f"activity")
+    return activity, f"canonical mapping ({family}, EventID {event_id})"
+
+
+def envelope_event_time(ev: Any) -> Tuple[Optional[str], Optional[str]]:
+    """`(event time, provenance)` — when the RECORD says it happened.
+
+    The Windows sensor does not populate the transport's `event_time`
+    field, so the raw document has none and the projection showed a blank.
+    This reads the record's own `TimeCreated`, falling back to the
+    sensor's observation time, and always says which one it used.
+    """
+    if not is_windows_envelope(ev):
+        return None, None
+    winlog = ev["winlog"]
+    created = _s(winlog.get("time_created"))
+    if not created and isinstance(winlog.get("xml"), str):
+        found = re.search(r"<TimeCreated[^>]*SystemTime=['\"]([^'\"]+)['\"]",
+                          winlog["xml"])
+        created = _s(found.group(1)) if found else None
+    if created:
+        return created, "winlog.TimeCreated"
+    observed = _s(ev.get("observed_at"))
+    if observed:
+        return observed, "sensor.observed_at"
+    return None, None
+
+
+def flat_view(ev: Any) -> Optional[Dict[str, Any]]:
+    """A flat, Linux-connector-shaped projection of a Windows envelope.
+
+    Consumers that walk raw payloads expect `activity`, `command_line`,
+    `pid`, `image_path`, … . This projects `to_canonical()` into those
+    keys so those surfaces can read Windows evidence WITHOUT a second
+    mapping. Returns `None` when the record does not canonicalise, so an
+    unsupported family is never surfaced as an activity.
+    """
+    if not is_windows_envelope(ev):
+        return None
+    try:
+        canonical = to_canonical(ev)
+    except WindowsEventLogError:
+        return None
+    proc = canonical.get("process") or {}
+    identity = canonical.get("identity") or {}
+    view = {
+        "activity": canonical.get("activity"),
+        "observed_at": canonical.get("activity_time")
+                       or canonical.get("observed_at"),
+        "start_time": proc.get("start_time"),
+        "pid": proc.get("pid"),
+        "ppid": proc.get("parent_pid"),
+        "user": identity.get("username"),
+        "image": proc.get("name"),
+        "image_path": proc.get("executable_path"),
+        "sha256": (proc.get("hashes") or {}).get("sha256"),
+        "command_line": proc.get("command_line"),
+        "parent_image": proc.get("parent_name"),
+        "parent_image_path": proc.get("parent_executable_path"),
+        "parent_lookup_state": proc.get("ancestry_state") or "NOT_OBSERVED",
+        "collection_method": canonical.get("collection_method"),
+        "not_observed": list(canonical.get("not_observed") or ()),
+        "not_supported": list(canonical.get("not_supported") or ()),
+        "process_guid": proc.get("process_guid"),
+        "identity_quality": proc.get("identity_quality"),
+        "windows_channel": (canonical.get("winlog") or {}).get("channel"),
+        "windows_event_id": (canonical.get("winlog") or {}).get("event_id"),
+        "view": "PROJECTED_FROM_WINDOWS_CANONICAL",
+    }
+    return {k: v for k, v in view.items() if v not in (None, [], "")}
+
+
+def payload_event_id_regex(event_id: int) -> str:
+    """Matches `"event_id": "4624"` / `"event_id": 4624` and nothing longer."""
+    return r'"event_id"\s*:\s*"?%d"?\s*[,}]' % event_id
+
+
+def activity_projection_expr(payload_field: str = "$payload",
+                             derivations_field: str = "$derivations"
+                             ) -> Dict[str, Any]:
+    """Mongo expression resolving the activity class of a raw event.
+
+    Generated FROM `SUPPORTED`, so the aggregation can never drift from
+    the bridge's mapping. Windows branches additionally require that the
+    event actually produced canonical evidence (a derivation carrying an
+    `event_id`), so a coverage gap is never counted as an observed class.
+    """
+    payload = {"$ifNull": [payload_field, ""]}
+    canonical_gate = {"$gt": [{"$size": {"$filter": {
+        "input": {"$ifNull": [derivations_field, []]},
+        "as": "d",
+        "cond": {"$ne": [{"$ifNull": ["$$d.event_id", None]}, None]}}}}, 0]}
+    branches = []
+    for (family, event_id), activity in SUPPORTED.items():
+        branches.append({"case": {"$and": [
+            canonical_gate,
+            {"$regexMatch": {"input": payload,
+                             "regex": FAMILY_PAYLOAD_REGEX[family],
+                             "options": "i"}},
+            {"$regexMatch": {"input": payload,
+                             "regex": payload_event_id_regex(event_id)}}]},
+            "then": projection_class(activity)})
+    linux = {"$regexFind": {"input": payload,
+                            "regex": r'"activity"\s*:\s*"([A-Z_]+)"'}}
+    return {"$let": {
+        "vars": {"m": linux},
+        "in": {"$cond": [
+            {"$gt": [{"$size": {"$ifNull": ["$$m.captures", []]}}, 0]},
+            {"$arrayElemAt": ["$$m.captures", 0]},
+            {"$switch": {"branches": branches, "default": None}}]}}}
+
+
+def activity_query_clauses(activity: str) -> List[Dict[str, Any]]:
+    """`find()` clauses matching Windows records of one activity class.
+
+    Returned as alternatives to be OR-ed with the Linux payload pattern by
+    the caller; each requires canonical evidence to exist.
+    """
+    clauses: List[Dict[str, Any]] = []
+    wanted = projection_class(activity.strip().upper())
+    for (family, event_id), mapped in SUPPORTED.items():
+        if projection_class(mapped) != wanted:
+            continue
+        clauses.append({"$and": [
+            # $elemMatch, not dotted `derivations.event_id`: with a dotted
+            # path `$ne: null` fails as soon as ANY element lacks the
+            # field, and a detection derivation legitimately has no
+            # event_id — which silently matched nothing.
+            {"derivations": {"$elemMatch": {
+                "event_id": {"$exists": True, "$ne": None}}}},
+            {"payload": {"$regex": FAMILY_PAYLOAD_REGEX[family],
+                         "$options": "i"}},
+            {"payload": {"$regex": payload_event_id_regex(event_id)}}]})
+    return clauses
+
+
 def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
     """`WINDOWS_EVENT_LOG` envelope → the neutral canonical shape.
 

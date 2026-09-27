@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from edr_plane.isolation_policy import bind as bind_policy
 from edr_plane.isolation_policy import get_policy
+from edr_plane import windows_eventlog as win_eventlog
 from pymongo.errors import DuplicateKeyError
 from services.edr.endpoint_query import endpoint_predicate
 
@@ -91,7 +92,19 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
             ev = json.loads(doc.get("payload") or "")
         except (ValueError, TypeError):
             continue
-        if ev.get("activity") != "PROCESS" or ev.get("pid") != pid:
+        if ev.get("activity") != "PROCESS":
+            # Windows records carry no flat `activity`. Resolve the class
+            # from canonical evidence so the refusal below is the honest
+            # identity/authority refusal rather than "never observed".
+            # Windows process TARGETING stays unavailable by design: the
+            # start-identity gate further down is not satisfied by a
+            # Windows record in this build, and the Windows sensor
+            # declares no response capability.
+            resolved, _reason = win_eventlog.envelope_activity(ev)
+            if resolved != "PROCESS":
+                continue
+            ev = {**ev, **(win_eventlog.flat_view(ev) or {})}
+        if ev.get("pid") != pid:
             continue
         found = (doc, ev)
         break

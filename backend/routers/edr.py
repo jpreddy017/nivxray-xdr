@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from deps import get_current_user, sync_collection
+from edr_plane import windows_eventlog as win_eventlog
 from routers.edr_tenancy import edr_scope, edr_tenant
 from services.activity.projector import build_inventory
 from services.edr import device_identity as dir_svc
@@ -482,6 +483,10 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
                 p = json.loads(raw.get("payload") or "{}")
             except ValueError:
                 p = {}
+            if not p.get("activity"):
+                # Windows records carry no flat `activity`; project the
+                # canonical evidence the bridge already derived.
+                p = {**p, **(win_eventlog.flat_view(p) or {})}
             rows.append({
                 "raw_id": raw["raw_id"],
                 "canonical_event_id": d.get("event_id"),
@@ -565,6 +570,12 @@ async def list_endpoint_commands(endpoint_id: str, hours: int = 24,
             p = json.loads(raw.get("payload") or "{}")
         except ValueError:
             continue
+        if not p.get("activity"):
+            # Windows: project the canonical evidence into the flat shape
+            # this surface reads. `flat_view` returns nothing when the
+            # record produced no canonical evidence, so an unsupported
+            # event family is never surfaced as a process.
+            p = {**p, **(win_eventlog.flat_view(p) or {})}
         if p.get("activity") != "PROCESS" or not p.get("command_line"):
             continue
         matched, evaluated_state, rules, verdict, engine = [], None, [], None, None
