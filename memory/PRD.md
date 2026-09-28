@@ -652,3 +652,30 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   product contract and stays true as live evidence changes).
 - Result: `test_edr_context_p0_f13_3.py` 7 passed (was 5 failed / 1 passed) and
   fix1 + fix2 + 5A + 5B re-run green → **120 passed, 0 failed**.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6A DONE (inspection + contract only)
+- DESIGN ONLY. No authority code, role semantics, membership, grant, database,
+  frontend, switch API or audit persistence changed; no credential created;
+  live zero-tenant cell still UNPROVEN LIVE / PREREQUISITE MISSING.
+- Full report: `memory/production-gates/FIX6A_VENDOR_MSSP_AUTHORITY_DESIGN.md`.
+- Headline findings: cross-tenant authority is inferred from the free-text
+  `users.role` (`_CROSS_TENANT_ROLES` in `dashboard_lenses.py`), the EDR
+  CustomerPicker's selectable list is the WHOLE registry (`/api/xdr/tenants`,
+  `tenants.read`) rather than a grant set, there is NO successful-switch audit
+  event (refusals ARE audited as `ACCESS_DENIED`/`tenant_scope`, 442 live
+  rows), and `organization.kind = VENDOR/MSSP` is inert metadata.
+- Grant source already exists: `users.tenant_ids[]` → PROPOSED_DATA_MODEL_
+  CHANGE = NONE + one optional additive `platform_authority` marker. No second
+  authority store; `X-Tenant-Id` stays the requested-context input.
+- BLOCKING OWNER DECISION for Fix 6B: the 3 live `admin` + 1 `soc_manager`
+  principals hold no `tenant_ids[]`, so grants-first would remove their
+  customer authority — option (A) documented narrow platform-wide authority
+  for `platform_admin` (audited per resolution) vs (B) write explicit grants
+  (a data change needing approval).
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, NivXForge Device Trajectory returns to the Cisco Secure Endpoint /
+  AMP operational-clone target — the real publicly observable UI/UX,
+  process/relationship/time rendering, process lifelines, parent/child
+  navigation, event attachment, before/after investigation, search/filter/
+  MATCH navigation, zoom/pan/scroll, evidence/raw/provenance inspection and
+  analyst workflow, implemented independently on real NivXForge evidence.
+  Not AMP-inspired, not a generic timeline.
