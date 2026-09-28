@@ -594,3 +594,38 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   Device Trajectory returns to the Cisco Secure Endpoint / AMP
   operational-clone target — publicly observable UI/UX, interactions,
   navigation and analyst functionality, on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 5B DONE (no implicit "default" fallback)
+- `services/session_context.py::authorised_incident()`: the terminal
+  `or "default"` is GONE. An incident naming neither `tenant_id` nor
+  `user_email` now returns the new state `INCIDENT_TENANT_UNRESOLVED` with
+  `doc=None` for EVERY principal (including cross-tenant), instead of being
+  attributed to the real registered tenant `default`. Legacy `user_email`
+  attribution and the existing `INCIDENT_TENANT_OUT_OF_SCOPE` /
+  `INCIDENT_NOT_FOUND` / `NOT_AUTHORIZED` states are unchanged.
+- `services/session_context.py::list_customers()`: group key is now
+  `tenant_id ?? user_email` with a `$match` dropping null/empty keys, so an
+  unattributed case can no longer manufacture a customer called `default`.
+- The REAL tenant `default` is untouched: not deleted, renamed, deactivated or
+  migrated. Live `/api/xdr/rbac/session-context` still lists
+  `customer=default` with identical counts (944 open / 944 total; 0 cases in
+  the corpus lack BOTH fields, so the removed branch was dead-but-dangerous).
+- `compat_default="default"` remains ONLY on the legacy flag-gated
+  `tenant_registry.authoritative()`, which no EDR path calls after Fix 5A —
+  XDR/collector/ingest semantics deliberately unchanged. XDR display-label
+  residues (`xdr_mss.py`, `incidents.py`, `xdr_respond_boundary.py`, the
+  vendor/cortex wizards) stay owner-fenced (T-RISK-3/4/5).
+- Tests: `tests/edr/test_p0_tenant_authority_fix5b.py` (new) + 5A + fix1 +
+  fix2 + `test_a05_tenant_scope_contract.py` → **185 passed, 0 failed**.
+- PRE-EXISTING failures (NOT caused by 5B, reported not rewritten):
+  `tests/test_edr_context_p0_f13_3.py` — 4 cases expect `/api/edr/context` 200
+  for a cross-tenant admin with no `X-Tenant-Id` (Fix 1 now returns 403
+  TENANT_REQUIRED) and 1 case asserts a stale snapshot count (241 vs the
+  current 944). Owner decision required before touching that file.
+- STILL OPEN: Fix 6 (vendor/MSSP authority model + audited switching); live
+  zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, process/relationship/
+  time rendering, process lifelines, parent/child navigation, event attachment,
+  before/after investigation, search/filter/MATCH navigation, zoom/pan,
+  evidence/raw/provenance inspection — on real NivXForge evidence.

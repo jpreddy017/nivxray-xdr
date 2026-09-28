@@ -42,18 +42,24 @@ def list_customers(email: Optional[str], limit: int = 25) -> List[Dict[str, Any]
 
     Same predicate as the incident queue and the MSS panels, so the
     customer list can never drift from the queue it links to.
+
+    P0-FIX-5B · a case that names neither a tenant nor an owning analyst is
+    UNATTRIBUTED and is dropped. It is not folded into a manufactured
+    customer called "default" — that collided with the real registered
+    tenant `default` and inflated its counts with unowned evidence. A case
+    whose tenant_id genuinely IS `default` is unaffected.
     """
     q = _scope({}, email)
     pipeline = [
         {"$match": q},
         {"$group": {
-            "_id": {"$ifNull": ["$tenant_id",
-                                {"$ifNull": ["$user_email", "default"]}]},
+            "_id": {"$ifNull": ["$tenant_id", "$user_email"]},
             "open": {"$sum": {"$cond": [
                 {"$not": [{"$in": ["$incident_state",
                                    ["resolved", "closed"]]}]}, 1, 0]}},
             "total": {"$sum": 1},
         }},
+        {"$match": {"_id": {"$nin": [None, ""]}}},
         {"$sort": {"open": -1, "_id": 1}},
         {"$limit": int(limit)},
     ]
@@ -385,7 +391,14 @@ def authorised_incident(incident_id: str,
     scope = resolve_tenant_scope(email)
     if not scope.get("authorized"):
         return {"state": "NOT_AUTHORIZED", "doc": None}
-    tenant = doc.get("tenant_id") or doc.get("user_email") or "default"
+    # P0-FIX-5B · an incident that names no owner is UNOWNED, not the
+    # customer "default". The old terminal `or "default"` attributed such a
+    # document to whichever principal held the real tenant `default`, and
+    # released it outright to any cross-tenant principal. An unresolved
+    # tenant is a refusal.
+    tenant = doc.get("tenant_id") or doc.get("user_email")
+    if not tenant:
+        return {"state": "INCIDENT_TENANT_UNRESOLVED", "doc": None}
     if not scope.get("all_tenants") and tenant not in (scope.get("tenant_ids") or []):
         return {"state": "INCIDENT_TENANT_OUT_OF_SCOPE", "doc": None}
     return {"state": "AUTHORIZED", "doc": doc, "tenant": tenant}
