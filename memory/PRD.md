@@ -296,3 +296,22 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - Tracked SQLite/WAL/SHM hygiene debt deliberately NOT touched — separate
   debt, kept out of the DT2 chain per owner agreement.
 - DT2-1 still BLOCKED on GREEN authoritative CI. Nothing deployed.
+
+## 2026-06 · DT2-2C TEMPORAL / CAUSAL SEQUENCE PRIMITIVE DONE (server-side only)
+- New `backend/edr_plane/trajectory/sequence.py`. Separation kept explicit:
+  `relationships.py` = WHAT is related (evidence); `sequence.py` = HOW proven
+  relationships are ordered and WHAT causality level may be claimed.
+- `StepTimes` keeps source/ingest/canonicalization/detection as four distinct
+  fields; ordering uses source/observed time ONLY, never backfilled.
+- `SequenceStep` can only reference an existing `ProcessEdge`/`ActivityEdge`.
+  Levels: CAUSAL_EVIDENCE (spawn child IS next actor, carries the edge's own
+  derivation basis + evidence_ref + predecessor id), ORDERED_OBSERVATION
+  (same proven actor), CAUSALITY_UNKNOWN (no link, or not orderable).
+- Grouping is by proven process identity only, so unrelated observations 1 ms
+  apart land in separate sequences. Forbidden bases rejected at construction.
+- No behavioral/malicious classification, no ATT&CK, no scoring, no UI, no
+  DT2-1/canonicalization/detection change, no DB/migration/deploy.
+- Tests: `backend/tests/edr/test_dt2_2c_sequence.py` (29) + DT2-2A/2B
+  regression → 83 passed.
+- NEXT: DT2-2D behavioral relationship engine (must keep evidence vs
+  inference levels separate). P0 tenant authority hardening still pending.
