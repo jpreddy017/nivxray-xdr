@@ -44,7 +44,9 @@ const actorOf = (e, lanes) => {
 };
 
 export default function AmpActivityPanel({ events, lanes, selected, onSelect,
-                                           onPivot, width, height }) {
+                                           onPivot, width, height,
+                                           windowState = null,
+                                           emptiness = null }) {
   const listRef = useRef(null);
   const selRef = useRef(null);
 
@@ -69,9 +71,11 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
 
   return (
     <aside data-testid="amp-activity-panel"
+           data-dt2-scroll-domain="inspector"
            style={{ width, height, flexShrink: 0, background: C.paper,
                     borderLeft: `1px solid ${C.gridStrong}`,
                     display: "flex", flexDirection: "column",
+                    overscrollBehavior: "contain",
                     minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8,
                     padding: "9px 10px",
@@ -88,14 +92,34 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
       </div>
 
       <div ref={listRef} data-testid="amp-activity-list"
-           style={{ overflowY: "auto", flex: 1, minHeight: 100 }}>
+           data-dt2-scroll-domain="inspector"
+           style={{ overflowY: "auto", flex: 1, minHeight: 100,
+                    overscrollBehavior: "contain" }}>
         {rows.length === 0 && (
-          <div data-testid="amp-activity-empty"
-               style={{ padding: "12px 10px", fontSize: 10.5,
-                        color: C.inkFaint, lineHeight: 1.55 }}>
-            No activity in this window. That is an absence of
-            observation, not an absence of activity.
-          </div>
+          /** Zero rows is NOT self-explanatory. A failed, canceled or
+           *  superseded request also yields zero rows, and claiming
+           *  "no activity" there would be a false evidence conclusion.
+           *  `emptinessMeaning` is the only authority on which outcome
+           *  may be stated as an absence of observation. */
+          emptiness && emptiness.isObservationAbsence === false
+            && emptiness.message
+            ? (
+              <div data-testid="amp-activity-unknown"
+                   data-window-state={windowState || ""}
+                   style={{ padding: "12px 10px", fontSize: 10.5,
+                            color: C.inkDim, lineHeight: 1.55,
+                            borderLeft: `2px solid ${C.suspicious}` }}>
+                {emptiness.message}
+              </div>
+            ) : (
+              <div data-testid="amp-activity-empty"
+                   data-window-state={windowState || ""}
+                   style={{ padding: "12px 10px", fontSize: 10.5,
+                            color: C.inkFaint, lineHeight: 1.55 }}>
+                No activity was OBSERVED in this window. That is an
+                absence of observation, not an absence of activity.
+              </div>
+            )
         )}
         {rows.map((e) => {
           const red = isRed(e);

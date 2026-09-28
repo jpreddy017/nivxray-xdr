@@ -34,6 +34,12 @@ import api from "@/lib/api";
 
 import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf, setTheme,
          startOfDayUTC } from "./ampModel";
+import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
+         createCoordinator, emptinessMeaning, historyMode, laneWindow,
+         levelOf, panByFraction, prefetchTargets, requestKey, restore,
+         retentionBounds, selectionState, serialize, spikes, stepDetection,
+         stepObservation, windowForBucket, windowStateOf,
+         zoomBySteps } from "./dt2";
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
@@ -44,6 +50,10 @@ const LANE_PREFETCH = 14;
 const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
 const DETAILS_W = 348;
+
+const navBtn = { fontSize: 10.4, cursor: "pointer", background: C.paperAlt,
+                 color: C.link, border: `1px solid ${C.gridStrong}`,
+                 borderRadius: 2, padding: "3px 7px" };
 
 export default function EdrDeviceTrajectoryPage({ embedded = false,
                                                  device: deviceProp = null }) {
@@ -89,6 +99,20 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const plotRef = useRef(null);
   const vScroll = useRef(null);
   const [plotW, setPlotW] = useState(760);
+
+  /** DT2-1 · navigation engine state.
+   *  `coord` owns request generations and AbortControllers; `boundsRef`
+   *  carries the retention/evidence bounds into callbacks that are
+   *  created before the meta pass has resolved them. */
+  const coord = useRef(null);
+  if (!coord.current) coord.current = createCoordinator();
+  const boundsRef = useRef({ min: null, max: null });
+  const tenantRef = useRef(null);
+  const urlWriteRef = useRef("");
+  const [dt2, setDt2] = useState(null);
+  const [req, setReq] = useState({ loading: false, prefetching: false,
+                                   canceled: false, staleDiscarded: false,
+                                   err: null });
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 350);
@@ -219,39 +243,69 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, selectedDay]);
 
+  /** DT2-1 · one windowed request, protected against races.
+   *
+   *  A generation token is minted per viewport change and the previous
+   *  in-flight request is aborted. A response whose generation is no
+   *  longer current is DISCARDED — window A completing after window C
+   *  can never reposition the viewport or replace the selection.
+   */
   const fetchWindow = useCallback(async (t0, t1, l0, l1) => {
-    const key = `${Math.round(t0)}|${Math.round(t1)}|${l0}|${l1}|${filterKey}`;
+    const key = requestKey({ tenantId: tenantRef.current, endpointId: device,
+                             t0, t1, laneStart: l0, laneEnd: l1, filterKey });
     if (cache.current.has(key)) return;
+    const begun = coord.current.begin(key);
+    if (begun.deduped) return;
     cache.current.set(key, true);
     if (cache.current.size > CACHE_MAX) {
       cache.current.delete(cache.current.keys().next().value);
     }
-    const { data } = await api.get(
-      `/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
-      { params: { time_start: iso(t0), time_end: iso(t1), lane_start: l0,
-                  lane_end: l1, limit: 2500, ...filterParams } });
-    if (data.lane_axis) {
-      setLanes((prev) => {
+    setReq((s) => ({ ...s, loading: true, err: null, canceled: false,
+                     staleDiscarded: false }));
+    try {
+      const { data } = await api.get(
+        `/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+        { params: { time_start: iso(t0), time_end: iso(t1), lane_start: l0,
+                    lane_end: l1, limit: 2500, ...filterParams },
+          signal: begun.signal });
+      if (coord.current.commit(begun.generation) !== REQ.COMMITTED) {
+        /** A stale success is not evidence about the current window. */
+        setReq((s) => ({ ...s, loading: false, staleDiscarded: true }));
+        return;
+      }
+      if (data.dt2) setDt2(data.dt2);
+      if (data.lane_axis) {
+        setLanes((prev) => {
+          const m = new Map(prev);
+          for (const ln of data.lane_axis.lanes || []) m.set(ln.lane_index, ln);
+          return m;
+        });
+      }
+      setEvents((prev) => {
         const m = new Map(prev);
-        for (const ln of data.lane_axis.lanes || []) m.set(ln.lane_index, ln);
+        for (const e of data.events || []) m.set(e.event_iid, e);
         return m;
       });
+      setReq((s) => ({ ...s, loading: false }));
+    } catch (x) {
+      coord.current.commit(begun.generation);
+      /** A window that was never delivered must be retryable. */
+      cache.current.delete(key);
+      const aborted = x?.code === "ERR_CANCELED" || x?.name === "CanceledError"
+        || x?.name === "AbortError" || begun.signal?.aborted;
+      setReq((s) => ({ ...s, loading: false, canceled: !!aborted,
+                       err: aborted ? null : (x?.message || String(x)) }));
     }
-    setEvents((prev) => {
-      const m = new Map(prev);
-      for (const e of data.events || []) m.set(e.event_iid, e);
-      return m;
-    });
   }, [device, filterKey, filterParams]);
 
   useEffect(() => {
     if (!device || !view) return;
     const span = view.t1 - view.t0;
-    const l0 = Math.max(0, laneStart - LANE_PREFETCH);
-    const l1 = laneStart + rows + LANE_PREFETCH;
+    const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
+                          LANE_PREFETCH);
     fetchWindow(view.t0 - span * TIME_PREFETCH,
-                view.t1 + span * TIME_PREFETCH, l0, l1)
-      .catch((x) => setStatus((s) => ({ ...s,
+                view.t1 + span * TIME_PREFETCH, lw.from, lw.to)
+      .catch((x) => setReq((s) => ({ ...s,
         err: x?.message || String(x) })));
   }, [device, view, laneStart, rows, fetchWindow]);
 
@@ -261,6 +315,24 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const obsEnd = meta?.time_range?.observed_end
     ? Date.parse(meta.time_range.observed_end) : null;
   const span = view ? view.t1 - view.t0 : 0;
+
+  /** DT2-1 · retention truth. The bounds that clamp pan/zoom come from
+   *  the DT2-0 contract when it is present and from the V1 observed
+   *  extent otherwise. An unprovable bound stays null and clamps
+   *  nothing — we never invent a retention edge. */
+  const retention = useMemo(
+    () => retentionBounds(dt2, { min: obsStart, max: obsEnd }),
+    [dt2, obsStart, obsEnd]);
+  boundsRef.current = { min: retention.min ?? obsStart,
+                        max: retention.max ?? obsEnd };
+  tenantRef.current = sessCtx?.active_customer?.value
+    || meta?.computer?.tenant_id || null;
+
+  /** Density is NAVIGATION QUANTITY from the DT2-0 contract. It is not
+   *  severity, and a spike is not a threat claim. */
+  const density = useMemo(() => bucketsOf(dt2, "events"), [dt2]);
+  const densitySpikes = useMemo(() => spikes(density, { count: 5 }),
+                                [density]);
 
   const visibleLanes = useMemo(() => {
     const out = [];
@@ -298,6 +370,25 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     return out;
   }, [byLane]);
 
+  /** DT2-1 · window state truth. A failed or superseded request is
+   *  never rendered as "no activity". */
+  const windowState = useMemo(() => windowStateOf({
+    hasMeta: !!meta, initial: !meta, loading: status.loading || req.loading,
+    prefetching: req.prefetching, focusResolving: locating,
+    error: status.err || req.err, canceled: req.canceled,
+    staleDiscarded: req.staleDiscarded,
+    observationCount: windowEvents.length,
+  }), [meta, status, req, locating, windowEvents.length]);
+  const emptiness = useMemo(() => emptinessMeaning(windowState),
+                            [windowState]);
+
+  /** Selection is reported, never silently replaced. */
+  const selState = useMemo(
+    () => selectionState(selected,
+                         { view, loadedIds: new Set(events.keys()),
+                           retention: boundsRef.current }),
+    [selected, view, events]);
+
   /** Selecting an observation brings it into view on BOTH axes — a
    *  selection the analyst cannot see is not a selection. */
   const focusEvent = useCallback((e) => {
@@ -308,18 +399,26 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       if (!v) return v;
       const s = v.t1 - v.t0;
       if (t >= v.t0 + s * 0.06 && t <= v.t1 - s * 0.06) return v;
-      return { t0: t - s / 2, t1: t + s / 2 };
+      return centreOn(v, t, boundsRef.current).view;
     });
     setSelectedDay((d) => (d === startOfDayUTC(t) ? d : startOfDayUTC(t)));
     if (e.lane_index < laneStart || e.lane_index >= laneStart + rows) {
-      const n = Math.max(0, Math.min(Math.max(0, total - rows),
-                                     e.lane_index - Math.floor(rows / 3)));
+      const n = clampLaneStart(e.lane_index - Math.floor(rows / 3), rows,
+                               total);
       setLaneStart(n);
       if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
     }
+    /** DT2-1 · selecting a different observation IS a materially
+     *  different investigation, so it gets a history entry. V1 replaced
+     *  unconditionally, which is why Back did not step. */
     const next = new URLSearchParams(params);
     next.set("event", e.event_iid);
-    setParams(next, { replace: true });
+    if (e.process_iid) next.set("process_iid", e.process_iid);
+    const mode = historyMode(
+      { event: params.get("event"), process_iid: params.get("process_iid") },
+      { event: e.event_iid, process_iid: e.process_iid || null });
+    urlWriteRef.current = next.toString();
+    setParams(next, { replace: mode !== HISTORY.PUSH });
   }, [laneStart, rows, total, params, setParams]);
 
   const deepLink = params.get("event");
@@ -471,6 +570,107 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     setSelectedDay(startOfDayUTC(obsEnd));
   };
 
+  /** DT2-1 · Previous / Next observation and Previous / Next detection.
+   *  Ordering is deterministic (timestamp, event_iid) and comes from the
+   *  evidence, never from DOM order. When the next object is outside the
+   *  loaded window the containing window is resolved instead of the
+   *  control silently doing nothing. */
+  const stepTo = useCallback((dir, detectionsOnly) => {
+    const next = detectionsOnly
+      ? stepDetection(windowEvents, selected, dir)
+      : stepObservation(windowEvents, selected, dir);
+    if (next) { focusEvent(next); return; }
+    if (!view) return;
+    const moved = panByFraction(view, dir * 0.9, boundsRef.current);
+    if (moved.view.t0 !== view.t0) {
+      setView(moved.view);
+      setSelectedDay(startOfDayUTC(moved.view.t0));
+    }
+  }, [windowEvents, selected, view, focusEvent]);
+
+  /** Density spike navigation. A spike is activity VOLUME. */
+  const goToSpike = useCallback((bucket) => {
+    const w = windowForBucket(bucket);
+    if (!w) return;
+    setView(w);
+    setSelectedDay(startOfDayUTC(w.t0));
+  }, []);
+
+  /** DT2-1 · viewport → URL. Transient geometry REPLACES and is
+   *  debounced, so a wheel burst can never flood browser history. */
+  useEffect(() => {
+    if (embedded || !device || !view) return undefined;
+    const t = setTimeout(() => {
+      const next = new URLSearchParams(params);
+      next.set("device", device);
+      next.set("from", iso(view.t0));
+      next.set("to", iso(view.t1));
+      next.set("zoom", String(levelOf(view.t1 - view.t0)));
+      const s = next.toString();
+      if (s === urlWriteRef.current) return;
+      urlWriteRef.current = s;
+      setParams(next, { replace: true });
+    }, 260);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, view, embedded]);
+
+  /** DT2-1 · URL → viewport. Back/Forward restore the investigation
+   *  window; an entry we wrote ourselves is ignored to avoid a loop. */
+  const paramKey = params.toString();
+  useEffect(() => {
+    if (embedded || paramKey === urlWriteRef.current) return;
+    const r = restore(params);
+    if (!r.view) return;
+    if (!view || r.view.t0 !== view.t0 || r.view.t1 !== view.t1) {
+      urlWriteRef.current = paramKey;
+      setView(r.view);
+      setSelectedDay(startOfDayUTC(r.view.t0));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramKey, embedded]);
+
+  /** Bounded adjacent-window prefetch: at most two, cancelable,
+   *  never recursive, and it never commits the viewport. */
+  useEffect(() => {
+    if (!device || !view || req.loading) return undefined;
+    const t = setTimeout(() => {
+      const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
+                            LANE_PREFETCH);
+      for (const w of prefetchTargets(view, boundsRef.current)) {
+        const key = requestKey({ tenantId: tenantRef.current,
+                                 endpointId: device, t0: w.t0, t1: w.t1,
+                                 laneStart: lw.from, laneEnd: lw.to,
+                                 filterKey });
+        if (cache.current.has(key)) continue;
+        const slot = coord.current.beginPrefetch(key);
+        if (!slot.accepted) continue;
+        cache.current.set(key, true);
+        setReq((s) => ({ ...s, prefetching: true }));
+        api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+                { params: { time_start: iso(w.t0), time_end: iso(w.t1),
+                            lane_start: lw.from, lane_end: lw.to,
+                            limit: 2500, ...filterParams },
+                  signal: slot.signal })
+          .then(({ data }) => setEvents((prev) => {
+            const m = new Map(prev);
+            for (const e of data.events || []) m.set(e.event_iid, e);
+            return m;
+          }))
+          .catch(() => cache.current.delete(key))
+          .finally(() => {
+            slot.done();
+            setReq((s) => ({ ...s,
+              prefetching: coord.current.prefetchCount() > 0 }));
+          });
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, view, laneStart, rows, total, filterKey, req.loading]);
+
+  useEffect(() => () => coord.current.abortAll(), []);
+
   const openTab = (path, extra) => {
     const p = new URLSearchParams();
     if (device) p.set("device", device);
@@ -539,17 +739,12 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         matched={meta?.matched_after_filters ?? 0}
         total={meta?.observations_all_time ?? 0}
         collapsed={navCollapsed} onCollapsed={setNavCollapsed}
-        onZoom={(f) => setView((v) => {
-          if (!v) return v;
-          const c = (v.t0 + v.t1) / 2;
-          const sp = Math.max(1000, (v.t1 - v.t0) * f);
-          return { t0: c - sp / 2, t1: c + sp / 2 };
-        })}
-        onPan={(frac) => setView((v) => {
-          if (!v) return v;
-          const sp = v.t1 - v.t0;
-          return { t0: v.t0 + sp * frac, t1: v.t1 + sp * frac };
-        })}
+        onZoom={(f) => setView((v) => (v
+          ? zoomBySteps(v, f > 1 ? 1 : -1, (v.t0 + v.t1) / 2,
+                        boundsRef.current).view
+          : v))}
+        onPan={(frac) => setView((v) => (v
+          ? panByFraction(v, frac, boundsRef.current).view : v))}
         onFitDay={() => selectedDay != null
           && setView({ t0: selectedDay, t1: selectedDay + DAY_MS })} />
     </div>
@@ -561,14 +756,85 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       dayBins={meta?.activity?.day_bins || []}
       selectedDay={selectedDay} onSelectDay={setSelectedDay}
       view={view} onView={setView}
+      bounds={boundsRef.current}
       observedEnd={meta?.time_range?.observed_end}
       cursorTs={selected?.timestamp ? Date.parse(selected.timestamp) : null}
       collapsed={navCollapsed}
       onFocusTime={(t, iid) => {
-        setView({ t0: t - 15 * MS.m, t1: t + 15 * MS.m });
+        setView(centreOn(view, t, boundsRef.current).view);
         const hit = iid ? events.get(iid) : null;
         if (hit) setSelected(hit);
       }} />
+  );
+
+  /** DT2-1 · temporal navigation controls. Every one of these is a
+   *  deterministic evidence-ordered operation, not a DOM walk. */
+  const navBar = view && (
+    <div data-testid="dt2-navbar"
+         data-dt2-scroll-domain="controls"
+         data-window-state={windowState}
+         data-selection-state={selState || "NONE"}
+         data-zoom-level={levelOf(span)}
+         data-window-from={iso(view.t0)}
+         data-window-to={iso(view.t1)}
+         data-retention-state={retention.retentionState}
+         data-density-buckets={density.length}
+         style={{ display: "flex", alignItems: "center", gap: 6,
+                  flexWrap: "wrap", background: C.paper,
+                  border: `1px solid ${C.gridStrong}`, borderRadius: 6,
+                  padding: "6px 9px", marginBottom: 8, fontSize: 10.4,
+                  color: C.inkDim, position: "sticky", top: 0,
+                  zIndex: 30 }}>
+      <button data-testid="dt2-prev-event" onClick={() => stepTo(-1, false)}
+              title="Previous observation"
+              style={navBtn}>◀ Event</button>
+      <button data-testid="dt2-next-event" onClick={() => stepTo(1, false)}
+              title="Next observation"
+              style={navBtn}>Event ▶</button>
+      <button data-testid="dt2-prev-detection"
+              onClick={() => stepTo(-1, true)}
+              title="Previous detection"
+              style={navBtn}>◀ Detection</button>
+      <button data-testid="dt2-next-detection"
+              onClick={() => stepTo(1, true)}
+              title="Next detection"
+              style={navBtn}>Detection ▶</button>
+      <span style={{ width: 1, height: 16, background: C.grid }} />
+      <button data-testid="dt2-zoom-in"
+              onClick={() => setView(zoomBySteps(view, -1,
+                (view.t0 + view.t1) / 2, boundsRef.current).view)}
+              style={navBtn}>Zoom in</button>
+      <button data-testid="dt2-zoom-out"
+              onClick={() => setView(zoomBySteps(view, 1,
+                (view.t0 + view.t1) / 2, boundsRef.current).view)}
+              style={navBtn}>Zoom out</button>
+      <span className="mono" data-testid="dt2-window-label"
+            style={{ color: C.inkFaint }}>
+        {iso(view.t0).slice(0, 19)}Z → {iso(view.t1).slice(0, 19)}Z
+      </span>
+      {densitySpikes.length > 0 && (
+        <>
+          <span style={{ width: 1, height: 16, background: C.grid }} />
+          <span style={{ color: C.inkFaint }}>Activity volume:</span>
+          {densitySpikes.map((b) => (
+            <button key={`${b.t0}-${b.count}`}
+                    data-testid={`dt2-spike-${b.t0}`}
+                    data-count={b.count}
+                    data-semantics={b.semantics}
+                    onClick={() => goToSpike(b)}
+                    title={`${b.count} observations — activity volume, `
+                      + "not a severity or threat claim"}
+                    style={navBtn}>
+              {b.count.toLocaleString()}
+            </button>
+          ))}
+        </>
+      )}
+      <span style={{ flex: 1 }} />
+      <span data-testid="dt2-window-state" style={{ color: C.inkFaint }}>
+        {windowState}
+      </span>
+    </div>
   );
 
   const body = (
@@ -788,11 +1054,34 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         </div>
       )}
 
-      {status.err && (
+      {(status.err || req.err) && (
         <div data-testid="amp-error"
+             data-window-state={windowState}
              style={{ background: "#FDECEC", border: "1px solid #F3C2C2",
                       color: "#8E1E23", padding: "8px 12px", fontSize: 11,
-                      marginBottom: 8 }}>{String(status.err)}</div>
+                      marginBottom: 8 }}>
+          {String(status.err || req.err)}
+          <div style={{ marginTop: 3, fontSize: 10.2 }}>
+            {emptiness.message
+              || "This window could not be loaded. Evidence state is "
+                 + "UNKNOWN — this is not an absence of activity."}
+          </div>
+        </div>
+      )}
+
+      {/* A superseded or canceled window is an UNKNOWN outcome, never an
+          empty endpoint. */}
+      {!status.err && !req.err
+        && (windowState === WINDOW_STATE.CANCELED
+          || windowState === WINDOW_STATE.STALE_RESPONSE_DISCARDED) && (
+        <div data-testid="dt2-request-outcome"
+             data-window-state={windowState}
+             style={{ background: C.paper, border: `1px solid ${C.grid}`,
+                      borderLeft: `2px solid ${C.selectionStrong}`,
+                      padding: "6px 12px", fontSize: 10.4, color: C.inkDim,
+                      marginBottom: 8 }}>
+          {emptiness.message}
+        </div>
       )}
 
       {device && (
@@ -809,6 +1098,20 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
               Navigator, full width, as the primary controls. */}
           <div style={{ marginBottom: 8 }}>{filterStrip}</div>
           <div style={{ marginBottom: 8 }}>{navigator_}</div>
+          {navBar}
+          {selState && selState !== "SELECTED_VISIBLE" && (
+            <div data-testid="dt2-selection-state"
+                 data-state={selState}
+                 style={{ background: C.paper, border: `1px solid ${C.grid}`,
+                          borderLeft: `3px solid ${C.suspicious}`,
+                          padding: "6px 10px", fontSize: 10.4,
+                          color: C.inkDim, marginBottom: 8 }}>
+              <b style={{ color: C.ink }}>{selState}</b> — the selected
+              observation <span className="mono">{selected?.event_iid}</span>
+              {" "}is retained as the investigation anchor. Nothing else has
+              been selected in its place.
+            </div>
+          )}
         </>
       )}
 
@@ -886,6 +1189,12 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                data-cached-observations={events.size}
                data-lane-axis-version={meta?.lane_axis?.lane_axis_version}
                data-axis-scope={meta?.lane_axis?.axis_scope}
+               data-dt2-engine="dt2.1"
+               data-dt2-window-state={windowState}
+               data-dt2-generation={coord.current.generation()}
+               data-dt2-selection-state={selState || "NONE"}
+               data-dt2-zoom-level={levelOf(span)}
+               data-dt2-process-iid={selected?.process_iid || ""}
                data-wheel-navigation="rows|shift-time|ctrl-zoom">
             <div ref={plotRef} style={{ flex: 1, minWidth: 0,
                                         display: "flex",
@@ -940,6 +1249,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
             <AmpActivityPanel events={windowEvents} lanes={lanes}
                               selected={selected} onSelect={focusEvent}
                               onPivot={onPivot} width={DETAILS_W}
+                              windowState={windowState}
+                              emptiness={emptiness}
                               height={canvasH + 13} />
           </div>
         </>

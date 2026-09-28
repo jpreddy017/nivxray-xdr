@@ -9,7 +9,9 @@
     "build": "vite build",
     "vercel-build": "bash scripts/vercel-build.sh",
     "preview": "vite preview --port 3100",
-    "lint": "eslint . --ext js,jsx"
+    "lint": "eslint . --ext js,jsx",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.2",
@@ -23,7 +25,8 @@
     "vite": "^5.4.8"
   },
   "devDependencies": {
-    "eslint": "^9.11.1"
+    "eslint": "^9.11.1",
+    "vitest": "^2"
   },
   "notes": {
     "boundary": "This package MUST NOT import from /app/frontend/src. See README.md.",

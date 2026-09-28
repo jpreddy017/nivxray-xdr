@@ -21,6 +21,9 @@ import React, { useCallback, useEffect, useMemo, useRef,
 
 import { C, ROW_H, GUTTER, AXIS_H, GROUP_SECTION, eventColor, isRed,
          typeLabel, rowTag, ticksFor } from "./ampModel";
+import { INTENT, clampLaneStart, clampToBounds, createGovernor,
+         normalizeWheel, panByFraction, timeAtX,
+         zoomBySteps } from "./dt2";
 import EventGlyph, { CompromiseMarker } from "./AmpIcons";
 
 const AGG_PX = 16;
@@ -54,8 +57,15 @@ export default function AmpCanvas({
   const boxRef = useRef(null);
   const viewRef = useRef(view);
   const plotWRef = useRef(plotW);
+  /** DT2-1 · one governor instance per canvas: the rolling sensitivity
+   *  budget must survive across wheel events to bound a burst. */
+  const govRef = useRef(null);
+  if (!govRef.current) govRef.current = createGovernor();
+  const pointerXRef = useRef(null);
+  const boundsRef = useRef(null);
   viewRef.current = view;
   plotWRef.current = plotW;
+  boundsRef.current = { min: observedStart, max: observedEnd };
 
   const span = Math.max(1, view.t1 - view.t0);
   const xOf = useCallback((ts) => {
@@ -95,10 +105,10 @@ export default function AmpCanvas({
       if (!p.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
       p.moved = true;
       const dt = -(dx / Math.max(1, plotW)) * (p.t1 - p.t0);
-      onView({ t0: p.t0 + dt, t1: p.t1 + dt });
+      onView(clampToBounds({ t0: p.t0 + dt, t1: p.t1 + dt },
+                           boundsRef.current).view);
       const dl = Math.round(-dy / ROW_H);
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
-                                       p.lane0 + dl)));
+      onLaneStart(clampLaneStart(p.lane0 + dl, rows, totalLanes));
     };
     const onUp = () => {
       pan.current = null;
@@ -109,22 +119,27 @@ export default function AmpCanvas({
     window.addEventListener("mouseup", onUp);
   };
 
-  /** The mouse wheel must NOT drive the trajectory: not zoom, not time,
-   *  not the activity axis, not the Navigator. Cisco navigates through
-   *  the Navigator bands, the two scrollbars and deliberate dragging.
+  /** DT2-1 · the normalized pointer pipeline.
    *
-   *  React registers `onWheel` as PASSIVE, so calling preventDefault
-   *  there is rejected by the browser and logs on every tick. The
-   *  listener is therefore attached natively and non-passively, which
-   *  is the only way to stop an ancestor from scrolling instead.
-   */
-  /** Wheel mapping, as an analyst expects of a 2D workspace:
-   *    wheel            → the activity axis (process rows)
-   *    shift/deltaX     → the time axis (scrub the timeline)
-   *    ctrl/cmd + wheel → zoom the time window
-   *  Attached natively and non-passively; React's synthetic onWheel is
-   *  passive and cannot preventDefault, which would let an ancestor
-   *  scroll the page instead of the trajectory.
+   *   RAW WheelEvent
+   *     → deltaMode normalization (PIXEL | LINE | PAGE)
+   *     → device classification (mouse-like | trackpad-like)
+   *     → intent (ZOOM | TIME_PAN | LANE_SCROLL)
+   *     → bounded sensitivity (per-event clamp + rolling budget)
+   *     → viewport transition (anchored zoom | scale-preserving pan)
+   *
+   *  Before DT2-1 this handler divided the RAW delta by the plot width
+   *  and multiplied by the span, so a single 100 px notch moved a 24-hour
+   *  window by more than three hours, and ctrl+wheel applied a 1.25
+   *  factor per event — a 50-frame trackpad burst compounded to 1.25^50.
+   *  Both are now impossible: pan is clamped per event and per rolling
+   *  window, and zoom advances at most ONE ladder level per event with a
+   *  minimum interval between commits.
+   *
+   *  React registers `onWheel` as PASSIVE, so preventDefault there is
+   *  rejected by the browser. The listener is attached natively and
+   *  non-passively, which is also what keeps the gesture inside this
+   *  scroll domain instead of leaking to the page.
    */
   useEffect(() => {
     const el = boxRef.current;
@@ -132,25 +147,29 @@ export default function AmpCanvas({
     const onWheel = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.ctrlKey || e.metaKey) {
-        const f = e.deltaY > 0 ? 1.25 : 0.8;
-        const c = (viewRef.current.t0 + viewRef.current.t1) / 2;
-        const sp = Math.max(1000,
-                            (viewRef.current.t1 - viewRef.current.t0) * f);
-        onView({ t0: c - sp / 2, t1: c + sp / 2 });
+      const n = normalizeWheel(e);
+      const gov = govRef.current;
+      const v = viewRef.current;
+      const w = Math.max(1, plotWRef.current);
+      if (n.intent === INTENT.ZOOM) {
+        const steps = gov.governZoom(n.dyPx);
+        if (!steps) return;
+        /** Anchored on the pointer: the moment under the cursor keeps
+         *  its screen position, so the investigation anchor survives. */
+        const anchor = timeAtX(v, (pointerXRef.current ?? (GUTTER + w / 2))
+          - GUTTER, w);
+        onView(zoomBySteps(v, steps, anchor, boundsRef.current).view);
         return;
       }
-      const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-      if (horizontal) {
-        const d = (e.shiftKey ? e.deltaY : e.deltaX) || 0;
-        const sp = viewRef.current.t1 - viewRef.current.t0;
-        const dt = (d / Math.max(1, plotWRef.current)) * sp;
-        onView({ t0: viewRef.current.t0 + dt, t1: viewRef.current.t1 + dt });
+      if (n.intent === INTENT.TIME_PAN) {
+        const f = gov.governPan(n.panPx, w, n.source);
+        if (!f) return;
+        onView(panByFraction(v, f, boundsRef.current).view);
         return;
       }
-      const step = Math.sign(e.deltaY) * Math.max(1, Math.round(rows / 6));
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
-                                       laneStart + step)));
+      const step = gov.governLane(n.dyPx, ROW_H, n.source);
+      if (!step) return;
+      onLaneStart(clampLaneStart(laneStart + step, rows, totalLanes));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -173,8 +192,14 @@ export default function AmpCanvas({
                   overflow: "hidden", height, cursor: "default", flex: 1,
                   minWidth: 0 }}
          onMouseDown={onMouseDown}
+         onMouseMove={(e) => {
+           const b = boxRef.current?.getBoundingClientRect();
+           pointerXRef.current = e.clientX - (b?.left || 0);
+         }}
+         data-dt2-scroll-domain="trajectory"
+         data-dt2-gesture-map="wheel:lanes|shift-or-dx:time|ctrl-or-meta:zoom"
          data-wheel-navigation="rows|shift-time|ctrl-zoom"
-         onMouseLeave={() => setHover(null)}
+         onMouseLeave={() => { setHover(null); pointerXRef.current = null; }}
          onClick={() => setMenu(null)}>
       <svg width={GUTTER + plotW} height={height} data-testid="amp-svg">
         <defs>

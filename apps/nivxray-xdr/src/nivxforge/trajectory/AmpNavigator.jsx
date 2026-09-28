@@ -16,6 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { C, DAY_MS, DAY_BINS, MONTHS, fmtHM, fmtSpan, startOfDayUTC,
          dayKeyOf } from "./ampModel";
+import { moveRange, resizeRangeEnd, resizeRangeStart } from "./dt2";
 
 const DAYS = 30;
 const PAD = 9;            // keeps the window handles INSIDE the svg;
@@ -31,7 +32,7 @@ const dens = (n, max) => (!n ? 0
 
 export default function AmpNavigator({
   days, dayBins, selectedDay, onSelectDay, view, onView, observedEnd,
-  cursorTs, onFocusTime, collapsed, header = null,
+  cursorTs, onFocusTime, collapsed, header = null, bounds = null,
 }) {
   const hourRef = useRef(null);
   const dragRef = useRef(null);
@@ -103,17 +104,21 @@ export default function AmpNavigator({
       if (Math.abs(ev.clientX - st.px) > 3) st.moved = true;
       const lx = ev.clientX - rect.left;
       if (st.mode === "left") {
-        onView({ t0: Math.min(tOfX(lx), st.ve - 1000), t1: st.ve });
+        /** DT2-1 · the engine owns crossing prevention and the
+         *  min/max span, so a handle can never produce an inverted,
+         *  zero-length or out-of-ladder interval. */
+        onView(resizeRangeStart({ t0: st.vs, t1: st.ve }, tOfX(lx),
+                                bounds).view);
       } else if (st.mode === "right") {
-        onView({ t0: st.vs, t1: Math.max(tOfX(lx), st.vs + 1000) });
+        onView(resizeRangeEnd({ t0: st.vs, t1: st.ve }, tOfX(lx),
+                              bounds).view);
       } else {
         const dMs = ((ev.clientX - st.px) / innerW) * DAY_MS;
-        const dur = st.ve - st.vs;
-        const s = st.vs + dMs;
-        onView({ t0: s, t1: s + dur });
+        const moved = moveRange({ t0: st.vs, t1: st.ve }, dMs, bounds);
+        onView(moved.view);
         // Dragging past midnight must MOVE THE DAY, not stall at the
         // edge: a control that appears not to work is worse than none.
-        const d = startOfDayUTC(s);
+        const d = startOfDayUTC(moved.view.t0);
         if (d !== dayStart) onSelectDay(d);
       }
     };
