@@ -34,8 +34,16 @@ import { useAuth } from "@/lib/auth";
 import { brandFor } from "@/productScope";
 
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
+import CustomerContext from "./components/CustomerContext";
 import CustomerPicker from "./components/CustomerPicker";
-import { activeTenant, setActiveTenant } from "@/lib/tenant";
+import {
+  CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE, customerControlFor,
+  customerLabel, serverCustomer,
+} from "./tenantContext";
+import {
+  activeTenant, bindServerTenant, serverBoundTenant, setActiveTenant,
+  TENANT_BOUND_EVENT,
+} from "@/lib/tenant";
 import "./nivxforge.css";
 import "./nvf-ops.css";
 
@@ -106,10 +114,22 @@ const TABS = NAV.flatMap((s) => s.items).filter((i) => i.to);
 export function useIncidentContext() {
   const [params] = useSearchParams();
   const incident_id = params.get("incident_id") || params.get("incident") || null;
+  // P0-FIX-4A · a page renders BEFORE the console that binds the tenant,
+  // so it subscribes to the binding instead of reading the URL once.
+  const [boundTenant, setBoundTenant] = useState(() => serverBoundTenant());
+  useEffect(() => {
+    const onBound = (e) => setBoundTenant(e?.detail || serverBoundTenant());
+    window.addEventListener(TENANT_BOUND_EVENT, onBound);
+    setBoundTenant(serverBoundTenant());
+    return () => window.removeEventListener(TENANT_BOUND_EVENT, onBound);
+  }, []);
   return {
     incident_id,
     device:  params.get("device")  || null,
-    tenant:  params.get("tenant")  || null,
+    // P0-FIX-4A · the customer a page displays is the one the SERVER bound
+    // this principal to. The URL may still carry `tenant` for a principal
+    // that may legitimately switch, but it never overrides the binding.
+    tenant:  boundTenant || params.get("tenant") || null,
     user:    params.get("user")    || null,
     time:    params.get("time")    || null,
   };
@@ -208,6 +228,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
 
   const { user, logout } = useAuth();
   const [sess, setSess] = useState(null);
+  const [sessState, setSessState] = useState("loading");
   const [tenant, setTenant] = useState(() => activeTenant());
   const tenants = useMemo(() => {
     const named = (sess?.customers || []).map((c) => c.customer);
@@ -215,15 +236,42 @@ export default function NivXForgeConsole({ activeTab, children }) {
     return Array.from(new Set([...scoped, ...named])).filter(Boolean);
   }, [sess]);
 
-  // A principal authorised for exactly ONE customer has no choice to make,
-  // so the console selects it rather than failing every tenant-bound read
-  // with TENANT_REQUIRED. It never invents a tenant for anyone else.
-  useEffect(() => {
-    if (!tenant && tenants.length === 1) {
-      setActiveTenant(tenants[0]);
-      setTenant(tenants[0]);
+  // P0-FIX-4A · the SERVER decides whether this principal has a customer
+  // to choose at all. `active_customer.basis` is the authority; no role
+  // name is inspected here.
+  const control = useMemo(() => customerControlFor(sess), [sess]);
+  const bound = useMemo(() => serverCustomer(sess), [sess]);
+  const boundLabel = useMemo(() => customerLabel(sess), [sess]);
+
+  // A principal the server resolved to exactly ONE customer has no choice
+  // to make: the console binds the server's answer and stops honouring
+  // `?tenant=` or a stale `nvx_tenant`. It invents a tenant for nobody.
+  //
+  // The binding is taken DURING RENDER, not in an effect, because the page
+  // below this console reads the acting customer on its first render — an
+  // effect would let that first render see the stale browser value.
+  useMemo(() => {
+    if (control === CONTROL_CONTEXT_ONLY && bound) {
+      return bindServerTenant(bound, { switchable: false });
     }
-  }, [tenant, tenants]);
+    if (control === CONTROL_SWITCHABLE) {
+      return bindServerTenant(null, { switchable: true });
+    }
+    return null;
+  }, [control, bound]);
+
+  useEffect(() => {
+    if (control === CONTROL_CONTEXT_ONLY && bound) {
+      setTenant(bound);
+    } else if (control === CONTROL_SWITCHABLE) {
+      // Only now may a deep link's `?tenant=` become the selection: the
+      // SERVER said this principal has more than one customer. The server
+      // still re-authorises the value on every request.
+      const fromUrl = (params.get("tenant") || "").trim();
+      if (fromUrl && fromUrl !== activeTenant()) setActiveTenant(fromUrl);
+      setTenant(activeTenant());
+    }
+  }, [control, bound, params]);
 
   // WAVE UI-1 · the Cisco Secure Endpoint console is LIGHT-FIRST, and the
   // benchmark for this product is that console — so NivXForge EDR opens
@@ -240,8 +288,9 @@ export default function NivXForgeConsole({ activeTab, children }) {
 
   useEffect(() => {
     let live = true;
-    getSessionContext().then((d) => { if (live) setSess(d); })
-      .catch(() => { if (live) setSess(null); });
+    getSessionContext()
+      .then((d) => { if (live) { setSess(d); setSessState("ready"); } })
+      .catch(() => { if (live) { setSess(null); setSessState("error"); } });
     const onTheme = (e) => setTheme(e.detail === "light" ? "light" : "dark");
     window.addEventListener("nx-theme", onTheme);
     return () => { live = false;
@@ -267,7 +316,12 @@ export default function NivXForgeConsole({ activeTab, children }) {
   const propagate = (to) => {
     // Preserve incident context when navigating between EDR pages.
     const carry = new URLSearchParams();
-    ["incident_id", "device", "tenant", "user", "time"].forEach((k) => {
+    // P0-FIX-4A · `tenant` is only carried for a principal the server says
+    // may switch. A bound principal never re-attaches it.
+    const keys = control === CONTROL_SWITCHABLE
+      ? ["incident_id", "device", "tenant", "user", "time"]
+      : ["incident_id", "device", "user", "time"];
+    keys.forEach((k) => {
       const v = params.get(k);
       if (v) carry.set(k, v);
     });
@@ -298,7 +352,10 @@ export default function NivXForgeConsole({ activeTab, children }) {
           Endpoint detection &amp; response
         </span>
         <span style={{ flex: 1 }} />
-        <CustomerPicker withEvidence={tenants} />
+        {control === CONTROL_SWITCHABLE
+          ? <CustomerPicker withEvidence={tenants} />
+          : <CustomerContext label={boundLabel} tenantId={bound || tenant}
+                             basis={sess?.active_customer?.basis} />}
         {/* EDR → XDR product pivot. Resolved through `productOrigins` so
             it becomes an absolute cross-origin URL the moment XDR gets
             its own hostname, and stays an in-app route while both
@@ -380,7 +437,21 @@ export default function NivXForgeConsole({ activeTab, children }) {
           <main className="main" data-testid="nvf-main">
             <XdrContextBar />
             <IncidentContextBanner />
-            {children}
+            {/* P0-FIX-4A · no tenant-bound page fetch fires until the
+                SERVER has resolved which customer this principal acts as.
+                Before this gate a hostile `?tenant=` or a stale
+                `nvx_tenant` could be attached to the first paint's
+                requests — refused by the backend, but it left the console
+                showing another customer's refusal. If the session context
+                itself fails we render anyway rather than trap the
+                analyst. */}
+            {sessState === "loading"
+              ? <div className="mono" data-testid="nvf-tenant-resolving"
+                     style={{ padding: "18px 2px", fontSize: 11,
+                              color: "var(--muted)" }}>
+                  resolving customer authority…
+                </div>
+              : children}
           </main>
         </div>
       </div>

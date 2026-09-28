@@ -497,3 +497,41 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   Device Trajectory returns to the Cisco Secure Endpoint / AMP operational-clone
   target — publicly observable UI/UX, interactions, navigation and analyst
   functionality, implemented independently on real NivXForge evidence.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 4A DONE (single-customer UI authority)
+- The EDR console no longer renders "SELECT CUSTOMER" for a principal the
+  SERVER resolved to one customer. Decision comes from ONE authoritative
+  field, `active_customer.basis` out of `/api/xdr/rbac/session-context`
+  (`SINGLE_AUTHORIZED_TENANT`/`INHERITED_FROM_INCIDENT`/
+  `EXPLICIT_REQUEST_TENANT` ⇒ context only; `MULTIPLE_AUTHORIZED_TENANTS`/
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` ⇒ picker kept as-is). NO role name
+  is inspected anywhere (that stays Fix 6).
+- New: `src/nivxforge/tenantContext.js` (decision), `components/
+  CustomerContext.jsx` (non-selectable pill, `data-testid=
+  nvf-customer-context`, `data-selectable="false"`).
+- `src/lib/tenant.js`: added a SERVER BINDING (`bindServerTenant`,
+  `serverBoundTenant`, `tenantIsSwitchable`, `TENANT_BOUND_EVENT`) that
+  outranks the browser; **`?tenant=` was REMOVED from the resolution order**
+  so it can never reach the `X-Tenant-Id` interceptor. A bound principal
+  ignores/overwrites a stale `nvx_tenant` and `setActiveTenant()` is a no-op
+  for it. A deep link is now ADOPTED as an explicit selection only when the
+  server says the principal may switch (minimum multi-tenant change made).
+- Console also gates page children on session-context resolution
+  (`nvf-tenant-resolving`) so no tenant-bound fetch fires with a stale
+  browser value, and `useIncidentContext()` subscribes to the binding.
+- Live preview proof (single-customer analyst + hostile `?tenant=default`
+  AND planted `localStorage.nvx_tenant=default`): no SELECT CUSTOMER,
+  context pill `nivx-live` / `SINGLE_AUTHORIZED_TENANT` / non-selectable,
+  the word "default" appears nowhere, no TENANT_NOT_AUTHORIZED banner,
+  storage corrected to `nivx-live`, nav works, `?tenant=` not re-attached.
+  Cross-tenant admin still gets the picker and deep-link adoption works.
+- Tests: vitest 65 passed (13 new, `src/lib/__tests__/tenantAuthority.test.js`);
+  backend untouched (`git diff backend/` empty) and fix1+fix2 hermetic suites
+  re-run 43 passed.
+- STILL OPEN: fix-plan items 5 (fail-open enforcement default + "default"
+  residue) and 6 (vendor/MSSP authority model, audited switching); live
+  zero-tenant cell; XDR-plane surfaces outside the EDR console.
+- PERMANENT REQUIREMENT (unchanged, do not weaken): after Tenant Authority
+  closes, NivXForge Device Trajectory returns to the Cisco Secure Endpoint /
+  AMP operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.
