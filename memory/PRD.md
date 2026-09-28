@@ -778,3 +778,28 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
   closes, return to the Cisco Secure Endpoint / AMP Device Trajectory
   operational-clone target on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-1b DONE (PLATFORM designation only)
+- OWNER DECISIONS recorded: (1) PLATFORM `authorized_count` = tenants that are
+  ACTIVE under an ACTIVE organization, informational ONLY — it never grants
+  authority; (2) the six locked `SCOPE_BASES` stay unchanged in 6B-2, the
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` rename is CLEANUP DEBT for after the
+  gate closes; (3) do NOT write `"CUSTOMER"` anywhere — absent/null/malformed
+  ⇒ CUSTOMER is the least-authority default and PLATFORM stays exceptional and
+  explicit; (4) 6B-1b runs as its own micro-step before 6B-2.
+- `/app/scripts/fix6b1b_platform_designation.py` (idempotent; refuses unless
+  the Fix 6B-1 grants are present and unchanged) wrote ONE field on ONE
+  principal: `admin@nivxray.com` → `authority_scope: "PLATFORM"`.
+- Proof: `tenant_ids` still ["default","nivx-live"]; role `admin` unchanged; no
+  other field on the document changed; `authority_scope` holders = exactly
+  {admin@nivxray.com: PLATFORM} across all 76 users; login 200 and
+  `/api/edr/endpoints` (X-Tenant-Id: default) 200.
+- CODE_CHANGED = NO (script only, no product code). Enforcement untouched —
+  session-context still reports the legacy role-derived
+  `all_tenants:true / tenant_ids:[]` with basis
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`, which is exactly the pre-6B-2
+  baseline.
+- NEXT: Fix 6B-2 enforcement (grants-first + `authority_scope`), then the
+  audited switch, then picker-from-grants. PERMANENT REQUIREMENT unchanged:
+  immediately after Tenant Authority closes, return to the Cisco Secure
+  Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
+  evidence.
