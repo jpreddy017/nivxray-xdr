@@ -679,3 +679,33 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   MATCH navigation, zoom/pan/scroll, evidence/raw/provenance inspection and
   analyst workflow, implemented independently on real NivXForge evidence.
   Not AMP-inspired, not a generic timeline.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-0 DONE (read-only live grant plan)
+- OWNER DECISION: Fix 6 uses OPTION B — explicit per-principal tenant grants
+  (`users.tenant_ids[]`). NO `platform_authority` bypass. Role = what you may
+  do; explicit grants = where. `soc_manager` and `mssp_operator` lose
+  automatic all-tenant breadth. `authorized_count` becomes grant-derived; the
+  picker reads `authorized_tenants[]` while the queue stays evidence-derived;
+  `organization.kind` stays NON-AUTHORITATIVE; G6-7 deferred.
+- READ-ONLY step. DATA_CHANGED = NO, CODE_CHANGED = NO (git clean).
+  Full plan: `memory/production-gates/FIX6B0_LIVE_GRANT_PLAN.md`.
+- 4 live role-based multi-tenant principals found. Proposed (NOT applied):
+  `admin@nivxray.com` → ["default","nivx-live"] (VENDOR INTERNAL, org
+  "NivXMachines (Preview)" kind VENDOR; 100+8 audit rows, 318 endpoints, all
+  sampled raw events, 20 own/assigned cases); `p0a-approver@nivxray.com` →
+  ["default"] (HIGH, already carries tenant_id=default);
+  `approver@nivxray.com` → ["default"] (MEDIUM, documentation-only evidence);
+  `a05-admin-37051a53@nivxray.test` → UNRESOLVED (zero evidence, a05 fixture
+  residue). The other 40 tenants in the admin audit trail are gate/test
+  fixtures and are deliberately NOT proposed.
+- Fix 6B dependency flagged: `tests/test_a05_tenant_scope_contract.py` seeds a
+  role-only `admin` and asserts cross-tenant outcomes; under grants-first that
+  FIXTURE must seed explicit tenant_ids (test change, not product weakening).
+- NEXT: Fix 6B-1 = write ONLY the approved grants (idempotent, no other field,
+  no credential) and re-report resolved scope, with NO authority-code change;
+  grants-first enforcement + audited switch become Fix 6B-2.
+- PERMANENT REQUIREMENT (unchanged): the moment Tenant Authority closes,
+  NivXForge Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — real publicly observable Cisco-class UI/UX,
+  process/relationship/time interaction, lifelines, parent/child navigation,
+  event attachment, before/after investigation, MATCH navigation, zoom/pan,
+  evidence/provenance inspection — on real NivXForge evidence.
