@@ -84,10 +84,14 @@ G1_OPERATIONS = (
 )
 
 
-#: TENANT_SCOPED operations that resolve their tenant through the OTHER
-#: resolver (`routers.edr_enrollment._tenant`), which Fix 1 was explicitly
-#: not authorised to change. Reported as a remaining gap (G1-B).
-SECOND_RESOLVER_OPERATIONS = (
+#: P0-FIX-1B · the seven enrollment/onboarding operations that used to
+#: resolve their tenant through the duplicate registry-only resolver
+#: `routers.edr_enrollment._tenant`. That resolver is DELETED and these
+#: routes now consume `edr_tenant`, so the set below must stay EMPTY.
+SECOND_RESOLVER_OPERATIONS: tuple = ()
+
+#: The formerly weak enrollment/onboarding operations (gap G1-B).
+G1B_OPERATIONS = (
     ("GET", "/api/edr/onboarding/computers"),
     ("GET", "/api/edr/onboarding/computers/{endpoint_id}"),
     ("POST", "/api/edr/enrollment/tokens"),
@@ -298,10 +302,9 @@ def test_f18_every_g1_operation_is_forced_through_edr_tenant(routes):
 
 
 def test_f19_every_tenant_scoped_edr_operation_is_forced_through_it(routes):
-    """Every TENANT_SCOPED operation resolves its tenant through the fixed
-    dependency, EXCEPT the admin/onboarding surfaces that still use the
-    SECOND resolver `edr_enrollment._tenant()` — which Fix 1 was not
-    authorised to touch. That set is pinned here so it can only shrink."""
+    """EVERY TENANT_SCOPED operation resolves its tenant through the one
+    canonical dependency. `SECOND_RESOLVER_OPERATIONS` is now empty: after
+    Fix 1B there is no second tenant-authorization path."""
     missing = []
     for op, kind in ROUTE_CLASSIFICATION.items():
         if kind != TENANT_SCOPED or op not in routes:
@@ -311,17 +314,54 @@ def test_f19_every_tenant_scoped_edr_operation_is_forced_through_it(routes):
     assert sorted(missing) == sorted(SECOND_RESOLVER_OPERATIONS), missing
 
 
-def test_f19b_the_second_resolver_is_still_registry_only(routes):
-    """Documents the remaining gap rather than hiding it: these routes
-    validate the registry but do NOT authorise the principal."""
+def test_f19b_the_duplicate_resolver_no_longer_exists():
+    """Fix 1B eliminated the second implementation rather than hardening a
+    copy of it: there is ONE principal→tenant authority on the EDR plane."""
     from routers import edr_enrollment as ee
+    from routers import edr_onboarding as eo
+    assert not hasattr(ee, "_tenant")
+    assert not hasattr(eo, "_tenant")
+    assert ee.edr_tenant is et.edr_tenant
+    assert eo.edr_tenant is et.edr_tenant
+    assert SECOND_RESOLVER_OPERATIONS == ()
+
+
+def test_f19c_the_seven_g1b_operations_are_forced_through_edr_tenant(routes):
+    from deps import get_current_user
+    for op in G1B_OPERATIONS:
+        assert ROUTE_CLASSIFICATION.get(op) == TENANT_SCOPED, op
+        assert op in routes, op
+        deps = _flat_dependencies(routes[op].dependant)
+        assert et.edr_tenant in deps, op
+        assert get_current_user in deps, op
+
+
+def test_f19d_the_users_customer_compat_fallback_is_gone():
+    """`users["customer"]` could previously SELECT the tenant when the
+    header was absent. It must not appear on this authorization path."""
     import inspect
-    source = inspect.getsource(ee._tenant)
-    assert "authoritative" in source
-    assert "authorize_requested_tenant" not in source
-    assert "resolve_tenant_scope" not in source
-    for op in SECOND_RESOLVER_OPERATIONS:
-        assert ROUTE_CLASSIFICATION[op] == TENANT_SCOPED, op
+    from routers import edr_enrollment as ee
+    from routers import edr_onboarding as eo
+    for mod in (ee, eo, et):
+        src = inspect.getsource(mod)
+        assert '"customer"' not in src, mod.__name__
+        assert "get('customer')" not in src, mod.__name__
+    et_src = inspect.getsource(et.edr_tenant)
+    assert "authorize_requested_tenant" in et_src
+    assert "compat_default" not in et_src
+
+
+def test_f19e_the_sensor_plane_still_derives_tenant_from_its_session():
+    """SENSOR_SCOPED behaviour is untouched: the agent's tenant comes from
+    its authenticated enrolment/agent credential, never from a header."""
+    import inspect
+    from routers import edr_enrollment as ee
+    src = inspect.getsource(ee._agent_tenant)
+    assert "X-Tenant-Id" not in src
+    assert "headers" not in src
+    assert "authoritative" in src
+    assert callable(et.sensor_tenant)
+    assert "No request header is consulted" in (et.sensor_tenant.__doc__ or "")
 
 
 def test_f20_the_dependency_itself_now_requires_a_verified_principal(routes):

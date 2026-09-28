@@ -31,7 +31,7 @@ from deps import db as _db, get_current_user
 from edr_plane.enrollment import store
 from edr_plane.policy import store as policy_store
 from edr_plane.policy.contracts import PolicyConfig
-from routers.edr_enrollment import _tenant
+from routers.edr_tenancy import edr_tenant
 from services.edr import endpoint_query as eq
 
 RAW_EVENTS = "edr_raw_events"
@@ -548,11 +548,10 @@ STATUS_CONTRACT = (
 
 @router.get("/computers")
 async def computers(user: dict = Depends(get_current_user),
-                    request: Request = None,
+                    tenant: str = Depends(edr_tenant),
                     detection_window_hours: int = DETECTION_WINDOW_HOURS
                     ) -> dict[str, Any]:
     """The Computers grid, entirely from recorded endpoint truth."""
-    tenant = _tenant(user, request)
     window = max(1, min(int(detection_window_hours), 24 * 90))
     records = await store.list_endpoints(_db, tenant_id=tenant)
     policies = {doc["id"]: doc async for doc in
@@ -585,11 +584,10 @@ async def computers(user: dict = Depends(get_current_user),
 @router.get("/computers/{endpoint_id}")
 async def computer(endpoint_id: str,
                    user: dict = Depends(get_current_user),
-                   request: Request = None,
+                   tenant: str = Depends(edr_tenant),
                    detection_window_hours: int = DETECTION_WINDOW_HOURS
                    ) -> dict[str, Any]:
     """Device Overview — the same recorded truth, for one computer."""
-    tenant = _tenant(user, request)
     window = max(1, min(int(detection_window_hours), 24 * 90))
     record = await _db[store.ENDPOINTS].find_one(
         {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})

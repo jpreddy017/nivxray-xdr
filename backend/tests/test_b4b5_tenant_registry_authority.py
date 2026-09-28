@@ -223,23 +223,53 @@ def test_edr_enrollment_cannot_create_tenancy(client, enforce):
 
 def test_edr_admin_plane_no_longer_falls_back_to_default(enforce):
     """B5 · `users["customer"]` is absent on every real user document, so the
-    old implementation returned `"default"`. It must now refuse."""
-    from routers import edr_enrollment
-    with pytest.raises(Exception) as e:
-        edr_enrollment._tenant({"email": "admin@nivxray.com"}, None)
+    old implementation returned `"default"`. It must now refuse.
+
+    P0-FIX-1B · the EDR admin plane's own resolver (`edr_enrollment._tenant`)
+    is DELETED; the plane consumes `routers.edr_tenancy.edr_tenant`, so the
+    refusal is asserted on that one authority instead of on a second copy.
+    """
+    import asyncio
+
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from routers import edr_enrollment, edr_tenancy
+
+    assert not hasattr(edr_enrollment, "_tenant")
+    assert edr_enrollment.edr_tenant is edr_tenancy.edr_tenant
+
+    req = Request({"type": "http", "method": "GET", "path": "/",
+                   "headers": [], "query_string": b""})
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(edr_tenancy.edr_tenant(
+            req, {"email": "admin@nivxray.com"}))
     detail = getattr(e.value, "detail", {})
     assert detail.get("code") == "TENANT_REQUIRED", detail
 
 
 def test_edr_and_xdr_resolve_the_same_authority(enforce, org_and_tenant):
-    from routers import edr_enrollment
+    """One authority, three consumers: the EDR admin plane (now via
+    `edr_tenant`), the EDR sensor plane (`_agent_tenant`, session-derived)
+    and the XDR control plane."""
+    import asyncio
 
-    class _Req:
-        headers = {"X-Tenant-Id": org_and_tenant[1]["id"]}
+    from starlette.requests import Request
+
+    from routers import edr_enrollment, edr_tenancy
+    from services import session_context as sc
 
     _org, ten = org_and_tenant
-    assert edr_enrollment._tenant({}, _Req()) == ten["id"]
-    assert edr_enrollment._agent_tenant(ten["id"]) == ten["id"]
+    email = "admin@nivxray.com"
+    req = Request({"type": "http", "method": "GET", "path": "/",
+                   "headers": [(b"x-tenant-id", ten["id"].encode())],
+                   "query_string": b""})
+    assert asyncio.run(edr_tenancy.edr_tenant(req, {"email": email})) \
+        == ten["id"]
+    assert sc.authorize_requested_tenant(email, ten["id"])[0] == ten["id"]
+    # pre-existing: `_agent_tenant` takes a keyword-only `oracle`
+    assert edr_enrollment._agent_tenant(
+        ten["id"], oracle="ENROLLMENT_TOKEN_INVALID") == ten["id"]
     assert reg.authoritative(ten["id"], purpose="xdr.collectors") == ten["id"]
 
 

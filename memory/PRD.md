@@ -404,3 +404,24 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - NEXT: owner review, then next tiny step (fix-plan items 2-6 still open:
   non-disclosing refusal, R4 gate extension, UI switchability, enforcement
   default, vendor/MSSP model) + G1-B.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 1B DONE (duplicate resolver ELIMINATED)
+- `routers/edr_enrollment._tenant()` DELETED (not hardened — removed). Its 5
+  enrollment routes + the 2 onboarding routes in `routers/edr_onboarding.py`
+  now take `tenant_id/tenant: str = Depends(edr_tenant)`, so there is ONE
+  principal→tenant authority on the EDR plane.
+- The `users["customer"]` compat fallback is gone from this authorization path
+  (asserted absent from edr_enrollment, edr_onboarding and edr_tenancy).
+- SENSOR plane untouched: `_agent_tenant()` / `sensor_tenant()` still derive
+  tenant from the authenticated enrolment/agent credential and read no header
+  (asserted; live sensors keep polling /agent/session + /agent/policy 200).
+- `SECOND_RESOLVER_OPERATIONS` in the Fix 1 test is now `()` and the
+  route-table test requires EVERY TENANT_SCOPED /api/edr/* op to depend on
+  `edr_tenant` — 15 of 15.
+- Repaired two pre-existing B5 tests that called the deleted helper
+  (`tests/test_b4b5_tenant_registry_authority.py`), plus one latent TypeError
+  (`_agent_tenant` keyword-only `oracle`) that had been failing before.
+- Tests: fix1 suite 26 + B5 suite 30 + R4 (1 skipped, credential-gated) →
+  56 passed, 1 skipped. No preview probes. SELECT CUSTOMER / UI untouched.
+- STILL OPEN: fix-plan items 2-6 and the deferred preview cross-tenant probe
+  matrix. Tenant Authority is NOT declared closed.
