@@ -380,3 +380,27 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   tests cross-principal refusal on `/api/edr/endpoints` only.
 - Minimum fix plan recorded (fix 1 → test 3 → fix 2 → fix 4 → fix 5), then the
   deferred probe matrix, then back to AMP-class trajectory (DT2-2F).
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 1 DONE (edr_tenant is now authorizing)
+- `routers/edr_tenancy.edr_tenant()` reworked: takes the verified principal
+  (`Depends(deps.get_current_user)`) and resolves
+  `session_context.authorize_requested_tenant(principal, X-Tenant-Id)` FIRST,
+  then `tenant_registry.authoritative(...)`. Stamps
+  `request.state.effective_tenant_id/tenant_resolution_basis`. No second
+  authorization model; `edr_scope()` calls all left in place (defense in depth).
+- Single-authorized-tenant principal is now AUTO-BOUND server-side (no header
+  needed); naming another tenant ⇒ TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL;
+  cross/multi-tenant with no header ⇒ TENANT_REQUIRED; zero-tenant ⇒
+  TENANT_NOT_RESOLVED. Authorization runs before the registry lookup, so an
+  unheld tenant's existence is never confirmed.
+- All 8 G1 routes are structurally proven (live route-table introspection) to
+  depend on the fixed dependency, so the bypass is closed at the gate.
+- NEW FINDING (G1-B, NOT fixed — out of Fix 1 scope): a SECOND resolver
+  `routers/edr_enrollment._tenant()` is still registry-only and serves 7
+  TENANT_SCOPED ops (`/api/edr/enrollment/*`, `/api/edr/onboarding/computers*`).
+  Pinned in the test as `SECOND_RESOLVER_OPERATIONS` so the list can only shrink.
+- Tests: `backend/tests/edr/test_p0_tenant_authority_fix1.py` (23) → 23 passed.
+  No preview probes (owner deferred). SELECT CUSTOMER / UI untouched.
+- NEXT: owner review, then next tiny step (fix-plan items 2-6 still open:
+  non-disclosing refusal, R4 gate extension, UI switchability, enforcement
+  default, vendor/MSSP model) + G1-B.

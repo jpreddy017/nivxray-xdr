@@ -31,10 +31,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
+from deps import get_current_user
 from services import tenant_registry
 from services.dashboard_lenses import resolve_tenant_scope
+from services.session_context import ScopeDenied, authorize_requested_tenant
 
 TENANT_HEADER = "X-Tenant-Id"
 
@@ -173,19 +175,55 @@ def _refuse(e: tenant_registry.TenantRegistryError) -> None:
     raise HTTPException(status_code=e.http, detail=e.detail()) from None
 
 
-async def edr_tenant(request: Request) -> str:
-    """FastAPI dependency · the registered ACTIVE tenant this request acts in.
+async def edr_tenant(request: Request,
+                     user: Dict[str, Any] = Depends(get_current_user)) -> str:
+    """FastAPI dependency · the AUTHORIZED, registered, ACTIVE tenant.
 
-    No header            -> 403 TENANT_REQUIRED   (B7 Option A: there is no
-                                                   default tenant)
-    unregistered tenant  -> 403 TENANT_NOT_FOUND
-    non-ACTIVE tenant    -> 403 TENANT_NOT_ACTIVE
+    P0-FIX-1. This dependency used to ask ONE question — "is the named
+    tenant registered and ACTIVE?" — and left "is this PRINCIPAL
+    authorised for it?" to an optional `edr_scope()` call inside each
+    route. Eight TENANT_SCOPED operations never made that call, so on
+    those routes a client-supplied `X-Tenant-Id` *expanded* authority.
+
+    It now asks BOTH, in the only safe order, reusing the SAME server-side
+    machinery the XDR/session-context plane already uses — no second
+    authorization model is introduced:
+
+        verified principal
+          → authorize_requested_tenant(principal, X-Tenant-Id)   AUTHORISATION
+          → tenant_registry.authoritative(tenant)                AUTHORITY
+          → the tenant this request acts in
+
+    Authorisation runs FIRST, so the registry can only ever NARROW it; a
+    tenant the principal does not hold never reaches the registry lookup
+    and is never confirmed to exist.
+
+    Outcomes:
+
+    single authorized tenant, no header  -> auto-bound (no header needed)
+    header naming a tenant not held      -> 403 TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL
+    cross-tenant principal, no header    -> 403 TENANT_REQUIRED
+    zero-tenant principal                -> 403 TENANT_NOT_RESOLVED
+    unregistered tenant                  -> 403 TENANT_NOT_FOUND
+    non-ACTIVE tenant                    -> 403 TENANT_NOT_ACTIVE
     """
-    raw = (request.headers.get(TENANT_HEADER) or "").strip()
+    requested = (request.headers.get(TENANT_HEADER) or "").strip() or None
+    principal = (user or {}).get("email") or (user or {}).get("sub")
     try:
-        return tenant_registry.authoritative(raw, purpose="edr.control_plane")
+        authorized, basis = authorize_requested_tenant(principal, requested)
+    except ScopeDenied as e:
+        raise HTTPException(status_code=e.http,
+                            detail={**e.detail(),
+                                    "authority": "server",
+                                    "requested_tenant": requested}) from None
+    try:
+        resolved = tenant_registry.authoritative(
+            authorized, purpose="edr.control_plane")
     except tenant_registry.TenantRegistryError as e:
         _refuse(e)
+    request.state.effective_tenant_id = resolved
+    request.state.tenant_resolution_basis = basis
+    return resolved
 
 
 def sensor_tenant(tenant_id: Optional[str]) -> str:
