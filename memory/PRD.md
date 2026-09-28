@@ -475,3 +475,25 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   classify TENANT_SCOPED and add its refusal-only probe.
 - STILL OPEN: fix-plan items 4-6 (SELECT CUSTOMER / browser authority,
   fail-open enforcement default + "default" residue, vendor-MSSP model).
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 3A DONE (classification + R4 probe)
+- `POST /api/edr/enrollment/tokens/{token_id}/revoke` added to
+  `ROUTE_CLASSIFICATION` as TENANT_SCOPED (coverage entry only; the route
+  already depended on `edr_tenant` + `get_current_user`, no authorization or
+  business change) and given a REFUSAL-ONLY probe in the R4 SAMPLES table
+  (nonexistent token id, never called with an authorized tenant).
+- TENANT_SCOPED count 60 → **61** (11 SENSOR_SCOPED, 16 PRODUCT_METADATA,
+  88 classified total) — matches the owner's expected 61, no further
+  discrepancy found.
+- Live proof for the route: TENANT_REQUIRED (no header), precise NOT_FOUND /
+  NOT_ACTIVE for the privileged admin, A→B refused, B→A refused, and
+  unheld/nonexistent/ARCHIVED indistinguishable for the scoped analyst.
+  13/13 focused tests pass; completeness clause is GREEN again.
+- Zero-tenant live cell remains UNPROVEN LIVE / PREREQUISITE MISSING
+  (owner-approved). No account, no credential created.
+- STILL OPEN: fix-plan items 4 (SELECT CUSTOMER / `?tenant=` / localStorage),
+  5 (fail-open enforcement default + "default" residue), 6 (vendor/MSSP model).
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP operational-clone
+  target — publicly observable UI/UX, interactions, navigation and analyst
+  functionality, implemented independently on real NivXForge evidence.

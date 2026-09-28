@@ -119,6 +119,13 @@ SAMPLES: dict[tuple, dict] = {
     ("POST", "/api/edr/enrollment/tokens"): {
         "url": "/api/edr/enrollment/tokens", "mutating": True,
         "json": {"label": "route-authority-probe"}},
+    # P0-FIX-3A · refusal-only probe. `probe-token-does-not-exist` cannot
+    # match a real token, and the route is never called with an authorized
+    # tenant, so no token is ever created or revoked by this suite.
+    ("POST", "/api/edr/enrollment/tokens/{token_id}/revoke"): {
+        "url": "/api/edr/enrollment/tokens/probe-token-does-not-exist/revoke",
+        "mutating": True,
+        "json": {"reason": "route-authority-probe · never authorized"}},
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/rotate"): {
         "url": "/api/edr/enrollment/endpoints/probe/rotate", "mutating": True,
         "json": {}},
@@ -625,12 +632,50 @@ def _observable(r: requests.Response) -> tuple:
                                        for k, v in detail.items()))
 
 
+#: P0-FIX-3A · the operation the live completeness clause caught: mounted,
+#: already behind `edr_tenant`, but never classified and therefore never
+#: probed. Pinned by name so it cannot fall out of the matrix again.
+FIX3A_OPERATION = ("POST", "/api/edr/enrollment/tokens/{token_id}/revoke")
+
+
 def test_c6_the_matrix_covers_every_tenant_scoped_operation():
     """The clause is only as good as its coverage."""
-    assert len(_TENANT_SCOPED_OPS) >= 50, len(_TENANT_SCOPED_OPS)
-    for op in G1_OPERATIONS + G1B_OPERATIONS:
+    assert len(_TENANT_SCOPED_OPS) >= 61, len(_TENANT_SCOPED_OPS)
+    for op in G1_OPERATIONS + G1B_OPERATIONS + (FIX3A_OPERATION,):
         assert op in _TENANT_SCOPED_OPS, op
         assert op in SAMPLES, op
+
+
+def test_c6_fix3a_the_revoke_route_is_classified_and_probed():
+    assert ROUTE_CLASSIFICATION.get(FIX3A_OPERATION) == TENANT_SCOPED
+    assert FIX3A_OPERATION in SAMPLES
+    assert SAMPLES[FIX3A_OPERATION]["mutating"] is True
+    assert FIX3A_OPERATION not in _READ_OPS       # never driven authorized
+
+
+def test_c6_fix3a_the_revoke_route_uses_the_canonical_authority():
+    """Static proof: no second resolver, the same dependency as everything
+    else, and the principal is verified."""
+    from deps import get_current_user
+    from routers import edr_enrollment as ee
+    from routers import edr_tenancy as et
+    from server import app
+
+    def _flat(dependant):
+        out = []
+        for dep in dependant.dependencies:
+            out.append(dep.call)
+            out.extend(_flat(dep))
+        return out
+
+    method, path = FIX3A_OPERATION
+    route = next(r for r in app.routes
+                 if getattr(r, "path", None) == path
+                 and method in (getattr(r, "methods", None) or ()))
+    deps = _flat(route.dependant)
+    assert et.edr_tenant in deps
+    assert get_current_user in deps
+    assert not hasattr(ee, "_tenant")             # Fix 1B still holds
 
 
 @pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")

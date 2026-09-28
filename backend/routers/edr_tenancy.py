@@ -85,9 +85,13 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     # ── routers/edr_wave0.py · tenant raw-event reads (2) ─────────────
     ("GET", "/api/edr/wave0/raw-events/stats"): TENANT_SCOPED,
     ("GET", "/api/edr/wave0/raw-events/replay-candidates"): TENANT_SCOPED,
-    # ── routers/edr_enrollment.py · admin control plane (6) ───────────
+    # ── routers/edr_enrollment.py · admin control plane (7) ───────────
     ("POST", "/api/edr/enrollment/tokens"): TENANT_SCOPED,
     ("GET", "/api/edr/enrollment/tokens"): TENANT_SCOPED,
+    # P0-FIX-3A · this live operation was never classified, so the R4
+    # matrix never probed it. It already consumed `edr_tenant`, so this is
+    # a coverage entry, not an authorization change.
+    ("POST", "/api/edr/enrollment/tokens/{token_id}/revoke"): TENANT_SCOPED,
     ("GET", "/api/edr/enrollment/endpoints"): TENANT_SCOPED,
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/rotate"): TENANT_SCOPED,
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/revoke"): TENANT_SCOPED,
