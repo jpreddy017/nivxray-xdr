@@ -629,3 +629,26 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   time rendering, process lifelines, parent/child navigation, event attachment,
   before/after investigation, search/filter/MATCH navigation, zoom/pan,
   evidence/raw/provenance inspection — on real NivXForge evidence.
+## 2026-06 · LEGACY TEST REPAIR — tests/test_edr_context_p0_f13_3.py (owner-approved)
+- TEST-ONLY change. PRODUCT CODE UNCHANGED (`git status` shows only the test
+  file). No data, no credentials, no frontend, no deploy.
+- The four `/api/edr/context` cases now present the REAL registered tenant
+  explicitly (`X-Tenant-Id: default`), matching the post-Fix-1 contract, and a
+  new case `test_context_without_tenant_context_is_refused` PINS
+  `403 TENANT_REQUIRED` + `fail_closed:true` + `authority:server` for a
+  cross-tenant principal with no tenant context, so the pre-Fix-1 implicit
+  behaviour cannot be reintroduced.
+- `test_context_xdr_pivot`: with the tenant now presented explicitly the
+  server reports `basis=EXPLICIT_REQUEST_TENANT` (previously
+  `INHERITED_FROM_INCIDENT`). The inheritance contract is still asserted:
+  `active_customer.value == investigation.tenant_id == "default"` and
+  `entry_context == XDR_PIVOT`.
+- `test_session_context`: the frozen `open_incidents == 241` snapshot is gone.
+  New invariants — `incidents >= 1`, `0 <= open_incidents <= incidents`,
+  every row has a real customer (Fix 5B), the queue_href matches the customer,
+  and session-context's count for `default` EQUALS `/api/xdr/mss/
+  customer-operations` for the same customer (both derive from the one
+  authoritative queue predicate `dashboard_lenses._scope`, which is the actual
+  product contract and stays true as live evidence changes).
+- Result: `test_edr_context_p0_f13_3.py` 7 passed (was 5 failed / 1 passed) and
+  fix1 + fix2 + 5A + 5B re-run green → **120 passed, 0 failed**.
