@@ -43,6 +43,8 @@ __all__ = [
     "IDENTITY_BASIS_PID_ONLY", "IDENTITY_BASIS_ABSENT",
     "EDGE_REASON_GUID", "EDGE_REASON_IDENTITY",
     "ProcessIdentity", "ProcessEdge", "identity_of", "process_edges",
+    "ACTIVITY_FAMILIES", "ACTIVITY_KINDS", "ActivityRef", "ActivityEdge",
+    "activity_of", "activity_edges", "family_of",
 ]
 
 # ── identity bases, most to least trustworthy ─────────────────────────
@@ -262,4 +264,216 @@ def process_edges(rows: Iterable[Dict[str, Any]], endpoint_id: str
             observed_at=row.get("timestamp"),
             provenance={"parent_state": row.get("parent_state"),
                         "source_event_iid": row.get("event_iid")}))
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════
+# DT2-2 · PROCESS → ACTIVITY attachment.
+#
+# An activity observation is attached to a process ONLY when the
+# canonical row carries a real acting-process identity pointer. There is
+# deliberately no path from timestamp proximity, row adjacency, shared
+# image name, shared user or shared endpoint to an association.
+#
+# AUTH is intentionally NOT handled here (owner decision, later slice):
+# a 4624 with no process binding must yield no edge at all.
+# ══════════════════════════════════════════════════════════════════════
+
+ACTIVITY_FAMILIES = ("NETWORK", "FILE", "REGISTRY", "DNS")
+
+# Canonical kinds we actually support. An event_type outside this
+# allow-list produces NO association — unsupported stays unsupported.
+ACTIVITY_KINDS: Dict[str, str] = {
+    "file_create": "FILE", "file_write": "FILE", "file_delete": "FILE",
+    "file_modify": "FILE", "file_rename": "FILE",
+    "file_create_stream_hash": "FILE", "file_executable_detected": "FILE",
+    "registry_create": "REGISTRY", "registry_value_set": "REGISTRY",
+    "registry_delete": "REGISTRY", "registry_rename": "REGISTRY",
+    "dns_query": "DNS",
+    "network_connect": "NETWORK", "network_accept": "NETWORK",
+}
+
+_ACTIVITY_REASON_GUID = (
+    "The {family} observation names its acting process by ProcessGuid, so "
+    "the sensor itself bound this activity to that process instance.")
+_ACTIVITY_REASON_PID = (
+    "The {family} observation names its acting process by a PID-based "
+    "canonical identity with no ProcessGuid. The binding is real but the "
+    "process identity is a surrogate and may be affected by PID reuse.")
+
+
+def family_of(row: Dict[str, Any]) -> Optional[str]:
+    """Resolve the activity family from canonical evidence only.
+
+    `lane_group` is authoritative when the canonicaliser set it. Otherwise
+    the canonical `event_type` must appear in the supported allow-list.
+    Anything else returns None, which means NO association.
+    """
+    group = row.get("lane_group")
+    if group in ACTIVITY_FAMILIES:
+        return group
+    kind = (row.get("event_type") or "").strip().lower()
+    return ACTIVITY_KINDS.get(kind)
+
+
+@dataclass(frozen=True)
+class ActivityRef:
+    """The non-process endpoint of an activity edge."""
+    activity_id: str
+    family: str
+    label: str
+    kind: Optional[str] = None
+    attributes: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.family not in ACTIVITY_FAMILIES:
+            raise ValueError(f"unsupported activity family {self.family!r}")
+        if not self.label:
+            raise ValueError(
+                "activity without a label cannot be identified; an unnamed "
+                "artifact is not evidence of a relationship")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"activity_id": self.activity_id, "family": self.family,
+                "label": self.label, "kind": self.kind,
+                "attributes": dict(self.attributes)}
+
+
+@dataclass(frozen=True)
+class ActivityEdge:
+    """A process → activity edge that can justify its own existence."""
+    edge_id: str
+    endpoint_id: str
+    process: ProcessIdentity
+    activity: ActivityRef
+    derivation_basis: str
+    evidence_ref: Tuple[m.EvidenceReference, ...]
+    reason: str
+    observed_at: Optional[str] = None
+    time_basis: str = "SOURCE_TIME"
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.process.process_iid:
+            raise ValueError(
+                "an activity edge needs a real acting process identity; an "
+                "unattributed artifact is not a relationship")
+        if not self.process.presentable:
+            raise ValueError(
+                "acting identity is not presentable (bare PID): it is never "
+                "presented as process identity, so it cannot anchor an edge")
+        if not self.evidence_ref:
+            raise ValueError(
+                "activity edge without evidence_ref is rejected: an edge "
+                "must answer WHY IT EXISTS")
+        if not self.reason:
+            raise ValueError("activity edge without a stated reason rejected")
+        basis = (self.derivation_basis or "").upper()
+        if not basis:
+            raise ValueError("activity edge without derivation_basis rejected")
+        if any(bad in basis for bad in m.FORBIDDEN_BASES):
+            raise ValueError(
+                f"forbidden derivation_basis {self.derivation_basis!r}: "
+                "temporal proximity is never relationship authority")
+        if basis not in m.ACCEPTED_BASES:
+            raise ValueError(f"unrecognised derivation_basis {basis}")
+
+    @property
+    def authority(self) -> str:
+        """The edge is exactly as strong as its acting identity."""
+        return self.process.authority
+
+    @property
+    def downgraded(self) -> bool:
+        return self.process.downgraded
+
+    @property
+    def relationship_type(self) -> str:
+        return {"FILE": m.REL_PROCESS_FILE,
+                "REGISTRY": m.REL_PROCESS_REGISTRY,
+                "DNS": m.REL_PROCESS_DNS,
+                "NETWORK": m.REL_PROCESS_NETWORK}[self.activity.family]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "edge_id": self.edge_id, "endpoint_id": self.endpoint_id,
+            "relationship_type": self.relationship_type,
+            "process": self.process.to_dict(),
+            "activity": self.activity.to_dict(),
+            "authority": self.authority, "downgraded": self.downgraded,
+            "derivation_basis": self.derivation_basis,
+            "reason": self.reason, "observed_at": self.observed_at,
+            "time_basis": self.time_basis,
+            "evidence_ref": [
+                {"kind": r.kind, "id": r.id, "collection": r.collection,
+                 "byte_preserved": r.byte_preserved}
+                for r in self.evidence_ref],
+            "provenance": dict(self.provenance),
+        }
+
+
+def activity_of(row: Dict[str, Any]) -> Optional[ActivityRef]:
+    """Build the activity endpoint, or None when it is not supported."""
+    family = family_of(row)
+    if family is None:
+        return None
+    kind = (row.get("event_type") or None)
+    if family == "FILE":
+        label = row.get("file") or row.get("entity")
+        attrs = {"path": row.get("file") or row.get("entity"),
+                 "sha256": row.get("event_content_digest")}
+    elif family == "REGISTRY":
+        label = row.get("entity") or row.get("file")
+        attrs = {"key": row.get("entity") or row.get("file")}
+    elif family == "DNS":
+        label = row.get("entity") or row.get("network")
+        attrs = {"query": row.get("entity") or row.get("network")}
+    else:                                            # NETWORK
+        label = row.get("network") or row.get("entity")
+        attrs = {"destination": row.get("network") or row.get("entity")}
+    if not label:
+        return None
+    return ActivityRef(
+        activity_id=f"act:{family.lower()}:{label}", family=family,
+        label=str(label), kind=kind,
+        attributes={k: v for k, v in attrs.items() if v is not None})
+
+
+def activity_edges(rows: Iterable[Dict[str, Any]], endpoint_id: str
+                   ) -> List[ActivityEdge]:
+    """Attach canonical activity to its acting process.
+
+    Rows are examined one at a time and never compared with each other,
+    so proximity, ordering and adjacency cannot invent an association.
+    """
+    out: List[ActivityEdge] = []
+    seen: set = set()
+    for row in rows:
+        activity = activity_of(row)
+        if activity is None:
+            continue
+        actor = identity_of(row, role="child")
+        if not actor.process_iid or not actor.presentable:
+            # Unattributed, or identified only by a bare PID: the artifact
+            # is still real evidence, it simply has no provable actor.
+            continue
+        refs = _refs(row)
+        if not refs:
+            continue
+        key = (actor.process_iid, activity.activity_id, activity.kind)
+        if key in seen:
+            continue
+        seen.add(key)
+        template = (_ACTIVITY_REASON_GUID
+                    if actor.basis == IDENTITY_BASIS_GUID
+                    else _ACTIVITY_REASON_PID)
+        out.append(ActivityEdge(
+            edge_id=f"aedge:{actor.process_iid}:{activity.activity_id}",
+            endpoint_id=endpoint_id, process=actor, activity=activity,
+            derivation_basis=m.BASIS_ACTOR_BINDING, evidence_ref=refs,
+            reason=template.format(family=activity.family),
+            observed_at=row.get("timestamp"),
+            provenance={"source_event_iid": row.get("event_iid"),
+                        "event_type": row.get("event_type"),
+                        "lane_group": row.get("lane_group")}))
     return out
