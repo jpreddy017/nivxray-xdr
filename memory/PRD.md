@@ -739,3 +739,42 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   search/filter/MATCH navigation, smooth zoom/pan/scroll, evidence/raw/
   provenance inspection and the real analyst investigation workflow, on real
   NivXForge evidence.
+## 2026-06 · FIX 6B-2 DESIGN AMENDMENT (authority classes) — design only
+- OWNER DECISION: `admin@nivxray.com` is the initial NIVX PLATFORM SUPER ADMIN
+  by EXPLICIT designation — never inferred from `role == admin`. Three classes:
+  CUSTOMER USER/ANALYST, CUSTOMER ADMIN (admin rights only inside granted
+  customers), NIVX PLATFORM SUPER ADMIN (platform scope).
+- CODE_CHANGED = NO, DATA_CHANGED = NO. Full design:
+  `memory/production-gates/FIX6B2_AUTHORITY_SCOPE_DESIGN.md`.
+- Proposed representation: ONE additive field `users.authority_scope ∈
+  {CUSTOMER, PLATFORM}`, absent ⇒ CUSTOMER. No is_super_admin/superuser/
+  global_access/persisted all_tenants. Never inferred from role, tenants.read,
+  organization.kind, tenant_ids length, picker or X-Tenant-Id. Unsettable from
+  the browser (the ONLY `users` write in the backend is the password change at
+  `routers/auth.py:81`; the principal doc is re-read per request).
+- `tenant_ids[]` stays the CUSTOMER breadth and is NEVER filled with the
+  registry; admin keeps ["default","nivx-live"] as stated operational context.
+- Fix 6B-2 plan: delete `_CROSS_TENANT_ROLES`; `all_tenants` kept as a value
+  DERIVED only from PLATFORM scope so the 4 existing consumers (incl. the
+  deferred G6-7 `xdr_rbac.authorize_tenant`) need no change; grant-derived
+  `authorized_count`; `TENANT_CONTEXT_SWITCHED` audit emitted from the small
+  `POST /api/edr/session/active-tenant`; refusal auditing untouched.
+- ORDERING RULE: Fix 6B-1b (write `authority_scope: "PLATFORM"` on
+  admin@nivxray.com only) MUST land BEFORE the 6B-2 enforcement flip, or the
+  owner account degrades to CUSTOMER scope.
+- A05 + other role-only-admin FIXTURES seed their own `authority_scope`/
+  `tenant_ids` during 6B-2; the CUSTOMER-admin refusal case
+  (grants [default,nivx-live] → probe-t-00bf71 REFUSED) is proven with a
+  hermetic stubbed principal, no new live credential.
+- RECORDED, NOT BUILT: a PLATFORM Super Admin must eventually land on the
+  NIVX SUPER ADMIN CONTROL CENTER (cross-customer tenants/health/EDR/XDR/
+  endpoints/sensor/telemetry/detections/integrations/pipeline/policy/service/
+  deployment/authority-failure/audit/drill-down/controls, evidence-backed
+  only, explicit UNKNOWN where telemetry is absent) — NOT an expanded customer
+  picker, and NOT before Device Trajectory.
+- OPEN QUESTIONS: PLATFORM `authorized_count` = ACTIVE registered tenants?
+  rename `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` now or later? explicit
+  `"CUSTOMER"` on the approver accounts? confirm 6B-1b ordering.
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, return to the Cisco Secure Endpoint / AMP Device Trajectory
+  operational-clone target on real NivXForge evidence.
