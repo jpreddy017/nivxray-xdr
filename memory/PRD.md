@@ -890,3 +890,29 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   before/after navigation, search/filter, event/detection focus, evidence/raw/
   provenance inspection, process/activity/behavior trees, bidirectional
   pivots) resumes IMMEDIATELY once Tenant Authority closes.
+## 2026-06 · P0 TENANT AUTHORITY — GATE CLOSED (assessment only, no code/data change)
+- Full assessment: `memory/production-gates/TENANT_AUTHORITY_CLOSURE_ASSESSMENT.md`.
+- DECISION: **TENANT_AUTHORITY_CLOSED**. 24 of 25 invariants (A–Y) PROVEN with
+  cited hermetic + live evidence; Y (PLATFORM does not bypass RBAC/response
+  approval) is PARTIALLY_PROVEN — separate layers, RBAC untouched by 6B-2,
+  one focused case would close it. GENUINE_SECURITY_BLOCKERS: NONE.
+- ZERO_TENANT_LIVE_CELL = ACCEPTABLE_DEFERRED_LIVE_PROOF (zero-grant behaviour
+  proven in fix1/fix2/6B-2; the live cell is env-gated by P0-PROD-1, and five
+  zero-grant principals ALREADY exist so it could be filled without creating a
+  credential).
+- BASIS_RENAME = NON_BLOCKING_CLEANUP (`CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`
+  affects no decision, audit row, enumeration or UI authority; 9 files).
+- NON_BLOCKING_DEBT: zero-tenant live cell, basis rename, G6-7 XDR parity,
+  invariant-Y focused case, 3 stale `bob-sec003-*` zero-grant live rows with a
+  test-constant password + 2 a05 residue rows (deletion needs approval),
+  picker renders 60 of 136 authorized customers, no `users` schema validator.
+- NEXT IMPLEMENTATION TASK (owner-approved): **DT2-3 — VISIBLE DEVICE
+  TRAJECTORY RELATIONSHIPS** (Cisco Secure Endpoint / AMP operational clone):
+  horizontal time, process lifelines, parent/child rendering, attached DNS /
+  NETWORK / FILE / REGISTRY activity, detection markers where real evidence
+  exists, process selection, parent/child + before/after navigation, exact
+  event/detection focus, evidence-backed WHY/basis, and NO invented
+  relationships / process exits / activity. Trajectory Inspector follows as
+  its own step; NIVX SUPER ADMIN CONTROL CENTER stays parked.
+- Final manual acceptance identities to keep: PLATFORM Super Admin, Customer
+  Admin, Customer Analyst, preferably a second-customer Analyst.
