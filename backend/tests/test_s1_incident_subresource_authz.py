@@ -66,7 +66,11 @@ def motor_client():
             real.close()
             init_database()
 
-ADMIN = {"email": "admin@nivxray.com", "role": "admin"}
+# P0-FIX-6B-2 · this suite's CROSS-TENANT reader. Role `admin` no longer
+# carries tenant breadth, so the fixture seeds the intent explicitly as a
+# PLATFORM principal under its own prefix — no live-named account
+# (`admin@nivxray.com`) participates in a test.
+ADMIN = {"email": "s1-platform@nivxforge.test", "role": "analyst"}
 # A tenant-scoped analyst seeded by the fixture below: authorized for its
 # own tenant's incidents (so reads must keep working) and holding NO
 # `incidents.update` grant (so a report mutation must be refused).
@@ -134,6 +138,10 @@ def seeded():
     db.users.insert_one({"email": NIVX_ANALYST["email"], "role": "analyst",
                          "tenant_id": "nivx-live", "created_at": now,
                          "password_hash": "!s1-fixture-no-login"})
+    db.users.delete_many({"email": ADMIN["email"]})
+    db.users.insert_one({"email": ADMIN["email"], "role": "analyst",
+                         "authority_scope": "PLATFORM", "created_at": now,
+                         "password_hash": "!s1-fixture-no-login"})
     for n, (cid, tenant) in enumerate(((INC_DEFAULT, "default"),
                                        (INC_NIVXLIVE, "nivx-live"))):
         db.workspace_cases.insert_one({
@@ -151,6 +159,7 @@ def seeded():
     db[OVERLAY_COLL].delete_many({"incident_id": {"$regex": f"^{_PREFIX}"}})
     db[AUDIT_COLL].delete_many({"incident_id": {"$regex": f"^{_PREFIX}"}})
     db.users.delete_many({"email": NIVX_ANALYST["email"]})
+    db.users.delete_many({"email": ADMIN["email"]})
 
 
 def _blocks(db, incident_id):

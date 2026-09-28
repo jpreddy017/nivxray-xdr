@@ -670,6 +670,11 @@ api.include_router(deck_download_router)
 from routers.edr_wave0 import router as edr_wave0_router
 api.include_router(edr_wave0_router)
 
+# P0-FIX-6B-2 · explicit, audited customer-context switch. Authority is the
+# existing `edr_tenant` dependency; this route only records the transition.
+from routers.edr_session import router as edr_session_router
+api.include_router(edr_session_router)
+
 from routers.xdr_search import router as xdr_search_router
 api.include_router(xdr_search_router)
 

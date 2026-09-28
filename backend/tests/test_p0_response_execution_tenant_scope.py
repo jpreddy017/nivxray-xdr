@@ -38,7 +38,11 @@ _PREFIX = f"p0resp-{_W}-"
 INC = f"{_PREFIX}inc"                       # belongs to tenant OWN
 OWN_T, OTHER_T = "p0-own-tenant", "p0-other-tenant"
 
-ADMIN = {"email": "admin@nivxray.com", "role": "admin"}
+# P0-FIX-6B-2 · this suite's CROSS-TENANT principal. Role `admin` no longer
+# carries tenant breadth, so the fixture seeds the intent explicitly as a
+# PLATFORM principal — and under its own prefix, so no live-named account
+# (`admin@nivxray.com`) participates in a test.
+ADMIN = {"email": f"{_PREFIX}platform@test", "role": "analyst"}
 OWN = {"email": f"{_PREFIX}own@test", "role": "analyst"}
 OTHER = {"email": f"{_PREFIX}other@test", "role": "analyst"}
 
@@ -76,6 +80,9 @@ def harness():
         db.users.insert_one({"email": u["email"], "role": "analyst",
                              "tenant_id": t, "created_at": now,
                              "password_hash": "!p0-fixture-no-login"})
+    db.users.insert_one({"email": ADMIN["email"], "role": "analyst",
+                         "authority_scope": "PLATFORM", "created_at": now,
+                         "password_hash": "!p0-fixture-no-login"})
     app = _app()
     fake = app.state.db
     # two executions referencing the SAME incident id, in two tenants

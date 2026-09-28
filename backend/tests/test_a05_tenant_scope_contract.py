@@ -66,21 +66,44 @@ def _seed():
     users = sync_collection("users")
     cases = sync_collection("workspace_cases")
 
-    def _user(email, role, tenant_id=None, tenant_ids=None):
+    def _user(email, role, tenant_id=None, tenant_ids=None,
+              authority_scope=None):
         doc = {"email": email, "role": role}
         if tenant_id:
             doc["tenant_id"] = tenant_id
         if tenant_ids:
             doc["tenant_ids"] = tenant_ids
+        if authority_scope:
+            doc["authority_scope"] = authority_scope
         users.update_one({"email": email}, {"$set": doc}, upsert=True)
 
-    _user(U_ADMIN, "admin")
+    # P0-FIX-6B-2 · this fixture's `U_ADMIN` is the suite's CROSS-TENANT
+    # principal (see the T-RISK-1 / C2 / C4 assertions). Role `admin` no
+    # longer carries tenant breadth, so the FIXTURE now states the intent it
+    # always had: an explicitly designated PLATFORM principal. No product
+    # authority is weakened and no live account is granted anything.
+    _user(U_ADMIN, "admin", authority_scope="PLATFORM")
     _user(U_ACME, "analyst", T_ACME)
     _user(U_CONTOSO, "analyst", T_CONTOSO)
     _user(U_MULTI, "analyst", None, [T_ACME, T_CONTOSO])
     _user(U_NOTENANT, "analyst")
     for e in (U_SOC, U_ADM, U_BOTH, U_NEITHER):
         _user(e, "analyst", T_ACME)
+
+    # P0-FIX-6B-2 · a PLATFORM principal's authorized universe is the
+    # AUTHORITATIVE REGISTRY (Fix 5A/6B-2), not the case corpus, so this
+    # suite's two customers must exist in the registry to be reported. Their
+    # ids are preserved byte-for-byte via legacy adoption.
+    from services import tenant_registry as _reg
+    _org = (_reg._orgs().find_one({"slug": f"a05-org-{SUF}"})
+            or _reg.create_organization(slug=f"a05-org-{SUF}",
+                                        display_name=f"A0.5 fixture {SUF}",
+                                        kind="CUSTOMER",
+                                        created_by="test-suite"))
+    for _ten in (T_ACME, T_CONTOSO):
+        _reg.adopt_legacy(tenant_id=_ten, organization_id=_org["id"],
+                          slug=_ten, display_name=_ten,
+                          created_by="test-suite")
 
     for iid, ten in ((INC_ACME, T_ACME), (INC_CONTOSO, T_CONTOSO)):
         cases.update_one({"id": iid}, {"$set": {

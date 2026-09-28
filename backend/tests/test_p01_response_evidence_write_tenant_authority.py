@@ -41,7 +41,11 @@ INC_FOREIGN = f"{_PREFIX}inc-foreign"         # owned by T_FOREIGN
 
 SINGLE_A = {"email": f"{_PREFIX}single-a@test", "role": "analyst"}
 MULTI_AB = {"email": f"{_PREFIX}multi-ab@test", "role": "analyst"}
-ADMIN = {"email": "admin@nivxray.com", "role": "admin"}   # cross-tenant
+# P0-FIX-6B-2 · this suite's CROSS-TENANT principal. Role `admin` no longer
+# carries tenant breadth, so the fixture seeds the intent explicitly as a
+# PLATFORM principal — and under its own prefix, so no live-named account
+# (`admin@nivxray.com`) participates in a test.
+ADMIN = {"email": f"{_PREFIX}platform@test", "role": "analyst"}
 
 
 def _app():
@@ -79,6 +83,9 @@ def harness():
                          "password_hash": "!p01-fixture-no-login"})
     db.users.insert_one({"email": MULTI_AB["email"], "role": "analyst",
                          "tenant_ids": [T_A, T_B], "created_at": now,
+                         "password_hash": "!p01-fixture-no-login"})
+    db.users.insert_one({"email": ADMIN["email"], "role": "analyst",
+                         "authority_scope": "PLATFORM", "created_at": now,
                          "password_hash": "!p01-fixture-no-login"})
     app = _app()
     yield app, db

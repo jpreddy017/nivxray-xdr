@@ -803,3 +803,55 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   immediately after Tenant Authority closes, return to the Cisco Secure
   Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
   evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-2 DONE (grants-first + PLATFORM scope + switch audit)
+- `services/dashboard_lenses.py`: `_CROSS_TENANT_ROLES` DELETED as authority
+  (retained only as the documentation constant
+  `_LEGACY_ROLE_BREADTH_RETIRED`, read by no decision). New
+  `authority_scope(user)` → PLATFORM iff the stored string is exactly
+  "PLATFORM"; absent/null/"CUSTOMER"/"platform"/"platform_admin"/True/1/
+  lists/dicts ⇒ CUSTOMER. `resolve_tenant_scope()` now returns
+  `{authority_scope, all_tenants(=PLATFORM only), tenant_ids(=grants), role}`.
+- `services/session_context.py`: breadth source is scope+grants (refusal codes
+  and Fix 2 non-disclosure untouched); new `_authorized_universe()` makes
+  `authorized_count` AUTHORITY-derived — CUSTOMER = grants that survive
+  `authoritative_required()`, PLATFORM = tenants ACTIVE under an ACTIVE org
+  (informational only, fail-closed to 0 on registry failure);
+  `tenant_context()` now publishes `tenant_scope.authority_scope`.
+- `routers/edr_session.py` (NEW, ~90 lines) + `server.py` wiring:
+  `POST /api/edr/session/active-tenant`, authority via `Depends(edr_tenant)`,
+  writes `TENANT_CONTEXT_SWITCHED` to the existing `xdr_audit_log` chain with
+  principal, authority_scope, before/after tenant, basis, requested tenant,
+  correlation_id and outcome. Previous context is read back from the audit
+  chain (no new store); when unknown it records `NOT_AVAILABLE` rather than
+  inventing it. A repeat of the same context writes nothing
+  (`switch_recorded:false, reason:NO_CONTEXT_CHANGE`).
+- FIXTURE REPAIRS (test-only, intent preserved, no live grant used):
+  `test_a05_tenant_scope_contract.py` (U_ADMIN seeded
+  `authority_scope:PLATFORM`; T_ACME/T_CONTOSO adopted into the registry so a
+  PLATFORM universe can report them), `test_p01_response_evidence_write_
+  tenant_authority.py`, `test_p0_response_execution_tenant_scope.py`,
+  `test_s1_incident_subresource_authz.py` (each replaced the hardcoded
+  `admin@nivxray.com` cross-tenant principal with its own prefixed PLATFORM
+  fixture principal).
+- TESTS: new `tests/edr/test_p0_tenant_authority_fix6b2.py` (A–X, 40 cases) →
+  focused batch **215 passed, 0 failed**; `test_a05_tenant_scope_contract.py`
+  **72 passed** (was 5 failed).
+- LIVE PREVIEW: admin@nivxray.com → `authority_scope: PLATFORM` (not role),
+  default + nivx-live 200, no header = 403 TENANT_REQUIRED (never "default"),
+  switch nivx-live→default audited (2 rows, chained), repeat = NO_CONTEXT_
+  CHANGE, unregistered tenant refused. `p0a-approver@` and `approver@` are now
+  CUSTOMER/["default"]: default 200, nivx-live 403, probe-t-00bf71 403 (they
+  previously had role-derived access to everything). Frontend untouched, login
+  page smoke-verified.
+- NOTE: `probe-t-00bf71` now returns 200 for admin because it is a REGISTERED
+  ACTIVE tenant and admin is legitimately PLATFORM; the CUSTOMER-admin refusal
+  of an ungranted tenant is proven hermetically (cases B/E/I), never with the
+  live PLATFORM account.
+- CLEANUP DEBT: `SCOPE_BASES` still says `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`
+  for a PLATFORM principal (owner-decided rename after the gate closes);
+  G6-7 `xdr_rbac.authorize_tenant` parity still deferred.
+- NEXT: Picker From Grants (UI reflects grants/PLATFORM), then remaining
+  closure items (live zero-tenant cell). PERMANENT REQUIREMENT unchanged:
+  immediately after Tenant Authority closes, return to the Cisco Secure
+  Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
+  evidence.
