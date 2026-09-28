@@ -355,3 +355,28 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   remove the browser-authoritative `SELECT CUSTOMER` control and make tenant
   resolution server-derived** BEFORE the visible AMP-class trajectory
   implementation.
+
+## 2026-06 · P0 TENANT AUTHORITY — READ-ONLY AUDIT COMPLETE (verdict FAIL)
+- Artifact: `memory/production-gates/TENANT_AUTHORITY_AUDIT.md` (13 sections).
+  No code/UI/DB/deploy change; no probes run (owner deferred the live
+  cross-tenant matrix to a separate authorization, preview only).
+- Verdict FAIL. Two structural defects:
+  1. `edr_tenancy.edr_tenant()` validates the registry ONLY; principal
+     authorization (`edr_scope`) is an optional per-route call, and EIGHT
+     TENANT_SCOPED ops never call it — `/api/edr/detections`,
+     `/campaign-story`, `/file-trajectory`, `/fleet-spread-index`,
+     `/response/actions/{command_id}`, `/response/isolation-policy`,
+     `/wave0/raw-events/stats`, `/wave0/raw-events/replay-candidates`.
+     On those, a client-supplied `X-Tenant-Id` EXPANDS authorization.
+  2. No server auto-bind on `/api/edr/*`: a single-authorized-tenant
+     principal gets 403 TENANT_REQUIRED, so the browser must name the
+     customer → `CustomerPicker` ("◇ SELECT CUSTOMER") is rendered with NO
+     role condition and is non-functional for normal customers
+     (`/api/xdr/tenants` needs `tenants.read` = platform admin only).
+- Also found: tenant-existence enumeration oracle (TENANT_NOT_FOUND vs
+  TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL), fail-open default
+  (`NIVX_TENANT_REGISTRY_ENFORCE` off ⇒ `"default"` compat tenant + arbitrary
+  tenant strings accepted), vendor/MSSP inferred from role names, R4 gate
+  tests cross-principal refusal on `/api/edr/endpoints` only.
+- Minimum fix plan recorded (fix 1 → test 3 → fix 2 → fix 4 → fix 5), then the
+  deferred probe matrix, then back to AMP-class trajectory (DT2-2F).
