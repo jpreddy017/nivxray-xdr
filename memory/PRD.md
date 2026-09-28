@@ -315,3 +315,22 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   regression → 83 passed.
 - NEXT: DT2-2D behavioral relationship engine (must keep evidence vs
   inference levels separate). P0 tenant authority hardening still pending.
+
+## 2026-06 · DT2-2D BEHAVIORAL RELATIONSHIP PRIMITIVE DONE (server-side only)
+- New `backend/edr_plane/trajectory/behavior.py`. Layering strictly one-way:
+  evidence → 2A ProcessEdge → 2B ActivityEdge → 2C TemporalSequence →
+  2D BehavioralRelationship. Behaviors reference step_ids and re-use the
+  steps' own evidence_refs; no edge/evidence/time is ever manufactured.
+- Truth levels: OBSERVED (one direct, GUID-proven evidence step),
+  DERIVED (>=2 steps joined by proven CAUSAL_EVIDENCE lineage),
+  CORRELATED (non-causal join or PID-surrogate identity — epistemic
+  strength only, NOT suspicion), INFERRED (defined, deliberately unused:
+  construction requires a named inference producer that does not exist).
+- Behavior types: PROCESS_CHAIN, EXECUTION_TO_DNS/NETWORK/FILE/REGISTRY.
+  Anything else rejected at construction; judgement-bearing provenance keys
+  (severity/score/verdict/mitre/beaconing/persistence/...) rejected too.
+- Tests: `backend/tests/edr/test_dt2_2d_behavior.py` (31) + 2A/2B/2C
+  regression → 114 passed.
+- NEXT: multi-step behavior patterns (exec → DNS → network → file → child
+  exec) feeding both Device Trajectory and the Incident Behavior Tree.
+  P0 tenant authority hardening still pending.
