@@ -13,7 +13,7 @@
  * Device Trajectory points at the canonical AMP renderer. The XDR
  * case-context trajectory stays where it belongs, on Entity 360.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutGrid, ShieldAlert, Radar, GitBranch, FileText, Wifi,
@@ -34,15 +34,16 @@ import { useAuth } from "@/lib/auth";
 import { brandFor } from "@/productScope";
 
 import { getEdrEntryContext, getSessionContext } from "./edrApi";
+import CustomerAuthorityUnavailable from "./components/CustomerAuthorityUnavailable";
 import CustomerContext from "./components/CustomerContext";
 import CustomerPicker from "./components/CustomerPicker";
 import {
-  CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE, customerControlFor,
-  customerLabel, serverCustomer,
+  CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE, contentGateFor, customerControlFor,
+  customerLabel, GATE_FAILED, GATE_RENDER, serverCustomer,
 } from "./tenantContext";
 import {
-  activeTenant, bindServerTenant, serverBoundTenant, setActiveTenant,
-  TENANT_BOUND_EVENT,
+  activeTenant, bindServerTenant, sealTenantAuthority, serverBoundTenant,
+  setActiveTenant, TENANT_BOUND_EVENT,
 } from "@/lib/tenant";
 import "./nivxforge.css";
 import "./nvf-ops.css";
@@ -229,6 +230,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
   const { user, logout } = useAuth();
   const [sess, setSess] = useState(null);
   const [sessState, setSessState] = useState("loading");
+  const [sessAttempt, setSessAttempt] = useState(0);
   const [tenant, setTenant] = useState(() => activeTenant());
   const tenants = useMemo(() => {
     const named = (sess?.customers || []).map((c) => c.customer);
@@ -243,6 +245,16 @@ export default function NivXForgeConsole({ activeTab, children }) {
   const bound = useMemo(() => serverCustomer(sess), [sess]);
   const boundLabel = useMemo(() => customerLabel(sess), [sess]);
 
+  // P0-FIX-4B · tenant-bound content is gated on the AUTHORITY, not on
+  // whether a request happened to come back.
+  const gate = useMemo(() => contentGateFor(sessState, control),
+                       [sessState, control]);
+  const retryAuthority = useCallback(() => {
+    setSessState("loading");
+    setSess(null);
+    setSessAttempt((n) => n + 1);
+  }, []);
+
   // A principal the server resolved to exactly ONE customer has no choice
   // to make: the console binds the server's answer and stops honouring
   // `?tenant=` or a stale `nvx_tenant`. It invents a tenant for nobody.
@@ -251,6 +263,10 @@ export default function NivXForgeConsole({ activeTab, children }) {
   // below this console reads the acting customer on its first render — an
   // effect would let that first render see the stale browser value.
   useMemo(() => {
+    // Fail closed FIRST: an unresolvable authority seals the acting tenant
+    // so no browser value (`?tenant=`, `nvx_tenant`, "default", the first
+    // tenant, the previous selection) can act as a customer.
+    if (gate === GATE_FAILED) return sealTenantAuthority();
     if (control === CONTROL_CONTEXT_ONLY && bound) {
       return bindServerTenant(bound, { switchable: false });
     }
@@ -258,10 +274,13 @@ export default function NivXForgeConsole({ activeTab, children }) {
       return bindServerTenant(null, { switchable: true });
     }
     return null;
-  }, [control, bound]);
+  }, [gate, control, bound]);
 
   useEffect(() => {
-    if (control === CONTROL_CONTEXT_ONLY && bound) {
+    if (gate === GATE_FAILED) {
+      // Never keep displaying the customer the browser last claimed.
+      setTenant(null);
+    } else if (control === CONTROL_CONTEXT_ONLY && bound) {
       setTenant(bound);
     } else if (control === CONTROL_SWITCHABLE) {
       // Only now may a deep link's `?tenant=` become the selection: the
@@ -271,7 +290,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
       if (fromUrl && fromUrl !== activeTenant()) setActiveTenant(fromUrl);
       setTenant(activeTenant());
     }
-  }, [control, bound, params]);
+  }, [gate, control, bound, params]);
 
   // WAVE UI-1 · the Cisco Secure Endpoint console is LIGHT-FIRST, and the
   // benchmark for this product is that console — so NivXForge EDR opens
@@ -295,7 +314,7 @@ export default function NivXForgeConsole({ activeTab, children }) {
     window.addEventListener("nx-theme", onTheme);
     return () => { live = false;
       window.removeEventListener("nx-theme", onTheme); };
-  }, []);
+  }, [sessAttempt]);
 
   // The document root carries the theme too, so surfaces outside this
   // console (the `body` canvas, portalled overlays) follow the same
@@ -354,8 +373,12 @@ export default function NivXForgeConsole({ activeTab, children }) {
         <span style={{ flex: 1 }} />
         {control === CONTROL_SWITCHABLE
           ? <CustomerPicker withEvidence={tenants} />
-          : <CustomerContext label={boundLabel} tenantId={bound || tenant}
-                             basis={sess?.active_customer?.basis} />}
+          : <CustomerContext
+              label={gate === GATE_FAILED ? null : boundLabel}
+              tenantId={gate === GATE_FAILED ? null : (bound || tenant)}
+              basis={gate === GATE_FAILED
+                ? "AUTHORITY_UNAVAILABLE"
+                : sess?.active_customer?.basis} />}
         {/* EDR → XDR product pivot. Resolved through `productOrigins` so
             it becomes an absolute cross-origin URL the moment XDR gets
             its own hostname, and stays an in-app route while both
@@ -445,13 +468,18 @@ export default function NivXForgeConsole({ activeTab, children }) {
                 showing another customer's refusal. If the session context
                 itself fails we render anyway rather than trap the
                 analyst. */}
-            {sessState === "loading"
+            {gate === GATE_RENDER ? children : null}
+            {gate === GATE_FAILED
+              ? <CustomerAuthorityUnavailable onRetry={retryAuthority}
+                                              retrying={false} />
+              : null}
+            {gate !== GATE_RENDER && gate !== GATE_FAILED
               ? <div className="mono" data-testid="nvf-tenant-resolving"
                      style={{ padding: "18px 2px", fontSize: 11,
                               color: "var(--muted)" }}>
                   resolving customer authority…
                 </div>
-              : children}
+              : null}
           </main>
         </div>
       </div>

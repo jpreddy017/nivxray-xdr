@@ -10,11 +10,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE, CONTROL_UNRESOLVED,
-  customerControlFor, customerLabel, serverCustomer,
+  contentGateFor, customerControlFor, customerLabel, GATE_FAILED,
+  GATE_RENDER, GATE_RESOLVING, serverCustomer,
 } from "../../nivxforge/tenantContext";
 import {
-  activeTenant, bindServerTenant, resetServerTenant, serverBoundTenant,
-  setActiveTenant, tenantIsSwitchable,
+  activeTenant, bindServerTenant, resetServerTenant, sealTenantAuthority,
+  serverBoundTenant, setActiveTenant, tenantAuthoritySealed,
+  tenantIsSwitchable,
 } from "../tenant";
 
 const OWN = "acme-corp";
@@ -159,4 +161,92 @@ describe("h · the server binding outranks the browser", () => {
        const { TENANT_HEADER } = await import("../tenant");
        expect(TENANT_HEADER).toBe("X-Tenant-Id");
      });
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+// P0-FIX-4B · the authority must FAIL CLOSED
+// ══════════════════════════════════════════════════════════════════
+
+describe("i · tenant-bound content is gated on the authority", () => {
+  it("i01 · while loading, tenant-bound content does not render", () => {
+    expect(contentGateFor("loading", CONTROL_UNRESOLVED))
+      .toBe(GATE_RESOLVING);
+    expect(contentGateFor("loading", CONTROL_CONTEXT_ONLY))
+      .toBe(GATE_RESOLVING);
+  });
+
+  it("i02 · on success the authorized content renders", () => {
+    expect(contentGateFor("ready", CONTROL_CONTEXT_ONLY)).toBe(GATE_RENDER);
+    expect(contentGateFor("ready", CONTROL_SWITCHABLE)).toBe(GATE_RENDER);
+  });
+
+  it("i03 · on failure tenant-bound content is NOT rendered", () => {
+    expect(contentGateFor("error", CONTROL_CONTEXT_ONLY)).toBe(GATE_FAILED);
+    expect(contentGateFor("error", CONTROL_SWITCHABLE)).toBe(GATE_FAILED);
+    expect(contentGateFor("error", CONTROL_UNRESOLVED)).toBe(GATE_FAILED);
+  });
+
+  it("i04 · a resolved-but-unauthorized context also fails closed", () => {
+    const denied = { active_customer: { basis: "NOT_AUTHORIZED" } };
+    expect(contentGateFor("ready", customerControlFor(denied)))
+      .toBe(GATE_FAILED);
+  });
+});
+
+describe("i · a sealed authority refuses every fallback", () => {
+  it("i05 · a hostile ?tenant= cannot act after a failure", () => {
+    stubWindow(`?tenant=${FOREIGN}`);
+    sealTenantAuthority();
+    expect(tenantAuthoritySealed()).toBe(true);
+    expect(activeTenant()).toBeNull();
+  });
+
+  it("i06 · a stale nvx_tenant cannot act after a failure", () => {
+    stubWindow("", FOREIGN);
+    sealTenantAuthority();
+    expect(activeTenant()).toBeNull();
+  });
+
+  it("i07 · the customer the browser was just acting as cannot persist",
+     () => {
+       stubWindow();
+       bindServerTenant(OWN, { switchable: false });
+       expect(activeTenant()).toBe(OWN);
+       sealTenantAuthority();
+       expect(activeTenant()).toBeNull();
+       expect(serverBoundTenant()).toBeNull();
+     });
+
+  it("i08 · no 'default' and no first-tenant fallback appears", () => {
+    stubWindow(`?tenant=default`, "default");
+    sealTenantAuthority();
+    expect(activeTenant()).toBeNull();
+    expect(tenantIsSwitchable()).toBe(false);
+  });
+
+  it("i09 · a sealed authority cannot be talked into a customer", () => {
+    stubWindow();
+    sealTenantAuthority();
+    setActiveTenant(FOREIGN);
+    expect(activeTenant()).toBeNull();
+  });
+
+  it("i10 · a successful retry unseals and binds the server's answer",
+     () => {
+       stubWindow("", FOREIGN);
+       sealTenantAuthority();
+       expect(activeTenant()).toBeNull();
+       bindServerTenant(OWN, { switchable: false });
+       expect(tenantAuthoritySealed()).toBe(false);
+       expect(activeTenant()).toBe(OWN);
+     });
+
+  it("i11 · Fix 4A single-tenant behaviour is unchanged", () => {
+    stubWindow(`?tenant=${FOREIGN}`, FOREIGN);
+    expect(customerControlFor(SESS_SINGLE)).toBe(CONTROL_CONTEXT_ONLY);
+    bindServerTenant(serverCustomer(SESS_SINGLE), { switchable: false });
+    expect(activeTenant()).toBe(OWN);
+    expect(contentGateFor("ready", CONTROL_CONTEXT_ONLY)).toBe(GATE_RENDER);
+  });
 });

@@ -43,6 +43,7 @@ export const TENANT_HEADER = "X-Tenant-Id";
 
 let serverTenant = null;
 let serverSwitchable = true;
+let sealed = false;
 
 /**
  * Record the customer the SERVER resolved for this principal.
@@ -59,6 +60,7 @@ export function bindServerTenant(tenantId, { switchable = false } = {}) {
     || Boolean(switchable) !== serverSwitchable;
   serverTenant = id;
   serverSwitchable = Boolean(switchable);
+  sealed = false;
   if (id && !serverSwitchable) {
     try {
       if (window.localStorage.getItem(STORAGE_KEY) !== id) {
@@ -81,10 +83,36 @@ export function bindServerTenant(tenantId, { switchable = false } = {}) {
   return id;
 }
 
+/**
+ * P0-FIX-4B · SEAL the acting tenant: the authoritative customer context
+ * could NOT be established, so nothing may act as any customer.
+ *
+ * This is the fail-closed state. It is deliberately different from "no
+ * selection yet": a sealed authority refuses to fall back to `?tenant=`,
+ * `nvx_tenant`, `"default"`, the first tenant, or the customer the browser
+ * was acting as a moment ago.
+ */
+export function sealTenantAuthority() {
+  serverTenant = null;
+  serverSwitchable = false;
+  sealed = true;
+  try {
+    window.dispatchEvent(new CustomEvent(TENANT_BOUND_EVENT, { detail: null }));
+  } catch {
+    /* no window (SSR, tests) */
+  }
+  return null;
+}
+
+export function tenantAuthoritySealed() {
+  return sealed;
+}
+
 /** Test/diagnostic helper: forget the binding. */
 export function resetServerTenant() {
   serverTenant = null;
   serverSwitchable = true;
+  sealed = false;
 }
 
 export function serverBoundTenant() {
@@ -97,6 +125,7 @@ export function tenantIsSwitchable() {
 }
 
 export function activeTenant() {
+  if (sealed) return null;                     // fail closed, never fall back
   if (serverTenant && !serverSwitchable) return serverTenant;
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -108,8 +137,9 @@ export function activeTenant() {
 }
 
 export function setActiveTenant(tenantId) {
-  // A principal the server bound to one customer cannot re-point itself.
-  if (serverTenant && !serverSwitchable) return;
+  // A principal the server bound to one customer cannot re-point itself,
+  // and a sealed authority cannot be talked into a customer at all.
+  if (sealed || (serverTenant && !serverSwitchable)) return;
   try {
     if (tenantId && String(tenantId).trim()) {
       window.localStorage.setItem(STORAGE_KEY, String(tenantId).trim());

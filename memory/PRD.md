@@ -535,3 +535,33 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   closes, NivXForge Device Trajectory returns to the Cisco Secure Endpoint /
   AMP operational-clone target — publicly observable UI/UX, interactions,
   navigation and analyst functionality, on real NivXForge evidence.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 4B DONE (fail-closed authority)
+- `src/lib/tenant.js`: added `sealTenantAuthority()` / `tenantAuthoritySealed()`.
+  A SEALED authority makes `activeTenant()` return null and `setActiveTenant()`
+  a no-op, so on a resolution failure NOTHING may act as a customer — not
+  `?tenant=`, not `nvx_tenant`, not `"default"`, not the first tenant, not the
+  customer the browser was acting as a moment before. `bindServerTenant()`
+  unseals only on a successful server answer.
+- `src/nivxforge/tenantContext.js`: `contentGateFor(sessState, control)` →
+  RESOLVING (neutral) / AUTHORITY_UNAVAILABLE (fail closed, also when the
+  server resolves NOT_AUTHORIZED) / RENDER. The console seals during render
+  before children can mount.
+- New `components/CustomerAuthorityUnavailable.jsx` — "CUSTOMER AUTHORITY
+  UNAVAILABLE" + Retry, reusing the existing session-context fetch (no new
+  auth flow; 401 still goes through the api interceptor to /login). The topbar
+  shows `◇ NOT RESOLVED`, never another customer's name.
+- Live preview proof (session-context forced 503 + `?tenant=default` +
+  planted `localStorage=default`): fail-closed panel shown, zero tenant-bound
+  content, the word "default" absent everywhere, pill basis
+  AUTHORITY_UNAVAILABLE; Retry with the endpoint restored recovers to
+  `nivx-live` with no SELECT CUSTOMER.
+- Tests: vitest **76 passed** (24 in `tenantAuthority.test.js`, 11 new for 4B).
+  BACKEND UNCHANGED (`git diff backend/` empty).
+- STILL OPEN: Fix 5 (fail-open registry-enforcement default + backend
+  "default" residue) and Fix 6 (vendor/MSSP authority model + audited
+  switching); live zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.

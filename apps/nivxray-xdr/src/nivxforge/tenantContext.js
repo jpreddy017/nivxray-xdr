@@ -59,3 +59,23 @@ export function customerLabel(sess) {
   const row = (sess?.customers || []).find((c) => c.customer === id);
   return row?.display_name || row?.name || id;
 }
+
+/**
+ * P0-FIX-4B · whether tenant-bound page content may render at all.
+ *
+ * `loading` and `error` are both non-rendering states, but they are NOT
+ * the same state: loading is neutral and transient, error is fail-closed
+ * and must say so. Rendering EDR content while the authoritative customer
+ * context is unknown would mean rendering it under whatever the browser
+ * last claimed — the exact thing Fix 4A removed.
+ */
+export const GATE_RESOLVING = "RESOLVING";
+export const GATE_FAILED = "AUTHORITY_UNAVAILABLE";
+export const GATE_RENDER = "RENDER";
+
+export function contentGateFor(sessState, control) {
+  if (sessState === "error") return GATE_FAILED;
+  if (sessState !== "ready") return GATE_RESOLVING;
+  if (control === CONTROL_UNRESOLVED) return GATE_FAILED;
+  return GATE_RENDER;
+}
