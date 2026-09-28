@@ -709,3 +709,33 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   process/relationship/time interaction, lifelines, parent/child navigation,
   event attachment, before/after investigation, MATCH navigation, zoom/pan,
   evidence/provenance inspection — on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-1 DONE (approved grant write only)
+- DATA PREPARATION ONLY via `/app/scripts/fix6b1_grant_write.py` (idempotent;
+  second run = NO_OP on all three). ONE field written (`users.tenant_ids`) on
+  three principals; registry validated first (both tenants ACTIVE under the
+  ACTIVE VENDOR org `nivxmachines-preview`).
+  - `admin@nivxray.com`        → ["default","nivx-live"]  (owner-approved)
+  - `p0a-approver@nivxray.com` → ["default"]
+  - `approver@nivxray.com`     → ["default"]
+  - `a05-admin-37051a53@nivxray.test` → UNTOUCHED (no tenant_ids)
+- Proof: users total 76 before/after; no other principal's `tenant_ids`
+  changed; role/tenant_id/password untouched (all three still log in 200);
+  the ~40 fixture tenants were NOT granted.
+- AUTHORITY_CODE_CHANGED = NO, FRONTEND_CHANGED = NO, TESTS_CHANGED = NO.
+  Legacy role→all_tenants breadth therefore still exists (a cross-tenant probe
+  to the fixture tenant `probe-t-00bf71` still returns 200) — expected until
+  Fix 6B-2 removes the inference.
+- NEXT (Fix 6B-2, bounded): grants-first `resolve_tenant_scope()` /
+  `authorize_requested_tenant()`, retire `_CROSS_TENANT_ROLES` inference,
+  grant-derived `authorized_count`, `TENANT_CONTEXT_SWITCHED` audit via the
+  existing `xdr_audit_log`; role-only-admin FIXTURES (starting with
+  `tests/test_a05_tenant_scope_contract.py`) seed their own explicit
+  tenant_ids then. Picker-from-grants UI comes after 6B-2.
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, return to the Cisco Secure Endpoint / AMP Device Trajectory
+  operational-clone target — process lifelines, parent/child relationships,
+  time-based trajectory, attached DNS/network/file/registry activity,
+  detection markers, before/after navigation, event/detection focus,
+  search/filter/MATCH navigation, smooth zoom/pan/scroll, evidence/raw/
+  provenance inspection and the real analyst investigation workflow, on real
+  NivXForge evidence.
