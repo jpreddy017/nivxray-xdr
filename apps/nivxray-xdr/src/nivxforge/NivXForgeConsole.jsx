@@ -38,8 +38,9 @@ import CustomerAuthorityUnavailable from "./components/CustomerAuthorityUnavaila
 import CustomerContext from "./components/CustomerContext";
 import CustomerPicker from "./components/CustomerPicker";
 import {
-  CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE, contentGateFor, customerControlFor,
-  customerLabel, GATE_FAILED, GATE_RENDER, serverCustomer,
+  authorizedCustomers, CONTROL_CONTEXT_ONLY, CONTROL_SWITCHABLE,
+  contentGateFor, customerControlFor, customerLabel, GATE_FAILED, GATE_RENDER,
+  isPlatformPrincipal, serverCustomer,
 } from "./tenantContext";
 import {
   activeTenant, bindServerTenant, sealTenantAuthority, serverBoundTenant,
@@ -372,7 +373,9 @@ export default function NivXForgeConsole({ activeTab, children }) {
         </span>
         <span style={{ flex: 1 }} />
         {control === CONTROL_SWITCHABLE
-          ? <CustomerPicker withEvidence={tenants} />
+          ? <CustomerPicker customers={authorizedCustomers(sess)}
+                            withEvidence={tenants}
+                            platform={isPlatformPrincipal(sess)} />
           : <CustomerContext
               label={gate === GATE_FAILED ? null : boundLabel}
               tenantId={gate === GATE_FAILED ? null : (bound || tenant)}

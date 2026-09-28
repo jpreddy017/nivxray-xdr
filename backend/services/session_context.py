@@ -69,6 +69,38 @@ def list_customers(email: Optional[str], limit: int = 25) -> List[Dict[str, Any]
             for r in _cases.aggregate(pipeline)]
 
 
+def authorized_customers(email: Optional[str]) -> List[Dict[str, Any]]:
+    """The customers this principal may ACT AS — the picker's only source.
+
+    P0-FIX-6B-2/PICKER · the EDR customer picker used to read the whole
+    tenant registry (`GET /api/xdr/tenants`), so its list was a
+    `tenants.read` artefact rather than an authorization. This returns the
+    AUTHORITY-derived set instead:
+
+    * CUSTOMER — its explicit `tenant_ids[]` grants that survive
+      authoritative registry validation.
+    * PLATFORM — every currently authoritative tenant (ACTIVE tenant under
+      an ACTIVE organization).
+
+    Selecting one of these still re-authorises server-side on every request;
+    this list only decides what may be OFFERED.
+    """
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return []
+    from services import tenant_registry
+    out: List[Dict[str, Any]] = []
+    for tenant_id in _authorized_universe(scope):
+        try:
+            doc = tenant_registry.get_tenant(tenant_id) or {}
+        except Exception:                                   # noqa: BLE001
+            doc = {}
+        out.append({"customer": tenant_id,
+                    "display_name": doc.get("display_name") or tenant_id,
+                    "slug": doc.get("slug"), "kind": doc.get("kind")})
+    return sorted(out, key=lambda r: str(r.get("display_name") or ""))
+
+
 def tenant_context(email: Optional[str],
                    inherited_tenant: Optional[str] = None,
                    explicit_tenant: Optional[str] = None) -> Dict[str, Any]:
@@ -116,6 +148,11 @@ def tenant_context(email: Optional[str],
             "explicit_tenant": explicit_tenant,
         },
         "customers": customers,
+        # P0-FIX-6B-2/PICKER · AUTHORITY-derived (grants, or the authoritative
+        # registry for a PLATFORM principal). `customers` above stays
+        # EVIDENCE-derived for the queue panels; the two legitimately differ.
+        "authorized_customers": (authorized_customers(email)
+                                 if scope.get("authorized") else []),
         "active_customer": {"value": active, "basis": basis},
         "edr_tenant_boundary": EDR_TENANT_BOUNDARY,
     }

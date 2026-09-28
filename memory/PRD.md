@@ -855,3 +855,38 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   immediately after Tenant Authority closes, return to the Cisco Secure
   Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
   evidence.
+## 2026-06 · PICKER FROM GRANTS DONE (UI reflects the 6B-2 authority model)
+- `services/session_context.py`: new `authorized_customers(email)` +
+  `session-context.authorized_customers[]` — AUTHORITY-derived (CUSTOMER =
+  registry-validated `tenant_ids[]`; PLATFORM = authoritative ACTIVE tenants
+  under ACTIVE orgs), with display_name/slug/kind. Evidence-derived
+  `customers[]` is unchanged for the queue panels.
+- `components/CustomerPicker.jsx`: REWIRED. No `GET /api/xdr/tenants`, no
+  `api.get` at all, no localStorage/`?tenant=`/"default"/role strings in the
+  component. List = `authorized_customers` prop. Selection calls the audited
+  `POST /api/edr/session/active-tenant` FIRST and only persists locally after
+  the server confirms; a refusal renders `nvf-customer-refusal` and changes
+  nothing. PLATFORM principals get a `nvf-platform-badge` and the menu header
+  `AUTHORITATIVE ACTIVE CUSTOMERS · PLATFORM AUTHORITY`.
+- `tenantContext.js`: added `authorityScope()`, `isPlatformPrincipal()`,
+  `authorizedCustomers()`; PLATFORM is read ONLY from
+  `tenant_scope.authority_scope` (breadth ≠ designation). Fix 4A/4B control +
+  content gates untouched.
+- TESTS: new `src/lib/__tests__/pickerFromGrants.test.js` (A–J) →
+  **vitest 39 passed** (15 new + 24 existing); backend focused
+  **59 passed**.
+- LIVE: single-grant approver → EDR opens on `default`, NO picker and NO
+  "SELECT CUSTOMER" even with `?tenant=probe-t-00bf71` + stale
+  `nvx_tenant=nivx-live`. PLATFORM admin → picker + PLATFORM badge, 136
+  authorized customers offered (60 rendered, filter works), selecting
+  nivx-live wrote `TENANT_CONTEXT_SWITCHED` (3 chained rows, source
+  `nivxforge-edr`) and the header now reads "Preview Live Sources"; PLATFORM
+  with nothing selected stays PLATFORM and shows an honest TENANT_REQUIRED
+  banner instead of silently using `default`.
+- STILL OPEN (assess whether these are real closure blockers): live
+  zero-tenant cell, `SCOPE_BASES` terminology cleanup, G6-7 XDR parity.
+- PERMANENT REQUIREMENT: Device Trajectory (Cisco Secure Endpoint / AMP
+  operational clone — process lifelines, parent/child, attached activity,
+  before/after navigation, search/filter, event/detection focus, evidence/raw/
+  provenance inspection, process/activity/behavior trees, bidirectional
+  pivots) resumes IMMEDIATELY once Tenant Authority closes.

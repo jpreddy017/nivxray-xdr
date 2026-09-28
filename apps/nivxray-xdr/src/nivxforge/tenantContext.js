@@ -56,8 +56,38 @@ export function serverCustomer(sess) {
 export function customerLabel(sess) {
   const id = serverCustomer(sess);
   if (!id) return null;
-  const row = (sess?.customers || []).find((c) => c.customer === id);
+  const row = (sess?.customers || []).find((c) => c.customer === id)
+    || (sess?.authorized_customers || []).find((c) => c.customer === id);
   return row?.display_name || row?.name || id;
+}
+
+/**
+ * P0-FIX-6B-2 · the principal's AUTHORITY CLASS, as the server states it.
+ *
+ * `PLATFORM` is only ever the explicit server-side designation. A role name
+ * (`admin`, `soc_manager`, …) means nothing here, and neither does the size
+ * of the authorized list.
+ */
+export function authorityScope(sess) {
+  return sess?.tenant_scope?.authority_scope === "PLATFORM"
+    ? "PLATFORM" : "CUSTOMER";
+}
+
+export function isPlatformPrincipal(sess) {
+  return authorityScope(sess) === "PLATFORM";
+}
+
+/**
+ * The customers the picker may OFFER — the server-authorized set.
+ *
+ * Grant-derived for a CUSTOMER principal, the authoritative ACTIVE tenants
+ * for a PLATFORM principal. Never the tenant registry read directly, never
+ * `localStorage`, never `?tenant=`, never inferred from a role.
+ */
+export function authorizedCustomers(sess) {
+  const rows = sess?.authorized_customers;
+  return Array.isArray(rows)
+    ? rows.filter((r) => r && String(r.customer || "").trim()) : [];
 }
 
 /**
