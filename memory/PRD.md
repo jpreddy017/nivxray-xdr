@@ -447,3 +447,31 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - RECORDED FOR LATER (owner): tenant authorization and PRODUCT ENTITLEMENT are
   separate decisions — the Cisco-style "no EDR entitlement/licence" experience
   comes later, after the cross-tenant boundary is proven.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 3 LIVE R4 PROOF (1 pre-existing FAIL)
+- Extended `backend/tests/test_edr_route_tenant_authority.py` with CLAUSE 6:
+  the cross-tenant matrix now runs per-operation over ALL 60 TENANT_SCOPED
+  EDR ops (43 read + 17 mutating) in BOTH directions, using the two existing
+  preview customers (`nivx-live` via analyst@nivx-live.com, `default` via
+  analyst@default.com — both passwords env-supplied, never literals).
+- Live result: **660 passed, 43 skipped, 1 failed** in 8m25s. Preview only,
+  read-only; mutating ops driven for REFUSAL cases only (nothing created,
+  isolated, rotated or revoked).
+- PROVEN LIVE: own-tenant reached; auto-bind with NO header (Fix 1); A→B and
+  B→A refused with TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL + fail_closed +
+  disclosure note on all 60 ops incl. the 8 G1 and 7 G1-B routes; unheld /
+  nonexistent / ARCHIVED indistinguishable (Fix 2 live); refusal bodies carry
+  no foreign data.
+- 43 SKIPPED = the zero-tenant cell. UNPROVEN LIVE: the only zero-tenant
+  preview user (`a05-notenant-…`) has no password hash. No account or
+  credential was created (owner decision). Hermetic proof stands (fix1 f10,
+  fix2 g09). Set TEST_ZERO_TENANT_EMAIL/PASSWORD to prove it live.
+- 1 FAILED — PRE-EXISTING, NOT PATCHED (owner instruction to stop and report):
+  `POST /api/edr/enrollment/tokens/{token_id}/revoke` is live but absent from
+  `ROUTE_CLASSIFICATION` (git -S confirms it was never classified), so the
+  fail-closed completeness clause rejects it. Verified it is NOT a bypass:
+  introspection shows it does depend on `edr_tenant` + `get_current_user`.
+  It is UNCLASSIFIED + UNTESTED authority, awaiting owner authorisation to
+  classify TENANT_SCOPED and add its refusal-only probe.
+- STILL OPEN: fix-plan items 4-6 (SELECT CUSTOMER / browser authority,
+  fail-open enforcement default + "default" residue, vendor-MSSP model).

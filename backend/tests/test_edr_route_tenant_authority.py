@@ -48,6 +48,32 @@ SCOPED_PASSWORD = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
 if not SCOPED_PASSWORD:
     pytest.skip(_LIVE_CRED_PREREQUISITE, allow_module_level=True)
 
+# ── P0-FIX-3 · the second customer, so the cross-tenant proof runs BOTH
+#    directions instead of only A→B. Same P0-PROD-1 rule: the value comes
+#    from the shell/CI environment, never from a literal here.
+SCOPED_A_EMAIL = "analyst@default.com"
+SCOPED_A_PASSWORD = os.environ.get("TEST_ANALYST_DEFAULT_PASSWORD")
+_SCOPED_A_PREREQUISITE = (
+    "TEST_ANALYST_DEFAULT_PASSWORD is not supplied by the test "
+    "environment. The reverse direction of the cross-tenant matrix "
+    "(Customer `default` -> Customer `nivx-live`) needs the "
+    "analyst@default.com credential and will NOT substitute a default.")
+
+# ── P0-FIX-3 · the zero-tenant cell is deliberately NOT proven live.
+#    The only zero-tenant preview principal (`a05-notenant-…`) is seeded by
+#    another suite WITHOUT a password hash, so it cannot authenticate. No
+#    account and no credential is invented to satisfy a test: the cell is
+#    recorded as UNPROVEN LIVE and remains covered hermetically by
+#    tests/edr/test_p0_tenant_authority_fix1.py::test_f10 and fix2::test_g09.
+ZERO_TENANT_EMAIL = os.environ.get("TEST_ZERO_TENANT_EMAIL")
+ZERO_TENANT_PASSWORD = os.environ.get("TEST_ZERO_TENANT_PASSWORD")
+_ZERO_TENANT_PREREQUISITE = (
+    "UNPROVEN LIVE · no preview principal authorized for ZERO tenants can "
+    "log in. `a05-notenant-…@nivxray.test` exists with no password hash. "
+    "Export TEST_ZERO_TENANT_EMAIL / TEST_ZERO_TENANT_PASSWORD for an "
+    "OWNER-AUTHORISED preview account to prove this cell live; hermetic "
+    "proof already exists (fix1 f10 / fix2 g09).")
+
 TENANT_A = "default"                                   # registered · ACTIVE
 TENANT_B = "nivx-live"                                 # registered · ACTIVE
 TENANT_ARCHIVED = "ten_813aa3160190401f7723ce1c4e"     # registered · ARCHIVED
@@ -523,3 +549,179 @@ def test_authorisation_path_no_longer_invents_a_default_tenant():
     assert scope["authorized"] is True
     assert scope.get("all_tenants") is True
     assert "default" not in (scope.get("tenant_ids") or [])
+
+
+# ══════════════════════════════════════════════════════════════════
+# CLAUSE 6 · P0-FIX-3 · THE CROSS-TENANT MATRIX, PER OPERATION
+#
+# Clause 4 proved the cross-principal contract on `/api/edr/endpoints`
+# alone. That single-route habit is exactly why gaps G1 (eight routes) and
+# G1-B (seven routes) stayed invisible until an audit found them by hand.
+# This clause runs the matrix over EVERY TENANT_SCOPED operation:
+#
+#   Customer A principal -> own tenant        reaches the route context
+#   Customer A principal -> no header         auto-bound (Fix 1)
+#   Customer A principal -> Customer B        REFUSED, no foreign data
+#   Customer A principal -> nonexistent       REFUSED, non-disclosing (Fix 2)
+#   Customer A principal -> inactive tenant   REFUSED, status not disclosed
+#   Customer B principal -> Customer A        REFUSED (reverse direction)
+#   zero-tenant principal                     SKIPPED · prerequisite missing
+#
+# Mutating operations are driven for REFUSAL cases ONLY, so nothing is
+# created, changed, isolated, rotated or revoked.
+# ══════════════════════════════════════════════════════════════════
+
+#: The eight operations the audit found registry-validated but not
+#: principal-authorized (gap G1, fixed by P0-FIX-1).
+G1_OPERATIONS = (
+    ("GET", "/api/edr/detections"),
+    ("GET", "/api/edr/campaign-story"),
+    ("GET", "/api/edr/file-trajectory"),
+    ("GET", "/api/edr/fleet-spread-index"),
+    ("GET", "/api/edr/response/actions/{command_id}"),
+    ("GET", "/api/edr/response/isolation-policy"),
+    ("GET", "/api/edr/wave0/raw-events/stats"),
+    ("GET", "/api/edr/wave0/raw-events/replay-candidates"),
+)
+
+#: The seven enrollment/onboarding operations that used to resolve their
+#: tenant through the duplicate resolver (gap G1-B, fixed by P0-FIX-1B).
+G1B_OPERATIONS = (
+    ("GET", "/api/edr/onboarding/computers"),
+    ("GET", "/api/edr/onboarding/computers/{endpoint_id}"),
+    ("POST", "/api/edr/enrollment/tokens"),
+    ("GET", "/api/edr/enrollment/tokens"),
+    ("GET", "/api/edr/enrollment/endpoints"),
+    ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/rotate"),
+    ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/revoke"),
+)
+
+_REFUSAL_CODE = "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL"
+_DISCLOSURE_NOTE = "TENANT_EXISTENCE_AND_STATE_NOT_DISCLOSED"
+
+
+@pytest.fixture(scope="module")
+def scoped_a() -> dict:
+    """An analyst holding `default` and nothing else (reverse direction)."""
+    if not SCOPED_A_PASSWORD:
+        pytest.skip(_SCOPED_A_PREREQUISITE)
+    return {"Authorization":
+            f"Bearer {_login(SCOPED_A_EMAIL, SCOPED_A_PASSWORD)}"}
+
+
+def _detail(r: requests.Response) -> dict:
+    try:
+        detail = r.json().get("detail")
+    except (ValueError, AttributeError):
+        return {}
+    return detail if isinstance(detail, dict) else {}
+
+
+def _observable(r: requests.Response) -> tuple:
+    """Everything the caller can observe EXCEPT the value it sent itself."""
+    detail = dict(_detail(r))
+    detail.pop("requested_tenant", None)
+    return r.status_code, tuple(sorted((k, str(v))
+                                       for k, v in detail.items()))
+
+
+def test_c6_the_matrix_covers_every_tenant_scoped_operation():
+    """The clause is only as good as its coverage."""
+    assert len(_TENANT_SCOPED_OPS) >= 50, len(_TENANT_SCOPED_OPS)
+    for op in G1_OPERATIONS + G1B_OPERATIONS:
+        assert op in _TENANT_SCOPED_OPS, op
+        assert op in SAMPLES, op
+
+
+@pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_scoped_principal_reaches_its_own_tenant(op, scoped):
+    """Case 1 · the authorized context is reached. A route-specific 404/422
+    for a probe id is fine; an AUTHORITY refusal is not."""
+    r = _call(op, {**scoped, "X-Tenant-Id": TENANT_B})
+    assert r.status_code not in (401, 403), f"{op} -> {r.status_code} {_body(r)}"
+    assert _code(r) not in (_REFUSAL_CODE, "TENANT_REQUIRED",
+                            "TENANT_NOT_FOUND", "TENANT_NOT_ACTIVE",
+                            "TENANT_NOT_RESOLVED"), f"{op} -> {_body(r)}"
+
+
+@pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_scoped_principal_is_auto_bound_without_a_header(op, scoped):
+    """Case 2 · P0-FIX-1 live: a single-customer principal needs no header,
+    and gets the SAME answer as when it names its own tenant."""
+    bare = _call(op, scoped)
+    named = _call(op, {**scoped, "X-Tenant-Id": TENANT_B})
+    assert bare.status_code not in (401, 403), \
+        f"{op} -> {bare.status_code} {_body(bare)}"
+    assert _code(bare) != "TENANT_REQUIRED", f"{op} -> {_body(bare)}"
+    assert bare.status_code == named.status_code, f"{op}: {_body(bare)}"
+
+
+@pytest.mark.parametrize("op", _TENANT_SCOPED_OPS,
+                         ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_scoped_principal_is_refused_the_other_customers_tenant(op, scoped):
+    """Case 3 · the whole point: Customer A may NAME Customer B and must
+    never receive Customer B's data. Mutating ops are refusal-only, so
+    nothing is executed."""
+    r = _call(op, {**scoped, "X-Tenant-Id": TENANT_A})
+    assert r.status_code == 403, f"{op} -> {r.status_code} {_body(r)}"
+    assert _code(r) == _REFUSAL_CODE, f"{op} -> {_body(r)}"
+    assert _detail(r).get("fail_closed") is True, f"{op} -> {_body(r)}"
+    assert _detail(r).get("disclosure") == _DISCLOSURE_NOTE, f"{op} -> {_body(r)}"
+
+
+@pytest.mark.parametrize("op", _TENANT_SCOPED_OPS,
+                         ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_unheld_nonexistent_and_inactive_are_indistinguishable(op, scoped):
+    """Cases 4 + 5 · P0-FIX-2 live. One refusal for an existing-but-unheld
+    tenant, a tenant that does not exist, and an ARCHIVED tenant."""
+    shapes = {_observable(_call(op, {**scoped, "X-Tenant-Id": t}))
+              for t in (TENANT_A, TENANT_UNKNOWN, TENANT_ARCHIVED)}
+    assert len(shapes) == 1, f"{op}: disclosure through the refusal: {shapes}"
+    status, detail = shapes.pop()
+    assert status == 403, op
+    flat = str(detail).upper()
+    for leak in ("NOT_FOUND", "NOT_ACTIVE", "ARCHIVED", "UNREGISTERED",
+                 "ORGANIZATION"):
+        assert leak not in flat, f"{op}: leaked {leak}"
+
+
+@pytest.mark.parametrize("op", _TENANT_SCOPED_OPS,
+                         ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_the_reverse_direction_is_also_refused(op, scoped_a):
+    """Case 6 · the matrix is symmetric: the `default` analyst must not
+    reach `nivx-live` either."""
+    r = _call(op, {**scoped_a, "X-Tenant-Id": TENANT_B})
+    assert r.status_code == 403, f"{op} -> {r.status_code} {_body(r)}"
+    assert _code(r) == _REFUSAL_CODE, f"{op} -> {_body(r)}"
+
+
+@pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_the_reverse_principal_reaches_its_own_tenant(op, scoped_a):
+    r = _call(op, {**scoped_a, "X-Tenant-Id": TENANT_A})
+    assert r.status_code not in (401, 403), f"{op} -> {r.status_code} {_body(r)}"
+    assert _code(r) not in (_REFUSAL_CODE, "TENANT_REQUIRED"), \
+        f"{op} -> {_body(r)}"
+
+
+@pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_no_foreign_body_is_returned_on_refusal(op, scoped):
+    """A refusal must be a refusal: the two customers' own answers differ
+    from each other, and neither is ever served under the wrong principal."""
+    own = _call(op, {**scoped, "X-Tenant-Id": TENANT_B})
+    refused = _call(op, {**scoped, "X-Tenant-Id": TENANT_A})
+    assert _body(refused) != _body(own), op
+    assert len(_body(refused)) < 1200, f"{op}: refusal body too rich"
+
+
+@pytest.mark.skipif(not (ZERO_TENANT_EMAIL and ZERO_TENANT_PASSWORD),
+                    reason=_ZERO_TENANT_PREREQUISITE)
+@pytest.mark.parametrize("op", _READ_OPS, ids=lambda o: f"{o[0]} {o[1]}")
+def test_c6_zero_tenant_principal_is_refused(op):
+    """Case 7 · UNPROVEN LIVE unless an owner-authorised zero-tenant
+    preview principal is supplied. Never auto-created."""
+    headers = {"Authorization":
+               f"Bearer {_login(ZERO_TENANT_EMAIL, ZERO_TENANT_PASSWORD)}"}
+    bare = _call(op, headers)
+    assert bare.status_code == 403 and _code(bare) == "TENANT_NOT_RESOLVED"
+    named = _call(op, {**headers, "X-Tenant-Id": TENANT_A})
+    assert named.status_code == 403 and _code(named) == _REFUSAL_CODE
