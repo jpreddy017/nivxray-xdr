@@ -111,8 +111,10 @@ describe("A/B · process lifelines", () => {
     // only real exit evidence draws a terminated span
     expect(lifelineOf(GRAPH.process_nodes[1]).semantics)
       .toBe(SPAN_TERMINATED);
-    // the canvas dashes the open span and only caps a terminated one
-    expect(CANVAS).toMatch(/lane\.lifeline\.terminated \? "" : "4 3"/);
+    // DT2-3a · Cisco draws a SOLID lifeline. An unterminated span gets a
+    // trailing dashed continuation and never an invented cap.
+    expect(CANVAS).toMatch(/!lane\.lifeline\.terminated \? \(/);
+    expect(CANVAS).toMatch(/strokeDasharray="3 3"/);
     expect(CANVAS).toMatch(/data-lifeline-semantics/);
   });
 
@@ -194,17 +196,19 @@ describe("I · process selection", () => {
 });
 
 // ── J/K · parent / child navigation ──────────────────────────────
+// DT2-3a · the PARENT/CHILD rail is parked: Cisco expresses relationships
+// graphically. The resolver below is unchanged and still authoritative.
 describe("J/K · relationship navigation", () => {
   it("parent navigation focuses the evidenced parent", () => {
     expect(parentOf(GRAPH, "pnode:child").node_id).toBe("pnode:parent");
-    expect(CANVAS).toMatch(/dt2-goto-parent/);
-    expect(CANVAS).toMatch(/disabled=\{!parent\}/);
+    expect(parentOf(GRAPH, "pnode:parent")).toBeNull();
+    expect(CANVAS).not.toMatch(/dt2-goto-parent/);
   });
 
   it("child navigation focuses an evidenced child", () => {
     expect(childrenOf(GRAPH, "pnode:parent")[0].node_id).toBe("pnode:child");
-    expect(CANVAS).toMatch(/dt2-goto-child/);
-    expect(CANVAS).toMatch(/disabled=\{!kids\.length\}/);
+    expect(childrenOf(GRAPH, "pnode:child")).toEqual([]);
+    expect(CANVAS).not.toMatch(/dt2-goto-child/);
   });
 });
 
@@ -224,7 +228,9 @@ describe("L/M · before / after", () => {
     expect(after.causality).toBe("CAUSALITY_UNKNOWN");
     expect(after.implies_causality).toBe(false);
     expect(after.causalityReason).toMatch(/not causality/i);
-    expect(CANVAS).toMatch(/data-causality=\{step\.causality\}/);
+    // DT2-3a · the causal state stays in the engine; Cisco's trajectory
+    // exposes no CAUSALITY_UNKNOWN label.
+    expect(CANVAS).not.toMatch(/CAUSALITY_UNKNOWN/);
   });
 });
 
@@ -263,8 +269,33 @@ describe("P · relationship basis", () => {
   });
 
   it("invents no explanation when there is no edge", () => {
-    expect(CANVAS).toMatch(/dt2-why-none/);
-    expect(CANVAS).toMatch(/NO PARENT EDGE IN EVIDENCE/);
+    // the resolver returns nothing for a non-existent edge …
+    expect(whyOf(edgeFor(GRAPH, "pnode:child", "pnode:parent"))).toBeNull();
+    // … and DT2-3a keeps the basis prose out of the AMP-parity canvas
+    expect(CANVAS).not.toMatch(/NO PARENT EDGE IN EVIDENCE/);
+    expect(CANVAS).not.toMatch(/WHY THIS EDGE/);
+  });
+});
+
+// ── DT2-3a · AMP-parity presentation ────────────────────────────
+describe("DT2-3a · Cisco presentation", () => {
+  it("presents the row gutter Cisco's way", () => {
+    expect(CANVAS).toMatch(/textAnchor="end"/);          // right-aligned
+    expect(CANVAS).toMatch(/\[PE\]/);                    // file-type tag
+    expect(CANVAS).toMatch(/Files &amp; Network/);       // section label
+    expect(CANVAS).toMatch(/>Timeline</);                // gutter header
+  });
+
+  it("carries no internal identity or NivXForge control in the graph", () => {
+    expect(CANVAS).not.toMatch(/pid \{/);
+    expect(CANVAS).not.toMatch(/no GUID/);
+    expect(CANVAS).not.toMatch(/IDENTITY DOWNGRADED/);
+    expect(CANVAS).not.toMatch(/zoomBySteps|panByFraction|addEventListener/);
+  });
+
+  it("styles a row malicious only on a real verdict", () => {
+    expect(CANVAS).toMatch(/isMal = \(n\)/);
+    expect(CANVAS).toMatch(/disposition === "MALICIOUS"/);
   });
 });
 
@@ -277,12 +308,12 @@ describe("Q/R · density and request safety", () => {
     expect(laneRowsOf(many).length).toBe(120);
     expect(laneRowsOf(many, { max: 20 }).length).toBe(20);
     expect(CANVAS).toMatch(/MAX_RENDERED_LANES/);
-    expect(CANVAS).toMatch(/lanes\.slice\(0, rows\)/);
+    expect(CANVAS).toMatch(/lanes\.slice\(start, start \+ rows\)/);
   });
 
   it("issues no request of its own, so none can arrive stale", () => {
     expect(CANVAS).not.toMatch(/fetch\(|api\.get|api\.post|axios/);
-    expect(CANVAS).toMatch(/graph, view, bounds/);       // props only
+    expect(CANVAS).toMatch(/graph, view, plotW/);        // props only
   });
 });
 

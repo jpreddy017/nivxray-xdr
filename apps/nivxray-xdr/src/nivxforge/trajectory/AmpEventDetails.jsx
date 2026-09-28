@@ -213,22 +213,22 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
         </div>
       </div>
 
-      <Section title="Observables" testid="amp-observables">
+      <Section title="File" testid="amp-observables">
         {(event.file_artefacts || []).length === 0 ? (
           <div data-testid="amp-observables-none"
                style={{ fontSize: 10.4, color: C.inkFaint, marginTop: 5,
                         lineHeight: 1.5 }}>
-            ◇ no file artefact was reported with this observation.
+            No file was reported with this event.
           </div>
         ) : (event.file_artefacts || []).map((f, i) => (
           <div key={f.iid || i} data-testid={`amp-observable-${i}`}
                style={{ marginTop: 5, display: "flex", gap: 6,
                         alignItems: "flex-start" }}>
-            <span style={{ fontSize: 10.4, color: C.inkDim }}>File:</span>
+            <span style={{ fontSize: 10.4, color: C.inkDim }}>Path:</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="mono" style={{ fontSize: 10.4, color: C.ink,
                                               wordBreak: "break-all" }}>
-                {f.path || "◇ path not reported"}
+                {f.path || "Not reported"}
               </span>
               <span className="mono" style={{ display: "block",
                                               fontSize: 9.6,
@@ -238,19 +238,32 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
                   ? (openHash === i ? f.sha256
                     : `${String(f.sha256).slice(0, 10)}…`
                       + String(f.sha256).slice(-8))
-                  : "◇ SHA-256 not reported"}
+                  : "SHA-256 not reported"}
               </span>
             </span>
             {f.sha256 && (
-              <button onClick={() => setOpenHash(openHash === i ? null : i)}
-                      data-testid={`amp-observable-expand-${i}`}
-                      style={{ background: C.paper, cursor: "pointer",
-                               border: `1px solid ${C.gridStrong}`,
-                               borderRadius: 2, color: C.inkDim,
-                               display: "flex", padding: 1 }}>
-                {openHash === i ? <ChevronUp size={10} />
-                                : <ChevronDown size={10} />}
-              </button>
+              <>
+                <button onClick={() => navigator.clipboard
+                          ?.writeText(String(f.sha256))}
+                        data-testid={`amp-copy-sha256-${i}`}
+                        title="Copy SHA-256"
+                        style={{ background: C.paper, cursor: "pointer",
+                                 border: `1px solid ${C.gridStrong}`,
+                                 borderRadius: 2, color: C.link,
+                                 fontSize: 9.6, padding: "1px 5px",
+                                 whiteSpace: "nowrap" }}>
+                  Copy SHA-256
+                </button>
+                <button onClick={() => setOpenHash(openHash === i ? null : i)}
+                        data-testid={`amp-observable-expand-${i}`}
+                        style={{ background: C.paper, cursor: "pointer",
+                                 border: `1px solid ${C.gridStrong}`,
+                                 borderRadius: 2, color: C.inkDim,
+                                 display: "flex", padding: 1 }}>
+                  {openHash === i ? <ChevronUp size={10} />
+                                  : <ChevronDown size={10} />}
+                </button>
+              </>
             )}
           </div>
         ))}
@@ -399,53 +412,12 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
         <Row k="Action" v={event.action} testid="amp-d-action" />
         <Row k="Sensor label" v={event.display_label}
              testid="amp-d-display-label" />
-        <Row k="Activity row"
-             v={`${event.lane_group} · row ${event.lane_index}`}
-             testid="amp-d-lane" />
-        <Row k="Row identity" v={event.lane_id} testid="amp-d-lane-id" />
-        <Row k="Observed extent of this row"
-             v={lane ? `${lane.first_seen} → ${lane.last_seen}` : null}
-             testid="amp-d-extent" />
         <Row k="Evidence labels" v={event.labels} testid="amp-d-labels" />
       </Section>
 
-      <Section title="Provenance">
-        <Row k="Event content digest (not a file hash)"
-             v={event.event_content_digest} testid="amp-d-content-digest" />
-        <Row k="Raw event id" v={event.provenance?.raw_event_id}
-             testid="amp-d-raw-id" />
-        <Row k="Canonical event id" v={event.provenance?.canonical_event_id}
-             testid="amp-d-canonical-id" />
-        <Row k="Evidence id" v={event.provenance?.evidence_id}
-             testid="amp-d-evidence-id" />
-        <Row k="Incident" v={event.provenance?.incident_id}
-             testid="amp-d-incident" />
-        <Row k="Collector" v={event.provenance?.origin
-          || event.provenance?.adapter} testid="amp-d-origin" />
-        <Row k="Normalizer" v={event.provenance?.normalizer}
-             testid="amp-d-normalizer" />
-        <Row k="Event identity" v={event.event_iid} testid="amp-d-event-iid" />
-      </Section>
-
-      <div style={{ marginTop: 11, display: "flex", flexDirection: "column",
-                    gap: 4 }}>
-        {[["process-tree", "Open Process Tree"],
-          ["campaign-story", "Open Campaign Story"],
-          ["file-trajectory", "Open fleet File Trajectory"],
-          ["filter-indicator", "Filter trajectory by this indicator"]].map(
-          ([k, label]) => (
-            <button key={k} onClick={() => onPivot(k, event)}
-                    data-testid={`amp-details-pivot-${k}`}
-                    style={{ fontSize: 10.4, textAlign: "left",
-                             padding: "5px 9px", cursor: "pointer",
-                             background: C.paper, color: C.link,
-                             border: `1px solid ${C.gridStrong}`,
-                             borderRadius: 2, display: "flex",
-                             alignItems: "center", gap: 6 }}>
-              <ExternalLink size={10} /> {label}
-            </button>
-          ))}
-      </div>
+      {/* DT2-3a · Cisco's Event Details pane carries no product pivots and
+          no provenance/identity block. Both remain available in the
+          evidence payload for the NivXForge enhancement phase. */}
     </Shell>
   );
 }

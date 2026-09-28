@@ -709,3 +709,150 @@ Acceptance endpoint for that pass is fixed: **WS-W1-1789575060 /
 `dev_0e10780f2c86`**, real evidence window, no fabricated telemetry; anything
 the corpus cannot exercise will be reported as **NOT OBSERVED IN ACCEPTANCE
 CORPUS**.
+
+---
+
+# DT2-3a — APPROVED CORRECTION PASS · EXECUTED
+
+CODE_CHANGED: **YES** · UI_CHANGED: **YES** · DATA_CHANGED: **NO**
+Engines, resolvers, projections, evidence rules and tenant authority: **untouched.**
+
+## FILES_CHANGED (8)
+
+| FILE | CHANGE |
+|---|---|
+| `AmpFilterBar.jsx` | rewritten — search LEFT with the magnifier inside, `Filters ⌄` RIGHT, Enter-to-submit, nothing else in the row |
+| `AmpNavigator.jsx` | rewritten — 30-day ribbon with in-cell sized red compromise dots, plain filled 24-hour band, `−`/`+` collapse, click-the-ribbon-to-expand |
+| `RelationshipCanvas.jsx` | rewritten — `Timeline` gutter, date columns, rotated ticks, `Files & Network` section, right-aligned labels with `[PE]`, green solid lifelines, square event glyphs; basis rail removed from the presentation |
+| `AmpComputerHeader.jsx` | rewritten — device-name title + `Show details` + `Actions`, Cisco-shaped drawer (Device details / Connector / Antivirus / Compromise events + footer actions) |
+| `AmpActivityPanel.jsx` | edited — no count, no timestamp column, ⚠ prefix, neutral empty state |
+| `AmpEventDetails.jsx` | edited — product pivots and the provenance/identity block removed; `Copy SHA-256` added; indicator/tactics box retained |
+| `EdrDeviceTrajectoryPage.jsx` | edited — device-name header + share + expand; toolbar, mode tabs, basis rail, handoff/projection/request banners, tenant prose and the deep-link control moved behind `PARKED_NIVXFORGE_UI` |
+| `dt2/__tests__/graphModel.test.js` | 7 presentation assertions retargeted to the engine or inverted into parity guards, + 3 new DT2-3a tests |
+
+## PARITY_ROWS_APPLIED
+
+KEEP_ROWS_PRESERVED **34** · CHANGE_ROWS_IMPLEMENTED **24** ·
+REMOVE_ROWS_HIDDEN **55** · MISSING_ROWS_IMPLEMENTED **3** (#6 Share > Copy URL,
+#91 + #120 Copy SHA-256) · MISSING_DEFERRED_DT2_3B **5** (#70 files on the
+vertical axis, #92 System/connector section, #86 + #87 return-to-selection
+arrows, #113 + #114 full Cisco detail field sets) · MISSING_DEFERRED_DT2_3C
+**4** (#58 red-dot → Compromise Events, #137 yellow IOC highlighting, #138 the
+compromise event, #139 the blue halo) · CHANGE_DEFERRED **6** (filter
+categories #22–#26, search grammar #32 + #33, #17 drawer click-to-focus, #140
+blue search dots, #59 cloud-query line = data gap, #134 retention statement).
+
+Reclassification during implementation: **#10 `Show details` → KEEP.** The
+Cisco figure shows it as an explicit button next to the device name, so the
+REV 1 proposal to move the trigger onto the device name was wrong.
+
+## RESULTS
+
+| RETURN FIELD | RESULT |
+|---|---|
+| HEADER_RESULT | Title is now the device name (`WS-W1-1789575060`, 19px bold) + `Show details` + `Actions ⌄`; right: theme (out of scope), share, expand. "Device Trajectory" heading, XDR chip and legacy link gone |
+| SEARCH_FILTER_RESULT | Search left (`Search Device Trajectory`, magnifier inside, Enter submits — verified 15 → 3 rows on `certutil`, 16 lanes restored on clear), `Filters ⌄` right. Zoom/step/fit buttons, matched counter, presets, legend, clear-all, count badge and per-type counts all gone |
+| NAVIGATOR_RESULT | 30 day cells with month labels, sized red compromise dot on Jun 1, selected day filled + bold; plain filled 24-hour band with sized circles, hour labels `0:00…23`, `JUN 1`; sparkline, hatching, dashed cursor, day-count line and window readout gone. `−` collapses, `+` **and the ribbon** expand (both verified) |
+| TRIANGLE_HANDLES_RESULT | Removed from the presentation. `moveRange` still drives band sliding; `resizeRangeStart/End` remain in `dt2/` untouched |
+| TRAJECTORY_TOOLBAR_RESULT | Not rendered. `navBarParked` still compiles behind the flag with stepping, zoom ladder, density buckets and window state intact |
+| PROCESS_LIFELINE_RESULT | Solid green lifeline; unterminated spans get a short trailing dash and never an invented cap. Start dots and end ticks gone |
+| ROW_GUTTER_RESULT | Right-aligned names with the `[PE]` tag (13 of 16 rows), `Files & Network` section header, `Timeline` gutter label, date column `Jun 1`. `pid`, GUID markers, `[rowTag]` and `proc_…` identifiers gone |
+| ACTIVITY_PANE_RESULT | `Activity` header with no count; rows are ⚠ / actor / glyph / target with no timestamp column; 15 real rows; `◇` placeholders gone |
+| EVENT_SELECTION_RESULT | Selecting a row opens Event Details in place; back returns to the list. Pivot buttons absent, indicator/tactics box present, `Copy SHA-256` available |
+| NIVXFORGE_ENGINES_PRESERVED | TrajectoryEngine, RelationshipEngine, graph projection, viewport/range engines, coverage, prefetch, request coordinator, focus resolver, handoff diagnostics, causality state, provenance, internal identity — all intact; only presentation changed |
+
+## FOCUSED_TESTS
+
+`yarn test` → **118 passed / 118 (4 files)**, up from 115 (7 were failing after
+the correction because they asserted the old presentation). The 7 were
+retargeted to the engine (`parentOf`, `childrenOf`, `whyOf`, `neighbourStep`)
+or inverted into parity guards (`CANVAS` must NOT contain `CAUSALITY_UNKNOWN`,
+`NO PARENT EDGE IN EVIDENCE`, `WHY THIS EDGE`, `IDENTITY DOWNGRADED`, `pid {`,
+`no GUID`, wheel handlers). Three new tests assert the Cisco gutter
+(`textAnchor="end"`, `[PE]`, `Files & Network`, `Timeline`) and that a row is
+styled malicious only on a real verdict.
+
+Live acceptance on **WS-W1-1789575060 / `dev_0e10780f2c86`** (customer
+`default`, 15 recorded events, real evidence only): 16 lanes, 15 activity rows,
+1 compromise event, 1 compromise day dot, 2 hour-band bins, 0 page errors.
+One runtime defect was found and fixed during acceptance (`Prop` crashed on an
+explicit `null` because `typeof null === "object"`).
+
+## TRUTHFUL_DATA_GAPS
+
+1. **CISCO FEATURE DATA SOURCE NOT AVAILABLE IN NIVXFORGE** — endpoint
+   cloud-query volume per day (C3 p.403). The line graph above the dates is
+   omitted; no substitute metric is shown under Cisco's meaning.
+2. Cisco disposition **clean** — NivXForge records no CLEAN verdict, so the
+   option is not offered. SUSPICIOUS is kept as its own value and never mapped.
+3. **Inbox status** (p.402 figure) — no triage/inbox state exists; omitted
+   rather than fabricated.
+4. **Processor ID** and **Flag** (p.404 drawer) — not collected; omitted.
+5. Operating system, Local IPs, Public IP, Group, Policy, Host Firewall,
+   Connector version, Sensor state, Definitions → render **"Not collected"**
+   for this endpoint; Antivirus carries a "Not collected" chip.
+6. 3 of 16 rows have no sensor-reported image and render **"Unknown process"**
+   rather than the internal `proc_…` identifier.
+7. Blue search-result dots (#140) need per-day matched counts the projection
+   does not yet return — deferred, not approximated.
+
+## NOT OBSERVED IN ACCEPTANCE CORPUS
+
+- No evidenced parent/child edge in this window → **no stem is drawn** (all 16
+  lanes are roots). The stem geometry is implemented and gated on `edgeFor`.
+- No terminated process span → the terminated cap could not be exercised.
+- No IOC/compromise-event object, no connector/System events, no non-PE
+  artefact type tag.
+
+## A_Q_AFTER_MATRIX
+
+| REGION | BEFORE | AFTER | VERDICT | REMAINING DIFFERENCE |
+|---|---|---|---|---|
+| A header | "Device Trajectory" + XDR chip + legacy link | device name + Show details + Actions + share + expand | **MATCH** | Inbox status omitted (gap 3) |
+| B computer context | card + our own fields | Cisco drawer, device-name title, 4 groups, footer actions | **MATCH** | Processor ID / Flag not collected |
+| C filter + search | Filters left, search right, 5 icon buttons, counter | search left, Filters right, nothing else | **MATCH** | Filter categories + search grammar deferred |
+| D 30-day navigator | sparkline + bars + red strip | day cells + sized red dots + month labels + selected fill | **PARTIAL** | cloud-query line omitted (gap 1); blue search dots deferred |
+| E 24-hour navigator | hatching, handles, cursors, readouts | plain filled band, sized circles, hour labels, date | **MATCH** | — |
+| F navigator controls | ▼/▶ chevron in the filter bar | `−` / `+` at the ribbon, ribbon click expands | **MATCH** | — |
+| G graph | ISO ticks above the plot | Timeline gutter, date column, rotated ticks | **MATCH** | — |
+| H process rows | left-aligned + pid + GUID + rowTag | right-aligned + `[PE]`, malicious highlight ready | **MATCH** | 3 rows read "Unknown process" |
+| I file rows | none | none | **MISMATCH** | **DT2-3b** |
+| J lifelines | dashed spans, start dots, end ticks | solid green + trailing dash only | **MATCH** | terminated cap not exercised |
+| K parent/child geometry | arrowheads | plain stems, evidence-gated | **PARTIAL** | no edge in the corpus to display |
+| L event glyphs | ▲ ■ ◆ ● by family | outlined squares, red circle for malicious | **MATCH** | Cisco's exact icon set is richer |
+| M IOC presentation | absent | absent | **MISMATCH** | **DT2-3c** |
+| N selected event | row band + accent | unchanged | **PARTIAL** | Cisco's selected-icon appearance not observable in the reference |
+| O right-side details | count + time column + pivots + observables | Activity, ⚠/actor/glyph/target, in-place details | **MATCH** | full Cisco field sets deferred |
+| P toolbar | full dt2 navbar + tabs + basis rail | none | **MATCH** | — |
+| Q empty / loading | five epistemic texts | "No activity to display." / "Loading…" | **MATCH** | — |
+
+Regions: **MATCH 12 · PARTIAL 3 · MISMATCH 2** (was MATCH 0 · PARTIAL 6 ·
+MISMATCH 7 · MISSING 1).
+
+## REMAINING_VISUAL_DIFFERENCES
+
+1. ~~The graph SVG does not fill its pane.~~ **RESOLVED** — the relationship
+   canvas now measures its own container (ResizeObserver); the SVG renders
+   1291 px wide at 1920×800 and meets the Activity pane, verified live.
+2. Files are not yet vertical-axis rows (**DT2-3b**).
+3. No IOC yellow highlighting, compromise event or blue halo (**DT2-3c**).
+4. The 30-day ribbon carries no per-day activity indication at all, because
+   Cisco conveys it through the cloud-query line we cannot produce. Owner may
+   wish to revisit this under ruling #8.
+5. Filter categories (System / Flags / File Type), the "one per category" rule,
+   `Apply Filters`, and the documented search grammar are not yet implemented.
+
+## DT2_3A_VERDICT
+
+**AMP-parity presentation correction complete and live on real evidence; NOT
+yet full AMP parity.** 12 of 17 regions now match the Cisco reference, 2 remain
+mismatched by design (DT2-3b, DT2-3c) and 5 visual differences are recorded
+above. No engine was weakened, no evidence rule relaxed, no telemetry deleted,
+no IOC or relationship fabricated, and tenant authority is untouched.
+
+Post-verification: the graph-width difference was closed in the same pass
+(canvas self-measurement), re-verified live at 1291 px with 0 page errors and
+118/118 tests green.
+
+**STOPPED for owner visual review. DT2-3b and DT2-3c not started. No
+deployment.**

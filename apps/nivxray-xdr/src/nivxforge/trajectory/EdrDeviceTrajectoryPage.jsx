@@ -23,10 +23,9 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
+import { Maximize2, Minimize2, Moon, Share2, Sun } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
-import LinkedXdrIncidents from "@/nivxforge/components/LinkedXdrIncidents";
 import { buildFileTrajectoryPivot, buildIncidentPivot,
          buildSightingsPivot } from "@/xdr/lib/pivots";
 import { getSessionContext } from "@/nivxforge/edrApi";
@@ -43,7 +42,7 @@ import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
-import RelationshipCanvas, { RelationshipBasis } from "./RelationshipCanvas";
+import RelationshipCanvas from "./RelationshipCanvas";
 import { GRAPH_READY, focusOf, graphOf, graphStateOf, neighbourStep,
          parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
@@ -53,6 +52,13 @@ const LANE_PREFETCH = 14;
 const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
 const DETAILS_W = 348;
+
+/** Phase-2 gate. `false` = the AMP-parity presentation. NivXForge's own
+ *  trajectory surfaces (handoff/projection/request banners, the temporal
+ *  toolbar, the endpoint-wide EVENT LANES canvas, the relationship-basis
+ *  rail) stay compiled and wired behind this flag; none of them appears
+ *  in the Cisco reference, so none of them is presented. */
+const PARKED_NIVXFORGE_UI = false;
 
 const navBtn = { fontSize: 10.4, cursor: "pointer", background: C.paperAlt,
                  color: C.link, border: `1px solid ${C.gridStrong}`,
@@ -742,19 +748,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         typeCounts={meta?.event_type_counts || []}
         kinds={kinds} onKinds={setKinds}
         dispositions={dispositions} onDispositions={setDispositions}
-        query={query} onQuery={setQuery}
-        preset={preset} onPreset={onPreset}
-        matched={meta?.matched_after_filters ?? 0}
-        total={meta?.observations_all_time ?? 0}
-        collapsed={navCollapsed} onCollapsed={setNavCollapsed}
-        onZoom={(f) => setView((v) => (v
-          ? zoomBySteps(v, f > 1 ? 1 : -1, (v.t0 + v.t1) / 2,
-                        boundsRef.current).view
-          : v))}
-        onPan={(frac) => setView((v) => (v
-          ? panByFraction(v, frac, boundsRef.current).view : v))}
-        onFitDay={() => selectedDay != null
-          && setView({ t0: selectedDay, t1: selectedDay + DAY_MS })} />
+        query={query} onQuery={setQuery} />
     </div>
   );
 
@@ -766,8 +760,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       view={view} onView={setView}
       bounds={boundsRef.current}
       observedEnd={meta?.time_range?.observed_end}
-      cursorTs={selected?.timestamp ? Date.parse(selected.timestamp) : null}
-      collapsed={navCollapsed}
+      collapsed={navCollapsed} onCollapsed={setNavCollapsed}
       onFocusTime={(t, iid) => {
         setView(centreOn(view, t, boundsRef.current).view);
         const hit = iid ? events.get(iid) : null;
@@ -775,9 +768,16 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       }} />
   );
 
-  /** DT2-1 · temporal navigation controls. Every one of these is a
-   *  deterministic evidence-ordered operation, not a DOM walk. */
-  const navBar = view && (
+  /** DT2-1 · temporal navigation controls.
+   *
+   *  PARKED — NOT PART OF THE AMP-PARITY PRESENTATION (DT2-3a).
+   *  Cisco's Device Trajectory has no trajectory toolbar: none of these
+   *  controls appears in the reference figure, so the strip is not
+   *  rendered. The engines behind it (evidence-ordered stepping,
+   *  detection stepping, the zoom ladder, density buckets, window state)
+   *  are deliberately left intact and wired for the NivXForge
+   *  enhancement phase. */
+  const navBarParked = view && (
     <div data-testid="dt2-navbar"
          data-dt2-scroll-domain="controls"
          data-window-state={windowState}
@@ -847,18 +847,18 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   const body = (
     <>
+      {/* Cisco titles the page with the DEVICE NAME, followed by
+          Show details and Actions (User Guide p.402 figure). */}
       <div style={{ display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 8 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}
-              data-testid="dt-heading">
-          Device Trajectory
-        </span>
+                    marginBottom: 10 }}
+           data-testid="dt-heading">
+        {device && meta && (
+          <AmpComputerHeader computer={meta.computer}
+                             malicious={malicious}
+                             detections={detections}
+                             onAction={(k) => onPivot(k, selected)} />
+        )}
         <span style={{ flex: 1 }} />
-        {/* X3 · EDR → XDR: which incidents reference this endpoint, and
-            open them, without leaving the trajectory. */}
-        <LinkedXdrIncidents device={device}
-                            incidentId={params.get("incident_id")
-                              || params.get("incident")} />
         <button onClick={() => {
                   const next = theme === "dark" ? "light" : "dark";
                   window.localStorage.setItem("nx.theme", next);
@@ -878,13 +878,17 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
           {theme === "dark" ? <Sun size={11} /> : <Moon size={11} />}
           {theme === "dark" ? "Light" : "Dark"}
         </button>
-        <a href="/edr/trajectory" target="_blank" rel="noreferrer"
-           data-testid="amp-legacy-link"
-           style={{ fontSize: 10.6, color: C.link, textDecoration: "none",
-                    background: C.paper, padding: "4px 9px", borderRadius: 2,
-                    border: `1px solid ${C.gridStrong}` }}>
-          Use Legacy Device Trajectory
-        </a>
+        {/* Cisco's share control · Share > Copy URL (p.404) */}
+        <button onClick={() => navigator.clipboard
+                  ?.writeText(window.location.href)}
+                data-testid="amp-share-url" title="Copy URL"
+                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
+                         background: C.paper, padding: "4px 8px",
+                         borderRadius: 2,
+                         border: `1px solid ${C.gridStrong}`,
+                         display: "flex", alignItems: "center" }}>
+          <Share2 size={11} />
+        </button>
         <button onClick={() => setFullscreen((v) => !v)}
                 data-testid="amp-fullscreen-toggle"
                 title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -897,29 +901,15 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         </button>
       </div>
 
-      {/* X1/X3 · when a reference was named and did not resolve, the
-          outcome is stated as a machine-readable handoff state instead
-          of an empty canvas that could be mistaken for "nothing
-          happened on this endpoint". */}
-      {device && epi?.state === "ENDPOINT_NOT_RESOLVED" && (
-        <div data-testid="amp-handoff-state"
-             data-state={epi.state}
-             style={{ background: C.paper, padding: "8px 10px",
-                      marginBottom: 8, fontSize: 11, color: C.ink,
-                      borderLeft: `3px solid ${C.suspicious}`,
-                      border: `1px solid ${C.grid}` }}>
-          <b>◇ AMP HANDOFF — {epi.state}</b> {epi.message}
-          <div className="mono" style={{ marginTop: 4, fontSize: 10,
-                                         color: C.inkFaint }}>
-            requested reference: {epi.requested_ref || device}
-          </div>
-        </div>
-      )}
+      {/* DT2-3a · the AMP-parity presentation carries no handoff,
+          projection or request-state banners: none appears in the Cisco
+          reference. The handoff resolver, its diagnostics and the
+          epistemic states remain intact server- and client-side. */}
 
       {/* Only ONE handoff state is ever shown. When the endpoint itself
           did not resolve, the focus resolver's echo of the same outcome
           is redundant noise, so it is suppressed. */}
-      {device && handoff && handoff.state !== "FOCUS_RESOLVED"
+      {PARKED_NIVXFORGE_UI && device && handoff && handoff.state !== "FOCUS_RESOLVED"
         && epi?.state !== "ENDPOINT_NOT_RESOLVED" && (
         <div data-testid="amp-handoff-state"
              data-state={handoff.state}
@@ -977,7 +967,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         </div>
       )}
 
-      {device && handoff?.state === "FOCUS_RESOLVED" && handoff.focus && (
+      {PARKED_NIVXFORGE_UI && device && handoff?.state === "FOCUS_RESOLVED"
+        && handoff.focus && (
         <div data-testid="amp-handoff-resolved"
              data-event-iid={handoff.focus.event_iid}
              data-lane-index={handoff.focus.lane_index}
@@ -1014,33 +1005,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         <div data-testid="amp-no-endpoint"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 16, color: C.ink, fontSize: 11.5 }}>
-          {endpoints.length > 0 ? (
-            <b>Select an endpoint</b>
-          ) : (
-            <b data-testid="amp-no-endpoint-visible">
-              No endpoint evidence is attributed to{" "}
-              {sessCtx?.active_customer?.value
-                || (sessCtx?.tenant_scope?.all_tenants
-                  ? "any customer" : "your customer")}
-            </b>
-          )}
-          {endpoints.length > 0
-            ? " to open its Device Trajectory."
-            : (
-              <div style={{ marginTop: 8, lineHeight: 1.6,
-                            color: C.inkDim, maxWidth: 760 }}>
-                {sessCtx?.edr_tenant_boundary
-                  || "Endpoint visibility could not be established."}
-                <div style={{ marginTop: 6, color: C.inkFaint }}>
-                  Nothing is shown here rather than something borrowed from
-                  another customer. Your XDR case surfaces
-                  {sessCtx?.tenant_scope?.tenant_ids?.length
-                    ? ` (${sessCtx.tenant_scope.tenant_ids.join(", ")})`
-                    : ""}{" "}
-                  are unaffected.
-                </div>
-              </div>
-            )}
+          <b>Select an endpoint</b>
           <div style={{ marginTop: 10, display: "flex", gap: 8,
                         flexWrap: "wrap" }}>
             {endpoints.map((e) => (
@@ -1052,10 +1017,6 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                                border: `1px solid ${C.gridStrong}`,
                                color: C.ink }}>
                 {e.hostname || e.device_iid}
-                <span className="mono" style={{ color: C.inkFaint,
-                                                marginLeft: 6 }}>
-                  {e.observation_count} obs
-                </span>
               </button>
             ))}
           </div>
@@ -1069,87 +1030,32 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                       color: "#8E1E23", padding: "8px 12px", fontSize: 11,
                       marginBottom: 8 }}>
           {String(status.err || req.err)}
-          <div style={{ marginTop: 3, fontSize: 10.2 }}>
-            {emptiness.message
-              || "This window could not be loaded. Evidence state is "
-                 + "UNKNOWN — this is not an absence of activity."}
-          </div>
-        </div>
-      )}
-
-      {/* A superseded or canceled window is an UNKNOWN outcome, never an
-          empty endpoint. */}
-      {!status.err && !req.err
-        && (windowState === WINDOW_STATE.CANCELED
-          || windowState === WINDOW_STATE.STALE_RESPONSE_DISCARDED) && (
-        <div data-testid="dt2-request-outcome"
-             data-window-state={windowState}
-             style={{ background: C.paper, border: `1px solid ${C.grid}`,
-                      borderLeft: `2px solid ${C.selectionStrong}`,
-                      padding: "6px 12px", fontSize: 10.4, color: C.inkDim,
-                      marginBottom: 8 }}>
-          {emptiness.message}
         </div>
       )}
 
       {device && (
         <>
-          <div style={{ marginBottom: 8, display: "flex" }}>
-            {meta && (
-              <AmpComputerHeader computer={meta.computer} epistemic={epi}
-                                 malicious={malicious}
-                                 detections={detections}
-                                 onAction={(k) => onPivot(k, selected)} />
-            )}
-          </div>
+          {PARKED_NIVXFORGE_UI && navBarParked}
           {/* Cisco puts Search Device Trajectory and Filters ⌄ above the
               Navigator, full width, as the primary controls. */}
-          <div style={{ marginBottom: 8 }}>{filterStrip}</div>
+          <div style={{ marginBottom: 8, background: C.paper,
+                        border: `1px solid ${C.gridStrong}`,
+                        borderRadius: 6 }}>
+            {filterStrip}
+          </div>
           <div style={{ marginBottom: 8 }}>{navigator_}</div>
-          {navBar}
-          {selState && selState !== "SELECTED_VISIBLE" && (
-            <div data-testid="dt2-selection-state"
-                 data-state={selState}
-                 style={{ background: C.paper, border: `1px solid ${C.grid}`,
-                          borderLeft: `3px solid ${C.suspicious}`,
-                          padding: "6px 10px", fontSize: 10.4,
-                          color: C.inkDim, marginBottom: 8 }}>
-              <b style={{ color: C.ink }}>{selState}</b> — the selected
-              observation <span className="mono">{selected?.event_iid}</span>
-              {" "}is retained as the investigation anchor. Nothing else has
-              been selected in its place.
-            </div>
-          )}
         </>
-      )}
-
-      {meta?.projection?.state === "BOUNDED_RECENT" && (
-        <div data-testid="amp-projection-bounded"
-             style={{ background: C.paper, border: `1px solid ${C.grid}`,
-                      borderLeft: `2px solid ${C.selectionStrong}`,
-                      padding: "6px 12px", fontSize: 10.5, color: C.inkDim,
-                      marginBottom: 6 }}>
-          Showing the most recent{" "}
-          <strong>{(meta.projection.observations_projected || 0)
-            .toLocaleString()}</strong>{" "}
-          of{" "}
-          <strong>{(meta.projection.observations_all_time || 0)
-            .toLocaleString()}</strong>{" "}
-          recorded observations. The complete endpoint-wide axis is being
-          built and will replace this view automatically — counts shown are
-          exact, not estimated.
-        </div>
       )}
 
       {device && status.loading && !meta && (
         <div data-testid="amp-loading"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 14, fontSize: 11, color: C.inkDim }}>
-          Loading endpoint evidence…
+          Loading…
         </div>
       )}
 
-      {locating && (
+      {PARKED_NIVXFORGE_UI && locating && (
         <div data-testid="amp-locating"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: "6px 12px", fontSize: 10.5,
@@ -1162,11 +1068,11 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         <div data-testid="amp-no-activity"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 14, fontSize: 11, color: C.inkDim }}>
-          {epi?.message || "No observed activity for this endpoint."}
+          {"No activity to display."}
         </div>
       )}
 
-      {device && deepLink && !events.get(deepLink) && !locating && (
+      {PARKED_NIVXFORGE_UI && device && deepLink && !events.get(deepLink) && !locating && (
         <div style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: "7px 12px", fontSize: 10.5, color: C.inkDim,
                       marginBottom: 8 }}>
@@ -1207,6 +1113,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
             <div ref={plotRef} style={{ flex: 1, minWidth: 0,
                                         display: "flex",
                                         flexDirection: "column" }}>
+              {PARKED_NIVXFORGE_UI && (
               <div style={{ display: "flex", alignItems: "center", gap: 6,
                             padding: "4px 8px",
                             borderBottom: `1px solid ${C.grid}`,
@@ -1232,37 +1139,33 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                     : "endpoint-wide activity lanes"}
                 </span>
               </div>
-              {mode === "RELATIONSHIPS" ? (
-                <>
+              )}
+              {mode === "RELATIONSHIPS" && !PARKED_NIVXFORGE_UI ? (
+                <div style={{ display: "flex" }}
+                     data-testid="dt2-graph"
+                     data-dt2-graph-state={graphStateOf(dt2)}>
                   <RelationshipCanvas
                     graph={graphOf(dt2)} view={view}
-                    bounds={boundsRef.current}
-                    plotW={plotW} rows={rows}
+                    plotW={plotW + GUTTER} rows={rows}
+                    laneOffset={laneStart}
                     selectedNodeId={selectedNode}
                     theme={C}
-                    onView={setView}
                     onSelect={(lane) => {
                       setSelectedNode(lane.nodeId);
                       setStepCtx(null);
                     }} />
-                  <RelationshipBasis
-                    graph={graphOf(dt2)} selectedNodeId={selectedNode}
-                    step={stepCtx}
-                    onSelect={(nodeId) => setSelectedNode(nodeId)}
-                    onStep={(dir) => {
-                      const g = graphOf(dt2);
-                      const next = neighbourStep(
-                        g, { stepId: stepCtx?.step?.step_id,
-                             nodeId: selectedNode }, dir);
-                      if (!next) return;
-                      setStepCtx(next);
-                      const node = next.step.actor_node_id
-                        || next.step.node_id;
-                      if (node && String(node).startsWith("pnode:")) {
-                        setSelectedNode(node);
-                      }
-                    }} />
-                </>
+                  <div ref={vScroll} data-testid="amp-vscroll"
+                       onScroll={(e) => setLaneStart(Math.max(0, Math.min(
+                         Math.max(0, total - rows),
+                         Math.floor(e.target.scrollTop / ROW_H))))}
+                       style={{ width: 13, height: canvasH,
+                                overflowY: "scroll", flexShrink: 0,
+                                background: C.paperAlt,
+                                borderLeft: `1px solid ${C.grid}` }}>
+                    <div style={{ height: Math.max(1, total) * ROW_H,
+                                  width: 1 }} />
+                  </div>
+                </div>
               ) : (
               <div style={{ display: "flex" }}>
                 <AmpCanvas

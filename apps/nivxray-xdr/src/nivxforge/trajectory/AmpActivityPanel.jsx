@@ -14,33 +14,25 @@
  * a sample; the header states the count in the window.
  */
 import React, { useEffect, useMemo, useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 
-import { C, eventColor, isRed, fmtHMS } from "./ampModel";
+import { C, eventColor, isRed } from "./ampModel";
 import EventGlyph from "./AmpIcons";
 import AmpEventDetails from "./AmpEventDetails";
 
 const MAX_ROWS = 400;
 
 /** What the observation acted ON — the artefact, from evidence only. */
-const targetOf = (e) => e.file || e.network || e.entity || e.process
-  || "◇ not reported";
+const targetOf = (e) => e.file || e.network || e.entity || e.process || "";
 
-/** Cisco's left column: the actor. Where no parent was observed it says
- *  so rather than repeating the child and implying self-parentage. */
+/** Cisco's left column: the actor. */
 const actorOf = (e, lanes) => {
   if (e.parent_process_name) return e.parent_process_name;
   if (e.parent_lane_index !== null && e.parent_lane_index !== undefined) {
     const ln = lanes.get(e.parent_lane_index);
     if (ln?.label) return ln.label;
   }
-  if (e.parent_process_iid) return e.parent_process_iid;
-  if (e.parent_state === "PARENT_NOT_OBSERVED_VISIBILITY_GAP") {
-    return "◇ parent not observed";
-  }
-  if (e.parent_state === "PARENT_NOT_REPORTED_BY_SENSOR") {
-    return `${e.process || e.lane_id} · root`;
-  }
-  return e.process || "◇ no lineage reported";
+  return e.process || "";
 };
 
 export default function AmpActivityPanel({ events, lanes, selected, onSelect,
@@ -84,11 +76,6 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                        flex: 1 }}>
           Activity
         </span>
-        <span className="mono" data-testid="amp-activity-count"
-              data-shown={rows.length} data-in-window={events.length}
-              style={{ fontSize: 9.4, color: C.inkFaint }}>
-          {events.length}
-        </span>
       </div>
 
       <div ref={listRef} data-testid="amp-activity-list"
@@ -96,30 +83,14 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
            style={{ overflowY: "auto", flex: 1, minHeight: 100,
                     overscrollBehavior: "contain" }}>
         {rows.length === 0 && (
-          /** Zero rows is NOT self-explanatory. A failed, canceled or
-           *  superseded request also yields zero rows, and claiming
-           *  "no activity" there would be a false evidence conclusion.
-           *  `emptinessMeaning` is the only authority on which outcome
-           *  may be stated as an absence of observation. */
-          emptiness && emptiness.isObservationAbsence === false
-            && emptiness.message
-            ? (
-              <div data-testid="amp-activity-unknown"
-                   data-window-state={windowState || ""}
-                   style={{ padding: "12px 10px", fontSize: 10.5,
-                            color: C.inkDim, lineHeight: 1.55,
-                            borderLeft: `2px solid ${C.suspicious}` }}>
-                {emptiness.message}
-              </div>
-            ) : (
-              <div data-testid="amp-activity-empty"
-                   data-window-state={windowState || ""}
-                   style={{ padding: "12px 10px", fontSize: 10.5,
-                            color: C.inkFaint, lineHeight: 1.55 }}>
-                No activity was OBSERVED in this window. That is an
-                absence of observation, not an absence of activity.
-              </div>
-            )
+          <div data-testid="amp-activity-empty"
+               data-window-state={windowState || ""}
+               data-observation-absence={String(
+                 emptiness?.isObservationAbsence ?? "")}
+               style={{ padding: "12px 10px", fontSize: 10.5,
+                        color: C.inkFaint, lineHeight: 1.55 }}>
+            No activity to display.
+          </div>
         )}
         {rows.map((e) => {
           const red = isRed(e);
@@ -134,11 +105,10 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                              padding: "5px 8px", cursor: "pointer",
                              background: "none", border: "none",
                              borderBottom: `1px solid ${C.grid}` }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%",
-                             flexShrink: 0,
-                             background: red ? C.malicious
-                               : (e.disposition === "SUSPICIOUS"
-                                 ? C.suspicious : "transparent") }} />
+              <span style={{ width: 11, flexShrink: 0, display: "flex" }}>
+                {red ? <AlertTriangle size={10} color={C.malicious} />
+                  : null}
+              </span>
               <span style={{ flex: 1, fontSize: 10.4, color: C.inkDim,
                              overflow: "hidden", textOverflow: "ellipsis",
                              whiteSpace: "nowrap" }}>
@@ -153,11 +123,6 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                              overflow: "hidden", textOverflow: "ellipsis",
                              whiteSpace: "nowrap" }}>
                 {String(targetOf(e))}
-              </span>
-              <span className="mono" style={{ fontSize: 8.8,
-                                              color: C.inkFaint,
-                                              flexShrink: 0 }}>
-                {e.timestamp ? fmtHMS(Date.parse(e.timestamp)) : ""}
               </span>
             </button>
           );

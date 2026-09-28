@@ -1062,3 +1062,29 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
   plan would have cloned the wrong layout. CODE/UI/DATA unchanged.
 - NEXT: one DT2-3a pass on the corrected plan; acceptance on WS-W1-1789575060 /
   dev_0e10780f2c86 with real evidence only.
+
+### DT2-3a EXECUTED (same day) — AMP-parity presentation correction, live
+- 8 files changed: AmpFilterBar / AmpNavigator / RelationshipCanvas /
+  AmpComputerHeader rewritten; AmpActivityPanel / AmpEventDetails /
+  EdrDeviceTrajectoryPage edited; graphModel.test.js retargeted.
+- Applied: KEEP 34 preserved · CHANGE 24 implemented · REMOVE 55 hidden behind
+  `PARKED_NIVXFORGE_UI` (nothing deleted) · MISSING 3 implemented (Share > Copy
+  URL, Copy SHA-256 ×2) · 5 deferred to DT2-3b · 4 deferred to DT2-3c.
+- Header is now the DEVICE NAME + Show details + Actions + share + expand.
+  Search LEFT / Filters RIGHT with Enter-to-submit. Navigator: day cells with
+  sized red compromise dots, plain filled 24h band, `−`/`+` collapse and
+  ribbon-click expand. Graph: Timeline gutter, date columns, rotated ticks,
+  `Files & Network` section, right-aligned labels with `[PE]`, solid green
+  lifelines, square glyphs. Activity pane: no count, no time column, ⚠ prefix.
+  Toolbar, mode tabs, basis rail, all banners and tenant prose: gone.
+- A–Q after: MATCH 12 / PARTIAL 3 / MISMATCH 2 (was 0 / 6 / 7 + 1 missing).
+- Tests: 118/118 pass (was 115; 7 old presentation assertions retargeted to the
+  engine or inverted into parity guards, 3 new parity tests added).
+- Live acceptance: WS-W1-1789575060 / dev_0e10780f2c86, customer `default`,
+  16 lanes, 15 activity rows, 1 compromise dot, 0 page errors. One crash found
+  and fixed during acceptance (`Prop` title on explicit null).
+- Truthful data gaps recorded, incl. CISCO FEATURE DATA SOURCE NOT AVAILABLE IN
+  NIVXFORGE for the cloud-query line graph (omitted, not substituted).
+- Reference figures kept at /app/memory/production-gates/cisco_ref/ as INTERNAL
+  ENGINEERING REFERENCE ONLY — never bundled, served or shipped.
+- STOPPED for owner visual review. DT2-3b / DT2-3c not started. No deployment.
