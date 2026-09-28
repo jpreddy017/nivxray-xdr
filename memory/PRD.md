@@ -565,3 +565,32 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   Device Trajectory returns to the Cisco Secure Endpoint / AMP
   operational-clone target — publicly observable UI/UX, interactions,
   navigation and analyst functionality, on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 5A DONE (registry enforcement is an invariant)
+- `services/tenant_registry.py`: new `authoritative_required(tenant_id, purpose=)`
+  — reads NO environment flag, has no `compat_default`, never returns `"default"`,
+  never returns an unvalidated tenant. Requires: registered tenant + tenant
+  ACTIVE + organization registered + organization ACTIVE. A registry/DB lookup
+  failure is now a refusal (`REGISTRY_UNAVAILABLE`, 503), not a swallowed
+  exception. The legacy flag-gated `authoritative()` is kept for the
+  XDR/collector/ingest planes and simply DELEGATES when enforcing, so those
+  planes are byte-identical.
+- `routers/edr_tenancy.py`: `edr_tenant()` and `sensor_tenant()` now call
+  `authoritative_required()`. `routers/edr_enrollment.py::_agent_tenant()` (the
+  sensor enrolment/agent credential resolver, the only other EDR registry call
+  site) likewise; its generic-401 error-oracle rule is unchanged.
+- Result: `NIVX_TENANT_REGISTRY_ENFORCE` unset / `false` / `0` / `off` / `true`
+  all behave IDENTICALLY for EDR — there is no runtime state in which principal
+  authorization succeeds and registry validation is silently disabled.
+  Fix 2 non-disclosure is intact (unheld / unregistered / archived / registry
+  failure remain ONE opaque 403 for an unprivileged principal).
+- Tests: `tests/edr/test_p0_tenant_authority_fix5a.py` (new, A–M incl. every flag
+  value parametrised) + fix1 + fix2 + `test_b4b5_tenant_registry_authority.py`
+  → **131 passed, 0 failed**. No legacy test depended on EDR fail-open.
+  `backend/.env` NOT changed. No frontend change. No "default" residue touched.
+- STILL OPEN: Fix 5B (backend `"default"` residues — `authorised_incident()`,
+  `list_customers()`, `compat_default="default"`), Fix 6 (vendor/MSSP authority
+  model + audited switching); live zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.

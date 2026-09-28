@@ -64,8 +64,8 @@ def _agent_tenant(tenant_id: str, *, oracle: str) -> str:
     there the caller has already proven who they are.
     """
     try:
-        return tenant_registry.authoritative(tenant_id,
-                                             purpose="edr.agent")
+        return tenant_registry.authoritative_required(tenant_id,
+                                                      purpose="edr.agent")
     except tenant_registry.TenantRegistryError:
         raise EnrollmentError(oracle, 401, store.GENERIC_TOKEN_FAILURE
                               if oracle == "ENROLLMENT_TOKEN_INVALID"

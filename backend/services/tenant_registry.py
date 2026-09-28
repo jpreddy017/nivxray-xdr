@@ -27,17 +27,23 @@ Rules this module exists to enforce:
   dedupe digest, so a rename would silently re-partition existing evidence.
   Legacy strings are ADOPTED as tenants keeping their own id.
 
-Enforcement is gated by ``NIVX_TENANT_REGISTRY_ENFORCE``:
+Two entry points, deliberately different:
 
-* OFF (default) — resolution is observational. Behaviour is byte-identical to
-  the pre-registry code path, including the historical `"default"` fallback,
-  and every deviation is logged once per process/reason.
-* ON            — unknown tenant, inactive tenant, inactive organization and a
-                  missing tenant header all FAIL CLOSED. There is no branch in
-                  which enforcement turns into permission.
+* ``authoritative_required()`` — P0-FIX-5A. Registry validation as an
+  INVARIANT. It reads NO configuration, has no compat default and never
+  returns an unvalidated tenant. This is the only call the NivXForge EDR
+  tenant authority uses.
+* ``authoritative()``          — the legacy, flag-gated call still consumed by
+  the XDR / collector / ingest planes. Enforcement is gated by
+  ``NIVX_TENANT_REGISTRY_ENFORCE``:
 
-The flag can only make the platform stricter; it can never open a path that is
-closed with it off.
+  * OFF (default) — resolution is observational. Behaviour is byte-identical
+    to the pre-registry code path, including the historical `"default"`
+    fallback, and every deviation is logged once per process/reason.
+  * ON            — delegates to ``authoritative_required()``.
+
+  The flag can only make those planes stricter; it can never open a path that
+  is closed with it off — and it can no longer reach the EDR planes at all.
 """
 from __future__ import annotations
 
@@ -129,7 +135,86 @@ def list_tenants(organization_id: str | None = None,
     return list(_tenants().find(q, {"_id": 0}).limit(limit))
 
 
-# ── the single authority call ─────────────────────────────────────
+# ── the mandatory authority call (P0-FIX-5A) ──────────────────────
+#: A registry lookup that cannot be performed is NOT a tenant that may be
+#: acted in. Dependency failure is a refusal, never a pass-through.
+REGISTRY_UNAVAILABLE = "REGISTRY_UNAVAILABLE"
+
+
+def authoritative_required(tenant_id: str | None, *, purpose: str) -> str:
+    """Resolve the tenant a request may act in, or FAIL CLOSED — always.
+
+    P0-FIX-5A. `authoritative()` asked an environment variable whether the
+    authoritative registry mattered, so an unset (the documented default) or
+    explicitly `false` `NIVX_TENANT_REGISTRY_ENFORCE` turned the EDR tenant
+    authority into a pass-through: an authorized principal naming an
+    unregistered or archived tenant was accepted, and a missing tenant became
+    the literal string `"default"`. A security boundary may not be a
+    configuration preference.
+
+    This call therefore reads no configuration, accepts no `compat_default`,
+    never invents `"default"`, and never returns the requested value unless
+    the registry itself confirmed it:
+
+        tenant presented
+          -> registered in the authoritative registry
+          -> tenant state ACTIVE
+          -> organization registered
+          -> organization state ACTIVE
+          -> the tenant this request acts in
+
+    Authorisation is NOT performed here and is never implied: the caller must
+    already have established that the principal holds this tenant (see
+    `routers.edr_tenancy.edr_tenant`). This call can only ever NARROW.
+    """
+    requested = (tenant_id or "").strip()
+    if not requested:
+        raise TenantRegistryError(
+            "TENANT_REQUIRED",
+            f"no tenant named for {purpose}: the authoritative tenant must be "
+            "presented explicitly; there is no default tenant")
+    try:
+        doc = get_tenant(requested)
+    except Exception as exc:                                    # noqa: BLE001
+        log.error("[tenant_registry] registry unavailable at %s: %s",
+                  purpose, exc)
+        raise TenantRegistryError(
+            REGISTRY_UNAVAILABLE,
+            f"the authoritative tenant registry could not be consulted "
+            f"({purpose}); the request is refused", http=503) from None
+    if doc is None:
+        raise TenantRegistryError(
+            "TENANT_NOT_FOUND",
+            f"tenant is not registered ({purpose}). {IMPLICIT_TENANT_FORBIDDEN}",
+            tenant_id=requested)
+    if doc.get("state") != "ACTIVE":
+        raise TenantRegistryError(
+            "TENANT_NOT_ACTIVE",
+            f"tenant state is {doc.get('state')!r} ({purpose})",
+            tenant_id=requested)
+    try:
+        org = get_organization(str(doc.get("organization_id") or ""))
+    except Exception as exc:                                    # noqa: BLE001
+        log.error("[tenant_registry] registry unavailable at %s: %s",
+                  purpose, exc)
+        raise TenantRegistryError(
+            REGISTRY_UNAVAILABLE,
+            f"the authoritative tenant registry could not be consulted "
+            f"({purpose}); the request is refused", http=503) from None
+    if org is None:
+        raise TenantRegistryError(
+            "ORGANIZATION_NOT_FOUND",
+            f"tenant's organization is not registered ({purpose})",
+            tenant_id=requested)
+    if org.get("state") != "ACTIVE":
+        raise TenantRegistryError(
+            "ORGANIZATION_NOT_ACTIVE",
+            f"organization state is {org.get('state')!r} ({purpose})",
+            tenant_id=requested)
+    return requested
+
+
+# ── the legacy flag-gated authority call (non-EDR planes) ─────────
 def authoritative(tenant_id: str | None, *, purpose: str,
                   compat_default: str = "default") -> str:
     """Resolve the tenant a request may act in, or fail closed.
@@ -138,6 +223,10 @@ def authoritative(tenant_id: str | None, *, purpose: str,
     deviation) is attributable. `compat_default` is the value the pre-registry
     code used when nothing named a tenant; it is returned ONLY while
     enforcement is off, and never invented when it is on.
+
+    P0-FIX-5A · the NivXForge EDR tenant authority no longer comes through
+    here. It calls `authoritative_required()` unconditionally, so neither an
+    unset nor a `false` flag can reach an EDR authority decision.
     """
     requested = (tenant_id or "").strip()
     if not enforcing():
@@ -160,34 +249,7 @@ def authoritative(tenant_id: str | None, *, purpose: str,
                      requested, doc.get("state"), purpose)
         return requested
 
-    if not requested:
-        raise TenantRegistryError(
-            "TENANT_REQUIRED",
-            f"no tenant named for {purpose}: the authoritative tenant must be "
-            "presented explicitly; there is no default tenant")
-    doc = get_tenant(requested)
-    if doc is None:
-        raise TenantRegistryError(
-            "TENANT_NOT_FOUND",
-            f"tenant is not registered ({purpose}). {IMPLICIT_TENANT_FORBIDDEN}",
-            tenant_id=requested)
-    if doc.get("state") != "ACTIVE":
-        raise TenantRegistryError(
-            "TENANT_NOT_ACTIVE",
-            f"tenant state is {doc.get('state')!r} ({purpose})",
-            tenant_id=requested)
-    org = get_organization(str(doc.get("organization_id") or ""))
-    if org is None:
-        raise TenantRegistryError(
-            "ORGANIZATION_NOT_FOUND",
-            f"tenant's organization is not registered ({purpose})",
-            tenant_id=requested)
-    if org.get("state") != "ACTIVE":
-        raise TenantRegistryError(
-            "ORGANIZATION_NOT_ACTIVE",
-            f"organization state is {org.get('state')!r} ({purpose})",
-            tenant_id=requested)
-    return requested
+    return authoritative_required(requested, purpose=purpose)
 
 
 # ── administrative writes (the ONLY way tenancy is created) ───────

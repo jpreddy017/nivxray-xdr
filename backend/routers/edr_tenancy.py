@@ -4,13 +4,14 @@ Gate H (production, publish 100 / build 8833215) proved that B5 convergence
 had been applied to `routers/edr_enrollment.py` only. `GET /api/edr/endpoints`
 accepted an authenticated request with no tenant at all and silently IGNORED a
 supplied `X-Tenant-Id`, so `NIVX_TENANT_REGISTRY_ENFORCE=true` could not reach
-it — `tenant_registry.authoritative()` was never called.
+it — the registry authority was never called.
 
 Two distinct questions had been conflated:
 
     resolve_tenant_scope(email)        = which tenants is this PRINCIPAL
                                          authorised for?      (authorisation)
-    tenant_registry.authoritative(id)  = which single registered ACTIVE tenant
+    tenant_registry.authoritative_required(id)
+                                       = which single registered ACTIVE tenant
                                          is this REQUEST acting in? (authority)
 
 Both are required, in that order, and the second may only ever NARROW the
@@ -285,7 +286,7 @@ async def edr_tenant(request: Request,
 
         verified principal
           → authorize_requested_tenant(principal, X-Tenant-Id)   AUTHORISATION
-          → tenant_registry.authoritative(tenant)                AUTHORITY
+          → tenant_registry.authoritative_required(tenant)       AUTHORITY
           → the tenant this request acts in
 
     Authorisation runs FIRST, so the registry can only ever NARROW it; a
@@ -300,6 +301,12 @@ async def edr_tenant(request: Request,
     zero-tenant principal                -> 403 TENANT_NOT_RESOLVED
     unregistered tenant                  -> 403 TENANT_NOT_FOUND *
     non-ACTIVE tenant                    -> 403 TENANT_NOT_ACTIVE *
+    registry unreachable                 -> 503 REGISTRY_UNAVAILABLE *
+
+    P0-FIX-5A · registry validation here is UNCONDITIONAL. It is reached
+    through `authoritative_required()`, which reads no environment flag, so
+    neither an unset nor a `false` `NIVX_TENANT_REGISTRY_ENFORCE` can turn
+    this authority into a pass-through.
 
     \\* P0-FIX-2 · only for a principal holding `tenants.read`. For anyone
     else a REQUESTED tenant that is unheld, unregistered or inactive yields
@@ -321,7 +328,7 @@ async def edr_tenant(request: Request,
                                     "authority": "server",
                                     "requested_tenant": requested}) from None
     try:
-        resolved = tenant_registry.authoritative(
+        resolved = tenant_registry.authoritative_required(
             authorized, purpose="edr.control_plane")
     except tenant_registry.TenantRegistryError as e:
         if requested and not privileged:
@@ -341,8 +348,8 @@ def sensor_tenant(tenant_id: Optional[str]) -> str:
     own tenancy and an analyst does not get to name a sensor's.
     """
     try:
-        return tenant_registry.authoritative(tenant_id or "",
-                                             purpose="edr.sensor_session")
+        return tenant_registry.authoritative_required(
+            tenant_id or "", purpose="edr.sensor_session")
     except tenant_registry.TenantRegistryError as e:
         _refuse(e)
 
