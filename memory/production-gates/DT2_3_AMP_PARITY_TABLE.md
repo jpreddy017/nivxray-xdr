@@ -622,3 +622,90 @@ DT2-3a correction pass proceeds.
 
 CODE_CHANGED: **NO** · UI_CHANGED: **NO** · DATA_CHANGED: **NO** ·
 NOTHING HIDDEN · NOTHING DELETED · NO PHASE-2 FLAG.
+
+---
+
+# REV 4 — SCREENSHOT REFERENCE SET ESTABLISHED (CISCO OFFICIAL FIGURES)
+
+## CISCO_REFERENCE_1..4 — STATUS
+
+| REF | OWNER-SUPPLIED URL | RESULT |
+|---|---|---|
+| CISCO_REFERENCE_1 (full page) | `ciscomngsvsprod.service-now.com/sys_attachment.do?sys_id=63084ec2…31a5` | **REFERENCE ARTIFACT NOT ACCESSIBLE** — HTTP 200 but redirected to `auth_redirect.do` → `id.cisco.com` SAML SSO. No image bytes. |
+| CISCO_REFERENCE_2 (navigator) | `…sys_id=f7084ec2…31e4` | **REFERENCE ARTIFACT NOT ACCESSIBLE** — same Cisco SSO redirect |
+| CISCO_REFERENCE_3 (relationship / IOC) | `…sys_id=6b084ec2…31a9` | **REFERENCE ARTIFACT NOT ACCESSIBLE** — same Cisco SSO redirect |
+| CISCO_REFERENCE_4 (event details) | `…sys_id=27084ec2…31ac` | **REFERENCE ARTIFACT NOT ACCESSIBLE** — same Cisco SSO redirect |
+
+Owner-authorised fallback applied: **the Cisco guide's own embedded figures.**
+Rendered directly out of the official Secure Endpoint User Guide PDF (740 pages,
+4.9 MB, fetched from `docs.amp.cisco.com`) and stored for the record:
+
+| FILE | SOURCE | SHOWS |
+|---|---|---|
+| `cisco_ref/CISCO_DT_FULL_PAGE_p402.png` (1543×851) | User Guide p.402 embedded figure | **The complete Device Trajectory page** — header, search+filters, navigator, trajectory graph, right-side Activity list |
+| `cisco_ref/CISCO_DT_NAVIGATOR_p403.png` (1483×215) | p.403 embedded figure | Navigator strip / line graph above the dates |
+| `cisco_ref/CISCO_DT_DEVICE_DETAILS_p404.png` (1145×854) | p.404 embedded figure | **"Show details" device drawer** + device action bar |
+| `cisco_ref/CISCO_DT_IOC_TEXT_p405.png` | p.405 render | "Trajectory Indications of Compromise" section |
+
+These are Cisco-published screenshots of the Cisco Secure Endpoint console. No
+Cisco XDR, Cortex XDR, Defender, SentinelOne, Elastic or NivXForge image was
+used as parity evidence.
+
+## A_Q_VISUAL_COMPARISON (against `CISCO_DT_FULL_PAGE_p402.png`)
+
+| REGION | CISCO_SCREENSHOT | CURRENT_NIVXFORGE | VERDICT | REQUIRED_CORRECTION |
+|---|---|---|---|---|
+| **A** Page header | Device name in large bold (`Demo_Upatre`) + `Show details` + `Actions ⌄`; right: `Inbox status: Requires attention ⌄`, **share icon button**, **expand/fullscreen icon button** | "Device Trajectory" text heading; XDR incidents chip; Light/Dark; "Use Legacy Device Trajectory"; fullscreen icon | **MISMATCH** | Header title = the DEVICE NAME, not "Device Trajectory". Add Inbox status + share. Remove XDR chip and legacy link. **Fullscreen icon is now SCREENSHOT_VERIFIED → KEEP** |
+| **B** Computer context | No separate computer card; `Show details` opens a right-side drawer titled with the device name: Device details / Connector / Antivirus / **Compromise events ⚠103**, footer `Device Trajectory | Events` + `Scan` `Move to group` `More ⌄` | Computer card row + drawer with our own fields | **PARTIAL_MATCH** | Drop the card, keep the drawer; drawer fields become OS, Processor ID, Local IPs, Public IP, Last active, Group, Policy, Host Firewall, Flag, Connector, Antivirus, Compromise events. Actions = Scan / Move to group / More |
+| **C** Filter + search bar | **Search box on the LEFT** (full width, magnifier inside, placeholder exactly `Search Device Trajectory`), **`Filters ⌄` on the RIGHT**. Nothing else — no counts, no zoom, no presets | Filters on the left, search on the right, then 5 icon buttons and an observations counter | **MISMATCH** | Swap order, strip every extra control |
+| **D** 30-day navigator | Thin **blue line graph** across the top; grid of day cells; day numbers under cells; month name under the 1st of the month (`Jun`, `Jul`); **red dots inside day cells, size varying**; selected day cell filled blue with bold blue numeral | Sparkline with gradient fill + per-day dots; bar inside each cell; red strip at top of cell; month labels at the two ends | **MISMATCH** | Red dots in-cell (sized), no bars, no red strip, month label positioned at the month boundary, selected-day fill+bold numeral |
+| **E** 24-hour navigator | Full-width **light-blue filled band**, hour labels `0:00 … 24`, date label under `0:00`, a white in-band window region, red dot for compromise. **No triangle handles visible** | Hour cells + hatching + window band + triangle handles + dashed cursor + HH:MM text + "window …UTC" line | **MISMATCH** | Adopt the filled-band presentation; handles become `APPEARANCE = REFERENCE_BEHAVIOR_NOT_VERIFIED`; remove hatching, dashed cursor and readouts |
+| **F** Navigator controls | A **`⌄` chevron at the left of the ribbon** (this version) — with the guide's `-`/`+` collapse wording (C12 p.171) | `▼ / ▶` chevron in the filter bar | **PARTIAL_MATCH** | Move the control to the left of the ribbon; implement collapse per C12 (`-` / `+` / click-the-ribbon) |
+| **G** Trajectory graph | Left gutter header `Timeline`; date columns `Jul 25` / `Jul 26`; **rotated vertical time ticks** (`23:57`,`00:00`,`00:07`,`00:20`,`01:00`…); vertical grid lines per tick | Horizontal ISO `HH:MM:SSZ` tick labels above the plot | **PARTIAL_MATCH** | `Timeline` gutter label, date columns, rotated local-style ticks (our AmpCanvas already rotates — the relationship canvas does not) |
+| **H** Process rows | Right-aligned labels in the gutter with a **file-type tag** (`wsymqyv90.exe [PE]`, `iexplore.exe [PE]`); malicious label carries a **pink/red highlight**; **group section headers** `System` and `Files & Network` | Left-aligned truncated label + `pid N · GUID/no GUID`; `[rowTag]`; `[System]` section only in EVENT LANES | **PARTIAL_MATCH** | Right-align, keep a Cisco-style `[PE]` type tag (**`[rowTag]` is now SCREENSHOT_VERIFIED in principle → CHANGE not REMOVE**), pink highlight for malicious, section headers in the parity graph. Remove pid/GUID from the label |
+| **I** File rows | Files and processes share the gutter under `Files & Network` | Processes only | **MISMATCH** | **DT2-3b** |
+| **J** Lifelines | Thin **green** horizontal line; small **square glyphs** strung along it; short dashed continuation after the last event | Green/white lifeline, dashed when no exit evidence, start dot + end tick | **PARTIAL_MATCH** | Green solid + square event glyphs; remove start dot/end tick; dashes only as the trailing continuation |
+| **K** Parent/child geometry | Not exercised in this figure (single lineage) | Orthogonal connector + arrowhead | **NOT OBSERVED IN REFERENCE** | `APPEARANCE = REFERENCE_BEHAVIOR_NOT_VERIFIED`; arrowheads stay CHANGE pending a richer Cisco figure |
+| **L** Event glyphs | Small outlined **squares** for ordinary events; **red circular icons** for malicious/quarantine; **yellow/orange ⚠ triangle** in the Activity rows | `▲ ■ ◆ ●` by family, red ring | **MISMATCH** | Adopt squares + red malicious icon + ⚠ triangle; park the family glyph set |
+| **M** IOC presentation | Not exercised (p.405 text documents yellow highlight + compromise event + blue halo) | Absent | **MISSING** | **DT2-3c** |
+| **N** Selected event | Not exercised in this figure | Row band + accent bar | **NOT OBSERVED IN REFERENCE** | Behaviour is DOCUMENTED (C3); appearance unverified — do not invent |
+| **O** Right-side details | Header `Activity` (no count). Rows: optional **⚠**, process name, glyph, target (`8.8.8.8:443`, `wsymqyv90.exe`). **No timestamp column.** Vertical scrollbar with ▲/▼ | `Activity` + count; actor / glyph / target / **HH:MM:SS** | **PARTIAL_MATCH** | Remove the count and the time column; add the ⚠ prefix |
+| **P** Toolbar | **There is no trajectory toolbar at all** | Full dt2 navbar + mode tabs + basis rail | **MISMATCH** | Remove entirely (rows 60–68, 96–105) |
+| **Q** Empty / loading | Not exercised | Five epistemic texts | **NOT OBSERVED IN REFERENCE** | Ruling #2: one neutral line |
+
+Regions: **MISMATCH 7 · PARTIAL_MATCH 6 · MISSING 1 · NOT OBSERVED 3 · MATCH 0.**
+**NivXForge Device Trajectory is not yet an AMP clone in any single region.**
+
+## 60_ROW_RETEST_RESULT (screenshot rule applied)
+
+| STATUS | COUNT | ROWS |
+|---|---|---|
+| **RECLASSIFIED to SCREENSHOT_VERIFIED → no longer proposed for removal** | **3** | **#5** fullscreen/expand icon (visible top-right) → KEEP · **#93** row type tag `[rowTag]` (Cisco shows `[PE]`) → CHANGE · **#20** — *not* reclassified (see below) |
+| **RECLASSIFIED — appearance verified, form wrong** | **2** | **#35** navigator collapse chevron: appearance SCREENSHOT_VERIFIED, behaviour DOCUMENTED (C12) → CHANGE · **#53** navigator triangle handles: **NOT visible in the Cisco figure** → stays REMOVE, downgraded from PUBLICLY_OBSERVED |
+| **STILL REFERENCE_BEHAVIOR_NOT_VERIFIED (confirmed absent from the Cisco page)** | **55** | zoom in/out (#36,#37,#62), earlier/later (#38), fit-day (#39), Event ◀▶ (#60), Detection ◀▶ (#61), window label (#63), activity-volume (#64), window state (#65), selection banner (#66), mode tabs (#67), mode caption (#68), whole basis rail (#96–#105), matched/total (#34), per-type counts (#20), presets (#27), legend (#28), clear-all (#29), hatching (#51), dashed cursor (#54), event cursor (#55), day label (#56), window line (#57), day→hour polyline (#46), MITRE-adjacent removals now superseded, observables (#116), details pivots (#119), ◇ placeholders (#121), all handoff/projection/locating banners (#123–#130), epistemic chip (#12), Device IID (#13), Identity Confidence (#14), Activity Rows (#15), XDR chip (#2), legacy link (#4), wheel navigation (#89), lifeline dots/ticks (#74,#75), pid/GUID labels (#79,#80), internal ids (#81), empty-state prose (#95) |
+| **EXCLUDED FROM SCORE per ruling #4** | **1** | #3 theme toggle |
+
+**ROWS_RECLASSIFIED: 5** (#5, #35, #53, #93 + #9 compromise-events count relocated
+to the drawer). **ROWS_STILL_NOT_VERIFIED: 55.** Nothing was hidden — this is
+the retest only.
+
+REV 4 totals: 140 audited · **KEEP 34** · **CHANGE 30** · **REMOVE 55** ·
+**MISSING 20** · EXCLUDED 1 · NOT_VERIFIED 55.
+
+## DT2_3A EXECUTION STATUS
+
+**NOT STARTED. NO CODE, UI OR DATA CHANGE IN REV 4.**
+`git status` shows only this document, the four reference images and PRD.md.
+
+Reason: the retest materially **re-scoped** DT2-3a. The Cisco figure proves the
+page header, the filter/search order, the whole navigator presentation, the row
+gutter, the glyph vocabulary and the right-pane columns are all different from
+what REV 1–3 assumed, and it removed 5 planned deletions while adding new
+required changes. Executing a 140-row pass across 8 components on the old
+assumptions would have produced the wrong clone. The corrected plan is above and
+is ready to execute as a single pass on the next instruction.
+
+Acceptance endpoint for that pass is fixed: **WS-W1-1789575060 /
+`dev_0e10780f2c86`**, real evidence window, no fabricated telemetry; anything
+the corpus cannot exercise will be reported as **NOT OBSERVED IN ACCEPTANCE
+CORPUS**.

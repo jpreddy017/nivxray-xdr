@@ -1038,3 +1038,27 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
   by artifact URL / filename / re-attach. Then: region comparison A–Q → re-test
   the 60 rows → one DT2-3a pass.
 - CODE/UI/DATA unchanged. No Phase-2 flag. No deletions.
+
+### REV 4 (same day) — Cisco screenshot reference set ESTABLISHED; DT2-3a re-scoped, not executed
+- The four owner ServiceNow URLs are behind Cisco SSO: REFERENCE ARTIFACT NOT
+  ACCESSIBLE (auth_redirect → id.cisco.com SAML). Owner-authorised fallback used.
+- Extracted Cisco's OWN figures from the official Secure Endpoint User Guide PDF
+  and stored them: /app/memory/production-gates/cisco_ref/
+  CISCO_DT_FULL_PAGE_p402.png (the complete Device Trajectory page),
+  CISCO_DT_NAVIGATOR_p403.png, CISCO_DT_DEVICE_DETAILS_p404.png,
+  CISCO_DT_IOC_TEXT_p405.png. No other vendor's screenshot used as evidence.
+- A–Q comparison done: MISMATCH 7, PARTIAL 6, MISSING 1, NOT OBSERVED 3, MATCH 0.
+  Header must be the DEVICE NAME + Show details + Actions + Inbox status + share
+  + expand; search LEFT / Filters RIGHT; navigator = blue line + in-cell sized
+  red dots + filled 24h band; gutter = right-aligned labels with [PE] type tag,
+  pink highlight for malicious, System / Files & Network section headers; green
+  lifeline with square glyphs; Activity pane has NO count and NO time column;
+  and Cisco has NO trajectory toolbar at all.
+- 60-row retest: 5 reclassified (fullscreen icon KEEP, [rowTag] CHANGE, navigator
+  chevron CHANGE, triangle handles downgraded to REMOVE, compromise-events count
+  relocated to the drawer); 55 remain NOT_VERIFIED; 1 excluded (theme).
+  New totals: KEEP 34 / CHANGE 30 / REMOVE 55 / MISSING 20 / EXCLUDED 1.
+- DT2-3a deliberately NOT executed: the retest re-scoped it, and running the old
+  plan would have cloned the wrong layout. CODE/UI/DATA unchanged.
+- NEXT: one DT2-3a pass on the corrected plan; acceptance on WS-W1-1789575060 /
+  dev_0e10780f2c86 with real evidence only.
