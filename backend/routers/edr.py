@@ -1065,6 +1065,15 @@ async def endpoint_trajectory_window(
                                          or endpoint_id),
                     requested_start=time_start, requested_end=time_end,
                     focus=dt2_focus)
+        # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
+        # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
+        # the server-derived nodes and edges and infers no relationship of
+        # its own. Composed from the SAME rows already projected above.
+        from edr_plane.trajectory import projection as dt2_projection
+        out["dt2"]["graph"] = dt2_projection.build_graph(
+            out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+            requested_start=time_start, requested_end=time_end,
+            focus=dt2_focus).to_dict()
     except Exception as ex:                        # noqa: BLE001
         # The V2 contract must never take the V1 surface down with it.
         out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,

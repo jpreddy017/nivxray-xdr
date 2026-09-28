@@ -43,6 +43,9 @@ import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
+import RelationshipCanvas, { RelationshipBasis } from "./RelationshipCanvas";
+import { GRAPH_READY, focusOf, graphOf, graphStateOf, neighbourStep,
+         parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
 import AmpActivityPanel from "./AmpActivityPanel";
 
@@ -110,6 +113,11 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const tenantRef = useRef(null);
   const urlWriteRef = useRef("");
   const [dt2, setDt2] = useState(null);
+  /** DT2-3 · the process/relationship/time view over the server graph. The
+   *  event canvas stays one click away; neither view infers relationships. */
+  const [mode, setMode] = useState("RELATIONSHIPS");
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [stepCtx, setStepCtx] = useState(null);
   const [req, setReq] = useState({ loading: false, prefetching: false,
                                    canceled: false, staleDiscarded: false,
                                    err: null });
@@ -1199,6 +1207,63 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
             <div ref={plotRef} style={{ flex: 1, minWidth: 0,
                                         display: "flex",
                                         flexDirection: "column" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6,
+                            padding: "4px 8px",
+                            borderBottom: `1px solid ${C.grid}`,
+                            background: C.paperAlt }}
+                   data-testid="dt2-view-modes"
+                   data-dt2-graph-state={graphStateOf(dt2)}>
+                {["RELATIONSHIPS", "EVENTS"].map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                          data-testid={`dt2-mode-${m.toLowerCase()}`}
+                          data-active={String(mode === m)}
+                          style={{ ...navBtn,
+                                   color: mode === m ? C.text : C.link,
+                                   background: mode === m ? C.paper
+                                                          : C.paperAlt }}>
+                    {m === "RELATIONSHIPS" ? "PROCESS / RELATIONSHIP / TIME"
+                                           : "EVENT LANES"}
+                  </button>
+                ))}
+                <span style={{ fontSize: 9.6, color: C.faint,
+                               fontFamily: "var(--mono)" }}>
+                  {mode === "RELATIONSHIPS"
+                    ? "server-derived edges only · dashed span = observed evidence, not a process exit"
+                    : "endpoint-wide activity lanes"}
+                </span>
+              </div>
+              {mode === "RELATIONSHIPS" ? (
+                <>
+                  <RelationshipCanvas
+                    graph={graphOf(dt2)} view={view}
+                    bounds={boundsRef.current}
+                    plotW={plotW} rows={rows}
+                    selectedNodeId={selectedNode}
+                    theme={C}
+                    onView={setView}
+                    onSelect={(lane) => {
+                      setSelectedNode(lane.nodeId);
+                      setStepCtx(null);
+                    }} />
+                  <RelationshipBasis
+                    graph={graphOf(dt2)} selectedNodeId={selectedNode}
+                    step={stepCtx}
+                    onSelect={(nodeId) => setSelectedNode(nodeId)}
+                    onStep={(dir) => {
+                      const g = graphOf(dt2);
+                      const next = neighbourStep(
+                        g, { stepId: stepCtx?.step?.step_id,
+                             nodeId: selectedNode }, dir);
+                      if (!next) return;
+                      setStepCtx(next);
+                      const node = next.step.actor_node_id
+                        || next.step.node_id;
+                      if (node && String(node).startsWith("pnode:")) {
+                        setSelectedNode(node);
+                      }
+                    }} />
+                </>
+              ) : (
               <div style={{ display: "flex" }}>
                 <AmpCanvas
                   lanes={visibleLanes} laneStart={laneStart} rows={rows}
@@ -1223,6 +1288,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                                 width: 1 }} />
                 </div>
               </div>
+              )}
 
               {/* time-axis scrollbar over the whole retained period */}
               <div data-testid="amp-hscroll"

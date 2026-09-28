@@ -916,3 +916,38 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   its own step; NIVX SUPER ADMIN CONTROL CENTER stays parked.
 - Final manual acceptance identities to keep: PLATFORM Super Admin, Customer
   Admin, Customer Analyst, preferably a second-customer Analyst.
+## 2026-06 · DT2-3 DONE — VISIBLE DEVICE TRAJECTORY RELATIONSHIPS
+- Backend (additive, 1 hunk): `routers/edr.py` now serves the DT2-2E render
+  contract at `dt2.graph` on `GET /api/edr/endpoints/{id}/trajectory`
+  (process_nodes, activity_nodes, edges, root_node_ids, order, navigation,
+  availability, ranges, focus). V1 keys untouched; no second engine.
+- Frontend: new `trajectory/dt2/graphModel.js` (pure selectors: lane order,
+  lifelineOf, activitiesFor, parentOf/childrenOf, edgeFor, whyOf, stepsOf/
+  neighbourStep, focusOf, familiesPresent) + new
+  `trajectory/RelationshipCanvas.jsx` (+`RelationshipBasis` rail) +
+  `EdrDeviceTrajectoryPage.jsx` mode toggle
+  "PROCESS / RELATIONSHIP / TIME" (default) vs "EVENT LANES".
+- Semantics enforced: dashed span = OBSERVED_EVIDENCE_SPAN (exit only drawn
+  when `exit_observed`); a connector is drawn ONLY where `edgeFor()` finds a
+  server edge; activity glyphs (DNS ▲ / NETWORK ■ / FILE ◆ / REGISTRY ●) plot
+  at their OWN ordering_time on the owning process; BEFORE/AFTER walks
+  `navigation.ordered_step_ids` and surfaces `link_to_previous`
+  (CAUSALITY_UNKNOWN stays unknown); focus is exact or explicitly unresolved;
+  lanes capped by `MAX_RENDERED_LANES` (120) and the canvas issues no requests.
+- Tests: new `dt2/__tests__/graphModel.test.js` (A–T, 24 cases) → vitest
+  **115 passed**; new `tests/edr/test_dt2_3_graph_read.py` (10) + DT2-0/1/2E +
+  6B-2 → **165 passed**. `vite build` clean.
+- LIVE (real Windows endpoint `dev_0e10780f2c86` / WS-W1-1789575060, tenant
+  default): GRAPH_READY, **16 process lanes, 13 parent/child connectors, 1
+  FILE activity**; selecting `certutil.exe` showed WHY =
+  `CANONICAL_PARENT_PROCESS_IDENTITY · IDENTITY DOWNGRADED · 3 evidence refs`;
+  AFTER → `CAUSALITY_UNKNOWN`; PARENT nav moved selection to
+  `pnode:proc_86dd9e202435`. Families on THIS evidence: FILE OBSERVED, DNS /
+  NETWORK / REGISTRY **NOT_OBSERVED** (not fabricated).
+- Known gaps (honest): this corpus stamps every event at 2026-06-01T10:00:00Z
+  so lifelines have no temporal spread (axis works, evidence is flat);
+  detection markers not yet on the lane (separate step); Inspector (raw /
+  provenance) is the next separate step.
+- NEXT: Trajectory Inspector, then detection markers / remaining AMP
+  interaction gaps, then process/activity/behavior trees + bidirectional
+  pivots. Super Admin Control Center still parked.
