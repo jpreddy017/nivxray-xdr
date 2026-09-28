@@ -29,6 +29,7 @@ Three route classes, because the sensor plane is not the analyst plane:
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, Request
@@ -175,6 +176,95 @@ def _refuse(e: tenant_registry.TenantRegistryError) -> None:
     raise HTTPException(status_code=e.http, detail=e.detail()) from None
 
 
+# ── P0-FIX-2 · non-disclosing refusal ─────────────────────────────────
+#
+# A principal without tenant-discovery privilege must not be able to learn
+# whether ANOTHER customer's tenant exists, is inactive, or is merely
+# unauthorised. Those three facts used to be distinguishable:
+#
+#   unheld tenant                -> TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL
+#   cross-tenant role, unknown   -> TENANT_NOT_FOUND
+#   cross-tenant role, archived  -> TENANT_NOT_ACTIVE
+#
+# so a `soc_manager` / `mssp_operator` (all_tenants, but WITHOUT
+# `tenants.read`) could enumerate the registry through the refusal codes.
+# All three now collapse into ONE byte-identical refusal for such a
+# principal. The precise reason is kept server-side (log + audit).
+#
+# This normalises DISCLOSURE only. Authorisation is untouched and still
+# runs first, so nothing is ever granted by this code path.
+TENANT_DISCOVERY_PERMISSION = "tenants.read"
+UNAUTHORIZED_TENANT_CODE = "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL"
+UNAUTHORIZED_TENANT_REASON = (
+    "a request may name a tenant but never authorise one; this principal "
+    "does not hold the named tenant. Whether that tenant exists, and its "
+    "state, are deliberately not disclosed.")
+DISCLOSURE_NOTE = "TENANT_EXISTENCE_AND_STATE_NOT_DISCLOSED"
+
+_log = logging.getLogger("nivxray.edr.tenant_authority")
+
+
+def _may_discover_tenants(user: Optional[Dict[str, Any]],
+                          requested: Optional[str]) -> bool:
+    """Does this principal hold `tenants.read`?
+
+    Read through the EXISTING RBAC vocabulary (`routers.xdr_rbac`): a
+    granular `xdr_user_roles` assignment where one exists, otherwise the
+    built-in role on the verified principal. Grants nothing, and a failure
+    to resolve means NOT privileged (fail closed towards non-disclosure).
+    """
+    email = (user or {}).get("email") or (user or {}).get("sub")
+    try:
+        from routers.xdr_rbac import (_BUILTIN_ROLE_BY_NAME,
+                                      _expand_wildcard,
+                                      _resolve_user_permissions)
+        if requested and email:
+            try:
+                granular, _ = _resolve_user_permissions(requested, email)
+            except Exception:                                   # noqa: BLE001
+                granular = set()
+            if granular:
+                return TENANT_DISCOVERY_PERMISSION in set(granular)
+        role = str((user or {}).get("role") or "").strip().lower()
+        role = {"admin": "platform_admin",
+                "superadmin": "platform_admin"}.get(role, role)
+        spec = _BUILTIN_ROLE_BY_NAME.get(role)
+        if not spec:
+            return False
+        perms: set = set()
+        for p in spec.get("permissions") or []:
+            perms |= _expand_wildcard(p)
+        return TENANT_DISCOVERY_PERMISSION in perms
+    except Exception:                                           # noqa: BLE001
+        return False
+
+
+def _opaque_refusal(requested: Optional[str], principal: Optional[str],
+                    precise_code: str) -> HTTPException:
+    """ONE refusal for every unauthorised-tenant outcome.
+
+    The precise reason survives in the server log and the audit record; it
+    does not survive into the response.
+    """
+    _log.warning("[edr.tenant_authority] refusal normalised "
+                 "principal=%s requested=%s precise=%s",
+                 principal or "unresolved", requested, precise_code)
+    try:
+        from routers.xdr_rbac import _audit_scope_denial
+        _audit_scope_denial(requested, principal, "tenant_scope",
+                            f"P0-FIX-2:non_disclosing:{precise_code}")
+    except Exception:                                           # noqa: BLE001
+        pass
+    return HTTPException(status_code=403, detail={
+        "code": UNAUTHORIZED_TENANT_CODE,
+        "reason": UNAUTHORIZED_TENANT_REASON,
+        "basis": "NOT_AUTHORIZED",
+        "requested_tenant": requested,
+        "authority": "server",
+        "fail_closed": True,
+        "disclosure": DISCLOSURE_NOTE})
+
+
 async def edr_tenant(request: Request,
                      user: Dict[str, Any] = Depends(get_current_user)) -> str:
     """FastAPI dependency · the AUTHORIZED, registered, ACTIVE tenant.
@@ -204,14 +294,24 @@ async def edr_tenant(request: Request,
     header naming a tenant not held      -> 403 TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL
     cross-tenant principal, no header    -> 403 TENANT_REQUIRED
     zero-tenant principal                -> 403 TENANT_NOT_RESOLVED
-    unregistered tenant                  -> 403 TENANT_NOT_FOUND
-    non-ACTIVE tenant                    -> 403 TENANT_NOT_ACTIVE
+    unregistered tenant                  -> 403 TENANT_NOT_FOUND *
+    non-ACTIVE tenant                    -> 403 TENANT_NOT_ACTIVE *
+
+    \\* P0-FIX-2 · only for a principal holding `tenants.read`. For anyone
+    else a REQUESTED tenant that is unheld, unregistered or inactive yields
+    ONE indistinguishable refusal, so tenant existence and state cannot be
+    probed. A refusal about the principal's OWN auto-bound tenant keeps its
+    precise code: it discloses nothing about another customer.
     """
     requested = (request.headers.get(TENANT_HEADER) or "").strip() or None
     principal = (user or {}).get("email") or (user or {}).get("sub")
+    privileged = _may_discover_tenants(user, requested)
     try:
         authorized, basis = authorize_requested_tenant(principal, requested)
     except ScopeDenied as e:
+        if requested and not privileged \
+                and e.code == UNAUTHORIZED_TENANT_CODE:
+            raise _opaque_refusal(requested, principal, e.code) from None
         raise HTTPException(status_code=e.http,
                             detail={**e.detail(),
                                     "authority": "server",
@@ -220,6 +320,8 @@ async def edr_tenant(request: Request,
         resolved = tenant_registry.authoritative(
             authorized, purpose="edr.control_plane")
     except tenant_registry.TenantRegistryError as e:
+        if requested and not privileged:
+            raise _opaque_refusal(requested, principal, e.code) from None
         _refuse(e)
     request.state.effective_tenant_id = resolved
     request.state.tenant_resolution_basis = basis

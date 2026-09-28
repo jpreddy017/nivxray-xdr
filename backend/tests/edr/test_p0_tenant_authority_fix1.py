@@ -111,6 +111,9 @@ def _stubs(monkeypatch):
     monkeypatch.setattr(reg, "enforcing", lambda: True)
     monkeypatch.setattr(reg, "get_tenant", lambda t: _REGISTRY.get(t))
     monkeypatch.setattr(reg, "get_organization", lambda o: _ORGS.get(o))
+    from routers import xdr_rbac
+    monkeypatch.setattr(xdr_rbac, "_resolve_user_permissions",
+                        lambda tenant, email: (set(), "stub:no_assignment"))
     yield
 
 
@@ -122,9 +125,15 @@ def _request(tenant=None):
 
 
 def _resolve(email, tenant=None):
-    """Call the dependency exactly as FastAPI would."""
+    """Call the dependency exactly as FastAPI would.
+
+    The principal's built-in role travels with it, because P0-FIX-2 reads
+    `tenants.read` off it to decide whether a registry refusal may be
+    disclosed precisely.
+    """
     req = _request(tenant)
-    out = asyncio.run(et.edr_tenant(req, {"email": email}))
+    role = (_SCOPES.get(email) or {}).get("role")
+    out = asyncio.run(et.edr_tenant(req, {"email": email, "role": role}))
     return out, req
 
 
@@ -226,6 +235,8 @@ def test_f12_no_principal_at_all_is_refused():
 # ══════════════════════════════════════════════════════════════════
 
 def test_f13_an_unregistered_tenant_is_refused_even_for_cross_tenant():
+    """CROSS is `platform_admin`, i.e. it holds `tenants.read`, so P0-FIX-2
+    still discloses the precise registry outcome to it."""
     status, code, _ = _refusal(CROSS, TEN_UNKNOWN)
     assert status == 403 and code == "TENANT_NOT_FOUND"
 
@@ -233,6 +244,20 @@ def test_f13_an_unregistered_tenant_is_refused_even_for_cross_tenant():
 def test_f14_a_non_active_tenant_is_refused():
     status, code, _ = _refusal(CROSS, TEN_ARCHIVED)
     assert status == 403 and code == "TENANT_NOT_ACTIVE"
+
+
+def test_f14b_a_principal_without_tenants_read_gets_no_registry_detail():
+    """P0-FIX-2 interaction: the same two refusals are normalised for a
+    principal that may not discover tenants."""
+    scope = dict(_SCOPES[CROSS])
+    scope["role"] = "soc_manager"
+    _SCOPES["mgr@nivxray.test"] = scope
+    try:
+        for ten in (TEN_UNKNOWN, TEN_ARCHIVED):
+            assert _refusal("mgr@nivxray.test", ten)[1] == \
+                et.UNAUTHORIZED_TENANT_CODE
+    finally:
+        _SCOPES.pop("mgr@nivxray.test")
 
 
 def test_f15_authorisation_runs_before_the_registry_lookup(monkeypatch):

@@ -425,3 +425,25 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
   56 passed, 1 skipped. No preview probes. SELECT CUSTOMER / UI untouched.
 - STILL OPEN: fix-plan items 2-6 and the deferred preview cross-tenant probe
   matrix. Tenant Authority is NOT declared closed.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 2 DONE (non-disclosing tenant refusal)
+- `routers/edr_tenancy.py`: for a principal WITHOUT `tenants.read`, a REQUESTED
+  tenant that is unheld / unregistered / inactive now yields ONE byte-identical
+  403 (`TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL` + `disclosure:
+  TENANT_EXISTENCE_AND_STATE_NOT_DISCLOSED`). Closes the enumeration oracle a
+  `soc_manager`/`mssp_operator` (all_tenants, no tenants.read) had.
+- Privilege is read from the EXISTING RBAC vocabulary
+  (`xdr_rbac._resolve_user_permissions` → granular, else built-in role
+  expansion); unresolvable privilege fails closed towards NON-disclosure.
+  Precise code survives in the server log + `_audit_scope_denial`.
+- NOT normalised (discloses nothing about another customer): `TENANT_REQUIRED`,
+  `TENANT_NOT_RESOLVED`, `ACCESS_DENIED`, and refusals about the principal's
+  OWN auto-bound tenant (e.g. own ARCHIVED tenant still says TENANT_NOT_ACTIVE).
+- Authorisation unchanged and still authorise-first; no grant path added.
+- Tests: new `tests/edr/test_p0_tenant_authority_fix2.py` (16) + fix1 suite
+  updated (28, incl. new f14b) + B5 (30) + R4 (skip) → 73 passed, 1 skipped.
+- STILL OPEN: fix-plan items 3-6 and the deferred preview cross-tenant probe
+  matrix. Tenant Authority is NOT closed.
+- RECORDED FOR LATER (owner): tenant authorization and PRODUCT ENTITLEMENT are
+  separate decisions — the Cisco-style "no EDR entitlement/licence" experience
+  comes later, after the cross-tenant boundary is proven.
