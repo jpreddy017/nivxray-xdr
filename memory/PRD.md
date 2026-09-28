@@ -951,3 +951,44 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - NEXT: Trajectory Inspector, then detection markers / remaining AMP
   interaction gaps, then process/activity/behavior trees + bidirectional
   pivots. Super Admin Control Center still parked.
+
+---
+
+## 2026-06 · DT2-3 UI CORRECTION — STRICT CISCO AMP PARITY AUDIT (owner-directed)
+
+Owner reset the phase: **PHASE 1 = reproduce the publicly verifiable Cisco
+Secure Endpoint / AMP Device Trajectory analyst experience.** No NivXForge
+enhancements visible until parity is accepted. Engines are NOT to be weakened —
+only the presentation is corrected, with removed controls parked behind a flag.
+
+Owner-selected constraints for this step:
+1. PARITY TABLE ONLY — zero UI / code / data changes.
+2. Removed controls: hide from AMP-parity presentation only; keep
+   engines/handlers intact behind a parked flag.
+3. Inventory scope: Device Trajectory page + its Amp*/dt2 components only.
+4. No Cisco reference found ⇒ `REFERENCE_BEHAVIOR_NOT_VERIFIED` ⇒ propose
+   REMOVE (owner may grant explicit exceptions).
+5. Exact Cisco doc/page/section URL required per row.
+
+Delivered: `/app/memory/production-gates/DT2_3_AMP_PARITY_TABLE.md`
+- 136 visible elements audited across 9 groups.
+- KEEP 33 · CHANGE 25 · REMOVE 62 · MISSING_IN_NIVXFORGE 16 ·
+  REFERENCE_BEHAVIOR_NOT_VERIFIED 62.
+- Cisco source register C1–C11 (Secure Endpoint User Guide p.401–411 verbatim,
+  UW–Madison KB 90059 console walkthrough, Cisco TechNotes 222850 / 218067,
+  Cisco Live TACSEC-2012). C11 is **negative evidence**: click-to-zoom is
+  documented for Mobile App Trajectory, NOT Device Trajectory — so Zoom in /
+  Zoom out are not parity controls.
+- 7 ambiguous items escalated for owner decision (navigator +/- collapse
+  reference, evidence-integrity messaging, tenant-boundary prose, theme toggle,
+  disposition values, DNS/REGISTRY families, files-as-vertical-axis-rows).
+
+STATUS: **BLOCKED ON OWNER LINE-BY-LINE REVIEW.** No UI work begins until the
+table is approved. `git status` confirms the only change is the new document.
+
+Backlog unchanged and still parked: DT2-4 Evidence Inspector V2, DT2-5
+structured search + MATCH navigation, DT2-6 detection navigation, DT2-7
+investigation pivots, DT2-8 virtualization/performance, DT2-9 analyst
+acceptance, P2 wider Windows event coverage, P2 full investigation surface,
+P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
+**PHASE 2 — NIVXFORGE ENHANCEMENTS** (post-parity).
