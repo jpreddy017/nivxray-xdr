@@ -334,3 +334,24 @@ prove live Sysmon telemetry canonicalization and Device Trajectory.
 - NEXT: multi-step behavior patterns (exec → DNS → network → file → child
   exec) feeding both Device Trajectory and the Incident Behavior Tree.
   P0 tenant authority hardening still pending.
+
+## 2026-06 · DT2-2E TRAJECTORY GRAPH PROJECTION CONTRACT DONE (not wired)
+- New `backend/edr_plane/trajectory/projection.py` — pure COMPOSITION layer:
+  DT2-0 `contract.build` (identity, coverage, availability, ranges,
+  detections, focus) + 2A process_edges + 2B activity_edges + 2C
+  temporal_sequences + 2D behaviors → `TrajectoryGraph`. Owns no
+  relationship/coverage/behavior logic of its own.
+- Renders: ProcessNode (depth, lifeline as EVIDENCE SPAN with end_time
+  permanently None, presence OBSERVED vs REFERENCED_BY_CHILD_EVIDENCE_ONLY),
+  ActivityNode (DNS/NETWORK/FILE/REGISTRY attached to the proven actor),
+  GraphEdge (evidence_ref + WHY + basis + split times + causality level),
+  order/sequences, behaviors, detection_pivots, navigation (cursors,
+  before/after pivots that stay UNKNOWN), coverage re-exported verbatim.
+- Stable ids: `pnode:{iid}`, `anode:{iid}:{activity_id}`, DT2-2A/2B edge ids,
+  DT2-2C step ids; all focus targets validated through DT2-0 `FocusTarget`.
+- Tests: `backend/tests/edr/test_dt2_2e_projection.py` (32) + 2A/2B/2C/2D
+  regression → 146 passed. API route NOT wired (owner decision).
+- NEXT (owner-stated order): **P0 customer/tenant authority hardening —
+  remove the browser-authoritative `SELECT CUSTOMER` control and make tenant
+  resolution server-derived** BEFORE the visible AMP-class trajectory
+  implementation.
