@@ -536,3 +536,89 @@ NOTHING HIDDEN, NOTHING DELETED.
 
 Only this document was amended. Awaiting owner rulings on AMBIGUOUS_ITEM_2
 through AMBIGUOUS_ITEM_7 and NEW AMBIGUITY #8 before any UI correction pass.
+
+---
+
+# REV 3 — OWNER RULINGS RECORDED (NO UI WORK STARTED)
+
+All eight rulings are accepted and recorded as binding for DT2-3a/b/c.
+
+| ITEM | OWNER RULING | EFFECT ON THE TABLE |
+|---|---|---|
+| #2 Evidence-integrity messaging | REMOVE NivXForge engineering wording from the AMP-parity presentation; preserve all evidence/relationship/causal/provenance/UNKNOWN semantics underneath; use a Cisco-verified empty/error state where one exists | Rows 95, 100–105, 121, 122, 126, 127 → hide presentation only. Engines untouched |
+| #3 Tenant-boundary prose | REMOVE from the Device Trajectory content area; Tenant Authority stays enforced server-side and unchanged; shell-level customer context may remain | Row 131 → CHANGE to a minimal state; prose removed |
+| #4 Theme toggle | OUT OF SCOPE. Do not remove, move or redesign the global theme control; exclude global-shell controls from the parity score | Row 3 → **EXCLUDED FROM SCORE** (was REMOVE). Global shell untouched |
+| #5 Disposition | Match Cisco's malicious / clean / unknown only where NivXForge evidence truthfully supports it. NEVER map SUSPICIOUS→MALICIOUS/CLEAN or UNKNOWN→CLEAN. Where our model cannot supply a Cisco state, show a truthful unknown/unavailable and record the data-model gap | Row 21 → CHANGE with a no-falsification constraint + recorded gap |
+| #6 DNS / REGISTRY | Preserve the telemetry and capability. Do not present custom DNS/REGISTRY glyphs, lanes, labels or categories as Cisco parity. Render through a publicly verified generic Cisco event/details presentation where they fit; otherwise park the NivXForge visualisation for Phase 2 | Row 82 → CHANGE; evidence retained, custom glyph vocabulary parked |
+| #7 Files on the vertical axis | REQUIRED for parity. Implement as **DT2-3b — CISCO PROCESS / FILE RELATIONSHIP PRESENTATION**, from real canonical FILE evidence only; no faked file rows from activity labels; no evidence → no relationship | Row 70 → deferred to DT2-3b (in scope, not Phase 2) |
+| #8 Upper line graph | Current guide wins over legacy. Cloud-query volume is the parity target; NivXForge has no equivalent metric, so DO NOT relabel our activity curve and DO NOT fabricate. HIDE that line graph; keep the 30-day navigator. Record **CISCO FEATURE DATA SOURCE NOT AVAILABLE IN NIVXFORGE** | Rows 40 / 59 / N5 / N6 → hide the curve; recorded truthful data gap |
+| Navigator (previously approved) | Implement Cisco navigator incl. − collapse, + expand, click-the-collapsed-ribbon-to-expand, circles sized relative to events/day, hover count+time, click-to-focus, red compromise dots, blue search-result dots. REMOVE custom trajectory Zoom In / Zoom Out | Rows 35, 36, 37, 42, 43, 49, 50, 62, 140 + matrix N1–N11 |
+
+Sequence fixed by the owner: **DT2-3a** AMP presentation correction → **DT2-3b**
+process/file vertical-axis relationship parity → **DT2-3c** IOC / compromise
+visual parity (yellow highlighting, separate compromise event, blue halo,
+indicator description, tactics/techniques in Event Details, red compromise
+navigator dots). Custom Detection previous/next is removed from the parity
+presentation and is NOT an approximation of the blue-halo behaviour. No IOC may
+be fabricated to demonstrate the UI.
+
+## REV 3 — SCREENSHOT EVIDENCE RULE (ADOPTED)
+
+Evidence priority for Phase 1 is now:
+1. Owner-supplied Cisco AMP / Secure Endpoint Device Trajectory screenshots
+   (PRIMARY VISUAL REFERENCE)
+2. Official / public Cisco documentation and screenshots
+3. Cisco videos / demos
+4. Other legitimate public Cisco material
+
+New classification rules:
+- Clearly visible in an owner-supplied Cisco screenshot but not described in
+  prose ⇒ `PUBLICLY_OBSERVED / SCREENSHOT_VERIFIED`, **not**
+  `REFERENCE_BEHAVIOR_NOT_VERIFIED`.
+- Screenshot establishes appearance but not behaviour ⇒
+  `APPEARANCE = SCREENSHOT_VERIFIED`, `BEHAVIOR = REFERENCE_BEHAVIOR_NOT_VERIFIED`.
+  The behaviour is not to be invented.
+- A NivXForge control is not preserved merely because an engine supports it.
+- A Cisco-visible control is not removed merely because prose does not mention it.
+
+Consequence: the 60 `REFERENCE_BEHAVIOR_NOT_VERIFIED` rows must be **re-tested
+against the owner's Cisco screenshots** before any of them is hidden. Region
+comparison A–Q (page header, computer context, filter+search, 30-day navigator,
+24-hour navigator, navigator controls, graph, process rows, file rows,
+lifelines, parent/child geometry, event glyphs, IOC presentation, selected
+event, right-side details, toolbar, empty/loading states) is required, with
+MATCH / PARTIAL_MATCH / MISMATCH / REQUIRED_CORRECTION per difference.
+
+## REV 3 — BLOCKER: CISCO REFERENCE SCREENSHOTS NOT IDENTIFIABLE
+
+The job's asset store holds **1,660 artifacts**, overwhelmingly NivXForge
+captures. Filenames are timestamps or opaque hashes, so the Cisco Device
+Trajectory references cannot be identified by name. Eight of the most
+Cisco-looking candidates were inspected directly; **none is AMP Device
+Trajectory**:
+
+| ARTIFACT | ACTUALLY IS |
+|---|---|
+| `fmt441do_duSb_B-XV6M…jpeg` | Cisco **XDR** incident overview (kill chain) |
+| `dxfplui3_4GuAlKLiUygTkhJ…jpeg` | **Palo Alto Cortex XDR** incidents |
+| `7ip8gyu0_CtcSzq_Qfuyoeww…webp` | **Microsoft 365 Defender** incident "Attack story" |
+| `0d17btr1_XiGo5LOd2Z0afUmR…jpeg` | **SentinelOne** Graph Explorer (Powered by Mandiant) |
+| `j025v9q3_Ry9FvcC7fmdnkVso…webp` | Cisco **XDR** Integrations page |
+| `cwaheub6_FSVBZ5fvq9FQMbT9…jpeg` | **Elastic Security** integration setup |
+| `44ry9gqu_image-1 (17).jpeg` | **NivXray XDR** incident page (our own) |
+| `vtjm0bqj_keU8FeVRayY9dEtl…jpeg` | **Microsoft Defender** onboarding |
+
+Per the STRICT RULE and the new screenshot-evidence rule, DT2-3a **must not**
+begin: applying 60 hide-decisions against documentation alone is exactly what
+the owner has now overridden, and guessing which artifacts are the Cisco
+reference risks cloning the wrong product's UI (the store demonstrably contains
+Cortex XDR, Defender and SentinelOne screens).
+
+**REQUIRED FROM OWNER:** identify the Cisco AMP / Secure Endpoint **Device
+Trajectory** screenshots — by artifact URL, exact filename, or by re-attaching
+them. Once identified, the region-by-region A–Q comparison runs first, the 60
+NOT_VERIFIED rows are re-tested against them, and then the single approved
+DT2-3a correction pass proceeds.
+
+CODE_CHANGED: **NO** · UI_CHANGED: **NO** · DATA_CHANGED: **NO** ·
+NOTHING HIDDEN · NOTHING DELETED · NO PHASE-2 FLAG.

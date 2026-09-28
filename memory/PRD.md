@@ -1019,3 +1019,22 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
   p.171). NivXForge does not collect cloud-query volume.
 - STATUS: still BLOCKED. CODE/UI/DATA unchanged; no Phase-2 flag designed.
   Awaiting owner rulings on ambiguities 2–7 and new #8.
+
+### REV 3 (same day) — owner rulings recorded; DT2-3a BLOCKED on reference screenshots
+- All 8 rulings recorded in the parity doc (#2 remove engineering wording,
+  #3 remove tenant prose, #4 theme toggle OUT OF SCOPE, #5 disposition with
+  no-falsification constraint, #6 DNS/REGISTRY preserved but not presented as
+  Cisco parity, #7 files-on-axis = DT2-3b IN SCOPE, #8 hide the cloud-query
+  line graph and record the data gap). Sequence fixed: DT2-3a → DT2-3b → DT2-3c.
+- Owner adopted a SCREENSHOT EVIDENCE RULE: owner-supplied Cisco AMP screenshots
+  are the PRIMARY visual reference and outrank prose. Anything visible in them
+  is SCREENSHOT_VERIFIED. Therefore all 60 REFERENCE_BEHAVIOR_NOT_VERIFIED rows
+  must be re-tested against those screenshots BEFORE anything is hidden.
+- BLOCKER: the 1,660 job artifacts are mostly NivXForge captures with opaque
+  names. Eight best Cisco-looking candidates were inspected: they are Cisco XDR,
+  Cortex XDR, MS Defender (x2), SentinelOne, Elastic and one NivXray page — NOT
+  AMP Device Trajectory. Proceeding would risk cloning the wrong product.
+- ACTION REQUIRED FROM OWNER: identify the Cisco Device Trajectory screenshots
+  by artifact URL / filename / re-attach. Then: region comparison A–Q → re-test
+  the 60 rows → one DT2-3a pass.
+- CODE/UI/DATA unchanged. No Phase-2 flag. No deletions.
