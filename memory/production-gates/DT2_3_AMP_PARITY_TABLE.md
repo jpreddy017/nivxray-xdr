@@ -17,17 +17,26 @@ internal identity is proposed for deletion.
 
 ## TOTALS
 
+REV 2 — amended after the owner's navigator ruling and the two Cisco sources it
+led to (C12, C13). Superseded REV 1 figures are shown in brackets.
+
 | METRIC | COUNT |
 |---|---|
-| TOTAL_VISIBLE_ELEMENTS_AUDITED | **136** |
-| KEEP | **33** |
-| CHANGE | **25** |
-| REMOVE (hide from AMP-parity presentation) | **62** |
-| MISSING_IN_NIVXFORGE | **16** |
-| REFERENCE_BEHAVIOR_NOT_VERIFIED | **62** |
+| TOTAL_VISIBLE_ELEMENTS_AUDITED | **140** (was 136) |
+| KEEP | **33** (unchanged) |
+| CHANGE | **27** (was 25) |
+| REMOVE (hide from AMP-parity presentation) | **60** (was 62) |
+| MISSING_IN_NIVXFORGE | **20** (was 16) |
+| REFERENCE_BEHAVIOR_NOT_VERIFIED | **60** (was 62) |
 
-Classification counts: DOCUMENTED 41 · PUBLICLY_OBSERVED 30 · INFERRED 3 ·
-REFERENCE_BEHAVIOR_NOT_VERIFIED 62.
+Classification counts: DOCUMENTED 48 · PUBLICLY_OBSERVED 29 · INFERRED 3 ·
+REFERENCE_BEHAVIOR_NOT_VERIFIED 60.
+
+REV 2 deltas: #35 navigator − / + reclassified DOCUMENTED (REMOVE → CHANGE) ·
+#115 MITRE tactics/techniques box reclassified DOCUMENTED (REMOVE → CHANGE) ·
+#43 upgraded PUBLICLY_OBSERVED → DOCUMENTED · four new MISSING rows #137–#140
+(yellow IOC highlighting, separate compromise event, blue halo, search results
+as blue dots).
 
 ---
 
@@ -46,6 +55,12 @@ REFERENCE_BEHAVIOR_NOT_VERIFIED 62.
 | C9 | Cisco TechNote — Troubleshoot Exploit Prevention in Secure Endpoint | https://www.cisco.com/c/en/us/support/docs/security/secure-endpoint/218067-troubleshoot-exploit-prevention-in-secur.html | Device Trajectory icon in event details; activity before/after compromise |
 | C10 | Cisco Live TACSEC-2012 (2024) | https://www.ciscolive.com/c/dam/r/ciscolive/global-event/docs/2024/pdf/TACSEC-2012.pdf | Device Trajectory filtering / 30-day retention |
 | C11 | Cisco Secure Endpoint User Guide (PDF) | https://docs.amp.cisco.com/en/SecureEndpoint/Secure%20Endpoint%20User%20Guide.pdf | "Mobile App Trajectory", p.411 — **negative evidence**: click-to-zoom is documented for *Mobile App* Trajectory, NOT Device Trajectory |
+| C12 | Cisco AMP for Endpoints User Guide (PDF) | https://cloudmanaged.ca/wp-content/uploads/2020/05/AMP-for-Endpoints-User-Guide.pdf | "Device Trajectory" → **"The Navigator"**, p.171 and **"Indications of Compromise"**, p.171 |
+| C13 | Cisco Secure Endpoint User Guide (PDF) | https://docs.amp.cisco.com/en/SecureEndpoint/Secure%20Endpoint%20User%20Guide.pdf | **"Trajectory Indications of Compromise"**, p.405 |
+
+REV 2 verbatim anchors:
+- C12 p.171 "The Navigator": *"You can collapse the navigator by clicking the - button and expand it again by clicking on the ribbon or the + button."* · *"The navigator enables you to quickly locate and pinpoint events in the Device Trajectory. The upper ribbon displays the last 30 days, and the miniature line graph above it represents the level of activity on the computer over this period. Red dots on the 30-day ribbon represent the occurrence of compromise events. Search results appear as blue dots. The size of the dots are relative to the number of events per day. Below the 30-day ribbon is the 24-hour ribbon, which represents the 24 hours of the selected day."*
+- C13 p.405 "Trajectory Indications of Compromise": *"When certain series of events are observed on a single device, they are seen by Secure Endpoint as indications of compromise. In Device Trajectory, these events will be highlighted yellow so they are readily visible. There will also be a separate compromise event in the Trajectory that describes the type of compromise. Clicking on the compromise event will also highlight the individual events that triggered it with a blue halo."* · *"A description of the indicator and the tactics and techniques will also be displayed in the Event Details pane of the trajectory."*
 
 Verbatim anchors used throughout:
 - C1: *"The vertical axis of the Device Trajectory shows a list of files and processes observed on the device by the connector and the horizontal axis represents the time. Running processes are represented by a solid horizontal line with child processes and files the process acted upon stemming from the line. A list of file events is displayed on the right side of the device trajectory."*
@@ -105,7 +120,7 @@ Verbatim anchors used throughout:
 | 32 | `at:<timestamp>` time-start filter | *"at:2023-12-31 to start the device trajectory view at midnight…"* | C6 p.409 | DOCUMENTED | Start DT at a timestamp; `<term> at:<ts>` = logical AND | Absent | **MISSING** | Documented search grammar |
 | 33 | Documented search-term coverage (detection name, SHA-256, file name, file path, URL, remote IP, user name, iOS bundle ID, Windows OS API name) + tokenisation rules | C6 tables | C6 p.407–409 | DOCUMENTED | Exact match/tokenisation semantics | Free-text server query, semantics not aligned | **MISSING** | Search semantics parity |
 | 34 | "N / M observations" matched counter | none | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Matched vs all-time observation counter | REMOVE | Our projection metric |
-| 35 | Navigator collapse chevron ▼ / ▶ | Not found in the DT pages I extracted (owner cites a Cisco navigator +/- collapse control) | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Collapses the whole navigator panel | REMOVE **(pending owner exception — see AMBIGUOUS #1)** | Needs the owner's exact page reference; a +/- collapse control is *not* the same as our chevron |
+| 35 | Navigator collapse control (currently ▼ / ▶ chevron) | *"You can collapse the navigator by clicking the - button and expand it again by clicking on the ribbon or the + button."* | **C12 p.171 "The Navigator"** | **DOCUMENTED** *(REV 2 — was NOT_VERIFIED)* | Collapse via a **−** button; expand by clicking **the ribbon** or a **+** button | ▼ / ▶ chevron collapses the panel; the collapsed ribbon is not clickable to expand | **CHANGE** *(REV 2 — was REMOVE)* | Control is verified parity, but the glyphs and the click-the-ribbon-to-expand affordance are not. Implement Cisco's − / + and make the collapsed ribbon expand on click. **This is navigator collapse/expand and must NOT be conflated with #36/#37/#62 trajectory zoom, which stay REMOVE.** |
 | 36 | Zoom in (magnifier+) icon button | Not documented for Device Trajectory; click-to-zoom is documented only for **Mobile App** Trajectory | C11 p.411 (negative) | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Halves the window span | REMOVE | Explicit negative evidence for DT |
 | 37 | Zoom out (magnifier−) icon button | same as #36 | C11 p.411 (negative) | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Doubles the window span | REMOVE | Explicit negative evidence for DT |
 | 38 | ◀ / ▶ earlier / later icon buttons | none | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Pans the window by half a span | REMOVE | Cisco pans by dragging the bars / scrolling the graph |
@@ -118,7 +133,7 @@ Verbatim anchors used throughout:
 | 40 | Activity density sparkline above the dates | *"The blue line graph above the dates shows the number of cloud queries made by the endpoint each day"* | C3 p.403 | DOCUMENTED (element) | Line graph = **cloud queries per day**, hover shows precise number | Line graph = our per-day observation density | CHANGE | Right element, wrong quantity + no hover readout |
 | 41 | 30-day band of day cells | 30 days retained; day navigator | C1 p.401; C2 p.402; C10 | DOCUMENTED | 30-day period navigable by day | 30 day cells anchored on last observed day | KEEP | Parity |
 | 42 | Day activity represented as bar height | *"activity as circles of varying size"* | C2 p.402 | DOCUMENTED | Circles of varying size | Vertical bars inside each day cell | CHANGE | Representation must be Cisco's circles |
-| 43 | Red strip on days containing malicious/detections | Compromise marked in red (red dots) | C7 | PUBLICLY_OBSERVED | Red marks indicate compromise | Red top strip sized by count | CHANGE | Convert to Cisco-style red dot marking |
+| 43 | Red strip on days containing malicious/detections | *"Red dots on the 30-day ribbon represent the occurrence of compromise events."* | **C12 p.171** *(REV 2 — upgraded from C7 PUBLICLY_OBSERVED)* | **DOCUMENTED** | Red **dots** on the 30-day ribbon mark compromise events | Red top strip sized by count | CHANGE | Must be red dots on the ribbon, not a strip, and must mean compromise events specifically |
 | 44 | Day-of-month numeric labels | Date labels under the band | C7 | PUBLICLY_OBSERVED | Dates labelled | Same | KEEP | Parity |
 | 45 | Month labels (e.g. JUL / AUG) | Month labels on the band | C7 | PUBLICLY_OBSERVED | Same | Same | KEEP | Parity |
 | 46 | Connector polyline linking selected day → 24-hour band | none | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Decorative bracket | REMOVE | Invented ornament |
@@ -210,7 +225,7 @@ Verbatim anchors used throughout:
 | 112 | Details: detection name, detecting engine, quarantine action | *"the details also include the detection name, engine that detected the file, and the quarantine action"* | C3 p.403; C8 | DOCUMENTED | Shown for malicious files | "Detected by" + detection record present | KEEP | Parity (field-by-field completeness to be verified in the build step) |
 | 113 | Details: file name, path, parent process, file size, execution context, hashes | C3 verbatim | C3 p.403 | DOCUMENTED | Complete file-event field set | Partial / differently named | CHANGE | Field set must match the documented list exactly |
 | 114 | Details: network fields — dest IP, source & destination ports, protocol, execution context, file size and age, process ID and SID, hashes | C3 verbatim | C3 p.403 | DOCUMENTED | Complete network-event field set | Partial | CHANGE | Field set must match the documented list exactly |
-| 115 | MITRE tactics/techniques box | none in DT details | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | MITRE box in details | REMOVE | Park for Phase 2 |
+| 115 | Indicator / tactics / techniques box in Event Details | *"A description of the indicator and the tactics and techniques will also be displayed in the Event Details pane of the trajectory."* | **C13 p.405** *(REV 2 — was "none")* | **DOCUMENTED** | Indicator **description** + tactics + techniques in the DT Event Details pane | MITRE tactics/techniques listed as bare identifiers; no indicator description | **CHANGE** *(REV 2 — was REMOVE)* | The pane is verified parity; ours is missing the indicator description and presents raw MITRE ids rather than Cisco's indicator narrative |
 | 116 | "Observables" list with expanders | none | — | REFERENCE_BEHAVIOR_NOT_VERIFIED | — | Observable rows with expansion | REMOVE | Park for Phase 2 |
 | 117 | "Detected by" engine attribution | Detection engine is documented | C3 p.403; C8 | DOCUMENTED | Engine named | Present | KEEP | Parity |
 | 118 | Detection record block | Detection info documented, this composite block is ours | C3 p.403 | INFERRED | Detection name/engine/action | NivXForge detection record shape | CHANGE | Reshape to the documented fields |
@@ -235,12 +250,21 @@ Verbatim anchors used throughout:
 | 132 | Error banner | Failure states are intrinsic | — | INFERRED | Error indication | Red banner + epistemic sentence | KEEP | Keep the banner, drop the epistemic sentence |
 | 133 | Event → Device Trajectory pivot focuses/selects that event | *"click the Device Trajectory icon… to view the behavior leading up to and following the compromise"*; clicking an event centres DT on that occurrence | C8; C9; C4-adjacent; C7 | DOCUMENTED | DT opens centred on the originating event | Focus resolver selects the exact observation and centres both axes | KEEP | Parity, already correct |
 | 134 | Retention statement (30 days / first 500 compromise events) | C1 verbatim | C1 p.401 | DOCUMENTED | Documented limits | Not surfaced | **MISSING** | Optional, but it is documented Cisco DT context |
+
+## J · TRAJECTORY INDICATIONS OF COMPROMISE (REV 2 — NEW GROUP, ALL MISSING)
+
+| # | VISIBLE_ELEMENT | CISCO_PUBLIC_EVIDENCE | SOURCE | CLASSIFICATION | CISCO_BEHAVIOR | CURRENT_NIVXFORGE_BEHAVIOR | VERDICT | REASON |
+|---|---|---|---|---|---|---|---|---|
+| 137 | **Yellow highlighting of IOC events** in the trajectory | *"In Device Trajectory, these events will be highlighted yellow so they are readily visible."* | C13 p.405; C12 p.171 | DOCUMENTED | IOC-constituent events highlighted yellow in the graph | Absent — we mark malicious/detection events red only | **MISSING** | Core documented IOC presentation |
+| 138 | **Separate compromise event** in the trajectory describing the compromise type | *"There will also be a separate compromise event in the Trajectory that describes the type of compromise."* | C13 p.405; C12 p.171 | DOCUMENTED | A distinct compromise event object on the trajectory | Absent — compromise exists only as a red marker/band on an event | **MISSING** | Distinct documented trajectory object |
+| 139 | **Blue halo** on the individual triggering events when the compromise event is clicked | *"Clicking on the compromise event will also highlight the individual events that triggered it with a blue halo."* | C13 p.405; C12 p.171 | DOCUMENTED | Click compromise event → halo the constituent events | Absent (our ◀/▶ Detection stepping is a different, unverified interaction) | **MISSING** | This is Cisco's real detection navigation; it replaces #61 |
+| 140 | **Search results as blue dots** on the 30-day ribbon | *"Search results appear as blue dots."* | C12 p.171 | DOCUMENTED | Search hits plotted on the navigator ribbon | Absent — search filters the population but is not plotted on the ribbon | **MISSING** | Documented search↔navigator coupling |
 | 135 | Vertical scrollbar over rows | Rows scroll; selected row can go off-screen | C2 p.402; C7 | PUBLICLY_OBSERVED | Vertical navigation | Virtualized scrollbar | KEEP | Parity |
 | 136 | Horizontal scrollbar over the retained period | *"scrolling side to side on the Process Detail Graph"* | C7 | PUBLICLY_OBSERVED | Horizontal navigation | Scrollbar over observed extent | KEEP | Parity |
 
 ---
 
-## CISCO_FEATURES_MISSING_IN_NIVXFORGE (16)
+## CISCO_FEATURES_MISSING_IN_NIVXFORGE (20)
 
 | # | MISSING FEATURE | SOURCE | CLASSIFICATION |
 |---|---|---|---|
@@ -260,6 +284,10 @@ Verbatim anchors used throughout:
 | 91 | "Copy SHA-256" in the vertical-axis right-click menu | C6 p.409 | DOCUMENTED |
 | 120 | SHA-256 pivot menu → "Copy to Clipboard" in Event Details | C6 p.409 | DOCUMENTED |
 | 134 | Retention context: 30 days of file events; first 500 compromise events | C1 p.401 | DOCUMENTED |
+| 137 | Yellow highlighting of the events that constitute an indication of compromise | C13 p.405; C12 p.171 | DOCUMENTED |
+| 138 | A separate compromise event in the trajectory describing the compromise type | C13 p.405; C12 p.171 | DOCUMENTED |
+| 139 | Blue halo on the individual triggering events when the compromise event is clicked | C13 p.405; C12 p.171 | DOCUMENTED |
+| 140 | Search results plotted as blue dots on the 30-day ribbon | C12 p.171 | DOCUMENTED |
 
 Also verified as **already present** (no action): one endpoint per investigation,
 computer context, filters control, search field, 30-day navigator, activity
@@ -271,14 +299,15 @@ historical loading.
 
 ---
 
-## NIVXFORGE_ONLY_ELEMENTS_TO_HIDE (62 — engines retained behind a parked flag)
+## NIVXFORGE_ONLY_ELEMENTS_TO_HIDE (60 — engines retained behind a parked flag)
 
 **Toolbar / navigation invented controls**
 ◀ Event · Event ▶ · ◀ Detection · Detection ▶ · Zoom in · Zoom out (both the
 toolbar text buttons and the filter-bar icon buttons) · earlier/later ◀ ▶ ·
 fit-day crosshair · ISO window label · "Activity volume: N" spike buttons ·
-wheel/shift/ctrl viewport navigation · navigator collapse chevron *(pending
-owner exception)*.
+wheel/shift/ctrl viewport navigation.
+*(REV 2: the navigator collapse control is no longer on this list — it is
+DOCUMENTED per C12 and moves to CHANGE, row #35.)*
 
 **Mode / architecture terminology**
 PROCESS / RELATIONSHIP / TIME · EVENT LANES · the mode caption.
@@ -306,7 +335,7 @@ retained period" button · matched/total counter · per-type observed counts ·
 OPENED FROM DETECTION banner.
 
 **Panels and pivots**
-MITRE box · Observables list · details pivot menu (14 items) · canvas
+Observables list · details pivot menu (14 items) · canvas
 right-click pivot menu contents *(CHANGE — keep the menu, swap contents)* ·
 ◇ placeholders · epistemic chip · Device IID · Identity Confidence · Activity
 Rows · vulnerabilities disclaimer.
@@ -324,11 +353,13 @@ clear-all-filters.
 
 ## AMBIGUOUS_ITEMS_REQUIRING_OWNER_DECISION
 
-1. **Navigator collapse control (#35).** You noted Cisco documents navigator
-   **+ / −** collapse/expand. I did not find that wording in the Device
-   Trajectory pages I extracted (User Guide p.401–410). Default rule applied →
-   REMOVE. If you supply the exact page/section, I will reclassify to
-   DOCUMENTED and implement it as a **+ / −** control (not our ▼ / ▶ chevron).
+1. ~~**Navigator collapse control (#35).**~~ **RESOLVED BY OWNER (REV 2).**
+   Owner supplied the citation; confirmed verbatim in C12 p.171 "The Navigator":
+   *"You can collapse the navigator by clicking the - button and expand it again
+   by clicking on the ribbon or the + button."* Reclassified **DOCUMENTED**,
+   verdict **CHANGE** (implement − / + plus click-the-ribbon-to-expand).
+   Trajectory Zoom In / Zoom Out (#36, #37, #62) remain **REMOVE** — a different
+   interaction, with C11 as negative evidence.
 
 2. **Evidence-integrity messaging (#95, #121, #122, #126, #127).** Strict clone
    says remove; NivXForge truthfulness says a canceled/failed/bounded window
@@ -375,3 +406,133 @@ clear-all-filters.
 
 **NEXT STEP: owner line-by-line review. No UI work will begin until the table is
 approved.**
+
+---
+
+# REV 2 AMENDMENT — DAY AND TIME NAVIGATOR BEHAVIOUR MATRIX
+
+Checked behaviour-by-behaviour. A ribbon existing is **not** parity.
+
+| # | CISCO_BEHAVIOR | SOURCE | CURRENT_NIVXFORGE | PARITY_STATUS | REQUIRED_CHANGE |
+|---|---|---|---|---|---|
+| N1 | Activity is represented as **circles of varying size**, *"the size of the dots are relative to the number of events per day"* | C2 p.402; C12 p.171 | 30-day band: vertical **bars** inside day cells, height = log density. 24-hour band: **circles** sized by log density | **PARTIAL** — hour band conforms, day band does not | Replace the 30-day bar cells with circles sized by events-per-day. Decide linear vs log sizing (Cisco says "relative to the number of events per day"; our log scale is ours) |
+| N2 | Hover a circle → *"view the number of events and the time they were recorded"* | C2 p.402 | Native `title` tooltips: day cell = `key · N observation(s) · N malicious · N detection(s)`; hour bin = `N observation(s) · <first_timestamp> · click to centre the trajectory here` | **PARTIAL** | Explicit hover readout showing **event count + recorded time** only. Drop malicious/detection composites and our instructional sentence from the tooltip |
+| N3 | Click a circle → *"focus the device trajectory display on the events"* | C2 p.402 | Day cell click → selects day and sets the window to that whole day. Hour-bin click → centres on the nearest observed bin's first event | **CONFORMS (hour)** / **PARTIAL (day)** | Day-cell click should focus the display on that day's **events**, not simply set a 24-hour span. Keep the hour behaviour |
+| N4 | A line graph sits **above the dates** | C3 p.403; C12 p.171 | Sparkline above the 30-day band | **CONFORMS (placement)** | None for placement |
+| N5 | **What the line graph means** — current guide: *"the number of cloud queries made by the endpoint each day"* (C3 p.403); AMP guide: *"the miniature line graph above it represents the level of activity on the computer over this period"* (C12 p.171) | C3 p.403 **vs** C12 p.171 | Our curve = per-day observation **count** (activity level) | **CONFLICTED** — conforms to C12, does **not** conform to C3 | **OWNER RULING REQUIRED** — see NEW AMBIGUITY #8. Cloud-query volume is not an artefact NivXForge collects |
+| N6 | Hover the line → *"view the precise number of queries"* | C3 p.403 | No hover readout on the curve at all | **MISSING** | Add a hover readout on the line (quantity per N5's ruling) |
+| N7 | *"The upper ribbon displays the last 30 days"* | C12 p.171; C1 p.401 | 30 day cells, anchored on the **last observed day** rather than today | **PARTIAL** | Owner ruling: Cisco says "the last 30 days". Our anchoring avoids 30 empty cells for a stale endpoint but is a deviation. Flagged, not silently kept |
+| N8 | *"Red dots on the 30-day ribbon represent the occurrence of compromise events"* | C12 p.171 | Red **strip** at the top of a day cell, height scaled by `malicious + detections` | **NON-CONFORMING** | Red **dots** on the ribbon, meaning **compromise events** specifically — not our malicious+detection composite |
+| N9 | *"Search results appear as blue dots"* on the 30-day ribbon | C12 p.171 | Search filters the population; nothing is plotted on the ribbon | **MISSING** | Plot search hits as blue dots on the 30-day ribbon (row #140) |
+| N10 | *"Below the 30-day ribbon is the 24-hour ribbon, which represents the 24 hours of the selected day"* | C12 p.171 | 24-hour band for the selected day, with draggable window + triangle handles | **CONFORMS** | None (the extra dashed cursor / hatching / window readout remain REMOVE per #51, #54, #56, #57) |
+| N11 | *"You can collapse the navigator by clicking the - button and expand it again by clicking on the ribbon or the + button"* | C12 p.171 | ▼ / ▶ chevron collapses the panel; the collapsed ribbon is not clickable | **NON-CONFORMING (control verified)** | Implement − / + glyphs and make the collapsed ribbon expand on click (row #35) |
+
+Navigator verdict: **1 conforming, 1 conforming in placement, 4 partial,
+2 non-conforming, 2 missing, 1 conflicted.** The navigator is *not* currently an
+AMP clone.
+
+---
+
+# REV 2 AMENDMENT — THE SEVEN ESCALATED AMBIGUOUS ITEMS (INDIVIDUAL)
+
+### AMBIGUOUS_ITEM_1 — Navigator collapse / expand control (row #35)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** `AmpFilterBar` renders a ▼ / ▶ chevron that collapses the whole navigator section. When collapsed, the remaining strip is not clickable to expand.
+- **CISCO_EVIDENCE_FOUND:** C12 p.171 "The Navigator" — *"You can collapse the navigator by clicking the - button and expand it again by clicking on the ribbon or the + button."*
+- **CISCO_EVIDENCE_NOT_FOUND:** Nothing outstanding. (This wording is absent from the pages of the current Secure Endpoint User Guide I extracted, p.401–411, which is why REV 1 could not verify it.)
+- **YOUR_PROPOSED_RULING:** **CHANGE** — DOCUMENTED. Implement − / + and click-the-ribbon-to-expand. Keep trajectory Zoom In / Zoom Out at REMOVE.
+- **WHY_AMBIGUOUS:** **NO LONGER AMBIGUOUS — RESOLVED BY OWNER RULING (REV 2).**
+
+### AMBIGUOUS_ITEM_2 — Evidence-integrity messaging (rows #95, #121, #122, #126, #127)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** Five distinct texts. Empty graph: *"NO PROCESS RELATIONSHIP EVIDENCE IN THIS WINDOW — nothing is drawn rather than guessed."* Empty list: *"No activity was OBSERVED in this window. That is an absence of observation, not an absence of activity."* Row placeholders `◇ not reported` / `◇ parent not observed`. Request outcome: `CANCELED` / `STALE_RESPONSE_DISCARDED` notice. Projection: *"Showing the most recent N of M recorded observations…"*
+- **CISCO_EVIDENCE_FOUND:** None. Cisco documents retention limits (C1 p.401: 30 days, first 500 compromise events) but no epistemic empty-state vocabulary.
+- **CISCO_EVIDENCE_NOT_FOUND:** Any Cisco text distinguishing "not observed" from "did not happen"; any request-lifecycle or projection-progress notice in Device Trajectory.
+- **YOUR_PROPOSED_RULING:** Option (b) — one neutral single-line empty/failure state in the parity UI; keep the full epistemic distinction in the engine and reinstate the wording in Phase 2.
+- **WHY_AMBIGUOUS:** Strict parity says remove, but removing it makes a canceled, failed or bounded window render identically to a genuinely quiet endpoint. That is the one class of removal that could make the parity UI state something untrue. This is a correctness-vs-parity conflict, not a styling choice.
+
+### AMBIGUOUS_ITEM_3 — Tenant-boundary prose in the no-endpoint state (row #131)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** With no `device` selected, the page shows an endpoint picker plus *"No endpoint evidence is attributed to <customer>"*, the `edr_tenant_boundary` sentence, and *"Nothing is shown here rather than something borrowed from another customer…"* with the authorised tenant list.
+- **CISCO_EVIDENCE_FOUND:** Every documented entry point enters Device Trajectory for an already-chosen device (C1 p.401; C7; C8; C9; C4 p.404). Cisco has no deviceless DT state.
+- **CISCO_EVIDENCE_NOT_FOUND:** Any Cisco DT endpoint picker, tenant-scope statement, or multi-customer boundary message.
+- **YOUR_PROPOSED_RULING:** CHANGE — minimal "no device selected" state, tenant-boundary prose removed from the parity presentation and retained in the tenancy surfaces that own it.
+- **WHY_AMBIGUOUS:** The prose exists because of the closed P0 Tenant Authority gate — it is a deliberate multi-tenant safety statement. Removing it from DT is presentationally correct but touches language that was written to satisfy a security gate, so it needs your explicit approval rather than my judgement.
+
+### AMBIGUOUS_ITEM_4 — Light / Dark theme toggle (row #3)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** A per-page Light/Dark button in the DT header that writes `nx.theme` and broadcasts `nx-theme` to the whole console shell.
+- **CISCO_EVIDENCE_FOUND:** None for Device Trajectory. Cisco does ship light and dark console appearances (the public screenshots in C7 are light, other public material is dark), so the *capability* is real.
+- **CISCO_EVIDENCE_NOT_FOUND:** Any theme control **on the Device Trajectory page** in C1–C13.
+- **YOUR_PROPOSED_RULING:** REMOVE from the Device Trajectory page; relocate to the console shell (which is outside this audit's scope, so it needs your instruction before I move it).
+- **WHY_AMBIGUOUS:** The feature is legitimate and the theme system is shared; only its *placement* is unverified. Deleting the DT button without relocating it could strip the only theme control the analyst can reach.
+
+### AMBIGUOUS_ITEM_5 — Disposition filter values (row #21)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** Three checkboxes — `MALICIOUS`, `SUSPICIOUS`, `UNKNOWN_NOT_ASSESSED`.
+- **CISCO_EVIDENCE_FOUND:** C5 p.406 — *"You can choose to view only events that were performed on or by malicious files, clean files, or those with an unknown disposition."* So Cisco's set is **malicious / clean / unknown**.
+- **CISCO_EVIDENCE_NOT_FOUND:** Any DT filter value named "suspicious"; any Cisco value equivalent to `UNKNOWN_NOT_ASSESSED`.
+- **YOUR_PROPOSED_RULING:** CHANGE the labels to malicious / clean / unknown; treat `SUSPICIOUS` as an exception requiring your approval, since NivXForge genuinely records that verdict and dropping it would hide real evidence.
+- **WHY_AMBIGUOUS:** Cisco is missing a "clean" option we do not currently offer, and we have a "suspicious" verdict Cisco does not. This is a data-model divergence, not a label change, so it cannot be resolved as a cosmetic rename.
+
+### AMBIGUOUS_ITEM_6 — Activity families DNS and REGISTRY (row #82)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** `RelationshipCanvas` plots four families with geometric glyphs — DNS ▲, NETWORK ■, FILE ◆, REGISTRY ●.
+- **CISCO_EVIDENCE_FOUND:** C1 p.401 — DT *"tracks file, network, and connector events"*. C3 p.403 — connector events appear next to the **System** label; network event details enumerate destination IP, ports and protocol. C7 — the detection icon is *"shaped like a play button"*.
+- **CISCO_EVIDENCE_NOT_FOUND:** DNS or Registry as Device Trajectory event families; any Cisco use of ▲ ■ ◆ ● as trajectory glyphs.
+- **YOUR_PROPOSED_RULING:** CHANGE — fold DNS into network and Registry into the file/system taxonomy for the parity presentation, and adopt Cisco's icon vocabulary. Keep the families intact in the projection.
+- **WHY_AMBIGUOUS:** DNS and Registry are real, high-value Windows evidence NivXForge actually collects. Folding them away is presentationally correct but hides genuine telemetry classes, and the alternative (an approved exception) is a deliberate parity break only you can authorise.
+
+### AMBIGUOUS_ITEM_7 — Files as vertical-axis rows (row #70)
+- **CURRENT_NIVXFORGE_BEHAVIOR:** The vertical axis is **one row per process**. Files appear as ◆ glyphs positioned on the acting process's row.
+- **CISCO_EVIDENCE_FOUND:** C1 p.401 — *"The vertical axis of the Device Trajectory shows a list of files and processes observed on the device by the connector"*, and *"child processes and files the process acted upon stemming from the line"*. C7 confirms the same in the console screenshots.
+- **CISCO_EVIDENCE_NOT_FOUND:** Nothing — Cisco is unambiguous here. The ambiguity is about **scope**, not evidence.
+- **YOUR_PROPOSED_RULING:** CHANGE, but as its own step (**DT2-3b**): promoting files to first-class rows changes the axis, the row-virtualisation contract, the endpoint-wide lane index and the projection's row identity.
+- **WHY_AMBIGUOUS:** It is the single largest item in the audit and is structural rather than presentational. Bundling it into the same pass as ~60 hide-operations would make one reviewable correction into a graph rewrite.
+
+---
+
+# ANY_OTHER_RULING_CHANGED_BY_THIS_CISCO_SOURCE
+
+1. **#115 — Indicator / tactics / techniques box: REMOVE → CHANGE (DOCUMENTED).**
+   C13 p.405 states *"A description of the indicator and the tactics and
+   techniques will also be displayed in the Event Details pane of the
+   trajectory."* Our MITRE box was wrongly proposed for removal in REV 1. It is
+   parity — but incomplete: we show bare MITRE identifiers and no indicator
+   description.
+2. **#61 — ◀ Detection / Detection ▶ stays REMOVE, and its replacement is now
+   identified.** Cisco's documented detection navigation is *click the
+   compromise event → blue halo on the triggering events* (#139), not
+   previous/next stepping.
+3. **Four new MISSING rows (#137–#140)** — yellow IOC highlighting, the separate
+   compromise event, the blue halo, and search results as blue dots on the
+   ribbon. These are Group J.
+4. **#43 upgraded to DOCUMENTED** — red dots on the 30-day ribbon mean
+   *compromise events*, so our `malicious + detections` composite is also
+   semantically wrong, not just visually wrong.
+5. **#42 reinforced** — *"the size of the dots are relative to the number of
+   events per day"* confirms circles on the 30-day ribbon too, not only in the
+   hour band.
+6. **NEW AMBIGUITY #8 — the line graph above the dates has two conflicting
+   Cisco definitions.** C3 p.403 (current guide): *"the number of cloud queries
+   made by the endpoint each day"*. C12 p.171 (AMP guide): *"represents the
+   level of activity on the computer over this period"*. Our curve is activity
+   level, i.e. it matches the older definition and not the current one.
+   NivXForge does not collect cloud-query volume at all, so exact parity with
+   C3 is not implementable from our evidence. **OWNER RULING REQUIRED:**
+   (a) follow C12 and keep the activity-level curve, (b) follow C3 and render
+   nothing until a cloud-query-equivalent metric exists, or (c) render an
+   explicitly labelled activity-level curve as an approved exception.
+   My recommendation: (a) — it is a verified Cisco definition of the same
+   element in the same position.
+7. **No KEEP row was invalidated** by C12/C13. #83 (red marking of malicious /
+   detection events) remains KEEP but is now subordinate to #137: yellow is the
+   documented IOC colour and red is reserved for compromise events.
+
+---
+
+# REV 2 CHANGE CONTROL
+
+CODE_CHANGED: **NO**
+UI_CHANGED: **NO**
+DATA_CHANGED: **NO**
+COMPONENTS_RESTRUCTURED: **NO**
+PHASE-2 PARKED FLAG: **NOT DESIGNED, NOT CREATED**
+NOTHING HIDDEN, NOTHING DELETED.
+
+Only this document was amended. Awaiting owner rulings on AMBIGUOUS_ITEM_2
+through AMBIGUOUS_ITEM_7 and NEW AMBIGUITY #8 before any UI correction pass.

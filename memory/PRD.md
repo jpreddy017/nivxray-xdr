@@ -992,3 +992,30 @@ investigation pivots, DT2-8 virtualization/performance, DT2-9 analyst
 acceptance, P2 wider Windows event coverage, P2 full investigation surface,
 P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
 **PHASE 2 — NIVXFORGE ENHANCEMENTS** (post-parity).
+
+### REV 2 amendment (same day) — owner navigator ruling accepted, two new Cisco sources
+- Owner's citation verified verbatim: C12 = AMP for Endpoints User Guide p.171
+  "The Navigator" — *"You can collapse the navigator by clicking the - button
+  and expand it again by clicking on the ribbon or the + button."* Row #35
+  reclassified DOCUMENTED, REMOVE → CHANGE. Trajectory Zoom In/Out (#36/#37/#62)
+  stay REMOVE (C11 negative evidence). The two interactions are NOT conflated.
+- C12 also establishes: 30-day upper ribbon, miniature line graph above it,
+  RED DOTS = compromise events, SEARCH RESULTS = BLUE DOTS, dot size relative to
+  events per day, 24-hour ribbon = selected day.
+- C13 = current Secure Endpoint User Guide p.405 "Trajectory Indications of
+  Compromise" — yellow highlighting of IOC events, a separate compromise event,
+  BLUE HALO on the triggering events when clicked, and *"A description of the
+  indicator and the tactics and techniques will also be displayed in the Event
+  Details pane"*. This REVERSED row #115 (MITRE box): REMOVE → CHANGE, DOCUMENTED.
+- New Group J (all MISSING): #137 yellow IOC highlighting · #138 separate
+  compromise event · #139 blue halo · #140 search results as blue dots.
+- REV 2 totals: 140 audited · KEEP 33 · CHANGE 27 · REMOVE 60 · MISSING 20 ·
+  NOT_VERIFIED 60.
+- Delivered additionally: DAY_TIME_NAVIGATOR_BEHAVIOR_MATRIX (N1–N11 — navigator
+  is NOT a clone: 1 conforming, 4 partial, 2 non-conforming, 2 missing,
+  1 conflicted) and the seven escalated ambiguities written out individually.
+- NEW AMBIGUITY #8: the line graph above the dates has two conflicting Cisco
+  definitions — cloud queries per day (C3 p.403) vs level of activity (C12
+  p.171). NivXForge does not collect cloud-query volume.
+- STATUS: still BLOCKED. CODE/UI/DATA unchanged; no Phase-2 flag designed.
+  Awaiting owner rulings on ambiguities 2–7 and new #8.
