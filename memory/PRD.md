@@ -1809,3 +1809,56 @@ source files stashed.
 6. Then: B5 read-only measurement surfaces, then the Cisco/Defender/
    CrowdStrike/SentinelOne/Sophos/Carbon Black capability study BEFORE
    finalising E4/E5.
+
+---
+
+## WINDOWS PRE-CHECK ASSESSMENT — 2026-06 · OWNER REVIEW PENDING
+Full report: `docs/WAVE_B_WINDOWS_PRECHECK_ASSESSMENT.md`
+Endpoint untouched · nothing deployed · trajectory frozen · no hashing implemented.
+
+**HISTORICAL EID 1 = `NO_LONGER_PROVABLE_FROM_ENDPOINT_RETENTION`.** The
+Sysmon channel is circular and its oldest retained record is
+2026-09-29T09:27:09Z, so the 2026-09-22 15:43–16:46 UTC window has rolled
+out (along with the EID 16 config-change records). 16 is the number that
+REACHED canonical evidence — no longer provable as the number generated.
+Replacement: a forward-looking read-only measured window (endpoint EID 1
+count vs backend `process_create` count over the same UTC minutes).
+
+**CURRENT EID 1 = HEALTHY.** Sysmon 15.22, ProcessCreate unfiltered,
+MD5+SHA256, full identity field set present — exactly what B1/B2 need.
+
+**EID 5 ROOT CAUSE = THREE independent blocks, all confirmed in-repo:**
+(1) NOT GENERATED — our own `nivx-w1-sysmon.xml` has
+`<ProcessTerminate onmatch="include"/>` with no rules (include-nothing);
+(2) would be REFUSED — no `("sysmon", 5)` in `SUPPORTED`
+(`edr_plane/windows_eventlog.py`) ⇒ `WINDOWS_EVENT_ID_NOT_SUPPORTED`;
+(3) would NOT be canonicalised — no `5` in the `sysmon_dsm.py` kind map.
+4689 is server-ready (B2 added it) but Windows auditing is No Auditing.
+**Proposal: SERVER FIRST (B5a, two dict entries + gate + regression),
+THEN one line on the endpoint (`include`→`exclude`, no service restart,
+owner authorisation required).** ~0.5% telemetry increase. Do NOT use
+4689 as the termination source: no ProcessGuid ⇒ PID-only guess.
+
+**FILE HASHING.** `PROCESS_IMAGE_SHA256` proven and preserved (16/16).
+`FILE_CREATE_CONTENT_SHA256` = 0/107 (`HASH_NOT_OBSERVED`); EID 15 is
+also off. The six B3 owner decisions are now answered with
+DECISION/OPTIONS/SECURITY/PERFORMANCE/RECOMMENDED/WHY. Recommended:
+acceptance endpoint only · allow-list by type · privacy trees excluded ·
+64 MiB & 120 files/min · 2 s settle window · retain `CHANGED_SINCE_EVENT`
+labelled. NOT IMPLEMENTED.
+
+**READ-PATH PERF ROOT CAUSE (measured, read-only).**
+`v2_shadow_observations` = 264,241 docs / **606 MB** / 2,417 B avg, and
+**TWO unfiltered full reads** in the path:
+`device_identity.py:195` (`list_devices`) and `:446` (`observations`,
+which filters in PYTHON). 4.45 s each ⇒ the 14.3 s trajectory request.
+The serving indexes already exist and are unused. Measured fix:
+indexed `$or` + `$gte` in `observations()` = 6,597 docs in **0.143 s**
+(31×, docsExamined == nReturned), unresolved device 0.001 s vs 4.45 s;
+`list_devices()` as a server-side `$group` = 63 rows in 0.47 s (9×) with
+the cross-tenant fail-closed invariant preserved literally. NOT
+IMPLEMENTED — awaiting authorisation.
+
+**NEXT (proposed):** B5a termination readiness (server only) · B5b
+read-path fix · B5c measured delivery-fidelity window · then the
+Cisco/Defender/CrowdStrike/SentinelOne/Sophos/Carbon Black study.
