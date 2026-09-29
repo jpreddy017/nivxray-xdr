@@ -2227,3 +2227,37 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
 - ENDPOINT_CHANGED: NO · DEPLOYED: NO · DOMAIN_CHANGED: NO · DATA_CHANGED: NO ·
   DATA_COPIED: NO · UI_CHANGED: NO · E3 NOT started.
 
+
+### 2026-09-29 — B5 SCOPE CORRECTION: PREVIEW IS OUT OF SCOPE (owner ruling)
+- PERMANENT RULE: every telemetry acceptance proof MUST name the runtime/store it
+  was measured against. Preview `mongodb://localhost:27017` / `test_database` is
+  NEVER production evidence and must not be used for B5 or any later acceptance
+  gate. Preview is not operational for this program.
+- The only live, authoritative path:
+  `DESKTOP-A9HGFJJ` -> `NivXForgeSensor` (`--backend https://nivxray.nivxforge.com`)
+  -> PRODUCTION backend -> PRODUCTION database.
+- All earlier B5 arrival findings (0 EID5, 0/10 ProcessGuids, no delivery counters)
+  are hereby scoped to the PREVIEW store only and carry NO weight for B5.
+- NO EID5 DEFECT IS DEMONSTRATED. The only real problem was that validation was
+  measuring the wrong store.
+- Read-only production diagnose dispatched to the Emergent deployer with
+  `intent=debug` (diagnose, no deploy): deployer job ref
+  `95e7e8cd-6528-4f50-8702-566d0dc3b0ce`, dispatched twice (initial brief +
+  scope-clarification follow-up). Both queued; the deployer runs asynchronously
+  and had NOT returned findings at the time of writing. No production result has
+  been produced or assumed.
+- Brief asked production for: deployment/run identity, runtime (pods/replicas/
+  image/tier/health), DB type, safe DB name, MONGO_URL/DB_NAME binding PRESENCE
+  only, which store receives `/api/edr/agent/telemetry`, any `DESKTOP-A9HGFJJ`
+  EDR-agent telemetry, Sysmon EID5/`ProcessTerminate` presence, exact-value lookup
+  of the 10 ProcessGuids, ingest-route log/status evidence, and production
+  `edr_delivery_counters` (absence stated as absence, never as measured zeros).
+- Conditional chain proof requested if EID5 present: receive -> acceptance/refusal/
+  dedupe -> DSM/parser -> canonical `process_exit` -> ProcessGuid binding ->
+  lifecycle termination -> canonical_event_id authority, including explicit
+  `UtcTime -> exit_time` (correct) vs `UtcTime -> process.start_time` (defect).
+- STATUS UNCHANGED: `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`
+  (`PENDING_BOUNDARY = AUTHORITATIVE_RECEIVE_STORE_IDENTITY`). No loss inferred.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · PROD_RESTARTED: NO · CONFIG_CHANGED: NO ·
+  DATA_CHANGED: NO · UI_CHANGED: NO · PROD_CREDENTIALS_USED: NO · E3 NOT started.
+
