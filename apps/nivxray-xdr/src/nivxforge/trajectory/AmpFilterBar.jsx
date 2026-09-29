@@ -36,6 +36,10 @@ export default function AmpFilterBar({
   fileTypes = [], onFileTypes, fileTypeCounts = new Map(),
   processes = [], hiddenProcesses = [], onHiddenProcesses,
   query, onQuery,
+  /** Cisco reports how much evidence a search matched and reduces the
+   *  trajectory to it. `null` = nothing counted yet; a real 0 is
+   *  reported as 0 and never hidden. */
+  matchCount = null,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(query || "");
@@ -105,6 +109,16 @@ export default function AmpFilterBar({
                style={{ flex: 1, fontSize: 14, color: C.ink,
                         padding: "10px 12px 10px 0", background: "transparent",
                         border: "none", outline: "none" }} />
+        {query ? (
+          <span data-testid="amp-search-match-count"
+                data-match-count={matchCount == null ? "" : String(matchCount)}
+                style={{ fontSize: 12.5, color: C.inkDim, whiteSpace: "nowrap",
+                         padding: "0 12px 0 6px" }}>
+            {matchCount == null ? "searching…"
+              : `${matchCount} matching observation`
+                + `${matchCount === 1 ? "" : "s"}`}
+          </span>
+        ) : null}
       </div>
 
       <div style={{ position: "relative" }}>

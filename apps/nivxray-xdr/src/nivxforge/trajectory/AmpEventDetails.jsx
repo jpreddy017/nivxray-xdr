@@ -113,6 +113,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
     || event.disposition !== "UNKNOWN_NOT_ASSESSED";
   const tactics = (event.mitre || []).filter((m) => /^TA/i.test(m));
   const techniques = (event.mitre || []).filter((m) => !/^TA/i.test(m));
+  const attributed = tactics.length > 0 || techniques.length > 0;
 
   return (
     <Shell width={width} height={height} onBack={onBack}>
@@ -169,16 +170,25 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
             + `${event.display_label || ""}`}
       </p>
 
+      {/* The red ATT&CK box is a CLAIM. Cisco shows it for an event
+          that carries an indicator's tactics and techniques (C13,
+          p.405). With nothing attributed it must not read as a threat,
+          so the box stays neutral and says so. */}
       <div data-testid="amp-mitre-box"
-           style={{ marginTop: 10, border: "1px solid #FCA5A5",
+           data-mitre-attributed={attributed ? "true" : "false"}
+           style={{ marginTop: 10,
+                    border: `1px solid ${attributed ? "#FCA5A5" : C.grid}`,
                     borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ background: C.malicious, color: "#FFFFFF",
+        <div style={{ background: attributed ? C.malicious : C.paperAlt,
+                      color: attributed ? "#FFFFFF" : C.inkDim,
                       fontSize: 9.6, fontWeight: 800, letterSpacing: ".6px",
                       padding: "4px 8px" }}>
           MITRE | ATT&CK
         </div>
-        <div style={{ padding: "7px 9px", background: C.maliciousHalo }}>
-          <div style={{ fontSize: 9.6, fontWeight: 800, color: "#991B1B" }}>
+        <div style={{ padding: "7px 9px",
+                      background: attributed ? C.maliciousHalo : C.paper }}>
+          <div style={{ fontSize: 9.6, fontWeight: 800,
+                        color: attributed ? "#991B1B" : C.inkFaint }}>
             Tactics
           </div>
           {tactics.length === 0 ? (
@@ -192,8 +202,8 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
               {t}
             </div>
           ))}
-          <div style={{ fontSize: 9.6, fontWeight: 800, color: "#991B1B",
-                        marginTop: 7 }}>
+          <div style={{ fontSize: 9.6, fontWeight: 800, marginTop: 7,
+                        color: attributed ? "#991B1B" : C.inkFaint }}>
             Techniques
           </div>
           {techniques.length === 0 ? (

@@ -442,7 +442,8 @@ async def _detection_counts(tenant: str, records: list[dict],
     if not ref_to_endpoint:
         return {}
     since = (_now() - timedelta(hours=window_hours)).isoformat()
-    predicate = eq.endpoint_predicate(list(ref_to_endpoint), RAW_EVENTS)
+    predicate = eq.endpoint_predicate(list(ref_to_endpoint), RAW_EVENTS,
+                                      tenant_id=tenant)
     matched = {"$filter": {"input": {"$ifNull": ["$derivations", []]},
                            "as": "d",
                            "cond": {"$eq": ["$$d.outcome",

@@ -45,29 +45,31 @@ HOST = "DT2-3C-FIXTURE"
 ENDPOINT_ID = "ep_dt23cfixture01"
 T0 = datetime(2026, 9, 22, 16, 20, 0, tzinfo=timezone.utc)
 
-#: (offset ms, kind, process, image, target, is the authority's subject)
+PS = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+EXPLORER = "C:\\Windows\\explorer.exe"
+UPDATER = "C:\\Users\\Public\\updater.exe"
+
+#: DT2-3c REV 2 · the fixture now AUTHORS the parent-process evidence
+#: explicitly, so `explorer.exe -> powershell.exe -> updater.exe` exists
+#: IN EVIDENCE and the renderer may legitimately draw it. This is
+#: authored fixture evidence, NOT inferred from name order, proximity or
+#: PID surrogacy, and it is NOT presented as real endpoint telemetry.
+#: (offset ms, kind, process, image, target, subject, parent image)
 PLAN = [
-    (0, "process_create", "explorer.exe",
-     "C:\\Windows\\explorer.exe", None, False),
-    (1200, "process_create", "powershell.exe",
-     "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-     None, False),
-    (2400, "file_create", "powershell.exe",
-     "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-     "C:\\Users\\Public\\updater.exe", False),
+    (0, "process_create", "explorer.exe", EXPLORER, None, False, None),
+    (1200, "process_create", "powershell.exe", PS, None, False, EXPLORER),
+    (2400, "file_create", "powershell.exe", PS, UPDATER, False, EXPLORER),
     # the authority's subject observation
-    (3600, "registry_value_set", "powershell.exe",
-     "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    (3600, "registry_value_set", "powershell.exe", PS,
      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater",
-     True),
+     True, EXPLORER),
     # byte-identical TWIN of the subject: same instant, same key, same
     # image. It must NOT be emphasised.
-    (3600, "registry_value_set", "powershell.exe",
-     "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    (3600, "registry_value_set", "powershell.exe", PS,
      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater",
-     False),
-    (4800, "network_connect", "updater.exe",
-     "C:\\Users\\Public\\updater.exe", "203.0.113.24:443", False),
+     False, EXPLORER),
+    (4800, "network_connect", "updater.exe", UPDATER,
+     "203.0.113.24:443", False, PS),
 ]
 
 
@@ -76,7 +78,8 @@ def _iso(offset_ms: int) -> str:
 
 
 def _observation(tenant: str, idx: int, offset_ms: int, kind: str,
-                 process: str, image: str, target, subject: bool) -> dict:
+                 process: str, image: str, target, subject: bool,
+                 parent_image: str = None) -> dict:
     """One fixture observation, shaped exactly like a real one."""
     ts = _iso(offset_ms)
     # Content identity: deliberately NOT including the record id, so the
@@ -91,6 +94,19 @@ def _observation(tenant: str, idx: int, offset_ms: int, kind: str,
         digest_size=6).hexdigest()
     proc_iid = "proc_" + hashlib.blake2s(
         f"{HOST}:{process}".encode(), digest_size=6).hexdigest()
+    # Authored parent-process evidence. The parent's identity is derived
+    # from the PARENT'S OWN image, exactly as the child observation would
+    # have reported it, and a root process names no parent at all.
+    parent_name = (str(parent_image).split("\\")[-1]
+                   if parent_image else None)
+    parent_iid = ("proc_" + hashlib.blake2s(
+        f"{HOST}:{parent_name}".encode(), digest_size=6).hexdigest()
+        if parent_name else None)
+    guid = "{" + hashlib.blake2s(
+        f"guid|{HOST}|{process}".encode(), digest_size=8).hexdigest() + "}"
+    parent_guid = ("{" + hashlib.blake2s(
+        f"guid|{HOST}|{parent_name}".encode(), digest_size=8).hexdigest()
+        + "}" if parent_name else None)
     return {
         "adapter": "dt2-3c-fixture", "cem_version": "v1", "case_id": None,
         "tenant_id": tenant, "captured_at": ts, "kind": kind,
@@ -109,11 +125,19 @@ def _observation(tenant: str, idx: int, offset_ms: int, kind: str,
             "adapter": "dt2-3c-fixture", "adapter_version": "1.0",
             "device_iid": DEVICE_IID, "computer": HOST,
             "process": {"iid": proc_iid, "name": process, "image": image,
-                        "parent_iid": None},
+                        "guid": guid,
+                        "parent_iid": parent_iid,
+                        "parent_name": parent_name,
+                        "parent_image": parent_image,
+                        "parent_guid": parent_guid},
             "raw": {
                 "computer": HOST, "image_path": image, "pid": 3000 + idx,
                 "user": f"{HOST}\\analyst",
                 "target": target,
+                "process_guid": guid,
+                "parent_process_guid": parent_guid,
+                "parent_image": parent_image,
+                "ppid": (3000 + idx - 1) if parent_name else None,
                 "remote_ip": target if kind == "network_connect" else None,
                 "registry_key": target if kind.startswith("registry")
                 else None,

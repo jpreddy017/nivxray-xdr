@@ -343,9 +343,20 @@ def test_an_undeclared_field_cannot_be_smuggled_in():
 
 
 def test_an_empty_alias_set_never_degrades_to_an_unfiltered_read():
-    pred = endpoint_predicate([], "v2_shadow_observations")
+    # v2_shadow_observations is tenant-partitioned, so the customer is
+    # supplied here; the point of this case is the EMPTY ALIAS SET.
+    pred = endpoint_predicate([], "v2_shadow_observations",
+                              tenant_id="ten_a")
     assert pred and pred != {}
     assert "_nivx_unresolved_endpoint" in pred
+    # an unpartitioned store behaves identically
+    assert "_nivx_unresolved_endpoint" in endpoint_predicate(
+        [], "edr_response_commands")
+
+
+def test_a_resolved_alias_set_without_a_customer_never_reads_evidence():
+    pred = endpoint_predicate(["DESKTOP-A9HGFJJ"], "v2_shadow_observations")
+    assert pred == {"_nivx_unresolved_tenant": {"$exists": True}}
 
 
 def test_a_single_field_store_yields_an_in_predicate():
@@ -354,8 +365,11 @@ def test_a_single_field_store_yields_an_in_predicate():
 
 
 def test_a_multi_field_store_addresses_every_declared_field():
-    pred = endpoint_predicate(["a"], "v2_shadow_observations")
-    got = {list(c.keys())[0] for c in pred["$or"]}
+    pred = endpoint_predicate(["a"], "v2_shadow_observations",
+                              tenant_id="ten_a")
+    tenant_clause, identity_clause = pred["$and"]
+    assert tenant_clause == {"tenant_id": "ten_a"}
+    got = {list(c.keys())[0] for c in identity_clause["$or"]}
     assert got == set(ENDPOINT_KEYED_STORES["v2_shadow_observations"])
 
 

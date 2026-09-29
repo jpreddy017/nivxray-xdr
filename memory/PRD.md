@@ -1395,3 +1395,113 @@ P2: trajectory API parity. No production deployment.
   and clean (3,299) corpora into one 6,597-row read. The projection is not
   tenant-scoped. I removed that misleading endpoint row rather than ship a
   merged view; the acceptance counts were proven directly from the store.
+
+---
+
+## 2026-09-29 · E1 EVIDENCE AUTHORITY = PASS · DT2 FROZEN · ENGINE-FIRST PROGRAM OPENED
+
+Owner directive received: **engine-first**. Device Trajectory is now a
+FROZEN consumer/projection. No cosmetic Cisco parity work until the
+engine foundation reaches its gates. Not deployed.
+
+### P0 · TRAJECTORY/EVIDENCE TENANT ISOLATION — CLOSED (was the blocker)
+- Root cause: `services/edr/endpoint_query.endpoint_predicate()` keyed
+  evidence reads on the ALIAS SET only, and `event.raw.computer` is not
+  unique. Two customers both enrolling `DESKTOP-A9HGFJJ` produced ONE
+  6,597-row read (3,298 + 3,299). Alias resolution was already
+  tenant-constrained; the downstream evidence query was not.
+- Fix: new `TENANT_PARTITIONED_STORES` (`v2_shadow_observations`,
+  `edr_raw_events`, `edr_endpoints`) + `tenant_id=` kwarg. Predicate is
+  now `{"$and":[{tenant}, {identity}]}` (the `$and` also stops a caller's
+  own `$or` clobbering it). A partitioned store with NO tenant returns
+  `_nivx_unresolved_tenant` — fail closed, never a cross-customer read
+  and never a false-honest empty. `EndpointResolution.predicate()` takes
+  the tenant from the AUTHORITATIVE resolved identity only, so an
+  identity whose ownership failed closed (TENANT_CONFLICT / MISMATCH /
+  UNATTRIBUTED_LEGACY) reads nothing.
+- Call sites scoped: trajectory_window (5), response.py, xdr_search,
+  edr_onboarding. Projection cache key now includes the tenant.
+- LIVE PROOF: unscoped 6,597 → tenant A 3,298 / tenant B 3,299 /
+  tenantless 0. Same hostname resolves to a DIFFERENT device per
+  customer. Cross-tenant device id → `ENDPOINT_NOT_RESOLVED` (opaque).
+- Tests: `tests/edr/test_trajectory_tenant_isolation.py` (32, A-K incl. a
+  structural guard that no query site may address a partitioned store
+  without a tenant). `test_p0_2c_alias_invariant.py` 2 cases retargeted
+  (intent preserved, one new fail-closed case added).
+
+### TWO FABRICATIONS REMOVED
+1. Navigator compromise markers came from the per-observation
+   `compromise_authority` classification: the clean corpus showed **70**
+   compromise events for an endpoint whose contract says
+   `NO_AUTHORITATIVE_COMPROMISE_OBSERVED`, while the fixture that holds a
+   real one showed 0. New `_mark_compromises()` reads ONLY the
+   contract-validated store. Marker and contract can no longer disagree.
+   Test: `test_dt2_3c_compromise_marker_authority.py` (8, A-H).
+2. `isRed()` painted red off a bare `is_detection` flag — 480/500
+   historical rows are `kind=detection` + `UNKNOWN_NOT_ASSESSED`, so
+   ordinary Sysmon telemetry rendered malicious. Now requires
+   `ASSESSED_BY_DETECTION_FABRIC` or a MALICIOUS disposition. The red
+   ATT&CK box is neutral when nothing is attributed.
+
+### DT2-3c REV 2 (owner corrections, then FROZEN)
+- Full-height yellow IOC column **REMOVED from strict parity** (it was an
+  uncited NivXForge decision). Compromise is now a SEPARATE EVENT on its
+  own `Compromise` band with a red marker, so it stays distinguishable
+  from its contributors at the same instant — no timestamp altered.
+- Surface switched to **DARK** (the owner's live Cisco console captures
+  outrank the light User-Guide figure). Light palette retained.
+- `?from=&to=` time focusing now HONOURED on first paint (proved exactly
+  120,000 ms); auto-focus never overrides an explicit window.
+- Fixture now AUTHORS parent-process evidence ⇒ explorer.exe →
+  powershell.exe → updater.exe exists in evidence, drawn with
+  `SYSMON_PARENT_PROCESS_GUID`, AUTHORITATIVE.
+- Projection was DROPPING `parent_guid`/`parent_image`/`process_guid`;
+  propagating them gave the REAL corpus 10 PROCESS_PROCESS + 7
+  PROCESS_NETWORK + 1 PROCESS_DNS edges it had never shown.
+- `LANE_PREFETCH` 14 → 90 (one row consumes many projection lanes), so a
+  dense endpoint renders 28 rows instead of 8. Nothing fabricated.
+- Search reports a match count ("9 matching observations") and reduces
+  the axis; blue search dots in both ribbons.
+- Tests: frontend vitest **204 passed** (new `dt2_3c_rev2_parity.test.js`,
+  15). Focused backend DT2 regression **182 passed**.
+
+### THE MATURITY GAP — DIAGNOSED
+`docs/NIVXFORGE_EDR_ENGINE_MASTER_BLUEPRINT.md` (WAVE 0 inventory).
+Headline: both acceptance corpora have **ZERO `edr_raw_events`** — they
+were written straight into `v2_shadow_observations` by re-projection
+scripts, bypassing ingestion and therefore the detection fabric. No raw
+row ⇒ no derivations ⇒ no DETECTION_MATCHED ⇒ no ATT&CK / IOC /
+compromise. The fabric WORKS (1,456 DETECTION_MATCHED platform-wide) and
+`detection_content/library/registry.py` already holds **37 rules, 23
+Windows, all ATT&CK-mapped**, including DET-PS-001 / T1547.001 — the
+exact Run-key persistence the fixture hand-authored. E3 content is
+present; E3 EXECUTION on the acceptance corpora is absent.
+
+### ENGINE MATRIX (blueprint §1)
+E1 PASS · E2 PARTIAL · E3 CONTENT PRESENT / NOT EXECUTED · E4 STUB ·
+E5 PRIMITIVES ONLY · E6 PARTIAL · E7 CONTRACT COMPLETE, NO PRODUCER ·
+E8 ABSENT · E9 COMPLETE+HARDENED · E10 STUB.
+Duplicates to reconcile (not fork): `services/mitigation/evidence_driven/
+rule_library.py` vs `detection_content/library/registry.py`;
+`services/behavioral/sysmon_adapter.py` vs `edr_plane/windows_eventlog.py`.
+
+### NEXT (awaiting owner authorisation)
+WAVE 2 · E2 Process/Entity Graph — PID-reuse-safe identity, Sysmon 5
+termination, SERVICE/TASK/MODULE entities, store GUIDs at ingest.
+Then WAVE 3 · E3 — **P0: an evaluation path over EXISTING canonical
+observations**, without which every re-projected corpus is permanently
+undetectable.
+
+### ACCEPTANCE IDENTITIES
+- clean real Windows corpus: `dev_f4b3fb82d7f3` / tenant
+  `ten_3f7f772b353a6bbbb0ac8bc564` (3,299)
+- contaminated historical corpus (UNTOUCHED, audit): `dev_2adbb41a04a4` /
+  `ten_f1a5479243e901cf159e230fa0` (3,298, 3,102 `kind=detection`)
+- deterministic IOC fixture: `ep_dt23cfixture01` / `ten_61377adfb36187a579ce44574b`
+
+### PRE-EXISTING failures (NOT caused by this work, proven by stash)
+`test_p0_a2_adversarial_live` (1), `test_p0_f13_5_detection_handoff` (5),
+`test_p0_f7_live_api` (9 errors — live preview 504 on
+`/api/edr/campaign-story`), `test_iteration_82_activation` (fails 7 at
+HEAD vs 2 with the patch; the legacy golden corpus is absent from this
+preview DB).

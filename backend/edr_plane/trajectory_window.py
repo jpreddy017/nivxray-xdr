@@ -198,7 +198,11 @@ def _group_and_key(ev: Dict[str, Any]) -> Tuple[str, str, str]:
 
 
 def _identity_key(ident: Dict[str, Any]) -> str:
-    return f"{ident.get('device_iid') or ''}|{ident.get('hostname') or ''}"
+    # The customer is part of the projection identity: two customers may
+    # enrol the same hostname, and a cache keyed on the name alone would
+    # hand one customer the other's projection.
+    return (f"{ident.get('tenant_id') or 'NO_TENANT'}|"
+            f"{ident.get('device_iid') or ''}|{ident.get('hostname') or ''}")
 
 
 def _rules_of(deriv: Dict[str, Any]) -> List[str]:
@@ -262,6 +266,7 @@ def _merge_attribution(cur: Optional[Dict[str, Any]],
 
 
 async def _detection_attribution(db, docs: List[Dict[str, Any]],
+                                 tenant_id: Any = None,
                                  ) -> Dict[str, Dict[str, Any]]:
     """`raw_event_id`/`canonical_event_id` → authoritative detection.
 
@@ -279,7 +284,8 @@ async def _detection_attribution(db, docs: List[Dict[str, Any]],
     tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
     if not refs:
         return {}
-    query = {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
+    query = {**endpoint_predicate(sorted(refs), RAW_COLLECTION,
+                                  tenant_id=tenant_id or sorted(tenants)),
              "derivations.outcome": DETECTION_OUTCOME}
     fields = {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
               "derivations": 1}
@@ -307,21 +313,24 @@ def _attribution_from_raws(raws: List[Dict[str, Any]],
     return out
 
 
-def _attribution_sync(docs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def _attribution_sync(docs: List[Dict[str, Any]], tenant_id: Any = None,
+                      ) -> Dict[str, Dict[str, Any]]:
     refs = {str(d.get("collector_id") or d.get("connector_id"))
             for d in docs if d.get("collector_id") or d.get("connector_id")}
     tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
     if not refs:
         return {}
     raws = list(sync_collection(RAW_COLLECTION).find(
-        {**endpoint_predicate(sorted(refs), RAW_COLLECTION),
+        {**endpoint_predicate(sorted(refs), RAW_COLLECTION,
+                              tenant_id=tenant_id or sorted(tenants)),
          "derivations.outcome": DETECTION_OUTCOME},
         {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
          "derivations": 1}))
     return _attribution_from_raws(raws, tenants)
 
 
-def _project_all_sync(ref_set: List[str]) -> Dict[str, Any]:
+def _project_all_sync(ref_set: List[str],
+                      tenant_id: Any = None) -> Dict[str, Any]:
     """The COMPLETE projection, built entirely OFF the event loop.
 
     Cooperative `await` points are not enough here: `build_lane_catalogue`
@@ -330,8 +339,9 @@ def _project_all_sync(ref_set: List[str]) -> Dict[str, Any]:
     runs in a worker thread against the sync client; the loop stays free.
     """
     docs = list(sync_collection(COLLECTION).find(
-        endpoint_predicate(ref_set, COLLECTION), {"_id": 0}))
-    attribution = _attribution_sync(docs)
+        endpoint_predicate(ref_set, COLLECTION, tenant_id=tenant_id),
+        {"_id": 0}))
+    attribution = _attribution_sync(docs, tenant_id)
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
     for doc in docs:
@@ -425,7 +435,8 @@ async def _projected(db, *, ident: Dict[str, Any],
     if not ref_set:
         return {"cat": build_lane_catalogue([]), "rows": [],
                 "bounded": False}
-    predicate = endpoint_predicate(ref_set, COLLECTION)
+    predicate = endpoint_predicate(ref_set, COLLECTION,
+                                   tenant_id=ident.get("tenant_id"))
     cursor = db[COLLECTION].find(predicate, {"_id": 0})
     if bounded:
         cursor = cursor.sort("event.ts", -1).limit(int(docs_limit))
@@ -438,7 +449,8 @@ async def _projected(db, *, ident: Dict[str, Any],
         # 18 s wait on a request whose own work was 0.9 s).
         if not bounded and len(docs) % 500 == 0:
             await asyncio.sleep(0)
-    attribution = await _detection_attribution(db, docs)
+    attribution = await _detection_attribution(db, docs,
+                                               ident.get("tenant_id"))
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
     for i, doc in enumerate(docs):
@@ -498,7 +510,8 @@ def _warm_complete(db, ident: Dict[str, Any],
                     ref_set.append(str(v))
             if not ref_set:
                 return
-            out = await asyncio.to_thread(_project_all_sync, ref_set)
+            out = await asyncio.to_thread(_project_all_sync, ref_set,
+                                          ident.get("tenant_id"))
             if len(_proj_cache) >= _SCAN_MAX:
                 _proj_cache.pop(next(iter(_proj_cache)), None)
             _proj_cache[key] = (time.time() + _SCAN_TTL_S, out)
@@ -893,6 +906,17 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
         "process_state": "OBSERVED" if proc.get("name") else "UNKNOWN",
         "process_iid": proc.get("iid") or doc.get("process_iid"),
         "parent_process_iid": proc.get("parent_iid"),
+        # DT2-3c REV 2 · the parent identity the OBSERVATION ITSELF
+        # carries. These were being dropped by the projection, which is
+        # why a child that named its parent still produced no
+        # PROCESS_PROCESS edge and rendered as "Unknown process". Nothing
+        # is inferred here: every value is read from the child's own
+        # evidence, and an absent field stays absent.
+        "parent_process_guid": (proc.get("parent_guid")
+                                or raw.get("parent_process_guid")),
+        "parent_image": (proc.get("parent_image")
+                         or raw.get("parent_image")),
+        "parent_process": proc.get("parent_name"),
         "parent_lane_index": lane.get("parent_lane_index"),
         "parent_process_name": lane.get("parent_label"),
         "parent_state": lane.get("parent_state"),
@@ -948,6 +972,10 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
             "source": prov.get("source"),
             "normalizer": prov.get("normalizer"),
             "parser_state": prov.get("parser_state"),
+            "process_guid": (proc.get("guid")
+                             or raw.get("process_guid")),
+            "parent_process_guid": (proc.get("parent_guid")
+                                    or raw.get("parent_process_guid")),
         },
     }
 
@@ -1000,10 +1028,6 @@ def _activity(rows: List[Dict[str, Any]],
             rec["suspicious"] += 1
         if r.get("is_detection"):
             rec["detections"] += 1
-        #: the navigator's compromise marker counts ONLY authoritative
-        #: compromises, never a telemetry kind named "detection".
-        if r.get("compromise_authority"):
-            rec["compromises"] += 1
         if hist_day and day == hist_day:
             hm = str(ts)[11:19]
             try:
@@ -1023,13 +1047,6 @@ def _activity(rows: List[Dict[str, Any]],
                 b["malicious"] += 1
             if r.get("is_detection"):
                 b["detections"] += 1
-            if r.get("compromise_authority"):
-                b["compromises"] += 1
-                if (b["first_compromise_at"] is None
-                        or instant_ms(ts) < instant_ms(
-                            b["first_compromise_at"])):
-                    b["first_compromise_at"] = ts
-                    b["first_compromise_iid"] = r["event_iid"]
             if ts < b["first_timestamp"]:
                 b["first_timestamp"] = ts
                 b["first_event_iid"] = r["event_iid"]
@@ -1039,7 +1056,72 @@ def _activity(rows: List[Dict[str, Any]],
         "day_bins_for": hist_day,
         "day_bin_count": DAY_BINS,
         "basis": "COUNTS_OF_PERSISTED_OBSERVATIONS",
+        "compromise_basis": "AUTHORITATIVE_COMPROMISE_EVENTS_ONLY",
     }
+
+
+def _mark_compromises(activity: Dict[str, Any],
+                      compromise_events: Optional[List[Dict[str, Any]]],
+                      hist_day: Optional[str]) -> Dict[str, Any]:
+    """Stamp the navigator's compromise markers from the ONE authority.
+
+    A marker used to be counted from the per-observation
+    `compromise_authority` flag, which is a CLASSIFICATION of a single
+    observation, not a compromise. On the clean 3,299-record Windows
+    corpus that produced 70 navigator "compromise events" for an
+    endpoint whose contract state is
+    `NO_AUTHORITATIVE_COMPROMISE_OBSERVED`, while the fixture endpoint
+    that really does carry one reported zero. The marker now comes from
+    the contract-validated compromise store and nowhere else, so
+    `compromises > 0` and `compromise_events` can never disagree.
+    """
+    out = {**activity,
+           "days": [{**d, "compromises": 0} for d in activity.get("days")
+                    or []],
+           "day_bins": [{**b, "compromises": 0, "first_compromise_at": None,
+                         "first_compromise_iid": None}
+                        for b in activity.get("day_bins") or []]}
+    if not compromise_events:
+        return out
+    by_day = {d["day"]: d for d in out["days"]}
+    by_bin = {b["bin"]: b for b in out["day_bins"]}
+    for cev in compromise_events:
+        at = cev.get("observed_at")
+        if not at:
+            continue
+        day = str(at)[:10]
+        rec = by_day.get(day)
+        if rec is None:
+            rec = {"day": day, "total": 0, "malicious": 0, "suspicious": 0,
+                   "detections": 0, "compromises": 0}
+            by_day[day] = rec
+            out["days"].append(rec)
+        rec["compromises"] += 1
+        if not hist_day or day != hist_day:
+            continue
+        hm = str(at)[11:19]
+        try:
+            h, m, sec = (int(x) for x in hm.split(":"))
+        except Exception:                                    # noqa: BLE001
+            continue
+        idx = min(DAY_BINS - 1,
+                  int(((h * 3600 + m * 60 + sec) / 86400) * DAY_BINS))
+        b = by_bin.get(idx)
+        if b is None:
+            b = {"bin": idx, "total": 0, "malicious": 0, "detections": 0,
+                 "compromises": 0, "first_compromise_iid": None,
+                 "first_compromise_at": None,
+                 "first_event_iid": None, "first_timestamp": at}
+            by_bin[idx] = b
+            out["day_bins"].append(b)
+        b["compromises"] += 1
+        if (b["first_compromise_at"] is None
+                or instant_ms(at) < instant_ms(b["first_compromise_at"])):
+            b["first_compromise_at"] = at
+            b["first_compromise_iid"] = cev.get("compromise_event_id")
+    out["days"].sort(key=lambda d: d["day"])
+    out["day_bins"].sort(key=lambda b: b["bin"])
+    return out
 
 
 async def query_window(db, *, identity: Dict[str, Any],
@@ -1076,7 +1158,8 @@ async def query_window(db, *, identity: Dict[str, Any],
             endpoint_predicate([str(r) for r in (refs or []) if r]
                                or [str(identity.get("device_iid")
                                        or identity.get("hostname"))],
-                               COLLECTION))
+                               COLLECTION,
+                               tenant_id=identity.get("tenant_id")))
 
     kind_set = ({k.strip().lower() for k in kinds.split(",") if k.strip()}
                 if kinds else None)
@@ -1242,9 +1325,10 @@ async def query_window(db, *, identity: Dict[str, Any],
                       if bounded else
                       "every observation recorded for this endpoint"),
         },
-        "activity": (proj["activity_unfiltered"]
-                     if unfiltered and not hist_day
-                     else _activity(filtered, hist_day)),
+        "activity": _mark_compromises(
+            (proj["activity_unfiltered"] if unfiltered and not hist_day
+             else _activity(filtered, hist_day)),
+            compromise["compromise_events"], hist_day),
         "filters_applied": {"kinds": sorted(kind_set) if kind_set else [],
                             "q": needle,
                             "dispositions": sorted(disp_set) if disp_set

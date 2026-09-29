@@ -83,7 +83,8 @@ async def _resolve_kill_target(db, *, tenant_id: str, endpoint_id: str,
     # too.
     cur = db["edr_raw_events"].find(
         {"tenant_id": tenant_id,
-         **endpoint_predicate([endpoint_id], "edr_raw_events"),
+         **endpoint_predicate([endpoint_id], "edr_raw_events",
+                              tenant_id=tenant_id),
          "payload": {"$regex": f'"pid": ?{pid}[,}}]'}},
         {"payload": 1, "raw_id": 1, "derivations": 1}).sort("_id", -1).limit(
             400)

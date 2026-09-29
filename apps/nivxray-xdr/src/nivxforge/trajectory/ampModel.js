@@ -126,7 +126,7 @@ const LIGHT = {
 
 /** Live palette. Mutated in place so every component keeps reading the
  *  same reference; React re-renders after the theme state changes. */
-export const C = { ...LIGHT };
+export const C = { ...DARK };
 
 export function setTheme(theme) {
   Object.assign(C, theme === "light" ? LIGHT : DARK);
@@ -162,8 +162,19 @@ export const dispositionOf = (e) =>
   DISPOSITION[e?.disposition] || DISPOSITION.UNKNOWN_NOT_ASSESSED;
 
 /** Red treatment is reserved for evidence that earns it. */
+/** Cisco's red is a CLAIM about the evidence, so NivXForge draws it only
+ *  where it holds an AUTHORITATIVE one: a MALICIOUS disposition, or a
+ *  detection the detection fabric actually assessed.
+ *
+ *  `is_detection` alone is NOT a claim: the historical Windows corpus
+ *  carries 480/500 observations with `kind=detection`,
+ *  `disposition=UNKNOWN_NOT_ASSESSED` and
+ *  `assessment_state=NO_DETECTION_CLAIMED_THIS_OBSERVATION`, and reading
+ *  red off that flag painted ordinary Sysmon telemetry as malicious. */
 export const isRed = (e) =>
-  e?.disposition === "MALICIOUS" || e?.is_detection === true;
+  e?.disposition === "MALICIOUS"
+  || (e?.is_detection === true
+      && e?.assessment_state === "ASSESSED_BY_DETECTION_FABRIC");
 
 export const eventColor = (e) => {
   if (isRed(e)) return C.malicious;

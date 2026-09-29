@@ -53,7 +53,13 @@ import AmpNavigator from "./AmpNavigator";
 import AmpCompromisePanel from "./AmpCompromisePanel";
 import AmpActivityPanel from "./AmpActivityPanel";
 
-const LANE_PREFETCH = 14;
+/** One rendered trajectory ROW can consume MANY projection lanes (a
+ *  process lane plus its file/registry/network lanes all collapse onto
+ *  the acting process), so a lane window sized to the visible row count
+ *  under-fills the graph and a dense endpoint looks sparse. The window
+ *  therefore over-fetches lanes; MAX_RENDERED_LANES still caps what is
+ *  drawn, and nothing is fabricated to fill a row. */
+const LANE_PREFETCH = 90;
 const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
 const DETAILS_W = 394;
@@ -83,17 +89,37 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   /** The Cisco Device Trajectory is ONE investigation surface. The
    *  reference defines it, so this page offers no theme choice; the
-   *  surrounding NivXForge console chrome keeps its own. */
-  setTheme("light");
+   *  surrounding NivXForge console chrome keeps its own.
+   *
+   *  REV 2 (owner ruling): the current Cisco Secure Endpoint console the
+   *  owner captured is DARK. The light figure in the User Guide remains
+   *  useful for GRAPH SEMANTICS, but the live console takes priority for
+   *  visual parity, so this surface is dark. */
+  setTheme("dark");
 
   const [meta, setMeta] = useState(null);
-  const [view, setView] = useState(null);
+  /** DT2-3c REV 2 · TIME FOCUSING BY DEEP LINK.
+   *
+   *  `?from=&to=` is read ONCE, at mount, and seeds the primary viewport
+   *  before the first paint, so a 4.8-second incident inside a 68-second
+   *  window can be reached by URL. Focusing changes the VIEWPORT ONLY —
+   *  no observation timestamp is moved, and X stays a pure function of
+   *  authoritative time. */
+  const linkedWindow = useRef(undefined);
+  if (linkedWindow.current === undefined) {
+    const f = Date.parse(params.get("from"));
+    const t = Date.parse(params.get("to"));
+    linkedWindow.current = (Number.isFinite(f) && Number.isFinite(t) && t > f)
+      ? { t0: f, t1: t } : null;
+  }
+  const [view, setView] = useState(linkedWindow.current);
   const [laneStart, setLaneStart] = useState(0);
   const [rows, setRows] = useState(26);
   const [events, setEvents] = useState(new Map());
   const [lanes, setLanes] = useState(new Map());
   const [selected, setSelected] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(
+    linkedWindow.current ? startOfDayUTC(linkedWindow.current.t0) : null);
   const [preset, setPreset] = useState("all");
   const [kinds, setKinds] = useState([]);
   const [dispositions, setDispositions] = useState([]);
@@ -302,6 +328,14 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     if (!g || selectedDay == null) return;
     const key = `${device}|${selectedDay}|${filterKey}`;
     if (autoFocusRef.current === key) return;
+    /** An EXPLICIT window from the URL outranks auto-focus: the analyst
+     *  (or the deep link that sent them here) already chose the
+     *  interval, so it is consumed, not overridden. */
+    if (linkedWindow.current) {
+      autoFocusRef.current = key;
+      linkedWindow.current = null;
+      return;
+    }
     const b = graphBoundsOf(g);
     if (b.min == null) return;
     const w = evidenceWindow(b.min, b.max, { dayStart: selectedDay });
@@ -831,7 +865,9 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       fileTypeCounts={fileTypeCounts}
       processes={processChoices}
       hiddenProcesses={hiddenProcs} onHiddenProcesses={setHiddenProcs}
-      query={query} onQuery={onSearch} />
+      query={query} onQuery={onSearch}
+      matchCount={debounced
+        ? (meta?.matched_after_filters ?? null) : null} />
   );
 
   const navigator_ = view && (

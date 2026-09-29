@@ -144,7 +144,10 @@ def _detections(term: str, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             by_ep[ep] = r
     if not refs:
         return []
-    q = {**endpoint_predicate(sorted(refs), "edr_raw_events"),
+    q = {**endpoint_predicate(
+             sorted(refs), "edr_raw_events",
+             tenant_id=sorted({str(r.get("tenant_id")) for r in rows
+                               if r.get("tenant_id")})),
          "derivations.outcome": "DETECTION_MATCHED",
          "$or": [{"raw_id": _rx(term)},
                  {"derivations.reason": _rx(term)},

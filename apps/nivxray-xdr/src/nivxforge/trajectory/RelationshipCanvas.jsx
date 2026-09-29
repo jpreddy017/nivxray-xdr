@@ -37,6 +37,10 @@ const TICK_H = 48;
 const AXIS = DATE_H + TICK_H;
 const SYS_H = 32;
 const FN_H = 40;
+/** DT2-3c REV 2 · a compromise is a SEPARATE EVENT, so it gets its own
+ *  band. The band exists only while an authoritative compromise is in
+ *  the window; no authoritative compromise = no compromise band. */
+const CMP_H = 26;
 const PE = /\.(exe|dll|sys|scr|ocx|com)$/i;
 
 const typeTag = (n) => (PE.test(String(n?.image || n?.label || ""))
@@ -98,13 +102,10 @@ export default function RelationshipCanvas({
     faint: theme.inkFaint || "#64748B",
     line: theme.link || "#2563EB",
     malicious: theme.malicious || "#E5484D",
-    maliciousRow: "#FBE3E4",
-    ioc: theme.ioc || theme.suspicious || "#E0A200",
-    iocRow: theme.iocRow || "rgba(224,162,0,.22)",
-    iocBand: theme.iocBand || "rgba(224,162,0,.16)",
+    maliciousRow: theme.maliciousHalo || "#FBE3E4",
     contributor: theme.contributor || "#2563EB",
     contributorHalo: theme.contributorHalo || "rgba(37,99,235,.20)",
-    lifeline: "#9CC97E",
+    lifeline: theme.lifeline || "#9CC97E",
   };
 
   const typeSet = useMemo(
@@ -134,12 +135,13 @@ export default function RelationshipCanvas({
   const start = Math.max(0, Math.min(laneOffset,
                                      Math.max(0, all.length - rows)));
   const visible = all.slice(start, start + rows);
-  const height = AXIS + SYS_H + FN_H
-    + Math.max(1, rows, visible.length) * ROW + 6;
-  /** X IS TIME. This is the only horizontal mapping in the component. */
   const iocs = useMemo(
     () => compromisesInWindow(compromise, view?.t0, view?.t1),
     [compromise, view?.t0, view?.t1]);
+  const cmpH = iocs.length ? CMP_H : 0;
+  const height = AXIS + cmpH + SYS_H + FN_H
+    + Math.max(1, rows, visible.length) * ROW + 6;
+  /** X IS TIME. This is the only horizontal mapping in the component. */
 
   const xOf = (t) => (axis == null ? null
     : projectX(t, axis.t0, axis.t1, LEFT, width - LEFT - 20));
@@ -203,9 +205,10 @@ export default function RelationshipCanvas({
   }
   if (!dayMarks.length || dayMarks[0] > axis.t0) dayMarks.unshift(axis.t0);
 
-  const sysTop = AXIS;
-  const fnTop = AXIS + SYS_H;
-  const rowTop = AXIS + SYS_H + FN_H;
+  const cmpTop = AXIS;
+  const sysTop = AXIS + cmpH;
+  const fnTop = sysTop + SYS_H;
+  const rowTop = fnTop + FN_H;
 
   /** The bottom thumb's position over the retained period, when the
    *  retention bounds are known; otherwise it sits at the start. */
@@ -287,47 +290,67 @@ export default function RelationshipCanvas({
             Files &amp; Network
           </text>
 
-          {/* ── DT2-3c · INDICATORS OF COMPROMISE ────────────────────
-              Yellow, at the instant the AUTHORITY recorded, on its own
-              marker above the axis — a compromise is a separate event,
-              not a telemetry row. Nothing is drawn when no authoritative
-              compromise exists. */}
-          {iocs.map((c) => {
-            const x = xOf(c.observedMs);
-            if (x == null) return null;
-            return (
-              <g key={c.compromise_event_id}
-                 data-testid={`dt2-ioc-band-${c.compromise_event_id}`}
-                 data-ioc-authority={c.authority}
-                 data-ioc-indicator={c.indicator_id}
-                 data-ioc-contributors={c.contributorIds.length}
-                 data-ioc-contributors-proven={
-                   c.contributorsProven ? "true" : "false"}
-                 data-ioc-unresolved-refs={c.unresolved.length}
-                 data-ioc-iso={c.observed_at || ""}>
-                <rect x={x - 11} y={AXIS} width={22} height={height - AXIS}
-                      fill={C.iocBand} pointerEvents="none" />
-                <line x1={x} x2={x} y1={AXIS} y2={height}
-                      stroke={C.ioc} strokeWidth={1}
-                      strokeDasharray="2 3" pointerEvents="none" />
-                <g transform={`translate(${x},${AXIS - 13})`}
-                   style={{ cursor: "pointer" }}
-                   onClick={(ev) => {
-                     ev.stopPropagation();
-                     if (onCompromise) onCompromise(c);
-                   }}
-                   data-testid={`dt2-ioc-marker-${c.compromise_event_id}`}>
-                  <polygon points="0,-9 9,0 0,9 -9,0" fill={C.iocRow}
-                           stroke={C.ioc} strokeWidth={1.4} />
-                  <text x={0} y={3.5} textAnchor="middle" fontSize={9}
-                        fontWeight={700} fill={C.ioc}>!</text>
-                  <title>{`${c.indicator_id} · ${c.description}`
-                    + ` · authority ${c.authority}`
-                    + ` · ${c.contributorIds.length} proven contributor(s)`}</title>
-                </g>
-              </g>
-            );
-          })}
+          {/* ── DT2-3c REV 2 · COMPROMISE EVENTS ─────────────────────
+              The owner's live Cisco Secure Endpoint captures do NOT show
+              a full-height yellow time column, so that presentation was
+              REMOVED from strict parity mode. What Cisco does show is a
+              red compromise indication and a SEPARATE compromise event.
+              Here the compromise gets its OWN band, so it is
+              distinguishable from its contributing observations even
+              when it shares their instant — no timestamp is altered.
+              Drawn only from the server contract; no authoritative
+              compromise means nothing is drawn. */}
+          {cmpH ? (
+            <g data-testid="dt2-compromise-band"
+               data-compromise-count={iocs.length}>
+              <rect x={0} y={cmpTop} width={width} height={CMP_H}
+                    fill={C.paperAlt} />
+              <line x1={0} x2={width} y1={cmpTop + CMP_H} y2={cmpTop + CMP_H}
+                    stroke={C.gridStrong} />
+              <text x={LEFT - 14} y={cmpTop + 17} textAnchor="end"
+                    fill={C.malicious} fontSize={13} fontWeight={700}
+                    data-testid="dt2-section-compromise">
+                Compromise
+              </text>
+              {iocs.map((c) => {
+                const x = xOf(c.observedMs);
+                if (x == null) return null;
+                const mid = cmpTop + CMP_H / 2;
+                return (
+                  <g key={c.compromise_event_id}
+                     data-testid={`dt2-ioc-band-${c.compromise_event_id}`}
+                     data-ioc-authority={c.authority}
+                     data-ioc-indicator={c.indicator_id}
+                     data-ioc-contributors={c.contributorIds.length}
+                     data-ioc-contributors-proven={
+                       c.contributorsProven ? "true" : "false"}
+                     data-ioc-unresolved-refs={c.unresolved.length}
+                     data-ioc-iso={c.observed_at || ""}
+                     data-ioc-x={x.toFixed(2)}
+                     data-ioc-y={mid.toFixed(2)}
+                     style={{ cursor: "pointer" }}
+                     onClick={(ev) => {
+                       ev.stopPropagation();
+                       if (onCompromise) onCompromise(c);
+                     }}>
+                    <g transform={`translate(${x},${mid})`}
+                       data-testid={
+                         `dt2-ioc-marker-${c.compromise_event_id}`}>
+                      <polygon points="0,-8 8,0 0,8 -8,0"
+                               fill={C.malicious} stroke={C.malicious}
+                               strokeWidth={1} />
+                      <text x={0} y={3.4} textAnchor="middle" fontSize={9}
+                            fontWeight={700} fill={C.paper}>!</text>
+                      <title>{`${c.indicator_id} · ${c.description}`
+                        + ` · authority ${c.authority}`
+                        + ` · ${c.contributorIds.length} proven`
+                        + " contributor(s)"}</title>
+                    </g>
+                  </g>
+                );
+              })}
+            </g>
+          ) : null}
 
           {/* stems · process→process and process→file, evidence only */}
           {visible.map((r, row) => {
