@@ -85,25 +85,25 @@ export default function AmpComputerHeader({ computer, malicious, detections,
          style={{ display: "flex", alignItems: "center", gap: 10,
                   minWidth: 0 }}>
       <span data-testid="amp-computer-hostname"
-            style={{ fontSize: 19, fontWeight: 700, color: C.ink,
-                     letterSpacing: "-.2px", whiteSpace: "nowrap",
+            style={{ fontSize: 28, fontWeight: 700, color: C.ink,
+                     letterSpacing: "-.4px", whiteSpace: "nowrap",
                      overflow: "hidden", textOverflow: "ellipsis" }}>
         {c.hostname || c.device_iid || "Unresolved endpoint"}
       </span>
 
       <button onClick={() => setDrawer(true)} data-testid="amp-show-details"
-              style={btn}>
+              style={{ ...btn, border: `1px solid ${C.link}` }}>
         Show details
       </button>
 
       <div style={{ position: "relative" }}>
         <button onClick={() => setMenu((v) => !v)}
                 data-testid="amp-actions-button"
-                style={{ ...btn, display: "flex", gap: 5,
+                style={{ ...btn, display: "flex", gap: 7,
                          alignItems: "center", background: C.link,
                          color: "#FFFFFF", borderColor: C.link,
                          fontWeight: 600 }}>
-          Actions <ChevronDown size={10} />
+          Actions <ChevronDown size={13} />
         </button>
         {menu && (
           <div data-testid="amp-actions-menu"
@@ -258,7 +258,7 @@ export default function AmpComputerHeader({ computer, malicious, detections,
 }
 
 const btn = {
-  fontSize: 11.5, padding: "5px 11px", borderRadius: 3, cursor: "pointer",
+  fontSize: 14, padding: "7px 14px", borderRadius: 4, cursor: "pointer",
   background: C.paper, color: C.link, whiteSpace: "nowrap",
   border: `1px solid ${C.gridStrong}`,
 };

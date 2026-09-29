@@ -1134,3 +1134,19 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
 - Final A–Q: MATCH 14 / PARTIAL 2 / MISMATCH 1. Zero engineering-language leaks.
   Tenant isolation demonstrated. 0 page errors. Not deployed.
 - Side-by-side: cisco_ref/DT2_FINAL_SIDE_BY_SIDE.png
+
+### DT2-3a.2 · TIME DOMAIN / VIEWPORT PROJECTION (BLOCKER, same day)
+- Owner rejected the vertical "comb". Root cause split proven:
+  (1) primary viewport was the whole selected day (86.4M ms) while the evidence
+      span is 0 ms → FIXED with `evidenceWindow()` (120 000 ms window here),
+      viewport-derived ticks, and `rowsInWindow()` row relevance.
+  (2) projection was NOT broken: rendered X = 238 + ((t−t0)/(t1−t0))×1000 =
+      738.00 for every event, verified against the live DOM.
+- NEW BLOCKER `TELEMETRY_TIMESTAMP_COLLAPSE`: all 15 observations of
+  dev_0e10780f2c86 carry one identical timestamp (10:00:00Z, seq 0–14); no
+  per-event UtcTime survives ingestion. Horizontal progression is impossible
+  without fabricating time. Needs a collector/normalizer fix.
+- Unknown process ×3: parent identity exists in the child's evidence
+  (`event.process.parent_name = explorer.exe`) but dt2-2a does not propagate it.
+- Acceptance record: memory/production-gates/DT2_3_CISCO_CLONE_ACCEPTANCE.md
+- Tests 137/137 (122 + 15 new). DT2-3b/3c remain BLOCKED per owner ruling.

@@ -26,7 +26,7 @@
  *    itself, so the wheel scrolls the activity axis.
  */
 
-export const ROW_H = 15;
+export const ROW_H = 18;
 export const GUTTER = 280;
 export const AXIS_H = 32;
 
@@ -113,7 +113,7 @@ const LIGHT = {
 
 /** Live palette. Mutated in place so every component keeps reading the
  *  same reference; React re-renders after the theme state changes. */
-export const C = { ...DARK };
+export const C = { ...LIGHT };
 
 export function setTheme(theme) {
   Object.assign(C, theme === "light" ? LIGHT : DARK);

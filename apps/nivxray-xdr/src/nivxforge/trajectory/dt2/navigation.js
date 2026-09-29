@@ -103,3 +103,80 @@ export const sameRelationshipContext = (a, b) => {
     && x.parent_process_iid === y.parent_process_iid
     && x.lane_index === y.lane_index;
 };
+
+/* ------------------------------------------------------------------ *
+ * DT2-3a.2 · TIME DOMAIN
+ *
+ * The 24-hour navigator is DAY CONTEXT. The trajectory canvas is the
+ * PRIMARY VIEWPORT and must open on the evidence-bearing interval, or
+ * concentrated evidence collapses into one pixel column on a full-day
+ * domain. Every bound below is computed from REAL timestamps: nothing
+ * is moved, spread, spaced or synthesised.
+ * ------------------------------------------------------------------ */
+
+export const MIN_WINDOW_MS = 120_000;        // floor for a tiny span
+export const MAX_WINDOW_MS = 6 * 3_600_000;  // ceiling for the first view
+export const PAD_FRACTION = 0.35;            // context, in TIME
+
+/**
+ * The initial primary viewport for an evidence interval.
+ *
+ * @param min earliest real evidence timestamp (ms)
+ * @param max latest real evidence timestamp (ms)
+ * @param dayStart start of the selected day (ms) — clamps the result
+ */
+export function evidenceWindow(min, max, { dayStart = null, dayMs = 86_400_000,
+                                           minWindow = MIN_WINDOW_MS,
+                                           maxWindow = MAX_WINDOW_MS,
+                                           padFraction = PAD_FRACTION } = {}) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const span = hi - lo;
+  let t0;
+  let t1;
+  if (span <= 0) {
+    // one instant of evidence: a bounded interval AROUND it, in time
+    const half = minWindow / 2;
+    t0 = lo - half;
+    t1 = hi + half;
+  } else {
+    const pad = span * padFraction;
+    t0 = lo - pad;
+    t1 = hi + pad;
+    if (t1 - t0 < minWindow) {
+      const mid = (t0 + t1) / 2;
+      t0 = mid - minWindow / 2;
+      t1 = mid + minWindow / 2;
+    }
+    if (t1 - t0 > maxWindow) {
+      const mid = (lo + hi) / 2;
+      t0 = mid - maxWindow / 2;
+      t1 = mid + maxWindow / 2;
+    }
+  }
+  if (dayStart != null) {
+    const dEnd = dayStart + dayMs;
+    const width = Math.min(t1 - t0, dayMs);
+    if (t0 < dayStart) { t0 = dayStart; t1 = t0 + width; }
+    if (t1 > dEnd) { t1 = dEnd; t0 = t1 - width; }
+  }
+  return { t0, t1 };
+}
+
+/** The ONE horizontal mapping. X is time; nothing else may move it. */
+export const projectX = (t, t0, t1, left, drawableWidth) =>
+  (t == null || !Number.isFinite(t) || !(t1 > t0) ? null
+    : left + ((t - t0) / (t1 - t0)) * drawableWidth);
+
+/** A tick step suited to the CURRENT viewport, so a 90ms window is not
+ *  labelled with hour marks. */
+const TICK_STEPS = [1, 5, 10, 25, 50, 100, 250, 500,
+                    1e3, 5e3, 15e3, 30e3,
+                    60e3, 120e3, 300e3, 900e3, 1800e3,
+                    3600e3, 3 * 3600e3, 6 * 3600e3, 12 * 3600e3, 86400e3];
+
+export function tickStepFor(spanMs, target = 12) {
+  const want = Math.max(1, spanMs) / Math.max(2, target);
+  return TICK_STEPS.find((s) => s >= want) || TICK_STEPS[TICK_STEPS.length - 1];
+}

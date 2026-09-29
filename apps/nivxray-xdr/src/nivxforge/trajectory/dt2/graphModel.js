@@ -319,3 +319,30 @@ export function axisRowsOf(g, { max = 120 } = {}) {
 export const isCompromise = (n) => Boolean(
   n && (n.detection === true || n.is_detection === true
         || n.detection_name || (n.labels || []).includes("DETECTION")));
+
+/**
+ * DT2-3a.2 · row relevance.
+ *
+ * A row is visible when its OWN evidence intersects the viewport, or
+ * when it is the evidenced parent of such a row — Cisco's trajectory
+ * needs the parent to explain the relationship. Nothing else is shown,
+ * and nothing evidenced is hidden. Deterministic; order preserved.
+ */
+export function rowsInWindow(rows, t0, t1) {
+  if (!Array.isArray(rows) || !(t1 > t0)) return rows || [];
+  const hits = (r) => {
+    const s = r?.lifeline?.startMs;
+    const e = r?.lifeline?.endMs ?? s;
+    if (s != null && e != null && e >= t0 && s <= t1) return true;
+    return (r?.activities || []).some((a) => {
+      const t = activityTimeMs(a);
+      return t != null && t >= t0 && t <= t1;
+    });
+  };
+  const keep = new Set();
+  for (const r of rows) if (hits(r)) keep.add(r.nodeId);
+  for (const r of rows) {
+    if (keep.has(r.nodeId) && r.parentNodeId) keep.add(r.parentNodeId);
+  }
+  return rows.filter((r) => keep.has(r.nodeId));
+}

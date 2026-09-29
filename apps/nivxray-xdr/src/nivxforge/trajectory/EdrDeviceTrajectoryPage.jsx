@@ -23,7 +23,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Maximize2, Minimize2, Moon, Share2, Sun } from "lucide-react";
+import { Maximize2, Minimize2, Share2 } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import { buildFileTrajectoryPivot, buildIncidentPivot,
@@ -34,6 +34,7 @@ import api from "@/lib/api";
 import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf, setTheme,
          startOfDayUTC } from "./ampModel";
 import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
+         evidenceWindow,
          createCoordinator, emptinessMeaning, historyMode, laneWindow,
          levelOf, panByFraction, prefetchTargets, requestKey, restore,
          retentionBounds, selectionState, serialize, spikes, stepDetection,
@@ -43,15 +44,15 @@ import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
 import RelationshipCanvas from "./RelationshipCanvas";
-import { GRAPH_READY, focusOf, graphOf, graphStateOf, neighbourStep,
-         parentOf } from "./dt2/graphModel";
+import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
+         neighbourStep, parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
 import AmpActivityPanel from "./AmpActivityPanel";
 
 const LANE_PREFETCH = 14;
 const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
-const DETAILS_W = 348;
+const DETAILS_W = 394;
 
 /** Phase-2 gate. `false` = the AMP-parity presentation. NivXForge's own
  *  trajectory surfaces (handoff/projection/request banners, the temporal
@@ -64,26 +65,22 @@ const navBtn = { fontSize: 10.4, cursor: "pointer", background: C.paperAlt,
                  color: C.link, border: `1px solid ${C.gridStrong}`,
                  borderRadius: 2, padding: "3px 7px" };
 
+/** Cisco's two square, blue-outlined icon buttons at the top right. */
+const iconBtn = { width: 34, height: 32, cursor: "pointer",
+                  background: C.paper, color: C.link, borderRadius: 4,
+                  border: `1px solid ${C.link}`, display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                  flexShrink: 0 };
+
 export default function EdrDeviceTrajectoryPage({ embedded = false,
                                                  device: deviceProp = null }) {
   const [params, setParams] = useSearchParams();
   const device = deviceProp || params.get("device") || "";
 
-  /** F9 · the AMP-parity Device Trajectory defaults to Cisco's LIGHT
-   *  investigation surface. The global dark capability is untouched:
-   *  an explicit dark choice still wins. */
-  const [theme, setThemeState] = useState(
-    () => (window.localStorage.getItem("nx.theme") === "dark"
-      ? "dark" : "light"));
-  setTheme(theme);
-
-  /** One theme truth: the platform shell's toggle and this one write the
-   *  same key and broadcast the same event. */
-  useEffect(() => {
-    const onTheme = (e) => setThemeState(e.detail === "light" ? "light" : "dark");
-    window.addEventListener("nx-theme", onTheme);
-    return () => window.removeEventListener("nx-theme", onTheme);
-  }, []);
+  /** The Cisco Device Trajectory is ONE investigation surface. The
+   *  reference defines it, so this page offers no theme choice; the
+   *  surrounding NivXForge console chrome keeps its own. */
+  setTheme("light");
 
   const [meta, setMeta] = useState(null);
   const [view, setView] = useState(null);
@@ -175,8 +172,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   useEffect(() => {
     const h = () => {
       const top = plotRef.current?.getBoundingClientRect()?.top ?? 300;
-      const avail = window.innerHeight - top - 92;
-      setRows(Math.max(24, Math.floor(Math.max(180, avail) / ROW_H)));
+      const avail = window.innerHeight - top - 150;
+      setRows(Math.max(14, Math.floor(Math.max(180, avail) / ROW_H)));
     };
     const t = setTimeout(h, 120);
     window.addEventListener("resize", h);
@@ -221,37 +218,14 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
           const at = params.get("at") ? Date.parse(params.get("at")) : null;
           const anchor = Number.isFinite(at) && at ? at : b;
           setSelectedDay((d) => d ?? startOfDayUTC(anchor));
-          /** F8 · Cisco focuses the trajectory on an evidence-bearing
-           *  interval rather than a whole empty day. The window is
-           *  derived from REAL observed timestamps and padded with
-           *  context; no timestamp is moved, spread or collapsed. */
+          /** Cisco's trajectory axis is the SELECTED DAY: the date
+           *  header names the day(s), the time scale carries the hour
+           *  reference marks, and the 24-hour navigator band above it
+           *  describes the same interval. No timestamp is moved,
+           *  spread or collapsed to fill it. */
           setView((v) => {
             if (v) return v;
-            if (Number.isFinite(at) && at) {
-              return { t0: at - 15 * MS.m, t1: at + 15 * MS.m };
-            }
-            const day = startOfDayUTC(b);
-            const act = data.activity?.day_bins || [];
-            const stamps = act
-              .map((x) => Date.parse(x.first_timestamp))
-              .filter((t) => Number.isFinite(t) && t >= day
-                             && t < day + DAY_MS);
-            if (!stamps.length) {
-              // real observed extent, clamped to the anchor day
-              for (const lit of [s, e]) {
-                const t = Date.parse(lit);
-                if (Number.isFinite(t) && t >= day && t < day + DAY_MS) {
-                  stamps.push(t);
-                }
-              }
-            }
-            if (stamps.length) {
-              const lo = Math.min(...stamps);
-              const hi = Math.max(...stamps);
-              const pad = Math.max(5 * MS.m, (hi - lo) * 0.35);
-              return { t0: Math.max(day, lo - pad),
-                       t1: Math.min(day + DAY_MS, hi + pad) };
-            }
+            const day = startOfDayUTC(Number.isFinite(at) && at ? at : b);
             return { t0: day, t1: day + DAY_MS };
           });
           if (preset === "all") setPreset("1d");
@@ -280,6 +254,25 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     return () => { dead = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, filterKey]);
+
+  /** DT2-3a.2 · the PRIMARY VIEWPORT opens on the evidence-bearing
+   *  interval of the selected day, not on the whole day. The day stays
+   *  the navigator's domain; the trajectory is the focused window. Runs
+   *  once per device+day, so an analyst's own pan/zoom always wins. */
+  const autoFocusRef = useRef(null);
+  useEffect(() => {
+    const g = graphOf(dt2);
+    if (!g || selectedDay == null) return;
+    const key = `${device}|${selectedDay}|${filterKey}`;
+    if (autoFocusRef.current === key) return;
+    const b = graphBoundsOf(g);
+    if (b.min == null) return;
+    const w = evidenceWindow(b.min, b.max, { dayStart: selectedDay });
+    if (!w) return;
+    autoFocusRef.current = key;
+    setView((v) => (v && v.t0 === w.t0 && v.t1 === w.t1 ? v : w));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dt2, device, selectedDay, filterKey]);
 
   /** The 24-hour band needs the selected day's bins. */
   useEffect(() => {
@@ -793,15 +786,11 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     .reduce((n, d) => n + (d.detections || 0), 0);
 
   const filterStrip = (
-    <div style={{ background: C.paper,
-                  border: `1px solid ${C.gridStrong}`, borderRadius: 6,
-                  height: "fit-content" }}>
-      <AmpFilterBar
-        typeCounts={meta?.event_type_counts || []}
-        kinds={kinds} onKinds={setKinds}
-        dispositions={dispositions} onDispositions={setDispositions}
-        query={query} onQuery={onSearch} />
-    </div>
+    <AmpFilterBar
+      typeCounts={meta?.event_type_counts || []}
+      kinds={kinds} onKinds={setKinds}
+      dispositions={dispositions} onDispositions={setDispositions}
+      query={query} onQuery={onSearch} />
   );
 
   const navigator_ = view && (
@@ -902,8 +891,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     <>
       {/* Cisco titles the page with the DEVICE NAME, followed by
           Show details and Actions (User Guide p.402 figure). */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 10 }}
+      <div style={{ display: "flex", alignItems: "center", gap: 12,
+                    marginBottom: 16 }}
            data-testid="dt-heading">
         {device && meta && (
           <AmpComputerHeader computer={meta.computer}
@@ -912,45 +901,18 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                              onAction={(k) => onPivot(k, selected)} />
         )}
         <span style={{ flex: 1 }} />
-        <button onClick={() => {
-                  const next = theme === "dark" ? "light" : "dark";
-                  window.localStorage.setItem("nx.theme", next);
-                  setThemeState(next);
-                  window.dispatchEvent(new CustomEvent("nx-theme",
-                                                       { detail: next }));
-                }}
-                data-testid="amp-theme-toggle"
-                data-theme={theme}
-                title={theme === "dark" ? "Switch to the light console"
-                  : "Switch to the dark console"}
-                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
-                         background: C.paper, padding: "4px 8px",
-                         borderRadius: 2,
-                         border: `1px solid ${C.gridStrong}`,
-                         display: "flex", alignItems: "center", gap: 5 }}>
-          {theme === "dark" ? <Sun size={11} /> : <Moon size={11} />}
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
         {/* Cisco's share control · Share > Copy URL (p.404) */}
         <button onClick={() => navigator.clipboard
                   ?.writeText(window.location.href)}
                 data-testid="amp-share-url" title="Copy URL"
-                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
-                         background: C.paper, padding: "4px 8px",
-                         borderRadius: 2,
-                         border: `1px solid ${C.gridStrong}`,
-                         display: "flex", alignItems: "center" }}>
-          <Share2 size={11} />
+                style={iconBtn}>
+          <Share2 size={15} />
         </button>
         <button onClick={() => setFullscreen((v) => !v)}
                 data-testid="amp-fullscreen-toggle"
                 title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
-                         background: C.paper, padding: "4px 8px",
-                         borderRadius: 2,
-                         border: `1px solid ${C.gridStrong}`,
-                         display: "flex", alignItems: "center" }}>
-          {fullscreen ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                style={iconBtn}>
+          {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
         </button>
       </div>
 
@@ -1089,14 +1051,15 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       {device && (
         <>
           {PARKED_NIVXFORGE_UI && navBarParked}
-          {/* Cisco puts Search Device Trajectory and Filters ⌄ above the
-              Navigator, full width, as the primary controls. */}
-          <div style={{ marginBottom: 8, background: C.paper,
+          {/* Cisco: ONE card carries the search row and, beneath it, the
+              day and 24-hour navigator. */}
+          <div data-testid="amp-control-card"
+               style={{ marginBottom: 16, background: C.paper,
                         border: `1px solid ${C.gridStrong}`,
-                        borderRadius: 6 }}>
+                        borderRadius: 4, padding: "16px 18px 10px" }}>
             {filterStrip}
+            {navigator_}
           </div>
-          <div style={{ marginBottom: 8 }}>{navigator_}</div>
         </>
       )}
 
@@ -1146,7 +1109,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         <>
           <div style={{ display: "flex", alignItems: "stretch",
                         border: `1px solid ${C.gridStrong}`,
-                        borderRadius: 6, overflow: "hidden",
+                        borderRadius: 4, overflow: "hidden",
                         background: C.paper }}
                data-testid="amp-workspace"
                data-row-start={laneStart}
@@ -1249,7 +1212,10 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
               </div>
               )}
 
-              {/* time-axis scrollbar over the whole retained period */}
+              {/* time-axis scrollbar over the whole retained period.
+                  PARKED: the Cisco reference carries ONE bottom time
+                  scroll, which the trajectory itself renders with ◀ ▶. */}
+              {PARKED_NIVXFORGE_UI && (
               <div data-testid="amp-hscroll"
                    onScroll={(e) => {
                      if (obsStart == null || obsEnd == null) return;
@@ -1267,6 +1233,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                   ? `${Math.max(100, ((obsEnd - obsStart) / span) * 100)}%`
                   : "100%", height: 1 }} />
               </div>
+              )}
             </div>
 
             {/* Cisco's right-hand pane: Activity master list, drilling
@@ -1276,7 +1243,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                               onPivot={onPivot} width={DETAILS_W}
                               windowState={windowState}
                               emptiness={emptiness}
-                              height={canvasH + 13} />
+                              height="auto" />
           </div>
         </>
       )}

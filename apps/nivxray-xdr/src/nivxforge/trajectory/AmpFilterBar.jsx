@@ -73,15 +73,15 @@ export default function AmpFilterBar({
   };
 
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center",
-                  padding: "7px 10px" }}
+    <div style={{ display: "flex", gap: 22, alignItems: "center",
+                  padding: "0 0 12px" }}
          data-testid="amp-filter-bar">
       <div style={{ position: "relative", flex: 1, display: "flex",
                     alignItems: "center",
                     border: `1px solid ${C.gridStrong}`, borderRadius: 4,
                     background: C.paper }}>
-        <span style={{ display: "flex", padding: "0 7px 0 10px" }}>
-          <Search size={12} color={C.inkDim} />
+        <span style={{ display: "flex", padding: "0 9px 0 12px" }}>
+          <Search size={14} color={C.inkDim} />
         </span>
         <input value={draft}
                onChange={(e) => setDraft(e.target.value)}
@@ -91,19 +91,19 @@ export default function AmpFilterBar({
                }}
                data-testid="amp-filter-search"
                placeholder="Search Device Trajectory"
-               style={{ flex: 1, fontSize: 12, color: C.ink,
-                        padding: "7px 10px 7px 0", background: "transparent",
+               style={{ flex: 1, fontSize: 14, color: C.ink,
+                        padding: "10px 12px 10px 0", background: "transparent",
                         border: "none", outline: "none" }} />
       </div>
 
       <div style={{ position: "relative" }}>
         <button onClick={() => setOpen((v) => !v)}
                 data-testid="amp-filters-button"
-                style={{ fontSize: 12, padding: "5px 2px", border: "none",
+                style={{ fontSize: 14, padding: "6px 2px", border: "none",
                          cursor: "pointer", background: "transparent",
-                         color: C.link, whiteSpace: "nowrap", fontWeight: 600,
-                         display: "flex", gap: 6, alignItems: "center" }}>
-          <SlidersHorizontal size={12} /> Filters <ChevronDown size={11} />
+                         color: C.link, whiteSpace: "nowrap", fontWeight: 700,
+                         display: "flex", gap: 7, alignItems: "center" }}>
+          <SlidersHorizontal size={14} /> Filters <ChevronDown size={13} />
         </button>
         {open && (
           <div data-testid="amp-filters-menu"
