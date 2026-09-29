@@ -2167,3 +2167,34 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
   the preview URL changed when this environment forked, so spool latency may
   not be the only explanation. Read-only; nothing run on the endpoint.
 - ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · E3 NOT started.
+
+### 2026-09-29 — B5 EID5 DELIVERY RECHECK (read-only, no changes)
+- Owner supplied endpoint proof: sensor destination `https://nivxray.nivxforge.com`
+  CONFIRMED, service Running/Automatic, outbox 238,920,951 / offset advancing
+  +103,109 bytes over 120 s, backlog 15,030,785 bytes DRAINING. Old Sysmon
+  rollback blocker CLOSED.
+- Backend recheck in THIS environment (`https://greeting-app-5782.preview.emergentagent.com`,
+  DB `test_database`): still 0 Sysmon EID5, 0 `ProcessTerminate`, 0 canonical
+  `process_exit`/`ACTIVITY_PROCESS_TERMINATION`, 0 Windows sensor envelopes in
+  `edr_raw_events`, `DESKTOP-A9HGFJJ` absent from `edr_endpoints`.
+- Exact full-GUID lookup: 0/10 known ProcessGuids; the whole current Sysmon
+  session suffix `-000000002100` appears 0 times. The 3,295 `9949e5f2` hits are
+  the older session suffix `-000000002000` (2026-09-22).
+- Newest Windows record: Sysmon EID 12, EventRecordID 3312734, activity
+  2026-09-22 16:20:09.742, ingested 2026-09-25T15:35:33Z, connector
+  `windows-eventlog-g1proof01` (XDR collector path, not the EDR agent path).
+- `edr_delivery_counters` distinct tenants = ["default"] only; NO counter
+  document exists for tenant `ten_f1a5479243e901cf159e230fa0` or the Windows
+  endpoint. Sensor-side per-event counters: NOT_MEASURABLE (OFF by design).
+  No loss inferred.
+- Measured fact reported, not a conclusion: sensor destination hostname differs
+  from this preview environment hostname; cross-environment store identity is
+  not measurable from inside this pod.
+- Identifier authority regression: 0 `_pl`-suffixed ids in newest 200
+  `xdr_canonical_evidence` docs (Closure Wave holds).
+- DECISION: `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`. Pending boundary =
+  BACKEND RECEIVE. 16 EID1 remain `PROCESS_LIFETIME_UNKNOWN`, not backfilled.
+- Report: `/app/docs/B5_EID5_DELIVERY_RECHECK_READONLY.md`
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · UI_CHANGED: NO ·
+  E3 NOT started.
+
