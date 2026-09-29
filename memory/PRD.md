@@ -1862,3 +1862,76 @@ IMPLEMENTED — awaiting authorisation.
 **NEXT (proposed):** B5a termination readiness (server only) · B5b
 read-path fix · B5c measured delivery-fidelity window · then the
 Cisco/Defender/CrowdStrike/SentinelOne/Sophos/Carbon Black study.
+
+---
+
+## B5 · SERVER-SIDE READINESS — 2026-06 · OWNER REVIEW PENDING
+Full report: `docs/B5_SERVER_READINESS_REPORT.md`
+Endpoint UNCHANGED · Sysmon XML UNCHANGED · not restarted · auditing
+UNCHANGED · 4688/4689 NOT enabled · NOT deployed · endpoint hashing NOT
+implemented · trajectory presentation UNCHANGED.
+
+**B5-1 EID 5 READINESS — DONE.** `("sysmon", 5) →
+ACTIVITY_PROCESS_TERMINATION` in `edr_plane/windows_eventlog.py` (its own
+branch: the PROCESS branch reads `UtcTime` as the START time, which on
+EID 5 is the EXIT instant — reusing it would have fabricated a start
+time) and `5 → process_exit` in `sysmon_dsm.py`. CEM kind resolution
+already had it. Preserved: ProcessGuid, PID, Image, `exit_time` (+
+`sysmon:UtcTime (EventID 5)` provenance), User. Declared absent:
+CommandLine, Hashes, Parent*, `process.start_time`. Declared
+unsupportable: `process.exit_code`. Exit binds to the SAME `process_key`
+as the creation via ProcessGuid; an exit with no authoritative identity
+mints no key and terminates NOTHING.
+**DECLARED DEVIATION:** kind is `process_exit`, not `process_terminate` —
+`process_exit` is already the CEM enum value, `SYSMON_KIND[5]`, the
+reviewed gate value and what `trajectory_window`/`campaign_story`
+consume. A second name for one fact is the B1 problem. Rename available
+as its own governed change if the owner wants it.
+**Convergence fix:** the sensor plane stated only the activity CLASS and
+no `event_type`; it now states `event_type` from the SAME vocabulary as
+the XDR plane.
+Regression: `tests/edr/test_b5_process_termination.py` (18) — positive,
+negative, malformed, replay/idempotency, cross-tenant, PID-reuse.
+
+**B5-2 READ PATH — DONE, semantics proven identical.**
+`observations()` now asks the DB which observations address the endpoint
+(indexes already existed and were unused); needles come from the STORE
+via indexed `distinct` filtered case-insensitively, and `_addresses()`
+REMAINS the admissibility authority. Directory read projected to the
+fields it consumes. Measured (`scripts/b5_read_path_proof.py`):
+directory-wide 298,006 ms → **23,196 ms (12.8×)**; busiest device
+index-only (256,418 examined / 256,418 returned, 387 ms); unresolved
+endpoint 4,450 ms → **167 ms**; `/api/edr/device-trajectory` **14.3 s →
+3.5 s**. Equivalence: **61/62 devices identical count + digest**; the one
+difference was live-write drift on the continuously-ingesting device
+(PRE == POST == 256,434 in the quiet rounds). Unchanged: tenant
+isolation, endpoint authority, opaque cross-tenant refusal, observation
+identity, time semantics, evidence content, response shape.
+
+**B5-3 FILE HASHING — CONTRACT ONLY.**
+`docs/B5_FILE_HASHING_SENSOR_CONTRACT.md`: state machine
+(FILE_CREATE → eligibility → settle → identity revalidation → hash →
+SHA-256+provenance OR explicit failure), 14 terminal states, additive
+`file.content_acquisition` block, all nine owner-listed cases.
+`PROCESS_IMAGE_SHA256` ≠ `FILE_CONTENT_SHA256` enforced. NOT IMPLEMENTED.
+
+**B5-4 DELIVERY FIDELITY — PREPARED, NOT EXECUTED.**
+`docs/B5_DELIVERY_FIDELITY_TEST_PLAN.md`: five separately-counted
+boundaries (generated → observed → sent → accepted/refused →
+canonicalized) per Event ID over one agreed 60-minute UTC window, with a
+retention guard, config-stability check and dedupe counted separately
+from refusal.
+
+**TESTS: 1,757 passed / 0 failed** (tests/edr + ingestion_phase4 +
+w1_sysmon_field_preservation). The two live-API tests that previously
+timed out now PASS because the read path is fast — closed honestly, not
+by weakening a test. Two PRE-EXISTING failures remain in
+`tests/test_v2_framework.py` (adapter flag default; v2/engine isolation
+walk), reproduced at HEAD with all B5 files stashed.
+
+**OPEN:** (1) accept `process_exit` or authorise the rename; (2)
+authorise the one-line Sysmon `ProcessTerminate` change (server is
+ready); (3) `campaign-story` still 11 s — NOT the directory scan, cost
+is inside the story engine, needs its own measured pass; (4) B3
+implementation pending contract approval; (5) delivery-fidelity needs
+sensor per-channel read/sent counters for boundaries B1/B2.

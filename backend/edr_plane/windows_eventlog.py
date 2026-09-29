@@ -56,6 +56,12 @@ IDENTITY_PID_ONLY = "PID_ONLY_NOT_AUTHORITATIVE"
 IDENTITY_NOT_OBSERVED = "NOT_OBSERVED"
 
 ACTIVITY_PROCESS = "PROCESS"
+#: B5-1 · a process TERMINATION is its own activity class, not a variant
+#: of PROCESS. The PROCESS branch reads `UtcTime` as the process START
+#: time; on Sysmon EventID 5 that same field is the EXIT time, so reusing
+#: the branch would have recorded an exit instant as a start instant —
+#: fabricated evidence of when the process began.
+ACTIVITY_PROCESS_TERMINATION = "PROCESS_TERMINATION"
 ACTIVITY_FILE = "FILE"
 ACTIVITY_NETWORK = "NETWORK"
 ACTIVITY_REGISTRY = "REGISTRY"
@@ -70,6 +76,11 @@ WINSEC_PROVIDER = "microsoft-windows-security-auditing"
 #: nearest lane.
 SUPPORTED: Dict[Tuple[str, int], str] = {
     ("sysmon", 1): ACTIVITY_PROCESS,
+    #: B5-1 · Sysmon ProcessTerminate. Admitted so that a COLLECTED
+    #: termination becomes evidence instead of a
+    #: `WINDOWS_EVENT_ID_NOT_SUPPORTED` refusal. Admitting it does not
+    #: generate it: the endpoint configuration still has to emit it.
+    ("sysmon", 5): ACTIVITY_PROCESS_TERMINATION,
     ("sysmon", 3): ACTIVITY_NETWORK,
     ("sysmon", 11): ACTIVITY_FILE,
     ("sysmon", 12): ACTIVITY_REGISTRY,
@@ -91,6 +102,13 @@ LOGON_TYPES: Dict[str, str] = {
 NOT_SUPPORTED: Dict[str, Tuple[str, ...]] = {
     ACTIVITY_PROCESS: ("process.exit_time", "process.signer",
                        "process.signature_status"),
+    #: EventID 5 states WHO exited and WHEN. It states nothing about how:
+    #: Sysmon carries no exit code, and it repeats neither the command
+    #: line, the hashes nor the parent it reported at creation.
+    ACTIVITY_PROCESS_TERMINATION: ("process.exit_code",
+                                   "process.command_line",
+                                   "process.hashes",
+                                   "process.parent_process_guid"),
     ACTIVITY_FILE: ("file.sha256", "file.size", "file.signer"),
     ACTIVITY_NETWORK: ("network.bytes", "network.tcp_state"),
     ACTIVITY_REGISTRY: ("registry.previous_value",),
@@ -647,6 +665,34 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
             data, "CommandLine", "Hashes", "ParentProcessGuid",
             "IntegrityLevel", "User")
 
+    elif activity == ACTIVITY_PROCESS_TERMINATION and family == "sysmon":
+        # B5-1 · Sysmon EventID 5. Only four things are stated:
+        # ProcessGuid, ProcessId, Image, User — and `UtcTime`, which is
+        # the EXIT instant. It is recorded as `exit_time` and NEVER as
+        # `start_time`; no command line, hash, or parent is carried over
+        # from the creation event, because this record does not state
+        # them and the process they belonged to is identified by GUID,
+        # not by copying fields between events.
+        canonical["process"] = {
+            **_process_identity(_s(data.get("ProcessGuid")),
+                                _s(data.get("ProcessId")),
+                                _s(data.get("Image")), source=source),
+            "exit_time": activity_time,
+        }
+        _prov = canonical["process"].setdefault("field_provenance", {})
+        _prov.setdefault("exit_time", f"{source}:UtcTime (EventID 5)")
+        for _field, _wire in (("executable_path", "Image"),
+                              ("pid", "ProcessId")):
+            if canonical["process"].get(_field):
+                _prov.setdefault(_field, f"{source}:{_wire}")
+        canonical["identity"] = {"username": _s(data.get("User"))}
+        canonical["not_observed"] = _absent(data, "User") + [
+            # Stated as absent FROM THIS RECORD, so no consumer reads the
+            # absence as "the process had no command line".
+            "CommandLine", "Hashes", "ParentProcessGuid", "ParentImage",
+            "process.start_time",
+        ]
+
     elif activity == ACTIVITY_PROCESS and family == "winsec":
         # 4688 carries no ProcessGuid — the identity downgrade below is the
         # honest consequence, not a deficiency to be papered over.
@@ -800,6 +846,16 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
         canonical["not_observed"].append("ProcessGuid")
 
     canonical["not_supported"] = list(NOT_SUPPORTED.get(activity, ()))
+    #: B1/B5-1 · the OBSERVED KIND, from the one event-id vocabulary the
+    #: platform already owns (`v2.ingestion.canonical`). This path used to
+    #: state only the activity CLASS ("PROCESS"), so a consumer reading
+    #: the canonical record could not tell a process creation from a
+    #: process termination without re-deriving it from the Event ID — and
+    #: process-identity lifetime resolution needs exactly that
+    #: distinction. One fact, one name, one source of truth.
+    from v2.ingestion.canonical import SYSMON_KIND, WINSEC_KIND
+    canonical["observed_kind"] = (
+        (SYSMON_KIND if family == "sysmon" else WINSEC_KIND).get(event_id))
     canonical["collection_method"] = COLLECTION_METHOD
     return canonical
 

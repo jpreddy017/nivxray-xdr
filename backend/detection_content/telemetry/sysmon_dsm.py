@@ -232,6 +232,13 @@ class SysmonNormalizer:
         # Map Sysmon Event ID → canonical event_type + capability tags
         et_map = {
             1: "process_create", 3: "network_connect", 11: "file_create",
+            #: B5-1 · Sysmon ProcessTerminate. The XDR DSM plane could not
+            #: canonicalise a collected termination either, so process
+            #: lifetime was unknowable on BOTH dialects. `process_exit` is
+            #: the platform's existing CEM kind for this fact (see
+            #: `v2.ingestion.canonical.SYSMON_KIND`); a second name for
+            #: one fact is what B1 exists to prevent.
+            5: "process_exit",
             12: "registry_event", 13: "registry_event", 14: "registry_event",
             22: "dns_query",
         }

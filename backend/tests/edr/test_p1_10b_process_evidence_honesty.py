@@ -68,6 +68,23 @@ def _observations(monkeypatch, docs, hostname):
         def find(self, *a, **kw):
             return iter(docs)
 
+        def distinct(self, field):
+            # B5-2 · `observations()` now narrows the candidate set with
+            # an indexed query, so the double must model `distinct` too —
+            # otherwise this test exercises a collection interface the
+            # production code no longer uses. The semantics under test
+            # (process evidence honesty) are unchanged.
+            out = []
+            for doc in docs:
+                node = doc
+                for part in field.split("."):
+                    node = node.get(part) if isinstance(node, dict) else None
+                    if node is None:
+                        break
+                if node is not None and node not in out:
+                    out.append(node)
+            return out
+
     monkeypatch.setattr(di, "_obs", _Col())
     return di.observations(
         hostname, True, None,

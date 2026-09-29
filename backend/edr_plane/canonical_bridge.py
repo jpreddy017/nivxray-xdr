@@ -325,6 +325,11 @@ def _parse_windows(ev: dict[str, Any]) -> dict[str, Any]:
     canonical: dict[str, Any] = {
         "source_vendor": w["source_vendor"],
         "source_product": w["source_product"],
+        #: B5-1 · the OBSERVED kind, named identically to the XDR DSM
+        #: plane's `event_type`, so both canonical dialects state this
+        #: fact under ONE field name. Absent when the source's Event ID
+        #: is not in the shared vocabulary — never guessed.
+        "event_type": w.get("observed_kind"),
         "event_time": etb.event_time,
         "ingest_time": datetime.now(timezone.utc).isoformat(),
         "provenance": {
