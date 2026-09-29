@@ -219,6 +219,15 @@ def _blocked_row(doc: dict[str, Any]) -> dict[str, Any]:
         "raw_envelope_ref": None,
         "payload_keys": doc.get("payload_keys"),
         "payload_excerpt": doc.get("payload_excerpt"),
+        # A refusal must be DIAGNOSABLE. These say which payload key
+        # carried the record, how long it was, and — when nothing did —
+        # why there is no excerpt, instead of an empty string that reads
+        # like an empty payload.
+        "payload_excerpt_source": doc.get("payload_excerpt_source"),
+        "payload_excerpt_len": doc.get("payload_excerpt_len"),
+        "payload_excerpt_truncated": doc.get("payload_excerpt_truncated"),
+        "payload_excerpt_absent_reason": doc.get(
+            "payload_excerpt_absent_reason"),
         #: B4 · the bridge to the verbatim evidence behind this refusal.
         "retained_raw_id": doc.get("retained_raw_id"),
         "raw_retention": doc.get("raw_retention") or {

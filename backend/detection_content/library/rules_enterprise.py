@@ -226,8 +226,24 @@ def _pred_lsass_dumping(ev: Dict[str, Any]) -> bool:
 
 def _pred_ntds_dit_vss_extraction(ev: Dict[str, Any]) -> bool:
     cmd = _get_str(ev, "command_line", "process.command_line", "CommandLine").lower()
+    if not cmd:
+        return False
+    # D20 · gating on the literal string "ntds.dit" made this rule blind to
+    # the most common real extraction. `ntdsutil "ac i ntds" "ifm" "create
+    # full C:\\temp"` never names the file, so the rule could not fire on
+    # its OWN positive fixture. The IFM/shadow-copy INSTRUCTION is the
+    # evidence, not the filename.
     if "ntds.dit" in cmd:
-        return any(ind in cmd for ind in ("ntdsutil", "vssadmin", "volume\\", "ac i ntds", "create full"))
+        return any(ind in cmd for ind in ("ntdsutil", "vssadmin", "volume\\",
+                                          "ac i ntds", "create full"))
+    if "ac i ntds" in cmd and ("ifm" in cmd or "create full" in cmd):
+        return True
+    if "ntdsutil" in cmd and "ifm" in cmd:
+        return True
+    # A shadow copy of the volume that holds NTDS is the other route.
+    if ("vssadmin" in cmd or "diskshadow" in cmd) and "create" in cmd \
+            and ("shadow" in cmd or "volume" in cmd) and "ntds" in cmd:
+        return True
     return False
 
 

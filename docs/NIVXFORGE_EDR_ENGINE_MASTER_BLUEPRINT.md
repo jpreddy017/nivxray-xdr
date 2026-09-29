@@ -37,9 +37,21 @@ it properly gave a sharper and different answer.
 | LSASS credential access | did not fire — **E3 content gap** |
 
 **Conclusion.** The detection authority executes correctly and the rules
-bind correctly. **The real corpus is genuinely benign** — Cisco on the
-same machine would also show no detections. `RULE_NO_MATCH × 3,299` is
-the CORRECT answer.
+bind correctly.
+
+**CORRECTED CLAIM (owner ruling, 2026-09-29).** An earlier version of
+this document said "Cisco on the same machine would also show no
+detections". That is NOT establishable from this corpus and is
+withdrawn. The defensible statement is:
+
+> NivXForge's CURRENTLY AVAILABLE TELEMETRY and CURRENTLY IMPLEMENTED
+> RULES produced no detections for this corpus.
+
+Cisco Secure Endpoint has file intelligence, cloud reputation,
+behavioural engines, retrospection and endpoint capabilities this sensor
+does not have, so no conclusion may be drawn about what Cisco would
+report. `RULE_NO_MATCH × 3,299` is correct FOR THE EVIDENCE AND CONTENT
+WE HAVE — it is not a verdict that the endpoint was clean.
 
 The real defect was the platform's own negative-explainability
 invariant being violated: nothing recorded that the evidence HAD been
@@ -277,3 +289,34 @@ NIVXFORGE DESIGN DECISION: the removed full-height yellow IOC column;
 the dedicated Compromise band; the zoom ladder.
 NOT VERIFIED: cloud-query line graph (no NivXForge data source).
 No proprietary Cisco internals claimed, no Cisco code or assets used.
+
+---
+
+## 9 · CURRENT ENGINE ASSESSMENT (owner-required form, 2026-09-29)
+
+| engine | assessment |
+|---|---|
+| **E1** Evidence / Identity Authority | **PASS**, subject to continued regression protection (32 isolation tests + a structural guard that no query site may read a partitioned store without a tenant). |
+| **E2** Process Graph | **PARTIAL.** ProcessGuid, ParentProcessGuid, PID, PPID, Image, ParentImage all reach canonical evidence with field provenance, and 10 PROCESS_PROCESS / 74 PROCESS_FILE / 7 PROCESS_NETWORK / 1 PROCESS_DNS edges are derived on the real corpus. Missing: PID-reuse handling, Sysmon 5 termination, `PROCESS_START_OBSERVED` / `PROCESS_TERMINATION_OBSERVED` / `PROCESS_LIFETIME_UNKNOWN` as explicit states, SERVICE/TASK/MODULE entities. |
+| **E3** Detection | **FRAMEWORK OPERATIONAL. CONTENT COVERAGE INCOMPLETE. REAL CORPUS EVALUATED WITH NO MATCHES.** Replay runs the live evaluator over stored canonical evidence; 3,299/3,299 evaluated, 0 matched; measured coverage 22 SUPPORTED / 14 NOT_APPLICABLE / 1 PARTIAL / 0 dead rules. |
+| **E4** IOC / Reputation | **PARTIAL FOUNDATION. PROCESS-IMAGE SHA-256 EXISTS** (16/16 process_create rows, MD5 + SHA-256, with `sysmon:EventData.Hashes` provenance). **FILE-CREATE HASH COVERAGE + REPUTATION MISSING** — 107 `file_create` rows carry no hash, and there is no reputation source or provider/adapter interface. |
+| **E5** Behaviour Correlation | **PARTIAL / NOT OPERATIONALLY WIRED** — verified from code: `edr_plane/trajectory/sequence.py`, `behavior.py` and `detection_content/correlation_library.py` exist and are unit-tested, but nothing invokes them over real canonical evidence and no stateful window evaluator exists. |
+| **E6** ATT&CK Attribution | **PARTIAL.** Technique mappings exist on all 37 rules and now reach the surface only via a matched finding (`mitre_basis = RULE_DECLARED_BY_MATCHED_DETECTION`). **Tactic attribution incomplete**: rules declare a tactic NAME, not a TA id, so Activity Details correctly reads "Tactics: not attributed". No mapping was invented. |
+| **E7** Compromise / Contributor | **Contract exists; real compromise production still incomplete.** Proven end-to-end on authored telemetry (engine detection → techniques from the matched rules → 4 rule-cited contributors → compromise), but there is no producer that runs over real evidence. |
+| **E8** Retrospective | **ABSENT / NOT COMPLETE.** Its time model is now in place (`observed_at` never touched, `derived_at` = evaluation instant) but no intelligence-change-triggered re-evaluation exists. |
+| **E9** Response | COMPLETE + HARDENED; findings do not feed it yet. |
+| **E10** Prevention | STUB. Server-side detection is NOT prevention. |
+
+### Standing correction
+Do **not** state that Cisco would have produced no detection on this
+endpoint. We have no equivalent Cisco endpoint/cloud telemetry or
+engines with which to prove it. The correct statement is:
+
+> NivXForge's currently collected evidence and currently implemented
+> detection content produced no detections for this corpus.
+
+### Companion documents
+* `docs/E3_DETECTION_COVERAGE_MATRIX.md` / `.json` — regenerate with
+  `python3 backend/scripts/e3_coverage_matrix.py`
+* `docs/WAVE_A_WINDOWS_TELEMETRY_TRACE_AND_RUNBOOK.md` — the measured
+  telemetry trace, the owner runbook, and every retraction

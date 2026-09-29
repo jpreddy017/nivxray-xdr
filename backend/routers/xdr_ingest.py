@@ -295,6 +295,55 @@ class IngestShapeCollision(Exception):
 _LINE_ONLY_KEYS = frozenset({"line", "message", "payload_format"})
 
 
+#: Payload keys that CARRY the record, in the order they are preferred.
+#: `line`/`message` are the syslog/JSON-line shapes; `xml` is what the
+#: Windows Event Log collector sends. Reading only the first two made
+#: EVERY Windows refusal unexplainable: 55 `SOURCE_FORMAT_MISMATCH`
+#: blocks across 4 tenants were written with an empty excerpt, including
+#: the 24 Security-channel refusals that hid the absence of 4688. A
+#: refusal that cannot be diagnosed is a refusal that will recur.
+_CONTENT_KEYS = ("line", "message", "xml", "raw", "body", "event",
+                 "_raw", "text", "payload", "data")
+
+_EXCERPT_LIMIT = 300
+
+
+def _excerpt_evidence(raw: dict) -> dict:
+    """A BOUNDED, self-describing excerpt of a refused payload.
+
+    Bounded on purpose: enough to prove the disagreement, never an
+    unbounded body copied into a control record. The excerpt always says
+    WHICH key it came from, so it can never be read as coming from a
+    field it did not.
+    """
+    for key in _CONTENT_KEYS:
+        val = raw.get(key)
+        if isinstance(val, (str, bytes)) and str(val).strip():
+            text = val.decode("utf-8", "replace") if isinstance(val, bytes) \
+                else val
+            return {
+                "payload_excerpt": text[:_EXCERPT_LIMIT],
+                "payload_excerpt_source": key,
+                "payload_excerpt_len": len(text),
+                "payload_excerpt_truncated": len(text) > _EXCERPT_LIMIT,
+            }
+    # No declared content key carried text. That is itself the finding,
+    # so it is stated rather than rendered as an empty string.
+    present = sorted(k for k in raw if raw.get(k) not in (None, "", [], {}))
+    return {
+        "payload_excerpt": None,
+        "payload_excerpt_source": None,
+        "payload_excerpt_absent_reason": (
+            "no declared content key carried text. Keys with a value: "
+            + (", ".join(present) if present else "NONE — the payload was "
+               "empty") + ". Declared content keys: "
+            + ", ".join(_CONTENT_KEYS)),
+        "payload_excerpt_len": 0,
+        "payload_excerpt_truncated": False,
+    }
+
+
+
 def _payload_shape(e: CanonicalEnvelope) -> str:
     """LINE when the collector delivered a verbatim line, DOCUMENT when it
     delivered structured JSON.
@@ -775,8 +824,7 @@ def route_batch(envelopes: list[CanonicalEnvelope], *,
             # names and a short excerpt prove the disagreement without
             # copying an unbounded body into a control record.
             "payload_keys":     sorted(str(k) for k in raw),
-            "payload_excerpt":  str(raw.get("line")
-                                    or raw.get("message") or "")[:300],
+            **_excerpt_evidence(raw),
             "routing":          decision,
             # B4 · the bridge from a refusal to the evidence behind it, so
             # nobody has to reconstruct an EventID by inference again.

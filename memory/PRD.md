@@ -1530,7 +1530,10 @@ My earlier "the corpus bypassed detection" was too crude. Measured:
   download-execute (T1105) and LSASS credential access (T1003).
 - The real corpus is **genuinely benign**: 2,615/3,299 svchost.exe, only
   **16 rows carry any command line**, **0 interpreter/LOLBin processes**.
-  Cisco on this machine would also show no detections.
+  CORRECTED (owner ruling): we may NOT claim Cisco would report the same.
+  The defensible statement is that NivXForge's currently available
+  telemetry and currently implemented rules produced no detections for
+  this corpus. `RULE_NO_MATCH` is not a verdict of "clean".
 
 So the actual defect was OUR negative-explainability invariant: nothing
 recorded that the evidence HAD been evaluated, so no surface could tell
@@ -1604,3 +1607,102 @@ WAVE 2 · E2 Process Identity — ProcessGuid-first identity, PID reuse,
 parent/child continuity, Sysmon 5 termination, explicit UNKNOWN when
 termination is not observed. Then E4 hashing/reputation, then E8
 retrospection (its time model is already in place).
+
+---
+
+## 2026-09-29 (WAVE A) · TELEMETRY TRACE + COVERAGE MATRIX + 1 REAL RULE FIX
+
+Owner-approved order: A widen/audit Windows process telemetry ·
+B converge the normalizers · C one canonical vocabulary · plus build the
+coverage matrix NOW from code+data. Not deployed. No endpoint touched.
+
+### A · TRACED, NOT ASSUMED → `docs/WAVE_A_WINDOWS_TELEMETRY_TRACE_AND_RUNBOOK.md`
+PROVEN: the collector applies **no event-ID filter** (`filters` empty in
+all 4 profiles); **0 Sysmon deliveries were refused**; **24 Security + 1
+System were BLOCKED** with `SOURCE_FORMAT_MISMATCH` /
+`content_recognized_as: []` — which is why `Security:4688` is absent;
+and the DSM is **not** the defect (a well-formed 4688 in the collector's
+own `{channel,xml}` envelope passes `recognizes_format()` and
+`supports()`).
+
+**THE REAL P0 DEFECT (fixed): the refusal could not explain itself.**
+`xdr_ingest.py` read only `raw["line"]`/`["message"]` for the excerpt,
+but the Windows collector sends `{channel, xml}` — so **55
+SOURCE_FORMAT_MISMATCH blocks across 4 tenants were written with an
+empty excerpt**. New `_excerpt_evidence()` walks a declared ordered list
+of content keys and records `payload_excerpt_source`, `_len`,
+`_truncated` and, when nothing carried text, an explicit
+`payload_excerpt_absent_reason` listing the keys that DID have a value —
+so "empty payload" and "unread payload" are now different facts.
+I do NOT claim why those 24 records were unrecognisable: that evidence
+was never captured. It is diagnosable on the next occurrence.
+Sysmon Event ID 1 = 16 for the window; nothing was lost at the collector
+or at ingest, so the cause is upstream and **NOT PROVEN** — the runbook
+asks for the endpoint's active Sysmon config and the channel's own
+Event ID 1 count before ANY config change.
+
+### COVERAGE MATRIX → `docs/E3_DETECTION_COVERAGE_MATRIX.md` + `.json`
+`backend/scripts/e3_coverage_matrix.py`, every cell measured from the
+rule registry + canonical schema + the rules' own fixtures + the REAL
+corpus. Columns: technique · rule · required telemetry · canonical
+event types/fields (via an explicit Sigma↔canonical vocabulary bridge) ·
+sensor can observe · actually collected · canonical field populated ·
+positive control in the FIXTURE dialect · positive control in the
+CANONICAL dialect · negative control · real-corpus evaluated · verdict.
+
+**Result: 22 SUPPORTED · 14 NOT_APPLICABLE · 1 PARTIAL · 0 UNSUPPORTED ·
+0 dead rules.** Deliberately NOT an ATT&CK percentage.
+It answers the owner's question directly — credential access: DET-CR-001
+(LSASS) and DET-CR-002 (NTDS) SUPPORTED; DET-CR-004/005/006 are
+identity-plane and out of scope for a Windows endpoint sensor.
+Remaining PARTIAL: DET-LM-001 T1021.002 — fires on canonical evidence
+but `registry.service_name` is never populated (service-creation
+telemetry is not collected).
+
+### THE ONE REAL DEFECT THE MATRIX FOUND (fixed)
+`DET-CR-002` T1003.003 gated on the literal string `ntds.dit`, so it
+could not fire on its OWN positive fixture: `ntdsutil "ac i ntds" "ifm"
+"create full <dir>"` never names the file. That is a real evasion gap.
+Predicate now also fires on the IFM instruction and on a shadow copy of
+the NTDS volume, and still does not fire on `dir C:\Windows\NTDS` or
+`ntdsutil /?`.
+
+### REGRESSION → `tests/edr/test_e3_coverage_invariants.py` (116 tests)
+Locks four invariants per rule: every rule satisfies its OWN fixtures ·
+a rule that fires on the raw dialect MUST fire on the canonical dialect
+(the dead-rule guard) · no rule fires on benign svchost/explorer/
+taskhostw telemetry in either dialect · every declared telemetry
+requirement is either mapped to a canonical field or declared
+out-of-scope. Also caught an undeclared `hypervisor` platform.
+
+### RETRACTIONS (measurement corrected me — all recorded in the runbook)
+1. "Cisco would also show no detections" — WITHDRAWN, not establishable.
+2. "0 file SHA-256 in the corpus" — WRONG; all 16 process_create rows
+   carry MD5 + SHA-256 with `sysmon:EventData.Hashes` provenance.
+3. "16/3,299 carry a command line ⇒ fields dropped" — WRONG; 16 is the
+   process_create COUNT and 16/16 carry one.
+4. "a dialect mismatch kills a rule" — WITHDRAWN; no rule compares
+   `event_type` to `process_creation`.
+5. "9 rules dead on canonical evidence" — WRONG, my own generator
+   artefact (it overwrote already-canonical fixtures). Now 0.
+
+### TESTS
+`tests/edr` + `test_d12_cross_dsm_activity_time.py`: **1,659 passed /
+7 failed**, all 7 pre-existing (f7 flaky-live ×1, a2 ×1, f13_5 ×5,
+proven by stash). Frontend vitest 218 passed.
+
+### ENGINE ASSESSMENT (blueprint §9, owner-required form)
+E1 PASS · E2 PARTIAL · E3 FRAMEWORK OPERATIONAL / CONTENT INCOMPLETE /
+REAL CORPUS EVALUATED NO MATCHES · E4 PARTIAL FOUNDATION (process-image
+SHA-256 exists; file-create hashes + reputation missing) · E5 PARTIAL,
+NOT OPERATIONALLY WIRED · E6 PARTIAL (techniques yes, tactic ids no) ·
+E7 contract exists, real production incomplete · E8 ABSENT ·
+E9 COMPLETE+HARDENED, not fed · E10 STUB.
+
+### NEXT (awaiting owner)
+B · converge the normalizers: `v2_shadow_observations` keeps only
+name/image/iid/parent and drops the GUID, command line and hashes that
+`xdr_canonical_evidence` already holds — the trajectory reads the poorer
+store. Target: one canonical contract, the CEM store becomes a
+non-lossy projection. Then E2 process identity, then E4 file identity +
+reputation adapter.
