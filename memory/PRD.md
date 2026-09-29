@@ -2312,3 +2312,51 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
   ENDPOINT_CHANGED: NO · SENSOR_CHANGED: NO · OUTBOX_TOUCHED: NO · UI_CHANGED: NO ·
   PREVIEW_EVIDENCE_USED: NO · E3: NOT STARTED.
 
+
+### 2026-09-29 — P0 PRODUCTION REGRESSION AFTER PUBLISH 100 (tenant authorization)
+- SYMPTOM: `edr.nivxforge.com` logged in as `admin@nivxray.com`, customer
+  "Internal Validation": Computers / Events / Dashboard freshness all 403
+  `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL ... basis NOT_AUTHORIZED · tenant
+  ten_e759b7288598bd882e3dcac49d`. Worked on Publish 99, broke on Publish 100.
+- ROOT CAUSE (PROVEN in source): Publish 99 was built from `fdb9c05a`
+  (2026-09-27T09:37) where `dashboard_lenses.resolve_tenant_scope` granted
+  `all_tenants: True` from ROLE alone
+  (`_CROSS_TENANT_ROLES = {admin, platform_admin, soc_manager, mssp_operator}`).
+  Publish 100 contains `730ec4f5` (2026-09-28T07:31, P0-FIX-6B-2) which RETIRED
+  role-derived breadth: breadth now requires `users.authority_scope == "PLATFORM"`
+  exactly, or the tenant to be inside explicit `users.tenant_ids[]`.
+  The production `users` doc for admin@nivxray.com never received the explicit
+  designation, because `scripts/fix6b1b_platform_designation.py` does
+  `load_dotenv("/app/backend/.env")` -> it only ever ran against a NON-production
+  store. PREVIEW (reference only) holds `authority_scope: "PLATFORM"`,
+  `tenant_ids: ["default","nivx-live"]` — note ten_e759 is NOT in the grants, so
+  Internal Validation access depended ENTIRELY on the retired role breadth.
+  => New build fails closed, CORRECTLY. Boundary intact.
+- Auth-plane diff P99->P100: `edr_tenancy.py` +179, `session_context.py` +119,
+  `tenant_registry.py` +142, `server.py` +19 (P0-FIX-1 authorization-before-registry,
+  P0-FIX-2 non-disclosing refusal, P0-FIX-5A unconditional registry, P0-FIX-6B-2).
+- DATA_LOSS = NO: the 403 is raised in the `edr_tenant()` dependency before any
+  evidence query runs. Last authoritative prod measurement (P99, 15:28-15:33Z):
+  endpoint `ep_1989031c8c1d0085812f` present, 116,012 `edr_raw_events`, ingest 200 OK.
+- REPAIR_CLASS = GRANT_RESTORE (production DATA/designation continuity, NOT a code
+  fix, NOT rollback, NOT a broadening). Options proposed, NONE executed:
+  (1) idempotent startup designation from an explicit env var
+      (e.g. `NIVX_PLATFORM_PRINCIPAL`), server-side only, + deploy;
+  (2) run the existing owner-approved `fix6b1b_platform_designation.py` against
+      production (needs prod Mongo access; its `EXPECTED_GRANTS` guard must match);
+  (3) add `ten_e759...` to `tenant_ids[]` (narrowest, but repeats per customer).
+  FORBIDDEN and not considered: arbitrary tenant ids, default-tenant fallback,
+  trusting frontend tenant, registry bypass, all-tenants-for-all, disabling the
+  refusal code, changing fail-closed, frontend-hardcoded tenant, moving telemetry.
+- ROLLBACK NOT RECOMMENDED / NOT DONE: P100 carries the EID5 foundation + the four
+  P0 tenant-authority fixes; reverting would reinstate role-string breadth.
+- Read-only deployer diagnose dispatched for prod confirmation (tenant/endpoint/event
+  existence, the prod `users` doc fields, authority_scope holders, P99<->P100 store
+  continuity, 403 log/audit rows, and whether `/api/edr/agent/telemetry` is still 200).
+  Async, had NOT returned when this was written; all unconfirmed items = NOT_PROVEN.
+- `B5_EID5_END_TO_END = HOLD_PRODUCTION_AUTH_REGRESSION` (EID5 replay NOT performed).
+- Report: `/app/docs/P0_PROD_TENANT_AUTH_REGRESSION_PUBLISH100.md`
+- DEPLOYED: NO · REPUBLISHED: NO · ROLLED_BACK: NO · REPAIR_APPLIED: NO ·
+  DATA_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO · REPLAYED: NO ·
+  TENANT_ISOLATION_WEAKENED: NO · E3: NOT STARTED.
+
