@@ -2533,3 +2533,46 @@ B5                     = HOLD
   and whether the single-replica period on target-6 depressed throughput. Compare
   generation rate vs delivery rate over a fixed window before changing any setting.
 
+
+### 2026-09-29 ~18:00Z — B5 FRONTIER CHECK #1 (read-only, run 3bd64025)
+- FRONTIER = `payload.observed_at` **2026-09-29T11:00:48.600109Z** (newest-ingested raw
+  for `ep_1989031c8c1d0085812f`; that event = Sysmon EID 12 RegistryEvent,
+  TimeCreated 09:39:55.70Z). Newest `ingest_time` = 17:58:13.154329Z.
+- Endpoint: `outbox_queue_depth` **6,698**, `last_heartbeat_at` 17:53:29.295Z,
+  `last_telemetry_at` 17:58:06.127Z, `event_count` **119,118**,
+  `report_interval_seconds` 30, REPORTING.
+- ADVANCEMENT: frontier 10:41:31Z -> 11:00:48.6Z = **+19m17.6s event-time** over
+  **12m52.6s wall** => ratio **1.498 event-seconds per wall-second** (gaining).
+- QUEUE TREND: 6,468 -> 6,870 -> **6,698**. Most recent step DECLINED (-172 in 772.6 s
+  = -0.223 items/s) => immediate trend CONVERGING, still +230 above the first reading.
+- EID5 STILL NOT RECEIVED: Sysmon EID5 = **0**, with THREE controls proving the matcher
+  (Sysmon EID1 = 212, Sysmon EID12 = 22,663, and the ProcessGuid regex validated
+  against a known present guid = 1,055 hits). 10 target ProcessGuids = 0 in
+  `edr_raw_events`, `xdr_ingest_raw_retained`, `xdr_canonical_events`,
+  `v2_shadow_observations`. Downstream zero is EXPECTED because raw is zero.
+- Trajectory projection confirmed LIVE for `dev_2adbb41a04a4`; newest `captured_at`
+  11:07:39.471Z = a winsec 4624 logon_success, NOT an EID5.
+- REMAINING GAP to the 14:50:00Z target = **3h49m11.4s of event-time**.
+  ETA (ESTIMATE, not a measurement; assumes constant 1.498 ratio, strictly in-order
+  chronological delivery, steady cadence): ~**2h33m** => ~**2026-09-29T20:31Z**.
+  NOTE the target is a FIXED event-time, so the ETA is gap / ratio; it is NOT
+  gap / (ratio - 1), which would only apply to catching up to live wall-clock.
+- DERIVED ARITHMETIC from the measured numbers (labelled derivation, not a measurement):
+  `event_count` 118,613 -> 119,118 = **505 events delivered in 772.6 s = 0.654 ev/s**,
+  covering 1,157.6 s of event-time => implied historical generation rate
+  **0.436 ev/s**; net drain **0.217 ev/s (~13/min)**. At that net rate the queue would
+  reach live in ~8.6 h, but only ~2h33m is needed for the frontier to cross 14:50Z.
+- THROUGHPUT DIAGNOSTIC (read-only, for a LATER decision — no action taken):
+  `POST /api/edr/agent/telemetry` = 14 sampled requests over 36.6 s, ALL HTTP 200,
+  latency 1.57-5.44 s (mean ~2.68 s, one slow path 5,443 ms), frequency ~1 per 2.8 s
+  (~21/min) i.e. effectively SERIALIZED back-to-back — the sensor is in catch-up mode,
+  far faster than its 30 s report interval. Events-per-batch NOT_PROVEN (bodies not
+  logged). Runtime tier_3 "Scale", replicas 2, **max_replicas 2, HPA DISABLED (cannot
+  scale out)**, VPA enabled, cpu 1/limit 2, mem 4Gi/limit 8Gi; both pods Running/Ready,
+  restart_count 0. History: VPA Updater evicted pods `rt59j`/`9gt7j` to apply resource
+  recommendations, transient 503 probe failures ~17:20-17:42Z, now stable.
+  => fixed 2 replicas + serialized ~2.68 s/request = marginal drain vs continuous
+  generation, which matches the grow-then-slightly-converge queue pattern.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`. No remediation. Endpoint / sensor /
+  Sysmon / outbox untouched and not proposed for change. No deploy/replay/backfill.
+
