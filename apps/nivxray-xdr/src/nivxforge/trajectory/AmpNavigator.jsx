@@ -33,6 +33,7 @@ const dens = (n, max) => (!n ? 0
 export default function AmpNavigator({
   days, dayBins, selectedDay, onSelectDay, view, onView, observedEnd,
   onFocusTime, collapsed, onCollapsed, bounds = null, header = null,
+  searchActive = false,
 }) {
   const hourRef = useRef(null);
   const dragRef = useRef(null);
@@ -168,14 +169,16 @@ export default function AmpNavigator({
                       borderRadius: 6, height: "100%",
                       display: "flex", flexDirection: "column" }}>
       {header || null}
-      <div style={{ padding: "8px 12px 12px", display: "flex",
-                    flexDirection: "column", gap: 5 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => onCollapsed(true)}
-                  data-testid="amp-navigator-collapse"
-                  title="Collapse the navigator"
-                  style={collapseBtn}>−</button>
-        </div>
+      <div style={{ padding: "10px 12px 12px", display: "flex",
+                    gap: 8 }}>
+        {/* F3 · Cisco places the collapse control at the left of the
+            ribbon, vertically centred against it. */}
+        <button onClick={() => onCollapsed(true)}
+                data-testid="amp-navigator-collapse"
+                title="Collapse the navigator"
+                style={{ ...collapseBtn, alignSelf: "center" }}>−</button>
+        <div style={{ flex: 1, minWidth: 0, display: "flex",
+                      flexDirection: "column", gap: 5 }}>
 
         {/* 30-day ribbon */}
         <div style={{ display: "grid",
@@ -185,7 +188,12 @@ export default function AmpNavigator({
             const active = c.ms === dayStart;
             const has = c.total > 0;
             const red = c.malicious + c.detections;
-            const r = red ? 2.5 + dens(c.total, maxTotal) * 4 : 0;
+            /** Cisco: red dots are compromise events, blue dots are
+             *  search results, sized relative to the day's events. The
+             *  day aggregate is server-computed over the filtered set,
+             *  so with a query active these ARE the search hits. */
+            const blue = !red && searchActive && c.total > 0;
+            const r = (red || blue) ? 2.5 + dens(c.total, maxTotal) * 4 : 0;
             return (
               <button key={c.key} onClick={() => onDayClick(c)}
                       data-testid={`amp-nav-day-${c.key}`}
@@ -203,11 +211,14 @@ export default function AmpNavigator({
                                borderWidth: active ? 1.5 : "1px 0.5px",
                                display: "flex", alignItems: "center",
                                justifyContent: "center" }}>
-                {red > 0 && (
-                  <span data-testid={`amp-nav-day-red-${c.key}`}
+                {(red > 0 || blue) && (
+                  <span data-testid={red > 0
+                          ? `amp-nav-day-red-${c.key}`
+                          : `amp-nav-day-blue-${c.key}`}
                         style={{ width: r * 2, height: r * 2,
                                  borderRadius: "50%",
-                                 background: C.malicious }} />
+                                 background: red > 0 ? C.malicious
+                                   : C.telemetry }} />
                 )}
               </button>
             );
@@ -304,6 +315,7 @@ export default function AmpNavigator({
                style={{ fontSize: 9.4, color: C.inkFaint, marginTop: 1 }}>
             {MONTHS[sel.getUTCMonth()]} {sel.getUTCDate()}
           </div>
+        </div>
         </div>
       </div>
     </section>

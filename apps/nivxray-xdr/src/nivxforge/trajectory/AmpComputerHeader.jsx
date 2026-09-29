@@ -100,7 +100,9 @@ export default function AmpComputerHeader({ computer, malicious, detections,
         <button onClick={() => setMenu((v) => !v)}
                 data-testid="amp-actions-button"
                 style={{ ...btn, display: "flex", gap: 5,
-                         alignItems: "center" }}>
+                         alignItems: "center", background: C.link,
+                         color: "#FFFFFF", borderColor: C.link,
+                         fontWeight: 600 }}>
           Actions <ChevronDown size={10} />
         </button>
         {menu && (

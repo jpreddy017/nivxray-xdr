@@ -69,11 +69,12 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const [params, setParams] = useSearchParams();
   const device = deviceProp || params.get("device") || "";
 
-  /** Cisco ships both a dark and a light console; the analyst picks.
-   *  Applied before children render so one palette drives every part. */
+  /** F9 · the AMP-parity Device Trajectory defaults to Cisco's LIGHT
+   *  investigation surface. The global dark capability is untouched:
+   *  an explicit dark choice still wins. */
   const [theme, setThemeState] = useState(
-    () => (window.localStorage.getItem("nx.theme") === "light"
-      ? "light" : "dark"));
+    () => (window.localStorage.getItem("nx.theme") === "dark"
+      ? "dark" : "light"));
   setTheme(theme);
 
   /** One theme truth: the platform shell's toggle and this one write the
@@ -220,9 +221,39 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
           const at = params.get("at") ? Date.parse(params.get("at")) : null;
           const anchor = Number.isFinite(at) && at ? at : b;
           setSelectedDay((d) => d ?? startOfDayUTC(anchor));
-          setView((v) => v ?? (Number.isFinite(at) && at
-            ? { t0: at - 15 * MS.m, t1: at + 15 * MS.m }
-            : { t0: startOfDayUTC(b), t1: startOfDayUTC(b) + DAY_MS }));
+          /** F8 · Cisco focuses the trajectory on an evidence-bearing
+           *  interval rather than a whole empty day. The window is
+           *  derived from REAL observed timestamps and padded with
+           *  context; no timestamp is moved, spread or collapsed. */
+          setView((v) => {
+            if (v) return v;
+            if (Number.isFinite(at) && at) {
+              return { t0: at - 15 * MS.m, t1: at + 15 * MS.m };
+            }
+            const day = startOfDayUTC(b);
+            const act = data.activity?.day_bins || [];
+            const stamps = act
+              .map((x) => Date.parse(x.first_timestamp))
+              .filter((t) => Number.isFinite(t) && t >= day
+                             && t < day + DAY_MS);
+            if (!stamps.length) {
+              // real observed extent, clamped to the anchor day
+              for (const lit of [s, e]) {
+                const t = Date.parse(lit);
+                if (Number.isFinite(t) && t >= day && t < day + DAY_MS) {
+                  stamps.push(t);
+                }
+              }
+            }
+            if (stamps.length) {
+              const lo = Math.min(...stamps);
+              const hi = Math.max(...stamps);
+              const pad = Math.max(5 * MS.m, (hi - lo) * 0.35);
+              return { t0: Math.max(day, lo - pad),
+                       t1: Math.min(day + DAY_MS, hi + pad) };
+            }
+            return { t0: day, t1: day + DAY_MS };
+          });
           if (preset === "all") setPreset("1d");
         }
         // Progressive completion: the first paint is a BOUNDED projection
@@ -735,6 +766,27 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   const epi = meta?.epistemic_state;
   const canvasH = AXIS_H + rows * ROW_H;
+
+  /** DT2-3a.1 · Cisco's documented time-start filter: `at:<timestamp>`
+   *  starts the trajectory view at that moment, and `<term> at:<ts>` is
+   *  a logical AND of the term and the start time (User Guide p.409). */
+  const onSearch = (raw) => {
+    const text = String(raw || "");
+    const m = text.match(/(?:^|\s)at:(\S+)/i);
+    if (m) {
+      const lit = m[1];
+      const t = Date.parse(lit.length <= 10 ? `${lit}T00:00:00Z` : lit);
+      if (Number.isFinite(t)) {
+        // a bare date starts at midnight and shows the day; a full
+        // timestamp starts there and keeps at least an hour of context
+        const span = lit.length <= 10 ? DAY_MS
+          : Math.max(MS.h, view ? view.t1 - view.t0 : MS.h);
+        setSelectedDay(startOfDayUTC(t));
+        setView({ t0: t, t1: t + span });
+      }
+    }
+    setQuery(text.replace(/(?:^|\s)at:\S+/i, "").trim());
+  };
   const malicious = (meta?.activity?.days || [])
     .reduce((n, d) => n + (d.malicious || 0), 0);
   const detections = (meta?.activity?.days || [])
@@ -748,7 +800,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         typeCounts={meta?.event_type_counts || []}
         kinds={kinds} onKinds={setKinds}
         dispositions={dispositions} onDispositions={setDispositions}
-        query={query} onQuery={setQuery} />
+        query={query} onQuery={onSearch} />
     </div>
   );
 
@@ -760,6 +812,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       view={view} onView={setView}
       bounds={boundsRef.current}
       observedEnd={meta?.time_range?.observed_end}
+      searchActive={Boolean(query)}
       collapsed={navCollapsed} onCollapsed={setNavCollapsed}
       onFocusTime={(t, iid) => {
         setView(centreOn(view, t, boundsRef.current).view);
@@ -1141,30 +1194,33 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
               </div>
               )}
               {mode === "RELATIONSHIPS" && !PARKED_NIVXFORGE_UI ? (
-                <div style={{ display: "flex" }}
-                     data-testid="dt2-graph"
+                <div data-testid="dt2-graph"
                      data-dt2-graph-state={graphStateOf(dt2)}>
                   <RelationshipCanvas
                     graph={graphOf(dt2)} view={view}
                     plotW={plotW + GUTTER} rows={rows}
                     laneOffset={laneStart}
+                    bounds={boundsRef.current}
                     selectedNodeId={selectedNode}
+                    selectedEventMs={selected?.timestamp
+                      ? Date.parse(selected.timestamp) : null}
                     theme={C}
+                    onView={setView}
+                    onLaneOffset={(n) => {
+                      setLaneStart(n);
+                      if (vScroll.current) {
+                        vScroll.current.scrollTop = n * ROW_H;
+                      }
+                    }}
+                    onReturnToEvent={() => {
+                      if (!selected?.timestamp) return;
+                      const t = Date.parse(selected.timestamp);
+                      setView(centreOn(view, t, boundsRef.current).view);
+                    }}
                     onSelect={(lane) => {
                       setSelectedNode(lane.nodeId);
                       setStepCtx(null);
                     }} />
-                  <div ref={vScroll} data-testid="amp-vscroll"
-                       onScroll={(e) => setLaneStart(Math.max(0, Math.min(
-                         Math.max(0, total - rows),
-                         Math.floor(e.target.scrollTop / ROW_H))))}
-                       style={{ width: 13, height: canvasH,
-                                overflowY: "scroll", flexShrink: 0,
-                                background: C.paperAlt,
-                                borderLeft: `1px solid ${C.grid}` }}>
-                    <div style={{ height: Math.max(1, total) * ROW_H,
-                                  width: 1 }} />
-                  </div>
                 </div>
               ) : (
               <div style={{ display: "flex" }}>

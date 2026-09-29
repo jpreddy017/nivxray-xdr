@@ -1109,3 +1109,28 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
 - Sequence fixed: close DT2-3a visual defects → DT2-3a.1 filters/search →
   DT2-3b files/process → visual review → DT2-3c IOC.
 - CODE/UI/DATA unchanged in this step.
+
+### DT2-3a(F1–F9) + 3a.1 + 3b + 3c EXECUTED (same day)
+- Tests 122/122. Files: AmpComputerHeader, AmpFilterBar, AmpNavigator,
+  RelationshipCanvas, AmpEventDetails, EdrDeviceTrajectoryPage, dt2/graphModel,
+  graphModel.test.
+- F1 filled Actions · F2 borderless Filters+glyph · F3 collapse left of ribbon ·
+  F4 permanent Timeline/System/Files&Network (Cisco weight, centred) · F5
+  event-anchored ticks + hour marks · F6 ▲▼ ◀▶ + return-to-row/event · F7
+  content-sized graph · F8 evidence-bearing default window (no timestamps moved)
+  · F9 light Cisco surface by default (dark still wins if chosen).
+- 3a.1: five Cisco filter categories, one-per-category rule, Apply Filters,
+  at:<timestamp> grammar, blue search-result dots. No CLEAN/flags/file-type
+  values manufactured.
+- 3b: axisRowsOf promotes FILE artefacts to first-class rows ONLY with canonical
+  FILE evidence + the server process→artefact edge. Live: certutil.exe →
+  C:\Users\Public\payload.exe file row with a real PROCESS_FILE stem (1 file
+  row, 13 process stems, 17 rows).
+- 3c: PARTIAL/BLOCKED. dt2.graph activity_nodes carry NO disposition/detection
+  and no indicator contributor set, so yellow highlighting, the separate
+  compromise event and the blue halo cannot be drawn truthfully. Wired but inert
+  (isCompromise, dt2-ioc-mark-*). TO UNBLOCK: publish disposition/detection and
+  the indicator's contributor evidence_refs on activity nodes in projection.py.
+- Final A–Q: MATCH 14 / PARTIAL 2 / MISMATCH 1. Zero engineering-language leaks.
+  Tenant isolation demonstrated. 0 page errors. Not deployed.
+- Side-by-side: cisco_ref/DT2_FINAL_SIDE_BY_SIDE.png

@@ -253,3 +253,69 @@ export function familiesPresent(g) {
     return acc;
   }, {});
 }
+
+export const ROW_PROCESS = "PROCESS";
+export const ROW_FILE = "FILE";
+
+/**
+ * DT2-3b · Cisco's vertical axis is "a list of files and processes"
+ * (User Guide p.401). A FILE row is therefore a first-class trajectory
+ * row — but only where CANONICAL FILE EVIDENCE names the artefact AND
+ * the server produced the process → artefact edge for it.
+ *
+ * No file row is derived from a label alone, from timestamp proximity,
+ * from a matching name, from the same user or PID, or from adjacency.
+ * A FILE activity without a server edge stays on the process row, where
+ * it makes no relationship claim at all.
+ *
+ * This reuses the server relationship graph. It builds no second
+ * relationship engine: `activityEdgeFor` is the only authority.
+ */
+export function axisRowsOf(g, { max = 120 } = {}) {
+  const lanes = laneRowsOf(g, { max });
+  const out = [];
+  for (const lane of lanes) {
+    const files = new Map();
+    const kept = [];
+    for (const a of lane.activities) {
+      const label = a.family === "FILE" && a.label ? String(a.label) : null;
+      const edge = label ? activityEdgeFor(g, a) : null;
+      if (!label || !edge) { kept.push(a); continue; }
+      const key = `${lane.nodeId}::${label}`;
+      const row = files.get(key) || { key, label, edge, activities: [] };
+      row.activities.push(a);
+      files.set(key, row);
+    }
+    out.push({ ...lane, kind: ROW_PROCESS, activities: kept });
+    for (const f of files.values()) {
+      const times = f.activities.map(activityTimeMs)
+        .filter((t) => t != null);
+      if (!times.length) continue;
+      out.push({
+        kind: ROW_FILE,
+        nodeId: f.key,
+        node: { label: f.label, image: f.label },
+        depth: (lane.depth || 0) + 1,
+        parentNodeId: lane.nodeId,
+        activityEdge: f.edge,
+        activities: f.activities,
+        lifeline: {
+          startMs: Math.min(...times),
+          endMs: Math.max(...times),
+          terminated: false,
+          semantics: SPAN_OBSERVED,
+        },
+      });
+    }
+    if (out.length >= max) break;
+  }
+  return out.slice(0, max);
+}
+
+/** DT2-3c · an event may be presented as an indication of compromise
+ *  only where its own evidence says so. No cross-event association is
+ *  inferred: Cisco's blue halo needs a proven contributor set, and the
+ *  NivXForge contract does not yet publish one. */
+export const isCompromise = (n) => Boolean(
+  n && (n.detection === true || n.is_detection === true
+        || n.detection_name || (n.labels || []).includes("DETECTION")));

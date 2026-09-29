@@ -113,7 +113,7 @@ describe("A/B · process lifelines", () => {
       .toBe(SPAN_TERMINATED);
     // DT2-3a · Cisco draws a SOLID lifeline. An unterminated span gets a
     // trailing dashed continuation and never an invented cap.
-    expect(CANVAS).toMatch(/!lane\.lifeline\.terminated \? \(/);
+    expect(CANVAS).toMatch(/!file && !r\.lifeline\.terminated \? \(/);
     expect(CANVAS).toMatch(/strokeDasharray="3 3"/);
     expect(CANVAS).toMatch(/data-lifeline-semantics/);
   });
@@ -308,7 +308,7 @@ describe("Q/R · density and request safety", () => {
     expect(laneRowsOf(many).length).toBe(120);
     expect(laneRowsOf(many, { max: 20 }).length).toBe(20);
     expect(CANVAS).toMatch(/MAX_RENDERED_LANES/);
-    expect(CANVAS).toMatch(/lanes\.slice\(start, start \+ rows\)/);
+    expect(CANVAS).toMatch(/all\.slice\(start, start \+ rows\)/);
   });
 
   it("issues no request of its own, so none can arrive stale", () => {
@@ -321,5 +321,42 @@ describe("Q/R · density and request safety", () => {
 describe("T · tenant authority", () => {
   it("the trajectory view never touches tenant state", () => {
     expect(CANVAS).not.toMatch(/localStorage|X-Tenant-Id|tenant/i);
+  });
+});
+
+// ── DT2-3b · files on the vertical axis ─────────────────────────
+describe("DT2-3b · process / file axis parity", () => {
+  it("builds a FILE row only from canonical FILE evidence with a server edge",
+    () => {
+      expect(CANVAS).toMatch(/axisRowsOf/);
+      const MODEL = readFileSync(
+        new URL("../graphModel.js", import.meta.url), "utf8");
+      // the activity edge is the only authority for a file row
+      expect(MODEL).toMatch(/a\.family === "FILE" && a\.label/);
+      expect(MODEL).toMatch(/activityEdgeFor\(g, a\)/);
+      expect(MODEL).toMatch(/if \(!label \|\| !edge\) \{ kept\.push\(a\); continue; \}/);
+      // no second relationship engine: the server edge is reused
+      expect(MODEL).not.toMatch(/fetch\(|api\.get|axios/);
+    });
+
+  it("stems a file row from its acting process only via the edge", () => {
+    expect(CANVAS).toMatch(/r\.kind === ROW_FILE \? r\.activityEdge/);
+    expect(CANVAS).toMatch(/if \(!edge\) return null;/);
+    expect(CANVAS).toMatch(/data-edge-kind=/);
+  });
+});
+
+// ── DT2-3c · IOC / compromise ───────────────────────────────────
+describe("DT2-3c · compromise presentation", () => {
+  it("marks a compromise only from the event's own evidence", () => {
+    const MODEL = readFileSync(
+      new URL("../graphModel.js", import.meta.url), "utf8");
+    expect(MODEL).toMatch(/export const isCompromise/);
+    expect(MODEL).toMatch(/detection_name/);
+    expect(CANVAS).toMatch(/dt2-ioc-mark-/);
+  });
+
+  it("draws no blue halo, because no contributor set is published", () => {
+    expect(CANVAS).not.toMatch(/dt2-halo|blue-halo|data-halo/i);
   });
 });

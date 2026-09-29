@@ -41,7 +41,7 @@ const Row = ({ k, v, mono = true, testid }) => {
       <div className={mono ? "mono" : undefined}
            style={{ fontSize: 10.4, marginTop: 1, wordBreak: "break-all",
                     color: empty ? C.inkFaint : C.ink }}>
-        {empty ? "◇ not reported"
+        {empty ? "Not reported"
           : Array.isArray(v) ? v.join(", ") : String(v)}
       </div>
     </div>
@@ -161,10 +161,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
          style={{ marginTop: 7, fontSize: 10.6, color: C.inkDim,
                   lineHeight: 1.55 }}>
         {telemetryOnly
-          ? `No detection engine claimed this observation — it is `
-            + `telemetry reported by `
-            + `${engines[0]?.component || "the collector"}. Absence of a `
-            + `detection is not a verdict of clean.`
+          ? `Reported by ${engines[0]?.component || "the collector"}.`
           : `Reported by ${engines.map((d) => d.engine)
               .filter(Boolean).join(", ")}. `
             + `${event.display_label || ""}`}
@@ -185,7 +182,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           {tactics.length === 0 ? (
             <div data-testid="amp-mitre-tactics-none"
                  style={{ fontSize: 10.2, color: C.inkFaint, marginTop: 2 }}>
-              ◇ no tactic attributed
+              Not attributed
             </div>
           ) : tactics.map((t) => (
             <div key={t} className="mono" data-testid={`amp-mitre-${t}`}
@@ -201,8 +198,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
             <div data-testid="amp-mitre-none"
                  style={{ fontSize: 10.2, color: C.inkFaint, marginTop: 2,
                           lineHeight: 1.5 }}>
-              ◇ no technique attributed to this observation. Absence of an
-              attribution is not evidence that no technique was used.
+              Not attributed
             </div>
           ) : techniques.map((t) => (
             <div key={t} className="mono" data-testid={`amp-mitre-${t}`}
@@ -278,7 +274,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           <span className="mono" style={{ color: C.ink,
                                           wordBreak: "break-all" }}>
             {event.command_line || event.file || event.network
-              || event.process || "◇ not reported"}
+              || event.process || "Not reported"}
           </span>
         </div>
         <div style={{ fontSize: 10.2, color: C.inkDim, marginTop: 4 }}>
@@ -286,10 +282,10 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           <span className="mono" style={{ color: C.ink }}>
             {event.parent_process_name
               || (event.parent_state === "PARENT_NOT_OBSERVED_VISIBILITY_GAP"
-                ? "◇ parent not observed — visibility gap"
+                ? "Not reported"
                 : event.parent_state === "PARENT_NOT_REPORTED_BY_SENSOR"
                   ? `${event.process || "process"} · root`
-                  : event.process || "◇ not reported")}
+                  : event.process || "Not reported")}
           </span>
         </div>
       </Section>
@@ -338,13 +334,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
                style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
                         lineHeight: 1.55, background: C.paperAlt,
                         border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
-            <span className="mono">
-              {event.assessment_state
-                || "NO_DETECTION_CLAIMED_THIS_OBSERVATION"}
-            </span>
-            {" "}— no rule match is recorded against this observation in
-            the authoritative detection records. Absence of a detection is
-            not a verdict of clean.
+            No detection is recorded against this event.
           </div>
         )}
       </Section>

@@ -992,3 +992,172 @@ convenience. No evidence → no stem.
 
 CODE_CHANGED: **NO** · UI_CHANGED: **NO** · DATA_CHANGED: **NO**
 Only this document and the side-by-side reference image were written.
+
+---
+
+# CONSOLIDATED · DT2-3a (F1–F9) + DT2-3a.1 + DT2-3b + DT2-3c
+
+CODE_CHANGED: **YES** · UI_CHANGED: **YES** · DATA_CHANGED: **NO** ·
+DEPLOYED: **NO**
+
+## STATUS BY STAGE
+
+| STAGE | STATUS |
+|---|---|
+| DT2-3a (F1–F9) | **CLOSED** |
+| DT2-3a.1 filter + search parity | **CLOSED** (with recorded data-model gaps) |
+| DT2-3b process/file vertical axis | **CLOSED** — file rows and process→file stems live on real evidence |
+| DT2-3c IOC / compromise parity | **PARTIAL — BLOCKED ON AN EVIDENCE CONTRACT** (stop condition 5) |
+
+## FILES_CHANGED_BY_STAGE
+
+- **3a (F1–F9)**: `AmpComputerHeader.jsx` (F1 filled Actions), `AmpFilterBar.jsx`
+  (F2 borderless Filters + glyph), `AmpNavigator.jsx` (F3 collapse at the left
+  of the ribbon), `RelationshipCanvas.jsx` (F4 permanent Timeline/System/Files
+  & Network with Cisco weight and centring, F5 event-anchored ticks + hour
+  marks, F6 ▲▼/◀▶ and return-to-selection, F7 content-sized graph),
+  `EdrDeviceTrajectoryPage.jsx` (F8 evidence-bearing default window, F9 light
+  default), `AmpEventDetails.jsx` (engineering language removed).
+- **3a.1**: `AmpFilterBar.jsx` (five categories, one-per-category rule, Apply
+  Filters), `EdrDeviceTrajectoryPage.jsx` (`at:<timestamp>` grammar),
+  `AmpNavigator.jsx` (blue search-result dots).
+- **3b**: `dt2/graphModel.js` (`axisRowsOf`, `ROW_FILE`),
+  `RelationshipCanvas.jsx` (file rows + `PROCESS_FILE` stems).
+- **3c**: `dt2/graphModel.js` (`isCompromise`), `RelationshipCanvas.jsx` (IOC
+  row/mark treatment, wired but not satisfiable — see below).
+- **tests**: `dt2/__tests__/graphModel.test.js`.
+
+## TESTS_BY_STAGE
+
+`yarn test` → **122 passed / 122 (4 files)**, up from 118. New guards: file rows
+require `a.family === "FILE" && a.label` **and** `activityEdgeFor`; a missing
+edge pushes the activity back onto the process row; no second relationship
+engine (no fetch/axios in the canvas or the model); `isCompromise` reads the
+event's own evidence; and the canvas contains **no halo** because no contributor
+set is published. Earlier parity guards still hold (no `CAUSALITY_UNKNOWN`, no
+`WHY THIS EDGE`, no `pid {`, no `no GUID`, no wheel handlers).
+
+## REAL_WINDOWS_ACCEPTANCE — WS-W1-1789575060 / dev_0e10780f2c86
+
+17 axis rows (**16 process + 1 FILE**), 1 file row `payload.exe [PE]`,
+**1 `PROCESS_FILE` stem**, **13 `PROCESS_PROCESS` stems**, 15 activity rows,
+1 compromise event, 1 compromise day dot, 1 blue search-result dot with a query
+active, 6 filter checkboxes all ticked by default, Apply enabled, narrowing the
+disposition re-read 15 rows, `certutil` search → 3 rows, `at:2026-06-01` →
+17 rows, time ◀ ▶ pan, ▲ ▼ rows, details open and return. **0 page errors.**
+Text scan of the whole workspace: **no** `Absence of`, `CAUSALITY`,
+`NO_DETECTION`, `visibility gap`, `◇`, `OBSERVED_EVIDENCE_SPAN`,
+`IDENTITY DOWNGRADED` or `proc_` leak.
+
+CISCO_SIDE_BY_SIDE `cisco_ref/DT2_FINAL_SIDE_BY_SIDE.png`
+NIVXFORGE_ACCEPTANCE `/root/.emergent/automation_output/20260929_003754/final_acc.jpeg`
+
+## FINAL_A_Q_MATRIX
+
+MATCH **14** · PARTIAL **2** · MISMATCH **1**.
+Newly matched since the visual review: **I** (file rows — real file row with a
+real stem), **C** (five categories + Apply + `at:`), **D** (blue search dots),
+**F** (collapse at the left of the ribbon), **G** (event-anchored ticks),
+**H** (Cisco section weight/centring, permanent System band), **P/Q** unchanged.
+Still PARTIAL: **K** (process→process stems render, but the corpus has no
+deeper lineage to exercise), **N** (Cisco's selected-icon appearance is not
+observable in the reference). Still MISMATCH: **M** (IOC — see below).
+
+## PROCESS_FILE_PARITY (DT2-3b)
+
+`axisRowsOf` promotes a FILE artefact to a first-class row **only** when the
+activity's family is `FILE`, the artefact is named, **and** the server published
+the process→artefact edge (`activityEdgeFor`). Otherwise the activity stays on
+the process row and makes no relationship claim. Nothing is inferred from
+timestamp proximity, filename, user, PID or adjacency. The server relationship
+graph remains the only authority — no second frontend engine was created.
+Verified live: `certutil.exe` → `C:\Users\Public\payload.exe` is drawn as a
+file row stemming from its acting process, from a real edge.
+
+## FILTER_SEARCH_PARITY (DT2-3a.1)
+
+Five Cisco categories present — Activity, System, Disposition, Flags, File
+Type — populated from real observed evidence. Cisco's "at least one item from
+each category" rule gates `Apply Filters`, which now applies explicitly. The
+documented `at:<timestamp>` grammar starts the view at that moment (a bare date
+starts at midnight and shows the day) and the remaining term is retained as a
+logical AND. Blue search-result dots plot on the 30-day ribbon from the
+server's filtered day aggregate.
+
+DATA-MODEL GAPS (structure kept Cisco-compatible, values not manufactured):
+- **Disposition CLEAN** — NivXForge records no CLEAN verdict; not offered.
+  SUSPICIOUS is kept as itself and never mapped to malicious or clean.
+- **Flags** — event flags are not collected by the sensor.
+- **File Type** — file identification is not collected; the `[PE]` row tag is
+  derived from the observed path, and that is stated in the menu.
+
+## IOC_COMPROMISE_PARITY (DT2-3c) — PARTIAL, BLOCKED
+
+Implemented and verified: red compromise dot on the 30-day ribbon, red
+compromise circle in the hour band, the ⚠ + red glyph on the compromise row in
+the Activity pane, and the tactics/techniques box in Event Details.
+
+**BLOCKED, and deliberately not faked:** the yellow IOC highlighting, the
+separate compromise event and the blue halo **cannot be placed on the graph**.
+`dt2.graph.activity_nodes` publishes `family`, `label`, `kind`,
+`process_node_id`, timestamps, evidence refs and focus targets — it publishes
+**no disposition, no detection flag and no indicator/contributor set**. The
+verdict exists on the events payload, not on the graph nodes. Drawing yellow or
+a halo on the graph would therefore require either inventing the association or
+extending the server contract.
+
+Per the owner's rule — *NO PROVEN ASSOCIATION → NO BLUE HALO*, *NO IOC EVIDENCE
+→ NO IOC CLAIM* — the treatment is wired (`isCompromise`, `dt2-ioc-row-*`,
+`dt2-ioc-mark-*`) and evaluates to nothing on the graph until the projection
+publishes the verdict and the contributor set. **This is stop condition 5: the
+relationship cannot be represented truthfully.** Required to unblock: add
+disposition/detection (and, for the halo, the indicator's contributor
+`evidence_refs`) to the activity nodes in `projection.py`. That is backend
+contract work and was not in the approved presentation scope.
+
+## NOT_OBSERVED_ITEMS
+
+- No connector/system events → the permanent **System band renders empty**,
+  which is structure, not a claim of system activity.
+- No terminated process span in the corpus → the terminated-lifeline cap is
+  implemented but unexercised.
+- No deeper process lineage than one level in this window.
+- No non-PE artefact → only `[PE]` tags appear.
+
+## DATA_SOURCE_NOT_AVAILABLE
+
+1. Endpoint cloud-query volume per day (Cisco's line graph above the dates) —
+   omitted, no substitute.
+2. Inbox status.
+3. Processor ID, Flag, Host Firewall, Antivirus (drawer fields → "Not collected").
+4. Event flags; file-type identification.
+5. Disposition CLEAN.
+6. Activity-node verdict / IOC contributor set (blocks DT2-3c graph parity).
+
+## REMAINING_CISCO_PARITY_GAPS
+
+1. IOC graph parity (yellow, compromise event, blue halo) — needs the contract
+   above.
+2. Cisco's exact event icon set is richer than squares/circles.
+3. Three rows read "Unknown process" where the sensor reported no image.
+4. Selected-icon appearance is unverifiable from the reference.
+
+## REGRESSIONS
+
+SECURITY_REGRESSIONS: **none** — no auth, authority, response or isolation code
+was touched. EVIDENCE_INTEGRITY_REGRESSIONS: **none** — no resolver, projection
+or evidence rule changed; every removal was presentational.
+TENANT_ISOLATION_RESULT: **intact and demonstrated** — the platform principal
+had to name the customer before any endpoint evidence appeared, and
+`dev_0e10780f2c86` was only reachable under customer `default`.
+PERFORMANCE_RESULT: 17 rows, 15 events, full load ≈ 2 s after auth; bounded
+rendering (`MAX_RENDERED_LANES`) and row virtualisation preserved.
+
+## FINAL_DEVICE_TRAJECTORY_VERDICT
+
+**AMP parity achieved for the presentation, the process/file axis and
+filter/search; IOC parity partial and blocked on a server evidence contract.**
+14 of 17 regions match the Cisco reference, 2 partial, 1 mismatched for a
+truthful reason. No telemetry, timestamp, file, process, relationship,
+termination, IOC, compromise, verdict or MITRE association was fabricated at
+any point. **STOPPED for owner review. Not deployed.**
