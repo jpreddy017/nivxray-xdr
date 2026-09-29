@@ -2198,3 +2198,32 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
 - ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · UI_CHANGED: NO ·
   E3 NOT started.
 
+
+### 2026-09-29 — B5 STORE IDENTITY CHECK (read-only) → DIFFERENT_STORE_PROVEN
+- `nivxray.nivxforge.com` → Cloudflare `162.159.142.117` / `172.66.2.113`, served by
+  the DEPLOYED production runtime of app `greeting-app-5782` (in-repo deploy RCA:
+  custom domain verified, frontend_type cloudflare, target-3, 2 replicas,
+  nginx:8080, backend uvicorn:8001, tier_0). `GET /api/health` → 200 `nivxray-api`.
+- This agent pod = PREVIEW: container `agent-env-630704a1-...`,
+  `preview_endpoint=https://greeting-app-5782.preview.emergentagent.com`
+  (Cloudflare `104.18.10.243/11.243`), job `486146a0-...`.
+- Store queried by all prior B5 rechecks = `mongodb://localhost:27017` /
+  `test_database`, a `mongod` (pid 278) running INSIDE this agent container with
+  NO ingress exposure (only 3000 and 8001 are routed).
+- **STORE_IDENTITY = DIFFERENT_STORE_PROVEN.** Traffic delivered to
+  `nivxray.nivxforge.com` cannot physically write into a loopback-only mongod in
+  the agent container. Therefore absence of EID5 in the preview store is NOT
+  evidence of production receive failure. This also explains why only the old
+  Sept 22 / Sept 25 XDR-collector rows are visible here.
+- `PENDING_BOUNDARY = AUTHORITATIVE_RECEIVE_STORE_IDENTITY` (supersedes the
+  earlier, imprecise "BACKEND RECEIVE"). No loss inferred.
+- Authoritative read-only options identified, NONE executed, all need owner
+  approval: (1) Emergent deployer in debug/diagnose mode (reads prod pod runtime,
+  DB binding, secret presence; diagnoses only, cannot write prod data);
+  (2) authenticated read-only API reads against the production domain using
+  existing read endpoints; (3) owner-side deployment panel read of prod DB config.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY` (not PASS, not BLOCKED).
+- Report: `/app/docs/B5_STORE_IDENTITY_CHECK_READONLY.md`
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DOMAIN_CHANGED: NO · DATA_CHANGED: NO ·
+  DATA_COPIED: NO · UI_CHANGED: NO · E3 NOT started.
+
