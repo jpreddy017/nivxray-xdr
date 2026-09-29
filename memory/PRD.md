@@ -2261,3 +2261,54 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
 - ENDPOINT_CHANGED: NO · DEPLOYED: NO · PROD_RESTARTED: NO · CONFIG_CHANGED: NO ·
   DATA_CHANGED: NO · UI_CHANGED: NO · PROD_CREDENTIALS_USED: NO · E3 NOT started.
 
+
+### 2026-09-29 — B5 PRODUCTION EID5 BLOCKER RESOLUTION (prod diagnose COMPLETE)
+- AUTHORITATIVE PRODUCTION FACTS (store `greeting-app-5782-test_database`,
+  Emergent-managed Atlas; deployment `96834a37-...`; **active run
+  `d85f3698-86ec-4f79-ac6a-e1309f96cd13`, built 2026-09-27T09:52:56Z**, tier_3,
+  target-6, image `greeting-app-5782:d85f3698-...`):
+  - `POST /api/edr/agent/telemetry` -> collection `edr_raw_events` (runtime-proven).
+  - DESKTOP-A9HGFJJ = `ep_1989031c8c1d0085812f`, tenant
+    `ten_e759b7288598bd882e3dcac49d`, ENROLLED / REPORTING, 116,012 raw events,
+    `last_telemetry_at 2026-09-29T15:28:33Z`, `outbox_queue_depth 7,181`,
+    ingest 200 OK every 1-3 s to 15:33:23Z, no 401/403/413/429/5xx.
+    **DESKTOP-A9HGFJJ_PROD_RECEIVE = PROVEN.**
+  - Sysmon EID5 = 0 (control EID1 = 210 -> matcher valid); 0/10 ProcessGuids by
+    exact lookup; 0 canonical `process_exit`. **Replay frontier ~2026-09-29T
+    07:32:08Z** (`payload.observed_at` of newest ingested raw), ~7 h behind the
+    14:48-14:50Z EID5 batch. NOT loss.
+  - `edr_delivery_counters` collection ABSENT in prod (no counters, not zeros).
+  - prod `derivations.parser_state`: OK 44,329 / FAILED 71,744 with
+    `WINDOWS_EVENT_ID_NOT_SUPPORTED`, `WINDOWS_PROVIDER_NOT_SUPPORTED`,
+    `WINDOWS_EVENT_XML_MALFORMED`.
+  - Platform: 2nd replica Pending since 09-27, `FailedCreatePodSandBox` (no IPs in
+    10.55.38.1-10.55.39.254). Serving 1/2. Emergent-side capacity item, no loss.
+  - Legacy caution: the 44,282 `xdr_canonical_evidence` / 5 `xdr_canonical_events`
+    docs came from the OLD connector route `POST /api/xdr/ingest/telemetry`
+    (`nivx-sysmon-forwarder/1.0@DESKTOP-A9HGFJJ`, ~09-18), not the sensor path.
+- **NEW DEMONSTRATED VERSION GAP (deployment currency, not source correctness):**
+  prod build is 2026-09-27T09:52Z (last commit at/before: `fdb9c05a` 09-27T09:37),
+  but `("sysmon", 5): ACTIVITY_PROCESS_TERMINATION` was introduced in
+  `91e561f6` 2026-09-29T11:44Z (`git log -S`, and `91e561f6^` has no match).
+  `process_identity.py` = `e66abc8f` 09-29T10:39; `canonical_bridge.py`,
+  `delivery_counters.py`, `file_content_acquisition.py` = `6afab68a` 09-29T12:48.
+  => When the frontier reaches 14:48Z, prod WILL refuse EID5 as
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED`. **B5 PASS is unreachable on run d85f3698.**
+  Corroborated at runtime by the absent counters collection and the existing
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED` refusals. No evidence lost: prod retains raw
+  bytes marked replayable, so refused EID5 can be replayed after a correct deploy.
+- Workspace source is already correct (EID5 admitted; `UtcTime -> exit_time` with
+  provenance `:UtcTime (EventID 5)`, never `start_time`; NOT_SUPPORTED/not_observed
+  declared). Re-ran read-only: `test_b5_process_termination.py` +
+  `test_b2_process_identity.py` = **38 passed**. NO PATCH WRITTEN, NONE NEEDED.
+- CLASSIFICATION: CASE B. `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`
+  (not PASS, not BLOCKED - EID5 never reached post-receive).
+- OWNER DECISION PENDING: authorise a production deploy of the current workspace
+  build (which closes the parser gap), then let the backlog drain / replay and
+  re-verify. E3 remains HOLD.
+- Report: `/app/docs/B5_EID5_PRODUCTION_BLOCKER_RESOLUTION.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_d85f3698-86ec-4f79-ac6a-e1309f96cd13.MD`
+- DEPLOYED: NO · PROD_RESTARTED: NO · CONFIG/SECRET_CHANGED: NO · DATA_CHANGED: NO ·
+  ENDPOINT_CHANGED: NO · SENSOR_CHANGED: NO · OUTBOX_TOUCHED: NO · UI_CHANGED: NO ·
+  PREVIEW_EVIDENCE_USED: NO · E3: NOT STARTED.
+
