@@ -2452,3 +2452,54 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
 - Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
 - DEPLOY/REDEPLOY/ROLLBACK/RESTART/WRITE during verification: NONE.
 
+
+### 2026-09-29 — B5 TRAJECTORY FRESHNESS TRACE (prod run 3bd64025): H2 CONFIRMED, H1 REFUTED
+- `SENSOR_FRESH_TELEMETRY = PASS`. 228 new `edr_raw_events` after the 17:14:29Z
+  checkpoint; newest ingest 17:45:20.558821Z; newest raw doc
+  `source=ep_1989031c8c1d0085812f`, `source_kind=sensor`, `trust_state=AUTHENTICATED`,
+  IP 136.110.164.121, `sensor_version=0.2.0-windows`, `computer=DESKTOP-A9HGFJJ`.
+  Endpoint `last_heartbeat_at=17:39:39Z`, `last_telemetry_at=17:40:33Z`,
+  `event_count=118,613`, REPORTING/CONNECTED. Agent routes 200x39, 401x1 (the 401 at
+  17:45:10 was followed by `/agent/session` 200 and telemetry resumed — normal
+  session re-auth). `outbox_queue_depth` 6,468 -> **6,870 (GREW)**: the host is
+  generating slightly faster than the spool drains.
+- **H1 (identity split) REFUTED — my suspicion was wrong, recorded plainly.**
+  `dev_2adbb41a04a4` IS the sensor stream normalised:
+  `collector_id = connector_id = ep_1989031c8c1d0085812f`, adapter
+  `nivxforge-linux-sensor/1.0.0`. The `origin=collector-live` tag is adapter
+  provenance, NOT a second ingestion route. `ENDPOINT_IDENTITY_SPLIT = NO`.
+- **H2 (window selection) CONFIRMED.** Per-day obs for `dev_2adbb41a04a4` by
+  `captured_at` UTC: Sep25=208, Sep26=24,068, Sep27=16,251, Sep28=3,847, Sep29=503.
+  The console URL pins `event=evt_df9d1ced51b6cc9c;349092413`, fixing the window to
+  2026-09-20T17:23:33Z-17:53:33Z. The "45,666 / 45,666" counter is the DEVICE total,
+  not window content — which is why nothing looked missing. NO backend change needed:
+  clear the pinned `event=` param or move/widen the window to Sep 27-29.
+- Latest canonical for the host: `event_time 2026-09-29T10:36:10.339487Z` /
+  `ingest_time 17:41:09.611631Z` (`xdr_canonical_evidence`,
+  `host.host_id=ep_1989031c8c1d0085812f`, 45,665 docs). Trajectory newest observation
+  `captured_at 10:36:10Z`.
+- **EID5 STILL NOT DELIVERED.** Sysmon EID5 = 0 (EID1 control = 212, matcher valid);
+  all 10 ProcessGuids = 0 across raw/retained/canonical/shadow.
+  **REPLAY FRONTIER (measured):** 15:32Z wall -> frontier 07:32:08Z (lag ~8h);
+  17:45Z wall -> frontier **10:41:31Z** (lag ~7h04m). Frontier advanced 3h09m of
+  event-time in 2h13m of wall-clock (~1.4x realtime) and is still ~4h07m short of the
+  14:48-14:50Z EID5 batch.
+- **DISAGREEMENT RECORDED:** the deployer recommended investigating Sysmon EID5
+  collection/forwarding on the host. NOT acted on — premature and contradicted by the
+  frontier measurement plus the owner's own local proof of EID5 generation and
+  ProcessGuid pairing. DO NOT touch Sysmon / sensor / outbox.
+- CANONICALISER COVERAGE NOW SATISFIED: run `3bd64025` was built from this workspace,
+  which carries `("sysmon", 5): ACTIVITY_PROCESS_TERMINATION` (windows_eventlog.py:83)
+  and `"exit_time": activity_time` (line 680). The old build's
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED` refusal for EID5 is closed on the live runtime.
+  (Statement about the deployed COMMIT; the first arriving EID5 is the runtime proof.)
+  winsec 5379 refusals are correct — that family genuinely is unsupported; records stay
+  retained and replayable.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY` — not PASS (no genuine EID5 arrived),
+  not BLOCKED (no defect anywhere: delivery active, identities converged, canonicaliser
+  supports EID5, projection healthy).
+- Report: `/app/docs/B5_TRAJECTORY_FRESHNESS_TRACE.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOYED/REPLAYED/BACKFILLED/RESTARTED/WRITTEN: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX:
+  UNTOUCHED · UI_CHANGED: NO · E3: NOT STARTED.
+
