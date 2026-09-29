@@ -128,7 +128,7 @@ jobs:
       # ─── EDR plane · deterministic scope (tenant isolation, Windows
       # canonicalization + activity projection, response authority,
       # findings, trajectory, installer contracts) ───
-      # `tests/edr` is NOT run wholesale: ten suites in that directory
+      # `tests/edr` is NOT run wholesale: eleven suites in that directory
       # authenticate against the running preview edge (`/api/auth/login`)
       # and are live-integration by design — they cannot pass on a GitHub
       # runner and are excluded by name, exactly as the RC4.2/RC4.3 HTTP
@@ -171,6 +171,7 @@ jobs:
             --ignore=tests/edr/test_p0c_durable_findings_live.py \
             --ignore=tests/edr/test_p1_10_live_contract.py \
             --ignore=tests/edr/test_wave0_api_smoke.py \
+            --ignore=tests/edr/test_dt2_3_graph_read.py \
             -q --no-header
 
       # ─── RC2.3 chain-completeness benchmark (release gate — kept) ───
