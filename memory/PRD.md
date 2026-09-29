@@ -2105,3 +2105,34 @@ Full report: `docs/C_CLOSURE_WAVE_IDENTIFIER_DELIVERY_FILE_IDENTITY.md`.
   primary-id resolution needs one new rule-matching detection;
   (4) then the owner's stated sequence E4 reputation/file intelligence →
   E3 detection expansion → E5 behavioural correlation (UEBA later).
+
+## 2026-06 · EID5 BLOCKED (config authority gap) · OWNER CHOSE OPTION B
+Reports: `docs/B5_EID5_SYSMON_XML_PROVENANCE_INVESTIGATION.md`,
+`docs/B5_SYSMON_XML_RECOVERY_HUNT_READONLY.ps1`, `docs/E3_NEXT_STEP_PROPOSAL.md`.
+- EID5 status: **BLOCKED_ON_EXACT_SYSMON_ROLLBACK_ARTIFACT**. `ProcessTerminate
+  = include` (no child rules) => EID5_NOT_COLLECTED; `termination_state` stays
+  `PROCESS_LIFETIME_UNKNOWN` everywhere. NOT a reason to weaken semantics.
+- PRE accepted: DESKTOP-A9HGFJJ, run 621b79c3-bf4e-49ad-ad42-14bac02b2449,
+  rules SHA `6eecc58c...0cba8f`, EID1=185 / EID5=0 in window, EID5 anywhere=0.
+- The enablement script HALTED twice at G2 (config XML missing) - fail-closed
+  worked. `C:\NivX\sysmon\nivx-w1-sysmon.xml` is gone from disk; Sysmon 15.22
+  still names it, live ConfigHash `0BAE60B3...9C9A7AC`.
+- WORKSPACE RECOVERY EXHAUSTED -> `ORIGINAL_XML_RECOVERED = NO`. Provenance is
+  `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` S1.3 (single revision, the only
+  writer anywhere; the Windows installer has zero Sysmon references). 96
+  byte-level reconstructions, 2,245 commits (pickaxe + blob grep), 12,515
+  workspace files and the handoff zip: no artefact hashes to `0BAE60B3...`.
+  PRD history shows the same `0BAE60B3...` recorded at W1 Phase 1, so the
+  deployed file never changed - only its bytes differed from the doc text.
+- Semantic recovery is complete (19/19 event classes match the live `-c` dump)
+  but semantic != byte-exact, so exact rollback is NOT guaranteed.
+- OWNER DECISION: Option B (zero-apply hold). No `Sysmon64 -c <config>`, no
+  registry import, no service restart, no reconstructed XML applied, no new
+  baseline. Read-only endpoint hunt block delivered, awaiting owner run.
+- TRACK SPLIT: Track A = recover exact config -> enable EID5 safely.
+  Track B = E3 deterministic detection hardening (proposal measured and
+  written): E3-A close the 9-rule declaration debt (28/37 declare today),
+  E3-B partial-absence negative controls (66 negative fixtures test wrong
+  values, never absent ones), E3-C collected-telemetry coverage map.
+  Baseline measured: 0/37 rules fire or raise on an empty canonical event.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO.
