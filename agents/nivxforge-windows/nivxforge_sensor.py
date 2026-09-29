@@ -106,6 +106,14 @@ CAPABILITIES = {
 # the Windows and Linux connectors cannot drift apart.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import nivxforge_exclusions as nvx_excl        # noqa: E402
+# DELIVERY FIDELITY + B3 CONTENT IDENTITY · both are CAPABILITIES and both
+# are OFF unless their environment flag is set. Same implementation the
+# Linux connector uses, so the two cannot drift apart.
+import nivxforge_content_acquisition as nvx_hash   # noqa: E402
+import nivxforge_delivery_counters as nvx_counters  # noqa: E402
+
+COUNTERS = nvx_counters.DeliveryCounters(STATE_DIR)
+ACQUIRER = nvx_hash.Acquirer()
 
 POLICY_FILE = STATE_DIR / "policy.json"
 EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
@@ -130,6 +138,9 @@ def use_state_dir(path: str | os.PathLike) -> Path:
     BOOKMARK_FILE = STATE_DIR / "channels.json"
     POLICY_FILE = STATE_DIR / "policy.json"
     EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
+    # The counters follow the state root the installer chose, so a
+    # service-hosted sensor does not write them to a second location.
+    COUNTERS.state_dir = STATE_DIR
     return STATE_DIR
 
 
@@ -307,6 +318,17 @@ def _attr(text: str, element: str, attribute: str) -> str | None:
         return None
 
 
+def _data_field(text: str, name: str) -> str | None:
+    """One `<Data Name="...">value</Data>` field. String extraction only —
+    it reads what the record states and infers nothing."""
+    marker = f'Name="{name}">'
+    try:
+        head = text.index(marker) + len(marker)
+        return text[head:text.index("</Data>", head)].strip() or None
+    except ValueError:
+        return None
+
+
 def collect() -> tuple[list[dict], dict]:
     marks, events, unavailable = _bookmarks(), [], {}
     for channel in CHANNELS:
@@ -319,6 +341,21 @@ def collect() -> tuple[list[dict], dict]:
             record = event["winlog"].get("record_id")
             if record and record > int(marks.get(channel) or 0):
                 marks[channel] = record
+            # B3 · Sysmon FileCreate (11) / FileCreateStreamHash (15) name
+            # a path but state NO content digest. When the acquisition
+            # CAPABILITY is enabled the sensor reads those bytes itself and
+            # reports a full acquisition record; the digest never claims to
+            # be something Sysmon stated.
+            if nvx_hash.enabled() and str(
+                    event["winlog"].get("event_id") or "") in ("11", "15"):
+                target = _data_field(event["winlog"].get("xml") or "",
+                                     "TargetFilename")
+                if target:
+                    event["file_content_acquisition"] = ACQUIRER.acquire(
+                        target, operation="CREATE",
+                        event_observed_at=(event["winlog"].get(
+                            "time_created") or event["observed_at"]),
+                        settle_seconds=nvx_hash.SETTLE_SECONDS)
         events.extend(found)
     return events, {"channels_unavailable": unavailable, "bookmarks": marks}
 
@@ -465,6 +502,7 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
             try:
                 if not session.get("token"):
                     session["token"] = _open_session(api, ident)
+                COUNTERS.bump("sensor_attempted")
                 _post(api, "/api/edr/agent/telemetry",
                       {"payload": line, "source_kind": "sensor",
                        "sensor_version": SENSOR_VERSION,
@@ -472,6 +510,7 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
                           if interval else {})},
                       bearer=session["token"])
                 sent += 1
+                COUNTERS.bump("sensor_sent")
                 offset += consumed
                 OFFSET_FILE.write_text(str(offset))
                 if sent >= max_per_cycle:
@@ -483,6 +522,7 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
                     fh.seek(offset)
                     continue
                 failed += 1
+                COUNTERS.bump("sensor_failed")
                 print(f"[journal] held at offset {offset}: {message[:140]}")
                 break
     return sent, failed
@@ -497,7 +537,9 @@ def _heartbeat(api: str, ident: dict, session: dict,
         _post(api, "/api/edr/agent/heartbeat",
               {"report_interval_seconds": float(interval),
                "sensor_version": SENSOR_VERSION,
-               "queue_depth": _queue_depth()},
+               "queue_depth": _queue_depth(),
+               # Additive and only when the CAPABILITY is enabled.
+               **COUNTERS.heartbeat_fields()},
               bearer=session["token"])
     except (RuntimeError, urllib.error.URLError, OSError) as ex:
         print(f"[heartbeat] {str(ex)[:140]}")
@@ -518,11 +560,17 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
         events, excluded = nvx_excl.partition(
             events, policy.get("exclusions") or [], journal, policy)
         journal.save()
+        # DELIVERY FIDELITY · the endpoint boundary, measurable only here.
+        COUNTERS.bump("endpoint_observed", len(events) + len(excluded or []))
+        COUNTERS.bump("endpoint_read", len(events) + len(excluded or []))
+        COUNTERS.bump("sensor_suppressed_by_policy", len(excluded or []))
         _enqueue(events)
         _save_bookmarks(state["bookmarks"])
         sent, failed = _drain(api, ident, session, interval)
         _heartbeat(api, ident, session, interval)
         reported = _report_enforcement(api, ident, session, journal, policy)
+        COUNTERS.observe_gauge("sensor_queue_depth", _queue_depth())
+        COUNTERS.persist()
         report = {"at": _now(), "collected": len(events), "sent": sent,
                   "failed": failed, "queue_depth": _queue_depth(),
                   "collection_suppressed_at_endpoint": excluded,

@@ -145,7 +145,13 @@ async def detection_rule_bindings(refresh: bool = False,
 async def raw_event_stats(user: dict = Depends(get_current_user),
                           tenant_id: str = Depends(edr_tenant)
                           ) -> dict[str, Any]:
-    return await raw.stats(_db, tenant_id=tenant_id)
+    from edr_plane import delivery_counters
+    stats = await raw.stats(_db, tenant_id=tenant_id)
+    # DELIVERY FIDELITY · boundary counters published beside the raw-event
+    # substrate they describe. Operational metadata, not evidence.
+    stats["delivery_boundaries"] = await delivery_counters.read(
+        _db, tenant_id=tenant_id)
+    return stats
 
 
 @router.get("/raw-events/replay-candidates")

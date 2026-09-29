@@ -922,6 +922,9 @@ async def _startup():
             ensure_indexes as _ensure_rej)
         from edr_plane.response import ensure_indexes as _ensure_resp
         await _ensure_resp(_raw_db)
+        from edr_plane.delivery_counters import (
+            ensure_indexes as _ensure_counters)
+        await _ensure_counters(_raw_db)
         await _ensure_enr(_raw_db)
         await _ensure_rej(_raw_db)
         # N2.1 · endpoint address OBSERVATIONS (evidence, not identity).

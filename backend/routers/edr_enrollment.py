@@ -15,6 +15,7 @@ evidence?"* has a recorded answer for every event in the store.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -22,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from deps import db as _db, get_current_user
+from edr_plane import delivery_counters as counters
 from edr_plane import raw_events as raw
 from edr_plane.canonical_bridge import bridge
 from edr_plane.contracts.identity import EndpointIdentity
@@ -35,6 +37,8 @@ from edr_plane.enrollment.transport import (get_authenticated_endpoint,
                                             transport_status)
 from routers.edr_tenancy import edr_tenant
 from services import tenant_registry
+
+log = logging.getLogger(__name__)
 
 admin = APIRouter(prefix="/edr/enrollment", tags=["nivxforge-edr-enrollment"])
 agent = APIRouter(prefix="/edr/agent", tags=["nivxforge-edr-agent"])
@@ -361,6 +365,21 @@ class HeartbeatBody(BaseModel):
         description="Unsent events in the sensor's local outbox. Lets the "
                     "platform distinguish a BACKLOG from a silence: a "
                     "sensor that is alive and behind has not stopped.")
+    counter_epoch: Optional[str] = Field(
+        default=None, max_length=64,
+        description="The sensor's counter epoch. Sensor counters restart "
+                    "with the sensor process, so a new epoch is recorded "
+                    "as an epoch CHANGE and the previous snapshot is "
+                    "retained — never added to or subtracted from the new "
+                    "one.")
+    delivery_counters: Optional[dict] = Field(
+        default=None,
+        description="The ENDPOINT's own monotonic delivery counters "
+                    "(observed / read / attempted / sent / failed / "
+                    "suppressed / queue depth). Metadata only: no event "
+                    "content, no path, no command line. Stored as a "
+                    "SENSOR CLAIM and never as a server measurement, and "
+                    "never as an evidence authority.")
 
 
 @agent.post("/heartbeat")
@@ -376,12 +395,27 @@ async def heartbeat(body: HeartbeatBody,
     `last_telemetry_at` and does not count as an event, so it can never
     make a silent endpoint look like a delivering one.
     """
-    return await store.mark_heartbeat(
+    beat = await store.mark_heartbeat(
         _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
         at=datetime.now(timezone.utc).isoformat(),
         report_interval_seconds=body.report_interval_seconds,
         sensor_version=body.sensor_version,
         queue_depth=body.queue_depth)
+    if body.delivery_counters is not None:
+        try:
+            beat = {**beat, "delivery_counters": (
+                await counters.record_sensor_reported(
+                    _db, tenant_id=who.tenant_id,
+                    endpoint_id=who.endpoint_id,
+                    counter_epoch=body.counter_epoch or "",
+                    counters=body.delivery_counters,
+                    sensor_version=body.sensor_version))}
+        except ValueError as ex:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "SENSOR_COUNTER_REFUSED",
+                        "reason": str(ex)[:200]}) from None
+    return beat
 
 
 @agent.post("/telemetry")
@@ -404,6 +438,21 @@ async def ingest(body: TelemetryBody, request: Request,
         trust_state="AUTHENTICATED")
     ev.authentication = who.provenance()
     result = await raw.append(_db, ev)
+    # DELIVERY FIDELITY · the event is RECEIVED the moment the
+    # authenticated handler holds it. Every received event increments
+    # exactly one terminal outcome below, so an event can never vanish
+    # into an uncounted gap.
+    channel = counters.channel_of(body.payload)
+
+    async def _count(outcomes, reason_code=None) -> None:
+        try:
+            await counters.record(
+                _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
+                channel=channel, outcomes=outcomes, reason_code=reason_code)
+        except Exception as ex:  # noqa: BLE001
+            log.warning("[delivery-counters] %s", str(ex)[:200])
+
+    await _count([counters.RECEIVED])
     await store.mark_reported(_db, tenant_id=who.tenant_id,
                               endpoint_id=who.endpoint_id,
                               at=ev.ingest_time,
@@ -415,6 +464,7 @@ async def ingest(body: TelemetryBody, request: Request,
     canonical = {"canonicalized": False, "reason": "duplicate payload; the "
                  "original event was already canonicalised"}
     if result.get("stored"):
+        await _count([counters.ACCEPTED])
         ep = await store.get_endpoint(_db, tenant_id=who.tenant_id,
                                       endpoint_id=who.endpoint_id) or {}
         canonical = await bridge(
@@ -423,6 +473,22 @@ async def ingest(body: TelemetryBody, request: Request,
             hostname=ep.get("hostname"), authentication=who.provenance(),
             source_kind=ev.source_kind, sensor_version=ev.sensor_version,
             nivx_received_at=ev.ingest_time)
+        if canonical.get("parser_state") == "FAILED":
+            # A PARSE FAILURE IS A COUNTED OUTCOME. It is not loss and it
+            # is not an absence of activity: the bytes are retained and
+            # replayable, and the refusal is auditable.
+            await _count([counters.PARSE_FAILED], reason_code="PARSER_FAILED")
+        elif canonical.get("duplicate_activity"):
+            await _count([counters.PARSED, counters.DEDUPLICATED,
+                          "deduplicated_activity"])
+        elif canonical.get("canonicalized"):
+            await _count([counters.PARSED, counters.CANONICALIZED])
+        else:
+            await _count([counters.REFUSED],
+                         reason_code=str(canonical.get("reason")
+                                         or "CANONICALIZATION_REFUSED")[:80])
+    else:
+        await _count([counters.DEDUPLICATED, "deduplicated_payload"])
 
     return {
         **result,

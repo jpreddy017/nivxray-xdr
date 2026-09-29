@@ -2043,3 +2043,65 @@ PRE is NOT complete without that transcript; (2) then the EID 5
 one-liner, POST validation at T+24 h (59-min p50 / 2.9-day worst-case
 spool); (3) approve R1–R4; (4) approve the six B3 decisions; (5) sensor
 per-channel counters + parse-failures-not-logged-as-refusals remain open.
+
+## 2026-06 · CLOSURE WAVE DONE — identifier authority → parse/delivery
+## observability → delivery counters → B3 file identity (STOPPED before EID5 PRE)
+Full report: `docs/C_CLOSURE_WAVE_IDENTIFIER_DELIVERY_FILE_IDENTITY.md`.
+- **R1–R4 IDENTIFIER AUTHORITY (P0) DONE.**
+  `canonical_bridge.canonical_event_id(raw_id, generation)` is the SOLE
+  minting authority on the affected canonical path; the bridge publishes it
+  on `_authenticated_ingest.canonical_event_id`; the sensor DSM CARRIES it
+  and publishes `provenance.canonical_event_id_basis`. `_pl` is never
+  minted again (source-asserted); `canonical_bridge` holds exactly ONE
+  `cev_` format string. End-to-end proof: bridge result,
+  `v2_shadow_observations`, `edr_raw_events.derivations[].event_id`,
+  `xdr_canonical_evidence` and the campaign detection row all name the
+  SAME id and resolve via PRIMARY (the `xdr_canonical_evidence` duplicate
+  authority is gone for new data).
+- **READ RESOLUTION (R3) DONE.** New `edr_plane/evidence_resolution.py`:
+  authority id → legacy `_pl` → `ingest_job_id`, authoritative references
+  only, no heuristics, tenant in every query (cross-tenant resolves to
+  nothing and discloses nothing). Campaign Story publishes
+  `resolution_is_fallback`, `canonical_event_id_form`,
+  `resolution_attempts[]`, `resolution_unresolved_reason`, and now raises
+  `canonical_id_scheme_divergence` on ANY fallback. LIVE
+  `inc_c253027ba781494684db`: 15/15 resolve, all LEGACY fallback, 0.367 s.
+  Debt baseline measured: 1,680 legacy refs vs 4 authority refs; 254,943
+  historical `_pl` rows in `xdr_canonical_evidence` — NOT migrated.
+- **PARSE/REFUSAL VISIBILITY + DELIVERY COUNTERS DONE.** New
+  `edr_plane/delivery_counters.py` (`edr_delivery_counters`, `$inc` only,
+  keyed tenant/endpoint/channel, `evidence_authority:false`), wired into
+  `/api/edr/agent/telemetry` with reason codes, published read-only on
+  `GET /api/edr/wave0/raw-events/stats` as `delivery_boundaries`. Two
+  accounting layers (storage / canonicalisation). LIVE tenant `default`:
+  received 365, accepted 364, dedup_payload 1, parsed/canonicalized 363,
+  parse_failed 1 (`PARSER_FAILED`, channel `UNPARSEABLE_ENVELOPE`),
+  unaccounted_received 0, unaccounted_accepted 0.
+- **SENSOR COUNTERS + B3 HASHING: CODE-COMPLETE, DEFAULT OFF, NOT
+  DEPLOYED.** `agents/nivxforge-{linux,windows}/nivxforge_delivery_counters.py`
+  (`NIVX_SENSOR_DELIVERY_COUNTERS`) and `nivxforge_content_acquisition.py`
+  (`NIVX_SENSOR_FILE_HASHING`); heartbeat accepts additive
+  `counter_epoch`/`delivery_counters` (422 `SENSOR_COUNTER_REFUSED` on
+  anything malformed); epoch change keeps the previous snapshot instead of
+  decreasing. Server contract `edr_plane/file_content_acquisition.py`:
+  `PROCESS_IMAGE_SHA256 != FILE_CONTENT_SHA256 != RAW_PAYLOAD_CONTENT_DIGEST`,
+  digest admitted only on ACQUIRED + declared content_version_state +
+  acquired_at + 64-hex; torn read discarded; `CHANGED_SINCE_EVENT`
+  retained and labelled; UNKNOWN never becomes BENIGN.
+- **TESTS:** 70 new cases (`tests/edr/test_c1..c5`), `tests/edr` **1,759
+  passed / 2 skipped**. Pre-existing, NOT caused by this wave (verified by
+  stashing): 3 failures in `tests/test_b4b5_tenant_registry_authority.py`.
+- **NOT CHANGED, CLASSIFIED:** the third identifier scheme
+  (`sysmon_dsm.py:229` `sysmon-<eid>-<uuid4>`, `windows_security_dsm.py:639`
+  `uuid4`) is a NON-DETERMINISTIC per-normalisation surrogate — it
+  identifies a normalisation pass, not an immutable raw event. Converting
+  it needs a stable raw identity on the XDR collector path: own decision.
+- **DATA:** no evidence written/rewritten/migrated/deleted; only counter
+  documents in the new collection + one index. **ENDPOINT: unchanged.
+  DEPLOYED: no.**
+- **OPEN / NEXT:** (1) owner runs the read-only EID5 **PRE** script and
+  returns the transcript — PRE is not complete without it; (2) then the
+  approved ProcessTerminate change, POST at T+24 h; (3) LIVE proof of
+  primary-id resolution needs one new rule-matching detection;
+  (4) then the owner's stated sequence E4 reputation/file intelligence →
+  E3 detection expansion → E5 behavioural correlation (UEBA later).

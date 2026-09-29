@@ -104,6 +104,14 @@ CAPABILITIES = {
 # reimplemented so Windows and Linux cannot drift apart.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import nivxforge_exclusions as nvx_excl        # noqa: E402
+# DELIVERY FIDELITY + B3 CONTENT IDENTITY · both are CAPABILITIES and both
+# are OFF unless their environment flag is set. They are imported here so
+# the Windows and Linux connectors share one implementation.
+import nivxforge_content_acquisition as nvx_hash   # noqa: E402
+import nivxforge_delivery_counters as nvx_counters  # noqa: E402
+
+COUNTERS = nvx_counters.DeliveryCounters(STATE_DIR)
+ACQUIRER = nvx_hash.Acquirer()
 
 POLICY_FILE = STATE_DIR / "policy.json"
 EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
@@ -473,12 +481,26 @@ def collect_files(watch: str, known: dict[str, tuple]) -> list[dict]:
             op = "MODIFY"
         else:
             continue
-        out.append({
-            "activity": "FILE", "operation": op, "observed_at": _now(),
+        observed_at = _now()
+        event = {
+            "activity": "FILE", "operation": op, "observed_at": observed_at,
             "path": p, "filename": p.rsplit("/", 1)[-1], "size": sig[1],
             "sha256": _sha256_file(p),
             "not_observed": ["actor_process"],
-        })
+        }
+        # B3 · when the content-acquisition CAPABILITY is enabled the
+        # digest is carried inside a full acquisition record, so the
+        # server can tell WHEN the bytes were read and whether they were
+        # the bytes the event described. A bare digest cannot say either.
+        if nvx_hash.enabled():
+            record = ACQUIRER.acquire(
+                p, operation=op, event_observed_at=observed_at,
+                settle_seconds=nvx_hash.SETTLE_SECONDS)
+            event["file_content_acquisition"] = record
+            event["sha256"] = (record.get("sha256")
+                               if record.get("acquisition_state")
+                               == "ACQUIRED" else None)
+        out.append(event)
     for p in set(known) - set(current):
         out.append({
             "activity": "FILE", "operation": "DELETE", "observed_at": _now(),
@@ -534,6 +556,7 @@ def _drain(api: str, ident: dict, session: dict,
             try:
                 if not session.get("token"):
                     session["token"] = _open_session(api, ident)
+                COUNTERS.bump("sensor_attempted")
                 _post(api, "/api/edr/agent/telemetry",
                       {"payload": line, "source_kind": "sensor",
                        "sensor_version": SENSOR_VERSION,
@@ -541,6 +564,7 @@ def _drain(api: str, ident: dict, session: dict,
                           if interval else {})},
                       bearer=session["token"])
                 sent += 1
+                COUNTERS.bump("sensor_sent")
                 offset += consumed
                 OFFSET_FILE.write_text(str(offset))
                 if sent >= max_per_cycle:
@@ -555,6 +579,7 @@ def _drain(api: str, ident: dict, session: dict,
                     f.seek(offset)
                     continue
                 failed += 1
+                COUNTERS.bump("sensor_failed")
                 print(f"[queue] held back at offset {offset}: {msg[:140]}")
                 break
     return sent, failed
@@ -1168,7 +1193,10 @@ def _heartbeat(api: str, ident: dict, session: dict,
         _post(api, "/api/edr/agent/heartbeat",
               {"report_interval_seconds": float(interval),
                "sensor_version": SENSOR_VERSION,
-               "queue_depth": _queue_depth()},
+               "queue_depth": _queue_depth(),
+               # Additive and only when the CAPABILITY is enabled: the
+               # endpoint's own delivery counters, metadata only.
+               **COUNTERS.heartbeat_fields()},
               bearer=session["token"])
         return "SENT"
     except (RuntimeError, urllib.error.URLError, OSError) as e:
@@ -1223,6 +1251,11 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
             batch, excluded = nvx_excl.partition(
                 batch, policy.get("exclusions") or [], journal, policy)
             journal.save()
+            # DELIVERY FIDELITY · what the endpoint OBSERVED, and what
+            # policy suppressed here, are only knowable at the endpoint.
+            COUNTERS.bump("endpoint_observed", len(batch) + len(excluded or []))
+            COUNTERS.bump("endpoint_read", len(batch) + len(excluded or []))
+            COUNTERS.bump("sensor_suppressed_by_policy", len(excluded or []))
             if batch:
                 _enqueue(batch)
             _save_observed(seen_pids, seen_conns, known_files, baselined)
@@ -1231,6 +1264,8 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
             served = _serve_commands(api, ident, session)
             reported = _report_enforcement(api, ident, session, journal,
                                            policy)
+            COUNTERS.observe_gauge("sensor_queue_depth", _queue_depth())
+            COUNTERS.persist()
             print(f"[{_now()}] commands={served} collected={len(batch)} "
                   f"collection_suppressed_at_endpoint={excluded} sent={sent} "
                   f"held={failed} heartbeat={beat} "

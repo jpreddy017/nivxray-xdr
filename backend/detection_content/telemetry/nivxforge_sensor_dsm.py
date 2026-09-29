@@ -61,6 +61,35 @@ class NivXForgeSensorParser:
 class NivXForgeSensorNormalizer:
     id = NORMALIZER_ID
 
+    @staticmethod
+    def _authoritative_event_id(canonical: Dict[str, Any],
+                                raw: Dict[str, Any],
+                                trace_id: str) -> tuple[str, str]:
+        """The canonical event id, CARRIED from the evidence authority.
+
+        Order, and nothing else: an id already present on the canonical
+        dict (the authority set it) → the id the authenticated ingest
+        envelope carried → the authority's own minting function for the
+        first replay generation. The legacy `_pl` form is never minted
+        again; it survives only as a READ fallback for detections that
+        already carry it.
+        """
+        from edr_plane.canonical_bridge import (CANONICAL_EVENT_ID_AUTHORITY,
+                                                canonical_event_id)
+        present = str(canonical.get("event_id") or "").strip()
+        if present:
+            return present, "CARRIED_FROM_CANONICAL_EVIDENCE"
+        envelope = raw.get("_authenticated_ingest")
+        carried = (str((envelope or {}).get("canonical_event_id") or "").strip()
+                   if isinstance(envelope, dict) else "")
+        if carried:
+            return carried, "CARRIED_FROM_AUTHENTICATED_INGEST"
+        raw_id = str((envelope or {}).get("raw_id") or "").strip() \
+            if isinstance(envelope, dict) else ""
+        return (canonical_event_id(raw_id or trace_id, 0),
+                f"MINTED_BY_{CANONICAL_EVENT_ID_AUTHORITY}_"
+                f"GENERATION_ASSUMED_FIRST")
+
     def normalize(self, parsed: Dict[str, Any], dsm_id: str = DSM_ID,
                   collector_id: str = "", integration_id: str = "",
                   trace_id: str = "",
@@ -77,9 +106,13 @@ class NivXForgeSensorNormalizer:
             tenant_id, *tenant_authority.payload_claims(_sensor_raw))
         canonical["tenant_id"] = resolved_tenant
         tenant_authority.record(canonical, _tenant_claim)
-        # The canonical id is derived from the immutable raw event, so the
-        # same endpoint event always yields the same canonical identity.
-        canonical.setdefault("event_id", f"cev_{trace_id}_pl")
+        # R1/R2 · the canonical event identifier has EXACTLY ONE minting
+        # authority (`canonical_bridge.canonical_event_id`). This plane
+        # CARRIES the authority's value and never composes its own — two
+        # schemes for one identity is what made a detection and its
+        # evidence disagree about the name of the same event.
+        canonical["event_id"], id_basis = self._authoritative_event_id(
+            canonical, _sensor_raw, trace_id)
         canonical["provenance"] = {
             **(canonical.get("provenance") or {}),
             "trace_id": trace_id or (canonical.get("provenance")
@@ -88,6 +121,7 @@ class NivXForgeSensorNormalizer:
             "integration_id": integration_id,
             "normalizer_id": self.id,
             "dsm_id": dsm_id,
+            "canonical_event_id_basis": id_basis,
         }
         raw = parsed.get("raw") if isinstance(parsed.get("raw"), dict) else {}
         # P0-3 · sensor attribution is READ from the authenticated ingest

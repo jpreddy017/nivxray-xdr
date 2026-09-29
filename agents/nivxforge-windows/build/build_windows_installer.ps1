@@ -34,7 +34,9 @@ if ($env:OS -ne 'Windows_NT') {
   throw 'This build MUST run on Windows. A Linux host cannot produce a Windows PE.'
 }
 foreach ($required in @('nivxforge_setup.py', 'nivxforge_sensor.py',
-                        'nivxforge_exclusions.py')) {
+                        'nivxforge_exclusions.py',
+                        'nivxforge_delivery_counters.py',
+                        'nivxforge_content_acquisition.py')) {
   if (-not (Test-Path (Join-Path $SensorDir $required))) {
     throw "missing source file: $required"
   }
@@ -55,6 +57,8 @@ $PyiCommon = @(
   '--paths', $SensorDir,
   '--hidden-import', 'nivxforge_sensor',
   '--hidden-import', 'nivxforge_exclusions',
+  '--hidden-import', 'nivxforge_delivery_counters',
+  '--hidden-import', 'nivxforge_content_acquisition',
   '--hidden-import', 'win32timezone',
   '--hidden-import', 'servicemanager',
   '--hidden-import', 'win32serviceutil',

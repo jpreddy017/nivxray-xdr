@@ -27,6 +27,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from edr_plane import file_content_acquisition as fca
 from edr_plane import windows_eventlog as winlog
 from edr_plane.contracts.identity import ProcessIdentity
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
@@ -225,11 +226,21 @@ def parse(line: str) -> dict[str, Any]:
         canonical["additional_fields"]["parent_lookup_state"] = lookup
 
     elif activity == "FILE":
+        # B3 · the file's CONTENT identity is admitted only through the
+        # acquisition contract. A process-image digest on the same event
+        # identifies the executable that RAN and is never promoted here.
+        content = fca.admit(sha256=ev.get("sha256"),
+                            record=ev.get("file_content_acquisition"))
         canonical["file"] = {
             "path": ev.get("path"),
             "name": ev.get("filename"),
             "size": ev.get("size"),
-            "hashes": ({"sha256": ev["sha256"]} if ev.get("sha256") else {}),
+            "hashes": content["hashes"],
+            "hash_state": content["hash_state"],
+            "hash_class": content["hash_class"],
+            "hash_reason": content["hash_reason"],
+            "content_acquisition": content["acquisition"],
+            "field_provenance": content["field_provenance"],
         }
         canonical["additional_fields"]["file_operation"] = ev.get("operation")
 
@@ -395,6 +406,23 @@ def _parse_windows(ev: dict[str, Any]) -> dict[str, Any]:
     canonical["additional_fields"]["lineage_state"] = proc.get(
         "ancestry_state") or "PARENT_NOT_OBSERVED"
     canonical["additional_fields"]["identity_quality"] = quality
+    # B3 · a Windows FILE record carries no content digest of its own.
+    # If the sensor attached a content acquisition record to the
+    # envelope, it passes the SAME contract as the sensor path — the
+    # Windows source did not state this digest and the provenance says so.
+    if activity == "FILE" and ev.get("file_content_acquisition"):
+        content = fca.admit(record=ev.get("file_content_acquisition"))
+        canonical["file"].update({
+            "hashes": {**(canonical["file"].get("hashes") or {}),
+                       **content["hashes"]},
+            "hash_state": content["hash_state"],
+            "hash_class": content["hash_class"],
+            "hash_reason": content["hash_reason"],
+            "content_acquisition": content["acquisition"],
+            "field_provenance": {
+                **(canonical["file"].get("field_provenance") or {}),
+                **content["field_provenance"]},
+        })
     return canonical
 
 
@@ -446,6 +474,28 @@ def bind_process_identity(canonical: dict[str, Any],
     return canonical
 
 
+#: R1 · THE SINGLE CANONICAL EVENT IDENTIFIER MINTING AUTHORITY.
+#: Every plane that needs the canonical id of a raw event calls THIS
+#: function or carries the value it produced. Re-deriving the identifier
+#: elsewhere is what allowed two schemes to exist for one identity.
+CANONICAL_EVENT_ID_AUTHORITY = "edr_plane.canonical_bridge.canonical_event_id"
+
+
+def canonical_event_id(raw_id: str, generation: int) -> str:
+    """The canonical event identifier for one raw event, one generation.
+
+    The REPLAY GENERATION is part of the identity: re-reasoning a raw
+    event after a parser fix produces a NEW canonical event, and a
+    reference that drops the generation cannot tell the two apart.
+    """
+    stem = (raw_id or "").strip()
+    if not stem:
+        raise ValueError("a canonical event id requires a raw event id")
+    if stem.startswith("raw_"):
+        stem = stem[4:]
+    return f"cev_{stem}_{int(generation)}"
+
+
 async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                  endpoint_id: str, hostname: Optional[str],
                  authentication: dict,
@@ -489,11 +539,12 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             from edr_plane.findings_intake import record_endpoint_detection
             evaluation = await record_endpoint_detection(
                 db, tenant_id=tenant_id, endpoint_ref=endpoint_id,
-                canonical_event_id=f"cev_{raw_id[4:]}_{gen}", raw_ref=raw_id,
+                canonical_event_id=canonical_event_id(raw_id, gen),
+                raw_ref=raw_id,
                 payload=payload, observed_at=None,
                 derivation={
                     "outcome": "DETECTION_NOT_EVALUATED",
-                    "event_id": f"cev_{raw_id[4:]}_{gen}",
+                    "event_id": canonical_event_id(raw_id, gen),
                     "reason": ("canonicalisation failed, so no detection "
                                "ran on this evidence. NOT_EVALUATED is not "
                                "CLEAN: " + reason),
@@ -505,7 +556,7 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                 "finding_plane": evaluation,
                 "reason": str(e)[:300]}
 
-    canonical["event_id"] = f"cev_{raw_id[4:]}_{gen}"
+    canonical["event_id"] = canonical_event_id(raw_id, gen)
     canonical["raw_ref"] = {"raw_id": raw_id, "collection": "edr_raw_events"}
     canonical["host"] = {"host_id": endpoint_id, "hostname": hostname}
     # N2.1 · the authenticated endpoint is known here, so a pending process
@@ -642,6 +693,14 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
         sensor_event["_authenticated_ingest"] = {
             "source_kind": source_kind, "sensor_version": sensor_version,
             "trust_state": "AUTHENTICATED", "raw_id": raw_id,
+            # R2 · CARRY, never re-derive. The evidence authority has
+            # already minted this event's canonical identifier; the
+            # detection plane consumes that exact value so a detection
+            # and its evidence can never disagree about what the event
+            # is called.
+            "canonical_event_id": canonical["event_id"],
+            "canonical_event_id_authority": CANONICAL_EVENT_ID_AUTHORITY,
+            "replay_generation": gen,
             "authenticated_endpoint_id": (authentication or {}).get(
                 "authenticated_endpoint_id"),
             # D1 · the real NivX receipt time travels with the authenticated

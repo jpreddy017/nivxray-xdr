@@ -114,6 +114,8 @@ try {
   # is imported by the connector. Without it the connector cannot honour
   # an exclusion, so a missing copy must fail the install loudly.
   Copy-Item (Join-Path $PSScriptRoot 'nivxforge_exclusions.py') $InstallDir -Force
+  Copy-Item (Join-Path $PSScriptRoot 'nivxforge_delivery_counters.py') $InstallDir -Force
+  Copy-Item (Join-Path $PSScriptRoot 'nivxforge_content_acquisition.py') $InstallDir -Force
   Write-Host ('  sensor    : ' + $Sensor)
   Write-Host ('  python    : ' + $python)
 
