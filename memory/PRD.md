@@ -2360,3 +2360,51 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
   DATA_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO · REPLAYED: NO ·
   TENANT_ISOLATION_WEAKENED: NO · E3: NOT STARTED.
 
+
+### 2026-09-29 — P0 REPAIR (OPTION A): EXPLICIT PLATFORM DESIGNATION BOOTSTRAP
+- NEW `backend/services/platform_designation.py`, called from `server.py` startup
+  right after `seed_admin`, against the backend's own `db.users` (no second
+  connection string). Reads explicit env `NIVX_PLATFORM_PRINCIPAL`; for exactly
+  that one principal sets exactly one field `users.authority_scope = "PLATFORM"`
+  when absent. Machine-readable outcomes: `NOT_CONFIGURED` / `UPDATED` /
+  `ALREADY_CONFIGURED` / `REFUSED_MALFORMED_PRINCIPAL` /
+  `REFUSED_PRINCIPAL_NOT_FOUND` / `REFUSED_PRINCIPAL_AMBIGUOUS` /
+  `REFUSED_CONFLICTING_AUTHORITY_SCOPE` / `REFUSED_AUTH_STORE_UNREACHABLE` /
+  `REFUSED_DESIGNATION_NOT_VERIFIED`. Writes nothing on any refusal, logs ERROR,
+  never crashes startup, reads back and verifies after writing.
+- `backend/.env` gained `NIVX_PLATFORM_PRINCIPAL=admin@nivxray.com`. THIS VAR MUST
+  EXIST IN PRODUCTION or the designation is a documented NO-OP and the 403s persist.
+- Does NOT reintroduce `_CROSS_TENANT_ROLES`; `role == "admin"` still confers no
+  breadth; no wildcard/default-tenant fallback; never touches role, password,
+  tenant_ids, tenants, endpoints, evidence, sensor, Sysmon, outbox or the frontend.
+- Preview runtime proof (NOT production evidence): startup logged
+  `[platform-designation] result=ALREADY_CONFIGURED principal=admin@nivxray.com`
+  (this store was designated in June), /api/health ok — the idempotent branch works
+  against a real MongoDB.
+- TESTS: new `backend/tests/edr/test_p0_platform_designation.py` = 22 passed, covering
+  owner requirements A-J (incl. exact `$set` payload assertion, ambiguity/conflict/
+  malformed/unreachable fail-closed, no auto-grants, role-confers-nothing,
+  `X-Tenant-Id` never self-authorises). Existing: fix6b2+fix1+fix2 = 83 passed;
+  cross_tenant + trajectory isolation = 51 passed; a05 scope contract = 72 passed.
+  Total 228 passed, 0 failed.
+- DISCLOSED UNRELATED: `test_a05_tenant_scope_contract.py::test_the_guard_is_not_vacuous`
+  passes but its module-scoped `_seed` fixture TEARDOWN errors with a litellm
+  `APIConnectionError: cannot schedule new futures after interpreter shutdown`.
+  Pre-existing artifact, untouched code path, not in any gate step list.
+- PRODUCTION REPUBLISH DISPATCHED (owner-approved) with explicit no-rollback /
+  no-routing / no-registry / no-telemetry / no-sensor / no-replay constraints and the
+  `NIVX_PLATFORM_PRINCIPAL` requirement called out. Post-deploy read-only proof
+  requested: run id + health, env var PRESENCE, verbatim `[platform-designation]` log
+  line, production `users` read-back (`role`/`authority_scope`/`tenant_ids`/`status`
+  only) with exactly one authority holder, EDR read-route status codes for
+  `ten_e759b7288598bd882e3dcac49d`, sensor route health + newest ingest, startup
+  errors, and `edr_raw_events >= 117,904`.
+- Deploy is async and UNCONFIRMED at time of writing: `AUTHORITY_SCOPE_AFTER`,
+  `COMPUTERS_ACCESS`, `EVENTS_ACCESS`, `DEVICE_TRAJECTORY_ACCESS`,
+  `INTERNAL_VALIDATION_ACCESS`, `DESKTOP_A9HGFJJ_VISIBLE` = NOT_PROVEN.
+- `B5_EID5_END_TO_END = HOLD` (authorization proof pending). No EID5 replay. No E3.
+- Report: `/app/docs/P0_PLATFORM_DESIGNATION_OPTION_A.md`
+- ROLLED_BACK: NO · ROUTING/DOMAIN_CHANGED: NO · REGISTRY_CHANGED: NO ·
+  EVIDENCE/TELEMETRY_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO ·
+  REPLAYED: NO · ISOLATION_WEAKENED: NO · UI_CHANGED: NO.
+

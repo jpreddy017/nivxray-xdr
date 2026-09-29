@@ -844,6 +844,13 @@ async def _startup():
     validate_config()
     init_database()
     await seed_admin(log)
+    # P0 · explicit PLATFORM designation. Fix 6B-2 retired role-derived tenant
+    # breadth, so the Super Admin needs `authority_scope = "PLATFORM"` written
+    # explicitly; without it every tenant is (correctly) refused. Idempotent,
+    # server-side only, refuses on any ambiguity, and never a startup crash —
+    # the authorization path stays fail-closed on its own.
+    from services.platform_designation import designate_platform_principal
+    await designate_platform_principal(db.users, log)
     # Seed the Sample1 golden diagnostic case if absent.  Idempotent —
     # only inserts when workspace_cases lacks the frozen case id and the
     # on-disk snapshot fingerprint matches the locked golden value.
