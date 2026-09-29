@@ -1088,3 +1088,24 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
 - Reference figures kept at /app/memory/production-gates/cisco_ref/ as INTERNAL
   ENGINEERING REFERENCE ONLY — never bundled, served or shipped.
 - STOPPED for owner visual review. DT2-3b / DT2-3c not started. No deployment.
+
+### DT2-3a VISUAL REVIEW (same day) — 9 new visual defects found, nothing changed
+- Built the side-by-side (Cisco p.402 figure above, live DT2-3a capture below):
+  /app/memory/production-gates/cisco_ref/DT2_3A_SIDE_BY_SIDE.png (internal only).
+- 19 elements ruled individually: 13 RESEMBLE, 5 PARTIAL, 1 NOT PRESENT (System).
+- Five recorded differences ruled: #1 files→DT2-3b, #2 IOC→DT2-3c, #3 cloud-query
+  line CLOSED BY OWNER RULING (no substitution; blue search dots move to
+  DT2-3a.1), #4 filters→DT2-3a.1, #5 graph width RESOLVED.
+- NEW defects F1–F9 found only by looking at the figure: Actions must be a
+  FILLED blue primary; Filters must be a borderless blue text control with a
+  filter glyph; navigator collapse belongs at the LEFT of the ribbon; section
+  labels need Cisco weight/alignment and System must always show; time ticks are
+  EVENT-ANCHORED plus hour marks, not 6 evenly spaced; graph scrollbars need
+  ◀ ▶ / ▲ ▼ arrow buttons; graph card must size to content; the 24h window
+  region should be a narrow sub-range; and the Cisco reference console is LIGHT
+  while we default to dark.
+- OWNER DECISIONS PENDING: F4 (permanent empty System band), F8 (narrower
+  default window), F9 (light theme for parity review).
+- Sequence fixed: close DT2-3a visual defects → DT2-3a.1 filters/search →
+  DT2-3b files/process → visual review → DT2-3c IOC.
+- CODE/UI/DATA unchanged in this step.

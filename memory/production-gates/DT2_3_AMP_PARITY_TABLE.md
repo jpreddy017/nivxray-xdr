@@ -856,3 +856,139 @@ Post-verification: the graph-width difference was closed in the same pass
 
 **STOPPED for owner visual review. DT2-3b and DT2-3c not started. No
 deployment.**
+
+---
+
+# DT2-3a · VISUAL REVIEW (owner-ordered, no code change)
+
+CISCO_REFERENCE_CAPTURE
+`/app/memory/production-gates/cisco_ref/CISCO_DT_FULL_PAGE_p402.png`
+(Cisco Secure Endpoint User Guide p.402 embedded figure, device `Demo_Upatre`)
+
+NIVXFORGE_ACCEPTANCE_CAPTURE
+`/root/.emergent/automation_output/20260928_175136/dt2_3a_final.jpeg`
+(WS-W1-1789575060 / `dev_0e10780f2c86`, customer `default`, 1920×800, real
+evidence, 16 lanes / 15 activity rows / 1 compromise event / 0 page errors)
+
+SIDE_BY_SIDE
+`/app/memory/production-gates/cisco_ref/DT2_3A_SIDE_BY_SIDE.png`
+(Cisco above, NivXForge below, both normalised to 1543 px wide — internal
+engineering reference only, never bundled or served)
+
+## CONFIRMED AS VISUALLY RESEMBLING THE CISCO REFERENCE
+
+| ELEMENT | RULING | NOTE |
+|---|---|---|
+| device-name header | **RESEMBLES** | name is the page title, left, bold, largest type on the page |
+| Show details | **RESEMBLES** | outlined button immediately right of the name |
+| Actions | **PARTIAL** | correct position and chevron, but Cisco's is a **filled blue primary** button; ours is outlined → **F1** |
+| share | **RESEMBLES** | icon in a small square outlined button, top-right |
+| expand / fullscreen | **RESEMBLES** | icon in a small square outlined button, right of share |
+| search-left / Filters-right | **PARTIAL** | arrangement matches exactly; Cisco's `Filters` is a **borderless blue text control with a filter glyph**, ours is a bordered button → **F2** |
+| 30-day navigator geometry | **RESEMBLES** | continuous cell grid, numbers beneath, month name at the month boundary, selected cell filled with a bold numeral, sized red compromise dot in-cell |
+| 24-hour filled band | **RESEMBLES** | solid filled band, full width, hour labels beneath, date under `0:00`, sized circles, red for compromise |
+| navigator +/- behaviour | **RESEMBLES (behaviour)** / **PARTIAL (placement)** | `−` collapses, `+` **and** the ribbon expand — both verified live. Cisco places the control at the **left of the ribbon, vertically centred**; ours sits above it → **F3** |
+| absence of triangle handles | **CONFIRMED** | no handles anywhere; `moveRange` still slides the band |
+| absence of trajectory toolbar | **CONFIRMED** | no toolbar, no mode tabs, no basis rail, no counters, no zoom |
+| row gutter | **PARTIAL** | right-aligned names, correct width and type scale. Cisco bolds the section labels and **centres** `Files & Network`; ours is left-aligned and unbolded → **F4** |
+| [PE] presentation | **RESEMBLES** | `name [PE]` with the tag after the name in a dimmer tone, exactly as Cisco sets it |
+| System section | **NOT PRESENT** | Cisco shows `System` as a permanent grey band above `Files & Network`; we omit it when no connector/system row exists → **F4** |
+| Files & Network section | **PRESENT, PARTIAL** | section exists and is positioned correctly; alignment and weight differ → **F4** |
+| green lifelines | **RESEMBLES** | thin solid green line, no start dot, no end tick, trailing dash only where no exit was observed. Spans are visually compressed because this corpus records ~15 events inside one minute — that is the evidence, not a geometry defect |
+| event glyph geometry | **RESEMBLES** | small outlined square on the lifeline; red circular icon for malicious |
+| Activity pane | **RESEMBLES** | `Activity` header with no count, rows are ⚠ / actor / glyph / target with no timestamp column, light row separators. The malicious row shows the orange ⚠ at the far left and a red glyph, as Cisco does |
+| selected-event details | **RESEMBLES** | selecting a row opens details in the same pane; back returns to the list; no product pivots |
+
+## FIVE_REMAINING_DIFFERENCES (recorded before this review)
+
+### DIFFERENCE 1 — files are not vertical-axis rows
+- REGION: I (file rows)
+- CISCO_REFERENCE_APPEARANCE: the gutter lists **files and processes** together under `Files & Network`; a file acted upon appears as its own row.
+- CURRENT_NIVXFORGE_APPEARANCE: 16 rows, all processes. Files appear only as glyphs on the acting process's lifeline.
+- EXACT_DIFFERENCE: one row class missing from the vertical axis.
+- PARITY_IMPACT: **HIGH** — it is half of Cisco's stated axis definition.
+- DT2_3A_FIX: no · DT2_3B: **yes** · DT2_3C: no · DATA_GAP: no
+- OWNER_DECISION_REQUIRED: no — already assigned to DT2-3b.
+
+### DIFFERENCE 2 — no IOC / compromise presentation
+- REGION: M (IOC presentation)
+- CISCO_REFERENCE_APPEARANCE: p.405 — contributing events highlighted **yellow**, a **separate compromise event**, a **blue halo** on the triggering events when it is clicked, indicator description plus tactics/techniques in Event Details.
+- CURRENT_NIVXFORGE_APPEARANCE: malicious events are red; no yellow, no compromise event object, no halo. The tactics/techniques box exists but carries no indicator description.
+- EXACT_DIFFERENCE: the entire IOC visual language is absent.
+- PARITY_IMPACT: **HIGH** — it is Cisco's primary investigative affordance.
+- DT2_3A_FIX: no · DT2_3B: no · DT2_3C: **yes** · DATA_GAP: no
+- OWNER_DECISION_REQUIRED: no — already assigned to DT2-3c. One compromise event exists in this corpus, so it will be demonstrable without fabrication.
+
+### DIFFERENCE 3 — the 30-day ribbon carries no per-day activity indication
+- REGION: D (30-day navigator)
+- CISCO_REFERENCE_APPEARANCE: a thin blue line graph above the dates; current guide p.403 defines it as the endpoint's **cloud-query volume per day**.
+- CURRENT_NIVXFORGE_APPEARANCE: no line. Day cells show a red compromise dot only.
+- EXACT_DIFFERENCE: the line graph element is absent; days with events but no compromise look identical to empty days.
+- PARITY_IMPACT: MEDIUM visually, **ZERO truthfully** — the metric does not exist in NivXForge.
+- DT2_3A_FIX: no · DT2_3B: no · DT2_3C: no · **DATA_GAP: yes** — `CISCO FEATURE DATA SOURCE NOT AVAILABLE IN NIVXFORGE`
+- OWNER_DECISION_REQUIRED: **CLOSED BY OWNER RULING** — no substitution; the line stays absent. Day cells/dots may carry documented **event / search / compromise** meaning, so the remaining recoverable piece is the **blue search-result dot** (row #140), which belongs with DT2-3a.1 because it is search-driven.
+
+### DIFFERENCE 4 — filter categories and search grammar
+- REGION: C (filter + search)
+- CISCO_REFERENCE_APPEARANCE: `Filters` opens five categories — Activity, System, Disposition, Flags, File Type — and at least one item must be selected in each. Search accepts the documented term set and `at:<timestamp>`.
+- CURRENT_NIVXFORGE_APPEARANCE: Activity and Disposition only; free-text Enter-submitted search with no `at:` grammar.
+- EXACT_DIFFERENCE: three categories, the selection rule, `Apply Filters`, and the search grammar are missing.
+- PARITY_IMPACT: **HIGH** — filtering is how Cisco makes the trajectory usable.
+- DT2_3A_FIX: **DT2-3a.1** · DT2_3B: no · DT2_3C: no · DATA_GAP: partial (no CLEAN verdict exists)
+- OWNER_DECISION_REQUIRED: no — approved as the bounded DT2-3a.1 step.
+
+### DIFFERENCE 5 — graph did not fill its pane
+- REGION: G (graph)
+- CISCO_REFERENCE_APPEARANCE: the graph fills the card up to the Activity pane.
+- CURRENT_NIVXFORGE_APPEARANCE: **now identical** — the canvas measures its own container and renders 1291 px wide at 1920×800.
+- EXACT_DIFFERENCE: none remaining.
+- PARITY_IMPACT: none.
+- DT2_3A_FIX: **DONE** · DATA_GAP: no · OWNER_DECISION_REQUIRED: no
+- **RESOLVED** (verified live, 118/118 tests green).
+
+## DT2_3A_FIXES_REQUIRED_BEFORE_CLOSE (found in this visual review)
+
+These are genuine visual defects against the Cisco figure, all small and all
+presentation-only. None was visible from documentation alone.
+
+| ID | DEFECT | CISCO | NIVXFORGE | OWNER DECISION |
+|---|---|---|---|---|
+| **F1** | `Actions` button weight | **filled blue primary** button | outlined, same as Show details | no — straight fix |
+| **F2** | `Filters` control | borderless blue text with a **filter glyph** + chevron | bordered button | no — straight fix |
+| **F3** | navigator collapse placement | at the **left of the ribbon**, vertically centred | above the ribbon | no — straight fix |
+| **F4** | section labels | `Timeline` right-aligned bold, `System` **always present** as a grey band, `Files & Network` **centred bold** | left-aligned, unbolded, `System` omitted when empty | **yes** — may `System` be shown permanently even when no connector row exists? It would be an empty labelled band, not invented data |
+| **F5** | time ticks | anchored on **observed events** (23:57, 00:00, 00:07, 00:20) **plus** hour marks | six evenly spaced ticks | no — straight fix, and it is strictly more faithful to evidence |
+| **F6** | graph scrollbars | horizontal bar with **◀ ▶ arrow buttons** and a pill thumb; vertical bar with **▲ ▼ buttons** | plain scrollbars, no arrow buttons | no — straight fix (this is also the vehicle for rows #86/#87) |
+| **F7** | graph card height | sized to content | stretched to the viewport, leaving a large empty area below the last row | no — straight fix |
+| **F8** | 24-hour window region | a **narrow** white sub-range inside the band | spans almost the whole band, because the default window is the full day | **yes** — should the default window be narrowed to the evidence-bearing span instead of 24 h? |
+| **F9** | page theme | the Cisco console in the reference is **light** | NivXForge defaults to dark | **yes** — ruling #4 put the theme control out of scope, but a strict visual clone implies the light appearance. Confirm whether DT2-3a should default to light for parity review |
+
+## RIBBON_ACTIVITY_RULING_RECORDED
+
+No substitution. The cloud-query line graph stays **absent** and remains
+classified `CISCO FEATURE DATA SOURCE NOT AVAILABLE IN NIVXFORGE`. Day cells,
+red compromise dots, blue search-result dots, documented relative dot sizing
+and the selected-day indication remain permitted because they carry Cisco's
+documented event/search/compromise meaning, not the cloud-query meaning.
+
+## DT2_3A_1_FILTER_PLAN_RECORDED
+
+Bounded next step after the visual ruling: **DT2-3a.1 — FILTER + SEARCH
+PARITY.** Add the missing Cisco categories (System, Flags, File Type) beside
+Activity and Disposition, preserve Cisco's "at least one item from each
+category" semantics, add `Apply Filters`, and implement the documented search
+grammar including `at:<timestamp>` and `<term> at:<ts>` as a logical AND. No
+filter value may be manufactured: **no CLEAN disposition** will be invented to
+populate Cisco's set; the structure stays Cisco-compatible and the data-model
+gap stays recorded. Cisco's filter UI is not to be redesigned.
+
+## DT2_3B_STATUS
+
+**APPROVED_IN_PRINCIPLE_NOT_STARTED.** Truth rule recorded for when it begins:
+a FILE row requires real canonical FILE evidence; a PROCESS → FILE stem
+requires a real supported relationship; nothing may be inferred from nearby
+timestamps, matching filenames, the same user, PID alone, adjacency or visual
+convenience. No evidence → no stem.
+
+CODE_CHANGED: **NO** · UI_CHANGED: **NO** · DATA_CHANGED: **NO**
+Only this document and the side-by-side reference image were written.
