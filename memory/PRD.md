@@ -1991,3 +1991,55 @@ one-liner after PRE, (3) approve the six B3 decisions, (4) authorise the
 two campaign-story indexes. Platform gaps: sensor per-channel counters
 (B1/B2), parse failures not recorded as refusals, detection→observation
 linkage.
+
+---
+
+## B5.2 · PROVENANCE LINKAGE ROOT CAUSE + CAMPAIGN STORY INDEXES — 2026-06 · OWNER REVIEW PENDING
+Report: `docs/B5_2_LINKAGE_ROOT_CAUSE_AND_INDEX_PROOF.md`
+
+**CORRECTION OF MY OWN B5.1 CLAIM.** "resolved_via None for all 15" was
+WRONG — I read a top-level key that does not exist. The field is
+`provenance.process_identity_resolved_via`, and all 15 resolve, via
+`raw_event_id`. The chain is NOT severed; it survives on its SECONDARY
+reference.
+
+**ROOT CAUSE = `REFERENCE_TRANSLATED_INCORRECTLY`, 1,674/1,674
+detections (374 incidents).** Two minting schemes for one identity:
+`canonical_bridge.py:508` (the AUTHORITY) mints
+`f"cev_{raw_id[4:]}_{gen}"` (strips `raw_`, keeps the REPLAY GENERATION)
+and agrees with `edr_raw_events.derivations[].event_id` and with the
+shadow projection; `detection_content/telemetry/nivxforge_sensor_dsm.py:82`
+mints `f"cev_{trace_id}_pl"` (keeps `raw_`, drops the generation).
+Shadow holds ZERO `_pl` ids while `xdr_canonical_evidence` holds them ⇒
+duplicate authority. Resolution: **0/1,674 by primary**, 1,460 (87.2%)
+by secondary (`ingest_job_id`), **214 (12.8%) unresolved =
+`REFERENCED_OBSERVATION_NOT_FOUND` / `RAW_EVENT_ABSENT`, ALL in 214
+distinct synthetic `p0f-*` proof tenants, one each — ZERO in real
+tenants.** No REFERENCE_NOT_EMITTED, no REFERENCE_DROPPED, no
+CROSS_TENANT_REFUSED, no LEGACY_WITHOUT_REFERENCE. No evidence lost, no
+mis-attribution: the fallback reference is itself authoritative.
+
+**REPAIR PROPOSED, NOT IMPLEMENTED (needs approval):** R1 one exported
+minting function on the authority (`canonical_event_id(raw_id, gen)`);
+R2 CARRY the id, never `setdefault` over it; R3 resolver order
+authority-id → legacy `_pl` → `ingest_job_id`, all authoritative, still
+reporting which was used; R4 regressions incl. cross-tenant refusal and
+`RAW_EVENT_ABSENT` staying unbound; R5 NO migration — the 214 synthetic
+rows are reported, never back-filled. ~4 lines of code, no data change.
+Third scheme noted for the same pass: the DSM planes mint
+`sysmon-<eid>-<hash>`.
+
+**CAMPAIGN STORY INDEXES — APPLIED (owner-authorised), declared in
+`server.py`:** `obs_tenant_canonical_event_id`,
+`obs_tenant_ingest_job_id`. **10.99 s → 0.311/0.295/0.301 s (~36×)**;
+both lookups 256,944 docs examined → **0**; **response body
+byte-identical to PRE**; 15 activities unchanged;
+`process_identity_resolved_via` unchanged; cross-tenant still 403
+TENANT_NOT_FOUND. No application logic changed. device-trajectory stays
+3.5 s.
+
+**OPEN:** (1) owner runs the read-only Fidelity PRE endpoint script —
+PRE is NOT complete without that transcript; (2) then the EID 5
+one-liner, POST validation at T+24 h (59-min p50 / 2.9-day worst-case
+spool); (3) approve R1–R4; (4) approve the six B3 decisions; (5) sensor
+per-channel counters + parse-failures-not-logged-as-refusals remain open.

@@ -951,6 +951,17 @@ async def _startup():
             ([("collector_id", 1), ("event.ts", -1)], "obs_collector_ts"),
             ([("connector_id", 1), ("event.ts", -1)], "obs_connector_ts"),
             ([("device_iid", 1), ("event.ts", -1)], "obs_deviceiid_ts"),
+            # B5.1 · OWNER-AUTHORISED. Campaign Story resolves each
+            # activity's canonical observation by its EVIDENCE
+            # REFERENCE, and neither reference field was indexed, so
+            # every lookup examined the whole store (measured: 256,944
+            # documents, 0.51 s and 0.55 s per lookup, 15 activities ×
+            # 2 lookups = the whole 11 s request). These two indexes
+            # change only HOW the row is found, never WHICH row.
+            ([("tenant_id", 1), ("canonical_event_id", 1)],
+             "obs_tenant_canonical_event_id"),
+            ([("tenant_id", 1), ("event.provenance.ingest_job_id", 1)],
+             "obs_tenant_ingest_job_id"),
         ):
             await _raw_db["v2_shadow_observations"].create_index(
                 spec, name=name, sparse=True, background=True)
