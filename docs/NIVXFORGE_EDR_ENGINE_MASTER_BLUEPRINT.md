@@ -8,57 +8,117 @@ intelligence is fabricated.
 
 ---
 
-## 0 · THE HEADLINE FINDING
+## 0 · THE HEADLINE FINDING (CORRECTED BY MEASUREMENT)
 
-The reason the real endpoint looks less intelligent than the fixture is
-**not** missing engines in the repository and **not** a
-misunderstanding of Cisco's UI. It is a BROKEN PIPELINE ENTRY:
+The first reading of this was "the corpus bypassed detection". Measuring
+it properly gave a sharper and different answer.
 
-```
-ten_3f7f772b353a6bbbb0ac8bc564  v2_shadow_observations 3299   edr_raw_events 0
-ten_f1a5479243e901cf159e230fa0  v2_shadow_observations 3298   edr_raw_events 0
-platform-wide                   edr_raw_events with DETECTION_MATCHED = 1456
-```
+**What is actually true**
 
-Both acceptance corpora were written DIRECTLY into
-`v2_shadow_observations` by re-projection scripts
-(`scripts/g1_clean_reprojection.py`), bypassing `edr_raw_events` and
-therefore bypassing the detection fabric entirely.
+| measurement | result |
+|---|---|
+| `xdr_canonical_evidence` for `ten_f1a5…` (DESKTOP-A9HGFJJ) | **3,299 rows**, fully normalised, with Sysmon `process_guid` + field provenance |
+| `edr_raw_events` for that tenant | 0 — it arrived via `POST /api/xdr/ingest/telemetry` (XDR plane), not the EDR endpoint plane |
+| `xdr_detection_matches` / `edr_findings` / `edr_finding_evaluations` | **0 / 0 / 0** |
+| `evaluate_detection()` run over all 3,299 rows | **3,299 × `RULE_NO_MATCH`, zero errors** |
+| rows carrying ANY command line | **16 of 3,299** |
+| interpreter / LOLBin process rows | **0** |
+| top processes | svchost.exe 2,615 · hpsvcsscan 137 · msedgewebview2 95 · audiodg 91 · chrome 80 |
 
-Consequence chain:
+**Positive control — do the rules bind to the canonical dialect?**
 
-```
-no raw evidence row
-  -> no derivations[]
-    -> no DETECTION_MATCHED
-      -> trajectory_window attribution = None
-        -> assessment_state = NO_DETECTION_CLAIMED_THIS_OBSERVATION
-          -> disposition = UNKNOWN_NOT_ASSESSED
-            -> no ATT&CK, no IOC, no compromise, no contributors
-              -> "No detection engine claimed this observation"
-```
+| authored canonical evidence that SHOULD fire | result |
+|---|---|
+| encoded PowerShell | **FIRED** DET-EX-001 / T1059.001 |
+| regsvr32 LOLBin | **FIRED** DET-EX-005 / T1218.010 |
+| Run-key persistence | **FIRED** DET-PS-001 / T1547.001 |
+| WMI exec | **FIRED** DET-EX-004 / T1047 |
+| IEX download-execute | did not fire — **E3 content gap** |
+| LSASS credential access | did not fire — **E3 content gap** |
 
-`detection_content/library/registry.py` already carries **37 runtime
-rules, 23 of them WINDOWS, every one ATT&CK-mapped**, including:
+**Conclusion.** The detection authority executes correctly and the rules
+bind correctly. **The real corpus is genuinely benign** — Cisco on the
+same machine would also show no detections. `RULE_NO_MATCH × 3,299` is
+the CORRECT answer.
 
-| rule | technique | what it is |
-|---|---|---|
-| DET-EX-001 | T1059.001 | PowerShell execution |
-| DET-EX-002/003 | T1105 | ingress tool transfer / download-execute |
-| DET-PS-001 | T1547.001 | **Run-key persistence — exactly what the fixture hand-authored** |
-| DET-PS-002 | T1053.005 | scheduled-task persistence |
-| DET-PS-003 | T1543.003 | service persistence |
-| DET-CR-001/002 | T1003.001/003 | LSASS / SAM credential access |
-| DET-DE-001/002/003 | T1562.001, T1070.001 | defence evasion |
-| DET-EX-005 | T1218.010 | LOLBin (regsvr32) |
-| DET-EX-004 | T1047 | WMI execution |
-| DET-CC-001/002 | T1219, T1071.004 | C2 / DNS tunnelling |
-| DET-LM-001/002 | T1021.002/006 | lateral movement |
-| DET-IM-001/004 | T1490, T1486 | impact / ransomware |
+The real defect was the platform's own negative-explainability
+invariant being violated: nothing recorded that the evidence HAD been
+evaluated, so no surface could tell
 
-So E3 CONTENT is substantially present. E3 **EXECUTION on the
-acceptance corpora is absent.** That single defect accounts for most of
-the perceived immaturity gap versus Cisco.
+    EVALUATED AND NOTHING MATCHED   from   NOBODY HAS LOOKED YET
+
+and silence reads as benign. Three genuine gaps remain, in this order:
+
+1. **the evaluation record** (fixed — E3 Detection Replay, §1a);
+2. **sensor starvation** — 16/3,299 rows carry a command line, so the
+   content-based rules have almost nothing to read. This is a SENSOR
+   gap, and it is the single biggest limiter on real-world detection;
+3. **two proven rule-content gaps** (T1105 download-execute, T1003
+   credential access).
+
+`detection_content/library/registry.py` holds **37 rules, 23 Windows,
+all ATT&CK-mapped**: DET-EX-001 T1059.001, DET-EX-002/003 T1105,
+DET-PS-001 T1547.001, DET-PS-002 T1053.005, DET-PS-003 T1543.003,
+DET-CR-001/002 T1003.001/003, DET-DE-001/002/003, DET-EX-004 T1047,
+DET-EX-005 T1218.010, DET-CC-001/002, DET-LM-001/002, DET-IM-001/004.
+
+---
+
+## 1a · WAVE 3 / E3 · DETECTION REPLAY — IMPLEMENTED
+
+`edr_plane/detection_replay.py`, route
+`POST /api/edr/endpoints/{endpoint_id}/detection-replay?apply=false`.
+
+**It is not a second detection engine.** The verdict comes from
+`detection_content.xdr_pipeline.evaluate_detection` — the identical
+function `process_event_through_pipeline` calls at its detection stage —
+and durability from `record_endpoint_detection`, the identical function
+live ingest calls. Replay defines no rule, no predicate, no threshold
+and no match shape, so live and replayed verdicts cannot diverge. A
+structural test asserts this.
+
+* enters at the DETECTION stage over already-canonical evidence, so it
+  cannot re-run DSM/parser/normalizer and cannot mint a duplicate
+  canonical row or a second evidence identity;
+* writes no `edr_raw_events` — fabricating a raw row would claim sensor
+  bytes arrived at an instant they did not;
+* `apply=false` is the DEFAULT: evaluates, reports, writes nothing;
+* `xdr_canonical_evidence` is now a DECLARED tenant-partitioned
+  endpoint-keyed store, so E1 governs the read and an unresolved
+  customer reads nothing;
+* time model: `observed_at` = the endpoint instant, NEVER touched;
+  `derived_at`/`evaluated_at` = when the verdict was produced. This is
+  the retrospective two-instant contract, established here for E8.
+
+**Results**
+
+| corpus | evaluated | matched | rules fired |
+|---|---|---|---|
+| real Windows `DESKTOP-A9HGFJJ` | 3,299 | 0 | — (genuinely benign) |
+| deterministic IOC fixture | 6 | **4** | DET-EX-001 ×4, DET-PS-001 ×2 |
+| same hostname, other tenant | **0** | — | tenant-isolated |
+| no tenant resolved | **0** | — | `TENANT_NOT_RESOLVED_FOR_REPLAY` |
+
+**Read-path unification.** `assessment_state` now carries three
+distinct facts instead of two — `ASSESSED_BY_DETECTION_FABRIC`,
+`EVALUATED_NO_DETECTION`, `NOT_EVALUATED` (plus
+`EVALUATION_SUPPRESSED_BY_EXCLUSION`, `EVALUATION_FAILED`) — each with a
+stated `evaluation_meaning`. `NO_DETECTION_CLAIMED_THIS_OBSERVATION` was
+RETIRED: it read as "evaluated and nothing claimed it", which is the
+exact ambiguity being fixed.
+
+**E6 boundary enforced.** `mitre_basis` distinguishes
+`RULE_DECLARED_BY_MATCHED_DETECTION` from
+`SOURCE_NORMALIZER_TAG_NOT_VALIDATED_DETECTION` and `NOT_ATTRIBUTED`. A
+technique is presented as a claim ONLY when the matched rule declared
+it; the normalizer's `event.mitre` tag is never promoted.
+
+**Fixture dependency REVERSED.** `scripts/dt2_3c_ioc_fixture.py` now
+authors TELEMETRY only (canonical evidence + command lines + parentage).
+It no longer writes a detection derivation or a technique list. The
+engine produces the detection at replay time, and the compromise is
+built from THAT real finding: techniques are the ones the matched rules
+declared, contributors are the exact observations those rules cited.
 
 ---
 
@@ -68,7 +128,7 @@ the perceived immaturity gap versus Cisco.
 |---|---|---|---|---|---|---|
 | **E1** Evidence/Identity Authority | PARTIAL → now PASS | `services/edr/device_identity.py`, `services/edr/endpoint_query.py`, `edr_plane/instant.py`, `routers/edr_tenancy.py` | was UNSAFE: hostname aliasing unioned two customers (6,597-row merged read) | **CRITICAL** | P0 | DONE this session — tenant-partitioned evidence predicate, fail-closed |
 | **E2** Process/Entity Graph | PARTIAL | `edr_plane/trajectory/relationships.py` (`identity_of`, `process_edges`, activity edges), `projection.py` | projection DROPPED `parent_guid`/`parent_image`/`process_guid`; no PID-reuse model; no process termination family; no SERVICE/TASK/MODULE entities | HIGH | P1 | parent identity now propagated (10 PROCESS_PROCESS edges appeared on real corpus) |
-| **E3** Detection | CONTENT PRESENT / **NOT EXECUTED** | `detection_content/library/registry.py` (37 rules, 23 Windows), `edr_plane/fabric/*`, `detection_content/nivxray_native_sigma.py`, `engine_registry.py` | acceptance corpora never entered `edr_raw_events`; no re-evaluation path for already-canonicalised observations | **CRITICAL** | P1 | build an evaluation path that can run the fabric over EXISTING canonical observations |
+| **E3** Detection | **REPLAY DONE** · content PARTIAL | `detection_content/library/registry.py` (37 rules, 23 Windows), `edr_plane/detection_replay.py`, `edr_plane/fabric/*` | 2 proven content gaps (T1105 download-execute, T1003 credential access); rules are content-based but only 16/3,299 real rows carry a command line | HIGH | P1 | close the 2 rule gaps; then E4 |
 | **E4** IOC / Reputation | STUB | `detection_content/ioc_watchlist.py` (contract written, 3 namespaces), `services/ice/correlate.py` | no reputation source; corpus carries **0 file SHA-256** (sensor does not hash) — hard telemetry gap | HIGH | P1 | sensor-side hashing + observable extraction, then watchlist binding |
 | **E5** Behaviour Correlation | PRIMITIVES ONLY | `edr_plane/trajectory/sequence.py`, `behavior.py`, `detection_content/correlation_library.py` | primitives are never invoked on real telemetry; no stateful window evaluator | HIGH | P1 | drive `sequence.py`/`behavior.py` from E3 output |
 | **E6** ATT&CK Attribution | PARTIAL | rule-level `technique_id`/`mitre_attack` on all 37 rules; `attack_posture_normalizer.py` | attribution only exists where a detection fired ⇒ absent because E3 does not run | MEDIUM | P1 | falls out of E3 automatically |
@@ -150,7 +210,8 @@ PROCESS_NETWORK, 1 PROCESS_DNS. Bases: `CANONICAL_ACTOR_PROCESS_BINDING`,
 
 ## 5 · ORDERED IMPLEMENTATION PLAN
 
-**WAVE 1 · E1 — DONE, PASS.** (this session)
+**WAVE 1 · E1 — DONE, PASS.**
+**WAVE 3 · E3 Detection Replay — DONE (§1a).**
 
 **WAVE 2 · E2 Process/Entity Graph — NEXT**
 1. PID-reuse-safe process identity (boot/session context), retire the PID surrogate.
@@ -160,15 +221,22 @@ PROCESS_NETWORK, 1 PROCESS_DNS. Bases: `CANONICAL_ACTOR_PROCESS_BINDING`,
 4. Store `process_guid`/`parent_process_guid` on the observation at
    ingest instead of re-deriving per read.
 
-**WAVE 3 · E3 Detection — the biggest single win**
-1. **P0: an evaluation path over EXISTING canonical observations.** The
-   fabric today only runs at ingest via `edr_raw_events`. Without this,
-   every re-projected corpus is permanently undetectable.
-2. Bind the 23 Windows rules to the Windows canonical dialect and prove
-   each fires on real `DESKTOP-A9HGFJJ` evidence or state why not.
-3. Rule registry/versioning/enable-disable/tenant applicability,
-   evidence + entity binding, engine_version on every detection.
-4. Reconcile the two rule stores.
+**WAVE 3 · E3 Detection — replay DONE; content work remaining**
+1. ~~an evaluation path over existing canonical observations~~ DONE.
+2. Close the 2 rule gaps proven by positive control: T1105
+   download-execute (DET-EX-002/003 did not fire on IEX/DownloadString)
+   and T1003 credential access (DET-CR-001 did not fire on the
+   `comsvcs.dll MiniDump` pattern).
+3. **SENSOR: collect command lines for every process event.** 16 of
+   3,299 real rows carry one, which starves every content rule. This is
+   the single biggest limiter on real-world detection and it belongs to
+   the sensor, not to the rules.
+4. Rule enable/disable + tenant applicability; reconcile the two rule
+   stores (`services/mitigation/evidence_driven/rule_library.py` vs
+   `detection_content/library/registry.py`).
+5. Re-projection gap: `scripts/g1_clean_reprojection.py` wrote only the
+   CEM shadow store, so the clean corpus `dev_f4b3fb82d7f3` has NO
+   canonical evidence and replay honestly evaluates 0 there.
 
 **WAVE 4 · E4 IOC/Reputation** — sensor-side SHA-256 first (0 hashes
 today), then observable extraction, then `ioc_watchlist` binding.

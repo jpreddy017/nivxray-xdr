@@ -106,7 +106,9 @@ async def record_endpoint_detection(db: Any, *, tenant_id: str,
                                     payload: str,
                                     observed_at: Optional[str],
                                     derivation: Dict[str, Any],
-                                    raw_ref: Optional[str] = None
+                                    raw_ref: Optional[str] = None,
+                                    citations: Optional[
+                                        List[Dict[str, Any]]] = None
                                     ) -> Dict[str, Any]:
     """Make the outcome of ONE detection durable. Never raises.
 
@@ -115,8 +117,15 @@ async def record_endpoint_detection(db: Any, *, tenant_id: str,
     which is a different fact from "no finding".
     """
     try:
-        citations = await asyncio.to_thread(_citations, tenant_id,
-                                            canonical_event_id, raw_ref)
+        # E3 · a caller that ALREADY holds the producing rule's own
+        # records (Detection Replay does: it has the match objects the
+        # evaluator returned) supplies them, so the rule's declared
+        # severity and ATT&CK survive instead of becoming
+        # NOT_RECORDED_BY_SOURCE. Everything else keeps reading the
+        # citation store, unchanged.
+        if citations is None:
+            citations = await asyncio.to_thread(_citations, tenant_id,
+                                                canonical_event_id, raw_ref)
         exclusions = await exclusion_store.enforceable_for_endpoint(
             db, tenant_id=tenant_id, endpoint_id=endpoint_ref)
         unit = EvidenceUnit(

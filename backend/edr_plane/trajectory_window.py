@@ -313,6 +313,166 @@ def _attribution_from_raws(raws: List[Dict[str, Any]],
     return out
 
 
+EVAL_COLLECTION = "edr_finding_evaluations"
+
+ASSESSED = "ASSESSED_BY_DETECTION_FABRIC"
+EVALUATED_NO_DETECTION = "EVALUATED_NO_DETECTION"
+NOT_EVALUATED = "NOT_EVALUATED"
+SUPPRESSED = "EVALUATION_SUPPRESSED_BY_EXCLUSION"
+EVAL_FAILED = "EVALUATION_FAILED"
+
+_EVAL_MEANING = {
+    ASSESSED: ("a detection rule matched this observation and the "
+               "authoritative record says which rule and which engine"),
+    EVALUATED_NO_DETECTION: (
+        "this observation WAS evaluated by the stated rule set and "
+        "nothing matched. This is NOT a statement that the activity was "
+        "benign, and it says nothing about engines that do not exist yet"),
+    NOT_EVALUATED: ("no detection engine has evaluated this observation "
+                    "yet. The evidence exists and is replayable — this is "
+                    "a detection gap, not an absence of activity"),
+    SUPPRESSED: ("an approved exclusion told the platform not to judge "
+                 "this evidence; it is neither clean nor unexamined"),
+    EVAL_FAILED: ("evaluation was attempted and failed. The verdict for "
+                  "this evidence is UNKNOWN, not clean"),
+}
+
+
+def _assessment_state(attribution: Optional[Dict[str, Any]],
+                      evaluation: Optional[Dict[str, Any]]) -> str:
+    if attribution:
+        return ASSESSED
+    state = str((evaluation or {}).get("state") or "")
+    if state == "FINDINGS_PRESENT":
+        return ASSESSED
+    if state == "EVALUATED_NO_FINDING":
+        return EVALUATED_NO_DETECTION
+    if state == SUPPRESSED:
+        return SUPPRESSED
+    if state == EVAL_FAILED:
+        return EVAL_FAILED
+    return NOT_EVALUATED
+
+
+def _canonical_refs(docs: List[Dict[str, Any]]) -> List[str]:
+    return sorted({str(d["canonical_event_id"]) for d in docs
+                   if d.get("canonical_event_id")})
+
+
+def _evaluations_from_rows(rows: List[Dict[str, Any]]
+                           ) -> Dict[str, Dict[str, Any]]:
+    """`canonical_event_id` -> the evaluation ledger entry.
+
+    This is the answer to "was this evidence ever looked at?", which is a
+    DIFFERENT question from "did anything match". Without it a surface
+    cannot tell `EVALUATED_NO_FINDING` apart from silence, and silence
+    reads as benign. The ledger is the only source; nothing is inferred
+    from the absence of a detection.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        ref = str(r.get("evidence_ref") or "")
+        if not ref:
+            continue
+        cur = out.get(ref)
+        # FINDINGS_PRESENT outranks a no-finding row from another
+        # analyzer: one analyzer finding something is the stronger fact.
+        if cur and cur.get("state") == "FINDINGS_PRESENT":
+            continue
+        out[ref] = {
+            "state": r.get("state"),
+            "reason": r.get("reason"),
+            "analyzer_id": r.get("analyzer_id"),
+            "analyzer_version": r.get("analyzer_version"),
+            "evaluated_at": r.get("recorded_at"),
+            "attempts": r.get("evaluation_attempts"),
+            "finding_ids": r.get("finding_ids") or [],
+        }
+    return out
+
+
+_EVAL_FIELDS = {"_id": 0, "evidence_ref": 1, "state": 1, "reason": 1,
+                "analyzer_id": 1, "analyzer_version": 1, "recorded_at": 1,
+                "evaluation_attempts": 1, "finding_ids": 1}
+
+FINDING_COLLECTION = "edr_findings"
+_FINDING_FIELDS = {"_id": 0, "finding_id": 1, "evidence_refs": 1,
+                   "rule_id": 1, "rule_name": 1, "rule_version": 1,
+                   "severity": 1, "confidence": 1, "attck": 1,
+                   "attck_basis": 1, "detection_source": 1,
+                   "analyzer_id": 1, "analyzer_version": 1,
+                   "evaluation_time": 1, "state": 1}
+
+
+def _findings_by_evidence(rows: List[Dict[str, Any]]
+                          ) -> Dict[str, List[Dict[str, Any]]]:
+    """`canonical_event_id` -> the findings emitted against it.
+
+    A finding carries the PRODUCING RULE's own declared severity and
+    ATT&CK. That is the only ATT&CK a trajectory may show: a technique
+    the matched rule declared, never one inferred from a process name.
+    """
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for f in rows:
+        if f.get("state") == "SUPPRESSED":
+            continue
+        for ref in (f.get("evidence_refs") or []):
+            out.setdefault(str(ref), []).append({
+                "finding_id": f.get("finding_id"),
+                "rule_id": f.get("rule_id"),
+                "rule_name": f.get("rule_name"),
+                "rule_version": f.get("rule_version"),
+                "severity": f.get("severity"),
+                "confidence": f.get("confidence"),
+                "attck": list(f.get("attck") or []),
+                "attck_basis": f.get("attck_basis"),
+                "detection_source": f.get("detection_source"),
+                "engine": f.get("analyzer_id"),
+                "engine_version": f.get("analyzer_version"),
+                "evaluated_at": f.get("evaluation_time"),
+            })
+    return out
+
+
+def _attach_findings(evals: Dict[str, Dict[str, Any]],
+                     findings: Dict[str, List[Dict[str, Any]]]
+                     ) -> Dict[str, Dict[str, Any]]:
+    for ref, fs in findings.items():
+        rec = evals.setdefault(ref, {"state": "FINDINGS_PRESENT"})
+        rec["findings"] = fs
+    return evals
+
+
+async def _evaluations(db, docs: List[Dict[str, Any]],
+                       tenant_id: Any = None) -> Dict[str, Dict[str, Any]]:
+    refs = _canonical_refs(docs)
+    if not refs or not tenant_id:
+        return {}
+    rows = [r async for r in db[EVAL_COLLECTION].find(
+        {"tenant_id": tenant_id, "evidence_ref": {"$in": refs}},
+        _EVAL_FIELDS)]
+    fnd = [f async for f in db[FINDING_COLLECTION].find(
+        {"tenant_id": tenant_id, "evidence_refs": {"$in": refs}},
+        _FINDING_FIELDS)]
+    return _attach_findings(_evaluations_from_rows(rows),
+                            _findings_by_evidence(fnd))
+
+
+def _evaluations_sync(docs: List[Dict[str, Any]],
+                      tenant_id: Any = None) -> Dict[str, Dict[str, Any]]:
+    refs = _canonical_refs(docs)
+    if not refs or not tenant_id:
+        return {}
+    evals = _evaluations_from_rows(list(
+        sync_collection(EVAL_COLLECTION).find(
+            {"tenant_id": tenant_id, "evidence_ref": {"$in": refs}},
+            _EVAL_FIELDS)))
+    fnd = list(sync_collection(FINDING_COLLECTION).find(
+        {"tenant_id": tenant_id, "evidence_refs": {"$in": refs}},
+        _FINDING_FIELDS))
+    return _attach_findings(evals, _findings_by_evidence(fnd))
+
+
 def _attribution_sync(docs: List[Dict[str, Any]], tenant_id: Any = None,
                       ) -> Dict[str, Dict[str, Any]]:
     refs = {str(d.get("collector_id") or d.get("connector_id"))
@@ -342,6 +502,7 @@ def _project_all_sync(ref_set: List[str],
         endpoint_predicate(ref_set, COLLECTION, tenant_id=tenant_id),
         {"_id": 0}))
     attribution = _attribution_sync(docs, tenant_id)
+    evaluations = _evaluations_sync(docs, tenant_id)
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
     for doc in docs:
@@ -349,7 +510,9 @@ def _project_all_sync(ref_set: List[str],
         lane = cat["by_id"].get(lane_id)
         if lane:
             rows.append(_project(doc, lane,
-                                 _attr_of(doc, _ev(doc), attribution)))
+                                 _attr_of(doc, _ev(doc), attribution),
+                                 evaluations.get(
+                                     str(doc.get("canonical_event_id")))))
     rows.sort(key=_row_chrono)
     return _with_derived({"cat": cat, "rows": rows, "bounded": False,
                           "docs_read": len(docs)})
@@ -451,6 +614,7 @@ async def _projected(db, *, ident: Dict[str, Any],
             await asyncio.sleep(0)
     attribution = await _detection_attribution(db, docs,
                                                ident.get("tenant_id"))
+    evaluations = await _evaluations(db, docs, ident.get("tenant_id"))
     cat = build_lane_catalogue(docs, attribution)
     rows: List[Dict[str, Any]] = []
     for i, doc in enumerate(docs):
@@ -458,7 +622,9 @@ async def _projected(db, *, ident: Dict[str, Any],
         lane = cat["by_id"].get(lane_id)
         if lane:
             rows.append(_project(doc, lane,
-                                 _attr_of(doc, _ev(doc), attribution)))
+                                 _attr_of(doc, _ev(doc), attribution),
+                                 evaluations.get(
+                                     str(doc.get("canonical_event_id")))))
         if not bounded and i % 500 == 0:
             await asyncio.sleep(0)
     rows.sort(key=_row_chrono)
@@ -597,6 +763,7 @@ def classify(ev: Dict[str, Any],
 
 def detected_by(doc: Dict[str, Any], ev: Dict[str, Any],
                 attribution: Optional[Dict[str, Any]] = None,
+                findings: Optional[List[Dict[str, Any]]] = None,
                 ) -> List[Dict[str, Any]]:
     """Which engine produced this — named from provenance, never guessed.
 
@@ -622,6 +789,25 @@ def detected_by(doc: Dict[str, Any], ev: Dict[str, Any],
             "detected_at": attribution.get("detected_at"),
             "incident_ids": attribution.get("incident_ids"),
             "basis": attribution.get("basis"),
+            "authoritative": True,
+        })
+
+    # E3 · an engine that produced a FINDING against this observation is
+    # named from that finding. It is as authoritative as an ingest-time
+    # derivation; the only difference is WHEN it ran, and the finding
+    # says when.
+    for f in (findings or []):
+        out.append({
+            "engine": f.get("engine") or "NivXRay detection content",
+            "component": f.get("detection_source"),
+            "rule_id": f.get("rule_id"),
+            "rule_ids": [f["rule_id"]] if f.get("rule_id") else [],
+            "rule_name": f.get("rule_name"),
+            "severity": f.get("severity"),
+            "engine_version": f.get("engine_version"),
+            "detected_at": f.get("evaluated_at"),
+            "finding_id": f.get("finding_id"),
+            "basis": "EDR_FINDING_PLANE_DETECTION_RECORD",
             "authoritative": True,
         })
 
@@ -876,7 +1062,8 @@ def _event_iid(doc: Dict[str, Any], ev: Dict[str, Any],
 
 
 def _project(doc: Dict[str, Any], lane: Dict[str, Any],
-             attribution: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+             attribution: Optional[Dict[str, Any]] = None,
+             evaluation: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """One trajectory event. Provenance travels with it; a field with no
     evidence is omitted, never filled in."""
     ev = _ev(doc)
@@ -885,8 +1072,18 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
     proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
     cls = classify(ev, attribution)
     files = _artefact_files(ev)
+    # E3/E6 · a matched FINDING carries the producing rule's own id and
+    # the ATT&CK that rule DECLARED. That is the only attribution a
+    # trajectory may present as a technique claim; the normalizer's
+    # `event.mitre` tag is a source hint, not validated detection
+    # evidence, so it is carried under its own basis and never promoted.
+    found = list((evaluation or {}).get("findings") or [])
+    found_rules = [f["rule_id"] for f in found if f.get("rule_id")]
+    found_attck = sorted({t for f in found for t in (f.get("attck") or [])})
     rule_ids = (list(attribution.get("rule_ids") or []) if attribution
-                else ([raw.get("rule_id")] if raw.get("rule_id") else []))
+                else (found_rules
+                      or ([raw.get("rule_id")] if raw.get("rule_id")
+                          else [])))
     ts = _ts(doc, ev)
     inst = instant_ms(ts)
     return {
@@ -944,14 +1141,26 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
         "is_detection": cls["is_detection"],
         "compromise_authority": cls["compromise_authority"],
         "attributed": cls["attributed"],
-        "labels": cls["labels"], "mitre": cls["mitre"],
+        "labels": cls["labels"],
+        "mitre": found_attck or cls["mitre"],
+        "mitre_basis": ("RULE_DECLARED_BY_MATCHED_DETECTION" if found_attck
+                        else ("SOURCE_NORMALIZER_TAG_NOT_VALIDATED_DETECTION"
+                              if cls["mitre"] else "NOT_ATTRIBUTED")),
+        "findings": found,
         "rule_id": rule_ids[0] if rule_ids else None,
         "rule_ids": rule_ids,
         # The authoritative detection record for THIS observation, or
         # null. Null is a real answer and the UI states which it is.
         "detection": attribution,
-        "assessment_state": ("ASSESSED_BY_DETECTION_FABRIC" if attribution
-                             else "NO_DETECTION_CLAIMED_THIS_OBSERVATION"),
+        # E3 · three DIFFERENT facts, never collapsed into one:
+        #   ASSESSED_BY_DETECTION_FABRIC  a rule matched this observation
+        #   EVALUATED_NO_DETECTION        the stated rule set ran and
+        #                                 nothing matched — NOT "benign"
+        #   NOT_EVALUATED                 nothing has looked at it yet
+        "assessment_state": _assessment_state(attribution, evaluation),
+        "evaluation": evaluation,
+        "evaluation_meaning": _EVAL_MEANING[
+            _assessment_state(attribution, evaluation)],
         # `raw.rule_label` is the sensor's DISPLAY label ("bash · process
         # create"), not a detection rule. Surfacing it as a rule would
         # make every ordinary process look detected, so it is carried
@@ -961,7 +1170,7 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
         "rule_label": (", ".join(rule_ids) if attribution
                        else (raw.get("rule_label") if raw.get("rule_id")
                              else None)),
-        "detected_by": detected_by(doc, ev, attribution),
+        "detected_by": detected_by(doc, ev, attribution, found),
         "provenance": {
             "raw_event_id": prov.get("ingest_job_id"),
             "canonical_event_id": doc.get("canonical_event_id"),

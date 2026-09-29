@@ -114,6 +114,14 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
   const tactics = (event.mitre || []).filter((m) => /^TA/i.test(m));
   const techniques = (event.mitre || []).filter((m) => !/^TA/i.test(m));
   const attributed = tactics.length > 0 || techniques.length > 0;
+  /** The evaluation ledger for THIS observation. Its absence is itself
+   *  an answer — "nothing has looked at this yet" — and is never shown
+   *  as "clean". */
+  const ev = event.evaluation || {};
+  const evaluated = event.assessment_state === "EVALUATED_NO_DETECTION"
+    || ev.state === "EVALUATED_NO_FINDING";
+  /** Findings the detection engine emitted against THIS observation. */
+  const findings = event.findings || ev.findings || [];
 
   return (
     <Shell width={width} height={height} onBack={onBack}>
@@ -348,7 +356,46 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
       ) : null}
 
       <Section title="Detection" testid="amp-detection-attribution">
-        {event.detection ? (
+        {(!event.detection && findings.length) ? (
+          /* E3 · the engine matched this observation and the FINDING is
+             the authoritative record. Every value below is the producing
+             rule's own; nothing is inferred from the event. */
+          <div data-testid="amp-detection-findings">
+            {findings.map((f, i) => (
+              <div key={f.finding_id || i}
+                   data-testid={`amp-detection-finding-${i}`}
+                   style={{ marginTop: 5, background: C.paperAlt,
+                            border: `1px solid ${C.grid}`,
+                            padding: "6px 8px" }}>
+                <div style={{ fontSize: 10.8, fontWeight: 700,
+                              color: C.malicious }}>
+                  {f.rule_name || f.rule_id}
+                </div>
+                <Row k="Rule" v={f.rule_version
+                  ? `${f.rule_id} v${f.rule_version}` : f.rule_id}
+                     testid={`amp-d-finding-rule-${i}`} />
+                {f.severity
+                  ? <Row k="Severity" v={f.severity}
+                         testid={`amp-d-finding-severity-${i}`} /> : null}
+                {f.attck?.length
+                  ? <Row k="ATT&CK" v={f.attck.join(", ")}
+                         testid={`amp-d-finding-attck-${i}`} /> : null}
+                <Row k="Engine" v={`${f.engine} · ${f.engine_version}`}
+                     testid={`amp-d-finding-engine-${i}`} />
+                <Row k="Evaluated" v={f.evaluated_at}
+                     testid={`amp-d-finding-evaluated-${i}`} />
+                <Row k="Finding" v={f.finding_id}
+                     testid={`amp-d-finding-id-${i}`} />
+                <div className="mono" style={{ fontSize: 9, marginTop: 3,
+                                               color: C.inkFaint,
+                                               lineHeight: 1.5 }}>
+                  basis: {f.detection_source}
+                  {f.attck_basis ? ` · att&ck: ${f.attck_basis}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : event.detection ? (
           <div data-testid="amp-detection-record"
                data-rule-ids={(event.detection.rule_ids || []).join(",")}
                data-verdict={event.detection.verdict || ""}
@@ -387,11 +434,45 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
             </div>
           </div>
         ) : (
+          /* E3 · "no detection" and "never evaluated" are DIFFERENT
+             facts and are stated as such. Silence used to read as
+             benign; now the evaluation ledger answers the question. */
           <div data-testid="amp-detection-none"
+               data-assessment-state={event.assessment_state || ""}
                style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
                         lineHeight: 1.55, background: C.paperAlt,
                         border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
-            No detection is recorded against this event.
+            {evaluated ? (
+              <>
+                <span style={{ color: C.ink, fontWeight: 700 }}>
+                  Evaluated · no rule matched.
+                </span>
+                <div data-testid="amp-detection-evaluated-meaning"
+                     style={{ marginTop: 3 }}>
+                  {event.evaluation_meaning}
+                </div>
+                <div className="mono" data-testid="amp-detection-evaluated-by"
+                     style={{ fontSize: 9, color: C.inkFaint, marginTop: 4 }}>
+                  {ev.analyzer_id}
+                  {ev.analyzer_version ? ` v${ev.analyzer_version}` : ""}
+                  {ev.evaluated_at ? ` · evaluated ${ev.evaluated_at}` : ""}
+                  {ev.attempts ? ` · attempt ${ev.attempts}` : ""}
+                </div>
+              </>
+            ) : (
+              <>
+                <span style={{ color: C.ink, fontWeight: 700 }}>
+                  Not evaluated.
+                </span>
+                <div style={{ marginTop: 3 }}>
+                  {event.evaluation_meaning
+                    || ("no detection engine has evaluated this "
+                        + "observation yet. The evidence exists and is "
+                        + "replayable — this is a detection gap, not an "
+                        + "absence of activity.")}
+                </div>
+              </>
+            )}
           </div>
         )}
       </Section>
@@ -402,8 +483,11 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
                style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
                         lineHeight: 1.55, background: C.paperAlt,
                         border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
-            No detection engine claimed this observation — it is
-            telemetry. Reported by{" "}
+            {evaluated
+              ? "The detection fabric evaluated this observation and no "
+                + "rule matched, so no engine claims it. "
+              : "No detection engine has evaluated this observation yet. "}
+            Reported by{" "}
             <span className="mono">
               {engines[0]?.component || "the collector"}
             </span>.

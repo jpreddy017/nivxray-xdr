@@ -45,6 +45,11 @@ ENDPOINT_KEYED_STORES: Dict[str, List[str]] = {
         "event.computer", "event.raw.computer", "event.raw.hostname",
     ],
     "edr_raw_events":        ["endpoint_ref"],
+    # E3 · the canonical evidence plane. Detection Replay reads it, so it
+    # must be a DECLARED endpoint-keyed store rather than an ad-hoc query.
+    "xdr_canonical_evidence": [
+        "provenance.collector_id", "host.host_id", "host.hostname",
+    ],
     "edr_response_commands": ["endpoint_id"],
     "edr_endpoints":         ["endpoint_id", "device_iid", "hostname"],
     "workspace_cases":       ["endpoint_campaign.endpoint_id",
@@ -63,6 +68,7 @@ ENDPOINT_KEYED_STORES: Dict[str, List[str]] = {
 TENANT_PARTITIONED_STORES: Dict[str, str] = {
     "v2_shadow_observations": "tenant_id",
     "edr_raw_events":         "tenant_id",
+    "xdr_canonical_evidence": "tenant_id",
     "edr_endpoints":          "tenant_id",
 }
 

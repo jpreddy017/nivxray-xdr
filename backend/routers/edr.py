@@ -1557,6 +1557,46 @@ async def linked_incidents(endpoint_id: str,
 # Cisco-observable behaviour, implemented independently: opening the
 # Device Trajectory from a detection must land on the EXACT observation
 # that produced it — not merely on the right machine.
+
+# ═══════════════════════════════════════════════════════════════════
+# E3 · DETECTION REPLAY over already-canonical endpoint evidence.
+#
+# It is NOT a second detection engine. The verdict comes from
+# `detection_content.xdr_pipeline.evaluate_detection` — the identical
+# function the live ingest pipeline calls — and durability from
+# `record_endpoint_detection`, the identical function live ingest uses.
+# Replay defines no rule, no predicate and no match shape, so live and
+# replayed verdicts cannot diverge.
+#
+# `apply=false` (the default) evaluates and REPORTS and writes nothing.
+# ═══════════════════════════════════════════════════════════════════
+@router.post("/endpoints/{endpoint_id}/detection-replay")
+async def endpoint_detection_replay(
+    endpoint_id: str,
+    apply: bool = False,
+    limit: Optional[int] = None,
+    user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
+):
+    from deps import db as _db
+    from edr_plane import detection_replay as dr
+    import asyncio
+
+    res = await asyncio.to_thread(eq.resolve_endpoint, endpoint_id,
+                                  _tenant_scope(user, tenant_id))
+    if not res:
+        return {"engine_id": "nivxray::edr_plane::detection_replay",
+                **eq.unresolved_envelope(endpoint_id)}
+    # The AUTHORITATIVE owner of the resolved identity, never the
+    # requested context: replay reads a tenant-partitioned evidence
+    # store and an unresolved owner reads nothing.
+    out = await dr.replay_endpoint(
+        _db, tenant_id=res.identity.get("tenant_id"), refs=res.refs,
+        apply=bool(apply), limit=limit)
+    out["identity"] = res.descriptor()
+    return out
+
+
 #
 # Resolution is by stable identifier only. Hostname, process name, pid
 # and timestamp proximity are NOT resolution keys here; if the exact
