@@ -2576,3 +2576,62 @@ B5                     = HOLD
 - `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`. No remediation. Endpoint / sensor /
   Sysmon / outbox untouched and not proposed for change. No deploy/replay/backfill.
 
+
+### 2026-09-30 ~00:00Z — B5 EID5 FINAL CLOSURE CHECK (run 3bd64025): ENGINE PROVEN, TARGET SET ABSENT
+- FRONTIER = `payload.observed_at` **2026-09-29T20:49:33.258293Z** (newest ingest
+  23:43:04.183228Z) — ~5h59m of event-time PAST the 14:50Z target. Outbox
+  6,698 -> **2,078** (draining), rate ~1.707 event-s/wall-s. Not stalled, not slower.
+- **THE EID5 ENGINE IS PROVEN ON GENUINE PRODUCTION EVIDENCE: 17 real Sysmon EID5
+  (ProcessTerminate), UtcTime 15:17:21 -> 17:40:10Z**, full chain:
+  raw received -> accepted (`edr_rejected_telemetry` = 0 for the endpoint) ->
+  **17 canonical `process_exit`, exactly 1:1** (`cev_6e18d93e1d9ab03a5b765548_0`,
+  `obs_bffdd00b25b0`) -> `field_provenance process.exit_time = "sysmon:UtcTime
+  (EventID 5)"` with `start_time = null` -> ProcessGuid binding
+  `SOURCE_PROCESS_IDENTITY`, `process_iid = nivx:ProcessIdentity.mint(endpoint_id,
+  ProcessGuid)` -> **>=4 EID1/EID5 pairs** (f7fa-2b1e, f7fa-271e, dd70-211d,
+  dd70-221d) -> projected under `dev_2adbb41a04a4` (captured_at e.g. 17:40:10.707Z)
+  -> tenant `ten_e759b7288598bd882e3dcac49d` preserved, no heuristic cross-device
+  binding, **no `_pl` authority minted**, no backfill.
+  => `PROCESS_TERMINATION_OBSERVED` is now real, not `PROCESS_LIFETIME_UNKNOWN`.
+- **MATCHER CONFLATION CAUGHT — record this permanently:** a bare
+  `<EventID>5</EventID>` match returns **249** for this endpoint, conflating
+  `Microsoft-Windows-IsolatedUserMode` EID5 (Secure Trustlet start, NOT a termination)
+  with genuine `Microsoft-Windows-Sysmon` EID5. GENUINE Sysmon EID5 = **17**. All future
+  EID5 counts MUST filter on provider GUID `{5770385f-c22a-43e0-bf4c-06f5698ffbd9}`.
+  Controls: EID1 = 636, EID12 = 28,776, ProcessGuid regex validated on a known-present
+  guid (193 hits) — so 0/10 below is real, not a query artifact.
+- **THE 10 TARGET PROCESSGUIDS ARE ABSENT: 0/10** in `edr_raw_events`,
+  `xdr_ingest_raw_retained`, `xdr_canonical_events`, `v2_shadow_observations`;
+  `$in` over all 10 vs `process_exit` = 0; regex `9949e5f2-cfb6-6abb` vs
+  `process_exit` = 0. Their start-segments (`cfb6 ... d018`) precede the earliest EID5
+  in raw (`d54c` ~ 15:17:21Z).
+- `FIRST_BROKEN_BOUNDARY = RAW RECEIVED`. **A ~28-minute coverage gap: NO Sysmon EID5
+  exists for ~14:48-15:16Z UtcTime, while EVERY EID5 from 15:17:21Z onward is present
+  and fully processed.** Not a refusal (0 rejections), not a canonicalization/identity/
+  projection failure (proven on the 17), not a wait condition (frontier ~6h past the
+  slot, post-gap neighbours present). The 10 never entered the delivered stream.
+- HYPOTHESES (NOT verified, endpoint NOT inspected or touched): (1) collection
+  START-POINT — EID5 was enabled ~14:48-14:50Z while the sensor's Sysmon channel
+  subscription/bookmark predated the config change; first collected EID5 is 15:17:21Z,
+  ~28 min later, consistent with a policy/channel-coverage refresh rather than
+  in-transit loss; (2) DIRECT-READ vs COLLECTED STREAM — the 10 guids were captured by
+  the owner reading the local Sysmon log (the enablement script's own verification), and
+  events visible to a direct read need not be inside the sensor's collected stream if
+  they precede its coverage start point; (3) log position/rollover at config-change time.
+  Distinguishing them needs a READ-ONLY endpoint look (do the 10 guids still exist in the
+  local Sysmon log; what is the sensor's EID5 channel start point) — owner's call.
+- `B5_EID5_END_TO_END = BLOCKED: target proof-set absent (engine PROVEN on 17 genuine EID5)`
+- **OWNER DECISION PENDING.** Option 1 (RECOMMENDED): close B5 on the 17 genuine EID5 —
+  the acceptance requirement was "genuine endpoint-generated EID5 reaches canonical
+  evidence and binds by authoritative ProcessGuid", which IS satisfied; the 10 guids were
+  only the chosen sample, not the capability. Option 2: keep B5 BLOCKED if the gate is
+  defined strictly as those 10 guids — they cannot be made to appear, and re-emitting or
+  reconstructing them is forbidden fabrication that would also destroy the
+  ordinary-delivery-path property. Recommendation = Option 1 + open a named finding:
+  **`B5-GAP-1` · Sysmon EID5 collection start-point coverage gap (14:48-15:16Z,
+  DESKTOP-A9HGFJJ)**.
+- Report: `/app/docs/B5_EID5_FINAL_CLOSURE_CHECK.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOYED/WRITTEN/REPLAYED/BACKFILLED: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX: UNTOUCHED ·
+  E3: NOT STARTED.
+
