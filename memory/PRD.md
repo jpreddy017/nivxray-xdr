@@ -2136,3 +2136,34 @@ Reports: `docs/B5_EID5_SYSMON_XML_PROVENANCE_INVESTIGATION.md`,
   values, never absent ones), E3-C collected-telemetry coverage map.
   Baseline measured: 0/37 rules fire or raise on an empty canonical event.
 - ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO.
+
+## 2026-09-29 · B5 EID5 END-TO-END = WAITING_FOR_DELIVERY (read-only gate)
+Report: `docs/B5_EID5_END_TO_END_ACCEPTANCE_REPORT.md`. Owner superseded the
+old blocker: `OLD_ROLLBACK_BLOCKER = CLOSED` (v2 baseline `F5FFD2CA...16C9B9`,
+EID5 candidate `9398464D...0362E3` applied, exit 0, EID5 generation PROVEN on
+DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
+- GATE 1 code contract PASS 8/8 (`windows_eventlog.py:83,668-694`,
+  `sysmon_dsm.py:241`, `process_identity.py:68,205-252`): EID5 -> process_exit,
+  UtcTime -> exit_time only (start_time declared not_observed), ProcessGuid
+  authoritative, no identity => no process_key, PID-only never joins.
+  NUANCE: GUID key is tenant-scoped (`guid|tenant|guid`); cross-endpoint
+  separation rests on the machine component inside the Sysmon GUID.
+- GATE 2: NOTHING downstream. 0 WINDOWS_EVENT_LOG envelopes, 0
+  `<EventID>5</EventID>`, 0 `process_exit` in either canonical store, 0/10
+  ProcessGuids anywhere. Host has 3,300 canonical rows (EIDs 1/3/11/12/13/22/
+  4624/4672, tenant `ten_f1a5479243e901cf159e230fa0`) but newest ingest is
+  2026-09-25T15:35Z - FOUR DAYS BEFORE enablement - and they arrived on the
+  XDR COLLECTOR path (`col-timecheck-*`), not the EDR agent path. The host is
+  not in `edr_endpoints`. No collector seen in 7 days.
+- B0 PROVEN (owner) · B1-B3 NOT_MEASURABLE (sensor counters OFF by design) ·
+  B4-B9 NOT_YET_OBSERVED. NOT loss, NOT refused - nothing was refused anywhere.
+- GATE 5 PASS: 38 focused tests (`test_b5_process_termination.py`,
+  `test_b2_process_identity.py`). GATE 8: all processes correctly remain
+  PROCESS_LIFETIME_UNKNOWN; no history reconstructed.
+- GATE 6: tenant counters all 0 for the Windows tenant; `default` (Linux)
+  received 1047 / accepted 1046 / canonicalized 1044 / parse_failed 2 /
+  unaccounted 0-0. No boundary derived by subtraction.
+- OPEN FOR OWNER: confirm which backend URL the laptop's sensor delivers to -
+  the preview URL changed when this environment forked, so spool latency may
+  not be the only explanation. Read-only; nothing run on the endpoint.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · E3 NOT started.
