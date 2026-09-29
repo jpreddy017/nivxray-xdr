@@ -22,6 +22,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { C, DAY_MS, DAY_BINS, MONTHS, startOfDayUTC,
          dayKeyOf } from "./ampModel";
 import { moveRange } from "./dt2";
+import { msUTC } from "./dt2/instant";
 
 const DAYS = 30;
 const PAD = 9;
@@ -59,13 +60,14 @@ export default function AmpNavigator({
   }, [days]);
 
   const cells = useMemo(() => {
-    const anchor = observedEnd ? startOfDayUTC(Date.parse(observedEnd))
+    const anchor = observedEnd ? startOfDayUTC(msUTC(observedEnd))
                                : startOfDayUTC(Date.now());
     const out = [];
     for (let i = DAYS - 1; i >= 0; i -= 1) {
       const ms = anchor - i * DAY_MS;
       const rec = byDay.get(dayKeyOf(ms)) || { total: 0, malicious: 0,
-                                               suspicious: 0, detections: 0 };
+                                               suspicious: 0, detections: 0,
+                                               compromises: 0 };
       out.push({ ms, key: dayKeyOf(ms), ...rec, d: new Date(ms) });
     }
     return out;
@@ -110,11 +112,11 @@ export default function AmpNavigator({
         const t = tOfX(lx);
         let best = null;
         for (const b of dayBins) {
-          const d = Math.abs(Date.parse(b.first_timestamp) - t);
+          const d = Math.abs(msUTC(b.first_timestamp) - t);
           if (!best || d < best.d) best = { d, b };
         }
         if (best) {
-          onFocusTime(Date.parse(best.b.first_timestamp),
+          onFocusTime(msUTC(best.b.first_timestamp),
                       best.b.first_event_iid);
         }
       }
@@ -187,11 +189,14 @@ export default function AmpNavigator({
           {cells.map((c) => {
             const active = c.ms === dayStart;
             const has = c.total > 0;
-            const red = c.malicious + c.detections;
             /** Cisco: red dots are compromise events, blue dots are
-             *  search results, sized relative to the day's events. The
-             *  day aggregate is server-computed over the filtered set,
-             *  so with a query active these ARE the search hits. */
+             *  search results, sized relative to the day's events. A red
+             *  dot requires an AUTHORITATIVE compromise — a malicious
+             *  disposition or a server-declared `compromise_authority`.
+             *  A telemetry kind named "detection" earns nothing: on
+             *  Windows, Sysmon registry events arrive as kind=detection,
+             *  and 2431 of them are not 2431 compromises. */
+            const red = c.malicious + (c.compromises || 0);
             const blue = !red && searchActive && c.total > 0;
             const r = (red || blue) ? 3 + dens(c.total, maxTotal) * 4 : 0;
             return (
@@ -282,14 +287,19 @@ export default function AmpNavigator({
 
             {(dayBins || []).map((b) => {
               const x = PAD + ((b.bin + 0.5) / DAY_BINS) * innerW;
-              const red = b.malicious + b.detections > 0;
+              //: authoritative only — see the day band above
+              const red = b.malicious + (b.compromises || 0) > 0;
               const r = 2.4 + dens(b.total, maxBin) * 3;
               return (
                 <circle key={b.bin} cx={x} cy={15} r={r}
                         fill={red ? C.malicious : C.telemetry}
+                        data-compromises={b.compromises || 0}
                         data-testid={`amp-nav-bin-${b.bin}`}>
                   <title>{`${b.total} event(s) · `
-                    + `${b.first_timestamp}`}</title>
+                    + `${b.first_timestamp}`
+                    + (b.compromises
+                      ? ` · ${b.compromises} compromise event(s) · `
+                        + `${b.first_compromise_at}` : "")}</title>
                 </circle>
               );
             })}
@@ -299,7 +309,7 @@ export default function AmpNavigator({
                     x={PAD + (b.bin / DAY_BINS) * innerW - 3} y={0}
                     width={7} height={30} fill="transparent"
                     onClick={() => onFocusTime(
-                      Date.parse(b.first_timestamp), b.first_event_iid)}
+                      msUTC(b.first_timestamp), b.first_event_iid)}
                     data-testid={`amp-nav-bin-hit-${b.bin}`}>
                 <title>{`${b.total} event(s) · ${b.first_timestamp}`}</title>
               </rect>

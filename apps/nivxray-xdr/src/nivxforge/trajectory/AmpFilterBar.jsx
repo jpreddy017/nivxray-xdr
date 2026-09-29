@@ -19,6 +19,7 @@ import React, { useEffect, useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 
 import { C, typeLabel } from "./ampModel";
+import { OTHER, OTHER_LABEL, TYPES } from "./dt2/fileType";
 import EventGlyph from "./AmpIcons";
 
 const SYSTEM_CLASS =
@@ -32,12 +33,16 @@ const DISPOSITIONS = [
 
 export default function AmpFilterBar({
   typeCounts = [], kinds, onKinds, dispositions, onDispositions,
+  fileTypes = [], onFileTypes, fileTypeCounts = new Map(),
+  processes = [], hiddenProcesses = [], onHiddenProcesses,
   query, onQuery,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(query || "");
   const [dKinds, setDKinds] = useState(kinds);
   const [dDisp, setDDisp] = useState(dispositions);
+  const [dTypes, setDTypes] = useState(fileTypes);
+  const [dHidden, setDHidden] = useState(hiddenProcesses);
 
   const allKinds = typeCounts.map((t) => t.event_type);
   const allDisp = DISPOSITIONS.map(([k]) => k);
@@ -53,6 +58,8 @@ export default function AmpFilterBar({
     setDDisp(dispositions.length ? dispositions
       : DISPOSITIONS.map(([k]) => k));
   }, [dispositions]);
+  useEffect(() => { setDTypes(fileTypes); }, [fileTypes]);
+  useEffect(() => { setDHidden(hiddenProcesses); }, [hiddenProcesses]);
 
   const activity = typeCounts.filter((t) => !SYSTEM_CLASS.test(t.event_type));
   const system = typeCounts.filter((t) => SYSTEM_CLASS.test(t.event_type));
@@ -63,12 +70,16 @@ export default function AmpFilterBar({
   // Cisco: at least one item from each category that HAS items.
   const chosen = (items) => items.some((t) => dKinds.includes(t.event_type));
   const ok = (!activity.length || chosen(activity))
-    && (!system.length || chosen(system)) && dDisp.length > 0;
+    && (!system.length || chosen(system)) && dDisp.length > 0
+    && dTypes.length > 0
+    && (!processes.length || dHidden.length < processes.length);
 
   const apply = () => {
     if (!ok) return;
     onKinds(dKinds.length === allKinds.length ? [] : dKinds);
     onDispositions(dDisp.length === allDisp.length ? [] : dDisp);
+    onFileTypes(dTypes);
+    onHiddenProcesses(dHidden);
     setOpen(false);
   };
 
@@ -158,9 +169,40 @@ export default function AmpFilterBar({
                          sensor." />
             </Cat>
 
+            <Cat title="Processes" testid="amp-filter-cat-processes">
+              {processes.length ? processes.map((p) => (
+                <Check key={p.nodeId}
+                       testid={`amp-filter-proc-${p.nodeId}`}
+                       checked={!dHidden.includes(p.nodeId)}
+                       onChange={() => toggle(dHidden, setDHidden)(p.nodeId)}
+                       label={`${p.label}${p.pid ? ` · ${p.pid}` : ""}`} />
+              )) : (
+                <Gap text="No process trajectory in this window." />
+              )}
+              <Gap text="De-selecting a process removes its trajectory from
+                         the graph only. The observations, its children and
+                         every relationship stay in the evidence, and a child
+                         is never re-attached to another process because its
+                         parent is hidden." />
+            </Cat>
+
             <Cat title="File Type" testid="amp-filter-cat-filetype">
-              <Gap text="File identification is not collected; the row tag is
-                         derived from the observed path." />
+              {[...TYPES, [OTHER, OTHER_LABEL]].map(([key, label]) => (
+                <Check key={key} testid={`amp-filter-ftype-${key}`}
+                       checked={dTypes.includes(key)}
+                       onChange={() => toggle(dTypes, setDTypes)(key)}
+                       label={`${label}${fileTypeCounts.get(key)
+                         ? ` (${fileTypeCounts.get(key)})` : ""}`} />
+              ))}
+              <Gap text="Cisco displays ten file classes (User Guide p.401)
+                         and narrows at the cloud query (TAC 118711) to
+                         'accent the more important indications of
+                         compromise'. Cisco identifies the class from file
+                         CONTENT; the NivXForge sensor sends no file-type
+                         verdict, so the class here is read from the observed
+                         PATH EXTENSION and can be wrong about content.
+                         Nothing is discarded — Other returns the rows and
+                         Activity lists every observation." />
             </Cat>
 
             <div style={{ display: "flex", alignItems: "center", gap: 8,

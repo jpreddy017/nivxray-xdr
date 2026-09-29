@@ -67,7 +67,8 @@ const dayName = (t) => {
 export default function RelationshipCanvas({
   graph, view, plotW = 760, rows = 18, laneOffset = 0, bounds = null,
   selectedNodeId = null, selectedEventMs = null, onSelect, onView,
-  onLaneOffset, onReturnToEvent, theme = {},
+  onLaneOffset, onReturnToEvent, fileTypes = null, hiddenProcesses = null,
+  theme = {},
 }) {
   const box = useRef(null);
   const [measured, setMeasured] = useState(0);
@@ -98,8 +99,16 @@ export default function RelationshipCanvas({
     lifeline: "#9CC97E",
   };
 
+  const typeSet = useMemo(
+    () => (fileTypes && fileTypes.length ? new Set(fileTypes) : null),
+    [fileTypes]);
+  const hidden = useMemo(
+    () => (hiddenProcesses && hiddenProcesses.length
+      ? new Set(hiddenProcesses) : null), [hiddenProcesses]);
   const every = useMemo(
-    () => axisRowsOf(graph, { max: MAX_RENDERED_LANES }), [graph]);
+    () => axisRowsOf(graph, { max: MAX_RENDERED_LANES, fileTypes: typeSet,
+                              hiddenProcesses: hidden }),
+    [graph, typeSet, hidden]);
   const gb = useMemo(() => graphBoundsOf(graph), [graph]);
 
   const axis = useMemo(() => {
@@ -298,8 +307,11 @@ export default function RelationshipCanvas({
             const mal = isMal(r.node);
             const ioc = isCompromise(r.node);
             const tag = typeTag(r.node);
-            const label = file ? String(r.node.label).split(/[\\/]/).pop()
+            const nSup = r.activities.reduce(
+              (n, a) => n + (a.suppressedCount || 0), 0);
+            const base = file ? String(r.node.label).split(/[\\/]/).pop()
               : nameOf(r.node);
+            const label = nSup ? `${base}  +${nSup} suppressed` : base;
             const tintW = textW(label) + (tag ? 30 : 0) + 12;
             return (
               <g key={r.nodeId} data-testid={`dt2-lane-${r.nodeId}`}
@@ -316,6 +328,8 @@ export default function RelationshipCanvas({
                  data-row-end-x={x1 != null ? x1.toFixed(2) : ""}
                  data-row-terminated={r.lifeline.terminated ? "true" : "false"}
                  data-row-y={mid.toFixed(2)}
+                 data-row-suppressed={nSup}
+                 data-row-parent-hidden={r.parentHidden ? "true" : "false"}
                  onClick={() => onSelect?.(r)} style={{ cursor: "pointer" }}>
                 <rect x={0} y={y} width={width} height={ROW}
                       fill={sel ? C.paperAlt : "transparent"} />

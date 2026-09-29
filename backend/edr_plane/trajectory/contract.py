@@ -23,7 +23,8 @@ _NET_KINDS = {"network_connect", "network", "network_accept",
 _REG_KINDS = {"registry_create", "registry_value_set", "registry_delete",
               "registry_rename", "registry"}
 _DNS_KINDS = {"dns_query", "dns"}
-_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff"}
+_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff",
+               "credential_validation"}
 
 _GROUP_TO_ARTIFACT = {"FILE": "FILE", "REGISTRY": "REGISTRY", "DNS": "DNS",
                       "NETWORK": "NETWORK", "AUTHENTICATION": "AUTH"}

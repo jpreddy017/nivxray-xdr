@@ -68,7 +68,8 @@ _NET_KINDS = {"network_connect", "network",
 _REGISTRY_KINDS = {"registry_create", "registry_value_set",
                    "registry_delete", "registry_rename", "registry"}
 _DNS_KINDS = {"dns_query", "dns"}
-_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff"}
+_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff",
+               "credential_validation"}
 
 DISPOSITION_MALICIOUS = "MALICIOUS"
 DISPOSITION_SUSPICIOUS = "SUSPICIOUS"
@@ -564,6 +565,16 @@ def classify(ev: Dict[str, Any],
     return {
         "disposition": disposition,
         "is_detection": kind == "detection" or bool(attribution),
+        #: A COMPROMISE is not a telemetry kind. `kind == "detection"` is a
+        #: normalizer classification — on this Windows corpus Sysmon
+        #: registry events (EID 12) arrive as `kind=detection` — so it can
+        #: never earn a navigator compromise marker on its own. Only an
+        #: authoritative claim counts: the detection fabric assessed the
+        #: observation, or the observation's own evidence names MITRE
+        #: technique attribution.
+        "compromise_authority": ("DETECTION_FABRIC_ATTRIBUTION" if attribution
+                                 else "MITRE_ATTRIBUTED_EVIDENCE" if mitre
+                                 else None),
         "labels": labels,
         "mitre": mitre,
         "attributed": bool(mitre) or bool(attribution),
@@ -897,6 +908,7 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
         "file_sha256": files[0]["sha256"] if files else None,
         "disposition": cls["disposition"],
         "is_detection": cls["is_detection"],
+        "compromise_authority": cls["compromise_authority"],
         "attributed": cls["attributed"],
         "labels": cls["labels"], "mitre": cls["mitre"],
         "rule_id": rule_ids[0] if rule_ids else None,
@@ -969,7 +981,8 @@ def _activity(rows: List[Dict[str, Any]],
             continue
         day = str(ts)[:10]
         rec = days.setdefault(day, {"total": 0, "malicious": 0,
-                                    "suspicious": 0, "detections": 0})
+                                    "suspicious": 0, "detections": 0,
+                                    "compromises": 0})
         rec["total"] += 1
         if r["disposition"] == DISPOSITION_MALICIOUS:
             rec["malicious"] += 1
@@ -977,6 +990,10 @@ def _activity(rows: List[Dict[str, Any]],
             rec["suspicious"] += 1
         if r.get("is_detection"):
             rec["detections"] += 1
+        #: the navigator's compromise marker counts ONLY authoritative
+        #: compromises, never a telemetry kind named "detection".
+        if r.get("compromise_authority"):
+            rec["compromises"] += 1
         if hist_day and day == hist_day:
             hm = str(ts)[11:19]
             try:
@@ -986,7 +1003,9 @@ def _activity(rows: List[Dict[str, Any]],
             idx = min(DAY_BINS - 1,
                       int(((h * 3600 + m * 60 + s) / 86400) * DAY_BINS))
             b = bins.setdefault(idx, {"bin": idx, "total": 0, "malicious": 0,
-                                      "detections": 0,
+                                      "detections": 0, "compromises": 0,
+                                      "first_compromise_iid": None,
+                                      "first_compromise_at": None,
                                       "first_event_iid": r["event_iid"],
                                       "first_timestamp": ts})
             b["total"] += 1
@@ -994,6 +1013,13 @@ def _activity(rows: List[Dict[str, Any]],
                 b["malicious"] += 1
             if r.get("is_detection"):
                 b["detections"] += 1
+            if r.get("compromise_authority"):
+                b["compromises"] += 1
+                if (b["first_compromise_at"] is None
+                        or instant_ms(ts) < instant_ms(
+                            b["first_compromise_at"])):
+                    b["first_compromise_at"] = ts
+                    b["first_compromise_iid"] = r["event_iid"]
             if ts < b["first_timestamp"]:
                 b["first_timestamp"] = ts
                 b["first_event_iid"] = r["event_iid"]

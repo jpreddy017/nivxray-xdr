@@ -45,6 +45,7 @@ import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
 import RelationshipCanvas from "./RelationshipCanvas";
 import { msUTC } from "./dt2/instant";
+import { CISCO_DISPLAYED, fileTypeOf } from "./dt2/fileType";
 import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
          neighbourStep, parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
@@ -94,6 +95,13 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const [preset, setPreset] = useState("all");
   const [kinds, setKinds] = useState([]);
   const [dispositions, setDispositions] = useState([]);
+  //: Cisco's documented displayed file types (User Guide p.401) are the
+  //: default File Type selection; `OTHER` is offered but not displayed
+  //: by default, exactly as Cisco's set implies.
+  const [fileTypes, setFileTypes] = useState(CISCO_DISPLAYED);
+  //: Cisco's Filters de-select individual process trajectories to de-noise
+  //: the graph. Presentation only — nothing is removed from the evidence.
+  const [hiddenProcs, setHiddenProcs] = useState([]);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -135,6 +143,26 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const filterKey = useMemo(
     () => `${kinds.slice().sort().join(",")}|${dispositions.slice().sort()
       .join(",")}|${debounced}`, [kinds, dispositions, debounced]);
+
+  /** Real counts per Cisco file class, from the observed paths the
+   *  graph already carries. Nothing is counted that was not observed. */
+  const fileTypeCounts = useMemo(() => {
+    const n = new Map();
+    for (const a of (dt2?.graph?.activity_nodes || [])) {
+      if (a.family !== "FILE" || !a.label) continue;
+      const k = fileTypeOf(a.label);
+      n.set(k, (n.get(k) || 0) + 1);
+    }
+    return n;
+  }, [dt2]);
+
+  /** The process trajectories the analyst may de-select, from the graph. */
+  const processChoices = useMemo(
+    () => (dt2?.graph?.process_nodes || []).map((n) => ({
+      nodeId: n.node_id, label: n.label || n.image || n.node_id,
+      pid: n.pid })), [dt2]);
+
+
 
   const filterParams = useMemo(() => {
     const p = {};
@@ -791,6 +819,10 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       typeCounts={meta?.event_type_counts || []}
       kinds={kinds} onKinds={setKinds}
       dispositions={dispositions} onDispositions={setDispositions}
+      fileTypes={fileTypes} onFileTypes={setFileTypes}
+      fileTypeCounts={fileTypeCounts}
+      processes={processChoices}
+      hiddenProcesses={hiddenProcs} onHiddenProcesses={setHiddenProcs}
       query={query} onQuery={onSearch} />
   );
 
@@ -1168,6 +1200,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                     selectedNodeId={selectedNode}
                     selectedEventMs={selected?.timestamp
                       ? msUTC(selected.timestamp) : null}
+                    fileTypes={fileTypes}
+                    hiddenProcesses={hiddenProcs}
                     theme={C}
                     onView={setView}
                     onLaneOffset={(n) => {

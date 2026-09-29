@@ -147,7 +147,7 @@ class TestCEMSchema:
         # Freeze the enums so an accidental addition lands as a
         # governance amendment.
         assert len(cem_schema.ENTITY_KINDS) == 44
-        assert len(cem_schema.EVENT_KINDS) == 41
+        assert len(cem_schema.EVENT_KINDS) == 50
         assert len(cem_schema.RELATIONSHIP_KINDS) == 27
 
 

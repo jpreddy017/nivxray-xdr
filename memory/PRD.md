@@ -1150,3 +1150,180 @@ P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
   (`event.process.parent_name = explorer.exe`) but dt2-2a does not propagate it.
 - Acceptance record: memory/production-gates/DT2_3_CISCO_CLONE_ACCEPTANCE.md
 - Tests 137/137 (122 + 15 new). DT2-3b/3c remain BLOCKED per owner ruling.
+
+---
+
+## 2026-09-29 · DT2-3a.2 CLOSED · DT2-3b SEMANTICS + CISCO PARITY (A-D)
+
+Acceptance corpus switched to the REAL Windows corpus
+`dev_2adbb41a04a4` / DESKTOP-A9HGFJJ (tenant `ten_f1a5479243e901cf159e230fa0`),
+3298 genuine Sysmon/Security observations, 15:43-16:46 UTC on 2026-09-22.
+
+**CORRECTION to the previous entry.** The claim *"NEW BLOCKER
+TELEMETRY_TIMESTAMP_COLLAPSE — no per-event UtcTime survives ingestion, needs a
+collector/normalizer fix"* is **WRONG**. Provenance traced end to end: the W1
+harness `scripts/p0_w1_sysmon_onboarding_proof.py:132` hardcodes
+`"UtcTime": "2026-06-01T10:00:00Z"` for all 15 records and the pipeline
+preserved it exactly. Classified `SINGLE_INSTANT_SYNTHETIC_ACCEPTANCE_FIXTURE`.
+No timestamp-collapse defect exists.
+
+Delivered:
+- **DT2-3a.2 CLOSED** — timestamp→X proven to 0.00 px on live DOM.
+- **`TS_LEXICOGRAPHIC_WINDOW_EXCLUSION` fixed** (P0 correctness). `query_window`
+  compared timestamps as STRINGS, so all 3333 genuine Sysmon observations
+  (`2026-09-22 15:43:31.770` < `…T…Z`) were excluded from every windowed read.
+  Now parsed instants (`edr_plane/instant.py`) for inclusion, sorting and cursor
+  paging; new ingestion writes RFC 3339; **no backfill, evidence byte-identical**.
+- **Lane axis grouped** — each file/network/dns lane now follows the process
+  lane its own evidence names (`actor_process_iid`), so a windowed client can
+  hold a process with its artefacts and render process→file stems.
+- **Client instant parser** (`dt2/instant.js`) — `Date.parse` was reading
+  Sysmon's space form as the analyst's LOCAL time.
+- **Cisco file-type display rule** (`dt2/fileType.js`, TAC 118711 + p.401) —
+  removed the `.ldb/.tmp/.log` explosion; `Other` restores it, nothing deleted.
+- **Repeat-event suppression** (p.401 cache) — projection-layer only, labelled
+  `+N suppressed`, reversible; fails to NO suppression where the disposition
+  rule is undocumented (this corpus: 0 suppressed).
+- **Process de-selection** — sixth filter category; no re-parenting.
+- **Compromise navigation** — `compromise_authority` gate removed a
+  FABRICATION: 3102 Sysmon registry events carried `kind=detection` and were
+  drawing navigator compromise markers.
+
+Records: `DT2_3A2_LIVE_RENDER_PROOF.md`, `DT2_3A2_TIMESTAMP_PROVENANCE.md`,
+`DT2_3B_BLOCKER_TS_LEXICOGRAPHIC_WINDOW.md`, `DT2_3B_PROCESS_FILE_PROOF.md`,
+`DT2_3B_CISCO_VISUAL_PARITY.md`, `CISCO_AMP_TRAJECTORY_ENGINEERING.md`,
+`DT2_3B_CISCO_SEMANTICS.md`, `DT2_PARITY_BACKLOG.md`.
+
+**NEXT: DT2-3c** (IOC parity). Blue halo blocked on
+`IOC_CONTRIBUTOR_PROVENANCE = MISSING`. P1 backlog: file content identity,
+file size, execution context, connector lifecycle telemetry, IOC contributor
+contract, SHA-based process/file identity, sysmon registry `kind` defect.
+P2: trajectory API parity. No production deployment.
+
+
+## 2026-06 · STEP 1 DONE — EVENT ID PROPAGATION + INGESTION FALLBACK AUDIT
+- Owner-approved scope: Step 1 ONLY (read-only diagnostic first,
+  audit-and-fix ingestion/canonicalization only, existing 3,100+ records
+  untouched, focused pytest + written report, then STOP).
+- FIRST LOSS BOUNDARY = `v2/ingestion/telemetry_bridge.py::canonical_to_ces`,
+  NOT the collector. Two canonical dialects funnel through it and only one
+  was understood: the EDR sensor bridge (`additional_fields.winlog.event_id`,
+  `registry.key`) vs the XDR DSM plane (`source_event_id`,
+  `raw_ref.sysmon_event_id`, `RegistryEntity.key_path/target_object`). Every
+  DSM-normalised record therefore reached the CES with `event_id=None` AND
+  `registry_key=""`, so neither the authoritative branch nor the registry
+  heuristic could fire and the catch-all took over — 3,120 Sysmon registry
+  observations stamped `kind=detection`.
+- FIX (forward-only, 2 product files): `source_event_id()` resolves the
+  authoritative Event ID across both dialects in declared precedence and
+  reports its origin; `channel` and `registry_key` likewise; one strict
+  lossless coercion `canonical.event_id_int()` accepts `12`/`"12"` and
+  REFUSES bool/float/hex/`"12abc"`/empty; `resolve_kind()` now returns
+  `(kind, basis)` and stamps `provenance.kind_basis`
+  (SOURCE_EVENT_ID / EVENT_ID_NOT_SUPPORTED / DERIVED_FROM_OBSERVED_FIELDS /
+  UNCLASSIFIED_INSUFFICIENT_EVIDENCE); `raw_event.source_identity` preserves
+  provider/channel/event_id/verbatim source value/record_id/computer/
+  source_time so the projection stays traceable to the source observation.
+- PERMANENT INVARIANT pinned: `SECURITY_CLAIM_KINDS` + a parametrised test —
+  unknown/unclassified/unsupported/missing/malformed/parse-failure input can
+  NEVER resolve to detection/malicious/ioc/compromise/clean/benign/blocked/
+  contained/verified/alert.
+- TESTS: new `tests/edr/test_event_id_propagation.py` **97 passed**; targeted
+  regression 125 passed; whole `tests/edr` 1174 passed / 3 skipped / 7 failed
+  where all 7 are PRE-EXISTING (6 reproduce at HEAD with the patch stashed;
+  1 is a live-DB xdist flake that passes in isolation). Zero new ruff findings.
+- EXISTING_3100_MUTATED = NO · DATA_CHANGED = NO · DEPLOYED = NO.
+- FLAGGED FOR OWNER, NOT CHANGED: (a) `WINSEC_KIND` maps 4720/4732/4738
+  (account created/member added/account changed) straight to
+  `kind="detection"` from KNOWN input — ordinary account-management telemetry
+  presented as a detection; (b) consequently the winsec provider gate is NOT
+  extended to the DSM dialect's `"Windows Security Log"` product string
+  (7 historical records), because doing so would immediately start minting
+  those detections; (c) `trajectory_window.py` still reads
+  `kind == "detection"` as a claim (compromise marker already gated behind
+  `compromise_authority`).
+- Report: `memory/production-gates/EVENT_ID_PROPAGATION_AND_FALLBACK_AUDIT.md`
+- NEXT (needs owner authorisation, in this order): Step 2 clean re-projection
+  of the retained raw G1 evidence into a NEW acceptance tenant/device →
+  IOC contributor contract (`compromise_event.contributing_event_refs[]`) →
+  DT2-3c IOC visual parity → final Cisco trajectory parity → Endpoint Engine
+  Foundation. Owner must also rule on flagged item (a) to unblock (b).
+
+## 2026-06 · WINSEC SEMANTICS + CLEAN REPROJECTION + CONTRIBUTOR CONTRACT
+- Owner ruling executed in order: Account Event Ruling -> Clean Reprojection
+  -> Contributor Contract. Classification Audit View recorded as a
+  non-blocking backlog feature, NOT built. DT2-3c NOT started.
+- WINSEC SEMANTIC AUDIT (all 17 entries reviewed; 7 changed, 6 of those were
+  a security claim or a factual error): 4720 -> `user_account_created`,
+  4732 -> `security_group_member_added`, 4738 -> `user_account_changed`
+  (were all `detection`); 4672 -> `special_privileges_assigned` (was
+  `privilege_escalation`); 1102 -> `audit_log_cleared` (was `alert`);
+  4634 -> `logoff` (was `logon_success`); 4776 -> `credential_validation`
+  (was `logon_success` — 4776 is logged for failures too); 4700 ->
+  `scheduled_task_enabled` (was conflated with create); dead `"*"` catch-all
+  key REMOVED. Names REUSED from the existing `windows_security_dsm`
+  event_type vocabulary — no duplicate vocabulary.
+- GOVERNANCE AMENDMENT: `v2/cem/v1/schema.py::EVENT_KINDS` 41 -> 50 (the new
+  observation kinds + `unclassified_telemetry`, which the classifier already
+  emitted while being absent from the locked enum); frozen count in
+  `tests/test_v2_framework.py` amended deliberately. `_AUTH_KINDS` in
+  `trajectory_window.py` + `trajectory/contract.py` gained
+  `credential_validation`. Both lane maps already default to `system`.
+- WINDOWS SECURITY PROVIDER GATE enabled on SOURCE evidence, never a display
+  label: `source_provider()` resolves `winlog.provider` ->
+  `raw_ref.System.Provider` -> `raw_ref.provider` -> privileged channel
+  (Security / Sysmon Operational) -> and only then the vendor+product label,
+  explicitly marked `VENDOR_PRODUCT_LABEL`. On the reprojected corpus 3,299
+  of 3,299 resolved from a SOURCE-STATED provider; 0 fell back to the label.
+  Also fixed: the Sysmon parser/normalizer discarded the record's own
+  `Provider` and `EventRecordID`; both are now carried in `raw_ref`, so
+  `source_identity.record_id` is populated on 3,299/3,299 rows.
+- CLEAN REPROJECTION DONE via `/app/scripts/g1_clean_reprojection.py`.
+  Replayed the BYTE-PRESERVED raw Windows Event XML retained in
+  `xdr_canonical_events` (reached through each evidence document's own
+  `provenance.ingest.raw_envelope_ref`) through the same decoder and the DSM
+  named by the RECORDED routing decision (never re-resolved by content) into
+  a NEW tenant `ten_3f7f772b353a6bbbb0ac8bc564` (slug `g1-acceptance-clean`,
+  LAB, same ACTIVE org) and a NEW device identity `dev_f4b3fb82d7f3` (the
+  source computer name is preserved verbatim; only the identity SCOPE is
+  new). 3,299 replayable, 0 failures, 3,299 written.
+  RESULT: 100% classified from a SOURCE-STATED Event ID —
+  registry_value_set 2335 (Sysmon 13), registry_create 766 (Sysmon 12),
+  file_create 107, network_connect 70, process_create 16,
+  special_privileges_assigned 2 (4672), logon_success 2 (4624), dns_query 1.
+  3,102 `detection` -> 0. UNCLASSIFIED_TO_DETECTION = 0,
+  UNKNOWN_TO_SECURITY_CLAIM = 0, FALSE_COMPROMISE_FROM_CANONICAL_KIND = 0.
+  OLD_CORPUS_MUTATED = NO (3298/3102 identical before and after).
+  Every row carries a `reprojection` block including
+  `detection_state: DETECTION_NOT_EVALUATED` ("NOT_EVALUATED is not CLEAN").
+  4720/4732/4738 are proven by contract + a 17-case end-to-end test, NOT by
+  the corpus — this host never emitted them in the G1 window (honest gap).
+- CONTRIBUTOR CONTRACT DEFINED (not wired to any route, nothing persisted):
+  `backend/edr_plane/compromise_contract.py` — compromise_event_id,
+  indicator_id, authority, derivation_basis, description, tactics[],
+  techniques[], contributing_event_refs[], evidence_refs[], observed_at,
+  contributors_state. 3 authorities only (DETECTION_FABRIC_ATTRIBUTION,
+  MITRE_ATTRIBUTED_EVIDENCE, IOC_CORRELATION_ENGINE); 19 FORBIDDEN_BASES
+  rejected case-insensitively (temporal proximity, same PID, same lane, UI
+  proximity, adjacent-in-render, inferred, guess...); contributor named by a
+  different mechanism refused; raw dicts cannot be smuggled in; MITRE ids
+  validated. Missing provenance stays missing via
+  CONTRIBUTORS_NOT_PROVEN_BY_AUTHORITY, so DT2-3c's contributor emphasis is
+  disabled BY DATA. Producers: `from_detection_derivation()` (only
+  DETECTION_MATCHED; NO_MATCH and NOT_EVALUATED refused; contributors are
+  exactly the subject observation + the derivation's own evidence_ids) and
+  `from_mitre_attributed_evidence()` (proves exactly one contributor).
+- TESTS: new `test_winsec_semantics.py` 87 + new
+  `test_compromise_contributor_contract.py` 68 + `test_event_id_propagation`
+  97; whole `tests/edr` 1316 passed / 3 skipped / 7 failed where all 7 are
+  the SAME pre-existing failures proven at HEAD with the patch stashed.
+  Zero new ruff findings. DEPLOYED = NO.
+- Report: memory/production-gates/
+  WINSEC_SEMANTICS_CLEAN_REPROJECTION_CONTRIBUTOR_CONTRACT.md
+- OPEN FOR OWNER: (1) Sysmon proxy mappings — 255 -> `alert` is the last
+  security-claim kind from a known Event ID (pinned by a shrink-only test);
+  also 2/4/9/14/24/25 semantic proxies; (2) `event.iid` is a CONTENT hash and
+  is NOT a unique observation identity (2,250 of 3,299 distinct records
+  collide; the historical corpus shares this property); (3) go-ahead for
+  DT2-3c and whether to wire the contributor contract into
+  `GET /api/edr/endpoints/{id}/trajectory` first.

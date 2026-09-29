@@ -131,25 +131,42 @@ SYSMON_KIND: dict[int, str] = {
     255: "alert",
 }
 
+#: WINDOWS SECURITY · OBSERVATIONS, NOT CONCLUSIONS.
+#:
+#: `event.kind` states WHAT WAS OBSERVED. A detection is what a detection
+#: engine CONCLUDED, a compromise is what an authoritative correlation /
+#: IOC mechanism concluded, and a response state is what response actually
+#: did. `kind` is not a shortcut for "Windows emitted an interesting
+#: event", so no Event ID in this table may resolve to a security claim.
+#:
+#: 4720 / 4732 / 4738 used to map to `detection` — an account creation, a
+#: group-membership change and an account change were therefore presented
+#: as detections simply because Windows logged them. They are now the
+#: facts they are; whether any of them is suspicious depends on the target
+#: group, the actor, the host, the time and correlated activity, and that
+#: judgement belongs to an engine with its own evidence and authority.
+#:
+#: Names are REUSED from the project's existing Windows Security
+#: vocabulary (`detection_content/telemetry/windows_security_dsm.py`
+#: `event_type`) so no duplicate vocabulary is introduced.
 WINSEC_KIND: dict[int, str] = {
-    4624: "logon_success",
-    4625: "logon_failure",
-    4634: "logon_success",          # logoff paired w/ 4624
-    4672: "privilege_escalation",   # special privileges
+    4624: "logon_success",              # the ID itself states success
+    4625: "logon_failure",              # the ID itself states failure
+    4634: "logoff",                     # an account was logged OFF
+    4672: "special_privileges_assigned",  # NOT privilege escalation
     4688: "process_create",
     4697: "service_install",
     4698: "scheduled_task_create",
-    4700: "scheduled_task_create",
-    4720: "detection",              # user account created
-    4732: "detection",              # member added to sensitive group
-    4738: "detection",              # user account changed
-    4776: "logon_success",          # NTLM auth
+    4700: "scheduled_task_enabled",     # enabled, not created
+    4720: "user_account_created",       # was: detection
+    4732: "security_group_member_added",  # was: detection
+    4738: "user_account_changed",       # was: detection
+    4776: "credential_validation",      # NTLM; outcome is in Status, not the ID
     5140: "smb_share_access",
     5145: "smb_share_access",
-    5156: "network_connect",        # Windows Filtering Platform
-    7045: "service_install",        # System channel
-    1102: "alert",                  # audit log cleared
-    "*": "alert",
+    5156: "network_connect",            # Windows Filtering Platform
+    7045: "service_install",            # System channel
+    1102: "audit_log_cleared",          # was: alert
 }
 
 
@@ -166,37 +183,91 @@ def _basename(path: str) -> str:
     return p.lower().strip()
 
 
-def _resolve_kind(ces: CanonicalEventRecord) -> str:
-    """Deterministic CES → CEM event kind."""
+#: Kinds that are a POSITIVE SECURITY CLAIM. Absence of classification is
+#: evidence for neither maliciousness nor benignness, so no unknown,
+#: unclassified, unsupported, missing, malformed or unparseable input may
+#: ever resolve to one of these. Read by the regression invariant.
+SECURITY_CLAIM_KINDS: frozenset[str] = frozenset({
+    "detection", "malicious", "ioc", "compromise", "clean", "benign",
+    "blocked", "contained", "verified", "alert",
+})
+
+#: The honest kind for telemetry we received but could not classify.
+UNCLASSIFIED = "unclassified_telemetry"
+
+
+def event_id_int(value: Any) -> int | None:
+    """The authoritative Windows / Sysmon Event ID as an int, or None.
+
+    `12` and `"12"` are the SAME identifier in two representations, so
+    both resolve — that conversion is deterministic and lossless. Anything
+    else (a bool, a float, `"12abc"`, `"0x0c"`, `""`, `None`) is REFUSED
+    rather than coerced, because a guessed Event ID is a guessed event
+    meaning and the guess would then be presented as source truth.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit():
+            return int(text)
+    return None
+
+
+def resolve_kind(ces: CanonicalEventRecord) -> tuple[str, str]:
+    """`(kind, basis)` — the kind AND how it was arrived at.
+
+    The basis travels with the evidence so a consumer can tell an
+    authoritative source-stated classification from one we derived from
+    the fields that happened to be populated, and both from an honest
+    failure to classify.
+    """
     prov = (ces.provider or "").lower()
-    eid = ces.event_id
-    if "sysmon" in prov and isinstance(eid, int):
-        return SYSMON_KIND.get(eid, "detection")
-    if ("security-auditing" in prov or "microsoft-windows-security" in prov) and isinstance(eid, int):
-        return WINSEC_KIND.get(eid, "detection")
-    # Heuristic fallback based on populated fields.
+    eid = event_id_int(ces.event_id)
+    if "sysmon" in prov and eid is not None:
+        kind = SYSMON_KIND.get(eid)
+        if kind:
+            return kind, f"SOURCE_EVENT_ID:sysmon:{eid}"
+        return UNCLASSIFIED, f"EVENT_ID_NOT_SUPPORTED:sysmon:{eid}"
+    if ("security-auditing" in prov
+            or "microsoft-windows-security" in prov) and eid is not None:
+        kind = WINSEC_KIND.get(eid)
+        if kind:
+            return kind, f"SOURCE_EVENT_ID:winsec:{eid}"
+        return UNCLASSIFIED, f"EVENT_ID_NOT_SUPPORTED:winsec:{eid}"
+    # Derived from the fields the source actually populated. This is a
+    # weaker claim than a source-stated Event ID and says so.
     if ces.dns_query:
-        return "dns_query"
+        return "dns_query", "DERIVED_FROM_OBSERVED_FIELDS:dns_query"
     if ces.dst_ip or ces.src_ip:
-        return "network_connect"
+        return "network_connect", "DERIVED_FROM_OBSERVED_FIELDS:ip_endpoint"
     if ces.registry_key:
-        return "registry_value_set"
+        return (("registry_value_set",
+                 "DERIVED_FROM_OBSERVED_FIELDS:registry_key+registry_value")
+                if ces.registry_value else
+                ("registry_create",
+                 "DERIVED_FROM_OBSERVED_FIELDS:registry_key"))
     if ces.file_path and ces.image:
-        return "file_write"
+        return "file_write", "DERIVED_FROM_OBSERVED_FIELDS:file_path+image"
     if ces.file_path:
-        # A file event with NO observed actor is still a file event. Some
-        # collection methods (inotify, mtime polling, and any sensor
-        # without syscall-level fidelity) can see that a path changed but
-        # genuinely cannot see WHICH process changed it. Requiring an
-        # actor here silently reclassified those to "detection", which hid
-        # real file activity from the file lane — a visibility gap created
-        # by the classifier rather than by the telemetry. The missing
-        # actor is reported separately as NOT_OBSERVED and is never
-        # attributed to a guess.
-        return "file_write"
+        return "file_write", "DERIVED_FROM_OBSERVED_FIELDS:file_path"
     if ces.image and ces.command_line:
-        return "process_create"
-    return "detection"
+        return ("process_create",
+                "DERIVED_FROM_OBSERVED_FIELDS:image+command_line")
+    #: A KIND IS NOT A VERDICT. `detection` was the catch-all default here,
+    #: so any observation this classifier could not place — on the real
+    #: Windows corpus, 3120 Sysmon events whose Event ID never reached the
+    #: CES — was stamped as a detection and then drew compromise markers it
+    #: had no evidence for. An unplaced observation is telemetry we failed
+    #: to classify; it is never a detection claim.
+    return UNCLASSIFIED, "UNCLASSIFIED_INSUFFICIENT_EVIDENCE"
+
+
+def _resolve_kind(ces: CanonicalEventRecord) -> str:
+    """Deterministic CES → CEM event kind. One classifier, one basis."""
+    return resolve_kind(ces)[0]
 
 
 def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
@@ -252,9 +323,14 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
         cid = _blake_iid("cmd", ces.command_line)
         artefacts_iids.append(cid)
 
-    kind = _resolve_kind(ces)
+    kind, kind_basis = resolve_kind(ces)
     prov = (ces.provenance.to_dict() if ces.provenance else {})
     prov["adapter"] = prov.get("normalizer") or "ingestion"
+    # HOW this kind was arrived at travels with the evidence: an
+    # authoritative source-stated Event ID, a weaker derivation from the
+    # fields that happened to be populated, or an honest failure to
+    # classify. Without it a consumer cannot tell them apart.
+    prov["kind_basis"] = kind_basis
     prov["confidence"] = 1.0
     # Attach analyst-friendly fields the trajectory→signals pipeline reads
     prov["cmdline"] = ces.command_line
@@ -332,6 +408,26 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "dns_answer":    ces.dns_answer or None,
             "logon_type":    ces.logon_type or None,
             "sid":           ces.sid or None,
+            # WHERE this observation came from, preserved so the canonical
+            # projection stays traceable to the exact source record, and
+            # the Windows evidence blocks the source actually wrote. These
+            # were being assembled and then dropped, so a registry / DNS /
+            # authentication / account observation reached the store with
+            # its own source detail missing.
+            "source_identity": {
+                **{k: v for k, v in (
+                    ("provider", ces.provider or None),
+                    ("channel", ces.channel or None),
+                    ("event_id", event_id_int(ces.event_id)),
+                    ("computer", ces.computer or None),
+                    ("source_time", ces.timestamp or None),
+                ) if v not in (None, "")},
+                **((ces.raw_event or {}).get("source_identity") or {}),
+            },
+            **{block: (ces.raw_event or {})[block]
+               for block in ("registry", "dns", "authentication", "winlog",
+                             "account_context", "raw_evidence_ref")
+               if (ces.raw_event or {}).get(block)},
             "sha256":        hashlib.sha256(evt_key.encode()).hexdigest(),
         },
         "process": {

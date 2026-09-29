@@ -11,6 +11,8 @@
  * the UI shows no edge.
  */
 import { msUTC } from "./instant";
+import { fileTypeOf } from "./fileType";
+import { suppressRepeats } from "./repeatCache";
 
 export const GRAPH_ABSENT = "GRAPH_ABSENT";
 export const GRAPH_EMPTY = "GRAPH_EMPTY";
@@ -271,14 +273,33 @@ export const ROW_FILE = "FILE";
  * This reuses the server relationship graph. It builds no second
  * relationship engine: `activityEdgeFor` is the only authority.
  */
-export function axisRowsOf(g, { max = 120 } = {}) {
+export function axisRowsOf(g, { max = 120, fileTypes = null,
+                                hiddenProcesses = null,
+                                suppressRepeatEvents = true } = {}) {
   const lanes = laneRowsOf(g, { max });
   const out = [];
   for (const lane of lanes) {
+    //: Cisco's Filters de-select individual PROCESS trajectories to
+    //: de-noise the graph (console behaviour, UW-Madison KB 90059). This
+    //: is PRESENTATION only — the observations, relationships and the
+    //: evidence are untouched, and a child is never re-parented onto a
+    //: surviving ancestor just because its parent is hidden.
+    if (hiddenProcesses && hiddenProcesses.has(lane.nodeId)) continue;
+    const parentHidden = Boolean(
+      hiddenProcesses && lane.parentNodeId
+      && hiddenProcesses.has(lane.parentNodeId));
     const files = new Map();
     const kept = [];
-    for (const a of lane.activities) {
+    const acts = suppressRepeatEvents
+      ? suppressRepeats(lane.activities, activityTimeMs)
+      : lane.activities;
+    for (const a of acts) {
       const label = a.family === "FILE" && a.label ? String(a.label) : null;
+      //: Cisco displays ten file classes (User Guide p.401) and offers a
+      //: File Type filter (p.406). A class outside the selection is not
+      //: drawn on the axis — it is not removed from the evidence, and the
+      //: Activity pane still lists every observation.
+      if (label && fileTypes && !fileTypes.has(fileTypeOf(label))) continue;
       const edge = label ? activityEdgeFor(g, a) : null;
       if (!label || !edge) { kept.push(a); continue; }
       const key = `${lane.nodeId}::${label}`;
@@ -286,7 +307,7 @@ export function axisRowsOf(g, { max = 120 } = {}) {
       row.activities.push(a);
       files.set(key, row);
     }
-    out.push({ ...lane, kind: ROW_PROCESS, activities: kept });
+    out.push({ ...lane, kind: ROW_PROCESS, activities: kept, parentHidden });
     for (const f of files.values()) {
       const times = f.activities.map(activityTimeMs)
         .filter((t) => t != null);

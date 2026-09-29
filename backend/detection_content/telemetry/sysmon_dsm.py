@@ -72,8 +72,17 @@ class SysmonParser:
         provider = ev.get("provider") or ""
         if "Sysmon" not in str(provider):
             raise SysmonParserError("SM_WRONG_PROVIDER", f"not Sysmon: {provider!r}")
+        # The record's own System header. A rendered Windows record states
+        # its provider and its `EventRecordID` there, and both are part of
+        # the source identity the canonical evidence must stay traceable
+        # to — so they are read here instead of being discarded.
+        sys_block = ev.get("System") if isinstance(ev.get("System"), dict) else {}
         return {
             "event_id": eid_int,
+            "provider": str(_first(ev, "provider") or _first(sys_block, "Provider") or provider),
+            "record_id": _first(ev, "record_id", "EventRecordID",
+                                default=None) or _first(
+                                    sys_block, "EventRecordID", default=None),
             # D12 · three DIFFERENT timestamps, kept apart.
             #   UtcTime     — Sysmon's record of when the activity occurred
             #   TimeCreated — when the ETW provider wrote the record
@@ -459,6 +468,11 @@ class SysmonNormalizer:
             registry=registry,
             raw_ref={"sysmon_event_id": sysmon_eid,
                      "channel": parsed.get("channel", ""),
+                     # Source identity: the provider the record named and
+                     # its EventRecordID, which together with the channel
+                     # identify this exact record on this exact host.
+                     "provider": parsed.get("provider", ""),
+                     "record_id": parsed.get("record_id"),
                      # N2.1 · the source's own identity stays reachable on
                      # the evidence, not only inside the parser.
                      "process_guid": str(
