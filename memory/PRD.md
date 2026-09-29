@@ -2408,3 +2408,47 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
   EVIDENCE/TELEMETRY_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO ·
   REPLAYED: NO · ISOLATION_WEAKENED: NO · UI_CHANGED: NO.
 
+
+### 2026-09-29 — P0 PLATFORM DESIGNATION: PRODUCTION VERIFIED (PASS at the data layer)
+- New prod run **`3bd64025-51ac-4d8b-a5e2-52c900a4c3b4`** live on cluster
+  **target-7**, supersedes pre-repair `0aba534a`. PROD_HEALTH = HEALTHY, BOTH
+  replicas Running/ready, restart_count 0. The old target-6 second-replica
+  `FailedCreatePodSandBox` / node-IP-exhaustion problem is GONE on this run.
+- `NIVX_PLATFORM_PRINCIPAL_PRESENT = YES` (secret present, non-empty,
+  matches_expected=true; value never printed).
+- Startup log, new run, 2026-09-29T17:21:04Z:
+  `[platform-designation] result=UPDATED principal=admin@nivxray.com
+   previous_authority_scope=ABSENT new_authority_scope=PLATFORM`
+  Second replica 17:21:12Z: `result=ALREADY_CONFIGURED` — the idempotent NO-OP
+  path proven across replicas. No `REFUSED_*` code anywhere.
+- Production DB `greeting-app-5782-test_database`: `admin@nivxray.com`
+  role=admin, **authority_scope=PLATFORM**; `tenant_ids` and `status` ABSENT;
+  `PLATFORM_AUTHORITY_HOLDER_COUNT = 1` (distinct=["PLATFORM"], total users=1,
+  users with non-empty tenant_ids = 0). No collateral field or principal changed.
+- `DATA_LOSS = NO`: `edr_raw_events` 118,496 (>= 117,904), `xdr_canonical_evidence`
+  45,666 (>= 45,355), `v2_shadow_observations` 45,674 cross-check, endpoint
+  `event_count` 118,512. NB `xdr_canonical_events` holds only 5 docs and is NOT
+  the canonical evidence store.
+- `DESKTOP_A9HGFJJ_VISIBLE = YES` in `edr_endpoints`: `ep_1989031c8c1d0085812f`,
+  tenant `ten_e759b7288598bd882e3dcac49d`, ENROLLED / REPORTING.
+- `PLATFORM_REPAIR_PRODUCTION = PASS` (data layer).
+- **NOT_PROVEN (not failed)**: `COMPUTERS_API`, `EVENTS_API`,
+  `DEVICE_TRAJECTORY_API`, `SENSOR_RECEIVE`, the live tenant-scoped read PATH, and
+  re-emission of `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL`. Reason: ZERO post-rollout
+  API/sensor traffic reached the new run, and per owner constraints the browser was
+  not driven and no principal was manufactured. `CONSOLE_AUTHORIZATION` data
+  precondition SATISFIED; end-to-end confirmation pending owner console refresh.
+- WATCH ITEM: sensor telemetry is STALE relative to the new run — newest
+  `ingest_time` / `last_telemetry_at` = 17:14:29Z, which PREDATES go-live
+  (~17:19-17:21Z); `outbox_queue_depth` = 6,468 (was 7,181). Expected during a
+  rollout (sensor retries + spools), but if the sensor does not resume reporting
+  against run `3bd64025` this becomes a NEW issue to investigate. Nothing changed.
+- UNRELATED PRE-EXISTING errors on the new run (NOT from the repair, not fixed):
+  (1) threatfox TI feed 401 Unauthorized (abuse.ch `ABUSE_CH_AUTH_KEY`);
+  (2) `nightly benchmark failed: can't subtract offset-naive and offset-aware
+  datetimes` — a datetime bug in the benchmark job.
+- `B5_EID5_END_TO_END` = still HOLD until the console is confirmed restored and the
+  sensor is reporting to the new run. No EID5 replay. No E3.
+- Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOY/REDEPLOY/ROLLBACK/RESTART/WRITE during verification: NONE.
+
