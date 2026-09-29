@@ -2503,3 +2503,33 @@ DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
 - DEPLOYED/REPLAYED/BACKFILLED/RESTARTED/WRITTEN: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX:
   UNTOUCHED · UI_CHANGED: NO · E3: NOT STARTED.
 
+
+### AGREED STANDING STATE (2026-09-29, owner-confirmed)
+```
+SENSOR DELIVERY        = PASS
+IDENTITY CONVERGENCE   = PASS
+TRAJECTORY PROJECTION  = PASS
+EID5 END-TO-END        = WAITING_FOR_DELIVERY
+B5                     = HOLD
+```
+- Console "stale trajectory" is CLOSED as a URL/window artifact. Owner verifies by
+  opening `/edr/device-trajectory?device=dev_2adbb41a04a4` with NO `event=` param and
+  jumping to Sep 29. No code change.
+- The ONLY thing B5 waits on: the replay frontier reaching 14:50Z naturally.
+  Last proven frontier 2026-09-29T10:41:31Z -> ~4h of event-time still ahead.
+  DO NOTHING until then: no deploy, replay, backfill, Sysmon change, sensor restart
+  or outbox modification.
+- WHEN the frontier crosses 14:50Z, run ONE read-only check proving the full chain:
+  EID5 received -> accepted -> canonicalized as `process_exit` -> `UtcTime` mapped to
+  `exit_time` (never `start_time`) -> ProcessGuid bound -> lifecycle projected ->
+  visible in Device Trajectory. That is the B5 closure proof.
+
+### NEW BACKLOG ITEM (P2, AFTER B5) — sensor outbox drain rate
+- `outbox_queue_depth` grew 6,468 -> 6,870 while the frontier advanced, i.e. the host
+  generates telemetry faster than the sensor drains it at times. NOT evidence loss and
+  NOT urgent, but a production sensor must not permanently accumulate backlog.
+- Investigate after B5 closes: per-batch event count / report interval / payload size
+  caps, server-side accept latency (raw ingest was ~700-3200 ms per POST on tier_0),
+  and whether the single-replica period on target-6 depressed throughput. Compare
+  generation rate vs delivery rate over a fixed window before changing any setting.
+
