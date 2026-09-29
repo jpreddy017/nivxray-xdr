@@ -613,6 +613,30 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
             "start_time": rfc3339(_utc_source) or _utc_source,
             "hashes": _hashes(data.get("Hashes")),
         }
+        # B1 · field provenance for EVERY field this branch maps, not just
+        # the identity. The XDR DSM plane already records
+        # `hashes.sha256 → sysmon:EventData.Hashes(SHA256)`; this path
+        # recorded provenance ONLY for `process_guid`, so the same fact
+        # arrived with provenance on one dialect and without it on the
+        # other. Provenance is part of the evidence.
+        _prov = canonical["process"].setdefault("field_provenance", {})
+        for _field, _wire in (("command_line", "CommandLine"),
+                              ("current_directory", "CurrentDirectory"),
+                              ("integrity_level", "IntegrityLevel"),
+                              ("original_file_name", "OriginalFileName"),
+                              ("executable_path", "Image"),
+                              ("pid", "ProcessId"),
+                              ("parent_pid", "ParentProcessId"),
+                              ("parent_executable_path", "ParentImage"),
+                              ("parent_command_line", "ParentCommandLine"),
+                              ("parent_process_guid", "ParentProcessGuid")):
+            if canonical["process"].get(_field):
+                _prov.setdefault(_field, f"{source}:{_wire}")
+        if canonical["process"].get("start_time"):
+            _prov.setdefault("start_time", f"{source}:UtcTime")
+        for _algo in (canonical["process"].get("hashes") or {}):
+            _prov.setdefault(f"hashes.{_algo}",
+                             f"{source}:EventData.Hashes({_algo.upper()})")
         canonical["identity"] = {
             "username": _s(data.get("User")),
             "logon_id": _s(data.get("LogonId")),
@@ -690,6 +714,17 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
             "operation": "CREATE",
             "creation_utc_time": _s(data.get("CreationUtcTime")),
             "hashes": _hashes(data.get("Hashes")),
+        }
+        # B3 · file-field provenance. A preserved hash with no provenance
+        # cannot be traced to the wire field that produced it, and a file
+        # hash must never be confusable with the writer's image hash.
+        canonical["file"]["field_provenance"] = {
+            **({"path": f"{source}:TargetFilename"} if path else {}),
+            **({"name": f"{source}:TargetFilename (basename)"}
+               if path else {}),
+            "operation": f"{source}:EventID {event_id} (FileCreate)",
+            **{f"hashes.{algo}": f"{source}:EventData.Hashes({algo.upper()})"
+               for algo in (canonical["file"].get("hashes") or {})},
         }
         canonical["identity"] = {"username": _s(data.get("User"))}
         canonical["not_observed"] = _absent(data, "Hashes", "User")
@@ -781,13 +816,21 @@ def _registry_operation(event_id: int, event_type: Optional[str]
 
 
 def _hashes(raw: Any) -> Dict[str, str]:
-    """Sysmon `Hashes` is `ALG=HEX,ALG=HEX`. Only what is present."""
+    """Sysmon `Hashes` is `ALG=HEX,ALG=HEX`. Only what is present.
+
+    B1 · the digest is lower-cased. A hex digest is case-insensitive, so
+    this is lossless — and it is REQUIRED for convergence: Sysmon renders
+    `SHA256=9F86…` in upper case, the XDR DSM plane stores `9f86…`, and
+    an IOC / reputation lookup keyed on the lower-case form matched on
+    one path and silently missed on the other. Two representations of one
+    fact is two sources of truth.
+    """
     out: Dict[str, str] = {}
     for part in str(raw or "").split(","):
         if "=" not in part:
             continue
         alg, _, value = part.partition("=")
-        alg, value = alg.strip().lower(), value.strip()
+        alg, value = alg.strip().lower(), value.strip().lower()
         if alg and value:
             out[{"imphash": "imphash"}.get(alg, alg)] = value
     return out

@@ -1706,3 +1706,106 @@ name/image/iid/parent and drops the GUID, command line and hashes that
 store. Target: one canonical contract, the CEM store becomes a
 non-lossy projection. Then E2 process identity, then E4 file identity +
 reputation adapter.
+
+---
+
+## WAVE B · FOUNDATION (B1→B4) — 2026-06 · OWNER REVIEW PENDING
+
+Full report: `docs/WAVE_B_FOUNDATION_REPORT.md`
+Measured evidence: `docs/WAVE_B_FOUNDATION_MEASUREMENT.json`
+(regenerate: `python3 backend/scripts/wave_b_foundation_measure.py`, read-only)
+
+Scope honoured: Device Trajectory FROZEN · no deployment · no data
+migration · no fabricated telemetry/hash/reputation/termination/causality
+· no Cisco-parity claim · coverage matrix unchanged (0 rule rows moved).
+
+### B1 · NORMALIZER CONVERGENCE — ACCEPTED
+`xdr_canonical_evidence` is the authority; `v2_shadow_observations` is a
+derived projection through ONE function (`observation_doc` →
+`ces_to_cem_dict`). Eight real losses/divergences found and fixed:
+`process_guid`+`parent_process_guid` (discarded after deriving an iid),
+`original_file_name`, `parent_command_line`, full `parent_image` path,
+`parent_pid` (DSM dialect's `ppid` was never read → parent PID lost for
+EVERY DSM-normalised Sysmon event), `field_provenance` (dropped
+wholesale), hash CASE divergence between the two dialects (IOC lookups
+matched on one path, missed on the other), and provenance coverage
+divergence. `raw.sha256` (the observation's own content digest) is now
+also exposed as `raw.content_digest_sha256` so it cannot be misread as a
+file hash. Measured: `B1_fields_still_lost = {}` over 3,299 observations.
+Regression: `tests/edr/test_b1_normalizer_convergence.py` (51).
+
+### B2 · PROCESS IDENTITY — ACCEPTED (limits stated)
+`backend/edr_plane/process_identity.py`. Authority ladder
+SOURCE_PROCESS_GUID → ENDPOINT_PID_START_TIME → PID_ONLY (NO key minted)
+→ NOT_OBSERVED. Tenant + endpoint are identity boundaries. Parentage is
+source-stated only (GUID resolves; parent-PID-only is described, never
+joined); nothing inferred from time/name/adjacency. Lifetime:
+START_OBSERVED / TERMINATION_OBSERVED / OBSERVED_EVIDENCE_SPAN /
+PROCESS_LIFETIME_UNKNOWN — `last_seen` is never an exit. Windows 4689
+was MISSING from `WINSEC_KIND` (a collected termination resolved to
+`unclassified_telemetry`); now mapped to `process_exit`.
+Measured: 54 processes, 54/54 by ProcessGuid, 16 parent edges all by
+ParentProcessGuid, 4 unattributed, 0 PID-reuse cases (63-minute corpus),
+54/54 `PROCESS_LIFETIME_UNKNOWN` because Sysmon EID 5 is NOT collected.
+Regression: `tests/edr/test_b2_process_identity.py` (20).
+
+### B3 · FILE IDENTITY — ACCEPTED as measurement + contract
+`backend/edr_plane/file_identity.py`.
+PROCESS_IMAGE_HASH != FILE_CREATE_HASH != FILE_CONTENT_IDENTITY.
+Process-image SHA-256 was NOT missing and was NOT rebuilt: 16/16
+`process_create` carry MD5+SHA-256 with provenance, now proven to survive
+projection. FILE-create content identity: **0 of 107** — Sysmon EID 11
+states path + writer + time, no hash, no size ⇒ `HASH_NOT_OBSERVED`,
+`PATH_IDENTITY_ONLY`. The writer's image hash is never promoted to the
+file. Identity ladder CONTENT_IDENTITY_SHA256 → non-SHA256-only →
+PATH_IDENTITY_ONLY. Sensor-side hashing DESIGNED ONLY (not implemented,
+no endpoint change): `docs/B3_SENSOR_SIDE_FILE_HASHING_DESIGN.md`, with
+10 acquisition outcome states, TOCTOU/`content_version_state`,
+rename/delete/repeat-write semantics, cache key
+`(volume_guid,file_id,size,mtime)`, perf/privacy limits and **6 owner
+decisions required before any code**. Regression:
+`tests/edr/test_b3_file_identity.py` (13).
+
+### B4 · REPUTATION FOUNDATION — ACCEPTED
+`backend/edr_plane/reputation/` — provider-neutral adapter
+(`ReputationProvider` Protocol), observable extraction that keeps the
+SUBJECT (PROCESS_IMAGE / FILE_CONTENT / NETWORK_PEER / DNS_QUESTION /
+URL_RESOURCE), verdicts KNOWN_MALICIOUS / KNOWN_GOOD / UNKNOWN /
+LOOKUP_FAILED / NOT_SUPPORTED (UNKNOWN != benign, LOOKUP_FAILED !=
+UNKNOWN, both enforced in code), aggregation states that are NOT
+verdicts, disagreement retained, tenant-scoped cache with explicit
+freshness and provenance, failures never cached. ONE provider
+implemented — `LocalIOCProvider`, offline, reading the EXISTING `iocs`
+authority, with positive AND negative controls. No secrets, no network,
+no third-party dependency in the core path. Regression:
+`tests/edr/test_b4_reputation.py` (18).
+
+### TESTS
+`pytest backend/tests/edr` → **1,697 passed / 3 failed / 3 skipped**
+(baseline 1,587 / 7 failed). New Wave B tests: 102, all green.
+5 of the 7 pre-existing failures were OBSOLETE-CONTRACT tests (fixed in
+the tests, with OLD/WHY-WRONG/NEW/EVIDENCE recorded in-file; production
+authorisation logic untouched). 1 was a live-edge 504 flake. The 2 still
+failing are PRE-EXISTING and were reproduced at HEAD with all Wave B
+source files stashed.
+
+### OPEN / NEXT
+1. **Owner-run Windows PRE-check** (READ-ONLY):
+   `docs/WAVE_B_WINDOWS_PRECHECK_READONLY.ps1` on DESKTOP-A9HGFJJ. Closes
+   the Sysmon EID 1 = 16 question and whether 4688/4689 exist locally.
+   No endpoint-changing action until its output is reviewed.
+2. **P0** Process TERMINATION telemetry is not collected (Sysmon 5 /
+   Security 4689 absent) ⇒ every process is honestly UNKNOWN-lifetime.
+3. **P0** File CONTENT identity unavailable for created files (0/107) —
+   blocked on the 6 B3 hashing decisions.
+4. **P1** EDR read-path performance: `device_identity.list_devices()`
+   full-scans `v2_shadow_observations` (262,823 docs) per call;
+   `/api/edr/device-trajectory` 14.3 s, `/api/edr/campaign-story` 11.2 s.
+   Causes the 2 remaining live-test failures. NOT fixed in this wave
+   (frozen surface, deserves its own measured change).
+5. **P1** `windows-security-evd` DSM refusal (Wave A) — still unproven
+   root cause; the ingest refusal logger fix means the NEXT occurrence is
+   diagnosable.
+6. Then: B5 read-only measurement surfaces, then the Cisco/Defender/
+   CrowdStrike/SentinelOne/Sophos/Carbon Black capability study BEFORE
+   finalising E4/E5.

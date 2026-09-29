@@ -53,7 +53,21 @@ def test_an_admin_call_without_an_explicit_tenant_is_refused(admin_token):
     assert r.status_code == 403, r.text
     detail = r.json()["detail"]
     assert detail["code"] == "TENANT_REQUIRED"
-    assert "no default tenant" in detail["reason"]
+    # OBSOLETE_CONTRACT CORRECTION (B1 wave, 2026-06).
+    # OLD CONTRACT: the refusal reason contained the literal string
+    #   "no default tenant".
+    # WHY WRONG: it asserted PRODUCT COPY, not the security contract. The
+    #   platform-scope refusal was reworded ("tenant" → "customer" in
+    #   analyst-facing text) without any behavioural change, so a
+    #   correct refusal failed the test.
+    # NEW CONTRACT: the invariant is the machine-readable code
+    #   TENANT_REQUIRED plus an explicit statement that NO DEFAULT scope
+    #   exists. The wording itself is not a contract.
+    # EVIDENCE: live 403 · code=TENANT_REQUIRED · reason="platform-scoped
+    #   principal must name the customer it is operating in; there is no
+    #   default customer".
+    # TEST CHANGED: assertion only. Production refusal UNCHANGED.
+    assert "no default" in detail["reason"], detail["reason"]
 
 
 def _mint_token(admin_hdr):

@@ -164,7 +164,13 @@ def canonical_to_ces(canonical: dict[str, Any], *,
     net = canonical.get("network") or {}
     fil = canonical.get("file") or {}
     extra = canonical.get("additional_fields") or {}
-    hashes = proc.get("hashes") or fil.get("hashes") or {}
+    # B3 · the two hash classes are read SEPARATELY. They used to be
+    # collapsed (`proc.hashes or fil.hashes`), which meant a process-image
+    # SHA-256 arrived downstream in the FILE hash fields — so "we know the
+    # exe that ran" was indistinguishable from "we know the bytes that
+    # were written". Those are different facts about different objects.
+    proc_hashes = proc.get("hashes") or {}
+    file_hashes = fil.get("hashes") or {}
     # Phase 0 · Windows evidence classes. Absent for every other producer,
     # so this projection is byte-identical for them.
     reg = canonical.get("registry") or {}
@@ -211,18 +217,41 @@ def canonical_to_ces(canonical: dict[str, Any], *,
         process_id=_s(proc.get("pid")),
         parent_process_guid=_s(proc.get("parent_process_guid")),
         image=_s(proc.get("executable_path")) or _s(proc.get("name")),
+        original_file_name=_s(proc.get("original_file_name")),
         command_line=_s(proc.get("command_line")),
         current_directory=_s(proc.get("current_directory")),
         integrity_level=_s(proc.get("integrity_level")),
+        process_start_time=_s(proc.get("start_time")),
+        process_attribution_state=_s(proc.get("attribution_state")),
+        process_attribution_reason=_s(proc.get("attribution_reason")),
+        process_hash_md5=_s(proc_hashes.get("md5")),
+        process_hash_sha1=_s(proc_hashes.get("sha1")),
+        process_hash_sha256=_s(proc_hashes.get("sha256")),
         # Real parent evidence only. A source that carries no parent field
         # (CEF/LEEF do not) leaves these empty, so no ancestry is invented.
-        parent_process_id=_s(proc.get("parent_pid")),
+        parent_process_id=_s(proc.get("parent_pid")
+                             if proc.get("parent_pid") is not None
+                             else proc.get("ppid")),
         parent_image=_s(proc.get("parent_executable_path"))
         or _s(proc.get("parent_name")),
+        parent_command_line=_s(proc.get("parent_command_line")),
         file_path=_s(fil.get("path")),
-        file_hash_md5=_s(hashes.get("md5")),
-        file_hash_sha1=_s(hashes.get("sha1")),
-        file_hash_sha256=_s(hashes.get("sha256")),
+        file_name=_s(fil.get("name")),
+        file_action=_s(fil.get("action")) or _s(fil.get("operation"))
+        or _s(extra.get("file_operation")),
+        file_size=_s(fil.get("size_bytes") if fil.get("size_bytes")
+                     is not None else fil.get("size")),
+        file_hash_md5=_s(file_hashes.get("md5")),
+        file_hash_sha1=_s(file_hashes.get("sha1")),
+        file_hash_sha256=_s(file_hashes.get("sha256")),
+        field_provenance={
+            **{f"process.{k}": str(v) for k, v in
+               (proc.get("field_provenance") or {}).items()},
+            **{f"file.{k}": str(v) for k, v in
+               (fil.get("field_provenance") or {}).items()},
+            **{f"network.{k}": str(v) for k, v in
+               (net.get("field_provenance") or {}).items()},
+        },
         # The DSM dialect names the same registry evidence `key_path` /
         # `target_object`; the sensor dialect names it `key`. Reading only
         # one dialect left `registry_key` empty, so a registry observation
@@ -315,6 +344,11 @@ def observation_doc(canonical: dict[str, Any], *, envelope: dict[str, Any],
         "captured_at": ev["ts"],
         "kind": ev["kind"],
         "process_iid": ev.get("process_iid"),
+        # B1/B2 · the SOURCE's own process identity, at the top level so
+        # process identity can be QUERIED rather than only read after the
+        # fact. Absent when the source stated none — never derived.
+        "process_guid": (ev.get("process") or {}).get("guid"),
+        "parent_process_guid": (ev.get("process") or {}).get("parent_guid"),
         "artefacts_iids": list(ev.get("artefacts_iids") or ()),
         "input_sha256": (ev.get("raw") or {}).get("sha256"),
         "event": ev,

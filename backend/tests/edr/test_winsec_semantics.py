@@ -45,6 +45,13 @@ EXPECTED_WINSEC = {
     4634: "logoff",
     4672: "special_privileges_assigned",
     4688: "process_create",
+    #: B2 wave (2026-06) · process TERMINATION, stated by the source.
+    #: Added because process lifetime semantics require a termination
+    #: EVENT: absent one the lifetime is PROCESS_LIFETIME_UNKNOWN, and
+    #: `last_seen` must never be read as an exit. 4689 previously fell
+    #: through to `unclassified_telemetry`, so a COLLECTED termination
+    #: could not be recognised as one. It is an OBSERVATION, not a claim.
+    4689: "process_exit",
     4697: "service_install",
     4698: "scheduled_task_create",
     4700: "scheduled_task_enabled",

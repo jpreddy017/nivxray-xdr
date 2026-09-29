@@ -17,6 +17,25 @@ import routers.edr as edr
 PAGE = 4000
 TARGET_RAW = "raw_beyond_the_first_page"
 
+#: OBSOLETE_CONTRACT CORRECTION (B1 wave, 2026-06).
+#:
+#: OLD CONTRACT (what these tests encoded): `trajectory_focus()` could be
+#: called with no tenant and would resolve one itself.
+#: WHY WRONG: the route now takes the authoritative tenant as an EXPLICIT
+#: injected parameter (`tenant_id: str = Depends(edr_tenant)`, P2 B5/B7 —
+#: "authority narrows, it never widens; there is no default tenant"). A
+#: direct in-process call that omits it passes FastAPI's `Depends(...)`
+#: SENTINEL OBJECT into the authorisation check, so the test was asserting
+#: against a refusal caused by its own call shape.
+#: NEW CONTRACT: every caller — test or HTTP — names the tenant, and the
+#: principal must actually hold it.
+#: EVIDENCE: routers/edr.py:1621 `_tenant_scope(user, tenant_id)` →
+#: routers/edr_tenancy.py:381 refused with `requested_tenant =
+#: Depends(edr_tenant)`.
+#: TEST CHANGED: yes. Production authorisation logic UNCHANGED — granting
+#: a default tenant to make this pass would be a security regression.
+TENANT = "ten_f135_handoff_test"
+
 
 def _obs(i: int, raw_id: str) -> dict:
     return {"event_iid": f"evt_{i}#d{i}",
@@ -45,7 +64,9 @@ def principal():
 
     email = f"ci-principal-{uuid.uuid4().hex[:10]}@tests.invalid"
     users = sync_collection("users")
-    users.insert_one({"email": email, "role": "admin"})
+    users.insert_one({"email": email, "role": "admin",
+                      # The principal must HOLD the tenant it names.
+                      "tenant_ids": [TENANT]})
     try:
         yield {"email": email, "role": "admin"}
     finally:
@@ -74,14 +95,14 @@ def paged(monkeypatch):
     monkeypatch.setattr(edr.dir_svc, "resolve",
                         lambda ref, scope: {"device_iid": "dev_test",
                                             "hostname": "host-test",
-                                            "tenant_id": "default"})
+                                            "tenant_id": TENANT})
     return calls
 
 
 @pytest.mark.asyncio
 async def test_detection_beyond_the_first_page_is_resolved(paged, principal):
     out = await edr.trajectory_focus("dev_test", raw_event_id=TARGET_RAW,
-                                     user=principal)
+                                     user=principal, tenant_id=TENANT)
     assert out["state"] == "FOCUS_RESOLVED"
     assert out["focus"]["event_iid"] == f"evt_{2 * PAGE}#d{2 * PAGE}"
     # the cursor was actually followed
@@ -95,7 +116,7 @@ async def test_detection_beyond_the_first_page_is_resolved(paged, principal):
 async def test_unresolved_reports_the_real_search_scope(paged, principal):
     out = await edr.trajectory_focus("dev_test",
                                      raw_event_id="raw_never_ingested",
-                                     user=principal)
+                                     user=principal, tenant_id=TENANT)
     assert out["state"] == "OBSERVATION_NOT_RESOLVED"
     assert out["focus"] is None
     # the count is the number actually examined — never a fabricated total
@@ -109,7 +130,7 @@ async def test_unresolved_reports_the_real_search_scope(paged, principal):
 @pytest.mark.asyncio
 async def test_no_identifier_is_never_guessed_from_a_timestamp(paged, principal):
     out = await edr.trajectory_focus("dev_test",
-                                     user=principal)
+                                     user=principal, tenant_id=TENANT)
     assert out["state"] == "NO_IDENTIFIER_SUPPLIED"
     assert out["focus"] is None
     assert paged["n"] == 0          # nothing was even searched
@@ -121,7 +142,7 @@ async def test_unresolvable_endpoint_fails_closed(monkeypatch, principal):
     out = await edr.trajectory_focus("dev_does_not_exist",
                                      raw_event_id=TARGET_RAW,
                                      user=principal,
-                                     tenant_id="default")
+                                     tenant_id=TENANT)
     assert out["state"] == "ENDPOINT_NOT_RESOLVED"
     assert out["focus"] is None
 
@@ -129,11 +150,11 @@ async def test_unresolvable_endpoint_fails_closed(monkeypatch, principal):
 @pytest.mark.asyncio
 async def test_pivot_context_is_carried_through(paged, principal):
     out = await edr.trajectory_focus("dev_test", raw_event_id=TARGET_RAW,
-                                     user=principal)
+                                     user=principal, tenant_id=TENANT)
     ctx = out["context"]
     assert ctx["endpoint_id"] == "dev_test"
     assert ctx["device_iid"] == "dev_test"
-    assert ctx["tenant_id"] == "default"
+    assert ctx["tenant_id"] == TENANT
 
 
 # ── negative control · the fixture must not have weakened authority ──
@@ -148,7 +169,7 @@ async def test_an_unseeded_principal_is_still_refused(paged):
                "role": "analyst"}
     with pytest.raises(HTTPException) as ex:
         await edr.trajectory_focus("dev_test", raw_event_id=TARGET_RAW,
-                                   user=unknown)
+                                   user=unknown, tenant_id=TENANT)
     assert ex.value.status_code == 403
     assert ex.value.detail["code"] == "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL"
     assert paged["n"] == 0, "a refused principal must not search anything"
@@ -160,6 +181,6 @@ async def test_an_anonymous_caller_is_refused(paged):
 
     with pytest.raises(HTTPException) as ex:
         await edr.trajectory_focus("dev_test", raw_event_id=TARGET_RAW,
-                                   user={})
+                                   user={}, tenant_id=TENANT)
     assert ex.value.status_code == 403
     assert ex.value.detail["code"] == "ACCESS_DENIED"

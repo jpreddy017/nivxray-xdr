@@ -55,12 +55,34 @@ class CanonicalEventRecord:
     parent_process_guid: str = ""
     parent_process_id: str = ""
     parent_image: str = ""
+    parent_command_line: str = ""
     image: str = ""                         # full path
+    #: B1 · the PE metadata name the vendor compiled in (Sysmon
+    #: `OriginalFileName`). A renamed binary keeps it, which is exactly
+    #: what masquerading detections read — so it is NOT `image` and it is
+    #: never collapsed into it.
+    original_file_name: str = ""
     command_line: str = ""
     current_directory: str = ""
     integrity_level: str = ""
+    process_start_time: str = ""
+    #: B1 · the identity QUALITY the source gave us, verbatim from
+    #: `ProcessEntity.attribution_state`. A PID-only observation must never
+    #: reach a consumer looking like an authoritative process identity.
+    process_attribution_state: str = ""
+    process_attribution_reason: str = ""
+    #: B3 · the hash OF THE PROCESS IMAGE. Kept strictly separate from the
+    #: file-content hashes below: "the exe that ran is known" and "the
+    #: bytes that were written are known" are different facts, and the
+    #: projection used to collapse them into one set of fields.
+    process_hash_md5: str = ""
+    process_hash_sha1: str = ""
+    process_hash_sha256: str = ""
     # File
     file_path: str = ""
+    file_name: str = ""
+    file_action: str = ""
+    file_size: str = ""
     file_hash_md5: str = ""
     file_hash_sha1: str = ""
     file_hash_sha256: str = ""
@@ -81,6 +103,12 @@ class CanonicalEventRecord:
     service: str = ""
     task_name: str = ""
     logon_type: str = ""
+    #: B1 · canonical field name → the EXACT wire field that produced it,
+    #: as the DSM recorded it. Provenance is part of the evidence: without
+    #: it a preserved value cannot be traced to the source's own
+    #: vocabulary, so it travels through the projection rather than being
+    #: dropped at it.
+    field_provenance: dict[str, str] = field(default_factory=dict)
     # Original raw record (unchanged, for provenance)
     raw_event: dict[str, Any] = field(default_factory=dict)
     # Ingestion provenance
@@ -94,8 +122,22 @@ class CanonicalEventRecord:
 # Field names in CES order — used by the field-mapping UI + docs.
 CES_FIELDS: tuple[str, ...] = tuple(
     f.name for f in CanonicalEventRecord.__dataclass_fields__.values()
-    if f.name not in ("raw_event", "provenance")
+    if f.name not in ("raw_event", "provenance", "field_provenance")
 )
+
+
+#: B3 · HASH STATE VOCABULARY. One place, so no module invents a fourth
+#: value and no absence is read as a hash.
+#:
+#: PROCESS IMAGE HASH != FILE-CREATE HASH != FILE CONTENT IDENTITY.
+#: A process-image SHA-256 says the executable that ran is known. It says
+#: NOTHING about the bytes that process later wrote to disk.
+HASH_OBSERVED = "HASH_OBSERVED"
+HASH_NOT_OBSERVED = "HASH_NOT_OBSERVED"
+#: There is no file and no process image on this observation at all (a
+#: logon, a registry set). Absence of a hash here is not a gap.
+HASH_NOT_APPLICABLE = "HASH_NOT_APPLICABLE"
+HASH_STATES = (HASH_OBSERVED, HASH_NOT_OBSERVED, HASH_NOT_APPLICABLE)
 
 
 # ─── CES → CEM v1 mapping ────────────────────────────────────────────
@@ -173,6 +215,12 @@ WINSEC_KIND: dict[int, str] = {
     4634: "logoff",                     # an account was logged OFF
     4672: "special_privileges_assigned",  # NOT privilege escalation
     4688: "process_create",
+    #: B2 · process TERMINATION, stated by the source. Lifetime semantics
+    #: need a termination EVENT: without one the lifetime is UNKNOWN, and
+    #: `last_seen` must never be read as an exit. 4689 was absent from
+    #: this table, so a collected termination could not be recognised as
+    #: one — it fell through to `unclassified_telemetry`.
+    4689: "process_exit",
     4697: "service_install",
     4698: "scheduled_task_create",
     4700: "scheduled_task_enabled",     # enabled, not created
@@ -375,9 +423,21 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
 
     if ces.file_path:
         fid = _blake_iid("file", ces.file_path)
+        # B3 · the FILE-CONTENT hash, and ONLY that. The process-image
+        # hash is not promoted here: a file does not acquire a content
+        # identity because the process that wrote it has one.
+        file_hashes = {k: v for k, v in (("md5", ces.file_hash_md5),
+                                         ("sha1", ces.file_hash_sha1),
+                                         ("sha256", ces.file_hash_sha256))
+                       if v}
         artefacts.setdefault("file", []).append({
             "iid": fid, "path": ces.file_path,
+            "name": ces.file_name or _basename(ces.file_path),
             "sha256": ces.file_hash_sha256 or "",
+            "hashes": file_hashes,
+            "hash_state": HASH_OBSERVED if file_hashes else HASH_NOT_OBSERVED,
+            "size": ces.file_size or None,
+            "action": ces.file_action or None,
         })
         artefacts_iids.append(fid)
     if ces.registry_key:
@@ -477,6 +537,54 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "pid":           ces.process_id or None,
             "ppid":          ces.parent_process_id or None,
             "image_path":    ces.image or None,
+            # ── B1 · SECURITY-SEMANTIC FIELDS THAT USED TO DIE HERE ────
+            # Every one of these exists in canonical evidence and was
+            # being dropped by this projection, so a consumer could not
+            # tell a renamed binary from its real name, could not read the
+            # source's own process identity, and could not see a hash the
+            # sensor actually reported.
+            "process_guid":        ces.process_guid or None,
+            "parent_process_guid": ces.parent_process_guid or None,
+            "original_file_name":  ces.original_file_name or None,
+            "parent_image_path":   ces.parent_image or None,
+            "parent_command_line": ces.parent_command_line or None,
+            "process_start_time":  ces.process_start_time or None,
+            "process_attribution_state": ces.process_attribution_state or None,
+            "process_attribution_reason": (ces.process_attribution_reason
+                                           or None),
+            "current_directory":   ces.current_directory or None,
+            "integrity_level":     ces.integrity_level or None,
+            # B3 · the hash OF THE IMAGE THAT RAN. Never merged with the
+            # file-content hash block below.
+            "process_image_hashes": {k: v for k, v in (
+                ("md5", ces.process_hash_md5),
+                ("sha1", ces.process_hash_sha1),
+                ("sha256", ces.process_hash_sha256)) if v},
+            "process_image_hash_state": (
+                HASH_OBSERVED if (ces.process_hash_sha256
+                                  or ces.process_hash_md5
+                                  or ces.process_hash_sha1)
+                else (HASH_NOT_OBSERVED if (ces.image or ces.process_guid)
+                      else HASH_NOT_APPLICABLE)),
+            # B3 · the file this observation is ABOUT, and whether its
+            # CONTENT is identified. `HASH_NOT_OBSERVED` is a fact, not a
+            # gap to be filled from somewhere else.
+            "file": ({k: v for k, v in (
+                ("path", ces.file_path or None),
+                ("name", ces.file_name or _basename(ces.file_path) or None),
+                ("action", ces.file_action or None),
+                ("size", ces.file_size or None),
+            ) if v} | {
+                "hashes": {k: v for k, v in (
+                    ("md5", ces.file_hash_md5), ("sha1", ces.file_hash_sha1),
+                    ("sha256", ces.file_hash_sha256)) if v},
+                "hash_state": (HASH_OBSERVED if (ces.file_hash_sha256
+                                                 or ces.file_hash_md5
+                                                 or ces.file_hash_sha1)
+                               else HASH_NOT_OBSERVED),
+            }) if ces.file_path else None,
+            # B1 · which wire field produced which canonical field.
+            "field_provenance": dict(ces.field_provenance or {}) or None,
             # Named explicitly so a lane can key on the evidence class it
             # actually is. `target` collapses five different things into
             # one string and cannot tell a registry key from a file path.
@@ -507,6 +615,13 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
                              "account_context", "raw_evidence_ref")
                if (ces.raw_event or {}).get(block)},
             "sha256":        hashlib.sha256(evt_key.encode()).hexdigest(),
+            # B1 · the SAME value under an unambiguous name. `raw.sha256`
+            # is the CONTENT-IDENTITY digest of this observation's own
+            # fields — it is NOT a file hash and NOT a process-image hash,
+            # and a consumer that reads it as one is reading a fabricated
+            # hash. The honest name is kept alongside the historical one.
+            "content_digest_sha256": hashlib.sha256(
+                evt_key.encode()).hexdigest(),
         },
         "process": {
             "name":       _basename(ces.image),
@@ -514,6 +629,23 @@ def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,
             "iid":        process_iid,
             "parent_iid": parent_iid or None,
             "parent_name":_basename(ces.parent_image),
+            # B1/B2 · the SOURCE's own process identity travels with the
+            # process block. `iid` is ours and is derived; `guid` is the
+            # source's and is authoritative where it exists.
+            "guid":              ces.process_guid or None,
+            "parent_guid":       ces.parent_process_guid or None,
+            "pid":               ces.process_id or None,
+            "ppid":              ces.parent_process_id or None,
+            "parent_image":      ces.parent_image or None,
+            "original_file_name": ces.original_file_name or None,
+            "command_line":      ces.command_line or None,
+            "parent_command_line": ces.parent_command_line or None,
+            "start_time":        ces.process_start_time or None,
+            "attribution_state": ces.process_attribution_state or None,
+            "image_hashes": {k: v for k, v in (
+                ("md5", ces.process_hash_md5),
+                ("sha1", ces.process_hash_sha1),
+                ("sha256", ces.process_hash_sha256)) if v},
         } if (ces.image or process_iid) else {},
         "trust":       {},
         "provenance":  prov,
