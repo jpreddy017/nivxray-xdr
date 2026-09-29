@@ -10,6 +10,8 @@
  * expectation can create a relationship — if the server produced no edge,
  * the UI shows no edge.
  */
+import { msUTC } from "./instant";
+
 export const GRAPH_ABSENT = "GRAPH_ABSENT";
 export const GRAPH_EMPTY = "GRAPH_EMPTY";
 export const GRAPH_READY = "GRAPH_READY";
@@ -29,11 +31,9 @@ export function graphStateOf(dt2) {
   return (g.process_nodes || []).length ? GRAPH_READY : GRAPH_EMPTY;
 }
 
-const ms = (iso) => {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? t : null;
-};
+//: Sysmon states its instant as `2026-09-22 15:43:31.770`. `Date.parse`
+//: would read that as the ANALYST's local time and move the evidence.
+const ms = (iso) => msUTC(iso);
 
 /**
  * The lifeline a lane draws.

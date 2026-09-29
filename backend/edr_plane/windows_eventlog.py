@@ -40,6 +40,8 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 
+from edr_plane.instant import rfc3339
+
 ENVELOPE_KIND = "WINDOWS_EVENT_LOG"
 
 SOURCE_VENDOR = "NivXForge"
@@ -550,8 +552,18 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
     channel = (_s(system.get("Channel")) or _s(winlog.get("channel")))
     # The OS's own statement of when the activity happened, preferred over
     # the moment the connector read the record.
-    activity_time = (_s(data.get("UtcTime")) or _s(system.get("time_created"))
-                     or _s(winlog.get("time_created")))
+    #
+    # NEW INGESTION writes it as RFC 3339 UTC. Sysmon states this instant as
+    # `2026-09-22 15:43:31.770` — the same instant, in a representation that
+    # does not compare with an ISO bound. Only the WRITING changes here; the
+    # instant is preserved exactly and the source string is retained below in
+    # `winlog.activity_time_source`. A value we cannot parse is passed
+    # through untouched rather than dropped.
+    _utc_source = _s(data.get("UtcTime"))
+    _created_source = (_s(system.get("time_created"))
+                       or _s(winlog.get("time_created")))
+    activity_time = (rfc3339(_utc_source) or _utc_source
+                     or rfc3339(_created_source) or _created_source)
 
     canonical: Dict[str, Any] = {
         "source_vendor": SOURCE_VENDOR,
@@ -564,6 +576,8 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
             "record_id": record_id, "computer": computer,
             "time_created": (_s(system.get("time_created"))
                              or _s(winlog.get("time_created"))),
+            #: the activity instant exactly as the source wrote it
+            "activity_time_source": _utc_source or _created_source,
             "family": family,
             "level": _s(system.get("Level")),
             "event_data_fields": sorted(data.keys()),
@@ -596,7 +610,7 @@ def to_canonical(ev: Dict[str, Any]) -> Dict[str, Any]:
             "description": _s(data.get("Description")),
             "product": _s(data.get("Product")),
             "company": _s(data.get("Company")),
-            "start_time": _s(data.get("UtcTime")),
+            "start_time": rfc3339(_utc_source) or _utc_source,
             "hashes": _hashes(data.get("Hashes")),
         }
         canonical["identity"] = {

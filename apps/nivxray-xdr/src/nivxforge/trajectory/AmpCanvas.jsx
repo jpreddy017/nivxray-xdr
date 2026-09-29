@@ -25,6 +25,7 @@ import { INTENT, clampLaneStart, clampToBounds, createGovernor,
          normalizeWheel, panByFraction, timeAtX,
          zoomBySteps } from "./dt2";
 import EventGlyph, { CompromiseMarker } from "./AmpIcons";
+import { msUTC } from "./dt2/instant";
 
 const AGG_PX = 16;
 
@@ -69,7 +70,7 @@ export default function AmpCanvas({
 
   const span = Math.max(1, view.t1 - view.t0);
   const xOf = useCallback((ts) => {
-    const t = typeof ts === "number" ? ts : Date.parse(ts);
+    const t = typeof ts === "number" ? ts : msUTC(ts);
     return ((t - view.t0) / span) * plotW;
   }, [view.t0, span, plotW]);
 
@@ -291,7 +292,7 @@ export default function AmpCanvas({
 
         {/* ── selected observation · precise temporal guide ─────── */}
         {selected?.timestamp && (() => {
-          const t = Date.parse(selected.timestamp);
+          const t = msUTC(selected.timestamp);
           if (!(t >= view.t0 && t <= view.t1)) return null;
           const x = GUTTER + xOf(t);
           const hhmmss = new Date(t).toISOString().slice(11, 19);
@@ -365,8 +366,8 @@ export default function AmpCanvas({
           const newSection = section !== lastSection;
           lastSection = section;
           const isSelRow = selected?.lane_index === ln.lane_index;
-          const f = ln.first_seen ? Date.parse(ln.first_seen) : null;
-          const l = ln.last_seen ? Date.parse(ln.last_seen) : null;
+          const f = ln.first_seen ? msUTC(ln.first_seen) : null;
+          const l = ln.last_seen ? msUTC(ln.last_seen) : null;
           const lx0 = f == null ? null : GUTTER + xOf(f);
           const lx1 = l == null ? null : GUTTER + xOf(l);
           const clip0 = Math.max(GUTTER, Math.min(lx0 ?? GUTTER,

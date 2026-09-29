@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from . import models as m
+from ..instant import parse_instant
 
 _FILE_KINDS = {"file_create", "file_write", "file_delete", "file_modify",
                "file_rename", "image_load", "file"}
@@ -287,12 +288,10 @@ def detections(rows: Iterable[Dict[str, Any]], endpoint_id: str
 
 
 def _parse(ts: Any) -> Optional[datetime]:
-    if not ts:
-        return None
-    try:
-        return datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    """One canonical instant parser for the whole plane. Sysmon's
+    `2026-09-22 15:43:31.770` is an instant, and so is the Event Log's
+    `…T15:43:31.7788153Z`; both must come back AWARE and comparable."""
+    return parse_instant(ts)
 
 
 def density(rows: List[Dict[str, Any]], start: Optional[str],

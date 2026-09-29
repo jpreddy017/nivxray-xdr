@@ -44,6 +44,7 @@ import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
 import RelationshipCanvas from "./RelationshipCanvas";
+import { msUTC } from "./dt2/instant";
 import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
          neighbourStep, parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
@@ -212,10 +213,10 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         const s = data.time_range?.observed_start;
         const e = data.time_range?.observed_end;
         if (s && e) {
-          const b = Date.parse(e);
+          const b = msUTC(e);
           // Detection → Trajectory: land on the detection's own moment,
           // not on "now" and not on the endpoint's last day.
-          const at = params.get("at") ? Date.parse(params.get("at")) : null;
+          const at = params.get("at") ? msUTC(params.get("at")) : null;
           const anchor = Number.isFinite(at) && at ? at : b;
           setSelectedDay((d) => d ?? startOfDayUTC(anchor));
           /** Cisco's trajectory axis is the SELECTED DAY: the date
@@ -349,9 +350,9 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   const total = meta?.lane_axis?.total_lanes || 0;
   const obsStart = meta?.time_range?.observed_start
-    ? Date.parse(meta.time_range.observed_start) : null;
+    ? msUTC(meta.time_range.observed_start) : null;
   const obsEnd = meta?.time_range?.observed_end
-    ? Date.parse(meta.time_range.observed_end) : null;
+    ? msUTC(meta.time_range.observed_end) : null;
   const span = view ? view.t1 - view.t0 : 0;
 
   /** DT2-1 · retention truth. The bounds that clamp pan/zoom come from
@@ -387,7 +388,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     for (const e of events.values()) {
       if (e.lane_index < laneStart || e.lane_index >= laneStart + rows)
         continue;
-      const t = Date.parse(e.timestamp);
+      const t = msUTC(e.timestamp);
       if (!(t >= view.t0 && t <= view.t1)) continue;
       const arr = m.get(e.lane_index) || [];
       arr.push(e);
@@ -432,7 +433,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const focusEvent = useCallback((e) => {
     if (!e) { setSelected(null); return; }
     setSelected(e);
-    const t = Date.parse(e.timestamp);
+    const t = msUTC(e.timestamp);
     setView((v) => {
       if (!v) return v;
       const s = v.t1 - v.t0;
@@ -489,9 +490,9 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         const w = data.focus.window;
         if (w) {
           setPreset("custom");
-          setView({ t0: Date.parse(w.time_start),
-                    t1: Date.parse(w.time_end) });
-          setSelectedDay(startOfDayUTC(Date.parse(data.focus.timestamp)));
+          setView({ t0: msUTC(w.time_start),
+                    t1: msUTC(w.time_end) });
+          setSelectedDay(startOfDayUTC(msUTC(data.focus.timestamp)));
         }
         /** The resolver returns the observation's ROW as well as its
          *  moment. Without moving the row viewport the windowed request
@@ -580,14 +581,14 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   useEffect(() => {
     const atRaw = params.get("at");
     if (!atRaw || deepLink || anchoredRef.current || selected) return;
-    const at = Date.parse(atRaw);
+    const at = msUTC(atRaw);
     if (!Number.isFinite(at) || events.size === 0) return;
     const wantProc = params.get("process_iid");
     let best = null;
     let bestD = Infinity;
     for (const e of events.values()) {
       if (wantProc && e.process_iid !== wantProc) continue;
-      const d = Math.abs(Date.parse(e.timestamp) - at);
+      const d = Math.abs(msUTC(e.timestamp) - at);
       if (d < bestD) { bestD = d; best = e; }
     }
     if (best) {
@@ -746,7 +747,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     } else if (kind === "filter-indicator") {
       setQuery(e?.file || e?.network || e?.process || e?.rule_id || "");
     } else if (kind === "focus" && e?.timestamp) {
-      const t = Date.parse(e.timestamp);
+      const t = msUTC(e.timestamp);
       setView({ t0: t - 15 * MS.m, t1: t + 15 * MS.m });
       setSelectedDay(startOfDayUTC(t));
     } else if (kind === "copy-digest") {
@@ -768,7 +769,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     const m = text.match(/(?:^|\s)at:(\S+)/i);
     if (m) {
       const lit = m[1];
-      const t = Date.parse(lit.length <= 10 ? `${lit}T00:00:00Z` : lit);
+      const t = msUTC(lit.length <= 10 ? `${lit}T00:00:00Z` : lit);
       if (Number.isFinite(t)) {
         // a bare date starts at midnight and shows the day; a full
         // timestamp starts there and keeps at least an hour of context
@@ -1166,7 +1167,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                     bounds={boundsRef.current}
                     selectedNodeId={selectedNode}
                     selectedEventMs={selected?.timestamp
-                      ? Date.parse(selected.timestamp) : null}
+                      ? msUTC(selected.timestamp) : null}
                     theme={C}
                     onView={setView}
                     onLaneOffset={(n) => {
@@ -1177,7 +1178,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                     }}
                     onReturnToEvent={() => {
                       if (!selected?.timestamp) return;
-                      const t = Date.parse(selected.timestamp);
+                      const t = msUTC(selected.timestamp);
                       setView(centreOn(view, t, boundsRef.current).view);
                     }}
                     onSelect={(lane) => {

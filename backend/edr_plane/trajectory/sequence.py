@@ -42,6 +42,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from . import models as m
+from ..instant import parse_instant
 from .relationships import ActivityEdge, ProcessEdge
 
 __all__ = [
@@ -94,12 +95,9 @@ Edge = Union[ProcessEdge, ActivityEdge]
 
 
 def _parse(ts: Any) -> Optional[datetime]:
-    if not isinstance(ts, str) or not ts:
-        return None
-    try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    """Delegates to the plane's one canonical instant parser, so ordering
+    never depends on which representation the source used."""
+    return parse_instant(ts)
 
 
 @dataclass(frozen=True)

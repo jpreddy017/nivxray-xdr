@@ -311,6 +311,11 @@ export default function RelationshipCanvas({
                  data-row-start-iso={r.lifeline.startMs != null
                    ? new Date(r.lifeline.startMs).toISOString() : ""}
                  data-row-start-x={x0 != null ? x0.toFixed(2) : ""}
+                 data-row-end-iso={r.lifeline.endMs != null
+                   ? new Date(r.lifeline.endMs).toISOString() : ""}
+                 data-row-end-x={x1 != null ? x1.toFixed(2) : ""}
+                 data-row-terminated={r.lifeline.terminated ? "true" : "false"}
+                 data-row-y={mid.toFixed(2)}
                  onClick={() => onSelect?.(r)} style={{ cursor: "pointer" }}>
                 <rect x={0} y={y} width={width} height={ROW}
                       fill={sel ? C.paperAlt : "transparent"} />

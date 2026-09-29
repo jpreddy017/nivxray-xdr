@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from services.edr.endpoint_query import endpoint_predicate
 from deps import sync_collection
+from edr_plane.instant import instant_ms
 
 ENGINE_ID = "nivxray::edr_plane::trajectory_window"
 COLLECTION = "v2_shadow_observations"
@@ -101,19 +102,45 @@ _warming: set = set()
 _proj_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
 
-def _cursor_encode(ts: str, iid: str) -> str:
+def _cursor_encode(ts: str, iid: str, ms: Optional[int] = None) -> str:
     return base64.urlsafe_b64encode(
-        json.dumps({"ts": ts, "iid": iid}).encode()).decode()
+        json.dumps({"ts": ts, "iid": iid, "ms": ms}).encode()).decode()
 
 
-def _cursor_decode(cur: Optional[str]) -> Optional[Dict[str, str]]:
+def _cursor_decode(cur: Optional[str]) -> Optional[Dict[str, Any]]:
     if not cur:
         return None
     try:
         d = json.loads(base64.urlsafe_b64decode(cur.encode()).decode())
-        return {"ts": str(d["ts"]), "iid": str(d["iid"])}
+        ms = d.get("ms")
+        return {"ts": str(d["ts"]), "iid": str(d["iid"]),
+                "ms": int(ms) if isinstance(ms, (int, float))
+                else instant_ms(d["ts"])}
     except Exception:  # noqa: BLE001
         return None
+
+
+def _chrono(ms: Optional[int], iid: Any) -> Tuple[int, int, str]:
+    """The ONE chronological ordering key: parsed instant, then identity.
+
+    Rows whose timestamp cannot be parsed sort last and are never given a
+    time. Used for sorting, paging and cursor comparison alike, so a page
+    boundary cannot duplicate or skip a row because two observations wrote
+    the same instant in different representations.
+    """
+    return ((1, 0, str(iid)) if ms is None else (0, int(ms), str(iid)))
+
+
+def _row_ms(r: Dict[str, Any]) -> Optional[int]:
+    """The row's instant. `_project` carries it; a row built elsewhere is
+    parsed here so there is only ever ONE definition of a row's instant."""
+    if "timestamp_instant_ms" in r:
+        return r["timestamp_instant_ms"]
+    return instant_ms(r.get("timestamp"))
+
+
+def _row_chrono(r: Dict[str, Any]) -> Tuple[int, int, str]:
+    return _chrono(_row_ms(r), r.get("event_iid"))
 
 
 def _ev(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -311,7 +338,7 @@ def _project_all_sync(ref_set: List[str]) -> Dict[str, Any]:
         if lane:
             rows.append(_project(doc, lane,
                                  _attr_of(doc, _ev(doc), attribution)))
-    rows.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
+    rows.sort(key=_row_chrono)
     return _with_derived({"cat": cat, "rows": rows, "bounded": False,
                           "docs_read": len(docs)})
 
@@ -332,13 +359,18 @@ def _with_derived(out: Dict[str, Any]) -> Dict[str, Any]:
     again disagree about what a cached projection carries.
     """
     rows = out["rows"]
-    stamps = [r["timestamp"] for r in rows if r["timestamp"]]
+    #: the observed extent is an extent in TIME, so it is taken over parsed
+    #: instants and reported as the source wrote it.
+    dated = [(_row_ms(r), r["timestamp"]) for r in rows
+             if r.get("timestamp") and _row_ms(r) is not None]
     by_lane: Dict[int, List[Dict[str, Any]]] = {}
     for r in rows:
         by_lane.setdefault(r["lane_index"], []).append(r)
     out["by_lane"] = by_lane
-    out["observed_start"] = min(stamps) if stamps else None
-    out["observed_end"] = max(stamps) if stamps else None
+    out["observed_start"] = min(dated)[1] if dated else None
+    out["observed_end"] = max(dated)[1] if dated else None
+    out["timestamp_unparseable"] = sum(
+        1 for r in rows if _row_ms(r) is None)
     out["type_counts"] = _type_counts(rows)
     out["activity_unfiltered"] = _activity(rows, None)
     return out
@@ -415,7 +447,7 @@ async def _projected(db, *, ident: Dict[str, Any],
                                  _attr_of(doc, _ev(doc), attribution)))
         if not bounded and i % 500 == 0:
             await asyncio.sleep(0)
-    rows.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
+    rows.sort(key=_row_chrono)
     out = _with_derived({"cat": cat, "rows": rows, "bounded": bounded,
                          "docs_read": len(docs)})
 
@@ -630,6 +662,12 @@ def build_lane_catalogue(docs: List[Dict[str, Any]],
         lane = lanes.setdefault(lane_id, {
             "lane_id": lane_id, "group": group, "label": label,
             "process_iid": proc.get("iid") if group == "PROCESS" else None,
+            # The process this file/network/dns lane was observed under,
+            # taken from the observation's OWN canonical process identity.
+            # It is what groups the lane beneath its process on the axis;
+            # nothing is grouped by name, path or timestamp proximity.
+            "actor_process_iid": (None if group == "PROCESS"
+                                  else proc.get("iid")),
             "parent_iid": proc.get("parent_iid") if group == "PROCESS"
             else None,
             # Three distinct truths, never collapsed into one: the
@@ -664,10 +702,17 @@ def build_lane_catalogue(docs: List[Dict[str, Any]],
             lane["user"] = _raw(ev).get("user") or None
         if lane.get("pid") in (None, ""):
             lane["pid"] = _raw(ev).get("pid")
+        if lane["group"] != "PROCESS" and not lane.get("actor_process_iid"):
+            lane["actor_process_iid"] = proc.get("iid")
         if ts:
-            if not lane["first_seen"] or ts < lane["first_seen"]:
+            ti = instant_ms(ts)
+            fi = instant_ms(lane["first_seen"])
+            li = instant_ms(lane["last_seen"])
+            if not lane["first_seen"] or (ti is not None
+                                          and (fi is None or ti < fi)):
                 lane["first_seen"] = ts
-            if not lane["last_seen"] or ts > lane["last_seen"]:
+            if not lane["last_seen"] or (ti is not None
+                                         and (li is None or ti > li)):
                 lane["last_seen"] = ts
 
     for lane in lanes.values():
@@ -694,7 +739,8 @@ def build_lane_catalogue(docs: List[Dict[str, Any]],
             children.setdefault(pid, []).append(ln)
         else:
             roots.append(ln)
-    key = lambda ln: (ln["first_seen"] or "", ln["lane_id"])  # noqa: E731
+    key = lambda ln: _chrono(instant_ms(ln["first_seen"]),  # noqa: E731
+                             ln["lane_id"])
     roots.sort(key=key)
     for kids in children.values():
         kids.sort(key=key)
@@ -719,10 +765,35 @@ def build_lane_catalogue(docs: List[Dict[str, Any]],
             seen_iids.add(str(ln.get("process_iid") or ""))
 
     order = {g: i for i, g in enumerate(GROUPS + ("OTHER",))}
-    ranked += sorted((ln for ln in lanes.values()
-                      if ln["group"] != "PROCESS"),
-                     key=lambda ln: (order.get(ln["group"], 9),
-                                     ln["first_seen"] or "", ln["lane_id"]))
+    #: DT2-3b · Cisco's vertical axis is "a list of files and processes",
+    #: and a file/network row belongs WITH the process that touched it.
+    #: Appending every non-process lane after ALL process lanes put the
+    #: file rows hundreds of lanes away, so a windowed client could not
+    #: hold a process and its own artefacts in one slice and no
+    #: process→file stem could render at all. Each non-process lane now
+    #: follows the process lane its own evidence names. A lane whose
+    #: actor process is not on this axis keeps the tail placement — it is
+    #: never attached to a process on proximity.
+    artefacts: Dict[str, List[Dict[str, Any]]] = {}
+    orphan: List[Dict[str, Any]] = []
+    akey = lambda ln: (order.get(ln["group"], 9),  # noqa: E731
+                       _chrono(instant_ms(ln["first_seen"]), ln["lane_id"]))
+    for ln in lanes.values():
+        if ln["group"] == "PROCESS":
+            continue
+        owner = str(ln.get("actor_process_iid") or "")
+        if owner and owner in by_iid:
+            artefacts.setdefault(owner, []).append(ln)
+        else:
+            orphan.append(ln)
+    for kids in artefacts.values():
+        kids.sort(key=akey)
+
+    grouped: List[Dict[str, Any]] = []
+    for ln in ranked:
+        grouped.append(ln)
+        grouped += artefacts.get(str(ln.get("process_iid") or ""), [])
+    ranked = grouped + sorted(orphan, key=akey)
     for i, lane in enumerate(ranked):
         lane["lane_index"] = i
 
@@ -789,10 +860,17 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
     files = _artefact_files(ev)
     rule_ids = (list(attribution.get("rule_ids") or []) if attribution
                 else ([raw.get("rule_id")] if raw.get("rule_id") else []))
+    ts = _ts(doc, ev)
+    inst = instant_ms(ts)
     return {
         "event_iid": _event_iid(doc, ev, lane["lane_id"]),
         "canonical_iid": ev.get("iid"),
-        "timestamp": _ts(doc, ev),
+        "timestamp": ts,
+        # The instant this observation is ordered and windowed by. The
+        # source string above is never rewritten; this is the parse of it.
+        "timestamp_instant_ms": inst,
+        "timestamp_basis": ("PARSED_UTC_INSTANT" if inst is not None
+                            else "TIMESTAMP_UNPARSEABLE_NOT_TIME_ORDERED"),
         "event_type": ev.get("kind") or "observation",
         "action": raw.get("action"),
         "lane_id": lane["lane_id"], "lane_index": lane["lane_index"],
@@ -1019,11 +1097,25 @@ async def query_window(db, *, identity: Dict[str, Any],
         filtered = rebound
 
     no_time_bound = not (time_start or time_end)
+    #: WINDOW INCLUSION IS AN INSTANT COMPARISON. Comparing the stored
+    #: string against an ISO bound excluded every Sysmon `UtcTime`
+    #: (`2026-09-22 15:43:31.770` < `2026-09-22T…Z` lexicographically),
+    #: hiding real evidence behind `NO_ACTIVITY_IN_RANGE`.
+    t0 = instant_ms(time_start) if time_start else None
+    t1 = instant_ms(time_end) if time_end else None
+    bad_bounds = [name for name, given, parsed
+                  in (("time_start", time_start, t0),
+                      ("time_end", time_end, t1)) if given and parsed is None]
+
+    def _in_window(r: Dict[str, Any]) -> bool:
+        i = _row_ms(r)
+        if i is None:                   # no instant → never assumed inside
+            return False
+        return ((t0 is None or i >= t0) and (t1 is None or i <= t1))
+
     in_time = (filtered if no_time_bound
-               else [r for r in filtered
-                     if (not time_start or (r["timestamp"] or "")
-                         >= time_start)
-                     and (not time_end or (r["timestamp"] or "") <= time_end)])
+               else ([] if bad_bounds
+                     else [r for r in filtered if _in_window(r)]))
     if unfiltered and no_time_bound and lane_end - lane_start <= 64:
         # The lane axis is already bucketed on the cached projection, so a
         # viewport read touches only the lanes it asked for instead of
@@ -1031,19 +1123,19 @@ async def query_window(db, *, identity: Dict[str, Any],
         picked: List[Dict[str, Any]] = []
         for li in range(lane_start, lane_end):
             picked.extend(proj["by_lane"].get(li, ()))
-        picked.sort(key=lambda r: (r["timestamp"] or "", r["event_iid"]))
+        picked.sort(key=_row_chrono)
         in_lane = picked
     else:
         in_lane = [r for r in in_time
                    if lane_start <= r["lane_index"] < lane_end]
     after = _cursor_decode(cursor)
     if after:
-        in_lane = [r for r in in_lane
-                   if (r["timestamp"] or "", r["event_iid"])
-                   > (after["ts"], after["iid"])]
+        at = _chrono(after.get("ms"), after["iid"])
+        in_lane = [r for r in in_lane if _row_chrono(r) > at]
     page = in_lane[:limit]
     has_more = len(in_lane) > len(page)
-    nxt = (_cursor_encode(page[-1]["timestamp"] or "", page[-1]["event_iid"])
+    nxt = (_cursor_encode(page[-1]["timestamp"] or "", page[-1]["event_iid"],
+                          _row_ms(page[-1]))
            if page and has_more else None)
 
     stamps_start = proj.get("observed_start")
@@ -1061,7 +1153,9 @@ async def query_window(db, *, identity: Dict[str, Any],
         "time_range": {"requested_start": time_start,
                        "requested_end": time_end,
                        "observed_start": stamps_start,
-                       "observed_end": stamps_end},
+                       "observed_end": stamps_end,
+                       "comparison_basis": "PARSED_UTC_INSTANT",
+                       "unparseable_bounds": bad_bounds},
         "lane_axis": {"lane_start": lane_start, "lane_end": lane_end,
                       "lane_axis_version": axis_version,
                       "total_lanes": len(axis_lanes),
@@ -1077,6 +1171,10 @@ async def query_window(db, *, identity: Dict[str, Any],
         "matched_in_window": len(in_lane),
         "matched_in_time_range": len(in_time),
         "matched_after_filters": len(filtered),
+        #: observations whose stored timestamp could not be parsed. They are
+        #: excluded from every time window and never given a time.
+        "timestamp_unparseable": sum(
+            1 for r in filtered if _row_ms(r) is None),
         "observations_all_time": observations_all_time,
         "projection": {
             "state": "BOUNDED_RECENT" if bounded else "COMPLETE",
