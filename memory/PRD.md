@@ -1935,3 +1935,59 @@ ready); (3) `campaign-story` still 11 s — NOT the directory scan, cost
 is inside the story engine, needs its own measured pass; (4) B3
 implementation pending contract approval; (5) delivery-fidelity needs
 sensor per-channel read/sent counters for boundaries B1/B2.
+
+---
+
+## B5.1 · PRE FIDELITY BASELINE · EID5 OWNER COMMAND · B3 DECISIONS · CAMPAIGN STORY PROFILE — 2026-06 · OWNER REVIEW PENDING
+Report: `docs/B5_1_FIDELITY_BASELINE_AND_PROFILE.md`
+`process_exit` ACCEPTED as the single canonical event type (owner
+decision); `ProcessTerminate` stays source/provenance terminology.
+Endpoint UNCHANGED · not deployed · trajectory frozen · no hashing code.
+
+**FIDELITY · backend half BUILT AND RUN** (`scripts/b5_delivery_fidelity.py`),
+**endpoint half PREPARED, NOT RUN** (`docs/B5_FIDELITY_ENDPOINT_COUNT_READONLY.ps1`,
+read-only, PRE/POST labelled). Boundary availability stated, never
+inferred: B0 endpoint-only · **B1 NOT MEASURABLE (the sensor exposes no
+per-channel read counter)** · B2 PARTIAL · B3 accepted MEASURED · B3
+refused MEASURED **but incomplete — a PARSE_ERROR is NOT recorded as a
+routing block** (0 blocks logged while the collector state says "parser
+failed on every event", received 1/parsed 0 — the same blindness that
+made Wave A's `windows-security-evd` loss hard to find) · dedupe
+MEASURED (3,299 suppressed — correct, NOT loss) · B4 MEASURED.
+Baseline for 2026-09-22 15:43–16:46Z: EID 1=16, 3=70, 11=107, 12=766,
+13=2335, 22=1, +2 winsec = 3,297.
+**DESIGN-CHANGING MEASUREMENT: delivery is heavily spooled** —
+sensor→collector p50 **59 min**, collector→NivX p50 **43 min**, max
+**2.9 DAYS**. My original "wait 5 minutes" would have reported an entire
+hour as LOSS when it was LATENCY. Corrected: compare at T+24 h, re-count
+at T+72 h before calling anything lost.
+
+**EID 5 OWNER COMMAND — exact, with rollback.** Backup →
+`(Get-Content …) -replace '<ProcessTerminate onmatch="include"/>',
+'<ProcessTerminate onmatch="exclude"/>'` → `Compare-Object` →
+`Sysmon64.exe -c <file>` → verify with `Sysmon64.exe -c` dump. Rollback =
+restore the .bak and re-apply. No service restart, no audit policy, no
+registry, no other Sysmon setting. ~+0.5% telemetry. NOT EXECUTED BY ME.
+
+**B3** six decisions presented as DECISION|OPTIONS|SECURITY|PERFORMANCE|
+RECOMMENDED|WHY. No hashing code until they are approved as answers.
+
+**CAMPAIGN STORY PROFILE (read-only, no code changed).** 10.99 s, 15
+activities. Dominant stage = `campaign_story._activity()` doing up to two
+`find_one`s per activity against `v2_shadow_observations` (256,944 docs)
+on **UNINDEXED** fields: `canonical_event_id` (0.51 s, 256,944 examined)
+and `event.provenance.ingest_job_id` (0.55 s, 256,944 examined) →
+15 × 2 ≈ 8–16 s = the whole request. **Measured minimum fix: TWO INDEXES,
+no code change** — `{tenant_id, canonical_event_id}` and
+`{tenant_id, event.provenance.ingest_job_id}`. Proven with a reversible
+probe: 0.51 s / 256,944 examined → **0.000 s / 0 examined**; probe
+indexes then DROPPED and the original 12-index state verified restored.
+**Second finding: `resolved_via` is None for ALL 15 activities** — no
+detection in that incident binds to its canonical observation. An E1
+LINKAGE gap, not performance; untouched, needs its own pass.
+
+**OPEN:** owner to (1) run the PRE endpoint count, (2) apply the EID 5
+one-liner after PRE, (3) approve the six B3 decisions, (4) authorise the
+two campaign-story indexes. Platform gaps: sensor per-channel counters
+(B1/B2), parse failures not recorded as refusals, detection→observation
+linkage.
