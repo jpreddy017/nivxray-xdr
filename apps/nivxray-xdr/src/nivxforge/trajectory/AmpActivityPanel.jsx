@@ -38,7 +38,7 @@ const actorOf = (e, lanes) => {
 export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                                            onPivot, width, height,
                                            windowState = null,
-                                           emptiness = null }) {
+                                           emptiness = null , compromise = null }) {
   const listRef = useRef(null);
   const selRef = useRef(null);
 
@@ -54,7 +54,7 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
 
   if (selected) {
     return (
-      <AmpEventDetails event={selected}
+      <AmpEventDetails event={selected} compromise={compromise}
                        lane={lanes.get(selected.lane_index)}
                        onPivot={onPivot} width={width} height={height}
                        onBack={() => onSelect(null)} />

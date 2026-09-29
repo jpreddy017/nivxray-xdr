@@ -55,6 +55,7 @@ from v2.ingestion.canonical import (                             # noqa: E402
     SECURITY_CLAIM_KINDS,
     _blake_iid,
     ces_to_cem_dict,
+    observation_identity,
 )
 from v2.ingestion.telemetry_bridge import (                      # noqa: E402
     LIVE_ORIGIN,
@@ -140,6 +141,9 @@ async def main(apply: bool) -> None:
     bases = Counter()
     failures = Counter()
     not_replayable = 0
+    identity_states = Counter()
+    observation_ids: list[str] = []
+    content_iids: list[str] = []
     written = 0
     skipped_existing = 0
     device_iids: set[str] = set()
@@ -177,6 +181,11 @@ async def main(apply: bool) -> None:
         ces.device_id = _blake_iid("dev", f"{target}:{computer}")
         device_iids.add(ces.device_id)
         ev = ces_to_cem_dict(ces, case_id=None, sequence=idx)
+        obs_id, obs_state, obs_key = observation_identity(
+            ev, tenant_id=target)
+        identity_states[obs_state] += 1
+        observation_ids.append(obs_id)
+        content_iids.append(ev["iid"])
 
         src_prov = (ev.get("raw") or {}).get("source_identity") or {}
         rows[(canonical.get("source_product"),
@@ -205,6 +214,9 @@ async def main(apply: bool) -> None:
             "cem_version": "v1",
             "case_id": None,
             "tenant_id": target,
+            "observation_id": obs_id,
+            "observation_identity_state": obs_state,
+            "observation_identity_key": obs_key,
             "captured_at": ev["ts"],
             "kind": ev["kind"],
             "process_iid": ev.get("process_iid"),
@@ -257,6 +269,12 @@ async def main(apply: bool) -> None:
             "reprojection_id": REPROJECTION_ID,
         },
         "RETAINED_EVIDENCE_SEEN": idx,
+        "TOTAL_OBSERVATIONS": len(observation_ids),
+        "UNIQUE_OBSERVATION_IDS": len(set(observation_ids)),
+        "CONTENT_IID_COLLISIONS": (len(content_iids)
+                                   - len(set(content_iids))),
+        "UNIQUE_CONTENT_IIDS": len(set(content_iids)),
+        "OBSERVATION_IDENTITY_STATES": dict(identity_states),
         "NOT_REPLAYABLE": not_replayable,
         "REPLAY_FAILURES": dict(failures),
         "WRITTEN": written,

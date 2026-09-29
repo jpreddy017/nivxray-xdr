@@ -333,13 +333,18 @@ export function axisRowsOf(g, { max = 120, fileTypes = null,
   return out.slice(0, max);
 }
 
-/** DT2-3c · an event may be presented as an indication of compromise
- *  only where its own evidence says so. No cross-event association is
- *  inferred: Cisco's blue halo needs a proven contributor set, and the
- *  NivXForge contract does not yet publish one. */
-export const isCompromise = (n) => Boolean(
-  n && (n.detection === true || n.is_detection === true
-        || n.detection_name || (n.labels || []).includes("DETECTION")));
+/** DT2-3c · CONTRIBUTOR MEMBERSHIP IS SERVER-PROVEN, never inferred.
+ *
+ *  `contributor_of` is written by the trajectory read after resolving the
+ *  authority's own `contributing_event_refs[]` against `observation_id`.
+ *  The previous implementation guessed from detection flags, which
+ *  conflated a DETECTION (what an engine concluded about one
+ *  observation) with a COMPROMISE (what a correlation / IOC mechanism
+ *  concluded across several) — and on this Windows corpus every Sysmon
+ *  registry event arrived with `kind=detection`, so it lit up 3,100
+ *  rows. Proximity, PID, lane and render adjacency are not evidence. */
+export const isProvenContributor = (n) => Boolean(
+  n && Array.isArray(n.contributor_of) && n.contributor_of.length > 0);
 
 /**
  * DT2-3a.2 · row relevance.

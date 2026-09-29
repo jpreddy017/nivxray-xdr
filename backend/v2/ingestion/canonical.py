@@ -104,19 +104,29 @@ CES_FIELDS: tuple[str, ...] = tuple(
 # fills CES; kind resolution happens here.
 SYSMON_KIND: dict[int, str] = {
     1: "process_create",
-    2: "file_write",                # FileCreateTime -> proxy
+    # FileCreateTime: a process CHANGED a file's creation time. Calling
+    # that a write misstates what happened — and timestomping evidence is
+    # exactly the thing a behavioural engine will want to see as itself.
+    2: "file_creation_time_changed",
     3: "network_connect",
-    4: "process_exit",              # service state change; kept mapped to process_exit
+    # Sysmon's own SERVICE STATE changed. This is sensor lifecycle
+    # telemetry about Sysmon, not the exit of an observed process; mapping
+    # it to `process_exit` invented a process death that never happened.
+    4: "sensor_service_state_changed",
     5: "process_exit",
     6: "driver_load",
     7: "image_load",
     8: "remote_thread_create",
-    9: "file_write",                # RawAccessRead - proxy
+    # RawAccessRead: a raw read of a DISK/volume device, bypassing the
+    # file system. It is not a file write in either direction.
+    9: "raw_disk_access_read",
     10: "process_access",
     11: "file_create",
     12: "registry_create",
     13: "registry_value_set",
-    14: "registry_delete",          # RegistryKey rename mapped to delete-ish
+    # RegistryRename. The key still exists under a new name; `registry_delete`
+    # claimed a deletion the source never reported.
+    14: "registry_rename",
     15: "file_create",              # FileCreateStreamHash
     17: "named_pipe_create",
     18: "named_pipe_create",
@@ -125,10 +135,18 @@ SYSMON_KIND: dict[int, str] = {
     21: "wmi_subscribe",
     22: "dns_query",
     23: "file_delete",
-    24: "file_write",               # ClipboardChange -> proxy
-    25: "process_access",           # ProcessTampering
+    # ClipboardChange has no file and no path. It was resolving to
+    # `file_write`, which is a different subsystem entirely.
+    24: "clipboard_change",
+    # ProcessTampering: Sysmon observed the process image being modified
+    # (hollowing / herpaderping shape). It is stronger than a handle open,
+    # so `process_access` understated it — but it is still an OBSERVATION.
+    25: "process_image_tampering",
     26: "file_delete",
-    255: "alert",
+    # Sysmon reporting its OWN error. `alert` made the sensor's self-report
+    # a NivXForge security claim; a NivXForge alert comes from an
+    # authoritative detection mechanism, never from a sensor hiccup.
+    255: "sensor_error",
 }
 
 #: WINDOWS SECURITY · OBSERVATIONS, NOT CONCLUSIONS.
@@ -268,6 +286,66 @@ def resolve_kind(ces: CanonicalEventRecord) -> tuple[str, str]:
 def _resolve_kind(ces: CanonicalEventRecord) -> str:
     """Deterministic CES → CEM event kind. One classifier, one basis."""
     return resolve_kind(ces)[0]
+
+
+#: OBSERVATION IDENTITY vs CONTENT IDENTITY.
+#:
+#: `event.iid` is a CONTENT hash and keeps that meaning unchanged: it
+#: answers "is this the same observed activity". It is NOT an observation
+#: identity — on the real Windows corpus 2,250 of 3,299 genuinely distinct
+#: records hash identically, because a registry value set twice in the
+#: same millisecond by the same image on the same key IS identical content.
+#:
+#: `observation_id` answers a different question: "WHICH recorded
+#: observation is this one". A compromise that names
+#: `contributing_event_refs[]` must be able to point at one specific
+#: record, so it is derived from AUTHORITATIVE SOURCE IDENTITY and never
+#: from content alone.
+OBS_ID_BY_SOURCE_RECORD = "UNIQUE_BY_SOURCE_RECORD_IDENTITY"
+OBS_ID_BY_RAW_EVIDENCE = "UNIQUE_BY_RAW_EVIDENCE_IDENTITY"
+OBS_ID_NOT_PROVEN = "NOT_PROVEN_UNIQUE"
+
+
+def observation_identity(event: dict[str, Any], *, tenant_id: str
+                         ) -> tuple[str, str, str]:
+    """`(observation_id, identity_state, identity_key)` for one observation.
+
+    Deterministic and idempotent: replaying the SAME source record always
+    yields the same id, and two distinct records with identical content
+    yield different ids because the discriminator is the source's own
+    record identity, not the content.
+
+    When the source carried no unique identity the state is
+    `NOT_PROVEN_UNIQUE` and the id is explicitly NOT claimed to be unique
+    — nothing is invented to manufacture uniqueness, and a contributor
+    reference must refuse to target such an observation.
+    """
+    raw = event.get("raw") or {}
+    ident = raw.get("source_identity") or {}
+    device_iid = event.get("device_iid") or ""
+    scope = f"{tenant_id}|{device_iid}"
+
+    # A Windows record's EventRecordID is unique per channel per computer,
+    # which is exactly the discriminator the content hash lacks.
+    record_id = ident.get("record_id")
+    computer = ident.get("computer") or ""
+    if record_id not in (None, "") and computer:
+        key = "|".join([scope, str(ident.get("provider") or ""),
+                        str(ident.get("channel") or ""), str(computer),
+                        str(record_id)])
+        return _blake_iid("obs", key), OBS_ID_BY_SOURCE_RECORD, key
+
+    # The retained raw evidence row id. Deliberately NOT
+    # `canonical_event_id`: the normalizers mint that with a fresh uuid4
+    # per pass, so it changes on replay and cannot be an identity.
+    ref = raw.get("raw_evidence_ref") or {}
+    raw_id = ref.get("raw_id")
+    if raw_id:
+        key = f"{scope}|{ref.get('collection') or ''}|{raw_id}"
+        return _blake_iid("obs", key), OBS_ID_BY_RAW_EVIDENCE, key
+
+    key = f"{scope}|{event.get('iid') or ''}|{event.get('sequence') or 0}"
+    return _blake_iid("obs", key), OBS_ID_NOT_PROVEN, key
 
 
 def ces_to_cem_dict(ces: CanonicalEventRecord, *, case_id: str,

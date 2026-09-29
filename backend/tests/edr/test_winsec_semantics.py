@@ -162,11 +162,11 @@ def test_unclassified_telemetry_is_part_of_the_vocabulary():
     assert "unclassified_telemetry" in cem_schema.EVENT_KINDS
 
 
-#: KNOWN, FLAGGED, AWAITING OWNER RULING — outside the approved WinSec
-#: scope. Sysmon 255 is Sysmon's own error/self-report event and currently
-#: resolves to the security-claim kind `alert`. Pinned so the debt cannot
-#: be forgotten, and so the list can only SHRINK.
-SYSMON_SECURITY_CLAIM_DEBT = {255: "alert"}
+#: CLOSED (2026-06): Sysmon 255 no longer resolves to the security-claim
+#: kind `alert` — it is `sensor_error`, which is what Sysmon actually
+#: reported. This set must stay EMPTY: no Sysmon Event ID may intrinsically
+#: produce a security claim.
+SYSMON_SECURITY_CLAIM_DEBT: dict[int, str] = {}
 
 
 def test_sysmon_security_claim_debt_is_exactly_the_flagged_set():

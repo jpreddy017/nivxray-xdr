@@ -51,6 +51,7 @@ export default function AmpCanvas({
   lanes, laneStart, rows, totalLanes, view, plotW, height, byLane,
   selected, onSelect, onView, onLaneStart, onPivot,
   observedStart = null, observedEnd = null,
+  compromise = null, onCompromise,
 }) {
   const [hover, setHover] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -87,13 +88,16 @@ export default function AmpCanvas({
 
   /** Compromise instants in view — Cisco marks them above the axis and
    *  bands the time column they occupy. */
-  const compromises = useMemo(() => {
-    const out = [];
-    for (const list of byLane.values()) {
-      for (const e of list) if (isRed(e)) out.push(e);
-    }
-    return out.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
-  }, [byLane]);
+  /* DT2-3c · AUTHORITATIVE compromises only. This used to band every
+     row `isRed()` returned, which on this Windows corpus meant every
+     Sysmon registry event that arrived as `kind=detection` — 3,100 false
+     compromise bands. A compromise is what an authority concluded, so it
+     now comes from the server contract and nothing else. */
+  const compromises = useMemo(
+    () => (compromise?.events || [])
+      .filter((c) => c.observedMs != null)
+      .sort((a, b) => a.observedMs - b.observedMs),
+    [compromise]);
 
   const onMouseDown = (ev) => {
     if (ev.button !== 0) return;
@@ -274,16 +278,22 @@ export default function AmpCanvas({
 
         {/* ── amber compromise bands + axis markers ─────────────── */}
         {compromises.map((e) => {
-          const x = GUTTER + xOf(e.timestamp);
+          const x = GUTTER + xOf(e.observedMs);
           return (
-            <g key={`k-${e.event_iid}`}
-               data-testid={`amp-compromise-band-${e.event_iid}`}>
+            <g key={`k-${e.compromise_event_id}`}
+               data-ioc-authority={e.authority}
+               data-ioc-contributors={e.contributorIds.length}
+               data-testid={`amp-compromise-band-${e.compromise_event_id}`}>
               <rect x={x - 26} y={AXIS_H} width={52} height={height - AXIS_H}
                     fill={C.band} pointerEvents="none" />
               <g transform={`translate(${x},${AXIS_H - 22})`}
                  style={{ cursor: "default" }}
-                 onClick={(ev) => { ev.stopPropagation(); onSelect(e); }}
-                 data-testid={`amp-compromise-marker-${e.event_iid}`}>
+                 onClick={(ev) => {
+                   ev.stopPropagation();
+                   if (onCompromise) onCompromise(e);
+                 }}
+                 data-testid={
+                   `amp-compromise-marker-${e.compromise_event_id}`}>
                 <CompromiseMarker />
               </g>
             </g>

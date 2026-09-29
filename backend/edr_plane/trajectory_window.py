@@ -41,6 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from services.edr.endpoint_query import endpoint_predicate
 from deps import sync_collection
 from edr_plane.instant import instant_ms
+from edr_plane import compromise_store
 
 ENGINE_ID = "nivxray::edr_plane::trajectory_window"
 COLLECTION = "v2_shadow_observations"
@@ -840,17 +841,19 @@ def build_lane_catalogue(docs: List[Dict[str, Any]],
 
 def _event_iid(doc: Dict[str, Any], ev: Dict[str, Any],
                lane_id: str) -> str:
-    """A STABLE, UNIQUE identity per observation.
+    """A STABLE, UNIQUE identity per observation row.
 
-    `event.iid` alone is not unique — the same iid is reused across
-    observations, and paging on it produced 8 duplicate rows out of 406
-    in the Stage 1 proof. A viewport that merges pages must be able to
-    de-duplicate, so the identity is composed of the canonical id plus a
-    digest of the fields that distinguish this observation. It is derived
-    only from persisted values, so it is identical on every request.
+    `event.iid` alone is not unique — it is a CONTENT hash, and on the
+    real Windows corpus 2,250 of 3,299 distinct records share one, so
+    paging on it produced 8 duplicate rows out of 406 in the Stage 1
+    proof. The proven observation identity is preferred where the
+    observation carries one; the content fingerprint remains as the
+    fallback for rows recorded before observation identity existed. It is
+    derived only from persisted values, so it is identical on every
+    request.
     """
-    base = str(ev.get("iid") or doc.get("canonical_event_id")
-               or doc.get("iid") or "obs")
+    base = str(doc.get("observation_id") or ev.get("iid")
+               or doc.get("canonical_event_id") or doc.get("iid") or "obs")
     raw = _raw(ev)
     fingerprint = "|".join(str(v) for v in (
         _ts(doc, ev), lane_id, ev.get("kind"), doc.get("canonical_event_id"),
@@ -904,6 +907,13 @@ def _project(doc: Dict[str, Any], lane: Dict[str, Any],
         # Naming that cannot be misread: this is a digest of the parsed
         # event content, NOT the SHA-256 of a file on disk.
         "event_content_digest": raw.get("sha256") or doc.get("input_sha256"),
+        # WHICH recorded observation this row is. A compromise's
+        # `contributing_event_refs[]` resolves against THIS, never against
+        # `event.iid`, which is a content hash that 2,250 of 3,299 real
+        # Windows records share.
+        "observation_id": doc.get("observation_id"),
+        "observation_identity_state": (doc.get("observation_identity_state")
+                                       or "NOT_RECORDED_LEGACY_OBSERVATION"),
         "file_artefacts": files,
         "file_sha256": files[0]["sha256"] if files else None,
         "disposition": cls["disposition"],
@@ -1160,6 +1170,21 @@ async def query_window(db, *, identity: Dict[str, Any],
         in_lane = [r for r in in_lane if _row_chrono(r) > at]
     page = in_lane[:limit]
     has_more = len(in_lane) > len(page)
+    # CONTRIBUTOR MEMBERSHIP IS RESOLVED HERE, SERVER-SIDE. The authority
+    # named observation identities; they are matched against the rows that
+    # actually exist in this projection, and a reference that matches
+    # nothing is reported as unresolved rather than attached to whatever
+    # happens to be nearby.
+    compromise = await compromise_store.resolve_for_device(
+        db, tenant_id=identity.get("tenant_id"),
+        device_iid=identity.get("device_iid"),
+        observation_ids=(r.get("observation_id") for r in all_rows))
+    contributor_of = compromise["contributor_of"]
+    if contributor_of:
+        page = [({**r, "contributor_of": contributor_of[r["observation_id"]],
+                  "contributor_state": "PROVEN_BY_AUTHORITY"}
+                 if r.get("observation_id") in contributor_of else r)
+                for r in page]
     nxt = (_cursor_encode(page[-1]["timestamp"] or "", page[-1]["event_iid"],
                           _row_ms(page[-1]))
            if page and has_more else None)
@@ -1225,6 +1250,25 @@ async def query_window(db, *, identity: Dict[str, Any],
                             "dispositions": sorted(disp_set) if disp_set
                             else []},
         "event_type_counts": proj["type_counts"],
+        #: COMPROMISES, from the authority that raised them. `kind` is
+        #: never a compromise, and the client never decides contributor
+        #: membership: `contributing_event_refs[]` is resolved here
+        #: against the observation identities that exist in this
+        #: projection, and an unresolvable reference is reported as
+        #: unresolved instead of being attached to a nearby row.
+        "compromise_events": compromise["compromise_events"],
+        "compromise_contract": {
+            "state": compromise["state"],
+            "reference_identity": "observation_id",
+            "resolved_server_side": True,
+            "frontend_may_infer_contributors": False,
+            "rejected": compromise["rejected"],
+            "basis": ("contributor membership is stated by the authority "
+                      "that raised the compromise — the detection fabric, "
+                      "the observation's own MITRE attribution, or the IOC "
+                      "correlation engine. Proximity, PID, lane and render "
+                      "adjacency are not evidence of contribution."),
+        },
         "total_or_estimate": {"value": len(in_time), "basis": "EXACT_COUNT_"
                               "OF_OBSERVATIONS_IN_REQUESTED_TIME_RANGE"},
         "provenance": {"source": COLLECTION,

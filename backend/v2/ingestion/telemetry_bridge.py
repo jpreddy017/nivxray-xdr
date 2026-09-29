@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .canonical import (CanonicalEventRecord, IngestionProvenance,
-                        ces_to_cem_dict, event_id_int)
+                        ces_to_cem_dict, event_id_int, observation_identity)
 from v2.case_engine.schema import COLLECTIONS
 
 LIVE_ORIGIN = "collector-live"
@@ -298,12 +298,20 @@ def observation_doc(canonical: dict[str, Any], *, envelope: dict[str, Any],
     ces = canonical_to_ces(canonical, envelope=envelope)
     ev = ces_to_cem_dict(ces, case_id=None, sequence=sequence)
     extra = canonical.get("additional_fields") or {}
+    obs_id, obs_state, obs_key = observation_identity(ev, tenant_id=tenant_id)
     return {
         "adapter": ev["adapter"],
         "cem_version": "v1",
         # No case is fabricated — set only when an incident is promoted.
         "case_id": None,
         "tenant_id": tenant_id,
+        # WHICH recorded observation this is. `event.iid` keeps its own
+        # meaning as the CONTENT identity and is not unique per record, so
+        # anything that must point at ONE observation — a compromise's
+        # `contributing_event_refs[]` above all — points here.
+        "observation_id": obs_id,
+        "observation_identity_state": obs_state,
+        "observation_identity_key": obs_key,
         "captured_at": ev["ts"],
         "kind": ev["kind"],
         "process_iid": ev.get("process_iid"),

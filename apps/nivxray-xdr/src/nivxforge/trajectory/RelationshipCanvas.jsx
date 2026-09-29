@@ -21,8 +21,9 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { activityTimeMs, axisRowsOf, edgeFor, graphBoundsOf, isCompromise,
-         rowsInWindow, ROW_FILE } from "./dt2/graphModel";
+import { activityTimeMs, axisRowsOf, edgeFor, graphBoundsOf,
+         isProvenContributor, rowsInWindow, ROW_FILE } from "./dt2/graphModel";
+import { compromisesInWindow } from "./dt2/compromise";
 import { MAX_RENDERED_LANES } from "./dt2/bounded";
 import { projectX, tickStepFor } from "./dt2/navigation";
 
@@ -69,6 +70,10 @@ export default function RelationshipCanvas({
   selectedNodeId = null, selectedEventMs = null, onSelect, onView,
   onLaneOffset, onReturnToEvent, fileTypes = null, hiddenProcesses = null,
   theme = {},
+  /* DT2-3c · the AUTHORITATIVE compromise layer. Absent means no
+     authoritative compromise was observed — which is not a clean claim
+     and is never substituted with an inferred one. */
+  compromise = null, onCompromise,
 }) {
   const box = useRef(null);
   const [measured, setMeasured] = useState(0);
@@ -94,8 +99,11 @@ export default function RelationshipCanvas({
     line: theme.link || "#2563EB",
     malicious: theme.malicious || "#E5484D",
     maliciousRow: "#FBE3E4",
-    ioc: theme.suspicious || "#E0A200",
-    iocRow: theme.band || "rgba(224,162,0,.18)",
+    ioc: theme.ioc || theme.suspicious || "#E0A200",
+    iocRow: theme.iocRow || "rgba(224,162,0,.22)",
+    iocBand: theme.iocBand || "rgba(224,162,0,.16)",
+    contributor: theme.contributor || "#2563EB",
+    contributorHalo: theme.contributorHalo || "rgba(37,99,235,.20)",
     lifeline: "#9CC97E",
   };
 
@@ -129,6 +137,10 @@ export default function RelationshipCanvas({
   const height = AXIS + SYS_H + FN_H
     + Math.max(1, rows, visible.length) * ROW + 6;
   /** X IS TIME. This is the only horizontal mapping in the component. */
+  const iocs = useMemo(
+    () => compromisesInWindow(compromise, view?.t0, view?.t1),
+    [compromise, view?.t0, view?.t1]);
+
   const xOf = (t) => (axis == null ? null
     : projectX(t, axis.t0, axis.t1, LEFT, width - LEFT - 20));
 
@@ -275,6 +287,48 @@ export default function RelationshipCanvas({
             Files &amp; Network
           </text>
 
+          {/* ── DT2-3c · INDICATORS OF COMPROMISE ────────────────────
+              Yellow, at the instant the AUTHORITY recorded, on its own
+              marker above the axis — a compromise is a separate event,
+              not a telemetry row. Nothing is drawn when no authoritative
+              compromise exists. */}
+          {iocs.map((c) => {
+            const x = xOf(c.observedMs);
+            if (x == null) return null;
+            return (
+              <g key={c.compromise_event_id}
+                 data-testid={`dt2-ioc-band-${c.compromise_event_id}`}
+                 data-ioc-authority={c.authority}
+                 data-ioc-indicator={c.indicator_id}
+                 data-ioc-contributors={c.contributorIds.length}
+                 data-ioc-contributors-proven={
+                   c.contributorsProven ? "true" : "false"}
+                 data-ioc-unresolved-refs={c.unresolved.length}
+                 data-ioc-iso={c.observed_at || ""}>
+                <rect x={x - 11} y={AXIS} width={22} height={height - AXIS}
+                      fill={C.iocBand} pointerEvents="none" />
+                <line x1={x} x2={x} y1={AXIS} y2={height}
+                      stroke={C.ioc} strokeWidth={1}
+                      strokeDasharray="2 3" pointerEvents="none" />
+                <g transform={`translate(${x},${AXIS - 13})`}
+                   style={{ cursor: "pointer" }}
+                   onClick={(ev) => {
+                     ev.stopPropagation();
+                     if (onCompromise) onCompromise(c);
+                   }}
+                   data-testid={`dt2-ioc-marker-${c.compromise_event_id}`}>
+                  <polygon points="0,-9 9,0 0,9 -9,0" fill={C.iocRow}
+                           stroke={C.ioc} strokeWidth={1.4} />
+                  <text x={0} y={3.5} textAnchor="middle" fontSize={9}
+                        fontWeight={700} fill={C.ioc}>!</text>
+                  <title>{`${c.indicator_id} · ${c.description}`
+                    + ` · authority ${c.authority}`
+                    + ` · ${c.contributorIds.length} proven contributor(s)`}</title>
+                </g>
+              </g>
+            );
+          })}
+
           {/* stems · process→process and process→file, evidence only */}
           {visible.map((r, row) => {
             if (!r.parentNodeId) return null;
@@ -305,7 +359,7 @@ export default function RelationshipCanvas({
             const sel = r.nodeId === selectedNodeId;
             const file = r.kind === ROW_FILE;
             const mal = isMal(r.node);
-            const ioc = isCompromise(r.node);
+            const ioc = isProvenContributor(r.node);
             const tag = typeTag(r.node);
             const nSup = r.activities.reduce(
               (n, a) => n + (a.suppressedCount || 0), 0);
@@ -329,6 +383,9 @@ export default function RelationshipCanvas({
                  data-row-terminated={r.lifeline.terminated ? "true" : "false"}
                  data-row-y={mid.toFixed(2)}
                  data-row-suppressed={nSup}
+                 data-row-contributor={ioc ? "true" : "false"}
+                 data-row-contributor-of={
+                   (r.node?.contributor_of || []).join(",")}
                  data-row-parent-hidden={r.parentHidden ? "true" : "false"}
                  onClick={() => onSelect?.(r)} style={{ cursor: "pointer" }}>
                 <rect x={0} y={y} width={width} height={ROW}
@@ -338,8 +395,11 @@ export default function RelationshipCanvas({
                 {mal || ioc ? (
                   <rect x={Math.max(4, LEFT - 8 - tintW)} y={y + 3}
                         width={Math.min(tintW, LEFT - 12)} height={ROW - 6}
-                        fill={ioc ? C.iocRow : C.maliciousRow}
-                        data-testid={ioc ? `dt2-ioc-row-${r.nodeId}` : undefined} />
+                        fill={ioc ? C.contributorHalo : C.maliciousRow}
+                        stroke={ioc ? C.contributor : "none"}
+                        strokeWidth={ioc ? 1 : 0}
+                        data-testid={ioc
+                          ? `dt2-contributor-row-${r.nodeId}` : undefined} />
                 ) : null}
                 {/* Cisco writes the row as `name [TYPE]`, right-aligned
                     against the gutter edge, the tag in a lighter face. */}
@@ -387,18 +447,26 @@ export default function RelationshipCanvas({
                   const ax = xOf(ams);
                   if (ax == null) return null;
                   const aIso = new Date(ams).toISOString();
-                  const aIoc = isCompromise(a);
+                  const aIoc = isProvenContributor(a);
                   const aMal = isMal(a);
                   const tid = `dt2-activity-${a.family}-${a.node_id}`;
                   if (aIoc) {
+                    /* Cisco's blue emphasis: this observation CONTRIBUTED
+                       to a compromise, and the server proved it. */
                     return (
                       <g key={a.node_id} data-testid={tid}
-                         data-compromise="true">
-                        <rect x={ax - 5} y={mid - 5} width={10} height={10}
-                              fill={C.iocRow} stroke={C.ioc} strokeWidth={1}
-                              data-testid={`dt2-ioc-mark-${a.node_id}`} />
-                        <circle cx={ax} cy={mid} r={2.4}
-                                fill={C.malicious} />
+                         data-contributor="true"
+                         data-contributor-of={
+                           (a.contributor_of || []).join(",")}
+                         data-contributor-state={
+                           a.contributor_state || "PROVEN_BY_AUTHORITY"}>
+                        <circle cx={ax} cy={mid} r={6.5}
+                                fill={C.contributorHalo}
+                                stroke={C.contributor} strokeWidth={1.2}
+                                data-testid={
+                                  `dt2-contributor-halo-${a.node_id}`} />
+                        <circle cx={ax} cy={mid} r={2.6}
+                                fill={C.contributor} />
                       </g>
                     );
                   }

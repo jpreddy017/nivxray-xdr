@@ -46,9 +46,11 @@ import AmpCanvas from "./AmpCanvas";
 import RelationshipCanvas from "./RelationshipCanvas";
 import { msUTC } from "./dt2/instant";
 import { CISCO_DISPLAYED, fileTypeOf } from "./dt2/fileType";
+import { attachContributors, indexCompromise } from "./dt2/compromise";
 import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
          neighbourStep, parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
+import AmpCompromisePanel from "./AmpCompromisePanel";
 import AmpActivityPanel from "./AmpActivityPanel";
 
 const LANE_PREFETCH = 14;
@@ -126,10 +128,16 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const tenantRef = useRef(null);
   const urlWriteRef = useRef("");
   const [dt2, setDt2] = useState(null);
+  /* DT2-3c · the AUTHORITATIVE compromise layer, straight from the
+     server contract. `observed === false` means no authoritative
+     compromise exists for this endpoint — a real answer, and not a
+     clean claim. The client never derives one. */
+  const compromise = useMemo(() => indexCompromise(meta), [meta]);
   /** DT2-3 · the process/relationship/time view over the server graph. The
    *  event canvas stays one click away; neither view infers relationships. */
   const [mode, setMode] = useState("RELATIONSHIPS");
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedCompromise, setSelectedCompromise] = useState(null);
   const [stepCtx, setStepCtx] = useState(null);
   const [req, setReq] = useState({ loading: false, prefetching: false,
                                    canceled: false, staleDiscarded: false,
@@ -1189,11 +1197,29 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                 </span>
               </div>
               )}
+              <AmpCompromisePanel
+                compromise={compromise}
+                selectedId={selectedCompromise}
+                onSelect={(c) => {
+                  setSelectedCompromise(c.compromise_event_id);
+                  if (c?.observedMs != null) {
+                    setView(centreOn(view, c.observedMs,
+                                     boundsRef.current).view);
+                  }
+                }} />
               {mode === "RELATIONSHIPS" && !PARKED_NIVXFORGE_UI ? (
                 <div data-testid="dt2-graph"
                      data-dt2-graph-state={graphStateOf(dt2)}>
                   <RelationshipCanvas
-                    graph={graphOf(dt2)} view={view}
+                    graph={attachContributors(graphOf(dt2), compromise)}
+                    compromise={compromise}
+                    onCompromise={(c) => {
+                      if (c?.observedMs == null) return;
+                      setView(centreOn(view, c.observedMs,
+                                       boundsRef.current).view);
+                      setSelectedCompromise(c.compromise_event_id);
+                    }}
+                    view={view}
                     plotW={plotW + GUTTER} rows={rows}
                     laneOffset={laneStart}
                     bounds={boundsRef.current}
@@ -1232,6 +1258,14 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                     if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
                   }}
                   onPivot={onPivot}
+                  compromise={compromise}
+                  onCompromise={(c) => {
+                    setSelectedCompromise(c.compromise_event_id);
+                    if (c?.observedMs != null) {
+                      setView(centreOn(view, c.observedMs,
+                                       boundsRef.current).view);
+                    }
+                  }}
                   observedStart={obsStart} observedEnd={obsEnd} />
                 <div ref={vScroll} data-testid="amp-vscroll"
                      onScroll={(e) => setLaneStart(Math.max(0, Math.min(
@@ -1278,6 +1312,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                               onPivot={onPivot} width={DETAILS_W}
                               windowState={windowState}
                               emptiness={emptiness}
+                              compromise={compromise}
                               height="auto" />
           </div>
         </>

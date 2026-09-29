@@ -348,15 +348,31 @@ describe("DT2-3b · process / file axis parity", () => {
 
 // ── DT2-3c · IOC / compromise ───────────────────────────────────
 describe("DT2-3c · compromise presentation", () => {
-  it("marks a compromise only from the event's own evidence", () => {
-    const MODEL = readFileSync(
-      new URL("../graphModel.js", import.meta.url), "utf8");
-    expect(MODEL).toMatch(/export const isCompromise/);
-    expect(MODEL).toMatch(/detection_name/);
-    expect(CANVAS).toMatch(/dt2-ioc-mark-/);
+  const MODEL = readFileSync(
+    new URL("../graphModel.js", import.meta.url), "utf8");
+
+  it("takes contributor membership from the server, never from flags", () => {
+    expect(MODEL).toMatch(/export const isProvenContributor/);
+    expect(MODEL).toMatch(/contributor_of/);
+    // the old inference read detection flags off the observation itself
+    expect(MODEL).not.toMatch(/is_detection === true/);
+    expect(MODEL).not.toMatch(/detection_name/);
+    expect(MODEL).not.toMatch(/export const isCompromise/);
   });
 
-  it("draws no blue halo, because no contributor set is published", () => {
-    expect(CANVAS).not.toMatch(/dt2-halo|blue-halo|data-halo/i);
+  it("draws the blue contributor halo only for a proven contributor", () => {
+    expect(CANVAS).toMatch(/isProvenContributor/);
+    expect(CANVAS).toMatch(/dt2-contributor-halo-/);
+    expect(CANVAS).toMatch(/data-row-contributor-of=/);
+    expect(CANVAS).not.toMatch(/isCompromise/);
+  });
+
+  it("draws the yellow indicator band from the authoritative layer", () => {
+    expect(CANVAS).toMatch(/dt2-ioc-band-/);
+    expect(CANVAS).toMatch(/dt2-ioc-marker-/);
+    expect(CANVAS).toMatch(/compromisesInWindow/);
+    expect(CANVAS).toMatch(/data-ioc-authority=/);
+    expect(CANVAS).toMatch(/data-ioc-contributors-proven=/);
   });
 });
+

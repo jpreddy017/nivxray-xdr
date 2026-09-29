@@ -61,6 +61,14 @@ const DARK = {
   suspicious: "#E0A200",
   detection: "#E5484D",
   band: "rgba(224, 162, 0, 0.13)",
+  /* DT2-3c · an INDICATOR of compromise reads yellow, exactly as Cisco
+     presents an IOC; a PROVEN contributor reads blue. Both are drawn only
+     from the server contract. */
+  ioc: "#E0A200",
+  iocRow: "rgba(224, 162, 0, 0.22)",
+  iocBand: "rgba(224, 162, 0, 0.16)",
+  contributor: "#4A9EFF",
+  contributorHalo: "rgba(74, 158, 255, 0.22)",
   telemetry: "#4A9EFF",
   spark: "#4A9EFF",
   sparkFill: "rgba(74, 158, 255, 0.12)",
@@ -97,6 +105,11 @@ const LIGHT = {
   suspicious: "#D97706",
   detection: "#DC2626",
   band: "rgba(251, 191, 36, 0.18)",
+  ioc: "#D97706",
+  iocRow: "rgba(251, 191, 36, 0.30)",
+  iocBand: "rgba(251, 191, 36, 0.22)",
+  contributor: "#2563EB",
+  contributorHalo: "rgba(37, 99, 235, 0.20)",
   telemetry: "#2563EB",
   spark: "#2563EB",
   sparkFill: "rgba(59, 130, 246, 0.15)",

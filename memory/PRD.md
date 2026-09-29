@@ -1327,3 +1327,71 @@ P2: trajectory API parity. No production deployment.
   collide; the historical corpus shares this property); (3) go-ahead for
   DT2-3c and whether to wire the contributor contract into
   `GET /api/edr/endpoints/{id}/trajectory` first.
+
+## 2026-06 · OBSERVATION IDENTITY · SYSMON RULING · CONTRACT WIRING · DT2-3c (PARTIAL)
+- Owner order executed: Observation Identity -> Sysmon Proxy Ruling ->
+  Contract Wiring -> DT2-3c. DT2-3c visual parity is NOT accepted yet.
+- OBSERVATION IDENTITY: `event.iid` KEEPS its meaning as the CONTENT identity.
+  New `observation_id` / `observation_identity_state` /
+  `observation_identity_key` on every observation, from
+  `canonical.observation_identity()`: tenant+device scoped, derived from
+  authoritative source identity (provider|channel|computer|EventRecordID),
+  else the STABLE retained raw row id. `canonical_event_id` is deliberately
+  excluded (normalizers mint a fresh uuid4 per pass, so it cannot survive
+  replay). No sequence counter is ever used for uniqueness; when the source
+  carried nothing unique the state is `NOT_PROVEN_UNIQUE` and no uniqueness
+  is claimed. `_event_iid` in trajectory_window now prefers it, and the DT2
+  OBSERVATION evidence reference carries it.
+  PROOF on the clean corpus: OBSERVATIONS 3299 / UNIQUE_OBSERVATION_IDS 3299
+  / CONTENT_IID_COLLISIONS 2250 (1049 distinct content iids) / identity
+  state 100% UNIQUE_BY_SOURCE_RECORD_IDENTITY / replay pass 2 wrote 0.
+- SYSMON RULING (owner scope 255 + 2/4/9/14/24/25): 2 file_write ->
+  `file_creation_time_changed`; 4 process_exit ->
+  `sensor_service_state_changed`; 9 file_write -> `raw_disk_access_read`;
+  14 registry_delete -> `registry_rename`; 24 file_write ->
+  `clipboard_change`; 25 process_access -> `process_image_tampering`;
+  255 `alert` -> `sensor_error`. NO Sysmon or WinSec Event ID now produces a
+  security claim (both tables pinned by tests). EVENT_KINDS 50 -> 57 with
+  lane mappings; the other 19 Sysmon ids were left untouched.
+- CONTRACT WIRING: new `edr_compromise_events` + `edr_plane/compromise_store.py`.
+  Only a validated `CompromiseEvent` can be persisted; every stored row is
+  RE-VALIDATED through the contract on READ (a row written straight to Mongo
+  with `SAME_PID` is rejected). `query_window` resolves
+  `contributing_event_refs[]` against the projection's `observation_id`s and
+  emits `compromise_events` + `compromise_contract`
+  (`reference_identity=observation_id`, `resolved_server_side=true`,
+  `frontend_may_infer_contributors=false`). Unresolvable ref -> explicit
+  `UNRESOLVED_NOT_IN_PROJECTION`, never nearest-event substitution.
+  Cross-tenant / cross-device -> never read.
+- DT2-3c FRONTEND: `dt2/compromise.js` (no inference; `attachContributors`
+  is an identity join on server-provided OBSERVATION refs), `isCompromise`
+  (which inferred from detection flags and lit 3,100 rows) REPLACED by
+  `isProvenContributor`, yellow IOC band + diamond marker,
+  blue contributor halo, `AmpCompromisePanel` (indicator, description,
+  authority, tactics, techniques, contributor/unresolved counts),
+  Event Details "Indication of compromise" section, AmpCanvas bands now
+  authoritative. Fixture: `scripts/dt2_3c_ioc_fixture.py`.
+- PROVEN LIVE: fixture endpoint `ep_dt23cfixture01` renders 1 IOC band, 1
+  marker, 3 blue halos at 3 DISTINCT X (each contributor's own timestamp and
+  row); the content-identical TWIN is NOT emphasised. Real corpus returns
+  `NO_AUTHORITATIVE_COMPROMISE_OBSERVED` — REAL_WINDOWS_COMPROMISE = NOT
+  OBSERVED, which is not a clean claim.
+- TESTS: backend `tests/edr` + framework + ingestion = 1438 passed / 3
+  skipped / 9 failed, all 9 PRE-EXISTING (proven at HEAD with the patch
+  stashed). Frontend vitest 189 passed (9 files). New suites:
+  test_observation_identity (30), test_sysmon_semantics (56),
+  test_contributor_contract_wiring (14, incl. the owner-required twin
+  collision regression), dt2/__tests__/compromise.test.js (28).
+- DT2-3c OPEN (owner review): (1) fixture has NO parent-process linkage so
+  PROCESS_PROCESS edges = 0 and the causal story cannot be drawn —
+  fixture gap, not a renderer gap; (2) compromise `observed_at` coincides
+  with its subject contributor by fixture construction; (3) the yellow IOC
+  geometry is a NIVXFORGE DESIGN DECISION, uncited against Cisco;
+  (4) `?from=/?to=` deep-link time focusing is NOT honoured; (5) the four
+  acceptance screenshots and the real-corpus DT2-3b regression pass are not
+  done. Diagnostic: memory/production-gates/DT2_3C_GEOMETRY_DIAGNOSTIC.md
+- FINDING: the endpoint resolver aliases on the physical computer name, so
+  an acceptance endpoint for `DESKTOP-A9HGFJJ` merged the historical (3,298)
+  and clean (3,299) corpora into one 6,597-row read. The projection is not
+  tenant-scoped. I removed that misleading endpoint row rather than ship a
+  merged view; the acceptance counts were proven directly from the store.

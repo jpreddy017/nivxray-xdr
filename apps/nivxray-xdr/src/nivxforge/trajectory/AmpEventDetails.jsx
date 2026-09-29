@@ -27,6 +27,7 @@ import { ChevronDown, ChevronLeft, ChevronUp,
 
 import { C, dispositionOf, eventColor, isRed, typeLabel } from "./ampModel";
 import EventGlyph from "./AmpIcons";
+import { contributionBasisOf } from "./dt2/compromise";
 
 const Row = ({ k, v, mono = true, testid }) => {
   const empty = v === null || v === undefined || v === "" ||
@@ -89,7 +90,8 @@ const Shell = ({ width, height, children, onBack }) => (
 );
 
 export default function AmpEventDetails({ event, lane, onPivot, width,
-                                          height, onBack }) {
+                                          height, onBack,
+                                          compromise = null }) {
   const [openHash, setOpenHash] = useState(null);
 
   if (!event) {
@@ -289,6 +291,51 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           </span>
         </div>
       </Section>
+
+      {/* DT2-3c · WHICH compromise this observation was PROVEN to
+          contribute to, and the authority's own stated basis. Shown only
+          when the server resolved this observation's identity into a
+          compromise's `contributing_event_refs[]`. */}
+      {(event.contributor_of || []).length ? (
+        <Section title="Indication of compromise"
+                 testid="amp-contributor-attribution">
+          {(event.contributor_of || []).map((cid) => {
+            const c = compromise?.byId?.get(cid);
+            const basis = c
+              ? contributionBasisOf(c, event.observation_id) : null;
+            return (
+              <div key={cid} data-testid={`amp-contributor-of-${cid}`}
+                   data-contributor-basis={basis || ""}
+                   style={{ marginTop: 5, background: C.paperAlt,
+                            borderLeft: `3px solid ${C.contributor}`,
+                            border: `1px solid ${C.grid}`,
+                            padding: "6px 8px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700,
+                              color: C.contributor }}>
+                  {c ? c.indicator_id : cid}
+                </div>
+                {c ? (
+                  <div style={{ fontSize: 10.6, color: C.inkDim,
+                                marginTop: 2 }}>{c.description}</div>
+                ) : null}
+                <div style={{ fontSize: 10.2, color: C.inkFaint,
+                              marginTop: 3 }}>
+                  contribution stated by {c ? c.authority : "the authority"}
+                  {basis ? ` · ${basis}` : ""}
+                </div>
+                {c && (c.techniques || []).length ? (
+                  <div data-testid={`amp-contributor-mitre-${cid}`}
+                       style={{ fontSize: 10.2, color: C.suspicious,
+                                marginTop: 3 }}>
+                    {[...(c.tactics || []), ...(c.techniques || [])]
+                      .join(" · ")}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </Section>
+      ) : null}
 
       <Section title="Detection" testid="amp-detection-attribution">
         {event.detection ? (

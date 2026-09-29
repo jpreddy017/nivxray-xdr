@@ -187,8 +187,14 @@ def _refs(row: Dict[str, Any]) -> Tuple[m.EvidenceReference, ...]:
     found = (_ref("RAW_EVENT", prov.get("raw_event_id"),
                   "edr_raw_events", True),
              _ref("CANONICAL_EVENT", prov.get("canonical_event_id")),
-             _ref("OBSERVATION", prov.get("evidence_id")
-                  or row.get("event_iid"), "v2_shadow_observations"))
+             # The OBSERVATION reference must identify WHICH observation.
+             # `event_iid` is a content fingerprint that content-identical
+             # records share, so the proven `observation_id` is preferred
+             # and a compromise's `contributing_event_refs[]` can resolve
+             # against it.
+             _ref("OBSERVATION", row.get("observation_id")
+                  or prov.get("evidence_id") or row.get("event_iid"),
+                  "v2_shadow_observations"))
     return tuple(r for r in found if r)
 
 

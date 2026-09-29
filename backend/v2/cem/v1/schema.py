@@ -56,6 +56,15 @@ EVENT_KINDS: Final[tuple[str, ...]] = (
     "user_account_created", "user_account_changed",
     "security_group_member_added",
     "scheduled_task_enabled", "audit_log_cleared",
+    # ── Sysmon OBSERVATIONS (2026-06 governance amendment) ───────────
+    # These Event IDs were mapped to a stronger or simply different
+    # subsystem than their source evidence supports: 2 was `file_write`,
+    # 4 was `process_exit`, 9 was `file_write`, 14 was `registry_delete`,
+    # 24 was `file_write`, 25 was `process_access`, and 255 was the
+    # security claim `alert`.
+    "file_creation_time_changed", "sensor_service_state_changed",
+    "raw_disk_access_read", "registry_rename", "clipboard_change",
+    "process_image_tampering", "sensor_error",
     # Telemetry we received and could not classify. Already emitted by the
     # ingestion classifier; it belongs in the vocabulary because it is the
     # honest alternative to a guessed claim.
