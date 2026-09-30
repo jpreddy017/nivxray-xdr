@@ -3483,3 +3483,37 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     XDR selector stays empty and EdrAddDevicePage still builds the argv enrolment command.
   * Benign pre-existing prod noise confirmed: threatfox 401 (ABUSE_CH_AUTH_KEY), transient
     warm-up /health timeouts.
+- RELEASE-PATH DISCOVERY (read-only, nothing changed). PROVEN:
+  * apps/nivxray-xdr = Vite app. vercel.json: installCommand `yarn install --production=false`,
+    buildCommand `bash scripts/vercel-build.sh`, outputDirectory `dist`, framework null,
+    SPA rewrite, host-based redirects (/ -> /xdr for xdr.nivxforge.com, / -> /edr for
+    edr.nivxforge.com).
+  * TWO VERCEL PROJECTS, one root directory, one build command, differentiated ONLY by env var
+    NIVX_PRODUCT_SCOPE (unset|xdr -> XDR host; edr -> EDR host). Documented in
+    scripts/vercel-build.sh. The scope var is load-bearing: without it ProductScopeGuard stops
+    working and either product can render on either host.
+  * LIVE PROVENANCE from each host's own /build-info.json (written by the build script):
+    xdr.nivxforge.com product_scope=xdr built_at 2026-09-26T18:19:37Z
+    edr.nivxforge.com product_scope=edr built_at 2026-09-26T18:20:24Z
+    both api_origin=https://nivxray.nivxforge.com, cross_product_origins=0.
+    47 seconds apart => two projects built back-to-back. Both predate the reviewed frontend
+    commits (3aeef2f2 2026-09-30 10:53Z, 5b968379 2026-09-30 11:09Z) by 4 days.
+  * APPROVED SOURCE: /app HEAD a3523a8891a086fa2e97a38ddea8492863195d3b contains ALL FOUR
+    frontend fixes with ZERO uncommitted drift.
+  * NESTED REPO TRAP: apps/nivxray-xdr has its OWN .git with remote
+    https://github.com/jpreddy017/nivxray-xdr.git, branch main, HEAD 6b1441c dated
+    2026-08-31, and that tree does NOT EVEN CONTAIN XdrScopeNavigator.jsx. It is ~1 month
+    stale and tracks the app at its own root (no apps/ prefix). /app has NO git remote
+    configured (Emergent-managed). Which repo the Vercel projects build from is NOT provable
+    from the repo: the Root Directory comment implies the monorepo, the nested remote implies
+    the standalone repo. NOT INFERRED - owner must read the Vercel dashboard.
+  * apps/nivxray-xdr/.env is git-tracked and points REACT_APP_NIVXRAY_API_URL at the PREVIEW
+    backend BY DESIGN; vercel-build.sh overrides it with XDR_PROD_API_ORIGIN (default
+    https://nivxray.nivxforge.com) as a real env var, and scripts/verify-production-build.js
+    guards the artifact. Do not "fix" that .env.
+  * No GitHub workflow in this repo deploys Vercel - the trigger is Vercel's own Git
+    integration or a manual `vercel --prod`.
+  * PRODUCTION AUTH = BLOCKED. Mechanism: POST /api/auth/login, bcrypt against users.password
+    in the production DB, JWT signed with production JWT_SECRET; no SSO; a
+    must_change_password gate exists. Owner must supply a valid production PLATFORM password
+    (or run the GETs). I will NOT retry the invalid credential.
