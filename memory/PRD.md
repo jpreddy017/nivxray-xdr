@@ -3215,3 +3215,24 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   sparse/collapsed. No documentation exists that its backend discards recorded events.
   NivXForge requirement stays deliberately stronger: visual collapse only, underlying
   observations intact and individually retrievable. Corrected in the B7 audit row.
+
+### 2026-06 · KUSHU C0.3 PREP (C0.1/C0.2 PASS; config staged in repo, nothing applied)
+- C0.1 = PASS, C0.2 = PASS (Sysmon 15.22, zip SHA256 00ECF1B4..., Sysmon64 SHA256 83D31F24...,
+  Authenticode Valid / Microsoft Windows Publisher; staged, NOT installed).
+- Created the repository-authoritative canary config:
+  `agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml` = the W1 baseline
+  (memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md §1.3) with ONLY the B5-validated token swap
+  `<ProcessTerminate onmatch="include"/>` -> `<ProcessTerminate onmatch="exclude"/>` (EID 5 ON).
+  No new XML was invented. Stale "LOG NOTHING" comment left byte-faithful on purpose.
+  Pinned hashes (UTF-8, no BOM): CRLF 452E331298DF9A3DF3314E2CF707F153891DCE0BCE625B4EE99548D8D5E479AB
+  / LF 60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C.
+- `docs/B5_GAP_1_CANARY_PLAN.md` §0: C0.3 SPLIT into C0.3a (stage + validate, no install) and
+  C0.3b (apply + prove EID1/EID5 live), so rules are owner-reviewed before the driver loads them.
+- 3 new tests pin the config hash, assert EID1/EID5 ON, assert every DSM-unsupported event id
+  stays OFF, assert no rule carries children, and assert the one-token derivation from W1.
+  `test_b5gap1_canary_harness.py` = 23 passed.
+- Sysmon has no offline config validator, so C0.3a validation is XML + rule level; live rule
+  proof happens in C0.3b.
+- State: SYSMON_INSTALLED = NO · SYSMON_CONFIG_APPLIED = NO · NIVXFORGE_INSTALLED = NO ·
+  ENROLLED = NO · LOAD_GENERATED = NO · DEFENDER_MODIFIED = NO ·
+  DESKTOP_A9HGFJJ_TOUCHED = NO · PRODUCTION_CHANGED = NO · CANARY_STARTED = NO.

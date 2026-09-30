@@ -47,13 +47,42 @@ C0 block order, one at a time, each fail-closed, each reporting before the
 next is issued:
 
 ```
-C0.1  designation + read-only preflight (no install, no download)
-C0.2  Sysmon binary staging + signature gate (no install yet)
-C0.3  write the authoritative config, apply Sysmon, prove EID 1 + EID 5
-C0.4  NivXForge artifact SHA256 gate (halt on mismatch)
-C0.5  install + enrol + prove service, journal, backend connectivity
-C0.6  collector dry sample (read-only, LOAD_GENERATED stays NO)
+C0.1   designation + read-only preflight (no install, no download)
+C0.2   Sysmon binary staging + signature gate (no install yet)
+C0.3a  stage + VALIDATE the authoritative config (SHA256 gate, XML gate,
+       EID 1 / EID 5 proof by rule, rollback evidence) — NO install
+C0.3b  apply Sysmon with that config, prove EID 1 + EID 5 live
+C0.4   NivXForge artifact SHA256 gate (halt on mismatch)
+C0.5   install + enrol + prove service, journal, backend connectivity
+C0.6   collector dry sample (read-only, LOAD_GENERATED stays NO)
 ```
+
+`C0.3` is deliberately SPLIT: the plan originally applied the config in one
+step, and validation must precede installation so the owner can review the
+exact rules before the driver ever loads them.
+
+### Authoritative canary Sysmon configuration
+
+`agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml` — the W1
+baseline (`memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` §1.3) with the single
+B5-validated change `<ProcessTerminate onmatch="include"/>` ->
+`<ProcessTerminate onmatch="exclude"/>` (EID 5 ON), and nothing else.
+Pinned file hashes of that exact content, UTF-8 **without** BOM:
+
+```
+CRLF (written on Windows)  452E331298DF9A3DF3314E2CF707F153891DCE0BCE625B4EE99548D8D5E479AB
+LF   (repository form)     60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C
+```
+
+Two honest notes. (1) The `LOG NOTHING for every unsupported event id`
+comment still sits above `ProcessTerminate`: the B5 change swapped only the
+`onmatch` token, so the stale comment is part of the configuration that
+production actually runs. It is left byte-faithful rather than tidied,
+because rule equivalence with production matters more than a comment.
+(2) Production's file was written with PowerShell 5.1 `-Encoding UTF8`,
+which emits a BOM, so its FILE hash necessarily differs from the values
+above. The authoritative "same rules" comparison is the driver's active
+rules hash captured in C0.3b, not the file hash.
 
 Defender is never weakened and no Defender exclusion is added at any point.
 No load generation and no impairment in C0.

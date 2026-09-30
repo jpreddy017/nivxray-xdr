@@ -392,3 +392,63 @@ def test_read_token_is_never_written_to_evidence(collector_module):
     assert "NIVX_CANARY_READ_TOKEN" in source
     assert "token" not in collector_module.COLUMNS
     assert "never printed" in source
+
+
+# ═══════════ AUTHORITATIVE CANARY SYSMON CONFIGURATION ═══════════
+SYSMON_CFG = REPO / "agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml"
+SYSMON_CFG_SHA256_LF = (
+    "60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C")
+SYSMON_CFG_SHA256_CRLF = (
+    "452E331298DF9A3DF3314E2CF707F153891DCE0BCE625B4EE99548D8D5E479AB")
+
+
+def test_canary_sysmon_config_is_pinned_and_unchanged():
+    """The canary must be provably loaded with THIS configuration. A drift
+    here would silently change what the canary proves."""
+    raw = SYSMON_CFG.read_bytes()
+    assert b"\r\n" not in raw, "the repository form is LF"
+    assert hashlib.sha256(raw).hexdigest().upper() == SYSMON_CFG_SHA256_LF
+    assert hashlib.sha256(raw.replace(b"\n", b"\r\n")).hexdigest().upper() \
+        == SYSMON_CFG_SHA256_CRLF, "the Windows-written form must be pinned"
+    plan = PLAN.read_text()
+    assert SYSMON_CFG_SHA256_CRLF in plan
+    assert SYSMON_CFG_SHA256_LF in plan
+
+
+def test_canary_sysmon_config_enables_eid1_and_eid5_only_as_validated():
+    import xml.etree.ElementTree as ET                    # noqa: PLC0415
+
+    root = ET.fromstring(SYSMON_CFG.read_text())
+    assert root.get("schemaversion") == "4.90"
+    rules = {node.tag: node.get("onmatch")
+             for node in root.find("EventFiltering")}
+    # exclude with no children == log everything for that event id
+    assert rules["ProcessCreate"] == "exclude", "EID 1 must be ON"
+    assert rules["ProcessTerminate"] == "exclude", (
+        "EID 5 must be ON — the B5-validated change")
+    for supported in ("NetworkConnect", "FileCreate", "RegistryEvent",
+                      "DnsQuery"):
+        assert rules[supported] == "exclude", supported
+    # every event id the DSM does not accept stays OFF
+    for unsupported in ("DriverLoad", "ImageLoad", "CreateRemoteThread",
+                        "RawAccessRead", "ProcessAccess", "FileCreateTime",
+                        "FileCreateStreamHash", "PipeEvent", "WmiEvent",
+                        "FileDelete", "ClipboardChange", "ProcessTampering",
+                        "FileDeleteDetected"):
+        assert rules[unsupported] == "include", unsupported
+    assert all(len(list(node)) == 0
+               for node in root.find("EventFiltering")), (
+        "no rule may carry children: that would filter evidence")
+
+
+def test_canary_config_differs_from_w1_baseline_by_exactly_one_token():
+    w1 = (REPO / "memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md").read_text()
+    assert '<ProcessTerminate onmatch="include"/>' in w1, (
+        "the W1 baseline is the source this config derives from")
+    text = SYSMON_CFG.read_text()
+    assert '<ProcessTerminate onmatch="exclude"/>' in text
+    assert '<ProcessTerminate onmatch="include"/>' not in text
+    # the stale 'LOG NOTHING' comment is preserved deliberately: the B5
+    # change swapped only the onmatch token, and rule equivalence with
+    # production matters more than tidying a comment
+    assert "LOG NOTHING for every unsupported event id" in text

@@ -1,0 +1,32 @@
+<Sysmon schemaversion="4.90">
+  <!-- NivXRay XDR W1 · SHA256 is required by the canonical hash evidence path -->
+  <HashAlgorithms>SHA256,MD5</HashAlgorithms>
+  <CheckRevocation>False</CheckRevocation>
+  <EventFiltering>
+    <!-- LOG EVERYTHING for the event ids the Sysmon DSM supports.
+         An empty onmatch="exclude" rule excludes nothing. -->
+    <ProcessCreate onmatch="exclude"/>            <!-- EID 1  -->
+    <NetworkConnect onmatch="exclude"/>           <!-- EID 3  -->
+    <FileCreate onmatch="exclude"/>               <!-- EID 11 -->
+    <RegistryEvent onmatch="exclude"/>            <!-- EID 12/13/14 -->
+    <DnsQuery onmatch="exclude"/>                 <!-- EID 22 -->
+
+    <!-- LOG NOTHING for every unsupported event id: an empty
+         onmatch="include" rule matches nothing. These would be refused at
+         the DSM boundary, so they are not generated in the first place. -->
+    <ProcessTerminate onmatch="exclude"/>         <!-- 5  -->
+    <DriverLoad onmatch="include"/>               <!-- 6  -->
+    <ImageLoad onmatch="include"/>                <!-- 7  -->
+    <CreateRemoteThread onmatch="include"/>       <!-- 8  -->
+    <RawAccessRead onmatch="include"/>            <!-- 9  -->
+    <ProcessAccess onmatch="include"/>            <!-- 10 -->
+    <FileCreateTime onmatch="include"/>           <!-- 2  -->
+    <FileCreateStreamHash onmatch="include"/>     <!-- 15 -->
+    <PipeEvent onmatch="include"/>                <!-- 17/18 -->
+    <WmiEvent onmatch="include"/>                 <!-- 19/20/21 -->
+    <FileDelete onmatch="include"/>               <!-- 23 -->
+    <ClipboardChange onmatch="include"/>          <!-- 24 -->
+    <ProcessTampering onmatch="include"/>         <!-- 25 -->
+    <FileDeleteDetected onmatch="include"/>       <!-- 26 -->
+  </EventFiltering>
+</Sysmon>
