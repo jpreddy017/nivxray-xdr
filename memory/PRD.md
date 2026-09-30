@@ -2635,3 +2635,66 @@ B5                     = HOLD
 - DEPLOYED/WRITTEN/REPLAYED/BACKFILLED: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX: UNTOUCHED ·
   E3: NOT STARTED.
 
+
+### 2026-09-30 — OWNER DECISION: B5 CLOSED (Option 1) + EID5 COUNTER CONTRACT FIXED
+```
+B5_FINAL_STATUS      = PASS
+B5_GAP_1_STATUS      = OPEN / ROOT CAUSE NOT YET PROVEN
+EID5_PROVIDER_FILTER = IMPLEMENTED
+REGRESSION_TEST      = 18 new PASS · full EDR gate suite 1,738 passed, 0 failed
+B5_READY_TO_LEAVE    = YES
+```
+- **B5 = PASS** on the 17 genuine production Sysmon EID5 (UtcTime 15:17:21 -> 17:40:10Z,
+  run 3bd64025, store `greeting-app-5782-test_database`): raw -> accepted (0 refusals)
+  -> 17 canonical `process_exit` 1:1 -> `exit_time = "sysmon:UtcTime (EventID 5)"`,
+  `start_time` null -> ProcessGuid via `nivx:ProcessIdentity.mint(endpoint_id,
+  ProcessGuid)` -> >=4 EID1/EID5 pairs -> lifecycle termination observed -> projected
+  under `dev_2adbb41a04a4` -> tenant preserved, no `_pl`, no backfill.
+- The original 10 ProcessGuids are NOT required for the capability gate and MUST NEVER
+  be replayed, reconstructed, backfilled or synthesized. None was.
+- **B5-GAP-1 OPEN**: Sysmon EID5 collection start-point coverage gap ~14:48-15:16Z on
+  DESKTOP-A9HGFJJ. Measured: no Sysmon EID5 in that 28-min window; every EID5 from
+  15:17:21Z on is present and processed; 0/10 guids anywhere; 0 refusals; frontier
+  passed the window by ~6h. The "sensor subscription predated the Sysmon config change"
+  story is a HYPOTHESIS ONLY — NOT root cause. Proving it needs READ-ONLY endpoint
+  evidence (do the 10 guids still exist in the local Sysmon log; where does the sensor's
+  EID5 coverage start). Deferred by owner; endpoint/sensor/Sysmon/outbox untouched.
+- **EID5 MEASUREMENT CONTRACT CORRECTED** in `backend/edr_plane/windows_eventlog.py`:
+  - `SYSMON_PROVIDER_GUID = "5770385F-C22A-43E0-BF4C-06F5698FFBD9"`.
+  - `FAMILY_PAYLOAD_REGEX["sysmon"]` now also matches the provider GUID
+    (`"provider_guid"` JSON key, XML `Guid='...'`), XML `<Channel>` and XML
+    `Provider Name='...'`. Every alternative stays KEYED to a field/attribute, so a
+    command line merely mentioning Sysmon cannot qualify a record.
+  - NEW `event_id_regex(event_id)` (JSON **and** event-XML shapes).
+  - NEW `sysmon_event_clause(event_id, payload_field="payload")` = THE sanctioned
+    find() clause, provider AND event id; works on other fields e.g. `raw.xml`.
+  - NEW `is_sysmon_event(payload, event_id)` for corpus counting.
+  - `payload_event_id_regex` docstring now says **PROVIDER-BLIND — never use alone to
+    COUNT a Sysmon event id**.
+  - NOTE: product queries (`activity_query_clauses`, `activity_projection_expr`) were
+    ALREADY provider-qualified, so no live query was ever wrong — the defect lived in
+    ad-hoc measurement. A bare `EventID=5` count returned 249 vs 17 genuine (the rest
+    `Microsoft-Windows-IsolatedUserMode` EID5 Trustlet starts) = 14x overstatement.
+- NEW `backend/tests/edr/test_b5_sysmon_provider_qualified_counting.py` (18 tests):
+  genuine Sysmon counts in 4 payload shapes; IsolatedUserMode EID5 does NOT count in
+  either shape; provider-less event id does not count; "sc query Sysmon" in a command
+  line is not provenance; wrong event id on right provider does not count; `5` not
+  matched inside `5379`; **the 249-vs-17 defect in miniature** (3 Sysmon + 16 Trustlet
+  + noise => exactly 3, and asserts a provider-blind count overstates); sanctioned
+  clause shape; canonicaliser maps Sysmon EID5 -> ACTIVITY_PROCESS_TERMINATION and
+  REFUSES IsolatedUserMode EID5; and the B5 invariant `exit_time` <- UtcTime with
+  `start_time` null re-proved.
+- DISCLOSED SELF-INFLICTED DEFECT, FIXED: the platform-designation tests added in the
+  previous step used `asyncio.get_event_loop().run_until_complete(...)`, which fails
+  once another async test replaces/closes the loop — 17 failures in a full-suite run
+  though green in isolation. Replaced with a fresh `asyncio.new_event_loop()` per call
+  closed in `finally`. Full suite now 1,738 passed / 0 failed. The provider-qualified
+  matcher caused none of those failures.
+- Invariants re-verified: `UtcTime -> exit_time` only · never `start_time` · ProcessGuid
+  authoritative · no PID/time/name heuristic binding · EID5 never leaves
+  PROCESS_LIFETIME_UNKNOWN · no historical backfill · tenant isolation · no new `_pl`.
+- Report: `/app/docs/B5_CLOSURE_RECORD.md`
+- E3: **NOT STARTED** (owner order: review first, then B5-GAP-1, then E3).
+  NOT DEPLOYED — the corrected matcher reaches production on the next ordinary publish.
+  No endpoint/sensor/Sysmon/outbox contact · no replay/backfill/synthesis · no UI change.
+

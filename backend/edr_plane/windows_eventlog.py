@@ -69,6 +69,13 @@ ACTIVITY_DNS = "DNS"
 ACTIVITY_AUTHENTICATION = "AUTHENTICATION"
 
 SYSMON_PROVIDER = "microsoft-windows-sysmon"
+
+#: Sysmon's provider GUID. A bare `EventID` is NOT a Sysmon identifier:
+#: `Microsoft-Windows-IsolatedUserMode` also emits EventID 5 (Secure
+#: Trustlet start, not a termination), which is exactly how a count of
+#: 249 "EID5" records once hid the 17 genuine ProcessTerminate events.
+#: Every measurement of a Sysmon event id MUST be provider-qualified.
+SYSMON_PROVIDER_GUID = "5770385F-C22A-43E0-BF4C-06F5698FFBD9"
 WINSEC_PROVIDER = "microsoft-windows-security-auditing"
 
 #: (provider family, event id) → activity class. A record outside this map
@@ -335,10 +342,18 @@ CHANNEL_FAMILY: Dict[str, str] = {
 }
 
 #: Payload text signatures per family, for server-side aggregation where
-#: the envelope cannot be deserialised (Mongo `$regexMatch`).
+#: the envelope cannot be deserialised (Mongo `$regexMatch`). Each
+#: alternative is keyed to a field name or attribute, never a bare
+#: substring, so a command line that merely MENTIONS Sysmon is not a
+#: Sysmon record. The GUID and XML forms exist because a payload may
+#: carry the provider only as a GUID, or as event XML rather than JSON.
 FAMILY_PAYLOAD_REGEX: Dict[str, str] = {
     "sysmon": (r'"channel"\s*:\s*"Microsoft-Windows-Sysmon/Operational"'
-               r'|"provider"\s*:\s*"[^"]*Sysmon'),
+               r'|"provider"\s*:\s*"[^"]*Sysmon'
+               r'|"provider_guid"\s*:\s*"\{?' + SYSMON_PROVIDER_GUID +
+               r'|<Channel>Microsoft-Windows-Sysmon/Operational</Channel>'
+               r'|Name=.{0,2}Microsoft-Windows-Sysmon'
+               r'|Guid=.{0,2}\{?' + SYSMON_PROVIDER_GUID),
     "winsec": (r'"channel"\s*:\s*"Security"'
                r'|"provider"\s*:\s*"[^"]*Security-Auditing'),
 }
@@ -489,8 +504,47 @@ def flat_view(ev: Any) -> Optional[Dict[str, Any]]:
 
 
 def payload_event_id_regex(event_id: int) -> str:
-    """Matches `"event_id": "4624"` / `"event_id": 4624` and nothing longer."""
+    """Matches `"event_id": "4624"` / `"event_id": 4624` and nothing longer.
+
+    PROVIDER-BLIND. Never use alone to COUNT a Sysmon event id — several
+    Windows providers share low event ids. Use `sysmon_event_clause` or
+    `is_sysmon_event`.
+    """
     return r'"event_id"\s*:\s*"?%d"?\s*[,}]' % event_id
+
+
+def event_id_regex(event_id: int) -> str:
+    """`event_id` in either payload shape: JSON envelope or event XML."""
+    return (r'("event_id"\s*:\s*"?%d"?\s*[,}]'
+            r'|<EventID[^>]*>\s*%d\s*</EventID>)' % (event_id, event_id))
+
+
+def sysmon_event_clause(event_id: int, payload_field: str = "payload"
+                        ) -> Dict[str, Any]:
+    """THE sanctioned `find()` clause for counting a genuine Sysmon event id.
+
+    Requires BOTH the Sysmon provider (by name, provider GUID or its
+    privileged channel) AND the event id. A bare event-id filter is not a
+    valid measurement of Sysmon ProcessTerminate and must not be used.
+    """
+    return {"$and": [
+        {payload_field: {"$regex": FAMILY_PAYLOAD_REGEX["sysmon"],
+                         "$options": "i"}},
+        {payload_field: {"$regex": event_id_regex(event_id),
+                         "$options": "i"}}]}
+
+
+def is_sysmon_event(payload: Any, event_id: int) -> bool:
+    """True only when `payload` is a genuine Sysmon record of `event_id`.
+
+    In-process counterpart of `sysmon_event_clause`, for counting over a
+    corpus. A non-Sysmon provider carrying the same event id — an
+    IsolatedUserMode Trustlet EventID 5, say — is False.
+    """
+    text = payload if isinstance(payload, str) else str(payload or "")
+    if not re.search(FAMILY_PAYLOAD_REGEX["sysmon"], text, re.I):
+        return False
+    return bool(re.search(event_id_regex(event_id), text, re.I))
 
 
 def activity_projection_expr(payload_field: str = "$payload",

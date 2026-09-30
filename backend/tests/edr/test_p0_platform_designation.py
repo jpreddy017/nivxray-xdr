@@ -81,8 +81,12 @@ def _run(users, monkeypatch, principal=PRINCIPAL, logger=None):
         monkeypatch.delenv(pd.ENV_VAR, raising=False)
     else:
         monkeypatch.setenv(pd.ENV_VAR, principal)
-    return asyncio.get_event_loop().run_until_complete(
-        pd.designate_platform_principal(users, logger))
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(
+            pd.designate_platform_principal(users, logger))
+    finally:
+        loop.close()
 
 
 # ---------------------------------------------------------------- A · writes
