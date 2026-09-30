@@ -3276,3 +3276,15 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   genuine EID 5 for the SAME ProcessGuid, correlation on ProcessGuid (PID asserted additionally,
   never instead), EventRecordID/UTC/Image/ProcessId/ProcessGuid preserved, fail closed,
   rollback path stated. C0.3b block issued for owner review; NOT executed.
+- C0.3b attempt 1 = NOT_PASSED, KUSHU stayed CLEAN (no service, no driver, no channel, no
+  driver parameters, 0 Sysmon events; binary + config hashes unchanged). ROOT CAUSE: the block
+  used `& $bin -accepteula -i $cfg 2>&1 | Out-String` under $ErrorActionPreference='Stop';
+  PowerShell converts native stderr into error records, so the merged stream raised
+  NativeCommandError and terminated the script BEFORE $LASTEXITCODE was read. Sysmon writes
+  its banner to stderr even on success, so the script aborted at the invocation and no install
+  was attempted. NO repository code or config changed; XML and all pinned hashes untouched.
+- FIX (capture mechanism only, no acceptance condition weakened): binding native-invocation
+  rule recorded in docs/B5_GAP_1_CANARY_PLAN.md §0 - every native call goes through
+  Invoke-NativeCaptured (Start-Process -Wait -PassThru with stdout/stderr redirected to files),
+  giving the real exit code and both streams; non-zero still halts. C0.3b-R issued for owner
+  review, not executed.

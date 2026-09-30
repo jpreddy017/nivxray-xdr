@@ -98,6 +98,22 @@ preserved in the evidence directory as
 `REJECTED-nivx-b5gap1-canary-sysmon.<stamp>.xml` — never deleted, never
 blessed. A failing hash is never replaced with the observed value.
 
+### Native-invocation rule (learned on KUSHU, binding for every block)
+
+`& $exe ... 2>&1 | Out-String` under `$ErrorActionPreference = 'Stop'` is
+FORBIDDEN in these blocks. PowerShell turns a native program's stderr
+output into error records; merged with `2>&1` under `Stop` that raises
+`NativeCommandError` and terminates the script BEFORE `$LASTEXITCODE` can
+be read. Sysmon writes its banner to stderr on a perfectly successful run,
+so the first C0.3b aborted at the invocation itself — no install was
+attempted, which is why KUSHU stayed clean.
+
+Every native call goes through `Invoke-NativeCaptured`, which uses
+`Start-Process -Wait -PassThru` with stdout and stderr redirected to files.
+That yields the REAL exit code plus both streams, and stderr can never
+become a terminating error. A non-zero exit code still halts: the fix is to
+the capture mechanism only, never to an acceptance condition.
+
 ### C0.3b acceptance definition (first state change on the canary)
 
 C0.3b is the first block that modifies the machine. Acceptance is proof,
