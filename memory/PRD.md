@@ -3209,3 +3209,9 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
 - Lifecycle: B5 = PASS · B5-GAP-1 implementation = PASS · Windows artifact = PASS ·
   disposable canary = PENDING · Device Trajectory = foundation exists, gap audit complete,
   fixes not accepted · E3-E6 = pending after the canary.
+- WORDING CORRECTION (owner): do NOT state that Cisco "destroys/discards" repeated events.
+  Sourced fact is only that Cisco documents a per-file event CACHE preventing another event
+  from being TRIGGERED within the window, and that its trajectory reads comparatively
+  sparse/collapsed. No documentation exists that its backend discards recorded events.
+  NivXForge requirement stays deliberately stronger: visual collapse only, underlying
+  observations intact and individually retrievable. Corrected in the B7 audit row.
