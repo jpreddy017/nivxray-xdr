@@ -76,31 +76,236 @@ jobs:
           exit 0
 
       # ── ACCEPTANCE GATE 0 · B5-GAP-1 EVIDENCE JOURNAL ─────────────
-      # The only place the real question can be answered: did PyInstaller
-      # actually pack `sqlite3` and its native extension into THIS binary,
-      # and do WAL + synchronous=FULL behave on a Windows filesystem? A
-      # Linux unit test cannot know. The artifact proves it about itself.
-      - name: Evidence journal works inside the frozen artifact
+      # The only place the real questions can be answered: did PyInstaller
+      # actually pack `sqlite3` and its native `_sqlite3` extension into
+      # THIS binary, do WAL + synchronous=FULL behave on NTFS, does a WAL
+      # reopen recover, and does committed evidence survive a restart of
+      # the FROZEN executable? A Linux unit test cannot know any of it.
+      # The artifact proves it about itself, twice, in two processes.
+      - name: Gate 0 · frozen journal selftest (primary + restart process)
+        id: gate0_selftest
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          # A FAILING selftest must not abort this step: the report step
+          # below has to be able to publish the evidence. So native exit
+          # codes are captured, not thrown (PowerShell 7.4 turns a non-zero
+          # native exit into a terminating error when EAP is Stop).
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
           $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
-          $out = (& $exe journal-selftest 2>&1 | Out-String)
-          if ($LASTEXITCODE -ne 0) {
-            throw "journal selftest exited $LASTEXITCODE`n$out"
-          }
+          $scratch = Join-Path $env:RUNNER_TEMP 'gate0-journal'
+          Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+          $gateDir = 'agents/nivxforge-windows/dist/gate0'
+          New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
+
+          # PHASE 1 — the frozen binary proves the journal about ITSELF.
+          $primary = Join-Path $gateDir 'gate0-selftest-primary.json'
+          $out = (& $exe journal-selftest --dir $scratch `
+                    --json-out $primary 2>&1 | Out-String)
+          $primaryExit = $LASTEXITCODE
           Write-Host $out
-          foreach ($need in @('"result": "PASS"', '"sqlite3_importable": true',
-                              '"wal_mode": true', '"synchronous_full": true',
-                              '"schema_initialized": true',
-                              '"durable_commit": true',
-                              '"replay_is_idempotent": true',
-                              '"frozen": true')) {
-            if ($out -notlike "*$need*") {
-              throw "journal selftest did not assert $need"
+          $global:LASTEXITCODE = 0
+
+          # PHASE 2 — a NEW PROCESS of the SAME frozen binary reopens the
+          # SAME journal directory. This is the only honest proof of
+          # frozen-executable restart recovery on NTFS.
+          $restart = Join-Path $gateDir 'gate0-selftest-restart.json'
+          $out2 = (& $exe journal-selftest --dir $scratch --restart-check `
+                     --json-out $restart 2>&1 | Out-String)
+          $restartExit = $LASTEXITCODE
+          Write-Host $out2
+          $global:LASTEXITCODE = 0
+
+          # The selftest writes its JSON even when it FAILS, so the report
+          # step below can always produce owner-reviewable evidence. Exit
+          # codes are still recorded and still fail the job there.
+          "primary_exit=$primaryExit"  | Out-File -Append $env:GITHUB_OUTPUT
+          "restart_exit=$restartExit"  | Out-File -Append $env:GITHUB_OUTPUT
+          if ($primaryExit -ne 0 -or $restartExit -ne 0) {
+            Write-Host "GATE 0 SELFTEST: FAIL (primary=$primaryExit restart=$restartExit)"
+          } else {
+            Write-Host 'GATE 0 SELFTEST: executed (verdicts asserted in the report step)'
+          }
+          exit 0
+
+      # ── GATE 0 REPORT · FAIL CLOSED ───────────────────────────────
+      # Every mandatory assertion must be PRESENT and equal to "PASS".
+      # A missing field is a FAILURE, never a warning: a security sensor
+      # build must not ship a journal it cannot prove. The machine-readable
+      # report is what the owner pastes back for review.
+      - name: Gate 0 · compose machine-readable verdict (fail closed)
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $dist    = 'agents/nivxforge-windows/dist'
+          $gateDir = Join-Path $dist 'gate0'
+          New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
+          $primaryPath = Join-Path $gateDir 'gate0-selftest-primary.json'
+          $restartPath = Join-Path $gateDir 'gate0-selftest-restart.json'
+          $exePath     = Join-Path $dist 'NivXForgeEDRSetup.exe'
+          $infoPath    = Join-Path $dist 'build-info.json'
+
+          function Read-Json($path) {
+            if (Test-Path $path) {
+              try { return (Get-Content $path -Raw | ConvertFrom-Json) }
+              catch { return $null }
+            }
+            return $null
+          }
+          $primary = Read-Json $primaryPath
+          $restart = Read-Json $restartPath
+          $info    = Read-Json $infoPath
+          $problems = New-Object 'System.Collections.Generic.List[string]'
+
+          function Field($obj, $name) {
+            if ($null -eq $obj -or $null -eq $obj.gate0) { return 'MISSING' }
+            $v = $obj.gate0.$name
+            if ($null -eq $v -or "$v" -eq '') { return 'MISSING' }
+            return "$v"
+          }
+
+          $mandatory = @(
+            'WINDOWS_SQLITE', 'WINDOWS_SQLITE_NATIVE_BINARY',
+            'WINDOWS_JOURNAL_MODULE', 'WINDOWS_NTFS_DATABASE_CREATE',
+            'WINDOWS_WAL_CREATE', 'WINDOWS_WAL_REOPEN_RECOVERY',
+            'WINDOWS_SYNCHRONOUS_FULL', 'WINDOWS_AUTO_VACUUM_INCREMENTAL',
+            'WINDOWS_SCHEMA', 'WINDOWS_DURABLE_COMMIT',
+            'WINDOWS_CURSOR_COMMIT', 'WINDOWS_REPLAY_IDEMPOTENCY',
+            'WINDOWS_INTEGRITY_SNAPSHOT', 'WINDOWS_GAP_CONTRACT',
+            'WINDOWS_STATE_DIR_ACCESS', 'WINDOWS_SERVICE_PERMISSION_CHECK',
+            'PACKAGING_REGRESSION')
+
+          $verdicts = [ordered]@{}
+          foreach ($name in $mandatory) {
+            $value = Field $primary $name
+            $verdicts[$name] = $value
+            if ($value -ne 'PASS') {
+              $problems.Add("$name = $value (mandatory, must be PASS)")
             }
           }
-          Write-Host 'EVIDENCE JOURNAL (FROZEN): PASS'
+          # Restart recovery is only provable by the SECOND process.
+          $restartVerdict = Field $restart 'WINDOWS_FROZEN_RESTART'
+          $verdicts['WINDOWS_FROZEN_RESTART'] = $restartVerdict
+          if ($restartVerdict -ne 'PASS') {
+            $problems.Add("WINDOWS_FROZEN_RESTART = $restartVerdict (mandatory, must be PASS)")
+          }
+          # The evidence is only Windows evidence if it came from the
+          # FROZEN artifact. A system-Python run is not acceptable.
+          foreach ($pair in @(@('primary', $primary), @('restart', $restart))) {
+            $frozen = Field $pair[1] 'WINDOWS_FROZEN'
+            if ($frozen -ne 'TRUE') {
+              $problems.Add("$($pair[0]) selftest WINDOWS_FROZEN = $frozen (system Python is NOT acceptable)")
+            }
+          }
+          $sqliteVer = Field $primary 'WINDOWS_SQLITE_LIBRARY_VERSION'
+          if ($sqliteVer -in @('MISSING', 'ABSENT')) {
+            $problems.Add("WINDOWS_SQLITE_LIBRARY_VERSION = $sqliteVer (must be PRESENT)")
+          }
+          foreach ($pair in @(@('PRIMARY', $primary), @('RESTART', $restart))) {
+            if ($null -eq $pair[1]) {
+              $problems.Add("$($pair[0]) selftest produced no JSON evidence")
+            } elseif ($pair[1].result -ne 'PASS') {
+              $problems.Add("$($pair[0]) selftest result = $($pair[1].result) failed=$($pair[1].failed -join ',')")
+            }
+          }
+          if ('${{ steps.gate0_selftest.outputs.primary_exit }}' -ne '0') {
+            $problems.Add('PRIMARY selftest exited non-zero')
+          }
+          if ('${{ steps.gate0_selftest.outputs.restart_exit }}' -ne '0') {
+            $problems.Add('RESTART selftest exited non-zero')
+          }
+          # Packaging provenance: the required modules must have come from
+          # INSIDE the frozen bundle, not from a system Python on the path.
+          if ($primary -and $primary.checks.module_provenance) {
+            foreach ($mod in @('nivxforge_journal', 'nivxforge_sensor',
+                               'sqlite3', '_sqlite3')) {
+              $p = $primary.checks.module_provenance.$mod
+              if ($null -eq $p -or -not $p.present) {
+                $problems.Add("packaging regression: $mod absent from the frozen artifact")
+              } elseif ($p.PSObject.Properties.Name -contains 'in_frozen_bundle' `
+                        -and -not $p.in_frozen_bundle) {
+                $problems.Add("packaging regression: $mod resolved OUTSIDE the frozen bundle ($($p.file))")
+              }
+            }
+            if (-not $primary.checks.module_provenance._sqlite3.file_on_disk) {
+              $problems.Add('packaging regression: native _sqlite3 binary is not a real file in the bundle')
+            }
+          }
+
+          $buildOk = (Test-Path $exePath) -and ($null -ne $info)
+          if (-not $buildOk) { $problems.Add('WINDOWS_ARTIFACT_BUILD = FAIL (no artifact or build-info.json)') }
+          $pyi = ''
+          try { $pyi = (& python -m PyInstaller --version 2>&1 | Out-String).Trim() } catch { $pyi = 'UNKNOWN' }
+
+          $selftestPass = ($problems.Count -eq 0)
+          $report = [ordered]@{
+            GATE                          = 'B5-GAP-1 WINDOWS GATE 0'
+            GENERATED_AT                  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            RUNNER_OS                     = "$env:RUNNER_OS $env:PROCESSOR_ARCHITECTURE"
+
+            WINDOWS_ARTIFACT_BUILD        = $(if ($buildOk) { 'PASS' } else { 'FAIL' })
+            WINDOWS_FROZEN_SELFTEST       = $(if ($selftestPass) { 'PASS' } else { 'FAIL' })
+            WINDOWS_FROZEN                = $(Field $primary 'WINDOWS_FROZEN')
+            WINDOWS_SQLITE                = $verdicts['WINDOWS_SQLITE']
+            WINDOWS_SQLITE_LIBRARY_VERSION = $sqliteVer
+            WINDOWS_SQLITE_NATIVE_BINARY  = $verdicts['WINDOWS_SQLITE_NATIVE_BINARY']
+            WINDOWS_JOURNAL_MODULE        = $verdicts['WINDOWS_JOURNAL_MODULE']
+            WINDOWS_NTFS_DATABASE_CREATE  = $verdicts['WINDOWS_NTFS_DATABASE_CREATE']
+            WINDOWS_WAL_CREATE            = $verdicts['WINDOWS_WAL_CREATE']
+            WINDOWS_WAL_REOPEN_RECOVERY   = $verdicts['WINDOWS_WAL_REOPEN_RECOVERY']
+            WINDOWS_SYNCHRONOUS_FULL      = $verdicts['WINDOWS_SYNCHRONOUS_FULL']
+            WINDOWS_AUTO_VACUUM_INCREMENTAL = $verdicts['WINDOWS_AUTO_VACUUM_INCREMENTAL']
+            WINDOWS_SCHEMA                = $verdicts['WINDOWS_SCHEMA']
+            WINDOWS_DURABLE_COMMIT        = $verdicts['WINDOWS_DURABLE_COMMIT']
+            WINDOWS_CURSOR_COMMIT         = $verdicts['WINDOWS_CURSOR_COMMIT']
+            WINDOWS_REPLAY_IDEMPOTENCY    = $verdicts['WINDOWS_REPLAY_IDEMPOTENCY']
+            WINDOWS_INTEGRITY_SNAPSHOT    = $verdicts['WINDOWS_INTEGRITY_SNAPSHOT']
+            WINDOWS_GAP_CONTRACT          = $verdicts['WINDOWS_GAP_CONTRACT']
+            WINDOWS_FROZEN_RESTART        = $verdicts['WINDOWS_FROZEN_RESTART']
+            WINDOWS_STATE_DIR_ACCESS      = $verdicts['WINDOWS_STATE_DIR_ACCESS']
+            WINDOWS_SERVICE_PERMISSION_CHECK = $verdicts['WINDOWS_SERVICE_PERMISSION_CHECK']
+            PACKAGING_REGRESSION          = $verdicts['PACKAGING_REGRESSION']
+
+            SCRATCH_FILESYSTEM            = $(if ($primary) { $primary.checks.scratch_filesystem } else { 'MISSING' })
+            STATE_DIR                     = $(if ($primary) { $primary.checks.state_dir } else { 'MISSING' })
+            SQLITE_RUNTIME_BINARIES       = $(if ($primary) { $primary.checks.sqlite_runtime_binaries } else { @() })
+
+            ARTIFACT_FILENAME             = $(if ($info) { $info.artifact } else { 'MISSING' })
+            ARTIFACT_VERSION              = $(if ($info) { "sensor $($info.sensor_version) / setup $($info.setup_version)" } else { 'MISSING' })
+            ARTIFACT_SHA256               = $(if ($info) { $info.sha256 } else { 'MISSING' })
+            SERVICE_HOST_SHA256           = $(if ($info) { $info.service_host_sha256 } else { 'MISSING' })
+            COMMIT_SHA                    = $env:GITHUB_SHA
+            BUILD_WORKFLOW                = 'windows-sensor-installer.yml'
+            WORKFLOW_RUN_ID               = $env:GITHUB_RUN_ID
+            BUILD_TIMESTAMP               = $(if ($info) { $info.built_at } else { 'MISSING' })
+            PYINSTALLER_VERSION           = $pyi
+            SIGNING_STATUS                = $(if ($info) { $info.signing_status } else { 'MISSING' })
+
+            CANARY_PLAN_READY             = 'YES'
+            CANARY_STARTED                = 'NO'
+            CORRELATION_CACHE_IMPLEMENTED = 'NO'
+            COUNTER_BATCHING_IMPLEMENTED  = 'NO'
+            RAW_EVENT_PATH_MODIFIED       = 'NO'
+            DESKTOP_A9HGFJJ_TOUCHED       = 'NO'
+            PRODUCTION_DEPLOYED           = 'NO'
+
+            GATE0_VERDICT                 = $(if ($selftestPass -and $buildOk) { 'CLOSED_PASS' } else { 'BLOCKED_FAIL' })
+            PROBLEMS                      = @($problems)
+          }
+          $json = ($report | ConvertTo-Json -Depth 6)
+          $json | Set-Content (Join-Path $gateDir 'GATE0_WINDOWS_REPORT.json') -Encoding ascii
+          Write-Host $json
+          if ($env:GITHUB_STEP_SUMMARY) {
+            "## B5-GAP-1 Windows Gate 0`n`n``````json`n$json`n``````" |
+              Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          }
+          if ($problems.Count -gt 0 -or -not $buildOk) {
+            Write-Host 'WINDOWS GATE 0: BLOCKED (fail closed)'
+            exit 1
+          }
+          Write-Host 'WINDOWS GATE 0: PASS'
           exit 0
 
       # ── ACCEPTANCE GATE 1 ─────────────────────────────────────────
@@ -284,11 +489,13 @@ jobs:
           exit 0
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: NivXForgeEDRSetup-windows-x64
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
           path: |
             agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
             agents/nivxforge-windows/dist/SHA256SUMS.txt
             agents/nivxforge-windows/dist/build-info.json
+            agents/nivxforge-windows/dist/gate0/*.json

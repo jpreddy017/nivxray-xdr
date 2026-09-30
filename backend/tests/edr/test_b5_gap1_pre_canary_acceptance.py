@@ -474,13 +474,16 @@ def test_setup_exposes_the_journal_selftest(tmp_path, monkeypatch):
 
 
 def test_windows_build_gates_on_the_frozen_journal_selftest():
+    """The FULL Gate 0 CI contract lives in
+    `test_b5_gap1_windows_gate0_ci_contract.py`; this keeps the wiring
+    assertion where the pre-canary harness expects it."""
     workflow = (fx.AGENT_DIR.parents[1]
                 / ".github/workflows/windows-sensor-installer.yml").read_text()
     assert "journal-selftest" in workflow
-    assert '"frozen": true' in workflow, (
+    assert "WINDOWS_FROZEN" in workflow, (
         "the gate must require the FROZEN binary, not a system Python")
-    assert '"wal_mode": true' in workflow
-    assert '"synchronous_full": true' in workflow
+    assert "'WINDOWS_WAL_CREATE'" in workflow
+    assert "'WINDOWS_SYNCHRONOUS_FULL'" in workflow
     build = (fx.AGENT_DIR / "build/build_windows_installer.ps1").read_text()
     assert "'nivxforge_journal'" in build
     assert "'sqlite3'" in build

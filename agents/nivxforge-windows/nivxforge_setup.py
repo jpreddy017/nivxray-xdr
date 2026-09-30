@@ -526,56 +526,227 @@ def build_parser() -> argparse.ArgumentParser:
                        help="prove the evidence journal works IN THIS BINARY")
     j.add_argument("--dir", default=None,
                    help="scratch directory (default: a temp dir)")
+    j.add_argument("--json-out", default=None,
+                   help="write the machine-readable Gate 0 result here")
+    j.add_argument("--restart-check", action="store_true",
+                   help="re-open an EXISTING --dir and prove the journal "
+                        "survived a full process restart of this binary")
     return ap
 
 
-def journal_selftest(scratch: str | None = None) -> dict:
-    """GATE A · prove the LOCAL EVIDENCE JOURNAL inside the real artifact.
+#: value used for a check that CANNOT be answered off Windows. It is NOT
+#: a pass: the Gate 0 CI contract demands the literal string "PASS", so a
+#: Linux run can never be mistaken for Windows evidence.
+NOT_WINDOWS = "N/A_NON_WINDOWS"
+_IS_WINDOWS = os.name == "nt"
+#: modules the frozen artifact MUST carry for the evidence journal to work
+#: on an endpoint with no Python installed.
+_REQUIRED_BUNDLED = ("nivxforge_sensor", "nivxforge_journal", "sqlite3",
+                     "_sqlite3")
+_SELFTEST_EVENT = {
+    "observed_at": "selftest", "kind": "WINDOWS_EVENT_LOG",
+    "winlog": {"channel": "SelfTest", "record_id": 1, "event_id": "1",
+               "provider": "selftest", "time_created": "selftest",
+               "xml": "<Event/>"}}
 
-    A Linux unit test cannot answer the only question that matters for the
+
+def _volume_filesystem(path: str | os.PathLike) -> str:
+    """Filesystem name of the volume holding `path` (NTFS / FAT32 / ...)."""
+    if not _IS_WINDOWS:
+        return NOT_WINDOWS
+    drive = os.path.splitdrive(str(Path(path).resolve()))[0]
+    if not drive:
+        return "UNKNOWN"
+    fs = ctypes.create_unicode_buffer(261)
+    name = ctypes.create_unicode_buffer(261)
+    try:
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(  # type: ignore[attr-defined]
+            ctypes.c_wchar_p(drive + "\\"), name, 261, None, None, None,
+            fs, 261)
+    except (AttributeError, OSError):
+        return "UNKNOWN"
+    return fs.value.upper() if ok else "UNKNOWN"
+
+
+def _module_provenance() -> dict:
+    """Where each required module actually came from IN THIS PROCESS.
+
+    Packaging regressions are silent by construction: a missing hidden
+    import only fails on the endpoint, at the moment evidence would have
+    been journaled. So the artifact reports its own provenance and the
+    build FAILS CLOSED on it.
+    """
+    import importlib                                       # noqa: PLC0415
+
+    bundle = getattr(sys, "_MEIPASS", None)
+    out: dict = {}
+    for name in _REQUIRED_BUNDLED:
+        try:
+            module = importlib.import_module(name)
+        except Exception as ex:                            # noqa: BLE001
+            out[name] = {"present": False,
+                         "error": f"{type(ex).__name__}: {str(ex)[:200]}"}
+            continue
+        file = getattr(module, "__file__", None)
+        info: dict = {"present": True, "file": file,
+                      "file_on_disk": bool(file and Path(file).exists())}
+        if bundle and file:
+            try:
+                info["in_frozen_bundle"] = Path(file).resolve().is_relative_to(
+                    Path(bundle).resolve())
+            except (OSError, ValueError):
+                info["in_frozen_bundle"] = False
+        out[name] = info
+    return out
+
+
+def _packaging_regression_ok(provenance: dict) -> bool:
+    """No required module may be absent, and the NATIVE sqlite extension
+    must be a real file inside the frozen bundle."""
+    if any(not info.get("present") for info in provenance.values()):
+        return False
+    native = provenance.get("_sqlite3", {})
+    if not native.get("file_on_disk"):
+        return False
+    if getattr(sys, "frozen", False):
+        return all(info.get("in_frozen_bundle") is not False
+                   for info in provenance.values()) \
+            and bool(native.get("in_frozen_bundle"))
+    return True
+
+
+def _sqlite_runtime_binaries() -> list[str]:
+    """Native SQLite files found next to / inside this process image."""
+    roots = [Path(p) for p in
+             {getattr(sys, "_MEIPASS", None), str(Path(sys.executable).parent)}
+             if p]
+    found: list[str] = []
+    for root in roots:
+        for pattern in ("sqlite3.dll", "_sqlite3*.pyd", "_sqlite3*.so",
+                        "libsqlite3*"):
+            found += [str(hit) for hit in root.glob(pattern)]
+    return sorted(set(found))
+
+
+def _state_dir_access() -> object:
+    """The SERVICE writes evidence here, so write access is a gate."""
+    if not _IS_WINDOWS:
+        return NOT_WINDOWS
+    try:
+        state = sensor.STATE_DIR
+        state.mkdir(parents=True, exist_ok=True)
+        probe = state / ".gate0-probe"
+        probe.write_text("gate0", encoding="ascii")
+        ok = probe.read_text(encoding="ascii") == "gate0"
+        probe.unlink()
+        return ok
+    except OSError:
+        return False
+
+
+def _service_permission_check() -> object:
+    """SYSTEM (or Administrators) must own the state dir, and it must not
+    be writable by everyone: the endpoint credential lives there."""
+    if not _IS_WINDOWS:
+        return NOT_WINDOWS
+    try:
+        acl = subprocess.run(["icacls", str(sensor.STATE_DIR)],
+                             capture_output=True, text=True,
+                             timeout=60).stdout or ""
+    except (OSError, subprocess.SubprocessError):
+        return False
+    dense = acl.upper().replace(" ", "")
+    privileged = ("NTAUTHORITY\\SYSTEM" in dense
+                  or "BUILTIN\\ADMINISTRATORS" in dense
+                  or "S-1-5-18" in dense or "S-1-5-32-544" in dense)
+    world_writable = ("EVERYONE:(F)" in dense or "EVERYONE:(M)" in dense
+                      or "EVERYONE:(W)" in dense)
+    return bool(privileged and not world_writable)
+
+
+def _pragmas(db) -> dict:
+    return {
+        "wal_mode": str(db.execute(
+            "PRAGMA journal_mode").fetchone()[0]).lower() == "wal",
+        "synchronous_full": int(
+            db.execute("PRAGMA synchronous").fetchone()[0]) == 2,
+        "auto_vacuum_incremental": int(
+            db.execute("PRAGMA auto_vacuum").fetchone()[0]) == 2,
+    }
+
+
+def journal_selftest(scratch: str | None = None, *,
+                     restart_check: bool = False) -> dict:
+    """GATE 0 · prove the LOCAL EVIDENCE JOURNAL inside the real artifact.
+
+    A Linux unit test cannot answer the only questions that matter for the
     frozen Windows binary: did PyInstaller actually pack `sqlite3` and its
-    native `_sqlite3` extension, and does WAL + `synchronous=FULL` behave
-    on this filesystem? So the binary proves it about ITSELF, and the
-    Windows build gates on this command.
+    native `_sqlite3` extension, does WAL + `synchronous=FULL` behave on
+    NTFS, does a WAL reopen recover, and can the service reach its state
+    directory? So the binary proves it about ITSELF and the Windows build
+    gates on the answer. Anything unanswerable on this platform is
+    reported as NOT_WINDOWS, never as a pass.
+
+    `restart_check` re-opens an EXISTING `scratch` directory in a NEW
+    process of this same executable, which is the only honest proof that
+    committed evidence survives a frozen-executable restart.
     """
     import sqlite3 as _sqlite3                             # noqa: PLC0415
     import tempfile                                        # noqa: PLC0415
 
-    checks: dict = {"frozen": bool(getattr(sys, "frozen", False)),
-                    "python_bundled": not bool(
-                        os.environ.get("NIVX_SELFTEST_EXPECT_SYSTEM_PYTHON")),
-                    "executable": sys.executable,
-                    "sqlite3_importable": True,
-                    "sqlite_library_version": _sqlite3.sqlite_version,
-                    "journal_module_importable": bool(
-                        sensor.nvx_journal.JOURNAL_VERSION),
-                    "journal_version": sensor.nvx_journal.JOURNAL_VERSION,
-                    "schema_version": sensor.nvx_journal.SCHEMA_VERSION}
+    phase = "RESTART" if restart_check else "PRIMARY"
+    if restart_check and not scratch:
+        return {"result": "FAIL", "phase": phase,
+                "failed": ["restart_check_requires_dir"], "checks": {}}
+    provenance = _module_provenance()
+    checks: dict = {
+        "frozen": bool(getattr(sys, "frozen", False)),
+        "python_bundled": not bool(
+            os.environ.get("NIVX_SELFTEST_EXPECT_SYSTEM_PYTHON")),
+        "executable": sys.executable,
+        "platform": "windows" if _IS_WINDOWS else os.name,
+        "sqlite3_importable": True,
+        "sqlite_library_version": _sqlite3.sqlite_version,
+        "sqlite3_native_binary": bool(
+            provenance.get("_sqlite3", {}).get("file_on_disk")),
+        "sqlite3_native_binary_path":
+            provenance.get("_sqlite3", {}).get("file"),
+        "sqlite_runtime_binaries": _sqlite_runtime_binaries(),
+        "journal_module_importable": bool(
+            sensor.nvx_journal.JOURNAL_VERSION),
+        "journal_version": sensor.nvx_journal.JOURNAL_VERSION,
+        "schema_version": sensor.nvx_journal.SCHEMA_VERSION,
+        "module_provenance": provenance,
+        "packaging_regression_free": _packaging_regression_ok(provenance),
+    }
     root = scratch or tempfile.mkdtemp(prefix="nivxforge-journal-selftest-")
+    checks["scratch_filesystem"] = _volume_filesystem(root)
     journal = sensor.nvx_journal.open_journal(root)
     try:
         db = journal._db                                   # noqa: SLF001
         checks["database_created"] = Path(journal.path).exists()
-        checks["wal_mode"] = str(db.execute(
-            "PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
-        checks["synchronous_full"] = int(
-            db.execute("PRAGMA synchronous").fetchone()[0]) == 2
-        checks["auto_vacuum_incremental"] = int(
-            db.execute("PRAGMA auto_vacuum").fetchone()[0]) == 2
+        checks.update(_pragmas(db))
+        checks["ntfs_database_create"] = (
+            NOT_WINDOWS if not _IS_WINDOWS else
+            bool(checks["database_created"]
+                 and checks["scratch_filesystem"] == "NTFS"))
         tables = {row[0] for row in db.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
         checks["schema_initialized"] = {
             "evidence", "cursors", "acquisition_gaps", "integrity", "meta"
         } <= tables
-        event = {"observed_at": "selftest", "kind": "WINDOWS_EVENT_LOG",
-                 "winlog": {"channel": "SelfTest", "record_id": 1,
-                            "event_id": "1", "provider": "selftest",
-                            "time_created": "selftest", "xml": "<Event/>"}}
-        first = journal.commit_page("SelfTest", [event], 1, [])
-        replay = journal.commit_page("SelfTest", [event], 1, [])
-        checks["durable_commit"] = first["journaled"] == 1
+        first = journal.commit_page("SelfTest", [_SELFTEST_EVENT], 1, [])
+        replay = journal.commit_page("SelfTest", [_SELFTEST_EVENT], 1, [])
+        checks["durable_commit"] = (first["journaled"] == 1
+                                    if phase == "PRIMARY"
+                                    else first["journaled"] == 0)
         checks["cursor_committed"] = journal.cursor("SelfTest") == 1
         checks["replay_is_idempotent"] = replay["journaled"] == 0
+        checks["evidence_rows"] = int(db.execute(
+            "SELECT COUNT(*) FROM evidence").fetchone()[0])
+        checks["wal_file_created"] = (
+            NOT_WINDOWS if not _IS_WINDOWS
+            else Path(str(journal.path) + "-wal").exists())
         checks["integrity_snapshot"] = Path(
             journal.write_integrity_snapshot(journal.health())).exists()
         gap = sensor.nvx_journal.build_gap("SelfTest", 101, 105, "LEADING")
@@ -583,16 +754,94 @@ def journal_selftest(scratch: str | None = None) -> dict:
                                   and gap["cause"] == "NOT_PROVEN")
     finally:
         journal.close()
-    required = ("sqlite3_importable", "journal_module_importable",
+
+    # WAL REOPEN / RECOVERY — same process, second connection: the WAL
+    # left on disk by the close above must be recovered, not discarded.
+    reopened = sensor.nvx_journal.open_journal(root)
+    try:
+        pragmas = _pragmas(reopened._db)                   # noqa: SLF001
+        checks["wal_reopen_recovery"] = bool(
+            pragmas["wal_mode"] and pragmas["synchronous_full"]
+            and reopened.cursor("SelfTest") == 1
+            and int(reopened._db.execute(                  # noqa: SLF001
+                "SELECT COUNT(*) FROM evidence").fetchone()[0]) == 1)
+    finally:
+        reopened.close()
+
+    # FROZEN RESTART — only a NEW process of this executable can prove it.
+    checks["frozen_restart_recovery"] = (
+        bool(checks["cursor_committed"] and checks["replay_is_idempotent"]
+             and checks["evidence_rows"] == 1 and checks["wal_reopen_recovery"])
+        if phase == "RESTART" else "PENDING_RESTART_PHASE")
+    checks["state_dir"] = str(sensor.STATE_DIR)
+    checks["state_dir_access"] = _state_dir_access()
+    checks["service_permission_check"] = _service_permission_check()
+
+    required = ["sqlite3_importable", "sqlite3_native_binary",
+                "journal_module_importable", "packaging_regression_free",
                 "database_created", "wal_mode", "synchronous_full",
                 "auto_vacuum_incremental", "schema_initialized",
                 "durable_commit", "cursor_committed",
                 "replay_is_idempotent", "integrity_snapshot",
-                "gap_contract")
-    failed = [name for name in required if not checks.get(name)]
+                "gap_contract", "wal_reopen_recovery"]
+    if _IS_WINDOWS:
+        required += ["ntfs_database_create", "wal_file_created",
+                     "state_dir_access", "service_permission_check"]
+    if phase == "RESTART":
+        required.append("frozen_restart_recovery")
+    failed = [name for name in required if checks.get(name) is not True]
     return {"result": "PASS" if not failed else "FAIL", "failed": failed,
-            "scratch_dir": root, "sensor_version": sensor.SENSOR_VERSION,
-            "checks": checks}
+            "phase": phase, "scratch_dir": root,
+            "sensor_version": sensor.SENSOR_VERSION,
+            "setup_version": SETUP_VERSION,
+            "gate0": _gate0_verdicts(checks), "checks": checks}
+
+
+def _verdict(value: object) -> str:
+    if value is True:
+        return "PASS"
+    if value is False:
+        return "FAIL"
+    return str(value)
+
+
+def _gate0_verdicts(checks: dict) -> dict:
+    """The owner-facing Gate 0 field names, one verdict each."""
+    return {
+        "WINDOWS_FROZEN": "TRUE" if checks.get("frozen") else "FALSE",
+        "WINDOWS_SQLITE": _verdict(checks.get("sqlite3_importable")),
+        "WINDOWS_SQLITE_LIBRARY_VERSION":
+            checks.get("sqlite_library_version") or "ABSENT",
+        "WINDOWS_SQLITE_NATIVE_BINARY":
+            _verdict(checks.get("sqlite3_native_binary")),
+        "WINDOWS_JOURNAL_MODULE":
+            _verdict(checks.get("journal_module_importable")),
+        "WINDOWS_NTFS_DATABASE_CREATE":
+            _verdict(checks.get("ntfs_database_create")),
+        "WINDOWS_WAL_CREATE": ("FAIL" if checks.get("wal_mode") is not True
+                               else _verdict(checks.get("wal_file_created"))),
+        "WINDOWS_WAL_REOPEN_RECOVERY":
+            _verdict(checks.get("wal_reopen_recovery")),
+        "WINDOWS_SYNCHRONOUS_FULL":
+            _verdict(checks.get("synchronous_full")),
+        "WINDOWS_AUTO_VACUUM_INCREMENTAL":
+            _verdict(checks.get("auto_vacuum_incremental")),
+        "WINDOWS_SCHEMA": _verdict(checks.get("schema_initialized")),
+        "WINDOWS_DURABLE_COMMIT": _verdict(checks.get("durable_commit")),
+        "WINDOWS_CURSOR_COMMIT": _verdict(checks.get("cursor_committed")),
+        "WINDOWS_REPLAY_IDEMPOTENCY":
+            _verdict(checks.get("replay_is_idempotent")),
+        "WINDOWS_INTEGRITY_SNAPSHOT":
+            _verdict(checks.get("integrity_snapshot")),
+        "WINDOWS_GAP_CONTRACT": _verdict(checks.get("gap_contract")),
+        "WINDOWS_FROZEN_RESTART":
+            _verdict(checks.get("frozen_restart_recovery")),
+        "WINDOWS_STATE_DIR_ACCESS": _verdict(checks.get("state_dir_access")),
+        "WINDOWS_SERVICE_PERMISSION_CHECK":
+            _verdict(checks.get("service_permission_check")),
+        "PACKAGING_REGRESSION":
+            _verdict(checks.get("packaging_regression_free")),
+    }
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -619,8 +868,12 @@ def main(argv: list[str] | None = None) -> None:
         INSTALL_DIR.mkdir(parents=True, exist_ok=True)
         print(f"service host staged at {_stage_service_host()}")
     elif args.cmd == "journal-selftest":
-        out = journal_selftest(args.dir)
-        print(json.dumps(out, indent=2))
+        out = journal_selftest(args.dir, restart_check=args.restart_check)
+        rendered = json.dumps(out, indent=2)
+        print(rendered)
+        if args.json_out:
+            Path(args.json_out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.json_out).write_text(rendered, encoding="ascii")
         if out["result"] != "PASS":
             sys.exit(f"journal selftest FAILED: {out['failed']}")
     elif args.cmd == "version":

@@ -3021,3 +3021,51 @@ after the pass: 137 passed (pre-canary + 3 installer suites + enrolment hardenin
 - P1: rule-set caching (profile item 1), optionally with counter aggregation (item 3).
 - P1: render acquisition integrity / gaps in the console.
 - P1: E3 deterministic detection engine hardening.
+
+## 2026-06 · B5-GAP-1 WINDOWS GATE 0 — DETERMINISTIC CI CONTRACT (owner-gated)
+
+Owner decision accepted: close Windows Gate 0 BEFORE any backend optimization. No
+correlation-rule cache, no counter batching, no `edr_raw_events` change, no integrity UI,
+no Sysmon change, no canary, `DESKTOP-A9HGFJJ` untouched, nothing deployed.
+
+Gate 0 status: **BLOCKED_PENDING_REAL_WINDOWS_CI** (not claimed PASS). The container
+cannot run GitHub Actions or a `windows-latest` runner, so this pass made the owner's
+single CI run self-verifying instead of log-interpreted.
+
+Implemented:
+- `agents/nivxforge-windows/nivxforge_setup.py` — `journal-selftest` rewritten into the
+  full Gate-0 evidence emitter: module provenance (nivxforge_sensor / nivxforge_journal /
+  sqlite3 / _sqlite3 must resolve INSIDE the frozen bundle), native `_sqlite3` binary on
+  disk, SQLite runtime binaries found, volume filesystem (NTFS assertion), `-wal` file
+  creation, WAL reopen/recovery, state-dir write access, service-permission (icacls)
+  check, plus the existing WAL/FULL/INCREMENTAL/schema/durable-commit/cursor/replay/
+  integrity-snapshot/gap-contract checks. New `--json-out` and `--restart-check` flags;
+  `--restart-check` re-opens the SAME dir in a NEW process (the only honest frozen-restart
+  proof) and refuses to guess a directory. Off Windows, Windows-only checks report the
+  literal `N/A_NON_WINDOWS` — never PASS, so Linux can never be promoted to Windows
+  evidence. A `gate0` verdict map emits the owner's exact field names.
+- `.github/workflows/windows-sensor-installer.yml` — Gate 0 split into (a) run both
+  selftest phases from the frozen EXE, (b) an `if: always()` report step that FAILS CLOSED:
+  every mandatory field must be PRESENT and exactly `PASS`, both phases must report
+  `WINDOWS_FROZEN = TRUE`, restart recovery must come from the RESTART phase, packaging
+  provenance is re-checked, and a missing field is a failure. Produces
+  `dist/gate0/GATE0_WINDOWS_REPORT.json` (verdicts + artifact filename/version/SHA256/
+  service-host SHA256/commit/run id/timestamp/PyInstaller version/signing status +
+  the standing NO flags), printed, written to the job summary, and uploaded.
+- `docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` — the contract + paste-back procedure.
+- `docs/B5_GAP_1_CANARY_PLAN.md` — PREPARED, NOT RUN: 11-stage measurement pipeline,
+  per-stage metric list, 10-scenario failure matrix, acceptance invariants, rollback
+  criteria, STOP conditions, post-canary optimization decision rule.
+- `backend/tests/edr/test_b5_gap1_windows_gate0_ci_contract.py` (14 tests) + updated
+  workflow-wiring assertion in the pre-canary suite. 102 passed / 2 skipped for
+  `-k b5_gap1`. A local PyInstaller ONEFILE freeze ran both phases from a genuinely
+  frozen binary (frozen=true, provenance in-bundle, restart phase PASS) — mechanics only,
+  NOT Gate-0 proof.
+
+### Next (owner-gated, in order)
+- P0: Save to GitHub -> run `windows-sensor-installer.yml` on `windows-latest` -> paste
+  `GATE0_WINDOWS_REPORT.json` back. Gate 0 closes only on `GATE0_VERDICT = CLOSED_PASS`.
+- P0: only then, disposable Windows canary per `B5_GAP_1_CANARY_PLAN.md`.
+- P1: optimize ONLY what canary measurements prove dominant (rule-read caching is a
+  candidate, not an approved change).
+- P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
