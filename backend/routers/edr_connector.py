@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from deps import db as _db, get_current_user
 from edr_plane.connector import catalog
+from edr_plane.enrollment import instructions
 from edr_plane.enrollment import store as enrollment_store
 from edr_plane.enrollment.security import digest
 from edr_plane.policy import store as policy_store
@@ -197,13 +198,15 @@ async def create_deployment(body: CreateDeploymentBody, request: Request,
 
     backend = str(request.base_url).rstrip("/") if request else ""
     entry = release.get("entrypoint") or "install"
-    invocation = (
-        f"powershell -ExecutionPolicy Bypass -File .\\{entry} "
-        f"-BackendUrl {backend} -TenantId {tenant} "
-        f"-EnrollmentToken <ENROLLMENT_TOKEN>"
-        if str(release.get("os")) == "WINDOWS" else
-        f"sudo ./{entry} --backend {backend} --tenant {tenant} "
-        f"--enrollment-token <ENROLLMENT_TOKEN>")
+    # ONE authoritative instruction (P0 · enrolment-instruction closure).
+    # This response used to interpolate the MINTED PLAINTEXT into an
+    # executable `-EnrollmentToken <secret>` command — the console itself
+    # teaching the boundary violation the installer now refuses. The
+    # instruction is secret-free; the plaintext is returned once, beside
+    # it, as a credential and not as a command.
+    invocation = instructions.invocation(
+        os_name=release.get("os"), entrypoint=entry, backend=backend,
+        tenant_id=tenant)
     doc = {
         "deployment_id": deployment_id, "tenant_id": tenant,
         "release_id": body.release_id,
@@ -223,9 +226,10 @@ async def create_deployment(body: CreateDeploymentBody, request: Request,
     return {
         "deployment": doc,
         "enrollment_token": token,
-        "install_invocation": invocation.replace("<ENROLLMENT_TOKEN>",
-                                                 str(token or "")),
-        "install_invocation_redacted": invocation,
+        "install_invocation": invocation,
+        "install_invocation_carries_secret": False,
+        "secret_handling": instructions.WINDOWS_SECRET_CONTRACT
+                           if str(release.get("os")) == "WINDOWS" else None,
         "artifact": {"release_id": body.release_id,
                      "artifact_identity": release.get("artifact_identity"),
                      "files": [{"name": f["name"], "sha256": f["sha256"]}

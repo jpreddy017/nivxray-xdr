@@ -115,7 +115,11 @@ def test_the_package_catalog_reports_only_what_exists_on_disk():
         digest = hashlib.sha256(fh.read()).hexdigest()
     entry = [f for f in win["files"] if f["name"].endswith(".ps1")][0]
     assert entry["sha256"] == digest and entry["size_bytes"] > 0
-    assert win["silent_install"].startswith("powershell")
+    # P0 · the published instruction must not teach argv token passing.
+    hint = win["silent_install"]
+    assert "-AsSecureString" in hint and "@args" in hint
+    for argv_form in ("-EnrollmentToken ", "--token ", "--token="):
+        assert argv_form not in hint
     # architectures we have NOT built must say so, with no download offered
     for missing in ("windows-arm64", "windows-x86"):
         assert described[missing]["state"] == "NOT_BUILT"

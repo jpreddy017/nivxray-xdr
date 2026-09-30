@@ -290,10 +290,21 @@ function DeploymentBuilder({ release, groups, onCreated, onCancel }) {
             </span>
           </div>
           <div style={{ marginTop: 10 }}>
-            <CopyBlock label="Install invocation (contains the one-time credential)"
+            <CopyBlock label="Enrolment secret (shown once · paste at the prompt)"
+                       text={out.enrollment_token || ""}
+                       testid="edr-deployment-secret" />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <CopyBlock label="Install invocation (carries NO secret)"
                        text={out.install_invocation}
                        testid="edr-deployment-invocation" />
           </div>
+          {out.secret_handling && (
+            <div className="basis" style={{ marginTop: 8 }}
+                 data-testid="edr-deployment-secret-handling">
+              {out.secret_handling}
+            </div>
+          )}
           <div className="basis" style={{ marginTop: 8 }}>
             {out.credential_contract}
           </div>

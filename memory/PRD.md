@@ -3384,3 +3384,30 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   staged on KUSHU, NOT executed. Intended tenant: "NivXForge Canary", kind LAB - NOT CREATED.
   Sequence agreed: deploy repair -> verify selector -> create LAB tenant -> mint ONE token ->
   C0.5 -> Sysmon EID1 absence check.
+- P0 ENROLMENT-INSTRUCTION CONTRADICTION CLOSED (pre-deployment, owner-directed).
+  Root cause: three surfaces each composed their own Windows instruction and drifted.
+  routers/edr_connector.py::create_deployment INTERPOLATED THE MINTED PLAINTEXT into
+  `install_invocation` (`-EnrollmentToken <secret>`); routers/edr_onboarding.py PACKAGES
+  taught `-EnrollmentToken <token>` (ps1) and `--token <enrollment-token>` (exe, which the
+  hardened binary now refuses); EdrAddDevicePage.jsx rebuilt the same argv command in the
+  browser with the real token.
+  Fix: NEW single authority backend/edr_plane/enrollment/instructions.py
+  (windows_exe_invocation = Read-Host -AsSecureString -> BSTR -> pipe -> --token-stdin ->
+  ZeroFreeBSTR; windows_script_invocation = SecureString via @args SPLATTING so no
+  -EnrollmentToken pair is ever typed; linux_invocation UNCHANGED and declared as debt;
+  ARGV_SECRET_FORMS + WINDOWS_SECRET_CONTRACT exported for tests/UI).
+  install_invocation is now SECRET-FREE; response adds install_invocation_carries_secret=False
+  and secret_handling. EdrDownloadsPage.jsx shows the secret in its OWN CopyBlock
+  (edr-deployment-secret) and labels the command "carries NO secret".
+  Tests: backend/tests/test_w1_windows_enrolment_instruction_contract.py (13, W1-W7) = 13 passed.
+  Regression: 112 passed across onboarding/p0prod2/windows-installer/stdin suites.
+  PRE-EXISTING unrelated failures (proven by git stash, not caused here):
+  test_edr_onboarding_v1.py::test_the_package_catalog_reports_only_what_exists_on_disk expects
+  sensor_version 0.1.0-windows but the sensor is 0.3.0-windows; and
+  ::test_protection_never_claims_enforcement_the_sensor_cannot_do (lifecycle.assigned False).
+- NEXT IDENTITY P0 (owner-elevated, AFTER KUSHU acquisition closure, BEFORE broader UI work):
+  CLONE COLLISION - two hosts sharing a machine_guid silently merge into one endpoint_id,
+  which can corrupt Device Trajectory, detections, policy state, response targeting and
+  evidence attribution. Needs identity-semantics design, not a quick patch.
+- STILL NOT DEPLOYED. Awaiting final owner deployment authorization for the combined
+  selector + enrolment-instruction patch.

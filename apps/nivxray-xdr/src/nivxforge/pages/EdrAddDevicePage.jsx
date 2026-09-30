@@ -41,12 +41,20 @@ const STEPS = [
   { key: "connected", t: "CONNECTED" },
 ];
 
-function installCommand(pkg, tenant, token) {
-  return "powershell -ExecutionPolicy Bypass -File "
-    + `.\\${pkg?.entrypoint || "Install-NivXForgeSensor.ps1"}`
-    + ` -BackendUrl ${BACKEND_ORIGIN || "<backend url>"}`
-    + ` -TenantId ${tenant || "<tenant>"}`
-    + ` -EnrollmentToken ${token || "<enrolment token>"}`;
+// P0 · ENROLMENT INSTRUCTION. The command NEVER carries the secret: the
+// backend is the single authority for the invocation (`silent_install`,
+// from edr_plane/enrollment/instructions.py), and the minted secret is
+// shown separately, above, as a credential rather than as an argument.
+// This page previously interpolated the plaintext into
+// `-EnrollmentToken <token>`, which Sysmon EID 1 would have recorded and
+// which the installer now refuses outright.
+function installCommand(pkg, tenant) {
+  if (pkg?.silent_install) {
+    return String(pkg.silent_install)
+      .replace("<backend>", BACKEND_ORIGIN || "<backend url>")
+      .replace("<tenant>", tenant || "<tenant>");
+  }
+  return "◇ INSTALL INSTRUCTION NOT PUBLISHED FOR THIS PACKAGE";
 }
 
 export default function EdrAddDevicePage() {
@@ -334,8 +342,15 @@ export default function EdrAddDevicePage() {
               4 · Run elevated on the endpoint
             </div>
             <CopyBlock testid="edr-add-install-command"
-                       text={installCommand(pkg, tenant,
-                         token?.token || token?.enrollment_token)} />
+                       text={installCommand(pkg, tenant)} />
+            <div className="basis" style={{ marginTop: 8 }}>
+              The command carries no secret. It prompts for the enrolment
+              secret, holds it as a <code>SecureString</code> and hands it to
+              the installer on <strong>stdin</strong> — Windows records
+              process command lines (Sysmon EID&nbsp;1, service binPath,
+              PowerShell history), so a secret typed as an argument would
+              become endpoint telemetry. The installer refuses one.
+            </div>
             <div className="basis" style={{ marginTop: 10 }}>
               Run in an <strong>elevated</strong> PowerShell session from the
               folder containing both downloaded files. The platform mints the

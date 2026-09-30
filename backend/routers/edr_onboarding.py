@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from deps import db as _db, get_current_user
+from edr_plane.enrollment import instructions
 from edr_plane.enrollment import store
 from edr_plane.policy import store as policy_store
 from edr_plane.policy.contracts import PolicyConfig
@@ -82,10 +83,9 @@ PACKAGES = {
                               "Windows Server 2019", "Windows Server 2022"],
         "requires": ["Python 3.11+ on the endpoint",
                      "elevated PowerShell for installation"],
-        "silent_install": (
-            "powershell -ExecutionPolicy Bypass -File "
-            ".\\Install-NivXForgeSensor.ps1 -BackendUrl <backend> "
-            "-TenantId <tenant> -EnrollmentToken <token>"),
+        "silent_install": instructions.windows_script_invocation(
+            entrypoint="Install-NivXForgeSensor.ps1", backend="<backend>",
+            tenant_id="<tenant>"),
     },
     # Track B · the frozen one-file installer. PyInstaller cannot
     # cross-compile a Windows PE, so this artifact is produced only by the
@@ -106,10 +106,9 @@ PACKAGES = {
                               "Windows Server 2019", "Windows Server 2022"],
         "requires": ["elevated prompt for installation"],
         "startup_mechanism": "WINDOWS_SERVICE",
-        "silent_install": (
-            "NivXForgeEDRSetup.exe install "
-            "--backend https://nivxray.nivxforge.com "
-            "--tenant <tenant> --token <enrollment-token>"),
+        "silent_install": instructions.windows_exe_invocation(
+            entrypoint="NivXForgeEDRSetup.exe",
+            backend="https://nivxray.nivxforge.com", tenant_id="<tenant>"),
     },
     "windows-arm64": {
         "id": "windows-arm64", "os": "WINDOWS", "architecture": "arm64",
@@ -211,8 +210,9 @@ async def list_packages(user: dict = Depends(get_current_user),
         "onboarding_workflow": [
             "download the reusable installer",
             "generate a bounded enrolment credential in the console",
-            "run the installer elevated on the endpoint with the backend, "
-            "customer and enrolment credential",
+            "run the installer elevated on the endpoint with the backend "
+            "and customer, supplying the enrolment secret on STDIN — never "
+            "as a command-line value",
             "the platform mints the endpoint identity and a per-device "
             "credential",
             "the computer appears under Computers and becomes CONNECTED only "
