@@ -3427,3 +3427,14 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   Scoped regression: 187 passed, 0 failed (onboarding, W1 instruction contract, B8 selector,
   A0.5 tenant authority, p0prod2 enrollment hardening, stdin secret, exclusion scope).
   BASELINE IS NOW CLEAN for the deployment gate.
+- PRODUCTION DEPLOY DISPATCHED (owner-authorized) for the combined changeset: B8 selector
+  repair + centralized Windows stdin-only enrolment instruction authority + the 4 closed argv
+  secret paths + frontend + test-only known-red closure. Backend and frontend MUST ship
+  together (new frontend reads a field the old backend does not send; old frontend would keep
+  composing an argv command with a live secret). No migration, no data mutation.
+  Deploy job id 95e7e8cd-6528-4f50-8702-566d0dc3b0ce. Awaiting pipeline outcome.
+  AFTER acceptance passes (8 read-only checks) and ONLY on owner review: create NivXForge
+  Canary (LAB) -> mint ONE token -> KUSHU C0.5. UI/UX baseline audit to precede any broader
+  UI redesign decision (owner sequencing note); it does NOT block the LAB tenant or KUSHU.
+  Recorded, non-blocking: GATE 5 policy lifecycle needs its own test suite before the
+  composed READY phase.
