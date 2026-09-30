@@ -3264,3 +3264,15 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
 - KUSHU state unchanged: SYSMON_INSTALLED = NO, CONFIG_APPLIED = NO, binaries still match
   83D31F24..., NIVXFORGE_INSTALLED = NO, ENROLLED = NO, LOAD_GENERATED = NO,
   DEFENDER_MODIFIED = NO, DESKTOP_A9HGFJJ_TOUCHED = NO, PRODUCTION_CHANGED = NO.
+- C0.3a-R = PASS on KUSHU. Config byte-identical to the repo artifact
+  (60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C, 1810 bytes, no BOM),
+  EID1/EID5 ENABLED, 0 child filters, Sysmon NOT installed. Rejected 1851-byte literal
+  preserved (94306BC7...403DA); per-line diagnosis showed divergence on lines 22-30, proving
+  the hand-copied-literal root cause. The expected hash was never changed to force a pass.
+- C0.3b acceptance definition recorded in docs/B5_GAP_1_CANARY_PLAN.md §0: pre-exec binary
+  re-verify, pre-apply config re-verify, install on canary only, service/driver/channel proof,
+  SHA256 of the driver's active Rules blob (HKLM\...\SysmonDrv\Parameters\Rules) as the only
+  authoritative "same rules" comparator, one benign uniquely-marked process, genuine EID 1,
+  genuine EID 5 for the SAME ProcessGuid, correlation on ProcessGuid (PID asserted additionally,
+  never instead), EventRecordID/UTC/Image/ProcessId/ProcessGuid preserved, fail closed,
+  rollback path stated. C0.3b block issued for owner review; NOT executed.

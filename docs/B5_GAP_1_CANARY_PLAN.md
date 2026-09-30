@@ -98,6 +98,28 @@ preserved in the evidence directory as
 `REJECTED-nivx-b5gap1-canary-sysmon.<stamp>.xml` — never deleted, never
 blessed. A failing hash is never replaced with the observed value.
 
+### C0.3b acceptance definition (first state change on the canary)
+
+C0.3b is the first block that modifies the machine. Acceptance is proof,
+not installation success:
+
+| Gate | Requirement |
+|---|---|
+| pre-exec re-verify | binary SHA256 == `83D31F24...FDA4352` **and** Authenticode `Valid` / Microsoft, re-checked immediately before execution |
+| pre-apply re-verify | config SHA256 == `60F58586...16C67C`, 1810 bytes, no BOM |
+| install | `Sysmon64.exe -accepteula -i <config>` on the canary only; non-zero exit halts |
+| runtime | `Sysmon64` service Running, `SysmonDrv` present, `Microsoft-Windows-Sysmon/Operational` channel exists and is enabled |
+| active rules | SHA256 of `HKLM\SYSTEM\CurrentControlSet\Services\SysmonDrv\Parameters\Rules` recorded — this is the driver's OWN view of the rules and is the only authoritative "same rules" comparator against production. It is NOT the file hash and must never be compared to one |
+| EID 1 proof | one controlled, benign, uniquely-marked process; a genuine Event ID 1 carrying that marker in `CommandLine` |
+| EID 5 proof | a genuine Event ID 5 for the SAME `ProcessGuid` |
+| correlation | matched on `ProcessGuid`, never on PID alone; PID equality is asserted additionally, not instead |
+| evidence | `EventRecordID`, UTC timestamps, `Image`, `ProcessId`, `ProcessGuid` preserved for both events |
+| fail closed | any missing event, mismatched GUID or out-of-order UTC time halts and leaves the rollback path stated |
+
+EID 5 is the reason this matters: every prior dataset was 100 %
+`END_NOT_OBSERVED`, so a *closed* process lifetime has never once been
+observed end to end. C0.3b is where that first becomes real.
+
 ### Canary filesystem path contract (binding for every C0 block)
 
 C0.2 as executed on KUSHU staged the download under the canary workspace,
