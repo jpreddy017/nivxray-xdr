@@ -85,6 +85,17 @@ jobs:
             throw 'the refusal did not name the stdin interface'
           }
           $global:LASTEXITCODE = 0
+          # A secret-SHAPED value carried by ANY argument must also be
+          # refused: `enr_...` is what the platform actually mints, so a
+          # value smuggled in behind an unknown flag must not survive.
+          $shaped = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --provisioning-key=enr_ci_probe_not_a_real_secret 2>&1 | Out-String)
+          $shapedExit = $LASTEXITCODE
+          Write-Host $shaped
+          if ($shapedExit -eq 0) { throw 'a secret-shaped argv value was accepted' }
+          if ($shaped -notmatch 'looks like an enrolment secret') {
+            throw 'the binary did not refuse a secret-shaped argv value'
+          }
+          $global:LASTEXITCODE = 0
           Get-Content (Join-Path $dist 'build-info.json')
           Get-Content (Join-Path $dist 'SHA256SUMS.txt')
           Write-Host 'ARTIFACT CONTRACT: PASS'

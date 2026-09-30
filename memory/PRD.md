@@ -3328,3 +3328,26 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
 - DECLARED RESIDUAL: agents/nivxforge-linux/nivxforge_sensor.py still accepts `enrol --token
   <secret>` (scripts/nivxforge_sensor_supervise.py passes it that way), so the same exposure
   exists on Linux endpoints. OUT OF SCOPE of this directive, NOT fixed, recorded as open.
+- enr_ PREFIX GAP FIXED (owner-approved second build cycle). The argv secret-shape heuristic
+  checked only `nvxenr_`; the platform mints `enr_<token_urlsafe(32)>`
+  (edr_plane/enrollment/security.py PREFIX_ENROLLMENT="enr"), so it could not fire for a real
+  token. Named-flag refusals were always correct. Now: ENROLMENT_SECRET_PREFIXES = ("enr_",
+  "nvxenr_"), single decision point looks_like_enrolment_secret(), whole argv scanned (a secret
+  behind an UNKNOWN flag is refused too). Windows workflow now probes the FROZEN BINARY three
+  ways: localhost origin guard, `--token x` must be refused with "is REMOVED", and
+  `--provisioning-key=enr_ci_probe...` must be refused with "looks like an enrolment secret".
+  Tests: 37 in test_b5gap1_enrolment_secret_stdin.py (production + legacy shapes x 8 argv
+  placements); full tests/edr = 1993 passed, 3 skipped.
+- ARTIFACT 16c82fcafd6aec30039e64f385672f7b803c391c / run 36689911602 / SHA256 DA33A54E...C300
+  is OBSOLETE for C0.5 and MUST NOT BE EXECUTED. Staged copy on KUSHU left in place, unexecuted.
+  A NEW artifact + NEW hash gate is required before C0.5.
+- ENROLMENT TOKEN MINT PROCEDURE (read-only inspection, nothing minted): POST
+  /api/edr/enrollment/tokens (routers/edr_enrollment.py:94) with platform-user JWT +
+  Depends(edr_tenant) and X-Tenant-Id; body {label, ttl_seconds 60..86400}. Plaintext returned
+  ONCE, never stored (digest only), never re-readable. Single-use burned atomically by
+  consume_enrollment_token(); TTL default EDR_ENROLLMENT_TOKEN_TTL_SECONDS (900s in this pod;
+  the DEPLOYED value governs). Console path: /xdr/admin/edr-enrollment (adminMeta key
+  edr-enrollment). Canary tenant id must come from GET /api/xdr/tenants (needs tenants.read) or
+  the console selector - there is no hardcoded tenant anywhere by design.
+- LINUX ARGV EXPOSURE remains SEPARATE P0 SECURITY DEBT (agents/nivxforge-linux enrol --token,
+  scripts/nivxforge_sensor_supervise.py). Deliberately NOT in this change's scope.

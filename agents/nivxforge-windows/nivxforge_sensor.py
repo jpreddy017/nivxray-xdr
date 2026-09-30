@@ -391,9 +391,19 @@ SECRET_REDACTED = "[REDACTED]"
 #: to the very backend it authenticates against.
 LEGACY_TOKEN_FLAGS = ("--token", "-token", "--enrollment-token",
                       "--enrolment-token")
-#: Prefix of a minted enrolment secret. Used ONLY to refuse one that is
+#: Prefixes of a minted enrolment secret. Used ONLY to refuse one that is
 #: found on a command line; never to generate or validate a secret.
-ENROLMENT_SECRET_PREFIX = "nvxenr_"
+#:
+#: `enr_` is the PRODUCTION shape: the platform mints
+#: `f"{PREFIX_ENROLLMENT}_{secrets.token_urlsafe(32)}"` with
+#: `PREFIX_ENROLLMENT = "enr"` (`backend/edr_plane/enrollment/security.py`),
+#: and `consume_enrollment_token()` refuses anything without it. `nvxenr_`
+#: is the older shape still named by the repository's credential scanners,
+#: kept so a legacy value is refused too.
+ENROLMENT_SECRET_PREFIXES = ("enr_", "nvxenr_")
+#: Retained as the canonical single prefix for callers/tests that ask for
+#: "the" shape. It is the production one.
+ENROLMENT_SECRET_PREFIX = ENROLMENT_SECRET_PREFIXES[0]
 STDIN_ONLY_NOTICE = (
     "the one-time enrolment secret is read from STDIN via --token-stdin "
     "and is never accepted as a command-line value, because Windows "
@@ -411,20 +421,32 @@ def redact(text: str, secret: str | None) -> str:
     return text.replace(secret, SECRET_REDACTED)
 
 
+def looks_like_enrolment_secret(value: str) -> bool:
+    """Does this argv element carry a minted enrolment secret?
+
+    Shape only — the platform is the sole authority on validity. A bare
+    prefix is treated as a hit too: refusing a harmless value costs an
+    operator one retry, while accepting one publishes a credential.
+    """
+    return any(value.startswith(prefix)
+               for prefix in ENROLMENT_SECRET_PREFIXES)
+
+
 def refuse_secret_on_command_line(argv: list[str]) -> None:
     """Refuse a command line that carries, or could carry, the secret.
 
     This runs BEFORE argparse on purpose: argparse echoes unrecognised
     arguments in its own error text, which would itself publish the
-    secret to stderr and to any log that captures it.
+    secret to stderr and to any log that captures it. The whole argv is
+    scanned, so a secret placed after an UNKNOWN flag is refused as well.
     """
     for arg in argv:
         name, _, value = arg.partition("=")
         if name in LEGACY_TOKEN_FLAGS:
             raise SystemExit(f"refusing to run: {name} is REMOVED — "
                              + STDIN_ONLY_NOTICE)
-        if arg.startswith(ENROLMENT_SECRET_PREFIX) or \
-                value.startswith(ENROLMENT_SECRET_PREFIX):
+        if looks_like_enrolment_secret(arg) or \
+                looks_like_enrolment_secret(value):
             raise SystemExit(
                 "refusing to run: what looks like an enrolment secret was "
                 "found on this command line (no value is echoed) — "

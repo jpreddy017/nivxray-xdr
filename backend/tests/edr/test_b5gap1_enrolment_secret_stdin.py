@@ -46,9 +46,13 @@ DOC = Path("/app/docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md")
 CANARY_PLAN = Path("/app/docs/B5_GAP_1_CANARY_PLAN.md")
 GATE0 = Path("/app/docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md")
 
-#: A secret-SHAPED value, assembled at runtime so this file never carries
-#: a literal that a credential scanner should flag.
-SECRET = "nvxenr_" + "Kq7Zt3Vb9Lm2Xn5Pd8Rc4Ws"
+#: A PRODUCTION-shaped secret, assembled at runtime so this file never
+#: carries a literal a credential scanner should flag. The platform mints
+#: `enr_<token_urlsafe(32)>` (`PREFIX_ENROLLMENT = "enr"`).
+SECRET = "enr_" + "9pQ2r-Xk7Lm4Zt8Vb1Nc6Wd3Yf0Hj5Sg2Ap7Qe1Ru"
+#: The older shape still named by the repository's credential scanners. It
+#: must be refused too, but it is NOT what the backend mints today.
+LEGACY_SECRET = "nvxenr_" + "Kq7Zt3Vb9Lm2Xn5Pd8Rc4Ws"
 TENANT = "ten_e759b7288598bd882e3dcac49d"
 
 
@@ -114,29 +118,77 @@ def test_install_refuses_to_enrol_without_stdin(setup_mod, monkeypatch):
 
 
 # ── 2 · a command line that carries the secret is refused ─────────
-@pytest.mark.parametrize("argv", [
-    ["install", "--tenant", TENANT, "--token", SECRET],
-    ["install", "--tenant", TENANT, "--token=" + SECRET],
-    ["install", "--tenant", TENANT, "--enrollment-token", SECRET],
-    ["install", "--tenant", TENANT, "--enrolment-token", SECRET],
-    ["install", "--tenant", TENANT, SECRET],
-    ["install", "--tenant", TENANT, "--secret=" + SECRET],
+@pytest.mark.parametrize("secret", [SECRET, LEGACY_SECRET],
+                         ids=["production_enr_shape", "legacy_nvxenr_shape"])
+@pytest.mark.parametrize("shape", [
+    "named_flag", "named_flag_equals", "legacy_long_flag",
+    "legacy_british_flag", "legacy_short_flag", "bare_value",
+    "after_unknown_flag", "unknown_flag_equals",
 ])
-def test_legacy_or_secret_shaped_command_line_is_refused(setup_mod, argv):
+def test_a_command_line_carrying_the_secret_is_refused(setup_mod, secret,
+                                                       shape):
+    argv = {
+        "named_flag": ["install", "--tenant", TENANT, "--token", secret],
+        "named_flag_equals": ["install", "--tenant", TENANT,
+                              "--token=" + secret],
+        "legacy_long_flag": ["install", "--tenant", TENANT,
+                             "--enrollment-token", secret],
+        "legacy_british_flag": ["install", "--tenant", TENANT,
+                                "--enrolment-token", secret],
+        "legacy_short_flag": ["install", "--tenant", TENANT, "-token",
+                              secret],
+        # The value alone, with no flag at all.
+        "bare_value": ["install", "--tenant", TENANT, secret],
+        # The case the prefix guard exists for: an argument this CLI has
+        # never heard of, carrying the secret as its value. argparse would
+        # either discard it silently or echo it in an error.
+        "after_unknown_flag": ["install", "--tenant", TENANT, "--secret",
+                               secret],
+        "unknown_flag_equals": ["install", "--tenant", TENANT,
+                                "--provisioning-key=" + secret],
+    }[shape]
     with pytest.raises(SystemExit) as ex:
         setup_mod.main(argv)
     message = str(ex.value)
-    assert SECRET not in message, "the refusal must not echo the value"
+    assert secret not in message, "the refusal must not echo the value"
     assert "--token-stdin" in message
 
 
-def test_refusal_runs_before_argparse_can_echo_the_value(setup_mod, capsys):
+def test_the_production_prefix_is_the_one_the_platform_mints(sensor_mod):
+    """The guard must refuse the shape the BACKEND actually issues.
+
+    `backend/edr_plane/enrollment/security.py` mints
+    `enr_<token_urlsafe(32)>` and `consume_enrollment_token()` refuses
+    anything without that prefix, so `enr_` is the shape that matters.
+    """
+    assert "enr_" in sensor_mod.ENROLMENT_SECRET_PREFIXES
+    assert sensor_mod.ENROLMENT_SECRET_PREFIX == "enr_"
+    assert sensor_mod.looks_like_enrolment_secret(SECRET) is True
+    assert sensor_mod.looks_like_enrolment_secret(LEGACY_SECRET) is True
+    assert sensor_mod.looks_like_enrolment_secret("ten_abc") is False
+    assert sensor_mod.looks_like_enrolment_secret("--token-stdin") is False
+
+
+def test_legacy_flags_are_still_refused_even_without_a_value(setup_mod):
+    for flag in setup_mod.sensor.LEGACY_TOKEN_FLAGS:
+        with pytest.raises(SystemExit) as ex:
+            setup_mod.main(["install", "--tenant", TENANT, flag])
+        assert "is REMOVED" in str(ex.value)
+
+
+@pytest.mark.parametrize("secret", [SECRET, LEGACY_SECRET])
+def test_refusal_runs_before_argparse_can_echo_the_value(setup_mod, capsys,
+                                                         secret):
     """`parse_known_args` would DISCARD `--token <secret>` silently, and
     `parse_args` would print it in an 'unrecognized arguments' error."""
     with pytest.raises(SystemExit):
-        setup_mod.main(["install", "--tenant", TENANT, "--token", SECRET])
+        setup_mod.main(["install", "--tenant", TENANT, "--token", secret])
     captured = capsys.readouterr()
-    assert SECRET not in captured.out + captured.err
+    assert secret not in captured.out + captured.err
+    with pytest.raises(SystemExit):
+        setup_mod.main(["install", "--tenant", TENANT, "--unknown", secret])
+    captured = capsys.readouterr()
+    assert secret not in captured.out + captured.err
 
 
 # ── 3 · the secret comes from stdin ───────────────────────────────
@@ -208,7 +260,8 @@ def test_service_command_line_carries_no_secret(setup_mod, monkeypatch):
     setup_mod._install_service("https://nivxray.nivxforge.com", 30)
     joined = "\n".join(seen)
     assert "binPath=" in joined
-    for banned in (SECRET, "nvxenr_", "--token", "agent_credential"):
+    for banned in (SECRET, LEGACY_SECRET, "enr_", "nvxenr_", "--token",
+                   "agent_credential"):
         assert banned not in joined, f"{banned} must never reach the SCM"
 
 
@@ -357,5 +410,9 @@ def test_windows_workflow_proves_the_legacy_flag_is_gone_from_the_binary():
     assert "--token x" in verify, "the legacy interface must still be probed"
     assert "if ($legacyExit -eq 0) { throw" in verify
     assert "is REMOVED" in verify
+    assert "--provisioning-key=enr_ci_probe" in verify, (
+        "the production `enr_` shape must be probed in the BINARY")
+    assert "if ($shapedExit -eq 0) { throw" in verify
+    assert "looks like an enrolment secret" in verify
     # The localhost origin probe must no longer carry a token value.
     assert "--backend http://localhost:8001 --tenant t --token-stdin" in verify

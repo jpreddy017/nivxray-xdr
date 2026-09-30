@@ -47,9 +47,14 @@ rather than the operating procedure.
   `enrol`). There is no compatibility shim: leaving one would leave an
   unsafe production enrolment path, which the directive forbids.
 * `--token`, `-token`, `--enrollment-token`, `--enrolment-token`, or ANY
-  argv element that looks like an enrolment secret (`nvxenr_` prefix,
-  bare or after `=`) causes an immediate refusal. The refusal never
-  echoes the value.
+  argv element that looks like an enrolment secret — the PRODUCTION shape
+  `enr_…` that `backend/edr_plane/enrollment/security.py` mints
+  (`PREFIX_ENROLLMENT = "enr"`, and `consume_enrollment_token()` refuses
+  anything else), plus the older `nvxenr_…` shape the repository's
+  credential scanners still name — causes an immediate refusal, bare or
+  after `=`. The whole argv is scanned, so a secret smuggled in behind an
+  argument this CLI has never heard of is refused as well. The refusal
+  never echoes the value.
 * The refusal runs **before** argparse. `parse_known_args` would
   otherwise discard `--token <secret>` silently — the operator would
   believe the old interface still worked while the secret had already
@@ -76,6 +81,27 @@ rather than the operating procedure.
 with `RedirectStandardInput`, writes the decrypted value to the child's
 stdin, and frees the BSTR (`ZeroFreeBSTR`) immediately. The child's
 command line contains `--token-stdin` only.
+
+---
+
+## 2a. Correction after owner review (second build cycle)
+
+The first implementation of this change checked only the `nvxenr_` shape
+in the argv heuristic. The platform mints **`enr_…`**, so the heuristic
+could not have fired for a real token. The named-flag refusals
+(`--token` and friends) were unaffected and always worked, so the C0.5
+blocker itself was closed — but the owner ruled that a known gap in the
+same boundary must not be carried onto the canary host, and approved a
+second build cycle to close it. `ENROLMENT_SECRET_PREFIXES` now holds
+both shapes, `looks_like_enrolment_secret()` is the single decision
+point, and the Windows workflow probes the FROZEN BINARY with an
+`enr_`-shaped value behind an unknown flag.
+
+The artifact from commit `16c82fcafd6aec30039e64f385672f7b803c391c`
+(workflow `36689911602`, SHA256
+`DA33A54E85AC93C0FF425B8B265C1A23BFFFA3BC2302AC9FA11931336CA3C300`) is
+therefore **OBSOLETE for C0.5 and must not be executed**. It is not
+deleted; it is superseded.
 
 ---
 
