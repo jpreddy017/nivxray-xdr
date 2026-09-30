@@ -62,6 +62,9 @@ export default function XdrClientManagementPage() {
 
   const opsBy = {};
   (ops?.rows || []).forEach((r) => { opsBy[r.customer] = r; });
+  // Security-sensitive selection is authority-derived. Incident/evidence
+  // rows only decorate the authorized tenant with operational counts.
+  const authorizedTenants = scope?.authorized_tenants || [];
 
   return (
     <XdrShell>
@@ -137,18 +140,18 @@ export default function XdrClientManagementPage() {
           </div>
           <div className="cc-card__b">
             {loading && <div className="cc-empty">Reading the tenant authority…</div>}
-            {!loading && (scope?.tenants || []).length === 0 && !error && (
+            {!loading && authorizedTenants.length === 0 && !error && (
               <div className="cc-empty" data-testid="xdr-clients-empty">
                 <b>No client in scope</b> — your identity resolves to no
                 authorized tenant. There is no default tenant: an unresolved
                 scope is a denial, never a substitution.
               </div>
             )}
-            {(scope?.tenants || []).length > 0 && (
-              <NxDataTable rows={scope.tenants || []} pageSize={25}
+            {authorizedTenants.length > 0 && (
+              <NxDataTable rows={authorizedTenants} pageSize={25}
                            searchPlaceholder="Search client"
                            rowKey={(t) => t.customer}
-                           onRowClick={(t) => navigate(t.queue_href)}
+                           onRowClick={(t) => enter(t.customer)}
                            testid="xdr-clients-table"
                            emptyTitle="No client in scope"
                            columns={[
@@ -160,9 +163,9 @@ export default function XdrClientManagementPage() {
                       {t.customer}
                     </strong>) },
                 { key: "open", header: "Open", width: "90px", align: "right",
-                  value: (t) => t.open_incidents },
+                  value: (t) => opsBy[t.customer]?.open ?? 0 },
                 { key: "incidents", header: "Incidents", width: "100px",
-                  align: "right", value: (t) => t.incidents },
+                  align: "right", value: (t) => opsBy[t.customer]?.incidents ?? 0 },
                 { key: "critical", header: "Critical", width: "95px",
                   align: "right",
                   value: (t) => opsBy[t.customer]?.critical ?? -1,

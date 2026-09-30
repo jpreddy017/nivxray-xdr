@@ -48,7 +48,11 @@ def authorized_scope(user=Depends(_deps_current_user)):
     eff = sc.effective_scope(email)
     return {"ok": True, "data": {
         "principal": ctx["principal"],
+        # Evidence-derived tenants remain for incident/operations views.
         "tenants": ctx["customers"],
+        # Authority-derived tenants are the only safe source for customer
+        # selectors. A valid tenant with zero incidents must remain selectable.
+        "authorized_tenants": ctx["authorized_customers"],
         "authorized_count": eff["authorized_count"],
         "cross_tenant_role": bool(ctx["tenant_scope"]["all_tenants"]),
         "basis": eff["basis"],
