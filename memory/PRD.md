@@ -3517,3 +3517,27 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     in the production DB, JWT signed with production JWT_SECRET; no SSO; a
     must_change_password gate exists. Owner must supply a valid production PLATFORM password
     (or run the GETs). I will NOT retry the invalid credential.
+- VERCEL RELEASE RECONCILIATION (read-only; fetched the two production branches from GitHub):
+  * github.com/jpreddy017/nivxray-xdr holds the MONOREPO (both prod branches contain agents/,
+    backend/, apps/...). Not a standalone app repo.
+  * release/xdr-w1-candidate HEAD 9ae7bdac 2026-09-18 08:44Z "Auto-generated changes"
+    phase2/edr-production     HEAD e9d71354 2026-09-09 11:48Z "Auto-generated changes"
+    ON BOTH BRANCHES ALL FOUR REVIEWED FILES ARE ABSENT ENTIRELY - not stale versions,
+    the files do not exist: XdrScopeNavigator.jsx, AdminTenantGate.jsx, EdrAddDevicePage.jsx,
+    EdrDownloadsPage.jsx. Both branches are weeks behind.
+  * LIVE artifacts are built 2026-09-26T18:19/18:20Z = NEWER than both branch HEADs and DO
+    contain EdrAddDevicePage/EdrDownloadsPage chunks + /build-info.json (written ONLY by
+    scripts/vercel-build.sh). => the live production deployments were NOT built from these
+    branch HEADs. Most consistent explanation: a manual `vercel --prod` from a working
+    directory (apps/nivxray-xdr/.vercel/project.json is a CLI link), which also explains the
+    "production deployment config differs from project settings" warning on BOTH projects.
+  * a3523a88 is NOT in the GitHub repo (upload-pack: "not our ref") => Emergent-local snapshot
+    lineage. Save to GitHub would create a NEW commit; the target branch is chosen in the
+    Emergent UI (no branch is pinned in .emergent/emergent.yml).
+  * BUILD MODEL: XDR (`yarn build` -> dist) only makes sense with Root Directory =
+    apps/nivxray-xdr; EDR (`cd apps/nivxray-xdr && vite build` -> apps/nivxray-xdr/dist) only
+    makes sense with Root Directory = repo root. ROOT DIRECTORY WAS NOT IN THE SCREENSHOTS =
+    the one missing fact. CRITICAL: vercel.json is only honoured at the project Root
+    Directory, and ONLY vercel-build.sh sets XDR_PROD_API_ORIGIN/NIVX_PRODUCT_SCOPE, writes
+    build-info.json and runs verify-production-build.js. A build that bypasses it points the
+    console at the PREVIEW backend and drops ProductScopeGuard.
