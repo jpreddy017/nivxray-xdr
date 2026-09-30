@@ -3541,3 +3541,56 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     Directory, and ONLY vercel-build.sh sets XDR_PROD_API_ORIGIN/NIVX_PRODUCT_SCOPE, writes
     build-info.json and runs verify-production-build.js. A build that bypasses it points the
     console at the PREVIEW backend and drops ProductScopeGuard.
+
+- XDR SELECTOR RELEASE-DIFF PREPARATION (read-only; no merge, no push, no deploy). PROVEN:
+  * ACCEPTED SOURCE COMMIT: 3aeef2f2 ("DEPLOYMENT_ENROLLMENT_FOUNDATION"), /app lineage.
+    Release scope = exactly 2 files, +28/-6:
+      apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx        (+14/-3)
+      apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx (+20/-6... net +20/-3)
+    Patch exported to /tmp/b8-selector.patch (239 lines).
+  * PRODUCTION SOURCE IDENTIFIED (owner's premise corrected): production was NOT built from
+    release/xdr-w1-candidate. That branch (9ae7bdac, 2026-09-18) does not contain
+    AdminTenantGate.jsx, XdrScopeNavigator.jsx, IntelligencePolicyBody.jsx,
+    src/lib/scopeApi.js, src/xdr/nx/apiError.js or any EdrAddDevicePage/EdrDownloadsPage -
+    yet the LIVE artifacts ship EdrAddDevicePage-*.js, EdrDownloadsPage-*.js and a
+    XdrAdminPage chunk containing data-testid "xdr-admin-tenant-gate".
+    REAL PRODUCTION BASE = github feature/rc2-alignment @ 6523ba1d (2026-09-26 18:15:11Z,
+    "PHASE 0 PROMOTION - STAGE 3 ... promotion is an owner-only Vercel action"); the two
+    Vercel projects built 18:19:37Z (xdr) and 18:20:24Z (edr) - 4 min later.
+    BLOB-LEVEL PROOF: 6523ba1d:AdminTenantGate.jsx = d905d42a = 3aeef2f2^:AdminTenantGate.jsx
+    and 6523ba1d:XdrScopeNavigator.jsx = e200cdf5 = 3aeef2f2^:XdrScopeNavigator.jsx.
+    The accepted patch's parent blobs ARE the production blobs.
+  * LIVE PRODUCTION IS PRE-FIX (confirmed by artifact, not inference): the live
+    XdrAdminPage-DdCw8LHM.js contains "scope/authorized" and "xdr-admin-tenant-gate" but
+    ZERO occurrences of "authorized_tenants" => it still reads the evidence-derived list.
+  * CHERRY-PICK SAFETY: `git apply --check` of /tmp/b8-selector.patch onto a worktree of
+    6523ba1d = CLEAN, zero fuzz, no unrelated changes. Onto release/xdr-w1-candidate it is
+    IMPOSSIBLE and UNSAFE: both target files are absent, their imports
+    (@/lib/scopeApi, @/xdr/nx/apiError) do not exist on that branch, XdrShell there renders
+    XdrContextBar (never XdrScopeNavigator) and no surface imports AdminTenantGate - so the
+    two files would be dead code AND the vite build would fail on unresolved imports.
+    release/xdr-w1-candidate IS a strict ancestor of 6523ba1d and of rc2; fast-forwarding it
+    would drag 1005 changed files (267 frontend) incl. EDR work - rejected as not minimal.
+  * DELTA RISK IF RELEASING FROM rc2 TIP INSTEAD OF PROD BASE: 6523ba1d..b42c34c7 = 138
+    commits, 303 files, 41 frontend source files (tenant.js, CustomerPicker, whole AMP/DT2
+    trajectory set). Not part of this release.
+  * ALREADY ON GITHUB: branch fix-authorized-tenant-selector (03f8e10, PR #2) = rc2 tip
+    b42c34c7 + 3 commits carrying the SAME authority contract (backend xdr_scope.py +
+    the same 2 frontend files). It differs from the accepted /app version only cosmetically
+    (display_name rendering, "no XDR incidents" volume label, comments). It is NOT based on
+    the production base, so merging it releases the 138-commit delta too.
+  * BUILD PROOF (local only, nothing published): NIVX_PRODUCT_SCOPE=xdr
+    bash apps/nivxray-xdr/scripts/vercel-build.sh -> 2228 modules, built in 6.31s,
+    "XDR PRODUCTION BUILD GUARD . PASSED", api_origin https://nivxray.nivxforge.com,
+    product scope declared "xdr". `git status` CLEAN afterwards - no lockfile or tracked
+    file changed (dist/ is gitignored). Fresh artifact contains "authorized_tenants" in
+    XdrAdminPage-*.js and XdrShell-*.js.
+  * STILL OWNER-ONLY (not provable from the repo): which Git branch/project the two Vercel
+    projects are linked to, and whether promotion is Git-integration or `vercel --prod`.
+    The 4-minute gap + apps/nivxray-xdr/.vercel/project.json CLI link + the "production
+    deployment config differs from project settings" warning all point to a manual
+    `vercel --prod`. Vercel Root Directory must be apps/nivxray-xdr so vercel.json and
+    scripts/vercel-build.sh are honoured; a build that bypasses the script points the console
+    at the PREVIEW backend and drops ProductScopeGuard.
+  * NOTHING MERGED, PUSHED OR DEPLOYED. EDR untouched. phase2/edr-production untouched.
+    No tenants/users/tokens. Backend authority unchanged.
