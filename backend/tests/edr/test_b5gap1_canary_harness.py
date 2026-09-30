@@ -362,6 +362,12 @@ def test_load_generator_refuses_the_production_validation_host():
     assert "DESKTOP-A9HGFJJ" in script
     assert "REFUSED" in script
     assert "NVX-CANARY" in script
+    # the guard must not be bypassable with a switch
+    assert "[switch]$Confirm" not in script
+    assert "CANARY_DESIGNATION.json" in script, (
+        "an owner-written designation file must be required")
+    assert "$authorized = @('KUSHU')" in script, (
+        "authorised hosts must be named explicitly, never waved through")
 
 
 def test_impairment_relay_keeps_tls_end_to_end_and_holds_no_credential():

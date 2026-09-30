@@ -3124,3 +3124,38 @@ B5-GAP-1 is NOT fully closed until the canary passes.
 - P0: owner review of canary CSV/verdicts; only then decide any optimization.
 - P1: correlation-rule cache ONLY if canary profiling proves it material.
 - P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
+
+## 2026-06 · B5-GAP-1 CANARY PHASE C0 CONTRACT (host KUSHU authorised; nothing installed yet)
+
+Owner authorised KUSHU as the disposable canary (baseline verified CLEAN: no NivXForge
+service, no Sysmon service/channel/binaries, no C:\NivX, no C:\Program Files\NivXForge,
+no C:\ProgramData\NivXForge, x64, ~190 GB free). DESKTOP-A9HGFJJ remains out of scope.
+
+Repository-authoritative answers recorded in `docs/B5_GAP_1_CANARY_PLAN.md` §0:
+- The NivXForge installer does NOT install or configure Sysmon (no Sysmon logic in
+  `nivxforge_setup.py` or `Install-NivXForgeSensor.ps1`).
+- Authoritative Sysmon config = the W1 baseline XML (`memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md`
+  §1.3) written to `C:\NivX\sysmon\nivx-w1-sysmon.xml`, with the single validated B5 change
+  `ProcessTerminate onmatch="exclude"` so EID 5 is ON from the start. `docs/B5_EID5_ENABLE_AND_VERIFY.ps1`
+  is pinned to DESKTOP-A9HGFJJ and must never run on the canary.
+- Artifact: Gate-0 run 36663297037 / commit 2cb841db, sensor 0.3.0-windows, expected SHA256
+  from that run's SHA256SUMS.txt; C0 halts on mismatch. Sysmon binary integrity is gated on
+  the Authenticode signature (no pre-known hash exists in-repo); its SHA256 is recorded as
+  provenance for owner pinning.
+- Backend origin: https://nivxray.nivxforge.com only (production-origin guard).
+- Read credential: NIVX_CANARY_READ_TOKEN, never printed or stored.
+- No reboot required. Defender never weakened, no exclusions added.
+
+Guard hardened (canary script only, no product code): the `-Confirm` bypass was REMOVED from
+`scripts/canary/b5gap1_canary_load.ps1`. Load generation now requires all three: host not on
+the forbidden list, host named NVX-CANARY* OR on the explicit `$authorized` list (KUSHU), and
+an owner-written `C:\NivXForgeCanary\CANARY_DESIGNATION.json`. Test added; 122 passed / 2
+skipped for `-k "b5gap1 or b5_gap1"`.
+
+C0 block order (one at a time, each fail-closed, owner review between blocks):
+C0.1 designation + read-only preflight · C0.2 Sysmon staging + signature gate ·
+C0.3 config + apply + prove EID1/EID5 · C0.4 artifact SHA256 gate ·
+C0.5 install + enrol + service/journal/backend proof · C0.6 read-only collector dry sample.
+
+State: CANARY_STARTED = NO · LOAD_GENERATED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO ·
+PRODUCTION_CHANGED = NO. C0.1 issued for owner review; nothing has been run.

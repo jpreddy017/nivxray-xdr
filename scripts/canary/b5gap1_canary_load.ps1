@@ -20,23 +20,36 @@ param(
                'SOURCE_DISCONTINUITY')]
   [string]$Scenario = 'NORMAL',
   [int]$Seconds = 900,
-  [int]$Rate = 20,                       # source records per second target
-  [switch]$Confirm
+  [int]$Rate = 20                        # source records per second target
 )
 
 $ErrorActionPreference = 'Stop'
 
 # ── SAFETY: this must never touch the production validation host ──────
-$forbidden = @('DESKTOP-A9HGFJJ')
+# The guard is NOT bypassable with a switch. A host qualifies only if it
+# is (a) not on the forbidden list, (b) named NVX-CANARY* or on the
+# owner-authorised list below, and (c) carrying an owner-written
+# designation file. All three, every run.
+$forbidden  = @('DESKTOP-A9HGFJJ')
+$authorized = @('KUSHU')     # owner-authorised disposable canary hosts
+$designation = 'C:\NivXForgeCanary\CANARY_DESIGNATION.json'
+
 if ($forbidden -contains $env:COMPUTERNAME) {
   throw "REFUSED: $env:COMPUTERNAME is the production validation host. " +
         "This generator runs on a DISPOSABLE canary only."
 }
-if ($env:COMPUTERNAME -notlike 'NVX-CANARY*' -and -not $Confirm) {
-  throw ("REFUSED: $env:COMPUTERNAME is not named NVX-CANARY*. " +
-         "Re-run with -Confirm only if this host is genuinely disposable.")
+if (-not ($env:COMPUTERNAME -like 'NVX-CANARY*' -or
+          $authorized -contains $env:COMPUTERNAME)) {
+  throw ("REFUSED: $env:COMPUTERNAME is neither named NVX-CANARY* nor on " +
+         "the owner-authorised canary list. Add it to `$authorized only " +
+         "with owner approval.")
+}
+if (-not (Test-Path $designation)) {
+  throw ("REFUSED: no owner designation at $designation. A disposable " +
+         "canary must be declared before it can be loaded.")
 }
 Write-Host "canary host: $env:COMPUTERNAME  scenario: $Scenario"
+Write-Host ("designation: " + ((Get-Content $designation -Raw) -replace '\s+', ' '))
 
 function New-BenignProcessActivity {
   # Sysmon EventID 1/5 from a harmless, short-lived process. No network

@@ -19,6 +19,47 @@ Preconditions, all of them, before step 1 runs:
 
 ---
 
+## 0. PHASE C0 — CLEAN HOST PREPARATION (authorised host: KUSHU)
+
+Repository findings that decide C0. Nothing here was improvised.
+
+| Question | Repository answer | Evidence |
+|---|---|---|
+| 1. Does the installer install/configure Sysmon? | **NO.** It installs the sensor + Windows service only. It contains no Sysmon logic at all. | no `Sysmon` reference in `agents/nivxforge-windows/nivxforge_setup.py` or `Install-NivXForgeSensor.ps1` |
+| 2. Authoritative Sysmon configuration | the **W1 baseline** XML, written to `C:\NivX\sysmon\nivx-w1-sysmon.xml` | `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` §1.3 |
+| 3. Use the validated baseline/EID5 configuration? | **YES** — W1 baseline with the single validated B5 change `ProcessTerminate onmatch="exclude"` (EID 5 ON). On a clean host it is written that way in ONE step; `docs/B5_EID5_ENABLE_AND_VERIFY.ps1` is pinned to `DESKTOP-A9HGFJJ` and must NOT be run on the canary | `docs/B5_EID5_ENABLE_AND_VERIFY.ps1` §"THE CHANGE"; `docs/B5_EID5_END_TO_END_ACCEPTANCE_REPORT.md` |
+| 4. Artifact + SHA256 | `NivXForgeEDRSetup.exe`, sensor `0.3.0-windows` / setup `1.0.0`, from Gate-0 run `36663297037` (commit `2cb841db`). Expected SHA256 = the value in that run's `SHA256SUMS.txt` / `GATE0_WINDOWS_REPORT.json`; C0 halts on mismatch | `docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` §8 |
+| 5. Enrolment | `NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token <one-time enrolment token>`; identity is minted per computer. Nothing is copied from any other host | `nivxforge_setup.py::install` |
+| 6. Backend origin | `https://nivxray.nivxforge.com` only. The installer's production-origin guard refuses localhost/preview/`.local`, so a relay or hosts entry is the ONLY legal way to impair delivery later | `nivxforge_setup.py::_assert_backend` |
+| 7. Canary read credential | `NIVX_CANARY_READ_TOKEN` (operator read token for `/api/edr/wave0/raw-events/stats` and `/api/edr/enrollment/acquisition-integrity`). Never printed, never written to CSV or verdict | `scripts/canary/b5gap1_canary_collector.py` |
+| 8. Must KUSHU be renamed? | **NO rename required, and the guard is NOT weakened.** The `-Confirm` bypass was REMOVED. The load generator now requires three conditions every run: not on the forbidden list, named `NVX-CANARY*` **or** listed in `$authorized` (`KUSHU`, owner-authorised), **and** `C:\NivXForgeCanary\CANARY_DESIGNATION.json` present | `scripts/canary/b5gap1_canary_load.ps1` |
+| 9. Reboot | **Not required.** `Sysmon64.exe -i` loads `SysmonDrv` immediately; the sensor service starts without a reboot | `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` §1.4 |
+| 10. Rollback | §6 of this document, plus `Sysmon64.exe -u force` and removal of `C:\NivX`, `C:\NivXForgeCanary` on the canary only | §6 |
+
+Sysmon binary integrity: Microsoft re-publishes Sysmon, so no pre-known
+SHA256 exists in this repository. The **fail-closed** gate is therefore the
+Authenticode signature (`Status = Valid`, signer `O=Microsoft Corporation`),
+exactly as W1 required; the observed SHA256 and file version are RECORDED as
+provenance and may be pinned by the owner for later runs. For the NivXForge
+artifact the expected SHA256 IS known and the mismatch halt is absolute.
+
+C0 block order, one at a time, each fail-closed, each reporting before the
+next is issued:
+
+```
+C0.1  designation + read-only preflight (no install, no download)
+C0.2  Sysmon binary staging + signature gate (no install yet)
+C0.3  write the authoritative config, apply Sysmon, prove EID 1 + EID 5
+C0.4  NivXForge artifact SHA256 gate (halt on mismatch)
+C0.5  install + enrol + prove service, journal, backend connectivity
+C0.6  collector dry sample (read-only, LOAD_GENERATED stays NO)
+```
+
+Defender is never weakened and no Defender exclusion is added at any point.
+No load generation and no impairment in C0.
+
+---
+
 ## 1. PACKAGE
 
 | File | Role | Touches product code? |
@@ -252,8 +293,12 @@ never a silent drop; nothing unacknowledged is deleted.
 ### 10 · SOURCE RECORD DISCONTINUITY
 ```powershell
 ... --scenario SOURCE_DISCONTINUITY --duration 900 --interval 10 --out-dir $C\discontinuity
-.\scripts\canary\b5gap1_canary_load.ps1 -Scenario SOURCE_DISCONTINUITY -Confirm
+.\scripts\canary\b5gap1_canary_load.ps1 -Scenario SOURCE_DISCONTINUITY
 ```
+The generator refuses to run unless the host is not on the forbidden list,
+is named `NVX-CANARY*` **or** listed in `$authorized`, **and** carries
+`C:\NivXForgeCanary\CANARY_DESIGNATION.json`. There is no switch that waves
+the guard through.
 Must hold: exactly one declared gap with
 `classification = SOURCE_RECORD_DISCONTINUITY` and `cause = NOT_PROVEN`;
 never absorbed silently, never labelled benign or malicious.
