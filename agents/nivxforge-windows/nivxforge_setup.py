@@ -5,7 +5,8 @@ ONE frozen executable, built on Windows by
 `.github/workflows/windows-sensor-installer.yml`, that replaces the
 PowerShell + "install Python first" experience:
 
-    NivXForgeEDRSetup.exe install --tenant ten_... --token nvxenr_...
+    <secret source> | NivXForgeEDRSetup.exe install --tenant ten_... \
+                                                    --token-stdin
     NivXForgeEDRSetup.exe status
     NivXForgeEDRSetup.exe uninstall [--purge]
 
@@ -21,9 +22,17 @@ installer could not provide:
   3. a **production-origin guard** so an endpoint can never be pointed at
      a preview or localhost backend, and never at a fallback tenant.
 
-The artifact carries NO credential: the enrolment token is supplied at
-install time and exchanged once for this computer's own endpoint-scoped
-credential. Nothing secret is ever printed.
+The artifact carries NO credential: the enrolment secret is supplied at
+install time ON STDIN ONLY and exchanged once for this computer's own
+endpoint-scoped credential. Nothing secret is ever printed.
+
+The secret is never accepted as a command-line value. Windows records
+process command lines in several places an EDR itself collects — Sysmon
+EID 1 `CommandLine`, the service `binPath`, PowerShell history — so a
+secret passed as `--token <value>` would become endpoint telemetry and
+could be delivered to the very backend it authenticates against. The
+single-use lifetime of the secret reduces the window but does not remove
+the exposure, so the interface refuses it outright.
 """
 from __future__ import annotations
 
@@ -251,7 +260,7 @@ def _validate_identity() -> dict:
     return ident
 
 
-def install(api: str, tenant: str | None, token: str | None,
+def install(api: str, tenant: str | None, token_stdin: bool,
             interval: int, re_enrol: bool) -> None:
     # Pure argument validation FIRST: it has no side effects, so it is safe
     # to run before the elevation check, and it makes the refusal
@@ -288,10 +297,14 @@ def install(api: str, tenant: str | None, token: str | None,
         print("  no enrolment request sent, no token required or consumed")
     else:
         tenant = _assert_tenant(tenant or "")
-        if not (token or "").strip():
-            raise SystemExit("--token is required to enrol. The installer "
-                             "carries no credential by design.")
-        sensor.enrol(api, tenant, token.strip())
+        if not token_stdin:
+            raise SystemExit("--token-stdin is required to enrol. The "
+                             "installer carries no credential by design, and "
+                             + sensor.STDIN_ONLY_NOTICE)
+        # Read it, use it, keep no reference. It is never written to disk,
+        # never printed, and never placed on any command line this process
+        # builds (the service binPath carries a directory, not a secret).
+        sensor.enrol(api, tenant, sensor.read_enrolment_secret())
 
     print("\n=== 4 . WINDOWS SERVICE ===")
     _install_service(api, interval)
@@ -513,7 +526,9 @@ def build_parser() -> argparse.ArgumentParser:
     i = sub.add_parser("install", help="install, enrol and start the service")
     i.add_argument("--backend", default=DEFAULT_BACKEND)
     i.add_argument("--tenant")
-    i.add_argument("--token")
+    i.add_argument("--token-stdin", action="store_true",
+                   help="read the one-time enrolment secret from stdin "
+                        "(the ONLY accepted input; never an argv value)")
     i.add_argument("--interval", type=int, default=30)
     i.add_argument("--re-enrol", action="store_true")
     u = sub.add_parser("uninstall", help="stop and remove the service")
@@ -855,9 +870,14 @@ def main(argv: list[str] | None = None) -> None:
     if SERVICE_FLAG in raw:
         _run_as_service(raw)
         return
+    # BEFORE the parser. `parse_known_args` would silently DISCARD a
+    # `--token <secret>` pair, which is worse than failing: the operator
+    # would believe the old interface still worked while the secret had
+    # already been recorded in the command line of this process.
+    sensor.refuse_secret_on_command_line(raw)
     args = build_parser().parse_known_args(raw)[0]
     if args.cmd == "install":
-        install(args.backend, args.tenant, args.token, args.interval,
+        install(args.backend, args.tenant, args.token_stdin, args.interval,
                 args.re_enrol)
     elif args.cmd == "uninstall":
         uninstall(args.purge)

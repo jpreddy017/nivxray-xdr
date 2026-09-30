@@ -29,7 +29,7 @@ Repository findings that decide C0. Nothing here was improvised.
 | 2. Authoritative Sysmon configuration | the **W1 baseline** XML, written to `C:\NivX\sysmon\nivx-w1-sysmon.xml` | `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` §1.3 |
 | 3. Use the validated baseline/EID5 configuration? | **YES** — W1 baseline with the single validated B5 change `ProcessTerminate onmatch="exclude"` (EID 5 ON). On a clean host it is written that way in ONE step; `docs/B5_EID5_ENABLE_AND_VERIFY.ps1` is pinned to `DESKTOP-A9HGFJJ` and must NOT be run on the canary | `docs/B5_EID5_ENABLE_AND_VERIFY.ps1` §"THE CHANGE"; `docs/B5_EID5_END_TO_END_ACCEPTANCE_REPORT.md` |
 | 4. Artifact + SHA256 | `NivXForgeEDRSetup.exe`, sensor `0.3.0-windows` / setup `1.0.0`, from Gate-0 run `36663297037` (commit `2cb841db`). Expected SHA256 = the value in that run's `SHA256SUMS.txt` / `GATE0_WINDOWS_REPORT.json`; C0 halts on mismatch | `docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` §8 |
-| 5. Enrolment | `NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token <one-time enrolment token>`; identity is minted per computer. Nothing is copied from any other host | `nivxforge_setup.py::install` |
+| 5. Enrolment | `NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token-stdin`, with the one-time secret written to the process's **stdin**; identity is minted per computer. Nothing is copied from any other host. The plaintext `--token` argv interface is REMOVED, because Sysmon EID 1 would record it | `nivxforge_setup.py::install`, `docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md` |
 | 6. Backend origin | `https://nivxray.nivxforge.com` only. The installer's production-origin guard refuses localhost/preview/`.local`, so a relay or hosts entry is the ONLY legal way to impair delivery later | `nivxforge_setup.py::_assert_backend` |
 | 7. Canary read credential | `NIVX_CANARY_READ_TOKEN` (operator read token for `/api/edr/wave0/raw-events/stats` and `/api/edr/enrollment/acquisition-integrity`). Never printed, never written to CSV or verdict | `scripts/canary/b5gap1_canary_collector.py` |
 | 8. Must KUSHU be renamed? | **NO rename required, and the guard is NOT weakened.** The `-Confirm` bypass was REMOVED. The load generator now requires three conditions every run: not on the forbidden list, named `NVX-CANARY*` **or** listed in `$authorized` (`KUSHU`, owner-authorised), **and** `C:\NivXForgeCanary\CANARY_DESIGNATION.json` present | `scripts/canary/b5gap1_canary_load.ps1` |
@@ -227,10 +227,28 @@ bearer tokens, API keys, service credentials, identity secrets.
 Install (operator, elevated, canary only):
 
 ```powershell
-NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token <enrolment_token>
+Get-FileHash .\NivXForgeEDRSetup.exe -Algorithm SHA256   # must equal the Gate-0 SHA256
+
+# The one-time enrolment secret is typed into a SecureString and handed to
+# the installer on STDIN. It is never a parameter value, so it cannot be
+# recorded by Sysmon EID 1, by the service binPath or by PowerShell history.
+$secret = Read-Host 'canary enrolment secret' -AsSecureString
+$bstr   = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+try {
+  [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) |
+    .\NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token-stdin
+} finally {
+  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+  Remove-Variable secret, bstr -ErrorAction SilentlyContinue
+}
+
 NivXForgeEDRSetup.exe status
-Get-FileHash .\NivXForgeEDRSetup.exe -Algorithm SHA256   # must equal Gate-0 SHA256
 ```
+
+After enrolment, the canary MUST prove the absence on the real host: query
+Sysmon EID 1 for the installer process and confirm the recorded
+`CommandLine` contains `--token-stdin` and no secret
+(`docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md` §6).
 
 ---
 

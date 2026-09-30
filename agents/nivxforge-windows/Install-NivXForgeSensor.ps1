@@ -2,14 +2,20 @@
 # NivXForge EDR · REUSABLE Windows sensor installer (V1 onboarding)
 #
 # ONE build installs on every Windows computer. It contains NO tenant
-# credential, NO API key and NO device identity: the enrollment token is
+# credential, NO API key and NO device identity: the enrollment secret is
 # supplied at INSTALL TIME and is exchanged once for this computer's OWN
 # durable credential, which never leaves the machine.
 #
 #   .\Install-NivXForgeSensor.ps1 `
 #        -BackendUrl 'https://<edr-backend>' `
 #        -TenantId   'ten_...' `
-#        -EnrollmentToken 'nvxenr_...'
+#        -EnrollmentToken (Read-Host 'enrolment secret' -AsSecureString)
+#
+# THE SECRET IS A SecureString AND IS DELIVERED ON STDIN. It is never
+# placed on a command line: Windows records command lines in Sysmon
+# EID 1, in the service binPath and in PowerShell history, all of which
+# this product itself collects, so a secret passed as a parameter VALUE
+# would become endpoint telemetry.
 #
 # WHAT IT DOES
 #   1. refuses to run without Administrator rights
@@ -38,7 +44,7 @@
 param(
   [Parameter(Mandatory = $false)][string]$BackendUrl,
   [Parameter(Mandatory = $false)][string]$TenantId,
-  [Parameter(Mandatory = $false)][string]$EnrollmentToken,
+  [Parameter(Mandatory = $false)][System.Security.SecureString]$EnrollmentToken,
   [int]$IntervalSeconds = 30,
   [switch]$ReEnroll,
   [switch]$Uninstall,
@@ -70,6 +76,33 @@ function Resolve-Python {
   }
   throw ('Python 3 was not found on this computer. Install Python 3.11+ ' +
          '(or ship the bundled runtime) and re-run this installer.')
+}
+
+function Invoke-Enrolment {
+  # The secret goes to the child process on STDIN. The child's command
+  # line carries only --api/--tenant/--token-stdin, so nothing secret can
+  # be recorded by Sysmon EID 1, by the SCM or by PowerShell history.
+  param(
+    [string]$Python, [string]$SensorPath, [string]$Api, [string]$Tenant,
+    [System.Security.SecureString]$Secret
+  )
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName  = $Python
+  $psi.Arguments = ('"{0}" enrol --api {1} --tenant {2} --token-stdin' -f `
+                    $SensorPath, $Api, $Tenant)
+  $psi.UseShellExecute        = $false
+  $psi.RedirectStandardInput  = $true
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret)
+  try {
+    $proc.StandardInput.WriteLine(
+      [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr))
+    $proc.StandardInput.Close()
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+  }
+  $proc.WaitForExit()
+  return $proc.ExitCode
 }
 
 function Protect-StateDirectory {
@@ -129,15 +162,19 @@ try {
     $existing = Get-Content $Identity -Raw | ConvertFrom-Json
     Write-Host ('  already enrolled: endpoint_id=' + $existing.endpoint_id)
     Write-Host '  keeping this computer''s existing identity and credential.'
-    Write-Host '  (use -ReEnroll with a NEW token to replace the credential)'
+    Write-Host '  (use -ReEnroll with a NEW secret to replace the credential)'
   } else {
     if (-not $TenantId)        { throw '-TenantId is required to enrol.' }
-    if (-not $EnrollmentToken) { throw '-EnrollmentToken is required to enrol.' }
+    if (-not $EnrollmentToken) {
+      throw ('-EnrollmentToken is required to enrol, as a SecureString ' +
+             '(e.g. -EnrollmentToken (Read-Host s -AsSecureString)). It is ' +
+             'delivered on stdin and never on a command line.')
+    }
     $env:NIVXFORGE_SENSOR_STATE = $StateDir
-    & $python $Sensor enrol --api $BackendUrl --tenant $TenantId `
-        --token $EnrollmentToken
-    if ($LASTEXITCODE -ne 0) {
-      throw ('enrolment failed (exit ' + $LASTEXITCODE + '). Nothing was ' +
+    $enrolExit = Invoke-Enrolment -Python $python -SensorPath $Sensor `
+                   -Api $BackendUrl -Tenant $TenantId -Secret $EnrollmentToken
+    if ($enrolExit -ne 0) {
+      throw ('enrolment failed (exit ' + $enrolExit + '). Nothing was ' +
              'installed as a service and no telemetry was sent.')
     }
   }

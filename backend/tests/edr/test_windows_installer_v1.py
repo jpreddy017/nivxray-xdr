@@ -84,16 +84,21 @@ def test_no_preview_or_localhost_origin_is_baked_into_the_installer():
     assert "http://" not in text.replace("http://localhost", "")
 
 
-def test_enrollment_token_is_never_written_to_disk_or_logged(setup_mod):
+def test_enrollment_secret_is_stdin_only_and_never_logged(setup_mod):
     text = SETUP.read_text(encoding="utf-8")
-    assert "--token" in text
-    # No print/log statement may take the token VALUE. Mentioning the word
+    assert "--token-stdin" in text
+    # The plaintext argv interface is GONE from the installer CLI.
+    parser_block = text[text.index("def build_parser("):
+                        text.index("#: value used for a check")]
+    assert '"--token"' not in parser_block
+    assert "read the one-time enrolment secret from stdin" in parser_block
+    # No print/log statement may take the secret VALUE. Mentioning the word
     # (e.g. "no token required or consumed") is fine; interpolating the
     # variable is not.
     for stmt in re.findall(r"(?:print|Log(?:Error)?Msg)\((?:[^()]|\([^()]*\))*\)", text):
         assert not re.search(r"\{\s*token", stmt), stmt
         assert not re.search(r"\btoken\.strip\(\)|\+\s*token\b|,\s*token\s*[,)]", stmt), stmt
-    # The installer must not persist the token itself anywhere.
+    # The installer must not persist the secret itself anywhere.
     assert not re.search(r"write_text\([^)]*token", text)
 
 
@@ -216,8 +221,9 @@ def test_ci_verify_step_does_not_leak_the_intentional_guard_exit_code():
 def test_cli_contract_is_stable(setup_mod):
     parser = setup_mod.build_parser()
     args, _ = parser.parse_known_args(
-        ["install", "--tenant", "ten_x", "--token", "nvxenr_y"])
+        ["install", "--tenant", "ten_x", "--token-stdin"])
     assert args.cmd == "install" and args.interval == 30
+    assert args.token_stdin is True
     assert args.backend == "https://nivxray.nivxforge.com"
     assert parser.parse_known_args(["--service-run"])[0].service_run is True
     assert parser.parse_known_args(["uninstall", "--purge"])[0].purge is True

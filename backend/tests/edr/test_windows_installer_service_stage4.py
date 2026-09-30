@@ -188,8 +188,8 @@ def test_resume_completes_stage_4_without_a_second_token(mod, monkeypatch, capsy
     monkeypatch.setattr(mod, "_install_service", lambda api, iv: None)
     monkeypatch.setattr(mod, "_self_path", lambda: mod.INSTALLED_EXE)
 
-    # NO --tenant and NO --token supplied.
-    mod.install("https://nivxray.nivxforge.com", None, None, 30, False)
+    # NO --tenant and NO --token-stdin supplied.
+    mod.install("https://nivxray.nivxforge.com", None, False, 30, False)
 
     out = capsys.readouterr().out
     assert enrol_calls == [], "resume must NOT send a second enrolment request"
@@ -206,7 +206,7 @@ def test_resume_preserves_the_existing_credential_untouched(mod, monkeypatch):
     monkeypatch.setattr(mod, "_protect_state_dir", lambda: None)
     monkeypatch.setattr(mod, "_install_service", lambda api, iv: None)
     monkeypatch.setattr(mod, "_self_path", lambda: mod.INSTALLED_EXE)
-    mod.install("https://nivxray.nivxforge.com", None, None, 30, False)
+    mod.install("https://nivxray.nivxforge.com", None, False, 30, False)
     assert mod.sensor.IDENTITY_FILE.read_bytes() == before
 
 
@@ -216,7 +216,7 @@ def test_resume_never_prints_the_credential_value(mod, monkeypatch, capsys):
     monkeypatch.setattr(mod, "_protect_state_dir", lambda: None)
     monkeypatch.setattr(mod, "_install_service", lambda api, iv: None)
     monkeypatch.setattr(mod, "_self_path", lambda: mod.INSTALLED_EXE)
-    mod.install("https://nivxray.nivxforge.com", None, None, 30, False)
+    mod.install("https://nivxray.nivxforge.com", None, False, 30, False)
     out = capsys.readouterr().out
     assert "nvx_placeholder_value_for_test_only" not in out
     assert "cred_abc123" not in out
@@ -232,7 +232,7 @@ def test_running_service_is_stopped_before_the_binary_is_replaced(mod, monkeypat
     monkeypatch.setattr(mod, "_sc", lambda c: calls.append(c))
     monkeypatch.setattr(mod.shutil, "copy2", lambda *a: calls.append("copy2"))
     monkeypatch.setattr(mod, "_self_path", lambda: Path("/tmp/downloaded.exe"))
-    mod.install("https://nivxray.nivxforge.com", None, None, 30, False)
+    mod.install("https://nivxray.nivxforge.com", None, False, 30, False)
     assert calls.index(f'sc.exe stop "{mod.SERVICE_NAME}"') < calls.index("copy2")
 
 
@@ -272,5 +272,5 @@ def test_re_enrol_still_demands_an_explicit_tenant_and_token(mod, monkeypatch):
     monkeypatch.setattr(mod, "_protect_state_dir", lambda: None)
     monkeypatch.setattr(mod, "_self_path", lambda: mod.INSTALLED_EXE)
     with pytest.raises(SystemExit) as ex:
-        mod.install("https://nivxray.nivxforge.com", "ten_x", None, 30, True)
-    assert "--token is required" in str(ex.value)
+        mod.install("https://nivxray.nivxforge.com", "ten_x", False, 30, True)
+    assert "--token-stdin is required" in str(ex.value)

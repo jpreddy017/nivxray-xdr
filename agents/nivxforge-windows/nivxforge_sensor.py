@@ -4,7 +4,8 @@
 Same permanent contract as the Linux sensor
 (`agents/nivxforge-linux/nivxforge_sensor.py`), deliberately:
 
-    enrol (one-time token) -> durable per-device credential -> session
+    enrol (one-time secret, STDIN only) -> durable per-device credential
+      -> session
       -> DURABLE LOCAL JOURNAL -> authenticated telemetry -> heartbeat
 
 No second telemetry architecture is created for onboarding: this sensor
@@ -379,17 +380,105 @@ def _machine_facts() -> dict:
     }
 
 
+# ── enrolment secret input · never on a command line ──────────────
+#: Written wherever a secret could otherwise reach a log, a report or an
+#: exception message.
+SECRET_REDACTED = "[REDACTED]"
+#: Flags that USED to accept the one-time enrolment secret as an argv
+#: value. They are refused outright: Windows records process command
+#: lines (Sysmon EID 1, the service binPath, PowerShell history), so a
+#: secret passed this way becomes endpoint telemetry and can be delivered
+#: to the very backend it authenticates against.
+LEGACY_TOKEN_FLAGS = ("--token", "-token", "--enrollment-token",
+                      "--enrolment-token")
+#: Prefix of a minted enrolment secret. Used ONLY to refuse one that is
+#: found on a command line; never to generate or validate a secret.
+ENROLMENT_SECRET_PREFIX = "nvxenr_"
+STDIN_ONLY_NOTICE = (
+    "the one-time enrolment secret is read from STDIN via --token-stdin "
+    "and is never accepted as a command-line value, because Windows "
+    "records process command lines (Sysmon EID 1, service binPath, "
+    "PowerShell history) and a recorded secret becomes endpoint "
+    "telemetry. Supply it like this:\n"
+    "  <secret-producing command> | NivXForgeEDRSetup.exe install "
+    "--tenant <tenant-id> --token-stdin")
+
+
+def redact(text: str, secret: str | None) -> str:
+    """Replace every occurrence of `secret` in `text`."""
+    if not secret:
+        return text
+    return text.replace(secret, SECRET_REDACTED)
+
+
+def refuse_secret_on_command_line(argv: list[str]) -> None:
+    """Refuse a command line that carries, or could carry, the secret.
+
+    This runs BEFORE argparse on purpose: argparse echoes unrecognised
+    arguments in its own error text, which would itself publish the
+    secret to stderr and to any log that captures it.
+    """
+    for arg in argv:
+        name, _, value = arg.partition("=")
+        if name in LEGACY_TOKEN_FLAGS:
+            raise SystemExit(f"refusing to run: {name} is REMOVED — "
+                             + STDIN_ONLY_NOTICE)
+        if arg.startswith(ENROLMENT_SECRET_PREFIX) or \
+                value.startswith(ENROLMENT_SECRET_PREFIX):
+            raise SystemExit(
+                "refusing to run: what looks like an enrolment secret was "
+                "found on this command line (no value is echoed) — "
+                + STDIN_ONLY_NOTICE)
+
+
+def read_enrolment_secret(stream=None) -> str:
+    """Read the one-time enrolment secret from stdin, and nowhere else."""
+    stream = sys.stdin if stream is None else stream
+    if stream is None:
+        raise SystemExit("no stdin is attached to this process, so "
+                         + STDIN_ONLY_NOTICE)
+    secret = (stream.readline() or "").strip()
+    if not secret:
+        raise SystemExit("stdin carried no enrolment secret — "
+                         + STDIN_ONLY_NOTICE)
+    if any(char.isspace() for char in secret):
+        raise SystemExit("the value read from stdin contains whitespace and "
+                         "was not accepted as an enrolment secret (no value "
+                         "is echoed)")
+    return secret
+
+
 def enrol(api: str, tenant: str, token: str) -> dict:
+    # Defence in depth: prove at RUNTIME that the secret this process is
+    # about to use is not also sitting on its own command line.
+    refuse_secret_on_command_line(list(sys.argv))
+    if token in sys.argv:
+        raise SystemExit("refusing to enrol: the enrolment secret is "
+                         "present in this process's argv")
     facts = _machine_facts()
     if not facts["processor_id"] and not facts["machine_guid"]:
         sys.exit("refusing to enrol: no durable machine attribute found. An "
                  "unattributed observation is not an endpoint.")
-    res = _post(api, "/api/edr/agent/enroll", {
-        "tenant_id": tenant, "enrollment_token": token,
-        "sensor_version": SENSOR_VERSION,
-        "processor_id": facts["processor_id"],
-        "machine_guid": facts["machine_guid"],
-        "hostname": facts["hostname"], "platform": facts["platform"]})
+    failure: str | None = None
+    res: dict = {}
+    try:
+        res = _post(api, "/api/edr/agent/enroll", {
+            "tenant_id": tenant, "enrollment_token": token,
+            "sensor_version": SENSOR_VERSION,
+            "processor_id": facts["processor_id"],
+            "machine_guid": facts["machine_guid"],
+            "hostname": facts["hostname"], "platform": facts["platform"]})
+    except Exception as ex:                                  # noqa: BLE001
+        # A rejected enrolment must not publish the secret: a backend
+        # validation error can echo the request body straight back.
+        failure = redact(f"enrolment failed: {type(ex).__name__}: "
+                         f"{str(ex)[:400]}", token)
+    if failure is not None:
+        # Raised OUTSIDE the except block on purpose. `raise ... from None`
+        # only suppresses the DISPLAY of the chain: the original exception
+        # would still be reachable as `__context__`, carrying the
+        # unredacted value with it.
+        raise SystemExit(failure)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     IDENTITY_FILE.write_text(json.dumps({
         "tenant_id": tenant, "endpoint_id": res["endpoint_id"],
@@ -1236,12 +1325,14 @@ def status() -> dict:
 
 
 def main() -> None:
+    refuse_secret_on_command_line(list(sys.argv[1:]))
     ap = argparse.ArgumentParser(description="NivXForge EDR Windows sensor")
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("enrol")
     e.add_argument("--api", required=True)
     e.add_argument("--tenant", required=True)
-    e.add_argument("--token", required=True)
+    e.add_argument("--token-stdin", action="store_true", required=True,
+                   help="read the one-time enrolment secret from stdin")
     r = sub.add_parser("run")
     r.add_argument("--api", required=True)
     r.add_argument("--interval", type=int, default=30)
@@ -1250,7 +1341,7 @@ def main() -> None:
     sub.add_parser("capabilities")
     args = ap.parse_args()
     if args.cmd == "enrol":
-        enrol(args.api, args.tenant, args.token)
+        enrol(args.api, args.tenant, read_enrolment_secret())
     elif args.cmd == "run":
         run(args.api, args.interval, args.once)
     elif args.cmd == "status":

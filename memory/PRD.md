@@ -3303,3 +3303,28 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   evidence and the block HALTS on the unfilled placeholder - there is deliberately no
   "accept observed" path. C0.4 is hash-gate + staging only; installation and enrolment remain
   C0.5 per the canary plan. No execution of the artifact in C0.4.
+- C0.5 = HOLD by owner. BLOCKER = ENROLLMENT_TOKEN_COMMAND_LINE_EXPOSURE. The installer
+  accepted the one-time enrolment secret as `--token <plaintext>`, and Sysmon EID 1 records
+  process command lines, so the secret would have become endpoint telemetry delivered to the
+  backend it authenticates against. The interface was fixed instead of the procedure.
+- ENROLMENT SECRET IS NOW STDIN-ONLY (Windows only). `--token-stdin` is the sole accepted
+  input; `--token`/`-token`/`--enrollment-token`/`--enrolment-token` and any argv element with
+  the `nvxenr_` shape are REFUSED before argparse can echo them. The secret is never written to
+  disk, printed, or placed on any command line the installer builds (service binPath carries
+  --backend/--interval/--state-dir only). A rejected enrolment is redacted and re-raised OUTSIDE
+  the except block, so no `__context__` retains the value. `Install-NivXForgeSensor.ps1` takes a
+  SecureString and delivers it on the child's stdin (ZeroFreeBSTR after use).
+  Files: agents/nivxforge-windows/{nivxforge_sensor.py,nivxforge_setup.py,Install-NivXForgeSensor.ps1},
+  .github/workflows/windows-sensor-installer.yml, docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md,
+  docs/B5_GAP_1_CANARY_PLAN.md, backend/tests/edr/test_b5gap1_enrolment_secret_stdin.py (+3
+  existing installer test files updated). 24 new tests; full tests/edr suite 1979 passed.
+  LIVE argv proof on this pod via /proc/<pid>/cmdline of a real child process.
+- STILL OWED (cannot be produced from this container: no push rights, no Actions dispatch):
+  commit SHA, windows-sensor-installer run ID, new NivXForgeEDRSetup.exe SHA256, signing status.
+  Gate-0 artifact for commit 2cb841db10e4262bba89c115bfa8c3058f61fda4 left UNTOUCHED. KUSHU and
+  DESKTOP-A9HGFJJ not touched. Sysmon/Defender unchanged. E3 not started. C0.5 stays HOLD until
+  the NEW artifact is owner-reviewed and a new artifact-hash gate passes; the real Sysmon EID 1
+  absence check is specified in docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md §6.
+- DECLARED RESIDUAL: agents/nivxforge-linux/nivxforge_sensor.py still accepts `enrol --token
+  <secret>` (scripts/nivxforge_sensor_supervise.py passes it that way), so the same exposure
+  exists on Linux endpoints. OUT OF SCOPE of this directive, NOT fixed, recorded as open.

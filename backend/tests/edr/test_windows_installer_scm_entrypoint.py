@@ -166,7 +166,7 @@ def test_install_is_still_routed_to_install(mod, monkeypatch):
     seen: list[tuple] = []
     monkeypatch.setattr(mod, "install", lambda *a: seen.append(a))
     mod.main(["install", "--backend", "https://nivxray.nivxforge.com",
-              "--tenant", "ten_x", "--token", "nvxenr_x"])
+              "--tenant", "ten_x", "--token-stdin"])
     assert seen and seen[0][0] == "https://nivxray.nivxforge.com"
 
 

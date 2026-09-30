@@ -62,12 +62,27 @@ jobs:
           # captured and cleared deliberately: GitHub's pwsh wrapper appends
           # `exit $LASTEXITCODE`, and a leaked 1 from this intentional refusal
           # would fail the step even though every assertion passed.
-          $bad = (& $exe install --backend http://localhost:8001 --tenant t --token x 2>&1 | Out-String)
+          $bad = (& $exe install --backend http://localhost:8001 --tenant t --token-stdin 2>&1 | Out-String)
           $guardExit = $LASTEXITCODE
           Write-Host $bad
           if ($guardExit -eq 0) { throw 'production-origin guard exited 0 for localhost' }
           if ($bad -notmatch 'refusing to install') {
             throw 'production-origin guard did not refuse localhost'
+          }
+          $global:LASTEXITCODE = 0
+          # The plaintext enrolment-secret interface must be GONE from the
+          # binary: a command line carrying the secret is recorded by
+          # Sysmon EID 1, the SCM and PowerShell history. A NON-ZERO exit
+          # is again the required outcome.
+          $legacy = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --token x 2>&1 | Out-String)
+          $legacyExit = $LASTEXITCODE
+          Write-Host $legacy
+          if ($legacyExit -eq 0) { throw '--token was accepted by the binary' }
+          if ($legacy -notmatch 'is REMOVED') {
+            throw 'the binary did not refuse the plaintext --token interface'
+          }
+          if ($legacy -notmatch '--token-stdin') {
+            throw 'the refusal did not name the stdin interface'
           }
           $global:LASTEXITCODE = 0
           Get-Content (Join-Path $dist 'build-info.json')
