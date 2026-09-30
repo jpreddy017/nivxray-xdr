@@ -59,6 +59,8 @@ $PyiCommon = @(
   '--hidden-import', 'nivxforge_exclusions',
   '--hidden-import', 'nivxforge_delivery_counters',
   '--hidden-import', 'nivxforge_content_acquisition',
+  '--hidden-import', 'nivxforge_journal',
+  '--hidden-import', 'sqlite3',
   '--hidden-import', 'win32timezone',
   '--hidden-import', 'servicemanager',
   '--hidden-import', 'win32serviceutil',

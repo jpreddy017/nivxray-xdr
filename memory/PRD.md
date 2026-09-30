@@ -2698,3 +2698,128 @@ B5_READY_TO_LEAVE    = YES
   NOT DEPLOYED — the corrected matcher reaches production on the next ordinary publish.
   No endpoint/sensor/Sysmon/outbox contact · no replay/backfill/synthesis · no UI change.
 
+
+---
+
+## 2026-06 · B5-GAP-1 — WINDOWS SENSOR LOSSLESS ACQUISITION + LOCAL EVIDENCE JOURNAL
+### IMPLEMENTED · LOCAL/FOCUSED TESTS PASS · **NOT DEPLOYED** · owner-review gate open
+
+**B5 remains CLOSED / PASS.** B5-GAP-1 was a separate, and far larger, defect.
+
+**Root cause — `B5_GAP_1_ROOT_CAUSE = PROVEN`.** NOT EID5-specific. A GENERAL
+Windows acquisition / scheduling / durability defect in
+`agents/nivxforge-windows/nivxforge_sensor.py` @ `6afab68a`:
+hardcoded `/c:100` page (L265), **no pagination** — one query per channel per cycle
+(`collect()` L334-336), acquisition serialized behind up to **200 sequential POSTs**
+(`_drain` L487, `run()` L552-587) at a measured ~2.68 s each => cycle period
+~10-22 min, capacity ~0.1 rec/s against ~20 rec/s Sysmon production; the circular
+64 MiB EVTX (`retention=false`) then rotated past the cursor and **nothing compared
+the returned RecordID against cursor+1**, so the loss was SILENT and every cycle
+reported `collected: 100`.
+Production signature: 100 records @14:45Z (8470086-8470185), ZERO for ~22 min,
+100 records @15:07Z (8496595-8496694) — a 26,410 RecordID jump.
+Read-only review: `/app/docs/B5_GAP_1_ROOT_CAUSE_READONLY.md`.
+
+**EARLIER HYPOTHESIS CORRECTED AND PRESERVED:** the cursor never jumped to the
+channel tail. It advanced only to `max(record_id parsed)`, and enqueue+fsync already
+preceded the cursor commit. Both correct properties were KEPT, not replaced.
+
+**What was built**
+- **NEW `agents/nivxforge-windows/nivxforge_journal.py`** (741 lines) — LOCAL EVIDENCE
+  JOURNAL. `sqlite3` stdlib + WAL + `synchronous=FULL` + `auto_vacuum=INCREMENTAL`,
+  chosen because the endpoint artifact is a PyInstaller bundle: no new dependency, no
+  broker, no service-account or ACL change. Kafka/Redis/Mongo on the endpoint rejected.
+- **PRIMARY INVARIANT enforced structurally:** evidence rows + detected gaps + the
+  channel cursor are **ONE `BEGIN IMMEDIATE ... COMMIT`**, so the source cursor can
+  never advance beyond the last record durably owned by NivXForge. A failed write
+  rolls back and the cursor does not move; `UNIQUE(channel, source_record_id)` makes
+  the re-read idempotent. Crash case A is structurally impossible, not merely handled.
+- **PAGED acquisition** (`acquire()` replaces `collect()`): page loop per channel,
+  round-robin one page per pass for fairness, `/rd:false` oldest-first asserted by
+  test (`/rd:true` would be the tail-jump defect everyone assumed this was).
+- **WALL-CLOCK budgets** per stage (acquire 15 s, deliver 30 s, legacy outbox 7.5 s at
+  interval 30) — a message count cannot bound time at 2.68 s/POST, which is exactly
+  how delivery came to own the whole cycle. Gate 7 exclusion adjudication is fsynced
+  BEFORE the cursor advances, so Gate 7 semantics are unchanged.
+- **ACQUISITION GAP AUTHORITY**: LEADING + INTERIOR discontinuity detection, contract
+  `{expected_next_record_id, first_observed_record_id, missing_start/end,
+  missing_record_id_count, cause: "NOT_PROVEN", classification:
+  "SOURCE_RECORD_DISCONTINUITY"}`. Production case verified: 8470186..8496594 = 26409.
+  Cause is NEVER labelled `LOG_ROLLOVER`. `SOURCE_ROLLOVER_RISK` is emitted ONLY when
+  a measured head/tail probe shows the source's oldest surviving record is newer than
+  our cursor — never deduced from a delivery backlog.
+- **BOUNDED capacity** judged on `journal_live_bytes` (not the SQLite file high-water
+  mark, which never shrinks and would fabricate a permanent outage) + real
+  `min_free_bytes`. 512 MiB / 70% warn / 90% critical / 1 GiB free-disk floor. At
+  critical: reclaim accepted rows, re-measure, then **HALT acquisition** with
+  `ACQUISITION_HALTED_JOURNAL_FULL`. Never overwrites or drops unacknowledged evidence.
+- **SENT != ACCEPTED.** `BACKEND_ACCEPTED` only on a 2xx for that row; that response is
+  the named acknowledgement authority and the only thing authorising reclamation.
+  There is deliberately no `RECLAIMABLE` row state.
+- **Integrity monitor** — machine-readable `acquisition_integrity.json` (0600, atomic
+  replace) every cycle + health states HEALTHY / DEGRADED / ACQUISITION_LAGGING /
+  ACQUISITION_GAP / ACQUISITION_HALTED_JOURNAL_FULL / JOURNAL_PRESSURE /
+  JOURNAL_CRITICAL / JOURNAL_CORRUPT / DELIVERY_BACKLOG / BACKEND_UNREACHABLE /
+  CHANNEL_UNAVAILABLE / SOURCE_ROLLOVER_RISK. Per-channel `query_ms_last/max` recorded
+  so the unindexed `EventRecordID>N` scan question is decided on evidence later.
+- **Migration** idempotent, guarded by `meta.legacy_migrated_at`: adopts the live
+  cursors (Security 284760 / System 22702 / Sysmon 8969348) with `MAX()` so a stale
+  bookmark cannot drag one backwards; NO reset, NO Event Log replay, NO history import;
+  `outbox.jsonl`/`outbox.offset` untouched and still drained; `channels.json` kept as a
+  NON-AUTHORITATIVE mirror so rollback works. Corruption is renamed+preserved with
+  `journal_fault.json`, never deleted or truncated.
+- **NO BACKEND CONTRACT CHANGE.** `HeartbeatBody` and `TelemetryBody` are both
+  `extra="forbid"`, so publishing integrity fields would 422 every production
+  heartbeat. Integrity stays local; gaps are journaled `reported=0` awaiting an
+  approved transport.
+
+**Incidental defect corrected in the rewritten call site:** `nvx_excl.partition()`
+returns `(kept, suppressed_count: int)`; the old `run()` called `len(excluded or [])`
+on it, raising `TypeError` the moment a COLLECTION-scoped exclusion actually matched
+(masked because `0 or []` yields `[]`).
+
+**Tests — 57 NEW, all pass; `backend/tests/edr/` full suite 1885 passed / 3 skipped**
+- `fixtures_b5_gap1_source.py` — deterministic circular-channel harness (no wevtutil,
+  no HTTP, no endpoint; all TEST/SYNTHETIC).
+- `test_b5_gap1_paged_acquisition.py` (24) — paging 0/1/99/100/101/200/201/1000/10000,
+  page-size + `/rd:false` argv assertion, per-channel ceiling as a PAUSE not a skip,
+  gap matrix incl. the production 26409 case, fairness, channel-failure isolation.
+- `test_b5_gap1_journal_durability.py` (28) — crash cases A-E with a genuinely
+  read-only connection (not a mock), corruption quarantine, delivery
+  normal/slow/down/retry/recovery/ordering, pressure + halt + live-bytes capacity,
+  identity/tenant/credential-absence, EID1+EID5 with ProcessGuid and
+  provider-qualified counting through the journal, migration idempotency.
+- `test_b5_gap1_stress_and_silent_loss.py` (5) — §23 stress 10,000 (acquired ==
+  journaled == accepted == 10000, 0 gaps, 0 duplicates), §24 failure injection
+  (1,500 records/cycle x 8 cycles against a trickling backend: backlog GROWS, zero
+  gaps, zero loss), rotation declared not hidden, rollover risk measured not deduced,
+  and a **pre-fix counterfactual** reproducing 100 -> 26,410 jump -> 100 then proving
+  the fixed path takes all 26,609.
+- Synthetic throughput (NOT a production claim): ~28,900 acquire/s, ~615 deliver/s.
+
+**Remaining risks (full list in the doc)**
+1. Acquisition integrity not visible in the console — needs an approved backend
+   contract. 2. `wevtutil` scan cost still unproven in production; now measured.
+3. **Delivery is still ~11 msgs/cycle at 2.68 s/POST — a 20 rec/s endpoint holds a
+   growing journal backlog; 512 MiB ~= 270,000 records ~= 3.7 h of headroom before
+   JOURNAL_PRESSURE. This makes backlog Issue 2 (telemetry POST latency/batching) the
+   next production-critical item.** 4. B3 file hashing still inside acquisition
+   (capability-gated OFF; surfaces as ACQUISITION_LAGGING). 5. Tail probe adds 6 cheap
+   wevtutil calls/cycle (disableable). 6. The historical B5-GAP-1 records remain
+   unrecoverable — nothing backfills or reconstructs them, by design. 7. Not yet
+   exercised on real Windows; the frozen bundle must be rebuilt so `sqlite3` is packed.
+
+**Files:** `agents/nivxforge-windows/nivxforge_journal.py` (new),
+`nivxforge_sensor.py` (0.2.0 -> 0.3.0-windows), `build/build_windows_installer.ps1`
+(`--hidden-import nivxforge_journal`, `sqlite3`), 4 new test files,
+`/app/docs/B5_GAP_1_ACQUISITION_DURABILITY_FIX.md`.
+No backend route/model/tenancy/response-authority/Device-Trajectory change. E3 NOT
+STARTED. No deploy, no endpoint contact, no sensor restart, no Sysmon or channels.json
+or outbox change, no replay, no backfill.
+
+### Next (owner-gated)
+- P0: owner approval -> Windows build -> canary acceptance (procedure §25 of the doc).
+- P0: telemetry POST latency / batching (backlog Issue 2) — now the binding constraint
+  on delivery, and the reason the journal backlog grows.
+- P1: approved backend contract to publish ACQUISITION_GAP + integrity to the console.
+- P1: E3 deterministic detection engine hardening (after the above).

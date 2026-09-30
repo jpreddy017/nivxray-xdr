@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import platform
@@ -39,7 +40,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.2.0-windows"
+SENSOR_VERSION = "0.3.0-windows"
 PLATFORM = "WINDOWS"
 
 def _default_state_root() -> str:
@@ -69,6 +70,10 @@ STATE_DIR = Path(os.environ.get(
 IDENTITY_FILE = STATE_DIR / "identity.json"     # admin/SYSTEM only ACL
 QUEUE_FILE = STATE_DIR / "outbox.jsonl"
 OFFSET_FILE = STATE_DIR / "outbox.offset"
+#: LEGACY, and no longer the cursor AUTHORITY. The authority is the
+#: `cursors` table of the Local Evidence Journal, which is committed in the
+#: same transaction as the evidence itself. This file is still written, as a
+#: read-only mirror, so a downgrade and an operator's eye both still work.
 BOOKMARK_FILE = STATE_DIR / "channels.json"
 
 #: Channels asked for in order. A missing channel is reported, never faked.
@@ -97,6 +102,12 @@ CAPABILITIES = {
         "no kernel driver and no ETW session, so no syscall-level fidelity",
         "a channel that is disabled or unreadable is reported as "
         "unavailable, never as an absence of activity",
+        "acquired evidence is held in a BOUNDED local evidence journal; "
+        "when local durable capacity is exhausted acquisition HALTS and "
+        "says so, and no unacknowledged evidence is ever overwritten",
+        "a source RecordID discontinuity is declared as an acquisition gap "
+        "with cause NOT_PROVEN; the sensor never reconstructs the records "
+        "it did not observe",
     ],
 }
 
@@ -105,18 +116,79 @@ CAPABILITIES = {
 # this file in the connector release. Imported, never reimplemented, so
 # the Windows and Linux connectors cannot drift apart.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import nivxforge_exclusions as nvx_excl        # noqa: E402
 # DELIVERY FIDELITY + B3 CONTENT IDENTITY · both are CAPABILITIES and both
 # are OFF unless their environment flag is set. Same implementation the
 # Linux connector uses, so the two cannot drift apart.
-import nivxforge_content_acquisition as nvx_hash   # noqa: E402
-import nivxforge_delivery_counters as nvx_counters  # noqa: E402
+import nivxforge_content_acquisition as nvx_hash
+import nivxforge_delivery_counters as nvx_counters
+import nivxforge_exclusions as nvx_excl
+
+# B5-GAP-1 · the LOCAL EVIDENCE JOURNAL. Acquisition durability is no
+# longer coupled to network delivery, and the source cursor is a
+# consequence of durable ownership rather than of a read.
+import nivxforge_journal as nvx_journal
 
 COUNTERS = nvx_counters.DeliveryCounters(STATE_DIR)
 ACQUIRER = nvx_hash.Acquirer()
 
 POLICY_FILE = STATE_DIR / "policy.json"
 EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
+
+
+# ── B5-GAP-1 acquisition budget ───────────────────────────────────
+# WHY THESE SHAPES. The defect was not "100 is too small": it was that a
+# single bounded read per cycle had no way to catch up, and that delivery
+# could occupy the only thread for minutes. So the page size is a PAGE (we
+# keep asking), and every stage gets a WALL-CLOCK budget instead of a fixed
+# message count — a count cannot bound time when each POST costs ~2.7s.
+def _f_env(name: str, default: float) -> float:
+    try:
+        value = float(str(os.environ.get(name, "")).strip())
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _i_env(name: str, default: int) -> int:
+    try:
+        value = int(str(os.environ.get(name, "")).strip())
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def page_size() -> int:
+    return _i_env("NIVX_SENSOR_ACQUIRE_PAGE_SIZE", 500)
+
+
+def max_records_per_channel_per_cycle() -> int:
+    """Headroom, not a target. Production Sysmon was measured at ~20
+    records/sec, i.e. ~600 records per 30s cycle; this ceiling lets a
+    backlog be drained ~30x faster than it is produced while still
+    guaranteeing the loop terminates and the other channels get served."""
+    return _i_env("NIVX_SENSOR_ACQUIRE_MAX_PER_CHANNEL", 20000)
+
+
+def acquire_budget_seconds(interval: int) -> float:
+    return _f_env("NIVX_SENSOR_ACQUIRE_BUDGET_SECONDS",
+                  max(5.0, interval * 0.5))
+
+
+def deliver_budget_seconds(interval: int) -> float:
+    return _f_env("NIVX_SENSOR_DELIVER_BUDGET_SECONDS",
+                  max(5.0, float(interval)))
+
+
+def legacy_drain_budget_seconds(interval: int) -> float:
+    """The pre-journal `outbox.jsonl` must stay deliverable, but it must not
+    be able to starve either acquisition or the journal's own delivery."""
+    return _f_env("NIVX_SENSOR_LEGACY_DRAIN_BUDGET_SECONDS",
+                  max(2.0, interval * 0.25))
+
+
+def source_tail_probe_enabled() -> bool:
+    return os.environ.get("NIVX_SENSOR_SOURCE_TAIL_PROBE",
+                          "1").strip() in ("1", "true", "TRUE", "yes")
 
 
 def use_state_dir(path: str | os.PathLike) -> Path:
@@ -129,9 +201,11 @@ def use_state_dir(path: str | os.PathLike) -> Path:
     only the log would be worse than useless: the service would look
     healthy while reading an identity that is not there.
     """
-    global STATE_DIR, IDENTITY_FILE, QUEUE_FILE, OFFSET_FILE      # noqa: PLW0603
-    global BOOKMARK_FILE, POLICY_FILE, EXCLUSION_JOURNAL          # noqa: PLW0603
+    global STATE_DIR, IDENTITY_FILE, QUEUE_FILE, OFFSET_FILE
+    global BOOKMARK_FILE, POLICY_FILE, EXCLUSION_JOURNAL
+    global JOURNAL_FILE
     STATE_DIR = Path(path)
+    JOURNAL_FILE = STATE_DIR / nvx_journal.JOURNAL_FILENAME
     IDENTITY_FILE = STATE_DIR / "identity.json"
     QUEUE_FILE = STATE_DIR / "outbox.jsonl"
     OFFSET_FILE = STATE_DIR / "outbox.offset"
@@ -142,6 +216,9 @@ def use_state_dir(path: str | os.PathLike) -> Path:
     # service-hosted sensor does not write them to a second location.
     COUNTERS.state_dir = STATE_DIR
     return STATE_DIR
+
+
+JOURNAL_FILE = STATE_DIR / nvx_journal.JOURNAL_FILENAME
 
 
 def _now() -> str:
@@ -173,7 +250,7 @@ def _read_identity() -> dict:
 
 def _reg_machine_guid() -> str | None:
     try:
-        import winreg                                       # noqa: PLC0415
+        import winreg
     except ImportError:
         return None
     try:
@@ -261,21 +338,45 @@ def _save_bookmarks(marks: dict) -> None:
     BOOKMARK_FILE.write_text(json.dumps(marks, indent=2))
 
 
+def _wevtutil_argv(channel: str, after_record: int, limit: int) -> list[str]:
+    """The exact command line, built in one place so a test can assert the
+    page size and the read direction rather than trusting a comment.
+
+    `/rd:false` is OLDEST-FIRST and is load-bearing: it makes each page a
+    forward page from the cursor. With `/rd:true` the sensor would read the
+    newest N and the cursor would jump to the channel tail, which is the
+    failure everybody assumed B5-GAP-1 was. It is not, and it must not
+    become one.
+    """
+    return ["wevtutil", "qe", channel,
+            f"/q:*[System[EventRecordID>{int(after_record)}]]",
+            f"/c:{int(limit)}", "/e:Events", "/f:RenderedXml", "/rd:false"]
+
+
 def _query_channel(channel: str, after_record: int,
-                   limit: int = 100) -> tuple[list[dict], str | None]:
-    """Records newer than the bookmark, or an honest unavailability reason."""
-    query = f"*[System[EventRecordID>{int(after_record)}]]"
+                   limit: int | None = None
+                   ) -> tuple[list[dict], str | None, int]:
+    """ONE forward page after the cursor, or an honest unavailability reason.
+
+    Returns `(events, reason, elapsed_ms)`. The elapsed time is recorded by
+    the caller because `EventRecordID > N` is an unindexed scan whose cost
+    grows with how far behind the cursor is; measuring it is how a future
+    decision about the Windows API can rest on evidence instead of taste.
+    """
+    limit = page_size() if limit is None else limit
+    started = time.monotonic()
     try:
-        out = subprocess.run(
-            ["wevtutil", "qe", channel, f"/q:{query}", f"/c:{limit}",
-             "/e:Events", "/f:RenderedXml", "/rd:false"],
-            capture_output=True, text=True, timeout=60)
+        out = subprocess.run(_wevtutil_argv(channel, after_record, limit),
+                             capture_output=True, text=True, timeout=60)
     except FileNotFoundError:
-        return [], "wevtutil is not available on this host"
+        return [], "wevtutil is not available on this host", 0
     except (OSError, subprocess.SubprocessError) as ex:
-        return [], f"{type(ex).__name__}: {ex}"
+        return [], f"{type(ex).__name__}: {ex}", \
+            int((time.monotonic() - started) * 1000)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
     if out.returncode != 0:
-        return [], (out.stderr or "").strip()[:200] or "channel unreadable"
+        return [], (out.stderr or "").strip()[:200] or "channel unreadable", \
+            elapsed_ms
     events: list[dict] = []
     for chunk in (out.stdout or "").split("</Event>"):
         if "<Event" not in chunk:
@@ -295,7 +396,35 @@ def _query_channel(channel: str, after_record: int,
                 "xml": xml,
             },
         })
-    return events, None
+    return events, None, elapsed_ms
+
+
+def _probe_source_tail(channel: str) -> dict:
+    """The oldest and newest RecordID the source still holds.
+
+    This is the ONLY honest way to say "we are behind" or "records we never
+    acquired are provably gone". Both are single-record reads at the head
+    and the tail, so the probe is cheap and it never mutates the channel.
+    """
+    out: dict = {}
+    for key, direction in (("oldest", "false"), ("newest", "true")):
+        try:
+            result = subprocess.run(
+                ["wevtutil", "qe", channel, "/c:1", f"/rd:{direction}",
+                 "/e:Events", "/f:RenderedXml"],
+                capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode != 0:
+            continue
+        value = _between(result.stdout or "", "<EventRecordID>",
+                         "</EventRecordID>")
+        if value:
+            try:
+                out[key] = int(value)
+            except ValueError:
+                pass
+    return out
 
 
 def _between(text: str, start: str, end: str) -> str | None:
@@ -329,35 +458,163 @@ def _data_field(text: str, name: str) -> str | None:
         return None
 
 
-def collect() -> tuple[list[dict], dict]:
-    marks, events, unavailable = _bookmarks(), [], {}
-    for channel in CHANNELS:
-        after = int(marks.get(channel) or 0)
-        found, reason = _query_channel(channel, after)
-        if reason:
-            unavailable[channel] = reason
+def _record_ids(events: list[dict]) -> list[int]:
+    ids = [e.get("winlog", {}).get("record_id") for e in events]
+    return [int(i) for i in ids if i is not None]
+
+
+def detect_gaps(channel: str, cursor: int, continuity: bool,
+                events: list[dict]) -> list[dict]:
+    """Source continuity, stated as a fact and nothing more.
+
+    Two shapes are detected. LEADING: the first record of the page is not
+    `cursor + 1`, so source records between them were never acquired.
+    INTERIOR: two returned records are not adjacent, so records between two
+    survivors are gone. Both are reported with `cause = NOT_PROVEN`.
+
+    A RecordID discontinuity does NOT prove that every missing RecordID
+    carried a security event, and it does NOT prove rollover. It proves a
+    discontinuity, which is precisely what the platform previously could
+    not tell apart from "nothing happened".
+
+    `continuity` guards the very first acquisition on a channel: without a
+    cursor this sensor itself committed, the pre-install history is not a
+    gap and must not be reported as one.
+    """
+    ids = _record_ids(events)
+    if not ids:
+        return []
+    gaps: list[dict] = []
+    if continuity and cursor and ids[0] > cursor + 1:
+        gaps.append(nvx_journal.build_gap(channel, cursor + 1, ids[0],
+                                          "LEADING"))
+    for previous, current in itertools.pairwise(ids):
+        if current > previous + 1:
+            gaps.append(nvx_journal.build_gap(channel, previous + 1, current,
+                                              "INTERIOR"))
+    return gaps
+
+
+def _acquire_file_content(events: list[dict]) -> None:
+    """B3 · optional content identity for Sysmon 11/15. Capability-gated and
+    OFF by default; when it is on it sleeps per file, which the acquisition
+    budget will notice and report as ACQUISITION_LAGGING rather than hide."""
+    if not nvx_hash.enabled():
+        return
+    for event in events:
+        if str(event["winlog"].get("event_id") or "") not in ("11", "15"):
             continue
-        for event in found:
-            record = event["winlog"].get("record_id")
-            if record and record > int(marks.get(channel) or 0):
-                marks[channel] = record
-            # B3 · Sysmon FileCreate (11) / FileCreateStreamHash (15) name
-            # a path but state NO content digest. When the acquisition
-            # CAPABILITY is enabled the sensor reads those bytes itself and
-            # reports a full acquisition record; the digest never claims to
-            # be something Sysmon stated.
-            if nvx_hash.enabled() and str(
-                    event["winlog"].get("event_id") or "") in ("11", "15"):
-                target = _data_field(event["winlog"].get("xml") or "",
-                                     "TargetFilename")
-                if target:
-                    event["file_content_acquisition"] = ACQUIRER.acquire(
-                        target, operation="CREATE",
-                        event_observed_at=(event["winlog"].get(
-                            "time_created") or event["observed_at"]),
-                        settle_seconds=nvx_hash.SETTLE_SECONDS)
-        events.extend(found)
-    return events, {"channels_unavailable": unavailable, "bookmarks": marks}
+        target = _data_field(event["winlog"].get("xml") or "",
+                             "TargetFilename")
+        if target:
+            event["file_content_acquisition"] = ACQUIRER.acquire(
+                target, operation="CREATE",
+                event_observed_at=(event["winlog"].get("time_created")
+                                   or event["observed_at"]),
+                settle_seconds=nvx_hash.SETTLE_SECONDS)
+
+
+def acquire(journal, policy: dict, excl_journal, budget_seconds: float,
+            ident: dict | None = None) -> dict:
+    """PAGED, BOUNDED, FAIR acquisition into durable local ownership.
+
+    The loop that B5-GAP-1 lacked. One page per channel per pass, passes
+    repeated until every channel is caught up or a bound is reached, so a
+    channel producing more than one page between scheduling opportunities
+    is followed instead of abandoned.
+
+    Order within a page is the contract:
+
+        read page -> adjudicate exclusions -> save exclusion journal
+                  -> ONE transaction { evidence + gaps + cursor }
+
+    The cursor is inside that transaction, so it cannot advance over
+    evidence NivXForge does not own.
+    """
+    deadline = time.monotonic() + budget_seconds
+    honoured = policy.get("exclusions") or []
+    channels = list(CHANNELS)
+    taken = {channel: 0 for channel in channels}
+    journaled = {channel: 0 for channel in channels}
+    duplicates = 0
+    suppressed = 0
+    unavailable: dict = {}
+    caught_up = {channel: False for channel in channels}
+    gaps_found: list[dict] = []
+    pages = 0
+    halted: str | None = None
+    active = list(channels)
+    while active and time.monotonic() < deadline and not halted:
+        for channel in list(active):
+            if time.monotonic() >= deadline:
+                break
+            admitted, reason = journal.admits_acquisition()
+            if not admitted:
+                halted = reason
+                break
+            cursor = journal.cursor(channel)
+            continuity = journal.continuity_established(channel)
+            found, failure, elapsed_ms = _query_channel(channel, cursor,
+                                                        page_size())
+            journal.observe_query(channel, elapsed_ms, ok=not failure)
+            if failure:
+                # The cursor is NOT advanced. A channel we could not read is
+                # reported unavailable, never as an absence of activity.
+                unavailable[channel] = failure
+                active.remove(channel)
+                continue
+            pages += 1
+            if not found:
+                caught_up[channel] = True
+                active.remove(channel)
+                continue
+            ids = _record_ids(found)
+            gaps = detect_gaps(channel, cursor, continuity, found)
+            # `partition` returns (kept, SUPPRESSED COUNT) — an int, not a
+            # list. The pre-journal run loop called len() on it, which
+            # raised TypeError the moment a COLLECTION-scoped exclusion
+            # actually matched. Counted correctly here.
+            kept, excluded = nvx_excl.partition(found, honoured,
+                                                excl_journal, policy)
+            excluded = int(excluded or 0)
+            _acquire_file_content(kept)
+            # GATE 7 is preserved: an excluded record never enters the
+            # durable evidence store. Its adjudication is made durable
+            # FIRST, so the cursor only ever advances over records that are
+            # either owned as evidence or owned as a recorded suppression.
+            excl_journal.save()
+            result = journal.commit_page(
+                channel, kept, max(cursor, max(ids) if ids else cursor), gaps,
+                endpoint_id=(ident or {}).get("endpoint_id"),
+                tenant_id=(ident or {}).get("tenant_id"))
+            taken[channel] += len(found)
+            journaled[channel] += result["journaled"]
+            duplicates += result["duplicates_ignored"]
+            suppressed += excluded
+            gaps_found.extend(gaps)
+            COUNTERS.bump("endpoint_observed", len(found))
+            COUNTERS.bump("endpoint_read", len(found))
+            COUNTERS.bump("sensor_suppressed_by_policy", excluded)
+            journal.bump("records_read", len(found))
+            journal.bump("records_journaled", result["journaled"])
+            journal.set_gauge(f"last_record_id_journaled:{channel}",
+                              result["cursor_committed"])
+            if len(found) < page_size():
+                caught_up[channel] = True
+                active.remove(channel)
+            elif taken[channel] >= max_records_per_channel_per_cycle():
+                active.remove(channel)
+    if gaps_found:
+        journal.bump("acquisition_gaps_detected", len(gaps_found))
+    return {"records_read": sum(taken.values()),
+            "records_journaled": sum(journaled.values()),
+            "duplicates_ignored": duplicates,
+            "per_channel_read": taken, "pages": pages,
+            "caught_up": caught_up, "channels_unavailable": unavailable,
+            "acquisition_gaps": gaps_found,
+            "collection_suppressed_at_endpoint": suppressed,
+            "acquisition_halted": halted,
+            "budget_exhausted": bool(active) and not halted}
 
 
 def _get(api: str, path: str, bearer: str) -> dict:
@@ -459,40 +716,63 @@ def _report_enforcement(api: str, ident: dict, session: dict,
 
 # ── durable journal ───────────────────────────────────────────────
 def _enqueue(events: list[dict]) -> None:
-    """Journal FIRST, fsync, and only then let delivery try. Acquisition is
-    never coupled to network success."""
+    """LEGACY writer for `outbox.jsonl`, no longer used by the run loop.
+
+    Acquisition durability now belongs to the Local Evidence Journal, whose
+    COMMIT also carries the source cursor. This is retained only because
+    the legacy file it wrote must stay readable and deliverable on an
+    upgraded endpoint; nothing should start writing to it again.
+    """
     if not events:
         return
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with open(QUEUE_FILE, "a") as fh:
-        for event in events:
-            fh.write(json.dumps(event, separators=(",", ":")) + "\n")
+        fh.writelines(json.dumps(event, separators=(",", ":")) + "\n" for event in events)
         fh.flush()
         os.fsync(fh.fileno())
 
 
-def _queue_depth() -> int:
-    if not QUEUE_FILE.exists():
-        return 0
-    offset = int(OFFSET_FILE.read_text()) if OFFSET_FILE.exists() else 0
+def _queue_depth(journal=None) -> int:
+    """Unsent evidence the endpoint still holds: the legacy `outbox.jsonl`
+    remainder PLUS the journal's undelivered rows. A backlog is a backlog
+    whichever store it is sitting in."""
     depth = 0
-    with open(QUEUE_FILE, "rb") as fh:
-        fh.seek(offset)
-        while fh.readline():
-            depth += 1
+    if QUEUE_FILE.exists():
+        offset = int(OFFSET_FILE.read_text()) if OFFSET_FILE.exists() else 0
+        with open(QUEUE_FILE, "rb") as fh:
+            fh.seek(offset)
+            while fh.readline():
+                depth += 1
+    if journal is not None:
+        depth += journal.depth()
     return depth
 
 
+def _legacy_remaining() -> int:
+    return _queue_depth(None)
+
+
 def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
-           max_per_cycle: int = 200) -> tuple[int, int]:
-    """Send what the journal holds; advance the offset ONLY after an accept."""
+           budget_seconds: float | None = None) -> tuple[int, int]:
+    """Drain the LEGACY pre-journal outbox. Kept so an upgraded endpoint
+    still delivers everything the old build had acquired; the file is never
+    deleted or rewritten by the upgrade.
+
+    Bounded by WALL CLOCK, not by a message count: a count cannot bound
+    time when each POST costs seconds, and that is exactly how delivery
+    came to occupy the whole cycle.
+    """
     if not QUEUE_FILE.exists():
         return 0, 0
+    deadline = time.monotonic() + (budget_seconds
+                                   if budget_seconds is not None else 30.0)
     offset = int(OFFSET_FILE.read_text()) if OFFSET_FILE.exists() else 0
     sent = failed = 0
     with open(QUEUE_FILE, "rb") as fh:
         fh.seek(offset)
         while raw_line := fh.readline():
+            if time.monotonic() >= deadline:
+                break
             consumed = len(raw_line)
             line = raw_line.decode(errors="replace").strip()
             if not line:
@@ -513,8 +793,6 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
                 COUNTERS.bump("sensor_sent")
                 offset += consumed
                 OFFSET_FILE.write_text(str(offset))
-                if sent >= max_per_cycle:
-                    break
             except (RuntimeError, urllib.error.URLError, OSError) as ex:
                 message = str(ex)
                 if message.startswith(("401", "403")) and session.get("token"):
@@ -528,16 +806,77 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
     return sent, failed
 
 
+def _drain_journal(api: str, ident: dict, session: dict, journal,
+                   interval: int | None = None,
+                   budget_seconds: float | None = None,
+                   batch: int = 50) -> dict:
+    """Deliver journaled evidence in journal order, within a time budget.
+
+    SENT != ACCEPTED. A row becomes BACKEND_ACCEPTED only when the platform
+    returns an accept for it; a transport attempt that merely left the host
+    records a failed attempt and the evidence stays owned locally.
+    """
+    deadline = time.monotonic() + (budget_seconds
+                                   if budget_seconds is not None else 30.0)
+    sent = failed = 0
+    unreachable = False
+    while time.monotonic() < deadline and not unreachable:
+        rows = journal.next_undelivered(limit=batch)
+        if not rows:
+            break
+        for row in rows:
+            if time.monotonic() >= deadline:
+                break
+            sequence = int(row["journal_sequence"])
+            try:
+                if not session.get("token"):
+                    session["token"] = _open_session(api, ident)
+                COUNTERS.bump("sensor_attempted")
+                _post(api, "/api/edr/agent/telemetry",
+                      {"payload": row["payload"], "source_kind": "sensor",
+                       "sensor_version": SENSOR_VERSION,
+                       **({"report_interval_seconds": float(interval)}
+                          if interval else {})},
+                      bearer=session["token"])
+                journal.mark_accepted([sequence])
+                journal.bump("backend_accepted")
+                COUNTERS.bump("sensor_sent")
+                sent += 1
+            except (RuntimeError, urllib.error.URLError, OSError) as ex:
+                message = str(ex)
+                if message.startswith(("401", "403")) and session.get("token"):
+                    session["token"] = None
+                    continue
+                journal.mark_attempt_failed(sequence, message)
+                journal.bump("delivery_failures")
+                COUNTERS.bump("sensor_failed")
+                failed += 1
+                unreachable = True
+                print(f"[journal] evidence retained at sequence {sequence}: "
+                      f"{message[:140]}")
+                break
+    return {"sent": sent, "failed": failed,
+            "backend_unreachable": unreachable,
+            "budget_exhausted": time.monotonic() >= deadline}
+
+
 def _heartbeat(api: str, ident: dict, session: dict,
-               interval: int) -> None:
-    """Liveness. NOT telemetry: it never makes a silent sensor look busy."""
+               interval: int, journal=None) -> None:
+    """Liveness. NOT telemetry: it never makes a silent sensor look busy.
+
+    The body is unchanged on purpose. `HeartbeatBody` is `extra="forbid"`,
+    so adding acquisition-integrity fields here would 422 every production
+    heartbeat. Integrity therefore lives in the local machine-readable
+    snapshot and in the cycle report until a backend contract for it is
+    approved separately.
+    """
     try:
         if not session.get("token"):
             session["token"] = _open_session(api, ident)
         _post(api, "/api/edr/agent/heartbeat",
               {"report_interval_seconds": float(interval),
                "sensor_version": SENSOR_VERSION,
-               "queue_depth": _queue_depth(),
+               "queue_depth": _queue_depth(journal),
                # Additive and only when the CAPABILITY is enabled.
                **COUNTERS.heartbeat_fields()},
               bearer=session["token"])
@@ -546,56 +885,116 @@ def _heartbeat(api: str, ident: dict, session: dict,
         session["token"] = None
 
 
+def _mirror_bookmarks(journal) -> None:
+    """Write the legacy `channels.json` as a NON-AUTHORITATIVE mirror of the
+    journal cursors, so a downgrade and an operator both still work."""
+    try:
+        _save_bookmarks(journal.cursors())
+    except OSError:
+        pass
+
+
+def _cycle(api: str, ident: dict, session: dict, journal,
+           interval: int) -> dict:
+    """ONE bounded scheduling opportunity: ACQUIRE -> PROCESS -> DELIVER.
+
+    Every stage gets its own wall-clock budget, so a slow backend produces
+    a DELIVERY_BACKLOG and never an ACQUISITION_LOSS. This is the whole
+    point of B5-GAP-1: the failure domains are now separate.
+    """
+    policy = _sync_policy(api, ident, session)
+    excl_journal = nvx_excl.Journal(EXCLUSION_JOURNAL)
+    acquired = acquire(journal, policy, excl_journal,
+                       acquire_budget_seconds(interval), ident)
+    excl_journal.save()
+    _mirror_bookmarks(journal)
+
+    legacy_sent, legacy_failed = _drain(
+        api, ident, session, interval, legacy_drain_budget_seconds(interval))
+    delivered = _drain_journal(api, ident, session, journal, interval,
+                               deliver_budget_seconds(interval))
+    reclaimed = journal.reclaim()
+
+    _heartbeat(api, ident, session, interval, journal)
+    reported = _report_enforcement(api, ident, session, excl_journal, policy)
+
+    tails = {}
+    if source_tail_probe_enabled():
+        tails = {channel: _probe_source_tail(channel) for channel in CHANNELS}
+    health = journal.health(
+        channels_unavailable=acquired["channels_unavailable"],
+        backend_unreachable=delivered["backend_unreachable"],
+        caught_up=acquired["caught_up"], source_tails=tails)
+    journal.write_integrity_snapshot(health)
+
+    depth = _queue_depth(journal)
+    COUNTERS.observe_gauge("sensor_queue_depth", depth)
+    COUNTERS.persist()
+    return {"at": _now(), "sensor_version": SENSOR_VERSION,
+            "records_read": acquired["records_read"],
+            "records_journaled": acquired["records_journaled"],
+            "duplicates_ignored": acquired["duplicates_ignored"],
+            "pages": acquired["pages"],
+            "per_channel_read": acquired["per_channel_read"],
+            "caught_up": acquired["caught_up"],
+            "acquisition_gaps": acquired["acquisition_gaps"],
+            "acquisition_halted": acquired["acquisition_halted"],
+            "acquisition_budget_exhausted": acquired["budget_exhausted"],
+            "sent": delivered["sent"] + legacy_sent,
+            "failed": delivered["failed"] + legacy_failed,
+            "legacy_outbox_sent": legacy_sent,
+            "legacy_outbox_remaining": _legacy_remaining(),
+            "journal_reclaimed": reclaimed["reclaimed"],
+            "queue_depth": depth,
+            "health": health["states"],
+            "collection_suppressed_at_endpoint":
+                acquired["collection_suppressed_at_endpoint"],
+            "policy_id": policy.get("policy_id"),
+            "policy_version": policy.get("version"),
+            "policy_stale": bool(policy.get("stale")),
+            "exclusions_delivered": len(policy.get("exclusions") or []),
+            "enforcement_report": reported,
+            "channels_unavailable": acquired["channels_unavailable"]}
+
+
 def run(api: str, interval: int = 30, once: bool = False) -> dict:
     ident = _read_identity()
     session: dict = {"token": None}
-    while True:
-        policy = _sync_policy(api, ident, session)
-        events, state = collect()
-        # GATE 7 · endpoint exclusion enforcement. Matching events are
-        # dropped HERE — before the durable outbox — so an exclusion
-        # cannot be defeated by a replay, and the excluded evidence never
-        # leaves this machine.
-        journal = nvx_excl.Journal(EXCLUSION_JOURNAL)
-        events, excluded = nvx_excl.partition(
-            events, policy.get("exclusions") or [], journal, policy)
-        journal.save()
-        # DELIVERY FIDELITY · the endpoint boundary, measurable only here.
-        COUNTERS.bump("endpoint_observed", len(events) + len(excluded or []))
-        COUNTERS.bump("endpoint_read", len(events) + len(excluded or []))
-        COUNTERS.bump("sensor_suppressed_by_policy", len(excluded or []))
-        _enqueue(events)
-        _save_bookmarks(state["bookmarks"])
-        sent, failed = _drain(api, ident, session, interval)
-        _heartbeat(api, ident, session, interval)
-        reported = _report_enforcement(api, ident, session, journal, policy)
-        COUNTERS.observe_gauge("sensor_queue_depth", _queue_depth())
-        COUNTERS.persist()
-        report = {"at": _now(), "collected": len(events), "sent": sent,
-                  "failed": failed, "queue_depth": _queue_depth(),
-                  "collection_suppressed_at_endpoint": excluded,
-                  "policy_id": policy.get("policy_id"),
-                  "policy_version": policy.get("version"),
-                  "policy_stale": bool(policy.get("stale")),
-                  "exclusions_delivered":
-                      len(policy.get("exclusions") or []),
-                  "enforcement_report": reported,
-                  "channels_unavailable": state["channels_unavailable"]}
-        print(json.dumps(report))
-        if once:
-            return report
-        time.sleep(max(5, interval))
+    journal = nvx_journal.open_journal(STATE_DIR, BOOKMARK_FILE)
+    try:
+        while True:
+            report = _cycle(api, ident, session, journal, interval)
+            print(json.dumps(report))
+            if once:
+                return report
+            time.sleep(max(5, interval))
+    finally:
+        journal.close()
 
 
 def status() -> dict:
     enrolled = IDENTITY_FILE.exists()
     ident = json.loads(IDENTITY_FILE.read_text()) if enrolled else {}
-    return {"sensor_version": SENSOR_VERSION, "enrolled": enrolled,
-            "endpoint_id": ident.get("endpoint_id"),
-            "tenant_id": ident.get("tenant_id"),
-            "state_dir": str(STATE_DIR), "queue_depth": _queue_depth(),
-            "credential_present": bool(ident.get("agent_credential")),
-            "note": "the credential value itself is never printed"}
+    out = {"sensor_version": SENSOR_VERSION, "enrolled": enrolled,
+           "endpoint_id": ident.get("endpoint_id"),
+           "tenant_id": ident.get("tenant_id"),
+           "state_dir": str(STATE_DIR),
+           "legacy_outbox_remaining": _legacy_remaining(),
+           "credential_present": bool(ident.get("agent_credential")),
+           "note": "the credential value itself is never printed"}
+    try:
+        journal = nvx_journal.open_journal(STATE_DIR)
+    except nvx_journal.JournalUnavailable as ex:
+        out["journal"] = {"states": [nvx_journal.JOURNAL_CORRUPT],
+                          "error": str(ex)[:200]}
+        out["queue_depth"] = out["legacy_outbox_remaining"]
+        return out
+    try:
+        out["queue_depth"] = _queue_depth(journal)
+        out["journal"] = journal.health()
+    finally:
+        journal.close()
+    return out
 
 
 def main() -> None:
