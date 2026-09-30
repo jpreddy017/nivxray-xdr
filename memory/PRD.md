@@ -3288,3 +3288,18 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   Invoke-NativeCaptured (Start-Process -Wait -PassThru with stdout/stderr redirected to files),
   giving the real exit code and both streams; non-zero still halts. C0.3b-R issued for owner
   review, not executed.
+- C0.3b-R = PASS on KUSHU. Sysmon 15.22 installed (exit 0), service Running, SysmonDrv present,
+  channel enabled, ACTIVE_RULES_SHA256 = C134F0F3046A2D1690C42CBE682C251DC11C18F01D9BEF7B5B4B15EFF75BC384
+  (480 bytes, driver Rules blob - NOT the file hash). FIRST observed closed process lifetime in
+  this system: cmd.exe pid 34300, EID1 record 3991 @06:17:14.768Z -> EID5 record 4005
+  @06:17:14.857Z (~89 ms), SAME ProcessGuid {7446d477-a96a-6abc-f215-00000000aa00}, correlated on
+  ProcessGuid with PID asserted additionally => PROCESS_TERMINATION_OBSERVED. This will later
+  exercise the Device Trajectory closed-lifeline path instead of END_NOT_OBSERVED.
+- C0.4 BLOCKED ON OWNER INPUT: the authoritative ARTIFACT_SHA256 for NivXForgeEDRSetup.exe is
+  NOT retrievable from this container (it lives in Gate-0 run 36663297037's artifact /
+  GATE0_WINDOWS_REPORT.json / SHA256SUMS.txt; the owner's earlier paste omitted the value, and
+  grep confirms no 64-hex artifact hash exists anywhere in the repo or docs). It was NOT guessed.
+  C0.4 block issued parameterised: $EXPECTED_ARTIFACT_SHA256 must be filled from the Gate-0
+  evidence and the block HALTS on the unfilled placeholder - there is deliberately no
+  "accept observed" path. C0.4 is hash-gate + staging only; installation and enrolment remain
+  C0.5 per the canary plan. No execution of the artifact in C0.4.
