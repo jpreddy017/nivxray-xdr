@@ -3466,3 +3466,20 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * TO FIX THE DEPLOYMENT GAP the owner must decide how apps/nivxray-xdr is released (Vercel
     project rebuild from the new commit for BOTH hostnames) - that is a platform/release
     decision, not a code change.
+- DEPLOYER RCA CONFIRMS (RCA_c0062f89-b97c-455a-9102-f893a9f00ccc.MD):
+  * Emergent deploy run c0062f89, live 2026-09-30T11:42:42Z UTC. No publish number and NO
+    commit SHA is recoverable - the pipeline packages a SOURCE SNAPSHOT, not a git checkout.
+  * DEPLOYED BACKEND CONTAINS ALL REVIEWED CHANGES: xdr_scope.py returns authorized_tenants;
+    edr_plane/enrollment/instructions.py exists and imports cleanly (NO ImportError);
+    edr_connector.py sets install_invocation_carries_secret=False. Backend healthy. Mongo
+    binding unchanged (DB greeting-app-5782-test_database, 95 collections). Build SUCCESS.
+  * EMERGENT BUILDS ONLY /app/frontend (CRA/craco) and serves greeting-app-5782.emergent.host
+    + nivxray.nivxforge.com. apps/nivxray-xdr (Vite) is NOT in the pipeline; xdr.nivxforge.com
+    and edr.nivxforge.com are Vercel (project prj_Pk0K..., host redirects in its vercel.json).
+    => the reviewed FRONTEND can only reach production via a SEPARATE Vercel re-publish of
+    apps/nivxray-xdr. Re-running the Emergent publish will NOT update those consoles.
+  * RELEASE-PATH DEBT (P0, owner decision): the approved changeset is HALF-LIVE. Production
+    backend is new, both production consoles are old. Until the Vercel re-publish happens the
+    XDR selector stays empty and EdrAddDevicePage still builds the argv enrolment command.
+  * Benign pre-existing prod noise confirmed: threatfox 401 (ABUSE_CH_AUTH_KEY), transient
+    warm-up /health timeouts.
