@@ -105,7 +105,18 @@ export default function XdrScopeNavigator() {
   const label = lockDenied
     ? ((denied.tenant_ids || [])[0] || "◇ NOT RESOLVED")
     : denied ? "NOT AUTHORIZED" : scopeLabel(eff);
-  const tenants = authorized?.tenants || [];
+  // B8-SCOPE-1 · what may be OFFERED is an AUTHORITY question, answered by
+  // `authorized_tenants` (explicit grants, or the authoritative ACTIVE
+  // registry for a PLATFORM principal). `tenants` is the incident corpus
+  // and is used ONLY for the "N open" volume beside a row, so a tenant that
+  // has never had an XDR incident is still selectable instead of silently
+  // disappearing while `authorized_count` counted it.
+  const tenants = authorized?.authorized_tenants || [];
+  const volumes = useMemo(() => {
+    const m = new Map();
+    (authorized?.tenants || []).forEach((t) => m.set(t.customer, t));
+    return m;
+  }, [authorized]);
 
   const pick = async (tenantId) => {
     if (locked) return;
@@ -225,11 +236,14 @@ export default function XdrScopeNavigator() {
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden",
                                textOverflow: "ellipsis",
                                whiteSpace: "nowrap" }}>
-                  {t.customer}
+                  {t.display_name && t.display_name !== t.customer
+                    ? t.display_name : t.customer}
                 </span>
                 <span className="mono" style={{ fontSize: 10,
                         color: "var(--faint)", flex: "0 0 auto" }}>
-                  {t.open_incidents} open
+                  {volumes.has(t.customer)
+                    ? `${volumes.get(t.customer).open_incidents} open`
+                    : "no XDR incidents"}
                 </span>
               </div>
             ))}

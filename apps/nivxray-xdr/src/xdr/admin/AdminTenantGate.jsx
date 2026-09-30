@@ -29,7 +29,8 @@ export default function AdminTenantGate({ label = "this surface", children }) {
         setScope(d);
         // Exactly one authorized tenant → the server has already resolved
         // it; adopt it rather than asking a pointless question.
-        const only = d?.tenants?.length === 1 ? d.tenants[0].customer : null;
+        const offer = d?.authorized_tenants || [];
+        const only = offer.length === 1 ? offer[0].customer : null;
         if (!activeTenant() && only) {
           setActiveTenant(only);
           setTenant(only);
@@ -45,7 +46,11 @@ export default function AdminTenantGate({ label = "this surface", children }) {
     setTenant(v || "");
   };
 
-  const options = scope?.tenants || [];
+  // B8-SCOPE-1 · AUTHORITY, not evidence. `scope.tenants` is the incident
+  // corpus: an ACTIVE authorized tenant that has never had an XDR incident
+  // is absent from it, which left this selector empty and every
+  // tenant-scoped Administration surface unusable.
+  const options = scope?.authorized_tenants || [];
 
   return (
     <div data-testid="xdr-admin-tenant-gate" data-tenant={tenant || "none"}>
@@ -74,7 +79,10 @@ export default function AdminTenantGate({ label = "this surface", children }) {
           }}>
           <option value="">— select a customer —</option>
           {options.map((t) => (
-            <option key={t.customer} value={t.customer}>{t.customer}</option>
+            <option key={t.customer} value={t.customer}>
+              {t.display_name && t.display_name !== t.customer
+                ? `${t.display_name} · ${t.customer}` : t.customer}
+            </option>
           ))}
         </select>
         {scope?.basis && (

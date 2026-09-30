@@ -3351,3 +3351,36 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   the console selector - there is no hardcoded tenant anywhere by design.
 - LINUX ARGV EXPOSURE remains SEPARATE P0 SECURITY DEBT (agents/nivxforge-linux enrol --token,
   scripts/nivxforge_sensor_supervise.py). Deliberately NOT in this change's scope.
+- PHASE 0 DEPLOYMENT & ENROLLMENT FOUNDATION (owner-directed, 2026-06). Delivered:
+  docs/NIVXFORGE_DEPLOYMENT_ENROLLMENT_ARCHITECTURE.md (15 sections: inventory, industry
+  pattern, authoritative model, EDR + XDR lifecycles, credential/identity/policy/health/
+  offboarding/audit models, UI IA, invariants, gap matrix, phased plan).
+- AUDIT HEADLINE: the control plane is far more complete than the "token generator" screen
+  suggests. EXISTS_AND_AUTHORITATIVE: tenant registry/orgs, PLATFORM vs CUSTOMER authority,
+  bootstrap token (single-use/TTL/atomic burn/digest-at-rest), per-device agent_credential +
+  rotate/revoke, endpoint identity (hostname is metadata), inventory, policies+versions+11-state
+  lifecycle, groups, GROUP-BOUND DEPLOYMENT CONTEXT (routers/edr_connector.py::create_deployment
+  binds group_id/release_id to the minted token; edr_enrollment.py:298-311 honours it =
+  Cisco-style group-in-package without touching the artifact), release catalog + SHA256,
+  telemetry acceptance, SensorState, acquisition integrity, canonical evidence, audit,
+  xdr_data_sources + xdr_collectors + normalization.
+  MISSING: tags; route to move an endpoint between groups; composed READY verdict; one unified
+  Deployment & Enrollment surface. PARTIAL: deployment PROFILE (only one-shot context),
+  heartbeat->health composition, rejected-sensor alarm surfacing, offboarding, clone handling.
+- NEW P0 GAP FOUND, NOT CHANGED (out of approved scope): create_deployment still returns a
+  Windows invocation string `-EnrollmentToken <ENROLLMENT_TOKEN>`, contradicting the mandatory
+  stdin-only contract. Needs owner decision. Other P0s: no composed READY verdict; clone
+  collision (two hosts one machine_guid) has no signal/policy; Linux argv exposure (existing).
+- B8-SCOPE-1 REPAIR IMPLEMENTED (additive, no predicate changed):
+  backend/routers/xdr_scope.py::authorized_scope now publishes `authorized_tenants` =
+  ctx["authorized_customers"] (AUTHORITY) alongside unchanged `tenants` (EVIDENCE/incident
+  corpus with open_incidents). Frontend: XdrScopeNavigator.jsx offers authorized_tenants and
+  uses `tenants` only for the "N open" annotation ("no XDR incidents" when absent);
+  AdminTenantGate.jsx offers authorized_tenants + auto-adopts a single authorised tenant.
+  Tests: backend/tests/test_b8_scope_authorized_tenants_contract.py (11 tests, A-H matrix)
+  = 11 passed; tests/test_a05_tenant_scope_contract.py 72 passed (no regression).
+  NOT DEPLOYED - production still shows the defect until the owner authorises a deploy.
+- C0.5 STILL BLOCKED. Installer SHA256 FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B
+  staged on KUSHU, NOT executed. Intended tenant: "NivXForge Canary", kind LAB - NOT CREATED.
+  Sequence agreed: deploy repair -> verify selector -> create LAB tenant -> mint ONE token ->
+  C0.5 -> Sysmon EID1 absence check.

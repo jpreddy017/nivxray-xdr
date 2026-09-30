@@ -48,7 +48,19 @@ def authorized_scope(user=Depends(_deps_current_user)):
     eff = sc.effective_scope(email)
     return {"ok": True, "data": {
         "principal": ctx["principal"],
+        # B8-SCOPE-1 · TWO LISTS, TWO QUESTIONS. `tenants` answers "where is
+        # there evidence?" (the incident-queue predicate, carrying
+        # open_incidents volumes) and `authorized_tenants` answers "what may
+        # this principal ACT AS?" (the authority predicate: explicit grants,
+        # or the authoritative ACTIVE registry for a PLATFORM principal).
+        # They legitimately differ — an ACTIVE authorized tenant with zero
+        # XDR incidents is absent from the first and present in the second.
+        # Publishing only the first made such a tenant unselectable while
+        # `authorized_count` still counted it, which is what broke the XDR
+        # selector and every AdminTenantGate surface. Selection MUST read
+        # `authorized_tenants`; `tenants` keeps its evidence semantics.
         "tenants": ctx["customers"],
+        "authorized_tenants": ctx["authorized_customers"],
         "authorized_count": eff["authorized_count"],
         "cross_tenant_role": bool(ctx["tenant_scope"]["all_tenants"]),
         "basis": eff["basis"],
