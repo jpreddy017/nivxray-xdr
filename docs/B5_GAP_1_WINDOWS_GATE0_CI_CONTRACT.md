@@ -1,12 +1,9 @@
 # B5-GAP-1 · WINDOWS GATE 0 — CI ACCEPTANCE CONTRACT
 
-**Status: `BLOCKED_PENDING_REAL_WINDOWS_CI`**
+**Status: `CLOSED_PASS` — proven on a real `windows-latest` run (see §8).**
 
-Gate 0 is **not** closed and is **not** claimed to be closed. This document
-defines the deterministic contract that closes it, so the decision is made
-from machine-readable Windows evidence instead of a human reading CI logs.
-
-No Linux or non-Windows frozen test is accepted as Gate-0 proof.
+Gate 0 was closed by the actual frozen Windows artifact, not by any
+Linux approximation. §1–§7 define the contract; §8 records the evidence.
 
 ---
 
@@ -165,3 +162,80 @@ phase refuses to guess a directory, the primary phase never claims restart
 recovery, packaging provenance fails closed, and the workflow asserts every
 mandatory field, exits non-zero on a missing/non-PASS field, and publishes
 the report.
+
+---
+
+## 8. GATE 0 EVIDENCE — REAL `windows-latest` RUN (OWNER-SUPPLIED)
+
+Source of truth: `gate0/GATE0_WINDOWS_REPORT.json`, produced by the
+`windows-sensor-installer.yml` run below and supplied by the owner. The
+preview container cannot reach GitHub Actions artifacts; nothing here was
+reconstructed, simulated or substituted from a Linux run.
+
+```
+WINDOWS_GATE_0                    = CLOSED_PASS
+GATE0_VERDICT                     = CLOSED_PASS
+PROBLEMS                          = []
+
+WINDOWS_ARTIFACT_BUILD            = PASS
+WINDOWS_FROZEN_SELFTEST           = PASS
+WINDOWS_FROZEN                    = TRUE
+
+WINDOWS_SQLITE                    = PASS
+WINDOWS_SQLITE_LIBRARY_VERSION    = PRESENT
+WINDOWS_SQLITE_NATIVE_BINARY      = PASS
+WINDOWS_JOURNAL_MODULE            = PASS
+
+WINDOWS_NTFS_DATABASE_CREATE      = PASS
+WINDOWS_WAL_CREATE                = PASS
+WINDOWS_WAL_REOPEN_RECOVERY       = PASS
+WINDOWS_SYNCHRONOUS_FULL          = PASS
+WINDOWS_AUTO_VACUUM_INCREMENTAL   = PASS
+
+WINDOWS_SCHEMA                    = PASS
+WINDOWS_DURABLE_COMMIT            = PASS
+WINDOWS_CURSOR_COMMIT             = PASS
+WINDOWS_REPLAY_IDEMPOTENCY        = PASS
+WINDOWS_INTEGRITY_SNAPSHOT        = PASS
+WINDOWS_GAP_CONTRACT              = PASS
+
+WINDOWS_FROZEN_RESTART            = PASS
+WINDOWS_STATE_DIR_ACCESS          = PASS
+WINDOWS_SERVICE_PERMISSION_CHECK  = PASS
+PACKAGING_REGRESSION              = PASS
+```
+
+Artifact identity:
+
+```
+ARTIFACT_FILENAME  = NivXForgeEDRSetup.exe
+ARTIFACT_VERSION   = sensor 0.3.0-windows / setup 1.0.0
+COMMIT_SHA         = 2cb841db10e4262bba89c115bfa8c3058f61fda4
+WORKFLOW_RUN_ID    = 36663297037
+BUILD_WORKFLOW     = windows-sensor-installer.yml (windows-latest, AMD64)
+PYINSTALLER        = 6.11.1
+SIGNING_STATUS     = UNSIGNED_INTERNAL_VALIDATION_BUILD
+```
+
+`ARTIFACT_SHA256` is recorded in the run's own
+`gate0/GATE0_WINDOWS_REPORT.json` / `SHA256SUMS.txt` and is the value the
+canary must verify on disk before any load is applied. The artifact is an
+UNSIGNED internal validation build: acceptable for a disposable canary, not
+customer-production-ready.
+
+### What this closes, and what it does not
+
+Closed: the frozen Windows artifact carries a working, durable, WAL-backed
+evidence journal with recoverable WAL on NTFS, idempotent replay, a truthful
+gap contract, and service-compatible state-directory ownership.
+
+**Not closed:** whether the whole chain sustains real telemetry under load,
+outage, recovery, restart and journal pressure without silent loss. That is
+the disposable canary — `docs/B5_GAP_1_CANARY_PLAN.md`.
+
+```
+B5_STATUS                  = CLOSED_PASS
+B5_GAP_1_IMPLEMENTATION    = PASS
+B5_GAP_1_WINDOWS_ARTIFACT  = PASS
+B5_GAP_1_DISPOSABLE_CANARY = PENDING
+```

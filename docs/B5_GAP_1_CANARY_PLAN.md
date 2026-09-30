@@ -1,222 +1,370 @@
-# B5-GAP-1 · DISPOSABLE WINDOWS CANARY PLAN
+# B5-GAP-1 · DISPOSABLE WINDOWS CANARY — EXECUTABLE PLAN
 
-**Status: PREPARED — NOT RUN. `CANARY_STARTED = NO`.**
+**Status: PREPARED AND EXECUTABLE — NOT RUN. `CANARY_STARTED = NO`.**
 
-Preconditions, all of them, before a single step of this plan executes:
+Windows Gate 0 is `CLOSED_PASS` on the real `windows-latest` artifact
+(`docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` §8). The open question is no
+longer *"does the journal work on Windows?"* It is:
 
-1. `GATE0_VERDICT = CLOSED_PASS` from a real `windows-latest` run
-   (see `B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md`).
-2. Explicit owner authorisation naming the disposable host.
-3. Target host is **disposable / validation-only**. `DESKTOP-A9HGFJJ` is
-   **out of scope** and must not be touched.
+> does the whole chain sustain real telemetry under load, outage, recovery,
+> restart and journal pressure **without silent loss**?
 
-The canary exists to answer one question with measurements instead of
-assumptions: *does the new acquisition/journal/batch path lose nothing on a
-real Windows endpoint against the real production ingest path, and where is
-the dominant cost actually spent?*
+Preconditions, all of them, before step 1 runs:
+
+1. `GATE0_VERDICT = CLOSED_PASS` — met.
+2. Explicit owner authorisation naming the disposable host — **NOT MET**.
+3. Target host is disposable / validation-only. `DESKTOP-A9HGFJJ` is out of
+   scope: no install, no restart, no Sysmon change, no channel/outbox/journal
+   change, no test load.
 
 ---
 
-## 1. TARGET AND IDENTITY
+## 1. PACKAGE
+
+| File | Role | Touches product code? |
+|---|---|---|
+| `scripts/canary/b5gap1_canary_collector.py` | read-only measurement collector + invariant verdict | no |
+| `scripts/canary/b5gap1_canary_load.ps1` | real source-record generator on the canary; refuses `DESKTOP-A9HGFJJ` | no |
+| `scripts/canary/b5gap1_canary_impair.py` | transparent TCP relay for BACKEND_SLOW / DOWN / NETWORK_INTERRUPTION | no |
+| `scripts/b5gap1_ingest_cost_profile.py` | **re-used** backend Mongo/ingest profiler | no |
+| `backend/tests/edr/test_b5gap1_canary_harness.py` | proves the harness before it is ever pointed at an endpoint | no |
+
+**No ingest middleware is added and none may be added.** Backend per-event
+cost comes from the existing profiler only. The sensor hot path is not
+instrumented: every sensor-side number is read from artefacts the sensor
+already produces (its journal, its `acquisition_integrity.json`, its
+integrity counters) or from the platform's existing operator endpoints.
+
+The collector opens the journal `mode=ro`; if a WAL reader cannot attach it
+copies `*.db`, `*.db-wal`, `*.db-shm` to scratch and reads the **copy**. The
+originals are never opened for writing, never checkpointed, never renamed.
+The read token comes from `NIVX_CANARY_READ_TOKEN` and never reaches the CSV,
+the verdict or stdout.
+
+---
+
+## 2. CANARY IDENTITY AND ISOLATION
 
 | Item | Value |
 |---|---|
-| Host | disposable Windows host (VM or spare workstation), NOT production |
-| Hostname convention | `NVX-CANARY-<n>` |
-| Tenant | a dedicated canary tenant — never a production tenant, never a fallback tenant |
-| Enrolment | one-time enrolment token, supplied at install time by the operator |
-| Artifact | the exact `ARTIFACT_SHA256` recorded by the passing Gate-0 run |
-| Backend | the production ingress (`https://nivxray.nivxforge.com`) — the point is to measure the REAL path |
-| Sysmon | installed configuration is left **unchanged** |
+| Host | disposable Windows host, named `NVX-CANARY-<n>` |
+| Tenant | dedicated canary tenant — never a production tenant, never a fallback tenant |
+| Endpoint identity | freshly enrolled on the canary with a one-time token |
+| Artifact | the exact `ARTIFACT_SHA256` from the passing Gate-0 run |
+| Backend | the production ingress — the point is to measure the REAL path |
 
-Install form (operator, elevated, on the canary only):
+**Never copied from `DESKTOP-A9HGFJJ`:** `identity.json`, enrolment or sensor
+credentials, endpoint identity, the journal database, `channels.json`,
+`outbox.jsonl`/`outbox.offset`. Never printed anywhere: enrolment tokens,
+bearer tokens, API keys, service credentials, identity secrets.
 
-```
+Install (operator, elevated, canary only):
+
+```powershell
 NivXForgeEDRSetup.exe install --tenant <canary_tenant> --token <enrolment_token>
 NivXForgeEDRSetup.exe status
+Get-FileHash .\NivXForgeEDRSetup.exe -Algorithm SHA256   # must equal Gate-0 SHA256
 ```
-
-Verify before any load: `ARTIFACT_SHA256` on disk == Gate-0 report value.
 
 ---
 
-## 2. THE ELEVEN-STAGE MEASUREMENT PIPELINE
-
-Every stage is measured **separately**, so a loss or a cost can be
-attributed to a stage instead of blamed on "the sensor" or "the backend".
+## 3. THE MEASURED CHAIN
 
 ```
- 1  SOURCE              Windows Event Log / Sysmon channels, RecordID space
- 2  ACQUISITION         paged reads, fair scheduling across channels
- 3  JOURNAL             SQLite WAL durable ownership + cursor commit
- 4  NORMALIZATION       sensor-side shaping of the evidence payload
- 5  BATCH TRANSPORT     persistent session, batch size 50
- 6  PRODUCTION INGRESS  TLS + edge + routing
- 7  AUTH                endpoint-scoped credential validation
- 8  RAW ACCEPTANCE      immutable raw evidence + dedup
- 9  CANONICAL BRIDGE    canonicalisation / shadow observation
-10  MONGO               command count and latency
-11  ACK                 per-event acceptance returned to the sensor
+SOURCE            Windows Event Log / Sysmon, RecordID space
+  v  ACQUISITION  paged reads, fair scheduling across channels
+  v  JOURNAL      SQLite WAL durable ownership + cursor commit
+  v  NORMALIZATION sensor-side payload shaping
+  v  BATCH TRANSPORT persistent session, batch 50
+  v  BACKEND INGEST production ingress + TLS
+  v  AUTHORIZATION endpoint-scoped credential
+  v  RAW ACCEPTANCE immutable raw evidence + dedup
+  v  CANONICAL EVIDENCE canonical bridge / shadow observation
+  v  ACK            per-event acceptance returned to the sensor
+  v  JOURNAL RELEASE reclamation of BACKEND_ACCEPTED rows only
 ```
 
-### Per-stage metrics (recorded, per scenario, per minute)
+### Measurement CSV schema
 
-| Metric | Stage |
-|---|---|
-| source events/sec | 1 |
-| source RecordID first/last observed per channel | 1 |
-| acquisition events/sec | 2 |
-| acquisition pages/sec, page size | 2 |
-| per-channel scheduling fairness (events/sec per channel) | 2 |
-| journal writes/sec | 3 |
-| journal commit latency ms (p50/p95/max) | 3 |
-| committed cursor per channel | 3 |
-| journal depth (undelivered rows) | 3 |
-| journal bytes used / live bytes / reclaimed | 3 |
-| normalization ms/event | 4 |
-| batch size (actual, distribution) | 5 |
-| batches/sec | 5 |
-| transport events/sec | 5 |
-| HTTP RTT ms (p50/p95/max) | 5–6 |
-| connection reuse count / reconnects | 5 |
-| ingress HTTP status distribution | 6 |
-| auth failures | 7 |
-| backend processing ms/event | 8–10 |
-| raw-event persistence ms/event | 8 |
-| dedup hits | 8 |
-| canonical bridge ms/event | 9 |
-| Mongo ms/event | 10 |
-| Mongo commands/event | 10 |
-| correlation-rule lookup ms/event | 10 |
-| ACK latency ms, acked/sec | 11 |
-| delivery backlog (sent-not-acked) | 5–11 |
-| gap count (and each gap's channel + RecordID range) | 1–3 |
-| duplicate count (same source record accepted twice) | 8 |
+`<out-dir>/canary_<SCENARIO>_<stamp>.csv` — one row per **(sample, channel)**;
+endpoint-wide columns are repeated on each channel row so a single query can
+answer "was this interval trustworthy for this channel?".
 
-Baseline for comparison: the preview profile — **~30.3 ms/event, 19 Mongo
-commands, ~24.6 ms Mongo, ~5.7 ms CPU**, delivery counters **3 commands,
-~1.25 ms/event, ~3.8%**.
+```
+sample_at, scenario, elapsed_seconds, channel,
+
+SOURCE       source_oldest_record_id, source_newest_record_id,
+             source_records_per_sec
+ACQUISITION  cursor_committed, continuity_established,
+             last_record_id_journaled, acquisition_lag_records,
+             journaled_records_per_sec, query_ms_last
+JOURNAL      journal_rows, journal_rows_deliverable,
+             journal_rows_backend_accepted, journal_depth, journal_bytes,
+             journal_live_bytes, journal_pct, journal_pressure_state,
+             oldest_pending_age_seconds, records_read_total,
+             records_journaled_total, backend_accepted_total,
+             delivery_failures_total, query_total, query_failures_total,
+             acquisition_halted_reason, journal_fault
+INTEGRITY    acquisition_gap_count, unreported_gap_count, last_gap,
+             health_states
+TRANSPORT    delivery_backlog, backend_http_status, backend_rtt_ms
+BACKEND      backend_received, backend_parsed, backend_accepted,
+             backend_canonicalized, backend_deduplicated, backend_refused,
+             backend_accepted_per_sec, backend_gap_count,
+             backend_tenants_observed
+PROVENANCE   journal_read_mode
+```
+
+Anything the collector cannot read honestly is empty, and the affected
+invariant is reported `NOT_PROVABLE` — never estimated, never assumed PASS.
+
+### Verdict JSON schema
+
+`<out-dir>/canary_<SCENARIO>_<stamp>.json`
+
+```json
+{
+  "contract": "nivxforge.b5gap1.canary_measurement",
+  "contract_version": 1,
+  "scenario": "BACKEND_DOWN",
+  "scenario_expectations": { "impaired": true, "expect_backlog": true },
+  "generated_at": "...",
+  "canary": { "tenant_id": "...", "endpoint_id": "...", "state_dir": "...",
+              "artifact_sha256": "...", "designation": "DISPOSABLE_CANARY" },
+  "samples": 60,
+  "csv": "...",
+  "verdict": "PASS | FAIL | NOT_PROVABLE",
+  "invariants": { "<NAME>": { "result": "...", "observed": {}, "note": "" } },
+  "throughput": {
+    "sustained_source_rate_eps": 0, "sustained_acquisition_rate_eps": 0,
+    "sustained_delivery_rate_eps": 0, "peak_delivery_rate_eps": 0,
+    "recovery_drain_rate_eps": 0, "delivery_headroom": 0,
+    "peak_delivery_backlog": 0, "final_delivery_backlog": 0,
+    "http_rtt_ms_median": 0,
+    "note": "no required headroom is asserted here; the production threshold is an owner decision"
+  },
+  "limitations": [],
+  "evidence_labelling": "CANARY/VALIDATION — not production truth",
+  "boundary": { "CANARY_HOST_ONLY": true, "DESKTOP_A9HGFJJ_TOUCHED": "NO",
+                "PRODUCTION_DEPLOYED": "NO",
+                "PRODUCT_CODE_MODIFIED_FOR_MEASUREMENT": "NO" }
+}
+```
+
+`DELIVERY_HEADROOM = sustained_delivery_rate / sustained_source_rate` is
+reported, not judged. The preview figure (batch 50 ≈ 48.3 ev/s) is **not**
+accepted as a canary result and is re-measured here.
 
 ---
 
-## 3. FAILURE MATRIX — TEN SCENARIOS
+## 4. EXECUTABLE SCENARIOS
 
-Each scenario names what is injected, what is measured, and what must hold.
+Every scenario is: start collector -> inject -> stop -> read verdict. Run
+each into its own `--out-dir` so the CSVs stay separable. Nothing below runs
+until the owner authorises the canary.
 
-| # | Scenario | Injection | Must hold |
-|---|---|---|---|
-| 1 | `NORMAL` | steady synthetic load at typical endpoint rate | journal drains to 0; gaps 0; duplicates 0 |
-| 2 | `BURST` | short high-rate burst above drain rate | acquisition keeps up; backlog grows then drains to 0; no loss |
-| 3 | `BACKEND_SLOW` | artificial latency on ingest responses | acquisition CONTINUES; cursor keeps advancing; backlog bounded by journal capacity |
-| 4 | `BACKEND_DOWN` | ingress unreachable | acquisition CONTINUES within journal capacity; nothing deleted unacknowledged |
-| 5 | `RECOVERY` | backend restored after 3 and 4 | full backlog delivered; 0 loss; 0 duplicates |
-| 6 | `SENSOR_RESTART` | stop/start the Windows service mid-drain | journal recovered; cursor unchanged or forward-only; no re-send storm, no loss |
-| 7 | `NETWORK_INTERRUPTION` | NIC down / TLS reset mid-batch | partially-acked batch handled per-event; no duplicate acceptance; no silent drop |
-| 8 | `MULTI_CHANNEL` | load on Sysmon + Security + System simultaneously | fair scheduling; no channel starved; per-channel cursors correct |
-| 9 | `JOURNAL_PRESSURE` | drive journal to its size/pressure limit | pressure surfaced explicitly; acquisition admission decision is EXPLICIT, never a silent drop; nothing unacknowledged is deleted |
-| 10 | `SOURCE_RECORD_DISCONTINUITY` | channel cleared / wrapped / provider reset | discontinuity reported as a GAP with `cause = NOT_PROVEN`; never fabricated as benign, never silently absorbed |
+Common environment (canary host, elevated):
 
-For every scenario, record: source vs acquired vs journaled vs sent vs
-accepted vs canonicalised counts, and reconcile them.
+```powershell
+$env:NIVX_CANARY_READ_TOKEN = '<operator read token>'   # never echoed
+$C = 'C:\NivXForgeCanary'
+$py = 'python'
+$common = @('--backend','https://nivxray.nivxforge.com',
+            '--tenant','<canary_tenant>','--endpoint','<canary_endpoint_id>',
+            '--artifact-sha256','<gate0 sha256>')
+```
+
+### 1 · NORMAL
+```powershell
+Start-Process $py "scripts\canary\b5gap1_canary_collector.py --scenario NORMAL --duration 900 --interval 15 --out-dir $C\normal $common"
+.\scripts\canary\b5gap1_canary_load.ps1 -Scenario NORMAL -Seconds 900
+```
+Must hold: gaps 0, duplicates 0, journal drains to 0, cursor forward-only.
+
+### 2 · HIGH-VOLUME BURST
+```powershell
+... --scenario BURST --duration 600 --interval 10 --out-dir $C\burst
+.\scripts\canary\b5gap1_canary_load.ps1 -Scenario BURST -Seconds 120 -Rate 200
+```
+Must hold: acquisition keeps up, backlog grows then drains, no loss.
+
+### 3 · BACKEND SLOW
+```powershell
+# hosts: 127.0.0.1 nivxray.nivxforge.com   (canary only, reversible)
+$py scripts\canary\b5gap1_canary_impair.py --upstream-ip <A record> --mode slow --delay-ms 750
+... --scenario BACKEND_SLOW --duration 900 --interval 10 --out-dir $C\slow
+```
+Must hold: acquisition CONTINUES, cursor keeps advancing, backlog bounded by
+journal capacity.
+
+### 4 · BACKEND UNAVAILABLE
+```powershell
+$py scripts\canary\b5gap1_canary_impair.py --upstream-ip <A record> --mode down
+#   alternative: New-NetFirewallRule -DisplayName NVXCANARY-BLOCK -Direction Outbound -RemotePort 443 -Action Block
+... --scenario BACKEND_DOWN --duration 900 --interval 10 --out-dir $C\down
+```
+Must hold: acquisition continues within journal capacity; nothing
+unacknowledged is deleted; `BACKEND_UNREACHABLE` surfaces explicitly.
+
+### 5 · BACKEND RECOVERY
+```powershell
+# stop the relay / remove the firewall rule and the hosts entry
+... --scenario RECOVERY --duration 1200 --interval 10 --out-dir $C\recovery
+```
+Must hold: `peak backlog > 0` **and** `final backlog = 0`, 0 loss, no
+double-accepted evidence, no fabricated backfill.
+
+### 6 · SENSOR SERVICE RESTART
+```powershell
+... --scenario SENSOR_RESTART --duration 600 --interval 10 --out-dir $C\restart
+Restart-Service NivXForgeSensor         # mid-drain
+```
+Must hold: journal recovered, cursor never regresses, no re-send storm, no
+loss.
+
+### 7 · NETWORK INTERRUPTION + RECOVERY
+```powershell
+$py scripts\canary\b5gap1_canary_impair.py --upstream-ip <A record> --mode cut --cut-after-bytes 4096
+... --scenario NETWORK_INTERRUPTION --duration 900 --interval 10 --out-dir $C\netcut
+```
+Must hold: a partially-acked batch is settled per event; no duplicate
+acceptance; no silent drop; backlog drains after recovery.
+
+### 8 · MULTI-CHANNEL LOAD (Security + System + Sysmon)
+```powershell
+... --scenario MULTI_CHANNEL --duration 900 --interval 15 --out-dir $C\multi
+.\scripts\canary\b5gap1_canary_load.ps1 -Scenario MULTI_CHANNEL -Seconds 900
+```
+Must hold: every channel progresses (no starvation), per-channel cursors
+correct.
+
+### 9 · JOURNAL PRESSURE
+```powershell
+# canary only: set a SMALL ceiling, then keep delivery impaired
+setx NIVXFORGE_JOURNAL_MAX_BYTES 33554432 /M ; Restart-Service NivXForgeSensor
+... --scenario JOURNAL_PRESSURE --duration 1200 --interval 10 --out-dir $C\pressure
+```
+Must hold: pressure surfaces as an explicit state
+(`JOURNAL_PRESSURE` / `JOURNAL_CRITICAL` /
+`ACQUISITION_HALTED_JOURNAL_FULL`); the admission decision is explicit,
+never a silent drop; nothing unacknowledged is deleted.
+
+### 10 · SOURCE RECORD DISCONTINUITY
+```powershell
+... --scenario SOURCE_DISCONTINUITY --duration 900 --interval 10 --out-dir $C\discontinuity
+.\scripts\canary\b5gap1_canary_load.ps1 -Scenario SOURCE_DISCONTINUITY -Confirm
+```
+Must hold: exactly one declared gap with
+`classification = SOURCE_RECORD_DISCONTINUITY` and `cause = NOT_PROVEN`;
+never absorbed silently, never labelled benign or malicious.
+
+### Backend cost, per scenario window
+```bash
+cd /app/backend && PROFILE_N=60 python ../scripts/b5gap1_ingest_cost_profile.py
+```
+Records ms/event, Mongo commands/event, Mongo ms/event, correlation-rule
+read cost. **Measurement only** — see §7.
 
 ---
 
-## 4. ACCEPTANCE INVARIANTS
+## 5. ACCEPTANCE INVARIANTS
 
-A canary run is acceptable only if **all** of these hold:
+Enforced by the collector's verdict, and each one has a test that proves it
+actually fails:
 
 ```
-unexplained acquisition gaps        = 0
-silent loss                         = 0
-duplicates                          = 0
-wrong-tenant evidence               = 0
-unacknowledged deletion             = 0
-journal eventually drains to 0
-acquisition continues while the backend is slow or down,
-    within available journal capacity
-SOURCE_CURSOR <= LAST_DURABLY_OWNED_SOURCE_RECORD   (always)
-SENT != ACCEPTED                                    (never conflated)
-ACCEPTED != CANONICALIZED                           (never conflated)
-NO EVENT OBSERVED != EVENT DID NOT OCCUR
-ACQUISITION GAP != BENIGN
+SILENT_LOSS                              = 0
+UNEXPLAINED_ACQUISITION_GAPS             = 0   (normal/burst/recoverable)
+DUPLICATES                               = 0   (retry-window dedup at the
+                                                platform boundary is refusal,
+                                                not double acceptance)
+WRONG_TENANT_EVIDENCE                    = 0
+UNACKNOWLEDGED_DELETION                  = 0
+CURSOR_MONOTONIC                         = true
+SOURCE_CURSOR <= LAST_DURABLY_OWNED_SOURCE_RECORD
+SLOW_BACKEND                            != STOP_ACQUISITION
+DELIVERY_BACKLOG                        != SOURCE_LOSS
+SENT                                    != ACCEPTED
+ACCEPTED                                != CANONICALIZED
+NO EVENT OBSERVED                       != EVENT DID NOT OCCUR
+ACQUISITION GAP                         != BENIGN
+ACQUISITION GAP                         != MALICIOUS
+JOURNAL_NOT_CORRUPT                      = true
 ```
 
-Any gap that IS found must be **explained**: channel, RecordID range,
-detection time, and the reason — with `cause = NOT_PROVEN` when the cause is
-genuinely not proven. A gap explained by guesswork is a failed run.
+Backlog recovery must be proven as a sequence, not asserted:
+`backlog_before_recovery > 0` -> `backlog_after_recovery = 0`, with no
+silent loss, no duplicate evidence, no cross-tenant evidence and no
+fabricated backfill.
+
+Known limits, stated rather than hidden: silent loss is only provable where
+the source channel tail is readable (Windows canary); cross-tenant leakage is
+excluded only within the reading credential's authority — a platform-wide
+scan is a separate owner action.
 
 ---
 
-## 5. ROLLBACK CRITERIA
+## 6. ROLLBACK CRITERIA
 
-Stop the canary and roll back immediately if any of these appear:
+Stop and roll back immediately on: any silent loss; any gap that cannot be
+explained from evidence; any duplicate accepted evidence; any wrong-tenant
+evidence; any unacknowledged deletion; journal corruption that is not
+quarantined and visible; service fails to start/crashes/fails to recover;
+host impact beyond the agreed budget; **any** effect observable on a
+production tenant.
 
-* any silent loss, or any gap that cannot be explained from evidence;
-* any duplicate accepted evidence;
-* any wrong-tenant evidence;
-* any unacknowledged evidence deleted from the journal;
-* journal corruption that is not quarantined and made visible;
-* the service fails to start, crashes, or fails to recover after restart;
-* sustained host impact beyond the agreed budget (CPU / memory / disk);
-* any effect observable on production tenants.
-
-Rollback procedure (canary host only):
-
+```powershell
+# 1. collect FIRST
+Copy-Item C:\ProgramData\NivXForge\sensor\acquisition_integrity.json $C\evidence\
+Copy-Item C:\ProgramData\NivXForge\sensor\service.log               $C\evidence\
+Copy-Item $C\*\canary_*.csv, $C\*\canary_*.json                     $C\evidence\
+# 2. remove the impairment: stop the relay, drop the firewall rule,
+#    remove the hosts entry
+# 3. then, only then
+NivXForgeEDRSetup.exe uninstall            # keeps local evidence
+NivXForgeEDRSetup.exe uninstall --purge    # optional, after collection
 ```
-NivXForgeEDRSetup.exe uninstall            # keeps local evidence for review
-# collect first, then optionally:
-NivXForgeEDRSetup.exe uninstall --purge
-```
-
-Collect before purge: journal integrity snapshots, `service.log`, the
-per-scenario measurement CSV/JSON, and the enrolled endpoint identity (no
-secret material).
+No secret material is collected or printed.
 
 ---
 
-## 6. STOP CONDITIONS
+## 7. STOP CONDITIONS AND THE OPTIMIZATION RULE
 
-* Gate 0 not `CLOSED_PASS` -> **do not start**.
-* No named disposable host and explicit owner authorisation -> **do not start**.
+* No owner authorisation / no named disposable host -> **do not start**.
 * Any acceptance invariant violated -> **stop, collect, report, do not tune**.
 * Canary complete -> **STOP for owner review**. No production step, no
-  optimization, no `DESKTOP-A9HGFJJ` action follows automatically.
+  optimization and no `DESKTOP-A9HGFJJ` action follows automatically.
+
+During the canary: `CORRELATION_CACHE_IMPLEMENTED = NO`,
+`COUNTER_BATCHING_IMPLEMENTED = NO`, `RAW_EVENT_PATH_MODIFIED = NO`, no
+canonical-bridge shortcuts. If profiling proves correlation-rule reads are
+materially expensive, **report the measurement only**.
+
+Only after owner review of the canary measurements, and only if rule reads
+remain material, may a cache be *proposed*. It must cache configuration
+only (never evidence), have deterministic invalidation/versioning, preserve
+tenant-specific rule scope, fail safely, never use stale rules
+indefinitely, record the rule provenance/version used for every finding,
+never alter historical evidence, and ship with tests for rule update,
+disable, delete, tenant isolation, restart and cache invalidation.
 
 ---
 
-## 7. OPTIMIZATION DECISION RULE (POST-CANARY ONLY)
-
-Only after canary measurements, and only if correlation-rule reads remain a
-**material** share of ms/event, propose a cache design. Any such design must:
-
-* cache **configuration only**, never evidence;
-* have deterministic invalidation / versioning;
-* preserve tenant-specific rule scope;
-* fail safely;
-* never use stale rules indefinitely;
-* record the rule provenance/version used for every finding;
-* never alter historical evidence;
-* ship with tests for rule update, disable, delete, tenant isolation,
-  process restart, and cache invalidation.
-
-Not implemented. Not approved. Awaiting canary evidence.
-
----
-
-## 8. WHAT HAPPENS AFTER — IN ORDER
+## 8. LIFECYCLE
 
 ```
-GATE 0 CLOSED (real Windows)
-        v
-DISPOSABLE WINDOWS CANARY (this plan)
-        v
-real production-path measurements
-        v
-owner review
-        v
-optimize ONLY what the measurements prove dominant
-        v
-stress / outage / restart / recovery re-run
-        v
-DESKTOP-A9HGFJJ last, and only on explicit authorisation
+B5_STATUS                  = CLOSED_PASS
+B5_GAP_1_IMPLEMENTATION    = PASS
+B5_GAP_1_WINDOWS_ARTIFACT  = PASS        (real windows-latest Gate 0)
+B5_GAP_1_DISPOSABLE_CANARY = PENDING     <- this plan, not yet run
+```
+
+B5-GAP-1 is **not** fully closed until the disposable canary passes.
+
+```
+GATE 0 CLOSED (real Windows)  ->  DISPOSABLE CANARY (this plan)
+  ->  real production-path measurements  ->  owner review
+  ->  optimize ONLY what the measurements prove dominant
+  ->  stress / outage / restart / recovery re-run
+  ->  DESKTOP-A9HGFJJ last, and only on explicit authorisation
 ```

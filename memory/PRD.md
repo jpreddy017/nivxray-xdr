@@ -3069,3 +3069,58 @@ Implemented:
 - P1: optimize ONLY what canary measurements prove dominant (rule-read caching is a
   candidate, not an approved change).
 - P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
+
+## 2026-06 · B5-GAP-1 WINDOWS GATE 0 CLOSED + DISPOSABLE CANARY PACKAGE (prepared, NOT run)
+
+Owner supplied the authoritative `gate0/GATE0_WINDOWS_REPORT.json` from the real
+`windows-latest` run (run 36663297037, commit 2cb841db, PyInstaller 6.11.1, sensor
+0.3.0-windows, UNSIGNED_INTERNAL_VALIDATION_BUILD). Recorded:
+`WINDOWS_GATE_0 = CLOSED_PASS`, `PROBLEMS = []`, all 21 mandatory Windows assertions
+PASS (SQLite + native binary, NTFS create, WAL create + reopen/recovery,
+synchronous=FULL, auto_vacuum=INCREMENTAL, schema, durable commit, cursor commit,
+replay idempotency, integrity snapshot, gap contract, frozen restart, state-dir access,
+service permissions, packaging regression). Evidence written into
+`docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` §8. No inference from the green job was
+accepted; the previous turn deliberately reported UNVERIFIED until the JSON arrived.
+
+Phase 2 (prepared, NOT executed):
+- `scripts/canary/b5gap1_canary_collector.py` — READ-ONLY collector. Samples SOURCE ->
+  ACQUISITION -> JOURNAL -> NORMALIZATION -> BATCH TRANSPORT -> BACKEND INGEST -> RAW
+  ACCEPTANCE -> CANONICAL -> ACK -> JOURNAL RELEASE into a timestamped CSV (48 columns,
+  one row per sample per channel) plus a verdict JSON. Journal opened `mode=ro`, falling
+  back to an untouched copy of db/-wal/-shm; unreadable numbers are `NOT_PROVABLE`, never
+  estimated. Read token from `NIVX_CANARY_READ_TOKEN`, never printed or stored.
+  Invariants enforced: SILENT_LOSS, UNEXPLAINED_ACQUISITION_GAPS, DUPLICATES,
+  WRONG_TENANT_EVIDENCE, UNACKNOWLEDGED_DELETION, CURSOR_MONOTONIC,
+  SOURCE_CURSOR<=DURABLY_OWNED, acquisition-continues-while-impaired, backlog drain,
+  all-channels-progress, explicit journal pressure, JOURNAL_NOT_CORRUPT. Reports
+  DELIVERY_HEADROOM without asserting a threshold (owner decision).
+- `scripts/canary/b5gap1_canary_load.ps1` — real source records on the canary; REFUSES
+  `DESKTOP-A9HGFJJ` and any host not named `NVX-CANARY*` without `-Confirm`.
+- `scripts/canary/b5gap1_canary_impair.py` — transparent TCP relay (`normal|slow|down|
+  cut`); TLS stays end-to-end, no credential held, reversible via hosts entry.
+- `docs/B5_GAP_1_CANARY_PLAN.md` rewritten as an executable plan: 10 scenarios with exact
+  commands, CSV + verdict schemas, acceptance invariants, rollback criteria, STOP
+  conditions, post-canary optimization rule.
+- Backend cost measurement REUSES `scripts/b5gap1_ingest_cost_profile.py`. No ingest
+  middleware, no sensor hot-path instrumentation, no product semantics changed.
+- `backend/tests/edr/test_b5gap1_canary_harness.py` (20 tests) proves the harness fails
+  closed on cursor regression, cursor beyond durable ownership, unacknowledged deletion,
+  unexpected duplicates, an absorbed discontinuity, an undrained backlog, foreign-tenant
+  evidence, stalled acquisition under impairment and journal corruption — and that the
+  collector leaves the journal bytes untouched while a live writer holds the WAL.
+  Regression: 122 passed / 2 skipped for `-k "b5_gap1 or b5gap1"`.
+
+Boundary preserved: CANARY_STARTED = NO, CORRELATION_CACHE_IMPLEMENTED = NO,
+COUNTER_BATCHING_IMPLEMENTED = NO, RAW_EVENT_PATH_MODIFIED = NO,
+DESKTOP_A9HGFJJ_TOUCHED = NO, PRODUCTION_DEPLOYED = NO.
+
+Lifecycle: B5_STATUS = CLOSED_PASS · B5_GAP_1_IMPLEMENTATION = PASS ·
+B5_GAP_1_WINDOWS_ARTIFACT = PASS · B5_GAP_1_DISPOSABLE_CANARY = PENDING.
+B5-GAP-1 is NOT fully closed until the canary passes.
+
+### Next (owner-gated, in order)
+- P0: owner authorises a named disposable Windows host -> run the 10 canary scenarios.
+- P0: owner review of canary CSV/verdicts; only then decide any optimization.
+- P1: correlation-rule cache ONLY if canary profiling proves it material.
+- P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
