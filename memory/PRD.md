@@ -3159,3 +3159,33 @@ C0.5 install + enrol + service/journal/backend proof · C0.6 read-only collector
 
 State: CANARY_STARTED = NO · LOAD_GENERATED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO ·
 PRODUCTION_CHANGED = NO. C0.1 issued for owner review; nothing has been run.
+
+## 2026-06 · DEVICE TRAJECTORY CHECKPOINT 1 — PRELIMINARY READ-ONLY GAP LIST (no code change)
+
+Owner approved: KUSHU C0 -> canary -> B5-GAP-1 CLOSED -> Device Trajectory Checkpoint 1
+(structural/evidence-presentation parity only, PREVIEW ONLY) -> freeze -> E3/E4/E5/E6 ->
+Checkpoint 2 (intelligence surfaces). Owner explicitly REJECTED adding "ENGINE NOT PRESENT"
+labels to the frozen renderer: engine absence is recorded in the audit, the UI keeps showing
+backend truth.
+
+Produced `docs/DEVICE_TRAJECTORY_CHECKPOINT1_PRELIMINARY_GAPS.md` (read-only):
+- §A 18 structural rows located in code, classified PASS_PENDING_VISUAL (owner's side-by-side
+  decides parity; no parity claimed from code reading).
+- §B 10 proven divergences: B2 coverage bands NOT RENDERED although `CoverageInterval` +
+  `dt2/density.js::coverageOf` exist (P0 for an evidence-truth product); B5 no RAW payload
+  surface though `GET /api/edr/events/{raw_id}` exists (pure wiring); B1 inspector fixed at
+  394 px, not resizable; B7 `dt2/repeatCache.js` has no consumer -> owner ruling needed on
+  Cisco's per-file event cache (display suppression would hide held observations); B3 no
+  keyboard handling; B4 match count but no MATCH n OF m cursor; B6 no per-process
+  de-selection; B8 PID surrogate identity vs Cisco SHA-256; B9 dashed-open lifelines are
+  correct and KUSHU's EID 5 will exercise closed lifelines for the FIRST time; B10 Back does
+  not step investigation states.
+- §C 7 surfaces NOT_EVALUABLE_YET (E3 detections, E4 reputation/IOC, E5 contributor halo,
+  E6 ATT&CK, typed relationship edges awaiting real artefact evidence).
+- §D Checkpoint 1 preconditions: canary PASS, then a DECLARED benign CANARY/VALIDATION
+  density pass on KUSHU (EID 1/5/3/11/22, zero fabricated findings, run AFTER the canary
+  result so it cannot contaminate acceptance), preview-only, screenshot pairs per row.
+
+State: DEVICE_TRAJECTORY_CODE_CHANGED = NO · FIXES_APPLIED = NO · PRODUCTION_UI_DEPLOYED = NO
+· FIXTURES_ADDED = NO · CANARY_STARTED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO.
+Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
