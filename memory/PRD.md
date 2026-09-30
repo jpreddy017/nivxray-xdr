@@ -3438,3 +3438,31 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   UI redesign decision (owner sequencing note); it does NOT block the LAB tenant or KUSHU.
   Recorded, non-blocking: GATE 5 policy lifecycle needs its own test suite before the
   composed READY phase.
+- PRODUCTION ACCEPTANCE (Publish 100) = FAIL AT GATE 0. Read-only evidence:
+  * PRODUCTION TOPOLOGY DISCOVERED: xdr.nivxforge.com and edr.nivxforge.com are BOTH served by
+    VERCEL (`server: Vercel` response header) from apps/nivxray-xdr (it has .vercel/ +
+    vercel.json). The Emergent publish pipeline builds /app/frontend, NOT apps/nivxray-xdr.
+    The production BACKEND is https://nivxray.nivxforge.com (healthy: /api/health 200,
+    unauth GETs correctly 403).
+  * THE REVIEWED FRONTEND IS NOT LIVE. Deployed bundles fetched and inspected:
+    xdr.nivxforge.com XdrShell-CxJL9WXQ.js contains "authorized_count" but NOT
+    "authorized_tenants"; EdrAddDevicePage-DJayq9b7.js still contains "EnrollmentToken";
+    EdrDownloadsPage-B9DnrKlR.js lacks "carries NO secret". edr.nivxforge.com is a SEPARATE,
+    also-old Vercel build (XdrShell-LH9QX3xl.js, EdrAddDevicePage-CDkw308R.js — same findings).
+    => the two consoles are two independent Vercel deployments, both pre-change.
+  * CONSEQUENCE: even if the backend half shipped, the live consoles still read `tenants`
+    (selector stays empty) and EdrAddDevicePage still rebuilds the argv enrolment command in
+    the browser. This is the owner's "backend/frontend versions are incompatible" STOP
+    condition. No workaround attempted, no code changed, no redeploy.
+  * BLOCKER 2: the production admin credential in the handoff (admin@nivxray.com) returns 401
+    at https://nivxray.nivxforge.com/api/auth/login - it is PREVIEW-ONLY. So checks 1, 5, 7
+    (authenticated GETs) and 2, 3 (UI) are NOT_VERIFIED. NOTE for future: routers/auth.py
+    login performs NO DB write (in-memory rate limiter only), so a login is not a data
+    mutation.
+  * Deployer agent asked (read-only, intent=debug) for publish number, both commit SHAs,
+    which frontend the pipeline builds, hostnames served, whether the deployed image contains
+    edr_plane/enrollment/instructions.py, pod health/ImportError, and Mongo binding. Response
+    pending at time of writing.
+  * TO FIX THE DEPLOYMENT GAP the owner must decide how apps/nivxray-xdr is released (Vercel
+    project rebuild from the new commit for BOTH hostnames) - that is a platform/release
+    decision, not a code change.
