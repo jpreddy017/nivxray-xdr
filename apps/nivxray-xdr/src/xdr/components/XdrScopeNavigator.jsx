@@ -105,7 +105,11 @@ export default function XdrScopeNavigator() {
   const label = lockDenied
     ? ((denied.tenant_ids || [])[0] || "◇ NOT RESOLVED")
     : denied ? "NOT AUTHORIZED" : scopeLabel(eff);
-  const tenants = authorized?.tenants || [];
+  const tenants = authorized?.authorized_tenants || [];
+  const volumes = useMemo(
+    () => new Map((authorized?.tenants || []).map((t) => [t.customer, t])),
+    [authorized],
+  );
 
   const pick = async (tenantId) => {
     if (locked) return;
@@ -225,11 +229,13 @@ export default function XdrScopeNavigator() {
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden",
                                textOverflow: "ellipsis",
                                whiteSpace: "nowrap" }}>
-                  {t.customer}
+                  {t.display_name || t.customer}
                 </span>
                 <span className="mono" style={{ fontSize: 10,
                         color: "var(--faint)", flex: "0 0 auto" }}>
-                  {t.open_incidents} open
+                  {volumes.has(t.customer)
+                    ? `${volumes.get(t.customer).open_incidents} open`
+                    : "no XDR incidents"}
                 </span>
               </div>
             ))}
