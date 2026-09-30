@@ -62,12 +62,21 @@ def test_stress_10000_events_with_delivery_slower_than_acquisition(
     accepted: list[str] = []
 
     def _slow_post(api, path, body, bearer=None):
+        # Deliberately slower than acquisition PER EVENT, which is the
+        # whole premise of B5-GAP-1. Batching amortises the request, not
+        # the per-event server work, exactly as measured in GATE B.
         if path == "/api/edr/agent/telemetry":
-            # Deliberately slower than acquisition, which is the whole
-            # premise of B5-GAP-1.
             time.sleep(0.0004)
             accepted.append(body["payload"])
             return {"accepted": True}
+        if path == "/api/edr/agent/telemetry/batch":
+            results = []
+            for index, event in enumerate(body["events"]):
+                time.sleep(0.0004)
+                accepted.append(event["payload"])
+                results.append({"index": index, "accepted": True})
+            return {"count": len(results), "accepted": len(results),
+                    "results": results}
         return {}
 
     monkeypatch.setattr(module, "_post", _slow_post)
@@ -154,6 +163,14 @@ def test_b5_gap_1_failure_class_now_yields_backlog_not_loss(env, monkeypatch):
             time.sleep(0.002)
             delivered.append(body["payload"])
             return {"accepted": True}
+        if path == "/api/edr/agent/telemetry/batch":
+            results = []
+            for index, event in enumerate(body["events"]):
+                time.sleep(0.002)
+                delivered.append(event["payload"])
+                results.append({"index": index, "accepted": True})
+            return {"count": len(results), "accepted": len(results),
+                    "results": results}
         return {}
 
     monkeypatch.setattr(module, "_post", _trickle)

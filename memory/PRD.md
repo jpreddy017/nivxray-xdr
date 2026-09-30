@@ -2823,3 +2823,201 @@ or outbox change, no replay, no backfill.
   on delivery, and the reason the journal backlog grows.
 - P1: approved backend contract to publish ACQUISITION_GAP + integrity to the console.
 - P1: E3 deterministic detection engine hardening (after the above).
+
+---
+
+## 2026-06 · B5-GAP-1 PRE-PRODUCTION HARDENING · GATES A-D
+### GATES B/C/D PASS · GATE A WIRED BUT NOT RUN (needs a Windows runner) · **NOT DEPLOYED**
+
+Record: `/app/docs/B5_GAP_1_PREPROD_HARDENING_GATES_A_D.md`. `DESKTOP-A9HGFJJ`
+untouched (no install, no restart, no Sysmon/channels.json/outbox change, no
+replay, no backfill). B5 remains CLOSED/PASS. Owner review gate open.
+
+**GATE A — WINDOWS_ARTIFACT_BUILD = NOT_RUN (blocked, not failed).** PyInstaller
+cannot cross-compile a Windows PE from Linux; `windows-sensor-installer.yml` runs on
+`windows-latest` and there is no Windows runner in this workspace. Instead the
+artifact now proves the journal ABOUT ITSELF: NEW frozen CLI subcommand
+`NivXForgeEDRSetup.exe journal-selftest` (`nivxforge_setup.journal_selftest`) checks
+sqlite3 importable + library version, `nivxforge_journal` importable, DB create/open,
+`PRAGMA journal_mode=wal`, `PRAGMA synchronous==2`, `auto_vacuum==2`, all five tables,
+durable commit, cursor commit, replay idempotency, integrity snapshot, gap contract.
+Wired as **ACCEPTANCE GATE 0** in the Windows workflow and it REQUIRES `"frozen": true`
+so a system-Python pass can never be mistaken for an artifact pass. Verified locally:
+`result: PASS`, `frozen: false` (honest — not the frozen binary). Gate wiring is itself
+under test. Items 9/10 PASS by inspection: sqlite3 is stdlib, requirements/pip list/
+spec/signing/ACL/service definition all unchanged; only two `--hidden-import` flags
+added. **To close Gate A: one Windows CI run.**
+
+**GATE B — DELIVERY_ROOT_CAUSE = PROVEN. THREE causes, measured not assumed**
+(`scripts/b5gap1_delivery_latency_probe.py`, live preview ingress + loopback, enrolled
+synthetic endpoint):
+  fresh connection per POST (pre-fix sensor) 176.6 ms = **5.7 ev/s**
+  one persistent connection, 1 event/POST    103.3 ms = **9.7 ev/s**
+  loopback 1 event/POST (backend+DB only)     38.6 ms = 25.9 ev/s
+  batch 10 / **batch 50** / batch 100        43.1 / **48.3** / 33.5 ev/s
+Decomposition per event pre-fix: DNS+TCP+TLS ~73 ms (41%, discarded every event) +
+ingress/WAN ~65 ms (37%, paid per event) + backend/auth/Mongo ~39 ms (22%,
+irreducible). **Batch default = 50, chosen from measurement**: past ~50 amortisation is
+spent, server per-event work dominates, and batch 100 is WORSE (33.5 ev/s) on a 3.0 s
+request with more ingress-timeout exposure. `MAX_BATCH_EVENTS=100` server cap retained.
+DELIVERY_THROUGHPUT = 48.3 ev/s = 2.4x the ~20 ev/s source → DELIVERY_SUSTAINABILITY
+PASS. **CAVEAT: preview numbers. Production was 2.68 s/POST (~15x worse); the absolute
+ceiling must be RE-MEASURED on the canary — it is step 3 of the acceptance procedure,
+not an assumption.**
+- Sensor: NEW `_Transport` (one persistent `http.client` connection, reconnects ONCE on
+  a stale socket so it is not mistaken for an outage), `_post`/`_get` routed through it,
+  `_deliver_batch`, batch-aware `_drain_journal` (404/405 → permanent single-event
+  fallback; 413 → halve batch; 401/403 → refresh session), `BATCH_SUPPORT`.
+- Backend: `_ingest_one` extracted so single-event and batch share ONE ingest path
+  (asserted by test); NEW `POST /api/edr/agent/telemetry/batch`.
+- **DURABILITY NOT WEAKENED. `SENT != ACCEPTED` survives batching**: the response is an
+  ORDERED PER-EVENT verdict, never a batch verdict; only accepted indices are released.
+  Proven E2E — 59 of 60 released, exactly the refused one retained, 0 duplicates.
+  Idempotency INHERITED from `raw.append` `(tenant_id, dedup_key)`, no new identity
+  scheme. 413 ingests nothing so the endpoint still owns everything. Liveness recorded
+  once per batch, and not at all if nothing was accepted.
+
+**GATE C — INTEGRITY_BACKEND_CONTRACT = PASS · BACKWARD_COMPATIBILITY = PASS.**
+`HeartbeatBody`/`TelemetryBody` NOT touched (both `extra="forbid"`; adding fields would
+422 the whole fleet) — asserted by test. NEW `backend/edr_plane/acquisition_integrity.py`
++ `POST /api/edr/agent/acquisition-integrity` (SENSOR_SCOPED, own versioned contract) +
+`GET /api/edr/enrollment/acquisition-integrity` (TENANT_SCOPED read). All three routes
+classified in `ROUTE_CLASSIFICATION` (the matrix fails closed on an unclassified route).
+Neither new body carries tenant_id/endpoint_id — identity from the authenticated session.
+**The semantic chain is SERVER-ASSERTED, not trusted.** Proven LIVE through the real
+ingress: a sensor claiming `classification: MALWARE_EVASION`, `cause: LOG_ROLLOVER`,
+`missing_record_id_count: 999999`, health `TOTALLY_FINE` was stored as
+`SOURCE_RECORD_DISCONTINUITY` / `NOT_PROVEN` / `is_detection: false` / recomputed
+**26409** / health `[ACQUISITION_GAP, DELIVERY_BACKLOG]` / `claim_basis:
+SENSOR_REPORTED`. Every gap carries its own absence semantics (not benign, not
+malicious, not a detection, no-event-observed != did-not-occur). Gaps append-only and
+idempotent; the sensor marks a gap reported ONLY after the platform has it. No console
+or Device Trajectory work.
+
+**GATE D — all nine PRE_CANARY scenarios PASS**
+(`test_b5_gap1_pre_canary_acceptance.py`, full cycle against a fake backend running the
+REAL batch + integrity contracts): NORMAL, BURST (3,000 in one opportunity, 7+ pages),
+BACKEND_SLOW (backlog grows, next cycle still journals 1,000), BACKEND_DOWN (500 held,
+sent 0, acquisition continues), RECOVERY (600/600, 0 duplicates), RESTART, GAP (26,409
+declared, reaches platform, reported once, nothing invented), MULTI_CHANNEL (hot Sysmon
+5,000 does not starve Security/System), PRESSURE (halts, keeps every unacknowledged row,
+AND recovers). Plus partial refusal, batch-route-absent fallback, oversize halving, and
+transport reuse/reconnect. Ownership is asserted as the UNION of still-journaled and
+backend-accepted, because accepted rows are reclaimed.
+
+**Tests: 89 B5-GAP-1 tests (24+28+5+16+16). Full `backend/tests/edr/`: 1917 passed,
+3 skipped, 0 failed.**
+
+**A REAL FAULT THE EXISTING SUITE CAUGHT:**
+`test_p0prod2_enrollment_hardening::test_agent_routes_never_depend_on_a_platform_user`
+failed because the admin read route was first placed INSIDE the agent block of
+`edr_enrollment.py`, where that guard scans for `get_current_user`. Admin identity must
+not appear in the agent surface — the route was moved above the agent section. The guard
+was right.
+
+**Remaining risks:** (1) Gate A needs one Windows CI run. (2) Production throughput
+unmeasured — 48.3 ev/s is preview. (3) **Server-side per-event cost ~39 ms is now the
+ceiling; if the canary needs >~25 ev/s per endpoint the next lever is inside
+`_ingest_one` (2-4 counter writes/event look batchable), NOT the transport.** (4)
+Integrity stored but not rendered (no console work, by instruction). (5) Batch fallback
+is permanent for the process once a 404 is seen. (6) Two synthetic endpoints
+(`ep_1badb6e4ec82b016f808`, `NIVX-PROBE-2`) now exist in the PREVIEW db, tenant
+`probe-t-00bf71`, from the probe and the live contract check — revoke at will. (7)
+Historical B5-GAP-1 records remain unrecoverable, by design.
+
+### Next (owner-gated)
+- P0: run `windows-sensor-installer.yml` on a Windows runner → close Gate A.
+- P0: one-endpoint canary per §"PROPOSED ONE-ENDPOINT CANARY PROCEDURE" — step 3
+  re-measures production delivery throughput.
+- P1: if the canary needs more throughput, batch the per-event delivery-counter writes
+  inside `_ingest_one`.
+- P1: render acquisition integrity / gaps in the console.
+- P1: E3 deterministic detection engine hardening (after the above).
+
+---
+
+## 2026-06 · B5-GAP-1 WINDOWS ACCEPTANCE GATE 0 + §5 INGEST COST PROFILE
+### FROZEN SELFTEST PASS (Linux bundle) · PACKAGING_REGRESSION PASS · COUNTER_PROFILE COMPLETE
+### WINDOWS_ARTIFACT_BUILD = NOT_RUN · CANARY_STARTED = NO · **PRODUCTION_DEPLOYED = NO**
+
+Record: `/app/docs/B5_GAP_1_WINDOWS_GATE0_AND_COST_PROFILE.md`. `DESKTOP-A9HGFJJ`
+untouched (no install, no restart, no Sysmon/channels.json/outbox change, no journal
+migration, no generated load, no canary). B5 remains CLOSED/PASS.
+
+**TWO HARD LIMITS, STATED NOT HIDDEN.** (1) I cannot trigger CI — git write actions go
+through the chat's "Save to Github" control; no tool can start `windows-sensor-installer.yml`.
+(2) PyInstaller cannot cross-compile a Windows PE from Linux. So
+`WINDOWS_ARTIFACT_BUILD = NOT_RUN`: blocked, not failed, not faked. **The Windows run is
+the owner's to trigger and is the ONLY outstanding Gate 0 item.**
+
+**FROZEN SELFTEST = PASS, in a REAL frozen binary.** Built an actual PyInstaller
+**onefile** ELF using **PyInstaller 6.11.1 — the exact version pinned in
+`build_windows_installer.ps1`** and the same hidden-import set minus `win32*`, then ran
+`NivXForgeEDRSetup-linuxproof journal-selftest` FROM THE BINARY (not Python):
+`result: PASS`, **`frozen: true`**, sqlite3 importable (lib 3.40.1), journal module,
+DB create/open, `wal_mode`, `synchronous_full`, `auto_vacuum_incremental`, five tables,
+durable commit, cursor commit, replay idempotency, integrity snapshot, gap contract —
+all 13 TRUE, exit 0. Byte scan confirms `_sqlite3` (native ext), `sqlite3` and
+`nivxforge_journal` are packed.
+- PROVES: the freeze mechanism, the hidden-import list, `sys.frozen` detection, that
+  PyInstaller 6.11.1 packs stdlib sqlite3 + its native extension with no extra hook, and
+  that WAL/FULL/INCREMENTAL behave inside a bundle.
+- DOES NOT PROVE (and not claimed): the Windows bootloader, `_sqlite3.pyd`/`sqlite3.dll`,
+  NTFS, or the Windows SERVICE context (LocalSystem, `C:\ProgramData` ACLs).
+  **SQLite inside the shipped PE remains genuinely unproven.**
+- ARTIFACT_SHA256 for the real artifact DOES NOT EXIST YET — it comes from the Windows
+  run. The Linux proof binary was built to /tmp and is disposable; it is NOT shippable.
+  Not signed (Authenticode is inapplicable to an ELF). No signing secret was read.
+
+**PACKAGING_REGRESSION = PASS, proven by diff vs the reviewed baseline `6afab68a`:**
+`Install-NivXForgeSensor.ps1` **byte identical (no diff at all)**;
+`build/build_windows_installer.ps1` **+2/-0** (only the two `--hidden-import` lines);
+`nivxforge_setup.py` **+75/-0** (pure addition — the selftest);
+`backend/requirements.txt` **byte identical**. **Zero deletions and zero modified lines
+anywhere.** Therefore unchanged: service identity, service permissions, installer ACLs,
+state-dir ACLs, auth-material handling, enrolment, tenant binding, startup command,
+backend origin, signing. Also guarded by the three green installer suites. PyInstaller
+was installed in THIS CONTAINER ONLY and deliberately NOT added to requirements.txt.
+
+**§5 COUNTER PROFILE COMPLETE — THE COUNTER HYPOTHESIS WAS WRONG.**
+Real local Mongo + pymongo `CommandListener`, warmed to steady state, measure-only:
+```
+ingest per accepted event   30.3 ms | 19 Mongo commands | 24.6 ms in Mongo (81.4%)
+                                    | 5.7 ms CPU (18.6%)
+DELIVERY-COUNTER WRITES      3 of 19 commands = 1.25 ms = 3.8% of ingest
+canonical bridge            30.7 ms (~90%) | raw.append 1.01 | mark_reported 0.49
+                                            | get_endpoint 0.42
+```
+Commands/event: `edr_delivery_counters` update x3; `edr_raw_events` findAndModify+insert
++update x2+find = 5; `edr_endpoints` find+update = 2; `v2_shadow_observations` find+insert
+= 2; `xdr_canonical_evidence` insert; **`xdr_correlation_rules` aggregate + find PER
+EVENT**; +~4 more. cProfile agrees independently: 0.726s of 1.189s across 25 events was
+`select.epoll.poll` — I/O WAIT, not CPU — and showed YAML/regex work consistent with the
+per-event rule reads.
+**RECOMMENDATION: do NOT batch the delivery counters on their own** — 3.8% is a rounding
+error on the acceptance path. Ranked, NONE IMPLEMENTED: (1) cache the correlation rule
+set (2 cmds/event; rules are configuration not evidence; also removes the YAML/regex
+cost) — best value-to-risk, needs a decision on how fast a rule edit must take effect;
+(2) reduce `edr_raw_events` to <5 cmds — touches the immutable-bytes + dedup guarantee,
+needs its own design review; (3) aggregate 3 counter writes into 1 (`counters.record`
+already accepts a delta dict) — ~4%, only worth doing ALONGSIDE (1). Items 1+3 ≈ 19→16
+cmds, 30.3→~27 ms (+12%) — real but far smaller than the banked transport win
+(5.7→48.3 ev/s). Counters stay operational metrics (`authority: SERVER_OBSERVED`,
+`evidence_authority: false`) and batching must not change WHEN an event is accepted.
+**CAVEAT: 30.3 ms is local loopback preview Mongo with no HTTP/TLS/auth in the number —
+re-profile on the canary before changing anything.**
+
+**No product code changed in this pass** (the selftest + GATE 0 workflow step landed in
+the previous pass). NEW: `scripts/b5gap1_ingest_cost_profile.py`. Regression spot-check
+after the pass: 137 passed (pre-canary + 3 installer suites + enrolment hardening).
+
+### Next (owner-gated, in order)
+- P0: Save to Github -> run `windows-sensor-installer.yml` on `windows-latest`. GATE 0
+  fails the build unless `result: PASS` AND `frozen: true` AND `wal_mode: true` AND
+  `synchronous_full: true`. Capture artifact SHA256 + run id.
+- P0: canary on a DISPOSABLE validation Windows endpoint FIRST, not `DESKTOP-A9HGFJJ`
+  (owner's call, and correct): hammer Sysmon, cut/restore backend, restart service,
+  grow/drain journal. Procedure in `B5_GAP_1_PREPROD_HARDENING_GATES_A_D.md`.
+- P1: rule-set caching (profile item 1), optionally with counter aggregation (item 3).
+- P1: render acquisition integrity / gaps in the console.
+- P1: E3 deterministic detection engine hardening.

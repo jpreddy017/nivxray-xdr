@@ -97,11 +97,20 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/rotate"): TENANT_SCOPED,
     ("POST", "/api/edr/enrollment/endpoints/{endpoint_id}/revoke"): TENANT_SCOPED,
     ("GET", "/api/edr/enrollment/rejections"): PRODUCT_METADATA,
+    #: GATE C · platform-side read of endpoint acquisition integrity.
+    ("GET", "/api/edr/enrollment/acquisition-integrity"): TENANT_SCOPED,
     # ── sensor / agent surface · tenant from the authenticated session ─
     ("POST", "/api/edr/agent/enroll"): SENSOR_SCOPED,
     ("POST", "/api/edr/agent/session"): SENSOR_SCOPED,
     ("POST", "/api/edr/agent/heartbeat"): SENSOR_SCOPED,
     ("POST", "/api/edr/agent/telemetry"): SENSOR_SCOPED,
+    #: GATE B · many events, ONE request. Same tenant authority as the
+    #: single-event route: the tenant comes from the authenticated session,
+    #: never from the batch body.
+    ("POST", "/api/edr/agent/telemetry/batch"): SENSOR_SCOPED,
+    #: GATE C · the endpoint's own statement about its ACQUISITION, so the
+    #: platform can tell "observed nothing" apart from "failed to observe".
+    ("POST", "/api/edr/agent/acquisition-integrity"): SENSOR_SCOPED,
     ("GET", "/api/edr/agent/whoami"): SENSOR_SCOPED,
     ("GET", "/api/edr/agent/commands"): SENSOR_SCOPED,
     ("POST", "/api/edr/agent/command-result"): SENSOR_SCOPED,

@@ -522,7 +522,77 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("version", help="installer and sensor versions")
     sub.add_parser("stage-host",
                    help="(internal) unpack the Windows service host only")
+    j = sub.add_parser("journal-selftest",
+                       help="prove the evidence journal works IN THIS BINARY")
+    j.add_argument("--dir", default=None,
+                   help="scratch directory (default: a temp dir)")
     return ap
+
+
+def journal_selftest(scratch: str | None = None) -> dict:
+    """GATE A · prove the LOCAL EVIDENCE JOURNAL inside the real artifact.
+
+    A Linux unit test cannot answer the only question that matters for the
+    frozen Windows binary: did PyInstaller actually pack `sqlite3` and its
+    native `_sqlite3` extension, and does WAL + `synchronous=FULL` behave
+    on this filesystem? So the binary proves it about ITSELF, and the
+    Windows build gates on this command.
+    """
+    import sqlite3 as _sqlite3                             # noqa: PLC0415
+    import tempfile                                        # noqa: PLC0415
+
+    checks: dict = {"frozen": bool(getattr(sys, "frozen", False)),
+                    "python_bundled": not bool(
+                        os.environ.get("NIVX_SELFTEST_EXPECT_SYSTEM_PYTHON")),
+                    "executable": sys.executable,
+                    "sqlite3_importable": True,
+                    "sqlite_library_version": _sqlite3.sqlite_version,
+                    "journal_module_importable": bool(
+                        sensor.nvx_journal.JOURNAL_VERSION),
+                    "journal_version": sensor.nvx_journal.JOURNAL_VERSION,
+                    "schema_version": sensor.nvx_journal.SCHEMA_VERSION}
+    root = scratch or tempfile.mkdtemp(prefix="nivxforge-journal-selftest-")
+    journal = sensor.nvx_journal.open_journal(root)
+    try:
+        db = journal._db                                   # noqa: SLF001
+        checks["database_created"] = Path(journal.path).exists()
+        checks["wal_mode"] = str(db.execute(
+            "PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
+        checks["synchronous_full"] = int(
+            db.execute("PRAGMA synchronous").fetchone()[0]) == 2
+        checks["auto_vacuum_incremental"] = int(
+            db.execute("PRAGMA auto_vacuum").fetchone()[0]) == 2
+        tables = {row[0] for row in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        checks["schema_initialized"] = {
+            "evidence", "cursors", "acquisition_gaps", "integrity", "meta"
+        } <= tables
+        event = {"observed_at": "selftest", "kind": "WINDOWS_EVENT_LOG",
+                 "winlog": {"channel": "SelfTest", "record_id": 1,
+                            "event_id": "1", "provider": "selftest",
+                            "time_created": "selftest", "xml": "<Event/>"}}
+        first = journal.commit_page("SelfTest", [event], 1, [])
+        replay = journal.commit_page("SelfTest", [event], 1, [])
+        checks["durable_commit"] = first["journaled"] == 1
+        checks["cursor_committed"] = journal.cursor("SelfTest") == 1
+        checks["replay_is_idempotent"] = replay["journaled"] == 0
+        checks["integrity_snapshot"] = Path(
+            journal.write_integrity_snapshot(journal.health())).exists()
+        gap = sensor.nvx_journal.build_gap("SelfTest", 101, 105, "LEADING")
+        checks["gap_contract"] = (gap["missing_record_id_count"] == 4
+                                  and gap["cause"] == "NOT_PROVEN")
+    finally:
+        journal.close()
+    required = ("sqlite3_importable", "journal_module_importable",
+                "database_created", "wal_mode", "synchronous_full",
+                "auto_vacuum_incremental", "schema_initialized",
+                "durable_commit", "cursor_committed",
+                "replay_is_idempotent", "integrity_snapshot",
+                "gap_contract")
+    failed = [name for name in required if not checks.get(name)]
+    return {"result": "PASS" if not failed else "FAIL", "failed": failed,
+            "scratch_dir": root, "sensor_version": sensor.SENSOR_VERSION,
+            "checks": checks}
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -548,6 +618,11 @@ def main(argv: list[str] | None = None) -> None:
         _assert_admin()
         INSTALL_DIR.mkdir(parents=True, exist_ok=True)
         print(f"service host staged at {_stage_service_host()}")
+    elif args.cmd == "journal-selftest":
+        out = journal_selftest(args.dir)
+        print(json.dumps(out, indent=2))
+        if out["result"] != "PASS":
+            sys.exit(f"journal selftest FAILED: {out['failed']}")
     elif args.cmd == "version":
         print(json.dumps({"setup_version": SETUP_VERSION,
                           "sensor_version": sensor.SENSOR_VERSION,

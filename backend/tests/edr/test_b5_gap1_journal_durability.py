@@ -213,7 +213,7 @@ def test_normal_backend_accepts_then_reclaims(env):
     assert journal.counts_by_state()["BACKEND_ACCEPTED"] == 25
     assert journal.reclaim()["reclaimed"] == 25
     assert journal.counts_by_state() == {}
-    assert len(calls["posted"]) == 25
+    assert calls["accepted"] == 25
 
 
 def test_unavailable_backend_retains_evidence_and_says_so(env, monkeypatch):
@@ -224,7 +224,7 @@ def test_unavailable_backend_retains_evidence_and_says_so(env, monkeypatch):
     def _down(api, path, body, bearer=None):
         raise RuntimeError("503 backend unavailable")
 
-    monkeypatch.setattr(module, "_post", _down)
+    monkeypatch.setattr(module, "_post", fx.batch_aware(_down))
     out = module._drain_journal("http://api", fx.IDENTITY, {"token": "t"},
                                journal, 30, 5.0)
     assert out["backend_unreachable"] is True
@@ -248,7 +248,7 @@ def test_slow_backend_produces_a_backlog_never_acquisition_loss(env,
             _time.sleep(0.01)
         return {"accepted": True}
 
-    monkeypatch.setattr(module, "_post", _slow)
+    monkeypatch.setattr(module, "_post", fx.batch_aware(_slow))
     source.channel(SYSMON).produce(400, start=1)
     _acquire(module, journal)
     assert journal.depth() == 400
@@ -280,7 +280,7 @@ def test_recovery_delivers_everything_exactly_once(env, monkeypatch):
         seen.append(body["payload"])
         return {"accepted": True}
 
-    monkeypatch.setattr(module, "_post", _flaky)
+    monkeypatch.setattr(module, "_post", fx.batch_aware(_flaky))
     source.channel(SYSMON).produce(60, start=1)
     _acquire(module, journal)
     module._drain_journal("http://api", fx.IDENTITY, {"token": "t"}, journal,
@@ -302,7 +302,8 @@ def test_delivery_follows_journal_order(env):
     module._drain_journal("http://api", fx.IDENTITY, {"token": "t"}, journal,
                           30, 30.0)
     ids = [json.loads(b["payload"])["winlog"]["record_id"]
-           for _p, b in calls["posted"]]
+           for path, b in calls["posted"]
+           if path == "/api/edr/agent/telemetry" and "payload" in b]
     assert ids == sorted(ids) == list(range(1, 31))
     del module
 

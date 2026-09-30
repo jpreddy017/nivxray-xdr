@@ -75,6 +75,34 @@ jobs:
           Write-Host 'ARTIFACT CONTRACT: PASS'
           exit 0
 
+      # ── ACCEPTANCE GATE 0 · B5-GAP-1 EVIDENCE JOURNAL ─────────────
+      # The only place the real question can be answered: did PyInstaller
+      # actually pack `sqlite3` and its native extension into THIS binary,
+      # and do WAL + synchronous=FULL behave on a Windows filesystem? A
+      # Linux unit test cannot know. The artifact proves it about itself.
+      - name: Evidence journal works inside the frozen artifact
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          $out = (& $exe journal-selftest 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) {
+            throw "journal selftest exited $LASTEXITCODE`n$out"
+          }
+          Write-Host $out
+          foreach ($need in @('"result": "PASS"', '"sqlite3_importable": true',
+                              '"wal_mode": true', '"synchronous_full": true',
+                              '"schema_initialized": true',
+                              '"durable_commit": true',
+                              '"replay_is_idempotent": true',
+                              '"frozen": true')) {
+            if ($out -notlike "*$need*") {
+              throw "journal selftest did not assert $need"
+            }
+          }
+          Write-Host 'EVIDENCE JOURNAL (FROZEN): PASS'
+          exit 0
+
       # ── ACCEPTANCE GATE 1 ─────────────────────────────────────────
       # The one-file installer must be able to unpack the onedir SERVICE
       # HOST it carries. This is the image the SCM will launch, so it is

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import itertools
 import json
 import os
@@ -36,6 +37,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -225,20 +227,107 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _post(api: str, path: str, body: dict, bearer: str | None = None) -> dict:
-    req = urllib.request.Request(
-        f"{api}{path}", data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json",
-                 # Explicit UA: some edges reject the default urllib agent
-                 # outright, which looks exactly like an auth failure.
-                 "User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
-                 **({"Authorization": f"Bearer {bearer}"} if bearer else {})},
-        method="POST")
+def http_keepalive_enabled() -> bool:
+    return os.environ.get("NIVX_SENSOR_HTTP_KEEPALIVE",
+                          "1").strip() in ("1", "true", "TRUE", "yes")
+
+
+def delivery_batch_size() -> int:
+    """Events per delivery request. CHOSEN FROM MEASUREMENT, not taste.
+
+    GATE B, measured through the real ingress:
+        fresh connection per POST (the pre-fix sensor)   5.7 ev/s
+        one persistent connection, one event per POST    9.7 ev/s
+        batch of 10                                     43.1 ev/s
+        batch of 50                                     48.3 ev/s   <- default
+        batch of 100                                    33.5 ev/s
+    Past ~50 the amortisation is spent and SERVER-SIDE PER-EVENT work
+    dominates (loopback single-event cost was 38.6 ms), so a bigger batch
+    only lengthens one request — 3.0 s at 100 — for less throughput and
+    more ingress-timeout exposure. 48.3 ev/s is 2.4x the ~20 ev/s the
+    endpoint produces.
+    """
+    return max(1, _i_env("NIVX_SENSOR_DELIVERY_BATCH", 50))
+
+
+class _Transport:
+    """ONE persistent HTTP connection, reconnected on failure.
+
+    The pre-fix sensor used `urllib.request.urlopen` per call, so every
+    single event paid DNS + TCP + TLS. stdlib `http.client` keeps the
+    connection, which needs no dependency and no proxy.
+    """
+
+    def __init__(self) -> None:
+        self._conn = None
+        self._origin: tuple | None = None
+
+    def _connect(self, api: str):
+        parsed = urllib.parse.urlparse(api)
+        origin = (parsed.scheme, parsed.netloc)
+        if self._conn is not None and self._origin == origin:
+            return self._conn
+        self.close()
+        cls = (http.client.HTTPSConnection if parsed.scheme == "https"
+               else http.client.HTTPConnection)
+        self._conn = cls(parsed.netloc, timeout=30)
+        self._origin = origin
+        return self._conn
+
+    def close(self) -> None:
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except (http.client.HTTPException, OSError):
+                pass
+        self._conn, self._origin = None, None
+
+    def request(self, api: str, path: str, method: str,
+                body: bytes | None, headers: dict) -> tuple[int, bytes]:
+        parsed = urllib.parse.urlparse(api)
+        target = (parsed.path.rstrip("/") + path) or path
+        for attempt in (1, 2):
+            conn = self._connect(api)
+            try:
+                conn.request(method, target, body=body, headers=headers)
+                response = conn.getresponse()
+                payload = response.read()
+                if not http_keepalive_enabled():
+                    self.close()
+                return response.status, payload
+            except (http.client.HTTPException, OSError) as ex:
+                # A reused connection the peer has since closed fails on
+                # the FIRST write. That is normal, and it must not look
+                # like a backend outage: reconnect once, then report.
+                self.close()
+                if attempt == 2:
+                    raise OSError(f"transport: {type(ex).__name__}: {ex}"
+                                  ) from None
+        raise OSError("transport: unreachable")
+
+
+TRANSPORT = _Transport()
+
+
+def _request(api: str, path: str, method: str, body: dict | None,
+             bearer: str | None) -> dict:
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
+               "Accept": "application/json",
+               **({"Content-Type": "application/json"} if data else {}),
+               **({"Content-Length": str(len(data))} if data else {}),
+               **({"Authorization": f"Bearer {bearer}"} if bearer else {})}
+    status, payload = TRANSPORT.request(api, path, method, data, headers)
+    if status >= 400:
+        raise RuntimeError(f"{status} {payload.decode(errors='replace')[:400]}")
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"{e.code} {e.read().decode()[:400]}") from None
+        return json.loads(payload) if payload else {}
+    except ValueError:
+        return {}
+
+
+def _post(api: str, path: str, body: dict, bearer: str | None = None) -> dict:
+    return _request(api, path, "POST", body, bearer)
 
 
 # ── durable identity ──────────────────────────────────────────────
@@ -618,15 +707,7 @@ def acquire(journal, policy: dict, excl_journal, budget_seconds: float,
 
 
 def _get(api: str, path: str, bearer: str) -> dict:
-    req = urllib.request.Request(
-        f"{api}{path}",
-        headers={"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
-                 "Authorization": f"Bearer {bearer}"})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
+    return _request(api, path, "GET", None, bearer)
 
 
 def _sync_policy(api: str, ident: dict, session: dict) -> dict:
@@ -806,24 +887,118 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
     return sent, failed
 
 
+#: Set once if the backend does not offer the batch route, so an upgraded
+#: sensor talking to an older backend degrades to the single-event path
+#: instead of failing. There is no third path.
+BATCH_SUPPORT = {"available": True, "reason": None}
+
+
+def _deliver_batch(api: str, ident: dict, session: dict, journal,
+                   rows: list, interval: int | None) -> dict:
+    """ONE request, PER-EVENT acceptance.
+
+    Only the indices the platform said `accepted` are released. A refused
+    event stays owned by the endpoint — `SENT != ACCEPTED` survives
+    batching, which is the only reason batching is allowed here at all.
+    """
+    body = {"events": [{"payload": row["payload"]} for row in rows],
+            "source_kind": "sensor", "sensor_version": SENSOR_VERSION,
+            "batch_id": f"{int(time.time() * 1000)}-"
+                        f"{int(rows[0]['journal_sequence'])}",
+            **({"report_interval_seconds": float(interval)}
+               if interval else {})}
+    COUNTERS.bump("sensor_attempted", len(rows))
+    out = _post(api, "/api/edr/agent/telemetry/batch", body,
+                bearer=session["token"])
+    accepted, refused = [], []
+    for result in out.get("results") or []:
+        index = result.get("index")
+        if not isinstance(index, int) or not 0 <= index < len(rows):
+            continue
+        sequence = int(rows[index]["journal_sequence"])
+        if result.get("accepted"):
+            accepted.append(sequence)
+        else:
+            refused.append((sequence, str(result.get("detail")
+                                          or result.get("error"))[:200]))
+    if accepted:
+        journal.mark_accepted(accepted)
+        journal.bump("backend_accepted", len(accepted))
+        COUNTERS.bump("sensor_sent", len(accepted))
+    for sequence, detail in refused:
+        journal.mark_attempt_failed(sequence, detail)
+        journal.bump("delivery_failures")
+        COUNTERS.bump("sensor_failed")
+    return {"sent": len(accepted), "failed": len(refused)}
+
+
 def _drain_journal(api: str, ident: dict, session: dict, journal,
                    interval: int | None = None,
                    budget_seconds: float | None = None,
-                   batch: int = 50) -> dict:
+                   batch: int | None = None) -> dict:
     """Deliver journaled evidence in journal order, within a time budget.
 
     SENT != ACCEPTED. A row becomes BACKEND_ACCEPTED only when the platform
-    returns an accept for it; a transport attempt that merely left the host
-    records a failed attempt and the evidence stays owned locally.
+    returns an accept for that specific row; a transport attempt that
+    merely left the host records a failed attempt and the evidence stays
+    owned locally.
     """
     deadline = time.monotonic() + (budget_seconds
                                    if budget_seconds is not None else 30.0)
+    size = batch if batch is not None else delivery_batch_size()
     sent = failed = 0
     unreachable = False
     while time.monotonic() < deadline and not unreachable:
-        rows = journal.next_undelivered(limit=batch)
+        rows = journal.next_undelivered(limit=max(1, size))
         if not rows:
             break
+        if not session.get("token"):
+            try:
+                session["token"] = _open_session(api, ident)
+            except (RuntimeError, urllib.error.URLError, OSError) as ex:
+                print(f"[journal] session unavailable: {str(ex)[:140]}")
+                return {"sent": sent, "failed": failed,
+                        "backend_unreachable": True,
+                        "batch_size": size,
+                        "budget_exhausted": False}
+        if size > 1 and BATCH_SUPPORT["available"]:
+            try:
+                out = _deliver_batch(api, ident, session, journal, rows,
+                                     interval)
+                sent += out["sent"]
+                failed += out["failed"]
+                if out["sent"] == 0:
+                    # Nothing was accepted. Stop rather than spin: the
+                    # evidence is still owned and will be retried.
+                    unreachable = True
+                continue
+            except (RuntimeError, urllib.error.URLError, OSError) as ex:
+                message = str(ex)
+                if message.startswith(("401", "403")):
+                    session["token"] = None
+                    continue
+                if message.startswith(("404", "405")):
+                    BATCH_SUPPORT.update(
+                        available=False,
+                        reason="backend does not offer "
+                               "/api/edr/agent/telemetry/batch")
+                    print("[journal] batch route unavailable; falling back "
+                          "to single-event delivery")
+                    continue
+                if message.startswith("413") and size > 1:
+                    size = max(1, size // 2)
+                    print(f"[journal] batch refused as too large; "
+                          f"reducing to {size}")
+                    continue
+                journal.mark_attempt_failed(
+                    int(rows[0]["journal_sequence"]), message)
+                journal.bump("delivery_failures")
+                COUNTERS.bump("sensor_failed")
+                failed += 1
+                unreachable = True
+                print(f"[journal] evidence retained at sequence "
+                      f"{rows[0]['journal_sequence']}: {message[:140]}")
+                continue
         for row in rows:
             if time.monotonic() >= deadline:
                 break
@@ -856,8 +1031,66 @@ def _drain_journal(api: str, ident: dict, session: dict, journal,
                       f"{message[:140]}")
                 break
     return {"sent": sent, "failed": failed,
-            "backend_unreachable": unreachable,
+            "backend_unreachable": unreachable, "batch_size": size,
             "budget_exhausted": time.monotonic() >= deadline}
+
+
+def _report_integrity(api: str, ident: dict, session: dict, journal,
+                      health: dict, acquired: dict) -> str:
+    """Send acquisition integrity on its OWN versioned contract.
+
+    Not folded into the heartbeat: `HeartbeatBody` is `extra="forbid"`, so
+    extra fields there would 422 every production sensor. A gap is only
+    marked reported once the platform has it, so a delivery failure keeps
+    it pending instead of losing the declaration.
+    """
+    gaps = journal.unreported_gaps(limit=200)
+    channels = {}
+    for channel in CHANNELS:
+        tail = (health.get("source_tails") or {}).get(channel) or {}
+        channels[channel] = {
+            "last_cursor_committed": journal.cursor(channel),
+            "last_record_id_journaled": (health.get("counters") or {}).get(
+                f"last_record_id_journaled:{channel}"),
+            "records_read": acquired["per_channel_read"].get(channel),
+            "acquisition_lag_records": (
+                health.get("acquisition_lag_records") or {}).get(channel),
+            "source_oldest_record_id": tail.get("oldest"),
+            "source_newest_record_id": tail.get("newest"),
+            "query_ms_last": (health.get("counters") or {}).get(
+                f"query_ms_last:{channel}"),
+            "caught_up": acquired["caught_up"].get(channel),
+            "unavailable_reason":
+                acquired["channels_unavailable"].get(channel),
+        }
+    body = {"at": health.get("at"), "contract_version": 1,
+            "sensor_version": SENSOR_VERSION, "channels": channels,
+            "acquisition_gaps": [
+                {"channel": g["channel"], "position": g["position"],
+                 "expected_next_record_id": g["expected_next_record_id"],
+                 "first_observed_record_id": g["first_observed_record_id"],
+                 "detected_at": g["detected_at"]} for g in gaps],
+            "acquisition_gap_count": health.get("acquisition_gap_count"),
+            "journal_depth": health.get("delivery_queue_depth"),
+            "journal_bytes": health.get("journal_bytes"),
+            "journal_live_bytes": health.get("journal_live_bytes"),
+            "delivery_backlog": health.get("delivery_queue_depth"),
+            "health_states": health.get("states") or []}
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        _post(api, "/api/edr/agent/acquisition-integrity", body,
+              bearer=session["token"])
+    except (RuntimeError, urllib.error.URLError, OSError) as ex:
+        message = str(ex)
+        if message.startswith(("401", "403")):
+            session["token"] = None
+        if message.startswith(("404", "405")):
+            return "UNSUPPORTED_BY_BACKEND"
+        return f"FAILED:{message[:80]}"
+    if gaps:
+        journal.mark_gaps_reported([int(g["gap_id"]) for g in gaps])
+    return f"SENT:{len(gaps)}"
 
 
 def _heartbeat(api: str, ident: dict, session: dict,
@@ -926,6 +1159,8 @@ def _cycle(api: str, ident: dict, session: dict, journal,
         backend_unreachable=delivered["backend_unreachable"],
         caught_up=acquired["caught_up"], source_tails=tails)
     journal.write_integrity_snapshot(health)
+    integrity = _report_integrity(api, ident, session, journal, health,
+                                  acquired)
 
     depth = _queue_depth(journal)
     COUNTERS.observe_gauge("sensor_queue_depth", depth)
@@ -945,6 +1180,8 @@ def _cycle(api: str, ident: dict, session: dict, journal,
             "legacy_outbox_sent": legacy_sent,
             "legacy_outbox_remaining": _legacy_remaining(),
             "journal_reclaimed": reclaimed["reclaimed"],
+            "delivery_batch_size": delivered["batch_size"],
+            "integrity_report": integrity,
             "queue_depth": depth,
             "health": health["states"],
             "collection_suppressed_at_endpoint":
@@ -970,6 +1207,7 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
             time.sleep(max(5, interval))
     finally:
         journal.close()
+        TRANSPORT.close()
 
 
 def status() -> dict:

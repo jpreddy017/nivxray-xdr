@@ -168,6 +168,20 @@ def wire(module, source: FakeSource, *, accept=None, monkeypatch):
                 accept(body)
             calls["accepted"] += 1
             return {"accepted": True}
+        if path == "/api/edr/agent/telemetry/batch":
+            # The real per-event contract, so a test can assert either
+            # shape and batching cannot be silently un-exercised.
+            results = []
+            for index, event in enumerate(body["events"]):
+                calls["posted"].append(("/api/edr/agent/telemetry", event))
+                if accept is not None:
+                    accept(event)
+                calls["accepted"] += 1
+                results.append({"index": index, "accepted": True,
+                                "stored": True, "duplicate": False})
+            return {"batch_id": body.get("batch_id"),
+                    "count": len(results),
+                    "accepted": len(results), "results": results}
         if path == "/api/edr/agent/heartbeat":
             calls["heartbeats"] += 1
         return {}
@@ -183,6 +197,32 @@ def wire(module, source: FakeSource, *, accept=None, monkeypatch):
                         lambda channel: source.tails().get(channel, {}))
     monkeypatch.setattr(module, "CHANNELS", tuple(source.channels))
     return calls
+
+
+def batch_aware(single):
+    """Wrap a single-event `_post` fake so it also serves the batch route
+    with the real per-event contract. Keeps a test's intent (slow, flaky,
+    down) while exercising the shipped delivery path."""
+    def _post(api, path, body, bearer=None):
+        if path != "/api/edr/agent/telemetry/batch":
+            return single(api, path, body, bearer)
+        results = []
+        for index, event in enumerate(body["events"]):
+            try:
+                single(api, "/api/edr/agent/telemetry",
+                       {"payload": event["payload"]}, bearer)
+                results.append({"index": index, "accepted": True,
+                                "stored": True})
+            except Exception as ex:
+                if str(ex).startswith(("401", "403", "404", "405", "413")):
+                    raise
+                results.append({"index": index, "accepted": False,
+                                "error": type(ex).__name__,
+                                "detail": str(ex)[:200]})
+        return {"batch_id": body.get("batch_id"), "count": len(results),
+                "accepted": sum(1 for r in results if r["accepted"]),
+                "results": results}
+    return _post
 
 
 IDENTITY = {"tenant_id": "ten_test", "endpoint_id": "ep_test",

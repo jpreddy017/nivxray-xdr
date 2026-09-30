@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from deps import db as _db, get_current_user
 from edr_plane import delivery_counters as counters
+from edr_plane import acquisition_integrity as acq_integrity
 from edr_plane import raw_events as raw
 from edr_plane.canonical_bridge import bridge
 from edr_plane.contracts.identity import EndpointIdentity
@@ -200,6 +201,28 @@ async def rejections(limit: int = Query(100, le=500),
     rows = await rejection.list_rejections(_db, limit=limit, code=code)
     return {"rejections": rows, "count": len(rows),
             "summary": await rejection.rejection_summary(_db)}
+
+
+@admin.get("/acquisition-integrity")
+async def read_acquisition_integrity(
+        endpoint_id: Optional[str] = Query(default=None),
+        limit: int = Query(default=200, ge=1, le=1000),
+        user: dict = Depends(get_current_user),
+        tenant_id: str = Depends(edr_tenant)) -> dict:
+    """The platform-side read. Lets an operator answer "was this interval
+    trustworthy for this channel?" before drawing an absence-based
+    conclusion — which is what E3's negative controls will require."""
+    del user
+    return {
+        "tenant_id": tenant_id,
+        "contract": acq_integrity.CONTRACT,
+        "contract_version": acq_integrity.CONTRACT_VERSION,
+        "channels": await acq_integrity.list_reports(
+            _db, tenant_id=tenant_id, endpoint_id=endpoint_id, limit=limit),
+        "acquisition_gaps": await acq_integrity.list_gaps(
+            _db, tenant_id=tenant_id, endpoint_id=endpoint_id, limit=limit),
+        "semantics": acq_integrity.SEMANTICS,
+    }
 
 
 # ── agent surface ─────────────────────────────────────────────────
@@ -418,22 +441,53 @@ async def heartbeat(body: HeartbeatBody,
     return beat
 
 
-@agent.post("/telemetry")
-async def ingest(body: TelemetryBody, request: Request,
-                 who: AuthenticatedEndpoint = Depends(
-                     get_authenticated_endpoint)) -> dict:
-    """Authenticated telemetry → immutable raw event.
+#: GATE B · batch ingest bounds. A batch exists to amortise connection,
+#: TLS and ingress cost, not to become an unbounded upload: a 100-event
+#: batch at the measured ~86 ms in-connection cost already turns ~11.6
+#: events/sec into ~1,000+, which is two orders of magnitude above the
+#: ~20 events/sec the endpoint produces.
+MAX_BATCH_EVENTS = 100
+MAX_BATCH_BYTES = 4 * 1024 * 1024
 
-    This is the live `edr_raw_events` write path. The event is stamped
-    AUTHENTICATED with the endpoint, credential and session that produced
-    it, which is what makes every downstream trajectory, story and
-    response authorisation attributable rather than assumed.
-    """
+
+class TelemetryEventItem(BaseModel):
+    """One event inside a batch. Same bytes, same guarantees, same
+    idempotency as the single-event route."""
+    model_config = ConfigDict(extra="forbid")
+    payload: str = Field(description="Verbatim sensor payload, preserved "
+                                     "byte-for-byte.")
+    event_time: Optional[str] = None
+
+
+class TelemetryBatchBody(BaseModel):
+    """ADDITIVE. The single-event `TelemetryBody` is untouched, so a sensor
+    running the previous build keeps working unchanged."""
+    model_config = ConfigDict(extra="forbid")
+    events: list[TelemetryEventItem] = Field(
+        min_length=1, max_length=MAX_BATCH_EVENTS)
+    source_kind: str = "sensor"
+    sensor_version: Optional[str] = None
+    report_interval_seconds: Optional[float] = Field(default=None, gt=0)
+    batch_id: Optional[str] = Field(
+        default=None, max_length=128,
+        description="The sensor's own batch identifier, echoed back. It is "
+                    "a correlation aid only: acceptance is decided PER "
+                    "EVENT, so a retried batch is never accepted or "
+                    "rejected wholesale.")
+
+
+async def _ingest_one(*, payload: str, event_time: Optional[str],
+                      source_kind: str, sensor_version: Optional[str],
+                      report_interval_seconds: Optional[float],
+                      who: AuthenticatedEndpoint, request: Request,
+                      report: bool = True) -> dict:
+    """THE ingest path. Both the single-event and the batch route call this,
+    so batching cannot become a second set of semantics."""
     ev = raw.RawEndpointEvent.build(
         tenant_id=who.tenant_id, source=who.endpoint_id,
-        source_kind=body.source_kind, sensor_version=body.sensor_version,
-        endpoint_ref=who.endpoint_id, payload=body.payload,
-        event_time=body.event_time,
+        source_kind=source_kind, sensor_version=sensor_version,
+        endpoint_ref=who.endpoint_id, payload=payload,
+        event_time=event_time,
         received_from_ip=(request.client.host if request.client else None),
         trust_state="AUTHENTICATED")
     ev.authentication = who.provenance()
@@ -442,7 +496,7 @@ async def ingest(body: TelemetryBody, request: Request,
     # authenticated handler holds it. Every received event increments
     # exactly one terminal outcome below, so an event can never vanish
     # into an uncounted gap.
-    channel = counters.channel_of(body.payload)
+    channel = counters.channel_of(payload)
 
     async def _count(outcomes, reason_code=None) -> None:
         try:
@@ -453,11 +507,12 @@ async def ingest(body: TelemetryBody, request: Request,
             log.warning("[delivery-counters] %s", str(ex)[:200])
 
     await _count([counters.RECEIVED])
-    await store.mark_reported(_db, tenant_id=who.tenant_id,
-                              endpoint_id=who.endpoint_id,
-                              at=ev.ingest_time,
-                              report_interval_seconds=(
-                                  body.report_interval_seconds))
+    if report:
+        await store.mark_reported(_db, tenant_id=who.tenant_id,
+                                  endpoint_id=who.endpoint_id,
+                                  at=ev.ingest_time,
+                                  report_interval_seconds=(
+                                      report_interval_seconds))
 
     # P0-D · canonical bridge. Only for a NEW event: re-canonicalising a
     # byte-identical duplicate would double-count the same activity.
@@ -469,7 +524,7 @@ async def ingest(body: TelemetryBody, request: Request,
                                       endpoint_id=who.endpoint_id) or {}
         canonical = await bridge(
             _db, raw_id=ev.raw_id, tenant_id=who.tenant_id,
-            payload=body.payload, endpoint_id=who.endpoint_id,
+            payload=payload, endpoint_id=who.endpoint_id,
             hostname=ep.get("hostname"), authentication=who.provenance(),
             source_kind=ev.source_kind, sensor_version=ev.sensor_version,
             nivx_received_at=ev.ingest_time)
@@ -501,6 +556,145 @@ async def ingest(body: TelemetryBody, request: Request,
                  "original — a parser failure leaves a retained, replayable "
                  "event."),
     }
+
+
+@agent.post("/telemetry")
+async def ingest(body: TelemetryBody, request: Request,
+                 who: AuthenticatedEndpoint = Depends(
+                     get_authenticated_endpoint)) -> dict:
+    """Authenticated telemetry → immutable raw event.
+
+    This is the live `edr_raw_events` write path. The event is stamped
+    AUTHENTICATED with the endpoint, credential and session that produced
+    it, which is what makes every downstream trajectory, story and
+    response authorisation attributable rather than assumed.
+    """
+    return await _ingest_one(
+        payload=body.payload, event_time=body.event_time,
+        source_kind=body.source_kind, sensor_version=body.sensor_version,
+        report_interval_seconds=body.report_interval_seconds,
+        who=who, request=request)
+
+
+@agent.post("/telemetry/batch")
+async def ingest_batch(body: TelemetryBatchBody, request: Request,
+                       who: AuthenticatedEndpoint = Depends(
+                           get_authenticated_endpoint)) -> dict:
+    """GATE B · many events, ONE request. Acceptance stays PER EVENT.
+
+    The whole point of B5-GAP-1's delivery gate is that a sensor may only
+    release evidence it has been told was accepted. So this route returns
+    an ordered per-event verdict and NEVER an all-or-nothing batch verdict:
+    one event that fails to persist leaves that one event owned by the
+    endpoint, and the other 99 are released.
+
+    Idempotency is inherited, not invented: `raw.append` dedupes on
+    `(tenant_id, dedup_key)`, so a batch retried after a lost response
+    re-reports `stored=False, duplicate=True` per event and cannot create
+    a second copy of anything.
+    """
+    total_bytes = sum(len(item.payload.encode("utf-8"))
+                      for item in body.events)
+    if total_bytes > MAX_BATCH_BYTES:
+        # Refused as a whole, deliberately: nothing was ingested, so the
+        # endpoint still owns every event and can re-send smaller batches.
+        raise HTTPException(
+            status_code=413,
+            detail={"error": "BATCH_TOO_LARGE",
+                    "bytes": total_bytes, "max_bytes": MAX_BATCH_BYTES,
+                    "events": len(body.events),
+                    "note": "no event in this batch was ingested; the "
+                            "endpoint retains all of them"})
+
+    results: list[dict] = []
+    accepted = 0
+    for index, item in enumerate(body.events):
+        try:
+            outcome = await _ingest_one(
+                payload=item.payload, event_time=item.event_time,
+                source_kind=body.source_kind,
+                sensor_version=body.sensor_version,
+                report_interval_seconds=body.report_interval_seconds,
+                who=who, request=request,
+                # Endpoint-level liveness is recorded ONCE per batch, below.
+                report=False)
+            results.append({"index": index, "accepted": True,
+                            "stored": bool(outcome.get("stored")),
+                            "duplicate": bool(outcome.get("duplicate")),
+                            "raw_id": outcome.get("raw_id"),
+                            "canonicalized": bool(
+                                (outcome.get("canonical") or {}
+                                 ).get("canonicalized"))})
+            accepted += 1
+        except Exception as ex:                                # noqa: BLE001
+            # NOT accepted. The endpoint keeps this event and retries it.
+            log.warning("[telemetry-batch] event %d refused: %s",
+                        index, str(ex)[:200])
+            results.append({"index": index, "accepted": False,
+                            "error": type(ex).__name__,
+                            "detail": str(ex)[:200]})
+
+    if accepted:
+        await store.mark_reported(
+            _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
+            at=datetime.now(timezone.utc).isoformat(),
+            report_interval_seconds=body.report_interval_seconds)
+
+    return {"batch_id": body.batch_id, "count": len(body.events),
+            "accepted": accepted, "refused": len(body.events) - accepted,
+            "bytes": total_bytes,
+            "endpoint_id": who.endpoint_id, "authenticated": True,
+            "auth_method": who.auth_method,
+            "results": results,
+            "note": ("Acceptance is per event and in request order. An "
+                     "event without accepted=true was NOT accepted and is "
+                     "still owned by the endpoint.")}
+
+
+class AcquisitionIntegrityBody(BaseModel):
+    """GATE C · the endpoint's own statement about its ACQUISITION.
+
+    A separate, versioned contract rather than new fields on the heartbeat:
+    `HeartbeatBody` is `extra="forbid"`, so adding to it would 422 every
+    sensor still running the previous build.
+    """
+    model_config = ConfigDict(extra="forbid")
+    at: Optional[str] = Field(default=None, max_length=64)
+    contract_version: int = Field(default=1, ge=1, le=1)
+    sensor_version: Optional[str] = None
+    channels: dict = Field(
+        default_factory=dict,
+        description="Per-channel acquisition facts: cursors, records read "
+                    "and journaled, query failures, lag, source head/tail.")
+    acquisition_gaps: list[dict] = Field(
+        default_factory=list, max_length=200,
+        description="Declared source RecordID discontinuities. The server "
+                    "recomputes the missing count and asserts the "
+                    "classification and cause itself.")
+    acquisition_gap_count: Optional[int] = Field(default=None, ge=0)
+    journal_depth: Optional[int] = Field(default=None, ge=0)
+    journal_bytes: Optional[int] = Field(default=None, ge=0)
+    journal_live_bytes: Optional[int] = Field(default=None, ge=0)
+    delivery_backlog: Optional[int] = Field(default=None, ge=0)
+    health_states: list[str] = Field(default_factory=list, max_length=32)
+
+
+@agent.post("/acquisition-integrity")
+async def acquisition_integrity(body: AcquisitionIntegrityBody,
+                                who: AuthenticatedEndpoint = Depends(
+                                    get_authenticated_endpoint)) -> dict:
+    """Receive acquisition integrity so it stops being trapped on the host.
+
+    Stored as a SENSOR CLAIM about its own collection — never as a server
+    measurement and never as an evidence authority. A declared gap is
+    recorded as `SOURCE_RECORD_DISCONTINUITY` with `cause = NOT_PROVEN`,
+    asserted server-side; it is never turned into a detection and never
+    treated as benign.
+    """
+    return await acq_integrity.record(
+        _db, tenant_id=who.tenant_id, endpoint_id=who.endpoint_id,
+        sensor_version=body.sensor_version,
+        report=body.model_dump())
 
 
 @agent.get("/whoami")
