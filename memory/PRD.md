@@ -3411,3 +3411,19 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   evidence attribution. Needs identity-semantics design, not a quick patch.
 - STILL NOT DEPLOYED. Awaiting final owner deployment authorization for the combined
   selector + enrolment-instruction patch.
+- PRE-DEPLOYMENT KNOWN-RED CLOSURE (test-only, no production behaviour changed).
+  F1: routers/edr_onboarding.py::_sensor_version reads SENSOR_VERSION from the SHIPPED
+  agents/nivxforge-windows/nivxforge_sensor.py = "0.3.0-windows" (authoritative). The test's
+  hardcoded "0.1.0-windows" was stale. Replaced with a comparison against that authoritative
+  source + a shape check, so it cannot go stale again and still fails if catalog and artifact
+  disagree. Sensor version NOT altered.
+  F2: GATE 5 moved policy_lifecycle.assigned onto the policy authority's own record
+  (policy_state.assigned_policy_id); the test asserted assigned is True merely because a
+  policy OBJECT was passed - the exact configuration-implies-assignment conflation the
+  invariant forbids. Production is CORRECT and stricter: with no policy_state evidence,
+  assigned=False. Test updated to assert that, plus a NEW test proving
+  ASSIGNED != DELIVERED != ACKNOWLEDGED != APPLIED != VERIFIED != ENFORCED (enforced is
+  hardcoded False because the released connector enforces nothing). No production code touched.
+  Scoped regression: 187 passed, 0 failed (onboarding, W1 instruction contract, B8 selector,
+  A0.5 tenant authority, p0prod2 enrollment hardening, stdin secret, exclusion scope).
+  BASELINE IS NOW CLEAN for the deployment gate.

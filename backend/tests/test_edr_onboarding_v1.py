@@ -110,7 +110,16 @@ def test_the_package_catalog_reports_only_what_exists_on_disk():
     win = described["windows-x64"]
     assert win["available"] is True and win["state"] == "AVAILABLE"
     assert win["credential_free"] is True
-    assert win["sensor_version"] == "0.1.0-windows"
+    # The published version is whatever the SHIPPED sensor declares. The
+    # hardcoded "0.1.0-windows" expectation went stale when the sensor was
+    # released as 0.3.0-windows; comparing against the authoritative
+    # source cannot go stale again, and it still fails if the catalog and
+    # the artifact ever disagree.
+    declared = re.search(r'^SENSOR_VERSION\s*=\s*"([^"]+)"',
+                         _sensor_source(), re.M)
+    assert declared, "the shipped sensor must declare SENSOR_VERSION"
+    assert win["sensor_version"] == declared.group(1)
+    assert re.fullmatch(r"\d+\.\d+\.\d+-windows", win["sensor_version"])
     with open(INSTALLER, "rb") as fh:
         digest = hashlib.sha256(fh.read()).hexdigest()
     entry = [f for f in win["files"] if f["name"].endswith(".ps1")][0]
@@ -196,14 +205,53 @@ def test_a_revoked_credential_outranks_any_telemetry():
 
 
 def test_protection_never_claims_enforcement_the_sensor_cannot_do():
+    """A CONFIGURED policy is not an ASSIGNED one.
+
+    GATE 5 moved `assigned` onto the policy authority's own record
+    (`assigned_policy_id`) instead of inferring it from the existence of a
+    policy object. This test used to assert `assigned is True` merely
+    because a policy was passed in — the exact conflation the invariant
+    forbids. With no policy-state evidence, the honest answer is False.
+    """
     protection = onboarding._protection(                      # noqa: SLF001
         onboarding.DEFAULT_POLICY, _record())
     assert protection["state"] == "DETECT_ONLY"
     assert protection["prevention_enabled"] is False
     lifecycle = protection["policy_lifecycle"]
-    assert lifecycle["configured"] is True and lifecycle["assigned"] is True
+    assert lifecycle["configured"] is True
+    assert lifecycle["assigned"] is False, (
+        "assignment is a fact held by the policy authority, never implied "
+        "by a policy existing")
     assert lifecycle["enforced"] is False and lifecycle["verified"] is False
     assert "ransomware_prevention" in protection["not_enforced"]
+
+
+def test_assignment_never_implies_applied_verified_or_enforced():
+    """ASSIGNED != APPLIED != VERIFIED != ENFORCED, each independently
+    evidenced. `enforced` stays False because the released Windows
+    connector enforces nothing — a capability fact, not a delivery one."""
+    assigned_only = onboarding._protection(                   # noqa: SLF001
+        onboarding.DEFAULT_POLICY, _record(),
+        {"assigned_policy_id": onboarding.DEFAULT_POLICY["id"],
+         "state": "ASSIGNED"})["policy_lifecycle"]
+    assert assigned_only["assigned"] is True
+    for claim in ("delivered", "acknowledged", "applied", "verified",
+                  "enforced"):
+        assert assigned_only[claim] is False, (
+            f"assignment must not imply {claim}")
+
+    applied = onboarding._protection(                         # noqa: SLF001
+        onboarding.DEFAULT_POLICY, _record(),
+        {"assigned_policy_id": onboarding.DEFAULT_POLICY["id"],
+         "delivered_at": _iso(600), "acknowledged_at": _iso(500),
+         "applied_at": _iso(400), "state": "APPLIED"})["policy_lifecycle"]
+    assert applied["applied"] is True
+    assert applied["verified"] is False, (
+        "VERIFIED requires a LATER independent re-report, never the same "
+        "endpoint's apply confirmation")
+    assert applied["enforced"] is False, (
+        "the released connector enforces nothing; applying a DETECT_ONLY "
+        "policy may never be reported as protection")
 
 
 def test_an_unassigned_policy_is_unavailable_not_invented():
