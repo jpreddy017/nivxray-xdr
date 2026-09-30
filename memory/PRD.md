@@ -3594,3 +3594,16 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     at the PREVIEW backend and drops ProductScopeGuard.
   * NOTHING MERGED, PUSHED OR DEPLOYED. EDR untouched. phase2/edr-production untouched.
     No tenants/users/tokens. Backend authority unchanged.
+
+- B8-SCOPE-1 CANDIDATE PREPARED (2026-09-30). Owner-approved base feature/rc2-alignment@6523ba1d.
+  * Branch release/xdr-b8-selector-candidate, local commit c927f626, tree
+    b3e26825529022990dd6ca30b2474f18876108d8. diff --name-only 6523ba1d..candidate = exactly
+    AdminTenantGate.jsx + XdrScopeNavigator.jsx, 2 files +28/-6, byte-identical to 3aeef2f2.
+  * Build guard on the candidate tree: 2209 modules, 6.28s, XDR PRODUCTION BUILD GUARD PASSED.
+  * PUSH BLOCKED: /root/.git-credentials stale ("Invalid username or token"); /app/.tok is a
+    JWT, not a GitHub PAT. Branch creation on GitHub is an OWNER action. Patch + exact recipe
+    persisted at docs/releases/B8_SCOPE_1_xdr_selector.patch and
+    docs/releases/B8_SCOPE_1_XDR_SELECTOR_CANDIDATE.md.
+  * SECURITY DEBT: .tok (a JWT) is committed at repo root on every branch inspected.
+  * NEXT GATE: Vercel XDR project Root Directory = apps/nivxray-xdr + branch linkage, then
+    deploy the isolated candidate, acceptance, then move to KUSHU enrollment.
