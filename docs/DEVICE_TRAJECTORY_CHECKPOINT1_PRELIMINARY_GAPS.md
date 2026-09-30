@@ -68,9 +68,9 @@ parity; the owner's side-by-side decides.
 | B2 | Coverage of the timeline is visibly qualified | `CoverageInterval` is published by the server and `dt2/density.js::coverageOf` exists, but **nothing renders it**; only a canvas label `no sensor coverage` | `coverageOf` has no consumer outside `dt2/`; `AmpCanvas.jsx:241` | per-interval bands (OBSERVED / NOT_COLLECTED / NOT_CANONICALIZED / PARSE_FAILURE) are not drawn, so "no visibility" and "nothing happened" look alike outside the single hatched region | `UI` (contract already exists) | render coverage bands under the time axis, legend-labelled | **P0 for an evidence-truth product** |
 | B3 | Analyst keyboard operation of the timeline | no keyboard handling anywhere in the trajectory folder | zero `keydown` handlers in `nivxforge/trajectory/**` | every navigation action is pointer-only | `UI` | minimal set: ←/→ time, ↑/↓ rows, `+`/`-` zoom, `n`/`p` next/prev event, `Esc` close details | P2 |
 | B4 | Search narrows and the analyst walks the matches | match **count** only (`amp-search-match-count`, `meta.matched_after_filters`) | `EdrDeviceTrajectoryPage.jsx:869` | no `MATCH n OF m` cursor, no prev/next match, no field scoping (hash, IP, domain, PID are one substring) | `UI` + `CONTRACT` | match cursor in the contract + prev/next controls; field-scoped `q` | P2 |
-| B5 | Event Details exposes the underlying record | no byte-preserved RAW payload surface in the inspector, although `GET /api/edr/events/{raw_id}` exists | no `raw_payload`/RAW tab in `AmpEventDetails.jsx` | the analyst cannot see the original record behind a canonical observation | `UI` (pure wiring) | RAW section/tab fed by the existing endpoint, labelled byte-preserved | P1 |
+| B5 | Event Details exposes the underlying record | no byte-preserved RAW payload surface in the inspector, although `GET /api/edr/events/{raw_id}` exists | no `raw_payload`/RAW tab in `AmpEventDetails.jsx` | the analyst cannot see the original record behind a canonical observation | `UI` (pure wiring) | RAW section/tab fed by the existing endpoint, labelled byte-preserved. **OWNER: confirmed P1 — valuable beyond Cisco parity (canonical observation → original evidence)** | P1 — **not yet authorised for implementation** |
 | B6 | Filters can de-select individual **processes**, not only event types | filters are activity-type / disposition / file-type | `AmpFilterBar.jsx` | a noisy single process cannot be removed from the graph | `UI` | process de-selection list sourced from the lane axis | P2 |
-| B7 | Per-file event cache suppresses repeats at ingest (Clean 7 d / Unknown 1 h / Malicious 1 h) | `dt2/repeatCache.js` exists but has **no consumer**; all repeats are shown | grep: `repeatCache` referenced only inside `dt2/` | Cisco's graphs are sparse because the repeats never exist; ours shows every observation, which is denser than the reference | `DATA`/`CONTRACT` | **owner ruling required** — suppressing at display would hide observations we hold; prefer an explicit "N repeats collapsed" affordance over silent suppression | P1 decision, not code |
+| B7 | Per-file event cache suppresses repeats at ingest (Clean 7 d / Unknown 1 h / Malicious 1 h) | `dt2/repeatCache.js` exists but has **no consumer**; all repeats are shown | grep: `repeatCache` referenced only inside `dt2/` | Cisco's graphs are sparse because the repeats never exist; ours shows every observation, which is denser than the reference | `UI` | **OWNER RULING (recorded):** collapse repeated equivalent events **visually only, never discard**. Show an explicit count (`×17`); expanding it must expose every underlying observation with its `observation_id` and timestamp. Readable Cisco-like density with the evidence intact — suppression at ingest or at query is NOT authorised | P1 — **not yet authorised for implementation** |
 | B8 | Parent/child resolved by file identity (SHA-256) | resolved by canonical process identity, with a declared PID surrogate when the sensor sends no hash (`authority: DERIVED`, `downgraded: true`) | `CISCO_AMP_TRAJECTORY_ENGINEERING.md` §5 | weaker identity than the reference; already declared, not hidden | `DATA` | widen sensor hash coverage (coverage expansion, separate task) | P2 |
 | B9 | Lifelines are solid because terminations are collected | lifelines dash open when no `process_exit` was observed | `AMP_TRAJECTORY_CONFORMANCE.md` difference #9 | **deliberate and correct** — a closed lifeline would assert a termination nothing observed. Note: EID 5 is now enabled, so KUSHU should produce genuinely closed lifelines for the first time — Checkpoint 1 is the first chance to see that path exercised | `DATA` | none; verify closure renders correctly with KUSHU's EID 5 | P1 verification |
 | B10 | Browser Back steps through investigation states | URL writes use `replace: true`; filters/search/zoom are not in the URL | gap analysis §23 | Back leaves the investigation instead of stepping it | `UI` | push vs replace rules + fuller URL state | P2 |
@@ -96,19 +96,35 @@ is recorded here, and the product continues to represent backend truth.
 
 ---
 
-## D · WHAT CHECKPOINT 1 STILL NEEDS BEFORE IT CAN RUN
+## D · TWO INDEPENDENT TRACKS (owner correction, recorded)
 
-1. **B5-GAP-1 canary PASS on KUSHU** — the active gate.
-2. **A declared CANARY/VALIDATION density pass on KUSHU** (benign only:
-   EID 1 / 5 / 3 / 11 / 22), run *after* the canary result is recorded so it
-   cannot contaminate the acceptance measurements. Zero fabricated
-   detections, IOCs, ATT&CK mappings or contributor claims.
-3. **Preview-only evaluation** against the real backend, no production
+Device Trajectory is **NOT blocked on KUSHU**. Reading an endpoint's
+trajectory is a read-only projection over canonical evidence already held
+in the database — it makes no contact with the endpoint, restarts no
+sensor and changes no Sysmon configuration.
+
+| Track | Purpose | Host | State |
+|---|---|---|---|
+| **A · B5-GAP-1** | prove no silent acquisition loss under load/outage/restart/pressure | **KUSHU** (disposable) | C0.1 issued, canary pending |
+| **B · Device Trajectory** | structural / Cisco-parity evaluation of the existing renderer over real evidence | **DESKTOP-A9HGFJJ**, read-only projection | gap inventory complete; visual evaluation and fixes NOT yet authorised |
+
+KUSHU later adds two proofs Track B cannot get from the existing endpoint:
+closed lifelines from EID 5, and the new journal/acquisition architecture
+end to end.
+
+### Checkpoint 1 still needs, when authorised
+
+1. **Preview-only evaluation** against the real backend; no production
    deployment.
-4. **Screenshot pairs** (Cisco reference from `memory/production-gates/`
+2. **Screenshot pairs** (Cisco reference from `memory/production-gates/`
    vs NivXForge preview at the same structural moment) for every row in §A
-   and §B.
-5. The two questions only real KUSHU evidence can answer:
+   and §B, classified `PASS` / `DIVERGES` / `NOT_EVALUABLE_YET` with the
+   divergence class and a proposed correction — **no automatic fixes**.
+3. A declared benign **CANARY/VALIDATION density pass on KUSHU** — optional
+   and later, only for renderer density/usability and only after the
+   canary acceptance result is recorded, so it cannot contaminate it. Zero
+   fabricated detections, IOCs, ATT&CK mappings or contributor claims.
+4. The two questions only real KUSHU evidence can answer:
    * do **closed** lifelines render correctly now that EID 5 is enabled
      (B9)? Every previous dataset was 100 % `END_NOT_OBSERVED`;
    * does the `[ System ]` band look legitimate rather than empty when the

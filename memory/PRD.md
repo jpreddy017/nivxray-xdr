@@ -3189,3 +3189,23 @@ Produced `docs/DEVICE_TRAJECTORY_CHECKPOINT1_PRELIMINARY_GAPS.md` (read-only):
 State: DEVICE_TRAJECTORY_CODE_CHANGED = NO · FIXES_APPLIED = NO · PRODUCTION_UI_DEPLOYED = NO
 · FIXTURES_ADDED = NO · CANARY_STARTED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO.
 Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
+
+### 2026-06 · OWNER CORRECTION + RULINGS (recorded, NOT authorised for implementation)
+- Device Trajectory is NOT blocked on KUSHU. Two independent tracks now:
+  Track A = B5-GAP-1 on KUSHU (C0.1 -> C0.x -> stress scenarios -> close canary);
+  Track B = Device Trajectory structural/Cisco-parity evaluation over DESKTOP-A9HGFJJ's
+  existing canonical observations, which is a READ-ONLY projection (no endpoint contact,
+  no sensor restart, no Sysmon change). KUSHU later adds EID5 closed lifelines + the new
+  journal/acquisition architecture proof.
+- B7 RULING: collapse repeated equivalent events VISUALLY ONLY, never discard. Explicit
+  count (e.g. x17); expanding must expose every underlying observation with its
+  observation_id and timestamp. Ingest- or query-level suppression is NOT authorised.
+- B5 CONFIRMED P1: canonical observation -> original/raw evidence view (wiring over the
+  existing GET /api/edr/events/{raw_id}).
+- B2 coverage visualisation affirmed as important: absent coverage must be visually
+  distinct from "observed and nothing happened".
+- NOTHING authorised for implementation yet. Gap inventory is sufficient for now.
+  DEVICE_TRAJECTORY_CODE_CHANGED = NO · FIXES_APPLIED = NO · PRODUCTION_UI_DEPLOYED = NO.
+- Lifecycle: B5 = PASS · B5-GAP-1 implementation = PASS · Windows artifact = PASS ·
+  disposable canary = PENDING · Device Trajectory = foundation exists, gap audit complete,
+  fixes not accepted · E3-E6 = pending after the canary.
