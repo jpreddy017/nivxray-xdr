@@ -3236,3 +3236,10 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
 - State: SYSMON_INSTALLED = NO · SYSMON_CONFIG_APPLIED = NO · NIVXFORGE_INSTALLED = NO ·
   ENROLLED = NO · LOAD_GENERATED = NO · DEFENDER_MODIFIED = NO ·
   DESKTOP_A9HGFJJ_TOUCHED = NO · PRODUCTION_CHANGED = NO · CANARY_STARTED = NO.
+- C0.3a PATH CORRECTION (owner review caught it before execution): C0.2 as executed staged
+  Sysmon at C:\NivXForgeCanary\stage\sysmon\Sysmon64.exe (zip at ...\stage\Sysmon.zip), NOT
+  C:\NivX\sysmon. Path contract now recorded in docs/B5_GAP_1_CANARY_PLAN.md §0: staged binary
+  is the source of truth; C0.3a explicitly creates C:\NivX\sysmon, re-verifies the staged
+  SHA256 against 83D31F2478DC6716CFDBF69E5C384BF043072B5F0D8D7B2EEA365F709FDA4352, copies the
+  binary, then re-hashes and re-verifies Authenticode on the COPY, and creates the directory
+  before writing the XML. Repository-authoritative XML and its pinned hashes unchanged.

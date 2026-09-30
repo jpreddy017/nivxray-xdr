@@ -61,6 +61,27 @@ C0.6   collector dry sample (read-only, LOAD_GENERATED stays NO)
 step, and validation must precede installation so the owner can review the
 exact rules before the driver ever loads them.
 
+### Canary filesystem path contract (binding for every C0 block)
+
+C0.2 as executed on KUSHU staged the download under the canary workspace,
+not under `C:\NivX`. The path contract is therefore:
+
+| Path | Role | Created by |
+|---|---|---|
+| `C:\NivXForgeCanary\` | canary workspace + designation | C0.1 |
+| `C:\NivXForgeCanary\evidence\` | rollback / pre-state / measurement evidence | C0.1 |
+| `C:\NivXForgeCanary\stage\Sysmon.zip` | downloaded archive, signature-gated | C0.2 |
+| `C:\NivXForgeCanary\stage\sysmon\Sysmon64.exe` | **staged binary — source of truth** | C0.2 |
+| `C:\NivX\sysmon\` | Sysmon working directory (matches the W1/production layout) | **C0.3a, explicitly** |
+| `C:\NivX\sysmon\Sysmon64.exe` | copy of the staged binary, re-hashed and re-signature-verified AFTER the copy | C0.3a |
+| `C:\NivX\sysmon\nivx-b5gap1-canary-sysmon.xml` | the authoritative configuration | C0.3a |
+
+The staged binary remains the source of truth: C0.3a re-verifies its
+SHA256 against the C0.2 value
+(`83D31F2478DC6716CFDBF69E5C384BF043072B5F0D8D7B2EEA365F709FDA4352`),
+copies it, then re-hashes and re-verifies Authenticode on the COPY and
+halts on any divergence. No file is ever moved by hand outside a block.
+
 ### Authoritative canary Sysmon configuration
 
 `agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml` — the W1
