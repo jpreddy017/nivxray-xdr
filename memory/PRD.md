@@ -3607,3 +3607,15 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * SECURITY DEBT: .tok (a JWT) is committed at repo root on every branch inspected.
   * NEXT GATE: Vercel XDR project Root Directory = apps/nivxray-xdr + branch linkage, then
     deploy the isolated candidate, acceptance, then move to KUSHU enrollment.
+  * GITHUB BRANCH release/xdr-b8-selector-candidate EXISTS (owner-created): f8d48349 +
+    983f5680 on base 6523ba1d229004abc38f23a9d36be8d278e65e99. It is a RECONSTRUCTION, not
+    the reviewed bytes: 2 files but +15/-6 (missing the 13 reviewed comment lines, different
+    local variable names, and `t.display_name || t.customer` where the reviewed AdminTenantGate
+    renders `display_name · customer`). Functionally equivalent (authority list + volumes Map)
+    except that one admin option label.
+  * AGENT CANNOT PUSH: `git push` -> "could not read Username for https://github.com". No
+    usable GitHub credential in the pod. "Save to GitHub" would push the /app workspace tree
+    (different lineage), NOT a 2-file diff, so it is not a valid release path either.
+  * REALIGNMENT PATCH PROVIDED: docs/releases/B8_SCOPE_1_align_github_branch_to_reviewed_bytes.patch
+    (+21/-8 on top of 983f5680). Applying it makes the branch byte-identical to the reviewed
+    candidate, and the diff vs base becomes exactly 2 files / +28/-6. Verified in a worktree.
