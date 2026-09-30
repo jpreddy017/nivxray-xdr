@@ -61,6 +61,43 @@ C0.6   collector dry sample (read-only, LOAD_GENERATED stays NO)
 step, and validation must precede installation so the owner can review the
 exact rules before the driver ever loads them.
 
+### C0.3a root cause: never hand-copy the authoritative artifact
+
+The first C0.3a embedded the configuration as a PowerShell here-string —
+a SECOND copy of an artifact that is supposed to be authoritative. On KUSHU
+the hash gate refused it, correctly:
+
+```
+repository artifact   1810 bytes LF / 1842 bytes CRLF
+KUSHU written file    1851 bytes CRLF, 32 CRLF, 0 lone CR/LF, no BOM
+=> +9 CONTENT bytes; not a newline or BOM problem
+```
+
+The artifact contains exactly **one** non-ASCII character: `·`
+(U+00B7 MIDDLE DOT, `0xC2 0xB7`) on line 2. A literal transported through
+chat and a console paste is not byte-safe — any re-encoding of that
+character, or any whitespace added on paste, changes content bytes while
+leaving line endings and BOM untouched, which is precisely the signature
+observed. The exact divergent line is named by the per-line diff in the
+recovery block rather than guessed at.
+
+**Rule from here on:** the configuration is transferred as
+`agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml.b64`
+(pure ASCII base64 of the exact repository bytes), decoded with
+`[Convert]::FromBase64String` and written with `WriteAllBytes`. The file on
+KUSHU is then **byte-identical to the repository artifact**, so the single
+expected hash is the repository file hash:
+
+```
+EXPECTED (LF, = repository file)  60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C
+```
+
+The CRLF variant `452E3312...E479AB` is retained only as the hash of the
+Windows-written form and is NO LONGER the gate. The rejected file is
+preserved in the evidence directory as
+`REJECTED-nivx-b5gap1-canary-sysmon.<stamp>.xml` — never deleted, never
+blessed. A failing hash is never replaced with the observed value.
+
 ### Canary filesystem path contract (binding for every C0 block)
 
 C0.2 as executed on KUSHU staged the download under the canary workspace,

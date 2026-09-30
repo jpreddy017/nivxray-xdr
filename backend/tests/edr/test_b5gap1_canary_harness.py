@@ -452,3 +452,46 @@ def test_canary_config_differs_from_w1_baseline_by_exactly_one_token():
     # change swapped only the onmatch token, and rule equivalence with
     # production matters more than tidying a comment
     assert "LOG NOTHING for every unsupported event id" in text
+
+
+SYSMON_CFG_B64 = REPO / (
+    "agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml.b64")
+#: byte length of every line of the authoritative artifact (LF form). The
+#: C0.3a recovery block diffs KUSHU's file against exactly this list, so a
+#: divergent line is NAMED instead of guessed at.
+SYSMON_CFG_LINE_LENS = [29, 83, 45, 42, 18, 66, 62, 65, 65, 65, 71, 65, 0,
+                        61, 74, 76, 61, 61, 61, 61, 61, 61, 61, 61, 64, 67,
+                        61, 61, 61, 61, 19, 9]
+
+
+def test_base64_transfer_artifact_is_byte_identical_to_the_config():
+    """The config reaches KUSHU as base64, not as a hand-copied literal.
+
+    The literal transport failed on the real host: identical line-ending
+    counts, no BOM, yet nine extra content bytes. Base64 is ASCII-only, so
+    no console/paste re-encoding can alter the bytes it carries.
+    """
+    import base64                                         # noqa: PLC0415
+
+    decoded = base64.b64decode(SYSMON_CFG_B64.read_text())
+    assert decoded == SYSMON_CFG.read_bytes()
+    assert hashlib.sha256(decoded).hexdigest().upper() == \
+        SYSMON_CFG_SHA256_LF
+    assert SYSMON_CFG_B64.read_text().isascii(), (
+        "the transfer form must be pure ASCII")
+
+
+def test_pinned_line_lengths_match_the_authoritative_config():
+    raw = SYSMON_CFG.read_bytes()
+    lens = [len(line) for line in raw.split(b"\n")[:-1]]
+    assert lens == SYSMON_CFG_LINE_LENS
+    assert sum(lens) + len(lens) == len(raw) == 1810
+
+
+def test_the_only_non_ascii_byte_is_the_line_2_separator():
+    """Root-cause guard: exactly one byte-sensitive character exists, and a
+    literal copied through chat is what put it at risk."""
+    lines = SYSMON_CFG.read_bytes().split(b"\n")
+    non_ascii = [i + 1 for i, line in enumerate(lines) if not line.isascii()]
+    assert non_ascii == [2], non_ascii
+    assert b"\xc2\xb7" in lines[1], "U+00B7 MIDDLE DOT, 2 bytes in UTF-8"

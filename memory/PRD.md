@@ -3243,3 +3243,24 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   SHA256 against 83D31F2478DC6716CFDBF69E5C384BF043072B5F0D8D7B2EEA365F709FDA4352, copies the
   binary, then re-hashes and re-verifies Authenticode on the COPY, and creates the directory
   before writing the XML. Repository-authoritative XML and its pinned hashes unchanged.
+- C0.3a HALTED on KUSHU at the config hash gate (correct, fail-closed; Sysmon never
+  installed). Diagnosis: KUSHU file 1851 CRLF bytes vs repo artifact 1842 CRLF-equivalent
+  (1810 LF) -> +9 CONTENT bytes with identical line-ending counts and no BOM, so NOT a
+  newline/BOM issue. Root cause class: the block embedded a hand-copied PowerShell here-string
+  literal - a second copy of an artifact that is supposed to be authoritative - transported
+  through chat + a console paste, which is not byte-safe. The artifact has exactly ONE
+  non-ASCII character (U+00B7 MIDDLE DOT, 0xC2 0xB7, line 2). The observed hash was NOT
+  blessed.
+- Fix: added `agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml.b64` (pure-ASCII
+  base64 of the exact repository bytes). C0.3a recovery decodes it with
+  [Convert]::FromBase64String + WriteAllBytes, so KUSHU's file is BYTE-IDENTICAL to the repo
+  artifact and the single gate is the repository file hash
+  60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C. The CRLF hash
+  452E3312...E479AB is retained as documentation only, no longer a gate. Rejected file is
+  preserved as REJECTED-*.xml in the evidence dir, never deleted.
+- 3 new tests: base64 decodes byte-identical to the config and is pure ASCII; per-line byte
+  lengths pinned (used by the block's per-line diff to NAME the divergent line); the only
+  non-ASCII byte is the line-2 separator. test_b5gap1_canary_harness.py = 26 passed.
+- KUSHU state unchanged: SYSMON_INSTALLED = NO, CONFIG_APPLIED = NO, binaries still match
+  83D31F24..., NIVXFORGE_INSTALLED = NO, ENROLLED = NO, LOAD_GENERATED = NO,
+  DEFENDER_MODIFIED = NO, DESKTOP_A9HGFJJ_TOUCHED = NO, PRODUCTION_CHANGED = NO.
