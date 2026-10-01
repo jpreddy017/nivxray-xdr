@@ -11,11 +11,11 @@ const STATE_STYLE = {
 
 function Item({ item }) {
   return (
-    <div className="text-[10px] font-mono break-all py-0.5" style={{ color: "#0F172A" }}>
+    <div className="text-[10px] font-mono break-all py-0.5" style={{ color: "#E2E8F0" }}>
       {Object.entries(item).filter(([, v]) => v !== null && v !== undefined && v !== "")
         .map(([k, v]) => (
           <span key={k} className="mr-2">
-            <span style={{ color: "#64748B" }}>{k}:</span> {Array.isArray(v) ? v.join(", ") : String(v)}
+            <span style={{ color: "#94A3B8" }}>{k}:</span> {Array.isArray(v) ? v.join(", ") : String(v)}
           </span>
         ))}
     </div>
@@ -47,7 +47,7 @@ function SectionBlock({ s }) {
         </div>
       ) : s.items.map((it, i) => <Item key={i} item={it} />)}
       {s.statements.map((t) => (
-        <div key={t} className="text-[10px] italic" style={{ color: "#475569" }}>{t}</div>
+        <div key={t} className="text-[10px] italic" style={{ color: "#94A3B8" }}>{t}</div>
       ))}
     </div>
   );
@@ -56,7 +56,7 @@ function SectionBlock({ s }) {
 export function ActivityDetailsSections({ view }) {
   if (!view) return null;
   return (
-    <div className="mt-4 pt-3 border-t" style={{ borderColor: "#E2E8F0" }} data-testid="activity-details-sections">
+    <div className="mt-4 pt-3 border-t" style={{ borderColor: "#1E293B" }} data-testid="activity-details-sections">
       <div className="flex items-center gap-2">
         <span className="text-[9px] tracking-[1.5px] font-bold" style={{ color: "#64748B" }}>MACHINE ASSESSMENT</span>
         <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" data-testid="ad-machine-assessment"
