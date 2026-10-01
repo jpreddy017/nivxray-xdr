@@ -38,11 +38,13 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -133,8 +135,16 @@ def _sc(cmdline: str) -> subprocess.CompletedProcess:
     handed to CreateProcess verbatim, which is the only way to control
     that tokenisation exactly — including quoting a binPath value that
     itself contains spaces and its own arguments.
+
+    A MISSING `sc.exe` is reported as a failed command, never raised: off
+    Windows (CI unit tests, a Linux developer box) the honest answer to
+    "what state is the service in" is "there is no service", and every
+    caller here already fails closed on a non-zero result.
     """
-    return subprocess.run(cmdline, capture_output=True, text=True)
+    try:
+        return subprocess.run(cmdline, capture_output=True, text=True)
+    except OSError as ex:
+        return subprocess.CompletedProcess(cmdline, 1, "", str(ex))
 
 
 def _service_exists() -> bool:
@@ -144,6 +154,195 @@ def _service_exists() -> bool:
 
 def _service_config() -> str:
     return _sc(f'sc.exe qc "{SERVICE_NAME}"').stdout or ""
+
+
+# ── service lifecycle, proven rather than assumed ─────────────────
+#: `sc.exe stop` is ASYNCHRONOUS: it asks the SCM to begin a transition and
+#: returns immediately, usually reporting STOP_PENDING. Replacing the
+#: service image straight afterwards raced the dying process and produced,
+#: on a real endpoint,
+#:     Permission denied: C:\Program Files\NivXForge\sensor\service\
+#:                        NivXForgeSensor.exe
+#: which aborted the install AFTER the service had already been stopped and
+#: BEFORE step 4 could start it again — leaving a previously healthy
+#: endpoint dark. Everything below exists to make that impossible.
+SERVICE_STOP_TIMEOUT_SECONDS = 60
+#: The SCM reporting STOPPED only means it accepted the transition. The
+#: image can stay mapped for a short while after the process exits.
+IMAGE_RELEASE_TIMEOUT_SECONDS = 30
+_POLL_SECONDS = 0.5
+_SERVICE_STATES = ("STOPPED", "START_PENDING", "STOP_PENDING", "RUNNING",
+                   "CONTINUE_PENDING", "PAUSE_PENDING", "PAUSED")
+
+
+def _service_state() -> str:
+    """The SCM's own word for the service state, "" if it does not exist.
+
+    `sc.exe query` prints `STATE : 4  RUNNING`; the NAME is the authority,
+    not the number, because the number is positional and a localised
+    Windows still emits the English state name here.
+    """
+    q = _sc(f'sc.exe query "{SERVICE_NAME}"')
+    if q.returncode != 0:
+        return ""
+    for line in (q.stdout or "").splitlines():
+        if "STATE" not in line.upper():
+            continue
+        for token in line.replace(",", " ").split():
+            name = token.strip().upper()
+            if name in _SERVICE_STATES:
+                return name
+    return "UNKNOWN"
+
+
+def _wait_for_service_state(target: str, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while True:
+        if _service_state() == target:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_POLL_SECONDS)
+
+
+def _image_is_released(path: Path) -> bool:
+    """True when Windows will actually let us REPLACE this file.
+
+    A rename within the same directory is the cheapest honest proof that
+    no handle remains, and it is reversible. Windows refuses to rename a
+    mapped image; POSIX allows it, which is why this is a probe and not a
+    platform assumption.
+    """
+    if not path.exists():
+        return True
+    probe = path.with_name(path.name + ".replacing")
+    try:
+        os.replace(path, probe)
+    except OSError:
+        return False
+    try:
+        os.replace(probe, path)
+    except OSError:
+        pass          # the original name is free, which is all we needed
+    return True
+
+
+def _wait_for_image_release(path: Path, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while True:
+        if _image_is_released(path):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(_POLL_SECONDS)
+
+
+def _stop_service_and_wait() -> str:
+    """Stop the service and PROVE it stopped. Returns the state BEFORE.
+
+    Fails closed. If the SCM will not report STOPPED, or the old image is
+    still held, we refuse instead of overwriting the binary of a live
+    service — the sensor keeps running and no evidence is put at risk.
+    """
+    prior = _service_state()
+    if not prior:
+        return ""
+    if prior != "STOPPED":
+        print(f"  service     : {prior} — requesting STOP")
+        _sc(f'sc.exe stop "{SERVICE_NAME}"')
+    if not _wait_for_service_state("STOPPED", SERVICE_STOP_TIMEOUT_SECONDS):
+        raise SystemExit(
+            f"refusing to replace a live service image: {SERVICE_NAME} did "
+            f"not reach STOPPED within {SERVICE_STOP_TIMEOUT_SECONDS}s (the "
+            f"SCM reports {_service_state() or 'UNKNOWN'}). Nothing was "
+            "replaced, nothing was enrolled and no token was consumed.")
+    if not _wait_for_image_release(SERVICE_EXE,
+                                   IMAGE_RELEASE_TIMEOUT_SECONDS):
+        raise SystemExit(
+            f"refusing to replace {SERVICE_EXE}: the previous service "
+            f"process still holds its image after "
+            f"{IMAGE_RELEASE_TIMEOUT_SECONDS}s. Nothing was replaced, "
+            "nothing was enrolled and no token was consumed.")
+    print("  service     : STOPPED, image released")
+    return prior
+
+
+def _restore_service(prior: str) -> None:
+    """Rollback. A failed install must never leave an endpoint dark.
+
+    Only a service that WAS running is restarted: silently starting a
+    service the operator had deliberately stopped would be a different
+    kind of wrong.
+    """
+    if prior != "RUNNING":
+        return
+    if not _service_exists():
+        print(f"  ROLLBACK FAILED: {SERVICE_NAME} no longer exists. THIS "
+              "ENDPOINT IS NOT COLLECTING. Re-run the installer.")
+        return
+    _sc(f'sc.exe start "{SERVICE_NAME}"')
+    if _wait_for_service_state("RUNNING", SERVICE_STOP_TIMEOUT_SECONDS):
+        print(f"  ROLLBACK: {SERVICE_NAME} was RUNNING before this attempt "
+              "and is RUNNING again. Collection resumed; identity, journal "
+              "and outbox were never touched.")
+    else:
+        print(f"  ROLLBACK FAILED: {SERVICE_NAME} did not return to RUNNING "
+              f"(the SCM reports {_service_state() or 'UNKNOWN'}). THIS "
+              "ENDPOINT IS NOT COLLECTING.")
+
+
+def _replace_tree(payload: Path, dest: Path) -> None:
+    """copytree that tolerates the brief post-exit lock window."""
+    deadline = time.monotonic() + IMAGE_RELEASE_TIMEOUT_SECONDS
+    while True:
+        try:
+            dest.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(payload, dest, dirs_exist_ok=True)
+            return
+        except OSError as ex:
+            if time.monotonic() >= deadline:
+                raise SystemExit(
+                    f"service host staging failed: {ex}. The previous image "
+                    "is still locked. Nothing was enrolled and no token was "
+                    "consumed.") from None
+            time.sleep(_POLL_SECONDS)
+
+
+# ── build provenance ──────────────────────────────────────────────
+def build_identity() -> dict:
+    """What this binary IS, so a stale exe can never be mistaken for a fix.
+
+    `nivxforge_build.py` is generated by the installer workflow from the
+    commit being built. A local or unofficial build says so.
+    """
+    try:
+        import nivxforge_build as _b          # type: ignore[import-not-found]
+        commit = str(getattr(_b, "BUILD_COMMIT", "") or "UNOFFICIAL_BUILD")
+        built_at = str(getattr(_b, "BUILD_TIME", "") or "unknown")
+        run_id = str(getattr(_b, "BUILD_RUN_ID", "") or "unknown")
+    except ImportError:
+        commit, built_at, run_id = "UNOFFICIAL_BUILD", "unknown", "unknown"
+    return {"setup_version": SETUP_VERSION,
+            "sensor_version": sensor.SENSOR_VERSION,
+            "build_commit": commit,
+            "build_time": built_at,
+            "build_run_id": run_id}
+
+
+def self_digest() -> str:
+    """SHA256 of the running artifact, printed before anything is changed.
+
+    An operator comparing this line to the SHA256 they were given is the
+    only check that catches a stale installer still sitting on the host.
+    """
+    try:
+        digest = hashlib.sha256()
+        with open(_self_path(), "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(chunk)
+        return digest.hexdigest().upper()
+    except OSError:
+        return "UNAVAILABLE"
 
 
 # ── install ───────────────────────────────────────────────────────
@@ -178,6 +377,10 @@ def _stage_service_host() -> Path:
     SERVICE_EXE. Staging is idempotent so a repair install overwrites the
     host without touching the enrolment identity, which lives in the
     separate protected state directory.
+
+    STOPPING THE SERVICE IS THE CALLER'S JOB. It used to be done here,
+    with a bare `sc.exe stop` and no wait, which raced the dying process
+    and left the endpoint stopped when the copy then failed.
     """
     payload = _service_payload_dir()
     if payload is None:
@@ -185,10 +388,11 @@ def _stage_service_host() -> Path:
             "this build carries no Windows service host payload. Refusing "
             "to create a service with no valid image. Use an installer "
             "produced by the windows-sensor-installer workflow.")
-    if _service_exists():
-        _sc(f'sc.exe stop "{SERVICE_NAME}"')       # release the open image
-    SERVICE_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(payload, SERVICE_DIR, dirs_exist_ok=True)
+    if _service_state() == "RUNNING":
+        raise SystemExit(
+            f"refusing to overwrite the image of a RUNNING {SERVICE_NAME}. "
+            "Stop it first; nothing was replaced.")
+    _replace_tree(payload, SERVICE_DIR)
     if not SERVICE_EXE.exists():
         raise SystemExit(f"service host staging failed: {SERVICE_EXE} "
                          "is missing after unpack")
@@ -268,47 +472,66 @@ def install(api: str, tenant: str | None, token_stdin: bool,
     # Nothing is written until _assert_admin() has passed.
     api = _assert_backend(api)
     _assert_admin()
-    print(f"=== 1 . STAGE ===\n  install dir : {INSTALL_DIR}")
-    INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-    source = _self_path()
-    if source != INSTALLED_EXE:
-        # A running service holds the binary open; stop it before replacing.
-        if _service_exists():
-            _sc(f'sc.exe stop "{SERVICE_NAME}"')
-        shutil.copy2(source, INSTALLED_EXE)
-    print(f"  binary      : {INSTALLED_EXE}")
-    _stage_service_host()
-    print(f"  service host: {SERVICE_EXE}  (onedir, SCM-hosted)")
+    # The one fact that makes rollback possible: was this endpoint
+    # collecting BEFORE we touched anything? Read it before the first
+    # mutation, because every later step can change it.
+    prior_state = _service_state()
+    try:
+        print(f"=== 1 . STAGE ===\n  install dir : {INSTALL_DIR}")
+        identity = build_identity()
+        print(f"  build       : setup {identity['setup_version']} · sensor "
+              f"{identity['sensor_version']} · commit "
+              f"{identity['build_commit']} · built {identity['build_time']}")
+        print(f"  artifact    : SHA256 {self_digest()}")
+        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+        # Stop and PROVE it stopped before replacing anything on disk.
+        _stop_service_and_wait()
+        source = _self_path()
+        if source != INSTALLED_EXE:
+            shutil.copy2(source, INSTALLED_EXE)
+        print(f"  binary      : {INSTALLED_EXE}")
+        _stage_service_host()
+        print(f"  service host: {SERVICE_EXE}  (onedir, SCM-hosted)")
 
-    print("\n=== 2 . PROTECTED STATE ===")
-    _protect_state_dir()
-    print(f"  state dir   : {sensor.STATE_DIR}  (SYSTEM + Administrators)")
+        print("\n=== 2 . PROTECTED STATE ===")
+        _protect_state_dir()
+        print(f"  state dir   : {sensor.STATE_DIR}  (SYSTEM + Administrators)")
 
-    print("\n=== 3 . ENROLMENT ===")
-    if sensor.IDENTITY_FILE.exists() and not re_enrol:
-        # RESUME. This computer is already enrolled, so no token is required
-        # and none is consumed: recovering from a later-stage failure must
-        # never cost an enrolment token or a second endpoint identity.
-        existing = _validate_identity()
-        print(f"  RESUME: already enrolled — endpoint_id="
-              f"{existing['endpoint_id']}")
-        print(f"  tenant      : {existing['tenant_id']}")
-        print("  credential  : present (kept; never re-issued here)")
-        print("  no enrolment request sent, no token required or consumed")
-    else:
-        tenant = _assert_tenant(tenant or "")
-        if not token_stdin:
-            raise SystemExit("--token-stdin is required to enrol. The "
-                             "installer carries no credential by design, and "
-                             + sensor.STDIN_ONLY_NOTICE)
-        # Read it, use it, keep no reference. It is never written to disk,
-        # never printed, and never placed on any command line this process
-        # builds (the service binPath carries a directory, not a secret).
-        sensor.enrol(api, tenant, sensor.read_enrolment_secret())
+        print("\n=== 3 . ENROLMENT ===")
+        if sensor.IDENTITY_FILE.exists() and not re_enrol:
+            # RESUME. This computer is already enrolled, so no token is
+            # required and none is consumed: recovering from a later-stage
+            # failure must never cost an enrolment token or a second
+            # endpoint identity.
+            existing = _validate_identity()
+            print(f"  RESUME: already enrolled — endpoint_id="
+                  f"{existing['endpoint_id']}")
+            print(f"  tenant      : {existing['tenant_id']}")
+            print("  credential  : present (kept; never re-issued here)")
+            print("  no enrolment request sent, no token required or consumed")
+        else:
+            tenant = _assert_tenant(tenant or "")
+            if not token_stdin:
+                raise SystemExit("--token-stdin is required to enrol. The "
+                                 "installer carries no credential by design, "
+                                 "and " + sensor.STDIN_ONLY_NOTICE)
+            # Read it, use it, keep no reference. It is never written to
+            # disk, never printed, and never placed on any command line this
+            # process builds (the service binPath carries a directory, not a
+            # secret).
+            sensor.enrol(api, tenant, sensor.read_enrolment_secret())
 
-    print("\n=== 4 . WINDOWS SERVICE ===")
-    _install_service(api, interval)
-    print(f"  service     : {SERVICE_NAME} (LocalSystem, automatic, running)")
+        print("\n=== 4 . WINDOWS SERVICE ===")
+        _install_service(api, interval)
+        print(f"  service     : {SERVICE_NAME} (LocalSystem, automatic, "
+              "running)")
+    except BaseException:
+        # SystemExit is a BaseException, and SystemExit is how every refusal
+        # in this installer is expressed, so a bare `except Exception` would
+        # miss exactly the failures that leave a stopped service behind.
+        print("\n=== ROLLBACK ===")
+        _restore_service(prior_state)
+        raise
 
     print("\n=== 5 . IDENTITY ===")
     print(json.dumps(sensor.status(), indent=2))
@@ -875,7 +1098,18 @@ def main(argv: list[str] | None = None) -> None:
     # would believe the old interface still worked while the secret had
     # already been recorded in the command line of this process.
     sensor.refuse_secret_on_command_line(raw)
-    args = build_parser().parse_known_args(raw)[0]
+    sensor.refuse_secret_on_command_line(raw)
+    args, unknown = build_parser().parse_known_args(raw)
+    if unknown:
+        # A SILENTLY IGNORED FLAG IS HOW A WRONG BUILD LIES. A pre-hardening
+        # installer accepted `--token-stdin`, discarded it here, and then
+        # refused with "--token is required", which reads like a backend or
+        # token problem instead of a wrong binary.
+        raise SystemExit(
+            "unrecognized argument(s): " + " ".join(unknown) + ". Refusing "
+            "to continue, because an ignored flag makes a wrong installer "
+            "version look like a credential failure. Check "
+            "`NivXForgeEDRSetup.exe version` and `install --help`.")
     if args.cmd == "install":
         install(args.backend, args.tenant, args.token_stdin, args.interval,
                 args.re_enrol)
@@ -897,11 +1131,12 @@ def main(argv: list[str] | None = None) -> None:
         if out["result"] != "PASS":
             sys.exit(f"journal selftest FAILED: {out['failed']}")
     elif args.cmd == "version":
-        print(json.dumps({"setup_version": SETUP_VERSION,
-                          "sensor_version": sensor.SENSOR_VERSION,
+        print(json.dumps({**build_identity(),
+                          "artifact_sha256": self_digest(),
                           "service_name": SERVICE_NAME,
                           "service_exe": str(SERVICE_EXE),
                           "service_host": "ONEDIR_PAYLOAD",
+                          "service_state": _service_state() or "NO_SERVICE",
                           "state_dir": str(sensor.STATE_DIR),
                           "default_backend": DEFAULT_BACKEND}, indent=2))
     else:

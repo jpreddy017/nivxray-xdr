@@ -3765,3 +3765,50 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     says "unrecognized argument" instead of a misleading credential refusal.
   * DEFECT 3 (P1, NOT FIXED): no build/version provenance check. install should print its
     own build commit/SHA256 at STAGE and refuse a downgrade over a newer installed state.
+
+- P0 FIX IMPLEMENTED (2026-10-01): WINDOWS RE-ENROL STAGING RACE / SERVICE FILE LOCK.
+  WINDOWS_REENROL_STAGING_FIX = HOLD (code+tests PASS; the Windows ARTIFACT cannot be built
+  from this pod - no GitHub push credential, and PyInstaller cannot cross-compile a PE).
+  * ROOT CAUSE: `sc.exe stop` is asynchronous. install() STAGE stopped the service and
+    immediately replaced its image, racing the dying process ->
+    "Permission denied: C:\Program Files\NivXForge\sensor\service\NivXForgeSensor.exe".
+    Step 3 then aborted, so step 4 (sc create + sc start) never ran and a healthy endpoint
+    went dark.
+  * agents/nivxforge-windows/nivxforge_setup.py:
+      _service_state()            SCM state by NAME (localisation-safe), "" if absent
+      _wait_for_service_state()   deterministic poll to a target state
+      _image_is_released()        same-directory rename probe = honest proof no handle
+      _wait_for_image_release()   bounded wait for the handle to go
+      _stop_service_and_wait()    stop, PROVE STOPPED, PROVE released; FAILS CLOSED
+      _restore_service()          rollback; restarts ONLY a service that WAS running
+      _replace_tree()             bounded-retry copytree for the post-exit lock window
+      build_identity()            baked commit/run provenance (nivxforge_build.py)
+      self_digest()               SHA256 of the running artifact, printed at STAGE
+      _sc()                       a missing sc.exe is a failed command, never an exception
+      _stage_service_host()       NO LONGER drives the SCM; REFUSES over a RUNNING service
+      install()                   reads prior service state first, wraps steps 1-4 in
+                                  try/except BaseException -> ROLLBACK -> re-raise
+      main()                      unknown args now REFUSED (an ignored flag is how the
+                                  pre-hardening build pretended to accept --token-stdin)
+      version                     reports build_commit/build_run_id/artifact_sha256/state
+  * build_windows_installer.ps1 generates nivxforge_build.py (commit/time/run id) and
+    PyInstaller carries it (--hidden-import nivxforge_build). .gitignore excludes it.
+  * windows-sensor-installer.yml: artifact contract now asserts build provenance,
+    artifact_sha256 and unknown-argument refusal; NEW GATE 4 "Re-enrol against a RUNNING
+    service · stop race + rollback" proves, against the real SCM and real NTFS locks:
+    RUNNING-guard, stop-and-prove, restore idempotence, and that a FAILED frozen
+    `install --re-enrol` (stdin closed, no token) leaves the service RUNNING.
+  * TESTS: backend/tests/edr/test_p0_windows_reenrol_staging_race.py - 18 passed, incl. the
+    exact live PermissionError reproduction, stop timeout fail-closed, locked image,
+    staging-failure rollback, enrolment-failure rollback with NO token read/consumed,
+    operator-stopped service NOT silently started, state/outbox/offset/cursors byte-identical
+    after failure AND after a successful re-enrol (endpoint_id preserved), resume without a
+    token, unknown-flag refusal, --token not reintroduced, provenance + digest.
+  * TWO STALE TESTS UPDATED to the new contract (they asserted the defective behaviour):
+    test_windows_installer_scm_entrypoint::test_staging_refuses_to_overwrite_a_running_service_image
+    test_windows_installer_service_stage4::test_running_service_is_stopped_AND_PROVED_before_the_binary_is_replaced
+  * REGRESSION: cd /app/backend && pytest tests/edr + the 4 windows suites + B8 scope ->
+    2122 passed, 3 skipped, 0 failed (226s).
+  * NOT DONE, OWNER ACTION: trigger workflow_dispatch on windows-sensor-installer.yml to
+    produce the new exe + SHA256. DESKTOP and KUSHU untouched, no token minted/revoked/used,
+    nothing deployed.

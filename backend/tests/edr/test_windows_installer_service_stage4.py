@@ -222,18 +222,37 @@ def test_resume_never_prints_the_credential_value(mod, monkeypatch, capsys):
     assert "cred_abc123" not in out
 
 
-def test_running_service_is_stopped_before_the_binary_is_replaced(mod, monkeypatch):
+def test_running_service_is_stopped_AND_PROVED_before_the_binary_is_replaced(
+        mod, monkeypatch):
+    """The stop must be PROVED STOPPED before anything is overwritten.
+
+    A bare `sc.exe stop` is asynchronous. The live failure on
+    DESKTOP-A9HGFJJ was `Permission denied` on the service image, after
+    the stop and before the restart, which left the endpoint dark.
+    """
     _valid_identity(mod)
     calls: list[str] = []
+    states = iter(["RUNNING", "STOP_PENDING", "STOP_PENDING", "STOPPED"])
+    last = {"state": "RUNNING"}
+
+    def service_state():
+        last["state"] = next(states, last["state"])
+        calls.append(f"state={last['state']}")
+        return last["state"]
+
     monkeypatch.setattr(mod, "_assert_admin", lambda: None)
     monkeypatch.setattr(mod, "_protect_state_dir", lambda: None)
     monkeypatch.setattr(mod, "_install_service", lambda api, iv: None)
-    monkeypatch.setattr(mod, "_service_exists", lambda: True)
+    monkeypatch.setattr(mod, "_service_state", service_state)
+    monkeypatch.setattr(mod, "_image_is_released", lambda _p: True)
     monkeypatch.setattr(mod, "_sc", lambda c: calls.append(c))
     monkeypatch.setattr(mod.shutil, "copy2", lambda *a: calls.append("copy2"))
     monkeypatch.setattr(mod, "_self_path", lambda: Path("/tmp/downloaded.exe"))
     mod.install("https://nivxray.nivxforge.com", None, False, 30, False)
-    assert calls.index(f'sc.exe stop "{mod.SERVICE_NAME}"') < calls.index("copy2")
+    stop = calls.index(f'sc.exe stop "{mod.SERVICE_NAME}"')
+    proved = calls.index("state=STOPPED")
+    copy = calls.index("copy2")
+    assert stop < proved < copy, calls
 
 
 # ── 4 · fail-closed on inconsistent local identity ────────────────

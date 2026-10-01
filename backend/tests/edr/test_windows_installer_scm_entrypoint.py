@@ -296,18 +296,29 @@ def test_staging_is_idempotent_for_a_repair_install(mod, monkeypatch,
     assert mod.SERVICE_EXE.read_bytes() == b"MZ host v2"
 
 
-def test_staging_stops_a_running_service_before_overwriting_the_image(
+def test_staging_refuses_to_overwrite_a_running_service_image(
         mod, monkeypatch, tmp_path):
+    """Stopping is the CALLER's job, and it must be proved first.
+
+    This used to issue a bare `sc.exe stop` here and copy immediately.
+    `sc.exe stop` is asynchronous, so the copy raced the dying process and
+    died with `Permission denied: ...NivXForgeSensor.exe` — after the
+    service was already stopped and before it could be started again.
+    """
     payload = tmp_path / "meipass" / "service"
     payload.mkdir(parents=True)
     (payload / "NivXForgeSensor.exe").write_bytes(b"MZ host")
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "meipass"),
                         raising=False)
-    monkeypatch.setattr(mod, "_service_exists", lambda: True)
+    monkeypatch.setattr(mod, "_service_state", lambda: "RUNNING")
     calls: list[str] = []
     monkeypatch.setattr(mod, "_sc", lambda c: calls.append(c))
-    mod._stage_service_host()
-    assert calls == [f'sc.exe stop "{mod.SERVICE_NAME}"']
+    before = mod.SERVICE_EXE.read_bytes()
+    with pytest.raises(SystemExit) as ex:
+        mod._stage_service_host()
+    assert "RUNNING" in str(ex.value)
+    assert calls == [], "staging must not drive the SCM itself"
+    assert mod.SERVICE_EXE.read_bytes() == before
 
 
 def test_a_build_without_a_service_payload_is_refused(mod, monkeypatch):

@@ -180,3 +180,8 @@ frontend/node_modules/.cache/default-development/13.pack
 # persistent path in this environment.
 agents/nivxforge-linux/.state/
 agents/nivxforge-linux/.state/outbox.jsonl
+
+# Generated at build time by build_windows_installer.ps1 (commit provenance
+# baked into the frozen artifact). Never committed: it would go stale and
+# then lie about which commit an installer came from.
+agents/nivxforge-windows/nivxforge_build.py

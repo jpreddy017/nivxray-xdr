@@ -96,6 +96,21 @@ jobs:
             throw 'the binary did not refuse a secret-shaped argv value'
           }
           $global:LASTEXITCODE = 0
+          # BUILD PROVENANCE must be baked in: an operator must be able to
+          # tell a stale installer from a fixed one without guessing.
+          if ($out -notmatch 'build_commit') { throw 'no build provenance in the artifact' }
+          if ($out -match 'UNOFFICIAL_BUILD') { throw 'artifact has no commit provenance' }
+          if ($out -notmatch 'artifact_sha256') { throw 'artifact does not report its own SHA256' }
+          # AN IGNORED FLAG MUST NEVER BE SILENT. A pre-hardening build
+          # discarded --token-stdin and then blamed the token.
+          $junk = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --token-stdin --not-a-real-flag 2>&1 | Out-String)
+          $junkExit = $LASTEXITCODE
+          Write-Host $junk
+          if ($junkExit -eq 0) { throw 'an unknown argument was silently ignored' }
+          if ($junk -notmatch 'unrecognized argument') {
+            throw 'the binary did not name the unrecognized argument'
+          }
+          $global:LASTEXITCODE = 0
           Get-Content (Join-Path $dist 'build-info.json')
           Get-Content (Join-Path $dist 'SHA256SUMS.txt')
           Write-Host 'ARTIFACT CONTRACT: PASS'
@@ -503,6 +518,92 @@ jobs:
           & sc.exe delete $svc | Out-Null
           $global:LASTEXITCODE = 0
           Write-Host 'WINDOWS SCM LIFECYCLE: PASS'
+          exit 0
+
+      # ── ACCEPTANCE GATE 4 ─────────────────────────────────────────
+      # THE DEFECT THIS GATE EXISTS FOR, reproduced against the real SCM
+      # and real NTFS file locks: `sc.exe stop` is asynchronous, so the
+      # old installer replaced the service image while the process was
+      # still dying and died with
+      #   Permission denied: ...\service\NivXForgeSensor.exe
+      # AFTER stopping the service and BEFORE restarting it — leaving a
+      # healthy endpoint dark. No enrolment token is used or needed here.
+      - name: Re-enrol against a RUNNING service · stop race + rollback
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = 'NivXForgeSensor'
+          @'
+          import json, sys
+          sys.path.insert(0, r"agents/nivxforge-windows")
+          import nivxforge_setup as s
+
+          # A service must exist and be RUNNING for any of this to mean
+          # anything, so it is created through the production path.
+          s._install_service("https://nivxray.nivxforge.com", 30)
+          assert s._wait_for_service_state("RUNNING", 90), s._service_state()
+          print("GATE4 PRECONDITION: RUNNING")
+
+          # 1 . A RUNNING service's image must never be overwritten.
+          try:
+              s._stage_service_host()
+              raise SystemExit("GATE4 FAIL: staged over a RUNNING service")
+          except SystemExit as ex:
+              text = str(ex)
+              if "GATE4 FAIL" in text:
+                  raise
+              assert "RUNNING" in text, text
+              print("GATE4 RUNNING-GUARD: PASS")
+
+          # 2 . Stop must be PROVED, and the image must be PROVED released.
+          prior = s._stop_service_and_wait()
+          assert prior == "RUNNING", prior
+          assert s._service_state() == "STOPPED", s._service_state()
+          assert s._image_is_released(s.SERVICE_EXE), "image still locked"
+          print("GATE4 STOP-AND-PROVE: PASS")
+
+          # 3 . Rollback. The service was RUNNING, so a failure after the
+          #     stop must leave it RUNNING again.
+          s._sc('sc.exe start "%s"' % s.SERVICE_NAME)
+          assert s._wait_for_service_state("RUNNING", 90), s._service_state()
+          s._restore_service("RUNNING")
+          assert s._service_state() == "RUNNING", s._service_state()
+          print("GATE4 RESTORE-IDEMPOTENT: PASS")
+          '@ | Out-File -FilePath gate4_race.py -Encoding ascii
+          $out = (python gate4_race.py 2>&1 | Out-String)
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { throw 'GATE 4 lifecycle checks failed' }
+
+          # 4 . THE END-TO-END PROOF, through the FROZEN artifact and the
+          #     real SCM: a re-enrol that fails at the ENROLMENT step must
+          #     leave the service RUNNING. stdin is closed, so enrolment
+          #     cannot succeed and NO token is consumed.
+          $q = (& sc.exe query $svc | Out-String)
+          if ($q -notmatch 'RUNNING') { throw "precondition: service not RUNNING`n$q" }
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          $failed = (& $exe install --re-enrol `
+                       --backend https://nivxray.nivxforge.com `
+                       --tenant ten_ci_gate4_not_a_real_tenant `
+                       --token-stdin < NUL 2>&1 | Out-String)
+          $global:LASTEXITCODE = 0
+          Write-Host $failed
+          if ($failed -notmatch 'ROLLBACK') {
+            throw 'a failed re-enrol did not run the rollback path'
+          }
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'RUNNING') {
+            throw "REGRESSION: a failed re-enrol left the endpoint dark`n$q"
+          }
+          Write-Host 'GATE 4 RE-ENROL ROLLBACK: PASS'
+          & sc.exe stop $svc | Out-Null
+          & sc.exe delete $svc | Out-Null
+          $global:LASTEXITCODE = 0
           exit 0
 
       - name: Remove the CI service if the gate failed
