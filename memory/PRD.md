@@ -3945,23 +3945,26 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     [mongodb], /usr/bin/mongod --bind_ip_all), MONGO_URL mongodb://localhost:27017,
     DB_NAME test_database, NIVX_DEPLOYMENT_ENV=preview, edr_raw_events = 274,123 docs,
     edr_processing_queue DOES NOT EXIST yet. /app is on feature/rc2-alignment, NOT 9273c964.
-  * ⚠ P0 COMPATIBILITY DEFECT FOUND, EVIDENCE-BACKED: server.py puts
-    `await _ensure_processing_queue_indexes(_raw_db)` TWO LINES AFTER
-    `await _ensure_raw_indexes(_raw_db)` INSIDE THE SAME try/except that only
-    log.warning()s. In this environment _ensure_raw_indexes ALREADY FAILS:
-    "[startup] edr_raw_events indexes failed: IndexKeySpecsConflict ... requested
-    obs_device_identity_facts {sparse: true}, existing obs_device_identity_facts {no
-    sparse}" (observed in /var/log/supervisor/backend.err.log at 13:46:41, and the
-    conflicting index is confirmed present on v2_shadow_observations without `sparse`).
-    CONSEQUENCE: processing_queue.ensure_indexes() is NEVER REACHED, so
-    edr_processing_queue is created WITHOUT the UNIQUE uniq_tenant_raw index that
-    enqueue()'s upsert idempotency depends on, and WITHOUT claimable_work /
-    expired_leases. Concurrent upserts can then insert DUPLICATE jobs, and claim() loses
-    its index support. The worker supervisor is in a SEPARATE try block and would still
-    start, so the deployment would look healthy while silently losing the idempotency
-    guarantee. MUST be fixed (own try block, or ensure indexes before/independently of the
-    raw-event block) BEFORE deploying. 27/27 local tests cannot catch this: they call
-    ensure_indexes directly, not through server startup.
+  * ⚠ RETRACTED - MY EARLIER P0 CLAIM WAS WRONG. I claimed processing_queue.ensure_indexes()
+    would be skipped because `_ensure_raw_indexes` fails. PROOF IT IS NOT SKIPPED:
+    in 9273c964 server.py the try block runs
+      926  await _ensure_raw_indexes(_raw_db)
+      927-929  await _ensure_processing_queue_indexes(_raw_db)   <-- runs HERE
+      989-992  v2_shadow_observations.create_index(name="obs_device_identity_facts",
+               sparse=True)                                     <-- THIS is the thrower
+      999-1000 except -> log.warning("[startup] edr_raw_events indexes failed: ...")
+    The except message NAMES edr_raw_events but labels the WHOLE block; the raising
+    statement is 989, which is AFTER the queue indexes. Proof the thrower cannot be line
+    926: edr_plane/raw_events.py has COLLECTION = "edr_raw_events" and never touches
+    v2_shadow_observations, and the string obs_device_identity_facts exists ONLY at
+    server.py:988-992. Empirically, every index created BEFORE 989 exists in the preview DB
+    (edr_raw_events 8 indexes, obs_device_ts / obs_collector_ts / obs_deviceiid_ts all
+    present), i.e. the block executes up to the thrower. The ONLY statement lost is the
+    success log.info at 997 - nothing operational follows 992. So uniq_tenant_raw WOULD be
+    created and enqueue() idempotency is NOT compromised. P0 CLAIM: NOT CONFIRMED.
+  * The IndexKeySpecsConflict is still a REAL but COSMETIC preview-only defect: an existing
+    obs_device_identity_facts on v2_shadow_observations has no `sparse` flag, so the sparse
+    re-declaration is rejected (code 86). Production shows NO "[startup] ... failed:" lines.
   * Design review of the new module (read-only): enqueue() is an idempotent
     $setOnInsert upsert on (tenant_id, raw_id); claim() is an atomic
     find_one_and_update over PENDING/RETRY plus EXPIRED PROCESSING leases with $inc
@@ -3979,3 +3982,21 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     from the preview pod. A read-only deployer inspection was dispatched and returned
     "queued" (asynchronous), so no production evidence was available in this turn.
     DO NOT infer production from the repository.
+  * PRODUCTION INSPECTION (deployer agent, read-only, run e8a40ab2, nothing mutated):
+    Kubernetes, cluster target-7, namespace customers-app, 2 PODS, each
+    `uvicorn server:app --workers 1` => 2 processes / 2 event loops. /api/* -> nginx ->
+    127.0.0.1:8001. Frontend via Cloudflare. DB = MANAGED ATLAS
+    "greeting-app-5782-test_database" (NOT the preview local mongod/test_database).
+    EDR startup indexes COMPLETE with no "[startup] ... failed:" lines.
+    Deployed git branch/commit = UNKNOWN (the pipeline builds a source snapshot with no git
+    metadata; image tag = run_id, digest sha256:41a001b5..., build f8fe5481).
+    All EDR-plane env vars present and non-empty. Rollback = Deployment Panel -> Overview ->
+    history, prior images retained, ~1-2 min, no rebuild.
+    TWO REAL PRODUCTION RISKS RAISED: (1) 2 replicas => TWO independent supervisors
+    => 2 x worker_count = 4 concurrent consumers; claim() is atomic so no job is processed
+    twice, but any singleton/scheduled work inside the supervisor would double-fire and
+    needs a DB lock / leader election; (2) production already logs intermittent /health 503s
+    and 1s nginx upstream timeouts on the single event loop - if liveness restarts a pod the
+    supervisor dies with it, so /health must stay non-blocking.
+    UNRELATED, OBSERVED: threatfox 401 + otx pull failures => stale ABUSE_CH_AUTH_KEY /
+    OTX_API_KEY.
