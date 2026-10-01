@@ -196,9 +196,51 @@ Everything is additive on a local branch.
 - Delete the branch: `git -C /app/memory/nivxray-xdr checkout feature/rc2-alignment && git -C /app/memory/nivxray-xdr branch -D feature/e3-edr-engines`.
 - Or revert the commits. There are no production collections, indexes, routes or E1 changes to undo.
 
+
+## 17. Tests run and results
+
+### 17.1 New E3 suite: 58 passed, 0 failed
+Command:
+`cd backend && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests/edr_behavior -q -p no:cacheprovider -n 0 -o addopts=""`
+
+Coverage:
+- single-event non-match, full match, partial non-match
+- ordering, window expiry, late arrival / order independence
+- parent/child (GUID, PID surrogate, wrong parent, missing linkage → INSUFFICIENT_EVIDENCE + per-rule metric)
+- cross-device and cross-tenant rejection, leaking-provider rejection, payload tenant spoofing
+- retry / generation-change idempotency, duplicate evidence, deterministic ID
+- missing telemetry (UNKNOWN ≠ clean), UNKNOWN never suppresses, tenant suppression keeps evidence
+- rule versioning and lifecycle immutability, TESTING / DRAFT handling
+- provenance, malformed input, injection / ReDoS / eval rejection, large-input bounds, window and DFS budgets
+- replay (rule added, resumable, idempotent; intel change), integration adapter isolation, Mongo provider query shape
+- ML boundary, metrics without telemetry values, 3-valued logic
+- 8 starter-rule scenarios plus benign interpreters alone
+
+### 17.2 Existing `backend/tests/edr` regression (offline subset)
+- **Selection:** 51 of 91 files. Files referencing `requests`, httpx, `BACKEND_URL`, `MONGO_URL`, Motor/Mongo clients or `_live` were excluded so no endpoint is contacted.
+- **Network guard:** an outbound-socket guard plugin was loaded (`-p e3_netguard`); `MONGO_URL` was unset.
+- **pytest-asyncio:** installed with `--no-deps` into `.e3venv/extra` inside the clone. It is excluded via `.git/info/exclude` and not committed.
+
+| Result | Files |
+|---|---|
+| Fully pass | 28 files, including Gate-4 `test_processing_queue_worker.py` (8/8) and `test_p0_reconcile_contract_ownership.py` (26/26), plus `test_b1`, `b2`, `b3`, `b4`, `dt2_*`, `gate10`, `trajectory_tenant_isolation`, `phase0_windows_canonical_bridge`, `sysmon`/`winsec` semantics, `event_id_propagation`, `wave0_contracts` |
+| Fail or error for **environmental** reasons only | 20 files (below) |
+| Timed out (90 s) under the network guard | 3 files: `test_p0_tenant_authority_fix2`, `fix5a`, `fix6b2` |
+
+Environmental reasons for the 20 failing files:
+- Hard-coded `/app/...` repository paths: the repo expects to live at `/app`, but the clone is at `/app/memory/nivxray-xdr`.
+- Missing backend secrets `JWT_SECRET` / `EMERGENT_LLM_KEY`, which were deliberately not provided.
+- Missing `reportlab`.
+- Collection-time `/app` path imports.
+
+**Baseline comparison:** a temporary `git worktree` of base `1800aeea` was created and then removed. Running `test_p0_f3_rule_store_binding`, `test_gate3_fabric_contracts` and `test_p0_platform_designation` there gave the **same 5 failures** as on the E3 branch, so they predate E3.
+
+**Structural proof:** `git diff --name-status 1800aeea..HEAD` contains only `A` (added) entries, and no file under `tests/edr` imports `edr_behavior`.
+
 ## Progress log
 - Step 1 (`7db48642`): contracts, predicates and rules.
 - Step 2 (`bb1ef58f`): matcher, engine, suppression, detection, store, replay and metrics.
 - Step 3 (`7766cadd`): starter pack + loader.
 - Step 4 (`25600975`): standalone integration adapter.
-- Step 5 (`f4e473ee`): 58 tests. Docs and observability commit follows.
+- Step 5 (`f4e473ee`): 58 tests.
+- Step 6: docs (`38e70688`), then this handoff update.
