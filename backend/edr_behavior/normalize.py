@@ -13,6 +13,7 @@ from .contracts import (KIND_AUTH, KIND_DETECTION, KIND_DNS, KIND_FILE,
                         EvidenceRef, MLSignal, ProcessRef)
 
 NORMALIZER_ID = "edr_behavior.normalize.canonical_v1"
+ML_SIGNAL_NORMALIZER = NORMALIZER_ID + ".ml_signal"
 MAX_STR = 8192
 MAX_LIST = 64
 MAX_FUTURE_SKEW = timedelta(seconds=300)
@@ -207,9 +208,20 @@ def from_ml_signal(sig: MLSignal, *, endpoint_id: str) -> EvidenceRecord:
         fields={"detection": {"rule_id": f"ml:{sig.model_id}", "source": "ML",
                               "name": f"{sig.model_id}@{sig.model_version}",
                               "score": round(float(sig.score), 4)}},
-        source="ml", provenance={"model_id": sig.model_id, "model_version": sig.model_version,
+        source="ml", provenance={"normalizer": ML_SIGNAL_NORMALIZER,
+                                 "model_id": sig.model_id, "model_version": sig.model_version,
                                  "feature_schema_version": sig.feature_schema_version,
                                  "evidence": [r.stable_key() for r in sig.evidence_refs]})
+
+
+def is_ml_evidence(rec: EvidenceRecord) -> bool:
+    """ML-derived (or ML-claiming) DETECTION evidence. Conservative: any ML claim counts."""
+    if rec.kind != KIND_DETECTION:
+        return False
+    det = rec.fields.get("detection") or {}
+    return (rec.provenance.get("normalizer") == ML_SIGNAL_NORMALIZER
+            or str(det.get("source") or "").upper() == "ML"
+            or str(det.get("rule_id") or "").lower().startswith("ml:"))
 
 
 def scope_key(rec: EvidenceRecord, scope: str) -> Tuple[str, bool]:

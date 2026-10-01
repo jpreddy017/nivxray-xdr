@@ -8,7 +8,7 @@ NAMES = ("events_evaluated", "events_rejected_malformed", "tenant_isolation_reje
          "candidate_rules", "sequence_states", "matches", "suppressed_matches",
          "insufficient_evidence", "budget_exceeded", "window_truncated", "rule_errors",
          "detections_created", "detections_merged", "duplicates_prevented",
-         "concurrency_retries", "replay_runs", "replay_events")
+         "concurrency_retries", "replay_runs", "replay_events", "ml_only_rejected")
 
 
 class Metrics:

@@ -4,10 +4,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from . import CONTRACT_VERSION, ENGINE_ID, ENGINE_VERSION
+from . import CONTRACT_VERSION, ENGINE_ID, ENGINE_VERSION, ML_ONLY_REASON
 from .contracts import (LINK_PID_SURROGATE, STATUS_OPEN, STATUS_SUPPRESSED,
                         STATUS_TESTING, Detection, EvaluationResult, sha, utc)
-from .normalize import scope_key
+from .normalize import is_ml_evidence, scope_key
 from .rules import SequenceRule
 
 PID_SURROGATE_PENALTY = 15
@@ -74,6 +74,8 @@ def build(rule: SequenceRule, result: EvaluationResult, *, tenant_id: str, endpo
     recs = [e for m in result.stages for e in m.evidence]
     if not recs:
         raise ValueError("a detection requires evidence")
+    if all(is_ml_evidence(e) for e in recs):
+        raise ValueError(ML_ONLY_REASON)
     anchor = result.stages[0].first
     scope, _ = scope_key(anchor, rule.entity_scope)
     conf = rule.confidence + sum(s.confidence_bonus for s in rule.stages

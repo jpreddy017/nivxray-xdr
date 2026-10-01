@@ -5,12 +5,14 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
+from . import ML_ONLY_REASON
 from . import predicates as P
 from .contracts import (MODE_LIVE, OUTCOME_BUDGET, OUTCOME_INSUFFICIENT,
                         OUTCOME_MATCH, OUTCOME_NO_MATCH, OUTCOME_SUPPRESSED,
                         FALSE, EvaluationResult, EvidenceRecord)
 from .detection import build, material, merge
 from .matcher import DEFAULT_BUDGET, evaluate_rule, stage_value
+from .normalize import is_ml_evidence
 from .provider import EnrichmentProvider, EvidenceProvider, NullEnrichmentProvider, dedupe
 from .rules import RuleRegistry, SequenceRule
 from .store import ConcurrencyConflict, DetectionStore
@@ -113,6 +115,14 @@ class SequenceEngine:
         self.metrics.inc("sequence_states", len(per_anchor))
         involving = [r for r in per_anchor if r.outcome == OUTCOME_MATCH
                      and any(e.stable_key == rec.stable_key for m in r.stages for e in m.evidence)]
+        ml_only = [r for r in involving
+                   if all(is_ml_evidence(e) for m in r.stages for e in m.evidence)]
+        if ml_only:
+            self.metrics.inc("ml_only_rejected", len(ml_only))
+            involving = [r for r in involving if r not in ml_only]
+            if not involving:
+                return self._outcome(rule, EvaluationResult(rule.rule_id, rule.version,
+                                                            OUTCOME_INSUFFICIENT, [ML_ONLY_REASON]))
         if not involving:
             outcomes = {r.outcome for r in per_anchor}
             for o in (OUTCOME_BUDGET, OUTCOME_INSUFFICIENT):
