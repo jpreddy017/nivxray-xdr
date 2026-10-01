@@ -47,3 +47,18 @@
 - **FILES CHANGED:** new files only.
 - **SECURITY:** tenant-mandatory, cross-tenant rejected, bounded.
 - **PERFORMANCE:** O(n) over the supplied inputs, with 50 items per section.
+
+## DT-I1 synthetic preview evidence (scenarios A–F)
+- **Source:** local commit `6b61e3af` on `feature/e3-edr-engines`, rendered through the ignored fixture harness `/app/.e3ui-harness`. Every capture shows the "SYNTHETIC FIXTURE PREVIEW — not live data" banner at the top and bottom. The fixtures use RFC 5737 IPs and fictional hashes.
+- **Defect found and fixed (`6b61e3af`):** Activity Details values were `#0F172A` on the dark DT panel, which made them invisible. The fix is colour-only; there is no logic change, and the activityView node tests pass.
+- **Screenshots:** stored in `/app/.e3ui-harness/shots/dt_{A..F}.jpeg`.
+  - A: normal view. MITRE is neutral and the assessment is NOT_ASSESSED.
+  - B: unknown registry observation. T1547.001 is UNATTRIBUTED and neutral, and detection is EMPTY.
+  - C: behavioral MATCH. Only tf_w, tf_p and tf_r are highlighted, and the detection is attributed to edr_behavior.
+  - D: TI outage. abuseipdb shows UNAVAILABLE and virustotal shows RATE_LIMITED, with no conclusion drawn. ML is TESTING with INSUFFICIENT_BASELINE.
+  - E: retrospective change. v1 was UNKNOWN; v2 is MALICIOUS through INTEL_CHANGE and supersedes v1. History is append-only.
+  - F: response REQUESTED. The proof is NOTHING_HAS_HAPPENED_YET and verified is false.
+- **Open findings in pre-existing DT code (not fixed, need owner decision):**
+  1. The `TimeRangeBox` day strip is hard-coded to Jun 23–Jul 22, regardless of case dates.
+  2. The attack-chain summary counts a behavioral MATCH as "malicious" (C/F: "2 malicious").
+  3. Process row labels are truncated.
