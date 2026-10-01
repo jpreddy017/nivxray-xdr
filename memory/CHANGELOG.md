@@ -1,3 +1,51 @@
+## 2026-06 · P0 CLOSED IN PRODUCTION · durable-ACK boundary + bounded reconciler deployed
+
+Deployable line `feature/rc2-alignment`:
+`aaaeb899` integrate durable telemetry ACK processing boundary →
+`c9c2c469` Step-5 read-only evidence harnesses (`scripts/step5_*`) →
+`f900ad7d` fix(edr): report durable queue creation accurately.
+
+Staged release, owner-gated at every step. The GitHub branch `fix/edr-durable-ack-boundary`
+could NOT be deployed directly — Emergent snapshots `/app`, never GitHub — and that branch
+was 5 commits behind the deployable line, so the two backend commits were cherry-picked in
+(`--no-commit`, zero conflicts, zero rc2 files touched) rather than deploying it.
+
+Tests: focused 56 passed; `backend/tests/edr/` 2051 passed / 3 skipped (baseline 2048/3, +3 new).
+
+Preview runtime acceptance (synthetic endpoint `LAB-STEP5-ACCEPT`, raw_id
+`raw_db5eb8219fe941d157027082`): raw evidence → `processing_contract=durable_queue_v1` →
+queue obligation → ACK 200 in 170 ms (canonical deferred) → PENDING → PROCESSING(attempts=1)
+→ DONE, zero RETRY. Duplicate redelivery: same `raw_id`, `stored=false`, `duplicate_count`
+0→1, exactly one raw object and one obligation. 716 marker-bearing raw events ↔ 716 jobs (1:1).
+Measured single-worker throughput ≈ 0.47–0.6 jobs/s (~1,700–2,200/hour); preview backlog
+drained to zero while new telemetry arrived.
+
+Defect found in preview, not by the unit suite, and fixed in `f900ad7d`: the ACK reported
+`processing.created` from the enqueue RESULT DICT (always truthy), so duplicates claimed to
+have created a new obligation. Durability/idempotency were never affected. Regression tests
+proven to fail against the old expression.
+
+Production acceptance (publish `ec9e994` / run `ec9e9940`, 2026-06): PASS. 2/2 replicas
+Running, restart_count=0; `[startup] EDR durable processing supervisor started (workers=1,
+reconcile=60s)` on both replicas; `edr_processing_queue` has `uniq_tenant_raw` (unique),
+`claimable_work`, `expired_leases`; `edr_raw_events` has `reconcile_contract_window` with the
+partial filter; zero 5xx; zero reconciliation failures; no `$lookup` in the running image.
+Authoritative URL `https://greeting-app-5782.emergent.host` (alias `nivxray.nivxforge.com`).
+
+OPEN / NON-BLOCKING:
+- `reconcile_contract_window` key order reported in production as `{ingest_time, processing_contract}`
+  (spec: `{processing_contract, ingest_time}`); name + partial filter correct. Preview shows the
+  spec order, so this is likely a reporting artifact. Even if real it is not a scan risk — the
+  15-minute `ingest_time` bound still applies. Needs one read-only `listIndexes` re-check.
+- Emergent tags images by run_id, so a git SHA is not platform-verifiable; build identity was
+  confirmed by source-marker content inside the image instead.
+- Pre-existing, unrelated: "nightly benchmark failed: offset-naive/aware datetimes" tz bug;
+  stale Threatfox/OTX credentials.
+
+NEXT (owner-approved sequence): discard KUSHU's ~148k disposable backlog → start KUSHU →
+prove fresh ingestion keeps up → Gate 4. DESKTOP-A9HGFJJ untouched throughout.
+
+
 ## 2026-06 · P0 · Durable-ACK reconciler bounded to a declared contract (`gh-ack-boundary` @ `7a788850`)
 
 Branch: `gh-ack-boundary` (local mirror of `fix/edr-durable-ack-boundary`). COMMITTED, NOT merged, NOT deployed.
