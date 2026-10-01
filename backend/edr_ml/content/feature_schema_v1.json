@@ -1,0 +1,20 @@
+{
+  "feature_schema_version": "fs-1.0.0",
+  "status": "RELEASED",
+  "description": "E3 ML starter feature schema. Missing values are UNKNOWN; cold baselines are INSUFFICIENT_BASELINE.",
+  "features": [
+    {"name": "parent_child_rarity", "type": "RATIO", "unit": "rarity", "source_kinds": ["PROCESS"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "Rarity of parent>child image pair on this endpoint"},
+    {"name": "cmdline_length", "type": "COUNT", "unit": "chars", "source_kinds": ["PROCESS"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "Command-line length (bounded; truncation flagged as lower bound)"},
+    {"name": "cmdline_entropy", "type": "NUMBER", "unit": "bits_per_char", "source_kinds": ["PROCESS"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "Shannon entropy of the first 4096 command-line chars"},
+    {"name": "cmdline_encoded_indicator", "type": "BOOL", "unit": "flag", "source_kinds": ["PROCESS"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "PowerShell -EncodedCommand prefix, FromBase64String, or a long base64 run (T1059.001 / T1027)"},
+    {"name": "process_rarity_endpoint", "type": "RATIO", "unit": "rarity", "source_kinds": ["PROCESS"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "Rarity of the process image on this endpoint"},
+    {"name": "process_rarity_tenant", "type": "RATIO", "unit": "rarity", "source_kinds": ["PROCESS"], "baseline": "tenant", "missing_policy": "UNKNOWN", "description": "Rarity of the process image across this tenant"},
+    {"name": "first_seen_binary", "type": "BOOL", "unit": "flag", "source_kinds": ["PROCESS"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "Executable path never seen on this endpoint's baseline"},
+    {"name": "first_seen_domain", "type": "BOOL", "unit": "flag", "source_kinds": ["DNS"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "Entity queried a domain never seen on this endpoint"},
+    {"name": "first_seen_ip", "type": "BOOL", "unit": "flag", "source_kinds": ["NETWORK"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "Entity connected outbound to an IP never seen on this endpoint"},
+    {"name": "outbound_fanout", "type": "COUNT", "unit": "distinct_dest_ips", "source_kinds": ["NETWORK"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "Distinct outbound destination IPs for the entity within the window"},
+    {"name": "registry_persistence_touches", "type": "COUNT", "unit": "events", "source_kinds": ["REGISTRY"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "Registry events by the entity on persistence keys (T1547.001 et al.)"},
+    {"name": "child_spawn_burst", "type": "COUNT", "unit": "children_per_window", "source_kinds": ["PROCESS"], "baseline": "none", "missing_policy": "UNKNOWN", "description": "Children spawned by the entity (GUID linkage only) within the window"},
+    {"name": "off_hours", "type": "RATIO", "unit": "deviation", "source_kinds": ["PROCESS"], "baseline": "endpoint", "missing_policy": "UNKNOWN", "description": "How unusual the UTC hour-of-day is versus this endpoint's activity histogram"}
+  ]
+}

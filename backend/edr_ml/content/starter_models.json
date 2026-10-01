@@ -1,0 +1,40 @@
+[
+  {
+    "model_id": "ml.rarity.process_tree",
+    "model_version": "1.0.0",
+    "feature_schema_version": "fs-1.0.0",
+    "model_type": "RARITY",
+    "lifecycle": "ACTIVE",
+    "threshold": 0.7,
+    "description": "Rare parent>child pair, rare image (endpoint+tenant) and first-seen binary. Signal only.",
+    "parameters": {
+      "features": ["parent_child_rarity", "process_rarity_endpoint", "process_rarity_tenant", "first_seen_binary"],
+      "min_coverage": 0.75
+    },
+    "provenance": {"source": "NATIVE"}
+  },
+  {
+    "model_id": "ml.weighted.exec_behavior",
+    "model_version": "1.0.0",
+    "feature_schema_version": "fs-1.0.0",
+    "model_type": "WEIGHTED",
+    "lifecycle": "ACTIVE",
+    "threshold": 0.6,
+    "description": "Weighted command-line, spawn, network, persistence and timing features. Signal only.",
+    "parameters": {
+      "features": {
+        "cmdline_encoded_indicator": {"weight": 3.0},
+        "cmdline_entropy": {"weight": 1.0, "range": [4.2, 6.0]},
+        "cmdline_length": {"weight": 0.5, "range": [256, 2048]},
+        "child_spawn_burst": {"weight": 1.0, "range": [2, 20]},
+        "outbound_fanout": {"weight": 1.0, "range": [3, 30]},
+        "first_seen_ip": {"weight": 0.5},
+        "first_seen_domain": {"weight": 1.0},
+        "registry_persistence_touches": {"weight": 2.0, "range": [0, 2]},
+        "off_hours": {"weight": 0.5}
+      },
+      "min_coverage": 0.4
+    },
+    "provenance": {"source": "NATIVE"}
+  }
+]
