@@ -10,12 +10,23 @@ references to immutable raw evidence rather than copying telemetry payloads.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from pymongo import ReturnDocument
 
+log = logging.getLogger(__name__)
+
 COLLECTION = "edr_processing_queue"
+
+# The declared, immutable provenance marker written onto raw evidence by the
+# durable-ACK ingest path. Reconciliation owns exactly the evidence carrying
+# this marker and nothing else.
+PROCESSING_CONTRACT = "durable_queue_v1"
+
+# Performance bound for reconciliation reads. NOT an ownership rule.
+RECONCILE_WINDOW_SECONDS = 15 * 60
 
 PENDING = "PENDING"
 PROCESSING = "PROCESSING"
@@ -294,45 +305,51 @@ async def reconcile_missing_jobs(
     db: Any,
     *,
     limit: int = 500,
+    window_seconds: int = RECONCILE_WINDOW_SECONDS,
 ) -> dict[str, int]:
-    """Repair authenticated raw evidence missing a durable processing job.
+    """Repair durable-ACK raw evidence whose processing job did not persist.
 
-    Mongo performs the anti-join against edr_processing_queue, so already
-    covered historical rows cannot permanently hide a later missing job.
-    enqueue() remains the final idempotent authority.
+    AUTHORITY IS THE MARKER, NOT TIME. Only raw evidence stamped
+    `processing_contract == "durable_queue_v1"` at creation declares that a
+    processing obligation ought to exist for it, so only such evidence is
+    reconcilable. This is what makes a rolling deployment safe: an event
+    accepted by a pod still running the previous build never carries the
+    marker, is never reconciled, and is therefore never double-owned or
+    retro-queued by the new build. Historical evidence is not merely
+    skipped by a filter — it is outside the contract.
+
+    The window is a PERFORMANCE BOUND ONLY. It exists so this loop reads a
+    small, index-covered slice of recent traffic every interval instead of
+    the whole corpus; it confers no ownership of its own. Repair of a job
+    older than the window is still guaranteed, because the crash window
+    being repaired is seconds wide (raw write succeeded, queue write did
+    not) and the next ingest/redelivery from the endpoint re-enqueues
+    idempotently.
+
+    `enqueue()` remains the single idempotent authority: this function does
+    not pre-check the queue and does not write queue documents itself.
     """
     from edr_plane import raw_events
 
     limit = max(1, min(int(limit), 5000))
+    window_seconds = max(1, int(window_seconds))
+    since = (
+        _now() - timedelta(seconds=window_seconds)
+    ).isoformat()
 
-    pipeline = [
-        {"$match": {"trust_state": "AUTHENTICATED"}},
-        {"$lookup": {
-            "from": COLLECTION,
-            "let": {
-                "tenant": "$tenant_id",
-                "raw": "$raw_id",
+    cursor = (
+        db[raw_events.COLLECTION]
+        .find(
+            {
+                "processing_contract": PROCESSING_CONTRACT,
+                "trust_state": "AUTHENTICATED",
+                "ingest_time": {"$gte": since},
             },
-            "pipeline": [
-                {"$match": {"$expr": {"$and": [
-                    {"$eq": ["$tenant_id", "$$tenant"]},
-                    {"$eq": ["$raw_id", "$$raw"]},
-                ]}}},
-                {"$limit": 1},
-            ],
-            "as": "_processing_job",
-        }},
-        {"$match": {"_processing_job": {"$eq": []}}},
-        {"$sort": {"ingest_time": 1}},
-        {"$limit": limit},
-        {"$project": {
-            "_id": 0,
-            "tenant_id": 1,
-            "raw_id": 1,
-        }},
-    ]
-
-    cursor = db[raw_events.COLLECTION].aggregate(pipeline)
+            {"_id": 0, "tenant_id": 1, "raw_id": 1},
+        )
+        .sort("ingest_time", 1)
+        .limit(limit)
+    )
 
     scanned = 0
     created = 0
@@ -376,6 +393,49 @@ import asyncio
 
 _supervisor_task: asyncio.Task | None = None
 _stop_event: asyncio.Event | None = None
+
+# Rate-controlled reconciliation failure reporting. A reconciler that is
+# failing every 60s must be VISIBLE, but it must not emit 1440 identical
+# WARNINGs a day either. First failure is always logged; after that only
+# every Nth consecutive failure, with the running count, so an operator
+# sees both the onset and the persistence.
+_RECONCILE_LOG_EVERY = 10
+_reconcile_consecutive_failures = 0
+
+
+def reconcile_failure_count() -> int:
+    """Consecutive reconciliation failures since the last success."""
+    return _reconcile_consecutive_failures
+
+
+def _note_reconcile_failure(exc: BaseException) -> bool:
+    """Record a reconciliation failure. Returns True if it was logged."""
+    global _reconcile_consecutive_failures
+
+    _reconcile_consecutive_failures += 1
+    count = _reconcile_consecutive_failures
+
+    if count == 1 or count % _RECONCILE_LOG_EVERY == 0:
+        log.warning(
+            "[edr-reconcile] durable-job reconciliation FAILED "
+            "(consecutive=%d): %s",
+            count,
+            str(exc)[:500],
+        )
+        return True
+    return False
+
+
+def _note_reconcile_success() -> None:
+    global _reconcile_consecutive_failures
+
+    if _reconcile_consecutive_failures:
+        log.warning(
+            "[edr-reconcile] durable-job reconciliation RECOVERED after "
+            "%d consecutive failures",
+            _reconcile_consecutive_failures,
+        )
+    _reconcile_consecutive_failures = 0
 
 
 async def _worker_loop(
@@ -439,9 +499,14 @@ async def _supervisor(
         while not _stop_event.is_set():
             try:
                 await reconcile_missing_jobs(db)
-            except Exception:
-                # Reconciliation failure must not kill delivery workers.
-                pass
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                # Reconciliation failure must not kill delivery workers —
+                # but it must never be silent either.
+                _note_reconcile_failure(exc)
+            else:
+                _note_reconcile_success()
 
             try:
                 await asyncio.wait_for(
@@ -460,16 +525,17 @@ async def _supervisor(
 async def start_workers(
     db: Any,
     *,
-    worker_count: int = 2,
+    worker_count: int = 1,
     reconcile_interval_seconds: int = 60,
 ) -> bool:
     """Start exactly one bounded EDR processing supervisor per process."""
-    global _supervisor_task, _stop_event
+    global _supervisor_task, _stop_event, _reconcile_consecutive_failures
 
     if _supervisor_task is not None and not _supervisor_task.done():
         return False
 
     worker_count = max(1, min(int(worker_count), 8))
+    _reconcile_consecutive_failures = 0
 
     _stop_event = asyncio.Event()
     _supervisor_task = asyncio.create_task(

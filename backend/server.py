@@ -1048,12 +1048,12 @@ async def _startup():
         from deps import db as _edr_worker_db
         await _start_edr_workers(
             _edr_worker_db,
-            worker_count=2,
+            worker_count=1,
             reconcile_interval_seconds=60,
         )
         log.info(
             "[startup] EDR durable processing supervisor started "
-            "(workers=2, reconcile=60s)"
+            "(workers=1, reconcile=60s)"
         )
     except Exception as e:  # noqa: BLE001
         log.warning(

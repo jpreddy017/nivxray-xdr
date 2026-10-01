@@ -490,7 +490,13 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
         endpoint_ref=who.endpoint_id, payload=payload,
         event_time=event_time,
         received_from_ip=(request.client.host if request.client else None),
-        trust_state="AUTHENTICATED")
+        trust_state="AUTHENTICATED",
+        # PROVENANCE, NOT A TIMESTAMP. This event is created by the
+        # durable-ACK path, so it declares that a processing obligation is
+        # expected to exist for it. Reconciliation acts on this declaration
+        # alone, which is what makes a rolling deployment safe: an event
+        # served by an older pod simply never carries the marker.
+        processing_contract=processing_queue.PROCESSING_CONTRACT)
     ev.authentication = who.provenance()
     result = await raw.append(_db, ev)
     # DELIVERY FIDELITY · the event is RECEIVED the moment the

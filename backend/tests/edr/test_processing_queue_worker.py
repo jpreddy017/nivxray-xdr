@@ -151,22 +151,39 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
 
 
 class _FakeRawCursor:
+    """Raw-evidence collection fake for the contract-scoped reconciler.
+
+    The reconciler now issues an index-covered `find` scoped by the
+    `processing_contract` provenance marker instead of a full-corpus
+    `$lookup` anti-join, so the fake records the query it was given and
+    there is NO `aggregate` here at all — a reappearance of the historical
+    scan would fail with AttributeError rather than silently pass.
+    """
+
     def __init__(self, docs):
         self.docs = docs
+        self.query = None
+        self.projection = None
+        self.sort_spec = None
+        self.limit_value = None
 
-    def aggregate(self, pipeline):
-        # Production performs the missing-job filtering in Mongo.
-        # These unit-test docs represent the rows returned by that
-        # aggregation, so the fake only needs to expose an async cursor.
-        limit = next(
-            (stage["$limit"] for stage in pipeline if "$limit" in stage),
-            len(self.docs),
-        )
-        self.docs = self.docs[:limit]
+    def find(self, query, projection=None):
+        self.query = query
+        self.projection = projection
+        self._selected = list(self.docs)
+        return self
+
+    def sort(self, field, direction=1):
+        self.sort_spec = (field, direction)
+        return self
+
+    def limit(self, n):
+        self.limit_value = n
+        self._selected = self._selected[:n]
         return self
 
     def __aiter__(self):
-        self._iter = iter(self.docs)
+        self._iter = iter(getattr(self, "_selected", self.docs))
         return self
 
     async def __anext__(self):
