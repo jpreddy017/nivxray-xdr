@@ -3929,3 +3929,53 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     reached ("refusing to overwrite the image of a RUNNING NivXForgeSensor") and staging
     then succeeds once STOPPED with byte-identical content.
   * nivxforge_setup.py NOT modified. No production behaviour change. DESKTOP/KUSHU untouched.
+
+- READ-ONLY DEPLOYMENT READINESS CHECK for fix/edr-durable-ack-boundary @ 9273c964
+  (2026-10-01). NOTHING changed, deployed, restarted or mutated. Gate 4 still HOLD.
+  * Branch verified: 9273c964d959f942186d5f1ecee6ba896b15d0ce, parent 53287b82 (the Gate 4
+    payload fix - its workflow blob 8bcd04bb is IDENTICAL to the approved e793b9cf), on top
+    of 7897346d. Diff vs 7897346d = 6 files, +1077/-28: NEW
+    backend/edr_plane/processing_queue.py (506 lines), backend/routers/edr_enrollment.py
+    (ACK boundary), backend/server.py (+31 startup/shutdown), 2 new test files.
+  * PREVIEW RUNTIME OBSERVED (the only runtime the agent can inspect):
+    supervisor program [backend], command
+    /root/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 1 --reload,
+    directory /app/backend, autostart=true. ONE app process (pid 275) + 2 multiprocessing
+    helper children; SINGLE event loop confirmed. DB = local mongod (supervisor program
+    [mongodb], /usr/bin/mongod --bind_ip_all), MONGO_URL mongodb://localhost:27017,
+    DB_NAME test_database, NIVX_DEPLOYMENT_ENV=preview, edr_raw_events = 274,123 docs,
+    edr_processing_queue DOES NOT EXIST yet. /app is on feature/rc2-alignment, NOT 9273c964.
+  * ⚠ P0 COMPATIBILITY DEFECT FOUND, EVIDENCE-BACKED: server.py puts
+    `await _ensure_processing_queue_indexes(_raw_db)` TWO LINES AFTER
+    `await _ensure_raw_indexes(_raw_db)` INSIDE THE SAME try/except that only
+    log.warning()s. In this environment _ensure_raw_indexes ALREADY FAILS:
+    "[startup] edr_raw_events indexes failed: IndexKeySpecsConflict ... requested
+    obs_device_identity_facts {sparse: true}, existing obs_device_identity_facts {no
+    sparse}" (observed in /var/log/supervisor/backend.err.log at 13:46:41, and the
+    conflicting index is confirmed present on v2_shadow_observations without `sparse`).
+    CONSEQUENCE: processing_queue.ensure_indexes() is NEVER REACHED, so
+    edr_processing_queue is created WITHOUT the UNIQUE uniq_tenant_raw index that
+    enqueue()'s upsert idempotency depends on, and WITHOUT claimable_work /
+    expired_leases. Concurrent upserts can then insert DUPLICATE jobs, and claim() loses
+    its index support. The worker supervisor is in a SEPARATE try block and would still
+    start, so the deployment would look healthy while silently losing the idempotency
+    guarantee. MUST be fixed (own try block, or ensure indexes before/independently of the
+    raw-event block) BEFORE deploying. 27/27 local tests cannot catch this: they call
+    ensure_indexes directly, not through server startup.
+  * Design review of the new module (read-only): enqueue() is an idempotent
+    $setOnInsert upsert on (tenant_id, raw_id); claim() is an atomic
+    find_one_and_update over PENDING/RETRY plus EXPIRED PROCESSING leases with $inc
+    attempts and sort by created_at; start_workers() clamps worker_count to 1..8 and
+    guarantees one supervisor per PROCESS. Therefore N replicas x 1 worker-set is SAFE
+    (no double-processing), but N replicas means N x worker_count consumers.
+    stop_workers() has a 15s bounded drain on shutdown.
+  * ACK boundary in _ingest_one now: persist raw -> processing_queue.enqueue ->
+    mark_reported -> count RECEIVED, and the synchronous canonical bridge() call is
+    REMOVED from the request path. So a queue-write failure means NO ACK, which is the
+    intended fail-closed behaviour.
+  * PRODUCTION ANSWERS ARE UNKNOWN FROM THIS POD. nivxray.nivxforge.com is the
+    Emergent-deployed production backend; its deployed branch/commit, replica count,
+    worker count, entrypoint, database name and scale-to-zero behaviour are not visible
+    from the preview pod. A read-only deployer inspection was dispatched and returned
+    "queued" (asynchronous), so no production evidence was available in this turn.
+    DO NOT infer production from the repository.
