@@ -23,22 +23,20 @@ import api from "@/lib/api";
 import Header from "@/components/Header";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
 import CorrelationPanel from "./CorrelationPanel";
+import { ABSENCE, ATTRIBUTION_LABEL, NO_DETECTION, attributionOf, buildActivityView, mitreItems,
+  participatingFrameIds } from "@/v2/investigation/activityView.mjs";
+import { ActivityDetailsSections } from "@/v2/investigation/ActivityDetailsSections";
 
 // ── Design tokens (Glassy-white analyst theme) ─────────────────────
 import { T as SharedT } from "../theme";
 export const T = SharedT;
 
 // ── Data helpers ──────────────────────────────────────────────────
+// DT-I1C: red ("malicious" key) only for engine-attributed (rule-backed) frames.
+// MITRE-only frames are "unattributed" (neutral); nothing at all is "unknown" — never benign.
 function verdictOf(f) {
-  const hasMitre = (f.mitre || []).length > 0;
-  if (!hasMitre) return "benign";
-  const rule = (f.rule_id || f.provenance?.rule_id || "").toLowerCase();
-  if (rule) return "malicious";
-  // MITRE-tagged but no rule: promote impact / credential-access / defense-evasion
-  // techniques to malicious so the compromise band renders.
-  const malRe = /^(T1003|T1027|T1055|T1218|T1486|T1489|T1490|T1547|T1562|T1620)/;
-  const mal = (f.mitre || []).some(t => malRe.test(t));
-  return mal ? "malicious" : "suspicious";
+  const a = attributionOf(f);
+  return a === "detected" ? "malicious" : a;
 }
 function labelOf(f) {
   const raw = f.label || f.action || "";
@@ -117,7 +115,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    verdict: { malicious: true, suspicious: true, benign: true },
+    verdict: { malicious: true, unattributed: true, unknown: true },
     kind:    { process: true, file: true, registry: true, network: true },
   });
   const [playing, setPlaying] = useState(false);
@@ -206,14 +204,14 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         byKey.set(k, { key: k, label: labelOf(f), events: [],
                        firstTs: Infinity, lastTs: -Infinity,
                        lane: f.lane || "process",
-                       worstVerdict: "benign" });
+                       worstVerdict: "unknown" });
       const r = byKey.get(k);
       r.events.push(f);
       const t = new Date(f.ts).getTime();
       if (t < r.firstTs) r.firstTs = t;
       if (t > r.lastTs)  r.lastTs = t;
       const v = verdictOf(f);
-      if (v === "malicious" || (v === "suspicious" && r.worstVerdict !== "malicious"))
+      if (v === "malicious" || (v === "unattributed" && r.worstVerdict !== "malicious"))
         r.worstVerdict = v;
     });
 
@@ -345,18 +343,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       seenEdge.add(sig);
       evEdges.push({ from, to, kind: f.relationship?.type || "SPAWNED" });
     });
-    // Heuristic fallback if IRG produced nothing (e.g. non-enriched case).
-    if (evEdges.length === 0) {
-      for (let i = 1; i < procRows.length; i++) {
-        const child = procRows[i];
-        for (let j = i - 1; j >= 0; j--) {
-          if ((procRows[j].indent || 0) < (child.indent || 0)) {
-            evEdges.push({ from: procRows[j].key, to: child.key });
-            break;
-          }
-        }
-      }
-    }
+    // DT-I1D: no heuristic depth-based fallback. Without IRG parent identity the
+    // linkage is UNKNOWN and no connector is drawn (directive §2.5 / §5).
 
     return { rows: allRows, bands: bandDefs, edges: evEdges, events: evs };
   }, [frames, stages]);
@@ -403,12 +391,20 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     const allVerdictsOn = Object.values(verdictOn).every(Boolean);
     const allKindsOn    = Object.values(kindOn).every(Boolean);
     if (!q && allVerdictsOn && allKindsOn) {
+      // DT-I1C: a behavioral MATCH on the selected event highlights ONLY its contributing events.
+      const sel = selected ? events.find(e => e.id === selected) : null;
+      const part = sel ? participatingFrameIds(sel.meta || {}) : [];
+      if (part.length) {
+        const pIds = new Set(part);
+        return { matchedIds: pIds,
+                 matchedRowKeys: new Set(events.filter(e => pIds.has(e.id)).map(e => e.rowKey)) };
+      }
       return { matchedIds: null, matchedRowKeys: null };
     }
     const ids = new Set();
     const rk  = new Set();
     for (const ev of events) {
-      const v = ev.verdict || "benign";
+      const v = ev.verdict || "unknown";
       const k = ev.kind    || "process";
       if (verdictOn[v] === false) continue;
       if (kindOn[k] === false) continue;
@@ -420,7 +416,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       rk.add(ev.rowKey);
     }
     return { matchedIds: ids, matchedRowKeys: rk };
-  }, [events, searchQuery, filters]);
+  }, [events, searchQuery, filters, selected]);
 
   // ── Search-driven focus ──────────────────────────────────────────
   // When the analyst types a query that resolves to at least one
@@ -1440,9 +1436,9 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
         <div className="p-4">
           {/* Verdict badges */}
           <div className="flex items-center gap-2 mb-2">
-            <Badge label={event.verdict?.toUpperCase() || "UNKNOWN"}
-                   bg={event.verdict === "malicious" ? T.redT : event.verdict === "benign" ? "#DCFCE7" : "#F1F5F9"}
-                   fg={event.verdict === "malicious" ? T.red   : event.verdict === "benign" ? T.green : T.inkDim} />
+            <Badge label={ATTRIBUTION_LABEL[event.verdict === "malicious" ? "detected" : event.verdict] || "NOT ASSESSED"}
+                   bg={event.verdict === "malicious" ? T.redT : "#F1F5F9"}
+                   fg={event.verdict === "malicious" ? T.red  : T.inkDim} />
             {event.source && <Badge label="SOURCE" bg={T.blueT} fg={T.blue} />}
             <Badge label={event.kind?.toUpperCase() || ""} bg="#F1F5F9" fg={T.inkDim} />
           </div>
@@ -1521,15 +1517,17 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
           {event.mitre && event.mitre.length > 0 && (
             <Section label="MITRE ATT&CK">
               <div className="flex flex-wrap gap-1">
-                {event.mitre.map(t => {
+                {mitreItems(event.meta || {}).map(({ technique: t, style, attribution }) => {
                   const base = t.split(".")[0];
                   const href = `https://attack.mitre.org/techniques/${base}${t.includes(".") ? "/" + t.split(".")[1] : ""}/`;
                   return (
                     <a key={t} href={href} target="_blank" rel="noreferrer"
                        data-testid={`evidence-mitre-${t}`}
+                       data-attribution={attribution}
                        className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold hover:opacity-80"
-                       style={{ background: T.redT, color: T.red }}
-                       title="Open ATT&CK technique">
+                       style={style === "threat" ? { background: T.redT, color: T.red }
+                                                 : { background: "#F1F5F9", color: T.inkDim }}
+                       title={`Open ATT&CK technique · ${attribution}`}>
                       {t}
                     </a>
                   );
@@ -1563,14 +1561,30 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               </div>
             </Section>
           )}
+          {!(event.meta?.rule_id || event.meta?.provenance?.rule_id) && (
+            <Section label="DETECTION">
+              <div className="text-[11px]" data-testid="evidence-no-detection" style={{ color: T.inkDim }}>
+                {NO_DETECTION}
+              </div>
+              <div className="text-[10px] italic" data-testid="evidence-absence-statement" style={{ color: T.inkMute }}>
+                {ABSENCE}
+              </div>
+            </Section>
+          )}
 
-          {/* Actions */}
+          {/* Actions — Block SHA / Allow-list have no backend authority wired (DT-I1A F4) */}
           <Section label="ACTIONS">
             <div className="flex gap-2 flex-wrap">
-              <button className="text-[11px] px-2.5 py-1 rounded font-semibold"
-                      style={{ background: T.red, color: "#0A0F18" }}>Block SHA</button>
-              <button className="text-[11px] px-2.5 py-1 rounded font-medium"
-                      style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>Allow-list</button>
+              <button className="text-[11px] px-2.5 py-1 rounded font-semibold opacity-60 cursor-not-allowed"
+                      disabled data-testid="action-block-sha-not-wired"
+                      title="NOT_WIRED: no indicator-block authority is connected"
+                      style={{ background: "#F1F5F9", border: `1px dashed ${T.line}`, color: T.inkDim }}>
+                Block SHA · NOT_WIRED</button>
+              <button className="text-[11px] px-2.5 py-1 rounded font-medium opacity-60 cursor-not-allowed"
+                      disabled data-testid="action-allowlist-not-wired"
+                      title="NOT_WIRED: no allow-list authority is connected"
+                      style={{ background: "#F1F5F9", border: `1px dashed ${T.line}`, color: T.inkDim }}>
+                Allow-list · NOT_WIRED</button>
               <button className="text-[11px] px-2.5 py-1 rounded font-medium"
                       style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
                       onClick={() => navigator.clipboard?.writeText(event.id || "")}>
@@ -1580,6 +1594,7 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               </button>
             </div>
           </Section>
+          <ActivityDetailsSections view={buildActivityView(event.meta || {})} />
         </div>
       )}
     </div>
@@ -1688,8 +1703,8 @@ function FiltersPopover({ filters, onChange, onClose }) {
           </div>
         </div>
         <Row group="verdict" k="malicious"  dot={T.red} />
-        <Row group="verdict" k="suspicious" dot={T.amber} />
-        <Row group="verdict" k="benign"     dot={T.gray} />
+        <Row group="verdict" k="unattributed" dot={T.gray} />
+        <Row group="verdict" k="unknown"      dot="#CBD5E1" />
 
         <div className="flex items-center justify-between mt-3 mb-1">
           <div className="text-[9px] tracking-[1.6px] font-bold" style={{ color: T.inkMute }}>KIND</div>
