@@ -3902,3 +3902,30 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     publishing route can include it. The earlier .diff was removed.
   * nivxforge_setup.py untouched; --token-stdin preserved; no --token; no real token;
     DESKTOP and KUSHU untouched; no production/backend/frontend change.
+
+- GATE 4 RUN #13 (commit 7897346d, run 36838666449) - READ-ONLY DIAGNOSIS. Nothing edited,
+  committed, pushed or saved. HOLD unchanged; the artifact must NOT go near DESKTOP.
+  * The PowerShell fix WORKED: Gate 4 executed for the first time and printed
+    "GATE4 PRECONDITION: RUNNING". The `< NUL` parse error is gone.
+  * NEW, DIFFERENT HARNESS DEFECT (not an installer defect): gate4_race.py imports the
+    SOURCE module and calls s._stage_service_host(). _service_payload_dir() reads
+    sys._MEIPASS, which exists ONLY in the frozen exe, so from source it returns None and
+    _stage_service_host() raises "this build carries no Windows service host payload" at
+    nivxforge_setup.py:387 - BEFORE reaching the RUNNING guard the gate exists to prove.
+    The harness then re-raised it as AssertionError on `assert "RUNNING" in text`, so the
+    step failed with "GATE 4 lifecycle checks failed". The later end-to-end section was
+    never reached; it correctly uses the FROZEN dist/NivXForgeEDRSetup.exe.
+  * PROPOSED MINIMAL REPAIR (one hunk, same Gate 4 step, 18 added lines): hand the source
+    module a byte-copy of the service host that the UPSTREAM "Service host unpacks from the
+    installer" gate already staged from the frozen artifact via `stage-host`
+    (shutil.copytree(s.SERVICE_DIR, payload); s._service_payload_dir = lambda: payload).
+    Payload packaging is already proved by that upstream gate; Gate 4 is about the SCM race.
+    No assertion removed, relaxed or bypassed; staging stays content-identical so the real
+    service image is not clobbered. The copy is taken BEFORE _install_service, so the image
+    is not locked.
+  * LOCAL VERIFICATION of the proposal: proposed YAML parses (12 steps); the extracted
+    gate4_race.py block compiles (53 lines); and a Linux simulation shows the exact
+    transition - before: "no Windows service host payload"; after: the RUNNING guard is
+    reached ("refusing to overwrite the image of a RUNNING NivXForgeSensor") and staging
+    then succeeds once STOPPED with byte-identical content.
+  * nivxforge_setup.py NOT modified. No production behaviour change. DESKTOP/KUSHU untouched.
