@@ -1,0 +1,166 @@
+{
+  "pack_version": 1,
+  "pack_id": "nivxforge.e3.starter",
+  "note": "Starter behavioral pack. Small and illustrative; NOT full coverage.",
+  "rules": [
+    {
+      "rule_id": "E3-SEQ-001", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Office application spawns script interpreter",
+      "description": "An Office process is the direct parent of a script interpreter. Common in macro-based initial access.",
+      "severity": "HIGH", "confidence": 60, "time_window_seconds": 120, "entity_scope": "device", "ordered": true,
+      "stages": [
+        {"id": "office", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "mspub.exe", "onenote.exe", "msaccess.exe"]}},
+        {"id": "interp", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe"]}}
+      ],
+      "relationships": [{"type": "parent_child", "parent": "office", "child": "interp", "min_linkage": "PID_SURROGATE"}],
+      "confidence_adjustments": [
+        {"stage": "interp", "reason": "interpreter command line carries download/encoding markers", "delta": 15,
+         "predicate": {"field": "process.command_line", "op": "contains_any",
+           "value": ["-enc", "downloadstring", "iex", "frombase64string", "invoke-webrequest"]}}
+      ],
+      "mitre": [{"technique_id": "T1566.001", "name": "Spearphishing Attachment", "tactic": "initial-access"},
+                {"technique_id": "T1059", "name": "Command and Scripting Interpreter", "tactic": "execution"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1566/001/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-002", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Encoded PowerShell followed by external network activity",
+      "description": "PowerShell started with an encoded/obfuscated command, then the same process resolves a domain (optional) and connects to a non-private address.",
+      "severity": "HIGH", "confidence": 55, "time_window_seconds": 300, "entity_scope": "process", "ordered": true,
+      "stages": [
+        {"id": "ps", "type": "COMMAND", "predicate": {"all": [
+          {"field": "process.name", "op": "in", "value": ["powershell.exe", "pwsh.exe"]},
+          {"field": "process.command_line", "op": "contains_any",
+           "value": [" -enc ", " -encodedcommand ", " -ec ", "frombase64string"]}]}},
+        {"id": "dns", "type": "DNS", "optional": true, "confidence_bonus": 10,
+         "predicate": {"field": "dns.query_name", "op": "exists"}},
+        {"id": "net", "type": "NETWORK", "predicate": {"all": [
+          {"field": "network.dest_ip", "op": "exists"},
+          {"not": {"field": "network.dest_ip", "op": "startswith_any",
+                   "value": ["10.", "192.168.", "127.", "169.254.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "::1", "fe80:"]}}]}}
+      ],
+      "relationships": [{"type": "same_process", "stages": ["ps", "dns"]},
+                        {"type": "same_process", "stages": ["ps", "net"]},
+                        {"type": "dns_to_ip", "dns": "dns", "network": "net"}],
+      "mitre": [{"technique_id": "T1059.001", "name": "PowerShell", "tactic": "execution"},
+                {"technique_id": "T1027", "name": "Obfuscated Files or Information", "tactic": "defense-evasion"},
+                {"technique_id": "T1071", "name": "Application Layer Protocol", "tactic": "command-and-control"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1059/001/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-003", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Script interpreter spawns credential-access tooling",
+      "description": "A script interpreter is the parent of a process whose command line targets LSASS memory or registry credential hives.",
+      "severity": "CRITICAL", "confidence": 65, "time_window_seconds": 600, "entity_scope": "device", "ordered": true,
+      "stages": [
+        {"id": "interp", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe"]}},
+        {"id": "cred", "type": "COMMAND", "predicate": {"field": "process.command_line", "op": "contains_any",
+          "value": ["comsvcs.dll", "minidump", "sekurlsa", "lsass", "reg save hklm\\sam", "reg save hklm\\security", "ntds.dit"]}}
+      ],
+      "relationships": [{"type": "parent_child", "parent": "interp", "child": "cred", "min_linkage": "PID_SURROGATE"}],
+      "mitre": [{"technique_id": "T1003.001", "name": "LSASS Memory", "tactic": "credential-access"},
+                {"technique_id": "T1003.002", "name": "Security Account Manager", "tactic": "credential-access"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1003/001/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-004", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "LOLBin makes external network connection",
+      "description": "A living-off-the-land binary connects to a non-private address from the same process.",
+      "severity": "MEDIUM", "confidence": 50, "time_window_seconds": 300, "entity_scope": "process", "ordered": true,
+      "stages": [
+        {"id": "lolbin", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["certutil.exe", "bitsadmin.exe", "mshta.exe", "regsvr32.exe", "rundll32.exe", "msiexec.exe", "wmic.exe", "installutil.exe", "msbuild.exe"]}},
+        {"id": "net", "type": "NETWORK", "predicate": {"all": [
+          {"field": "network.dest_ip", "op": "exists"},
+          {"not": {"field": "network.dest_ip", "op": "startswith_any",
+                   "value": ["10.", "192.168.", "127.", "169.254.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "::1", "fe80:"]}}]}}
+      ],
+      "relationships": [{"type": "same_process", "stages": ["lolbin", "net"]}],
+      "exclusions": [{"stage": "net", "reason": "Microsoft update infrastructure (management tooling)",
+        "predicate": {"field": "network.dest_hostname", "op": "endswith_any", "value": [".windowsupdate.com", ".update.microsoft.com"]}}],
+      "mitre": [{"technique_id": "T1218", "name": "System Binary Proxy Execution", "tactic": "defense-evasion"},
+                {"technique_id": "T1105", "name": "Ingress Tool Transfer", "tactic": "command-and-control"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://lolbas-project.github.io/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-005", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Interpreter or LOLBin writes autorun registry persistence",
+      "description": "A script interpreter or LOLBin sets a Run/RunOnce/Winlogon/IFEO registry value from the same process.",
+      "severity": "HIGH", "confidence": 60, "time_window_seconds": 600, "entity_scope": "process", "ordered": true,
+      "stages": [
+        {"id": "actor", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["powershell.exe", "pwsh.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe", "reg.exe", "rundll32.exe", "regsvr32.exe"]}},
+        {"id": "persist", "type": "REGISTRY", "predicate": {"field": "registry.key", "op": "contains_any",
+          "value": ["\\currentversion\\run", "\\currentversion\\runonce", "\\winlogon\\shell", "\\winlogon\\userinit", "\\image file execution options\\"]}}
+      ],
+      "relationships": [{"type": "same_process", "stages": ["actor", "persist"]}],
+      "mitre": [{"technique_id": "T1547.001", "name": "Registry Run Keys / Startup Folder", "tactic": "persistence"},
+                {"technique_id": "T1546.012", "name": "Image File Execution Options Injection", "tactic": "persistence"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1547/001/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-006", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Executable file written then executed",
+      "description": "A file with an executable/script extension is created and later started as a process from the same path.",
+      "severity": "MEDIUM", "confidence": 45, "time_window_seconds": 3600, "entity_scope": "file", "ordered": true,
+      "stages": [
+        {"id": "write", "type": "FILE", "predicate": {"all": [
+          {"field": "file.operation", "op": "in", "value": ["create", "write", "modify"]},
+          {"field": "file.path", "op": "endswith_any", "value": [".exe", ".dll", ".scr", ".ps1", ".vbs", ".js", ".hta", ".bat", ".cmd", ".sh", ".elf", ".bin"]}]}},
+        {"id": "exec", "type": "PROCESS", "predicate": {"field": "process.executable_path", "op": "exists"}}
+      ],
+      "relationships": [{"type": "same_value", "left": "write:file.path", "right": "exec:process.executable_path"}],
+      "mitre": [{"technique_id": "T1105", "name": "Ingress Tool Transfer", "tactic": "command-and-control"},
+                {"technique_id": "T1204.002", "name": "Malicious File", "tactic": "execution"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1204/002/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-007", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Script drops payload which is then executed",
+      "description": "A script interpreter writes an executable file and that file is subsequently executed.",
+      "severity": "HIGH", "confidence": 60, "time_window_seconds": 1800, "entity_scope": "device", "ordered": true,
+      "stages": [
+        {"id": "script", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "python.exe", "python3", "bash", "sh"]}},
+        {"id": "drop", "type": "FILE", "predicate": {"field": "file.path", "op": "endswith_any",
+          "value": [".exe", ".dll", ".scr", ".elf", ".bin", ".so"]}},
+        {"id": "run", "type": "PROCESS", "predicate": {"field": "process.executable_path", "op": "exists"}}
+      ],
+      "relationships": [{"type": "same_process", "stages": ["script", "drop"]},
+                        {"type": "same_value", "left": "drop:file.path", "right": "run:process.executable_path"}],
+      "mitre": [{"technique_id": "T1059", "name": "Command and Scripting Interpreter", "tactic": "execution"},
+                {"technique_id": "T1105", "name": "Ingress Tool Transfer", "tactic": "command-and-control"},
+                {"technique_id": "T1204.002", "name": "Malicious File", "tactic": "execution"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1105/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    },
+    {
+      "rule_id": "E3-SEQ-008", "version": 1, "lifecycle": "ACTIVE", "enabled": true,
+      "name": "Server process spawns shell running reconnaissance",
+      "description": "A web/database server process is the parent of a shell whose command line performs host/user discovery.",
+      "severity": "HIGH", "confidence": 60, "time_window_seconds": 300, "entity_scope": "device", "ordered": true,
+      "stages": [
+        {"id": "server", "type": "PROCESS", "predicate": {"field": "process.name", "op": "in",
+          "value": ["w3wp.exe", "sqlservr.exe", "httpd", "nginx", "apache2", "php-fpm", "tomcat9", "httpd.exe", "nginx.exe"]}},
+        {"id": "shell", "type": "COMMAND", "predicate": {"all": [
+          {"field": "process.name", "op": "in", "value": ["cmd.exe", "powershell.exe", "pwsh.exe", "sh", "bash", "dash"]},
+          {"field": "process.command_line", "op": "contains_any",
+           "value": ["whoami", "net user", "net localgroup", "nltest", "systeminfo", "ipconfig /all", "uname -a", "cat /etc/passwd"]}]}}
+      ],
+      "relationships": [{"type": "parent_child", "parent": "server", "child": "shell", "min_linkage": "PID_SURROGATE"}],
+      "mitre": [{"technique_id": "T1505.003", "name": "Web Shell", "tactic": "persistence"},
+                {"technique_id": "T1033", "name": "System Owner/User Discovery", "tactic": "discovery"}],
+      "provenance": {"source": "NATIVE", "author": "nivxforge-e3", "references": ["https://attack.mitre.org/techniques/T1505/003/"]},
+      "created_at": "2026-09-01T00:00:00Z", "updated_at": "2026-09-01T00:00:00Z"
+    }
+  ]
+}

@@ -11,7 +11,7 @@ MAX_LIST = 256
 MAX_LITERAL = 512
 
 OPS = frozenset({"eq", "neq", "in", "not_in", "contains", "contains_any",
-                 "startswith", "endswith", "endswith_any", "exists",
+                 "startswith", "startswith_any", "endswith", "endswith_any", "exists",
                  "not_exists", "gte", "lte", "len_gte"})
 FIELD_PREFIXES = ("process.", "parent.", "file.", "registry.", "dns.",
                   "network.", "auth.", "user.", "detection.", "host.")
@@ -54,7 +54,7 @@ def validate(node: Any, depth: int = 0, counter: Optional[List[int]] = None) -> 
     v = node.get("value")
     if op in ("exists", "not_exists"):
         return
-    if op in ("in", "not_in", "contains_any", "endswith_any"):
+    if op in ("in", "not_in", "contains_any", "startswith_any", "endswith_any"):
         if not isinstance(v, list) or not v or len(v) > MAX_LIST:
             raise PredicateError(f"{op} needs a list of 1..{MAX_LIST} literals")
         for x in v:
@@ -134,6 +134,8 @@ def _leaf(rec: EvidenceRecord, node: Dict[str, Any]) -> str:
         return TRUE if any(str(x) in s for s in strs for x in lit) else FALSE
     if op == "startswith":
         return TRUE if any(s.startswith(str(lit)) for s in strs) else FALSE
+    if op == "startswith_any":
+        return TRUE if any(s.startswith(str(x)) for s in strs for x in lit) else FALSE
     if op == "endswith":
         return TRUE if any(s.endswith(str(lit)) for s in strs) else FALSE
     if op == "endswith_any":
