@@ -4041,3 +4041,40 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     KUSHU backlog drain - minimal one-token change at the server.py call site, no new
     dependency, no leader election, no Redis, no K8s job.
   * DEPLOYMENT BLOCKER: YES - the reconciler scope/silence, not the worker count.
+
+- BOUNDED-RECONCILER PATCH DESIGN (prepared for review 2026-10-01, NOT applied).
+  Nothing edited/committed/pushed/deployed; no Mongo write. KUSHU stopped, Gate 4 HOLD.
+  * BOUNDARY = a PERSISTED DEPLOYMENT WATERMARK, not a wall-clock window.
+    edr_processing_queue_state doc _id="reconcile_floor" written ONCE with $setOnInsert at
+    the first startup of the new build; every pod/restart READS the same value, so there is
+    no clock-skew divergence and the floor never moves backwards.
+    Effective window = [max(floor, now - lookback), now - settle],
+    lookback 15 min (crash-window repair, survives a pod restart),
+    settle 60 s (do not race an in-flight request that has written raw but not yet the job).
+    WHY "last 10 minutes" ALONE IS WRONG: at deploy time the 10 minutes of raw events
+    ingested immediately BEFORE the rollout are pre-feature - they were ACKed under the old
+    contract and already canonicalised inline - yet they have no queue row, so a pure
+    relative window would mass-enqueue them for re-canonicalisation. The floor excludes
+    them by construction.
+    WHY A PROCESS-START WATERMARK ALONE IS WRONG: if a pod dies between the raw write and
+    the queue write, the replacement process's start time is LATER than the orphan's
+    ingest_time, so the orphan would never be repaired - which is the exact crash window
+    the reconciler exists for. Hence floor (fixed, persisted) AND lookback (relative).
+  * QUERY REDESIGN: the $lookup anti-join and the $sort of FULL documents are DELETED.
+    Because the window is minutes wide, a plain
+    find({trust_state:"AUTHENTICATED", ingest_time:{$gte:lo,$lte:hi}},
+         {_id:0, tenant_id:1, raw_id:1, ingest_time:1}).sort(ingest_time).limit(n)
+    plus a blind idempotent enqueue() per row is strictly correct and cheaper: enqueue's
+    upsert result already distinguishes created vs already_present, so no anti-join is
+    needed at all.
+  * INDEX REQUIRED (new, on edr_raw_events): (trust_state, ingest_time) name
+    "reconcile_window" - equality then range, added to raw_events.ensure_indexes which runs
+    at server.py:926, BEFORE the known v2_shadow_observations thrower at 989. ingest_time is
+    an ISO-8601 UTC STRING, so a lexicographic range is correct and index-supported.
+  * OBSERVABILITY: `except Exception: pass` in _supervisor is replaced by a rate-controlled
+    warning (first failure, then at most 1 in N cycles) and the {scanned, created,
+    already_present} summary is logged when created > 0. No payloads, no credentials.
+  * worker_count 2 -> 1 at the server.py call site (+ the log string). 2 pods => 2 workers.
+  * TEST PLAN: A historical pre-floor events not reconciled; B recent orphan repaired;
+    C existing job not duplicated; D failure surfaces a warning instead of silence;
+    E worker_count is 1 per process; F the 27 existing ACK-boundary tests stay green.
