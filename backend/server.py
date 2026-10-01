@@ -924,6 +924,10 @@ async def _startup():
         from edr_plane.raw_events import ensure_indexes as _ensure_raw_indexes
         from deps import db as _raw_db
         await _ensure_raw_indexes(_raw_db)
+        from edr_plane.processing_queue import (
+            ensure_indexes as _ensure_processing_queue_indexes)
+        await _ensure_processing_queue_indexes(_raw_db)
+
         from edr_plane.enrollment.store import ensure_indexes as _ensure_enr
         from edr_plane.enrollment.rejection import (
             ensure_indexes as _ensure_rej)
@@ -1036,6 +1040,26 @@ async def _startup():
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] EDR findings indexes failed: {e}")
 
+    # Start durable EDR processing only after all synchronous EDR index
+    # initialization above has had an opportunity to complete. This avoids
+    # workers racing raw-event, observation, policy, or findings setup.
+    try:
+        from edr_plane.processing_queue import start_workers as _start_edr_workers
+        from deps import db as _edr_worker_db
+        await _start_edr_workers(
+            _edr_worker_db,
+            worker_count=1,
+            reconcile_interval_seconds=60,
+        )
+        log.info(
+            "[startup] EDR durable processing supervisor started "
+            "(workers=1, reconcile=60s)"
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning(
+            f"[startup] EDR durable processing supervisor failed: {e}"
+        )
+
 
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
@@ -1144,6 +1168,13 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
+    try:
+        from edr_plane.processing_queue import stop_workers as _stop_edr_workers
+        await _stop_edr_workers()
+        log.info("[shutdown] EDR durable processing supervisor stopped")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[shutdown] EDR processing supervisor stop failed: {e}")
+
     try:
         from services.files.retention_sweeper import stop_retention_sweeper
         await stop_retention_sweeper()

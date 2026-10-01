@@ -26,6 +26,7 @@ from deps import db as _db, get_current_user
 from edr_plane import delivery_counters as counters
 from edr_plane import acquisition_integrity as acq_integrity
 from edr_plane import raw_events as raw
+from edr_plane import processing_queue
 from edr_plane.canonical_bridge import bridge
 from edr_plane.contracts.identity import EndpointIdentity
 from edr_plane.enrollment import store
@@ -489,7 +490,13 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
         endpoint_ref=who.endpoint_id, payload=payload,
         event_time=event_time,
         received_from_ip=(request.client.host if request.client else None),
-        trust_state="AUTHENTICATED")
+        trust_state="AUTHENTICATED",
+        # PROVENANCE, NOT A TIMESTAMP. This event is created by the
+        # durable-ACK path, so it declares that a processing obligation is
+        # expected to exist for it. Reconciliation acts on this declaration
+        # alone, which is what makes a rolling deployment safe: an event
+        # served by an older pod simply never carries the marker.
+        processing_contract=processing_queue.PROCESSING_CONTRACT)
     ev.authentication = who.provenance()
     result = await raw.append(_db, ev)
     # DELIVERY FIDELITY · the event is RECEIVED the moment the
@@ -506,7 +513,18 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
         except Exception as ex:  # noqa: BLE001
             log.warning("[delivery-counters] %s", str(ex)[:200])
 
-    await _count([counters.RECEIVED])
+    # DURABLE ACK BOUNDARY
+    # The endpoint may release its local evidence only after the backend
+    # durably owns BOTH the immutable raw event and its downstream
+    # processing obligation.  Enqueue is intentionally attempted for
+    # duplicates too: a redelivery repairs the crash window where the raw
+    # write succeeded but the processing-job write did not.
+    processing_created = await processing_queue.enqueue(
+        _db, tenant_id=who.tenant_id, raw_id=result["raw_id"])
+
+    # Liveness is advanced only after the complete durable ACK boundary
+    # succeeds. If queue persistence fails, the endpoint receives no ACK
+    # and is not falsely recorded as having successfully reported.
     if report:
         await store.mark_reported(_db, tenant_id=who.tenant_id,
                                   endpoint_id=who.endpoint_id,
@@ -514,36 +532,25 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
                                   report_interval_seconds=(
                                       report_interval_seconds))
 
-    # P0-D · canonical bridge. Only for a NEW event: re-canonicalising a
-    # byte-identical duplicate would double-count the same activity.
-    canonical = {"canonicalized": False, "reason": "duplicate payload; the "
-                 "original event was already canonicalised"}
+    # Count RECEIVED only once the request has crossed every durable/
+    # liveness prerequisite required to reach its terminal delivery outcome.
+    # A failed enqueue or mark_reported therefore cannot leave a permanent
+    # unaccounted_received gap.
+    await _count([counters.RECEIVED])
+
     if result.get("stored"):
         await _count([counters.ACCEPTED])
-        ep = await store.get_endpoint(_db, tenant_id=who.tenant_id,
-                                      endpoint_id=who.endpoint_id) or {}
-        canonical = await bridge(
-            _db, raw_id=ev.raw_id, tenant_id=who.tenant_id,
-            payload=payload, endpoint_id=who.endpoint_id,
-            hostname=ep.get("hostname"), authentication=who.provenance(),
-            source_kind=ev.source_kind, sensor_version=ev.sensor_version,
-            nivx_received_at=ev.ingest_time)
-        if canonical.get("parser_state") == "FAILED":
-            # A PARSE FAILURE IS A COUNTED OUTCOME. It is not loss and it
-            # is not an absence of activity: the bytes are retained and
-            # replayable, and the refusal is auditable.
-            await _count([counters.PARSE_FAILED], reason_code="PARSER_FAILED")
-        elif canonical.get("duplicate_activity"):
-            await _count([counters.PARSED, counters.DEDUPLICATED,
-                          "deduplicated_activity"])
-        elif canonical.get("canonicalized"):
-            await _count([counters.PARSED, counters.CANONICALIZED])
-        else:
-            await _count([counters.REFUSED],
-                         reason_code=str(canonical.get("reason")
-                                         or "CANONICALIZATION_REFUSED")[:80])
     else:
         await _count([counters.DEDUPLICATED, "deduplicated_payload"])
+
+    canonical = {
+        "canonicalized": False,
+        "reason": "durably queued for asynchronous processing",
+    }
+    processing = {
+        "durable": True,
+        "created": bool(processing_created),
+    }
 
     return {
         **result,
@@ -551,6 +558,7 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
         "authenticated": True,
         "auth_method": who.auth_method,
         "canonical": canonical,
+        "processing": processing,
         "note": ("Raw bytes preserved immutably. The parse outcome is "
                  "APPENDED as a derivation and never overwrites the "
                  "original — a parser failure leaves a retained, replayable "

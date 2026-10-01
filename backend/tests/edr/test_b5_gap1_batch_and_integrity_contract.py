@@ -10,6 +10,8 @@ query, no endpoint contact.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import json
 
 import pytest
@@ -322,3 +324,170 @@ async def test_a_zero_length_gap_is_not_a_gap():
                                 "first_observed_record_id": 101}]})
     assert out["gaps_newly_recorded"] == 0
     assert db[acq.GAPS].docs == []
+
+
+# ═════════ GATE B · DURABLE ACK BOUNDARY ══════════════════════════
+@pytest.mark.asyncio
+async def test_ingest_does_not_ack_when_processing_job_cannot_be_persisted(
+        monkeypatch):
+    """Raw retention alone is not enough to release endpoint evidence.
+
+    If the durable downstream-processing obligation cannot be recorded,
+    _ingest_one must fail so batch ingest returns accepted=false and the
+    sensor retains its journal row for retry.
+    """
+    class _Who:
+        tenant_id = "t"
+        endpoint_id = "ep"
+        auth_method = "session"
+
+        def provenance(self):
+            return {"endpoint_id": self.endpoint_id}
+
+    async def _append(*a, **k):
+        return {
+            "stored": True,
+            "duplicate": False,
+            "raw_id": "raw_test",
+        }
+
+    async def _enqueue(*a, **k):
+        raise RuntimeError("processing queue unavailable")
+
+    counter_calls = []
+
+    async def _count(*a, **k):
+        counter_calls.append((a, k))
+
+    async def _mark_reported(*a, **k):
+        raise AssertionError(
+            "mark_reported must not run when durable enqueue fails"
+        )
+
+    monkeypatch.setattr(e.raw, "append", _append)
+    monkeypatch.setattr(e.processing_queue, "enqueue", _enqueue)
+    monkeypatch.setattr(e.counters, "record", _count)
+    monkeypatch.setattr(e.store, "mark_reported", _mark_reported)
+
+    with pytest.raises(RuntimeError, match="processing queue unavailable"):
+        await e._ingest_one(
+            payload=_payload(1),
+            event_time=None,
+            source_kind="sensor",
+            sensor_version="test",
+            report_interval_seconds=30,
+            who=_Who(),
+            request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1")),
+            report=True,
+        )
+
+    assert counter_calls == [], (
+        "failed durable enqueue must not record RECEIVED, ACCEPTED, "
+        "DEDUPLICATED, or any other terminal delivery outcome"
+    )
+
+
+@pytest.mark.asyncio
+async def test_duplicate_redelivery_repairs_processing_obligation(monkeypatch):
+    """A duplicate raw event must still ensure durable downstream work.
+
+    This closes the crash window where raw persistence succeeded but queue
+    creation did not: the sensor retry repairs the missing obligation.
+    """
+    class _Who:
+        tenant_id = "t"
+        endpoint_id = "ep"
+        auth_method = "session"
+
+        def provenance(self):
+            return {"endpoint_id": self.endpoint_id}
+
+    async def _append(*a, **k):
+        return {
+            "stored": False,
+            "duplicate": True,
+            "raw_id": "raw_existing",
+        }
+
+    queued = []
+
+    async def _enqueue(*a, **k):
+        queued.append(k)
+        return {
+            "tenant_id": k["tenant_id"],
+            "raw_id": k["raw_id"],
+            "created": True,
+        }
+
+    async def _count(*a, **k):
+        return None
+
+    monkeypatch.setattr(e.raw, "append", _append)
+    monkeypatch.setattr(e.processing_queue, "enqueue", _enqueue)
+    monkeypatch.setattr(e.counters, "record", _count)
+
+    out = await e._ingest_one(
+        payload=_payload(1),
+        event_time=None,
+        source_kind="sensor",
+        sensor_version="test",
+        report_interval_seconds=None,
+        who=_Who(),
+        request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1")),
+        report=False,
+    )
+
+    assert queued == [{"tenant_id": "t", "raw_id": "raw_existing"}]
+    assert out["duplicate"] is True
+    assert out["processing"]["durable"] is True
+
+
+@pytest.mark.asyncio
+async def test_ack_path_does_not_run_canonical_bridge_inline(monkeypatch):
+    """The endpoint ACK boundary must not wait for XDR processing."""
+    class _Who:
+        tenant_id = "t"
+        endpoint_id = "ep"
+        auth_method = "session"
+
+        def provenance(self):
+            return {"endpoint_id": self.endpoint_id}
+
+    async def _append(*a, **k):
+        return {
+            "stored": True,
+            "duplicate": False,
+            "raw_id": "raw_test",
+        }
+
+    async def _enqueue(*a, **k):
+        return {
+            "tenant_id": k["tenant_id"],
+            "raw_id": k["raw_id"],
+            "created": True,
+        }
+
+    async def _bridge(*a, **k):
+        raise AssertionError("bridge must not run before sensor ACK")
+
+    async def _count(*a, **k):
+        return None
+
+    monkeypatch.setattr(e.raw, "append", _append)
+    monkeypatch.setattr(e.processing_queue, "enqueue", _enqueue)
+    monkeypatch.setattr(e, "bridge", _bridge)
+    monkeypatch.setattr(e.counters, "record", _count)
+
+    out = await e._ingest_one(
+        payload=_payload(1),
+        event_time=None,
+        source_kind="sensor",
+        sensor_version="test",
+        report_interval_seconds=None,
+        who=_Who(),
+        request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1")),
+        report=False,
+    )
+
+    assert out["stored"] is True
+    assert out["processing"]["durable"] is True
