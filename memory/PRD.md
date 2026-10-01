@@ -3812,3 +3812,38 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * NOT DONE, OWNER ACTION: trigger workflow_dispatch on windows-sensor-installer.yml to
     produce the new exe + SHA256. DESKTOP and KUSHU untouched, no token minted/revoked/used,
     nothing deployed.
+
+- P0 OWNER GITHUB HANDOFF PREPARED (2026-10-01). Nothing pushed, merged, deployed or
+  triggered. DESKTOP and KUSHU untouched. No token minted/used/revoked.
+  * The platform auto-commit had already folded the P0 work into
+    4b6a08b7 on feature/rc2-alignment TOGETHER WITH unrelated files
+    (apps/nivxray-xdr-response/data/executions.db-shm, executions.db-wal, memory/PRD.md).
+    That commit was NOT altered, reset or discarded.
+  * CLEAN ISOLATED COMMIT, built in a temporary worktree so /app was never checked out:
+      branch  fix/windows-reenrol-staging-race   (local only, lives in /app/.git)
+      commit  a0e402af3f357f749e46bca4d428939da8a802dc
+      parent  ee0348e260930b49e970d514879cb1afe37f90df
+      7 files, +855/-56, and all 7 blobs are BYTE-IDENTICAL to 4b6a08b7.
+      Excluded: the two SQLite artifacts and memory/PRD.md.
+  * PATCH: .git/handoff/P0_WINDOWS_REENROL_STAGING_RACE.patch (also /tmp, which gets wiped)
+      1150 lines, 52,657 bytes,
+      sha256 dd74074a41d5a4dbc01eb17a711e8f9c5b45c3f8cef1b18ea5172005cb1fe83f
+      Secret-scanned: clean (only test placeholders nvx_placeholder_value_for_test_only,
+      a-single-use-secret, ten_ci_gate4_not_a_real_tenant). Kept OUTSIDE version control
+      under .git/, so it can never enter a commit.
+  * GITHUB BASE VERIFIED: refs/heads/feature/rc2-alignment =
+    b42c34c7964869c62baf1c1340154401a752e348 (ls-remote). All 6 modified files are
+    byte-identical at b42c34c7 and at the patch parent, and `git apply --check` of the
+    patch on a worktree of b42c34c7 is CLEAN, zero fuzz. Applying it = 1 commit ahead of
+    the verified GitHub base. The 15 commits between b42c34c7 and ee0348e2 are NOT needed.
+  * NOTE: refs/heads/release/xdr-b8-selector-candidate has moved to e2f15a25 (was 983f5680).
+  * NO DOWNLOAD LINK IS POSSIBLE from this pod: the preview host does not serve
+    frontend/public (even pre-existing tracked files under /downloads/ return index.html),
+    and adding a backend route would be an implementation change. Owner must copy the patch
+    out of .git/handoff/.
+  * Build workflow for the new artifact: .github/workflows/windows-sensor-installer.yml,
+    trigger workflow_dispatch (no inputs), job runs-on windows-latest, artifact
+    NivXForgeEDRSetup-windows-x64 (exe + SHA256SUMS.txt + build-info.json + gate0/*.json),
+    retention 30 days. NOT TRIGGERED.
+  * EVIDENCE STATUS UNCHANGED: 2122 passed / 3 skipped / 0 failed is PREVIOUSLY REPORTED
+    Linux evidence. NO new run. GATE 4 HAS NOT RUN. WINDOWS_REENROL_STAGING_FIX = HOLD.
