@@ -1,3 +1,41 @@
+## 2026-06 · P0 · Durable-ACK reconciler bounded to a declared contract (`gh-ack-boundary` @ `7a788850`)
+
+Branch: `gh-ack-boundary` (local mirror of `fix/edr-durable-ack-boundary`). COMMITTED, NOT merged, NOT deployed.
+Patch for manual push: `/app/dist/P0_RECONCILE_CONTRACT_OWNERSHIP.patch`
+
+Defect removed: `reconcile_missing_jobs` ran a `$lookup` anti-join over the whole
+`edr_raw_events` corpus every 60s on every pod, then sorted it — a multi-hundred-MB
+blocking scan plus an in-memory-sort-limit failure on first startup after deployment.
+
+Fix (Option B, owner-approved): ownership is **declared at creation** via an immutable
+`RawEndpointEvent.processing_contract = "durable_queue_v1"`, stamped only by the
+durable-ACK ingest path and never retrofitted. The reconciler's authority is the marker;
+the 15-minute `ingest_time` window is a read/performance bound only. This is what makes a
+rolling deployment safe — events accepted by a pod on the previous build simply never
+carry the marker.
+
+- `backend/edr_plane/raw_events.py` — additive `processing_contract` field + explicit
+  `build()` arg; new index `reconcile_contract_window` on `(processing_contract, ingest_time)`
+  with `partialFilterExpression {processing_contract: {$exists: true}}` (partial, not sparse:
+  a compound sparse index would still cover the whole corpus).
+- `backend/routers/edr_enrollment.py` — `_ingest_one` stamps the contract.
+- `backend/edr_plane/processing_queue.py` — `$lookup` path deleted; index-covered `find`;
+  `enqueue()` remains the sole idempotent authority (no pre-check, no direct queue writes);
+  reconcile failures now logged on onset + every 10th consecutive + on recovery
+  (`reconcile_failure_count()`), replacing `except: pass`.
+- `backend/server.py` + `start_workers` default — `worker_count=1` per pod.
+- Tests: new `backend/tests/edr/test_p0_reconcile_contract_ownership.py` (26 tests incl.
+  rolling-deployment overlap, raw-evidence identity invariance, dedup stability across the
+  contract boundary, REJECTED never reconciled, limit clamping, source-level assertion that
+  `$lookup`/`aggregate` cannot return); queue-worker reconciler tests moved to the `find`
+  contract and their fake no longer exposes `aggregate`.
+
+Invariants verified: `payload`, `payload_sha256`, `dedup_key`, `raw_id` unchanged; marker not
+an input to `digest()`; `append()` still only `$inc`s `duplicate_count` on re-delivery.
+Suite: `backend/tests/edr/` → 2048 passed, 3 skipped.
+Push blocked: pod has no git remote/credentials. Gate 4 remains HOLD. KUSHU / DESKTOP-A9HGFJJ untouched.
+
+
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
