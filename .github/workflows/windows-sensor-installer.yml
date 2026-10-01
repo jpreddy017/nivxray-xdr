@@ -534,9 +534,27 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $svc = 'NivXForgeSensor'
           @'
-          import json, sys
+          import json, shutil, sys, tempfile
+          from pathlib import Path
           sys.path.insert(0, r"agents/nivxforge-windows")
           import nivxforge_setup as s
+
+          # GATE 4 TESTS THE SCM RACE, NOT THE PACKAGING. The onedir
+          # payload lives inside the frozen exe (sys._MEIPASS), so the
+          # SOURCE module has none and _service_payload_dir() returns
+          # None - which makes _stage_service_host() refuse with "this
+          # build carries no Windows service host payload" BEFORE it can
+          # reach the RUNNING guard this gate is here to prove.
+          # The payload's existence is already proved upstream by the
+          # "Service host unpacks from the installer" gate, which ran
+          # `stage-host` from the FROZEN artifact. We therefore hand the
+          # source module a byte-copy of the host that gate staged: the
+          # staging it performs is content-identical to what is already
+          # on disk, so no assertion is relaxed and nothing is clobbered.
+          payload = Path(tempfile.mkdtemp()) / "service"
+          shutil.copytree(s.SERVICE_DIR, payload)
+          assert (payload / s.SERVICE_EXE.name).exists(), payload
+          s._service_payload_dir = lambda: payload
 
           # A service must exist and be RUNNING for any of this to mean
           # anything, so it is created through the production path.
