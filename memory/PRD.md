@@ -3866,3 +3866,14 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     session commits and the 3 unrelated files to rc2, and because
     windows-sensor-installer.yml has a push trigger on agents/nivxforge-windows/** with NO
     branch filter, that push would ALSO start a Windows build on rc2.
+  * SAVE-TO-GITHUB SCOPE CHECK (asked before the owner clicks): ANSWER IS NO, NOT GUARANTEED.
+    Save to GitHub publishes the WORKSPACE snapshot of the current branch
+    (feature/rc2-alignment @ feaa702d), not the isolated commit a0e402af. Targeting
+    fix/windows-reenrol-staging-race (= b42c34c7) it would write 26 FILES and carry 18
+    COMMITS, including every forbidden item: apps/.../executions.db-shm, executions.db-wal,
+    memory/PRD.md, docs/releases/*.patch, the B8 selector files, backend enrollment files,
+    deployer-agent-docs/RCA_*.MD. DO NOT CLICK IT for this release.
+  * The handoff patch was MOVED to /app/dist/P0_WINDOWS_REENROL_STAGING_RACE.patch, which is
+    ignored by the COMMITTED .gitignore (line 58 "dist"), so no packaging route can publish
+    it; it is still visible for VS Code right-click -> Download. The repo-root copy was
+    removed and .git/info/exclude restored to stock. git status is clean.
