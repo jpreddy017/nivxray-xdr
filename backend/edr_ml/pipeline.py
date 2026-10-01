@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from edr_behavior.contracts import EvidenceRecord, EvidenceRef, MLSignal
+from edr_behavior.normalize import parse_time
 from edr_behavior.provider import EvidenceProvider
 
 from .baseline import BaselineStore
@@ -92,11 +93,14 @@ class MLPipeline:
         return out
 
 
-def evidence_from_decision(decision: Dict[str, Any], *, inference_time: datetime) -> EvidenceRecord:
+def evidence_from_decision(decision: Dict[str, Any]) -> EvidenceRecord:
     """Rebuild the MLSignal from an EMITTED decision and convert it via the edr_behavior boundary."""
     env = decision["signal"]
     if decision.get("outcome") != EMITTED or not env:
         raise ValueError("only EMITTED decisions carry a signal")
+    inference_time = parse_time(env["inference_time"])
+    if inference_time is None:
+        raise ValueError("signal inference_time malformed")
     refs = tuple(EvidenceRef(tenant_id=r["tenant_id"], raw_id=r["raw_id"],
                              canonical_event_id=r["canonical_event_id"], generation=r["generation"],
                              store=r["store"], record_id=r["record_id"], sub_key=r["sub_key"])
