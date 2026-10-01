@@ -3847,3 +3847,22 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     retention 30 days. NOT TRIGGERED.
   * EVIDENCE STATUS UNCHANGED: 2122 passed / 3 skipped / 0 failed is PREVIOUSLY REPORTED
     Linux evidence. NO new run. GATE 4 HAS NOT RUN. WINDOWS_REENROL_STAGING_FIX = HOLD.
+  * PUSH CAPABILITY RE-TESTED 2026-10-01 after the remote branch was created: STILL
+    UNAVAILABLE. /root/.git-credentials is now 0 BYTES (was 124 and stale), no git remote in
+    /app, no gh CLI, no GitHub env token; `git push` -> "could not read Username". Anonymous
+    READ works: ls-remote confirms refs/heads/fix/windows-reenrol-staging-race =
+    b42c34c7964869c62baf1c1340154401a752e348 exactly as the owner created it.
+    Platform answer: GitHub is OAuth-only, "the agent cannot commit or push on its own";
+    all pushes are owner-initiated via Save to GitHub. No PAT path exists.
+  * EXPORT ROUTE PREPARED (no repository code changed): the patch is now also at the repo
+    ROOT as /app/P0_WINDOWS_REENROL_STAGING_RACE.patch, kept untracked via
+    .git/info/exclude (a LOCAL file that is never committed), so it is visible in the VS
+    Code "Code" view for right-click -> Download. `git status` stays clean and the file can
+    never enter a commit. Copy also at .git/handoff/.
+  * ALTERNATIVE (owner choice): Save to GitHub publishes the workspace branch
+    feature/rc2-alignment incl. 4b6a08b7, whose 7 P0 blobs are BYTE-IDENTICAL to a0e402af,
+    so `git checkout <that commit> -- <the 7 paths>` reproduces the implementation
+    bit-exactly with zero retyping. SIDE EFFECTS TO ACCEPT: it also publishes the 15
+    session commits and the 3 unrelated files to rc2, and because
+    windows-sensor-installer.yml has a push trigger on agents/nivxforge-windows/** with NO
+    branch filter, that push would ALSO start a Windows build on rc2.
