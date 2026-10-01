@@ -4000,3 +4000,44 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     supervisor dies with it, so /health must stay non-blocking.
     UNRELATED, OBSERVED: threatfox 401 + otx pull failures => stale ABUSE_CH_AUTH_KEY /
     OTX_API_KEY.
+
+- READ-ONLY DESIGN CHECK on 9273c964 for the 2-pod production topology (2026-10-01).
+  Nothing changed/committed/pushed/deployed/restarted/scaled; no Mongo write. HOLD stands.
+  * worker_count=2 is HARDCODED at the server.py call site (not env-driven); with 2 pods
+    that is 4 workers + TWO supervisors. start_workers() clamps 1..8 and is one-per-PROCESS.
+  * FOUR-WORKER SAFETY: worker loop idle_seconds=1.0, so an EMPTY queue costs only ~1
+    atomic find_one_and_update per worker per second (4/s total) and claim() is covered by
+    the claimable_work index. Lease 600s, retry 30s. No correctness problem; the cost is
+    canonical_bridge concurrency, which is now 4-way instead of the previously serial
+    in-request path.
+  * RECONCILER MULTI-POD SAFETY = CORRECT, NO LOCK NEEDED. enqueue() is a
+    $setOnInsert upsert on (tenant_id, raw_id) and uniq_tenant_raw makes a concurrent
+    double-insert fail at the STORAGE layer; the code counts that as already_present. The
+    only penalty for running it in both pods is DUPLICATED COST, not duplicated work.
+  * ⚠ THE REAL BLOCKER IS THE RECONCILER'S SCOPE, NOT THE WORKER COUNT (new finding):
+    pipeline = $match{trust_state:"AUTHENTICATED"} -> $lookup -> $match{job==[]} -> $sort
+    {ingest_time:1} -> $limit -> $project. Measured on the PREVIEW DB:
+      - NO INDEX on trust_state (edr_raw_events has 8 indexes, all tenant_id-prefixed), so
+        the $match is a COLLSCAN of 274,214 docs / 546.6 MB;
+      - 275,500 docs are AUTHENTICATED, and on first start NONE has a job, so ALL of them
+        pass the anti-join into a $sort of FULL documents ($project is AFTER the sort):
+        ~549 MB versus the 100 MB aggregation sort limit, and allowDiskUse is NOT set
+        => QueryExceededMemoryLimitNoDiskUseAllowed (code 292);
+      - the supervisor runs reconcile_missing_jobs() IMMEDIATELY at startup, before its
+        first wait, and catches it with a bare `except Exception: pass` - NO LOG AT ALL, and
+        its {scanned, created, already_present} return value is discarded. So it would fail
+        SILENTLY every 60s in both pods, on the same event loop that production already
+        shows /health 503s and 1s nginx upstream timeouts on.
+      - ingest_time is stored as an ISO STRING, not a BSON date, so a time-window $match
+        would be a string comparison (lexicographic, which is still correct for ISO-8601
+        UTC) - relevant to any bounded-window fix.
+      - INVERSE RISK where the sort DOES fit (a smaller production collection): reconcile
+        would succeed and enqueue EVERY historical authenticated raw event, turning a
+        crash-window repair into a mass re-canonicalisation of the entire history.
+    Production collection size is UNKNOWN (managed Atlas greeting-app-5782-test_database,
+    a different DB from preview); the SHAPE of the defect is identical because it is in the
+    pipeline, not the data.
+  * RECOMMENDED INITIAL CONFIG: worker_count=1 per pod (2 total) for the first
+    KUSHU backlog drain - minimal one-token change at the server.py call site, no new
+    dependency, no leader election, no Redis, no K8s job.
+  * DEPLOYMENT BLOCKER: YES - the reconciler scope/silence, not the worker count.
