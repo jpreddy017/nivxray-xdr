@@ -491,3 +491,104 @@ async def test_ack_path_does_not_run_canonical_bridge_inline(monkeypatch):
 
     assert out["stored"] is True
     assert out["processing"]["durable"] is True
+
+
+
+# ---------------------------------------------------------------------------
+# ACK reporting honesty · `processing.created`
+#
+# Found in PREVIEW runtime acceptance, not by the unit suite: the ACK read
+# `bool(processing_created)` where `processing_created` is the RESULT DICT
+# returned by enqueue(). A non-empty dict is always truthy, so every
+# duplicate redelivery was told it had created a new durable obligation
+# when enqueue() had correctly reported `created=False`. Durability and
+# idempotency were never affected — only what we told the sensor.
+# ---------------------------------------------------------------------------
+class _AckWho:
+    tenant_id = "t"
+    endpoint_id = "ep"
+    auth_method = "session"
+
+    def provenance(self):
+        return {"endpoint_id": self.endpoint_id}
+
+
+async def _ack_ingest(monkeypatch, *, append_result, enqueue_created):
+    enqueued = []
+
+    async def _append(*a, **k):
+        return dict(append_result)
+
+    async def _enqueue(*a, **k):
+        enqueued.append(k)
+        return {"tenant_id": k["tenant_id"], "raw_id": k["raw_id"],
+                "created": enqueue_created}
+
+    async def _count(*a, **k):
+        return None
+
+    async def _bridge(*a, **k):
+        raise AssertionError("bridge must not run before sensor ACK")
+
+    monkeypatch.setattr(e.raw, "append", _append)
+    monkeypatch.setattr(e.processing_queue, "enqueue", _enqueue)
+    monkeypatch.setattr(e.counters, "record", _count)
+    monkeypatch.setattr(e, "bridge", _bridge)
+
+    out = await e._ingest_one(
+        payload=_payload(1), event_time=None, source_kind="sensor",
+        sensor_version="test", report_interval_seconds=None,
+        who=_AckWho(),
+        request=SimpleNamespace(client=SimpleNamespace(host="127.0.0.1")),
+        report=False)
+    return out, enqueued
+
+
+@pytest.mark.asyncio
+async def test_new_event_reports_processing_created_true(monkeypatch):
+    out, enqueued = await _ack_ingest(
+        monkeypatch,
+        append_result={"stored": True, "duplicate": False,
+                       "raw_id": "raw_new"},
+        enqueue_created=True)
+
+    assert out["processing"] == {"durable": True, "created": True}
+    assert out["stored"] is True
+    assert enqueued == [{"tenant_id": "t", "raw_id": "raw_new"}]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_event_reports_processing_created_false(monkeypatch):
+    """The defect: this asserted True before the fix, because the enqueue
+    result dict was reported instead of its `created` field."""
+    out, enqueued = await _ack_ingest(
+        monkeypatch,
+        append_result={"stored": False, "duplicate": True,
+                       "raw_id": "raw_existing", "duplicate_count": 2},
+        enqueue_created=False)
+
+    # The reporting fix itself.
+    assert out["processing"] == {"durable": True, "created": False}
+
+    # And the durable/dedup invariants it must not have disturbed.
+    assert out["raw_id"] == "raw_existing"
+    assert out["stored"] is False
+    assert out["duplicate"] is True
+    assert out["duplicate_count"] == 2
+    assert out["canonical"]["canonicalized"] is False
+    # Exactly one obligation re-asserted for the one immutable raw event;
+    # enqueue() stays the idempotent authority and no second job is claimed.
+    assert enqueued == [{"tenant_id": "t", "raw_id": "raw_existing"}]
+
+
+@pytest.mark.asyncio
+async def test_ack_never_reports_created_from_the_enqueue_dict(monkeypatch):
+    """Guard against the exact regression: an enqueue result that is a
+    non-empty dict with created=False must never be reported as created."""
+    out, _ = await _ack_ingest(
+        monkeypatch,
+        append_result={"stored": True, "duplicate": False,
+                       "raw_id": "raw_truthy_dict"},
+        enqueue_created=False)
+
+    assert out["processing"]["created"] is False

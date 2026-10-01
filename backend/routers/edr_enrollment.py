@@ -549,7 +549,11 @@ async def _ingest_one(*, payload: str, event_time: Optional[str],
     }
     processing = {
         "durable": True,
-        "created": bool(processing_created),
+        # Report what enqueue() actually decided. `processing_created` is the
+        # enqueue RESULT DICT, which is always truthy — reporting the dict
+        # itself told every duplicate redelivery that it had created a new
+        # obligation when it had not.
+        "created": bool(processing_created.get("created")),
     }
 
     return {
