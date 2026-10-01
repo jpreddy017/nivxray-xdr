@@ -55,6 +55,7 @@ def build_signal(model: ModelSpec, vector: FeatureVector, result: ScoreResult) -
            "feature_schema_version": model.feature_schema_version, "score": result.score,
            "confidence": result.confidence, "explanation": explanation,
            "evidence_refs": [r.to_dict() for r in refs], "inference_time": utc(vector.anchor_time),
+           "lifecycle": model.lifecycle, "status": "TESTING" if model.lifecycle == "TESTING" else "LIVE",
            "verdict": None}
     return sig, env
 

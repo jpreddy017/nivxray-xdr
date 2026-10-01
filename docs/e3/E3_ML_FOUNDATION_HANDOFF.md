@@ -10,7 +10,8 @@
 - Step 1 (`007028a4`): `edr_ml` package. Covers the feature schema, baselines, extractor, models, signals, pipeline and metrics.
 - Step 2 (`f17ec26e`): `edr_behavior` ML boundary v1, the minimal additive hook (§6).
 - Step 3 (`410c9bc9`): 32 synthetic tests.
-- Step 4: this handoff (final docs commit). **DONE**
+- Step 4 (`9616c5cc`): handoff.
+- Step 5: `chore(edr-ml): ship starter models as TESTING pending real-data calibration`. Adds the TESTING marking on decisions and signals, plus one test. Results: edr_ml 33, edr_behavior 69, Gate-4 34. **DONE**
 
 ## 1. Architecture (data flow)
 
@@ -88,9 +89,16 @@ An EMITTED decision from an **ACTIVE** model continues as follows:
 - **Confidence:** `round(100·coverage)`.
 - **Optional scorer seam:** `register_scorer(name, terms, norm)` is code-only, for an optional sklearn-style adapter. Data files cannot introduce code. No new dependency was added.
 - **Fit:** `fit_robust_z(template, vectors, data_label="SYNTHETIC")` is a deterministic median/MAD fit that returns a **new DRAFT doc**. It never activates anything and is order-independent.
-- **Starter pack:**
-  - `ml.rarity.process_tree@1.0.0`: ACTIVE, threshold 0.7.
-  - `ml.weighted.exec_behavior@1.0.0`: ACTIVE, threshold 0.6.
+- **Starter pack** (shipped as **TESTING** pending real-data calibration):
+  - `ml.rarity.process_tree@1.0.0`: TESTING, threshold 0.7.
+  - `ml.weighted.exec_behavior@1.0.0`: TESTING, threshold 0.6.
+  - `content_hash` excludes `lifecycle`, so both hashes and versions are unchanged by the demotion and no provenance change was needed.
+- **TESTING semantics** (these mirror the rule TESTING status):
+  - TESTING models are evaluated and their signals are stored and EMITTED.
+  - Decisions carry `model_lifecycle`; envelopes carry `lifecycle` and `status: "TESTING"`; the explanation carries `model_lifecycle`.
+  - `to_evidence` / `evidence_from_decision` refuse non-ACTIVE signals, so TESTING signals never reach the behavioral engine.
+  - Tests that exercise the evidence path promote the model to ACTIVE explicitly, in the test only.
+- **Gate for ACTIVE (FUTURE ITEM, not built):** promoting a shipped model to ACTIVE requires validation and calibration on real telemetry. That means measured precision/recall and FP rate per tenant, a threshold calibration record, and an owner-approved, audited lifecycle change.
 
 ## 5. Signals (`signals.py`, `pipeline.py`)
 - **Signal ID:** `signal_id = "e3mls_" + sha256("mlsig.v1", tenant, endpoint, model_id, model_version, feature_schema_version, anchor_stable_key)[:32]`. It excludes generation, clock and retry count.
@@ -154,7 +162,7 @@ No existing `edr_behavior` test was changed; all 69 still pass.
 `cd backend && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../.e3venv/plugins:../.e3venv/extra env -u MONGO_URL python3 -m pytest <target> -q -p no:cacheprovider -p e3_netguard -o addopts=""`
 
 **Results:**
-- `tests/edr_ml`: **32 passed**
+- `tests/edr_ml`: **33 passed** (32 + 1 TESTING-semantics test after the demotion)
 - `tests/edr_behavior`: **69 passed**
 - Gate-4 focused (`test_processing_queue_worker.py` + `test_p0_reconcile_contract_ownership.py`): **34 passed**
 

@@ -4,7 +4,7 @@
     "model_version": "1.0.0",
     "feature_schema_version": "fs-1.0.0",
     "model_type": "RARITY",
-    "lifecycle": "ACTIVE",
+    "lifecycle": "TESTING",
     "threshold": 0.7,
     "description": "Rare parent>child pair, rare image (endpoint+tenant) and first-seen binary. Signal only.",
     "parameters": {
@@ -18,7 +18,7 @@
     "model_version": "1.0.0",
     "feature_schema_version": "fs-1.0.0",
     "model_type": "WEIGHTED",
-    "lifecycle": "ACTIVE",
+    "lifecycle": "TESTING",
     "threshold": 0.6,
     "description": "Weighted command-line, spawn, network, persistence and timing features. Signal only.",
     "parameters": {

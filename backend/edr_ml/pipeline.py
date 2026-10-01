@@ -64,7 +64,8 @@ class MLPipeline:
                 out.append(existing[key])
                 continue
             doc = {"signal_id": sids[key], "tenant_id": rec.tenant_id, "endpoint_id": rec.endpoint_id,
-                   "model_id": m.model_id, "model_version": m.model_version, "anchor_key": rec.stable_key,
+                   "model_id": m.model_id, "model_version": m.model_version,
+                   "model_lifecycle": m.lifecycle, "anchor_key": rec.stable_key,
                    "score": None, "confidence": 0, "reasons": [], "signal": None}
             try:
                 res = score(m, vector)

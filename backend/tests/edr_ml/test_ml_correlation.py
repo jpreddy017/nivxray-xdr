@@ -33,6 +33,8 @@ def _engine(reg):
 
 def _signal():
     h = MLH()
+    # Shipped as TESTING; promote explicitly in-test (TESTING -> ACTIVE) to exercise the evidence path.
+    h.models.set_lifecycle("ml.weighted.exec_behavior", "1.0.0", "ACTIVE")
     h.warm(benign_history())
     w, ps, extra = attack_chain()
     for r in extra + [w]:

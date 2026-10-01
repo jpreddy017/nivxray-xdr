@@ -175,3 +175,26 @@ def test_metrics_carry_no_telemetry_values():
     assert c["features_extracted"] > 0 and c["baseline_updates"] > 0
     assert snap["latency_ms"]["samples"] > 0 and snap["baseline_state_size"] > 0
     assert NOW > T0
+
+
+def test_shipped_starter_models_are_testing_and_their_signals_are_marked_testing():
+    import pytest as _pt
+    from edr_ml.pipeline import evidence_from_decision
+    h = MLH()
+    shipped = {m.model_id: m for m in h.models.live()}
+    assert set(shipped) == {"ml.rarity.process_tree", "ml.weighted.exec_behavior"}
+    assert all(m.lifecycle == "TESTING" for m in shipped.values())
+    h.warm(benign_history())
+    w, ps, extra = attack_chain()
+    for r in extra + [w]:
+        h.provider.add(r)
+    out = h.feed(ps)
+    assert all(d["outcome"] == "EMITTED" and d["model_lifecycle"] == "TESTING" for d in out)
+    for d in out:
+        assert d["signal"]["lifecycle"] == "TESTING" and d["signal"]["status"] == "TESTING"
+        assert d["signal"]["explanation"]["model_lifecycle"] == "TESTING"
+        with _pt.raises(ValueError):
+            evidence_from_decision(d)
+    m = shipped["ml.weighted.exec_behavior"]
+    promoted = h.models.set_lifecycle(m.model_id, m.model_version, "ACTIVE")
+    assert promoted.content_hash == m.content_hash
