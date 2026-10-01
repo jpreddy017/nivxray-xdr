@@ -576,17 +576,53 @@ jobs:
 
           # 4 . THE END-TO-END PROOF, through the FROZEN artifact and the
           #     real SCM: a re-enrol that fails at the ENROLMENT step must
-          #     leave the service RUNNING. stdin is closed, so enrolment
-          #     cannot succeed and NO token is consumed.
+          #     leave the service RUNNING. stdin carries nothing, so
+          #     enrolment cannot succeed and NO token is consumed.
           $q = (& sc.exe query $svc | Out-String)
           if ($q -notmatch 'RUNNING') { throw "precondition: service not RUNNING`n$q" }
           $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
-          $failed = (& $exe install --re-enrol `
-                       --backend https://nivxray.nivxforge.com `
-                       --tenant ten_ci_gate4_not_a_real_tenant `
-                       --token-stdin < NUL 2>&1 | Out-String)
-          $global:LASTEXITCODE = 0
+          # POWERSHELL 7 HAS NO INPUT REDIRECTION OPERATOR. `< NUL` is a
+          # PARSE error - "The '<' operator is reserved for future use." -
+          # so this gate died before it tested anything.
+          # Start-Process -RedirectStandardInput is the supported way to
+          # hand a child process an EMPTY stdin, and it also reports the
+          # real exit code. Splatted deliberately: no line continuations,
+          # which is where the parse error lived.
+          # Start-Process resolves a RELATIVE FilePath against the OS
+          # process working directory, not the PowerShell location, so the
+          # path is made absolute here rather than hoping they agree.
+          $exe     = (Resolve-Path -Path $exe).Path
+          $empty   = Join-Path $env:RUNNER_TEMP 'gate4-stdin-empty.txt'
+          $outFile = Join-Path $env:RUNNER_TEMP 'gate4-stdout.txt'
+          $errFile = Join-Path $env:RUNNER_TEMP 'gate4-stderr.txt'
+          Set-Content -Path $empty -Value '' -NoNewline
+          $run = @{
+            FilePath               = $exe
+            ArgumentList           = @('install', '--re-enrol',
+                                       '--backend', 'https://nivxray.nivxforge.com',
+                                       '--tenant', 'ten_ci_gate4_not_a_real_tenant',
+                                       '--token-stdin')
+            RedirectStandardInput  = $empty
+            RedirectStandardOutput = $outFile
+            RedirectStandardError  = $errFile
+            NoNewWindow            = $true
+            Wait                   = $true
+            PassThru               = $true
+          }
+          $proc = Start-Process @run
+          $failed = [string](Get-Content -Path $outFile -Raw) +
+                    [string](Get-Content -Path $errFile -Raw)
           Write-Host $failed
+          if ($proc.ExitCode -eq 0) {
+            throw 'the re-enrol SUCCEEDED on an empty stdin; it must not'
+          }
+          # PROOF THE STDIN PATH WAS REACHED AND READ: this exact refusal
+          # is raised by sensor.read_enrolment_secret(), which runs AFTER
+          # stage 1 has already stopped the service - so the rollback that
+          # follows is the real thing, not an early argument refusal.
+          if ($failed -notmatch 'stdin carried no enrolment secret') {
+            throw "enrolment did not fail at the stdin read`n$failed"
+          }
           if ($failed -notmatch 'ROLLBACK') {
             throw 'a failed re-enrol did not run the rollback path'
           }
