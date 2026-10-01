@@ -14,7 +14,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronLeft, Play, Save, GitBranch, History,
-  ShieldCheck, AlertTriangle, Layers, PenTool, Undo2 } from "lucide-react";
+  ShieldCheck, AlertTriangle, Layers, PenTool, Undo2, Bug } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import { useAuth } from "@/lib/auth";
@@ -170,7 +170,7 @@ export default function XdrDetectionRuleEditorPage() {
             <PenTool size={11} /> Sigma YAML
             {parsed.ok
               ? <span style={{ color: "var(--mint)", fontSize: 10 }}>· valid</span>
-              : <span style={{ color: "#ff9494", fontSize: 10 }}>· invalid</span>}
+              : <span style={{ color: "var(--nx-critical)", fontSize: 10 }}>· invalid</span>}
             {parsed.unsupported?.length > 0 && (
               <span style={{ color: "var(--amber)", fontSize: 10 }}>
                 · {parsed.unsupported.length} unsupported modifier(s)
@@ -184,7 +184,7 @@ export default function XdrDetectionRuleEditorPage() {
                                    width: "100%", resize: "vertical" }}
                        data-testid="xdr-rule-yaml" />
           {!parsed.ok && (
-            <div style={{ marginTop: 6, color: "#ff9494", fontSize: 11 }}>
+            <div style={{ marginTop: 6, color: "var(--nx-critical)", fontSize: 11 }}>
               <AlertTriangle size={11} /> {parsed.errors.join(" · ")}
             </div>
           )}
@@ -294,7 +294,7 @@ export default function XdrDetectionRuleEditorPage() {
             <Bug size={11} /> {decoding ? "Decoding…" : "Decode via NivXRay"}
           </button>
           {error && (
-            <div style={{ marginTop: 6, color: "#ff9494", fontSize: 11 }}>
+            <div style={{ marginTop: 6, color: "var(--nx-critical)", fontSize: 11 }}>
               <AlertTriangle size={11} /> {error}
             </div>
           )}
@@ -352,7 +352,7 @@ export default function XdrDetectionRuleEditorPage() {
 function EvalTrace({ trace }) {
   if (trace.errors) {
     return (
-      <div style={{ color: "#ff9494", fontSize: 11.5 }}>
+      <div style={{ color: "var(--nx-critical)", fontSize: 11.5 }}>
         <AlertTriangle size={11} /> Rule cannot be evaluated: {trace.errors.join(" · ")}.
       </div>
     );

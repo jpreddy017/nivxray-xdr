@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-4-mut4",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.litutrec';            $x = -join ($s[-1..-12]);            Invoke-Expression $x",
+  "expected_keywords": [
+    "certut"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

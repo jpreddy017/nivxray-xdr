@@ -1,0 +1,49 @@
+{
+  "summary": "Full e2e validation of NivXRay XDR Intelligence Controls. Offline regression: 112/112 pass (test_intelligence_policy.py + narration gateway + phase2 + telemetry + mitre). New live suite /app/backend/tests/test_intelligence_policy_live.py: 27/28 pass — global GET/PUT + defaults, hierarchy (ceiling clamp, implicit llm off, incident narrowing with source provenance), narration enforcement (deterministic + 'blocked by intelligence policy (online_llm=off)' caveat vs llm_cloud when allowed), incident audit, clear-override with action='clear', health readouts, RBAC 403 for a role-less principal and 200 for tenant_admin. Frontend: MSS dashboard + incident panel mount, all required data-testids present, ceiling dims/disables/locks the incident Online AI toggle with the 'Restricted by MSS Global policy' tooltip, incident override + clear-override + incident history all work, exec summary flips to DETERMINISTIC with the policy caveat when the ceiling is off. One real defect found: GLOBAL policy history is permanently empty in the UI because audit rows are stored with scope_id=<tenant_id> while spec/frontend query scope_id='global'.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/intelligence/policy/global/global/history", "issue": "Always returns history:[] — IntelligencePolicyService.set_global() writes audit rows with scope_id=tenant_id ('default'), but the spec and IntelligenceControlPanel query scope_id='global' (scopeId = 'global' for global scope). Data IS present at /api/intelligence/policy/global/default/history. Result: MSS global 'Show History' shows 'No history entries yet.' forever — governance audit trail invisible.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "PUT /api/intelligence/policy/global|incident/{id}", "issue": "changed_by_role is recorded as 'unknown' for every UI-driven change (_role_hint reads X-Principal-Role/X-Role which the frontend never sends). Audit requirement 'changed_by_role' is technically present but never meaningful."},
+      {"endpoint": "GET /api/intelligence-overlays/?incident_id=...&target_kind=exec_summary", "issue": "Pre-existing: returns 404 (3 calls) on the incident Executive tab — console errors on every load. Not part of this feature but visible during testing."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "IntelligenceControlPanel (global scope)", "issue": "After turning Online AI OFF, the Online LLM toggle still renders 'ON' (data-on=\"true\") even though the effective policy is off. Panel dims + disables + shows lock and badge 'OFFLINE ONLY' correctly, but the ON label contradicts reality because the global panel renders the RAW stored policy instead of the resolved effective policy (the AI-off PUT keeps online_llm='on' in storage).", "selector": "[data-testid='global-online-llm-toggle']", "priority": "MEDIUM"},
+      {"component": "IntelligenceControlPanel (global history)", "issue": "'Show History' renders 'No history entries yet.' after multiple confirmed policy changes — caused by the scope_id mismatch backend issue above.", "selector": "[data-testid='global-history-list']", "priority": "HIGH"},
+      {"component": "IntelligenceControlPanel (incident presets)", "issue": "With global online_ai=off, incident preset buttons STANDARD / ONLINE AI ONLY stay enabled and clickable; clicking writes an override that the server clamps to off, and the UI gives no error/toast — the click appears to silently do nothing. Toggles are correctly locked, presets are not gated by canRaiseOnlineAi/canRaiseOnlineLlm.", "selector": "[data-testid='incident-preset-standard']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MSS Dashboard / Incident Executive tab — Intelligence panel", "issues": ["Panel is a very dark card on a light page; readable but the 10px uppercase sub-labels (#64748b on #0a0e1a) are borderline low-contrast for long-form scanning", "Reason input has no validation/hint that it is optional; audit rows land with reason=null when left empty"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_intelligence_policy_live.py",
+    "/app/backend/tests/test_intelligence_policy.py",
+    "/app/test_reports/pytest/iteration_intel_controls.xml"
+  ],
+  "action_items": [
+    "FIX (HIGH): make global audit scope_id consistent — either write scope_id='global' in set_global()'s _audit call (keeping tenant_id for isolation) or have the panel query /policy/global/{tenant_id}/history. Currently global governance history is unreachable from the UI.",
+    "FIX (MEDIUM): global-scope panel should render the effective policy (or force online_llm='off' in the PUT when online_ai is turned off) so the Online LLM toggle does not display 'ON' while it is effectively OFF.",
+    "FIX (LOW): disable/annotate incident preset buttons that would widen beyond the global ceiling, or surface an inline notice that the request was clamped.",
+    "FIX (LOW): send an X-Principal-Role (or resolve the role server-side from xdr_role_assignments) so changed_by_role is not always 'unknown' in the audit trail.",
+    "INVESTIGATE (pre-existing): 404 on /api/intelligence-overlays/ from the incident Executive tab."
+  ],
+  "critical_code_review_comments": [
+    "services/intelligence_policy/service.py set_global(): scope_id=tenant_id for global audit rows conflicts with the router/frontend contract scope_id='global' — single source of truth needed for the scope key.",
+    "routers/intelligence_policy.py _role_hint(): silently returns 'unknown'; for a governance/audit feature the role should be resolved from RBAC (check_access already loads assignments) rather than an untrusted client header.",
+    "GlobalPolicyBody requires both switches on every PUT, so the UI must echo the other switch — this is exactly what produces the inconsistent stored state (online_ai=off + online_llm=on). Consider a PATCH-style optional-field body normalised server-side (online_ai=off ⇒ online_llm=off).",
+    "GET /intelligence/policy/incident/{id}/effective calls _svc().get_global() and get_incident() 3x per request (effective_for_incident + two extra reads); collapse to one read pair."
+  ],
+  "updated_files": ["/app/backend/tests/test_intelligence_policy_live.py"],
+  "success_rate": {"backend": "96% (27/28 live + 112/112 offline regression)", "frontend": "88% (all mounts/testids/hierarchy locking work; global history empty + misleading LLM ON label)"},
+  "seed_data_creation": "Ephemeral RBAC tenants TEST_intel_rbac_<rand> / TEST_intel_allow_<rand> with users TEST_noroles@nivxray.com and TEST_tadmin@nivxray.com (isolated tenants, do not affect 'default'). Incident override on 36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed created and cleared; global policy restored to {online_ai:on, online_llm:on} by class teardown (verified via GET).",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (XDR login at /login, testids xdr-login-email / xdr-login-password / xdr-login-submit)",
+  "context_for_next_testing_agent": "Run `python -m pytest tests/test_intelligence_policy_live.py tests/test_intelligence_policy.py -q` from /app/backend. test_global_history_at_spec_scope_id_global is the only failing test and intentionally documents the scope_id='global' vs tenant_id audit bug — it should pass once fixed. Frontend: log in at /login, then /xdr/mss-dashboard (global panel) and /xdr/incidents/36d8cd4d-a6b8-42b5-8106-1daf05a7d0ed?tab=executive (incident panel, must scroll_into_view). To retest the ceiling UI, PUT global {online_ai:off,online_llm:off} then reload the incident page; always restore {on,on} afterwards.",
+  "rca_of_the_issue": "IntelligencePolicyService._audit is called from set_global with scope_id=tenant_id, whereas the read path exposed to clients is /policy/{scope}/{scope_id}/history and IntelligenceControlPanel computes scopeId='global' for the global scope. The Mongo query {tenant_id, scope:'global', scope_id:'global'} therefore never matches rows stored with scope_id:'default', producing a permanently empty global audit list. Reproduce: PUT /api/intelligence/policy/global twice, then GET /api/intelligence/policy/global/global/history (empty) vs /api/intelligence/policy/global/default/history (populated)."
+}

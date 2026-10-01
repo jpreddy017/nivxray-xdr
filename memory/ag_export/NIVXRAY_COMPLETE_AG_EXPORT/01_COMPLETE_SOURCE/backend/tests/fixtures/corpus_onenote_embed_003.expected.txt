@@ -1,0 +1,1 @@
+http://one-3.example.test/dropper.cmd

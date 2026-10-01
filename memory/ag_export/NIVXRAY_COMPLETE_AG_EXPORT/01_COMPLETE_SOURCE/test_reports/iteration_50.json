@@ -1,0 +1,55 @@
+{
+  "summary": "P1-02c Verdict Engine Polish testing complete. Parity suite 67/13/0 passes as specified. BITS assertions all pass: label=Malicious @ 80% confidence, escalation_rule='BITS + network download', confidence_breakdown has exactly the six keys (critical/high/medium/low/context/mitigating) all int 0-100, confidence_timeline non-empty with required keys (stage, contributor_label, contributor_kind, class, confidence_pct, source), timeline monotonic for positive classes, MITIGATING never flips Malicious. Frontend: Verdict Explanation Card mounts in Findings sidebar with all six breakdown bars (vec-bar-critical/high/medium/low/context/mitigating), vec-label ('▲ MALICIOUS'), vec-confidence ('80% · HIGH'), vec-positive, vec-rule ('BITS + network download'), vec-supporting-nodes present. TWO ISSUES FOUND: (1) P0 REGRESSION on P1-02b — `hello world` -> Suspicious @ 60% (spec: Informational/Undetermined <=30%). Sprint 1's synthetic `execution_chain_correlated` fires with [high, w=3.0] on benign 2-layer decode chains and promotes benign inputs. (2) P0 FRONTEND — `vec-timeline` is MISSING in the sidebar because LabV2 mounts <VerdictExplanationCard compact={true}/> and the card gates timeline rendering behind `!compact`. Timeline is required by the review request for BITS-like investigations.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/decode/smart",
+        "issue": "P1-02b REGRESSION: `hello world` now returns Suspicious @ 60% (was Informational @ 23% in iteration_49). Cause: new Sprint 1 topology signal `execution_chain_correlated` fires with [high, w=3.0] on any decode chain with >=3 stages, including benign 2-layer strings. Verdict reason: 'Correlated evidence chain · 3 stages [high, w=3.0] · Layer 0: decode [low, w=1.0] · Layer 1: decode [low, w=1.0]'. The topology signal needs to require an attack-chain HIGH before it can escalate, or restrict to non-decoder chains, so benign layered inputs stay Informational/Undetermined <=30%.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "VerdictExplanationCard (mounted from LabV2 Findings sidebar)",
+        "issue": "vec-timeline is NOT rendered. LabV2.jsx mounts <VerdictExplanationCard compact={true} />; the card gates the timeline block behind `!compact` (VerdictExplanationCard.jsx line 174). Review request requires vec-timeline for BITS-like investigations. Fix: either remove compact={true} in LabV2.jsx or render timeline in compact mode too (perhaps last-N steps).",
+        "selector": "[data-testid=\"vec-timeline\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1_02c_review.py",
+    "/app/backend/tests/parity/test_verdict_topology_temporal.py",
+    "/app/backend/tests/parity/test_verdict_entity_negative.py",
+    "/app/backend/tests/parity/test_verdict_breakdown_timeline.py"
+  ],
+  "action_items": [
+    "BACKEND P0: Prevent Sprint 1 execution_chain_correlated (and similar topology_signal) from firing on benign decode chains — require at least one attack-chain HIGH evidence in the graph, or exclude chains where all layer nodes are pure `decode`/`normalize` steps. Repro: POST /api/decode/smart {input:'hello world'} — expected Informational/Undetermined <=30%, actual Suspicious @ 60%.",
+    "FRONTEND P0: Ensure vec-timeline renders in the Findings sidebar. Either drop `compact={true}` in LabV2.jsx around line 1037-1040, or update VerdictExplanationCard.jsx to render <div data-testid=\"vec-timeline\"> even in compact mode."
+  ],
+  "critical_code_review_comments": [
+    "The mitigating dampener + critical-protection cap is working correctly — Malicious verdicts are stable when Microsoft-signed publisher evidence is added.",
+    "confidence_breakdown always emits exactly six int keys within 0-100 across all tested inputs — schema-clean.",
+    "confidence_timeline stage ordering and monotonicity for positive classes hold under multiple stacked signals.",
+    "Sprint 1 topology signal weight (w=3.0, class=high) is too aggressive for benign layered chains — it single-handedly promotes 'hello world' past the 30% Informational ceiling. Consider making it a `medium` class or gating on attack-chain presence.",
+    "LabV2 mounts the canonical card with compact=true which suppresses timeline & long positive lists — inconsistent with the review-request contract that mandates vec-timeline for BITS-like investigations."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_02c_review.py (new focused review-request test)"
+  ],
+  "success_rate": {
+    "backend": "80% (4/5 review-request assertions pass; hello-world regression fails). Parity suite 67/13/0 = 100%.",
+    "frontend": "92% (12/13 required vec-* testids present; vec-timeline missing)"
+  },
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Two P0 fixes needed. (1) Backend: topology_signal `execution_chain_correlated` needs gating — repro `POST /api/decode/smart {input:'hello world'}` must return Informational/Undetermined <=30%. (2) Frontend: LabV2.jsx line ~1037-1040 passes compact={true} to VerdictExplanationCard; VerdictExplanationCard.jsx line 174 hides vec-timeline when compact. After fix, re-run tests/test_p1_02c_review.py and re-verify the sidebar shows vec-timeline data-testid. Everything else (BITS Malicious @ 80%, 6-bar breakdown, escalation-rule 'BITS + network download', mitigating stability, timeline monotonicity, OSINT metadata, echo-hello ceiling, parity 67/13/0) is GREEN.",
+  "rca of the issue": "Regression RCA: Sprint 1 added `execution_chain_correlated` as a HIGH-class synthetic node with weight 3.0 that fires whenever the decode chain has >=3 stages. The gating logic does not distinguish between (a) an attack chain (parent->child->grandchild process/network execution) and (b) a benign decoder unwrap chain (Layer 0 -> Layer 1 -> Layer 2 of text normalization). For benign 'hello world' this yields 1 HIGH + 3 LOW, driving verdict to Suspicious @ 60%. Fix path: require the correlated chain to contain at least one non-decode/non-normalize evidence class before it emits a HIGH synthetic, or downgrade the synthetic to MEDIUM when composed entirely of decoder layer nodes. Frontend RCA: The compact mode was intended for a mini header, but LabV2 now mounts the canonical card in the sidebar and still passes compact=true, so timeline is suppressed."
+}

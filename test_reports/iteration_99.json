@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend-only validation of the AMP Device Trajectory clone (login → /xdr/edr/device-trajectory?device=dev_42e8c6dc74b9) covering: wheel disabled, Activity → Activity Details → Back flow, details content testids, theme toggle w/ persistence, fullscreen, 2D scroll, search, legacy regression. Core requirements pass. Two real issues found: (1) amp-status help text still says 'the wheel scrolls the activity axis' contradicting the new wheel-disabled behaviour; (2) AmpCanvas.onWheel calls e.preventDefault() inside React's passive onWheel handler → repeated console error 'Unable to preventDefault inside passive event listener invocation' (behaviour still correct because nothing else navigates on wheel). Also a batch of React 'Updating border/borderRight/borderWidth' style-shorthand warnings from AmpFilterBar and AmpNavigator during theme rerender.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EdrDeviceTrajectoryPage · amp-status footer text", "issue": "Footer still reads '… the wheel scrolls the activity axis (zoom lives on the Navigator, as in the Cisco reference)' — this directly contradicts the new wheel-disabled behaviour and misleads the analyst. Update copy to reflect that wheel is intentionally disabled and navigation is via the two scrollbars, deliberate drag, Navigator bands and search.", "selector": "[data-testid=\"amp-status\"]", "priority": "MEDIUM"},
+      {"component": "AmpCanvas.onWheel", "issue": "e.preventDefault()/stopPropagation() are called from React's synthetic onWheel, which is registered as PASSIVE — browsers reject preventDefault() and log 'Unable to preventDefault inside passive event listener invocation' every wheel tick. Testing shows behaviour is still correct because no other listener navigates on wheel, but if any ancestor ever becomes scrollable the wheel would scroll it. Fix by attaching a native, non-passive listener via useEffect+addEventListener('wheel', h, {passive:false}) on boxRef, or just remove the preventDefault since the intent is already achieved by not acting on wheel.", "selector": "[data-testid=\"amp-canvas\"]", "priority": "MEDIUM"},
+      {"component": "AmpFilterBar / AmpNavigator", "issue": "React warning 'Updating border/borderRight/borderWidth — don't mix shorthand and non-shorthand properties for the same value.' emitted on every theme toggle and on some button hovers. Style spam and can cause the specific border to flicker at theme switch. Refactor those elements to use only long-hand (borderTop/Right/Bottom/Left, borderWidth+borderStyle+borderColor) or only shorthand consistently.", "selector": "AmpFilterBar input, AmpNavigator buttons", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Device Trajectory", "issues": ["Dark and Light themes both render Navigator, gutter labels, lifelines, event glyphs, red compromise markers/bands and Activity/Details text with readable contrast (verified via light_theme.png and dark_theme.png screenshots). No white-on-white or dark-on-dark elements observed."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Update amp-status footer copy — wheel does NOT scroll the activity axis any more.",
+    "Make wheel prevention effective: attach a native non-passive 'wheel' listener on the canvas box (or just drop preventDefault, since not acting is enough).",
+    "Fix border shorthand/long-hand mixing in AmpFilterBar and AmpNavigator to silence the React warnings."
+  ],
+  "critical_code_review_comments": [
+    "ampModel.js mutates a shared C palette object via setTheme() called synchronously in the component body — works today because setTheme runs before children render, but any component that memoizes styles across renders (or renders outside this tree, e.g. tooltips in a portal) would keep the previous palette. Consider a React context for theme.",
+    "EdrDeviceTrajectoryPage: focusEvent() writes ?event= via setParams on every click; combined with an existing deep-link, back-navigation history piles up event tokens. Use history.replaceState (already replace:true — good) but also debounce identical iids.",
+    "AmpCanvas.onWheel: preventDefault inside a passive React handler is a no-op; consider addEventListener with {passive:false} for real prevention or delete the preventDefault entirely for honesty."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "~92% (all critical flows pass, 3 non-blocking issues)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK · endpoint dev_42e8c6dc74b9",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 99 confirms: wheel is behaviourally inert over amp-canvas (data-wheel-navigation='disabled'); Activity pane default → click event marker opens amp-details-panel with amp-details-back that restores the list; every requested amp-details-* / amp-mitre-box / amp-observables / amp-detected-by / amp-d-* / amp-details-pivot-* testid is present; theme toggle switches DARK↔LIGHT, persists in localStorage nvf-amp-theme across reload; fullscreen works; legacy /edr/trajectory and sibling /edr routes load. Remaining gaps for E1 to fix: (a) misleading amp-status footer copy about the wheel, (b) preventDefault-in-passive-onWheel console errors, (c) React border shorthand warnings on AmpFilterBar/AmpNavigator. Test-side timing note: after page reload allow ~10-14 s before touching amp-vscroll/amp-filter-search because first paint of view+meta is slow, otherwise those tests appear to fail when they are only unready.",
+  "rca of the issue": "amp-status text was authored during the previous iteration when wheel still scrolled lanes; it wasn't updated when AmpCanvas.onWheel was neutralised. The preventDefault warning is a React quirk: onWheel synthetic handlers are attached with passive:true since React 17, so calling preventDefault does nothing and the browser logs the warning. Border-shorthand warnings appear because the same element sets both `border: ...` and later `borderRight: ...` (or similar) — React warns on any rerender where the property list changes across shorthand vs long-hand."
+}

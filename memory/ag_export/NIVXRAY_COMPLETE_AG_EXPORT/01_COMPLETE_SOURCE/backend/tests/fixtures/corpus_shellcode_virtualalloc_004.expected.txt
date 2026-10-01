@@ -1,0 +1,1 @@
+http://sc-4.example.test/beacon

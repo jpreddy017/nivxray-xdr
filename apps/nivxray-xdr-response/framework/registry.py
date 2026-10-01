@@ -22,6 +22,9 @@ class ActionSpec:
     approval_required:    bool = False
     reversible:           bool = False
     destructive:          bool = False
+    # STUB_NO_SIDE_EFFECT | REAL_PRODUCT_API — surfaced everywhere so a
+    # consumer can never mistake a stub for a real control action.
+    dispatch_mode:        str = "STUB_NO_SIDE_EFFECT"
     # An adapter is `async (params, ctx) -> {ok: bool, result: {}, error?: str, reversal_id?: str}`.
     adapter:              Optional[Callable] = None
 
@@ -45,4 +48,14 @@ class ActionRegistry:
         r = cls()
         for spec in STUB_ACTIONS:
             r.register(spec)
+        # P0-1 · the endpoint domain is owned by NivXForge EDR, so those
+        # actions dispatch into the authoritative EDR response API
+        # instead of a stub. This REPLACES the adapter on the existing
+        # spec — it does not add a second registry or a second action.
+        from framework.nivxforge_edr import EDR_ACTION_VERBS, dispatch
+        for action_id in EDR_ACTION_VERBS:
+            spec = r.get(action_id)
+            if spec is not None:
+                spec.adapter = dispatch
+                spec.dispatch_mode = "REAL_PRODUCT_API"
         return r

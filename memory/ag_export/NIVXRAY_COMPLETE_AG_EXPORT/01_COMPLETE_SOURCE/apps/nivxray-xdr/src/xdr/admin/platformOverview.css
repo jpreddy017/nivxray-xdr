@@ -1,0 +1,494 @@
+/**
+ * Platform Overview · Phase A.2 · Visual Maturity benchmark.
+ *
+ * Composes on the workspace CANVAS.  Every card is a Primary
+ * elevated surface; sub-sections inside cards are Inset.
+ * Two typographic voices: sans for human labels, mono for
+ * technical identifiers, timestamps, and numeric quantities.
+ */
+
+.platform-overview {
+  background: var(--nx-surf-canvas);
+  padding: 0;
+  min-height: 100%;
+}
+
+/* Hero override — no card, no shadow, just sits on canvas. */
+.platform-overview .nx-hero {
+  padding: 24px 4px 20px !important;
+  border-bottom: 1px solid var(--nx-bd-quiet) !important;
+  background: transparent;
+}
+.platform-overview .nx-hero .nx-t-h1 {
+  font-size: 26px !important;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px !important;
+}
+
+/* ── Health chip (top-right counterweight) ─────────────────────── */
+
+.platform-overview .po-health {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 10px;
+  min-width: 200px;
+  box-shadow: var(--nx-shadow-1);
+}
+.platform-overview .po-health-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--nx-benign);
+  flex: 0 0 8px;
+}
+.platform-overview .po-health-operational .po-health-dot { background: #10B981; }
+.platform-overview .po-health-degraded    .po-health-dot { background: var(--nx-medium); }
+.platform-overview .po-health-critical    .po-health-dot { background: var(--nx-critical); }
+.platform-overview .po-health-unknown     .po-health-dot { background: var(--nx-faint); }
+
+.platform-overview .po-health-txt { flex: 1; min-width: 0; }
+.platform-overview .po-health-label {
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 700;
+  color: var(--nx-text);
+  line-height: 1.2;
+}
+.platform-overview .po-health-when {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--nx-muted);
+  margin-top: 2px;
+}
+.platform-overview .po-health-icon {
+  color: #10B981;
+  flex: 0 0 auto;
+}
+
+/* ── KPI strip (6 tiles on primary surface, no visual weight for zero) ── */
+
+.platform-overview .po-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin: 20px 0 24px;
+}
+.platform-overview .po-kpi {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+  box-shadow: var(--nx-shadow-1);
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+.platform-overview .po-kpi:hover {
+  border-color: var(--nx-bd-strong);
+  box-shadow: 0 2px 8px rgba(15,20,30,0.06);
+}
+.platform-overview .po-kpi-icon {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--nx-purple-dim);
+  color: var(--nx-purple);
+  border-radius: 8px;
+}
+.platform-overview .po-kpi-body { min-width: 0; }
+.platform-overview .po-kpi-value {
+  font-family: var(--mono);
+  font-size: 26px; font-weight: 800;
+  color: var(--nx-text);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.platform-overview .po-kpi-label {
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--nx-muted);
+  margin-bottom: 2px;
+}
+.platform-overview .po-kpi-sub {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--nx-text-dim);
+}
+.platform-overview .po-kpi-delta {
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+}
+.platform-overview .po-kpi-delta-up   { color: var(--nx-benign); }
+.platform-overview .po-kpi-delta-down { color: var(--nx-high); }
+
+/* ── Analytical rows (grid of cards) ───────────────────────────── */
+
+.platform-overview .po-row {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.platform-overview .po-row-main {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.66fr);
+}
+.platform-overview .po-row-bottom {
+  grid-template-columns: minmax(0, 1.16fr) minmax(0, 1fr) minmax(0, 0.72fr);
+}
+
+/* ── Card (Primary elevated) ───────────────────────────────────── */
+
+.platform-overview .po-card {
+  background: var(--nx-surf-primary);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 12px;
+  padding: 16px 18px 14px;
+  box-shadow: var(--nx-shadow-1);
+  display: flex; flex-direction: column;
+  min-height: 260px;
+  min-width: 0;               /* allow grid items to shrink properly */
+  overflow: hidden;           /* nothing bleeds past the rounded edge */
+}
+.platform-overview .po-card-head { margin-bottom: 12px; }
+.platform-overview .po-card-title {
+  font-family: var(--sans);
+  font-size: 15px; font-weight: 700;
+  color: var(--nx-text);
+  margin: 0 0 2px;
+  letter-spacing: -0.01em;
+}
+.platform-overview .po-card-sub {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--nx-muted);
+  margin: 0;
+}
+.platform-overview .po-card-body {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: flex-start;
+}
+.platform-overview .po-card-foot {
+  border-top: 1px solid var(--nx-bd-quiet);
+  padding-top: 10px;
+  margin-top: 12px;
+}
+.platform-overview .po-linkout {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--sans);
+  font-size: 12px; font-weight: 600;
+  color: var(--nx-purple);
+  text-decoration: none;
+}
+.platform-overview .po-linkout:hover { text-decoration: underline; }
+
+/* ── IOC composition (donut + legend) ─────────────────────────── */
+
+.platform-overview .po-ioc {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+.platform-overview .po-ioc-chart { display: flex; justify-content: center; }
+.platform-overview .po-ioc-center-value {
+  font-family: var(--mono);
+  font-size: 22px; font-weight: 800;
+  color: var(--nx-text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.platform-overview .po-ioc-center-label {
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-muted);
+  margin-top: 4px;
+}
+.platform-overview .po-ioc-legend {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.platform-overview .po-ioc-legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--nx-text);
+  white-space: nowrap;
+  min-width: 0;
+}
+.platform-overview .po-ioc-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex: 0 0 8px;
+  transform: translateY(-1px);
+}
+.platform-overview .po-ioc-dot-purple { background: #6D4EE0; }
+.platform-overview .po-ioc-dot-blue   { background: #2563EB; }
+.platform-overview .po-ioc-dot-teal   { background: #0D9488; }
+.platform-overview .po-ioc-dot-amber  { background: #F59E0B; }
+.platform-overview .po-ioc-dot-faint  { background: #9CA3AF; }
+.platform-overview .po-ioc-legend-label {
+  color: var(--nx-text-dim);
+  font-weight: 500;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.platform-overview .po-ioc-legend-value {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--nx-text);
+  flex: 0 0 auto;
+}
+.platform-overview .po-ioc-legend-pct {
+  font-family: var(--mono);
+  color: var(--nx-muted);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+/* ── Operations trend ──────────────────────────────────────────── */
+
+.platform-overview .po-ops { position: relative; padding-top: 4px; }
+.platform-overview .po-ops-delta {
+  position: absolute; top: 0; right: 0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 11px; font-weight: 700;
+}
+.platform-overview .po-ops-delta-up {
+  color: var(--nx-benign);
+  background: #ECFDF5;
+}
+.platform-overview .po-ops-delta-down {
+  color: var(--nx-high);
+  background: #FFF7ED;
+}
+.platform-overview .po-ops-delta-sub {
+  color: var(--nx-muted);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* ── LOLBAS ────────────────────────────────────────────────────── */
+
+.platform-overview .po-lolbas-meta {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--nx-bd-quiet);
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.platform-overview .po-lolbas-meta-label {
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--nx-muted);
+}
+.platform-overview .po-lolbas-meta-value {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--nx-text);
+}
+
+/* ── Tables (Data Sources / Detection) ─────────────────────────── */
+
+/* Wrapper allows the table to scroll horizontally if a card ends
+   up too narrow for the row content — nothing gets clipped without
+   an explicit affordance for the analyst. */
+.platform-overview .po-card-body {
+  overflow-x: auto;
+}
+.platform-overview .po-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  table-layout: auto;
+}
+.platform-overview .po-table th {
+  text-align: left;
+  padding: 8px 8px;
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-muted);
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  white-space: nowrap;
+}
+.platform-overview .po-table th.num { text-align: right; }
+.platform-overview .po-table th.bar-col { width: 26%; min-width: 90px; }
+.platform-overview .po-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--nx-bd-quiet);
+  color: var(--nx-text);
+  vertical-align: middle;
+}
+.platform-overview .po-table tr:last-child td { border-bottom: none; }
+.platform-overview .po-table td.num {
+  font-family: var(--mono);
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+.platform-overview .po-table td.mono {
+  font-family: var(--mono);
+  color: var(--nx-text-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+/* First (label) column may wrap onto two lines */
+.platform-overview .po-table td:first-child {
+  white-space: normal;
+  min-width: 0;
+}
+/* Pill cells must stay on one line */
+.platform-overview .po-table td .po-pill {
+  white-space: nowrap;
+}
+
+/* Inline distribution bars inside the detection table */
+.platform-overview .po-inline-bar {
+  display: block;
+  height: 8px;
+  background: var(--nx-surf-inset);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.platform-overview .po-inline-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 200ms ease;
+}
+
+/* Pill (health state on data-source rows) */
+.platform-overview .po-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: var(--sans);
+  font-size: 10px; font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.platform-overview .po-pill-benign { color: var(--nx-benign);   background: #ECFDF5; border: 1px solid #A7F3D0; }
+.platform-overview .po-pill-amber  { color: var(--nx-medium);   background: #FFFBEB; border: 1px solid #FCD34D; }
+.platform-overview .po-pill-faint  { color: var(--nx-muted);    background: var(--nx-surf-inset); border: 1px solid var(--nx-bd-quiet); }
+.platform-overview .po-pill-critical { color: var(--nx-critical); background: #FEF2F2; border: 1px solid #FCA5A5; }
+
+/* ── Insights list ─────────────────────────────────────────────── */
+
+.platform-overview .po-insights {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.platform-overview .po-insight {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 8px;
+}
+.platform-overview .po-insight-icon {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  background: var(--nx-elevated);
+  border: 1px solid var(--nx-bd-quiet);
+}
+.platform-overview .po-insight-benign { border-left: 3px solid var(--nx-benign); }
+.platform-overview .po-insight-benign .po-insight-icon { color: var(--nx-benign); }
+.platform-overview .po-insight-amber  { border-left: 3px solid var(--nx-medium); }
+.platform-overview .po-insight-amber  .po-insight-icon { color: var(--nx-medium); }
+.platform-overview .po-insight-info   { border-left: 3px solid var(--nx-low); }
+.platform-overview .po-insight-info   .po-insight-icon { color: var(--nx-low); }
+
+.platform-overview .po-insight-title {
+  font-family: var(--sans);
+  font-size: 12px; font-weight: 700;
+  color: var(--nx-text);
+  margin-bottom: 2px;
+}
+.platform-overview .po-insight-body {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--nx-text-dim);
+  line-height: 1.5;
+}
+
+/* ── Honest empty / skeleton ───────────────────────────────────── */
+
+.platform-overview .po-empty {
+  padding: 16px;
+  background: var(--nx-surf-inset);
+  border: 1px dashed var(--nx-bd-quiet);
+  border-radius: 8px;
+  text-align: left;
+}
+.platform-overview .po-empty-title {
+  font-family: var(--sans);
+  font-size: 12.5px; font-weight: 700;
+  color: var(--nx-text-dim);
+  margin-bottom: 4px;
+}
+.platform-overview .po-empty-body {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--nx-muted);
+  line-height: 1.5;
+}
+
+.platform-overview .po-skel {
+  background: linear-gradient(90deg,
+    var(--nx-surf-inset) 25%,
+    #FFFFFF 37%,
+    var(--nx-surf-inset) 63%);
+  background-size: 400% 100%;
+  animation: po-shimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
+}
+.platform-overview .po-skel-num   { display: inline-block; width: 60%; height: 24px; }
+.platform-overview .po-skel-block { width: 100%; }
+@keyframes po-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* ── Honest footer band ────────────────────────────────────────── */
+
+.platform-overview .po-honest {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: var(--nx-surf-inset);
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--nx-muted);
+  text-align: center;
+}
+
+/* ── Responsive: fall back to single-column on narrow screens ─── */
+@media (max-width: 1400px) {
+  .platform-overview .po-kpi-strip { grid-template-columns: repeat(3, 1fr); }
+  .platform-overview .po-row-main,
+  .platform-overview .po-row-bottom { grid-template-columns: 1fr; }
+}

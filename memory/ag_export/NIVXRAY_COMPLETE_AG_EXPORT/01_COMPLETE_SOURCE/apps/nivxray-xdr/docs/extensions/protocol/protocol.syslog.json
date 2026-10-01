@@ -1,0 +1,21 @@
+{
+  "capability_id": "protocol.syslog",
+  "name": "Syslog Receiver",
+  "type": "PROTOCOL",
+  "provider": "nivxray",
+  "version": "1.2.0",
+  "vendor": "NivXRay",
+  "description": "RFC-5424 syslog listener over UDP/TCP/TLS with rate limiting, allow-list validation, and dropped-event accounting. Ships in Phase B collector.",
+  "authentication": ["none", "mtls"],
+  "permissions": ["receive:syslog"],
+  "supported_operations": ["listen", "parse", "test_delivery"],
+  "input_schema": { "transport": "udp|tcp|tls", "port": "int",
+                          "allowlist_cidr": "array" },
+  "output_schema": { "canonical_event": "object" },
+  "health_check": { "kind": "socket_probe", "interval_seconds": 30 },
+  "lifecycle": "ENABLED",
+  "adapter_status": "AVAILABLE",
+  "transport": "syslog",
+  "risk": "low",
+  "execution_mode": "async"
+}

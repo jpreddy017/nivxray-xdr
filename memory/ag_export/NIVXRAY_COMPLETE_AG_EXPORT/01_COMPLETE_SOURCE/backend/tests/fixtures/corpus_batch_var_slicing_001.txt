@@ -1,0 +1,2 @@
+@set v=REALLYLONG_SECRET_VALUE
+@call echo %v:~11,6%

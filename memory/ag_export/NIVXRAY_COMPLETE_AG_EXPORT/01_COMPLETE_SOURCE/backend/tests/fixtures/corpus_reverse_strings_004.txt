@@ -1,0 +1,1 @@
+-join ('litutrec'[-1..-8])

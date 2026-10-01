@@ -1,0 +1,5 @@
+{
+  "canonical_bytes_len": 500,
+  "canonical_bytes_sample_prefix": "{\"acquired_document\":{\"engine\":\"trafilatura\",\"ok\":true,\"url\":\"https://test.example.gov/advisory/t1d\"},\"document_profile\":{\"title\":\"T1D\",\"vendor\":\"Test\"},\"input\":{\"raw\":\"https://test.example.gov/adviso",
+  "checksum": "<HEX_ID:64>"
+}

@@ -1,0 +1,139 @@
+/* ═══════════════════════════════════════════════════════════════
+   Control Center — compact operational surface.
+
+   Cisco XDR's Control Center is an ANSWER SHEET, not a metric wall:
+   one dense attention strip, then the work itself. These rules exist
+   so the first viewport carries the answers instead of six cards of
+   padding.
+   ═══════════════════════════════════════════════════════════════ */
+
+.cc { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Attention strip · one row, condition-first ─────────────── */
+.cc-attn {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid var(--nx-bd-quiet, var(--border));
+  border-radius: 6px; overflow: hidden;
+  background: var(--nx-surf, var(--panel));
+}
+.cc-attn__i {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 12px; cursor: pointer; text-align: left;
+  background: transparent; border: 0;
+  border-left: 1px solid var(--nx-bd-quiet, var(--border));
+  transition: background-color .14s ease;
+}
+.cc-attn__i:first-child { border-left: 0; }
+.cc-attn__i:hover { background: var(--nx-workspace-alt, rgba(127,127,127,.08)); }
+.cc-attn__i[data-zero="1"] { cursor: default; }
+.cc-attn__k {
+  font-size: 9.6px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--nx-muted, var(--muted));
+  display: flex; align-items: center; gap: 5px;
+}
+.cc-attn__v {
+  font-family: var(--nx-font-display, var(--sans)); font-size: 21px;
+  font-weight: 700; line-height: 1.05;
+}
+.cc-attn__v[data-tone="critical"] { color: var(--nx-critical, #E5484D); }
+.cc-attn__v[data-tone="high"]     { color: var(--nx-high, #F5A524); }
+.cc-attn__v[data-tone="quiet"]    { color: var(--nx-text-dim, var(--text-dim)); }
+.cc-attn__s { font-size: 10px; color: var(--nx-faint, var(--faint)); }
+
+/* ── Condition bar · security / telemetry / response ────────── */
+.cc-cond {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+  padding: 8px 12px; font-size: 11px;
+  border: 1px solid var(--nx-bd-quiet, var(--border));
+  border-radius: 6px; background: var(--nx-surf-inset, var(--panel));
+}
+.cc-cond__i { display: inline-flex; align-items: baseline; gap: 6px; }
+.cc-cond__k {
+  font-size: 9.6px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--nx-muted, var(--muted));
+}
+.cc-cond__v { font-family: var(--nx-font-mono, var(--mono)); font-size: 11px; }
+.cc-cond__v[data-state="bad"]  { color: var(--nx-critical, #E5484D); }
+.cc-cond__v[data-state="warn"] { color: var(--nx-high, #F5A524); }
+.cc-cond__v[data-state="ok"]   { color: var(--nx-benign, #3DD68C); }
+.cc-cond__v[data-state="unknown"] { color: var(--nx-faint, var(--faint)); font-style: italic; }
+
+/* ── Work grid ───────────────────────────────────────────────── */
+.cc-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  align-items: start;
+}
+.cc-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1180px) {
+  .cc-grid, .cc-grid--3 { grid-template-columns: minmax(0, 1fr); }
+  .cc-attn { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.cc-card {
+  border: 1px solid var(--nx-bd-quiet, var(--border));
+  border-radius: 6px; background: var(--nx-surf, var(--panel));
+  overflow: hidden;
+}
+.cc-card__h {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid var(--nx-bd-quiet, var(--border));
+}
+.cc-card__t {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .2px;
+}
+.cc-card__s { font-size: 10.2px; color: var(--nx-muted, var(--muted)); }
+.cc-card__a { margin-left: auto; font-size: 10.4px; }
+.cc-card__b { padding: 4px 0; }
+.cc-card__b--pad { padding: 10px 12px; }
+
+/* ── Dense table ─────────────────────────────────────────────── */
+.cc-tb { width: 100%; border-collapse: collapse; font-size: 11.2px; }
+.cc-tb th {
+  text-align: left; font-size: 9.4px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--nx-muted, var(--muted));
+  padding: 5px 12px; border-bottom: 1px solid var(--nx-bd-quiet, var(--border));
+  white-space: nowrap;
+}
+.cc-tb td {
+  padding: 6px 12px; border-bottom: 1px solid var(--nx-bd-quiet, var(--border));
+  vertical-align: baseline;
+}
+.cc-tb tbody tr { cursor: pointer; }
+.cc-tb tbody tr:hover { background: var(--nx-workspace-alt, rgba(127,127,127,.07)); }
+.cc-tb .num { text-align: right; font-family: var(--nx-font-mono, var(--mono)); }
+.cc-tb .mono { font-family: var(--nx-font-mono, var(--mono)); font-size: 10.6px; }
+.cc-tb__na { color: var(--nx-faint, var(--faint)); font-style: italic; }
+.cc-tb__sev { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+              margin-right: 6px; background: var(--nx-faint, var(--faint)); }
+.cc-tb__sev[data-s="P1"] { background: var(--nx-critical, #E5484D); }
+.cc-tb__sev[data-s="P2"] { background: var(--nx-high, #F5A524); }
+.cc-tb__sev[data-s="P3"] { background: var(--nx-medium, #F5A524); }
+
+.cc-empty {
+  padding: 14px 12px; font-size: 11.2px; line-height: 1.6;
+  color: var(--nx-text-dim, var(--text-dim));
+}
+.cc-empty b { color: var(--nx-text, var(--text)); }
+
+.cc-bars { display: flex; flex-direction: column; gap: 5px; padding: 8px 12px; }
+.cc-bar { display: grid; grid-template-columns: 96px 1fr 34px; gap: 8px;
+          align-items: center; font-size: 10.8px; }
+.cc-bar__k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+             color: var(--nx-text-dim, var(--text-dim)); }
+.cc-bar__t { height: 6px; border-radius: 3px;
+             background: var(--nx-surf-inset, rgba(127,127,127,.15)); overflow: hidden; }
+.cc-bar__f { height: 100%; border-radius: 3px; background: var(--nx-accent, #7c3aed);
+             transition: width .3s ease; }
+.cc-bar__f[data-tone="critical"] { background: var(--nx-critical, #E5484D); }
+.cc-bar__f[data-tone="high"]     { background: var(--nx-high, #F5A524); }
+.cc-bar__f[data-tone="benign"]   { background: var(--nx-benign, #3DD68C); }
+.cc-bar__n { text-align: right; font-family: var(--nx-font-mono, var(--mono)); }
+
+.cc-feed { list-style: none; margin: 0; padding: 4px 0; }
+.cc-feed li { display: grid; grid-template-columns: 42px 1fr; gap: 8px;
+              padding: 5px 12px; font-size: 11px; cursor: pointer; }
+.cc-feed li:hover { background: var(--nx-workspace-alt, rgba(127,127,127,.07)); }
+.cc-feed__t { font-family: var(--nx-font-mono, var(--mono)); font-size: 10px;
+              color: var(--nx-muted, var(--muted)); }
+.cc-feed__x { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

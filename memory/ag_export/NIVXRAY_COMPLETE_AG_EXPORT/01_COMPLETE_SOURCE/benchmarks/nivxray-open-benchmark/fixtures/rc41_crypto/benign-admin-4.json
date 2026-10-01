@@ -1,0 +1,23 @@
+{
+  "id": "benign-admin-4",
+  "category": "benign",
+  "algorithm": "defender-config",
+  "command_line": "Add-MpPreference -ExclusionPath 'C:\\CorpUpdate\\'  # allowlist by IT",
+  "stage_ladder": [
+    {
+      "name": "plain-cli-parse",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "n/a",
+  "expected_plaintext": "Add-MpPreference -ExclusionPath 'C:\\CorpUpdate\\'  # allowlist by IT",
+  "expected_iocs": [],
+  "expected_lolbins": [],
+  "expected_mitre": [],
+  "expected_verdict": "benign",
+  "expected_confidence_min": 0.0,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

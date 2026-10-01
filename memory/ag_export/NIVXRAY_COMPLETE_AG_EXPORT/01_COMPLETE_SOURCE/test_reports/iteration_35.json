@@ -1,0 +1,38 @@
+{
+  "summary": "Verified all 4 targets of iteration 35: (1) Entity classifier locale keywords — all 24 unit tests pass, incl. 5 new locale tests (Russian/Chinese/Arabic IPv4, Chinese software_version, Japanese Windows build). HTTP verification via /api/rc5/entities/classify-token: all four locale contexts return the expected kind with confidence 0.95. (2) CorpusHealthPill renders next to wordmark (data-testid=corpus-health-pill, data-gate=pass, 'CORPUS · 88/88'); no runtime errors from the transition-based toasts. (3) Cmd+K palette opens, typing '>' switches to command mode with exactly 8 alias rows; typing '>run bench' filters to a single '>run benchmark' alias; Enter fires a REAL POST /api/rc5/golden/run and a sonner toast 'Benchmark started' is rendered. (4) POST /api/rc5/parse now returns both evidence_graph and correlation populated; correlation.stats has all 5 required keys (node_count, edge_count, temporal_spans, dependency_chains, contradictions). /api/rc5/entities/correlate still works with an EvidenceGraph body (empty graph → ok:true, real /parse graph → ok:true w/ non-zero node/edge counts). CI=true yarn build succeeds. No new console errors on Workspace, Dashboard, Benchmark, Training Inbox (only the pre-existing /api/training-inbox 404 that was already documented in iteration 34).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Login latency currently ~70s under load (backend event loop appears busy servicing a background LiteLLM job — many 'LiteLLM completion() model=claude-sonnet-4-5' log lines every few seconds). Once a token is acquired, all subsequent /api/rc5/* endpoints respond quickly. Not a regression from this iteration — just noting because the pytest suite (test_iter35_verify.py) times out on the login fixture until the background task settles."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_entity_classifier.py",
+    "/app/backend/tests/test_iter35_verify.py",
+    "/app/test_reports/pytest/iter35.xml"
+  ],
+  "action_items": [
+    "Consider whether the LiteLLM background job that saturates the event loop for ~60-70s at startup can be moved to a worker / offloaded — it blocks login for a full minute on cold cache. Not blocking; but pytest suites will keep timing out until then.",
+    "Carried-over from iter 34: still no /api/training-inbox route → 404 in QuickOpenPalette network log (harmless due to per-endpoint try/catch, but console-noisy)."
+  ],
+  "critical_code_review_comments": [
+    "rc5_diag.py wires the correlation sidecar behind evidence_graph_mode()=='sidecar' AND wraps the correlate() call in try/except that silently sets None — good defensive posture; verdict is never influenced by correlation.",
+    "QuickOpenPalette command mode is nicely isolated: buildCommands() memoised on navigate; command-mode filter branch keeps the fuzzy path unchanged; each alias runs a REAL api.get/api.post (no mocks).",
+    "CorpusHealthPill uses a useRef for the previous gate so toasts fire only on the flip, not every 60 s poll — correct pattern. Toast ids ('corpus-regression-alert' / 'corpus-recovery-alert') prevent duplicate stacks."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter35_verify.py (new)"
+  ],
+  "success_rate": {"backend": "100% (24/24 entity_classifier unit tests + all 4 HTTP items verified via curl)", "frontend": "100% (palette command mode, CorpusHealthPill, build, no regressions on 4 routes)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK — verified working (via localhost:8001 because ingress → backend login takes ~70s under current LLM background load)",
+  "seed_data_creation": "None — 88 golden entries + existing corpus untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend login is currently very slow (~70s) via ingress due to a busy LiteLLM background job — verify endpoints via localhost:8001 with a pre-fetched token if timeouts hit. All 4 iter-35 targets are green: locale classifier, CorpusHealthPill transitions, Cmd+K command-mode aliases (with real POST to /rc5/golden/run + sonner toast), and correlation payload on /rc5/parse (evidence_graph + correlation with stats.node_count/edge_count/temporal_spans/dependency_chains/contradictions). /api/rc5/entities/correlate accepts both empty and populated EvidenceGraph bodies.",
+  "rca of the issue": "N/A — no regressions found. Slow login is symptom of a persistent LiteLLM background call cadence (~1 request every 5-7s per backend log), which starves the async loop. Not caused by this iteration's changes."
+}

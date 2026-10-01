@@ -1,0 +1,251 @@
+[
+  {
+    "tenant_id": "TENANT_ALPHA",
+    "case_id": "CASE-COLLISION-TEST",
+    "version": 1,
+    "state_hash": "923cab2081fe841f56e571837af47a4f9adc0a4cd089db225b380e02f6e5c30d",
+    "previous_state_hash": null,
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-alpha",
+      "tenant_id": "TENANT_ALPHA",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-956b54f7c7",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "whoami"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ea1"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ac1f610c5e",
+      "tenant_id": "TENANT_ALPHA",
+      "case_id": "CASE-COLLISION-TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-alpha",
+          "tenant_id": "TENANT_ALPHA",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-e573781a",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_ALPHA",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-alpha",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation"
+            }
+          ]
+        },
+        {
+          "path_id": "path-eedf4bde",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_ALPHA",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-alpha",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap"
+            }
+          ]
+        },
+        {
+          "path_id": "path-5846e0ad",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_ALPHA",
+            "display_name": "Production Customer Database"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-alpha",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_ALPHA",
+                "display_name": "Production Customer Database"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null
+            }
+          ]
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 1,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "matrix_hash": "dbefda8fc4db135d1e7c7894f683c49e6919441edeaa1adc5f1c1fddd4a96a55"
+    },
+    "impact": {
+      "card_id": "impact-4bec5852ca",
+      "tenant_id": "TENANT_ALPHA",
+      "case_id": "CASE-COLLISION-TEST",
+      "overall_impact_score": 32,
+      "blast_radius_node_count": 2,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 1/2 operational assets reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 30,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 2 connected systems",
+          "affected_entities": [
+            "host-alpha"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 2 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "card_hash": "6e376efc58e6ce69a4bc79f7db8c6367aacbb9d3fd5364d3c2ed03f409823913"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-771583b458",
+      "tenant_id": "TENANT_ALPHA",
+      "case_id": "CASE-COLLISION-TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-alpha",
+            "tenant_id": "TENANT_ALPHA",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "plan_hash": "f38cd47c1bfbdb99e07eeb211f19ecef4d40a79269fecbb9caaf321df4ee3a18"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ea1",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-03T20:52:15.262962+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-03T20:52:15.262980+00:00",
+    "created_at": "2026-09-03T20:52:15.262983+00:00",
+    "engine_version": "1.0.0"
+  }
+]

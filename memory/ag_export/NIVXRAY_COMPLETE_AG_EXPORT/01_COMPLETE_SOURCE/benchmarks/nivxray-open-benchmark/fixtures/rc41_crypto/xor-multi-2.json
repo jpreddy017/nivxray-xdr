@@ -1,0 +1,44 @@
+{
+  "id": "xor-multi-2",
+  "category": "ps-crypto",
+  "algorithm": "XOR-multi",
+  "command_line": "$k=[Text.Encoding]::UTF8.GetBytes('NivXor2026'); $c=[byte[]](60,12,17,120,14,22,86,16,122,125,2,36,42,11,0,20,70,71,83,68,43,53,36,45,1,82,29,70,18,69,56,10,86,119,11,82,87,70,91,90,96,12,14,61,79,93,84); $out=[byte[]]::new($c.Length); for($i=0;$i -lt $c.Length;$i++){$out[$i] = $c[$i] -bxor $k[$i % $k.Length]}; IEX ([Text.Encoding]::UTF8.GetString($out))",
+  "stage_ladder": [
+    {
+      "name": "utf8-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "byte-array-parse",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "xor-multi-inline-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "utf8-decode",
+      "recoverable": true,
+      "reason": ""
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": "reg add HKLM\\Software\\Run /v svc /d evil.exe /f",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

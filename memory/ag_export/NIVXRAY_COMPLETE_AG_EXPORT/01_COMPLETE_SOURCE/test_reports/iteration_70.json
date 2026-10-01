@@ -1,0 +1,33 @@
+{
+  "summary": "ADR-004 Step 0 independent backend verification. All Step-0 gates PASS: (1) P1-02 defanged IOC extraction fix verified via 88 targeted regression tests — all pass. (2) 4 baseline snapshots (verdicts, chain_decodes, bkb_projections, iocs) exist, load as valid JSON, have correct fixture_count=14 and required shape. (3) 3-way engine parity snapshot exists with fixture_count=14, engines_probed={v2,nivxforge,uaie}, all 14 entries contain result-or-error for each of the 3 engines. (4) `python -m tests.capture_baseline` runs to completion and re-emits all 4 baselines deterministically (byte-identical diff on baseline_verdicts.json). (5) Hot-path regression matches pre-Step-0 baseline EXACTLY: 5 failed, 190 passed, 35 errors — zero regression.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/capture_baseline.py", "issue": "Harness emits a benign RuntimeWarning about un-awaited litellm coroutine 'close_litellm_async_clients'. Does not affect determinism or exit code, but should be awaited for cleanliness."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_defanged_ioc_extraction.py",
+    "/app/backend/tests/test_canonicalizer_multi_token_inner.py",
+    "/app/backend/tests/test_ahk_false_positive.py",
+    "/app/backend/tests/test_wayback_fallback.py",
+    "/app/backend/tests/test_ssrf_blocked.py",
+    "/app/backend/tests/test_url_classifier_powershell_bug.py",
+    "/app/backend/tests/test_verdict_engine_parity.py",
+    "/app/backend/tests/test_baseline_snapshots_present.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "capture_baseline.py leaves litellm async client uncleaned (RuntimeWarning on shutdown). Cosmetic — consider calling `asyncio.run(close_litellm_async_clients())` or configuring litellm sync mode in the harness.",
+    "The user-supplied context notes the ADR-004 doc references '20 fixtures' but only 14 are actually pinned in VENDOR_CORPUS_V1. All baselines correctly use 14; the doc reference should be updated to reflect the source of truth."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% on Step-0 targeted suite (88/88); hot-path regression identical to pre-Step-0 baseline (190 passed / 5 failed / 35 errors — all failures pre-existing and unrelated to Step 0)", "frontend": "N/A (backend-only per request)"},
+  "test_credentials": "N/A — Step 0 is offline/deterministic",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Step 0 (P0/P1 Bug Hunt & Baseline) is GREEN. Baselines pinned at /app/backend/corpus/vendor/v1/reports/. 14 fixtures (not 20). Pre-existing hot-path failures (5 failed / 35 errors) are NOT from Step 0 — do not attribute to Step 0 work. To reproduce Step-0 verification: `cd /app/backend && export REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2) && python -m pytest tests/test_defanged_ioc_extraction.py tests/test_canonicalizer_multi_token_inner.py tests/test_ahk_false_positive.py tests/test_wayback_fallback.py tests/test_ssrf_blocked.py tests/test_url_classifier_powershell_bug.py tests/test_verdict_engine_parity.py tests/test_baseline_snapshots_present.py`.",
+  "rca of the issue": "N/A — no failures introduced by Step 0."
+}

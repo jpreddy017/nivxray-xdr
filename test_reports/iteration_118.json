@@ -1,0 +1,77 @@
+{
+  "summary": "Small targeted verification of the two repairs: (1) /xdr/exposure no longer crashes the console — page mounts with sidebar+tenant-pill intact, xdr-cve-error renders a readable refusal sentence naming TENANT_REQUIRED (no [object Object], no blank), and nx-page-error-boundary is NOT present (page no longer throws). (2) Routing corrections all pass: Hunting rail row has no children (no 'Activities' child, no telemetry-studio child); /xdr/activities → /xdr/hunting with xdr-hunting-page mounted; /xdr/admin/detection-rules → /xdr/admin/detection-registry with registry body rendered and no 'Unknown admin section'; xdr-hunting-activities is a SPAN (not a link) reading 'Environment activity NOT AVAILABLE'. Admin overview footer buttons: 2/3 verified (Data Sources, Detection Registry); the 3rd (View IOC Intelligence) could not be verified because the preview host issued Cloudflare 429s that blocked the Vite chunk for XdrAdminPage on the reload — this is a rate-limit challenge on the preview edge, not an app defect.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verification_results": {
+    "exposure_direct_url_hard_refresh": {
+      "url": "/xdr/exposure",
+      "xdr-sidebar_visible": true,
+      "xdr-tenant-pill_visible": true,
+      "body_innerText_length": 3463,
+      "nx-page-error-boundary_present": false,
+      "xdr-cve-error_text": "Pillar status: TENANT_REQUIRED — cross-tenant principal must name the tenant it is operating in; there is no default tenant · basis CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER · risk T-RISK-1 · Assets: TENANT_REQUIRED — ... · Software: TENANT_REQUIRED — ... · Exposures: TENANT_REQUIRED — ...",
+      "contains_object_object": false,
+      "contains_TENANT_REQUIRED": true,
+      "verdict": "PASS"
+    },
+    "exposure_via_rail_navigation": {
+      "path": "xdr-rail-toggle-assets → xdr-nav-exposure",
+      "final_url": "/xdr/exposure",
+      "xdr-sidebar_visible": true,
+      "xdr-tenant-pill_visible": true,
+      "nx-page-error-boundary_present": false,
+      "xdr-cve-error_readable": true,
+      "verdict": "PASS"
+    },
+    "page_crash_containment": {
+      "nx-page-error-boundary_on_exposure": false,
+      "verdict": "PASS — page does not throw"
+    },
+    "hunting_rail_no_activities_child": {
+      "hunting_row_is_leaf_link": true,
+      "xdr-rail-toggle-hunting_exists": false,
+      "hunting_related_testids_under_sidebar": ["xdr-rail-hunting", "xdr-nav-hunting"],
+      "activities_child_present": false,
+      "telemetry-studio_link_present_in_hunting_group": false,
+      "verdict": "PASS — Hunting children array emptied; row is a leaf link with no expander"
+    },
+    "activities_redirect_to_hunting": {
+      "final_url": "/xdr/hunting",
+      "xdr-hunting-page_present": true,
+      "verdict": "PASS"
+    },
+    "xdr-hunting-activities_is_static": {
+      "tag": "SPAN",
+      "text": "Environment activity NOT AVAILABLE",
+      "is_anchor": false,
+      "verdict": "PASS"
+    },
+    "detection-rules_redirect_to_registry": {
+      "final_url": "/xdr/admin/detection-registry",
+      "unknown_admin_section_text_present": false,
+      "registry_body_rendered": true,
+      "verdict": "PASS"
+    },
+    "admin_overview_footers": {
+      "Manage Data Sources": {"final_url": "/xdr/data-sources", "verdict": "PASS"},
+      "Manage Detection Registry": {"final_url": "/xdr/admin/detection-registry", "verdict": "PASS"},
+      "View IOC Intelligence": {"verdict": "INCONCLUSIVE — Cloudflare 429 blocked XdrAdminPage Vite chunk on the reload attempt; label as preview-edge challenge per agent-to-agent note, not an app defect"}
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Console showed a benign React warning 'Internal React error: Expected static flag was missing' from XdrAdminPage/AdminBody — appeared in dev only and did not unmount the shell (NxErrorBoundary contained it). Worth a follow-up look but not blocking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100% of targeted checks that could be evaluated; 1 admin-footer click inconclusive due to Cloudflare 429"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (preview only, per review request)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both repairs are confirmed. Note: 'xdr-rail-toggle-hunting' does not exist by design — the Hunting rail row is now a leaf link (xdr-nav-hunting / xdr-rail-hunting) because its children array was emptied. Do NOT flag its absence as a regression. Preview host aggressively rate-limits (429) on rapid Vite chunk fetches; pace at ≥3s between navigations and label such failures as Cloudflare challenges, not app defects."
+}

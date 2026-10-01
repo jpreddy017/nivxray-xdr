@@ -1,0 +1,74 @@
+{
+  "label": "window_b",
+  "predicate": "corpus_10_of_10",
+  "good_anchor": {
+    "sha": "09a556701a0486cfafbec9ff88d1867f5cd025d3",
+    "date": "2026-07-29 02:20:21 +0000",
+    "role": "good_anchor"
+  },
+  "bad_anchor": {
+    "sha": "42d7dffd1db6bbfab635dc8f6dbee7ea32a276cb",
+    "date": "2026-07-30 13:30:41 +0000"
+  },
+  "last_good": {
+    "sha": "194d6ca8e9b4acc1c8cf8ca2cb6ed4228a88bba5",
+    "date": "2026-07-29 03:46:13 +0000"
+  },
+  "first_bad": {
+    "sha": "069bd23f77395d306c857065ab30e0cff3dc2b5a",
+    "date": "2026-07-29 04:20:10 +0000"
+  },
+  "commits_in_window": 80,
+  "iterations": 7,
+  "trace": [
+    [
+      "09a556701a",
+      "PASS"
+    ],
+    [
+      "42d7dffd1d",
+      "FAIL"
+    ],
+    [
+      "ed31e39d54",
+      "FAIL"
+    ],
+    [
+      "1128d66f93",
+      "FAIL"
+    ],
+    [
+      "069bd23f77",
+      "FAIL"
+    ],
+    [
+      "a91bc7718d",
+      "PASS"
+    ],
+    [
+      "76173f44bd",
+      "PASS"
+    ],
+    [
+      "c1481c49b5",
+      "PASS"
+    ],
+    [
+      "194d6ca8e9",
+      "PASS"
+    ]
+  ],
+  "first_bad_diff_stat": "069bd23 2026-07-29 04:20:10 +0000 auto-commit for 39621d44-1b6e-4a3c-a67f-e6a45fd64275\n\n backend/engine/models.py                           |   1 +\n backend/engine/orchestrator.py                     |  62 +++++++-\n backend/rc22_adapter.py                            |   4 +\n backend/tests/fixtures/adversarial_corpus.jsonl    |   1 +\n backend/tests/test_phase1a_plain_text_cli.py       | 174 +++++++++++++++++++++\n backend/v2/investigation/analyst_report/builder.py |  14 +-\n backend/v2/investigation/verdict/__init__.py       |  40 ++++-\n backend/v2/semantic/ps_semantic.py                 |   7 +-\n .../investigation/InvestigationBrainPanel.jsx      |  11 +-\n memory/PRD.md                                      |  44 ++++++\n 10 files changed, 339 insertions(+), 19 deletions(-)\n",
+  "first_bad_files_changed": [
+    "backend/engine/models.py",
+    "backend/engine/orchestrator.py",
+    "backend/rc22_adapter.py",
+    "backend/tests/fixtures/adversarial_corpus.jsonl",
+    "backend/tests/test_phase1a_plain_text_cli.py",
+    "backend/v2/investigation/analyst_report/builder.py",
+    "backend/v2/investigation/verdict/__init__.py",
+    "backend/v2/semantic/ps_semantic.py",
+    "frontend/src/components/investigation/InvestigationBrainPanel.jsx",
+    "memory/PRD.md"
+  ]
+}

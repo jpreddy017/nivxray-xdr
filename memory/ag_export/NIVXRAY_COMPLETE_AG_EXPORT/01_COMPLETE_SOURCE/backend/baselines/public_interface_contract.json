@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "notes": "Public Interface Contract per GOVERNANCE.md §Round-5. Every endpoint listed below is FROZEN AS-IS in the currently-running RC5 build. Adding new endpoints is allowed. Modifying or removing any endpoint below requires a governance amendment.",
+  "frozen_endpoints": [
+    { "method": "POST",   "path": "/api/auth/login" },
+    { "method": "POST",   "path": "/api/auth/change-password" },
+    { "method": "GET",    "path": "/api/auth/me" },
+
+    { "method": "POST",   "path": "/api/rc5/parse" },
+    { "method": "POST",   "path": "/api/rc5/golden/run" },
+    { "method": "GET",    "path": "/api/rc5/golden/latest" },
+    { "method": "GET",    "path": "/api/rc5/golden/summary" },
+    { "method": "GET",    "path": "/api/rc5/golden/history" },
+    { "method": "GET",    "path": "/api/rc5/status" },
+    { "method": "GET",    "path": "/api/rc5/entities/kinds" },
+    { "method": "GET",    "path": "/api/rc5/evidence-graph/metrics" },
+    { "method": "GET",    "path": "/api/rc5/shadow/status" },
+    { "method": "GET",    "path": "/api/rc5/shadow/gate" },
+    { "method": "GET",    "path": "/api/rc5/shadow/report/daily" },
+    { "method": "GET",    "path": "/api/rc5/shadow/report/cumulative" },
+
+    { "method": "POST",   "path": "/api/decode/smart" },
+    { "method": "POST",   "path": "/api/decode/magic" },
+    { "method": "POST",   "path": "/api/decode/chain" },
+    { "method": "POST",   "path": "/api/decode/chain/export" },
+    { "method": "POST",   "path": "/api/decode/chain/narrative" },
+    { "method": "POST",   "path": "/api/decode/chain/split" },
+    { "method": "POST",   "path": "/api/decode/candidates" },
+    { "method": "POST",   "path": "/api/decode/guidance" },
+    { "method": "POST",   "path": "/api/decode/feedback" },
+    { "method": "GET",    "path": "/api/decode/feedback" },
+    { "method": "GET",    "path": "/api/decode/feedback/{fid}" },
+
+    { "method": "GET",    "path": "/api/investigations" },
+    { "method": "GET",    "path": "/api/investigations/recent" },
+    { "method": "GET",    "path": "/api/investigations/{iid}/timeline" },
+    { "method": "DELETE", "path": "/api/investigations/{iid}" },
+
+    { "method": "GET",    "path": "/api/documents" },
+    { "method": "POST",   "path": "/api/documents/upload" },
+    { "method": "GET",    "path": "/api/documents/{doc_id}" },
+    { "method": "GET",    "path": "/api/documents/{doc_id}/download" },
+    { "method": "GET",    "path": "/api/documents/{doc_id}/preview" },
+    { "method": "POST",   "path": "/api/documents/{doc_id}/batch-decode" },
+    { "method": "POST",   "path": "/api/documents/{doc_id}/re-investigate" },
+    { "method": "DELETE", "path": "/api/documents/{doc_id}" },
+
+    { "method": "GET",    "path": "/api/mitre/heatmap" },
+    { "method": "GET",    "path": "/api/mitre/heatmap/tactic/{name}" },
+
+    { "method": "GET",    "path": "/api/batch/history" },
+    { "method": "GET",    "path": "/api/batch/history/{run_id}" },
+    { "method": "POST",   "path": "/api/batch/test" },
+    { "method": "POST",   "path": "/api/batch/test/json" },
+    { "method": "POST",   "path": "/api/batch/test/mine" },
+    { "method": "POST",   "path": "/api/batch/evaluate/nxgec" },
+
+    { "method": "GET",    "path": "/api/training/dataset" },
+    { "method": "GET",    "path": "/api/training/schema" },
+    { "method": "GET",    "path": "/api/training/stats" },
+    { "method": "GET",    "path": "/api/training/confusion" },
+    { "method": "GET",    "path": "/api/training/archetypes" },
+
+    { "method": "GET",    "path": "/api/admin/samples" },
+    { "method": "GET",    "path": "/api/admin/samples/{sid}" },
+    { "method": "POST",   "path": "/api/admin/samples" },
+    { "method": "POST",   "path": "/api/admin/samples/bulk" },
+    { "method": "DELETE", "path": "/api/admin/samples/{sid}" },
+    { "method": "GET",    "path": "/api/admin/models" },
+    { "method": "POST",   "path": "/api/admin/models" },
+    { "method": "GET",    "path": "/api/admin/users" },
+    { "method": "GET",    "path": "/api/admin/stats" },
+    { "method": "GET",    "path": "/api/admin/osint/services" },
+    { "method": "GET",    "path": "/api/admin/taxii/config" },
+    { "method": "GET",    "path": "/api/admin/taxii/history" },
+    { "method": "POST",   "path": "/api/admin/taxii/push" }
+  ],
+  "frozen_response_fields": {
+    "/api/rc5/parse": {
+      "required_top_level_keys": ["analysis", "verdict"],
+      "analysis_required_keys":  ["mitre", "iocs", "lolbas", "tradecraft", "kill_chain_phases"],
+      "correlation_optional":    true,
+      "notes": "Correlation payload is additive (present when NIVX_EVIDENCE_GRAPH=sidecar). Its ABSENCE must never be treated as an error by clients."
+    },
+    "/api/rc5/golden/summary": {
+      "required_keys": ["total", "passed", "failed", "pass_rate"]
+    },
+    "/api/rc5/golden/history": {
+      "row_required_keys": ["run_id", "ts", "total", "passed", "failed", "pass_rate"]
+    },
+    "/api/auth/me": {
+      "required_keys": ["email", "role"]
+    }
+  },
+  "removal_policy": "No endpoint on this list may be removed or altered without appending an amendment to GOVERNANCE.md and updating this file's schema_version.",
+  "additive_policy": "New endpoints (e.g. /api/v2/*) are permitted WITHOUT amendment, provided they do not change the behaviour of endpoints listed here."
+}

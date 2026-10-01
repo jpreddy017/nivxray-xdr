@@ -7,11 +7,13 @@
  * RUNTIME NOT WIRED" invariant.
  */
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PlusCircle, Filter as FilterIcon, AlertTriangle,
   Radar, GitBranch, FileText } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxChip, NxDataTable, NxFilter, NxState,
+         NxTokenList } from "@/xdr/nx";
 import {
   listRules, createRule, buildCoverage, LIFECYCLE, LIFECYCLE_LABELS,
   RUNTIME_STATUS,
@@ -22,6 +24,7 @@ export default function XdrDetectionsPage() {
   const [q, setQ]          = useState("");
   const [lc, setLc]        = useState("");
   const [refresh, setR]    = useState(0);
+  const navigate           = useNavigate();
   const rules = useMemo(() => listRules({ q, lifecycle: lc || undefined }),
                                 [q, lc, refresh]);
   const coverage = useMemo(() => buildCoverage(rules), [rules]);
@@ -79,93 +82,80 @@ export default function XdrDetectionsPage() {
         </b> — {RUNTIME_STATUS.detail}
       </div>
 
-      {/* Filter bar */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center",
-                        margin: "12px 0" }}>
-        <input className="x-input"
-                  placeholder="Search title, tag, technique…"
-                  value={q} onChange={(e) => setQ(e.target.value)}
-                  data-testid="xdr-detections-search"
-                  style={{ maxWidth: 320 }} />
-        <select className="x-input"
-                   value={lc} onChange={(e) => setLc(e.target.value)}
-                   data-testid="xdr-detections-lifecycle"
-                   style={{ maxWidth: 160 }}>
-          <option value="">All lifecycles</option>
-          {LIFECYCLE.map((l) => (
-            <option key={l} value={l}>{LIFECYCLE_LABELS[l]}</option>
-          ))}
-        </select>
-        <span className="mono" style={{ fontSize: 10.5, color: "var(--faint)" }}>
-          {rules.length} rules
-        </span>
-      </div>
+      {/* One filter grammar, and the constraints are VISIBLE: an invisible
+          filter is how an analyst concludes "there is no detection for
+          this". */}
+      <NxFilter testid="xdr-detections-filter"
+                value={{ q, lifecycle: lc }}
+                onChange={(v) => { setQ(v.q ?? ""); setLc(v.lifecycle ?? ""); }}
+                onClear={() => { setQ(""); setLc(""); }}
+                right={<span className="nx-absent nx-mono">
+                  {rules.length} rules
+                </span>}
+                fields={[
+        { key: "q", label: "Search",
+          placeholder: "title, tag, technique…" },
+        { key: "lifecycle", label: "Lifecycle", type: "select",
+          options: [{ value: "", label: "All lifecycles" },
+                    ...LIFECYCLE.map((l) => ({ value: l,
+                                               label: LIFECYCLE_LABELS[l] }))] },
+      ]} />
 
-      {rules.length === 0 && (
-        <div className="x-empty" data-testid="xdr-detections-empty">
-          No rules yet.  Click <b>New rule</b> to author your first
-          Sigma detection.
-        </div>
-      )}
-
-      {rules.map((r) => (
-        <Link key={r.id} to={`/xdr/detections/${r.id}`}
-                 data-testid={`xdr-detections-row-${r.id}`}
-                 style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="panel" style={{ padding: 12, marginBottom: 8,
-                                                          borderLeft: `3px solid ${_sevColor(r.severity)}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10,
-                              flexWrap: "wrap" }}>
-              <b style={{ fontSize: 13, color: "var(--text)" }}>{r.title}</b>
-              <span className="mono"
-                       style={{ padding: "1px 6px", borderRadius: 3,
-                                   border: "1px solid var(--faint)",
-                                   color: "var(--faint)", fontSize: 9.5,
-                                   letterSpacing: ".3px", textTransform: "uppercase" }}>
-                {LIFECYCLE_LABELS[r.lifecycle]}
-              </span>
-              <span className="mono"
-                       style={{ padding: "1px 6px", borderRadius: 3,
-                                   color: _sevColor(r.severity),
-                                   border: `1px solid ${_sevColor(r.severity)}`,
-                                   fontSize: 9.5, letterSpacing: ".3px",
-                                   textTransform: "uppercase" }}>
-                {r.severity}
-              </span>
-              {r.validation && !r.validation.ok && (
-                <span data-testid={`xdr-detections-invalid-${r.id}`}
-                         style={{ color: "#ff9494", fontSize: 10.5 }}>
-                  <AlertTriangle size={10} /> validation failed
-                </span>
-              )}
-              {r.validation?.unsupported?.length > 0 && (
-                <span style={{ color: "var(--amber)", fontSize: 10.5 }}>
-                  <AlertTriangle size={10} /> unsupported: {r.validation.unsupported.join(", ")}
-                </span>
-              )}
-              <span style={{ flex: 1 }} />
-              <span className="mono" style={{ color: "var(--faint)", fontSize: 10 }}>
-                v{r.version}
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-              {r.description || "(no description)"}
-            </div>
-            <div style={{ marginTop: 6, display: "flex", gap: 4,
-                              flexWrap: "wrap" }}>
-              {(r.techniques || []).map((t) => (
-                <span key={t} className="mono"
-                         style={{ padding: "1px 5px", borderRadius: 3,
-                                     border: "1px solid #f472b6",
-                                     background: "rgba(244,114,182,.08)",
-                                     color: "#f472b6", fontSize: 9.5 }}>
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        </Link>
-      ))}
+      <NxDataTable rows={rules} pageSize={25} searchable={false}
+                   rowKey={(r) => r.id}
+                   onRowClick={(r) => navigate(`/xdr/detections/${r.id}`)}
+                   testid="xdr-detections-table"
+                   emptyTitle="No detection rule matches this scope"
+                   emptyHint='Use "New rule" to author a Sigma detection.
+                              Nothing is pre-seeded, so an empty list means
+                              nothing has been authored — not that coverage
+                              is unknown.'
+                   columns={[
+        { key: "title", header: "Detection rule", width: "320px",
+          value: (r) => r.title,
+          render: (r) => (
+            <span data-testid={`xdr-detections-row-${r.id}`}>
+              <strong>{r.title}</strong>
+              <div className="nx-absent">
+                {r.description || "no description"}
+              </div>
+            </span>) },
+        { key: "severity", header: "Severity", width: "110px",
+          value: (r) => r.severity || "",
+          render: (r) => <NxState value={r.severity} /> },
+        { key: "lifecycle", header: "Lifecycle", width: "140px",
+          value: (r) => r.lifecycle || "",
+          render: (r) => (
+            <NxChip tone={r.lifecycle === "active" ? "benign" : "neutral"}
+                    variant={r.lifecycle === "active" ? "filled" : "dashed"}
+                    data-testid={`xdr-detections-lc-${r.id}`}>
+              {LIFECYCLE_LABELS[r.lifecycle] || r.lifecycle}
+            </NxChip>) },
+        { key: "techniques", header: "ATT&CK", width: "190px",
+          value: (r) => (r.techniques || []).join(","),
+          render: (r) => <NxTokenList values={r.techniques} limit={3} /> },
+        { key: "validation", header: "Validation", width: "210px",
+          value: (r) => (r.validation?.ok === false ? 0 : 1),
+          render: (r) => {
+            if (r.validation && !r.validation.ok) {
+              return (
+                <span data-testid={`xdr-detections-invalid-${r.id}`}>
+                  <NxState value="FAIL" reason="rule validation failed" />
+                </span>);
+            }
+            if (r.validation?.unsupported?.length) {
+              return (
+                <span title={r.validation.unsupported.join(", ")}>
+                  <NxState value="PARTIAL"
+                           reason={`unsupported: ${r.validation.unsupported.join(", ")}`} />
+                </span>);
+            }
+            return <NxState value="PASS" />;
+          } },
+        { key: "version", header: "Version", width: "90px", align: "right",
+          value: (r) => r.version,
+          render: (r) => <span className="nx-mono">v{r.version}</span> },
+      ]} />
 
       {/* Coverage view */}
       {rules.length > 0 && (
@@ -196,7 +186,7 @@ export default function XdrDetectionsPage() {
                         style={{ display: "flex", justifyContent: "space-between",
                                     padding: "3px 0", fontSize: 11,
                                     borderBottom: "1px solid var(--border)" }}>
-                  <span className="mono" style={{ color: "#f472b6" }}>{t}</span>
+                  <span className="mono" style={{ color: "var(--nx-purple)" }}>{t}</span>
                   <span className="mono" style={{ color: "var(--text-dim)" }}>
                     {rs.length} rule{rs.length === 1 ? "" : "s"}
                   </span>

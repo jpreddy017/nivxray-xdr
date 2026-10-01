@@ -1,0 +1,10 @@
+{
+  "id": "ps-hex-csv-1-mut2",
+  "category": "ps-hex-csv",
+  "command_line": "$h='6e,6f,74,65,70,61,64,2e,65,78,65';        $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)};        Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "notepad.exe"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

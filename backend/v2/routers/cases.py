@@ -66,7 +66,7 @@ class CaseOut(BaseModel):
 
 def _to_out(doc: dict[str, Any]) -> CaseOut:
     return CaseOut(
-        id=doc["_id"],
+        id=str(doc["_id"]),
         name=doc.get("name", ""),
         tags=doc.get("tags", []),
         status=doc.get("status", "open"),

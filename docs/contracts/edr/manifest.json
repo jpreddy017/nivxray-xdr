@@ -1,0 +1,56 @@
+{
+  "contracts": [
+    "endpoint_identity",
+    "event_identity",
+    "evidence_identity",
+    "file_identity",
+    "network_identity",
+    "process_identity",
+    "response_command",
+    "response_result",
+    "telemetry_health",
+    "telemetry_schema"
+  ],
+  "epistemic_states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "forbidden_equivalences": [
+    {
+      "because": "A rule that did not fire is not evidence of innocence.",
+      "left": "DetectionExecution.NO_MATCH",
+      "right": "Verdict.BENIGN"
+    },
+    {
+      "because": "A rule we could not run is not a rule that ran and found nothing.",
+      "left": "DetectionExecution.NOT_EVALUABLE",
+      "right": "DetectionExecution.NO_MATCH"
+    },
+    {
+      "because": "Absent telemetry is a visibility gap, not an absence of attack.",
+      "left": "DetectionExecution.DATA_MISSING",
+      "right": "Verdict.BENIGN"
+    },
+    {
+      "because": "An event that arrived and failed to parse DID occur.",
+      "left": "DetectionExecution.PARSER_FAILED",
+      "right": "EpistemicState.NOT_OBSERVED"
+    },
+    {
+      "because": "Not knowing is not the same as convicting.",
+      "left": "Verdict.UNKNOWN",
+      "right": "Verdict.MALICIOUS"
+    },
+    {
+      "because": "Authorised means permitted by policy, not proven harmless.",
+      "left": "Verdict.AUTHORIZED",
+      "right": "Verdict.BENIGN"
+    }
+  ],
+  "rule": "An evidence field may be null ONLY if an explicit epistemic state says why. There is no silent gap.",
+  "schema_version": "nivxforge-edr/wave0/v1"
+}

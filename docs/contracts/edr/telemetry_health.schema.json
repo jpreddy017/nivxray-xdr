@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "EvidenceSufficiency": {
+      "enum": [
+        "SUFFICIENT",
+        "PARTIAL",
+        "INSUFFICIENT",
+        "CONFLICTING",
+        "UNKNOWN"
+      ],
+      "title": "EvidenceSufficiency",
+      "type": "string"
+    },
+    "HealthDimension": {
+      "additionalProperties": true,
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "reason"
+      ],
+      "title": "HealthDimension",
+      "type": "object"
+    },
+    "TelemetryHealth": {
+      "enum": [
+        "HEALTHY",
+        "DEGRADED",
+        "MISSING",
+        "PARSER_FAILED",
+        "NOT_CONFIGURED",
+        "STALE"
+      ],
+      "title": "TelemetryHealth",
+      "type": "string"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/telemetry_health.schema.json",
+  "additionalProperties": true,
+  "description": "The two dimensions, side by side, NEVER collapsed.\n\nThere is deliberately no `overall` / `status` / `healthy` field. A\nsingle summary field is what would let a CONNECTED-but-silent agent\nread as an all-clear, and adding one would defeat the contract.",
+  "properties": {
+    "agent_lifecycle": {
+      "$ref": "#/$defs/HealthDimension"
+    },
+    "dimensions_note": {
+      "default": "agent_lifecycle and telemetry_health are independent and are never collapsed into one status. A CONNECTED agent can be NO_TELEMETRY, and an OFFLINE agent can still have SUFFICIENT historic evidence.",
+      "title": "Dimensions Note",
+      "type": "string"
+    },
+    "directive_telemetry_state": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TelemetryHealth"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Lossy \u00a77 down-projection. Reporting only \u2014 never a decision input."
+    },
+    "endpoint_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Endpoint Id"
+    },
+    "evidence_sufficiency": {
+      "$ref": "#/$defs/EvidenceSufficiency",
+      "default": "UNKNOWN"
+    },
+    "telemetry_health": {
+      "$ref": "#/$defs/HealthDimension"
+    },
+    "visibility_state": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Visibility State"
+    },
+    "visibility_statement": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Visibility Statement"
+    }
+  },
+  "required": [
+    "agent_lifecycle",
+    "telemetry_health"
+  ],
+  "title": "TelemetryHealthContract",
+  "type": "object",
+  "x-nivxforge-contract": "telemetry_health",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": []
+}

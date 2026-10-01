@@ -1,0 +1,20 @@
+{
+  "capability_id": "content_pack.lolbas",
+  "name": "LOLBAS Content Pack",
+  "type": "CONTENT_PACK",
+  "provider": "nivxray",
+  "version": "1.0.0",
+  "vendor": "NivXRay",
+  "description": "Native LOLBAS coverage — 15 seed binaries with expected paths, allowed/suspicious parents, argument patterns, network/file/registry behaviour, ATT&CK mapping, hunting queries, response recommendations. Ships in docs/content/packs/lolbas.pack.json.",
+  "authentication": ["none"],
+  "permissions": ["read:content_pack"],
+  "supported_operations": ["list", "get", "evaluate"],
+  "input_schema": { "binary": "string" },
+  "output_schema": { "lolbin_entry": "object" },
+  "health_check": { "kind": "content_load", "interval_seconds": 3600 },
+  "lifecycle": "ENABLED",
+  "adapter_status": "AVAILABLE",
+  "risk": "low",
+  "execution_mode": "sync",
+  "dependencies": ["pattern_engine.regex"]
+}

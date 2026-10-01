@@ -24,6 +24,7 @@ _KIND_TO_LANE: Final[dict[str, str]] = {
     "process_create":       "process",
     "process_exit":         "process",
     "process_access":       "process",
+    "process_image_tampering": "process",
     "image_load":           "process",
     "thread_create":        "process",
     "remote_thread_create": "process",
@@ -34,10 +35,13 @@ _KIND_TO_LANE: Final[dict[str, str]] = {
     "file_write":           "file",
     "file_delete":          "file",
     "file_rename":          "file",
+    "file_creation_time_changed": "file",
+    "raw_disk_access_read": "file",
     "directory_create":     "file",
     "registry_create":      "registry",
     "registry_value_set":   "registry",
     "registry_delete":      "registry",
+    "registry_rename":      "registry",
     "network_connect":      "network",
     "network_listen":       "network",
     "dns_query":            "network",
@@ -47,6 +51,17 @@ _KIND_TO_LANE: Final[dict[str, str]] = {
     "rdp_session_open":     "network",
     "logon_success":        "system",
     "logon_failure":        "system",
+    "logoff":               "system",
+    "credential_validation": "system",
+    "special_privileges_assigned": "system",
+    "user_account_created": "system",
+    "user_account_changed": "system",
+    "security_group_member_added": "system",
+    "audit_log_cleared":    "system",
+    "clipboard_change":     "system",
+    "sensor_error":         "system",
+    "sensor_service_state_changed": "system",
+    "unclassified_telemetry": "system",
     "service_install":      "system",
     "service_start":        "system",
     "driver_load":          "system",
@@ -94,6 +109,11 @@ class TrajectoryFrame:
     action: str                 # canonical short verb, e.g. "process_create"
     label: str                  # human-readable — e.g. "cmd.exe spawned powershell.exe"
     device:   EntityRef
+    # P1 · the AUTHORITATIVE canonical evidence identity this frame
+    # represents (`xdr_canonical_evidence.event_id`), propagated from the
+    # observation that produced the frame. None when the observation never
+    # carried one — never reconstructed.
+    canonical_evidence_id: str | None = None
     process:  EntityRef | None = None
     parent:   EntityRef | None = None
     file:     EntityRef | None = None

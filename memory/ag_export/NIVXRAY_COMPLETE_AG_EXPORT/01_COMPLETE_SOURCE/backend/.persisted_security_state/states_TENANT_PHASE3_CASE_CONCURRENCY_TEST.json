@@ -1,0 +1,1922 @@
+[
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "version": 1,
+    "state_hash": "fc2150aa9dd78f7924aced87c8aa61a40b6bf43ff018809d15b19ee94a3ed9cb",
+    "previous_state_hash": null,
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-w0",
+      "tenant_id": "TENANT_PHASE3",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-c63771f815",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "worker 0"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ev-0"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ed16130a73",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-w0",
+          "tenant_id": "TENANT_PHASE3",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-host-w0-server-dc-01",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w0",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Path to Domain Controller secured or segmented"
+        },
+        {
+          "path_id": "path-host-w0-backup-nas-01",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w0",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Backup repository air-gap intact"
+        },
+        {
+          "path_id": "path-host-w0-db-prod-sql-01",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Customer Database (MSSQL)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w0",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Customer Database (MSSQL)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/1433",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_1",
+            "business_criticality_score": 85,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "HIGH",
+            "regulatory_scope": [
+              "PCI-DSS"
+            ],
+            "business_function": "Production Relational Database & Transactions",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Database protected by session/network controls"
+        },
+        {
+          "path_id": "path-host-w0-cloud-s3-vault-01",
+          "target_entity": {
+            "category": "CLOUD_RESOURCE",
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Cloud Storage Vault (S3/Blob)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w0",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "CLOUD_RESOURCE",
+                "entity_id": "cloud-s3-vault-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Cloud Storage Vault (S3/Blob)"
+              },
+              "hop_type": "IAM_FEDERATION",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "HTTPS/443",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Cloud IAM role boundary intact"
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 2,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "tier_1_exposed": false,
+      "reachable_tier_0_count": 0,
+      "reachable_tier_1_count": 0,
+      "reachable_tier_2_count": 0,
+      "active_capabilities_applied": [],
+      "provenance": {
+        "engine": "EnterpriseReachabilityEngine",
+        "version": "1.1.0",
+        "at": "2026-09-04T00:00:00Z",
+        "upstream_evidence_ids": [
+          "host-w0"
+        ]
+      },
+      "matrix_hash": "c9a042d9e01ac819e224ad946cb1d2066d4164bb5bea8ddc0bd74e11fc12ea67"
+    },
+    "impact": {
+      "card_id": "impact-9b3ebd2493",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "overall_impact_score": 36,
+      "blast_radius_node_count": 3,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 2 endpoints reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01",
+            "cloud-s3-vault-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 3 connected systems",
+          "affected_entities": [
+            "host-w0"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 3 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "regulatory_impact_scope": [],
+      "card_hash": "9d5c3f853ceb6acbe3814cea8ba813f3f6af6421960d4d2b2150236ddf554fb5"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-97e024d284",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-w0",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "recommended_world_id": "world-e-composite-containment",
+      "comparative_matrix_id": "matrix-ed16130a73",
+      "plan_hash": "a325d735dc1491fe7708dd4e2586ee8e7f53d7913b45883f691113b8b76554db"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ev-0",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:10.365313+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:10.365336+00:00",
+    "created_at": "2026-09-04T01:50:10.365340+00:00",
+    "engine_version": "1.0.0"
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "version": 2,
+    "state_hash": "ac9e8b8e19aee8f1b7753719226958355aeaeaa1fcd37216c1d0c00074aca326",
+    "previous_state_hash": "fc2150aa9dd78f7924aced87c8aa61a40b6bf43ff018809d15b19ee94a3ed9cb",
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-w4",
+      "tenant_id": "TENANT_PHASE3",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-5d3013b4e9",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "worker 4"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ev-4"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ed16130a73",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-w4",
+          "tenant_id": "TENANT_PHASE3",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-host-w4-server-dc-01",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w4",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Path to Domain Controller secured or segmented"
+        },
+        {
+          "path_id": "path-host-w4-backup-nas-01",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w4",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Backup repository air-gap intact"
+        },
+        {
+          "path_id": "path-host-w4-db-prod-sql-01",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Customer Database (MSSQL)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w4",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Customer Database (MSSQL)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/1433",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_1",
+            "business_criticality_score": 85,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "HIGH",
+            "regulatory_scope": [
+              "PCI-DSS"
+            ],
+            "business_function": "Production Relational Database & Transactions",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Database protected by session/network controls"
+        },
+        {
+          "path_id": "path-host-w4-cloud-s3-vault-01",
+          "target_entity": {
+            "category": "CLOUD_RESOURCE",
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Cloud Storage Vault (S3/Blob)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w4",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "CLOUD_RESOURCE",
+                "entity_id": "cloud-s3-vault-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Cloud Storage Vault (S3/Blob)"
+              },
+              "hop_type": "IAM_FEDERATION",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "HTTPS/443",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Cloud IAM role boundary intact"
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 2,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "tier_1_exposed": false,
+      "reachable_tier_0_count": 0,
+      "reachable_tier_1_count": 0,
+      "reachable_tier_2_count": 0,
+      "active_capabilities_applied": [],
+      "provenance": {
+        "engine": "EnterpriseReachabilityEngine",
+        "version": "1.1.0",
+        "at": "2026-09-04T00:00:00Z",
+        "upstream_evidence_ids": [
+          "host-w4"
+        ]
+      },
+      "matrix_hash": "fbeba6523bb58a2e359caad628f1018e09823a109dded0bc6fb2b155eb8ba5cb"
+    },
+    "impact": {
+      "card_id": "impact-20e0246a0d",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "overall_impact_score": 36,
+      "blast_radius_node_count": 3,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 2 endpoints reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01",
+            "cloud-s3-vault-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 3 connected systems",
+          "affected_entities": [
+            "host-w4"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 3 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "regulatory_impact_scope": [],
+      "card_hash": "8815d4a4b6c717b2600e4923c24a76a228c447807d86207e3ff4bdcc6ca36c3d"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-59c98a920a",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-w4",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "recommended_world_id": "world-e-composite-containment",
+      "comparative_matrix_id": "matrix-ed16130a73",
+      "plan_hash": "92b4d6eaf0b21345bf5706355d552ce99ae5e5bd5c671af074dfd1aeed4204ed"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ev-4",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:10.423852+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:10.423876+00:00",
+    "created_at": "2026-09-04T01:50:10.423881+00:00",
+    "engine_version": "1.0.0"
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "version": 3,
+    "state_hash": "30200e3e93c98905819bf8d5416772760f6520d7e222a394a40012528f405f24",
+    "previous_state_hash": "ac9e8b8e19aee8f1b7753719226958355aeaeaa1fcd37216c1d0c00074aca326",
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-w3",
+      "tenant_id": "TENANT_PHASE3",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-db5f0fe101",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "worker 3"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ev-3"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ed16130a73",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-w3",
+          "tenant_id": "TENANT_PHASE3",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-host-w3-server-dc-01",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w3",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Path to Domain Controller secured or segmented"
+        },
+        {
+          "path_id": "path-host-w3-backup-nas-01",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w3",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Backup repository air-gap intact"
+        },
+        {
+          "path_id": "path-host-w3-db-prod-sql-01",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Customer Database (MSSQL)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w3",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Customer Database (MSSQL)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/1433",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_1",
+            "business_criticality_score": 85,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "HIGH",
+            "regulatory_scope": [
+              "PCI-DSS"
+            ],
+            "business_function": "Production Relational Database & Transactions",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Database protected by session/network controls"
+        },
+        {
+          "path_id": "path-host-w3-cloud-s3-vault-01",
+          "target_entity": {
+            "category": "CLOUD_RESOURCE",
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Cloud Storage Vault (S3/Blob)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w3",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "CLOUD_RESOURCE",
+                "entity_id": "cloud-s3-vault-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Cloud Storage Vault (S3/Blob)"
+              },
+              "hop_type": "IAM_FEDERATION",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "HTTPS/443",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Cloud IAM role boundary intact"
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 2,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "tier_1_exposed": false,
+      "reachable_tier_0_count": 0,
+      "reachable_tier_1_count": 0,
+      "reachable_tier_2_count": 0,
+      "active_capabilities_applied": [],
+      "provenance": {
+        "engine": "EnterpriseReachabilityEngine",
+        "version": "1.1.0",
+        "at": "2026-09-04T00:00:00Z",
+        "upstream_evidence_ids": [
+          "host-w3"
+        ]
+      },
+      "matrix_hash": "64e4d24634a5ddd89c61c23da7550f49f7e7b7de07f2707d693ba05cf9874035"
+    },
+    "impact": {
+      "card_id": "impact-43b44b4767",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "overall_impact_score": 36,
+      "blast_radius_node_count": 3,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 2 endpoints reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01",
+            "cloud-s3-vault-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 3 connected systems",
+          "affected_entities": [
+            "host-w3"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 3 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "regulatory_impact_scope": [],
+      "card_hash": "2e6badfb912054fc9b924c526d268818bae3c981ceeef3936d7a9c0fef3d0373"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-a060fa830b",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-w3",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "recommended_world_id": "world-e-composite-containment",
+      "comparative_matrix_id": "matrix-ed16130a73",
+      "plan_hash": "7a8048fcb33fd162e4a4f51fec97bdfd1505ba220c37cffc36d0d8e99d5e8f80"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ev-3",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:10.510472+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:10.510491+00:00",
+    "created_at": "2026-09-04T01:50:10.510494+00:00",
+    "engine_version": "1.0.0"
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "version": 4,
+    "state_hash": "5cc8069d01ba284a3f5c7e4e6befc914d51faa8ecc035bfcb8364bd10ab27f4f",
+    "previous_state_hash": "30200e3e93c98905819bf8d5416772760f6520d7e222a394a40012528f405f24",
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-w2",
+      "tenant_id": "TENANT_PHASE3",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-7442267f7f",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "worker 2"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ev-2"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ed16130a73",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-w2",
+          "tenant_id": "TENANT_PHASE3",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-host-w2-server-dc-01",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w2",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Path to Domain Controller secured or segmented"
+        },
+        {
+          "path_id": "path-host-w2-backup-nas-01",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w2",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Backup repository air-gap intact"
+        },
+        {
+          "path_id": "path-host-w2-db-prod-sql-01",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Customer Database (MSSQL)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w2",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Customer Database (MSSQL)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/1433",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_1",
+            "business_criticality_score": 85,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "HIGH",
+            "regulatory_scope": [
+              "PCI-DSS"
+            ],
+            "business_function": "Production Relational Database & Transactions",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Database protected by session/network controls"
+        },
+        {
+          "path_id": "path-host-w2-cloud-s3-vault-01",
+          "target_entity": {
+            "category": "CLOUD_RESOURCE",
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Cloud Storage Vault (S3/Blob)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w2",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "CLOUD_RESOURCE",
+                "entity_id": "cloud-s3-vault-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Cloud Storage Vault (S3/Blob)"
+              },
+              "hop_type": "IAM_FEDERATION",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "HTTPS/443",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Cloud IAM role boundary intact"
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 2,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "tier_1_exposed": false,
+      "reachable_tier_0_count": 0,
+      "reachable_tier_1_count": 0,
+      "reachable_tier_2_count": 0,
+      "active_capabilities_applied": [],
+      "provenance": {
+        "engine": "EnterpriseReachabilityEngine",
+        "version": "1.1.0",
+        "at": "2026-09-04T00:00:00Z",
+        "upstream_evidence_ids": [
+          "host-w2"
+        ]
+      },
+      "matrix_hash": "137df8c1d834dba7f63767400c2f64cd8810481928ad0c451acf7863e0e84463"
+    },
+    "impact": {
+      "card_id": "impact-3ea42b5554",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "overall_impact_score": 36,
+      "blast_radius_node_count": 3,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 2 endpoints reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01",
+            "cloud-s3-vault-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 3 connected systems",
+          "affected_entities": [
+            "host-w2"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 3 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "regulatory_impact_scope": [],
+      "card_hash": "dd00166234b39db6e81209bc23684945a0534ad1462b50d7334260b92cd36890"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-0bb5cba12f",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-w2",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "recommended_world_id": "world-e-composite-containment",
+      "comparative_matrix_id": "matrix-ed16130a73",
+      "plan_hash": "1feb9e41448736d8ab35f7f0a291b66e2a21755f404a986131f9667edca57f14"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ev-2",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:10.584026+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:10.584052+00:00",
+    "created_at": "2026-09-04T01:50:10.584057+00:00",
+    "engine_version": "1.0.0"
+  },
+  {
+    "tenant_id": "TENANT_PHASE3",
+    "case_id": "CASE_CONCURRENCY_TEST",
+    "version": 5,
+    "state_hash": "96af1d7543e31ba012af43ce0c682b6c5c493daa79658379a7a091df561edd2f",
+    "previous_state_hash": "5cc8069d01ba284a3f5c7e4e6befc914d51faa8ecc035bfcb8364bd10ab27f4f",
+    "entity_ref": {
+      "category": "DEVICE",
+      "entity_id": "host-w1",
+      "tenant_id": "TENANT_PHASE3",
+      "display_name": ""
+    },
+    "epistemic_status": "OBSERVED",
+    "classification": "AUTHORIZED_USE",
+    "active_capabilities": [],
+    "observed_facts": [
+      {
+        "fact_id": "fact-b37e108786",
+        "property_name": "process",
+        "property_value": {
+          "command_line": "worker 1"
+        },
+        "observed_at": "2026-09-04T00:00:00Z",
+        "source_sensor": "sensor",
+        "evidence_id": "ev-1"
+      }
+    ],
+    "derived_facts": [],
+    "assumptions": [],
+    "contradictions": [],
+    "missing_evidence": [],
+    "attack_state": "CREDENTIAL_ACCESS",
+    "reachability": {
+      "matrix_id": "reach-ed16130a73",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "evaluated_at": "2026-09-04T00:00:00Z",
+      "foothold_entities": [
+        {
+          "category": "DEVICE",
+          "entity_id": "host-w1",
+          "tenant_id": "TENANT_PHASE3",
+          "display_name": ""
+        }
+      ],
+      "paths": [
+        {
+          "path_id": "path-host-w1-server-dc-01",
+          "target_entity": {
+            "category": "SERVER",
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Primary Domain Controller (dc-01.corp)"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Domain Admin Kerberos Ticket"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w1",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "SERVER",
+                "entity_id": "server-dc-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Primary Domain Controller (dc-01.corp)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Tier-0 Network Microsegmentation",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "server-dc-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Path to Domain Controller secured or segmented"
+        },
+        {
+          "path_id": "path-host-w1-backup-nas-01",
+          "target_entity": {
+            "category": "BACKUP_SYSTEM",
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Veeam Immutable Backup Repository"
+          },
+          "status": "BLOCKED",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [
+            "Backup Management MFA bypass"
+          ],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w1",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "BACKUP_SYSTEM",
+                "entity_id": "backup-nas-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Veeam Immutable Backup Repository"
+              },
+              "hop_type": "CLOUD_ROLE_ASSUME",
+              "is_blocked_by_control": true,
+              "blocking_control_name": "Backup MFA Air-Gap",
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/445",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "backup-nas-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Backup repository air-gap intact"
+        },
+        {
+          "path_id": "path-host-w1-db-prod-sql-01",
+          "target_entity": {
+            "category": "DATA_STORE",
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Customer Database (MSSQL)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_1",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w1",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "DATA_STORE",
+                "entity_id": "db-prod-sql-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Customer Database (MSSQL)"
+              },
+              "hop_type": "NETWORK_ROUTE",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "TCP/1433",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "db-prod-sql-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_1",
+            "business_criticality_score": 85,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "HIGH",
+            "regulatory_scope": [
+              "PCI-DSS"
+            ],
+            "business_function": "Production Relational Database & Transactions",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Database protected by session/network controls"
+        },
+        {
+          "path_id": "path-host-w1-cloud-s3-vault-01",
+          "target_entity": {
+            "category": "CLOUD_RESOURCE",
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": "Production Cloud Storage Vault (S3/Blob)"
+          },
+          "status": "POTENTIALLY_REACHABLE",
+          "criticality_tier": "TIER_0",
+          "required_prerequisites": [],
+          "hops": [
+            {
+              "source_entity": {
+                "category": "DEVICE",
+                "entity_id": "host-w1",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": ""
+              },
+              "target_entity": {
+                "category": "CLOUD_RESOURCE",
+                "entity_id": "cloud-s3-vault-01",
+                "tenant_id": "TENANT_PHASE3",
+                "display_name": "Production Cloud Storage Vault (S3/Blob)"
+              },
+              "hop_type": "IAM_FEDERATION",
+              "is_blocked_by_control": false,
+              "blocking_control_name": null,
+              "required_capability": null,
+              "required_privilege": null,
+              "protocol_port": "HTTPS/443",
+              "is_cut_by_intervention": false,
+              "intervention_id": null
+            }
+          ],
+          "valuation": {
+            "entity_id": "cloud-s3-vault-01",
+            "tenant_id": "TENANT_PHASE3",
+            "tier": "TIER_0",
+            "business_criticality_score": 95,
+            "sensitivity": "RESTRICTED",
+            "financial_category": "CRITICAL",
+            "regulatory_scope": [
+              "SOX",
+              "PCI-DSS"
+            ],
+            "business_function": "Identity Root / Core Enterprise Backup",
+            "valuation_source": "ASSET_INVENTORY"
+          },
+          "is_severed": false,
+          "severed_by_action": null,
+          "exposure_explanation": "Cloud IAM role boundary intact"
+        }
+      ],
+      "currently_reachable_count": 0,
+      "potentially_reachable_count": 2,
+      "blocked_count": 2,
+      "tier_0_exposed": false,
+      "tier_1_exposed": false,
+      "reachable_tier_0_count": 0,
+      "reachable_tier_1_count": 0,
+      "reachable_tier_2_count": 0,
+      "active_capabilities_applied": [],
+      "provenance": {
+        "engine": "EnterpriseReachabilityEngine",
+        "version": "1.1.0",
+        "at": "2026-09-04T00:00:00Z",
+        "upstream_evidence_ids": [
+          "host-w1"
+        ]
+      },
+      "matrix_hash": "580a07fc126b69da47e07ddc5fd3f70bc703844135b0f3558c7ef3202d78e28d"
+    },
+    "impact": {
+      "card_id": "impact-af5869d2a9",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "overall_impact_score": 36,
+      "blast_radius_node_count": 3,
+      "tier_0_service_exposed": false,
+      "ransomware_exposure_risk": "LOW",
+      "data_exfiltration_risk": "HIGH",
+      "business_service_downtime_risk": "LOW",
+      "dimensions": [
+        {
+          "name": "Asset Criticality",
+          "score": 25,
+          "weight": 0.35,
+          "description": "Tier 2 endpoints reachable",
+          "affected_entities": [
+            "server-dc-01",
+            "backup-nas-01",
+            "cloud-s3-vault-01"
+          ]
+        },
+        {
+          "name": "Blast Radius",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Direct lateral traversal potential encompasses 3 connected systems",
+          "affected_entities": [
+            "host-w1"
+          ]
+        },
+        {
+          "name": "Ransomware Susceptibility",
+          "score": 45,
+          "weight": 0.25,
+          "description": "Local disk encryption potential limited to endpoint",
+          "affected_entities": [
+            "backup-nas-01"
+          ]
+        },
+        {
+          "name": "Operational Disruption",
+          "score": 30,
+          "weight": 0.15,
+          "description": "Limited workstation service impact",
+          "affected_entities": []
+        }
+      ],
+      "evidence_justifications": [
+        "Blast radius calculated as 3 enterprise nodes",
+        "Tier-0 boundary verified intact"
+      ],
+      "regulatory_impact_scope": [],
+      "card_hash": "d5b161586bfeba205f8040af8aac4d638240f6679a2d3d8ef0b64a7c8bdad87e"
+    },
+    "intervention_plan": {
+      "plan_id": "plan-efab69b21f",
+      "tenant_id": "TENANT_PHASE3",
+      "case_id": "CASE_CONCURRENCY_TEST",
+      "generated_at": "2026-09-04T00:00:00Z",
+      "actions": [
+        {
+          "step_number": 1,
+          "action_id": "endpoint.isolate",
+          "target_entity": {
+            "category": "DEVICE",
+            "entity_id": "host-w1",
+            "tenant_id": "TENANT_PHASE3",
+            "display_name": ""
+          },
+          "rationale": "Sever network-level lateral movement and C2 channels immediately",
+          "expected_path_cut": "Eliminates all inbound and outbound network hops from host",
+          "is_reversible": true,
+          "requires_dual_approval": false,
+          "evidence_preservation_notes": "Memory state preserved; telemetry agent maintains isolated management channel"
+        }
+      ],
+      "projected_residual_risk_pct": 5,
+      "projected_business_disruption_score": 30,
+      "plan_summary": "Minimal effective graph-cut intervention: 1 targeted containment actions.",
+      "recommended_world_id": "world-e-composite-containment",
+      "comparative_matrix_id": "matrix-ed16130a73",
+      "plan_hash": "54544509714a9e61e47c675af746c3f9caabe891facae978890fdeb282279e00"
+    },
+    "evidence_references": [
+      {
+        "evidence_id": "ev-1",
+        "type": "process",
+        "source": "",
+        "timestamp": ""
+      }
+    ],
+    "provenance": {
+      "engine": "SecurityStateEngine",
+      "version": "1.0.0",
+      "saved_at": "2026-09-04T01:50:10.669959+00:00"
+    },
+    "lifecycle_status": "ACTIVE",
+    "commit_status": "COMMITTED",
+    "evaluated_at": "2026-09-04T01:50:10.669982+00:00",
+    "created_at": "2026-09-04T01:50:10.669988+00:00",
+    "engine_version": "1.0.0"
+  }
+]

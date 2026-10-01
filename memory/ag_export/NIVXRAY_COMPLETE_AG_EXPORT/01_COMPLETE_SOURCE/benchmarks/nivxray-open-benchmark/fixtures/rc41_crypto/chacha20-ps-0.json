@@ -1,0 +1,44 @@
+{
+  "id": "chacha20-ps-0",
+  "category": "ps-crypto",
+  "algorithm": "ChaCha20-Poly1305",
+  "command_line": "$key=[Convert]::FromBase64String('Y2hhY2hhMjAta2V5LTMyLWJ5dGVzLW11c3RiZXN1cGVyc2Vjcg==');$nonce=[Convert]::FromBase64String('MTIzNDU2Nzg5MDEy'); $c=[Convert]::FromBase64String('Q0hBQ0hBXzA='); $cipher = [System.Security.Cryptography.ChaCha20Poly1305]::new($key); $tag = [byte[]]::new(16); $plain = [byte[]]::new($c.Length); $cipher.Decrypt($nonce, $c, $tag, $plain); IEX ([Text.Encoding]::UTF8.GetString($plain))",
+  "stage_ladder": [
+    {
+      "name": "base64-decode-key",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-nonce",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "base64-decode-ciphertext",
+      "recoverable": true,
+      "reason": ""
+    },
+    {
+      "name": "chacha20-poly1305-decrypt",
+      "recoverable": false,
+      "reason": "ChaCha20-Poly1305 requires .NET 6+ runtime primitive."
+    }
+  ],
+  "key_status": "inline-static",
+  "expected_plaintext": null,
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "powershell.exe"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1059.001",
+    "T1140"
+  ],
+  "expected_verdict": "malicious",
+  "expected_confidence_min": 0.85,
+  "notes": "",
+  "source": "nivxray-rc41-crypto",
+  "license": "CC-BY-4.0"
+}

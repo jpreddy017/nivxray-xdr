@@ -1,0 +1,7 @@
+{
+  "artifact_type": "powershell",
+  "origin": "synthetic",
+  "description": "PS -EncodedCommand \u2192 IEX DownloadString.",
+  "introduced_in": "R26",
+  "owner": "baseline"
+}

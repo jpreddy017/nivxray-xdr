@@ -1,0 +1,91 @@
+{
+  "attack_fingerprint": {
+    "artifact_graph_digest": "232aded18fb37ec8de2f15a019e4c567baac51bf90eb232529c9878df3b6625c",
+    "behavior_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "component_digests": {
+      "artifact_graph_digest": "232aded18fb37ec8de2f15a019e4c567baac51bf90eb232529c9878df3b6625c",
+      "behavior_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "interpreter_chain_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "iocs_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "parent_child_edges_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "recipe_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "transformation_trace_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "components": {
+      "artifact_graph": [
+        {
+          "kind": "canonical_text",
+          "sha256": "6c59c3f995e4eba9e17aa11d6fe3b7984c463e4502d3830883201d3962829296",
+          "type": "text/plain"
+        }
+      ],
+      "behavior": [],
+      "canonical_artifact_hashes": [
+        "6c59c3f995e4eba9e17aa11d6fe3b7984c463e4502d3830883201d3962829296"
+      ],
+      "interpreter_chain": [],
+      "iocs": [],
+      "mitre": [],
+      "parent_child_edges": [],
+      "recipe": [],
+      "transformation_trace": []
+    },
+    "fingerprint_version": "1.0",
+    "hash": "89ec6daffd5ff83580dfcde64e81d2ff93c9a43b0bdd588f26cb643c0d020a7c",
+    "interpreter_chain": [],
+    "mitre_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "recipe": [],
+    "similarity_vector": {
+      "artifact_types": [
+        "text/plain"
+      ],
+      "behavior_codes": [],
+      "canonical_hashes": [
+        "6c59c3f995e4eba9e17aa11d6fe3b7984c463e4502d3830883201d3962829296"
+      ],
+      "ioc_kinds": [],
+      "mitre_ids": [],
+      "parent_child_edges": [],
+      "recipe_shape": []
+    }
+  },
+  "attack_fingerprint_hash": "89ec6daffd5ff83580dfcde64e81d2ff93c9a43b0bdd588f26cb643c0d020a7c",
+  "fingerprint": {
+    "artifact_types": [
+      "unknown"
+    ],
+    "canonical_hashes": [
+      "6c59c3f995e4eba9e17aa11d6fe3b7984c463e4502d3830883201d3962829296"
+    ],
+    "cem_version": "1.0",
+    "convergence": {
+      "reached": true,
+      "terminal_state": "canonical"
+    },
+    "event_kinds": [
+      "rte.convergence"
+    ],
+    "indicator_counts": {},
+    "mitre_ids": [],
+    "signature_shape": [
+      "artifact_type",
+      "c2",
+      "case_id",
+      "chain",
+      "domains",
+      "input_hash",
+      "interpreter",
+      "ips",
+      "md5",
+      "sha1",
+      "sha256",
+      "techniques",
+      "ts",
+      "urls",
+      "user_email",
+      "verdict"
+    ]
+  },
+  "fingerprint_hash": "940e9794444adbde1a38e9a115c31578d92ee59f0b0e6bef021f8977447a9b95"
+}

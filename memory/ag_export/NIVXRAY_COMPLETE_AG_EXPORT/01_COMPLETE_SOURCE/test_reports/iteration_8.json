@@ -1,0 +1,37 @@
+{
+  "summary": "Tested NivX Forge STIX 2.1 Chain Export (P1). Backend: 10/10 pytest tests PASS in test_stix_chain_export.py incl. gold-standard OASIS stix2 parser test. Frontend end-to-end verified via public URL: login → open chain editor → 2 stages → RUN CHAIN → open history → CHAINS ONLY filter → RESTORE → EXPORT STIX 2.1 → JSON file downloaded, status banner correct, sibling buttons remain functional.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "WorkspacePage (pre-existing, unrelated to STIX)", "issues": ["React hydration warning: <span> as child of <option> from AI model provider select (line ~761). Not caused by STIX feature, but should be cleaned up."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_stix_chain_export.py",
+    "/app/test_reports/pytest/stix_chain_export.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "STIX exporter (/app/backend/stix_export.py) is well-structured, deterministic (UUIDv5), spec-compliant. Bundle emits full SOC set: Identity(producer+analyst), Report, Indicator, Observed Data + SCOs, Attack Pattern (mitre external_refs + kill_chain_phases), Malware SDO on family, Relationships, TLP marking, external refs (VirusTotal/AbuseIPDB/URLhaus/Shodan/MalwareBazaar/Whois).",
+    "Frontend ChainReplayView correctly uses blob-based client-side download, avoiding CORS attachment issues. Loading state (BUILDING…) briefly visible then transitions to status banner.",
+    "Minor (pre-existing, not blocking): React hydration warning about <span> inside <option> on WorkspacePage AI provider select — should be fixed by rendering plain text instead of a dynamic <span> in <option>."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / NivXRay#2026!",
+  "seed_data_creation": "Created 1 chain investigation during UI test (2 stages: base64 payload + IOC-rich stage). Persisted history_id 6a571ce0727ad9511c508fff (test data, safe to leave).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "STIX 2.1 export feature is fully working end-to-end. Downloaded bundle at /tmp/nivxforge_stix_6a571ce0_1784093931739.json contains 37 objects incl. identity/report/indicator/attack-pattern/observed-data/relationship/note/url/domain-name/ipv4-addr/email-addr. Filename matches pattern nivxforge_stix_<8hex>_<epoch>.json. Status banner reads 'STIX 2.1 bundle downloaded · 37 objects · TLP:AMBER'.",
+  "verification_evidence": {
+    "downloaded_filename": "nivxforge_stix_6a571ce0_1784093931739.json",
+    "filename_pattern_match": true,
+    "bundle_type": "bundle",
+    "object_count": 37,
+    "object_types_present": ["attack-pattern","domain-name","email-addr","identity","indicator","ipv4-addr","note","observed-data","relationship","report","url"],
+    "status_banner": "STIX 2.1 bundle downloaded · 37 objects · TLP:AMBER",
+    "pytest_result": "10 passed in 2.57s"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "acquisition_failure": {
+    "anti_bot": false,
+    "article_chars": 0,
+    "engine": "trafilatura",
+    "error_code": "http_error",
+    "fallback_tried": false,
+    "fetched_bytes": 0,
+    "host": "",
+    "ok": false,
+    "reason": "HTTP 403",
+    "status_code": 403,
+    "url": "https://blocked.example.gov/advisory/403"
+  },
+  "behaviors": [],
+  "body_artifacts": [],
+  "commands": [],
+  "cves": [],
+  "hash_context": {},
+  "malware_families": [],
+  "mitre_techniques": [],
+  "sigma_rules": [],
+  "source": "acquisition_failed",
+  "threat_actors": [],
+  "timeline": [],
+  "totals": {
+    "actors": 0,
+    "artifacts": 0,
+    "behaviors": 0,
+    "commands": 0,
+    "cves": 0,
+    "malware": 0,
+    "mitre": 0,
+    "sigma": 0,
+    "timeline": 0,
+    "yara": 0
+  },
+  "yara_rules": []
+}

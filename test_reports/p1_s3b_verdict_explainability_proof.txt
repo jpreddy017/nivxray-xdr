@@ -1,0 +1,38 @@
+edge: https://greeting-app-5782.preview.emergentagent.com
+--- PART 1 · authorization matrix ---
+PASS · anonymous negative explainability → 403
+PASS · own-tenant analyst reads negative explainability → 200
+PASS · cross-tenant negative explainability → 404
+PASS · admin negative explainability unchanged → 200
+PASS · admin reads the engine-native case → 200
+PASS · analyst CANNOT read the engine-native case → 404
+PASS · fabricated identity cannot elevate ?tenant_id=default → 404
+PASS · fabricated identity cannot elevate ?customer=default → 404
+PASS · fabricated identity cannot elevate {'X-Tenant-Id': 'default'} → 404
+PASS · fabricated identity cannot elevate {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · analyst cannot create an engine case → 403
+PASS · analyst cannot list the engine registry → 403
+
+--- PART 2 · DOM proof ---
+PASS · surface mounted on the incident overview count=1
+PASS · authoritative verdict displayed text='SUSPICIOUS\nRISK\n70\nCONFIDENCE\nmedium\nANALYSIS COMPLETENESS\nN'
+PASS · confidence and analysis completeness stay independent text='RISK\n70\nCONFIDENCE\nmedium\nANALYSIS COMPLETENESS\nNOT AVAILABLE\nno completeness measure is recorded by the platform\nCONTRIBUTING SIGNALS\n2'
+PASS · supporting reasons displayed 3 reasons
+PASS · each reason declares its basis 2 evidence-cited · 1 stated without an event
+PASS · evidence provenance reachable detail=1
+PASS · engine hypotheses offered under progressive disclosure 5 hypotheses
+PASS · limiting evidence displayed for a hypothesis line='Classification remains as-is: not enough ransomware-specific evidence.'
+PASS · missing visibility is separated from negative evidence 2 searched-not-observed · 4 visibility gaps
+PASS · the two absence semantics are stated, not implied 
+PASS · no implementation vocabulary in primary content leaks=[]
+PASS · no engine profile selector is exposed to the analyst 
+PASS · unassociated incident states the causal explanation is absent count=1
+PASS · the statement keeps NOT ASSOCIATED ≠ BENIGN text='CAUSAL ANALYSIS NOT AVAILABLE\nCausal explanation not available for this incident'
+PASS · no hypothesis block on an unassociated incident 
+PASS · no fabricated supporting reasons on an unassociated incident 
+PASS · tab still renders · overview 7830 chars
+PASS · tab still renders · story 8298 chars
+PASS · tab still renders · evidence 3111 chars
+PASS · tab still renders · activity 10936 chars
+
+S3-B PROOF · 32 PASS · 0 FAIL

@@ -1,0 +1,36 @@
+[
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_MULTI_INSTANCE",
+    "sequence_number": 1,
+    "block_id": "blk-000001",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-inst",
+    "state_version": 1,
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "current_hash": "e69863237033d24f94c6a7232c91f8dc50d4260b29d3b0efffb5f4b2ed43159e",
+    "payload": {
+      "state_hash": "f25db65b6a406459ab5042eea27eebffae2baa56952ff943f4f0de75f4e2d42e",
+      "version": 1
+    },
+    "timestamp": "2026-09-04T01:50:11.734088+00:00",
+    "verified": true
+  },
+  {
+    "tenant_id": "TENANT_DISTRIBUTED",
+    "case_id": "CASE_MULTI_INSTANCE",
+    "sequence_number": 2,
+    "block_id": "blk-000002",
+    "event_type": "STATE_EVALUATED",
+    "entity_id": "host-inst",
+    "state_version": 2,
+    "previous_hash": "e69863237033d24f94c6a7232c91f8dc50d4260b29d3b0efffb5f4b2ed43159e",
+    "current_hash": "31df384137192f1b23e18ba26b308d91701bf7730de0573e0596b79d40ad3b60",
+    "payload": {
+      "state_hash": "e2ba38824fb3f44777d3fa356c8d50996be03b2379ac4106dfa4202aee52681c",
+      "version": 2
+    },
+    "timestamp": "2026-09-04T01:50:11.804423+00:00",
+    "verified": true
+  }
+]

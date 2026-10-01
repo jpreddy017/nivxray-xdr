@@ -1,0 +1,1898 @@
+{
+  "case": {
+    "id": "susp-encoded-ps-no-net",
+    "category": "suspicious",
+    "label": "Encoded PowerShell without network",
+    "expected_verdict_class": [
+      "suspicious",
+      "malicious"
+    ],
+    "input": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA=="
+  },
+  "cio": {
+    "schema_version": "0.1",
+    "cio_id": "CIO-ffdffc77b01c",
+    "created_at": "2026-08-01T10:44:32.746544Z",
+    "source": {
+      "surface": "api",
+      "endpoint": "/api/decode/smart",
+      "correlation_id": null
+    },
+    "input_text": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA==",
+    "input_kind": "text",
+    "artifacts": [],
+    "decode_chain": [
+      {
+        "idx": 0,
+        "op": "ps-encodedcommand-recovery",
+        "input_kind": "",
+        "output_kind": "ps-encodedcommand-recovery",
+        "preview": "Get-Process | Format-Table",
+        "reason": "Applied ps-encodedcommand-recovery",
+        "node_id": "N-002"
+      }
+    ],
+    "evidence_graph": {
+      "nodes": [
+        {
+          "id": "N-001",
+          "kind": "artifact",
+          "label": "Input \u00b7 text",
+          "value": null,
+          "confidence": 1.0,
+          "provenance": "input",
+          "attrs": {
+            "input_kind": "text",
+            "length": 99
+          }
+        },
+        {
+          "id": "N-002",
+          "kind": "decoded_fragment",
+          "label": "Layer 0: ps-encodedcommand-recovery",
+          "value": "Get-Process | Format-Table",
+          "confidence": 0.85,
+          "provenance": "decoder:ps-encodedcommand-recovery",
+          "attrs": {
+            "idx": 0,
+            "op": "ps-encodedcommand-recovery",
+            "input_kind": "",
+            "output_kind": "ps-encodedcommand-recovery"
+          }
+        },
+        {
+          "id": "N-003",
+          "kind": "mitre_technique",
+          "label": "PowerShell",
+          "value": "T1059.001",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1059.001",
+            "tactic": "Execution",
+            "name": "PowerShell"
+          }
+        },
+        {
+          "id": "N-004",
+          "kind": "mitre_technique",
+          "label": "Command Obfuscation: Base64/Encoded Command",
+          "value": "T1027.010",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1027.010",
+            "tactic": "Defense Evasion",
+            "name": "Command Obfuscation: Base64/Encoded Command"
+          }
+        },
+        {
+          "id": "N-005",
+          "kind": "mitre_technique",
+          "label": "Process Discovery",
+          "value": "T1057",
+          "confidence": 0.8,
+          "provenance": "mitre:inferred",
+          "attrs": {
+            "technique_id": "T1057",
+            "tactic": "Discovery",
+            "name": "Process Discovery"
+          }
+        },
+        {
+          "id": "N-006",
+          "kind": "lolbin",
+          "label": "LOLBIN \u00b7 powershell",
+          "value": "powershell",
+          "confidence": 0.7,
+          "provenance": "rule:lolbin_scan",
+          "attrs": {
+            "binary": "powershell"
+          }
+        },
+        {
+          "id": "N-007",
+          "kind": "behaviour",
+          "label": "LOLBIN detected: powershell.exe",
+          "value": null,
+          "confidence": 0.6,
+          "provenance": "reasoning:notes",
+          "attrs": {
+            "idx": 0
+          }
+        },
+        {
+          "id": "N-008",
+          "kind": "verdict",
+          "label": "Verdict \u00b7 Suspicious",
+          "value": "Suspicious",
+          "confidence": 0.75,
+          "provenance": "engine:unified-verdict",
+          "attrs": {
+            "confidence_pct": 75
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "N-001",
+          "target": "N-002",
+          "kind": "produces",
+          "weight": 1.0
+        },
+        {
+          "source": "N-002",
+          "target": "N-003",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-002",
+          "target": "N-004",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-002",
+          "target": "N-005",
+          "kind": "references",
+          "weight": 0.8
+        },
+        {
+          "source": "N-002",
+          "target": "N-006",
+          "kind": "references",
+          "weight": 0.7
+        },
+        {
+          "source": "N-002",
+          "target": "N-007",
+          "kind": "contributes_to",
+          "weight": 0.6
+        },
+        {
+          "source": "N-002",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "N-006",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.3
+        },
+        {
+          "source": "N-003",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.2
+        },
+        {
+          "source": "N-004",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.2
+        },
+        {
+          "source": "N-005",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.2
+        },
+        {
+          "source": "N-007",
+          "target": "N-008",
+          "kind": "contributes_to",
+          "weight": 0.05
+        }
+      ]
+    },
+    "reasoning_steps": [
+      {
+        "step_id": "RS-001",
+        "timestamp": "2026-01-01T00:00:01Z",
+        "rule": "input.ingest",
+        "input_nodes": [],
+        "output_nodes": [
+          "N-001"
+        ],
+        "confidence_before": 0.0,
+        "confidence_after": 0.0,
+        "explanation": "Received text artifact (99 chars) for investigation."
+      },
+      {
+        "step_id": "RS-002",
+        "timestamp": "2026-01-01T00:00:02Z",
+        "rule": "decoder.ps-encodedcommand-recovery",
+        "input_nodes": [
+          "N-001"
+        ],
+        "output_nodes": [
+          "N-002"
+        ],
+        "confidence_before": 0.0,
+        "confidence_after": 0.05,
+        "explanation": "PowerShell -EncodedCommand block decoded."
+      },
+      {
+        "step_id": "RS-003",
+        "timestamp": "2026-01-01T00:00:03Z",
+        "rule": "mitre.map.T1059.001",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-003"
+        ],
+        "confidence_before": 0.05,
+        "confidence_after": 0.13,
+        "explanation": "Mapped to ATT&CK T1059.001 \u00b7 PowerShell \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-004",
+        "timestamp": "2026-01-01T00:00:04Z",
+        "rule": "mitre.map.T1027.010",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-004"
+        ],
+        "confidence_before": 0.13,
+        "confidence_after": 0.21,
+        "explanation": "Mapped to ATT&CK T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-005",
+        "timestamp": "2026-01-01T00:00:05Z",
+        "rule": "mitre.map.T1057",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-005"
+        ],
+        "confidence_before": 0.21,
+        "confidence_after": 0.29,
+        "explanation": "Mapped to ATT&CK T1057 \u00b7 Process Discovery \u2014 inferred from the decoded payload's behaviour."
+      },
+      {
+        "step_id": "RS-006",
+        "timestamp": "2026-01-01T00:00:06Z",
+        "rule": "lolbin.detect.powershell",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-006"
+        ],
+        "confidence_before": 0.29,
+        "confidence_after": 0.34,
+        "explanation": "Detected LOLBIN reference to `powershell` \u2014 signed binary can proxy execution and evade allow-lists."
+      },
+      {
+        "step_id": "RS-007",
+        "timestamp": "2026-01-01T00:00:07Z",
+        "rule": "behaviour.observe",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-007"
+        ],
+        "confidence_before": 0.34,
+        "confidence_after": 0.38,
+        "explanation": "Observed behaviour: LOLBIN detected: powershell.exe"
+      },
+      {
+        "step_id": "RS-008",
+        "timestamp": "2026-01-01T00:00:08Z",
+        "rule": "verdict.compute",
+        "input_nodes": [
+          "N-002",
+          "META-lolbas-001",
+          "N-006",
+          "N-003",
+          "N-004",
+          "N-005",
+          "N-007"
+        ],
+        "output_nodes": [
+          "N-008"
+        ],
+        "confidence_before": 0.38,
+        "confidence_after": 0.38,
+        "explanation": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0]."
+      }
+    ],
+    "confidence": 0.75,
+    "verdict": {
+      "label": "Suspicious",
+      "confidence": 0.75,
+      "confidence_pct": 75,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0].",
+      "contributors": [
+        {
+          "node_id": "N-002",
+          "kind": "encoded_powershell",
+          "weight": 3.0,
+          "confidence": 0.85,
+          "category": null,
+          "label": "internal decoder step",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "META-lolbas-001",
+          "kind": "lolbin",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "LOLBAS \u00b7 powershell.exe",
+          "evidence_class": "high",
+          "source": "metadata:lolbas",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-006",
+          "kind": "lolbin",
+          "weight": 3.0,
+          "confidence": 0.7,
+          "category": null,
+          "label": "LOLBIN \u00b7 powershell",
+          "evidence_class": "high",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-003",
+          "kind": "mitre_technique",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "PowerShell",
+          "evidence_class": "medium",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-004",
+          "kind": "mitre_technique",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "Command Obfuscation: Encoded Command",
+          "evidence_class": "medium",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-005",
+          "kind": "mitre_technique",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "category": null,
+          "label": "Process Discovery",
+          "evidence_class": "medium",
+          "source": "graph",
+          "escalated_by": null
+        },
+        {
+          "node_id": "N-007",
+          "kind": "behavioural_note",
+          "weight": 0.5,
+          "confidence": 0.6,
+          "category": null,
+          "label": "LOLBIN detected: powershell.exe",
+          "evidence_class": "context",
+          "source": "graph",
+          "escalated_by": null
+        }
+      ],
+      "not_counted": [],
+      "escalation_rule": null,
+      "engine": "unified-verdict-engine-v1",
+      "confidence_breakdown": {
+        "critical": 0,
+        "high": 85,
+        "medium": 69,
+        "low": 0,
+        "context": 2,
+        "mitigating": 0
+      },
+      "confidence_timeline": [
+        {
+          "stage": 1,
+          "contributor_label": "internal decoder step",
+          "contributor_kind": "encoded_powershell",
+          "class": "high",
+          "confidence_pct": 51,
+          "source": "graph"
+        },
+        {
+          "stage": 2,
+          "contributor_label": "LOLBAS \u00b7 powershell.exe",
+          "contributor_kind": "lolbin",
+          "class": "high",
+          "confidence_pct": 75,
+          "source": "metadata:lolbas"
+        },
+        {
+          "stage": 3,
+          "contributor_label": "LOLBIN \u00b7 powershell",
+          "contributor_kind": "lolbin",
+          "class": "high",
+          "confidence_pct": 75,
+          "source": "graph"
+        },
+        {
+          "stage": 4,
+          "contributor_label": "PowerShell",
+          "contributor_kind": "mitre_technique",
+          "class": "medium",
+          "confidence_pct": 75,
+          "source": "graph"
+        },
+        {
+          "stage": 5,
+          "contributor_label": "Command Obfuscation: Encoded Command",
+          "contributor_kind": "mitre_technique",
+          "class": "medium",
+          "confidence_pct": 75,
+          "source": "graph"
+        },
+        {
+          "stage": 6,
+          "contributor_label": "Process Discovery",
+          "contributor_kind": "mitre_technique",
+          "class": "medium",
+          "confidence_pct": 75,
+          "source": "graph"
+        },
+        {
+          "stage": 7,
+          "contributor_label": "LOLBIN detected: powershell.exe",
+          "contributor_kind": "behavioural_note",
+          "class": "context",
+          "confidence_pct": 75,
+          "source": "graph"
+        }
+      ],
+      "explain": {
+        "fired": [
+          {
+            "class": "high",
+            "count": 3,
+            "contributors": [
+              {
+                "node_id": "N-002",
+                "kind": "encoded_powershell",
+                "label": "internal decoder step",
+                "weight": 3.0,
+                "confidence": 0.85,
+                "source": "graph"
+              },
+              {
+                "node_id": "META-lolbas-001",
+                "kind": "lolbin",
+                "label": "LOLBAS \u00b7 powershell.exe",
+                "weight": 3.0,
+                "confidence": 0.8,
+                "source": "metadata:lolbas"
+              },
+              {
+                "node_id": "N-006",
+                "kind": "lolbin",
+                "label": "LOLBIN \u00b7 powershell",
+                "weight": 3.0,
+                "confidence": 0.7,
+                "source": "graph"
+              }
+            ]
+          },
+          {
+            "class": "medium",
+            "count": 3,
+            "contributors": [
+              {
+                "node_id": "N-003",
+                "kind": "mitre_technique",
+                "label": "PowerShell",
+                "weight": 2.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-004",
+                "kind": "mitre_technique",
+                "label": "Command Obfuscation: Encoded Command",
+                "weight": 2.0,
+                "confidence": 0.8,
+                "source": "graph"
+              },
+              {
+                "node_id": "N-005",
+                "kind": "mitre_technique",
+                "label": "Process Discovery",
+                "weight": 2.0,
+                "confidence": 0.8,
+                "source": "graph"
+              }
+            ]
+          },
+          {
+            "class": "context",
+            "count": 1,
+            "contributors": [
+              {
+                "node_id": "N-007",
+                "kind": "behavioural_note",
+                "label": "LOLBIN detected: powershell.exe",
+                "weight": 0.5,
+                "confidence": 0.6,
+                "source": "graph"
+              }
+            ]
+          }
+        ],
+        "missing": [
+          {
+            "reason": "no CRITICAL-class evidence present"
+          },
+          {
+            "reason": "no attack-chain HIGH kind present (see ATTACK_CHAIN_HIGH set)"
+          }
+        ],
+        "escalations": [
+          {
+            "rule": "encoded PS + IEX + network download",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "missing_kinds": [
+              "invoke_expression"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "BITS + network download",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "bits_abuse"
+            ],
+            "missing_kinds": [
+              "bits_abuse"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + persistence + known C2",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "known_c2",
+              "lolbin",
+              "persistence"
+            ],
+            "missing_kinds": [
+              "known_c2",
+              "persistence"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + malicious hash",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "confirmed_malicious_hash",
+              "lolbin"
+            ],
+            "missing_kinds": [
+              "confirmed_malicious_hash"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "custom recipe (confirmed)",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "custom_recipe_hit"
+            ],
+            "missing_kinds": [
+              "custom_recipe_hit"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "malware family + execution",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "child_process_execution",
+              "sha_matched_family"
+            ],
+            "missing_kinds": [
+              "child_process_execution",
+              "sha_matched_family"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "lateral movement + credential access",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "credential_access",
+              "lateral_movement"
+            ],
+            "missing_kinds": [
+              "credential_access",
+              "lateral_movement"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "reflective injection + LSASS",
+            "promotes_to": "Malicious",
+            "required_kinds": [
+              "lsass_access",
+              "reflective_injection"
+            ],
+            "missing_kinds": [
+              "lsass_access",
+              "reflective_injection"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "encoded PS + IEX",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "encoded_powershell",
+              "invoke_expression"
+            ],
+            "missing_kinds": [
+              "invoke_expression"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "LOLBIN + obfuscated command",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "lolbin",
+              "obfuscated_command"
+            ],
+            "missing_kinds": [
+              "obfuscated_command"
+            ],
+            "status": "skipped"
+          },
+          {
+            "rule": "MITRE persistence technique",
+            "promotes_to": "Suspicious",
+            "required_kinds": [
+              "mitre_technique",
+              "persistence"
+            ],
+            "missing_kinds": [
+              "persistence"
+            ],
+            "status": "skipped"
+          }
+        ],
+        "escalation_applied": null,
+        "confidence_calculation": {
+          "formula": "Noisy-OR over positive contributors, capped, then dampened by mitigators.",
+          "raw_noisy_or_pct": 95,
+          "confidence_cap_pct": 75,
+          "cap_reason": "no CRITICAL / no attack-chain HIGH \u2192 cap 0.75",
+          "mitigators_present": 0,
+          "mitigator_dampening_max_pct": 0,
+          "final_confidence_pct": 75
+        }
+      }
+    },
+    "timeline": [
+      {
+        "step_id": "RS-001",
+        "at": "2026-01-01T00:00:01+00:00",
+        "rule": "input.ingest",
+        "explanation": "Received text artifact (99 chars) for investigation.",
+        "input_nodes": [],
+        "output_nodes": [
+          "N-001"
+        ]
+      },
+      {
+        "step_id": "RS-002",
+        "at": "2026-01-01T00:00:02+00:00",
+        "rule": "decoder.ps-encodedcommand-recovery",
+        "explanation": "PowerShell -EncodedCommand block decoded.",
+        "input_nodes": [
+          "N-001"
+        ],
+        "output_nodes": [
+          "N-002"
+        ]
+      },
+      {
+        "step_id": "RS-003",
+        "at": "2026-01-01T00:00:03+00:00",
+        "rule": "mitre.map.T1059.001",
+        "explanation": "Mapped to ATT&CK T1059.001 \u00b7 PowerShell \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-003"
+        ]
+      },
+      {
+        "step_id": "RS-004",
+        "at": "2026-01-01T00:00:04+00:00",
+        "rule": "mitre.map.T1027.010",
+        "explanation": "Mapped to ATT&CK T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-004"
+        ]
+      },
+      {
+        "step_id": "RS-005",
+        "at": "2026-01-01T00:00:05+00:00",
+        "rule": "mitre.map.T1057",
+        "explanation": "Mapped to ATT&CK T1057 \u00b7 Process Discovery \u2014 inferred from the decoded payload's behaviour.",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-005"
+        ]
+      },
+      {
+        "step_id": "RS-006",
+        "at": "2026-01-01T00:00:06+00:00",
+        "rule": "lolbin.detect.powershell",
+        "explanation": "Detected LOLBIN reference to `powershell` \u2014 signed binary can proxy execution and evade allow-lists.",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-006"
+        ]
+      },
+      {
+        "step_id": "RS-007",
+        "at": "2026-01-01T00:00:07+00:00",
+        "rule": "behaviour.observe",
+        "explanation": "Observed behaviour: LOLBIN detected: powershell.exe",
+        "input_nodes": [
+          "N-002"
+        ],
+        "output_nodes": [
+          "N-007"
+        ]
+      },
+      {
+        "step_id": "RS-008",
+        "at": "2026-01-01T00:00:08+00:00",
+        "rule": "verdict.compute",
+        "explanation": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0].",
+        "input_nodes": [
+          "N-002",
+          "META-lolbas-001",
+          "N-006",
+          "N-003",
+          "N-004",
+          "N-005",
+          "N-007"
+        ],
+        "output_nodes": [
+          "N-008"
+        ]
+      }
+    ],
+    "summary": {
+      "executive": "Event: powershell was invoked with an obfuscated command consistent with probable-malicious activity. The recovered command hides its actual behaviour from static inspection. Behaviour maps to T1059.001 \u00b7 PowerShell, T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command. Verdict: Suspicious at 75% confidence.",
+      "analyst": "Event: powershell was invoked with an obfuscated command consistent with probable-malicious activity. Recovered payload reads: `Get-Process | Format-Table`, which corroborates that powershell was used as a launcher for downstream code rather than a routine administrative task.\n\nLiving-off-the-land use of powershell bypasses application-allowlisting because the binary itself is signed and trusted; the malicious intent lives in the arguments, not the executable. Investigation mapped the observed behaviour to T1059.001 \u00b7 PowerShell, T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command, T1057 \u00b7 Process Discovery.\n\nSupporting evidence, in weight order: internal decoder step [N-002]; LOLBAS \u00b7 powershell.exe [META-lolbas-001]; LOLBIN \u00b7 powershell [N-006]; PowerShell [N-003]; Command Obfuscation: Encoded Command [N-004].\n\nImpact is probable-malicious. The behaviour is inconsistent with routine administrative activity and warrants verification before containment is relaxed.\n\nNo containment signal was observed in the submitted evidence (no quarantine, block, or prevent action was reported). This does not mean containment did not occur \u2014 it means the artefact submitted to NivXRay did not include that telemetry.\n\nRecommended next actions: 1. Investigate the recovered indicators in threat-intel and correlate against your environment.",
+      "technical": "L0 \u00b7 ps-encodedcommand-recovery \u2192 ps-encodedcommand-recovery\nfinding \u00b7 internal decoder step \u00b7 weight=3.0 \u00b7 conf=85%\nfinding \u00b7 LOLBAS \u00b7 powershell.exe \u00b7 weight=3.0 \u00b7 conf=80%\nfinding \u00b7 LOLBIN \u00b7 powershell \u00b7 weight=3.0 \u00b7 conf=70%\nfinding \u00b7 PowerShell \u00b7 weight=2.0 \u00b7 conf=80%\nfinding \u00b7 Command Obfuscation: Encoded Command \u00b7 weight=2.0 \u00b7 conf=80%\nfinding \u00b7 Process Discovery \u00b7 weight=2.0 \u00b7 conf=80%\nfinding \u00b7 LOLBIN detected: powershell.exe \u00b7 weight=0.5 \u00b7 conf=60%\nATT&CK \u00b7 T1059.001 \u00b7 PowerShell \u00b7 Execution\nATT&CK \u00b7 T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command \u00b7 Defense Evasion\nATT&CK \u00b7 T1057 \u00b7 Process Discovery \u00b7 Discovery",
+      "attack_story": "Attack chain: 1. Layer 0: ps-encodedcommand-recovery \u2192 2. LOLBIN detected: powershell.exe \u2192 3. Verdict: Suspicious.",
+      "key_findings": [
+        {
+          "id": "kf-001",
+          "label": "internal decoder step",
+          "weight": 3.0,
+          "confidence": 0.85,
+          "evidence_node_ids": [
+            "N-002"
+          ]
+        },
+        {
+          "id": "kf-002",
+          "label": "LOLBAS \u00b7 powershell.exe",
+          "weight": 3.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "META-lolbas-001"
+          ]
+        },
+        {
+          "id": "kf-003",
+          "label": "LOLBIN \u00b7 powershell",
+          "weight": 3.0,
+          "confidence": 0.7,
+          "evidence_node_ids": [
+            "N-006"
+          ]
+        },
+        {
+          "id": "kf-004",
+          "label": "PowerShell",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-003"
+          ]
+        },
+        {
+          "id": "kf-005",
+          "label": "Command Obfuscation: Encoded Command",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-004"
+          ]
+        },
+        {
+          "id": "kf-006",
+          "label": "Process Discovery",
+          "weight": 2.0,
+          "confidence": 0.8,
+          "evidence_node_ids": [
+            "N-005"
+          ]
+        },
+        {
+          "id": "kf-007",
+          "label": "LOLBIN detected: powershell.exe",
+          "weight": 0.5,
+          "confidence": 0.6,
+          "evidence_node_ids": [
+            "N-007"
+          ]
+        }
+      ],
+      "unknowns": [],
+      "recommendations": [
+        {
+          "id": "rc-001",
+          "priority": "high",
+          "action": "Investigate the recovered indicators in threat-intel and correlate against your environment.",
+          "rationale": "High-signal evidence recovered but no dominant driver \u2014 verify before containment.",
+          "evidence_node_ids": [
+            "N-002",
+            "META-lolbas-001",
+            "N-006",
+            "N-003",
+            "N-004"
+          ]
+        }
+      ],
+      "confidence": 0.75,
+      "evidence_digest": {
+        "total_nodes": 8,
+        "contributors": 7,
+        "not_counted": 0,
+        "by_kind": {
+          "artifact": 1,
+          "decoded_fragment": 1,
+          "mitre_technique": 3,
+          "lolbin": 1,
+          "behaviour": 1,
+          "verdict": 1
+        }
+      },
+      "attack_chain": [
+        {
+          "order": 1,
+          "label": "Layer 0: ps-encodedcommand-recovery",
+          "node_id": "N-002",
+          "tactic": null
+        },
+        {
+          "order": 2,
+          "label": "LOLBIN detected: powershell.exe",
+          "node_id": "N-007",
+          "tactic": null
+        },
+        {
+          "order": 3,
+          "label": "Verdict: Suspicious",
+          "node_id": "N-008",
+          "tactic": null
+        }
+      ],
+      "entities_digest": {
+        "hosts": [],
+        "users": [],
+        "hashes": [],
+        "external_domains": [],
+        "external_ips": [],
+        "lolbins": [
+          "powershell"
+        ]
+      },
+      "mitre_digest": {
+        "techniques": [
+          {
+            "id": "T1059.001",
+            "name": "PowerShell",
+            "tactic": "Execution"
+          },
+          {
+            "id": "T1027.010",
+            "name": "Command Obfuscation: Base64/Encoded Command",
+            "tactic": "Defense Evasion"
+          },
+          {
+            "id": "T1057",
+            "name": "Process Discovery",
+            "tactic": "Discovery"
+          }
+        ],
+        "tactics": [
+          "Defense Evasion",
+          "Discovery",
+          "Execution"
+        ],
+        "coverage": 3
+      },
+      "timeline_digest": {
+        "steps": 8,
+        "verdict_step_id": "RS-008"
+      },
+      "report_sections": {
+        "what_happened": "Event: powershell was invoked with an obfuscated command consistent with probable-malicious activity. Recovered payload reads: `Get-Process | Format-Table`, which corroborates that powershell was used as a launcher for downstream code rather than a routine administrative task.\n\nLiving-off-the-land use of powershell bypasses application-allowlisting because the binary itself is signed and trusted; the malicious intent lives in the arguments, not the executable. Investigation mapped the observed behaviour to T1059.001 \u00b7 PowerShell, T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command, T1057 \u00b7 Process Discovery.\n\nSupporting evidence, in weight order: internal decoder step [N-002]; LOLBAS \u00b7 powershell.exe [META-lolbas-001]; LOLBIN \u00b7 powershell [N-006]; PowerShell [N-003]; Command Obfuscation: Encoded Command [N-004].\n\nImpact is probable-malicious. The behaviour is inconsistent with routine administrative activity and warrants verification before containment is relaxed.\n\nNo containment signal was observed in the submitted evidence (no quarantine, block, or prevent action was reported). This does not mean containment did not occur \u2014 it means the artefact submitted to NivXRay did not include that telemetry.\n\nRecommended next actions: 1. Investigate the recovered indicators in threat-intel and correlate against your environment.",
+        "what_we_found": "Key findings: internal decoder step, LOLBAS \u00b7 powershell.exe, LOLBIN \u00b7 powershell, PowerShell, Command Obfuscation: Encoded Command",
+        "what_we_dont_know": "No open unknowns.",
+        "what_to_do": "Actions: Investigate the recovered indicators in threat-intel and correlate against your environment."
+      },
+      "customer_report": {
+        "persona": "customer",
+        "verdict": "Suspicious",
+        "verdict_confidence_pct": 75,
+        "sections": [
+          {
+            "number": 1,
+            "title": "Executive Summary",
+            "body": "Verdict: **Suspicious** (confidence 75%). No affected-host telemetry was included with this submission. Execution vector: powershell.",
+            "citations": [
+              "cio.verdict",
+              "cio.entities",
+              "cio.metadata.iocs",
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 2,
+            "title": "Incident Overview",
+            "body": "The submission triggered powershell with an obfuscated command that, once recovered, resolves to `Get-Process | Format-Table`. The observed behaviour maps to **T1059.001 \u00b7 PowerShell** and **T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command**. Aggregate evidence supports a **Suspicious** verdict \u2014 the sample should be treated as attacker-controlled until proven otherwise.",
+            "citations": [
+              "cio.truth.findings",
+              "cio.decode_chain",
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 3,
+            "title": "Recovered Command",
+            "body": "```\nGet-Process | Format-Table\n```",
+            "citations": [
+              "cio.decode_chain"
+            ]
+          },
+          {
+            "number": 4,
+            "title": "Detection Source",
+            "body": "Ad-hoc analyst submission",
+            "citations": [
+              "cio.metadata.detection_source"
+            ]
+          },
+          {
+            "number": 5,
+            "title": "Execution Chain",
+            "body": "* Living-off-the-land binary invoked (powershell)\n* LOLBIN detected: powershell.exe",
+            "citations": [
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 6,
+            "title": "Evidence",
+            "body": "* **internal decoder step** (high) \u2014 encoded_powershell\n* **LOLBAS \u00b7 powershell.exe** (high)\n* **LOLBIN \u00b7 powershell** (high)\n* **PowerShell** (medium) \u2014 mitre_technique\n* **Command Obfuscation: Encoded Command** (medium) \u2014 mitre_technique\n* **Process Discovery** (medium) \u2014 mitre_technique",
+            "citations": [
+              "cio.truth.findings"
+            ]
+          },
+          {
+            "number": 7,
+            "title": "MITRE ATT&CK",
+            "body": "* **Execution**: T1059.001 \u00b7 PowerShell\n* **Defense Evasion**: T1027.010 \u00b7 Command Obfuscation: Encoded Command\n* **Discovery**: T1057 \u00b7 Process Discovery",
+            "citations": [
+              "cio.evidence_graph"
+            ]
+          },
+          {
+            "number": 8,
+            "title": "Impact Assessment",
+            "body": "Behaviour is anomalous. Assess business impact before acting; corroborate with additional telemetry.",
+            "citations": [
+              "cio.verdict"
+            ]
+          },
+          {
+            "number": 9,
+            "title": "Analyst Verdict",
+            "body": "**Suspicious** at 75% confidence. Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0].",
+            "citations": [
+              "cio.verdict"
+            ]
+          },
+          {
+            "number": 10,
+            "title": "Recommendations",
+            "body": "* **INVESTIGATE** (p2): Escalate to Tier-2 for a deeper investigation. Retrieve process-tree and network telemetry around the observation window.",
+            "citations": [
+              "cio.truth.recommendations"
+            ]
+          }
+        ],
+        "markdown": "# Investigation Report \u2014 Verdict: **Suspicious** (75%)\n\n## 1. Executive Summary\n\nVerdict: **Suspicious** (confidence 75%). No affected-host telemetry was included with this submission. Execution vector: powershell.\n\n*Sources \u2014 cio.verdict, cio.entities, cio.metadata.iocs, cio.evidence_graph*\n\n## 2. Incident Overview\n\nThe submission triggered powershell with an obfuscated command that, once recovered, resolves to `Get-Process | Format-Table`. The observed behaviour maps to **T1059.001 \u00b7 PowerShell** and **T1027.010 \u00b7 Command Obfuscation: Base64/Encoded Command**. Aggregate evidence supports a **Suspicious** verdict \u2014 the sample should be treated as attacker-controlled until proven otherwise.\n\n*Sources \u2014 cio.truth.findings, cio.decode_chain, cio.evidence_graph*\n\n## 3. Recovered Command\n\n```\nGet-Process | Format-Table\n```\n\n*Sources \u2014 cio.decode_chain*\n\n## 4. Detection Source\n\nAd-hoc analyst submission\n\n*Sources \u2014 cio.metadata.detection_source*\n\n## 5. Execution Chain\n\n* Living-off-the-land binary invoked (powershell)\n* LOLBIN detected: powershell.exe\n\n*Sources \u2014 cio.evidence_graph*\n\n## 6. Evidence\n\n* **internal decoder step** (high) \u2014 encoded_powershell\n* **LOLBAS \u00b7 powershell.exe** (high)\n* **LOLBIN \u00b7 powershell** (high)\n* **PowerShell** (medium) \u2014 mitre_technique\n* **Command Obfuscation: Encoded Command** (medium) \u2014 mitre_technique\n* **Process Discovery** (medium) \u2014 mitre_technique\n\n*Sources \u2014 cio.truth.findings*\n\n## 7. MITRE ATT&CK\n\n* **Execution**: T1059.001 \u00b7 PowerShell\n* **Defense Evasion**: T1027.010 \u00b7 Command Obfuscation: Encoded Command\n* **Discovery**: T1057 \u00b7 Process Discovery\n\n*Sources \u2014 cio.evidence_graph*\n\n## 8. Impact Assessment\n\nBehaviour is anomalous. Assess business impact before acting; corroborate with additional telemetry.\n\n*Sources \u2014 cio.verdict*\n\n## 9. Analyst Verdict\n\n**Suspicious** at 75% confidence. Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0].\n\n*Sources \u2014 cio.verdict*\n\n## 10. Recommendations\n\n* **INVESTIGATE** (p2): Escalate to Tier-2 for a deeper investigation. Retrieve process-tree and network telemetry around the observation window.\n\n*Sources \u2014 cio.truth.recommendations*",
+        "critique": {
+          "passed": true,
+          "score": 100,
+          "persona": "customer",
+          "issues": [
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Affected Hosts' is empty and should be hidden.",
+              "section": "Affected Hosts",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Users' is empty and should be hidden.",
+              "section": "Users",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Timeline' is empty and should be hidden.",
+              "section": "Timeline",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'File Hashes' is empty and should be hidden.",
+              "section": "File Hashes",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'IOCs' is empty and should be hidden.",
+              "section": "IOCs",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Threat Intelligence' is empty and should be hidden.",
+              "section": "Threat Intelligence",
+              "remediation": "Dynamic section selection will hide this at render time."
+            },
+            {
+              "severity": "info",
+              "code": "drop-empty-section",
+              "message": "Section 'Containment Status' is empty and should be hidden.",
+              "section": "Containment Status",
+              "remediation": "Dynamic section selection will hide this at render time."
+            }
+          ],
+          "coverage": [
+            {
+              "field": "hosts",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "users",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "file_hashes",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "iocs",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "mitre",
+              "present_in_cio": true,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "osint",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "timeline",
+              "present_in_cio": false,
+              "present_in_report": true,
+              "ok": true
+            },
+            {
+              "field": "recommendations",
+              "present_in_cio": true,
+              "present_in_report": true,
+              "ok": true
+            }
+          ],
+          "dropped_sections": [
+            "Affected Hosts",
+            "Users",
+            "Timeline",
+            "File Hashes",
+            "IOCs",
+            "Threat Intelligence",
+            "Containment Status"
+          ],
+          "kept_sections": [
+            "Executive Summary",
+            "Incident Overview",
+            "Recovered Command",
+            "Detection Source",
+            "Execution Chain",
+            "Evidence",
+            "MITRE ATT&CK",
+            "Impact Assessment",
+            "Analyst Verdict",
+            "Recommendations"
+          ]
+        }
+      },
+      "report_validation": {
+        "status": "pass",
+        "score": 100,
+        "blockers": [],
+        "warnings": [],
+        "checks": {
+          "no_raw_markdown_leaks": true,
+          "contiguous_section_numbering": true,
+          "verdict_has_contributors": true,
+          "ioc_surface_present": true,
+          "mitre_surface_present": true,
+          "recovered_payload_surface_present": true,
+          "recommendations_evidence_backed": true,
+          "persona_hygiene_pass": true
+        },
+        "summary": "PASS \u00b7 8/8 checks passed \u00b7 score 100 \u00b7 0 blocker(s) \u00b7 0 warning(s)"
+      },
+      "composer_version": "slice-d-v1"
+    },
+    "recommendations": [
+      {
+        "id": "rc-001",
+        "priority": "high",
+        "action": "Investigate the recovered indicators in threat-intel and correlate against your environment.",
+        "rationale": "High-signal evidence recovered but no dominant driver \u2014 verify before containment.",
+        "evidence_node_ids": [
+          "N-002",
+          "META-lolbas-001",
+          "N-006",
+          "N-003",
+          "N-004"
+        ]
+      }
+    ],
+    "reports": {},
+    "metadata": {
+      "adr": "0014",
+      "slice": "D",
+      "node_count": 8,
+      "edge_count": 12,
+      "reasoning_step_count": 8,
+      "verdict_engine": "unified-verdict-engine-v1",
+      "input_understanding": {
+        "type": "powershell",
+        "label": "PowerShell Command",
+        "confidence": 0.95,
+        "fingerprints": [
+          "ps_hints",
+          "encoded_command"
+        ],
+        "route": "decode",
+        "size_bytes": 99,
+        "line_count": 1
+      },
+      "custom_recipes_matched": [],
+      "lolbas": [
+        {
+          "binary": "powershell.exe",
+          "purposes": [
+            "Execute",
+            "Download"
+          ],
+          "mitre": [
+            "T1059.001",
+            "T1197"
+          ],
+          "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+          "snippet": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA== Get-Process | Format-Table Get-Process | Format-Tab",
+          "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+          "source": "curated"
+        }
+      ],
+      "lolbins_v2": {
+        "executed": [],
+        "referenced": [],
+        "expanded": []
+      },
+      "ti_shield": [
+        {
+          "layer": 0,
+          "label": "L0 \u00b7 RAW INPUT",
+          "op": "raw",
+          "preview": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA==",
+          "iocs": {
+            "urls": [],
+            "ips": [],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [
+            {
+              "binary": "powershell.exe",
+              "purposes": [
+                "Execute",
+                "Download"
+              ],
+              "mitre": [
+                "T1059.001",
+                "T1197"
+              ],
+              "description": "PowerShell with encoded/hidden/download-and-execute or discovery pattern (incl. BITS-transfer stealthy download)",
+              "snippet": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA==",
+              "url": "https://lolbas-project.github.io/lolbas/Binaries/powershell/",
+              "source": "curated"
+            }
+          ],
+          "mitre": [
+            {
+              "id": "T1059.001",
+              "technique": "PowerShell",
+              "tactic": "Execution"
+            },
+            {
+              "id": "T1027.010",
+              "technique": "Command Obfuscation: Base64/Encoded Command",
+              "tactic": "Defense Evasion"
+            }
+          ],
+          "yara": [
+            {
+              "rule": "PS_EncodedCommand",
+              "severity": "high",
+              "match": "powershell -EncodedCommand RwBlAHQALQBQAHIAbwBjAGUAcwBzACAAfAAgAEYAbwByAG0AYQB0AC0AVABhAGIAbABlAA==",
+              "description": "PowerShell base64-encoded command execution"
+            },
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "powershell",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {},
+          "family_hint": null,
+          "severity": {
+            "score": 24,
+            "band": "low"
+          }
+        },
+        {
+          "layer": "final",
+          "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+          "op": "final",
+          "preview": "Get-Process | Format-Table",
+          "iocs": {
+            "urls": [],
+            "ips": [],
+            "domains": [],
+            "emails": [],
+            "md5": [],
+            "sha1": [],
+            "sha256": [],
+            "bitcoin_addresses": []
+          },
+          "lolbas": [],
+          "mitre": [
+            {
+              "id": "T1057",
+              "technique": "Process Discovery",
+              "tactic": "Discovery"
+            }
+          ],
+          "yara": [
+            {
+              "rule": "PS_CaseMixed_Obfuscation",
+              "severity": "low",
+              "match": "Process",
+              "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+            }
+          ],
+          "ti_hits": [],
+          "live_osint": {},
+          "family_hint": null,
+          "severity": {
+            "score": 9,
+            "band": "none"
+          }
+        }
+      ],
+      "iocs": {
+        "urls": [],
+        "ips": [],
+        "domains": [],
+        "emails": [],
+        "md5": [],
+        "sha1": [],
+        "sha256": [],
+        "bitcoin_addresses": []
+      },
+      "recursion_report": {
+        "iterations": 3,
+        "artifacts_processed": 3,
+        "artifacts_discovered": 2,
+        "commands_decoded": 2,
+        "scripts_recovered": 0,
+        "archives_unpacked": 0,
+        "iocs_extracted": 0,
+        "mitre_techniques": 3,
+        "hypotheses_validated": 0,
+        "fixed_point_reached": true,
+        "reason_no_new": {
+          "nodes": true,
+          "edges": true,
+          "iocs": true,
+          "mitre": true,
+          "hypotheses": true,
+          "confidence": true
+        },
+        "max_depth_reached": 2,
+        "duration_ms": 1,
+        "status": "complete",
+        "policy": "standard",
+        "trace": [
+          {
+            "iteration": 1,
+            "artifact_id": "A-0",
+            "kind": "command",
+            "depth": 0,
+            "investigator": "command",
+            "new_nodes": 0,
+            "new_artifacts": 1,
+            "note": "extracted 0 nodes / 1 artifacts",
+            "snapshot_hash": "3c3c5e658afdb16fe69487aa62053e175a5ecd572006a0fe0c09b0c4dbf765b0"
+          },
+          {
+            "iteration": 2,
+            "artifact_id": "REC-A-0-0001-b64",
+            "kind": "base64",
+            "depth": 1,
+            "investigator": "base64",
+            "new_nodes": 0,
+            "new_artifacts": 1,
+            "note": "decoded to 52 chars text",
+            "snapshot_hash": "3c3c5e658afdb16fe69487aa62053e175a5ecd572006a0fe0c09b0c4dbf765b0"
+          },
+          {
+            "iteration": 3,
+            "artifact_id": "REC-A-0-0001-b64-t",
+            "kind": "command",
+            "depth": 2,
+            "investigator": "command",
+            "new_nodes": 0,
+            "new_artifacts": 0,
+            "note": "extracted 0 nodes / 0 artifacts",
+            "snapshot_hash": "3c3c5e658afdb16fe69487aa62053e175a5ecd572006a0fe0c09b0c4dbf765b0"
+          }
+        ]
+      },
+      "osint": {
+        "local": {
+          "summary": {
+            "total_lookups": 0,
+            "matches": 0
+          },
+          "by_value": {},
+          "sources": {}
+        },
+        "live": {
+          "ips": [],
+          "domains": [],
+          "urls": [],
+          "hashes": [],
+          "sources_used": []
+        },
+        "providers_used": [],
+        "engine": "shared:workspace"
+      }
+    },
+    "truth": {
+      "version": "1.0",
+      "observations": [
+        {
+          "id": "O-N-002",
+          "kind": "decoded_fragment",
+          "label": "Layer 0: ps-encodedcommand-recovery",
+          "value": "Get-Process | Format-Table",
+          "confidence": 0.85,
+          "source_node_ids": [
+            "N-002"
+          ],
+          "support": [
+            {
+              "node_id": "N-002",
+              "relation": "derives_from",
+              "weight": 0.85
+            }
+          ],
+          "provenance": "decoder:ps-encodedcommand-recovery"
+        },
+        {
+          "id": "O-N-003",
+          "kind": "mitre_technique",
+          "label": "PowerShell",
+          "value": "T1059.001",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-003"
+          ],
+          "support": [
+            {
+              "node_id": "N-003",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-004",
+          "kind": "mitre_technique",
+          "label": "Command Obfuscation: Base64/Encoded Command",
+          "value": "T1027.010",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-004"
+          ],
+          "support": [
+            {
+              "node_id": "N-004",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-005",
+          "kind": "mitre_technique",
+          "label": "Process Discovery",
+          "value": "T1057",
+          "confidence": 0.8,
+          "source_node_ids": [
+            "N-005"
+          ],
+          "support": [
+            {
+              "node_id": "N-005",
+              "relation": "derives_from",
+              "weight": 0.8
+            }
+          ],
+          "provenance": "mitre:inferred"
+        },
+        {
+          "id": "O-N-006",
+          "kind": "lolbin",
+          "label": "LOLBIN \u00b7 powershell",
+          "value": "powershell",
+          "confidence": 0.7,
+          "source_node_ids": [
+            "N-006"
+          ],
+          "support": [
+            {
+              "node_id": "N-006",
+              "relation": "derives_from",
+              "weight": 0.7
+            }
+          ],
+          "provenance": "rule:lolbin_scan"
+        },
+        {
+          "id": "O-N-007",
+          "kind": "behaviour",
+          "label": "LOLBIN detected: powershell.exe",
+          "value": "",
+          "confidence": 0.6,
+          "source_node_ids": [
+            "N-007"
+          ],
+          "support": [
+            {
+              "node_id": "N-007",
+              "relation": "derives_from",
+              "weight": 0.6
+            }
+          ],
+          "provenance": "reasoning:notes"
+        },
+        {
+          "id": "O-N-008",
+          "kind": "verdict",
+          "label": "Verdict \u00b7 Suspicious",
+          "value": "Suspicious",
+          "confidence": 0.75,
+          "source_node_ids": [
+            "N-008"
+          ],
+          "support": [
+            {
+              "node_id": "N-008",
+              "relation": "derives_from",
+              "weight": 0.75
+            }
+          ],
+          "provenance": "engine:unified-verdict"
+        }
+      ],
+      "findings": [
+        {
+          "id": "F-001",
+          "title": "internal decoder step",
+          "severity": "high",
+          "detail": "encoded_powershell \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.85 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-002"
+          ],
+          "source_node_ids": [
+            "N-002"
+          ],
+          "support": [
+            {
+              "node_id": "N-002",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-002",
+          "title": "LOLBAS \u00b7 powershell.exe",
+          "severity": "high",
+          "detail": "lolbin \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.8 \u00b7 source=metadata:lolbas",
+          "source_observation_ids": [],
+          "source_node_ids": [
+            "META-lolbas-001"
+          ],
+          "support": [
+            {
+              "node_id": "META-lolbas-001",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-003",
+          "title": "LOLBIN \u00b7 powershell",
+          "severity": "high",
+          "detail": "lolbin \u00b7 class=high \u00b7 weight=3.0 \u00b7 confidence=0.7 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-006"
+          ],
+          "source_node_ids": [
+            "N-006"
+          ],
+          "support": [
+            {
+              "node_id": "N-006",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-004",
+          "title": "PowerShell",
+          "severity": "medium",
+          "detail": "mitre_technique \u00b7 class=medium \u00b7 weight=2.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-003"
+          ],
+          "source_node_ids": [
+            "N-003"
+          ],
+          "support": [
+            {
+              "node_id": "N-003",
+              "relation": "supports",
+              "weight": 0.2
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-005",
+          "title": "Command Obfuscation: Encoded Command",
+          "severity": "medium",
+          "detail": "mitre_technique \u00b7 class=medium \u00b7 weight=2.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-004"
+          ],
+          "source_node_ids": [
+            "N-004"
+          ],
+          "support": [
+            {
+              "node_id": "N-004",
+              "relation": "supports",
+              "weight": 0.2
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-006",
+          "title": "Process Discovery",
+          "severity": "medium",
+          "detail": "mitre_technique \u00b7 class=medium \u00b7 weight=2.0 \u00b7 confidence=0.8 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-005"
+          ],
+          "source_node_ids": [
+            "N-005"
+          ],
+          "support": [
+            {
+              "node_id": "N-005",
+              "relation": "supports",
+              "weight": 0.2
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        },
+        {
+          "id": "F-007",
+          "title": "LOLBIN detected: powershell.exe",
+          "severity": "info",
+          "detail": "behavioural_note \u00b7 class=context \u00b7 weight=0.5 \u00b7 confidence=0.6 \u00b7 source=graph",
+          "source_observation_ids": [
+            "O-N-007"
+          ],
+          "source_node_ids": [
+            "N-007"
+          ],
+          "support": [
+            {
+              "node_id": "N-007",
+              "relation": "supports",
+              "weight": 0.05
+            }
+          ],
+          "tactic": null,
+          "technique_id": null
+        }
+      ],
+      "hypotheses": [
+        {
+          "id": "H-LOLBAS-DOWNLOADER",
+          "statement": "Attacker used a LOLBAS-based downloader chain to stage a payload.",
+          "status": "proposed",
+          "confidence": 0.75,
+          "supporting_finding_ids": [
+            "F-002",
+            "F-003",
+            "F-007"
+          ],
+          "counter_finding_ids": [],
+          "support": [
+            {
+              "node_id": "META-lolbas-001",
+              "relation": "supports",
+              "weight": 0.3
+            },
+            {
+              "node_id": "N-006",
+              "relation": "supports",
+              "weight": 0.3
+            },
+            {
+              "node_id": "N-007",
+              "relation": "supports",
+              "weight": 0.05
+            }
+          ],
+          "rationale": "LOLBIN / signed-binary-proxy behaviour observed with network-bound intent."
+        }
+      ],
+      "validations": [
+        {
+          "hypothesis_id": "H-LOLBAS-DOWNLOADER",
+          "outcome": "proposed",
+          "supporting_evidence": [
+            "F-002",
+            "F-003",
+            "F-007"
+          ],
+          "counter_evidence": [],
+          "support": [
+            {
+              "node_id": "META-lolbas-001",
+              "relation": "supports",
+              "weight": 0.3
+            },
+            {
+              "node_id": "N-006",
+              "relation": "supports",
+              "weight": 0.3
+            },
+            {
+              "node_id": "N-007",
+              "relation": "supports",
+              "weight": 0.05
+            }
+          ],
+          "escalation_rule": null,
+          "detail": "Verdict engine reported Suspicious at 75%. 3 supporting findings, 0 counter findings."
+        }
+      ],
+      "decision": {
+        "label": "Suspicious",
+        "confidence_pct": 75,
+        "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 3 medium \u00b7 0 low \u00b7 1 context. Top contributors: internal decoder step [high, w=3.0] \u00b7 LOLBAS \u00b7 powershell.exe [high, w=3.0] \u00b7 LOLBIN \u00b7 powershell [high, w=3.0].",
+        "escalation_rule": null,
+        "confidence_breakdown": {
+          "critical": 0,
+          "high": 85,
+          "medium": 69,
+          "low": 0,
+          "context": 2,
+          "mitigating": 0
+        },
+        "support": [
+          {
+            "node_id": "N-002",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "META-lolbas-001",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "N-006",
+            "relation": "supports",
+            "weight": 0.3
+          },
+          {
+            "node_id": "N-003",
+            "relation": "supports",
+            "weight": 0.2
+          },
+          {
+            "node_id": "N-004",
+            "relation": "supports",
+            "weight": 0.2
+          },
+          {
+            "node_id": "N-005",
+            "relation": "supports",
+            "weight": 0.2
+          },
+          {
+            "node_id": "N-007",
+            "relation": "supports",
+            "weight": 0.05
+          }
+        ],
+        "engine": "unified-verdict-engine-v1"
+      },
+      "recommendations": [
+        {
+          "id": "R-INVESTIGATE",
+          "action": "investigate",
+          "priority": "p2",
+          "detail": "Escalate to Tier-2 for a deeper investigation. Retrieve process-tree and network telemetry around the observation window.",
+          "support": [
+            {
+              "node_id": "N-007",
+              "relation": "supports",
+              "weight": 0.05
+            },
+            {
+              "node_id": "N-006",
+              "relation": "supports",
+              "weight": 0.3
+            },
+            {
+              "node_id": "META-lolbas-001",
+              "relation": "supports",
+              "weight": 0.3
+            }
+          ],
+          "playbook_ref": null
+        }
+      ]
+    }
+  },
+  "route": "decode"
+}

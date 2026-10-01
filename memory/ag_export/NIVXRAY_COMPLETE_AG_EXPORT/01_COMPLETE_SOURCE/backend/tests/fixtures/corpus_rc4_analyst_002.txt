@@ -1,0 +1,2 @@
+# RC4-encoded payload with hardcoded key: 'hardcoded-rc4-key-2'
+# recovered plaintext: 'http://rc4-2.example.test/y'

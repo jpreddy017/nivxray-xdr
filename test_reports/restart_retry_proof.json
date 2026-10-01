@@ -1,0 +1,36 @@
+{
+ "first": {
+  "http": 200,
+  "status": "REASONED",
+  "incident_id": "inc_4e65e911753d4ec9ae34",
+  "trace_id": "live_ba1e0fbffacf4097",
+  "counts": {
+   "raw": 1,
+   "canonical": 1,
+   "incidents": 1
+  }
+ },
+ "retry_after_restart": {
+  "http": 200,
+  "duplicates": 1,
+  "status": "DUPLICATE",
+  "incident_id": "inc_4e65e911753d4ec9ae34",
+  "points_at_original": true,
+  "duplicate_of_trace_id": "live_ba1e0fbffacf4097",
+  "delivery_count": 2,
+  "counts": {
+   "raw": 1,
+   "canonical": 1,
+   "incidents": 1
+  },
+  "counts_unchanged": true,
+  "claim_status": "COMPLETED",
+  "claim_attempt": 1,
+  "claim_delivery_count": 2
+ },
+ "verdict": "PASS",
+ "cleanup": {
+  "collector_disabled": "col_2cddc24763664283882e",
+  "keys_revoked": true
+ }
+}

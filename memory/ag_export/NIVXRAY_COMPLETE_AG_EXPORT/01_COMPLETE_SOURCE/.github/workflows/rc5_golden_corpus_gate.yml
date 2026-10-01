@@ -1,0 +1,194 @@
+name: RC5 Golden Corpus CI Gate
+
+# Mandatory gate — every PR must:
+#   1. Run the full RC5 backend test suite.
+#   2. Execute the Golden Corpus (in-process, deterministic).
+#   3. On PRs, compare against the base branch and post a Markdown delta
+#      report to the job summary + PR comment.
+#   4. FAIL the PR if head pass_rate < 95% OR regression_count > 0.
+#
+# Locked per user directive on 2026-02-21 for the Phase 9.5 → 10 window.
+# Phase 9.5c (2026-02-23): added PR delta reporter — pass-rate, regression,
+# per-stage coverage, detector accuracy, per-sample verdict-shift table.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  rc5-golden-gate:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6
+        ports: ["27017:27017"]
+
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME:   nivxray_ci
+      # Deterministic feature flags for the CI run — mirror Preview settings.
+      SEMANTIC_ENGINE_V2: "true"
+      ADMIN_EMAIL:        "admin@nivxray.com"
+      ADMIN_PASSWORD:     "ci-only-not-a-real-secret"
+      # v2 platform feature flags — required by R4/R1.2/R2.5 endpoint tests.
+      NIVX_FLAG_TRAJECTORY_ENGINE: "shadow"
+      NIVX_FLAG_CASE_ENGINE:       "shadow"
+      NIVX_FLAG_ADAPTERS:          "shadow"
+
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@v4
+        with:
+          path: head
+
+      - name: Checkout base branch (PRs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install head backend dependencies
+        run: |
+          cd head/backend
+          python -m pip install --upgrade pip
+          # CI runs deterministic tests only — filter Emergent-private
+          # wheels (emergentintegrations, litellm) that live on a private
+          # CDN and aren't needed by any test in the RC5 gate. Mirrors the
+          # pattern already proven in rc4x_quality_gate.yml + rc5_gates.yml.
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
+      - name: Run RC5 test suite on HEAD (must be 100% green)
+        run: |
+          cd head/backend
+          # SERIAL run — xdist (-n 2) caused a 99%-cancel teardown deadlock
+          # on GitHub runners when combined with FastAPI's async lifespan +
+          # Motor's connection close (see pytest-xdist#754). Mirrors the
+          # fix already applied to rc5_gates.yml. Per-test --timeout=60
+          # via `thread` method kills any single hang. -p no:cacheprovider
+          # eliminates a cross-worker cache-race that also triggered the
+          # same "[gw0] node down: Not properly terminated" symptom.
+          #
+          # `-n 0` is REQUIRED to override pytest.ini's addopts=`-n 2
+          # --dist loadscope`. Otherwise xdist still spawns workers even
+          # though we don't pass `-n 2` here. See pytest.ini's own
+          # comment: "Serial = `-n 0`".
+          python -m pytest tests/rc5/ -q --tb=short -n 0 --timeout=60 --timeout-method=thread -p no:cacheprovider
+
+      # ── Base branch corpus run (PRs only) ─────────────────────────
+      - name: Install base branch backend dependencies
+        if: github.event_name == 'pull_request'
+        run: |
+          cd base/backend
+          python -m pip install --upgrade pip
+          # Same filter as the head-install step above. `|| true` on the
+          # grep so this step still succeeds if the base branch predates
+          # the two private-CDN packages.
+          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
+            requirements.txt > requirements-ci.txt || cp requirements.txt requirements-ci.txt
+          pip install -r requirements-ci.txt \
+            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
+      - name: Run Golden Corpus on BASE (best-effort, tolerates schema drift)
+        if: github.event_name == 'pull_request'
+        id: base-corpus
+        continue-on-error: true
+        run: |
+          cd base/backend
+          # If the base branch predates the delta script, generate the
+          # equivalent JSON via ad-hoc code so the delta can still be built.
+          if [ -f scripts/golden_delta.py ]; then
+            python scripts/golden_delta.py \
+              --out /tmp/base_delta.md \
+              --emit-head-json /tmp/base_run.json || true
+          else
+            python - <<'PY'
+          import json, os
+          os.environ.setdefault("SEMANTIC_ENGINE_V2","true")
+          from engine.golden_corpus import run_corpus
+          r = run_corpus()
+          with open("/tmp/base_run.json","w") as f:
+              f.write(r.model_dump_json())
+          PY
+          fi
+
+      # ── Head branch corpus run + delta report ────────────────────
+      - name: Run Golden Corpus on HEAD (+ PR delta if base available)
+        id: golden
+        run: |
+          cd head/backend
+          BASE_ARG=""
+          if [ -f /tmp/base_run.json ]; then
+            BASE_ARG="--base /tmp/base_run.json"
+          fi
+          python scripts/golden_delta.py \
+            $BASE_ARG \
+            --out /tmp/delta.md \
+            --emit-head-json /tmp/head_run.json
+
+      - name: Emit summary
+        if: always()
+        run: |
+          echo "## RC5 Golden Corpus CI Gate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/delta.md ]; then
+            cat /tmp/delta.md >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Job status: **${{ job.status }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Gate criteria: pass_rate ≥ 95% AND regression_count == 0" >> $GITHUB_STEP_SUMMARY
+
+      # ── PR comment (optional — swallow permission failures) ──────
+      - name: Comment PR with delta report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('/tmp/delta.md')) return;
+            const body = fs.readFileSync('/tmp/delta.md', 'utf8');
+            const marker = '<!-- rc5-golden-corpus-delta -->';
+            const commentBody = marker + "\n" + body;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+            }
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc5-golden-delta
+          path: |
+            /tmp/delta.md
+            /tmp/head_run.json
+            /tmp/base_run.json
+          if-no-files-found: warn

@@ -49,9 +49,40 @@ def _synth_envelope(tenant_id: str, collector_id: str) -> Envelope:
     )
 
 
+def _preflight_tenant(x_tenant_id: Optional[str]) -> str:
+    """The authoritative tenant for a preflight probe.
+
+    Resolved through the registry when mounted inside the NivXRay backend,
+    refused outright when absent. A probe does not get to invent a tenancy.
+    """
+    raw = (x_tenant_id or "").strip()
+    try:
+        from services import tenant_registry            # mounted in the core
+    except ImportError:                                  # standalone deployment
+        if not raw:
+            raise HTTPException(403, detail={
+                "code": "TENANT_REQUIRED",
+                "reason": ("no tenant named for xdr.collector.preflight: the "
+                           "authoritative tenant must be presented "
+                           "explicitly; there is no default tenant")})
+        return raw
+    try:
+        return tenant_registry.authoritative(
+            raw, purpose="xdr.collector.preflight")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(e.http, detail=e.detail()) from None
+
+
 @router.post("/ingest-preflight")
 async def ingest_preflight(request: Request,
                                 x_tenant_id: Optional[str] = Header(default=None)):
+    # Authority BEFORE capability · this was `x_tenant_id or "preflight"`,
+    # which injected a synthetic envelope labelled with an invented tenant
+    # into the real ingest pipeline. The tenant is resolved first so an
+    # unauthorised probe is refused rather than answered with a configuration
+    # report it was never entitled to.
+    tenant_id = _preflight_tenant(x_tenant_id)
+
     runtime = getattr(request.app.state, "runtime", None)
     if runtime is None:
         raise HTTPException(503, detail={"error": "runtime_not_ready"})
@@ -67,7 +98,6 @@ async def ingest_preflight(request: Request,
 
     import os
     collector_id = os.environ.get("XDR_COLLECTOR_ID", "collector-local")
-    tenant_id    = x_tenant_id or "preflight"
     env = _synth_envelope(tenant_id, collector_id)
     result = await runtime.ingest.deliver([env])
 

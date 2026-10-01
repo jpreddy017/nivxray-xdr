@@ -11,15 +11,22 @@ import {
   PriorityChip, SeverityChip, VerdictChip, StateChip,
 } from "@/xdr/components/chips";
 import { NxHonestyChip, NxChip, NxLink } from "@/xdr/nx";
+import { ProvenanceChip } from "@/xdr/components/ProvenanceChip";
 
 // Default column set + sortable metadata.  All 15 columns known
 // to the backend projection; visible/hidden and ordering is
 // controlled by the toolbar's Customize Columns dropdown.
 export const ALL_COLUMNS = [
+  // Owner request 2026-09-05 (ServiceNow/Cisco MSS parity): the queue
+  // must lead with a readable, copyable incident NUMBER.  It is a
+  // formatting of the AUTHORITATIVE incident id — NivXRay does not mint
+  // a second, parallel numbering scheme it cannot resolve.
+  { id: "number",            label: "Number",            sort: null,           w: 190 },
   { id: "priority",          label: "Priority",          sort: "priority",     w:  84 },
   { id: "severity",          label: "Severity",          sort: "severity",     w: 100 },
   { id: "name",              label: "Incident",          sort: null,           w: 260 },
   { id: "verdict",           label: "Verdict",           sort: null,           w: 108 },
+  { id: "provenance",        label: "Provenance",        sort: null,           w: 150 },
   { id: "customer",          label: "Customer",          sort: "customer",     w: 130 },
   { id: "detection_source",  label: "Detection Source",  sort: null,           w: 140 },
   { id: "evidence_count",    label: "Evidence",          sort: null,           w:  86 },
@@ -60,8 +67,28 @@ const notRun = <NxHonestyChip state="not_run" />;
 const naChip = <NxHonestyChip state="not_available" />;
 const noEv   = <NxHonestyChip state="no_evidence" />;
 
+// Persisted human-facing number (INC000000137) is authoritative for
+// display.  The id-derived short form survives only as a pre-backfill
+// fallback so an un-numbered document never renders blank.
+export function incidentNumber(rowOrId) {
+  if (rowOrId && typeof rowOrId === "object") {
+    if (rowOrId.incident_number) return rowOrId.incident_number;
+    if (rowOrId.number) return rowOrId.number;
+    return incidentNumber(rowOrId.id);
+  }
+  const tail = String(rowOrId || "").replace(/^inc[_-]?/i, "").toUpperCase();
+  return tail ? `INC-${tail}` : "—";
+}
+
 function renderCell(colId, r, onDrill) {
   switch (colId) {
+    case "number":
+      return (
+        <span className="ql-td-mono ql-td-number"
+                 title={`${incidentNumber(r)}\nAuthoritative id: ${r.id}\nRight-click for actions`}>
+          {incidentNumber(r)}
+        </span>
+      );
     case "priority":
       return r.priority?.code
         ? <PriorityChip code={r.priority.code} /> : dash;
@@ -69,6 +96,12 @@ function renderCell(colId, r, onDrill) {
       return r.severity ? <SeverityChip value={r.severity} /> : <SeverityChip value="unknown" />;
     case "name":
       return null;  // handled specially by caller
+    case "provenance":
+      // Owner directive 2026-06 · an analyst must be able to tell a real
+      // incident from a seeded or synthetic one without asking anyone.
+      // PROVENANCE_UNKNOWN is an honest absence, NOT a claim of fakery,
+      // so it is toned neutral rather than as a failure.
+      return <ProvenanceChip value={r.provenance} basis={r.provenance_basis} />;
     case "verdict":
       return r.verdict?.stage2_label
         ? <VerdictChip value={r.verdict.stage2_label} />
@@ -152,7 +185,7 @@ export default function QueueTable({
   visibleColumns,          // array of column meta in display order
   selected, onToggleSelect, onSelectAll, allSelected,
   previewId,
-  onRowClick, onNameClick, onCellDrill,
+  onRowClick, onNameClick, onCellDrill, onContextMenu,
   sort, order, onSort,
   loading,
   emptyMessage = "NO INCIDENTS MATCH THIS FILTER — honest empty state.",
@@ -217,6 +250,15 @@ export default function QueueTable({
                 key={r.id}
                 className={`${isSel ? "selected" : ""} ${isPreview ? "previewed" : ""}`}
                 onClick={() => onRowClick(r)}
+                onContextMenu={(e) => {
+                  if (!onContextMenu) return;
+                  e.preventDefault();
+                  // The menu is CELL-AWARE: the column you right-click
+                  // decides which actions are offered.
+                  const td = e.target.closest?.("td");
+                  const col = td?.getAttribute("data-col") || null;
+                  onContextMenu(r, { x: e.clientX, y: e.clientY }, col);
+                }}
                 data-testid={`ql-row-${r.id}`}
               >
                 <td className="ql-td-checkbox" onClick={e => e.stopPropagation()}>
@@ -234,6 +276,7 @@ export default function QueueTable({
                         key={c.id}
                         className="ql-td-name"
                         style={{ maxWidth: c.w }}
+                        data-col="name"
                         onClick={e => { e.stopPropagation(); onNameClick(r); }}
                         title={r.name}
                         data-testid={`ql-cell-name-${r.id}`}
@@ -245,6 +288,7 @@ export default function QueueTable({
                   return (
                     <td
                       key={c.id}
+                      data-col={c.id}
                       data-testid={`ql-cell-${c.id}-${r.id}`}
                     >
                       {renderCell(c.id, r, onCellDrill)}

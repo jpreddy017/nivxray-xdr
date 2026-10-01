@@ -1,0 +1,1 @@
+http://iso-1.example.test/loader.exe

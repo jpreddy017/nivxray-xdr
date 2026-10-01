@@ -1,0 +1,780 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-22T07:02:05.764448+00:00",
+  "baseline_id": "6259cfd2409f10d6",
+  "sample_map_hash": "10de2ab7d2b09dd4606e50180c210b30dd0b56b2e16eec1e9a8702d10c76e814",
+  "corpus_size": 88,
+  "golden": {
+    "passed": 88,
+    "failed": 0,
+    "pass_rate": 100.0,
+    "newly_failing": [],
+    "mitre_technique_count": 14,
+    "mitre_technique_ids": [
+      "T1003",
+      "T1027",
+      "T1047",
+      "T1053",
+      "T1059",
+      "T1071",
+      "T1105",
+      "T1112",
+      "T1140",
+      "T1197",
+      "T1218",
+      "T1543",
+      "T1547",
+      "T1620"
+    ]
+  },
+  "category_coverage": {
+    "baseline_smoke": {
+      "total": 8.0,
+      "passed": 8.0,
+      "pass_rate": 100.0
+    },
+    "edge_case_regression": {
+      "total": 1.0,
+      "passed": 1.0,
+      "pass_rate": 100.0
+    },
+    "packers_obfuscation": {
+      "total": 18.0,
+      "passed": 18.0,
+      "pass_rate": 100.0
+    },
+    "persistence": {
+      "total": 3.0,
+      "passed": 3.0,
+      "pass_rate": 100.0
+    },
+    "credential_access": {
+      "total": 2.0,
+      "passed": 2.0,
+      "pass_rate": 100.0
+    },
+    "downloaders": {
+      "total": 9.0,
+      "passed": 9.0,
+      "pass_rate": 100.0
+    },
+    "lolbas": {
+      "total": 9.0,
+      "passed": 9.0,
+      "pass_rate": 100.0
+    },
+    "enterprise_administration": {
+      "total": 25.0,
+      "passed": 25.0,
+      "pass_rate": 100.0
+    },
+    "powershell_administration": {
+      "total": 3.0,
+      "passed": 3.0,
+      "pass_rate": 100.0
+    },
+    "cloud_administration": {
+      "total": 1.0,
+      "passed": 1.0,
+      "pass_rate": 100.0
+    },
+    "developer_tooling": {
+      "total": 2.0,
+      "passed": 2.0,
+      "pass_rate": 100.0
+    },
+    "devops_iac": {
+      "total": 2.0,
+      "passed": 2.0,
+      "pass_rate": 100.0
+    },
+    "lateral_movement": {
+      "total": 2.0,
+      "passed": 2.0,
+      "pass_rate": 100.0
+    },
+    "defense_evasion": {
+      "total": 1.0,
+      "passed": 1.0,
+      "pass_rate": 100.0
+    },
+    "ransomware": {
+      "total": 2.0,
+      "passed": 2.0,
+      "pass_rate": 100.0
+    }
+  },
+  "latency_ms": {
+    "p50": 0.194,
+    "p95": 0.493,
+    "p99": 0.71,
+    "mean": 0.238,
+    "max": 0.71
+  },
+  "accuracy": {
+    "verdict": 100.0,
+    "mitre": 100.0,
+    "lolbin": 100.0,
+    "behavior": 100.0,
+    "overall_pass_rate": 100.0
+  },
+  "coverage": {
+    "decode": 95.45,
+    "semantic": 90.91,
+    "behavior": 88.64,
+    "mitre": 100.0,
+    "verdict": 100.0
+  },
+  "per_sample": {
+    "GC-001-echo-hi": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 100
+    },
+    "GC-010-cmd-shell": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [
+        "T1059"
+      ],
+      "weighted_conf": 97
+    },
+    "GC-020-certutil-download": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1105",
+        "T1140"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-030-bitsadmin-transfer": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1105",
+        "T1197"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-040-reg-add-run": {
+      "verdict": "Critical",
+      "passed": true,
+      "mitre": [
+        "T1105",
+        "T1112",
+        "T1197",
+        "T1547"
+      ],
+      "weighted_conf": 91
+    },
+    "GC-050-schtasks-persistence": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1053"
+      ],
+      "weighted_conf": 95
+    },
+    "GC-060-sc-create-service": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1543"
+      ],
+      "weighted_conf": 95
+    },
+    "GC-070-mimikatz-lsass": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1003"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-080-ps-download-iex": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1105"
+      ],
+      "weighted_conf": 95
+    },
+    "GC-090-ps-encoded-command": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1027",
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 76
+    },
+    "GC-100-ps-registry-run": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1112",
+        "T1547"
+      ],
+      "weighted_conf": 90
+    },
+    "GC-110-ps-start-process-benign": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-120-mshta-remote": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 97
+    },
+    "GC-130-rundll32-remote": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-140-wmic-process-call": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1047"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-150-winadmin-get-service": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 80
+    },
+    "GC-151-dsc-start-config": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 49
+    },
+    "GC-152-sccm-client-register": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-153-intune-appdeploy": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-154-exchange-get-mailbox": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 53
+    },
+    "GC-155-ad-get-aduser": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 73
+    },
+    "GC-156-msgraph-connect": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-157-chocolatey-install": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 49
+    },
+    "GC-158-winget-install": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-159-office-deploy": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-160-sql-invoke-sqlcmd": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-161-iis-new-site": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-162-vmware-powercli": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 96
+    },
+    "GC-163-hyperv-get-vm": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 86
+    },
+    "GC-164-wbadmin-backup": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-165-ghactions-runner-config": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-166-azdevops-agent-config": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-167-exec-policy-bypass-legit": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [
+        "T1059"
+      ],
+      "weighted_conf": 98
+    },
+    "GC-200-emotet-ps-loader": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 89
+    },
+    "GC-201-qakbot-regsvr32": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-202-cobaltstrike-mshta": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 97
+    },
+    "GC-203-empire-ps-launcher": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1027",
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 76
+    },
+    "GC-204-wmic-remote-process": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1047"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-205-certutil-decode-run": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1105",
+        "T1140"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-206-winlogon-userinit-hijack": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1112",
+        "T1547"
+      ],
+      "weighted_conf": 90
+    },
+    "GC-207-schtasks-hidden-system": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1053"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-208-msbuild-inline-tasks": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-209-installutil-uninstall": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-210-vssadmin-delete-shadows": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-250-ps-backtick-obfuscation": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [
+        "T1059"
+      ],
+      "weighted_conf": 98
+    },
+    "GC-251-ps-string-concat-iex": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 83
+    },
+    "GC-252-ps-frombase64-gzip-iex": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 78
+    },
+    "GC-253-ps-iwr-iex-short": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 82
+    },
+    "GC-254-cmd-env-obfuscation": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 60
+    },
+    "GC-255-ps-charcode-array-iex": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [
+        "T1059"
+      ],
+      "weighted_conf": 97
+    },
+    "GC-256-ps-format-op-obfuscation": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 100
+    },
+    "GC-260-exchange-search-mailbox": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-261-adfs-install": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 60
+    },
+    "GC-262-wsus-approve-updates": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-263-dns-add-record": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 49
+    },
+    "GC-264-pki-request-cert": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-265-print-add-printer": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-266-dhcp-add-scope": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 49
+    },
+    "GC-267-gpo-invoke-remote-cmd": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-268-vss-create-shadow": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-269-fsrm-quota-set": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-270-wua-install-updates": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-271-laps-retrieve": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-272-rds-deploy": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-273-scom-agent-config": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-274-defender-mpcmdrun": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-275-trickbot-loader": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 90
+    },
+    "GC-276-ryuk-precursor-net-view": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1047"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-277-lockbit-shadow-purge": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1047"
+      ],
+      "weighted_conf": 93
+    },
+    "GC-278-blackcat-config-fetch": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 80
+    },
+    "GC-279-conti-esentutl-ntds": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 98
+    },
+    "GC-280-bumblebee-iex-webclient": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 74
+    },
+    "GC-281-darkgate-autoit": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1105"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-282-icedid-rundll32-export": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-283-astaroth-bitsadmin": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1105",
+        "T1197"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-284-snake-keylogger-ps": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1620"
+      ],
+      "weighted_conf": 84
+    },
+    "GC-285-socgholish-mshta": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1218"
+      ],
+      "weighted_conf": 94
+    },
+    "GC-286-latrodectus-loader-alias": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 84
+    },
+    "GC-287-invoke-obfuscation-tick": {
+      "verdict": "Malicious",
+      "passed": true,
+      "mitre": [
+        "T1059",
+        "T1071",
+        "T1105"
+      ],
+      "weighted_conf": 74
+    },
+    "GC-288-format-op-webclient": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-289-dosfuscation-caret": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 100
+    },
+    "GC-290-xsl-transform-lolbas": {
+      "verdict": "Suspicious",
+      "passed": true,
+      "mitre": [
+        "T1047"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-291-b64-benign-challenge": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 99
+    },
+    "GC-292-b64-b64-benign": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 100
+    },
+    "GC-293-hex-b64-benign": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 100
+    },
+    "GC-294-gzip-b64-benign": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 94
+    },
+    "GC-295-ps-enc-benign-writehost": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [
+        "T1027",
+        "T1059"
+      ],
+      "weighted_conf": 96
+    },
+    "GC-296-char-array-iex-benign": {
+      "verdict": "Benign",
+      "passed": true,
+      "mitre": [],
+      "weighted_conf": 96
+    }
+  },
+  "tolerance": {
+    "latency_p50_multiplier": 1.1,
+    "latency_p95_multiplier": 1.15,
+    "latency_p99_multiplier": 1.2,
+    "pass_rate_min_drop": 0.0,
+    "accuracy_min_drop": 0.0
+  },
+  "notes": "Phase 0 baseline. All RC5 immutable per GOVERNANCE.md. Do NOT overwrite without explicit approval and a new baseline_id."
+}

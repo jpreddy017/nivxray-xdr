@@ -1,0 +1,9 @@
+{
+  "id": "ps-hex-csv-10-mut3",
+  "category": "ps-hex-csv",
+  "expected_keywords": [
+    "mshta",
+    "a.b"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

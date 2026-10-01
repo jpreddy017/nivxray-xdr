@@ -1,0 +1,46 @@
+{
+  "summary": "P1-02b Unified Verdict Engine (tiered evidence-class model) tested end-to-end. Backend: 41 parity tests passed + 13 skipped + 0 failed exactly as expected. Six CI gates all green. Integration tests (5/6 passed): PowerShell EncodedCommand payload correctly produces Malicious @ 100% via unified-verdict-engine-v1 on BOTH /api/decode/smart AND /api/v2/auto-investigate (Workspace <-> X-Lab parity confirmed). Contributor schema has all required fields (node_id, kind, weight, confidence, category, label, evidence_class, source, escalated_by). OSINT metadata coexists (P1-01 not broken). Recipe escalation to Malicious works. FAILURE: Benign input `echo hello` returns Malicious @ 86% confidence instead of Undetermined/Informational @ <30% -- engine over-promotes because `echo` is treated as PowerShell alias, triggering LOLBIN detection (powershell + expand.exe). Frontend X-Lab loads clean, verdict + ledger render with 15+ contributors, escalation reason cites contributor labels, OSINT lens intact.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/decode/smart",
+        "issue": "Benign input `echo hello` returns verdict.label = 'Malicious' with confidence_pct = 86 (engine = unified-verdict-engine-v1). Review request explicitly requires benign input to yield {Undetermined, Informational} with confidence < 30. Root cause: powershell-alias-normalize decoder treats `echo` as a PowerShell alias, then the LOLBIN detector fires on 'powershell' + 'expand.exe' with evidence_class=high (w=3.0 each), producing 3 HIGH contributors which promotes the tiered class distribution (0 critical / 3 high) to Malicious via escalation. Contributors seen: 'Layer 0: powershell-alias-normalize' (kind=encoded_powershell, class=high), 'LOLBAS · expand.exe' (source=metadata:lolbas, class=high), 'LOLBIN · powershell' (source=graph, class=high). Other benign strings like 'hello world' return 'Runtime Dependent' @ 71% -- still violates the <30% confidence contract for benign input.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "X-Lab Lab2InvestPage", "issues": ["React hydration warning: <button> cannot be a descendant of <button> (data-testid=lab2-page-shell). Cosmetic React warning, not blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/parity/test_verdict_tiered_gates.py",
+    "/app/backend/tests/test_p1_02b_verdict_engine.py",
+    "/app/test_reports/pytest/p1_02b_verdict_engine.xml"
+  ],
+  "action_items": [
+    "Fix benign-input over-promotion: the powershell-alias-normalize decoder should NOT fire on plain 'echo hello' where there's no PowerShell context (no -EncodedCommand, no cmdlet syntax, no .ps1). Additionally the tiered engine should require at least one MEDIUM+ evidence with a real IOC/URL/hash before promoting to Malicious when zero CRITICAL evidence is present. Alternatively, add a guard in KIND_TO_CLASS or apply_escalation() to demote LOLBIN-only-with-no-network-artifact + alias-normalize matches to MEDIUM/LOW.",
+    "Investigate why 'hello world' returns 'Runtime Dependent' @ 71% confidence -- benign text should stay Undetermined @ <30% per the P1-02b contract.",
+    "Fix React hydration warning in Lab2InvestPage: a <button> is nested inside another <button> under data-testid=lab2-page-shell."
+  ],
+  "critical_code_review_comments": [
+    "Contributor 'evidence_class' vocabulary (critical/high/medium/low/context) is validated and matches spec; schema has all 9 required fields including escalated_by:null.",
+    "Engine tag 'unified-verdict-engine-v1' returned identically on /api/decode/smart AND /api/v2/auto-investigate -- confirms single compute_verdict symbol (no fork).",
+    "Backend responds slowly (~50s for login on some invocations) via the public ingress URL -- appears to cause intermittent Cloudflare 502s. Local 127.0.0.1:8001 is fast. Not a P1-02b regression but worth flagging.",
+    "Benign input over-promotion is a real correctness bug in the tiered escalation logic and directly contradicts the review-request contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_02b_verdict_engine.py (new integration suite)"
+  ],
+  "success_rate": {"backend": "94% (46/49 assertions across parity+integration; 1 benign-promotion failure)", "frontend": "100% (X-Lab loads clean, verdict + ledger + OSINT lens all render)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None -- used ephemeral in-memory investigations.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The 41-parity + 6-gate suite is green and stable. The new integration file /app/backend/tests/test_p1_02b_verdict_engine.py (excluded from pytest.ini addopts because it uses `-o addopts=` override to bypass xdist and hit local 127.0.0.1:8001 which is much faster than public ingress). Run with: `cd /app/backend && python -m pytest tests/test_p1_02b_verdict_engine.py -v -o addopts='' --timeout=200`. If the main agent fixes the benign-input over-promotion bug, the test 'test_benign_input_undetermined_or_informational' will flip green. The public REACT_APP_BACKEND_URL is intermittently slow (~50s on cold auth) causing 502s -- the test file falls back to LOCAL_BASE=http://127.0.0.1:8001 to avoid this.",
+  "rca of the issue": "RCA: Given input `echo hello`, the fact-substrate builder invokes decoder recipes. The `powershell-alias-normalize` (or similar) layer detects `echo` as a PowerShell alias for `Write-Output` and normalizes it. This produces a Layer 0 fact of kind='encoded_powershell' which KIND_TO_CLASS maps to evidence_class=HIGH (weight=3.0). Concurrently the LOLBIN detector matches 'powershell' (context injected by the normalize step) and LOLBAS matcher fires 'expand.exe' (unclear origin -- possibly cross-contamination in the LOLBAS matcher). Result: 3 HIGH contributors + 1 CONTEXT. The tiered escalation rules combined with Noisy-OR confidence over 3 independent HIGH evidences (0.7^3 = 0.343 complement -> 65.7%; boosted further) escalates to Malicious. Mitigation: (a) require at least one CRITICAL/HIGH evidence to be sourced from an IOC/URL/hash node (not from a decoder-normalize note) before promoting to Malicious, OR (b) gate the powershell-alias-normalize decoder behind a heuristic that the input actually contains PowerShell syntax (cmdlets, -EncodedCommand, .ps1, IEX, Invoke-Expression), OR (c) lower the evidence_class of pure decoder-normalize kinds to MEDIUM."
+}

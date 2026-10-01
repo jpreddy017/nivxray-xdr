@@ -41,7 +41,10 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.error
+import urllib.request
 import uuid
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -51,6 +54,8 @@ from pymongo import DESCENDING, MongoClient
 
 from routers.xdr_audit_log import emit_audit
 from routers.xdr_rbac import require_permission
+from services import source_routing
+from services import tenant_registry
 from lib.collector_catalog import CATALOG as PREDEFINED_CATALOG
 from lib.collector_catalog import catalog_by_category, summary as catalog_summary
 
@@ -73,13 +78,41 @@ def _coll():
 
 # ── Principal extraction ─────────────────────────────────────────
 def _principal(req: Request) -> tuple[str, str, str]:
-    ten = (req.headers.get("X-Tenant-Id")
-                or getattr(req.state, "tenant_id", None) or "default")
-    pid = (req.headers.get("X-Principal-Id")
-                or getattr(req.state, "principal_id", None) or "admin@nivxray.com")
-    pkd = (req.headers.get("X-Principal-Kind")
-                or getattr(req.state, "principal_kind", None) or "user")
-    return ten, pid, pkd
+    """ONE tenancy authority — delegated, never re-implemented here.
+
+    2026-06 DEFECT CLOSED (caught by `tests/test_p0_security_gate.py`): this
+    resolved the tenant through the registry ONLY. That proves the tenant
+    EXISTS; it never asked whether the caller is AUTHORIZED for it, so a
+    principal holding `collectors.read` in tenant A could read tenant B's collector inventory
+    simply by naming B in `X-Tenant-Id`. It now delegates to
+    `xdr_rbac.resolve_principal`, the single resolver that runs
+    `authorize_requested_tenant()`.
+
+    Naming a tenant is therefore a REQUEST, never an authorisation.
+    """
+    from routers.xdr_rbac import resolve_principal
+    return resolve_principal(req)
+
+
+def _verified_principal(req: Request) -> str:
+    """A0.5 · T-RISK-2 · identity from VERIFIED authentication only.
+
+    The previous body read `X-Principal-Id` and, when absent, substituted
+    the literal `"admin@nivxray.com"` — absence of identity became the
+    platform administrator's identity in every audit record this router
+    writes. Client claims are now recorded as claims and grant nothing.
+    """
+    from fastapi import HTTPException
+
+    from routers.xdr_rbac import verified_actor
+    pid, _ = verified_actor(req)
+    if not pid:
+        raise HTTPException(status_code=403, detail={
+            "code": "ACCESS_DENIED",
+            "reason": ("no verified principal; a client-supplied identity "
+                            "header is never an identity"),
+            "risk": "T-RISK-2", "fail_closed": True})
+    return str(pid)
 
 
 # ── Canonical protocol registry — SINGLE source of truth ────────
@@ -100,14 +133,18 @@ PROTOCOL_REGISTRY: dict[str, dict[str, Any]] = {
                     "transport":       "https",
                     "canonical_schema": "canonical.event",
                     "notes": "Real REST poller · framework/rest_poller.py"},
-    "cef":     {"implementation": "SCAFFOLD",
+    "cef":     {"implementation": "IMPLEMENTED",
                     "transport":       "syslog",
                     "canonical_schema": "canonical.log",
-                    "notes": "Uses syslog transport · CEF parser wiring pending"},
-    "leef":    {"implementation": "SCAFFOLD",
+                    "notes": "CEF payload parsed on the syslog transport · "
+                                "collector framework/payload_formats.py · core DSM "
+                                "detection_content/telemetry/cef_leef_dsm.py"},
+    "leef":    {"implementation": "IMPLEMENTED",
                     "transport":       "syslog",
                     "canonical_schema": "canonical.log",
-                    "notes": "Uses syslog transport · LEEF parser wiring pending"},
+                    "notes": "LEEF payload parsed on the syslog transport · "
+                                "collector framework/payload_formats.py · core DSM "
+                                "detection_content/telemetry/cef_leef_dsm.py"},
     "kafka":   {"implementation": "SCAFFOLD",
                     "transport":       "kafka",
                     "canonical_schema": "canonical.event",
@@ -120,6 +157,22 @@ PROTOCOL_REGISTRY: dict[str, dict[str, Any]] = {
                     "transport":       "winrm",
                     "canonical_schema": "canonical.host.process",
                     "notes": "Windows Event Forwarding subscription not implemented"},
+    #: G1/S2 · NATIVE Windows Event Log acquisition on the endpoint itself:
+    #: `EvtSubscribe` + per-channel bookmark, performed by NivXForge EDR
+    #: (collector `framework/windows_eventlog.py`). It is IMPLEMENTED because
+    #: that adapter exists — and it is a SEPARATE protocol identity from
+    #: `wef`, which forwards over WinRM and is not implemented. Mapping
+    #: native acquisition onto WEF/WinRM/syslog would record a false
+    #: acquisition method in the authoritative collector document.
+    "windows-eventlog": {
+                    "implementation":  "IMPLEMENTED",
+                    "transport":       "windows-evt-api",
+                    "canonical_schema": "canonical.host.process",
+                    "notes": "Native EvtSubscribe acquisition on the Windows "
+                                "endpoint · nivxray-xdr-collector "
+                                "framework/windows_eventlog.py · core DSMs "
+                                "microsoft-sysmon · windows-security-evd · "
+                                "windows-powershell-evd"},
     "file":    {"implementation": "SCAFFOLD",
                     "transport":       "filesystem",
                     "canonical_schema": "canonical.event",
@@ -174,6 +227,10 @@ class CreateCollectorBody(BaseModel):
     tls:          bool | None = None
     auth_kind:    str | None = None       # "none" | "basic" | "bearer" | "hmac" | "mtls"
     secret_id:    str | None = None
+    #: D15 · the ONLY declared sources this collector may send. Server-side
+    #: authority: authentication proves who is sending, this decides what
+    #: they may send. Empty means NOTHING is authorized — never "anything".
+    authorized_sources: list[str] = Field(default_factory=list)
     config:       dict[str, Any] = Field(default_factory=dict)
     tags:         list[str] = Field(default_factory=list)
 
@@ -186,6 +243,7 @@ class UpdateCollectorBody(BaseModel):
     tls:          bool | None = None
     auth_kind:    str | None = None
     secret_id:    str | None = None
+    authorized_sources: list[str] | None = None
     config:       dict[str, Any] | None = None
     tags:         list[str] | None = None
 
@@ -207,6 +265,22 @@ def _validate_create(body: CreateCollectorBody) -> None:
             "code": "UNKNOWN_PROTOCOL",
             "protocol": body.protocol,
             "allowed": sorted(PROTOCOL_REGISTRY)})
+
+
+def _authorized_sources(values: Any) -> list[str]:
+    """D15 · validate an allowlist at CONFIGURATION time.
+
+    A misspelled source must fail loudly here, not quietly authorize
+    nothing at ingest time.
+    """
+    keys, unknown = source_routing.normalize_declarations(values)
+    if unknown:
+        raise HTTPException(400, detail={
+            "code": source_routing.UNSUPPORTED_SOURCE,
+            "unknown_sources": unknown,
+            "allowed": sorted(source_routing.SOURCE_CATALOG),
+            "aliases": sorted(source_routing.SOURCE_ALIASES)})
+    return keys
 
 
 def _transition_state(coll: dict, target: str, *, reason: str,
@@ -312,6 +386,14 @@ def protocol_catalog():
                         "blocked": blocked}}}
 
 
+@router.get("/sources/catalog",
+                     dependencies=[Depends(require_permission("collectors.read"))])
+def declared_source_catalog():
+    """D15 · what a collector may DECLARE at ingest, and which single DSM
+    each declaration selects. Content never selects a DSM."""
+    return {"ok": True, "data": source_routing.catalog()}
+
+
 @router.post("",
                        dependencies=[Depends(require_permission("collectors.create"))])
 def create_collector(body: CreateCollectorBody, request: Request):
@@ -340,6 +422,8 @@ def create_collector(body: CreateCollectorBody, request: Request):
         "tls":                   bool(body.tls) if body.tls is not None else None,
         "auth_kind":             body.auth_kind,
         "secret_id":             body.secret_id,
+        # D15 · what this collector is authorized to DECLARE at ingest.
+        "authorized_sources":    _authorized_sources(body.authorized_sources),
         "config":                dict(body.config or {}),
         "tags":                  list(body.tags or []),
         "enabled":               True,
@@ -351,7 +435,13 @@ def create_collector(body: CreateCollectorBody, request: Request):
         "events_parsed":         0,
         "events_normalized":     0,
         "events_error":          0,
+        # W2 · deliveries whose parse/normalization outcome the
+        # collector never declared. Unknown is its own count: it is
+        # never folded into parsed, normalized or error.
+        "events_parse_unmeasured":     0,
+        "events_normalize_unmeasured": 0,
         "last_event_at":         None,
+
         "eps_1m":                0.0,
         "created_at":            now,
         "updated_at":            now,
@@ -384,6 +474,9 @@ def update_collector(cid: str, body: UpdateCollectorBody, request: Request):
         v = getattr(body, k)
         if v is not None:
             patch[k] = v
+    if body.authorized_sources is not None:
+        patch["authorized_sources"] = _authorized_sources(
+            body.authorized_sources)
     if not patch:
         raise HTTPException(400, detail="no updatable fields provided")
     if "name" in patch and not _NAME_RE.match(patch["name"]):
@@ -442,13 +535,61 @@ def _admin_transition(cid: str, request: Request, *, action_audit: str,
     return {"ok": True, "data": _mask(doc)}
 
 
+def _runtime_start(doc: dict) -> tuple[bool, str]:
+    """Ask the collector runtime to bind the listener for this collector.
+
+    The API core is a FastAPI app behind an HTTPS ingress — it CANNOT bind
+    UDP/TCP 514.  Transports like syslog are terminated by the separate
+    `apps/nivxray-xdr-collector` runtime.  Returns (started, reason).
+    Never lies: if no runtime is configured or it cannot be reached, that is
+    reported as a failure rather than left sitting in STARTING forever.
+    """
+    base = (os.environ.get("XDR_COLLECTOR_RUNTIME_URL") or "").rstrip("/")
+    if not base:
+        return False, ("no collector runtime configured "
+                            "(XDR_COLLECTOR_RUNTIME_URL unset) — the API core cannot "
+                            "terminate a listening transport; deploy "
+                            "apps/nivxray-xdr-collector. HTTP ingest via "
+                            "POST /api/xdr/ingest/telemetry does not require this.")
+    url = f"{base}/collectors/{doc['id']}/start"
+    payload = json.dumps({"tenant_id": doc.get("tenant_id"),
+                                        "protocol": doc.get("protocol"),
+                                        "config": doc.get("config") or {}}).encode()
+    req = urllib.request.Request(url, method="POST", data=payload,
+                                                     headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return False, f"runtime rejected start: HTTP {e.code} {e.read()[:160].decode(errors='replace')}"
+    except Exception as e:                                        # noqa: BLE001
+        return False, f"runtime unreachable at {url}: {type(e).__name__}: {e}"
+    listening = body.get("listening") or body.get("bind")
+    if not listening:
+        return False, f"runtime accepted start but reported no listener: {str(body)[:160]}"
+    return True, f"runtime listening on {listening} · awaiting telemetry"
+
+
 @router.post("/{cid}/start",
                        dependencies=[Depends(require_permission("collectors.enable"))])
 def start_collector(cid: str, request: Request):
     if _coll() is None:
         raise HTTPException(status_code=503, detail="storage unavailable")
-    return _admin_transition(cid, request, action_audit="COLLECTOR_STARTED",
-                                              target="STARTING", reason="start requested")
+    ten, _pid, _pkd = _principal(request)
+    doc = _coll().find_one({"id": cid, "tenant_id": ten})
+    if not doc:
+        raise HTTPException(status_code=404, detail="collector not found")
+
+    started, reason = _runtime_start(doc)
+    res = _admin_transition(cid, request, action_audit="COLLECTOR_STARTED",
+                                        target="STARTING", reason=reason)
+    if started:
+        return res
+    # Truthful terminal outcome — never leave the operator staring at
+    # "start requested" when no runtime was ever reached.
+    return _admin_transition(cid, request,
+                                          action_audit="COLLECTOR_START_FAILED",
+                                          target="CONNECTION_FAILED", reason=reason)
 
 
 @router.post("/{cid}/stop",

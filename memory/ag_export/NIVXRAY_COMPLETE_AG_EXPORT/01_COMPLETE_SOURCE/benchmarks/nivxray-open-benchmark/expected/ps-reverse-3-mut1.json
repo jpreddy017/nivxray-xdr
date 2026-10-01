@@ -1,0 +1,8 @@
+{
+  "id": "ps-reverse-3-mut1",
+  "category": "ps-reverse",
+  "expected_keywords": [
+    "powers"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

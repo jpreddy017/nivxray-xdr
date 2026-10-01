@@ -1,6 +1,6 @@
 {
-  "installCommand": "yarn install --production=false --frozen-lockfile",
-  "buildCommand": "yarn run vercel-build",
+  "installCommand": "yarn install --production=false",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "dist",
   "framework": null,
   "build": {
@@ -9,7 +9,34 @@
       "YARN_PRODUCTION": "false"
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "xdr.nivxforge.com"
+        }
+      ],
+      "destination": "/xdr",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "edr.nivxforge.com"
+        }
+      ],
+      "destination": "/edr",
+      "permanent": false
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

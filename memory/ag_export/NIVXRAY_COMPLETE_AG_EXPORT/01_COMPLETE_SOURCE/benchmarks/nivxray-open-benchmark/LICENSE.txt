@@ -1,0 +1,14 @@
+NivXRay Open Benchmark v1.0 — dual license.
+
+FIXTURES  (fixtures/, expected/) — Creative Commons Attribution 4.0
+    You may share and adapt the fixtures for any purpose, including
+    commercial use, provided you attribute the source: "NivXRay Open
+    Benchmark v1.0 · https://nivxray.com/benchmark". No warranty.
+
+RUNNER + ADAPTERS  (run_benchmark.py, engines/, *.py) — MIT License
+
+    Copyright (c) 2026 NivXRay
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction ... [MIT text
+    truncated for brevity — see the full MIT license at opensource.org/mit].

@@ -1,0 +1,53 @@
+{
+  "summary": "Frontend UI tests for the Feb-2026 NivXRay enhancement bundle (InputToolbar copy/edit/clear, multi-chain notice, revert-to-flat, dismiss, chain-stage toolbar, re-run-from-stage, chain-break ribbons, backward compat). 14/16 assertions passed on first run. Two failures share a common root cause: ChainStageEditor's local `result` state (which gates both the RE-RUN buttons and the chain-break ribbons) is never populated by the parent auto-investigate flow, so those features are invisible until the user manually clicks the editor's own 'RUN CHAIN' button. Verified this by clicking RUN CHAIN — then rerun buttons appear (count=2) and rerun-from-0 works cleanly.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ChainStageEditor",
+        "issue": "btn-chain-rerun-from-{idx} buttons are only rendered when the editor's INTERNAL result.stages is populated. After AUTO INVESTIGATE (which runs /decode/chain in WorkspacePage.runChainAnalysis and passes only initialStages to the editor), the editor has result=null, so no RE-RUN buttons appear. User must click 'RUN CHAIN' inside the editor a second time to unlock re-run — duplicates the network call and contradicts the spec ('after ANY successful chain analysis, verify each stage card shows btn-chain-rerun-from-{idx}').",
+        "selector": "[data-testid^=\"btn-chain-rerun-from-\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "ChainStageEditor",
+        "issue": "chain-break-{idx} ribbons have the same gating problem: classifyStageBreak(stageRes) is only invoked when result.stages[idx] exists, which requires editor-internal runChain. Ribbons are invisible after auto-investigate even when a stage genuinely qualifies (DECODE_FAILED / LOW_CONFIDENCE / EMPTY_OUTPUT). Additionally, the review's suggested test payload ('powershell ...\\n\\nthis is plain english text...') decodes with conf=72 and conf=55 respectively — both >=40 and both have chain ops — so classifyStageBreak returns null for both stages. A more reliable test payload for LOW_CONFIDENCE is needed, OR the classifier's LOW_CONFIDENCE branch should also fire when chainOps==0.",
+        "selector": "[data-testid^=\"chain-break-\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Auto-investigate → ChainStageEditor",
+        "issue": "WorkspacePage.runChainAnalysis fetches full /decode/chain results and stores them in the parent, but only passes `initialStages` (inputs) to ChainStageEditor — the actual per-stage decode results are dropped. Editor should accept `initialResult` (or similar) so RE-RUN and break-ribbon UI can render immediately after auto-investigate without requiring a second click.",
+        "affected_selectors": ["[data-testid^=\"btn-chain-rerun-from-\"]", "[data-testid^=\"chain-break-\"]"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Console",
+        "issues": ["Repeated React warning: 'Updating a style property during rerender ... conflicting property is set'. Fires when toggling edit-lock. Not blocking but should mix shorthand/non-shorthand style props more carefully in InputToolbar."]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Pass the parent's chain-decode result down to ChainStageEditor (new prop e.g. `initialResult`) and seed its `result` state on mount, so RE-RUN buttons and chain-break ribbons appear immediately after AUTO INVESTIGATE without requiring a manual 'RUN CHAIN' click.",
+    "OR: when AUTO INVESTIGATE completes, auto-invoke the editor's internal runChain once (via ref/imperative handle) — but this doubles network cost.",
+    "Verified WORKING when the user does click RUN CHAIN inside the editor: rerun buttons appear (count=2 for 2-stage), and clicking btn-chain-rerun-from-0 completes without error.",
+    "Consider adjusting classifyStageBreak's LOW_CONFIDENCE branch to not require chainOps>0 — currently a stage that got engine=magic with conf<40 but no `chain` array won't be flagged as LOW_CONFIDENCE."
+  ],
+  "critical_code_review_comments": [
+    "ChainStageEditor.jsx line 260-289: rerun button visibility check `stageRes && idx < stages.length` couples RE-RUN availability to editor-internal state only. Consider deriving `stageRes` from a prop or context so parent-driven analyses also enable it.",
+    "InputToolbar.jsx doCopy fallback uses document.execCommand('copy') — deprecated but acceptable safeguard. Consider guarding with `document.hasFocus()` check for reliability.",
+    "The multi-chain-notice, revert, and dismiss flows all work cleanly. Nice UX."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only test scope)", "frontend": "14/16 assertions = 87.5%" },
+  "test_credentials": "admin@nivxray.com / NivXRay#2026! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None; used existing seeded admin.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "PASSING: login, main-input copy/edit-lock/edit-unlock/clear(both confirm & non-confirm), multi-chain-notice appearance with correct 6-stage/Generic PowerShell Downloader/Malicious text, chain-editor visibility, chain-stage-0 copy, chain-stage-2 edit-lock, chain-stage-3 clear, dismiss-notice preserving editor, revert-flat-decode (notice+editor both close), backward-compat single-line no notice. FAILING: rerun buttons and chain-break ribbons not visible after auto-investigate — but they DO appear correctly after clicking 'RUN CHAIN' inside ChainStageEditor. This is a wiring bug in ChainStageEditor's initial state, not a functionality bug in RE-RUN itself. Once main agent fixes the initial-result plumbing, retest btn-chain-rerun-from-{idx}, chain-break-{idx}, and the edit+rerun combo scenario (which was skipped due to missing rerun buttons).",
+  "rca of the issue": "ChainStageEditor renders `btn-chain-rerun-from-{idx}` and `chain-break-{idx}` only when its local `result.stages[idx]` is truthy. `result` is set exclusively by the editor's internal `runChain()` and `runFromStage()` handlers (lines 141 and 167). WorkspacePage.runChainAnalysis fetches the same /decode/chain endpoint but stores the response in WorkspacePage state and only passes `initialStages` (input strings) to the editor — dropping the per-stage decode result on the floor. Fix: add an `initialResult` prop to ChainStageEditor, and in the useState initializer, seed `result` from it when present. Parent should pass `initialResult={chainDecodeResponse}` after runChainAnalysis completes."
+}

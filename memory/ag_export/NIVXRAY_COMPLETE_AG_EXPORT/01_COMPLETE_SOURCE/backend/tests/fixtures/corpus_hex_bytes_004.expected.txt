@@ -1,0 +1,1 @@
+curl http://hx1-example.test/x

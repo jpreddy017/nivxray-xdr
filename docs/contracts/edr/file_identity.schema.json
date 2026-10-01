@@ -1,0 +1,376 @@
+{
+  "$defs": {
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "FileOperation": {
+      "enum": [
+        "CREATE",
+        "MODIFY",
+        "MOVE",
+        "COPY",
+        "EXECUTE",
+        "DELETE",
+        "RESTORE",
+        "RENAME",
+        "OPEN"
+      ],
+      "title": "FileOperation",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/file_identity.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 4. Content identity is the SHA-256; path identity is not\nidentity at all, because one file appears under many names.\n\n`content_digest_available` is explicit because the current substrate\nhonestly cannot hash file content (see the truth audit): a SHA-256\nquery today degrades to a name query, and the API says so rather than\npretending to match on hash.",
+  "properties": {
+    "content_digest_available": {
+      "default": false,
+      "title": "Content Digest Available",
+      "type": "boolean"
+    },
+    "disposition": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "CLEAN | MALICIOUS | UNKNOWN | UNAVAILABLE \u2014 never defaulted to CLEAN",
+      "nivxforge_evidence": true,
+      "title": "Disposition"
+    },
+    "extension": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Extension"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "file_iid": {
+      "title": "File Iid",
+      "type": "string"
+    },
+    "file_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "File Type"
+    },
+    "filename": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Filename"
+    },
+    "md5": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Md5"
+    },
+    "operation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FileOperation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true
+    },
+    "path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Path"
+    },
+    "prevalence": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Prevalence"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sha1": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sha1"
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sha256"
+    },
+    "signer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Signer"
+    },
+    "size": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Size"
+    }
+  },
+  "required": [
+    "file_iid"
+  ],
+  "title": "FileIdentity",
+  "type": "object",
+  "x-nivxforge-contract": "file_identity",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "sha256",
+    "sha1",
+    "md5",
+    "path",
+    "filename",
+    "extension",
+    "size",
+    "file_type",
+    "signer",
+    "operation",
+    "disposition",
+    "prevalence"
+  ]
+}

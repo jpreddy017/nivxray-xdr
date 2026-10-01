@@ -1,0 +1,388 @@
+{
+  "matched": 154,
+  "routes_in_running_backend": 775,
+  "frontend_api_literals": 189,
+  "unmatched": 35,
+  "unmatched_detail": [
+    {
+      "call": "/api/automation-rules",
+      "normalised": "/api/automation-rules",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/respond/automationRuleStore.js:9"
+      ]
+    },
+    {
+      "call": "/api/behavior-registry",
+      "normalised": "/api/behavior-registry",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/consumerPanels.jsx:435",
+        "xdr/adopt/baseCapabilities.js:90",
+        "xdr/adopt/baseCapabilities.js:91"
+      ]
+    },
+    {
+      "call": "/api/corrections/${encodeURIComponent",
+      "normalised": "/api/corrections/${encodeURIComponent",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:237",
+        "xdr/adopt/baseCapabilities.js:238",
+        "xdr/adopt/baseCapabilities.js:239"
+      ]
+    },
+    {
+      "call": "/api/die/",
+      "normalised": "/api/die",
+      "prefix_of_existing_routes": [
+        "/api/die/analyze",
+        "/api/die/archive/recover",
+        "/api/die/case/{case_id}",
+        "/api/die/chain"
+      ],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:95",
+        "xdr/adopt/enginePanels.jsx:6"
+      ]
+    },
+    {
+      "call": "/api/docs/",
+      "normalised": "/api/docs",
+      "prefix_of_existing_routes": [
+        "/api/docs/adr-004",
+        "/api/docs/adr-004.html",
+        "/api/docs/adr-004.md",
+        "/api/docs/assets/{filename}"
+      ],
+      "sites": [
+        "xdr/pages/XdrDocsPage.jsx:4"
+      ]
+    },
+    {
+      "call": "/api/edr/",
+      "normalised": "/api/edr",
+      "prefix_of_existing_routes": [
+        "/api/edr/agent/command-result",
+        "/api/edr/agent/command-verification",
+        "/api/edr/agent/commands",
+        "/api/edr/agent/enroll"
+      ],
+      "sites": [
+        "nivxforge/edrApi.js:3"
+      ]
+    },
+    {
+      "call": "/api/events",
+      "normalised": "/api/events",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/admin/IntegrationsBody.jsx:586",
+        "xdr/design/_WizardLegacyBridge.jsx:141"
+      ]
+    },
+    {
+      "call": "/api/incidents/:id/notes",
+      "normalised": "/api/incidents/X/notes",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/pages/incidents/record/tabs/NotesTab.jsx:45"
+      ]
+    },
+    {
+      "call": "/api/ioc",
+      "normalised": "/api/ioc",
+      "prefix_of_existing_routes": [
+        "/api/ioc/enrich",
+        "/api/ioc/enrich/one",
+        "/api/ioc/health"
+      ],
+      "sites": [
+        "xdr/intel/recommendationEngine.js:17"
+      ]
+    },
+    {
+      "call": "/api/ioc/lookup",
+      "normalised": "/api/ioc/lookup",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/consumerPanels.jsx:194",
+        "xdr/adopt/baseCapabilities.js:41",
+        "xdr/adopt/baseCapabilities.js:45"
+      ]
+    },
+    {
+      "call": "/api/iue/lane-{a",
+      "normalised": "/api/iue/lane-{a",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:129",
+        "xdr/adopt/enginePanels.jsx:8"
+      ]
+    },
+    {
+      "call": "/api/kb/",
+      "normalised": "/api/kb",
+      "prefix_of_existing_routes": [
+        "/api/kb/entries",
+        "/api/kb/entries/{slug}",
+        "/api/kb/rebuild",
+        "/api/kb/save-from-investigation"
+      ],
+      "sites": [
+        "xdr/pages/XdrKbPage.jsx:4"
+      ]
+    },
+    {
+      "call": "/api/mitigations",
+      "normalised": "/api/mitigations",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:188",
+        "xdr/adopt/baseCapabilities.js:189"
+      ]
+    },
+    {
+      "call": "/api/mitigations/compare",
+      "normalised": "/api/mitigations/compare",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:193",
+        "xdr/adopt/baseCapabilities.js:194"
+      ]
+    },
+    {
+      "call": "/api/mitigations/from_outcome",
+      "normalised": "/api/mitigations/from_outcome",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:190",
+        "xdr/adopt/baseCapabilities.js:191"
+      ]
+    },
+    {
+      "call": "/api/planner/",
+      "normalised": "/api/planner",
+      "prefix_of_existing_routes": [
+        "/api/planner/advise",
+        "/api/planner/trace"
+      ],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:199"
+      ]
+    },
+    {
+      "call": "/api/playbooks",
+      "normalised": "/api/playbooks",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/respond/playbookStore.js:5"
+      ]
+    },
+    {
+      "call": "/api/regression/",
+      "normalised": "/api/regression",
+      "prefix_of_existing_routes": [
+        "/api/regression/corpus/entries",
+        "/api/regression/corpus/entries/{entry_id}",
+        "/api/regression/gate",
+        "/api/regression/history"
+      ],
+      "sites": [
+        "xdr/pages/XdrDetectionRuleEditorPage.jsx:146",
+        "xdr/pages/XdrRuleTuningPage.jsx:153"
+      ]
+    },
+    {
+      "call": "/api/respond",
+      "normalised": "/api/respond",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/respond/responseEngineApi.js:14"
+      ]
+    },
+    {
+      "call": "/api/respond/execute",
+      "normalised": "/api/respond/execute",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/pages/XdrPlaybooksPage.jsx:64",
+        "xdr/pages/XdrAutomationRulesPage.jsx:62"
+      ]
+    },
+    {
+      "call": "/api/uil/",
+      "normalised": "/api/uil",
+      "prefix_of_existing_routes": [
+        "/api/uil/classify",
+        "/api/uil/investigate",
+        "/api/uil/split"
+      ],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:161"
+      ]
+    },
+    {
+      "call": "/api/verdict/stage2",
+      "normalised": "/api/verdict/stage2",
+      "prefix_of_existing_routes": [
+        "/api/verdict/stage2/auto-compute",
+        "/api/verdict/stage2/compute",
+        "/api/verdict/stage2/status"
+      ],
+      "sites": [
+        "xdr/adopt/baseCapabilities.js:31",
+        "xdr/adopt/baseCapabilities.js:35"
+      ]
+    },
+    {
+      "call": "/api/xdr",
+      "normalised": "/api/xdr",
+      "prefix_of_existing_routes": [
+        "/api/xdr/api-keys",
+        "/api/xdr/api-keys/{key_id}",
+        "/api/xdr/api-keys/{key_id}/revoke",
+        "/api/xdr/api-keys/{key_id}/rotate"
+      ],
+      "sites": [
+        "xdr/admin/collectorApi.js:7",
+        "xdr/admin/collectorApi.js:27"
+      ]
+    },
+    {
+      "call": "/api/xdr/collector",
+      "normalised": "/api/xdr/collector",
+      "prefix_of_existing_routes": [
+        "/api/xdr/collector/collectors",
+        "/api/xdr/collector/collectors/{collector_id}",
+        "/api/xdr/collector/connectors",
+        "/api/xdr/collector/connectors/{cid}"
+      ],
+      "sites": [
+        "xdr/admin/collectorApi.js:9",
+        "xdr/admin/collectorApi.js:29"
+      ]
+    },
+    {
+      "call": "/api/xdr/collector/",
+      "normalised": "/api/xdr/collector",
+      "prefix_of_existing_routes": [
+        "/api/xdr/collector/collectors",
+        "/api/xdr/collector/collectors/{collector_id}",
+        "/api/xdr/collector/connectors",
+        "/api/xdr/collector/connectors/{cid}"
+      ],
+      "sites": [
+        "xdr/admin/IntegrationsBody.jsx:182"
+      ]
+    },
+    {
+      "call": "/api/xdr/cve/",
+      "normalised": "/api/xdr/cve",
+      "prefix_of_existing_routes": [
+        "/api/xdr/cve/assets",
+        "/api/xdr/cve/ensure-synced",
+        "/api/xdr/cve/exposures",
+        "/api/xdr/cve/exposures/compute"
+      ],
+      "sites": [
+        "xdr/pages/XdrExposurePage.jsx:4"
+      ]
+    },
+    {
+      "call": "/api/xdr/detection",
+      "normalised": "/api/xdr/detection",
+      "prefix_of_existing_routes": [
+        "/api/xdr/detection/ensure-synced",
+        "/api/xdr/detection/inventory",
+        "/api/xdr/detection/policy",
+        "/api/xdr/detection/rules"
+      ],
+      "sites": [
+        "xdr/pages/XdrDetectionsPage.jsx:61"
+      ]
+    },
+    {
+      "call": "/api/xdr/extensions",
+      "normalised": "/api/xdr/extensions",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/admin/CapabilityHubBody.jsx:230"
+      ]
+    },
+    {
+      "call": "/api/xdr/extensions/{",
+      "normalised": "/api/xdr/extensions/{",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/admin/CapabilityHubBody.jsx:193"
+      ]
+    },
+    {
+      "call": "/api/xdr/health/outbox",
+      "normalised": "/api/xdr/health/outbox",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/admin/IntegrationsBody.jsx:182"
+      ]
+    },
+    {
+      "call": "/api/xdr/incidents/${encodeURIComponent",
+      "normalised": "/api/xdr/incidents/${encodeURIComponent",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/intel/XdrRecommendationsPanel.jsx:38",
+        "xdr/investigation/EvidenceFirstInvestigationWorkspace.jsx:107",
+        "xdr/investigation/XdrCompletenessPanel.jsx:135"
+      ]
+    },
+    {
+      "call": "/api/xdr/incidents/:id/related",
+      "normalised": "/api/xdr/incidents/X/related",
+      "prefix_of_existing_routes": [],
+      "sites": [
+        "xdr/pages/incidents/record/tabs/RelatedTab.jsx:7",
+        "xdr/pages/incidents/record/tabs/RelatedTab.jsx:23"
+      ]
+    },
+    {
+      "call": "/api/xdr/lolbas/",
+      "normalised": "/api/xdr/lolbas",
+      "prefix_of_existing_routes": [
+        "/api/xdr/lolbas/coverage",
+        "/api/xdr/lolbas/ensure-synced",
+        "/api/xdr/lolbas/entries",
+        "/api/xdr/lolbas/entries/{name}"
+      ],
+      "sites": [
+        "xdr/admin/DetectionContentBody.jsx:295"
+      ]
+    },
+    {
+      "call": "/api/xdr/rbac/",
+      "normalised": "/api/xdr/rbac",
+      "prefix_of_existing_routes": [
+        "/api/xdr/rbac/groups",
+        "/api/xdr/rbac/groups/{group_id}",
+        "/api/xdr/rbac/permissions",
+        "/api/xdr/rbac/roles"
+      ],
+      "sites": [
+        "xdr/admin/UsersRolesBody.jsx:762"
+      ]
+    },
+    {
+      "call": "/api/xdr/vendor/cortex",
+      "normalised": "/api/xdr/vendor/cortex",
+      "prefix_of_existing_routes": [
+        "/api/xdr/vendor/cortex/actions",
+        "/api/xdr/vendor/cortex/connections",
+        "/api/xdr/vendor/cortex/connections/{integration_id}",
+        "/api/xdr/vendor/cortex/connections/{integration_id}/audit"
+      ],
+      "sites": [
+        "xdr/design/CortexOnboardingWizard.jsx:43"
+      ]
+    }
+  ]
+}

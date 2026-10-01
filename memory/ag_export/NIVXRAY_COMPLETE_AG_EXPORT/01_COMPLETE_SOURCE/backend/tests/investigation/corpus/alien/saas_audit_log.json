@@ -1,0 +1,16 @@
+{
+  "audit_stream": "org.finance.approvals",
+  "actor_uid": "usr_9f27e",
+  "actor_email": "morgan.li@example.com",
+  "tenant_shard": "eu-central-b",
+  "verb": "invoice.approved",
+  "resource_urn": "arn:svc:invoicing::org_7712:invoice/INV-2026-00483",
+  "requester_ip": "203.0.113.44",
+  "session_ttl_sec": 1800,
+  "policy_bindings": ["role:approver", "region:eu"],
+  "delegated_from": "usr_1a02b",
+  "artifact_link": "https://audit.example.com/records/INV-2026-00483",
+  "delta_amount_cents": 1245000,
+  "immutability_witness": "witness-4712-blake3",
+  "sso_provider": "corp-idp"
+}

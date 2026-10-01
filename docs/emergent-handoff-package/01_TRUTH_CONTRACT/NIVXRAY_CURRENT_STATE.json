@@ -1,0 +1,459 @@
+{
+  "schema": "nivxray.current_state.v1",
+  "generated_at_utc": "2026-02",
+  "generated_by": "read-only forensic audit agent",
+  "mode": "READ_ONLY",
+  "authority_rule": "runtime_and_code_evidence_authoritative_over_documentation",
+  "companion_narrative": "/app/memory/NIVXRAY_CURRENT_STATE_TRUTH.md",
+  "sources_of_truth": [
+    "/app/memory/GA_BLOCKERS.md",
+    "/app/memory/SPRINT_1_CHECKPOINT.md",
+    "/app/memory/NIVXRAY_XDR_360_AUDIT.md",
+    "live pod curl (/api/health, /api/metrics, /api/openapi.json, /api/response/actions, /api/incidents, /api/xdr/data-sources, /api/xdr/collectors)",
+    "git log on feature/rc2"
+  ],
+  "truth_vocabulary": [
+    "IMPLEMENTED_AND_WORKING",
+    "IMPLEMENTED_BUT_INCOMPLETE",
+    "STUB_MOCK_SCAFFOLD",
+    "IMPLEMENTED_BUT_NOT_WIRED",
+    "IMPLEMENTED_BUT_NOT_PRODUCTION_SAFE",
+    "MISSING",
+    "DUPLICATE_FRAGMENTED",
+    "CANDIDATE_FOR_NEW_TECHNOLOGY"
+  ],
+  "product": {
+    "name": "NivXRay XDR",
+    "positioning": "Deterministic-decoder-anchored XDR operational fabric (detection + response + investigation) with an evidence graph moat; NOT an EDR agent, NOT a full SIEM, NOT a TIP, NOT a full SOAR.",
+    "current_release_indicator": "V1 GA readiness heuristic ~54% post-Sprint 1 (P0-E/H/F closed); ~48% pre-Sprint 1. Not a certification.",
+    "active_branch": "feature/rc2",
+    "governance": {
+      "ui_freeze": true,
+      "no_decoder_scope_creep": true,
+      "honest_state_invariant": "NO_EVIDENCE_NO_DETECTION_CLAIM",
+      "closure_rule": "P0 closes only on CODE + TEST + INTEGRATION + PRODUCTION evidence"
+    }
+  },
+  "repo_topology": {
+    "backend_dir": "/app/backend",
+    "backend_python_files": 1899,
+    "backend_python_loc": 394831,
+    "backend_router_modules": 128,
+    "backend_test_files_in_backend_tests": 729,
+    "backend_requirements_packages": 218,
+    "frontend_dir": "/app/frontend",
+    "frontend_source_files_js_ts_jsx_tsx": 261,
+    "frontend_pages": 35,
+    "frontend_package_dependencies": 133,
+    "companion_apps": [
+      "/app/apps/nivxray-xdr",
+      "/app/apps/nivxray-xdr-collector",
+      "/app/apps/nivxray-xdr-response"
+    ],
+    "deploy_dir_files": [
+      "deploy/docker-compose.yml",
+      "deploy/backend.Dockerfile",
+      "deploy/frontend.Dockerfile",
+      "deploy/.env.example",
+      "deploy/README.md"
+    ],
+    "memory_docs_count": "250+"
+  },
+  "backend": {
+    "entrypoint": "/app/backend/server.py",
+    "entrypoint_lines": 908,
+    "openapi_url": "/api/openapi.json",
+    "openapi_path_count": 717,
+    "openapi_operation_count": 792,
+    "router_source_route_declarations": 714,
+    "middleware_stack_in_order": [
+      "ObservabilityMiddleware",
+      "RequestHardeningMiddleware",
+      "GZipMiddleware(min=4KB)",
+      "CORSMiddleware(env-driven)"
+    ],
+    "startup_hooks": [
+      "install_json_logging()",
+      "validate_config()",
+      "init_database()",
+      "seed_admin()",
+      "cortex_scheduler_startup",
+      "xdr_collector_landing_bootstrap",
+      "lolbas_maybe_refresh"
+    ],
+    "health_endpoints": {
+      "GET /api/health": "IMPLEMENTED_AND_WORKING",
+      "GET /api/health/deep": "IMPLEMENTED_AND_WORKING",
+      "GET /health (root alias for kubelet)": "IMPLEMENTED_AND_WORKING"
+    },
+    "config_env_required": [
+      "MONGO_URL", "DB_NAME", "JWT_SECRET",
+      "ADMIN_EMAIL", "ADMIN_PASSWORD", "EMERGENT_LLM_KEY"
+    ],
+    "feature_flags_prefixes": ["NIVX_", "NVX_", "RC5_"]
+  },
+  "data_layer": {
+    "backend": "MongoDB",
+    "topology": "single-node per pod",
+    "replica_set": false,
+    "collections_referenced": [
+      "users", "settings",
+      "workspace_cases", "incidents_projection_on_workspace_cases",
+      "investigation_cases", "investigations", "investigation_ssot",
+      "xdr_users", "xdr_roles", "xdr_groups", "xdr_user_roles",
+      "xdr_data_sources", "xdr_events",
+      "xdr_secrets", "xdr_recommendations",
+      "xdr_audit_log", "xdr_saved_views",
+      "batch_runs", "behavioral_evidence", "decode_feedback",
+      "iocs", "lab_attempts", "lab_stats",
+      "learner_payloads", "learner_versions", "learning_events",
+      "engine_executions", "prod_health",
+      "privacy_audit", "tenant_privacy_settings",
+      "regression_corpus", "sample_library"
+    ],
+    "retention_policy": "MISSING",
+    "ttl_indexes": "MISSING",
+    "backup_runner": "MISSING",
+    "restore_drill": "MISSING",
+    "evidence_immutability_worm_hash_chain": "MISSING"
+  },
+  "auth_and_security": {
+    "current_mechanism": "email + bcrypt password + own-signed JWT",
+    "rate_limiter": "security.rate_limit.LOGIN_LIMITER sliding-window per (email, ip)",
+    "force_password_change": true,
+    "sso_saml_oidc_current_grade": "MISSING",
+    "sso_target_playbook": "authlib (generic OIDC client) — playbook captured in prior session, implementation not started",
+    "secrets_store": {
+      "grade": "IMPLEMENTED_BUT_NOT_PRODUCTION_SAFE",
+      "backing": "MongoDB xdr_secrets collection",
+      "bootstrap_layer": "backend/.env",
+      "future_target": "KMS / Vault / cloud SM (post-GA)"
+    },
+    "audit_log": {
+      "grade": "IMPLEMENTED_AND_WORKING",
+      "module": "routers/xdr_audit_log.py",
+      "emit_fn": "emit_audit"
+    },
+    "known_hardening_history": ["SEC-001 password rotation", "SEC-002 JWT secret rotation"]
+  },
+  "rbac": {
+    "module": "routers/xdr_rbac.py",
+    "resource_count": 20,
+    "action_verbs_count": 27,
+    "wildcard_support": true,
+    "enforcement_dependency": "require_permission('resource.action')",
+    "denial_shape": {"code": "ACCESS_DENIED", "audit_event": "ACCESS_DENIED"},
+    "bootstrap_mode": "zero-user tenants allow all; enforcement engages after first user",
+    "builtin_roles": [
+      "platform_admin", "tenant_admin", "soc_manager",
+      "l3_investigator", "l2_investigator", "l1_analyst",
+      "threat_hunter", "detection_sme", "responder",
+      "auditor", "read_only"
+    ],
+    "grade": "IMPLEMENTED_AND_WORKING"
+  },
+  "multi_tenancy": {
+    "tenant_extraction": {
+      "headers": ["X-Tenant-Id", "X-Principal-Id", "X-Principal-Kind"],
+      "default_tenant": "default",
+      "grade": "IMPLEMENTED_AND_WORKING"
+    },
+    "cross_tenant_guard_in_ingest": "IMPLEMENTED_AND_WORKING (xdr_ingest.py)",
+    "global_find_update_tenant_filter": "MISSING",
+    "require_tenant_dependency": "MISSING",
+    "adversarial_cross_tenant_negative_test": "MISSING",
+    "tenants_provisioning_router": "MISSING"
+  },
+  "telemetry_ingest_and_collectors": {
+    "data_source_kinds_catalogued": [
+      "generic_syslog", "cef_syslog", "leef_syslog",
+      "windows_event_fwd", "sysmon_wef",
+      "generic_webhook", "generic_rest",
+      "aws_cloudtrail", "gcp_audit_logs", "azure_activity", "office365_activity",
+      "kafka_topic", "otlp_logs",
+      "edr_stream", "ndr_stream", "file_ingest"
+    ],
+    "configured_data_sources_live": 0,
+    "configured_collectors_live": 0,
+    "connected_collectors_live": 0,
+    "protocols_implemented_in_collector_framework": ["syslog", "webhook", "rest_poller"],
+    "canonical_envelope_model": "xdr_ingest.CanonicalEnvelope",
+    "connected_gate": "IMPLEMENTED_AND_WORKING (honest — refuses CONNECTED until real telemetry flows)",
+    "real_vendor_pollers": {
+      "okta_system_log": "MISSING",
+      "aws_cloudtrail_s3_notification": "MISSING",
+      "microsoft_defender_endpoint": "MISSING",
+      "crowdstrike_falcon": "MISSING",
+      "sentinelone": "MISSING",
+      "microsoft_entra_id": "MISSING",
+      "google_workspace": "MISSING"
+    }
+  },
+  "detection_and_correlation": {
+    "detection_content_modules": [
+      "detection_content/xdr_action_registry.py",
+      "detection_content/xdr_credential_vault.py",
+      "detection_content/xdr_mitigation_intelligence.py",
+      "detection_content/engine_classifier.py",
+      "detection_content/sigma_strict.py"
+    ],
+    "rule_studio_routes": 20,
+    "correlation_module": "services/correlation_engine.py",
+    "verdict_stage2": "IMPLEMENTED_AND_WORKING",
+    "labelled_multi_event_replay_corpus": "MISSING",
+    "efficacy_regression_precision_recall_f1": "MISSING",
+    "attck_coverage_heatmap_route": "IMPLEMENTED_AND_WORKING (routers/mitre_heatmap.py)",
+    "invariant": "NO_EVIDENCE_NO_DETECTION_CLAIM",
+    "p0_i_grade": "IMPLEMENTED_BUT_INCOMPLETE → efficacy layer is CANDIDATE_FOR_NEW_TECHNOLOGY"
+  },
+  "response_actions": {
+    "registry_module": "detection_content/xdr_action_registry.py",
+    "action_ids": [
+      "ENDPOINT_ISOLATE", "ENDPOINT_RELEASE_ISOLATION",
+      "IP_BLOCK", "IOC_ADD_WATCHLIST",
+      "COLLECT_FORENSIC_SNAPSHOT",
+      "OSINT_ENRICH_IP", "OSINT_ENRICH_URL",
+      "OSINT_ENRICH_DOMAIN", "OSINT_ENRICH_HASH",
+      "APPLICATION_ALLOW_LIST_ADD",
+      "PROCESS_EXCLUSION_ADD", "PATH_EXCLUSION_ADD", "THREAT_EXCLUSION_ADD"
+    ],
+    "action_count": 13,
+    "capability_available_flag_state_on_this_pod": "all false (no XDR_INTEGRATION_* env vars set)",
+    "route_alias": "/api/response/* (Sprint 1 P0-H fix)",
+    "legacy_route_retained": "/api/admin/content-supply-chain/response/* (additive, transitional)",
+    "response_service_app": "apps/nivxray-xdr-response",
+    "response_service_grade": "IMPLEMENTED_BUT_NOT_WIRED (not started on the live pod)",
+    "real_executors_grade": "STUB_MOCK_SCAFFOLD → CANDIDATE_FOR_NEW_TECHNOLOGY",
+    "ga_target_executors": ["isolate_host", "kill_process", "block_ip_url", "reset_user_credentials", "quarantine_file"]
+  },
+  "universal_decoder": {
+    "runtime_entry": "services.decoder.decode_universal",
+    "orchestrator": "services/decoder/orchestrator.py",
+    "plane_a_codec_dir": "services/decoder/base/",
+    "signature_count": 14,
+    "codec_families_migrated": [
+      "encoding (URL, unicode-escape, HTML-entity, base32, base85, octal-ascii, decimal-ascii)",
+      "base64_codec",
+      "compression (GZIP, Zlib)",
+      "crypto (RC4, AES-CBC)",
+      "transform (byte-array-XOR-loop)",
+      "xor_brute (repeating-key)",
+      "powershell_encoded_command"
+    ],
+    "analyzers": ["services/analyzers/pe.py", "services/analyzers/shellcode.py"],
+    "invariants": {
+      "static_only": true,
+      "execution": false,
+      "network_access": false,
+      "attck_promotion": false,
+      "bounded_depth": true,
+      "max_depth": 6,
+      "deterministic_order": true,
+      "provenance_required": true
+    },
+    "legacy_shims_are_reexport_only": true,
+    "b3_migration_status": "COMPLETE (Gates 2D-B3.0 through 2D-B3.4)",
+    "test_results": {
+      "decoder_harness": "59/59 pass",
+      "corpus": "76/76 pass + 1 intentional mal-20 FN",
+      "observability_tests_sprint1": "28/28 pass",
+      "adjacent_gates": "32/32 pass",
+      "combined_excl_mal_20": "195/195 pass"
+    },
+    "frozen_parity_snapshots": ["12378d11...8bac", "6427903e...7897"],
+    "b3_5_gate_2e_gate_2f": "REJECTED_BY_OWNER — no new codecs, no bash semantics",
+    "grade": "IMPLEMENTED_AND_WORKING"
+  },
+  "observability_sprint1_p0e_closed": {
+    "structured_logging_envelope": [
+      "ts", "level", "logger", "msg",
+      "trace_id", "tenant_id", "route", "method", "status", "latency_ms"
+    ],
+    "install_json_logging_idempotent": true,
+    "metrics_endpoint": "/api/metrics",
+    "metrics": [
+      "nivxray_http_requests_total{method,route,status}",
+      "nivxray_http_request_duration_seconds{method,route}",
+      "nivxray_http_requests_in_flight{method}"
+    ],
+    "cardinality_control": "route templates via APIRoute.path (no per-id explosion)",
+    "trace_id_headers_honoured": ["x-request-id", "traceparent"],
+    "opentelemetry_sdk": "MISSING",
+    "alert_routing": "MISSING",
+    "central_log_aggregation": "MISSING",
+    "grade": "IMPLEMENTED_AND_WORKING"
+  },
+  "frontend": {
+    "framework": "React 19 + CRA + BrowserRouter v6",
+    "code_splitting": "React.lazy per page",
+    "protected_routes_wrapper": "<Protected>",
+    "design_system": "shadcn/ui + Radix + Tailwind + Lucide + Sonner + XY-Flow + React Query",
+    "top_level_pages": 35,
+    "route_lanes": ["/", "/v2/*", "/nivxforge/*", "/investigate/*"],
+    "standalone_companion_spa": "apps/nivxray-xdr (Vite + React 18)",
+    "ui_freeze_active": true,
+    "grade": "IMPLEMENTED_AND_WORKING"
+  },
+  "companion_apps_grades": {
+    "nivxray-xdr": "IMPLEMENTED_BUT_NOT_WIRED",
+    "nivxray-xdr-collector": "IMPLEMENTED_BUT_NOT_WIRED (framework complete, no live pollers registered)",
+    "nivxray-xdr-response": "IMPLEMENTED_BUT_NOT_WIRED (framework complete, all vendor adapters STUB)"
+  },
+  "deployment_and_release": {
+    "docker_compose_floor": {
+      "grade": "IMPLEMENTED_AND_WORKING",
+      "sprint": "P0-F closed",
+      "services": ["mongodb:7", "backend", "frontend"],
+      "healthchecks": true,
+      "dep_ordering": "service_healthy",
+      "non_root": true,
+      "named_volume": "nivxray-mongo-data",
+      "admin_password_required_at_parse_time": true
+    },
+    "kubernetes_helm": "MISSING → CANDIDATE_FOR_NEW_TECHNOLOGY (P0-J)",
+    "ha_mongo_replica_set": "MISSING",
+    "stateless_backend_multi_replica": "MISSING",
+    "rolling_upgrade_test": "MISSING",
+    "sbom": "MISSING",
+    "ci_workflows": [
+      ".github/workflows/docs-screenshots.yml",
+      ".github/workflows/rc4x_quality_gate.yml",
+      ".github/workflows/rc5_gates.yml",
+      ".github/workflows/rc5_golden_corpus_gate.yml"
+    ],
+    "deploy_pipeline": "MISSING"
+  },
+  "ga_blockers_status": [
+    {"id": "P0-A", "name": "Real vendor telemetry connectors (x3)", "state": "MISSING → CANDIDATE_FOR_NEW_TECHNOLOGY", "effort": "L (quarter)", "depends_on": []},
+    {"id": "P0-B", "name": "Real response actions (x5)", "state": "STUB_MOCK_SCAFFOLD → CANDIDATE_FOR_NEW_TECHNOLOGY", "effort": "M+S per vendor", "depends_on": ["P0-A"]},
+    {"id": "P0-C", "name": "Enterprise OIDC via authlib", "state": "MISSING → CANDIDATE_FOR_NEW_TECHNOLOGY (playbook captured)", "effort": "S-M", "depends_on": [], "ui_freeze": true, "personal_google_login_not_sufficient": true},
+    {"id": "P0-D", "name": "Multi-tenant isolation with adversarial tests", "state": "IMPLEMENTED_BUT_INCOMPLETE", "effort": "M", "depends_on": []},
+    {"id": "P0-E", "name": "Prometheus + JSON logging", "state": "IMPLEMENTED_AND_WORKING", "closed_in_sprint": "Sprint 1", "effort": "S", "depends_on": []},
+    {"id": "P0-F", "name": "Docker Compose floor", "state": "IMPLEMENTED_AND_WORKING", "closed_in_sprint": "Sprint 1", "effort": "S", "depends_on": ["P0-E"]},
+    {"id": "P0-G", "name": "Retention / backup / restore", "state": "MISSING", "effort": "M", "depends_on": ["P0-D"]},
+    {"id": "P0-H", "name": "Route consistency + OpenAPI", "state": "IMPLEMENTED_AND_WORKING", "closed_in_sprint": "Sprint 1", "effort": "S", "depends_on": []},
+    {"id": "P0-I", "name": "Detection efficacy + correlation engineering", "state": "IMPLEMENTED_BUT_INCOMPLETE", "effort": "M (L if labelled corpus must be built from scratch)", "depends_on": ["P0-A"]},
+    {"id": "P0-J", "name": "HA / failover baseline", "state": "MISSING → CANDIDATE_FOR_NEW_TECHNOLOGY", "effort": "M", "depends_on": ["P0-F"]},
+    {"id": "P0-K", "name": "Security pen-test baseline", "state": "MISSING → CANDIDATE_FOR_NEW_TECHNOLOGY", "effort": "S-M", "depends_on": ["P0-D"]}
+  ],
+  "known_intentional_deferrals": [
+    "mal-20 behavioural-inference FN (single scenario, deferred post-GA)",
+    "Additional Plane-A codecs (RC4/AES positive corpus)",
+    "Bash Plane-B semantics",
+    "Advanced hunting DSL",
+    "Cross-tenant threat intel (MSSP mode)",
+    "AI-assisted narration expansion",
+    "B3.5 / Gate 2E / Gate 2F (owner rejected)"
+  ],
+  "duplicates_or_fragmented": [
+    {"cluster": "incident routing", "detail": "8 routers use /incidents prefix under different tags; intentional separation-of-concerns"},
+    {"cluster": "investigation storage", "detail": "workspace_cases is the sole authoritative record; investigation_cases/investigations/investigation_ssot are lifecycle-specific projections (owner-locked)"},
+    {"cluster": "response routes", "detail": "legacy /api/admin/content-supply-chain/response/* + new /api/response/* alias — additive, transitional"},
+    {"cluster": "frontend lanes", "detail": "base + /v2 + /nivxforge + /investigate + standalone apps/nivxray-xdr — multiple SPAs on same backend"},
+    {"cluster": "cortex vendor routers", "detail": "xdr_cortex_* tightly coupled to one vendor; vendor generalization pending"}
+  ],
+  "audit_57_points_index": [
+    {"n": 1, "topic": "Repo layout / monorepo boundaries"},
+    {"n": 2, "topic": "Git branch state & recent history"},
+    {"n": 3, "topic": "Backend router module count"},
+    {"n": 4, "topic": "Backend HTTP surface size"},
+    {"n": 5, "topic": "Frontend surface size"},
+    {"n": 6, "topic": "Main app entrypoint & structure"},
+    {"n": 7, "topic": "Middleware stack"},
+    {"n": 8, "topic": "Startup / shutdown hooks"},
+    {"n": 9, "topic": "Health probes"},
+    {"n": 10, "topic": "Observability endpoint"},
+    {"n": 11, "topic": "OpenAPI surface"},
+    {"n": 12, "topic": "Config validation"},
+    {"n": 13, "topic": "Feature flags"},
+    {"n": 14, "topic": "Router prefix conventions"},
+    {"n": 15, "topic": "Dependency count / bloat"},
+    {"n": 16, "topic": "Storage backend"},
+    {"n": 17, "topic": "Collection inventory"},
+    {"n": 18, "topic": "Canonical case document"},
+    {"n": 19, "topic": "Retention / TTL policy"},
+    {"n": 20, "topic": "Backup / restore / immutability"},
+    {"n": 21, "topic": "Auth mechanism"},
+    {"n": 22, "topic": "Rate limiting"},
+    {"n": 23, "topic": "SSO / SAML / OIDC"},
+    {"n": 24, "topic": "Secrets store"},
+    {"n": 25, "topic": "Audit log"},
+    {"n": 26, "topic": "Tenant scoping model"},
+    {"n": 27, "topic": "Tenant isolation enforcement"},
+    {"n": 28, "topic": "RBAC surface"},
+    {"n": 29, "topic": "Built-in roles"},
+    {"n": 30, "topic": "Data-source catalogue"},
+    {"n": 31, "topic": "Collector implementations"},
+    {"n": 32, "topic": "Real vendor pollers connected"},
+    {"n": 33, "topic": "CONNECTED evidence-gate"},
+    {"n": 34, "topic": "Canonical envelope schema"},
+    {"n": 35, "topic": "Detection content"},
+    {"n": 36, "topic": "Correlation engine"},
+    {"n": 37, "topic": "Response action registry"},
+    {"n": 38, "topic": "Response route mounting"},
+    {"n": 39, "topic": "Response executor app"},
+    {"n": 40, "topic": "Rule Studio"},
+    {"n": 41, "topic": "Universal Decoder — architecture"},
+    {"n": 42, "topic": "Plane-A codec families (migrated)"},
+    {"n": 43, "topic": "DDO signature dispatch"},
+    {"n": 44, "topic": "Analyzers (structural PE/shellcode)"},
+    {"n": 45, "topic": "Decoder test coverage"},
+    {"n": 46, "topic": "Structured logging"},
+    {"n": 47, "topic": "Metrics"},
+    {"n": 48, "topic": "Trace / request-id propagation"},
+    {"n": 49, "topic": "Frontend framework & routing"},
+    {"n": 50, "topic": "Page inventory (top-level)"},
+    {"n": 51, "topic": "Route structure"},
+    {"n": 52, "topic": "Design system"},
+    {"n": 53, "topic": "Companion frontend"},
+    {"n": 54, "topic": "Docker floor (P0-F closed)"},
+    {"n": 55, "topic": "Kubernetes / Helm"},
+    {"n": 56, "topic": "CI/CD workflows"},
+    {"n": 57, "topic": "Release documentation & changelogs"}
+  ],
+  "antigravity_boundary_contract": {
+    "stable_integration_boundaries": [
+      {"kind": "http", "route": "POST /api/auth/login", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/auth/me", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/health", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/health/deep", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/metrics", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/openapi.json", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "POST /api/xdr/ingest/telemetry", "grade": "IMPLEMENTED_AND_WORKING", "notes": "RBAC-gated; enforces single collector_id per batch; tenant match required"},
+      {"kind": "http", "route": "GET /api/xdr/data-sources", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/xdr/collectors", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "http", "route": "GET /api/response/actions", "grade": "IMPLEMENTED_AND_WORKING", "notes": "honest capability_available flag per action"},
+      {"kind": "http", "route": "GET /api/incidents", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "python", "symbol": "services.decoder.decode_universal", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "fastapi_dep", "symbol": "routers.xdr_rbac.require_permission", "grade": "IMPLEMENTED_AND_WORKING"},
+      {"kind": "python", "symbol": "observability.ObservabilityMiddleware / REGISTRY / install_json_logging", "grade": "IMPLEMENTED_AND_WORKING"}
+    ],
+    "do_not_treat_as_stable_boundary_until_lifted": [
+      "any XDR_INTEGRATION_* action executor (STUB_MOCK_SCAFFOLD)",
+      "any apps/nivxray-xdr-response vendor adapter (STUB_MOCK_SCAFFOLD)",
+      "companion apps' live process (IMPLEMENTED_BUT_NOT_WIRED — not on supervisor)",
+      "cross-tenant query enforcement (IMPLEMENTED_BUT_INCOMPLETE)",
+      "correlation efficacy metrics (IMPLEMENTED_BUT_INCOMPLETE)"
+    ],
+    "candidates_for_new_technology_modules": [
+      "P0-A: real vendor pollers (Okta, CloudTrail, MDE/CS/S1, Entra, Google Workspace)",
+      "P0-B: real response executors (isolate, kill, block, reset creds, quarantine)",
+      "P0-C: enterprise OIDC generic client (authlib)",
+      "P0-G: retention / backup / restore / GDPR-purge",
+      "P0-I: labelled multi-event replay corpus + efficacy reporter",
+      "P0-J: Kubernetes/Helm chart + Mongo replica set",
+      "P0-K: OWASP ZAP + Trivy/Grype scan pipeline"
+    ]
+  },
+  "known_ui_freeze": {
+    "active": true,
+    "rule": "No frontend edits during P0-C (SSO), P0-A (connectors), P0-B (response) implementation. Deliver backend + API contract only, document required UI as backlog."
+  },
+  "audit_limitations": [
+    "READ-ONLY: no code, tests, config, or UI modified.",
+    "Live smoke limited to health/metrics/openapi/response.actions/incidents/data-sources/collectors curl.",
+    "No load test, pen test, adversarial cross-tenant test, WCAG audit, or 8-hour SOC UX evaluation performed.",
+    "Doc-vs-code drift sampled, not exhaustively reconciled — code + live pod treated as authoritative.",
+    "The 57-point numbering is stable across md + json artifacts."
+  ]
+}

@@ -1,0 +1,21 @@
+id: T01_benign_write_host
+title: Benign — Write-Host greeting
+provenance: manually curated · common admin one-liner
+input: 'Write-Host "Hello, world"'
+expected_verdict: benign
+must_fire_intents: []
+must_not_fire:
+  - staging
+  - remote_execution
+  - persistence
+  - credential_access
+  - defense_evasion
+forbidden_words_in_verdict:
+  - credential theft
+  - ransomware
+  - campaign
+must_admit_unknown: false
+notes: >
+  A trivial benign PowerShell one-liner. Trust invariant: the tool
+  must never fabricate adversarial intent from a bare Write-Host
+  statement. Unsupported claims here are a HARD FAIL.

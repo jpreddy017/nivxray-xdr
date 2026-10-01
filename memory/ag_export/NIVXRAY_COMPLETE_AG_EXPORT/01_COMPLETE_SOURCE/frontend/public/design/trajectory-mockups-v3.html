@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NivXRay · Device Trajectory · M2 Mockups v3 (final scenes)</title>
+<style>
+  :root {
+    --bg: #FAFBFD; --paper: #FFFFFF; --ink: #0F172A; --ink-dim: #475569;
+    --ink-mute: #64748B; --ink-faint: #94A3B8; --line: #E2E8F0;
+    --red: #DC2626; --amber: #F5C142; --blue: #2563EB; --green: #059669;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink);
+               font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+               margin: 0; padding: 0; }
+  body { padding: 48px 32px 96px; max-width: 1720px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  .lede { color: var(--ink-dim); font-size: 14px; max-width: 720px; line-height: 1.55; margin-bottom: 48px; }
+  h2 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-mute);
+       font-weight: 700; margin: 48px 0 8px; }
+  .scene { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+           overflow: hidden; margin-bottom: 32px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+  .scene-header { display: flex; align-items: baseline; gap: 12px; padding: 14px 20px 12px;
+                  border-bottom: 1px solid var(--line); }
+  .scene-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .scene-caption { font-size: 12px; color: var(--ink-dim); }
+  .scene-tag { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+               background: #EEF2FF; color: var(--blue);
+               padding: 2px 8px; border-radius: 3px; font-weight: 700; }
+  svg { display: block; width: 100%; height: auto; }
+  code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; }
+  .rationale { font-size: 13px; color: var(--ink-dim); line-height: 1.6;
+               padding: 12px 20px 18px; border-top: 1px dashed var(--line);
+               background: #FAFBFD; }
+  .rationale b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>M2 Mockups · v3 · final scenes</h1>
+<div class="lede">
+  Direction approved. Producing the remaining critical states: dense stress test with the
+  correct yellow time-band (not per-row pills), empty / loading / error states, keyboard
+  cheatsheet, dark theme, extreme 2-second zoom, and multi-case comparison. Each scene
+  respects every rule locked in <code>M2_CISCO_CORRECTIONS.md</code>.
+</div>
+
+<!-- ═══════════ SCENE 07v3 — DENSE CASE (CORRECTED) ═══════════ -->
+<h2>Scene 07v3 · Dense enterprise case · yellow band is a TIME COLUMN</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Stress test</span>
+    <span class="scene-title">42 rows · 480 events · one vertical yellow window marks the compromise hour.</span>
+    <span class="scene-caption">No pills. No per-row shading. Amber is a time overlay only.</span>
+  </div>
+  <svg viewBox="0 0 1600 600" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="600" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="600" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Inner time axis -->
+    <text x="220" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">12:00</text>
+    <text x="460" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">12:30</text>
+    <text x="700" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">13:00</text>
+    <text x="940" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">13:30</text>
+    <text x="1180" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">14:00</text>
+    <text x="1420" y="16" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">14:30</text>
+    <line x1="184" y1="22" x2="1584" y2="22" stroke="#E2E8F0"/>
+
+    <!-- YELLOW COMPROMISE BAND · vertical time column · across all rows · 12% opacity -->
+    <rect x="920" y="22" width="220" height="558" fill="#F5C142" opacity="0.12"/>
+    <line x1="920"  y1="22" x2="920"  y2="580" stroke="#F5C142" stroke-width="0.8" opacity="0.6"/>
+    <line x1="1140" y1="22" x2="1140" y2="580" stroke="#F5C142" stroke-width="0.8" opacity="0.6"/>
+    <text x="930" y="36" font-size="9" fill="#B7791F" font-weight="700" font-family="IBM Plex Mono, monospace">
+      COMPROMISE HOUR · 13:04–13:16 · 3 indicators
+    </text>
+
+    <!-- Compromise row -->
+    <text x="14" y="52" font-size="10" fill="#B7791F" font-weight="700">⚠ Reflective Injection</text>
+    <line x1="184" y1="49" x2="1584" y2="49" stroke="#F5C142" stroke-width="1.5" opacity="0.7"/>
+    <rect x="920" y="45" width="220" height="8" fill="#F5C142" opacity="0.6" rx="4"/>
+
+    <!-- 42 rows compact -->
+    <g font-family="Inter" font-size="9.5">
+      <g fill="#0F172A">
+        <text x="14" y="70">explorer.exe</text>
+        <text x="30" y="84" font-weight="500">├─ svchost.exe</text>
+        <text x="46" y="98" font-weight="500">│  ├─ WmiPrvSE.exe</text>
+        <text x="46" y="112" font-weight="500">│  └─ TaskEng.exe</text>
+        <text x="30" y="126" font-weight="500">├─ msiexec.exe</text>
+        <text x="46" y="140" font-weight="500">│  ├─ msi7c9f.tmp</text>
+        <text x="46" y="154" font-weight="500">│  └─ install.bat</text>
+        <text x="30" y="168" font-weight="500">├─ cmd.exe</text>
+        <text x="46" y="182" font-weight="500">│  ├─ net.exe</text>
+        <text x="46" y="196" font-weight="500">│  ├─ reg.exe</text>
+        <text x="46" y="210" font-weight="500">│  ├─ tasklist.exe</text>
+        <text x="46" y="224" font-weight="500">│  ├─ whoami.exe</text>
+        <text x="46" y="238" font-weight="500">│  ├─ nltest.exe</text>
+        <text x="46" y="252" font-weight="600" fill="#DC2626">│  ├─ rundll32.exe</text>
+        <text x="46" y="266" font-weight="700" fill="#DC2626">│  └─ powershell.exe</text>
+        <text x="62" y="280" font-weight="500" fill="#DC2626">│     ├─ mshta.exe</text>
+        <text x="62" y="294" font-weight="500" fill="#DC2626">│     ├─ Mimikatz</text>
+        <text x="62" y="308" font-weight="500" fill="#DC2626">│     ├─ certutil.exe</text>
+        <text x="62" y="322" font-weight="500" fill="#DC2626">│     └─ bitsadmin.exe</text>
+        <text x="30" y="336" font-weight="500">├─ RustDesk.exe</text>
+        <text x="46" y="350" font-weight="500">│  └─ ssh.exe</text>
+        <text x="30" y="364" font-weight="500">├─ RDPClip.exe</text>
+        <text x="30" y="378" font-weight="500">├─ psql.exe</text>
+        <text x="30" y="392" font-weight="500">├─ mssqld.exe</text>
+        <text x="30" y="406" font-weight="600" fill="#DC2626">├─ wbadmin.exe</text>
+        <text x="30" y="420" font-weight="600" fill="#DC2626">├─ vssadmin.exe</text>
+        <text x="30" y="434" font-weight="700" fill="#DC2626">├─ locker.exe</text>
+        <text x="46" y="448" font-weight="500" fill="#DC2626">│  └─ note.txt</text>
+        <text x="30" y="462" font-weight="500">├─ consent.exe</text>
+        <text x="30" y="476" font-weight="500">├─ AdgNsy.exe</text>
+        <text x="30" y="490" font-weight="500">├─ svc_agent.exe</text>
+        <text x="30" y="504" font-weight="500">├─ conhost.exe</text>
+        <text x="30" y="518" font-weight="500">├─ chrome.exe</text>
+        <text x="30" y="532" font-weight="500">├─ Teams.exe</text>
+        <text x="30" y="546" font-weight="500">├─ OneDrive.exe</text>
+        <text x="14" y="560" font-weight="500">└─ Outlook.exe</text>
+      </g>
+    </g>
+
+    <!-- 42 thin lifelines -->
+    <g stroke="#94A3B8" stroke-width="1" opacity="0.35">
+      <line x1="184" y1="67" x2="1584" y2="67"/>
+      <line x1="184" y1="81" x2="1584" y2="81"/>
+      <line x1="184" y1="95" x2="1584" y2="95"/>
+      <line x1="184" y1="109" x2="1584" y2="109"/>
+      <line x1="184" y1="123" x2="1584" y2="123"/>
+      <line x1="184" y1="137" x2="1584" y2="137"/>
+      <line x1="184" y1="151" x2="1584" y2="151"/>
+      <line x1="184" y1="165" x2="1584" y2="165"/>
+      <line x1="184" y1="179" x2="1584" y2="179"/>
+      <line x1="184" y1="193" x2="1584" y2="193"/>
+      <line x1="184" y1="207" x2="1584" y2="207"/>
+      <line x1="184" y1="221" x2="1584" y2="221"/>
+      <line x1="184" y1="235" x2="1584" y2="235"/>
+      <line x1="184" y1="249" x2="1584" y2="249"/>
+      <line x1="184" y1="263" x2="1584" y2="263"/>
+      <line x1="184" y1="277" x2="1584" y2="277"/>
+      <line x1="184" y1="291" x2="1584" y2="291"/>
+      <line x1="184" y1="305" x2="1584" y2="305"/>
+      <line x1="184" y1="319" x2="1584" y2="319"/>
+      <line x1="184" y1="333" x2="1584" y2="333"/>
+      <line x1="184" y1="347" x2="1584" y2="347"/>
+      <line x1="184" y1="361" x2="1584" y2="361"/>
+      <line x1="184" y1="375" x2="1584" y2="375"/>
+      <line x1="184" y1="389" x2="1584" y2="389"/>
+      <line x1="184" y1="403" x2="1584" y2="403"/>
+      <line x1="184" y1="417" x2="1584" y2="417"/>
+      <line x1="184" y1="431" x2="1584" y2="431"/>
+      <line x1="184" y1="445" x2="1584" y2="445"/>
+      <line x1="184" y1="459" x2="1584" y2="459"/>
+      <line x1="184" y1="473" x2="1584" y2="473"/>
+      <line x1="184" y1="487" x2="1584" y2="487"/>
+      <line x1="184" y1="501" x2="1584" y2="501"/>
+      <line x1="184" y1="515" x2="1584" y2="515"/>
+      <line x1="184" y1="529" x2="1584" y2="529"/>
+      <line x1="184" y1="543" x2="1584" y2="543"/>
+      <line x1="184" y1="557" x2="1584" y2="557"/>
+    </g>
+
+    <!-- Benign events scattered outside compromise band -->
+    <g stroke="#059669" fill="#FFFFFF" stroke-width="1">
+      <circle cx="220" cy="67" r="4"/>
+      <circle cx="250" cy="81" r="4"/><circle cx="290" cy="81" r="4"/>
+      <circle cx="270" cy="95" r="4"/>
+      <circle cx="260" cy="109" r="4"/>
+      <circle cx="300" cy="123" r="4"/><circle cx="330" cy="123" r="4"/>
+      <circle cx="340" cy="137" r="4"/>
+      <circle cx="360" cy="151" r="4"/>
+      <circle cx="400" cy="165" r="4"/><circle cx="450" cy="165" r="4"/>
+      <circle cx="500" cy="165" r="4"/>
+      <circle cx="420" cy="179" r="4"/><circle cx="460" cy="179" r="4"/>
+      <circle cx="440" cy="193" r="4"/><circle cx="480" cy="193" r="4"/>
+      <circle cx="500" cy="207" r="4"/>
+      <circle cx="520" cy="221" r="4"/>
+      <circle cx="560" cy="235" r="4"/>
+      <circle cx="600" cy="335" r="4"/><circle cx="640" cy="335" r="4"/>
+      <circle cx="680" cy="335" r="4"/>
+      <circle cx="700" cy="349" r="4"/>
+      <circle cx="1250" cy="503" r="4"/><circle cx="1290" cy="503" r="4"/>
+      <circle cx="1350" cy="517" r="4"/>
+      <circle cx="1400" cy="531" r="4"/>
+      <circle cx="1430" cy="545" r="4"/>
+      <circle cx="1470" cy="559" r="4"/>
+    </g>
+    <g fill="#059669">
+      <circle cx="220" cy="67" r="1.5"/>
+      <circle cx="250" cy="81" r="1.5"/><circle cx="290" cy="81" r="1.5"/>
+      <circle cx="270" cy="95" r="1.5"/>
+      <circle cx="260" cy="109" r="1.5"/>
+      <circle cx="300" cy="123" r="1.5"/><circle cx="330" cy="123" r="1.5"/>
+      <circle cx="340" cy="137" r="1.5"/>
+      <circle cx="360" cy="151" r="1.5"/>
+    </g>
+
+    <!-- Red events inside compromise band -->
+    <g fill="#DC2626">
+      <polygon points="960,249 960,257 968,253"/>
+      <polygon points="1000,249 1000,257 1008,253"/>
+      <polygon points="1040,249 1040,257 1048,253"/>
+      <polygon points="1080,249 1080,257 1088,253"/>
+      <polygon points="960,263 960,271 968,267"/>
+      <polygon points="990,263 990,271 998,267"/>
+      <polygon points="1020,263 1020,271 1028,267"/>
+      <polygon points="1050,263 1050,271 1058,267"/>
+      <polygon points="1080,263 1080,271 1088,267"/>
+      <polygon points="1110,263 1110,271 1118,267"/>
+      <polygon points="1000,277 1000,285 1008,281"/>
+      <polygon points="1040,277 1040,285 1048,281"/>
+      <polygon points="1070,277 1070,285 1078,281"/>
+      <polygon points="1050,291 1050,299 1058,295"/>
+      <polygon points="1080,291 1080,299 1088,295"/>
+      <polygon points="1100,305 1100,313 1108,309"/>
+      <polygon points="1130,319 1130,327 1138,323"/>
+    </g>
+    <!-- wbadmin/vssadmin deletes (red X) inside band -->
+    <g stroke="#DC2626" stroke-width="1.4">
+      <line x1="1130" y1="401" x2="1140" y2="411"/><line x1="1130" y1="411" x2="1140" y2="401"/>
+      <line x1="1160" y1="401" x2="1170" y2="411"/><line x1="1160" y1="411" x2="1170" y2="401"/>
+      <line x1="1130" y1="415" x2="1140" y2="425"/><line x1="1130" y1="425" x2="1140" y2="415"/>
+    </g>
+    <!-- locker cluster and ransomware notes -->
+    <g stroke="#DC2626" fill="#FFFFFF" stroke-width="1.2">
+      <circle cx="1200" cy="431" r="5"/><circle cx="1260" cy="431" r="5"/>
+      <circle cx="1320" cy="431" r="5"/><circle cx="1380" cy="431" r="5"/>
+      <circle cx="1440" cy="431" r="5"/>
+    </g>
+    <g fill="#DC2626">
+      <circle cx="1200" cy="431" r="2"/><circle cx="1260" cy="431" r="2"/>
+      <circle cx="1320" cy="431" r="2"/><circle cx="1380" cy="431" r="2"/>
+      <circle cx="1440" cy="431" r="2"/>
+    </g>
+    <g stroke="#DC2626" stroke-width="1.4" stroke-linecap="round">
+      <line x1="1196" y1="445" x2="1204" y2="445"/><line x1="1200" y1="441" x2="1200" y2="449"/>
+    </g>
+
+    <text x="14" y="592" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      42 rows in 580 px · 480 events · red pops only inside the yellow time column · no entity-row shading
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Same scene as v1 Scene 08, now correct. The yellow band is a
+    <b>vertical column</b> at the compromise hour, not per-row pills. All 42 rows keep clean thin
+    lifelines. Red events fall inside the yellow window. Amber never touches an entity. The eye
+    finds the compromise in under a second — that's the Cisco pattern working.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 08v3 — EMPTY STATE (PRE-CASE) ═══════════ -->
+<h2>Scene 08v3 · Empty state · before a case is picked</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Empty</span>
+    <span class="scene-title">The empty state teaches what Device Trajectory is.</span>
+  </div>
+  <svg viewBox="0 0 1600 380" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="380" fill="#FAFBFD"/>
+    <!-- Header -->
+    <rect x="0" y="0" width="1600" height="36" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="16" y="10" width="16" height="16" rx="3" fill="#2563EB22" stroke="#2563EB55"/>
+    <text x="42" y="16" font-size="9" letter-spacing="2" fill="#64748B" font-weight="700">NIVXRAY</text>
+    <text x="42" y="27" font-size="12" fill="#0F172A" font-weight="600">Device Trajectory</text>
+    <text x="220" y="23" font-size="11" fill="#94A3B8">No case selected</text>
+
+    <!-- Case picker sidebar -->
+    <rect x="0" y="36" width="280" height="344" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="16" y="60" font-size="10" letter-spacing="2" fill="#64748B" font-weight="700">CASES</text>
+    <rect x="16" y="70" width="248" height="24" rx="3" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="24" y="86" font-size="11" fill="#94A3B8">Search cases…</text>
+    <g font-family="Inter" font-size="11">
+      <g fill="#0F172A">
+        <text x="16" y="118" font-weight="600">case_dfir_bumblebee_akira_2026</text>
+        <text x="16" y="132" font-family="IBM Plex Mono, monospace" font-size="9" fill="#94A3B8">Jul 22 · 53 events · 3 compromises</text>
+
+        <text x="16" y="160" font-weight="500">case_conti_may_2026</text>
+        <text x="16" y="174" font-family="IBM Plex Mono, monospace" font-size="9" fill="#94A3B8">May 04 · 291 events · 1 compromise</text>
+
+        <text x="16" y="202" font-weight="500">case_blackcat_apr_2026</text>
+        <text x="16" y="216" font-family="IBM Plex Mono, monospace" font-size="9" fill="#94A3B8">Apr 18 · 108 events · 2 compromises</text>
+
+        <text x="16" y="244" font-weight="500">case_lockbit_mar_2026</text>
+        <text x="16" y="258" font-family="IBM Plex Mono, monospace" font-size="9" fill="#94A3B8">Mar 11 · 445 events · 5 compromises</text>
+
+        <text x="16" y="286" font-weight="500">case_royal_feb_2026</text>
+        <text x="16" y="300" font-family="IBM Plex Mono, monospace" font-size="9" fill="#94A3B8">Feb 27 · 76 events · 1 compromise</text>
+      </g>
+    </g>
+
+    <!-- Empty state card -->
+    <g transform="translate(720, 100)">
+      <rect x="0" y="0" width="500" height="220" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+      <g transform="translate(232, 30)">
+        <circle cx="18" cy="18" r="22" fill="none" stroke="#2563EB" stroke-width="1"/>
+        <line x1="8" y1="18" x2="28" y2="18" stroke="#2563EB" stroke-width="1.5"/>
+        <line x1="14" y1="6" x2="14" y2="30" stroke="#2563EB" stroke-width="1"/>
+        <line x1="22" y1="6" x2="22" y2="30" stroke="#2563EB" stroke-width="1"/>
+      </g>
+      <text x="250" y="112" font-size="18" fill="#0F172A" font-weight="700" text-anchor="middle">
+        Pick a case to begin the investigation
+      </text>
+      <text x="250" y="140" font-size="12" fill="#64748B" text-anchor="middle">
+        Device Trajectory reconstructs an attack chronologically —
+      </text>
+      <text x="250" y="158" font-size="12" fill="#64748B" text-anchor="middle">
+        processes, files, network calls, registry changes, compromises —
+      </text>
+      <text x="250" y="176" font-size="12" fill="#64748B" text-anchor="middle">
+        as one continuous timeline of causally-linked events.
+      </text>
+      <rect x="180" y="192" width="140" height="24" rx="4" fill="#2563EB"/>
+      <text x="250" y="209" font-size="11" fill="#FFFFFF" font-weight="600" text-anchor="middle">Open latest case</text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Before a case is picked the workspace teaches its own purpose in
+    three lines. The sidebar lists cases with their case-level headline (events · compromises)
+    so an analyst can triage what to open next. One primary CTA — "Open latest case" — for the
+    common path.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 09v3 — LOADING STATE ═══════════ -->
+<h2>Scene 09v3 · Loading state · rows and events stream in</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Loading</span>
+    <span class="scene-title">Skeleton lifelines · shimmer glyphs · counters tick as data arrives.</span>
+  </div>
+  <svg viewBox="0 0 1600 300" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="300" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="300" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <text x="14" y="20" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      Streaming events…  42 / 500
+    </text>
+    <rect x="184" y="10" width="1400" height="4" rx="2" fill="#E2E8F0"/>
+    <rect x="184" y="10" width="118" height="4" rx="2" fill="#2563EB"/>
+
+    <!-- Ghost rows with skeleton lifelines -->
+    <g fill="#E2E8F0">
+      <rect x="14" y="46" width="120" height="10" rx="2"/>
+      <rect x="30" y="66" width="100" height="10" rx="2"/>
+      <rect x="46" y="86" width="80"  height="10" rx="2"/>
+      <rect x="46" y="106" width="90"  height="10" rx="2"/>
+      <rect x="30" y="126" width="110" height="10" rx="2"/>
+      <rect x="46" y="146" width="70"  height="10" rx="2"/>
+      <rect x="14" y="166" width="130" height="10" rx="2"/>
+      <rect x="30" y="186" width="90"  height="10" rx="2"/>
+      <rect x="30" y="206" width="100" height="10" rx="2"/>
+      <rect x="30" y="226" width="80"  height="10" rx="2"/>
+    </g>
+    <g stroke="#E2E8F0" stroke-width="1">
+      <line x1="184" y1="51" x2="1584" y2="51"/>
+      <line x1="184" y1="71" x2="1584" y2="71"/>
+      <line x1="184" y1="91" x2="1584" y2="91"/>
+      <line x1="184" y1="111" x2="1584" y2="111"/>
+      <line x1="184" y1="131" x2="1584" y2="131"/>
+      <line x1="184" y1="151" x2="1584" y2="151"/>
+      <line x1="184" y1="171" x2="1584" y2="171"/>
+      <line x1="184" y1="191" x2="1584" y2="191"/>
+      <line x1="184" y1="211" x2="1584" y2="211"/>
+      <line x1="184" y1="231" x2="1584" y2="231"/>
+    </g>
+    <!-- Partial real events (first 20 already arrived) -->
+    <g fill="#059669" opacity="0.6">
+      <circle cx="220" cy="51" r="3"/>
+      <circle cx="250" cy="71" r="3"/><circle cx="290" cy="71" r="3"/>
+      <circle cx="270" cy="91" r="3"/><circle cx="310" cy="91" r="3"/>
+      <circle cx="240" cy="111" r="3"/>
+      <circle cx="330" cy="131" r="3"/>
+    </g>
+    <!-- Shimmer bar to imply streaming -->
+    <rect x="184" y="252" width="1400" height="20" fill="#F8FAFC" stroke="#E2E8F0" rx="2"/>
+    <text x="196" y="266" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+      Fetching /api/v2/cases/case_dfir…/trajectory/device (batch 2 of 5)
+    </text>
+    <text x="14" y="290" font-size="10" fill="#94A3B8" font-family="IBM Plex Mono, monospace" font-style="italic">
+      Rows and events render as they arrive · analyst can interact with what's already loaded
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Progressive loading — not a spinner. Skeleton bars show row
+    outlines the moment we know row keys; events pop in as their timestamps arrive. The counter
+    <code>42 / 500</code> and the fetch line at the bottom make progress observable. The
+    analyst can click already-loaded events without waiting for the last batch.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 10v3 — ERROR STATE ═══════════ -->
+<h2>Scene 10v3 · Error state · adapter fails or backend times out</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Error</span>
+    <span class="scene-title">Honest failure · surface the fault · offer a retry.</span>
+  </div>
+  <svg viewBox="0 0 1600 260" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="260" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="260" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Big banner -->
+    <rect x="200" y="20" width="1384" height="220" rx="6" fill="#FFFFFF" stroke="#FEE2E2"/>
+    <rect x="200" y="20" width="6" height="220" fill="#DC2626"/>
+    <g transform="translate(220, 32)">
+      <circle cx="16" cy="16" r="14" fill="#FEE2E2"/>
+      <text x="16" y="21" font-size="16" fill="#DC2626" font-weight="700" text-anchor="middle">!</text>
+    </g>
+    <text x="260" y="52" font-size="16" fill="#0F172A" font-weight="700">
+      Trajectory data unavailable
+    </text>
+    <text x="260" y="72" font-size="12" fill="#475569">
+      The shadow adapter returned an error while resolving case_dfir_bumblebee_akira_2026 · request 7c9f2a01.
+    </text>
+
+    <rect x="260" y="90" width="1300" height="80" rx="4" fill="#F8FAFC"/>
+    <text x="272" y="108" font-size="10" fill="#64748B" font-weight="700" letter-spacing="1.5">STACK</text>
+    <g font-family="IBM Plex Mono, monospace" font-size="10" fill="#0F172A">
+      <text x="272" y="126">HTTP 502 · Bad Gateway · /api/v2/cases/…/trajectory/device</text>
+      <text x="272" y="142">upstream: shadow.bumblebee_adapter · timeout after 30s</text>
+      <text x="272" y="158">correlation-id: 7c9f2a017b3ff89e · seen at 13:04:22.481Z</text>
+    </g>
+
+    <rect x="260" y="190" width="90" height="26" rx="4" fill="#2563EB"/>
+    <text x="305" y="207" font-size="11" fill="#FFFFFF" font-weight="600" text-anchor="middle">Retry</text>
+    <rect x="360" y="190" width="140" height="26" rx="4" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="430" y="207" font-size="11" fill="#0F172A" font-weight="500" text-anchor="middle">Copy correlation-id</text>
+    <rect x="510" y="190" width="110" height="26" rx="4" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <text x="565" y="207" font-size="11" fill="#0F172A" font-weight="500" text-anchor="middle">Open logs</text>
+
+    <text x="1400" y="207" font-size="10" fill="#94A3B8" font-family="IBM Plex Mono, monospace">
+      auto-retry in 8s · esc to cancel
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> When the backend fails, the workspace refuses to lie. The banner
+    surfaces the HTTP status, the upstream module, the correlation-id, and the exact timestamp
+    of the failure. Three actions: <b>Retry</b> (primary), <b>Copy correlation-id</b> (for
+    filing an incident), <b>Open logs</b> (for the DFIR engineer). Auto-retry is on but visible,
+    not silent.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 11v3 — KEYBOARD CHEATSHEET ═══════════ -->
+<h2>Scene 11v3 · Keyboard cheatsheet · press <code>?</code></h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Traversal</span>
+    <span class="scene-title">Every keystroke an analyst needs, on one card.</span>
+  </div>
+  <svg viewBox="0 0 1600 460" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="460" fill="#0F172A44"/>
+    <rect width="1600" height="460" fill="#FAFBFD" opacity="0.7"/>
+
+    <!-- Modal card -->
+    <g transform="translate(320, 40)">
+      <rect x="0" y="0" width="960" height="380" rx="10" fill="#FFFFFF" stroke="#E2E8F0"
+            filter="url(#kbd-shadow)"/>
+      <defs>
+        <filter id="kbd-shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="20" stdDeviation="20" flood-color="#0F172A" flood-opacity="0.20"/>
+        </filter>
+      </defs>
+
+      <text x="24" y="34" font-size="14" fill="#0F172A" font-weight="700">Keyboard shortcuts</text>
+      <text x="900" y="34" font-size="12" fill="#94A3B8" text-anchor="end">Esc to close</text>
+      <line x1="0" y1="50" x2="960" y2="50" stroke="#E2E8F0"/>
+
+      <!-- Three-column layout -->
+      <g font-family="Inter" font-size="12">
+        <!-- Column 1: Navigation -->
+        <text x="24" y="76" font-size="10" letter-spacing="1.5" fill="#64748B" font-weight="700">NAVIGATION</text>
+        <g fill="#0F172A">
+          <text x="24" y="100">Pan the timeline</text>
+          <text x="24" y="122">Zoom in / out</text>
+          <text x="24" y="144">Fit to content</text>
+          <text x="24" y="166">Jump to parent</text>
+          <text x="24" y="188">Jump to first child</text>
+          <text x="24" y="210">Prev / next event</text>
+          <text x="24" y="232">Deselect · close popover</text>
+          <text x="24" y="254">Open case picker</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#475569">
+          <rect x="200" y="86" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="212" y="99">Space+drag</text>
+          <rect x="200" y="108" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="222" y="121">+ / −</text>
+          <rect x="200" y="130" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="222" y="143">F</text>
+          <rect x="200" y="152" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="222" y="165">H</text>
+          <rect x="200" y="174" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="222" y="187">L</text>
+          <rect x="200" y="196" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="218" y="209">↑ / ↓</text>
+          <rect x="200" y="218" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="220" y="231">Esc</text>
+          <rect x="200" y="240" width="50" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="214" y="253">⌘ K</text>
+        </g>
+
+        <!-- Column 2: Selection -->
+        <text x="330" y="76" font-size="10" letter-spacing="1.5" fill="#64748B" font-weight="700">SELECTION</text>
+        <g fill="#0F172A">
+          <text x="330" y="100">Focus event</text>
+          <text x="330" y="122">Focus row</text>
+          <text x="330" y="144">Ancestry focus</text>
+          <text x="330" y="166">Toggle ancestry chain</text>
+          <text x="330" y="188">Add to selection</text>
+          <text x="330" y="210">Multi-select rect</text>
+          <text x="330" y="232">Copy event IID</text>
+          <text x="330" y="254">Copy timestamp</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#475569">
+          <rect x="490" y="86" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="510" y="99">Click</text>
+          <rect x="490" y="108" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="500" y="121">⌘ Click</text>
+          <rect x="490" y="130" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="500" y="143">⌘ Shift F</text>
+          <rect x="490" y="152" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="514" y="165">A</text>
+          <rect x="490" y="174" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="502" y="187">⇧ Click</text>
+          <rect x="490" y="196" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="500" y="209">⇧ Drag</text>
+          <rect x="490" y="218" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="502" y="231">⌘ C · I</text>
+          <rect x="490" y="240" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="500" y="253">⌘ C · T</text>
+        </g>
+
+        <!-- Column 3: Filters + views -->
+        <text x="620" y="76" font-size="10" letter-spacing="1.5" fill="#64748B" font-weight="700">FILTERS &amp; VIEWS</text>
+        <g fill="#0F172A">
+          <text x="620" y="100">Open filter drawer</text>
+          <text x="620" y="122">Malicious only</text>
+          <text x="620" y="144">Compromises only</text>
+          <text x="620" y="166">Toggle right pane</text>
+          <text x="620" y="188">Toggle minimap</text>
+          <text x="620" y="210">Toggle dark mode</text>
+          <text x="620" y="232">Export report</text>
+          <text x="620" y="254">Help · this card</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#475569">
+          <rect x="820" y="86" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="830" y="99">\</text>
+          <rect x="820" y="108" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="844" y="121">M</text>
+          <rect x="820" y="130" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="846" y="143">C</text>
+          <rect x="820" y="152" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="836" y="165">⌘ /</text>
+          <rect x="820" y="174" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="836" y="187">⌘ M</text>
+          <rect x="820" y="196" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="832" y="209">⌘ D</text>
+          <rect x="820" y="218" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="832" y="231">⌘ E</text>
+          <rect x="820" y="240" width="60" height="18" rx="3" fill="#F1F5F9"/>
+          <text x="846" y="253">?</text>
+        </g>
+      </g>
+
+      <line x1="0" y1="292" x2="960" y2="292" stroke="#E2E8F0"/>
+      <text x="24" y="316" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">
+        24 shortcuts · every action reachable without the mouse
+      </text>
+      <text x="24" y="336" font-size="11" fill="#0F172A">
+        Design principle: any interaction that takes more than 2 seconds with the mouse must
+        have a &lt;200 ms keyboard alternative.
+      </text>
+      <text x="24" y="360" font-size="10" fill="#94A3B8">
+        Cheatsheet source of truth: <tspan font-family="IBM Plex Mono, monospace">/app/memory/design/M2_KEYBOARD.md</tspan>
+      </text>
+    </g>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Every high-frequency SOC action has a shortcut, and the shortcut
+    card is one keystroke (<code>?</code>) away. Three columns match the mental model:
+    Navigation (where am I?) · Selection (what am I looking at?) · Filters &amp; Views
+    (what should I hide?). Keyboard is a first-class citizen — Cisco relies heavily on it and so
+    should we.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 12v3 — 2-SECOND EXTREME ZOOM ═══════════ -->
+<h2>Scene 12v3 · Extreme zoom · 2-second interval column</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Zoom</span>
+    <span class="scene-title">One column = 2 seconds · every event has room to breathe.</span>
+  </div>
+  <svg viewBox="0 0 1600 300" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="300" fill="#FAFBFD"/>
+    <rect x="0" y="0" width="180" height="300" fill="#FFFFFF" stroke="#E2E8F0"/>
+
+    <!-- Fine-grained time axis -->
+    <rect x="0" y="0" width="1600" height="30" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <g font-size="10" fill="#475569" font-family="IBM Plex Mono, monospace">
+      <text x="200" y="20">13:04:54</text>
+      <text x="380" y="20">13:04:56</text>
+      <text x="560" y="20">13:04:58</text>
+      <text x="740" y="20">13:05:00</text>
+      <text x="920" y="20">13:05:02</text>
+      <text x="1100" y="20">13:05:04</text>
+      <text x="1280" y="20">13:05:06</text>
+      <text x="1460" y="20">13:05:08</text>
+    </g>
+    <!-- 2-second vertical rules -->
+    <g stroke="#E2E8F0">
+      <line x1="200" y1="30" x2="200" y2="300"/>
+      <line x1="380" y1="30" x2="380" y2="300"/>
+      <line x1="560" y1="30" x2="560" y2="300"/>
+      <line x1="740" y1="30" x2="740" y2="300"/>
+      <line x1="920" y1="30" x2="920" y2="300"/>
+      <line x1="1100" y1="30" x2="1100" y2="300"/>
+      <line x1="1280" y1="30" x2="1280" y2="300"/>
+      <line x1="1460" y1="30" x2="1460" y2="300"/>
+    </g>
+
+    <!-- Rows with events at fine timestamps -->
+    <text x="14" y="60" font-size="11" fill="#0F172A" font-weight="600">cmd.exe</text>
+    <line x1="184" y1="57" x2="1584" y2="57" stroke="#94A3B8" opacity="0.5"/>
+    <g stroke="#059669" fill="#FFFFFF" stroke-width="1.2">
+      <circle cx="220" cy="57" r="5"/><circle cx="356" cy="57" r="5"/>
+      <circle cx="512" cy="57" r="5"/><circle cx="668" cy="57" r="5"/>
+    </g>
+    <g fill="#059669">
+      <circle cx="220" cy="57" r="2"/><circle cx="356" cy="57" r="2"/>
+      <circle cx="512" cy="57" r="2"/><circle cx="668" cy="57" r="2"/>
+    </g>
+
+    <text x="30" y="90" font-size="11" fill="#DC2626" font-weight="700">├─ powershell.exe</text>
+    <line x1="184" y1="87" x2="1584" y2="87" stroke="#94A3B8" opacity="0.6"/>
+    <path d="M 220 61 L 220 87" stroke="#CBD5E1"/>
+    <g fill="#DC2626">
+      <polygon points="248,83 248,91 256,87"/>
+      <text x="266" y="82" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">-enc &lt;stage1&gt;</text>
+      <polygon points="428,83 428,91 436,87"/>
+      <text x="446" y="82" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">-enc &lt;stage2&gt;</text>
+      <polygon points="608,83 608,91 616,87"/>
+      <text x="626" y="82" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">DownloadString</text>
+      <polygon points="788,83 788,91 796,87"/>
+      <text x="806" y="82" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">Reflect Loader</text>
+    </g>
+
+    <text x="30" y="120" font-size="11" fill="#DC2626" font-weight="500">├─ rundll32.exe</text>
+    <line x1="184" y1="117" x2="1584" y2="117" stroke="#94A3B8" opacity="0.6"/>
+    <path d="M 788 91 L 788 117" stroke="#CBD5E1"/>
+    <polygon points="792,113 792,121 800,117" fill="#DC2626"/>
+    <text x="810" y="112" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">comsvcs.dll,MiniDump</text>
+
+    <text x="30" y="150" font-size="11" fill="#0F172A" font-weight="500">├─ lsass.exe</text>
+    <line x1="184" y1="147" x2="1584" y2="147" stroke="#94A3B8" opacity="0.5"/>
+    <path d="M 792 121 L 792 147" stroke="#CBD5E1"/>
+    <circle cx="792" cy="147" r="3" fill="#94A3B8"/>
+    <text x="810" y="142" font-size="9" fill="#64748B" font-family="IBM Plex Mono, monospace">acted upon · memory read</text>
+
+    <text x="14" y="180" font-size="11" fill="#0F172A" font-weight="500">lsass.dmp</text>
+    <line x1="184" y1="177" x2="1584" y2="177" stroke="#94A3B8" opacity="0.5"/>
+    <g stroke="#059669" stroke-width="1.6" stroke-linecap="round">
+      <line x1="808" y1="177" x2="816" y2="177"/><line x1="812" y1="173" x2="812" y2="181"/>
+    </g>
+    <text x="830" y="172" font-size="9" fill="#059669" font-family="IBM Plex Mono, monospace">CREATE · 264 MB</text>
+
+    <text x="14" y="210" font-size="11" fill="#DC2626" font-weight="600">185.220.101.42:80</text>
+    <line x1="184" y1="207" x2="1584" y2="207" stroke="#94A3B8" opacity="0.5"/>
+    <g stroke="#DC2626" fill="none" stroke-width="1.4">
+      <polyline points="908,203 918,203 916,201 918,203 916,205"/>
+    </g>
+    <text x="932" y="202" font-size="9" fill="#DC2626" font-family="IBM Plex Mono, monospace">EXFIL 264MB · TOR exit</text>
+
+    <text x="14" y="290" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      2-second columns · 4 events per lifeline · every glyph has an inline caption · zoom range
+      full → 2s
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> At the deepest zoom (2-second columns per Cisco spec) each event
+    gets an <b>inline caption</b> — the extra horizontal room is spent on readable evidence
+    fragments (<code>-enc &lt;stage2&gt;</code>, <code>comsvcs.dll,MiniDump</code>). This is
+    where the analyst reconstructs the technical detail of the compromise. Zooming back out
+    collapses the captions.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 13v3 — DARK THEME OPTION ═══════════ -->
+<h2>Scene 13v3 · Dark theme · same rules, inverted palette</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Preference</span>
+    <span class="scene-title">Optional dark mode for night-shift SOC analysts. Same contrast budget.</span>
+  </div>
+  <svg viewBox="0 0 1600 340" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="340" fill="#0B1220"/>
+    <rect x="0" y="0" width="1600" height="36" fill="#111827" stroke="#1F2937"/>
+    <text x="16" y="16" font-size="9" letter-spacing="2" fill="#9CA3AF" font-weight="700">NIVXRAY</text>
+    <text x="16" y="27" font-size="12" fill="#F3F4F6" font-weight="600">Device Trajectory · Dark</text>
+
+    <rect x="0" y="36" width="180" height="304" fill="#111827" stroke="#1F2937"/>
+
+    <!-- YELLOW compromise band on dark bg -->
+    <rect x="450" y="36" width="380" height="304" fill="#F5C142" opacity="0.10"/>
+    <text x="460" y="52" font-size="9" fill="#F5C142" font-weight="700" font-family="IBM Plex Mono, monospace">
+      COMPROMISE HOUR · 3 indicators
+    </text>
+
+    <!-- Compromise row -->
+    <text x="14" y="76" font-size="11" fill="#F5C142" font-weight="700">⚠ Reflective Injection</text>
+    <line x1="184" y1="73" x2="1584" y2="73" stroke="#F5C142" stroke-width="1.5" opacity="0.6"/>
+    <rect x="450" y="69" width="380" height="8" fill="#F5C142" opacity="0.6" rx="4"/>
+
+    <!-- Rows -->
+    <text x="14" y="106" font-size="11" fill="#F3F4F6" font-weight="600">explorer.exe</text>
+    <line x1="184" y1="103" x2="1584" y2="103" stroke="#6B7280" opacity="0.5"/>
+    <circle cx="200" cy="103" r="5" fill="none" stroke="#22C55E" stroke-width="1.2"/>
+    <circle cx="200" cy="103" r="2" fill="#22C55E"/>
+
+    <text x="30" y="126" font-size="11" fill="#F3F4F6" font-weight="500">├─ cmd.exe</text>
+    <line x1="184" y1="123" x2="1584" y2="123" stroke="#6B7280" opacity="0.5"/>
+    <g stroke="#22C55E" fill="#0B1220" stroke-width="1.2">
+      <circle cx="240" cy="123" r="5"/><circle cx="280" cy="123" r="5"/>
+      <circle cx="320" cy="123" r="5"/><circle cx="360" cy="123" r="5"/>
+    </g>
+    <g fill="#22C55E">
+      <circle cx="240" cy="123" r="2"/><circle cx="280" cy="123" r="2"/>
+      <circle cx="320" cy="123" r="2"/><circle cx="360" cy="123" r="2"/>
+    </g>
+    <g stroke="#F87171" fill="#0B1220" stroke-width="1.2">
+      <circle cx="460" cy="123" r="5"/><circle cx="500" cy="123" r="5"/>
+      <circle cx="540" cy="123" r="5"/>
+    </g>
+    <g fill="#F87171">
+      <circle cx="460" cy="123" r="2"/><circle cx="500" cy="123" r="2"/>
+      <circle cx="540" cy="123" r="2"/>
+    </g>
+
+    <text x="46" y="150" font-size="11" fill="#F87171" font-weight="700">│  └─ powershell.exe</text>
+    <line x1="184" y1="147" x2="1584" y2="147" stroke="#6B7280" opacity="0.5"/>
+    <path d="M 500 127 L 500 147" stroke="#374151"/>
+    <g fill="#F87171">
+      <polygon points="500,143 500,151 508,147"/>
+      <polygon points="540,143 540,151 548,147"/>
+      <polygon points="580,143 580,151 588,147"/>
+      <polygon points="620,143 620,151 628,147"/>
+      <polygon points="660,143 660,151 668,147"/>
+    </g>
+
+    <text x="14" y="174" font-size="11" fill="#F87171" font-weight="700">└─ locker.exe</text>
+    <line x1="184" y1="171" x2="1584" y2="171" stroke="#F87171" stroke-width="1.2" opacity="0.6"/>
+    <g stroke="#F87171" fill="#0B1220" stroke-width="1.2">
+      <circle cx="1100" cy="171" r="6"/><circle cx="1140" cy="171" r="6"/>
+      <circle cx="1180" cy="171" r="6"/>
+    </g>
+    <g fill="#F87171">
+      <circle cx="1100" cy="171" r="2.5"/><circle cx="1140" cy="171" r="2.5"/>
+      <circle cx="1180" cy="171" r="2.5"/>
+    </g>
+
+    <text x="14" y="204" font-size="9" letter-spacing="1.8" fill="#9CA3AF" font-weight="700">FILE ACTIVITY</text>
+    <line x1="0" y1="210" x2="1600" y2="210" stroke="#1F2937"/>
+
+    <text x="14" y="230" font-size="11" fill="#F87171" font-weight="600">*.locked (7 files)</text>
+    <line x1="184" y1="227" x2="1584" y2="227" stroke="#F87171" opacity="0.4"/>
+    <g stroke="#F87171" stroke-width="1.6" stroke-linecap="round">
+      <line x1="1096" y1="227" x2="1104" y2="227"/><line x1="1100" y1="223" x2="1100" y2="231"/>
+      <line x1="1116" y1="227" x2="1124" y2="227"/><line x1="1120" y1="223" x2="1120" y2="231"/>
+      <line x1="1136" y1="227" x2="1144" y2="227"/><line x1="1140" y1="223" x2="1140" y2="231"/>
+      <line x1="1156" y1="227" x2="1164" y2="227"/><line x1="1160" y1="223" x2="1160" y2="231"/>
+      <line x1="1176" y1="227" x2="1184" y2="227"/><line x1="1180" y1="223" x2="1180" y2="231"/>
+    </g>
+
+    <text x="14" y="320" font-size="10" fill="#6B7280" font-family="IBM Plex Mono, monospace" font-style="italic">
+      dark palette · same three-state disposition · same yellow compromise band · same blue halo when selected
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> Dark mode is not a re-design; it is the same design with an
+    inverted palette. Green shifts to <code>#22C55E</code>, red to <code>#F87171</code>, background
+    to <code>#0B1220</code>, panel to <code>#111827</code>. Contrast ratios remain identical.
+    Amber and blue keep the same hex — they read on both backgrounds. Analysts on night shift
+    get a low-glare workspace with zero behavior changes.
+  </div>
+</div>
+
+<!-- ═══════════ SCENE 14v3 — MULTI-CASE COMPARISON ═══════════ -->
+<h2>Scene 14v3 · Multi-case comparison · shared time axis</h2>
+<div class="scene">
+  <div class="scene-header">
+    <span class="scene-tag">Advanced</span>
+    <span class="scene-title">Two cases stacked · shared time axis · same-endpoint attack recurrence.</span>
+  </div>
+  <svg viewBox="0 0 1600 340" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1600" height="340" fill="#FAFBFD"/>
+
+    <!-- Shared axis -->
+    <rect x="0" y="0" width="1600" height="30" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <g font-size="10" fill="#475569" font-family="IBM Plex Mono, monospace">
+      <text x="200" y="20">Jul 22 13:04</text>
+      <text x="600" y="20">Jul 22 13:06</text>
+      <text x="1000" y="20">Jul 22 13:08</text>
+      <text x="1400" y="20">Jul 22 13:10</text>
+    </g>
+
+    <!-- CASE A -->
+    <rect x="0" y="30" width="180" height="140" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="4" y="34" width="6" height="132" fill="#DC2626"/>
+    <text x="16" y="52" font-size="10" letter-spacing="1.8" fill="#0F172A" font-weight="700">CASE A</text>
+    <text x="16" y="66" font-size="11" fill="#0F172A" font-weight="600">bumblebee_akira</text>
+    <text x="16" y="82" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">FIN-DC-01 · 53 ev · 3 comp</text>
+
+    <text x="14" y="106" font-size="11" fill="#DC2626" font-weight="700">powershell.exe</text>
+    <line x1="184" y1="103" x2="1584" y2="103" stroke="#94A3B8" opacity="0.5"/>
+    <g fill="#DC2626">
+      <polygon points="500,99 500,107 508,103"/>
+      <polygon points="540,99 540,107 548,103"/>
+      <polygon points="580,99 580,107 588,103"/>
+    </g>
+
+    <text x="14" y="140" font-size="11" fill="#DC2626" font-weight="700">locker.exe</text>
+    <line x1="184" y1="137" x2="1584" y2="137" stroke="#DC2626" opacity="0.6"/>
+    <g stroke="#DC2626" fill="#FFFFFF" stroke-width="1.2">
+      <circle cx="900" cy="137" r="5"/><circle cx="940" cy="137" r="5"/>
+      <circle cx="980" cy="137" r="5"/>
+    </g>
+    <g fill="#DC2626">
+      <circle cx="900" cy="137" r="2"/><circle cx="940" cy="137" r="2"/>
+      <circle cx="980" cy="137" r="2"/>
+    </g>
+
+    <!-- CASE B -->
+    <rect x="0" y="180" width="180" height="140" fill="#FFFFFF" stroke="#E2E8F0"/>
+    <rect x="4" y="184" width="6" height="132" fill="#F5C142"/>
+    <text x="16" y="202" font-size="10" letter-spacing="1.8" fill="#0F172A" font-weight="700">CASE B</text>
+    <text x="16" y="216" font-size="11" fill="#0F172A" font-weight="600">conti_recurrence</text>
+    <text x="16" y="232" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace">FIN-DC-01 · 41 ev · 1 comp</text>
+
+    <text x="14" y="256" font-size="11" fill="#B7791F" font-weight="700">rundll32.exe</text>
+    <line x1="184" y1="253" x2="1584" y2="253" stroke="#94A3B8" opacity="0.5"/>
+    <g fill="#DC2626">
+      <polygon points="520,249 520,257 528,253"/>
+      <polygon points="560,249 560,257 568,253"/>
+    </g>
+
+    <text x="14" y="290" font-size="11" fill="#DC2626" font-weight="700">encryptor.exe</text>
+    <line x1="184" y1="287" x2="1584" y2="287" stroke="#DC2626" opacity="0.5"/>
+    <g stroke="#DC2626" fill="#FFFFFF" stroke-width="1.2">
+      <circle cx="920" cy="287" r="5"/><circle cx="960" cy="287" r="5"/>
+    </g>
+    <g fill="#DC2626">
+      <circle cx="920" cy="287" r="2"/><circle cx="960" cy="287" r="2"/>
+    </g>
+
+    <text x="14" y="326" font-size="10" fill="#64748B" font-family="IBM Plex Mono, monospace" font-style="italic">
+      same endpoint · two campaigns · timelines aligned · pattern repeats
+    </text>
+  </svg>
+  <div class="rationale">
+    <b>Design rationale.</b> When investigators discover a repeat compromise on the same asset,
+    the comparison view stacks two cases on <b>one time axis</b>. The visual alignment reveals
+    that both campaigns hit powershell then encryption at almost identical time offsets — a
+    pattern that would take days to spot in separate cases. Case chips (left-edge colour) make
+    each case's disposition immediately identifiable.
+  </div>
+</div>
+
+<h2>Design phase complete</h2>
+<p style="font-size:14px;color:var(--ink);font-weight:500;max-width:920px;line-height:1.7;">
+  Total scenes shipped: <b>12 in v1 · 6 in v2 (Cisco-corrected) · 8 in v3 (this batch) = 26 scenes</b>.
+  Direction is locked, every Cisco rule is anchored to a quote, and the acceptance criteria
+  in <code>M2_DESIGN_SPEC.md</code> + <code>M2_CISCO_CORRECTIONS.md</code> are the bar.
+</p>
+<p style="font-size:14px;color:var(--ink);font-weight:600;max-width:920px;line-height:1.7;">
+  Ready to move to engineering. The next message will begin the 1:1 build of the approved
+  design — thin lifelines, sticky gutter, indented ancestry, two-strip nav, yellow
+  time-window band, blue trigger halo, double/single-circle glyphs, five-category filter
+  drawer, keyboard cheatsheet, dark theme. No re-designing in code.
+</p>
+</body>
+</html>

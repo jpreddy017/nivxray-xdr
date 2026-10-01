@@ -1,0 +1,119 @@
+{
+  "count": 14,
+  "fixtures": [
+    {
+      "article_title": "Volt Typhoon Post-Exploitation",
+      "commands_count": 3,
+      "expected_min_commands": 1,
+      "html_sha256": "6cf91dbbfc0690a548eddc74132ae3a2db66971b873c9420b5dad857447761b2",
+      "id": "talos.001",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "RomCom RAT Loader Analysis",
+      "commands_count": 3,
+      "expected_min_commands": 1,
+      "html_sha256": "12ec69be955ed365e6d4b4ceff8f96a3f50850026c7f6162739a8e0a0f92cb40",
+      "id": "talos.002",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "Play Ransomware Recovery Inhibit",
+      "commands_count": 3,
+      "expected_min_commands": 1,
+      "html_sha256": "8a16fae5f5e47352779446836e7bf20ed1b744df187452f28f40bd96029c6476",
+      "id": "talos.003",
+      "vendor": "talos"
+    },
+    {
+      "article_title": "Octlurk Lateral Movement",
+      "commands_count": 3,
+      "expected_min_commands": 1,
+      "html_sha256": "a8a7c1b1a514474d42fa163e61622e724421c0144b31159131ad05711cd634bc",
+      "id": "securelist.001",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "Gopher Loader",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "2a68812c9cd7a0ead619c32b57c3ad90db377ddffe5b8dcc57c274230aa3c051",
+      "id": "securelist.002",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "Financial Trojan Persistence",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "513f1dccb37c6a93ae0b67666bbda573fea35757b526ac61d4a230132d2489c5",
+      "id": "securelist.003",
+      "vendor": "securelist"
+    },
+    {
+      "article_title": "UNC5221 Ivanti Post-Compromise",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "d57116571fcd30deaeb3363f14c465d39f1bfa478165f1b69ba1a1c28cebf805",
+      "id": "mandiant.001",
+      "vendor": "mandiant"
+    },
+    {
+      "article_title": "FIN12 Credential Harvest",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "a9b1354decbc1fda919db032941f157fd8719900ceeaf2a9e331e24064d94fdb",
+      "id": "mandiant.002",
+      "vendor": "mandiant"
+    },
+    {
+      "article_title": "Storm-0501 Cloud Ransomware",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "51ce7b36eee7b4a35dd9d4ec8548644e69c2126143830011daeab0c8322f7faf",
+      "id": "microsoft.001",
+      "vendor": "microsoft"
+    },
+    {
+      "article_title": "Sandworm APT44 Wiper",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "b7540a592ed448cdbd56e8eb5ad4302d68706c0d3eb7708b111b1778f8bb1048",
+      "id": "microsoft.002",
+      "vendor": "microsoft"
+    },
+    {
+      "article_title": "REF7707 Loader Deep Dive",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "c6d44c0901e831464ca03f9fa6ab8ed2c6a6515def31453f3eff8f841e66f9b5",
+      "id": "elastic.001",
+      "vendor": "elastic"
+    },
+    {
+      "article_title": "LOBSHOT Persistence",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "44c0c2c80261f066ca9176ea2f784892ebc29686fa1451abb70437eb75dc2930",
+      "id": "elastic.002",
+      "vendor": "elastic"
+    },
+    {
+      "article_title": "ScreenConnect Post-Exploit",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "7627a136c3a52c561fc74ca1cc4a78352199c635699d82f8aebfe1792c13cc6b",
+      "id": "huntress.001",
+      "vendor": "huntress"
+    },
+    {
+      "article_title": "SimpleHelp Traversal",
+      "commands_count": 2,
+      "expected_min_commands": 1,
+      "html_sha256": "434af9e916487b31cf9c05777937f8413a6704ebd3bf109663cda9d07d3c9e9a",
+      "id": "huntress.002",
+      "vendor": "huntress"
+    }
+  ],
+  "generated_by": "P0.15C-5 \u00b7 Vendor Corpus v1",
+  "schema_version": "1.0"
+}

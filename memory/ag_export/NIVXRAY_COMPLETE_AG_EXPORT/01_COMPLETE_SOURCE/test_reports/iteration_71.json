@@ -1,0 +1,42 @@
+{
+  "summary": "ADR-005 narrative enrichment fix verified. Backend: all 3 pytest checks PASS (POST /api/die/investigation-results, GET /api/cases/abe70..., Sample1 regression). Frontend: restored 'Same' case via Workspace 💾 CASES drawer → OPEN — Analyst Narrative Panel renders fully with every requested testid, Executive Summary populated, 10 recommended actions, 3 attack-progression stages (T1059.001, T1027, T1564.003, T1562.001, T1105 all present), MITRE panel shows 3 tactic groups (execution / defense_evasion / command_and_control), no 'Objects are not valid as React child' errors, no page errors. Sample1 case untouched.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "History page → Restore button",
+        "issue": "The /history route calls /api/history (a different collection) which does NOT contain workspace_cases like 'Same'. Searching 'Same' or 'cyberdefenders' on /history returns 0 rows even though the case exists in /api/cases. The correct UI path for opening workspace_cases is Workspace → 💾 CASES drawer → OPEN (via data-testid=btn-case-open-{case_id}). Suggest updating the review spec / adding a cross-link so users don't get stuck on the History page (this is the exact confusion that produced 20-30 rounds of complaints — the panel WAS empty because the case was never actually restored).",
+        "affected_selectors": ["input-history-search", "btn-open-cases", "btn-case-open-abe701b3-a3b5-4092-8dc8-ef98ec95af40"]
+      },
+      {
+        "flow": "AttackChainView data-testid='chain-node-0/1/2' verification",
+        "issue": "AttackChainView.jsx (which renders chain-node-{idx}) is only mounted inside EvidenceTab of /investigations/:id (InvestigationDetailPage). Navigating to /investigations/abe701b3-... returns 'Investigation not found · correlation_not_found' — this workspace_case has no corresponding investigation record, so the chain-node testids cannot be exercised through the UI for this specific case. The narrative fallback logic (progression → steps) is present in AttackChainView.jsx (lines 33-52) and the underlying data (ssot.investigation_object.chain.steps with 3 entries + narrative.attack_progression with 3 entries) is confirmed present in the API — so the fallback is data-ready; it just has no host page for this particular case-id.",
+        "affected_selectors": ["attack-chain", "chain-node-0", "chain-node-1", "chain-node-2", "chain-empty"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_narrative_enrichment.py",
+    "/app/test_reports/pytest/narrative_enrichment.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: If the /history page is intended to also surface saved workspace_cases, extend /api/history to include (or federate over) workspace_cases so filter 'Same' returns a row. Right now the review spec's 'History page → Restore' path is not achievable in the UI; the equivalent restore is Workspace → 💾 CASES → OPEN.",
+    "OPTIONAL: To expose the chain-node-{idx} testids on this case, either (a) create/link an InvestigationDetail record for workspace_case abe701b3-... so /investigations/{id} → Evidence tab renders AttackChainView with the narrative-progression fallback, or (b) mount AttackChainView (or an equivalent narrative-attack-chain view) inside the Analyst Workspace when a ssot.investigation_object.narrative.attack_progression exists. Data-shape is already correct end-to-end."
+  ],
+  "critical_code_review_comments": [
+    "canonical_bridge.augment_investigation_results + canonical_narrative_enrichment.enrich_narrative + synth_chain_steps_from_progression all execute cleanly at request time (verified via /api/die/investigation-results returning fully-populated object.narrative + object.chain.steps + object.lolbas).",
+    "AnalystNarrativePanel hasContent gate now correctly considers attack_progression + mitre_matrix (verified — panel renders even when only these two are present).",
+    "Backfill migration is idempotent-safe: 'Same' case shows enriched ssot; the sampled Sample1 row's ssot.analyst_narrative.executive_summary does NOT contain any cyberdefenders content, confirming the migration correctly skipped Sample1 rows.",
+    "Minor UX gap: no data-testid on the 'no matches' state in HistoryDrawer.jsx line 342 — would help debug 'why is my case missing' user complaints faster."
+  ],
+  "updated_files": ["/app/backend/tests/test_narrative_enrichment.py"],
+  "success_rate": {"backend": "100% (3/3 pytest)", "frontend": "100% for Analyst Narrative Panel testids and content; AttackChainView chain-node testids not reachable via UI for this case (no InvestigationDetail record exists)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used existing case abe701b3-a3b5-4092-8dc8-ef98ec95af40.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preview ingress is intermittently slow (login can take 8-36s) and drops with 502 under xdist parallel workers. Run this suite with `-n 0` to serialise: `cd /app/backend && export REACT_APP_BACKEND_URL=https://greeting-app-5782.preview.emergentagent.com && python -m pytest tests/test_narrative_enrichment.py -v -n 0`. To exercise the UI Analyst Narrative Panel: login → Workspace (/) → 💾 CASES → search 'Same' → click data-testid='btn-case-open-abe701b3-a3b5-4092-8dc8-ef98ec95af40' → wait 10-15s → all narrative-* testids present. Do NOT try the /history route — that endpoint (/api/history) is a separate collection from /api/cases (workspace_cases) and does not contain this case.",
+  "rca of the issue": "Two overlapping issues resolved by this iteration's fix + this iteration's testing: (1) Backend narrative enrichment code was not populating executive_summary/recommended_actions/attack_progression/overall_assessment/behavior_summary + chain.steps + lolbas details for URL-only investigations — FIXED by canonical_narrative_enrichment.enrich_narrative + synth_chain_steps_from_progression + canonical_bridge.augment_investigation_results + backfill_narrative_enrichment.py migration (verified: 3/3 backend pytest PASS, 5 MITRE techniques mapped, 3 tactic groups). (2) User confusion: the review spec instructs to open the case via 'History page → Restore', but /history reads /api/history not /api/cases — the case never actually restored, which is what left the Workspace 'mostly empty'. Correct restore path is Workspace → 💾 CASES drawer → OPEN. When restored via that path, the Analyst Narrative Panel renders fully with 5 MITRE IDs, 10 recommended actions, 3 attack-progression stages, and no React 'Objects not valid as child' errors."
+}

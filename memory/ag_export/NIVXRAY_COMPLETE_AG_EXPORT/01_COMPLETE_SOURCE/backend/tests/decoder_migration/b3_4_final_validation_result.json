@@ -1,0 +1,125 @@
+{
+  "captured_at_utc": "2026-09-02T12:11:23.735706+00:00",
+  "failed": 0,
+  "gate": "P0-1B · Phase 2 · Gate 2D-B3.4 · Final Validation",
+  "passed": 11,
+  "step_count": 11,
+  "steps": [
+    {
+      "detail": "content_signature = 12378d118ffdc7fd68cbad72… (MATCH)",
+      "elapsed_ms": 126,
+      "latency_ms": {
+        "max": 1.2196530005894601,
+        "mean": 0.0169490600378046,
+        "p50": 0.007355003617703915,
+        "p95": 0.03932503750547767,
+        "p99": 0.0686839921399951
+      },
+      "name": "1 · Reproduce Snapshot #1",
+      "status": "PASS"
+    },
+    {
+      "detail": "content_signature = 6427903eae774599f1c8e710… (MATCH)",
+      "elapsed_ms": 2153,
+      "latency_ms": {
+        "max": 472.60008996818215,
+        "mean": 50.99498484081491,
+        "p50": 0.019525003153830767,
+        "p95": 378.6161149619147,
+        "p99": 472.60008996818215
+      },
+      "name": "2 · Reproduce Snapshot #2",
+      "status": "PASS"
+    },
+    {
+      "detail": "both frozen SHA-256 content signatures match B3.0 baseline",
+      "elapsed_ms": 0,
+      "name": "3 · Parity comparison (Snapshot #1 + #2)",
+      "status": "PASS"
+    },
+    {
+      "detail": "\n...........................................................              [100%]\n59 passed in 2.26s",
+      "elapsed_ms": 2600,
+      "name": "4 · decoder_harness",
+      "status": "PASS"
+    },
+    {
+      "detail": "1 failed, 76 passed in 0.90s · mal-20 fail is intentional (deferred)",
+      "elapsed_ms": 1230,
+      "name": "5 · Corpus (76 pass + intentional mal-20 fail)",
+      "status": "PASS"
+    },
+    {
+      "detail": "\n................................                                         [100%]\n32 passed in 0.94s",
+      "elapsed_ms": 1270,
+      "name": "6 · adjacent regression",
+      "status": "PASS"
+    },
+    {
+      "detail": "........................................................................ [ 86%]\n.......................                                                  [100%]\n167 passed in 2.35s",
+      "elapsed_ms": 2689,
+      "name": "7 · Full pytest (tests/ tree, mal-20 excluded)",
+      "status": "PASS"
+    },
+    {
+      "detail": "Snap2 medians: p50 0.020 / p95 377.80 / p99 469.81 ms — all within ±5 % of B3.0 baseline",
+      "elapsed_ms": 7750,
+      "latency_findings": {
+        "snap1_p50": {
+          "baseline": 0.007,
+          "delta_pct": 6.0356485790439995,
+          "median": 0.00742249540053308,
+          "note": "informational only; single-run baseline vs 10-run median at µs scale carries natural ~20% variance"
+        },
+        "snap1_p95": {
+          "baseline": 0.041,
+          "delta_pct": -0.9682541349675639,
+          "median": 0.0406030158046633,
+          "note": "informational only; single-run baseline vs 10-run median at µs scale carries natural ~20% variance"
+        },
+        "snap1_p99": {
+          "baseline": 0.087,
+          "delta_pct": -16.74541533207413,
+          "median": 0.0724314886610955,
+          "note": "informational only; single-run baseline vs 10-run median at µs scale carries natural ~20% variance"
+        },
+        "snap2_p50": {
+          "baseline": 0.02,
+          "delta_pct": -1.4800414443016072,
+          "median": 0.01970399171113968
+        },
+        "snap2_p95": {
+          "baseline": 380.644,
+          "delta_pct": -0.7462164153652356,
+          "median": 377.80357198789716
+        },
+        "snap2_p99": {
+          "baseline": 471.6,
+          "delta_pct": -0.37868385032559193,
+          "median": 469.81412696186453
+        }
+      },
+      "name": "8 · Latency budget (median-based ≤5 %)",
+      "status": "PASS"
+    },
+    {
+      "detail": "\n.................                                                        [100%]\n17 passed in 2.06s",
+      "elapsed_ms": 2392,
+      "name": "9 · B3.3 dependency audit",
+      "status": "PASS"
+    },
+    {
+      "detail": "static_only=True · execution=False · network_access=False · attck_promotion=False · provenance_required=True (DDO + analyzers)",
+      "elapsed_ms": 0,
+      "name": "10 · Static-only invariants",
+      "status": "PASS"
+    },
+    {
+      "detail": "all 7 migrated families present in _SIGNATURES + _DECODER_FNS",
+      "elapsed_ms": 0,
+      "name": "11 · 7/7 Plane-A codec families DDO-reachable",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

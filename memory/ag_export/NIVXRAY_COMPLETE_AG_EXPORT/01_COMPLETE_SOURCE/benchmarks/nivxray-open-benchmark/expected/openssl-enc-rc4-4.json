@@ -1,0 +1,22 @@
+{
+  "id": "openssl-enc-rc4-4",
+  "algorithm": "OpenSSL:RC4",
+  "key_status": "inline-static",
+  "recoverable_stages": [
+    "openssl-cli-parse"
+  ],
+  "runtime_stages": [
+    "rc4-decrypt"
+  ],
+  "expected_verdict": "suspicious",
+  "expected_iocs": [],
+  "expected_lolbins": [
+    "openssl.exe",
+    "openssl"
+  ],
+  "expected_mitre": [
+    "T1027",
+    "T1140"
+  ],
+  "static_recovery_verdict": "static-recovery-complete \u00b7 runtime-decryption-required"
+}

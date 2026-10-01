@@ -1,0 +1,1801 @@
+{
+  "category": "07_EDR",
+  "title": "NivXForge EDR Target Architecture, 37-Surface IA & Operational Prototype",
+  "description": "Complete operational blueprint, industry benchmark, UI/UX parity matrix, and Emergent handoff package for NivXForge EDR.",
+  "file_count": 199,
+  "total_bytes": 2366175,
+  "total_lines": 45998,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/edrApi.js",
+      "size_bytes": 1058,
+      "sha256": "340051240f7d37bcdc5af7f2806bf24fe7426c66727a5cae9d45313936dad163",
+      "lines_of_code": 29,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/nivxforge.css",
+      "size_bytes": 8776,
+      "sha256": "36d43af79a237143b1b62fb486867ed55b813841ac8a21630a77540b089e3364",
+      "lines_of_code": 200,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "other",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/NivXForgeConsole.jsx",
+      "size_bytes": 6233,
+      "sha256": "131b58de804d09f05b9aac599a605862a27f9e0ef189355678e66da271c4a398",
+      "lines_of_code": 153,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/pages/EdrDetectionsPage.jsx",
+      "size_bytes": 6945,
+      "sha256": "4daf315659c872477335b790ac93b5561b7eeeda7861cf9455e4ddd4aea22bb7",
+      "lines_of_code": 170,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/pages/EdrOverviewPage.jsx",
+      "size_bytes": 5187,
+      "sha256": "106e4f049a6d9bed01091d971ecbe253012a08629a8330a08effc2f2e7fa2361",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/pages/EdrProcessTreePage.jsx",
+      "size_bytes": 7306,
+      "sha256": "fed07f290d8be4e77c2526e240add7386d6a6b2a1af0d4ae93493179f53159ad",
+      "lines_of_code": 197,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/nivxforge/pages/EdrReservedPages.jsx",
+      "size_bytes": 2500,
+      "sha256": "917ae7ce895a8f7917bc576f6ff689695e2ab7f3c6fb65405b0e749bbfdac658",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/apps/nivxray-xdr/src/xdr/respond/AnalystResponseDrawer.jsx",
+      "size_bytes": 16358,
+      "sha256": "c7e798aa193ab7c247145c07155dc66bf143257c96cd3c2f1bf277943639cf12",
+      "lines_of_code": 391,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/detection_content/xdr_edr_adapter.py",
+      "size_bytes": 5187,
+      "sha256": "fdb89993fc228b4ec7f6a07bd9d384ead66e1dcbe372faa44f15e7c76d8b404a",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/config.py",
+      "size_bytes": 988,
+      "sha256": "45dde18bd22dd971ddb6334419d7b83f3d173179fb6d995ab7c5c87cdcdae6a8",
+      "lines_of_code": 33,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/README.md",
+      "size_bytes": 1795,
+      "sha256": "27b2cd32dc15e6e9619c15317d86d6ad6fd4f8203540807b1524bdcc08ffa6fe",
+      "lines_of_code": 52,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/router.py",
+      "size_bytes": 1051,
+      "sha256": "3622572cd8c8c27487259ccde583a7e8599aa9096f623dc95a2bd8f8e4f7f99a",
+      "lines_of_code": 34,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/__init__.py",
+      "size_bytes": 1030,
+      "sha256": "122a50ee1a7df8ec74bc1e0dbac681c42f456d3cdc5cf31744a2318830b491eb",
+      "lines_of_code": 23,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/attribution/mitre_shape.py",
+      "size_bytes": 3820,
+      "sha256": "bd0397531324f315964e3b0a4662ac43dcd61fc298960047f8f4c77d1ffb64a2",
+      "lines_of_code": 97,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/attribution/__init__.py",
+      "size_bytes": 70,
+      "sha256": "645b9163f46876b65b2d179ffdb99ea647a19aff73bf4e2be65aabf5a377cf4a",
+      "lines_of_code": 1,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/compose.py",
+      "size_bytes": 16898,
+      "sha256": "bbf40d2c55d998b4bcd93c63e9a2b962f87decdf1af1825d26cdebe996e2f5f7",
+      "lines_of_code": 415,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/fact_substrate.py",
+      "size_bytes": 20859,
+      "sha256": "37e9a42f1d44530a471edda239f6a5ab8baecd44ac0ce71aa9245cab3e490b40",
+      "lines_of_code": 423,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/models.py",
+      "size_bytes": 9662,
+      "sha256": "040e708286618312a4e9d36526ca10aea1c6d6489e92ce7e4fc6967b9328fb73",
+      "lines_of_code": 243,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/unknowns.py",
+      "size_bytes": 5229,
+      "sha256": "bd7cde037c9a403fdbfc87a4218decea9ac22ec7c835a38fa83d712ac9264fe1",
+      "lines_of_code": 152,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/validators.py",
+      "size_bytes": 4832,
+      "sha256": "48c19ac1b4e4c3720b36a1f76866ea435eb315a996e4d788e7ce6baa726fd40e",
+      "lines_of_code": 118,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/cim/__init__.py",
+      "size_bytes": 868,
+      "sha256": "575c812d03eb250d0d7b5f454f85676c518f782f6740eb522271018acb05b640",
+      "lines_of_code": 43,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/core/cio.py",
+      "size_bytes": 3674,
+      "sha256": "7e069dc9a5cc9778cf8049a3462678eeadaa48431ccefd0ff33f4c28eddbfb0c",
+      "lines_of_code": 94,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/core/evidence.py",
+      "size_bytes": 2020,
+      "sha256": "43de0e9ab404ed5db2e8ed5eb511505694847f79938cbbd4d3174d0794e8a1ad",
+      "lines_of_code": 63,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/core/__init__.py",
+      "size_bytes": 308,
+      "sha256": "d4e99c9bc79be5ad74a464fe43879b97c1cc5da5bf03ff8528677d5164209ad9",
+      "lines_of_code": 7,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/engines/base.py",
+      "size_bytes": 1016,
+      "sha256": "f4a483d7ac0cfc988d18ae4a6cef6b1779a349e18ade85fdbd7a9fe6d5184869",
+      "lines_of_code": 34,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/engines/README.md",
+      "size_bytes": 461,
+      "sha256": "6e30b499f4d21d76cc6b33e253fb4bb884cde5a0418c5b20c48428b15012516b",
+      "lines_of_code": 12,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/engines/__init__.py",
+      "size_bytes": 133,
+      "sha256": "3a9982d794959ae65f4947704b3a24733002be9d68752ddda67d9c85fd2148bb",
+      "lines_of_code": 4,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/framework/classifier.py",
+      "size_bytes": 2166,
+      "sha256": "5eae840859630c5971710064e0bdedd5358619fed74514d1cfc3bce49b9ed160",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/framework/coverage.py",
+      "size_bytes": 2548,
+      "sha256": "89a78e7b045314c081cbd5007e28417ac35e4da1f6d455c920bcdbca4587289e",
+      "lines_of_code": 78,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/framework/protocol.py",
+      "size_bytes": 2028,
+      "sha256": "9bfbc41d2517430776e178eeb0ad3be038f78c57003ab6984e816eebbdf8ffa5",
+      "lines_of_code": 57,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/framework/registry.py",
+      "size_bytes": 1309,
+      "sha256": "dd354d7eef218be6aa37415f07d72a89b2a94aa5e392c79a4435f867ccb0bd77",
+      "lines_of_code": 45,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/framework/__init__.py",
+      "size_bytes": 581,
+      "sha256": "ee57b310ef4b6af71520c13f87e13c87e328fbf26b3863d83f440db5d474c778",
+      "lines_of_code": 15,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/analyst_narrative.py",
+      "size_bytes": 33349,
+      "sha256": "f026d97ad34e48d29e22a501730872f67605118a7f71e12be814e0f7d18c9cb4",
+      "lines_of_code": 795,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/artifact_discovery.py",
+      "size_bytes": 11871,
+      "sha256": "035fd86f3bdddec5f8646a5c6515e4cc1f48aa131fd7e8784cda2fd887431103",
+      "lines_of_code": 285,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/builder.py",
+      "size_bytes": 21660,
+      "sha256": "553971553d4cad192a4e865cbbd40c1391737374d5c5f6f83ee51cf53323531a",
+      "lines_of_code": 560,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/cem.py",
+      "size_bytes": 8221,
+      "sha256": "8307656d50a9a70678783765f1cdddba2afdd2d6d37630e2c498ea2794e09f7c",
+      "lines_of_code": 248,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/correlation_signals.py",
+      "size_bytes": 6840,
+      "sha256": "4164c8f2a90cf006c9a67adc8e432b2c4d14a567003dbabcf8e8ae30e8066472",
+      "lines_of_code": 187,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/customer_report.py",
+      "size_bytes": 30880,
+      "sha256": "71ee5d326c8377c8f0a0d1522e9262f7ffea93073d613299e1986851cd10eba7",
+      "lines_of_code": 749,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/evidence_classes.py",
+      "size_bytes": 11411,
+      "sha256": "47848eb822c152a4d2f39f2b58780230bbee24a19e9e0c7fd6ed5d095eeb2882",
+      "lines_of_code": 248,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/evidence_priority.py",
+      "size_bytes": 3407,
+      "sha256": "1bc80b6211b96652b3878c36ca32bb0b74cd30e0e598799c0edcd0a23fb1bf6b",
+      "lines_of_code": 83,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/graph.py",
+      "size_bytes": 5754,
+      "sha256": "e4876106c23f1d1623a0d47ea56592a3a146c178a6cb1a1550b3ca49b23eb325",
+      "lines_of_code": 119,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/incident_narrative_override.py",
+      "size_bytes": 3781,
+      "sha256": "ceef189cf330330d79fa29656f683059c33d8c4c6d8785fd130d9be780cbf2e9",
+      "lines_of_code": 112,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/ingress_gate.py",
+      "size_bytes": 8950,
+      "sha256": "25feb365d6c02c1e7a7ec55db02b724b7b3912a7c281343fdd563dd89b940ab9",
+      "lines_of_code": 208,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/input_understanding.py",
+      "size_bytes": 12133,
+      "sha256": "55e8ae27cef280afa2fcbbc860274b6e870bac8fa092c083c6bf2d45886a5cb4",
+      "lines_of_code": 291,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/ioc_classifier.py",
+      "size_bytes": 6689,
+      "sha256": "d229af858e8ad1ae3e171e630a72d2cc71807b0b27dbd2ed132243065403f36c",
+      "lines_of_code": 214,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/models.py",
+      "size_bytes": 5991,
+      "sha256": "b940586d8dfea327d91aacf10799e733b006ebd80b862d00aedde94e15436465",
+      "lines_of_code": 115,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/narrative_lexicon_gate.py",
+      "size_bytes": 7406,
+      "sha256": "cbca76cefb7a3aab4a8c126107c6a49bbf5d571c5007cddfd976bec4258053a8",
+      "lines_of_code": 178,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/osint_enricher.py",
+      "size_bytes": 19589,
+      "sha256": "218c167b72d8e790d87e412c02d98450eb41e65b1344a088b94116c65f99cf72",
+      "lines_of_code": 491,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/recursive.py",
+      "size_bytes": 17279,
+      "sha256": "89ef5ab023068ffcbb7e0627a3b8dbe494b2a1c5596e36ba05a4b7424853b9b4",
+      "lines_of_code": 455,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/report_critic.py",
+      "size_bytes": 12286,
+      "sha256": "2eac6e9118384b3fa7e621eaa0e829315ef8ce7e965f4c9be340a60cb195c51b",
+      "lines_of_code": 325,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/report_validator.py",
+      "size_bytes": 10211,
+      "sha256": "437140a2259f555c4063892303ded089988681957735af1cadecbb59f72826e3",
+      "lines_of_code": 256,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/summary_composer.py",
+      "size_bytes": 38676,
+      "sha256": "f800a2f2e45ebdf2dded522dca4273c1dd8db503bae23d6c9c40c000768bce44",
+      "lines_of_code": 951,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/topology_signals.py",
+      "size_bytes": 9668,
+      "sha256": "24576be26c64eb95370195b19e47f5393926116800e624f739089af5e72205ec",
+      "lines_of_code": 262,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/truth_model.py",
+      "size_bytes": 23483,
+      "sha256": "881dc3d027f752cdd6b1fc787205a2cddd91b88bd3ecefe08c99b4d3fc0c3631",
+      "lines_of_code": 535,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/universal_investigation_engine.py",
+      "size_bytes": 1043,
+      "sha256": "65768eb71956539f944500c3637d82675668b71fa7139ca846e8678e8e53dc53",
+      "lines_of_code": 32,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/validators.py",
+      "size_bytes": 7957,
+      "sha256": "d7b182e06a97622ca3323c51e0889e70b726dbc95ca5254bcd34b2837cb9a52a",
+      "lines_of_code": 207,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/verdict_engine.py",
+      "size_bytes": 44778,
+      "sha256": "f9fca4fd6f49ef5ac38b520b129619a061720effe803a6a37606dc9d094167f6",
+      "lines_of_code": 1033,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/__init__.py",
+      "size_bytes": 1318,
+      "sha256": "3760c8b0ec637515a8a152a72d6baadcdd5e9a63386afb088a42475184c55e39",
+      "lines_of_code": 48,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/artifact_discovery.py",
+      "size_bytes": 3876,
+      "sha256": "4eac5d721f84c41bf11026ced7f8c1bf9f2bae94ec8ec7d5099e364ae2b847ef",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/attack_chain_builder.py",
+      "size_bytes": 20724,
+      "sha256": "65b4f0ea0db8d189e731b65d6c19d3ffe63814d695487228b8f10ed76f4ecc9d",
+      "lines_of_code": 518,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/cem_parity.py",
+      "size_bytes": 20218,
+      "sha256": "91a9878b6dcd756cc864e03c41ff31bc8f98e0454657dbcae2e4ec5c716b1bbe",
+      "lines_of_code": 505,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/composite_extractor.py",
+      "size_bytes": 5939,
+      "sha256": "163ebd56c4cacc0f1676a16d0f002ee5eef8b8ebad2b86980cb959d6c4debacb",
+      "lines_of_code": 173,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/contract_check.py",
+      "size_bytes": 7736,
+      "sha256": "bd368a5d4924aff062f870ec848f1eaf83d17dd69071b5058b672a6bbfca498c",
+      "lines_of_code": 238,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/correlation_engine.py",
+      "size_bytes": 14035,
+      "sha256": "3844830c551422abb06cb55ff97b5720953801530421abc1f1a09ed93f7ae4dd",
+      "lines_of_code": 378,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/entity_resolution.py",
+      "size_bytes": 14019,
+      "sha256": "2d09275a61ae50cf74be968a64f683b4e39628c85f59ad514ef7d325211d3bc5",
+      "lines_of_code": 365,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/evidence_extraction.py",
+      "size_bytes": 8683,
+      "sha256": "743f8df008cf33b89efa1dfc8cea15dba321dbfaafaae1907622a5f169a2425f",
+      "lines_of_code": 216,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/evidence_validation.py",
+      "size_bytes": 6160,
+      "sha256": "170e38d5ca963ad15bf40862e5596040d3e82e8c2fb164dfecc0e66d59841461",
+      "lines_of_code": 165,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/graph_builder.py",
+      "size_bytes": 13728,
+      "sha256": "c5c2b652555940465679e73e86c3cd1a17e3c101968307202dfa856726600b5a",
+      "lines_of_code": 352,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/graph_visualise.py",
+      "size_bytes": 8193,
+      "sha256": "f0e570eaa3a49b992760780eb67460f51150d056015a137e6e0f3e58c0692a0e",
+      "lines_of_code": 222,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/identity_parser.py",
+      "size_bytes": 6320,
+      "sha256": "7351649d569b5cefe187d6c54144d75230bb07b32809aa27c6d06dc9959704d5",
+      "lines_of_code": 201,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/input_classification.py",
+      "size_bytes": 4358,
+      "sha256": "b486ec081f558e5ef07770778b21146ad12f3c28d42d578dbcfa0b9450f20906",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/narrative_engine.py",
+      "size_bytes": 23447,
+      "sha256": "8f4c9e8c7e0cbbf8b379436c6799c83d98e53c6914894c21a1cab78fbfc3fb29",
+      "lines_of_code": 656,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/orchestrator.py",
+      "size_bytes": 5125,
+      "sha256": "ff3601b2b3e1b871f38ffe2918d19fd2e59a6c73d3072dccfca981c0fdbdc9bd",
+      "lines_of_code": 137,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/parity_trend.py",
+      "size_bytes": 5999,
+      "sha256": "fff45b8535443005167c251339a2099ed75b25f7d921ce6c614f8700afe0c62f",
+      "lines_of_code": 180,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/parser.py",
+      "size_bytes": 7116,
+      "sha256": "0fd92b5431d1cc90f8398e5c80f3a549c80c7ba11c9da738cbbbfc58e183cb1b",
+      "lines_of_code": 190,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/recursion_safety.py",
+      "size_bytes": 15323,
+      "sha256": "97c3d2b2621b157ad201336ef26653d064bf23f8ad665146ed56eb00c4b5d5de",
+      "lines_of_code": 419,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/recursive_decoder.py",
+      "size_bytes": 4308,
+      "sha256": "649325b8abc4a1313b9c2aef0ec03cb11a5345ee660a6b15b497ba5df4ef9dfb",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/schema_understanding.py",
+      "size_bytes": 24364,
+      "sha256": "613bfc4cd2f4b12a5532c55e2da94e71dc68ab4b76ce7e11c42da997b90b19a0",
+      "lines_of_code": 633,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/semantic_alias_registry.py",
+      "size_bytes": 12532,
+      "sha256": "1c547011b030c57e0ddd7acd23279ab4aa1cfd5b395ac62b57784389781167c7",
+      "lines_of_code": 422,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/semantic_cem_builder.py",
+      "size_bytes": 11696,
+      "sha256": "24afb251e976bce115082b902a8dde1e8b457d81a4552d4bbfbf2ee4a817d040",
+      "lines_of_code": 334,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/semantic_field_mapper.py",
+      "size_bytes": 24411,
+      "sha256": "b5dfe1967b324739ccea6a601092c4bf95d647f94b7ac96abf8b9920949f401e",
+      "lines_of_code": 644,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/timeline_builder.py",
+      "size_bytes": 20506,
+      "sha256": "0ac4f697dced9c75cd7569ae4bb340896220e85f7cfe53ecc516d020e142a488",
+      "lines_of_code": 528,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/value_shape.py",
+      "size_bytes": 20975,
+      "sha256": "b8692aea5e1aa5c2b5589f912578bb1f34db85765751f2637d6f0830cfe635bf",
+      "lines_of_code": 475,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/vendor_detection.py",
+      "size_bytes": 9501,
+      "sha256": "8cccf5ceba0c193a5f40a6a34a32bb678711f8d62ac30c909de1ed947490ab5e",
+      "lines_of_code": 259,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/__init__.py",
+      "size_bytes": 475,
+      "sha256": "a4174215894b8ea3e566cd48238ef1e048e1b68329b5c853920892a13a968f96",
+      "lines_of_code": 11,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/base.py",
+      "size_bytes": 3161,
+      "sha256": "37a4a29e60a6ebd5595fffa63b46b4aabcbb33c661644a96658fcd4cd88dc8e5",
+      "lines_of_code": 106,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/cisco_secure_endpoint.py",
+      "size_bytes": 14860,
+      "sha256": "2804bbcbda2545c5ad2855bde3659079b9810de11062a46fd1e0c3b4b7691ae8",
+      "lines_of_code": 392,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/generic.py",
+      "size_bytes": 2942,
+      "sha256": "6c2b1fbdd96419dea19297f2089c5f27642f8c7869cc40b5bbced4d674d24a96",
+      "lines_of_code": 91,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/microsoft_defender.py",
+      "size_bytes": 8909,
+      "sha256": "eadf0bae9be02f03969123cfdd72dc45f69972221bb2ff10b39f26c63a2fff4a",
+      "lines_of_code": 260,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/router.py",
+      "size_bytes": 1109,
+      "sha256": "892fef4f6524dbd293fe9ecebf7814c771437293a56031e8fda707adb85d1d1a",
+      "lines_of_code": 35,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/sysmon.py",
+      "size_bytes": 6776,
+      "sha256": "8e78a2f51414ba6c2b43c1033832a437a9fdf72934d3d5459f2aebbcc0b1d50a",
+      "lines_of_code": 209,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/investigation/pipeline/normalizers/__init__.py",
+      "size_bytes": 582,
+      "sha256": "7fd4f3aecab374049aec45a41bd24027da59c2ce183734f75e657aa1c9c21ea6",
+      "lines_of_code": 19,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/learning/engine.py",
+      "size_bytes": 12853,
+      "sha256": "19c2f65bcf32aac3942995a1d8f1041390bdc857543479f00baddeb8f9017c2d",
+      "lines_of_code": 342,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/learning/__init__.py",
+      "size_bytes": 473,
+      "sha256": "0805c1f74aa29a0f8e0baa5b7961bde1bf6aa21c9dc4e9c3cfe3d98c6f1ad6ff",
+      "lines_of_code": 13,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/observability/logging.py",
+      "size_bytes": 740,
+      "sha256": "b2434035b123ede3a03d64cf33c75ad2c163419a237d2e25e126d786ef9fce3a",
+      "lines_of_code": 25,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/observability/__init__.py",
+      "size_bytes": 78,
+      "sha256": "d1e221d4193a43319b38b9cc0bc1fcfa458f19861031c188fe8c180078743510",
+      "lines_of_code": 1,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/preview/router.py",
+      "size_bytes": 8762,
+      "sha256": "71765bd3447ec3e5485ef45da6490c0408fc92ba57833d700b9dc55777ea2990",
+      "lines_of_code": 237,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/preview/__init__.py",
+      "size_bytes": 192,
+      "sha256": "cccac2104d9090a2928f21a7ea5a75c7eb3c6620ddfc68f0cd6d8be6455a4e40",
+      "lines_of_code": 5,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/schemas/cio.schema.v1.json",
+      "size_bytes": 9590,
+      "sha256": "7ec82d98812dbe99d9ce51d8f22ded7f06a1c0959f42e7c107850a82127afddb",
+      "lines_of_code": 368,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "configuration",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_cio.py",
+      "size_bytes": 9594,
+      "sha256": "4b5b8bda19b8f3a413ca391c3fa639bd2d844bcfe3377e6bc4cef5a553ab2dad",
+      "lines_of_code": 238,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_evidence_priority.py",
+      "size_bytes": 2656,
+      "sha256": "1bab5a6e5151770bd201caf708230d7324ecb928a0f142a5eb2dea21577cace9",
+      "lines_of_code": 72,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_graph.py",
+      "size_bytes": 2956,
+      "sha256": "48d1af8105c1c0d6faa500df18793e60384df608592ee0a7d236fd28c92a3adc",
+      "lines_of_code": 76,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_ingress_gate.py",
+      "size_bytes": 7353,
+      "sha256": "d69661b877f08a5ea4e856ba4fde59b23e3977deffc3a0f0703d4e28d617e1f5",
+      "lines_of_code": 176,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_ioc_classifier.py",
+      "size_bytes": 3926,
+      "sha256": "42dbe28b94116c1fbadae550c4f4c81b089da2944433cad9cd7d14a3e0bad2d3",
+      "lines_of_code": 110,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_reasoning_steps.py",
+      "size_bytes": 7231,
+      "sha256": "ae62caf6180755b9e6544ec9a58c19b24d31bb67e43b848db0623fb7f75be673",
+      "lines_of_code": 181,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_summary_composer.py",
+      "size_bytes": 8065,
+      "sha256": "2f507f887c5397ece2fa2fb723c57ebf46702b6c9d07cff93521c97059c63f95",
+      "lines_of_code": 218,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_adr0014_verdict_engine.py",
+      "size_bytes": 4943,
+      "sha256": "587f2c0a94f0dc6c18a38cdb312c3fbc11605c9699130dc8cb10aefa4375dea5",
+      "lines_of_code": 131,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_cio.py",
+      "size_bytes": 1518,
+      "sha256": "73e0ea45dd0d13af3580eee9974c68f01c2d4366673233e43ecefa8fe8e4ca1e",
+      "lines_of_code": 52,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_engine_interface.py",
+      "size_bytes": 963,
+      "sha256": "f7d2bdac084418715e38f658648e797990b87142b5a2ff7170bdb13bdde39b56",
+      "lines_of_code": 36,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_evidence.py",
+      "size_bytes": 1494,
+      "sha256": "1453ab8a70008f5e93ecef11e67ed641ab8da202ce679a99405a61fd8f9bab12",
+      "lines_of_code": 60,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_framework.py",
+      "size_bytes": 4973,
+      "sha256": "b538995e12fc0502a20293fddc21fdbeb9836ae46cda454454bf5f8fd4f257c3",
+      "lines_of_code": 130,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_mitre_shape.py",
+      "size_bytes": 3492,
+      "sha256": "96356a4137f4678d960d315d27c6633eedb530c4d1bcac5bf2b4b71d03e68d82",
+      "lines_of_code": 76,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_parity_endpoints.py",
+      "size_bytes": 4157,
+      "sha256": "2f2dafe98437511540c729682ac91f4caa579813e516f55498c1e7090a346207",
+      "lines_of_code": 94,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_preview_endpoints.py",
+      "size_bytes": 4551,
+      "sha256": "a95607d4d702fe020d944ee6e99ca4bf5a8a9b2eaf8821ad844e3661e6b2e1b8",
+      "lines_of_code": 125,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_router_prefix.py",
+      "size_bytes": 923,
+      "sha256": "101de0516278a00b330c337bd886427b64506d37cf085aec04f056a14197c430",
+      "lines_of_code": 25,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_workspace_compatibility.py",
+      "size_bytes": 4797,
+      "sha256": "de244d8d685c8d0b889bbc27d39d976bf31c9ad93f4df09a2edcfafd7d1e8514",
+      "lines_of_code": 113,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/test_workspace_isolation.py",
+      "size_bytes": 3138,
+      "sha256": "4c447fb29aca13be1fb496385d363d3b87d9770d52ba72fdb63d81a76fec7b74",
+      "lines_of_code": 104,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/nivxforge/tests/__init__.py",
+      "size_bytes": 348,
+      "sha256": "2a6eb4e46e82ddd08c878762da3bb6ea4500eb71f92176476fdac90a203e2ba6",
+      "lines_of_code": 10,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/routers/edr.py",
+      "size_bytes": 18475,
+      "sha256": "7fbe3d41255fc36f15b79da33bc5a90005cef1d426acc811ebd46c9bc028c47e",
+      "lines_of_code": 434,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/die/csv_edr_analyzer.py",
+      "size_bytes": 15979,
+      "sha256": "253f66c78b1eea6ff9d07eb66832c92ef3c66dda977429545cb840dfa1cbf04d",
+      "lines_of_code": 374,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_csv_edr_investigation.py",
+      "size_bytes": 6369,
+      "sha256": "078f37eaba35a010af463eea89ed4deec4a736292036b8f6b4de08ca7b53468e",
+      "lines_of_code": 157,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_xdr_round24_edr_adapter.py",
+      "size_bytes": 8809,
+      "sha256": "72708684858c326e8ca655214f5b29c0cfa926d67e82c5c6189e7830fd5ccc38",
+      "lines_of_code": 224,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_xdr_round27_golden_byoedr.py",
+      "size_bytes": 12926,
+      "sha256": "beecfbe911d9101746ec0c073a4bba8c0be8409a1199910690f831d470117568",
+      "lines_of_code": 330,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/canonical/edr/test_edr_projections.py",
+      "size_bytes": 5378,
+      "sha256": "6e3681fb0202b74ce1d2cf04c0b683962bf2443f5a174ea40fce7673123ae333",
+      "lines_of_code": 128,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/NIVXFORGE_EDR_EMERGENT_HANDOFF_PACKAGE.zip",
+      "size_bytes": 160063,
+      "sha256": "80fa675dc4e04e3a999c00480be4048c8e726870b75d586299961fb7a2d7e756",
+      "lines_of_code": 0,
+      "last_modified": "2026-09-05 10:15:50",
+      "classification": "archive",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/NIVXFORGE_EDR_EMERGENT_HANDOFF_PACKAGE_REPORT.md",
+      "size_bytes": 5560,
+      "sha256": "4d6b3827d3efad222430b6782cdf968655ed528f9f0844c587464ae8358e0d5f",
+      "lines_of_code": 114,
+      "last_modified": "2026-09-05 10:16:19",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/00_README/EMERGENT_HANDOFF_README.md",
+      "size_bytes": 11099,
+      "sha256": "0b2587191d67a2e71b359a1f9455f58ce2cce20efc921c32880a6db33d30f55f",
+      "lines_of_code": 166,
+      "last_modified": "2026-09-05 10:14:08",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/00_README/HANDOFF_MANIFEST.md",
+      "size_bytes": 9229,
+      "sha256": "14a3b0df176019ebfb21b59121adcb4cdb25a1561f57888ff4268e95b922c3d7",
+      "lines_of_code": 49,
+      "last_modified": "2026-09-05 10:15:35",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/00_README/SHA256SUMS.txt",
+      "size_bytes": 2936,
+      "sha256": "4bfa5729c76e260e60ff24580d763fccd7b142a2285affd60012c6b907bc546b",
+      "lines_of_code": 24,
+      "last_modified": "2026-09-05 10:15:35",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/NIVXRAY_CURRENT_STATE.json",
+      "size_bytes": 22465,
+      "sha256": "295d1e7003e775b24c229f3fd87c586011e9ccc69872f07f6f6bc56bf2dcec32",
+      "lines_of_code": 459,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "configuration",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/NIVXRAY_CURRENT_STATE_TRUTH.md",
+      "size_bytes": 50970,
+      "sha256": "061fd851f954f84c22f3e30b486e8222eac64f81f4dad7855961ece6439403dc",
+      "lines_of_code": 442,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/01_TRUTH_CONTRACT/README.md",
+      "size_bytes": 1505,
+      "sha256": "9a73864637b0894dc184523f3a264166a38f0f3030306813a1cecb73cc9e24d4",
+      "lines_of_code": 34,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/02_EDR_TRUTH/NIVXFORGE_EDR_TRUTH_AUDIT.md",
+      "size_bytes": 39647,
+      "sha256": "60e7d1186bba61558721d2b87cd159929b4a4a5e1906ec33c7cedf2b0fdfd84d",
+      "lines_of_code": 482,
+      "last_modified": "2026-09-05 00:20:15",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/03_EDR_ARCHITECTURE/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/03_EDR_ARCHITECTURE/NIVXFORGE_EDR_TARGET_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md",
+      "size_bytes": 37535,
+      "sha256": "6a5d5e1eede259730394e33de83bdca1d5add9bc2fda35e61e03745667786de1",
+      "lines_of_code": 474,
+      "last_modified": "2026-09-05 00:23:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_ATTACK_CHAIN_UX_MATRIX.md",
+      "size_bytes": 14242,
+      "sha256": "71ac58606214a21184b97ae56f9fdac1ac3ed40966bb9d4238c9421b7dc612d2",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-05 09:45:54",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_EXHAUSTIVE_UIUX_PARITY_MATRIX.md",
+      "size_bytes": 15007,
+      "sha256": "673728abe5ea1a1789e9d99f41e3f4555fee892050f9db8f0d569762b27d11d7",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:45:12",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_ATTACK_CHAIN_IMPLEMENTATION_MAP.md",
+      "size_bytes": 8386,
+      "sha256": "4b6a874f48d7fcbdcc5c8389f0063907f1bcfb46eeec08bb9f29d9d41dfc95a0",
+      "lines_of_code": 132,
+      "last_modified": "2026-09-05 09:52:41",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_CANONICAL_EVIDENCE_CONTRACT.md",
+      "size_bytes": 8422,
+      "sha256": "72f79e44b839268cbd4eaae5eb690a8d37c1f8a41a7de2c97298f82848350cac",
+      "lines_of_code": 227,
+      "last_modified": "2026-09-05 09:52:15",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_CODE_CAPABILITY_MAP.md",
+      "size_bytes": 8740,
+      "sha256": "6f9f3e0bffe6011481e785500ec01bdf80d9ed75fddb6308acea3d526bcdce1a",
+      "lines_of_code": 51,
+      "last_modified": "2026-09-05 09:51:52",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_EMERGENT_HANDOFF.md",
+      "size_bytes": 18560,
+      "sha256": "9715dacd30c456b1546937cc12d171fda1ad59333dc095a735d8eb3938c3f61a",
+      "lines_of_code": 307,
+      "last_modified": "2026-09-05 09:51:39",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_INTEGRATION_CONTRACT.md",
+      "size_bytes": 13689,
+      "sha256": "b8fa17d724dce307e727ad80e629c5ccf7c94bca60241459896823bc592c75c8",
+      "lines_of_code": 220,
+      "last_modified": "2026-09-05 09:52:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_RESPONSE_INTEGRATION_CONTRACT.md",
+      "size_bytes": 6644,
+      "sha256": "1906ee332afb726a42502361f380daaf02a97e3237e628b6b9bef1b4f0472f20",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-05 09:53:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_SECURITY_TENANCY_CONTRACT.md",
+      "size_bytes": 6862,
+      "sha256": "9949fad71fe816077ff0a4f1603ad024c4bf191e2acfd5e30e9d1dc0cb60ce90",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-05 09:52:55",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/05_INTEGRATION_CONTRACTS/NIVXFORGE_EDR_UI_INTEGRATION_MAP.md",
+      "size_bytes": 11065,
+      "sha256": "44034a788b050d3bf010cc93ef0c68ac779dadc9f5f23b88baab9accb42dd2c0",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-05 09:52:30",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/06_IMPLEMENTATION/NIVXFORGE_EDR_ACCEPTANCE_TEST_PLAN.md",
+      "size_bytes": 6628,
+      "sha256": "9dbbc02fa2f12c2c27eaa4341391d4b5f1602917844ad840d56fb78390ed8c2c",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-05 09:53:27",
+      "classification": "test_documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/06_IMPLEMENTATION/NIVXFORGE_EDR_PHASE_BACKLOG.md",
+      "size_bytes": 8304,
+      "sha256": "097b11963da06e73fbdeebd720d7ccc824d19148ee403b8d2e3429333b639916",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:53:16",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/07_REFERENCE/HANDOFF_SCOPE_AND_BOUNDARIES.md",
+      "size_bytes": 8023,
+      "sha256": "9b9220264899d627a25e9a5560e759f06d44d0cd394ba4b188e1806be32f3629",
+      "lines_of_code": 82,
+      "last_modified": "2026-09-05 10:13:56",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_ACCEPTANCE_TEST_PLAN.md",
+      "size_bytes": 6628,
+      "sha256": "9dbbc02fa2f12c2c27eaa4341391d4b5f1602917844ad840d56fb78390ed8c2c",
+      "lines_of_code": 141,
+      "last_modified": "2026-09-05 09:53:27",
+      "classification": "test_documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_ATTACK_CHAIN_IMPLEMENTATION_MAP.md",
+      "size_bytes": 8386,
+      "sha256": "4b6a874f48d7fcbdcc5c8389f0063907f1bcfb46eeec08bb9f29d9d41dfc95a0",
+      "lines_of_code": 132,
+      "last_modified": "2026-09-05 09:52:41",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_CANONICAL_EVIDENCE_CONTRACT.md",
+      "size_bytes": 8422,
+      "sha256": "72f79e44b839268cbd4eaae5eb690a8d37c1f8a41a7de2c97298f82848350cac",
+      "lines_of_code": 227,
+      "last_modified": "2026-09-05 09:52:15",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_CODE_CAPABILITY_MAP.md",
+      "size_bytes": 8740,
+      "sha256": "6f9f3e0bffe6011481e785500ec01bdf80d9ed75fddb6308acea3d526bcdce1a",
+      "lines_of_code": 51,
+      "last_modified": "2026-09-05 09:51:52",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_EMERGENT_HANDOFF.md",
+      "size_bytes": 18560,
+      "sha256": "9715dacd30c456b1546937cc12d171fda1ad59333dc095a735d8eb3938c3f61a",
+      "lines_of_code": 307,
+      "last_modified": "2026-09-05 09:51:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_INTEGRATION_CONTRACT.md",
+      "size_bytes": 13689,
+      "sha256": "b8fa17d724dce307e727ad80e629c5ccf7c94bca60241459896823bc592c75c8",
+      "lines_of_code": 220,
+      "last_modified": "2026-09-05 09:52:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_PHASE_BACKLOG.md",
+      "size_bytes": 8304,
+      "sha256": "097b11963da06e73fbdeebd720d7ccc824d19148ee403b8d2e3429333b639916",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:53:16",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_RESPONSE_INTEGRATION_CONTRACT.md",
+      "size_bytes": 6644,
+      "sha256": "1906ee332afb726a42502361f380daaf02a97e3237e628b6b9bef1b4f0472f20",
+      "lines_of_code": 139,
+      "last_modified": "2026-09-05 09:53:04",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_SECURITY_TENANCY_CONTRACT.md",
+      "size_bytes": 6862,
+      "sha256": "9949fad71fe816077ff0a4f1603ad024c4bf191e2acfd5e30e9d1dc0cb60ce90",
+      "lines_of_code": 126,
+      "last_modified": "2026-09-05 09:52:55",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/handoff/NIVXFORGE_EDR_UI_INTEGRATION_MAP.md",
+      "size_bytes": 11065,
+      "sha256": "44034a788b050d3bf010cc93ef0c68ac779dadc9f5f23b88baab9accb42dd2c0",
+      "lines_of_code": 98,
+      "last_modified": "2026-09-05 09:52:30",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_ATTACK_CHAIN_UX_MATRIX.md",
+      "size_bytes": 14242,
+      "sha256": "71ac58606214a21184b97ae56f9fdac1ac3ed40966bb9d4238c9421b7dc612d2",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-05 09:45:54",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_EXHAUSTIVE_UIUX_PARITY_MATRIX.md",
+      "size_bytes": 15007,
+      "sha256": "673728abe5ea1a1789e9d99f41e3f4555fee892050f9db8f0d569762b27d11d7",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:45:12",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_TARGET_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md",
+      "size_bytes": 37535,
+      "sha256": "6a5d5e1eede259730394e33de83bdca1d5add9bc2fda35e61e03745667786de1",
+      "lines_of_code": 474,
+      "last_modified": "2026-09-05 00:23:39",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_TRUTH_AUDIT.md",
+      "size_bytes": 39647,
+      "sha256": "60e7d1186bba61558721d2b87cd159929b4a4a5e1906ec33c7cedf2b0fdfd84d",
+      "lines_of_code": 482,
+      "last_modified": "2026-09-05 00:20:15",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_ATTACK_CHAIN_UX_MATRIX.md",
+      "size_bytes": 14242,
+      "sha256": "71ac58606214a21184b97ae56f9fdac1ac3ed40966bb9d4238c9421b7dc612d2",
+      "lines_of_code": 146,
+      "last_modified": "2026-09-05 09:45:54",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_EXHAUSTIVE_UIUX_PARITY_MATRIX.md",
+      "size_bytes": 15007,
+      "sha256": "673728abe5ea1a1789e9d99f41e3f4555fee892050f9db8f0d569762b27d11d7",
+      "lines_of_code": 129,
+      "last_modified": "2026-09-05 09:45:12",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_INFORMATION_ARCHITECTURE.md",
+      "size_bytes": 28900,
+      "sha256": "14055e27975db07fc05e478ab2bc7d4c54933b049fa99cb8f309c80e02e63c99",
+      "lines_of_code": 375,
+      "last_modified": "2026-09-05 09:45:45",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/edr/ActivityDetails.jsx",
+      "size_bytes": 8520,
+      "sha256": "46c27664f0db8ad6d02d331301aff75be9075dc6d57528b36948b974050ad595",
+      "lines_of_code": 216,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/edr/EntityInventory.jsx",
+      "size_bytes": 5305,
+      "sha256": "b19f7f1537cee42d8eef4f07ff73c03064910d9206c03dc83245828bad4731f5",
+      "lines_of_code": 150,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/edr/TrajectoryCanvas.jsx",
+      "size_bytes": 9861,
+      "sha256": "e91ccc77552ccab941d05d7e9a683401098a3c455a318c59a5a4f19c48edc5f7",
+      "lines_of_code": 271,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/components/edr/VerdictExplainabilityCard.jsx",
+      "size_bytes": 5502,
+      "sha256": "41897f029ab062c8a54fcecb1916a31b54ce6be41a30a25ae500a9afae0e8e30",
+      "lines_of_code": 162,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/README.md",
+      "size_bytes": 330,
+      "sha256": "5d596f6ff2e6fd9a7eaa8dc31ecf39a9c83964b4d6c20a8ded074a505b3bb4ae",
+      "lines_of_code": 8,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/cim/CIMInvestigation.jsx",
+      "size_bytes": 13472,
+      "sha256": "fbf172da41e2f190ed5007e2b962db7f47bb68700d0e9722bd1a0471470c1eeb",
+      "lines_of_code": 381,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/cim/CIMSection.jsx",
+      "size_bytes": 1976,
+      "sha256": "0ecf3a65116d6af159e3be2711723dbf47b2f18db66bf72101deecc3327d9179",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/components/NivxForgeLayout.jsx",
+      "size_bytes": 793,
+      "sha256": "563d5ff7d5a28674ae96db0b9e11eaded25ede9da5ff5f0646335e5ec02cfdfc",
+      "lines_of_code": 28,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/components/NivxForgeSidebar.jsx",
+      "size_bytes": 5201,
+      "sha256": "cbda493df86cc230f25d1d18f96dde1acafd835ce66de517dae608399171171e",
+      "lines_of_code": 119,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/components/VerdictRibbon.jsx",
+      "size_bytes": 5546,
+      "sha256": "9cd2341288cf454fec522d8bfff9c274264fe97e507f64112af888c9968e2a30",
+      "lines_of_code": 163,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/components/VerdictRibbon.stories.jsx",
+      "size_bytes": 3447,
+      "sha256": "e8f2a1ccca9b3e47214147b31fa9b2bf86879fc6f69fdeda1426a986f80c64b7",
+      "lines_of_code": 117,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/design/tokens.css",
+      "size_bytes": 3881,
+      "sha256": "d3c617f67243350a69ae7b775d18001b96c3bd2995145d55ef0bbd8ceb0baad3",
+      "lines_of_code": 75,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "other",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/hooks/useCIO.jsx",
+      "size_bytes": 1863,
+      "sha256": "4359f71fa72115e3490e252b996e41ab2295936f50a554de6fb75f31ced40a78",
+      "lines_of_code": 66,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/pages/DashboardPage.jsx",
+      "size_bytes": 6574,
+      "sha256": "57345cfe1311fadf36bc6df5035388ed51fd5d8b42537e92956b019b3055935a",
+      "lines_of_code": 133,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/pages/InvestigatePage.jsx",
+      "size_bytes": 18448,
+      "sha256": "964cd749bb14f6a0022b32073266b352248f37d1d49dd15549442cf9d897384a",
+      "lines_of_code": 372,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/pages/PlaceholderPage.jsx",
+      "size_bytes": 3216,
+      "sha256": "3d986fed288d44e3eb465a2efd0337319c84cbc9cba18b99fa80df2379ad2824",
+      "lines_of_code": 73,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/pages/PlaceholderSections.jsx",
+      "size_bytes": 4049,
+      "sha256": "7591859a5a352457322b170b71b83b9eb88bd4e6d006ae268507d88b276a955e",
+      "lines_of_code": 99,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/pages/PreviewPage.jsx",
+      "size_bytes": 15185,
+      "sha256": "88abbb0fa5ab5c5807f68dbd4e6c693b6344d69e0e0627d79780e946dee895a1",
+      "lines_of_code": 272,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/types/cio.ext.ts",
+      "size_bytes": 2595,
+      "sha256": "8ebc513665f55877b9365beec478fe1fbf6f5525d30118a11613b3f386d93533",
+      "lines_of_code": 96,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/types/cio.js",
+      "size_bytes": 2466,
+      "sha256": "1e5bae3a1cdefb1699c7e1838371afb00e7d0d5e5348c98aac4cc4eb1032e9ae",
+      "lines_of_code": 81,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/frontend/src/nivxforge/types/cio.ts",
+      "size_bytes": 4820,
+      "sha256": "3b856c142b78633132f7f871613d10ae09ca8f7ab3bd6a6ed4470f0861f2cbd9",
+      "lines_of_code": 213,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/DESIGN_NIVXFORGE_ANALYST_PLATFORM.md",
+      "size_bytes": 17340,
+      "sha256": "265a58f4b0318e248f4023fc9342cb640d48497923b658c4235592b902cff4ff",
+      "lines_of_code": 334,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/NIVXFORGE_PLATFORM_VISION.md",
+      "size_bytes": 11717,
+      "sha256": "95f7bd95af1091b9eeea4e148ca9e091b80a135421193b0c870d5c1255631a4d",
+      "lines_of_code": 314,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/adr/0006-nivxforge-first-class-analyst-platform.md",
+      "size_bytes": 6472,
+      "sha256": "a42551c59e61becd10fc757a859d7b39b3186cb38171f7c6fdfc262c397742e8",
+      "lines_of_code": 130,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "specification",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/memory/evidence/nivxforge_narrative_report_reference.md",
+      "size_bytes": 4048,
+      "sha256": "d67c6bc98eccf5253fcea516f26a2ab557b8ab83412e2e08aa7a7d14fb2019d4",
+      "lines_of_code": 80,
+      "last_modified": "2026-09-04 01:12:50",
+      "classification": "documentation",
+      "status": "PRE_EXISTING"
+    }
+  ]
+}

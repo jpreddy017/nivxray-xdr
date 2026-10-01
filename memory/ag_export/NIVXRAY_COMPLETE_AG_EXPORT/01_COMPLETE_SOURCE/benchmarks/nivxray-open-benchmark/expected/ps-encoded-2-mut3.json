@@ -1,0 +1,9 @@
+{
+  "id": "ps-encoded-2-mut3",
+  "category": "ps-encoded",
+  "expected_keywords": [
+    "certutil",
+    "malfeed.io"
+  ],
+  "match_semantics": "ANY (a pass surfaces at least one keyword in output/iocs/mitre/lolbas)"
+}

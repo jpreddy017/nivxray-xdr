@@ -15,6 +15,7 @@ import { BookOpen, Search, RefreshCcw, FileText, Zap } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 export default function XdrDocsPage() {
@@ -46,7 +47,7 @@ export default function XdrDocsPage() {
         setFeatures(f?.data?.features || f?.data || []);
         setWorkflows(w?.data?.workflows || w?.data || []);
       } catch (x) {
-        setErr(x?.response?.data?.detail || x?.message || "load failed");
+        setErr(apiErrorText(x, "load failed"));
       } finally { if (!cancelled) setBusy(false); }
     })();
     return () => { cancelled = true; };
@@ -72,7 +73,7 @@ export default function XdrDocsPage() {
     try {
       const r = await api.get(`/docs/features/${encodeURIComponent(id)}`);
       setOpenFeat(r?.data || null);
-    } catch (x) { setErr(x?.response?.data?.detail || x?.message); }
+    } catch (x) { setErr(apiErrorText(x)); }
   };
 
   return (

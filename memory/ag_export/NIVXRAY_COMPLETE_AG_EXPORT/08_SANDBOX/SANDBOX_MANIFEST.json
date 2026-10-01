@@ -1,0 +1,163 @@
+{
+  "category": "08_SANDBOX",
+  "title": "Native Dynamic Sandbox Architecture & Execution Boundary Design",
+  "description": "Architectural specifications for the native detonation hypervisor, microVM orchestrator, dynamic evidence pipeline, and anti-evasion instrumentation.",
+  "file_count": 17,
+  "total_bytes": 434095,
+  "total_lines": 8491,
+  "files": [
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/__init__.py",
+      "size_bytes": 8571,
+      "sha256": "0276fd04f5673da071ed9fed46fcb43a21cd732be8970e74c7f365baa59217c6",
+      "lines_of_code": 237,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/archive.py",
+      "size_bytes": 4593,
+      "sha256": "3091a497de6a54264601a7143b93215e7ef18bdd6c9e995962f98e1eb6b0fb5b",
+      "lines_of_code": 120,
+      "last_modified": "2026-09-04 08:43:18",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/elf.py",
+      "size_bytes": 13566,
+      "sha256": "f03b7246381a410d816793c6d728ec7bb0ceff7ba2fb98c7c062e848df15c263",
+      "lines_of_code": 335,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/office.py",
+      "size_bytes": 17459,
+      "sha256": "257d8c94974946c7a8df34d23cfe290c9a3a9e842c1288c95c47f1e6be17d7f2",
+      "lines_of_code": 440,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/pdf.py",
+      "size_bytes": 17446,
+      "sha256": "1c294e898b6240438fc0744ec8a47df319b02d2be2da1fa98df7babb41c0cc32",
+      "lines_of_code": 464,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/pe.py",
+      "size_bytes": 1477,
+      "sha256": "388988f0bad2c4d1edf763693e5403220deb2df6c968d2344459560702f8763f",
+      "lines_of_code": 44,
+      "last_modified": "2026-09-04 01:12:48",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/shellcode.py",
+      "size_bytes": 1274,
+      "sha256": "5710af53760dfd8ac3b071f9bdbf3103cc5a7b666d819dc3cd1c61f91d54aec9",
+      "lines_of_code": 43,
+      "last_modified": "2026-09-04 08:43:09",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/services/artifact_intelligence/analyzers/__init__.py",
+      "size_bytes": 944,
+      "sha256": "0aeec96e39cd9fd5f296e3c11b20d8fdca912c5419580fde3c1aef850a795a5e",
+      "lines_of_code": 28,
+      "last_modified": "2026-09-04 08:43:25",
+      "classification": "implementation",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/backend/tests/test_bits_and_sandbox_evasion.py",
+      "size_bytes": 3813,
+      "sha256": "ed1fe88324dfc63db1bfdc8abbeb3e4c90036a29094c1e8161258af4d6de79dc",
+      "lines_of_code": 92,
+      "last_modified": "2026-09-04 01:12:49",
+      "classification": "test",
+      "status": "PRE_EXISTING"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/03_EDR_ARCHITECTURE/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/emergent-handoff-package/04_EDR_UIUX/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_INDUSTRY_BENCHMARK.md",
+      "size_bytes": 22729,
+      "sha256": "58437909953f9a112fb15145c8ef7b51297a7922520d4b3d87e0c586ddcecdbc",
+      "lines_of_code": 278,
+      "last_modified": "2026-09-05 00:22:07",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/security-state/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_SANDBOX_OPERATIONAL_PROTOTYPE.html",
+      "size_bytes": 90149,
+      "sha256": "410ecf529786d2513bcd5e86752ddd28a3a73d6a5c4017bb199e10be38dd08a0",
+      "lines_of_code": 1855,
+      "last_modified": "2026-09-05 09:46:06",
+      "classification": "documentation",
+      "status": "AG_CREATED"
+    },
+    {
+      "source_path": "01_COMPLETE_SOURCE/docs/uiux/NIVXFORGE_EDR_SANDBOX_UIUX_SPEC.md",
+      "size_bytes": 16349,
+      "sha256": "dca3b011a695b18760f6dd3e0f9a637f946f5ac8c6268f1771425bb4738dbec5",
+      "lines_of_code": 189,
+      "last_modified": "2026-09-05 09:45:32",
+      "classification": "specification",
+      "status": "AG_CREATED"
+    }
+  ]
+}

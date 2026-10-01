@@ -1,0 +1,10 @@
+{
+  "id": "ps-reverse-3-mut3",
+  "category": "ps-reverse",
+  "command_line": "$s = 'exe.llehsrewop'; $x = -join ($s[-1..-14]); Invoke-Expression $x\n# comment-3",
+  "expected_keywords": [
+    "powers"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

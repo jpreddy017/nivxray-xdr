@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/00_PRODUCT/CAPABILITY_CATALOG.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # NivXRay · Capabilities Document — Skeleton
 
 **Version:** 1.0 (Skeleton) · Feb 2026

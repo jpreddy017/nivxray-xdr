@@ -1,0 +1,1 @@
+http://hta-2.example.test/dropper.exe

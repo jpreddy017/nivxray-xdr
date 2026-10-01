@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only verification of P0-F.13.5 Detection→Trajectory Handoff. All 7 UI flows verified against preview URL as admin@nivxray.com and analyst@nivx-live.com. Every acceptance criterion from the review request PASSED. No frontend bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_results": [
+    {"test": "T1 – Direct handoff URL resolves", "status": "PASS", "details": "amp-handoff-resolved present with data-event-iid='evt_0b5121e3924461c7#7dd36299ea', data-lane-index='339'; amp-workspace data-row-start=333 (>300, near 333); Activity Details pane shows the observation at 2026-09-06T15:45:47.380000+00:00; time-window readout shows 2026-09-06 15:15 → 16:15 UTC; no amp-handoff-state banner present."},
+    {"test": "T2 – Detection row Trajectory link", "status": "PASS", "details": "64 [data-testid^=edr-detection-trajectory-] links rendered on /edr/detections?endpoint_id=ep_2d57cbe6f80152062109. Clicked first link (testid edr-detection-trajectory-raw_fac9185acde4f8ccebef7a3b). Landed on Device Trajectory with amp-handoff-resolved; Activity Details header 'OPENED FROM DETECTION raw_fac9185acde4f8ccebef7a3b → observation evt_0b5121e3924461c7#7dd36299ea' — raw_event_id shown in details equals raw_id of clicked row."},
+    {"test": "T3 – Honest unresolved state", "status": "PASS", "details": "amp-handoff-state present with data-state='OBSERVATION_NOT_RESOLVED'. Text 'Observations searched: 6,356 · pages searched: 2 (page size 4000)' via [data-testid=amp-handoff-observations-searched]. 'EXHAUSTED_SEARCH_COMPLETED' visible. amp-activity-panel (master list) shown; no observation auto-selected."},
+    {"test": "T4 – No identifier supplied", "status": "PASS", "details": "No amp-handoff-state banner, no amp-handoff-resolved strip; amp-activity-panel and amp-workspace/amp-vscroll render normally."},
+    {"test": "T5 – Incident context preserved", "status": "PASS", "details": "edr-incident-context-banner present containing 'INC000000293'; amp-handoff-resolved present simultaneously; edr-return-to-incident href=/xdr/incidents/inc_2305c71cd8f54dc38e55."},
+    {"test": "T6 – AMP baseline regression", "status": "PASS", "details": "Lineage tree renders with parent→child connectors, 30-day (AUG-SEP labels) and 24-hour navigators visible, amp-vscroll drag/scroll updates amp-workspace data-row-start (0 → 13 after scrollTop=200)."},
+    {"test": "T7 – Tenant isolation (analyst@nivx-live.com)", "status": "PASS", "details": "amp-handoff-state present with data-state='ENDPOINT_NOT_RESOLVED'; no amp-handoff-resolved; page does NOT contain 'agent-env-630704a1' or '6,356' — no default-tenant evidence leaks; body shows 'no endpoint you are authorised for resolves to this reference' + 'Select an endpoint to view operational Device Trajectory'."}
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only per request)", "frontend": "100% (7/7)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK ; analyst@nivx-live.com / NivxLive!Analyst2026",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0-F.13.5 Detection→Trajectory Handoff is fully verified through the browser. Resolver returns FOCUS_RESOLVED for the seeded raw_fac9185acde4f8ccebef7a3b within 6,356 observations across 2 pages (page size 4000), confirming the pagination fix. Tenant isolation via ENDPOINT_NOT_RESOLVED works for analyst@nivx-live.com. All required [data-testid] attributes exist and match the review spec.",
+  "rca of the issue": "N/A – no issues encountered."
+}

@@ -138,12 +138,116 @@ def _pred_recently_updated(email: str | None) -> Dict[str, Any]:
     return _scope({"updated_at": {"$gte": since}}, email)
 
 
+_DISPLAY_NAME_CLAUSE: Dict[str, Any] = {
+    # A surfaced record must carry a persisted display name.  Pipeline
+    # incidents persist `title`; analysis cases persist `name`.  Gating on
+    # `name` alone hid 191 of 198 real incidents from the queue.
+    "$or": [
+        {"name":  {"$exists": True, "$ne": ""}},
+        {"title": {"$exists": True, "$ne": ""}},
+    ]
+}
+
+
+# P0-FIX-6B-2 · these role names are NO LONGER AUTHORITY. They once made
+# `all_tenants: True` by themselves, which meant a free-text role string on a
+# user document granted every customer tenant. Tenant breadth now comes ONLY
+# from `users.authority_scope == "PLATFORM"` (explicit owner designation) or
+# from the explicit grant list `users.tenant_ids[]`. The constant is retained
+# for documentation/legacy references only and is read by no decision.
+_LEGACY_ROLE_BREADTH_RETIRED = frozenset({
+    "admin", "platform_admin", "soc_manager", "mssp_operator",
+})
+
+#: The two authority classes. PLATFORM is EXCEPTIONAL and must be stored
+#: explicitly; absent / null / malformed / anything else ⇒ CUSTOMER, the
+#: least-authority default.
+PLATFORM_SCOPE = "PLATFORM"
+CUSTOMER_SCOPE = "CUSTOMER"
+
+
+def authority_scope(user: Dict[str, Any] | None) -> str:
+    """The principal's authority CLASS — where it may operate.
+
+    PLATFORM iff the stored `authority_scope` is exactly "PLATFORM"
+    (whitespace-stripped, case-sensitive). Never inferred from role,
+    `tenants.read`, `organization.kind`, the number of tenant grants, the
+    customer picker or `X-Tenant-Id`. Anything else — absent, null, a
+    non-string, a role name, "platform", "CUSTOMER" — is CUSTOMER, the
+    least-authority default.
+    """
+    raw = (user or {}).get("authority_scope")
+    if isinstance(raw, str) and raw.strip() == PLATFORM_SCOPE:
+        return PLATFORM_SCOPE
+    return CUSTOMER_SCOPE
+
+
+def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
+    """Tenant-authorized visibility for the incident plane.
+
+    P0-2b (owner-authorised 2026-09-05): visibility is a TENANT
+    authorization, never an assignment/ownership gate.  Previously the
+    queue filtered on ``user_email``, which hid 180 of 198 real tenant
+    incidents from the very analysts responsible for them.
+
+    - anonymous          → ``{"authorized": False}`` (honest empty state)
+    - PLATFORM scope     → ``{"all_tenants": True}`` (explicit designation)
+    - everyone else      → ``{"tenant_ids": [...]}`` (explicit grants)
+
+    P0-FIX-6B-2 · ROLE IS NO LONGER TENANT AUTHORITY. ``role`` is still
+    returned because RBAC needs it, but it decides only WHAT the principal
+    may do. WHERE now comes from exactly two explicit, server-side facts:
+    ``authority_scope == "PLATFORM"`` or the grant list ``tenant_ids[]``.
+    ``all_tenants`` survives as a DERIVED convenience for existing consumers
+    and is true only for a PLATFORM principal.
+
+    P5 · B5/B7 · a user carrying neither ``tenant_ids`` nor ``tenant_id``
+    previously fell back to the literal ``"default"``, a scope concept that
+    exists nowhere in the tenant registry. It now returns an honest EMPTY
+    tenant list: authorised as a principal, holding no tenant. There is no
+    default tenant.
+    """
+    if not email:
+        return {"authorized": False}
+    from deps import sync_collection
+    user = sync_collection("users").find_one(
+        {"email": email},
+        {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1,
+         "authority_scope": 1},
+    ) or {}
+    role = str(user.get("role") or "").strip().lower()
+    scope = authority_scope(user)
+    tenants = [t for t in (user.get("tenant_ids") or []) if t]
+    if not tenants and user.get("tenant_id"):
+        tenants = [str(user["tenant_id"])]
+    return {"authorized": True, "authority_scope": scope,
+            "all_tenants": scope == PLATFORM_SCOPE,
+            "tenant_ids": tenants, "role": role}
+
+
 def _scope(q: Dict[str, Any], email: str | None) -> Dict[str, Any]:
-    """Attach the analyst's tenant scope.  Only saved cases (with a
-    persisted name) are surfaced — matches list_incidents contract."""
-    q.setdefault("name", {"$exists": True, "$ne": ""})
-    if email:
-        q["user_email"] = email
+    """Attach the analyst's tenant scope.
+
+    P0-2 (owner-authorised 2026-09-05): the incident queue and the
+    dashboard tiles are restricted to ``doc_type == "xdr_incident"`` so
+    that analysis cases can no longer appear in the incident queue.  The
+    same predicate feeds tiles and queue, preserving the
+    tile-count == queue-count invariant.
+
+    P0-2b: the ownership filter is replaced by a tenant-authorization
+    filter (see ``resolve_tenant_scope``).
+    """
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return {"__never_matches__": True}
+    q.setdefault("doc_type", "xdr_incident")
+    existing_and = q.get("$and")
+    if isinstance(existing_and, list):
+        existing_and.append(_DISPLAY_NAME_CLAUSE)
+    else:
+        q["$and"] = [_DISPLAY_NAME_CLAUSE]
+    if not scope.get("all_tenants"):
+        q["tenant_id"] = {"$in": scope["tenant_ids"]}
     return q
 
 

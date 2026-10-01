@@ -1,0 +1,29 @@
+{
+  "summary": "R1.2 Process Ancestry + R4 PDF Export: 100% pass. Backend fast-gate pytest 807/807 (tests/rc5/ with -m 'not slow'). All 6 backend live-endpoint checks pass: ancestry by binary name (200, correct schema, node role/mitre/events populated, events[key].length == event_count), ancestry unknown process (404), no-auth (403), PDF (200 application/pdf, %PDF- magic, X-Nivxray-Report-Sha256 64-hex, X-Nivxray-Report-Schema r4.0, Content-Disposition attachment ending .report.pdf, byte-deterministic across 2 calls, empty case still returns valid PDF). Frontend: chevron row-ancestry-bin:cmd.exe navigates to /v2/ancestry, v2-process-ancestry renders with case_id/root/stats strip (ANCESTORS/DESCENDANTS/EVENTS 15), 1 ancestry-node card rendered (correct — shadow adapter emits single-root graph, expected per problem statement), clicking node opens ancestry-node-detail drawer with verdict/label/15 ancestry-event items, ancestry-detail-close closes drawer and returns to Legend, ancestry-back returns to /v2/trajectory. Report modal shows all 4 buttons; report-download-pdf triggers download of case_dfir_bumblebee_akira_2026.report.pdf. R1.1 regression: filter-chips, glyph-legend-trigger, case-selector-trigger, report-copy-json/md, report-download-md/json all present and enabled.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Ancestry drawer", "issues": ["Benign React console warning: shorthand vs non-shorthand borderColor/borderLeftColor conflict during rerender in the node card / drawer. Not user-visible but should be cleaned up."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/rc5/api/test_v2_ancestry.py",
+    "/app/backend/tests/rc5/api/test_v2_report.py",
+    "/app/test_reports/pytest/iter39.xml"
+  ],
+  "action_items": [
+    "(Cosmetic) Fix React shorthand-vs-non-shorthand borderColor warning in ProcessAncestry.jsx node/drawer styles."
+  ],
+  "critical_code_review_comments": [
+    "All feature-flag guarding, auth, and determinism guarantees verified end-to-end. Live-test module test_r4_live.py correctly excluded from fast gate via pytestmark = pytest.mark.slow. No blocking issues."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (807/807 pytest + 6/6 live)", "frontend": "100% (14/14 UI checks + R1.1 regression clean)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "None — used existing seed case_dfir_bumblebee_akira_2026",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest must be run with PYTHONPATH=/app/backend (env loaded via `set -a && source .env && set +a`) — without it, engine/v2 modules fail to import. The fast gate runs in ~4 minutes. Shadow adapter produces single-node ancestry graph (root only, no parents/descendants) for the seeded case — this is expected until R2.5 EDR telemetry lands."
+}

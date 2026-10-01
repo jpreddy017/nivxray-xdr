@@ -1,0 +1,487 @@
+{
+  "$defs": {
+    "EnrollmentState": {
+      "description": "Lifecycle of the endpoint's RELATIONSHIP to the platform \u2014 not of\nits agent process (that is AgentLifecycle) and not of its evidence\n(that is TelemetryHealth).",
+      "enum": [
+        "NEVER_ENROLLED",
+        "ENROLLMENT_PENDING",
+        "ENROLLED",
+        "REVOKED",
+        "RETIRED"
+      ],
+      "title": "EnrollmentState",
+      "type": "string"
+    },
+    "EpistemicState": {
+      "description": "Directive \u00a76. The six \u2014 and only six \u2014 states an evidence field\nmay resolve to.",
+      "enum": [
+        "OBSERVED",
+        "NOT_OBSERVED",
+        "NOT_COLLECTED",
+        "NOT_SUPPORTED",
+        "PARSER_FAILED",
+        "UNKNOWN"
+      ],
+      "title": "EpistemicState",
+      "type": "string"
+    },
+    "IdentityConfidence": {
+      "enum": [
+        "AUTHORITATIVE",
+        "INFERRED",
+        "UNATTRIBUTED"
+      ],
+      "title": "IdentityConfidence",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Directive \u00a75 \u2014 every layer is additive and versioned.",
+      "properties": {
+        "analysis_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis Version"
+        },
+        "detection_content_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Content Version"
+        },
+        "normalizer_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalizer Version"
+        },
+        "parser_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Name"
+        },
+        "parser_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parser Version"
+        },
+        "raw_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "raw_id in edr_raw_events. The immutable original.",
+          "title": "Raw Ref"
+        },
+        "replay_generation": {
+          "default": 0,
+          "description": "0 = original ingest. Incremented per replay so a re-reasoned event never masquerades as a new one.",
+          "title": "Replay Generation",
+          "type": "integer"
+        },
+        "sensor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sensor Version"
+        },
+        "source": {
+          "description": "collector / sensor / adapter identity",
+          "title": "Source",
+          "type": "string"
+        },
+        "verdict_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Version"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "$id": "nivxforge-edr/wave0/v1/endpoint_identity.schema.json",
+  "additionalProperties": false,
+  "description": "Contract 1. The durable identity of a protected device.\n\n`endpoint_id` is minted by the platform and is stable across hostname\nchanges, IP changes, re-imaging and agent reinstall. `device_iid` is\nthe existing NivXRay authoritative device identity and is REUSED, not\nreplaced.\n\nAn IP address is NEVER an endpoint identity (a rule already enforced by\nthe P1.10a spread plane and preserved here).",
+  "properties": {
+    "agent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Agent Id"
+    },
+    "architecture": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Architecture"
+    },
+    "device_iid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Device Iid"
+    },
+    "dns_servers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Dns Servers",
+      "type": "array"
+    },
+    "endpoint_id": {
+      "title": "Endpoint Id",
+      "type": "string"
+    },
+    "enrollment_state": {
+      "$ref": "#/$defs/EnrollmentState",
+      "default": "NEVER_ENROLLED"
+    },
+    "field_state_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Human reason per absent field, e.g. 'CEF carries no parent-process field in either specification'. This is what the console renders after '\u2298 Not collected'.",
+      "title": "Field State Reasons",
+      "type": "object"
+    },
+    "field_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EpistemicState"
+      },
+      "description": "Epistemic state per evidence field. Mandatory for any evidence field that is null.",
+      "title": "Field States",
+      "type": "object"
+    },
+    "first_seen": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "First Seen"
+    },
+    "fqdn": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Fqdn"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Group"
+    },
+    "hostname": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Hostname"
+    },
+    "identity_confidence": {
+      "$ref": "#/$defs/IdentityConfidence",
+      "default": "UNATTRIBUTED"
+    },
+    "last_seen": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Last Seen"
+    },
+    "local_ips": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Local Ips",
+      "type": "array"
+    },
+    "mac_addresses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Mac Addresses",
+      "type": "array"
+    },
+    "machine_guid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Machine Guid"
+    },
+    "observation_count": {
+      "default": 0,
+      "title": "Observation Count",
+      "type": "integer"
+    },
+    "os_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Os Name"
+    },
+    "os_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Os Version"
+    },
+    "platform": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Platform"
+    },
+    "policy_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Policy Id"
+    },
+    "processor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Hardware identity. Survives re-imaging; a hostname does not.",
+      "nivxforge_evidence": true,
+      "title": "Processor Id"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "public_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Public Ip"
+    },
+    "sensor_install_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sensor Install Date"
+    },
+    "sensor_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "nivxforge_evidence": true,
+      "title": "Sensor Version"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "endpoint_id",
+    "tenant_id"
+  ],
+  "title": "EndpointIdentity",
+  "type": "object",
+  "x-nivxforge-contract": "endpoint_identity",
+  "x-nivxforge-epistemic-states": [
+    "OBSERVED",
+    "NOT_OBSERVED",
+    "NOT_COLLECTED",
+    "NOT_SUPPORTED",
+    "PARSER_FAILED",
+    "UNKNOWN"
+  ],
+  "x-nivxforge-evidence-fields": [
+    "device_iid",
+    "agent_id",
+    "hostname",
+    "fqdn",
+    "platform",
+    "os_name",
+    "os_version",
+    "architecture",
+    "processor_id",
+    "machine_guid",
+    "public_ip",
+    "sensor_version",
+    "sensor_install_date",
+    "group",
+    "policy_id",
+    "first_seen",
+    "last_seen"
+  ]
+}

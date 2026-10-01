@@ -1,0 +1,27 @@
+{
+  "summary": "P0 SSOT Persistence (R27) validated against live preview URL with real admin JWT. Created /app/backend/tests/test_ssot_persistence_live.py with 7 tests exercising POST /api/cases/save with & without ssot bundle, GET /api/cases/{id} full round-trip of all 17 SSOT keys, GET /api/cases has_ssot/ssot_version flagging, oversized (>8MB) drop-order logic (semantic dropped, understanding+investigation_object preserved), upsert atomic replace, legacy back-compat, and regression on sigma/yara/reinvestigate/delete. All 7 tests PASSED in 3.2s.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ssot_persistence_live.py",
+    "/app/test_reports/pytest/ssot_live.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Contract fully honoured: ssot.version='1.0', ssot.persisted_at populated, dropped_for_size records evicted keys with correct priority ordering (semantic dropped before understanding).",
+    "Middleware allowlist (_LARGE_BODY_PATHS) confirmed working — 9MB payload accepted at /api/cases/save (no 413/512KB reject).",
+    "Upsert semantics preserve stable id across re-save; SSOT bundle atomically replaced.",
+    "Legacy save (ssot omitted) correctly persists doc without ssot field and reports has_ssot=false in listing — R26 back-compat intact.",
+    "sigma/yara/reinvestigate/delete endpoints unchanged behaviourally."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ssot_persistence_live.py (new; live end-to-end regression suite)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "not tested (backend-only per request)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test cases prefixed 'pytest-live-*' created during run; test_zzz_cleanup deletes tracked ids at end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Live SSOT contract suite lives at /app/backend/tests/test_ssot_persistence_live.py. Reuse it as a regression gate before touching /app/backend/routers/cases.py or /app/backend/request_hardening.py. Uses REACT_APP_BACKEND_URL + admin JWT. Complements the TestClient-based /app/backend/tests/test_ssot_persistence.py.",
+  "rca of the issue": "N/A — no defects observed. P0 milestone verified end-to-end through Kubernetes ingress with real auth."
+}

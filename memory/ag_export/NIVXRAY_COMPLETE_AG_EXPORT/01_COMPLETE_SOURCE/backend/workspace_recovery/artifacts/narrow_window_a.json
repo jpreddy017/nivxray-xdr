@@ -1,0 +1,75 @@
+{
+  "label": "window_a",
+  "predicate": "s001_writehost",
+  "good_anchor": {
+    "sha": "5cab99e2b82e119e397d79c8e1783a44aa498617",
+    "date": "2026-07-20 03:06:27 +0000",
+    "role": "good_anchor"
+  },
+  "bad_anchor": {
+    "sha": "51666219ed40993be29b00d31983d24e87344ed1",
+    "date": "2026-07-21 09:07:02 +0000"
+  },
+  "last_good": {
+    "sha": "8baa7aa46749f5626bf4d0521f3a9be1a317a0b4",
+    "date": "2026-07-20 17:06:46 +0000"
+  },
+  "first_bad": {
+    "sha": "26099be99009d4037ad058dc9a8fe5ece518234d",
+    "date": "2026-07-20 17:42:10 +0000"
+  },
+  "commits_in_window": 80,
+  "iterations": 6,
+  "trace": [
+    [
+      "5cab99e2b8",
+      "PASS"
+    ],
+    [
+      "51666219ed",
+      "FAIL"
+    ],
+    [
+      "e97bb46ec2",
+      "PASS"
+    ],
+    [
+      "831424e148",
+      "FAIL"
+    ],
+    [
+      "6b73970eec",
+      "PASS"
+    ],
+    [
+      "c902b2b6e7",
+      "FAIL"
+    ],
+    [
+      "26099be990",
+      "FAIL"
+    ],
+    [
+      "8baa7aa467",
+      "PASS"
+    ]
+  ],
+  "first_bad_diff_stat": "26099be 2026-07-20 17:42:10 +0000 auto-commit for 9c15ea3a-452e-4164-83a8-a1afa345741d\n\n ...lity_gate.yml => rc23_quality_gate.yml.retired} |   0\n .github/workflows/rc4x_quality_gate.yml            | 114 ++++++++\n .tok                                               |   2 +-\n backend/decoders/ps_alias_normalizer.py            | 298 +++++++++++++++++++++\n backend/decoders/ps_backtick_normalizer.py         | 225 ++++++++++++++++\n backend/magic_decoder.py                           |  12 +\n backend/routers/ops.py                             |  94 ++++++-\n backend/server.py                                  |   2 +\n backend/tests/test_engine_phase_a.py               |   6 +-\n backend/tests/test_ps_alias_normalizer.py          | 165 ++++++++++++\n backend/tests/test_ps_backtick_normalizer.py       | 130 +++++++++\n backend/tests/test_rc22_xor8_lolbas_stix.py        |   5 +-\n backend/tests/test_rc45_iteration26.py             | 186 +++++++++++++\n test_reports/iteration_26.json                     |  44 +++\n test_reports/pytest/iter26_results.xml             |  18 ++\n 15 files changed, 1288 insertions(+), 13 deletions(-)\n",
+  "first_bad_files_changed": [
+    ".github/workflows/rc23_quality_gate.yml.retired",
+    ".github/workflows/rc4x_quality_gate.yml",
+    ".tok",
+    "backend/decoders/ps_alias_normalizer.py",
+    "backend/decoders/ps_backtick_normalizer.py",
+    "backend/magic_decoder.py",
+    "backend/routers/ops.py",
+    "backend/server.py",
+    "backend/tests/test_engine_phase_a.py",
+    "backend/tests/test_ps_alias_normalizer.py",
+    "backend/tests/test_ps_backtick_normalizer.py",
+    "backend/tests/test_rc22_xor8_lolbas_stix.py",
+    "backend/tests/test_rc45_iteration26.py",
+    "test_reports/iteration_26.json",
+    "test_reports/pytest/iter26_results.xml"
+  ]
+}

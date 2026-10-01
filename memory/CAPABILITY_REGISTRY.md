@@ -1,3 +1,5 @@
+> **SUPERSEDED_BY:** `docs/nivxray-xdr/08_VALIDATION/GENERATED_CAPABILITY_MATRIX.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.
+
 # Capability Registry
 
 **Status:** Governance discipline (adopted 2026-02-28)

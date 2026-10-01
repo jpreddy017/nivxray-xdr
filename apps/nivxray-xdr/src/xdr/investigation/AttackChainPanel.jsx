@@ -264,10 +264,10 @@ export default function AttackChainPanel({ incident }) {
             <div style={{ display: "flex", alignItems: "center",
                                     gap: 8, marginBottom: 8 }}>
               <b style={{ fontFamily: "JetBrains Mono, monospace",
-                                          fontSize: 13, color: "#e2e8f0" }}>
+                                          fontSize: 13, color: "var(--nx-text)" }}>
                 EVIDENCE TRAJECTORY · MITRE ATT&CK
               </b>
-              <span style={{ fontSize: 11, color: "#94a3b8",
+              <span style={{ fontSize: 11, color: "var(--nx-low)",
                                           fontFamily: "JetBrains Mono, monospace" }}>
                 {nodes.length} technique{nodes.length === 1 ? "" : "s"} · 14 tactics
               </span>
@@ -326,7 +326,7 @@ export default function AttackChainPanel({ incident }) {
                                     fill="rgba(15,23,42,0.9)"
                                     stroke={color} strokeWidth={1.6} />
                         <circle cx={12} cy={NODE_H / 2} r={5.5}
-                                       fill={color} stroke="#0b1220" strokeWidth={2} />
+                                       fill={color} stroke="var(--nx-surf-inset)" strokeWidth={2} />
                         <text x={24} y={NODE_H / 2 - 3}
                                     fill="#e2e8f0" fontFamily="JetBrains Mono, monospace"
                                     fontSize={12} fontWeight={700}>
@@ -382,7 +382,7 @@ export default function AttackChainPanel({ incident }) {
                     </text>
                     <text x={14}
                                 y={20 + i * ROW_H + ROW_H / 2 + 14}
-                                fill="#64748b"
+                                fill="var(--nx-text)"
                                 fontFamily="JetBrains Mono, monospace"
                                 fontSize={9}
                                 letterSpacing={0.3}>
@@ -447,7 +447,7 @@ export default function AttackChainPanel({ incident }) {
                                   strokeWidth={active ? 2.2 : 1.6} />
                       <circle cx={12} cy={NODE_H / 2} r={5.5}
                                      fill={color}
-                                     stroke="#0b1220" strokeWidth={2} />
+                                     stroke="var(--nx-bd-strong)" strokeWidth={2} />
                       <text x={24} y={NODE_H / 2 - 3}
                                   fill="#e2e8f0"
                                   fontFamily="JetBrains Mono, monospace"
@@ -514,7 +514,7 @@ function NodeInspector({ node, onClose }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8,
                               marginBottom: 10 }}>
         <span style={{ fontSize: 9, letterSpacing: "0.18em",
-                                    textTransform: "uppercase", color: "#94a3b8",
+                                    textTransform: "uppercase", color: "var(--nx-low)",
                                     fontFamily: "JetBrains Mono, monospace" }}>
           Node Inspector
         </span>
@@ -528,12 +528,12 @@ function NodeInspector({ node, onClose }) {
       </div>
       <h3 style={{ margin: "4px 0 6px",
                               fontFamily: "JetBrains Mono, monospace",
-                              fontSize: 18, color: "#e2e8f0",
+                              fontSize: 18, color: "var(--nx-text)",
                               fontWeight: 700, lineHeight: 1.35 }}
               data-testid={`xdr-chain-inspector-title-${node.technique_id}`}>
         {node.technique_id} · {node.name || "—"}
       </h3>
-      <div style={{ fontSize: 11, color: "#94a3b8",
+      <div style={{ fontSize: 11, color: "var(--nx-low)",
                               fontFamily: "JetBrains Mono, monospace",
                               marginBottom: 14 }}>
         {node.first_seen
@@ -553,7 +553,7 @@ function NodeInspector({ node, onClose }) {
 
       <InspectorSection title="MITRE Techniques">
         <span style={{ ...tagChip, borderColor: "#67e8f9",
-                                    color: "#67e8f9" }}
+                                    color: "var(--nx-teal)" }}
                     data-testid={`xdr-chain-inspector-tech-${node.technique_id}`}>
           {node.technique_id}
         </span>
@@ -573,13 +573,13 @@ function NodeInspector({ node, onClose }) {
       </InspectorSection>
 
       <InspectorSection title="Confidence">
-        <div style={{ fontSize: 26, color: "#4ade80",
+        <div style={{ fontSize: 26, color: "var(--nx-benign)",
                                   fontFamily: "JetBrains Mono, monospace",
                                   fontWeight: 700 }}
                      data-testid={`xdr-chain-inspector-confidence-${node.technique_id}`}>
           {relScore}%
         </div>
-        <div style={{ marginTop: 8, fontSize: 11, color: "#cbd5e1",
+        <div style={{ marginTop: 8, fontSize: 11, color: "var(--nx-low)",
                                     fontFamily: "JetBrains Mono, monospace",
                                     lineHeight: 1.8 }}>
           {node.rels?.includes("OBSERVED")
@@ -595,7 +595,7 @@ function NodeInspector({ node, onClose }) {
       </InspectorSection>
 
       <InspectorSection title="Evidence">
-        <div style={{ fontSize: 11, color: "#94a3b8",
+        <div style={{ fontSize: 11, color: "var(--nx-low)",
                                   fontFamily: "JetBrains Mono, monospace" }}>
           {node.evidence_count} evidence row{node.evidence_count === 1 ? "" : "s"} support{node.evidence_count === 1 ? "s" : ""} this mapping.
         </div>
@@ -608,7 +608,7 @@ function NodeInspector({ node, onClose }) {
 function InspectorSection({ title, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 9, color: "#64748b",
+      <div style={{ fontSize: 9, color: "var(--nx-text-dim)",
                               letterSpacing: "0.18em", textTransform: "uppercase",
                               fontFamily: "JetBrains Mono, monospace",
                               marginBottom: 6 }}>
@@ -625,7 +625,7 @@ const inspectorPanel = {
   maxHeight: "calc(100vh - 120px)", overflowY: "auto",
   padding: 18, zIndex: 60,
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
 };
 
@@ -646,11 +646,11 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
       <div style={{ display: "flex", flexDirection: "column",
                               gap: 2, flex: 1 }}>
         <span style={{ fontSize: 9, letterSpacing: "0.22em",
-                                  textTransform: "uppercase", color: "#67e8f9",
+                                  textTransform: "uppercase", color: "var(--nx-teal)",
                                   fontFamily: "JetBrains Mono, monospace" }}>
           Evidence Trajectory
         </span>
-        <span style={{ fontSize: 17, color: "#e2e8f0",
+        <span style={{ fontSize: 17, color: "var(--nx-text)",
                                   fontFamily: "JetBrains Mono, monospace",
                                   fontWeight: 700, letterSpacing: 0.6 }}>
           MITRE ATT&CK
@@ -658,8 +658,8 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
       </div>
       <span style={{ padding: "3px 8px", fontSize: 10.5,
                               fontFamily: "JetBrains Mono, monospace",
-                              fontWeight: 600, color: "#94a3b8",
-                              border: "1px solid #334467",
+                              fontWeight: 600, color: "var(--nx-low)",
+                              border: "1px solid var(--nx-bd-quiet)",
                               borderRadius: 4 }}>
         {techniques} technique{techniques === 1 ? "" : "s"} · 14 tactics
       </span>
@@ -672,7 +672,7 @@ function Header({ collapsed, setCollapsed, zoom, setZoom, reset,
       </button>
       <span style={{ fontSize: 12, fontFamily: "JetBrains Mono, monospace",
                               minWidth: 48, textAlign: "center",
-                              color: "#e2e8f0", fontWeight: 600 }}
+                              color: "var(--nx-text)", fontWeight: 600 }}
                    data-testid="xdr-chain-zoom-value">
         {zoom}%
       </span>
@@ -715,7 +715,7 @@ function TacticLegend() {
                             padding: "0 4px 10px", alignItems: "center" }}
                 data-testid="xdr-chain-legend">
       <span style={{ fontSize: 9, letterSpacing: "0.14em",
-                              textTransform: "uppercase", color: "#64748b",
+                              textTransform: "uppercase", color: "var(--nx-text-dim)",
                               fontFamily: "JetBrains Mono, monospace" }}>
         MITRE tactics projected:
       </span>
@@ -723,7 +723,7 @@ function TacticLegend() {
         <span key={k.key}
                     data-testid={`xdr-chain-legend-${k.key}`}
                     style={{ display: "inline-flex", alignItems: "center",
-                                    gap: 6, fontSize: 11, color: "#94a3b8",
+                                    gap: 6, fontSize: 11, color: "var(--nx-low)",
                                     fontFamily: "JetBrains Mono, monospace" }}>
           <span style={{ width: 10, height: 10, borderRadius: "50%",
                                     background: TACTIC_COLOR[k.key] || "#67e8f9" }} />
@@ -765,7 +765,7 @@ function EmptyCanvas({ contentWidth, pan, zoom }) {
               </text>
               <text x={14}
                           y={20 + i * ROW_H + ROW_H / 2 + 14}
-                          fill="#64748b"
+                          fill="var(--nx-text)"
                           fontFamily="JetBrains Mono, monospace"
                           fontSize={9}
                           letterSpacing={0.3}>
@@ -889,7 +889,7 @@ function truncate(s, n) {
 const canvasFrame = {
   width: "100%",                           // constrain to parent
   boxSizing: "border-box",
-  border: "1px solid #1f2b3f", borderRadius: 10,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 10,
   background: "rgba(2,6,23,0.65)",
   overflowX: "scroll",                     // ALWAYS-visible horizontal (NivXRay Tool parity)
   overflowY: "auto",
@@ -908,13 +908,13 @@ const popoutInner = {
   width: "100%", maxWidth: 1600,
   maxHeight: "calc(100vh - 48px)",
   background: "rgba(15,23,42,0.98)",
-  border: "1px solid #334467", borderRadius: 12,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 12,
   padding: 16, display: "flex", flexDirection: "column",
   overflow: "hidden",
 };
 const canvasFramePopout = {
   flex: 1,
-  border: "1px solid #1f2b3f", borderRadius: 10,
+  border: "1px solid var(--nx-bd-quiet)", borderRadius: 10,
   background: "rgba(2,6,23,0.65)",
   overflowX: "scroll", overflowY: "auto",
   userSelect: "none",
@@ -924,12 +924,12 @@ const canvasFramePopout = {
 const helpText = {
   padding: "8px 4px", fontSize: 10.5,
   fontFamily: "JetBrains Mono, monospace",
-  color: "#64748b", fontStyle: "italic",
+  color: "var(--nx-text-dim)", fontStyle: "italic",
   letterSpacing: 0.2,
 };
 const ctrlBtn = {
   padding: "4px 10px", fontSize: 11, fontWeight: 600,
-  color: "#67e8f9", background: "rgba(103,232,249,0.08)",
+  color: "var(--nx-teal)", background: "rgba(103,232,249,0.08)",
   border: "1px solid rgba(103,232,249,0.35)",
   borderRadius: 4, cursor: "pointer",
   fontFamily: "JetBrains Mono, monospace",
@@ -939,6 +939,6 @@ const ctrlBtn = {
 const emptyBox = {
   padding: "10px 12px", fontSize: 11,
   fontFamily: "JetBrains Mono, monospace",
-  color: "#94a3b8", border: "1px dashed #334467",
+  color: "var(--nx-low)", border: "1px dashed var(--nx-bd-quiet)",
   borderRadius: 6, display: "flex", alignItems: "center",
 };

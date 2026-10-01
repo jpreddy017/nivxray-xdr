@@ -1,0 +1,11 @@
+{
+  "id": "ps-xor-ascii-3",
+  "category": "ps-xor-inline",
+  "command_line": "$k=[System.Text.Encoding]::ASCII.GetBytes('s0meK3y'); $b=[byte[]](58,117,53,77,37,86,14,94,95,15,15,46,80,13,83,94,8,17,101,68,28,17,83,1,12,46,93,13,90); $d=-join(0..($b.Length-1)|%{[char]($b[$_] -bxor $k[$_ % $k.Length])}); IEX $d",
+  "expected_keywords": [
+    "webclient",
+    "iex"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

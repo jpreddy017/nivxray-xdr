@@ -1,0 +1,3 @@
+# Drop your production Notdecoded / Missing_Decoding / other real cases here
+# Each in its own NNN_slug/ folder with input.txt + metadata.json + slo.json
+# Then run: python -m tests.uaie_baseline_capture --write

@@ -1,0 +1,127 @@
+{
+  "admin_footer_ioc": {
+    "final_path": "/xdr/intelligence/iocs",
+    "ok": true,
+    "not_cc": true
+  },
+  "findings": {
+    "table_present": true,
+    "row_count": 6,
+    "finding_ids": [
+      "fnd_e69f8284232acb5fea6f",
+      "fnd_bc52d7a705491491de3b",
+      "fnd_017bab2868f31f72f6b9",
+      "fnd_e7e81fd4f17bc19c7e43"
+    ],
+    "a_row_body": {
+      "pane_open": true,
+      "url_tab": "activity"
+    },
+    "b_evidence": {
+      "pane": true,
+      "ev_tab_present": true,
+      "ev_active": "true",
+      "url_tab": "activity"
+    },
+    "c_ent": {
+      "missing": true
+    },
+    "c_mitre": {
+      "missing": true
+    },
+    "d_inspect": {
+      "pane": true,
+      "summary_present": true,
+      "active": "true",
+      "url_tab": "activity"
+    },
+    "e_pivot": {
+      "disabled": false,
+      "url_tab_after": "evidence",
+      "url": "https://greeting-app-5782.preview.emergentagent.com/xdr/incidents/inc_c312e0180ec742778b6b?tab=evidence"
+    }
+  },
+  "overlay": {
+    "interp_tab": true,
+    "edit_present": true,
+    "badges_after_save": [
+      "ovr-badge-analyst",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine"
+    ],
+    "summary_after_save_len": 412,
+    "summary_has_system": true,
+    "revert_present": true,
+    "badges_after_revert": [
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine",
+      "ovr-badge-machine"
+    ]
+  },
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()",
+    "Failed to load resource: the server responded with a status of 403 ()"
+  ],
+  "network_overlays": [
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays/finding/fnd_e69f8284232acb5fea6f/summary",
+      "status": 200,
+      "method": "PUT"
+    },
+    {
+      "url": "https://greeting-app-5782.preview.emergentagent.com/api/incidents/inc_c312e0180ec742778b6b/intelligence/overlays/finding/fnd_e69f8284232acb5fea6f/summary",
+      "status": 200,
+      "method": "DELETE"
+    }
+  ]
+}

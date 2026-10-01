@@ -1,258 +1,339 @@
 /**
  * XdrShell — NivXRay XDR platform shell (`/xdr/*`).
  *
- * Owner-locked guardrails (2026-08-29):
- *   • Top bar is UTILITY ONLY — brand · global search · tenant ·
- *     notifications · user.  NO product navigation in the top bar.
- *   • The left sidebar owns product navigation.  Section tree matches
- *     the owner spec (Workspace / Operations / Investigations /
- *     Intelligence / Exposure / Data / Administration).
- *   • Every sidebar entry either navigates to an in-XDR route (/xdr/*)
- *     or opens the existing NivXRay capability in a NEW BROWSER TAB.
- *     We NEVER duplicate an existing capability inside /xdr.
- *   • `/analyst` remains untouched — the Workspace entry deep-links
- *     to it as an external tab.
+ * B2-NAV · ONE permanent navigation rail built around ANALYST WORKFLOWS,
+ * not around the engines underneath them:
+ *
+ *   Control Center · Incidents · Investigate · Hunting · Intelligence ·
+ *   Automate · Assets · Data Sources · Reports · Client Management ·
+ *   Administration
+ *
+ * Structural rules (owner-locked):
+ *   • Every primary has a real landing page — no parent is a pure
+ *     accordion and no rail row is a promise ("arrives in Phase N").
+ *   • Children are CAPABILITIES of their parent workflow, never
+ *     duplicates of another primary. Nothing was deleted to simplify
+ *     the rail: every retired row's route still resolves, and App.jsx
+ *     keeps a compatibility redirect where a route moved.
+ *   • Top bar is UTILITY ONLY — brand · global hunt · Scope Navigator ·
+ *     help · theme. No product navigation, no external navigation
+ *     (PR-XDR-0): a rail row may never open another frontend or tab.
+ *   • Tenant scope is NOT a shell concern to compute. The Scope
+ *     Navigator asks the server (`/api/xdr/scope/*`) and renders only
+ *     what it determined.
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutGrid, LayoutDashboard, AlertOctagon, User as UserIcon, ArrowRightLeft,
-  Search, FolderSearch, Fingerprint,
+  LayoutDashboard, AlertOctagon, User as UserIcon,
+  Search, FolderSearch, Fingerprint, FileText,
   Radar, Globe, Bug, Grid3x3, BookOpen, Terminal,
-  Boxes, ShieldOff, Route, KeyRound, Layers,
-  Database, Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
+  Boxes, ShieldAlert, Route, KeyRound, Layers,
+  Plug, HardDrive, Cpu, Wifi, Sliders, Activity as ActivityIcon,
   Filter, Shuffle, Zap, Users, Webhook, HeartPulse, CheckSquare,
-  ExternalLink, Bell, HelpCircle, Lock, ShieldAlert,
+  ArrowRightLeft, HelpCircle, Lock, ChevronDown, ChevronRight,
 } from "lucide-react";
 
-import { useAuth } from "@/lib/auth";
+import { useAccess } from "@/xdr/access/AccessProvider";
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
+import WorkspaceLaunch from "@/components/WorkspaceLaunch";
+import XdrContextBar from "@/xdr/components/XdrContextBar";
+import XdrRibbon from "@/xdr/components/XdrRibbon";
+import XdrScopeNavigator from "@/xdr/components/XdrScopeNavigator";
+import NxErrorBoundary from "@/xdr/nx/NxErrorBoundary";
 import "./xdr-console.css";
+import "./nx/nx-epistemic.css";
 import "./nx/nx-tokens.css";
+import "./nx/nx-theme.css";
 import { NxDensityProvider } from "./nx";
 
-// ── Sidebar tree · owner-locked ────────────────────────────────────
-// key      – unique id (used for active highlighting + data-testid)
-// label    – exact label rendered
-// icon     – lucide icon
-// to       – route target
-// external – true → opens in a new browser tab (reserved / not yet native)
-// disabled – true → row rendered but not clickable ("Not available")
-// reserved – true → routes to native XDR reserved placeholder
-//              (transitional: capability will be built native in a
-//              later slice; currently surfaces an honest state,
-//              never a deep-link back into the base NivXRay UI).
-const SIDEBAR = [
+// Cisco XDR ships LIGHT as its default colour theme (Auto / Light / Dark
+// are the three published options). NivXRay XDR matches that default; the
+// user's explicit choice still wins and persists.
+const NX_THEME_KEY = "nx.theme";
+function readTheme() {
+  try {
+    const v = window.localStorage.getItem(NX_THEME_KEY);
+    return v === "dark" ? "dark" : "light";
+  } catch { return "light"; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// The rail. `key` is the data-testid suffix and the active-state id.
+// `requires` is checked against EFFECTIVE PERMISSIONS (three-valued:
+// false hides, true shows, null — contract unavailable — shows, because
+// the backend 403 is the authority, not the browser).
+// ═══════════════════════════════════════════════════════════════════
+const NAV = [
   {
-    section: "Workspace",
-    items: [
-      { key: "workspace", label: "Analyst Workspace", icon: LayoutGrid,
-        to: "/analyst", external: true,
-        title: "Opens the existing NivXRay Analyst Workspace in a new tab" },
-    ],
+    key: "control-center", label: "Control Center", icon: LayoutDashboard,
+    to: "/xdr/control-center",
+    title: "What needs attention right now · priority work · tenants "
+         + "affected · security, telemetry and response condition",
+    children: [],
   },
   {
-    section: "Command Center",
-    items: [
-      { key: "mss-dashboard", label: "MSS Dashboard", icon: LayoutDashboard, to: "/xdr/mss-dashboard",
-        title: "SOC command center · triage lenses · analyst workload · customer operations · auto-investigation status · detection & MITRE overview" },
-    ],
-  },
-  {
-    section: "Operations",
-    items: [
-      { key: "incidents",  label: "Incidents",  icon: AlertOctagon,   to: "/xdr/incidents",
-        title: "Primary analyst work surface · investigation-aware incident queue" },
-      { key: "my-queue",   label: "My Queue",   icon: UserIcon,       to: "/xdr/incidents?mine=1" },
-      { key: "sla-aging",  label: "SLA / Aging", icon: ArrowRightLeft, disabled: true,
-        title: "SLA & aging dashboard — arrives in Phase 3" },
-      { key: "response",   label: "Response",   icon: ArrowRightLeft, disabled: true,
-        title: "Cross-incident Response Center — arrives in Phase 8" },
-    ],
-  },
-  {
-    section: "Investigations",
-    items: [
-      { key: "investigations", label: "Investigation Workspace", icon: FolderSearch,
-        disabled: true, title: "Native XDR investigation workspace — arrives in Phase 5" },
-      { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
-        disabled: true, title: "Cross-case Evidence Explorer — arrives in Phase 5" },
-      { key: "entity-search", label: "Entity Search", icon: Fingerprint,
-        disabled: true, title: "Cross-case entity search — arrives in Phase 6" },
-      { key: "attack-story", label: "Attack Story", icon: Fingerprint,
-        disabled: true, title: "Deterministic attack-story projection — arrives in Phase 5" },
-    ],
-  },
-  {
-    section: "Detect",
-    items: [
-      { key: "rule-studio", label: "Rule Studio", icon: Layers,
-        to: "/xdr/rule-studio",
-        title: "Authoring: create · edit · test · validate · simulate. 9 lanes · lifecycle · 11-check Regression Gate" },
-      { key: "detection-registry", label: "Detection Registry", icon: Radar,
-        to: "/xdr/admin/detection-registry",
-        title: "AUTHORITATIVE detection-content inventory · single source of truth for every rule NivXRay executes" },
-      { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
-        to: "/xdr/admin/correlation-rules",
-        title: "Stateful event-stream correlation engine · 13 operators · emits evidence, never verdicts" },
-      { key: "detections", label: "Detection Engineering", icon: Radar,
+    key: "incidents", label: "Incidents", icon: AlertOctagon,
+    to: "/xdr/incidents",
+    requires: ["incidents.read", "alerts.read"],
+    title: "The analyst's primary work surface · investigation-aware queue",
+    children: [
+      { key: "my-queue", label: "My Queue", icon: UserIcon,
+        to: "/xdr/incidents?mine=1",
+        title: "Incidents assigned to you" },
+      { key: "detections", label: "Detections", icon: Radar,
         to: "/xdr/detections",
-        title: "Engineering / debugging / testing of detection execution" },
+        title: "Individual security findings derived from telemetry and evidence" },
     ],
   },
   {
-    section: "Intelligence",
-    items: [
-      { key: "ti",       label: "Threat Intelligence",  icon: Globe,
-        reserved: "/xdr/intelligence/threat",
-        title: "Native XDR Threat Intelligence — arrives in a later slice" },
-      { key: "ioc",      label: "IOC Intelligence",     icon: Bug,
-        reserved: "/xdr/intelligence/iocs",
-        title: "Native XDR IOC Intelligence — arrives in a later slice" },
-      { key: "command",  label: "Command Intelligence", icon: Terminal,
-        reserved: "/xdr/intelligence/command",
-        title: "Native XDR Command Intelligence — arrives in Slice 14" },
-      { key: "malware",  label: "Malware Intelligence", icon: Bug,
-        reserved: "/xdr/intelligence/malware",
-        title: "Native XDR Malware Intelligence — arrives in a later slice" },
-      { key: "mitre",    label: "MITRE ATT&CK",         icon: Grid3x3,
-        to: "/xdr/intelligence/mitre",
-        title: "Native XDR MITRE ATT&CK heatmap · powered by authoritative NivXRay incident evidence" },
-      { key: "kb",       label: "Knowledge Base",       icon: BookOpen,
-        to: "/xdr/kb",
-        title: "Investigation guides · detection guidance · runbooks · SOPs · threat actor knowledge" },
+    key: "investigate", label: "Investigate", icon: FolderSearch,
+    to: "/xdr/investigations",
+    requires: ["investigations.read", "evidence.read"],
+    title: "Causal investigation workspace · attack story · timeline · "
+         + "evidence · entities",
+    children: [
+      { key: "evidence-explorer", label: "Evidence Explorer", icon: Search,
+        to: "/xdr/evidence-explorer",
+        title: "Cross-case evidence · extracted artifacts · hash chains · "
+             + "decoded payloads" },
     ],
   },
   {
-    section: "Data",
-    items: [
-      { key: "sdl", label: "Security Data Lake", icon: Database, disabled: true,
-        title: "Security Data Lake — arrives in a later slice" },
-      { key: "telemetry-studio",  label: "Telemetry Studio",  icon: Sliders,
-        to: "/xdr/admin/telemetry-studio",
-        title: "Inspect real telemetry · configure telemetry pipeline" },
-      { key: "telemetry-health",  label: "Telemetry Health",  icon: ActivityIcon,
-        to: "/xdr/admin/telemetry-health",
-        title: "Per-source health — are we receiving the right security telemetry?" },
+    key: "hunting", label: "Hunting", icon: Fingerprint,
+    to: "/xdr/hunting",
+    title: "Analyst-initiated interrogation of the authoritative stores",
+    children: [
+      // There is NO estate-wide analyst activity/event surface in this build:
+      // `/api/activity/inventory` is case-scoped and Administration ▸
+      // Telemetry Studio is LLM decoding CONFIGURATION, not events. The
+      // previous row bounced the analyst into Administration, which was
+      // simply wrong, so the row is withdrawn rather than pointed at an
+      // unrelated page. Program H has now delivered that surface, so the
+      // row is back — pointed at REAL canonical evidence, and honest when
+      // there is none.
+      { key: "events", label: "Event Explorer", icon: Search,
+        to: "/xdr/events" },
     ],
   },
   {
-    section: "Respond",
-    items: [
-      { key: "playbooks", label: "Playbooks", icon: Zap,
-        to: "/xdr/respond/playbooks",
-        title: "Executable response workflows · defines WHAT action is executed" },
+    key: "intelligence", label: "Intelligence", icon: Globe,
+    to: "/xdr/intelligence/threat",
+    requires: ["intel.read"],
+    title: "Stored indicators, enrichment, decode fabric and ATT&CK coverage",
+    children: [
+      { key: "ioc", label: "IOC Intelligence", icon: Bug,
+        to: "/xdr/intelligence/iocs" },
+      { key: "command", label: "Command Intelligence", icon: Terminal,
+        to: "/xdr/intelligence/command" },
+      { key: "malware", label: "Malware Intelligence", icon: Bug,
+        to: "/xdr/intelligence/malware" },
+      { key: "mitre", label: "MITRE ATT&CK", icon: Grid3x3,
+        to: "/xdr/intelligence/mitre" },
+      { key: "kb", label: "Knowledge Base", icon: BookOpen, to: "/xdr/kb" },
+    ],
+  },
+  {
+    key: "automate", label: "Automate", icon: Zap,
+    to: "/xdr/respond/playbooks",
+    requires: ["playbooks.read", "response.read", "response.recommend",
+               "response.execute", "response.approve"],
+    title: "Response automation and detection content · WHAT runs, WHEN it "
+         + "runs, and who approved it",
+    children: [
       { key: "automation-rules", label: "Automation Rules", icon: ArrowRightLeft,
-        to: "/xdr/respond/automation-rules",
-        title: "WHEN → THEN rules that trigger playbooks" },
+        to: "/xdr/respond/automation-rules" },
       { key: "approvals", label: "Approvals Queue", icon: CheckSquare,
-        to: "/xdr/respond/approvals",
-        title: "Peer-approval queue for pending Response Engine executions" },
+        to: "/xdr/respond/approvals" },
+      { key: "rule-studio", label: "Rule Studio", icon: Layers,
+        to: "/xdr/rule-studio" },
+      { key: "detection-registry", label: "Detection Registry", icon: Radar,
+        to: "/xdr/admin/detection-registry" },
+      { key: "correlation-rules", label: "Correlation Rules", icon: Radar,
+        to: "/xdr/admin/correlation-rules" },
     ],
   },
   {
-    section: "Exposure",
-    items: [
-      { key: "assets",          label: "Assets",          icon: Boxes,    disabled: true },
-      { key: "vulnerabilities", label: "Vulnerabilities", icon: ShieldOff, disabled: true },
-      { key: "exposure",        label: "Vulnerability Exposure", icon: ShieldAlert,
-        to: "/xdr/exposure",
-        title: "CVE / NVD / KEV / EPSS · asset ↔ software ↔ CVE correlation" },
-      { key: "attack-paths",    label: "Attack Paths",    icon: Route,    disabled: true },
-      { key: "critical-assets", label: "Critical Assets", icon: KeyRound, disabled: true },
+    key: "assets", label: "Assets", icon: Boxes,
+    to: "/xdr/assets",
+    title: "Endpoint, identity and network inventory · exposure",
+    children: [
+      { key: "assets-identity", label: "Identity / Users", icon: UserIcon,
+        to: "/xdr/assets/identity" },
+      { key: "assets-network", label: "Network Assets", icon: Wifi,
+        to: "/xdr/assets/network" },
+      { key: "exposure", label: "Vulnerability Exposure", icon: ShieldAlert,
+        to: "/xdr/exposure" },
+      { key: "attack-paths", label: "Attack Paths", icon: Route,
+        to: "/xdr/assets/attack-paths" },
+      { key: "critical-assets", label: "Critical Assets", icon: KeyRound,
+        to: "/xdr/assets/critical" },
     ],
   },
   {
-    section: "Administration",
-    items: [
-      { key: "integrations",      label: "Integrations",      icon: Plug,          to: "/xdr/admin/integrations" },
-      { key: "data-sources",      label: "Data Sources",      icon: HardDrive,     to: "/xdr/admin/data-sources" },
-      { key: "collectors",        label: "Collectors",        icon: Cpu,           to: "/xdr/admin/collectors" },
-      { key: "agents",            label: "Agents",            icon: Wifi,          to: "/xdr/admin/agents" },
-      { key: "parsers",           label: "Parsers",           icon: Filter,        to: "/xdr/admin/parsers" },
-      { key: "normalization",     label: "Normalization",     icon: Shuffle,       to: "/xdr/admin/normalization" },
-      { key: "detection-rules",   label: "Detection Rules",   icon: Zap,           to: "/xdr/admin/detection-rules",
-        title: "Governance / configuration inventory of deployed detection rules · lifecycle · ownership · schedules" },
-      { key: "response-policies", label: "Response Policies", icon: ArrowRightLeft, to: "/xdr/admin/response-policies",
-        title: "Defines what response actions are ALLOWED · executed via Respond › Playbooks" },
-      { key: "users-roles",       label: "Users / Roles",     icon: Users,         to: "/xdr/admin/users-roles" },
-      { key: "api-webhooks",      label: "API / Webhooks",    icon: Webhook,       to: "/xdr/admin/api-webhooks" },
+    key: "data-sources", label: "Data Sources", icon: HardDrive,
+    to: "/xdr/data-sources",
+    requires: ["data_sources.read", "collectors.read"],
+    title: "Telemetry onboarding and per-source health",
+    children: [
+      { key: "windows", label: "Windows", icon: Layers,
+        to: "/xdr/data-sources/windows" },
+      { key: "collectors", label: "Collectors", icon: Cpu,
+        to: "/xdr/admin/collectors" },
+      { key: "agents", label: "Agents", icon: Wifi, to: "/xdr/admin/agents" },
+      { key: "parsers", label: "Parsers", icon: Filter,
+        to: "/xdr/admin/parsers" },
+      { key: "normalization", label: "Normalization", icon: Shuffle,
+        to: "/xdr/admin/normalization" },
+      { key: "telemetry-health", label: "Telemetry Health", icon: ActivityIcon,
+        to: "/xdr/admin/telemetry-health" },
     ],
   },
   {
-    section: "System",
-    items: [
-      { key: "platform-health",   label: "Platform Health",   icon: HeartPulse,    to: "/xdr/admin/platform-health",
-        title: "Is NivXRay itself operational? · derived from real infrastructure" },
-      { key: "docs",     label: "Documentation",        icon: BookOpen,
-        to: "/xdr/docs",
-        title: "How does NivXRay work? · API docs · configuration · architecture" },
+    key: "reports", label: "Reports", icon: FileText,
+    to: "/xdr/reports",
+    title: "Deterministic investigation reports and their PDF projection",
+    children: [],
+  },
+  {
+    key: "clients", label: "Client Management", icon: Users,
+    to: "/xdr/clients",
+    title: "The tenant estate your identity is authorized to operate",
+    children: [
+      { key: "users-roles", label: "Users / Roles", icon: Users,
+        to: "/xdr/admin/users-roles" },
+    ],
+  },
+  {
+    key: "administration", label: "Administration", icon: Sliders,
+    to: "/xdr/admin",
+    requires: ["platform.read", "platform.admin", "api_keys.read",
+               "webhooks.read", "secrets.read", "audit.read",
+               "parsers.read", "normalization.read", "extensions.read"],
+    title: "Configuration, connections, governance and platform state",
+    children: [
+      { key: "integrations", label: "Integrations", icon: Plug,
+        to: "/xdr/admin/integrations" },
+      // `Detection Rules → /xdr/admin/detection-rules` was REMOVED: that key
+      // is not an admin section and the row landed on "Unknown admin
+      // section". Detection content is owned by Automate (Rule Studio ·
+      // Detection Registry · Correlation Rules) and nothing was lost — a
+      // second row to the same destination would only split the IA.
+      { key: "response-policies", label: "Response Policies",
+        icon: ArrowRightLeft, to: "/xdr/admin/response-policies" },
+      { key: "response-strategies", label: "Response Strategies", icon: Layers,
+        to: "/xdr/admin/response-strategies" },
+      { key: "api-webhooks", label: "API / Webhooks", icon: Webhook,
+        to: "/xdr/admin/api-webhooks" },
+      { key: "platform-health", label: "Platform Health", icon: HeartPulse,
+        to: "/xdr/admin/platform-health" },
+      { key: "docs", label: "Documentation", icon: BookOpen, to: "/xdr/docs" },
     ],
   },
 ];
 
-// Determine which sidebar entry is currently active based on location.
-function useActiveKey() {
+/** Every navigable row, flattened once, longest path first. */
+const FLAT = NAV.flatMap((p) => [
+  { key: p.key, to: p.to, parent: p.key },
+  ...(p.children || []).map((c) => ({ key: c.key, to: c.to, parent: p.key })),
+]).map((e) => ({ ...e, path: (e.to || "").split("?")[0],
+                 query: (e.to || "").split("?")[1] || "" }))
+  .sort((a, b) => b.path.length - a.path.length);
+
+/** Which rail row owns this URL. One resolver, no per-route special cases. */
+function useActive() {
   const { pathname, search } = useLocation();
   return useMemo(() => {
-    if (pathname === "/xdr")                     return "incidents";
-    if (pathname.startsWith("/xdr/incidents")) {
-      return search.includes("mine=1") ? "my-queue" : "incidents";
+    const hit = FLAT.find((e) => {
+      if (!e.path) return false;
+      if (pathname !== e.path && !pathname.startsWith(`${e.path}/`)) return false;
+      if (e.query) return search.includes(e.query);
+      return true;
+    });
+    // A row carrying a query discriminator (My Queue) must not win the
+    // bare path, and the bare path must not win when the discriminator
+    // is present.
+    if (hit && !hit.query) {
+      const q = FLAT.find((e) => e.path === hit.path && e.query
+                                 && search.includes(e.query));
+      if (q) return { key: q.key, parent: q.parent };
     }
-    if (pathname.startsWith("/xdr/admin")) {
-      // /xdr/admin (Overview) → highlight nothing in the OUTER sidebar
-      //   (the inner admin nav handles the Overview highlight).
-      // /xdr/admin/:section → highlight the matching Administration
-      //   sidebar item; the sidebar's Admin section uses the exact
-      //   :section string as its `key`.
-      const key = pathname.split("/")[3];
-      return key || null;
-    }
-    if (pathname.startsWith("/xdr/intelligence/")) {
-      const key = pathname.split("/")[3];
-      // Sidebar keys are authoritative — URL keys map back to them.
-      const map = { threat: "ti", iocs: "ioc", command: "command",
-                     malware: "malware", mitre: "mitre", kb: "kb" };
-      return map[key] || null;
-    }
-    return null;
+    return hit ? { key: hit.key, parent: hit.parent } : { key: null, parent: null };
   }, [pathname, search]);
 }
 
-export default function XdrShell({ children }) {
-  const { user, logout } = useAuth();
-  const activeKey = useActiveKey();
-  const navigate  = useNavigate();
+export default function XdrShell({ children, flush = false }) {
+  const access = useAccess();
+  const active = useActive();
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState({});
   const { pathname } = useLocation();
   const [q, setQ] = useState("");
+  const [theme, setTheme] = useState(readTheme);
 
-  const initials = (user?.email || "?").slice(0, 2).toUpperCase();
-  const tenant   = user?.tenant || user?.email || "default";
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    try { window.localStorage.setItem(NX_THEME_KEY, next); } catch { /* non-fatal */ }
+    // One theme truth across the shell and the embedded EDR consoles.
+    window.dispatchEvent(new CustomEvent("nx-theme", { detail: next }));
+  };
+  useEffect(() => {
+    const onTheme = (e) => setTheme(e.detail === "light" ? "light" : "dark");
+    window.addEventListener("nx-theme", onTheme);
+    return () => window.removeEventListener("nx-theme", onTheme);
+  }, []);
+  // Same authority as the EDR console: the document root carries the
+  // theme so the canvas behind the shell is never the other theme.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-nx-theme", theme);
+  }, [theme]);
+
+  /** Focus mode: full-width investigation consoles drop the product nav. */
+  const focusMode = /^\/xdr\/endpoints\/[^/]+/.test(pathname)
+                    || pathname.startsWith("/xdr/intelligence/files/")
+                    || pathname.startsWith("/xdr/edr/")
+                    || pathname.startsWith("/edr");
+  const [navOverlay, setNavOverlay] = useState(false);
+  useEffect(() => { setNavOverlay(false); }, [pathname]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     const term = q.trim();
     if (!term) return;
-    navigate(`/xdr/incidents?q=${encodeURIComponent(term)}`);
+    navigate(`/xdr/hunting?q=${encodeURIComponent(term)}`);
   };
-
-  const openExternal = (to) => window.open(to, "_blank", "noopener,noreferrer");
 
   return (
     <NxDensityProvider>
     <div className="xdr-console"
+          data-nx-theme={theme}
           data-testid="xdr-shell">
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
+        {focusMode && (
+          <button
+            onClick={() => setNavOverlay((v) => !v)}
+            title={navOverlay ? "Hide navigation" : "Show navigation (overlay)"}
+            aria-label="Toggle product navigation"
+            style={{ background: "transparent", border: "none",
+                     color: "var(--nav-text-dim)", cursor: "pointer",
+                     fontSize: 15, padding: "0 10px 0 0" }}
+            data-testid="xdr-sidebar-toggle"
+          >
+            ☰
+          </button>
+        )}
         <Link to="/xdr" className="brand" data-testid="xdr-brand">
           <NivxrayMark size={26} boxed={false} />
           NIVXRAY <span className="accent">XDR</span>
         </Link>
 
-        <form className="top-search" onSubmit={handleSearch} data-testid="xdr-topbar-search-form">
+        <form className="top-search" onSubmit={handleSearch}
+              data-testid="xdr-topbar-search-form">
           <Search size={12} />
           <input
-            placeholder="Search incidents, hosts, users, hashes, IOCs…"
+            placeholder="Hunt an observable — hostname · SHA-256 · IP · rule · incident · process…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             data-testid="xdr-topbar-search"
@@ -260,96 +341,134 @@ export default function XdrShell({ children }) {
         </form>
 
         <div className="top-actions">
-          <span className="tier-pill" data-testid="xdr-tenant-pill" title="Active tenant / workspace">
-            TENANT · {String(tenant).toUpperCase().slice(0, 24)}
-          </span>
+          {/* XDR → NivXMachines Workspace hand-off. Separate deployment at
+              its own origin, so it opens in a new tab and is never a rail
+              route. */}
+          <WorkspaceLaunch testid="xdr-open-workspace" />
+          {/* No notification service exists in this build, so no bell is
+              painted: a bell that never rings is a lie. */}
           <button
             className="btn ghost" style={{ padding: 6 }}
-            title="Notifications" data-testid="xdr-notifications"
-          >
-            <Bell size={13} />
-          </button>
-          <button
-            className="btn ghost" style={{ padding: 6 }}
-            title="Help" data-testid="xdr-help"
+            onClick={() => navigate("/xdr/kb")}
+            title="Knowledge Base · investigation guides, detection guidance, runbooks"
+            data-testid="xdr-help"
           >
             <HelpCircle size={13} />
           </button>
           <button
-            className="user-chip"
-            onClick={logout}
-            title={`${user?.email || ""} · Logout`}
-            data-testid="xdr-user-logout"
+            className="nx-theme-toggle"
+            onClick={toggleTheme}
+            title={theme === "dark"
+              ? "Switch to light mode (analytical / print-export)"
+              : "Switch to dark mode (tactical console)"}
+            aria-label="Toggle colour theme"
+            data-testid="xdr-theme-toggle"
+            data-theme-state={theme}
           >
-            {initials}
+            {theme === "dark" ? "◐ DARK" : "◑ LIGHT"}
           </button>
+
+          {/* Scope Navigator · EffectiveScope = Requested ∩ Authorized.
+              Fault containment ONLY: if the control itself fails to render
+              the rail survives and the pill states the failure. It grants
+              no tenant, unlocks no incident scope and hides no denial. */}
+          <NxErrorBoundary fallback={(err) => (
+            <span data-testid="xdr-scope-navigator-error"
+                  title={String(err?.message || err)}
+                  style={{ display: "inline-flex", alignItems: "center",
+                           gap: 6, fontSize: 11, fontWeight: 700,
+                           color: "var(--muted)" }}>
+              <Lock size={13} style={{ opacity: .8 }} />
+              SCOPE CONTROL ERROR · NO SCOPE GRANTED
+            </span>
+          )}>
+            <XdrScopeNavigator />
+          </NxErrorBoundary>
         </div>
       </div>
 
       {/* ── Body ──────────────────────────────────────────── */}
       <div className="body">
-        <aside className="sidebar" data-testid="xdr-sidebar">
-          {SIDEBAR.map((group) => (
-            <div key={group.section}>
-              <div className="nav-title">{group.section}</div>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.key === activeKey;
-                const testId = `xdr-nav-${item.key}`;
-                if (item.disabled) {
+        {focusMode && navOverlay && (
+          <div className="nav-scrim" onClick={() => setNavOverlay(false)}
+               data-testid="xdr-sidebar-scrim" />
+        )}
+        <aside className={`sidebar${focusMode
+                  ? (navOverlay ? " nav-overlay" : " nav-hidden") : ""}`}
+               data-testid="xdr-sidebar"
+               aria-hidden={focusMode && !navOverlay ? "true" : "false"}>
+          {NAV.filter((primary) => {
+            if (!primary.requires) return true;
+            return access.canAny(primary.requires) !== false;
+          }).map((primary) => {
+            const kids = primary.children || [];
+            const isActive = active.parent === primary.key;
+            const selfActive = active.key === primary.key;
+            const open = expanded[primary.key] ?? isActive;
+            const PIcon = primary.icon;
+            return (
+              <div key={primary.key}
+                   data-testid={`xdr-rail-${primary.key}`}
+                   data-open={open || undefined}>
+                <div className={`nav-item${isActive ? " active" : ""}`}
+                     data-active={selfActive || undefined}
+                     data-section-active={isActive || undefined}
+                     data-testid={`xdr-nav-${primary.key}`}
+                     title={primary.title || undefined}
+                     role="button" tabIndex={0}
+                     style={{ cursor: "pointer" }}
+                     onKeyDown={(e) => { if (e.key === "Enter") navigate(primary.to); }}
+                     onClick={() => navigate(primary.to)}>
+                  <span className="ic"><PIcon size={13} /></span>
+                  {primary.label}
+                  {kids.length > 0 && (
+                    <span className="ext"
+                          data-testid={`xdr-rail-toggle-${primary.key}`}
+                          title={open ? "Collapse" : "Expand"}
+                          onClick={(e) => { e.stopPropagation();
+                            setExpanded((v) => ({ ...v,
+                              [primary.key]: !open })); }}>
+                      {open ? <ChevronDown size={11} />
+                            : <ChevronRight size={11} />}
+                    </span>
+                  )}
+                </div>
+                {open && kids.map((item) => {
+                  const Icon = item.icon;
+                  const on = active.key === item.key;
                   return (
-                    <button
-                      key={item.key}
-                      className="nav-item disabled"
-                      title={item.title || "Not available in this slice"}
-                      disabled
-                      data-testid={testId}
-                    >
-                      <span className="ic"><Icon size={13} /></span>
+                    <button key={item.key}
+                            data-testid={`xdr-nav-${item.key}`}
+                            style={{ paddingLeft: 34 }}
+                            className={`nav-item ${on ? "active" : ""}`}
+                            onClick={() => navigate(item.to)}
+                            data-active={on || undefined}
+                            title={item.title || undefined}>
+                      <span className="ic"><Icon size={12} /></span>
                       {item.label}
                     </button>
                   );
-                }
-                if (item.external) {
-                  return (
-                    <button
-                      key={item.key}
-                      className="nav-item"
-                      onClick={() => openExternal(item.to)}
-                      data-testid={testId}
-                      title={item.title || `Opens ${item.to} in a new browser tab`}
-                    >
-                      <span className="ic"><Icon size={13} /></span>
-                      {item.label}
-                      <span className="ext"><ExternalLink size={10} /></span>
-                    </button>
-                  );
-                }
-                return (
-                  <button
-                    key={item.key}
-                    className={`nav-item ${isActive ? "active" : ""}`}
-                    onClick={() => navigate(item.to || item.reserved)}
-                    data-active={isActive || undefined}
-                    data-testid={testId}
-                    title={item.title || undefined}
-                  >
-                    <span className="ic"><Icon size={13} /></span>
-                    {item.label}
-                    {item.reserved && (
-                      <span className="ext" title="Reserved · native XDR placeholder">
-                        <Lock size={9} />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+                })}
+              </div>
+            );
+          })}
         </aside>
-        <main className="main" data-testid="xdr-main">
-          {children}
+        <main className={`main${flush ? " flush" : ""}`} data-testid="xdr-main">
+          {/* One context bar for every plane: breadcrumbs plus the
+              customer / endpoint / incident / evidence context that must
+              survive a pivot. It states context, never grants it. */}
+          <XdrContextBar />
+          {/* Every page mounts its own shell, so a throw inside a page used
+              to unmount the rail with it (DataSources 403, Exposure 403).
+              One boundary here contains any page failure: the navigation,
+              the context bar and the ribbon survive, and the failure is
+              stated instead of leaving a blank document. */}
+          <NxErrorBoundary>{children}</NxErrorBoundary>
         </main>
+        {/* Cisco XDR's persistent ribbon: pinned to the bottom of the
+            viewport on every page, expanded by default, collapsible to a
+            floating button, vertically resizable from its top edge. */}
+        <XdrRibbon />
       </div>
     </div>
     </NxDensityProvider>

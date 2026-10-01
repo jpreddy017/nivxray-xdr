@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only verification of P0 Detection Attribution on Device Trajectory / Activity Details. All 7 acceptance criteria PASS end-to-end against the preview URL. No frontend bugs found; no code changes required.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_results": [
+    {"test": "T1 – Detection attribution on Activity Details (admin, raw_fac9185acde4f8ccebef7a3b)", "status": "PASS", "details": "amp-details-disposition='Suspicious'; amp-detection-record present with data-rule-ids='EDR-LNX-002' data-verdict='SUSPICIOUS'; amp-d-detection-rules='EDR-LNX-002'; amp-d-detection-engine='nivxray::detection_content::nivxray_native_sigma'; amp-d-detection-verdict='SUSPICIOUS'; amp-d-detection-at='2026-09-06T15:45:49.117425+00:00'; amp-d-detection-evidence='DETECTION_MATCHED → raw_fac9185acde4f8ccebef7a3b → cev_fac9185acde4f8ccebef7a3b_0'; amp-detected-by-none NOT present; amp-details-detection-flag visible; amp-handoff-resolved contains 'rule EDR-LNX-002' and 'verdict SUSPICIOUS'."},
+    {"test": "T2 – Telemetry-only observation unchanged/honest", "status": "PASS", "details": "Clicked non-red glyph amp-event-evt_02728e89df1b22a3#b78489eb56. Disposition='Unknown · not assessed'; amp-detection-none text contains 'NO_DETECTION_CLAIMED_THIS_OBSERVATION' and 'Absence of a detection is not a verdict of clean.'; amp-details-detection-flag NOT visible. Attribution is exact, not blanket."},
+    {"test": "T3 – Detection row → trajectory handoff (P0-F.13.5 regression)", "status": "PASS", "details": "64 edr-detection-trajectory-* links on /edr/detections?endpoint_id=ep_2d57cbe6f80152062109. Clicked first (raw_fac9185acde4f8ccebef7a3b, rules column 'EDR-LNX-002'). Activity Details opened on that observation with amp-handoff-resolved containing 'rule EDR-LNX-002 · verdict SUSPICIOUS'; amp-detection-record data-rule-ids='EDR-LNX-002' matches the row's Rules column exactly."},
+    {"test": "T4 – Rule-id search filter", "status": "PASS", "details": "Typing 'EDR-LNX-002' into Device Trajectory search reduced observations 6356 → 35 (well below 6356). Cleared search restored to 6356/6356 observations."},
+    {"test": "T5 – Endpoint header honesty (amp-compromise-summary)", "status": "PASS", "details": "amp-compromise-summary text='6 malicious · 68 detection events' with data-malicious='6' and data-detections='68' (no longer 'compromise events'; not summed)."},
+    {"test": "T6 – Tenant isolation (analyst@nivx-live.com)", "status": "PASS", "details": "Same handoff URL yields amp-handoff-state data-state='ENDPOINT_NOT_RESOLVED'; no amp-handoff-resolved, no amp-detection-record; body does NOT contain 'agent-env-630704a1' or 'EDR-LNX-002'."},
+    {"test": "T7 – AMP baseline regression", "status": "PASS", "details": "Lineage tree renders (425 SVG connector elements inside amp-workspace); 30-day (AUG/SEP) and 24-hour (0:00/12:00) navigators present; amp-vscroll scroll to 400 changed amp-workspace data-row-start from 0 → 26; clicking amp-event glyph opens amp-details-panel."}
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only per request)", "frontend": "100% (7/7)"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK ; analyst@nivx-live.com / NivxLive!Analyst2026",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0 Detection Attribution is fully verified. Canonical detected observation (raw_fac9185acde4f8ccebef7a3b → evt_0b5121e3924461c7#7dd36299ea, row 339) renders full Detection section (rules/engine/verdict/at/evidence). Non-detected observations honestly render amp-detection-none + 'Unknown · not assessed'. Header now counts malicious and detections separately (6 malicious · 68 detection events). Handoff strip includes rule + verdict. Tenant isolation intact via ENDPOINT_NOT_RESOLVED for cross-tenant analyst.",
+  "rca of the issue": "N/A – no issues encountered."
+}

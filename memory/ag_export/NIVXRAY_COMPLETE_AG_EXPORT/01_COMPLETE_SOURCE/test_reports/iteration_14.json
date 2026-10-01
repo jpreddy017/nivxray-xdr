@@ -1,0 +1,59 @@
+{
+  "summary": "End-to-end verification of Feb-2026 features: (1) Batch Analyst Testing endpoint + /batch-test page, and (2) CTI RSS Crawler + /admin/training-inbox page. 17/17 backend pytest cases pass; frontend flows fully functional (login, batch run with 5 payloads returning summary + 5-row matrix, feed picker with 8 feeds, dismiss flow, filter tabs, header nav links).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global (WorkspacePage.jsx ~line 1005)", "issues": ["React hydration warning: <span data-ve-dynamic> nested inside <option> in the AI provider select. Browsers strip <option> content to text — cosmetic warning, not functional. Same finding as iteration_13."]}
+    ]
+  },
+  "verification_results": {
+    "backend": {
+      "batch_example_csv": "200 · text/csv with id,payload header",
+      "batch_json_5_payloads": "200 · total=5, summary keys present, row schema complete (id/engine/confidence 0-100/verdict/mitre_ids/lolbins/iocs_*)",
+      "batch_ps_encoded": "engine=archetype:PS_EncodedCommand, MITRE=T1027.010,T1059.001, verdict=Suspicious",
+      "batch_reg_export": "engine=archetype:NATIVE_CMD_EXPLAINER, MITRE=T1003.002",
+      "batch_vssadmin": "MITRE=T1490",
+      "batch_csv_upload_csv_format": "200 · text/csv attachment",
+      "batch_csv_upload_json_format": "200 · JSON with 2 rows",
+      "batch_auth_guard": "401/403 without token",
+      "rss_feeds": "8 feeds, keywords_count=87, interval_hours=6, all 8 expected ids present",
+      "rss_feeds_auth_guard": "401/403",
+      "rss_crawl_bleepingcomputer": "200 · results[0].feed_id=bleepingcomputer status ok, <20s",
+      "rss_crawl_admin_guard": "401/403",
+      "rss_pending_list": "200 · counts{pending,promoted,dismissed} present",
+      "rss_pending_admin_guard": "401/403",
+      "rss_dismiss_then_delete": "dismiss→200 {status:dismissed}, delete→200 {status:deleted}",
+      "rss_promote": "200 {ok:true, promoted_id, pending_id, title}; pending row moves to promoted bucket",
+      "regression_decode_smart_reg_export": "Output contains 'NivXRay Native-Command Breakdown' + 'Export Windows Registry Hive'"
+    },
+    "frontend": {
+      "batch_test_page": "loaded with all 7 testids (textarea, mode-select, payload-count, run-btn, download-btn, upload-btn, example-link)",
+      "batch_run_5_payloads": "summary shows Total:5 Suspicious:5, results-matrix has 5 rows with populated engine/verdict/MITRE (T1027.010,T1059.001 / T1003.002 / T1490 / T1027.010,T1059.004)",
+      "training_inbox_page": "loaded; 8 feed-{id} testids present; crawl-condense-toggle + crawl-now-btn + filter-{pending,promoted,dismissed,all} all present",
+      "inbox_dismiss_flow": "Clicking dismiss on a pending item accepts confirm dialog and moves item to dismissed (28→27 pending, 0→1 dismissed count observed)",
+      "header_nav": "nav-batch-test and nav-training-inbox both navigate correctly to /batch-test and /admin/training-inbox"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_batch_and_rss_feb2026.py",
+    "/app/test_reports/pytest/batch_rss_feb2026.xml"
+  ],
+  "action_items": [
+    "Optional cleanup: fix the WorkspacePage.jsx ~line 1005 <span> inside <option> hydration warning (also flagged in iteration_13)."
+  ],
+  "critical_code_review_comments": [
+    "threat_intel_rss.py imports `SyncIn` from routers.training_notes_sync — ensure that alias is exported (import works at runtime per crawl test).",
+    "Scheduler auto-fires every 6h with condense=False — fine. Ensure that failed feeds do not accumulate stale meta rows.",
+    "batch_test.py._run_single re-imports operations.mitre_map twice — minor dead import, harmless."
+  ],
+  "updated_files": ["/app/backend/tests/test_batch_and_rss_feb2026.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK",
+  "seed_data_creation": "Test created 1 promoted training_note in db.admin_models (tags=['test','cti'], title starts with 'TEST_promo_'); 1 pending item was dismissed then hard-deleted; RSS crawl added new pending items during test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both new Feb-2026 features (Batch Analyst Testing, CTI RSS Crawler) are FULLY WORKING end-to-end. Pytest file: test_batch_and_rss_feb2026.py — 17 tests, ~3.5s parallel. Use analysis_mode=fast for UI runs, condense_with_llm=false for backend crawl tests to keep runtime <20s.",
+  "rca of the issue": "N/A — no bugs found."
+}

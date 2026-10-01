@@ -1,0 +1,10 @@
+{
+  "id": "ps-hex-csv-5-mut2",
+  "category": "ps-hex-csv",
+  "command_line": "$h='49,6e,76,6f,6b,65,2d,57,65,62,52,65,71,75,65,73,74';        $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)};        Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "webrequest"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

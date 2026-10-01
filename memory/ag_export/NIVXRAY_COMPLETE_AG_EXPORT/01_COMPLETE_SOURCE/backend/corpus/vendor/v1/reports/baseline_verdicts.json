@@ -1,0 +1,209 @@
+{
+  "corpus_id": "vendor-v1",
+  "engine_probed": "nivxforge.investigation.verdict_engine::compute_verdict",
+  "entries": [
+    {
+      "confidence": 0.75,
+      "confidence_pct": 75,
+      "fixture_id": "talos.001",
+      "label": "Suspicious",
+      "n_contributors": 3,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 netsh [high, w=3.0] \u00b7 reg [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "talos"
+    },
+    {
+      "confidence": 0.75,
+      "confidence_pct": 75,
+      "fixture_id": "talos.002",
+      "label": "Suspicious",
+      "n_contributors": 3,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: powershell [high, w=3.0] \u00b7 certutil [high, w=3.0] \u00b7 schtasks [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "talos"
+    },
+    {
+      "confidence": 0.75,
+      "confidence_pct": 75,
+      "fixture_id": "talos.003",
+      "label": "Suspicious",
+      "n_contributors": 3,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: vssadmin [high, w=3.0] \u00b7 wbadmin [high, w=3.0] \u00b7 bcdedit [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "talos"
+    },
+    {
+      "confidence": 0.75,
+      "confidence_pct": 75,
+      "fixture_id": "securelist.001",
+      "label": "Suspicious",
+      "n_contributors": 3,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 3 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 reg [high, w=3.0] \u00b7 net [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "securelist.002",
+      "label": "Malicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: rundll32 [high, w=3.0] \u00b7 mshta [high, w=3.0].",
+      "top_kinds": [
+        "rundll32_abuse",
+        "mshta_abuse"
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "securelist.003",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 schtasks [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "securelist"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "mandiant.001",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: curl [high, w=3.0] \u00b7 chmod [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "mandiant"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "mandiant.002",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 reg [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "mandiant"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "microsoft.001",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: powershell [high, w=3.0] \u00b7 sc [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "microsoft"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "microsoft.002",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: bcdedit [high, w=3.0] \u00b7 wevtutil [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "microsoft"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "elastic.001",
+      "label": "Malicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: certutil [high, w=3.0] \u00b7 wmic [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "wmi_abuse"
+      ],
+      "vendor": "elastic"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "elastic.002",
+      "label": "Malicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: reg [high, w=3.0] \u00b7 regsvr32 [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "regsvr32_abuse"
+      ],
+      "vendor": "elastic"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "huntress.001",
+      "label": "Suspicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: cmd [high, w=3.0] \u00b7 net [high, w=3.0].",
+      "top_kinds": [
+        "lolbin",
+        "lolbin"
+      ],
+      "vendor": "huntress"
+    },
+    {
+      "confidence": 0.7296,
+      "confidence_pct": 73,
+      "fixture_id": "huntress.002",
+      "label": "Malicious",
+      "n_contributors": 2,
+      "n_not_counted": 0,
+      "reason": "Verdict derived from class distribution: 0 critical \u00b7 2 high \u00b7 0 medium \u00b7 0 low \u00b7 0 context. Top contributors: bitsadmin [high, w=3.0] \u00b7 start [high, w=3.0].",
+      "top_kinds": [
+        "bits_abuse",
+        "lolbin"
+      ],
+      "vendor": "huntress"
+    }
+  ],
+  "fixture_count": 14,
+  "purpose": "ADR-004 Amendment A1 \u00b7 verdict baseline",
+  "schema_version": "1.0"
+}

