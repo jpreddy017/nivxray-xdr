@@ -3721,3 +3721,47 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   member and no enable/disable/reinstate route anywhere in edr_plane/enrollment or
   routers/edr_enrollment.py. Minimum change set is recorded in the turn response.
   INVARIANT TO PRESERVE: DISABLED != REVOKED != OFFBOARDED/DELETED.
+
+- DESKTOP RECOVERY --token-stdin FAILURE (read-only RCA; nothing modified, no mint/revoke,
+  no restart, no deploy, KUSHU untouched).
+  VERDICT: STDIN_RECOVERY_PATH = ARTIFACT_MISMATCH (+2 real code defects found).
+  * ROOT CAUSE, PROVEN BY EXACT STRING: the observed refusal "--token is required to enrol.
+    The installer carries no credential by design." is the PRE-HARDENING text, present up to
+    fe08077e (2026-09-30 03:06:55Z) and REPLACED in 572fa3ed (08:19:48Z) with "--token-stdin
+    is required to enrol ... and <STDIN_ONLY_NOTICE>". The exe on DESKTOP was therefore built
+    from a commit <= fe08077e and predates the stdin hardening. It is NOT the audited
+    artifact of run 36695465379 (head_sha b42c34c7, built 09:20:16Z) whose exe SHA256 is
+    FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B.
+  * WHY IT DID NOT SAY "unrecognized arguments": main() uses
+    build_parser().parse_known_args(raw)[0]. At fe08077e the install subparser has --token
+    and NO --token-stdin, so parse_known_args SILENTLY DISCARDED --token-stdin, args.token
+    stayed None, STAGE and PROTECTED STATE ran, and enrolment refused. Reproduced locally
+    with the fe08077e parser definition: strict parse_args exits 2 with "unrecognized
+    arguments: --token-stdin", parse_known_args returns token=None. The hardened build's own
+    comment predicted the mirror image of this trap.
+  * NO STDIN CONSUMER EXISTED. There is no subprocess: setup calls sensor.enrol() in-process
+    and only the HARDENED sensor.read_enrolment_secret() reads sys.stdin. In the old build
+    nothing reads stdin at all, so the piped plaintext was never drained and was discarded
+    when the process exited. It never reached argv, disk, the registry, the service binPath
+    or Sysmon EID1. stdin was NOT consumed earlier by PyInstaller.
+  * ⚠ THE SERVICE WAS ALMOST CERTAINLY LEFT STOPPED - ACQUISITION GAP FORMING.
+    install() STAGE runs BEFORE enrolment and stops the service twice: once when
+    source != INSTALLED_EXE (sc stop, then copy2 over INSTALLED_EXE) and again inside
+    _stage_service_host() (sc stop, then copytree over SERVICE_DIR). Step 3 then raised
+    SystemExit, so step 4 (sc create + sc start) NEVER RAN. A clean `sc stop` does not
+    trigger the configured failure/restart actions, and AUTO_START only applies at boot.
+    The on-disk service image was ALSO overwritten with the OLD build's onedir payload.
+  * EVIDENCE IS STILL SAFE: nothing in STAGE or _protect_state_dir touches identity.json,
+    outbox.jsonl, outbox.offset, channels.json or the SQLite journal; _protect_state_dir only
+    re-applies ACLs. Only `uninstall --purge` deletes state.
+  * RECOVERY TOKEN: unused, so still ACTIVE until TTL. Not consumed by the failed run.
+    Treat as spent for hygiene; revoke or let it expire. Do not reuse it.
+  * DEFECT 1 (P0, NOT FIXED): install() must not stop the running service during STAGE
+    before enrolment has succeeded, and must restart it on ANY failure. Today a failed
+    re-enrolment silently blinds a previously healthy endpoint. Fix = stage to a temp dir,
+    do enrolment first, or wrap steps 1-4 in try/finally that restarts the service.
+  * DEFECT 2 (P1, NOT FIXED): the install subcommand should reject unknown flags
+    (strict parse_args) while keeping the SERVICE_FLAG carve-out, so a wrong-version binary
+    says "unrecognized argument" instead of a misleading credential refusal.
+  * DEFECT 3 (P1, NOT FIXED): no build/version provenance check. install should print its
+    own build commit/SHA256 at STAGE and refuse a downgrade over a newer installed state.
