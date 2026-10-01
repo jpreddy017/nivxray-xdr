@@ -3619,3 +3619,45 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * REALIGNMENT PATCH PROVIDED: docs/releases/B8_SCOPE_1_align_github_branch_to_reviewed_bytes.patch
     (+21/-8 on top of 983f5680). Applying it makes the branch byte-identical to the reviewed
     candidate, and the diff vs base becomes exactly 2 files / +28/-6. Verified in a worktree.
+
+- KUSHU C0.5 PRE-ENROLMENT READINESS (read-only; nothing minted, enrolled, executed or
+  deployed). VERDICT = HOLD on three owner-verifiable items; NO DEFECT FOUND.
+  * Production health PASS: GET https://nivxray.nivxforge.com/api/health ->
+    {"status":"ok","service":"nivxray-api"}.
+  * Enrollment control plane LIVE and auth-enforced (403 "Not authenticated" unauthenticated):
+    POST/GET /api/edr/enrollment/tokens, POST /api/edr/enrollment/tokens/{id}/revoke,
+    GET /api/edr/enrollment/endpoints. All TENANT_SCOPED via explicit X-Tenant-Id.
+    /api/edr/onboarding/downloads does NOT exist (404) - the packages route is
+    /api/edr/onboarding/packages.
+  * TOKEN INVENTORY NOT VERIFIABLE BY THE AGENT: production auth is owner-only
+    (admin@nivxray.com is PREVIEW-only). OLD_UNLABELED_TOKEN_ACTIVE = UNVERIFIED.
+    By design GET /tokens is metadata-only ("No route returns a token's plaintext or its
+    stored digest") and mint returns the plaintext exactly once, in the mint response.
+  * INSTALLER PROVENANCE PASS: GH run 36695465379 = workflow "NivXForge Windows Installer
+    (V1)", branch feature/rc2-alignment, head_sha b42c34c7, status completed /
+    conclusion success, created 2026-09-30T09:20:16Z. Artifact
+    NivXForgeEDRSetup-windows-x64, 19,825,130 bytes, expired=false, expires
+    2026-10-30T09:21:28Z. Expected exe SHA256
+    FE05C4A8E7246DBBB6D9850F9C4B80DDBFECE3175770B30D4A373D95FA6EDB7B (owner-recorded;
+    re-verify on KUSHU, the agent cannot read run logs unauthenticated).
+  * STDIN-ONLY CONTRACT PASS, with blob proof that the SHIPPED binary carries it:
+    b42c34c7:agents/nivxforge-windows/nivxforge_sensor.py = d0593501 = /app HEAD, and
+    nivxforge_setup.py = de994624 = /app HEAD. sensor.refuse_secret_on_command_line scans
+    the WHOLE argv before argparse, rejects LEGACY_TOKEN_FLAGS and any enr_/nvxenr_ shaped
+    value (name or =value) without echoing it; read_enrolment_secret reads stdin only;
+    setup.install raises unless --token-stdin (required=True on the sensor parser).
+    Workflow gates assert the argv refusal and the --token-stdin help text.
+    backend/edr_plane/enrollment/instructions.py windows_exe_invocation emits
+    Read-Host -AsSecureString -> SecureStringToBSTR -> PtrToStringBSTR | exe --token-stdin
+    -> finally ZeroFreeBSTR + Remove-Variable. No --token/-EnrollmentToken plaintext form.
+  * NO LATER CODE INVALIDATES C0.5: zero commits touch agents/nivxforge-windows between
+    b42c34c7 and /app HEAD. NOTE instructions.py was created in 3aeef2f2 (AFTER b42c34c7)
+    so it is absent from the installer build commit, but the deployer RCA confirmed it IS
+    present and importable in the DEPLOYED production backend - instruction text and binary
+    behaviour agree.
+  * OWNER DECISION CHANGE RECORDED: target tenant moved from "NivXForge Canary" (kind LAB,
+    never created) to "Internal Validation" ten_e759b7288598bd882e3dcac49d. Canary telemetry
+    will therefore land in a REAL validation tenant, not a disposable LAB tenant.
+  * TERMINOLOGY CORRECTION for acceptance: enrollment_state, credential_state and
+    sensor_state are THREE INDEPENDENT dimensions, not a chain. ENROLLED + ACTIVE +
+    ENROLLED_NEVER_REPORTED is a legal state and means nothing was collected.
