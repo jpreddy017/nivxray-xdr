@@ -155,7 +155,7 @@ def merge(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
     for s in new.get("matched_stages", []):
         cur = stages.setdefault(s["stage_id"], dict(s))
         cur["evidence_keys"] = sorted(set(cur["evidence_keys"]) | set(s["evidence_keys"]))
-    out["matched_stages"] = sorted(stages.values(), key=lambda s: s["stage_id"])
+    out["matched_stages"] = list(stages.values())
     out["first_seen"] = min(existing["first_seen"], new["first_seen"])
     out["last_seen"] = max(existing["last_seen"], new["last_seen"])
     out["confidence"] = max(existing["confidence"], new["confidence"])
