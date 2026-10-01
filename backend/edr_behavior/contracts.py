@@ -179,6 +179,15 @@ class Detection:
     created_at: str
     suppression: Optional[Dict[str, Any]] = None
 
+    def __post_init__(self) -> None:
+        refs = self.evidence_refs
+        if not isinstance(refs, (list, tuple)) or len(refs) < 1:
+            raise ValueError("Detection requires at least one evidence_ref")
+        if not all(isinstance(r, dict) and r.get("stable_key") for r in refs):
+            raise ValueError("every Detection evidence_ref must carry a stable_key")
+        if not self.evidence_keys:
+            raise ValueError("Detection requires evidence_keys")
+
     def to_dict(self) -> Dict[str, Any]:
         return dict(self.__dict__)
 

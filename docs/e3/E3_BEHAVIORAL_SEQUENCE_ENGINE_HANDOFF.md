@@ -78,6 +78,7 @@ A deterministic, evidence-bound behavioral/sequence detection engine. It works a
 - `provenance.chain` = RAW → NORMALIZED → ENTITY_PROCESS → SEQUENCE_MATCH → RULE → MITRE → DETECTION. Provenance also carries the normalizers, process-identity authority (M1), evidence stores, rule {id, version, content_hash, lifecycle, source}, mode, trigger, unknowns, notes, confidence adjustments and truncated fields.
 - **"Why did NivXForge produce this?"** is answered by `explanation` (deterministic text listing each stage's evidence key, raw id, time, summary and linkage) plus `provenance`.
 - `build()` refuses to create a detection without evidence.
+- **Contract invariant (enforced in `Detection.__post_init__`):** `len(evidence_refs) >= 1`. Empty or `None` evidence_refs raise `ValueError`; omitting the field raises `TypeError` (it is a required field). Every ref must carry a `stable_key`, and `evidence_keys` must be non-empty. An evidence-less Detection object cannot exist.
 
 ## 5. Evaluation semantics
 - **Trigger:** `engine.process(record)`.
@@ -199,7 +200,7 @@ Everything is additive on a local branch.
 
 ## 17. Tests run and results
 
-### 17.1 New E3 suite: 58 passed, 0 failed
+### 17.1 New E3 suite: 58 passed, 0 failed (69 after the §18 correction)
 Command:
 `cd backend && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests/edr_behavior -q -p no:cacheprovider -n 0 -o addopts=""`
 
@@ -244,3 +245,53 @@ Environmental reasons for the 20 failing files:
 - Step 4 (`25600975`): standalone integration adapter.
 - Step 5 (`f4e473ee`): 58 tests.
 - Step 6: docs (`38e70688`), then this handoff update.
+- Step 7 (pre-push correction gate): `fix(edr-behavior): enforce evidence-backed detections`. This adds the `Detection` evidence invariant, 11 tests in `test_evidence_invariant.py` (A–F), moves the net-guard plugin into the ignored `.e3venv/plugins/`, and updates this handoff (§18).
+
+## 18. Pre-push correction gate (owner-approved)
+
+### 18.1 Correction
+- `contracts.Detection.__post_init__` enforces `len(evidence_refs) >= 1`, a `stable_key` on every ref, and non-empty `evidence_keys`. Empty or `None` evidence_refs raise `ValueError`. A missing field raises `TypeError`.
+- Before this change only `detection.build()` guarded against evidence-less detections. Now the contract itself guards.
+- Same-window chain merging was **not** changed (see §18.4).
+
+### 18.2 Tests (`backend/tests/edr_behavior/test_evidence_invariant.py`, 11 cases)
+- **A.** `evidence_refs=[]` and `()` are rejected.
+- **B.** `None` is rejected; the missing field is rejected (TypeError); a ref without `stable_key` is rejected; empty `evidence_keys` is rejected.
+- **C.** A legitimate MATCH persists ≥1 ref; ref keys equal `evidence_keys`; the doc round-trips through `Detection(**doc)`.
+- **D.** INSUFFICIENT_EVIDENCE creates no detection and is distinct from NO_MATCH and CLEAN. MATCH, NO_MATCH and INSUFFICIENT_EVIDENCE are three distinct values.
+- **E.** A retry plus a generation change leaves one detection with the same id, evidence keys and raw refs.
+- **F.** `detection_id` is stable within a window bucket, tenant-sensitive, and identical across fresh engines.
+- No existing test was modified or weakened.
+
+### 18.3 Test environment
+- **Net-guard plugin:** `.e3venv/plugins/e3_netguard.py`. It is ignored via `.git/info/exclude` (`.e3venv/`) and is not tracked. It blocks every non-AF_UNIX `connect`.
+- **Command:** `cd backend && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../.e3venv/plugins:../.e3venv/extra env -u MONGO_URL python3 -m pytest <target> -q -p no:cacheprovider -p e3_netguard -o addopts=""`
+
+**Results:**
+- E3 behavior suite: **69 passed, 0 failed** (58 previous + 11 new).
+- Gate-4 focused (`test_processing_queue_worker.py` + `test_p0_reconcile_contract_ownership.py`): **34 passed, 0 failed**.
+- Full `backend/tests/edr`: 91 files, run per file under the net guard with a 60 s cap, `MONGO_URL` / `BACKEND_URL` unset. Log: `.e3venv/regress-logs/full_edr.txt`.
+  - 35 files fully pass.
+  - 37 files fail or error.
+  - 19 files hit the 60 s cap.
+  - Completed-file totals: **1038 passed, 98 failed, 318 errors, 2 skipped**.
+  - **Baseline:** all 72 completed files gave identical pass/fail/error counts on a temporary worktree of base `1800aeea` (since removed). E3 introduces no regressions.
+
+**Environmental blockers:**
+- Hard-coded `/app/...` paths, because the clone lives at `/app/memory/nivxray-xdr` (dominant: `FileNotFoundError`).
+- Outbound network and Mongo blocked by the guard, with `MONGO_URL` / `BACKEND_URL` unset (`OSError: E3 network guard`). This causes the live/API tests to fail and the 19 time-outs.
+- Missing modules: `e3_coverage_matrix`, `reportlab`.
+- Secrets `JWT_SECRET` / `EMERGENT_LLM_KEY` deliberately not provided.
+
+### 18.4 Known limitations (status unchanged)
+- **Same-window chain merging:** at most one detection per (tenant, endpoint, rule version, scope entity, window bucket). Distinct chains by the same scope entity in one bucket merge into one detection with unioned evidence. This is documented only and not changed.
+- The full EDR suite has not been proven green in this environment (blockers above).
+- Not wired into the live pipeline. The integration adapter is disabled by default, and the E1 hook needs owner approval.
+- `MongoDetectionStore` and `MongoEvidenceProvider` were never exercised against a real MongoDB.
+- No CEM (`v2_shadow_observations`) or DSM (`xdr_canonical_evidence`) mappers exist. They are pending the canonical-authority decision.
+- Rule and suppression changes are in-process and unaudited (pending D10 signed audit).
+- TI and ML are boundaries only. No EnrichmentProvider adapter and no model exist.
+- Process identity uses M1 `process_iid` and GUID/PID. PID-surrogate linkage is lower-confidence.
+- Sensor gaps: signer, Linux DNS / file actor / registry, Sysmon 7.
+- The starter pack has 8 rules and is not full coverage.
+- The `merge()` path operates on stored dicts; it unions evidence and never shrinks it. Stored docs are not re-validated through `Detection` on read.
