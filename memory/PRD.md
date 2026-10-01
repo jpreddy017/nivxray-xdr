@@ -3877,3 +3877,28 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
     ignored by the COMMITTED .gitignore (line 58 "dist"), so no packaging route can publish
     it; it is still visible for VS Code right-click -> Download. The repo-root copy was
     removed and .git/info/exclude restored to stock. git status is clean.
+
+- GATE 4 CI STDIN FIX - PATCH HANDOFF (2026-10-01). Nothing pushed/saved. HOLD unchanged.
+  * Gate 4 of run 36835748946 failed at PowerShell PARSE time on `--token-stdin < NUL`
+    ("The '<' operator is reserved for future use."), so the re-enrol rollback was NEVER
+    exercised. The generated artifact must NOT go near DESKTOP.
+  * CI-HARNESS-ONLY correction, one file, one hunk:
+    Start-Process -RedirectStandardInput with a 0-byte file (a valid EMPTY stream, so
+    read_enrolment_secret() is really entered and refuses), splatted parameters (no line
+    continuations - that is where the parse error lived), Resolve-Path for FilePath, plus
+    THREE STRICTER assertions: non-zero ExitCode, stdout+stderr concatenated, and the
+    refusal must be "stdin carried no enrolment secret" which only
+    sensor.read_enrolment_secret() raises AFTER stage 1 stopped the service (an early
+    argument refusal would also print ROLLBACK and make a pass vacuous).
+  * COMMIT BUILT ON THE REAL GITHUB TIP, not on the workspace:
+    refs/heads/fix/windows-reenrol-staging-race = d5467994ede50f228e4e7c736d71b7d9560730d6
+    (owner's push of the P0 commit; verified to contain exactly the 7 P0 files, and its
+    workflow file is byte-identical to the reviewed pre-image).
+    local branch gate4/ci-stdin-fix, commit daa033400c61d7e139365872c9d7d33c534f12cf,
+    diff-tree = exactly 1 file. `git apply --check` on d5467994 = CLEAN.
+  * PATCH: dist/GATE4_CI_STDIN_FIX.patch - 5,758 bytes, 108 lines,
+    sha256 3b330a7aaf90e979f295f45bc1a7586e33395fc3fb51278723b65789fdae166d
+    (copy at .git/handoff/). Ignored by the committed .gitignore line 58 "dist", so no
+    publishing route can include it. The earlier .diff was removed.
+  * nivxforge_setup.py untouched; --token-stdin preserved; no --token; no real token;
+    DESKTOP and KUSHU untouched; no production/backend/frontend change.
