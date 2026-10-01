@@ -3661,3 +3661,63 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * TERMINOLOGY CORRECTION for acceptance: enrollment_state, credential_state and
     sensor_state are THREE INDEPENDENT dimensions, not a chain. ENROLLED + ACTIVE +
     ENROLLED_NEVER_REPORTED is a legal state and means nothing was collected.
+
+- DESKTOP-A9HGFJJ ACCIDENTAL REVOCATION — READ-ONLY RECOVERY ANALYSIS (nothing modified,
+  no token minted/revoked, no state changed, no restart, KUSHU untouched).
+  VERDICT: DESKTOP_CREDENTIAL_RECOVERY = SAFE_EXISTING_PATH.
+  * endpoint ep_1989031c8c1d0085812f, WINDOWS, 157,226 events, last telemetry
+    2026-10-01T02:22:52Z. UI now REVOKED/REVOKED/REVOKED + NOT TRUSTED.
+  * IDENTITY IS DETERMINISTIC, SO RE-ENROLMENT CANNOT DUPLICATE IT.
+    EndpointIdentity.mint (backend/edr_plane/contracts/identity.py:98) = pure
+    _iid("ep", tenant_id, kind, value) over precedence hardware processor_id > machine_guid >
+    device_iid > hostname. Same host + same tenant => the SAME ep_1989031c8c1d0085812f. The
+    agent never proposes an endpoint_id (router enroll() mints it server-side).
+    CLONE COLLISION NOT TRIGGERED: one physical host re-presenting its own processor_id is
+    the intended merge. The clone risk needs TWO hosts with no processor_id sharing a
+    machine_guid; it is unrelated to this recovery.
+  * RE-ENROLMENT PRESERVES THE SERVER-SIDE DELIVERY RECORD BY DESIGN (store.enroll, the
+    "P0-3 DEFECT FIX"): sensor_state/last_telemetry_at/event_count/last_heartbeat_at/
+    report_interval_seconds/cadence_basis/lifecycle_reported/outbox_queue_depth are written
+    $setOnInsert ONLY; identity + credential fields are $set. It then explicitly HEALS
+    sensor_state REVOKED -> REPORTING (or ENROLLED_NEVER_REPORTED if nothing was ever
+    delivered) and returns delivery_history_preserved=true.
+  * ROTATE IS NOT A RECOVERY PATH AFTER REVOKE. store.rotate_credential requires an ACTIVE
+    credential and raises NO_ACTIVE_CREDENTIAL (404). revoke_endpoint set every ACTIVE
+    credential to REVOKED and $inc auth_epoch, and killed all sessions. The UI's "Rotate"
+    button on a REVOKED row will therefore fail. Re-enrolment with ONE fresh token is the
+    only supported recovery.
+  * LOCAL EVIDENCE IS SAFE. sensor.enrol() writes ONLY identity.json (mkdir + write + chmod).
+    setup.install() stages the exe, ACLs the state dir, enrols, then
+    stop/delete/create/start the service. NOTHING in install touches outbox.jsonl,
+    outbox.offset, channels.json or the SQLite journal. ONLY `uninstall --purge` deletes the
+    state dir - it must never be used here.
+  * WHY THE BACKLOG IS INTACT: _drain advances OFFSET_FILE only AFTER a 2xx accept; on
+    401/403 it clears the session and re-seeks to the unadvanced offset; any other failure
+    prints "[journal] held at offset N" and breaks WITHOUT advancing. Write-after-accept =
+    no silent discard. The journal's cursors table is committed in the same transaction as
+    the evidence and advances with MAX(), so it cannot regress.
+  * ⚠ A SERVICE RESTART IS REQUIRED, AND IS THE ONE NON-OBVIOUS STEP. run() calls
+    _read_identity() ONCE before its loop, so the LIVE service holds the REVOKED credential
+    in memory for its whole lifetime. Re-writing identity.json alone will NOT resume
+    delivery. setup.install --re-enrol performs the restart itself (step 4), so no manual
+    restart is needed if recovery is done through the installer.
+  * SECURITY INCIDENT RAISED SEPARATELY: an enrolment token PLAINTEXT
+    (tok_dfa2e77665974af7, expiry 2026-10-01T03:00:29Z) was rendered by the UI, captured in
+    a screenshot and pasted into chat. Treat as COMPROMISED: confirm EXPIRED or revoke.
+    Second token tok_d9b4ad08c07249b0 expires 02:56:10Z. Neither may be used for recovery.
+  * TO VERIFY AFTER RECOVERY (possible classification gap, not asserted): the rejected-sensor
+    alarm reads "0 of 231 refused attempts came from an agent that HAD standing and lost it"
+    while DESKTOP is exactly such an agent. Check whether post-revoke session-open refusals
+    are classified as lost-standing rather than ENROLLMENT_TOKEN_INVALID.
+- OWNER-APPROVED PRODUCT REQUIREMENT (RECORDED, NOT IMPLEMENTED): reversible endpoint
+  DISABLE/ENABLE lifecycle, separate from destructive REVOKE CREDENTIAL and from
+  DELETE/OFFBOARD, with a second confirmation dialog naming the endpoint, consequence text,
+  visual separation of enrolment-token actions from endpoint-credential actions, and an
+  explicit Recover/Re-enrol action on a REVOKED row.
+  GAP CONFIRMED: no reversible authority exists today. EnrollmentState =
+  NEVER_ENROLLED|ENROLLMENT_PENDING|ENROLLED|REVOKED|RETIRED; CredentialState =
+  NONE|ACTIVE|ROTATION_PENDING|REVOKED; SensorState =
+  NO_SENSOR|ENROLLED_NEVER_REPORTED|REPORTING|SILENT|REVOKED. There is NO DISABLED/SUSPENDED
+  member and no enable/disable/reinstate route anywhere in edr_plane/enrollment or
+  routers/edr_enrollment.py. Minimum change set is recorded in the turn response.
+  INVARIANT TO PRESERVE: DISABLED != REVOKED != OFFBOARDED/DELETED.
