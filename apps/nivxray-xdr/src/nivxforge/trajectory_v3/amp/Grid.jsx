@@ -72,13 +72,21 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
     b.addEventListener("wheel", wheel, { passive: false });
     return () => b.removeEventListener("wheel", wheel);
   }, [setColW]);
+  const downAt = useRef(null);
   const down = (e) => {
+    downAt.current = { x: e.clientX, y: e.clientY };
     if (e.button !== 0 || e.target.closest("[data-mk]")) return;
     const b = box.current, s = { x: e.clientX, y: e.clientY, sl: b.scrollLeft, st: b.scrollTop };
     b.style.cursor = "grabbing";
     const mv = (ev) => { b.scrollLeft = s.sl - (ev.clientX - s.x); b.scrollTop = s.st - (ev.clientY - s.y); };
     const up = () => { b.style.cursor = ""; window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); };
     window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+  };
+  const nearest = (e) => {
+    const rc = e.currentTarget.getBoundingClientRect(), c = (e.clientX - rc.left) / colW, y = e.clientY - rc.top;
+    const dist = (it) => Math.abs(it.col + 0.5 - c) * colW + Math.abs((yOf.get(rk(it.target, it.targetIid)) ?? 1e9) - y);
+    const it = vis.reduce((b, x) => (!b || dist(x) < dist(b) ? x : b), null);
+    return it && { it, d: dist(it) };
   };
   const c0 = Math.max(0, Math.floor(vp.sl / colW) - 20), c1 = c0 + Math.ceil(vp.vw / colW) + 40;
   const r0 = Math.max(0, Math.floor(vp.st / ROW_H) - 4), r1 = r0 + Math.ceil(vp.vh / ROW_H) + 10;
@@ -141,10 +149,13 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
           </div>
           <svg data-testid="v3-grid-body" width={W} height={H} style={{ display: "block", flex: "none" }} onContextMenu={(e) => {
             e.preventDefault();
-            const rc = e.currentTarget.getBoundingClientRect(), c = (e.clientX - rc.left) / colW, y = e.clientY - rc.top;
-            const dist = (it) => Math.abs(it.col + 0.5 - c) * colW + Math.abs((yOf.get(rk(it.target, it.targetIid)) ?? 1e9) - y);
-            const near = vis.reduce((b, it) => (!b || dist(it) < dist(b) ? it : b), null);
-            if (near) onContext(e, near);
+            const near = nearest(e);
+            if (near) onContext(e, near.it);
+          }} onClick={(e) => {
+            const d0 = downAt.current;
+            if (e.target.closest("[data-mk]") || (d0 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 4)) return;
+            const near = nearest(e);
+            if (near && near.d <= 14) onSelect(near.it);
           }}>
             <defs>
               <pattern id="v3h" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="7" fill={C.hatch} /></pattern>
