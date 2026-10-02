@@ -5,9 +5,9 @@ Owner rules — strictly enforced:
 
   1. **Catalogue is the projection of a versioned ATT&CK STIX
      bundle.**  The compact catalogue file
-     `/app/backend/mitre_catalogue/enterprise_v16_1.compact.json`
-     is generated from the official MITRE STIX bundle at tag
-     ATT&CK-v16.1 (see `build_catalogue.py`).  No hand-authored
+     `backend/mitre_catalogue/enterprise_v19_2.compact.json`
+     is generated from the official MITRE attack-stix-data release
+     v19.2 (see `build_catalogue.py`, README.md).  No hand-authored
      technique lists live in code any more.
 
   2. **Catalogue presence ≠ detection coverage.**  Every
@@ -40,7 +40,7 @@ from typing import Any, Iterable
 
 CATALOGUE_PATH = (
     pathlib.Path(__file__).parents[2]
-    / "mitre_catalogue" / "enterprise_v16_1.compact.json"
+    / "mitre_catalogue" / "enterprise_v19_2.compact.json"
 )
 NAME_INDEX_PATH = (
     pathlib.Path(__file__).parents[2]
@@ -61,6 +61,8 @@ class MitreCatalogue:
     tactics: list[dict[str, Any]]
     techniques: list[dict[str, Any]]
     stats: dict[str, int]
+    modified: str | None = None
+    retired: list[dict[str, Any]] = field(default_factory=list)
 
     # Derived, populated in `_index`.
     _by_id: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -93,6 +95,8 @@ class MitreCatalogue:
             tactics=list(raw.get("tactics") or []),
             techniques=techniques,
             stats=dict(raw.get("stats") or {}),
+            modified=raw.get("modified"),
+            retired=list(raw.get("retired") or []),
             _by_id=by_id,
             _children_of=children,
             _name_to_id=name_to_id,
@@ -102,6 +106,10 @@ class MitreCatalogue:
 
     def technique(self, ext_id: str) -> dict[str, Any] | None:
         return self._by_id.get(ext_id)
+
+    def retired_entry(self, ext_id: str) -> dict[str, Any] | None:
+        """Deprecated/revoked technique (with `revoked_by`), so stale rule mappings are surfaced, not dropped."""
+        return next((r for r in self.retired if r["external_id"] == ext_id), None)
 
     def children(self, parent_id: str) -> list[dict[str, Any]]:
         return [self._by_id[c] for c in self._children_of.get(parent_id, [])]

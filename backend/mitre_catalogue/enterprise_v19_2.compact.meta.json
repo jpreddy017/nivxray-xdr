@@ -1,0 +1,13 @@
+{
+  "catalogue": "mitre-attack-enterprise",
+  "version": "19.2",
+  "modified": "2026-08-05T21:33:58.496Z",
+  "source": "https://github.com/mitre-attack/attack-stix-data/blob/v19.2/enterprise-attack/enterprise-attack-19.2.json",
+  "source_sha256": "dc1639caa5501d720e280cf1cbd8fbe009884a0c9b3e6e9ed9d0c25166c3d8f4",
+  "stats": {
+    "tactic_count": 15,
+    "technique_count": 222,
+    "sub_technique_count": 475,
+    "total_row_count": 697
+  }
+}

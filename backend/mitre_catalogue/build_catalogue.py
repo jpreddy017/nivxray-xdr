@@ -1,164 +1,115 @@
 """
-Distill the official MITRE ATT&CK Enterprise STIX 2.1 bundle into a
-compact NivXRay catalogue.  Owner rules:
+Distill the OFFICIAL MITRE ATT&CK Enterprise STIX 2.1 bundle into the compact
+NivXRay catalogue shared by the ATT&CK HeatMap and Device Trajectory.
 
-  · Source of truth is the versioned STIX bundle
-    (`enterprise-attack-v16.1.json`, ~27MB, downloaded from
-    https://github.com/mitre/cti at tag ATT&CK-v16.1).
-  · We do NOT invent techniques, sub-techniques, tactics, platforms
-    or descriptions — we project the fields already in STIX.
-  · Deprecated / revoked techniques are excluded (STIX flags them).
-  · Every technique keeps its stable `external_id` (T####), its
-    parent id when it is a sub-technique, its tactic short-names,
-    and the canonical attack.mitre.org URL from STIX.
+Source: https://github.com/mitre-attack/attack-stix-data (releases), file
+`enterprise-attack/enterprise-attack-<ver>.json`. Build-time only; the raw bundle
+(~50 MB) is NOT committed. Runtime never touches the network.
 
-Run:
-    python3 /app/backend/mitre_catalogue/build_catalogue.py
-Emits:
-    /app/backend/mitre_catalogue/enterprise_v16_1.compact.json
-    /app/backend/mitre_catalogue/enterprise_v16_1.compact.meta.json
+Rules: nothing is invented. Tactic order is the official x-mitre-matrix tactic_refs
+order. Active techniques go in `techniques` (unchanged shape for the HeatMap).
+Deprecated or revoked ones go in `retired`, with `revoked_by` taken from the
+"revoked-by" relationships, so a stale rule mapping can be shown as
+"revoked → T…" rather than being dropped.
+
+Run (from the repo root):
+    curl -fLo /tmp/ea.json https://raw.githubusercontent.com/mitre-attack/attack-stix-data/v19.2/enterprise-attack/enterprise-attack-19.2.json
+    python3 backend/mitre_catalogue/build_catalogue.py /tmp/ea.json v19.2
+    python3 backend/mitre_catalogue/build_name_index.py
 """
 from __future__ import annotations
+
+import hashlib
 import json
 import pathlib
+import re
 import sys
-from datetime import datetime, timezone
 
-HERE     = pathlib.Path(__file__).parent
-STIX_IN  = HERE / "enterprise-attack-v16.1.json"
-OUT_JSON = HERE / "enterprise_v16_1.compact.json"
-OUT_META = HERE / "enterprise_v16_1.compact.meta.json"
+HERE = pathlib.Path(__file__).parent
+REPO = "https://github.com/mitre-attack/attack-stix-data"
+CITE = re.compile(r"\(Citation:[^)]*\)")
 
 
-def _external_attack_id(refs: list[dict]) -> str | None:
-    for r in refs or []:
-        if r.get("source_name") == "mitre-attack":
-            return r.get("external_id")
-    return None
+def _ext(refs, key="external_id"):
+    return next((r.get(key) for r in refs or [] if r.get("source_name") == "mitre-attack"), None)
 
 
-def _external_attack_url(refs: list[dict]) -> str | None:
-    for r in refs or []:
-        if r.get("source_name") == "mitre-attack":
-            return r.get("url")
-    return None
+def _short(desc: str) -> str:
+    s = " ".join(CITE.sub("", desc or "").split())
+    m = re.search(r"^(.{40,320}?[.!?])(\s|$)", s)
+    return m.group(1) if m else s[:320]
 
 
-def build() -> dict:
-    raw = json.loads(STIX_IN.read_text())
-    objects = raw.get("objects", [])
+def build(raw: dict, tag: str, sha256: str) -> dict:
+    objs = raw["objects"]
+    coll = next(o for o in objs if o["type"] == "x-mitre-collection")
+    version = coll.get("x_mitre_version") or tag.lstrip("v")
+    live = lambda o: not o.get("revoked") and not o.get("x_mitre_deprecated")
+    tac_by_id = {o["id"]: o for o in objs if o["type"] == "x-mitre-tactic" and live(o)}
+    matrix = next(o for o in objs if o["type"] == "x-mitre-matrix" and live(o))
+    tactics = [{"shortname": t["x_mitre_shortname"], "external_id": _ext(t["external_references"]), "name": t["name"],
+                "url": _ext(t["external_references"], "url")} for t in (tac_by_id[r] for r in matrix["tactic_refs"] if r in tac_by_id)]
 
-    tactics_by_shortname: dict[str, dict] = {}
-    techniques: dict[str, dict] = {}      # external_id -> record
-    stix_id_to_ext: dict[str, str] = {}   # STIX id -> T####
-
-    for obj in objects:
-        t = obj.get("type")
-        if obj.get("revoked") or obj.get("x_mitre_deprecated"):
+    id2ext, active, retired = {}, {}, {}
+    for o in objs:
+        if o["type"] != "attack-pattern":
             continue
-
-        if t == "x-mitre-tactic":
-            ext = _external_attack_id(obj.get("external_references") or [])
-            shortname = obj.get("x_mitre_shortname")
-            if not shortname:
-                continue
-            tactics_by_shortname[shortname] = {
-                "shortname":  shortname,
-                "external_id": ext,
-                "name":       obj.get("name"),
-                "url":        _external_attack_url(obj.get("external_references") or []),
-            }
-
-        elif t == "attack-pattern":
-            ext = _external_attack_id(obj.get("external_references") or [])
-            if not ext:
-                continue
-            stix_id_to_ext[obj["id"]] = ext
-            kill_chain = [
-                kc.get("phase_name")
-                for kc in obj.get("kill_chain_phases") or []
-                if kc.get("kill_chain_name") == "mitre-attack"
-            ]
-            techniques[ext] = {
-                "external_id": ext,
-                "name":        obj.get("name"),
-                "tactics":     [k for k in kill_chain if k],
-                "platforms":   list(obj.get("x_mitre_platforms") or []),
-                "data_sources": list(obj.get("x_mitre_data_sources") or []),
-                "is_sub":      bool(obj.get("x_mitre_is_subtechnique")),
-                "description": (obj.get("description") or "").strip(),
-                "url":         _external_attack_url(obj.get("external_references") or []),
-                "parent_id":   None,     # patched below via subtechnique-of relationships
-                "stix_id":     obj["id"],
-            }
-
-    # Wire sub-technique → parent via STIX relationships.
-    for obj in objects:
-        if obj.get("type") != "relationship":
+        ext = _ext(o.get("external_references"))
+        if not ext:
             continue
-        if obj.get("relationship_type") != "subtechnique-of":
+        id2ext[o["id"]] = ext
+        tacs = [k["phase_name"] for k in o.get("kill_chain_phases") or [] if k.get("kill_chain_name") == "mitre-attack"]
+        if live(o):
+            active[ext] = {"external_id": ext, "name": o.get("name"), "tactics": tacs, "platforms": list(o.get("x_mitre_platforms") or []),
+                           "data_sources": list(o.get("x_mitre_data_sources") or []), "is_sub": bool(o.get("x_mitre_is_subtechnique")),
+                           "description": (o.get("description") or "").strip(), "short_description": _short(o.get("description")),
+                           "url": _ext(o["external_references"], "url"), "parent_id": None}
+        else:
+            retired[ext] = {"external_id": ext, "name": o.get("name"), "tactics": tacs, "deprecated": bool(o.get("x_mitre_deprecated")),
+                            "revoked": bool(o.get("revoked")), "revoked_by": None, "_id": o["id"]}
+    for o in objs:
+        if o["type"] != "relationship":
             continue
-        src = stix_id_to_ext.get(obj.get("source_ref"))
-        dst = stix_id_to_ext.get(obj.get("target_ref"))
-        if src and dst and src in techniques:
-            techniques[src]["parent_id"] = dst
-
-    # Sanity: T####.### style ids should have a parent.  For any
-    # stragglers, derive parent from the id prefix and cross-check.
-    for ext, rec in techniques.items():
+        src, dst = id2ext.get(o.get("source_ref")), id2ext.get(o.get("target_ref"))
+        if o.get("relationship_type") == "subtechnique-of" and src in active and dst:
+            active[src]["parent_id"] = dst
+        if o.get("relationship_type") == "revoked-by" and src in retired and dst:
+            retired[src]["revoked_by"] = dst
+    for ext, rec in active.items():
         if "." in ext and not rec["parent_id"]:
             rec["parent_id"] = ext.split(".", 1)[0]
-        if not rec["is_sub"] and rec["parent_id"]:
-            # STIX contradicts itself — trust the id shape.
+        if not rec["is_sub"]:
             rec["parent_id"] = None
-        # drop the STIX opaque id from the emitted record.
-        rec.pop("stix_id", None)
-
-    tactics_order = [
-        "reconnaissance", "resource-development", "initial-access",
-        "execution", "persistence", "privilege-escalation",
-        "defense-evasion", "credential-access", "discovery",
-        "lateral-movement", "collection", "command-and-control",
-        "exfiltration", "impact",
-    ]
-    tactics = [tactics_by_shortname[t] for t in tactics_order
-                                            if t in tactics_by_shortname]
-
-    parents = [t for t in techniques.values() if not t["is_sub"]]
-    subs    = [t for t in techniques.values() if t["is_sub"]]
+    for rec in retired.values():
+        rec.pop("_id")
+    parents = sum(1 for t in active.values() if not t["is_sub"])
     return {
         "catalogue": "mitre-attack-enterprise",
-        "version":   "16.1",
-        "source":    "https://github.com/mitre/cti/tree/ATT%26CK-v16.1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "tactics":   tactics,
-        "techniques": sorted(techniques.values(),
-                                       key=lambda r: r["external_id"]),
-        "stats": {
-            "tactic_count":            len(tactics),
-            "technique_count":         len(parents),
-            "sub_technique_count":     len(subs),
-            "total_row_count":         len(parents) + len(subs),
-        },
+        "version": version,
+        "modified": coll.get("modified"),
+        "source": f"{REPO}/blob/{tag}/enterprise-attack/enterprise-attack-{version}.json",
+        "source_sha256": sha256,
+        "generated_at": coll.get("modified"),
+        "attribution": "© The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation (ATT&CK® Terms of Use).",
+        "tactics": tactics,
+        "techniques": sorted(active.values(), key=lambda r: r["external_id"]),
+        "retired": sorted(retired.values(), key=lambda r: r["external_id"]),
+        "stats": {"tactic_count": len(tactics), "technique_count": parents, "sub_technique_count": len(active) - parents,
+                  "total_row_count": len(active)},
     }
 
 
 def main() -> int:
-    if not STIX_IN.exists():
-        print(f"ERROR: missing {STIX_IN}", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print(__doc__, file=sys.stderr)
         return 2
-    compact = build()
-    OUT_JSON.write_text(json.dumps(compact, indent=2, sort_keys=False))
-    OUT_META.write_text(json.dumps({
-        "catalogue":            compact["catalogue"],
-        "version":              compact["version"],
-        "generated_at":         compact["generated_at"],
-        "source":               compact["source"],
-        "stats":                compact["stats"],
-    }, indent=2))
-    print("stats:", json.dumps(compact["stats"], indent=2))
-    print("wrote:", OUT_JSON, "size=",
-          f"{OUT_JSON.stat().st_size/1024:.1f} KiB")
+    src, tag = pathlib.Path(sys.argv[1]), sys.argv[2]
+    data = src.read_bytes()
+    compact = build(json.loads(data), tag, hashlib.sha256(data).hexdigest())
+    stem = "enterprise_v" + compact["version"].replace(".", "_") + ".compact"
+    (HERE / f"{stem}.json").write_text(json.dumps(compact, indent=1))
+    (HERE / f"{stem}.meta.json").write_text(json.dumps({k: compact[k] for k in ("catalogue", "version", "modified", "source", "source_sha256", "stats")}, indent=2))
+    print(json.dumps(compact["stats"]), "retired:", len(compact["retired"]), "->", stem)
     return 0
 
 

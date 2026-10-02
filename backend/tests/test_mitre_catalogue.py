@@ -29,19 +29,19 @@ from services.mitre_catalogue.service import MitreCatalogue
 ATTACK_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
 
-def test_catalogue_shape_matches_v16_1():
+def test_catalogue_shape_matches_v19_2():
     cat = get_catalogue()
-    assert cat.version == "16.1"
-    assert len(cat.tactics) == 14
+    assert cat.version == "19.2"
+    assert len(cat.tactics) == 15
     parents = cat.parents()
     subs    = cat.sub_techniques()
-    assert len(parents) == 203
-    assert len(subs)    == 453
+    assert len(parents) == 222
+    assert len(subs)    == 475
     assert cat.stats == {
-        "tactic_count":         14,
-        "technique_count":     203,
-        "sub_technique_count": 453,
-        "total_row_count":     656,
+        "tactic_count":         15,
+        "technique_count":     222,
+        "sub_technique_count": 475,
+        "total_row_count":     697,
     }
 
 
@@ -124,8 +124,8 @@ def test_totals_reflect_only_real_observations():
         "T1105": 1,          # parent-only
         "T1059.001": 1,      # sub only
     })
-    assert projection["totals"]["techniques"]         == 203
-    assert projection["totals"]["sub_techniques"]     == 453
+    assert projection["totals"]["techniques"]         == 222
+    assert projection["totals"]["sub_techniques"]     == 475
     # T1059 and T1105 are two distinct parents observed.
     assert projection["totals"]["techniques_observed"] == 2
     assert projection["totals"]["sub_techniques_observed"] == 1
@@ -133,10 +133,10 @@ def test_totals_reflect_only_real_observations():
 
 
 def test_name_index_file_exists_and_is_consistent():
-    path = pathlib.Path("/app/backend/mitre_catalogue/name_index.json")
+    path = pathlib.Path(__file__).resolve().parents[1] / "mitre_catalogue" / "name_index.json"
     assert path.exists(), "run build_name_index.py"
     raw = json.loads(path.read_text())
-    assert raw["catalogue_version"] == "16.1"
+    assert raw["catalogue_version"] == "19.2"
     assert raw["count"] >= 500
     # Every value in the name index must be a real catalogue id.
     cat = get_catalogue()
