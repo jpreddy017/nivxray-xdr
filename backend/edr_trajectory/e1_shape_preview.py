@@ -285,8 +285,10 @@ def build_router() -> APIRouter:
                 break
         by_obs = {r.get("observation_id"): r["event_iid"] for r in rows}
         old = next((r for r in rows if tw._row_ms(r) < rows[-1]["timestamp_instant_ms"] - 20 * ps.D), rows[0])
+        enf = {d["outcome"]: d["observation_id"] async for d in db["e3_dt_enforcement"].find({}, {"_id": 0, "outcome": 1, "observation_id": 1})}
         return {"newest": rows[-1]["event_iid"], "deep_historical": old["event_iid"],
-                "late_arrived": by_obs.get(late), "nonexistent": "obs_000000000000#0000000000"}
+                "late_arrived": by_obs.get(late), "nonexistent": "obs_000000000000#0000000000",
+                "quarantined": by_obs.get(enf.get("QUARANTINED")), "quarantine_failed": by_obs.get(enf.get("QUARANTINE_FAILED"))}
 
     @r.post("/e3/preview/reseed")
     async def reseed():

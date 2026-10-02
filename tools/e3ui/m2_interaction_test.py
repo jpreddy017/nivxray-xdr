@@ -162,8 +162,8 @@ async def main():
         await pg.wait_for_selector('[data-testid="v3-approval-dialog"]')
         await shot(pg, "08b_approval_dialog")
         await pg.click('[data-testid="v3-approval-confirm"]')
-        await pg.wait_for_selector('[data-testid="v3-notice"]')
-        ok("approval_requested_not_executed", "not executed" in await pg.inner_text('[data-testid="v3-notice"]'))
+        await pg.wait_for_selector('[data-testid="dt-approval-result"]')
+        ok("approval_requested_not_executed", "not executed" in await pg.inner_text('[data-testid="dt-approval-result"]'))
         # isolate lineage
         await pg.locator('[data-testid^="v3-marker-"][data-glyph="exec"]').nth(2).click(button="right")
         await pg.click('[data-testid="v3-ctx-isolate-lineage"]'); await pg.wait_for_timeout(500)
