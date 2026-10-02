@@ -7,6 +7,7 @@ shapes are the shapes v2_shadow_observations holds. Not production data; no real
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from datetime import datetime, timezone
@@ -54,7 +55,7 @@ class Proc:
         g.pidn += 4
         self.pid, self.image, self.cmd, self.parent, self.user, self.t = g.pidn % 30000 + 400, image, cmd, parent, user, t
         self.guid = f"{{5c1e0000-{g.recs % 65536:04x}-{(g.recs // 65536) % 65536:04x}-0000-{g.pidn:012x}}}" if guid else None
-        self.sha256 = sha256
+        self.sha256 = sha256 or hashlib.sha256(f"syn-image:{image.lower()}".encode()).hexdigest()
 
 
 class Gen:

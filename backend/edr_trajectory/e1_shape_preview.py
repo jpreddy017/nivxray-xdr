@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from . import artifacts_overlay as ao
 from . import kushu_import as kx
 from . import prodshape as ps
 
@@ -84,6 +85,7 @@ async def _seed_detections(db, docs, ref):
                "kind": "RETRO_DISPOSITION_CHANGE", "from": "UNKNOWN", "to": "DETECTED", "recorded_at": ps._iso(ref - 5 * ps.M),
                "provenance": {"source": "nivxforge-own:retro-rescan", "rule": "E3-RETRO-DROPPED-PE"},
                "note": "appended; the original observation is unchanged"}] if upd else []
+    await ao.seed(db, docs, ref, dets)
     await db["e3_dt_detections"].delete_many({})
     await db["e3_dt_status_events"].delete_many({})
     if dets:
@@ -169,11 +171,7 @@ async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
         out["dt2"] = {"state": "DT2_CONTRACT_UNAVAILABLE", "reason": type(ex).__name__}
     dets = {d["observation_id"]: d async for d in db["e3_dt_detections"].find({}, {"_id": 0})}
     stat = [s async for s in db["e3_dt_status_events"].find({}, {"_id": 0})]
-    obs_ids = [e.get("observation_id") for e in out.get("events") or []]
-    ing = {d["observation_id"]: d.get("ingest_time") async for d in db["v2_shadow_observations"].find(
-        {"observation_id": {"$in": obs_ids + list(dets)}}, {"_id": 0, "observation_id": 1, "ingest_time": 1, "event.ts": 1})}
-    for e in out.get("events") or []:
-        e["e3_ingested_at"] = ing.get(e.get("observation_id"))
+    await ao.enrich(db, out.get("events") or [], list(dets))
     for e in out.get("events") or []:
         if e.get("observation_id") in dets:
             e["e3_detection"] = dets[e["observation_id"]]
@@ -259,6 +257,11 @@ def build_router() -> APIRouter:
             counts[(v - d0) // ps.H] += 1
         return {"day": day, "hours": counts, "basis": "OBSERVATIONS_PER_HOUR_IN_RETAINED_EVIDENCE",
                 "note": "0 = no observation retained for that hour; not proof the sensor was offline"}
+
+    @r.get("/edr/endpoints/{endpoint_id}/trajectory/file-facts")
+    async def file_facts(endpoint_id: str, sha256: str | None = None, path: str | None = None):
+        await ensure_seeded()
+        return await ao.file_facts(_db(), sha256, path)
 
     @r.get("/e3/preview/stale-trace")
     async def stale_trace(observation_id: str | None = None, limit: int = 500):
