@@ -4,7 +4,7 @@
 (async () => {
   const DEVICE = "dev_8b90e7c9a70d";
   const DAYS = 30, LIMIT = 4000, CHUNK = 1500, MAX_PAGES_PER_DAY = 200;
-  const PROBE_EVENTS = ["obs_2e29e40ee2dc#c133a4ab50"];
+  const PROBE_EVENTS = ["obs_2e29e40ee2dc#c133a4ab50"], MAX_DETAIL = 300;
   const PREVIEW = "https://edr-forge-complete.preview.emergentagent.com/api/e3/trajectory/import";
   const TOKEN = "e3imp_b15b1c9df69ed529c11f1c0c707333b9";
   const H = { Authorization: `Bearer ${localStorage.getItem("nvx_token")}` };
@@ -33,6 +33,16 @@
     console.log(`[nvx-dt-export] day -${d}: ${byIid.size} unique events so far (${gets} GETs)`);
   }
   const events = [...byIid.values()].sort((a, b) => a.timestamp_instant_ms - b.timestamp_instant_ms);
+  // Extra read-only detail for detection events (capped): the page's own focus + observation-narrative responses.
+  let detailGets = 0;
+  for (const e of events.filter((x) => x.is_detection || x.detection || x.findings?.length).slice(-MAX_DETAIL)) {
+    const q = `device=${encodeURIComponent(DEVICE)}&event_iid=${encodeURIComponent(e.event_iid)}`;
+    const n = await fetch(`/api/edr/observation-narrative?${q}`, { headers: H, credentials: "include" });
+    await new Promise((res) => setTimeout(res, 350));
+    detailGets++;
+    if (n.ok) e.e3_prod_detail = { observation_narrative: await n.json(), captured_at: new Date().toISOString() };
+  }
+  console.log(`[nvx-dt-export] captured detail for ${detailGets} detection events`);
   // Raw observation records: production exposes no read-only GET for raw v2_shadow_observations docs. The closest read-only
   // evidence reads are the page's own focus + observation-narrative endpoints; capture them for the probe event(s).
   const probes = {};
