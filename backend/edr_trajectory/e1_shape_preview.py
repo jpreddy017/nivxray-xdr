@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from . import kushu_import as kx
 from . import prodshape as ps
 
 FLAG = "E3_PREVIEW_E1_SHAPE"
@@ -183,18 +184,25 @@ def build_router() -> APIRouter:
     r = APIRouter(prefix="/api")
     tenant = {"customer": ps.TENANT, "display_name": "Synthetic Preview Customer", "name": "Synthetic Preview Customer"}
 
+    kx.add_routes(r, _db)
+
     @r.get("/edr/endpoints")
     async def endpoints():
         await ensure_seeded()
         i = _state["ident"]
-        return {"endpoints": [{"endpoint_id": ps.ENDPOINT, "hostname": i["hostname"], "device_iid": i["device_iid"],
-                               "tenant_id": ps.TENANT, "data_label": ps.LABEL}]}
+        imported = [{"endpoint_id": m["device"], "hostname": (m.get("computer") or {}).get("hostname") or m["device"],
+                     "device_iid": m["device"], "data_label": m["label"]} for m in await kx.devices(_db())]
+        return {"endpoints": imported + [{"endpoint_id": ps.ENDPOINT, "hostname": i["hostname"], "device_iid": i["device_iid"],
+                                          "tenant_id": ps.TENANT, "data_label": ps.LABEL}]}
 
     @r.get("/edr/endpoints/{endpoint_id}/trajectory")
     async def traj(endpoint_id: str, time_start: str | None = None, time_end: str | None = None, lane_start: int = 0,
                    lane_end: int = 40, cursor: str | None = None, before: str | None = None, limit: int = 500,
                    kinds: str | None = None, q: str | None = None, dispositions: str | None = None,
                    hist_day: str | None = None, engine: str = "e3"):
+        m = await kx.meta_for(_db(), endpoint_id)
+        if m:
+            return await kx.trajectory(_db(), m, time_start=time_start, time_end=time_end, before=before, limit=limit, q=q)
         return await trajectory(engine, time_start=time_start, time_end=time_end, lane_start=max(0, lane_start),
                                 lane_end=max(1, lane_end), cursor=cursor, before=before, limit=limit, kinds=kinds, q=q,
                                 dispositions=dispositions, hist_day=hist_day)
@@ -203,6 +211,9 @@ def build_router() -> APIRouter:
     async def focus(endpoint_id: str, raw_event_id: str | None = None, canonical_event_id: str | None = None,
                     event_iid: str | None = None, observation_id: str | None = None):
         from edr_plane import trajectory_window as tw
+        m = await kx.meta_for(_db(), endpoint_id)
+        if m:
+            return await kx.focus(_db(), m, event_iid=event_iid, observation_id=observation_id, raw_event_id=raw_event_id)
         await ensure_seeded()
         proj = await tw._projected(_db(), ident=_state["ident"], refs=_refs(_state["ident"]), docs_limit=None)
         hit = next((e for e in proj["rows"] if (event_iid and e.get("event_iid") == event_iid)
@@ -223,6 +234,24 @@ def build_router() -> APIRouter:
         meta = await ensure_seeded()
         return await trace(_db(), _state["ident"], _refs(_state["ident"]), observation_id=observation_id,
                            now_ms=int(time.time() * 1000), limit=limit) | {"dataset_ref_ms": meta["ref_ms"]}
+
+    @r.get("/e3/preview/deeplink-cases")
+    async def deeplink_cases():
+        from edr_plane import trajectory_window as tw
+        await ensure_seeded()
+        db = _db()
+        rows = (await tw._projected(db, ident=_state["ident"], refs=_refs(_state["ident"]), docs_limit=None))["rows"]
+        rows = sorted((r for r in rows if tw._row_ms(r) is not None), key=tw._row_chrono)
+        late = None
+        async for d in db[tw.COLLECTION].find({}, {"_id": 0, "observation_id": 1, "event.ts": 1, "ingest_time": 1}):
+            a, b = tw.instant_ms(d["event"]["ts"]), tw.instant_ms(d.get("ingest_time"))
+            if a and b and b - a > 2 * ps.H:
+                late = d["observation_id"]
+                break
+        by_obs = {r.get("observation_id"): r["event_iid"] for r in rows}
+        old = next((r for r in rows if tw._row_ms(r) < rows[-1]["timestamp_instant_ms"] - 20 * ps.D), rows[0])
+        return {"newest": rows[-1]["event_iid"], "deep_historical": old["event_iid"],
+                "late_arrived": by_obs.get(late), "nonexistent": "obs_000000000000#0000000000"}
 
     @r.post("/e3/preview/reseed")
     async def reseed():
