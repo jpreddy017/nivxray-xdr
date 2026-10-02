@@ -218,3 +218,17 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
    - **Deep-link resolver fix.** `/trajectory/focus` used to accept only `event_iid=`. A tester calling `?event=<obs>%23<suffix>` was silently ignored, so the endpoint returned OBSERVATION_NOT_RESOLVED. The preview adapter now accepts `event=` as an alias, URL-decodes it (double-encoded `%2523` included), and treats a bare `obs_…` value as `observation_id`. E1's own `/focus` should adopt the same alias. Regression: `tests/edr_trajectory/test_deeplink_http.py` runs through the real HTTP layer with an encoded `#`, 9 cases.
    - The Playwright interaction suite (`tools/e3ui/m2_interaction_test.py`, 53 checks) and the perf matrix (`tools/e3ui/m2_perf_matrix.py`) run against the preview shell.
 
+9. **EDR shell sidebar: Outlook-style icon-rail collapse.** This touches the shared shell, so it affects ALL EDR pages.
+   - Files: `src/nivxforge/EdrSidebar.jsx` (new; the nav markup moved out of `NivXForgeConsole.jsx`), `NivXForgeConsole.jsx` (collapsed state, brand shows only the N mark), `nivxforge.css` (`.sidebar.collapsed` 64px rail, `.nav-sep`, `.nav-rail-tip`, 180ms width transition).
+   - State: `localStorage["nvx.sidebar.collapsed"]` = "1"/"0", broadcast via `window` event `nvx-sidebar`.
+   - Expanded mode is unchanged.
+   - N/I items are now `aria-disabled="true"` instead of the `disabled` attribute, so keyboard users can focus them to read the "<Name> — not implemented" tooltip. Clicks stay no-ops.
+10. **DT V3 Activity panel.**
+   - Default 336px. A draggable divider (`role="separator"`, ArrowLeft/Right keys) is clamped to [320px, 40% of the workspace].
+   - Width is kept in `sessionStorage["nvx.dt.panelW"]`. The workspace has a minimum width of 966px and scrolls horizontally below that.
+   - "Maximum workspace" collapses the rail and sets the panel to 320. "Standard layout" restores the rail and 336.
+   - Paths and command lines break at separators (`<wbr>` + `overflow-wrap:anywhere`).
+11. **New preview route** `GET /api/edr/endpoints/{id}/trajectory/hours?day=YYYY-MM-DD` returns 24 per-hour observation counts. The navigator hatches past hours with 0 retained observations ("not proof the sensor was offline").
+   - E1 must serve an equivalent coverage read before adopting this.
+   - Glyphs added: execute-blocked (red hexagon badge) and the audit-only eye. They are drawn in the Legend; their filters stay "not collected" until the sensor emits `process_blocked` / `audit_only`.
+
