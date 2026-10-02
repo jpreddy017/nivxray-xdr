@@ -32,16 +32,17 @@ test("action taken appears only with enforcement evidence", () => {
   const none = buildSections(mk(1, base, k), ctx([]));
   assert.equal(value(none, "action", "Outcome"), "No enforcement/response evidence recorded.");
   const q = buildSections(mk(1, { ...base, e3_enforcement: { outcome: "QUARANTINED", detail: "moved", at: "t", source: "fx" } }, k), ctx([]));
-  assert.match(value(q, "action", "Outcome"), /^quarantined/);
+  assert.equal(value(q, "action", "Outcome"), "Quarantined");
 });
 
 test("MITRE links to attack.mitre.org with sub-technique path; absence carries a reason", () => {
-  const it = mk(1, { event_type: "process_create", e3_detection: { name: "D", mitre: [{ tactic: "Execution", technique: "T1059.001", name: "PowerShell" }], mitre_source: "rule metadata" } },
+  const it = mk(1, { event_type: "process_create", e3_attack: { type: "Rule-mapped", catalogue_version: "19.2", techniques: [{ technique: "T1059.001", display: "Command and Scripting Interpreter: PowerShell",
+    tactics: ["execution"], url: "https://attack.mitre.org/techniques/T1059/001/", status: "active" }], tactics: ["execution"], sources: [] } },
     { target: row("exe:p"), targetIid: "p" });
   const m = buildSections(it, ctx([it])).find((s) => s.id === "mitre");
   assert.equal(m.rows[0].link, "https://attack.mitre.org/techniques/T1059/001/");
   const n = buildSections(mk(2, { event_type: "process_create", mitre_basis: "NOT_ATTRIBUTED" }, { target: row("exe:q"), targetIid: "q" }), ctx([])).find((s) => s.id === "mitre");
-  assert.match(n.missing[0].reason, /no rule mapped/);
+  assert.match(n.missing[0].reason, /E1 attributed no technique/);
 });
 
 test("network: bytes/duration are S-3, direction/local endpoint are derivable-from-raw, host correlated from DNS", () => {

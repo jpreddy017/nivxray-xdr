@@ -18,7 +18,7 @@ export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }
           const live = its.filter((x) => !x[2]).map((x) => x[0]), all = live.every((k) => on.has(k));
           return (<div key={g} style={{ marginBottom: 10, paddingLeft: 10 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600 }}>
-              <input type="checkbox" data-testid={`v3-filter-group-${g.split(" ")[1]}`} checked={all} onChange={() => set(live, !all)} /> {g}</label>
+              <input type="checkbox" data-testid={`v3-filter-group-${g.split(" ")[1].replace(/[^A-Za-z]/g, "")}`} checked={all} onChange={() => set(live, !all)} /> {g}</label>
             {its.map(([k, l, nc0]) => { const nc = nc0 && !present.has(k); return <label key={k} data-testid={`v3-filter-${k}`} style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 22, color: nc ? C.muted : C.label, opacity: nc ? 0.55 : 1 }}>
               <span style={{ color: C.muted }}>•</span>
               <input type="checkbox" disabled={!!nc} checked={!nc && on.has(k)} onChange={() => set([k], !on.has(k))} /> {l}{nc ? <i style={{ fontSize: 11 }}> · not collected</i> : ""}</label>; })}

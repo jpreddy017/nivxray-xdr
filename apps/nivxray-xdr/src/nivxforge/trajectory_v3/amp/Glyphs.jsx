@@ -1,4 +1,5 @@
 import React from "react";
+import { LEGEND } from "./labels";
 import { C } from "./theme";
 
 const INNER = {
@@ -39,6 +40,8 @@ export function Mark({ it, selected, small }) {
         <circle r={1.4} fill={C.muted} /></g>}
       {it.flags?.cmd && !it.flags?.warn && <path d="M-11,-11 h5 v4 h-5 z M-10,-9.5 l1,0.8 l-1,0.8" stroke={C.muted} strokeWidth={0.8} fill={C.panel} />}
       {it.ev?.e3_status_history && <circle cx={-8} cy={8} r={2.6} fill={C.accent} />}
+      {["Rule-mapped", "Intel-derived"].includes(it.ev?.e3_attack?.type) && <g data-testid="dt-attack-badge" transform="translate(8.5,8.5)"><title>ATT&amp;CK mapped (rule metadata, not a verdict)</title>
+        <path d="M0,-4 L4,0 L0,4 L-4,0 Z" fill={C.panel} stroke={C.accent} strokeWidth={1.1} /><circle r={1.2} fill={C.accent} /></g>}
     </g>
   );
 }
@@ -47,9 +50,7 @@ export function GlyphIcon({ it, size = 20 }) {
   return <svg width={size} height={size} viewBox="-10 -10 20 20" style={{ flex: "none" }}><Mark it={it} /></svg>;
 }
 
-const LEG_GLYPHS = [["create", "Create"], ["copy", "Copy"], ["move", "Move"], ["exec", "Execute"], ["exec_blocked", "Execute blocked (not collected)"], ["open", "Open (not collected)"],
-  ["net", "Network"], ["exploit", "Exploit prevention (not collected)"], ["restore", "Restore (not collected)"], ["scan", "Scan detection (not collected)"],
-  ["usb", "External device (not collected)"], ["dns", "DNS"], ["reg", "Registry"], ["modify", "File modify"], ["delete", "File delete"]];
+const LEG_GLYPHS = LEGEND;
 const fake = (shape, glyph, flags = {}) => ({ shape, kind: { glyph }, flags });
 
 export function Legend() {

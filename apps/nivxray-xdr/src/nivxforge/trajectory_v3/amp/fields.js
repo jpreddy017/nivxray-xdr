@@ -1,3 +1,4 @@
+import { enforcementLabel } from "./labels.js";
 // Activity Details artifact sections (AMP-class). Pure: (item, ctx) -> sections. Evidence-only; absent fields carry a reason.
 export const R = {
   FHASH: "not collected by sensor (S-3: Sysmon ID11 file events carry no hash)",
@@ -106,16 +107,20 @@ export function buildSections(it, ctx) {
     ["Exploit Prevention", "System Process Protection", "Malicious Activity Protection"].forEach((k) => s.add(k, null, { reason: R.ENGINE }));
     out.push(s);
   }
-  const mitre = d?.mitre?.length ? d.mitre.map((m) => (typeof m === "string" ? { technique: m } : m)) : (e.mitre || []).map((m) => (typeof m === "string" ? { technique: m } : m));
-  const m = Sec("mitre", "MITRE ATT&CK");
-  mitre.forEach((t) => m.add(t.tactic || "Technique", `${t.technique}${t.name ? ` ${t.name}` : ""}`, { link: mitreUrl(t.technique), klink: tacticUrl(t.tactic) }));
-  if (mitre.length) m.add("Mapping source", d?.mitre_source || e.mitre_basis || "rule metadata", {}).add("Note", "A technique mapping is not a malicious verdict.", {});
-  else m.add("Technique", null, { reason: e.mitre_basis === "NOT_ATTRIBUTED" ? "not provided by source (no rule mapped this event)" : R.SRC });
+  // E1's own attribution (row.mitre / findings.attck), catalogue-decorated server-side as ev.e3_attack. Rendered by MitreBox.
+  const m = Sec("mitre", "MITRE ATT&CK"), att = e.e3_attack, tl = (t) => ctx.attack?.tacticLabel?.[t] || t;
+  (att?.techniques || []).forEach((a) => m.add(a.tactics.map(tl).join(" · ") || "Technique", `${a.technique} ${a.display}`,
+    { link: a.url || mitreUrl(a.technique), klink: tacticUrl(tl(a.tactics[0])), hover: a.description, heat: a.technique }));
+  if (att) m.add("Attribution", att.type, {}).add("ATT&CK version", `Enterprise v${att.catalogue_version}`, {});
+  else m.add("Technique", null, { reason: "not provided by source (E1 attributed no technique to this observation)" });
   out.push(m);
+  const mitre = att?.techniques || [];
   const a = Sec("action", "Action taken / outcome"), en = e.e3_enforcement;
-  a.add("Outcome", en ? `${en.outcome.replace("_", " ").toLowerCase()} — ${en.detail}` : "No enforcement/response evidence recorded.", {});
+  a.add("Outcome", enforcementLabel(en), {});
+  if (en && en.outcome !== "QUARANTINED") a.add("Reason", en.reason, { reason: en.outcome === "QUARANTINE_FAILED" ? "reason not reported by sensor" : "reason not reported" });
+  if (en?.detail) a.add("Detail", en.detail, {});
   if (en) a.add("Recorded", `${en.at} · ${en.source}`, {});
-  (approvals || []).forEach((r) => a.add("Approval request", `${r.action} · APPROVAL_REQUESTED (not executed)`, {}));
+  (approvals || []).forEach((r) => a.add("Approval request", `${r.action} · Approval Requested (APPROVAL_REQUESTED, not executed)`, {}));
   out.push(a);
   const ti = Sec("ioc", "IOC / threat intel");
   (e.e3_ti || []).forEach((t) => ti.add(`${t.type} ${t.value}`, `${t.status}${t.verdict ? ` · ${t.verdict}` : ""} · matched ${t.matched_field} · ${t.source} · first ${t.first_seen || "—"} · last ${t.last_seen || "—"}`, { wrap: true }));

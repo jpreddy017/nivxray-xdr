@@ -1,23 +1,32 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { ATTACK_CATALOGUE_VERSION, heatmapHref, TACTIC_LABEL } from "./attack";
 import { buildSections, imageSha, networkSummary } from "./fields";
 import { short, TYPE_DESC } from "./model";
 import { C } from "./theme";
 import { wrapText } from "./Activity";
+import { MitreBox, ObservedBlocks } from "./MitreBox";
 
 const Btn = ({ onClick, children, title, testid }) => (
   <button type="button" data-testid={testid} title={title} onClick={onClick} style={{ background: "none", border: 0, color: C.accent, cursor: "pointer", padding: "0 3px", fontSize: 12 }}>{children}</button>
 );
 
-function Row({ r, onCopy, onSearch, onJump }) {
+function Row({ r, onCopy, onSearch, onJump, onHeat }) {
   const [more, setMore] = useState(false);
+  const [card, setCard] = useState(false);
   const v = r.truncate && !more && r.v.length > r.truncate ? `${r.v.slice(0, r.truncate)}…` : r.v;
   return (
     <div data-testid="dt-field-row" style={{ display: "grid", gridTemplateColumns: "118px minmax(0,1fr) auto", gap: 6, padding: "3px 0", fontSize: 12.5, borderBottom: `1px solid rgba(255,255,255,.04)` }}>
       <span style={{ color: C.muted }}>{r.klink ? <a data-testid="dt-mitre-tactic-link" href={r.klink} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{r.k}</a> : r.k}</span>
       <span style={{ color: C.text, overflowWrap: "anywhere" }}>
-        {r.link ? <><a data-testid="dt-mitre-link" href={r.link} target="_blank" rel="noopener noreferrer" title={r.link} style={{ color: C.accent }}>{v} ↗</a>
-          <br /><span style={{ color: C.muted, fontSize: 11 }}>{wrapText(r.link.replace("https://", ""))}</span></>
+        {r.link ? <span style={{ position: "relative" }} onMouseEnter={() => setCard(!!r.hover)} onMouseLeave={() => setCard(false)}>
+          <a data-testid="dt-mitre-link" href={r.link} target="_blank" rel="noopener noreferrer" title={r.hover ? undefined : r.link} style={{ color: C.accent }}>{v} ↗</a>
+          {card && <span data-testid="dt-attack-hovercard" style={{ position: "absolute", right: 0, top: "100%", zIndex: 30, width: 280, background: C.tip, border: `1px solid ${C.line}`,
+            borderRadius: 6, padding: "8px 10px", fontSize: 12, lineHeight: 1.5, color: C.text, boxShadow: "0 10px 30px rgba(0,0,0,.5)" }}>
+            <b>{r.v}</b><br />{r.hover}<br /><span style={{ color: C.muted }}>Mapped by rule metadata. A MITRE mapping is not a verdict.</span></span>}
+          <br /><span style={{ color: C.muted, fontSize: 11 }}>{wrapText(r.link.replace("https://", ""))}</span>
+          {r.heat && <><br /><Btn testid="dt-open-heatmap" title="Open in ATT&CK HeatMap" onClick={() => onHeat(r.heat)}>Open in ATT&amp;CK HeatMap ↗</Btn></>}</span>
           : r.hash ? <span title={r.v} style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{short(r.v)}<br /><span style={{ color: C.muted, fontSize: 11 }}>{wrapText(r.v)}</span></span>
             : r.search ? <span role="button" tabIndex={0} onClick={() => onSearch(r.v)} style={{ borderBottom: `1px dotted ${C.muted}`, cursor: "pointer" }}>{wrapText(v)}</span> : wrapText(v)}
         {r.truncate && r.v.length > r.truncate && <Btn onClick={() => setMore(!more)} testid="dt-field-expand">{more ? "less" : "more"}</Btn>}
@@ -30,8 +39,10 @@ function Row({ r, onCopy, onSearch, onJump }) {
   );
 }
 
-export function Artifacts({ it, model, computer, device, approvals, onCopy, onSearch, onJump }) {
+export function Artifacts({ it, model, computer, device, approvals, onCopy, onSearch, onJump, range }) {
   const [facts, setFacts] = useState(null);
+  const navigate = useNavigate();
+  const onHeat = (technique) => navigate(heatmapHref({ technique, device, t0: range?.t0, t1: range?.t1 }));
   const isExec = it.ev.event_type === "process_create", sha = isExec ? imageSha(it) : it.ev.file_sha256, path = it.target?.path;
   useEffect(() => {
     let live = true;
@@ -41,14 +52,17 @@ export function Artifacts({ it, model, computer, device, approvals, onCopy, onSe
       .then(({ data }) => { if (live && data.state !== "NO_KEY") setFacts(data); }).catch(() => {});
     return () => { live = false; };
   }, [device, sha, path]);
-  const secs = buildSections(it, { model, facts, computer, approvals, typeDesc: (t) => (t ? TYPE_DESC[t.type] || t.type : null) });
+  const secs = buildSections(it, { model, facts, computer, approvals, typeDesc: (t) => (t ? TYPE_DESC[t.type] || t.type : null),
+    attack: { version: ATTACK_CATALOGUE_VERSION, tacticLabel: TACTIC_LABEL } });
   const missing = secs.flatMap((s) => s.missing.map((m) => ({ ...m, sec: s.title })));
   return (
     <div data-testid="dt-artifacts" style={{ marginTop: 10 }}>
-      {secs.filter((s) => s.rows.length).map((s) => (
+      <MitreBox it={it} onHeat={onHeat} />
+      <ObservedBlocks it={it} />
+      {secs.filter((s) => s.rows.length && s.id !== "mitre").map((s) => (
         <details key={s.id} open={s.open} data-testid={`dt-sec-${s.id}`} style={{ marginBottom: 6 }}>
           <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 13.5, padding: "4px 0", color: C.text }}>{s.title}</summary>
-          {s.rows.map((r, i) => <Row key={i} r={r} onCopy={onCopy} onSearch={onSearch} onJump={onJump} />)}
+          {s.rows.map((r, i) => <Row key={i} r={r} onCopy={onCopy} onSearch={onSearch} onJump={onJump} onHeat={onHeat} />)}
         </details>))}
       <details data-testid="dt-not-collected" style={{ marginBottom: 6 }}>
         <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 13.5, padding: "4px 0", color: C.muted }}>Not collected for this event ({missing.length})</summary>
