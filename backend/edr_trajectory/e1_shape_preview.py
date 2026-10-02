@@ -14,6 +14,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from . import artifacts_overlay as ao
+from . import attack
+from . import disposition
 from . import kushu_import as kx
 from . import prodshape as ps
 
@@ -73,6 +75,8 @@ async def _seed_detections(db, docs, ref):
     eicar = find(lambda e: e["kind"] == "file_create" and raw(e).get("target", "").endswith("eicar_test_file.com"))
     psh = find(lambda e: e["kind"] == "process_create" and "-enc" in (raw(e).get("command_line") or ""))
     upd = find(lambda e: e["kind"] == "process_create" and (raw(e).get("image_path") or "").endswith("upd.exe"))
+    dump = find(lambda e: e["kind"] == "process_create" and "MiniDump" in (raw(e).get("command_line") or ""))
+    dump_doc = next((d for d in docs if d["observation_id"] == dump), None)
     dets = [d for d in [
         eicar and {"observation_id": eicar, "kind": "SIGNATURE", "name": "EICAR-Test-Signature", "severity": "MEDIUM",
                    "engine": "nivxforge-av (synthetic)", "at": ps._iso(ref - 3 * ps.H + 4000), "is_verdict": False,
@@ -80,6 +84,8 @@ async def _seed_detections(db, docs, ref):
         psh and {"observation_id": psh, "kind": "BEHAVIORAL_MATCH", "name": "E3-SEQ-OFFICE-SCRIPT-PS", "severity": "HIGH",
                  "engine": "nivxforge-behavior", "at": ps._iso(ref - 46 * ps.M), "is_verdict": False, "mitre": ["T1059.001"],
                  "response": None},
+        dump_doc and {"observation_id": dump, "kind": "BEHAVIORAL_MATCH", "name": "E3-SEQ-LSASS-DUMP-LATERAL", "severity": "HIGH",
+                      "engine": "nivxforge-behavior", "at": dump_doc["event"]["ts"], "is_verdict": False, "response": None},
     ] if d]
     status = [{"observation_id": upd, "subject_path": "C:\\Users\\priya\\AppData\\Local\\Temp\\upd.exe",
                "kind": "RETRO_DISPOSITION_CHANGE", "from": "UNKNOWN", "to": "DETECTED", "recorded_at": ps._iso(ref - 5 * ps.M),
@@ -120,7 +126,7 @@ async def window_rows(db, ident, *, time_start, time_end, lane_start, lane_end, 
     return out
 
 
-async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
+async def trajectory(engine: str = "e3", scenario: str | None = None, **p) -> dict[str, Any]:
     from edr_plane import trajectory as dt2
     from edr_plane import trajectory_window as tw
     from edr_plane.trajectory import projection as dt2_projection
@@ -175,13 +181,72 @@ async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
     for e in out.get("events") or []:
         if e.get("observation_id") in dets:
             e["e3_detection"] = dets[e["observation_id"]]
+            sa = disposition.signature_assessment(e["e3_detection"])
+            if sa and not e.get("e3_assessment"):
+                e["e3_assessment"] = sa
         hits = [s for s in stat if s["observation_id"] == e.get("observation_id")]
         if hits:
             e["e3_status_history"] = hits
+        e["e3_attack"] = attack.annotate_row(e)
+    loaded = {e.get("observation_id"): e["event_iid"] for e in out.get("events") or []}
     out["e3_preview"] = {**e3, "data_label": ps.LABEL, "preview_only": True, "status_events": stat,
-                         "detections_all": [{"observation_id": k, "at": d["at"], "name": d["name"], "severity": d["severity"]}
-                                            for k, d in dets.items()],
+                         "detections_all": [{"observation_id": k, "at": d["at"], "name": d["name"], "severity": d["severity"],
+                                             "rule_id": d.get("rule_id"), "event_iid": loaded.get(k)} for k, d in dets.items()],
                          "detections_basis": "E3 overlay collection e3_dt_detections (synthetic); not E1 attribution"}
+    out["e3_attack"] = {"catalogue_version": attack.version(), "tactics": attack.tactics()}
+    if scenario == "high_detection_volume":
+        out["e3_preview"]["detections_all"] = _hdv_detections(out.get("events") or [])
+        out["e3_preview"]["detections_basis"] = "SYNTHETIC high_detection_volume scenario (perf proof; not evidence)"
+    return out
+
+
+HDV_SEV = ["CRITICAL", "HIGH", "HIGH", "MEDIUM", "MEDIUM", "MEDIUM", "LOW", "LOW", "LOW", "LOW"]
+
+
+def _hdv_detections(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """1,000 synthetic detections across 100 distinct rules, anchored on real loaded rows (so the stepper can focus them)."""
+    rows = [e for e in events if e.get("observation_id")] or [{"observation_id": "obs_000000000000", "timestamp_instant_ms": 0}]
+    out = []
+    for i in range(1000):
+        g, r = i % 100, rows[(i * 37) % len(rows)]
+        out.append({"observation_id": r["observation_id"], "event_iid": r.get("event_iid"), "at": r.get("timestamp"), "ms": r.get("timestamp_instant_ms"),
+                    "name": f"HDV-RULE-{g:03d}", "rule_id": f"HDV-{g:03d}", "severity": HDV_SEV[g % 10], "synthetic": True})
+    return out
+
+
+def _hdv_attack(base: dict[str, Any]) -> dict[str, Any]:
+    """300 synthetic technique matches spread over the vendored catalogue (perf proof; labelled synthetic)."""
+    from services.mitre_catalogue import get_catalogue
+    techs = [t for t in get_catalogue().techniques if t.get("tactics")][:300]
+    cols = {c["shortname"]: {**c, "techniques": []} for c in base["tactics"]}
+    for i, t in enumerate(techs):
+        c = cols.get(t["tactics"][0])
+        if c is not None:
+            c["techniques"].append({"technique": t["external_id"], "name": t["name"], "display": t["name"], "description": t.get("short_description"),
+                                    "tactics": t["tactics"][:1], "url": t.get("url"), "status": "active", "count": 1 + (i * 7) % 40,
+                                    "first_ms": 1790000000000, "last_ms": 1790000000000 + i * 60000, "event_iids": [], "max_severity": HDV_SEV[i % 10],
+                                    "types": ["Rule-mapped"], "rules": [f"HDV-{i % 100:03d}"]})
+    for c in cols.values():
+        c["observed"] = bool(c["techniques"])
+    return {**base, "tactics": list(cols.values()), "label": base["label"] + " · SYNTHETIC high_detection_volume scenario"}
+
+
+async def _rows() -> list[dict[str, Any]]:
+    from edr_plane import trajectory_window as tw
+    return (await tw._projected(_db(), ident=_state["ident"], refs=_refs(_state["ident"]), docs_limit=None))["rows"]
+
+
+async def _by_obs() -> dict[str, str]:
+    return {r.get("observation_id"): r["event_iid"] for r in await _rows()}
+
+
+async def _attributed() -> list[dict[str, Any]]:
+    """E1-projected rows that E1 attributed (findings.attck / event.mitre), with the E3 catalogue decoration."""
+    out = []
+    for r in await _rows():
+        a = attack.annotate_row(r)
+        if a:
+            out.append({**r, "e3_attack": a})
     return out
 
 
@@ -204,13 +269,13 @@ def build_router() -> APIRouter:
     async def traj(endpoint_id: str, time_start: str | None = None, time_end: str | None = None, lane_start: int = 0,
                    lane_end: int = 40, cursor: str | None = None, before: str | None = None, limit: int = 500,
                    kinds: str | None = None, q: str | None = None, dispositions: str | None = None,
-                   hist_day: str | None = None, engine: str = "e3"):
+                   hist_day: str | None = None, engine: str = "e3", scenario: str | None = None):
         m = await kx.meta_for(_db(), endpoint_id)
         if m:
             return await kx.trajectory(_db(), m, time_start=time_start, time_end=time_end, before=before, limit=limit, q=q)
         return await trajectory(engine, time_start=time_start, time_end=time_end, lane_start=max(0, lane_start),
                                 lane_end=max(1, lane_end), cursor=cursor, before=before, limit=limit, kinds=kinds, q=q,
-                                dispositions=dispositions, hist_day=hist_day)
+                                dispositions=dispositions, hist_day=hist_day, scenario=scenario)
 
     @r.get("/edr/endpoints/{endpoint_id}/trajectory/focus")
     async def focus(endpoint_id: str, raw_event_id: str | None = None, canonical_event_id: str | None = None,
@@ -263,6 +328,50 @@ def build_router() -> APIRouter:
         await ensure_seeded()
         return await ao.file_facts(_db(), sha256, path)
 
+    @r.get("/edr/endpoints/{endpoint_id}/trajectory/attack")
+    async def attack_strip(endpoint_id: str, time_start: str | None = None, time_end: str | None = None, include_heuristic: bool = False,
+                           scenario: str | None = None):
+        from edr_plane import trajectory_window as tw
+        m = await kx.meta_for(_db(), endpoint_id)
+        if m:
+            rows = [x["event"] for x in await kx._rows(_db(), m["device"], None, None)]
+        else:
+            await ensure_seeded()
+            rows = await _attributed()
+        out = attack.device_summary(rows, tw.instant_ms(time_start) if time_start else None,
+                                    tw.instant_ms(time_end) if time_end else None, ms_of=tw._row_ms, include_heuristic=include_heuristic)
+        return _hdv_attack(out) if scenario == "high_detection_volume" else out
+
+    @r.get("/edr/attack/techniques/{technique}/devices")
+    async def technique_devices(technique: str):
+        await ensure_seeded()
+        i = _state["ident"]
+        evs = [{"observation_id": r.get("observation_id"), "event_iid": r["event_iid"], "at": r["timestamp"],
+                "detection": ", ".join(s["rule_name"] or s["rule_id"] for s in r["e3_attack"]["sources"]) or r["e3_attack"]["type"],
+                "severity": r["e3_attack"]["severity"], "type": r["e3_attack"]["type"],
+                "techniques": [t["technique"] for t in r["e3_attack"]["techniques"]]}
+               for r in await _attributed() if any(attack.matches(t["technique"], technique) for t in r["e3_attack"]["techniques"])]
+        devices = [{"device": i["device_iid"], "endpoint_id": ps.ENDPOINT, "hostname": i["hostname"], "events": evs}] if evs else []
+        return {"technique": technique.upper(), "catalogue_version": attack.version(), "devices": devices,
+                "basis": "E1 trajectory attribution over the preview DB (synthetic); observed technique is not a confirmed attack"}
+
+    @r.get("/mitre/catalogue/coverage")
+    async def coverage_preview():
+        from services.mitre_catalogue import resolve_coverage
+        await ensure_seeded()
+        counts: dict[str, int] = {}
+        for r in await _attributed():
+            for t in {t["technique"] for t in r["e3_attack"]["techniques"] if t["status"] == "active"}:
+                counts[t] = counts.get(t, 0) + 1
+        out = resolve_coverage(counts)
+        for tac in out["tactics"]:
+            for p in tac["techniques"]:
+                p["incident_ids"] = []
+                for sub in p["subs"]:
+                    sub["incident_ids"] = []
+        out["e3_preview_label"] = "PREVIEW: counts from E1-attributed synthetic trajectory rows (E1 serves this from workspace_cases)"
+        return out
+
     @r.get("/e3/preview/stale-trace")
     async def stale_trace(observation_id: str | None = None, limit: int = 500):
         from .stale_trace import trace
@@ -288,7 +397,8 @@ def build_router() -> APIRouter:
         enf = {d["outcome"]: d["observation_id"] async for d in db["e3_dt_enforcement"].find({}, {"_id": 0, "outcome": 1, "observation_id": 1})}
         return {"newest": rows[-1]["event_iid"], "deep_historical": old["event_iid"],
                 "late_arrived": by_obs.get(late), "nonexistent": "obs_000000000000#0000000000",
-                "quarantined": by_obs.get(enf.get("QUARANTINED")), "quarantine_failed": by_obs.get(enf.get("QUARANTINE_FAILED"))}
+                "quarantined": by_obs.get(enf.get("QUARANTINED")), "quarantine_failed": by_obs.get(enf.get("QUARANTINE_FAILED")),
+                "not_quarantined": by_obs.get(enf.get("NOT_QUARANTINED"))}
 
     @r.post("/e3/preview/reseed")
     async def reseed():

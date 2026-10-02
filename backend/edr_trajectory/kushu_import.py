@@ -100,6 +100,8 @@ async def _rows(db, dev: str, t0: int | None, t1: int | None) -> list[dict[str, 
 async def trajectory(db, meta: dict[str, Any], *, time_start=None, time_end=None, before=None, limit=500,
                      q=None, **_) -> dict[str, Any]:
     from edr_plane.instant import instant_ms
+
+    from . import attack, disposition
     dev = meta["device"]
     t0, t1 = (instant_ms(time_start) if time_start else None), (instant_ms(time_end) if time_end else None)
     rows = await _rows(db, dev, t0, t1)
@@ -121,6 +123,10 @@ async def trajectory(db, meta: dict[str, Any], *, time_start=None, time_end=None
         det = _detection(e)
         if det:
             e["e3_detection"] = det
+            sa = disposition.signature_assessment(det)
+            if sa and not e.get("e3_assessment"):
+                e["e3_assessment"] = sa
+        e["e3_attack"] = attack.annotate_row(e)  # production row's own E1 mitre/findings, catalogue-decorated
     allr = await _rows(db, dev, None, None)
     days = Counter(_iso(r["ms"])[:10] for r in allr)
     dets = [{"observation_id": r.get("observation_id"), "event_iid": r["event_iid"], "at": _iso(r["ms"]), "ms": r["ms"],
