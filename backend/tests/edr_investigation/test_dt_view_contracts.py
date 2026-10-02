@@ -78,7 +78,8 @@ def test_causal_edges_are_never_invented():
 
 
 def test_ti_states_no_data_is_not_benign_and_provider_required():
-    assert normalize_provider_result("x", "ip", "abuseipdb", "clean").state == "BENIGN"
+    assert normalize_provider_result("x", "ip", "abuseipdb", "clean").state == "UNKNOWN"  # legacy clean ≠ known-good
+    assert normalize_provider_result("x", "ip", "internal_allowlist", "known_good").state == "BENIGN"
     assert normalize_provider_result("x", "ip", None, "clean").state == "UNKNOWN"
     assert normalize_provider_result("x", "ip", "vt", "pending").state == "UNAVAILABLE"
     assert normalize_provider_result("x", "ip", "vt", "rate_limited").state == "RATE_LIMITED"
@@ -86,10 +87,10 @@ def test_ti_states_no_data_is_not_benign_and_provider_required():
     assert [r.state for r in normalize_ioc_card({"ioc": "x", "providers": []})] == ["NO_DATA"]
     card = {"ioc": "203.0.113.7", "ioc_type": "ip", "providers": [
         {"provider": "abuseipdb", "verdict": {"verdict": "malicious"}}, {"provider": "dshield", "verdict": "clean"}]}
-    assert [r.state for r in normalize_ioc_card(card)] == ["MALICIOUS", "BENIGN"]
+    assert [r.state for r in normalize_ioc_card(card)] == ["MALICIOUS", "NO_HIT"]  # dshield 'clean' = not listed
     with pytest.raises(ValueError):
         TIResult("x", "ip", "MALICIOUS", None)
-    ti = [TIResult("203.0.113.7", "ip", "BENIGN", "dshield")]
+    ti = [TIResult("203.0.113.7", "ip", "BENIGN", "internal_allowlist")]
     v = build_activity_detail(FRAME, tenant_id="t1", ti_results=ti)
     states = {i["type"]: i["state"] for i in v.section("threat_intel").items}
     assert states == {"sha256": "UNKNOWN", "ip": "BENIGN"}

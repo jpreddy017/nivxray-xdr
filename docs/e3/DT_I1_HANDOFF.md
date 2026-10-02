@@ -80,3 +80,27 @@
   - DT component (react-dom/server): 8/8
   - pytest edr_investigation, edr_behavior and edr_ml: 125/125, including the JS/Python parity test.
 - **Not present in DT code:** a "Linked XDR Incidents" surface. There was nothing to regress.
+
+## Post-checkpoint (GitHub == 6185974b, owner-verified)
+- **Known item:** GitHub shows "verified: false / unsigned" because the commits are not GPG-signed. This is not a push problem; no action taken.
+- **IRG regression check (owner believed only dates changed):** **NOT TRUE.** I compared fixture preview renders of baseline `cd5b4e1b` and HEAD `6185974b` (`/app/.e3ui-harness/shots_irg/irg_{base,head}.jpeg`). IRG reuses `TimeRangeBox`, `AttackChainSidebar`, `EvidencePane` and `StatusBar` from `DeviceTrajectoryV2.jsx`. Every IRG delta:
+  1. **TimeRangeBox:**
+     - Dates are now derived.
+     - The fake sparkline is gone; IRG passes no `eventTs`, so no sparkline is drawn.
+     - Hour ticks now show the case span.
+     - The case-day dot appears only when a stage is malicious.
+  2. **AttackChainSidebar:**
+     - "★" became "· ASSESSED MALICIOUS".
+     - The summary "N stages · M malicious" became "N stages · 0 detected · M assessed malicious".
+     - Malicious stages now have a red border.
+     - Labels are truncated with a title attribute.
+  3. **EvidencePane:**
+     - IRG's raw backend `f.verdict="malicious"` now renders "ASSESSED MALICIOUS" (baseline: "MALICIOUS"). **This overclaims:** IRG's verdict is a raw backend field, not an evidence-backed machine assessment.
+     - Activity Details sections (since `d8b897e7`) now render.
+     - MITRE tags are neutral unless attributed.
+  4. **StatusBar:** unchanged (IRG passes no `detectedCount`).
+- **IRG options (OWNER DECISION):**
+  - (a) Accept, and label IRG's raw verdict as "BACKEND VERDICT" rather than "ASSESSED".
+  - (b) Make the new labels opt-in from DT so IRG keeps its baseline rendering.
+  - (c) Route IRG frames through `trajectoryVerdict` (an IRGWorkspace change; not authorized).
+- **Pre-existing IRG behaviour (not changed):** `framesToEvents` defaults a missing verdict to "benign".

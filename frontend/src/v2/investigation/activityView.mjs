@@ -15,7 +15,10 @@ export const SECTION_TITLES = {
   missing_evidence: "Missing evidence", mitre: "MITRE ATT&CK", retrospection: "Retrospection",
   response: "Response requested", verification: "Verification", provenance: "Provenance", pivots: "Next pivots",
 };
-export const TI_STATES = ["MALICIOUS", "SUSPICIOUS", "BENIGN", "UNKNOWN", "NO_DATA", "UNAVAILABLE", "RATE_LIMITED", "ERROR"];
+export const TI_STATES = ["MALICIOUS", "SUSPICIOUS", "BENIGN", "UNKNOWN", "NO_DATA", "NO_HIT", "UNAVAILABLE",
+  "RATE_LIMITED", "ERROR", "STALE"];
+export const TI_SCHEMA = "dt-i1e.ti.v1";
+const TI_DEGRADED = ["UNAVAILABLE", "RATE_LIMITED", "ERROR", "STALE"];
 export const PROOF = {
   REQUESTED: "NOTHING_HAS_HAPPENED_YET", AUTHORIZED: "AUTHORISED_NOT_YET_SENT", ACCEPTED: "ACCEPTED_NOT_EXECUTED",
   DISPATCHED: "CLAIMED_BY_ENDPOINT_NO_RESULT", EXECUTED: "SENSOR_CLAIM_ONLY_NOT_VERIFIED",
@@ -88,15 +91,23 @@ function tiSection(f) {
   const obs = observables(f);
   if (!has(f, "ti")) return obs.length ? sec("threat_intel", obs.map((o) => ({ indicator: o.value, type: o.type,
     state: "UNKNOWN", provider: null, reason: "TI results are not served by the trajectory API" })),
-    ["NO_DATA and UNKNOWN are not BENIGN."]) : notWired("threat_intel");
+    ["NO_DATA, NO_HIT and UNKNOWN are not BENIGN."]) : notWired("threat_intel");
+  // Consumes dt-i1e.ti.v1 normalized results (legacy {indicator,type,state} rows still accepted).
   const rows = (inv(f).ti || []).map((r) => {
     let state = TI_STATES.includes(r.state) ? r.state : "UNKNOWN";
     if (["MALICIOUS", "SUSPICIOUS", "BENIGN"].includes(state) && !r.provider) state = "UNKNOWN";
-    return { indicator: r.indicator, type: r.type, provider: r.provider || null, state, detail: r.detail || null };
+    if (state === "BENIGN" && r.schema_version === TI_SCHEMA
+        && (r.provenance || {}).basis !== "PROVIDER_ASSERTED_KNOWN_GOOD") state = "UNKNOWN";
+    const row = { indicator: r.observable || r.indicator, type: r.ioc_type || r.type, provider: r.provider || null,
+                  state, detail: r.failure_reason || r.detail || null };
+    if (r.schema_version) Object.assign(row, { schema_version: r.schema_version, cache_state: r.cache_state,
+      freshness: r.freshness, lookup_at: r.lookup_at, source_client: (r.provenance || {}).source_client });
+    if (state === "STALE") row.stale_state = r.stale_state || "UNKNOWN";
+    return row;
   });
-  const out = rows.some((r) => ["UNAVAILABLE", "RATE_LIMITED", "ERROR"].includes(r.state));
-  return sec("threat_intel", rows, ["NO_DATA and UNKNOWN are not BENIGN."].concat(
-    out ? ["A TI provider is unavailable; no reputation conclusion is drawn from it."] : []));
+  const out = rows.some((r) => TI_DEGRADED.includes(r.state));
+  return sec("threat_intel", rows, ["NO_DATA, NO_HIT and UNKNOWN are not BENIGN."].concat(
+    out ? ["A TI provider is unavailable, rate-limited, failing or stale; no reputation conclusion is drawn from it."] : []));
 }
 
 function historyOf(f) {
