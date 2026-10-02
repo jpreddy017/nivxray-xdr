@@ -29,7 +29,7 @@ async def sec_text(pg, sid):
 
 async def common(pg, tag, need):
     for sid in need:
-        loc = pg.locator(f'[data-testid="dt-sec-{sid}"] [data-testid="dt-field-row"]')
+        loc = pg.locator(f'[data-testid="dt-sec-{sid}"] [data-testid="{"dt-mitre-link" if sid == "mitre" else "dt-field-row"}"]')
         ok(f"{tag}_section_{sid}_has_values", await loc.count() > 0, await loc.count())
     await pg.screenshot(path=f"{OUT}/{tag}_top.jpeg", quality=72)
     nc = pg.locator('[data-testid="dt-not-collected"]')
@@ -85,10 +85,15 @@ async def main():
         cases = json.loads(await (await pg.request.get(f"{HOST}/api/e3/preview/deeplink-cases")).text())
         ok("deeplink_cases_enforcement", cases.get("quarantined") and cases.get("quarantine_failed"), cases)
         await open_event(pg, cases["quarantined"])
-        ok("deeplink_quarantined_action", "quarantined — moved to quarantine store" in await sec_text(pg, "action"), await sec_text(pg, "action"))
+        ok("deeplink_quarantined_action", "Quarantined" in await sec_text(pg, "action") and "moved to quarantine store" in await sec_text(pg, "action"), await sec_text(pg, "action"))
         await open_event(pg, cases["quarantine_failed"])
-        ok("deeplink_quarantine_failed_action", "quarantine failed — file in use" in await sec_text(pg, "action"), await sec_text(pg, "action"))
+        ok("deeplink_quarantine_failed_action", "Quarantine Failed — file in use by running process (sharing violation)" in await sec_text(pg, "action"), await sec_text(pg, "action"))
+        ok("quarantine_failed_reason_row", "Reason" in await sec_text(pg, "action"))
         await pg.screenshot(path=f"{OUT}/06b_quarantine_failed_action.jpeg", quality=72)
+        ok("deeplink_not_quarantined_case", cases.get("not_quarantined"), cases)
+        await open_event(pg, cases["not_quarantined"])
+        ok("not_quarantined_audit_mode", "Not Quarantined — audit mode" in await sec_text(pg, "action"), await sec_text(pg, "action"))
+        await pg.screenshot(path=f"{OUT}/06c_not_quarantined_action.jpeg", quality=72)
         # real-mouse click on a network-row marker -> Activity Details (Network section)
         await pg.goto(f"{B}?device={DEV}")
         await pg.wait_for_selector('[data-testid="dt-marker"]', timeout=45000)
@@ -130,7 +135,7 @@ async def main():
         await pg.screenshot(path=f"{OUT}/09_approval_dialog.jpeg", quality=72)
         await pg.click('[data-testid="v3-approval-confirm"]')
         await pg.wait_for_selector('[data-testid="dt-approval-result"]')
-        ok("approval_requested_not_executed", "Approval requested — not executed" in await pg.inner_text('[data-testid="dt-approval-result"]'))
+        ok("approval_requested_not_executed", "Approval Requested — not executed" in await pg.inner_text('[data-testid="dt-approval-result"]'))
         await pg.screenshot(path=f"{OUT}/10_approval_result.jpeg", quality=72)
         for name, sel in (("row_label", '[data-testid="dt-row-label"]'), ("activity_row", '[data-testid^="v3-activity-row-"]')):
             bb = await pg.locator(sel).nth(2).bounding_box()
