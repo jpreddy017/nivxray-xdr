@@ -14,7 +14,11 @@ export const R = {
 };
 const base = (p) => (p ? String(p).replace(/\\/g, "/").split("/").pop() : "");
 const tld = (h) => (h && /[a-z]/i.test(h) ? `.${String(h).split(".").pop()}` : null);
-const mitreUrl = (t) => `https://attack.mitre.org/techniques/${String(t).replace(".", "/")}/`;
+export const mitreUrl = (t) => `https://attack.mitre.org/techniques/${String(t).trim().toUpperCase().replace(".", "/")}/`;
+const TACTICS = { reconnaissance: "TA0043", "resource development": "TA0042", "initial access": "TA0001", execution: "TA0002", persistence: "TA0003",
+  "privilege escalation": "TA0004", "defense evasion": "TA0005", "credential access": "TA0006", discovery: "TA0007", "lateral movement": "TA0008",
+  collection: "TA0009", "command and control": "TA0011", exfiltration: "TA0010", impact: "TA0040" };
+export const tacticUrl = (t) => { const id = /^TA\d{4}$/i.test(t || "") ? t.toUpperCase() : TACTICS[String(t || "").toLowerCase()]; return id ? `https://attack.mitre.org/tactics/${id}/` : null; };
 const has = (v) => v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length);
 
 function Sec(id, title) {
@@ -104,7 +108,7 @@ export function buildSections(it, ctx) {
   }
   const mitre = d?.mitre?.length ? d.mitre.map((m) => (typeof m === "string" ? { technique: m } : m)) : (e.mitre || []).map((m) => (typeof m === "string" ? { technique: m } : m));
   const m = Sec("mitre", "MITRE ATT&CK");
-  mitre.forEach((t) => m.add(t.tactic || "Technique", `${t.technique}${t.name ? ` ${t.name}` : ""}`, { link: mitreUrl(t.technique) }));
+  mitre.forEach((t) => m.add(t.tactic || "Technique", `${t.technique}${t.name ? ` ${t.name}` : ""}`, { link: mitreUrl(t.technique), klink: tacticUrl(t.tactic) }));
   if (mitre.length) m.add("Mapping source", d?.mitre_source || e.mitre_basis || "rule metadata", {}).add("Note", "A technique mapping is not a malicious verdict.", {});
   else m.add("Technique", null, { reason: e.mitre_basis === "NOT_ATTRIBUTED" ? "not provided by source (no rule mapped this event)" : R.SRC });
   out.push(m);
@@ -157,6 +161,8 @@ export function buildSections(it, ctx) {
   dc.add("Sensor version", v(computer?.connector_version), { reason: R.SRC }).add("Policy / mode", null, { reason: R.SRC }).add("Tenant", computer?.tenant || computer?.tenant_id, { reason: R.SRC });
   out.push(dc);
   const open = new Set(d ? out.map((s) => s.id) : ["file", "disposition", "process", "network", "dns", "registry", "usb", "system"]);
+  if (mitre.length) open.add("mitre");
+  if (en || approvals?.length) open.add("action");
   out.forEach((s) => { s.open = open.has(s.id); });
   return out;
 }

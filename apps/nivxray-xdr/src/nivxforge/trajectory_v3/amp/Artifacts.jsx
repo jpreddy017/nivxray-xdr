@@ -14,9 +14,10 @@ function Row({ r, onCopy, onSearch, onJump }) {
   const v = r.truncate && !more && r.v.length > r.truncate ? `${r.v.slice(0, r.truncate)}…` : r.v;
   return (
     <div data-testid="dt-field-row" style={{ display: "grid", gridTemplateColumns: "118px minmax(0,1fr) auto", gap: 6, padding: "3px 0", fontSize: 12.5, borderBottom: `1px solid rgba(255,255,255,.04)` }}>
-      <span style={{ color: C.muted }}>{r.k}</span>
+      <span style={{ color: C.muted }}>{r.klink ? <a data-testid="dt-mitre-tactic-link" href={r.klink} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{r.k}</a> : r.k}</span>
       <span style={{ color: C.text, overflowWrap: "anywhere" }}>
-        {r.link ? <a data-testid="dt-mitre-link" href={r.link} target="_blank" rel="noreferrer" style={{ color: C.accent }}>{v}</a>
+        {r.link ? <><a data-testid="dt-mitre-link" href={r.link} target="_blank" rel="noopener noreferrer" title={r.link} style={{ color: C.accent }}>{v} ↗</a>
+          <br /><span style={{ color: C.muted, fontSize: 11 }}>{wrapText(r.link.replace("https://", ""))}</span></>
           : r.hash ? <span title={r.v} style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{short(r.v)}<br /><span style={{ color: C.muted, fontSize: 11 }}>{wrapText(r.v)}</span></span>
             : r.search ? <span role="button" tabIndex={0} onClick={() => onSearch(r.v)} style={{ borderBottom: `1px dotted ${C.muted}`, cursor: "pointer" }}>{wrapText(v)}</span> : wrapText(v)}
         {r.truncate && r.v.length > r.truncate && <Btn onClick={() => setMore(!more)} testid="dt-field-expand">{more ? "less" : "more"}</Btn>}
@@ -71,7 +72,7 @@ export function NetworkSummary({ model, onBack, onFilter, height }) {
         const showT = r.tld !== lastT, showH = r.host !== lastH || showT;
         lastT = r.tld; lastH = r.host;
         return (<div key={i}>
-          {showT && <div style={{ fontWeight: 700, marginTop: 8, color: C.text }}>{r.tld}</div>}
+          {showT && <div data-testid="dt-net-group-tld" style={{ fontWeight: 700, marginTop: 8, color: C.text }}>{r.tld}</div>}
           {showH && <div role="button" tabIndex={0} onClick={() => onFilter(r.host === "(no domain)" ? r.ip : r.host)} style={{ paddingLeft: 10, color: C.accent, cursor: "pointer" }}>{r.host}</div>}
           <div data-testid="dt-net-row" role="button" tabIndex={0} onClick={() => onFilter(r.ip)} style={{ paddingLeft: 22, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", cursor: "pointer", color: C.label }}>
             <span>{r.ip}</span><span style={{ color: C.muted, fontSize: 11.5 }}>{r.n}× · {new Date(r.first).toISOString().slice(11, 19)}–{new Date(r.last).toISOString().slice(11, 19)} · {Math.round((r.last - r.first) / 1000)}s</span></div>
