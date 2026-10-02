@@ -6,9 +6,19 @@
  * `/edr/trajectory` was linked from seven call sites but was never
  * registered as a route, so React Router matched `<Route path="*">` and
  * bounced every click to the Incident Queue.  This resolver ends that
- * silent fall-through WITHOUT creating a second trajectory canvas:
- * `/xdr/endpoints/:device/trajectory` remains the single authoritative
- * surface and this component only resolves an identity and redirects.
+ * silent fall-through WITHOUT creating a second trajectory canvas: it
+ * only resolves an identity and redirects to the EDR Device Trajectory
+ * surface, `/edr/device-trajectory`.
+ *
+ * 2026-06 · EDR INDEPENDENCE FIX. This resolver used to live in
+ * `@/xdr/pages/`, render `XdrShell`, and redirect to the XDR route
+ * `/xdr/endpoints/:device/trajectory`. Seven EDR surfaces link to
+ * `/edr/trajectory`, so every one of them carried the analyst out of
+ * NivXForge EDR and into NivXRay XDR — which is why an EDR
+ * investigation path rendered XDR chrome and an XDR Device Trajectory.
+ * XDR remains a legitimate cross-product PIVOT (the explicit
+ * "Investigate in NivXRay XDR" button); it must never be the route by
+ * which EDR proves itself.
  *
  * Resolution order (never fabricated):
  *   1. ?device_iid=   → authoritative endpoint entity IID
@@ -20,7 +30,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useSearchParams, Link } from "react-router-dom";
 import { Loader2, Radar } from "lucide-react";
 
-import XdrShell from "@/xdr/XdrShell";
+import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import { listEndpoints } from "@/nivxforge/edrApi";
 import { apiErrorText } from "@/xdr/nx/apiError";
 
@@ -76,20 +86,16 @@ export default function EdrTrajectoryResolver() {
   }, [deviceIid, device, incidentId]);
 
   if (state.status === "resolved") {
+    // The EDR Device Trajectory page reads its endpoint from `?device=`.
     const qs = new URLSearchParams();
+    qs.set("device", state.ref);
     if (incidentId) qs.set("incident_id", incidentId);
     if (rule) qs.set("rule", rule);
-    const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    return (
-      <Navigate
-        replace
-        to={`/xdr/endpoints/${encodeURIComponent(state.ref)}/trajectory${suffix}`}
-      />
-    );
+    return <Navigate replace to={`/edr/device-trajectory?${qs.toString()}`} />;
   }
 
   return (
-    <XdrShell>
+    <NivXForgeConsole activeTab="device-trajectory">
       {state.status === "resolving" && (
         <div className="x-empty" data-testid="edr-trajectory-resolving">
           <Loader2 size={13} className="spin"
@@ -112,8 +118,8 @@ export default function EdrTrajectoryResolver() {
             No authoritative endpoint entity could be resolved from the
             reference supplied to this link.
             {ReferenceLine({ deviceIid, device, incidentId })}
-            NivXRay does not synthesise a device identity, so the canvas is
-            not opened rather than shown against a fabricated host.
+            NivXForge does not synthesise a device identity, so the canvas
+            is not opened rather than shown against a fabricated host.
             {typeof state.candidates === "number" && (
               <div style={{ marginTop: 8 }}>
                 <span className="mono" style={{ color: "var(--faint)" }}>
@@ -131,22 +137,22 @@ export default function EdrTrajectoryResolver() {
             )}
           </div>
           <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-            <Link to="/xdr/endpoints" className="btn primary"
+            <Link to="/edr/computers" className="btn primary"
                     style={{ padding: "5px 10px", textDecoration: "none" }}
                     data-testid="edr-trajectory-unresolved-endpoints">
-              <Radar size={11} /> Open Endpoint Inventory
+              <Radar size={11} /> Open Computers
             </Link>
             {incidentId && (
-              <Link to={`/xdr/incidents/${incidentId}`} className="btn"
+              <Link to={`/edr/detections?incident_id=${encodeURIComponent(incidentId)}`} className="btn"
                       style={{ padding: "5px 10px", textDecoration: "none" }}
                       data-testid="edr-trajectory-unresolved-incident">
-                Back to Incident
+                Back to Detections
               </Link>
             )}
           </div>
         </section>
       )}
-    </XdrShell>
+    </NivXForgeConsole>
   );
 }
 

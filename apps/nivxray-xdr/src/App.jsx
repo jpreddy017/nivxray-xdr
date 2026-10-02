@@ -72,7 +72,7 @@ const XdrRuleStudioPage       = lazy(() => import("@/xdr/pages/XdrRuleStudioPage
 const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigationsListPage"));
 const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
 const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
-const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
+const EdrTrajectoryResolver       = lazy(() => import("@/nivxforge/pages/EdrTrajectoryResolver"));
 const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));   // retained · superseded by AssetsPage, kept for rollback
 const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
 const EdrTrajectoryRedirect       = lazy(() => import("@/nivxforge/EdrTrajectoryRedirect"));

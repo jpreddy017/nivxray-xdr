@@ -139,3 +139,51 @@ def test_the_edr_product_has_its_own_login_and_entry_route():
     assert '"/edr/login"' in app or "'/edr/login'" in app
     assert re.search(r"""path="/edr"\s""", app), \
         "the EDR product has no root route of its own"
+
+
+def test_no_edr_route_is_served_by_an_xdr_component():
+    """An `/edr/*` route must not resolve to a component from the XDR product layer.
+
+    This gap was real, not theoretical: `/edr/trajectory` — linked from seven EDR surfaces —
+    was bound to `@/xdr/pages/EdrTrajectoryResolver`, which rendered `XdrShell` and then
+    redirected to `/xdr/endpoints/:device/trajectory`. Every one of those seven EDR links
+    therefore carried the analyst out of NivXForge EDR and into NivXRay XDR, which is why an
+    EDR investigation path rendered XDR chrome and an XDR Device Trajectory.
+
+    The sibling test above only scans files that already live under the EDR directory, so a
+    component sitting in the XDR layer was invisible to it no matter which route it served.
+    This one starts from the ROUTE TABLE instead, which is what the analyst actually follows.
+
+    A visibly-labelled cross-product pivot ("Investigate in NivXRay XDR") stays legitimate;
+    being the route by which EDR serves its own surfaces does not.
+    """
+    app = (SRC / "App.jsx").read_text(encoding="utf8")
+    # component name -> module it is imported from
+    imports = dict(re.findall(
+        r"""const\s+(\w+)\s*=\s*lazy\(\s*\(\)\s*=>\s*import\(\s*["']([^"']+)["']""", app))
+    offenders = []
+    for path, element in re.findall(
+            r"""<Route\s+path=["'](/edr/[^"']*)["']\s+element=\{(.*?)\}\s*/>""",
+            app, re.S):
+        for comp in re.findall(r"<(\w+)\s*/>", element):
+            src = imports.get(comp, "")
+            # shared libraries/design system are SHARED_*_SAFE; product pages are not
+            if src.startswith("@/xdr/") and not re.search(
+                    r"@/xdr/(lib|nx|components|hooks|util)", src):
+                offenders.append(f"{path} -> {comp} from {src}")
+    assert not offenders, (
+        "an EDR route is served by an XDR product component — EDR must serve its own "
+        "surfaces and may only PIVOT to XDR explicitly:\n  " + "\n  ".join(offenders))
+
+
+def test_the_edr_trajectory_resolver_redirects_inside_edr():
+    """`/edr/trajectory` must resolve an identity and stay in EDR."""
+    f = EDR / "pages" / "EdrTrajectoryResolver.jsx"
+    assert f.exists(), "the EDR trajectory resolver must live in the EDR layer"
+    text = f.read_text(encoding="utf8")
+    code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("*"))
+    assert "XdrShell" not in code, "an EDR route must not render the XDR application shell"
+    assert "/edr/device-trajectory" in code, (
+        "the resolver must redirect to the EDR Device Trajectory surface")
+    assert not re.search(r"""to=\{?[`"']/xdr/""", code), (
+        "the resolver must not navigate into an XDR route")

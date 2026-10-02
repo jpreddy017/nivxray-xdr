@@ -4078,3 +4078,102 @@ Active gate unchanged: KUSHU C0.1 -> B5-GAP-1 disposable canary.
   * TEST PLAN: A historical pre-floor events not reconciled; B recent orphan repaired;
     C existing job not duplicated; D failure surfaces a warning instead of silence;
     E worker_count is 1 per process; F the 27 existing ACK-boundary tests stay green.
+
+## 2026-06 · §d PRODUCTION WIRING DONE (local, NOT deployed) — verdict NOT_PRODUCTION_READY
+Branch `integration/e3-dt`, from `1da71197`. Full report:
+`docs/e3/SD_PRODUCTION_WIRING_REPORT.md`.
+
+- OWNER DECISION IMPLEMENTED: evidence-first §11. **Option A** (existing authoritative
+  stored observation time) at the query layer + **Option B** (derive `observed_ms` at the
+  adapter boundary). Options C/D NOT implemented and NOT pre-authorised. No schema
+  change, no backfill, no canonical-authority decision, no production index.
+- PROVEN READ-ONLY: `observed_ms` is stored in **0** of 277,684 canonical / 283,789
+  shadow / 287,447 raw docs — it is a derived millisecond rendering, never a stored field.
+  Canonical `event_time` 100% populated but had NO index; shadow `event.ts` already indexed.
+- NEW: `backend/edr_trajectory/production_adapter.py` (§d evidence adapter) +
+  `production_service.py` (assembly) + 24 hermetic tests. `routers/edr.py` gains ONE
+  additive `e3` key on `GET /api/edr/endpoints/{id}/trajectory`, inside try/except, with
+  new params `e3_page_size` / `e3_cursor` / `e3_event_id`. V1 and `dt2` untouched.
+- WHY THE MERGE IS IN THE ADAPTER: the authoritative `endpoint_predicate()` `$or` gets
+  SORT_MERGE only while branch×ref stays under the planner's enumeration limit; one extra
+  alias flips it to a blocking sort (measured 276,031 docs / 4,401 ms). The adapter issues
+  one bounded index-served query per declared identity branch (200 docs / 1 ms) and merges.
+- **P0 DEFECT FOUND AND FIXED — sub-millisecond evidence loss.** Stores record
+  microseconds, `observed_ms` is milliseconds, so distinct observations collapsed into
+  fake ties and the resume boundary skipped their members: measured **16 observations
+  returned at page_size=3 and never at page_size=7**. Order + cursor now use full source
+  precision (`observed_us`); after the fix missing=0 at page sizes 3/7/25/100. Also fixed:
+  branch-overlap key relied on frequently-absent fields; adapter mutated the source doc.
+- PROOFS: `/app/scripts/sd_production_adapter_acceptance.py` **16/16 PASS on real
+  evidence** (newest-first, page1∩page2=∅, no boundary loss, strict total order, tenant
+  fail-closed, cross-tenant leak NO, deep link exact/explicit-miss/cannot-cross-endpoint,
+  provenance on every row). Order identical at page sizes 3/7/25/100/300 from a fixed
+  cursor on shadow-only, canonical-only AND the union.
+- TESTS: `tests/edr` 2051 passed + `tests/edr_trajectory` 78 passed = **2129 passed,
+  12 skipped, 0 failed**. Gate 16 5/5. Repaired a pre-existing TEST_HARNESS_FAILURE:
+  8 E3 tests ERRORED at setup (async fixture without the asyncio marker) so they were
+  reporting as no-coverage while never executing — test-only change, now run and pass.
+- PREVIEW INDEX (owner-authorised, preview only): 3 REQUIRED on
+  `xdr_canonical_evidence` (`pvw_sd_*_eventtime`) because it had no `event_time` index at
+  all. 7 shadow duplicates were trialled, measured to add nothing, and DROPPED.
+  Rollback: `python /app/scripts/sd_preview_index_experiment.py drop`.
+  **Production index = OWNER_DECISION_REQUIRED, not created.**
+
+### VALIDATION PATH CONSTRAINT (owner-stated, binding)
+EDR must be proven INSIDE EDR: `NivXForge EDR → EDR auth/authorized customer →
+Computers/Endpoint → Device Trajectory → /edr/device-trajectory → EDR trajectory API →
+real endpoint evidence`. NEVER via the "Investigate in NivXRay XDR" pivot, XDR workspace
+routes, XDR Device Trajectory, or the standalone E3 preview shell
+(`/e3shell-*/index.html`, customer "Synthetic Preview Customer", host `SYN-LT-0427`,
+footer "Synthetic data · Debug") which is FIXTURE DATA. Never weaken auth/tenant checks
+or change routing to make automation pass.
+
+### BLOCKERS (verdict NOT_PRODUCTION_READY)
+- **P0 · Blocker 1 — the analyst still cannot see the newest evidence.** `VITE_E3_DT_V3`
+  is OFF, so `/edr/device-trajectory` renders `EdrDeviceTrajectoryPage` on the V1
+  contract, whose page selection is OLDEST-FIRST (pinned by E3's own `stale_trace`
+  characterisation test). Measured: V1 newest row `14:17:47` vs the endpoint's real
+  newest `14:37:33` — ~20 min of the most recent evidence unreachable in the UI, while
+  the new `e3` key on the same request returns it. OWNER DECISION:
+  (A) make V1 page selection newest-first — smallest, but changes an established shared
+  contract read by dt2 and other surfaces; or (B) adopt the proven `e3` contract in the
+  EDR DT page — architecturally correct per §4/§13, real frontend work.
+  **Recommended: (B).**
+- **P0 · Blocker 2 — A–T not validatable against real KUSHU from this pod.** KUSHU is a
+  PRODUCTION endpoint; the preview DB holds ZERO KUSHU rows in all four collections.
+  Production shows KUSHU 258 obs. No production Mongo path is authorised here, so every
+  KUSHU-dependent A–T row is INSUFFICIENT_REAL_EVIDENCE. No substitute endpoint was used
+  to manufacture a PASS. The adapter IS proven on a real 275,902-observation Windows corpus.
+- **P0 · Blocker 3 — an EDR route is served by an XDR-namespaced component.**
+  `App.jsx:75` imports `EdrTrajectoryResolver` from `@/xdr/pages/` and binds it to
+  `/edr/trajectory` (`App.jsx:367`), linked from 7 EDR surfaces. Gate 16 passes only
+  because it does not cover this case — the gate is narrower than the invariant. Likely
+  source of XDR chrome on an EDR path. Fix: move the resolver out of the XDR layer and
+  widen Gate 16 to assert no `/edr/*` route resolves to an `@/xdr/*` component.
+  (Class B, reversible, no owner decision needed.)
+
+### STILL OPEN (unchanged)
+- KUSHU sensor stopped (`DELIVERY_CEASED`, production dashboard FLEET BLIND) — owner-gated.
+- SENSOR: REPORTING stale-badge defect (freshness vs sticky lifecycle flag).
+- Threatfox 401 / OTX pull failure (stale production API keys).
+- 3 corrupt `event.ts` offsets + null canonical `event_time` rows → truthful unplaceable state.
+
+### 2026-06 · Blocker 3 RESOLVED — EDR independence (route + shell + redirect)
+- `/edr/trajectory` (linked from 7 EDR surfaces) was bound to
+  `@/xdr/pages/EdrTrajectoryResolver`, which rendered `XdrShell` and redirected to
+  `/xdr/endpoints/:device/trajectory` — carrying the analyst out of NivXForge EDR into
+  NivXRay XDR. That is the mechanism behind XDR chrome on an EDR investigation path.
+- FIXED: resolver moved to `@/nivxforge/pages/EdrTrajectoryResolver.jsx`, renders
+  `NivXForgeConsole`, redirects to `/edr/device-trajectory?device=<ref>`, unresolved-state
+  links now `/edr/computers` + `/edr/detections`. The explicit "Investigate in NivXRay XDR"
+  pivot is untouched and stays legitimate.
+- Gate 16 widened 5 -> 7: `test_no_edr_route_is_served_by_an_xdr_component` works from the
+  ROUTE TABLE (the old test only scanned files already under the EDR dir, so an XDR-layer
+  component was invisible to it). Proven to catch the regression by restoring the old import.
+- VERIFIED LIVE on the EDR path only: stays on `/edr/*`, NivXForge EDR chrome + sidebar, no
+  "PLANE XDR investigation". The TENANT_REQUIRED panel is CORRECT fail-closed behaviour
+  (PLATFORM principal with no customer selected). Auth/tenant not weakened; routing not
+  changed to satisfy automation. `yarn build` clean; 2131 passed / 12 skipped / 0 failed.
+- RESIDUAL: 11 EDR pages import `apiErrorText` from `@/xdr/nx/apiError` (Gate-16
+  SHARED_*_SAFE, sanctioned); `apps/nivxray-xdr/.git` is a NESTED repo inside the outer repo
+  so `git mv` from inside it silently fails — pre-existing hygiene debt, not altered.
