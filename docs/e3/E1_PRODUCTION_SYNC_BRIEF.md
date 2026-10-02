@@ -50,7 +50,7 @@ Goal: https://edr.nivxforge.com/edr/device-trajectory should behave exactly like
   | Synthetic datasets + seeders | `fixtures.py`, `prodshape.py`, `platform_seed.py`, `stale_trace.py`, `api.py` `POST /seed` |
   | Synthetic TI / disposition / enforcement overlays | `artifacts_overlay.py` (`33cc6752`); collections `e3_dt_ti`, `e3_dt_dispositions`, `e3_dt_enforcement`, `e3_dt_preview*` |
   | Harness + static shells | `/app/.e3ui-harness/*` (not in the repo); `frontend/public/e3shell-*`, `e3dt-*`, `e3ui-*`, `e3dl-*` (not in the repo) |
-  | Preview `.env` flags | `E3_TRAJECTORY_ROUTER`, `E3_PREVIEW_E1_SHAPE`, `E3_CLONE_BACKEND`, `E3_PREVIEW_DB`, `E3_PREVIEW_EXPORT`, `E3_IMPORT_TOKEN`: none set in production |
+  | Preview `.env` flags | `E3_TRAJECTORY_ROUTER`, `E3_PREVIEW_E1_SHAPE`, `E3_CLONE_BACKEND`, `E3_PREVIEW_DB`, `E3_PREVIEW_EXPORT`, `E3_PREVIEW_AUTO_RESEED`, `E3_IMPORT_TOKEN`: none set in production |
 
 ## c. Flags
 | Flag | Effect | Production value |
