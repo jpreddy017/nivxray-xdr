@@ -62,3 +62,21 @@
   1. The `TimeRangeBox` day strip is hard-coded to Jun 23–Jul 22, regardless of case dates.
   2. The attack-chain summary counts a behavioral MATCH as "malicious" (C/F: "2 malicious").
   3. Process row labels are truncated.
+
+## Owner milestone review → Step 1 corrective (57218ac3) + DT-I1D causal context (576002a9)
+- **Step 1:**
+  - The navigator dates now come from the trajectory bounds. If the bounds are missing, the strip shows UNKNOWN; there is no hard-coded fallback.
+  - A detection is no longer treated as a malicious verdict. `trajectoryVerdict` returns malicious only when the machine assessment is MALICIOUS; a MATCH shows as DETECTED (amber).
+  - Truncated labels expose their full value through a title attribute, a hover tooltip, and an accessible list.
+- **DT-I1D:**
+  - Added `backend/edr_investigation/causal.py` (the CausalEdge contract) and a frontend mirror in `causalView.mjs`. The two are parity-tested against each other.
+  - Added CausalContextPanel to Activity Details.
+  - Row indentation and connectors now come from parent identity only.
+- **Exposed edge types:** spawned, wrote, executed, modified, connected_to, queried, and co_occurred (CORRELATED only).
+- **Not exposed:** resolved_to, user/session launched, service started, and task launched. No trajectory frame telemetry carries these.
+- **Previews:** `/app/.e3ui-harness/shots2/dt2_{A..F}.jpeg` (from 57218ac3) and `shots_causal/c_{G..L}.jpeg` (from 576002a9).
+- **Tests:**
+  - node view-model: 30/30
+  - DT component (react-dom/server): 8/8
+  - pytest edr_investigation, edr_behavior and edr_ml: 125/125, including the JS/Python parity test.
+- **Not present in DT code:** a "Linked XDR Incidents" surface. There was nothing to regress.
