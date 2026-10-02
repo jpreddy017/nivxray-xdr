@@ -1001,6 +1001,7 @@ async def endpoint_trajectory_window(
     lane_start: int = 0,
     lane_end: int = 40,
     cursor: Optional[str] = None,
+    before: Optional[str] = None,
     limit: int = 500,
     kinds: Optional[str] = None,
     q: Optional[str] = None,
@@ -1097,13 +1098,57 @@ async def endpoint_trajectory_window(
             _db, tenant_id=str(identity.get("tenant_id") or tenant_id),
             refs=res.refs,
             endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
-            page_size=e3_page_size, cursor=e3_cursor, focus_event_id=e3_event_id)
+            page_size=e3_page_size, cursor=e3_cursor or before, focus_event_id=e3_event_id)
     except Exception as ex:                        # noqa: BLE001
         out["e3"] = {"contract": "e3.dt.production.v1",
                      "state": "E3_PRODUCTION_CONTRACT_UNAVAILABLE",
                      "reason": type(ex).__name__, "detail": str(ex)[:200],
                      "mock_data_reachable": False}
         _log.warning("[trajectory] e3 production contract unavailable: %r", ex)
+    # §4/§7 · the ADDITIVE V3 PRESENTATION CONTRACT.
+    #
+    # `v3` is a pure re-expression of the `e3` result above in the field vocabulary the exact E3
+    # V3 surface consumes. It performs NO second evidence read and introduces NO second authority:
+    # one endpoint resolution, one customer resolution, one evidence read, one ordering authority.
+    # V1, `dt2` and `e3` are untouched, so every existing caller is unaffected.
+    #
+    # Detections are joined from E1's OWN durable findings authority on an exact evidence
+    # reference — never on timestamp proximity — and a row with no finding is left with no
+    # detection, because NO DETECTION is not BENIGN.
+    try:
+        from edr_trajectory import v3_presentation as e3v3
+        out["v3"] = e3v3.build(out.get("e3") or {}, computer=out.get("computer"),
+                               identity=out.get("identity"))
+        if out["v3"].get("events"):
+            try:
+                from edr_plane.fabric import store as _finding_store
+                _findings, _ = await asyncio.to_thread(
+                    _finding_store.read,
+                    str(identity.get("tenant_id") or tenant_id), limit=500,
+                    endpoint_ref=str(identity.get("endpoint_id") or endpoint_id))
+                out["v3"]["detection_join"] = e3v3.apply_findings(out["v3"]["events"], _findings)
+                out["v3"]["e3_preview"]["detections_all"] = [
+                    {"event_iid": r["event_iid"], "observation_id": r.get("observation_id"),
+                     "at": r["timestamp"], "ms": r["timestamp_instant_ms"],
+                     "name": r["e3_detection"]["name"],
+                     "severity": r["e3_detection"]["severity"],
+                     "rule_id": r["e3_detection"].get("rule_id")}
+                    for r in out["v3"]["events"] if r.get("e3_detection")]
+            except Exception as ex:                    # noqa: BLE001
+                # A findings outage must never remove EVIDENCE from the analyst's screen, and it
+                # must never be rendered as "no detections". It is reported as unavailable.
+                out["v3"]["detection_join"] = {
+                    "state": "E1_FINDINGS_AUTHORITY_UNAVAILABLE",
+                    "reason": type(ex).__name__,
+                    "meaning": "detections could not be read. This is NOT a statement that this "
+                               "endpoint has no detections."}
+                _log.warning("[trajectory] v3 detection join unavailable: %r", ex)
+    except Exception as ex:                            # noqa: BLE001
+        out["v3"] = {"contract": "e3.dt.v3_presentation.v1",
+                     "state": "V3_CONTRACT_UNAVAILABLE",
+                     "reason": type(ex).__name__, "detail": str(ex)[:200],
+                     "events": [], "mock_data_reachable": False}
+        _log.warning("[trajectory] v3 presentation contract unavailable: %r", ex)
     _log.info("[trajectory] resolve=%.2fs projection=%.2fs tail=%.2fs "
               "total=%.2fs state=%s observations=%s",
               _t1 - _t0, _t2 - _t1, _t.perf_counter() - _t2,
@@ -1632,6 +1677,8 @@ async def trajectory_focus(endpoint_id: str,
                            raw_event_id: Optional[str] = None,
                            canonical_event_id: Optional[str] = None,
                            event_iid: Optional[str] = None,
+                           event: Optional[str] = None,
+                           observation_id: Optional[str] = None,
                            detection_id: Optional[str] = None,
                            incident_id: Optional[str] = None,
                            user=Depends(get_current_user),
@@ -1649,6 +1696,74 @@ async def trajectory_focus(endpoint_id: str,
                 **eq.unresolved_envelope(endpoint_id),
                 "focus": None}
     identity = res.identity
+
+    # §8 · `event` is an ACCEPTED ALIAS of `event_iid`. The ATT&CK HeatMap and the XDR pivot both
+    # build `?event=`, and an identifier the resolver silently ignored resolved to nothing while
+    # looking like a successful read.
+    event_iid = event_iid or event
+
+    # §8 · V3 PRESENTATION IDENTITY and `observation_id` resolve through the §d authority.
+    # `decode_iid` returns None for anything outside the V3 identity namespace, so the V1
+    # `event_iid` contract below is reached unchanged — no existing caller changes behaviour.
+    from edr_trajectory import v3_presentation as e3v3
+    v3_event_id = e3v3.decode_iid(event_iid) if event_iid else None
+    if v3_event_id or observation_id:
+        from edr_trajectory import production_adapter as e3pa
+        try:
+            deep = await e3pa.resolve_evidence(
+                _db, tenant_id=str(identity.get("tenant_id") or tenant_id), refs=res.refs,
+                event_id=v3_event_id,
+                match=((lambda ev: (ev.get("provenance") or {}).get("ref") == observation_id)
+                       if (observation_id and not v3_event_id) else None))
+        except Exception as ex:                        # noqa: BLE001
+            return {"engine_id": "nivxray::edr_trajectory::v3_focus",
+                    "state": "FOCUS_AUTHORITY_UNAVAILABLE", "focus": None,
+                    "reason": type(ex).__name__,
+                    "meaning": ("the deep-link resolver could not read evidence. This is NOT a "
+                                "statement that the requested observation does not exist.")}
+        if deep.get("state") != "FOCUS_RESOLVED":
+            incomplete = (deep.get("search") or {}).get("state", "").startswith("PAGE_BUDGET")
+            return {"engine_id": "nivxray::edr_trajectory::v3_focus",
+                    "state": ("OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE" if incomplete
+                              else "OBSERVATION_NOT_RESOLVED"),
+                    "focus": None,
+                    "requested": {"event_iid": event_iid, "observation_id": observation_id},
+                    "reason": deep.get("reason"),
+                    "search": deep.get("search"),
+                    "observations_searched": deep.get("scanned"),
+                    "missing_link": (deep.get("meaning") if incomplete else
+                                     ("no observation on this endpoint, in this customer, carries "
+                                      "the requested identifier. Nothing is focused in its place "
+                                      "— no timestamp, hostname or process-name proximity is "
+                                      "substituted for an exact identifier match."))}
+        hit = deep["event"]
+        ms = hit.get("observed_ms")
+        half = 30 * 60 * 1000
+        return {
+            "engine_id": "nivxray::edr_trajectory::v3_focus",
+            "state": "FOCUS_RESOLVED",
+            "resolved_by": "v3_presentation_identity" if v3_event_id else "observation_id",
+            "endpoint": {"endpoint_id": endpoint_id,
+                         "device_iid": identity.get("device_iid"),
+                         "hostname": identity.get("hostname")},
+            "focus": {
+                "event_iid": e3v3.encode_iid(hit["event_id"]),
+                "event_id": hit["event_id"],
+                "observation_id": (hit.get("provenance") or {}).get("ref"),
+                "event_type": e3v3.EVENT_TYPE.get(hit.get("kind"),
+                                                  str(hit.get("kind") or "").lower()),
+                "timestamp": hit.get("observed_at"),
+                "observed_at": hit.get("observed_at"),
+                "timestamp_instant_ms": ms,
+                "observation_time_authority": "STORED_OBSERVATION_TIME",
+                "position": deep.get("position"),
+                "basis": deep.get("provenance", {}).get("ordering_authority"),
+                "window": ({"time_start": _ms_iso(ms - half),
+                            "time_end": _ms_iso(ms + half)} if ms is not None else None),
+            },
+            "note": ("exact evidence-identity match inside the authorized customer and the "
+                     "authorized endpoint — no inference of any kind"),
+        }
 
     wanted_raw = {raw_event_id} if raw_event_id else set()
     wanted_cev = {canonical_event_id} if canonical_event_id else set()

@@ -74,6 +74,12 @@ ORDER = "NEWEST_FIRST"
 UNPLACEABLE = "UNPLACEABLE_NO_OBSERVATION_TIME"
 TIE_OVERFLOW = "TIE_GROUP_EXCEEDS_PAGE_SIZE"
 
+#: Deep-link search budget, in pages of PAGE_MAX. An unresolvable identifier would otherwise walk
+#: the endpoint's entire retained history on every request — measured as an unbounded read on a
+#: 279,554-observation endpoint. A budget that is REACHED is reported as reached, never as "not
+#: found", because the two statements are not the same claim.
+FOCUS_PAGE_BUDGET = 8
+
 
 def observation_us(value: Any) -> int | None:
     """The stored observation time at FULL SOURCE PRECISION, in epoch microseconds.
@@ -330,26 +336,38 @@ def _empty(size: int, reason: str) -> dict[str, Any]:
             "provenance": {"stores_read": [], "reason": reason}}
 
 
-async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str], event_id: str,
+async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
+                           event_id: str | None = None,
+                           match: Any = None,
+                           max_pages: int = FOCUS_PAGE_BUDGET,
                            stores: tuple[str, ...] = STORES) -> dict[str, Any]:
     """Deep link: one evidence identity → its exact observation, or an explicit miss.
 
     Resolution is by the SAME stable event identity the page emitted, inside the same customer
     and the same endpoint, so a deep link can never reach another customer's evidence. A miss
     returns a reason; it never returns a different row that happens to be nearby in time.
+
+    `match` is an optional predicate for identifiers that are not the evidence identity itself —
+    e.g. a store's own `observation_id` carried in `provenance.ref`. It walks the SAME ordered
+    pages through the SAME tenant- and endpoint-scoped adapter, so an alternative identifier can
+    never widen the authorized scope or reach a row the identity path could not reach.
     """
     tenant = require_tenant(tenant_id)
     refs = [str(r) for r in (refs or []) if r]
-    if not refs or not event_id:
+    if not refs or not (event_id or match):
         return {"state": "FOCUS_NOT_RESOLVED", "reason": "ENDPOINT_OR_EVENT_IDENTITY_MISSING",
                 "event_id": event_id, "event": None}
+    hit = match if match else (lambda ev: ev["event_id"] == event_id)
     cursor = None
     scanned = 0
+    pages = 0
     while True:
         page = await page_device_evidence(db, tenant_id=tenant, refs=refs,
                                           page_size=PAGE_MAX, cursor=cursor, stores=stores)
+        pages += 1
         for ev in page["items"]:
-            if ev["event_id"] == event_id:
+            if hit(ev):
+                event_id = ev["event_id"]
                 return {"state": "FOCUS_RESOLVED", "event_id": event_id, "event": ev,
                         "observed_at": ev.get("observed_at"),
                         "position": {"scanned_newer_first": scanned,
@@ -359,5 +377,18 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str], event_id
         if not page["has_more"]:
             return {"state": "FOCUS_NOT_RESOLVED",
                     "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
-                    "event_id": event_id, "event": None, "scanned": scanned}
+                    "event_id": event_id, "event": None, "scanned": scanned,
+                    "search": {"pages_searched": pages, "page_size": PAGE_MAX,
+                               "state": "EXHAUSTED_SEARCH_COMPLETED"}}
+        if pages >= max_pages:
+            # A BUDGET IS NOT AN ABSENCE. Walking an endpoint's whole history for a deep link
+            # that does not exist is an unbounded read, so the walk is capped — but reporting a
+            # capped walk as "not found" would assert something this resolver did not establish.
+            return {"state": "FOCUS_NOT_RESOLVED",
+                    "reason": "SEARCH_BUDGET_REACHED_BEFORE_EXHAUSTING_RETAINED_EVIDENCE",
+                    "event_id": event_id, "event": None, "scanned": scanned,
+                    "search": {"pages_searched": pages, "page_size": PAGE_MAX,
+                               "state": f"PAGE_BUDGET_REACHED_{max_pages}"},
+                    "meaning": ("the newest " + str(scanned) + " observations do not carry this "
+                                "identifier. This is NOT proof that the endpoint never held it.")}
         cursor = page["next_cursor"]

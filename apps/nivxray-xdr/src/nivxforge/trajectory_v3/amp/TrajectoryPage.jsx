@@ -115,7 +115,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
     api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
-      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: d?.e3_preview?.older_cursor || null }); })
+      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") say(`Trajectory read failed: ${e.message}`); })
       .finally(() => { if (id === req.current) setLoading(false); });
     return () => ac.abort();
@@ -127,7 +127,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
     setLoading(true);
     try {
       const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
-      if (id === req.current) setOlder((o) => ({ events: [...(d.events || []), ...o.events], cursor: d?.e3_preview?.older_cursor || null }));
+      const r = d.v3 || d;
+      if (id === req.current) setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
     } catch (e) { say(`Older events read failed: ${e.message}`); } finally { setLoading(false); }
   };
 
@@ -181,7 +182,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     if (deep?.id === wanted) return;
     setDeep({ state: "LOCATING", id: wanted });
     api.get(`${url}/focus`, { params: { event_iid: wanted } }).then(({ data: f }) => {
-      if (f.state !== "FOCUS_RESOLVED") { setDeep({ state: "NOT_FOUND", id: wanted }); return; }
+      if (f.state !== "FOCUS_RESOLVED") { setDeep({ state: "NOT_FOUND", id: wanted, note: f.missing_link || f.reason }); return; }
       setDeep({ state: "FOCUSING", id: wanted });
       upd({ t0: Date.parse(f.focus.window.time_start), t1: Date.parse(f.focus.window.time_end) }, true);
     }).catch(() => setDeep({ state: "NOT_FOUND", id: wanted }));
@@ -222,16 +223,31 @@ export default function TrajectoryPage({ device, onLegacy }) {
     else if (a === "pivot") say(`${v} opens in the XDR console (not wired in this preview)`);
     else if (a === "approve") setApproval({ action: v, it: menu?.deviceOnly ? null : it, device: !!menu?.deviceOnly, target: menu?.deviceOnly || v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });
   };
+  // §14 · Actions go to E1's DURABLE response authority (POST /api/edr/response/actions).
+  // The E3 preview approval endpoint and its in-memory ApprovalStore are NOT production
+  // dependencies and are never called. E1 owns authenticated principal -> server-derived
+  // customer -> target validation -> policy -> durable approval -> authorized dispatch ->
+  // execution -> independent verification -> audit, and ACCEPTED != EXECUTED != VERIFIED.
+  // An action E1's response authority does not implement is REFUSED here and never recorded:
+  // showing "Approval Requested" for an action nothing can carry out would be a fabrication.
+  const E1_ACTION = { ISOLATE_DEVICE: "ISOLATE_ENDPOINT", STOP_ISOLATION: "RELEASE_ISOLATION", KILL_PROCESS: "KILL_PROCESS" };
   const confirmApproval = async (extra = {}) => {
     const { action, it } = approval;
     setApproval(null);
+    const verb = E1_ACTION[action];
+    if (!verb) { say(`Approval refused: ${action} is not implemented by the NivXForge response authority — nothing was requested or recorded.`); return; }
     try {
-      const { data: r } = await api.post("/e3/trajectory/approvals", { tenant_id: data?.identity?.tenant_id, action, requested_by: "preview-analyst",
-        target: { device_id: device, event_iid: it?.ev.event_iid, path: it?.target?.path, ...extra }, idempotency_key: `${action}:${it?.ev.event_iid || device}${extra.group ? `:${extra.group}` : ""}`, reason: "trajectory" });
-      say(`Approval Requested — not executed. (${r.request?.state || "REQUESTED"})`);
-      if (!it) setDevPending((p) => ({ ...p, [action]: r.request?.state || "APPROVAL_REQUESTED", ...(action === "ISOLATE_DEVICE" ? { STOP_ISOLATION: undefined } : action === "STOP_ISOLATION" ? { ISOLATE_DEVICE: undefined } : {}) }));
-      if (it) setApprovals((a) => ({ ...a, [it.ev.event_iid]: [...(a[it.ev.event_iid] || []), { action, state: r.request?.state || "APPROVAL_REQUESTED" }] }));
-    } catch (e) { say(`Approval request not recorded: ${e.message}`); }
+      const { data: r } = await api.post("/edr/response/actions", {
+        endpoint_id: device,
+        action: verb,
+        reason: "device trajectory",
+        target: { event_iid: it?.ev.event_iid, observation_id: it?.ev.observation_id, path: it?.target?.path, pid: it?.ev.pid, ...extra },
+      });
+      const state = r?.state || "REQUESTED";
+      say(`Approval requested — not executed. (${state})`);
+      if (!it) setDevPending((p) => ({ ...p, [action]: state, ...(action === "ISOLATE_DEVICE" ? { STOP_ISOLATION: undefined } : action === "STOP_ISOLATION" ? { ISOLATE_DEVICE: undefined } : {}) }));
+      if (it) setApprovals((a) => ({ ...a, [it.ev.event_iid]: [...(a[it.ev.event_iid] || []), { action, state }] }));
+    } catch (e) { say(`Approval not recorded: ${e.response?.data?.detail?.reason || e.response?.data?.detail?.error || e.message}`); }
   };
   const filtered = shown.length !== model.items.length;
   const isoSt = String((data?.computer?.isolation && typeof data.computer.isolation === "object" ? data.computer.isolation.state : data?.computer?.isolation) || data?.computer?.isolation_status || "").toUpperCase();
@@ -265,7 +281,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
         {deep && !["FOCUSED"].includes(deep.state) && <div data-testid="v3-deeplink-state" style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-          {deep.state === "NOT_FOUND" ? `Observation ${deep.id} was not found in retained evidence for this device.` : `Locating observation ${deep.id} in history…`}</div>}
+          {deep.state === "NOT_FOUND" ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`) : `Locating observation ${deep.id} in history…`}</div>}
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
@@ -323,8 +339,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
             <span data-testid="v3-loaded-count">Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</span>
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" onClick={loadOlder}>Load older events</button>}
             <span style={{ flex: 1 }} />
-            <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{/KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
-              : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data" : "Synthetic data"}</span>
+            <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{!data ? "No data read"
+              : /REAL PRODUCTION EVIDENCE/.test(data?.e3_preview?.data_label || "") ? "Production evidence (read-only)"
+              : /KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
+              : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data"
+              : /SYNTHETIC|PREVIEW/i.test(data?.e3_preview?.data_label || "") ? "Synthetic data" : "Data source not declared"}</span>
             <button className="v3-link" data-testid="v3-debug-toggle" style={{ fontSize: 12, color: C.muted }} onClick={(e) => { e.stopPropagation(); setDbg(!dbg); }}>Debug</button>
           </div>
         </div>
