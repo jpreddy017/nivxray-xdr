@@ -3,12 +3,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
+import { NetworkSummary } from "./Artifacts";
 import { FiltersPanel } from "./Filters";
 import Grid from "./Grid";
 import Header from "./Header";
 import { Legend } from "./Glyphs";
 import { ApprovalDialog, ContextMenu } from "./Menu";
-import { buildModel, DEFAULT_ON, lineage, matches, passes } from "./model";
+import { buildModel, DEFAULT_ON, lineage, matches, passes, presentKinds } from "./model";
 import Navigator from "./Navigator";
 import { perfEvents } from "./perf";
 import { C, CSS, DAY } from "./theme";
@@ -50,7 +51,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const t0 = Number(params.get("t0")) || now - DAY, t1 = Number(params.get("t1")) || now;
   const view = useMemo(() => ({ t0, t1 }), [t0, t1]);
   const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event");
-  const filters = useMemo(() => new Set(fp ? fp.split(",") : DEFAULT_ON), [fp]);
+  const [present, setPresent] = useState(() => new Set());
+  const filters = useMemo(() => new Set(fp ? fp.split(",") : [...DEFAULT_ON, ...present]), [fp, present]);
   const [data, setData] = useState(null);
   const [older, setOlder] = useState({ events: [], cursor: null });
   const [loading, setLoading] = useState(false);
@@ -63,6 +65,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [deep, setDeep] = useState(null);
   const [dbg, setDbg] = useState(false);
   const [legend, setLegend] = useState(false);
+  const [netSum, setNetSum] = useState(false);
+  const [approvals, setApprovals] = useState({});
   const [colW, setColW] = useState(24);
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
@@ -130,6 +134,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     return m;
   }, [data, older.events, platform]);
   const isoItem = isoId ? model.items.find((it) => it.ev.event_iid === isoId) : null;
+  useEffect(() => { setPresent(presentKinds(model.items)); }, [model]);
   useEffect(() => { window.__v3perf = { ...timing.current, n: model.total, cols: model.ncol, rows: model.rows.length }; }, [model]);
   const lin = useMemo(() => (isoItem ? lineage(model, isoItem) : null), [model, isoItem]);
   const shown = useMemo(() => model.items.filter((it) => passes(it, filters) && matches(it, q) && (!lin || lin.has(it.actorIid) || lin.has(it.targetIid))),
@@ -151,6 +156,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     if (center) returnTo.current = true;
     setDeep({ state: "FOCUSED", id: it.ev.event_iid });
     setDetails(true);
+    setNetSum(false);
     upd({ event: it.ev.event_iid });
   }, [upd]);
 
@@ -204,6 +210,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
       const { data: r } = await api.post("/e3/trajectory/approvals", { tenant_id: data?.identity?.tenant_id, action, requested_by: "preview-analyst",
         target: { device_id: device, event_iid: it?.ev.event_iid, path: it?.target?.path }, idempotency_key: `${action}:${it?.ev.event_iid || device}`, reason: "trajectory" });
       say(`Approval requested — not executed. (${r.request?.state || "REQUESTED"})`);
+      if (it) setApprovals((a) => ({ ...a, [it.ev.event_iid]: [...(a[it.ev.event_iid] || []), { action, state: r.request?.state || "APPROVAL_REQUESTED" }] }));
     } catch (e) { say(`Approval request not recorded: ${e.message}`); }
   };
   const filtered = shown.length !== model.items.length;
@@ -229,13 +236,13 @@ export default function TrajectoryPage({ device, onLegacy }) {
           {filtered && <span data-testid="v3-filter-indicator" style={{ fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{shown.length} of {model.items.length}
             <button className="v3-link" data-testid="v3-filter-reset" style={{ marginLeft: 8, fontSize: 13 }} onClick={() => upd({ f: null, q: null, iso: null })}>Reset</button></span>}
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
-          {showF && <FiltersPanel applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
+          {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
         {deep && !["FOCUSED"].includes(deep.state) && <div data-testid="v3-deeplink-state" style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
           {deep.state === "NOT_FOUND" ? `Observation ${deep.id} was not found in retained evidence for this device.` : `Locating observation ${deep.id} in history…`}</div>}
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
-        {notice && <div data-testid="v3-notice" onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
+        {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
           border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 18px", fontSize: 13.5, boxShadow: "0 10px 30px rgba(0,0,0,.5)", animation: "v3in .15s ease-out" }}>{notice}</div>}
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "visible" }}>
           <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} />
@@ -253,7 +260,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
             <div style={{ position: "relative", minWidth: 0 }}>
               <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW}
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
-                hits={hits} height={gridH} onContext={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
+                hits={hits} height={gridH} onContext={(e, it) => { setHover(null); setMenu({ x: e.clientX, y: e.clientY, it }); }}
+                onRowClick={(r) => { if (r.type === "Network") { setNetSum(true); setDetails(false); } }} />
               {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}
             </div>
@@ -263,9 +271,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
               style={{ cursor: "col-resize", background: C.line, opacity: 0.6, transition: "opacity .12s" }}
               onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }} />
             <div data-testid="v3-activity-panel" style={{ background: C.panel, minWidth: 0, overflow: "hidden" }}>
-              <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{details && sel ? "Activity Details" : "Activity"}</div>
-              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={details && !!sel} height={gridH - 44} />
-              {details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })} />}
+              <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{netSum ? "Network" : details && sel ? "Activity Details" : "Activity"}</div>
+              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
+              {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
+              {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
+                model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} />}
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>

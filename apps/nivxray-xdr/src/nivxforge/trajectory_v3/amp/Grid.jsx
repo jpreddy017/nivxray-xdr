@@ -19,27 +19,28 @@ function buildLines(rows, expanded) {
   return out;
 }
 
-function Label({ l, y, sel, hover, hits, expanded, toggle }) {
+function Label({ l, y, sel, hover, hits, expanded, toggle, onRowCtx, onRowClick }) {
   if (l.hdr) return <div style={{ position: "absolute", top: y, left: 0, right: 0, height: ROW_H, background: C.band, display: "flex", alignItems: "center",
     justifyContent: "flex-end", padding: "0 12px", boxSizing: "border-box", fontWeight: 600, fontSize: 18, color: "#fff" }}>{l.hdr}</div>;
   const r = l.row, on = sel && (sel.target?.key === r.key || sel.actor?.key === r.key), hov = hover && (hover.a === r.key || hover.t === r.key);
   const hit = hits?.has(r.key);
   return (
     <div data-testid={l.inst ? `v3-subrow-${l.inst.pid || "x"}` : `v3-row-${r.key}`} data-row-type={r.type} title={r.path || r.label}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onRowCtx(e, r); }} onClick={() => onRowClick(r)}
       style={{ position: "absolute", top: y, left: 0, right: 0, height: ROW_H, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4,
         padding: "0 12px", boxSizing: "border-box", fontSize: l.inst ? 12 : 14, whiteSpace: "nowrap", color: r.detection ? "#ff8a84" : C.label,
         fontWeight: on && !l.inst ? 700 : 400, background: hov ? "rgba(110,160,255,.14)" : on ? C.sel : "transparent", transition: "background-color .12s" }}>
       {!l.inst && r.instances.size > 1 && <button data-testid={`v3-expand-${r.key}`} onClick={() => toggle(r.key)} title={`${r.instances.size} instances`}
         style={{ background: "none", border: 0, color: C.muted, cursor: "pointer", fontSize: 11, padding: 0, marginRight: "auto" }}>{expanded.has(r.key) ? "▾" : "▸"} {r.instances.size}</button>}
       {l.inst ? <span style={{ color: C.muted }}>pid {l.inst.pid || "?"} · {String(l.inst.iid).slice(-6)}</span> : <>
-        <span data-testid={hit ? "v3-search-hit-label" : undefined} style={{ overflow: "hidden", textOverflow: "ellipsis", borderRadius: 3, padding: hit ? "0 4px" : 0,
+        <span data-testid={hit ? "v3-search-hit-label" : "dt-row-label"} style={{ cursor: r.type === "Network" ? "pointer" : undefined, overflow: "hidden", textOverflow: "ellipsis", borderRadius: 3, padding: hit ? "0 4px" : 0,
           background: hit ? "rgba(229,83,75,.28)" : "transparent", color: hit ? "#ffb1ac" : undefined }}>{r.label}</span>
         <span style={{ color: C.muted, flex: "none" }}>[{r.type}]</span></>}
     </div>
   );
 }
 
-export default function Grid({ model, items, sel, onSelect, onContext, hover, setHover, colW, setColW, returnTo, expanded, toggle, hits, height }) {
+export default function Grid({ model, items, sel, onSelect, onContext, hover, setHover, colW, setColW, returnTo, expanded, toggle, hits, height, onRowClick }) {
   const box = useRef(null);
   const [vp, setVp] = useState({ sl: 0, st: 0, vw: 1000, vh: 600 });
   const lines = useMemo(() => buildLines(model.rows, expanded), [model.rows, expanded]);
@@ -135,9 +136,16 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
           <span style={{ width: LABEL_W, textAlign: "right", padding: "0 12px", boxSizing: "border-box", fontWeight: 600, fontSize: 18, color: "#fff" }}>{lines[secIdx].hdr}</span></div>}
         <div style={{ display: "flex" }}>
           <div style={{ position: "sticky", left: 0, zIndex: 4, width: LABEL_W, height: H, flex: "none", background: C.panel, borderRight: `1px solid ${C.line}` }}>
-            {vlines.map((l, i) => <Label key={l.key} l={l} y={(r0 + i) * ROW_H} sel={sel} hover={hover} hits={hits} expanded={expanded} toggle={toggle} />)}
+            {vlines.map((l, i) => <Label key={l.key} l={l} y={(r0 + i) * ROW_H} sel={sel} hover={hover} hits={hits} expanded={expanded} toggle={toggle} onRowClick={onRowClick}
+              onRowCtx={(e, r) => { const it = [...items].reverse().find((x) => x.target?.key === r.key || x.actor?.key === r.key); if (it) onContext(e, it); }} />)}
           </div>
-          <svg data-testid="v3-grid-body" width={W} height={H} style={{ display: "block", flex: "none" }}>
+          <svg data-testid="v3-grid-body" width={W} height={H} style={{ display: "block", flex: "none" }} onContextMenu={(e) => {
+            e.preventDefault();
+            const rc = e.currentTarget.getBoundingClientRect(), c = (e.clientX - rc.left) / colW, y = e.clientY - rc.top;
+            const dist = (it) => Math.abs(it.col + 0.5 - c) * colW + Math.abs((yOf.get(rk(it.target, it.targetIid)) ?? 1e9) - y);
+            const near = vis.reduce((b, it) => (!b || dist(it) < dist(b) ? it : b), null);
+            if (near) onContext(e, near);
+          }}>
             <defs>
               <pattern id="v3h" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="7" fill={C.hatch} /></pattern>
               <filter id="v3glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
@@ -157,7 +165,8 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
                 <line data-testid="v3-lifeline" x1={x1} x2={x2} y1={y} y2={y} stroke={glow ? C.accent : C.life} strokeWidth={glow ? 2.4 : 1.6} />
                 <line x1={x1} x2={x2} y1={y} y2={y} stroke="transparent" strokeWidth={10} data-mk="1"
                   onMouseEnter={(e) => setHover({ t: l.row.key, x: e.clientX, y: e.clientY, text: `${l.row.label} · pid ${n.pid || "?"} · process instance ${n.iid}` })}
-                  onMouseLeave={() => setHover(null)} />
+                  onMouseLeave={() => setHover(null)} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation();
+                    const it = vis.find((x) => [x.actorIid, x.targetIid].includes(n.iid)); if (it) onContext(e, it); }} />
               </g>);
             })}
             {leads.map(([a, b, key], i) => <line key={`l${i}`} x1={x(a) + 7} x2={x(b) - 7} y1={yOf.get(key)} y2={yOf.get(key)} stroke={C.muted} strokeDasharray="1.5 3" />)}
@@ -183,9 +192,9 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
               if (ty == null) return null;
               return (<g key={`m${it.col}`} data-mk="1" data-testid={`v3-marker-${it.col}`} data-shape={it.shape} data-glyph={it.kind.glyph} data-detection={it.ev.e3_detection ? "1" : "0"}
                 transform={`translate(${x(it.col)},${ty})`} style={{ cursor: "pointer" }}
-                onClick={() => onSelect(it)} onContextMenu={(e) => { e.preventDefault(); onContext(e, it); }}
+                onClick={() => onSelect(it)} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContext(e, it); }}
                 onMouseEnter={(e) => setHover({ a: it.actor?.key, t: it.target?.key, col: it.col, x: e.clientX, y: e.clientY, it })} onMouseLeave={() => setHover(null)}>
-                <Mark it={it} selected={sel?.col === it.col} small={small} />
+                <g data-testid="dt-marker"><Mark it={it} selected={sel?.col === it.col} small={small} /></g>
                 {n > 1 && <text data-testid="v3-cluster" x={5} y={-5} fill={C.text} fontSize={9.5}>{n}</text>}
               </g>);
             })}
