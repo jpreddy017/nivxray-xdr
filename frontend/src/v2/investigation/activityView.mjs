@@ -107,7 +107,7 @@ function historyOf(f) {
   return h;
 }
 
-export function buildActivityView(f) {
+export function buildActivityView(f, causal = null) {
   if (!f) return null;
   const keys = [f.canonical_evidence_id, f.frame_iid, ...(f.evidence_ids || [])].filter(Boolean);
   const proc = f.process || {};
@@ -147,7 +147,8 @@ export function buildActivityView(f) {
   const missing = [];
   if (["LEGACY_UNBRIDGED", "REFERENCED_RECORD_ABSENT"].includes(f.bridge_state))
     missing.push({ source: "evidence_bridge", detail: f.bridge_state });
-  if (edge.state === "UNKNOWN") missing.push({ source: "causal", detail: edge.reason });
+  if (causal) causal.groups.unknown.forEach((e) => missing.push({ source: "causal", detail: e.reason }));
+  else if (edge.state === "UNKNOWN") missing.push({ source: "causal", detail: edge.reason });
   (I.behavior || []).filter((b) => b.outcome === "INSUFFICIENT_EVIDENCE")
     .forEach((b) => missing.push({ source: "edr_behavior", detail: (b.reasons || []).join("; ") }));
   (I.ml || []).forEach((m) => (m.reasons || []).forEach((r) => missing.push({ source: "edr_ml", detail: r })));
@@ -169,7 +170,7 @@ export function buildActivityView(f) {
   const sections = [
     { key: "observation", state: Object.keys(obs).length ? "AVAILABLE" : "UNKNOWN",
       items: Object.keys(obs).length ? [obs] : [], statements: [] },
-    sec("causal_context", [edge], ["Temporal order alone is never shown as causality."]),
+    sec("causal_context", causal ? causal.edges : [edge], ["Temporal order alone is never shown as causality."]),
     sec("detection_attribution", det, det.length ? [] : [NO_DETECTION, ABSENCE]),
     behavior, ti, ml,
     sec("supporting_evidence", supporting),
@@ -191,5 +192,5 @@ export function buildActivityView(f) {
   ];
   return { view_version: VIEW_VERSION, subject: f.frame_iid || "unknown",
            machine_assessment: history.length ? history[history.length - 1].assessment : "NOT_ASSESSED",
-           analyst_disposition: I.analyst || null, sections };
+           analyst_disposition: I.analyst || null, causal, sections };
 }

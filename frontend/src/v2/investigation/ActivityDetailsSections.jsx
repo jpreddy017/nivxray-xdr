@@ -1,5 +1,6 @@
 // DT-I1C Activity Details sections (namespaced). Renders the dt-i1.view.v1 view model truthfully.
 import { SECTION_TITLES } from "./activityView.mjs";
+import { CausalContextPanel } from "./CausalContextPanel";
 
 const STATE_STYLE = {
   AVAILABLE: { bg: "#E0F2FE", fg: "#075985" },
@@ -22,7 +23,7 @@ function Item({ item }) {
   );
 }
 
-function SectionBlock({ s }) {
+function SectionBlock({ s, causal }) {
   const st = STATE_STYLE[s.state] || STATE_STYLE.UNKNOWN;
   return (
     <div className="mt-3" data-testid={`ad-section-${s.key}`}>
@@ -45,7 +46,8 @@ function SectionBlock({ s }) {
             </span>
           ))}
         </div>
-      ) : s.items.map((it, i) => <Item key={i} item={it} />)}
+      ) : s.key === "causal_context" && causal ? <CausalContextPanel causal={causal} />
+        : s.items.map((it, i) => <Item key={i} item={it} />)}
       {s.statements.map((t) => (
         <div key={t} className="text-[10px] italic" style={{ color: "#94A3B8" }}>{t}</div>
       ))}
@@ -67,7 +69,7 @@ export function ActivityDetailsSections({ view }) {
           {view.analyst_disposition?.value || "NOT SET"}
         </span>
       </div>
-      {view.sections.filter((s) => s.key !== "observation").map((s) => <SectionBlock key={s.key} s={s} />)}
+      {view.sections.filter((s) => s.key !== "observation").map((s) => <SectionBlock key={s.key} s={s} causal={view.causal} />)}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AttackChainSidebar, EvidencePane, StatusBar, TimeRangeBox } from "./DeviceTrajectoryV2";
 import { trajectoryVerdict, ABSENCE } from "../investigation/activityView.mjs";
+import CAUSAL from "../../../../backend/tests/edr_investigation/fixtures/dt_causal_frames.json";
 
 const SEP = { start: Date.parse("2026-09-05T09:00:00Z"), end: Date.parse("2026-09-05T09:03:20Z") };
 const MATCH = { rule_id: "E3-SEQ-1", rule_version: 1, outcome: "MATCH", mitre: ["T1059.001"],
@@ -18,8 +19,8 @@ const frame = (extra) => ({ frame_iid: "tf_p", ts: "2026-09-05T09:00:40Z", lane:
   canonical_evidence_id: "cev_p", mitre: ["T1059.001"], ...extra });
 const ev = (f) => ({ id: f.frame_iid, ts: Date.parse(f.ts), kind: "execute", verdict: trajectoryVerdict(f),
   label: f.label, mitre: f.mitre || [], meta: f, source: true });
-const pane = (f) => renderToStaticMarkup(
-  <EvidencePane event={ev(f)} tab="evidence" onTab={() => {}} />);
+const pane = (f, frames = []) => renderToStaticMarkup(
+  <EvidencePane event={ev(f)} tab="evidence" onTab={() => {}} frames={frames} />);
 const box = (props) => renderToStaticMarkup(
   <TimeRangeBox stages={[]} caseBounds={SEP} setViewport={() => {}} {...props} />);
 
@@ -83,4 +84,15 @@ test("regression: absence statement, NOT_WIRED actions and Activity Details sync
   assert.match(html, /data-testid="action-allowlist-not-wired"/);
   assert.match(html, /data-testid="activity-details-sections"/);
   assert.match(html, /data-testid="ad-section-causal_context"/);
+});
+
+test("causal context panel renders all groups; correlated/unknown stay distinct", () => {
+  const frames = CAUSAL.map((f) => ({ ...f, investigation: { synthetic: true } }));
+  const html = pane(frames.find((f) => f.frame_iid === "c_u"), frames);
+  for (const g of ["observed", "preceded_by", "caused_by", "produced", "correlated", "unknown", "evidence"])
+    assert.match(html, new RegExp(`data-testid="causal-group-${g}"`));
+  assert.match(html, /data-state="PROVEN_CAUSAL"/);
+  assert.match(html, /data-state="UNKNOWN"/);
+  assert.match(html, /PID equality never establishes identity/);
+  assert.match(html, /No evidence-supported cause recorded; none is inferred\./);
 });

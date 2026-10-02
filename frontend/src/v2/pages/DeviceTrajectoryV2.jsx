@@ -26,6 +26,7 @@ import CorrelationPanel from "./CorrelationPanel";
 import { ABSENCE, NO_DETECTION, VERDICT_LABEL, VERDICT_RANK, attributionOf, buildActivityView, chainCounts,
   chainCountsText, mitreItems, participatingFrameIds, trajectoryVerdict } from "@/v2/investigation/activityView.mjs";
 import { buildDateStrip, buildTicks, densityPoints, spanLabel, timelineTitle } from "@/v2/investigation/navigatorDates.mjs";
+import { buildCausalContext, identityOf } from "@/v2/investigation/causalView.mjs";
 import { ActivityDetailsSections } from "@/v2/investigation/ActivityDetailsSections";
 
 // ── Design tokens (Glassy-white analyst theme) ─────────────────────
@@ -229,23 +230,33 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         eventCount: s.frames.length,
       }));
 
-    // Process rows (system + process lanes) — indented by ancestry heuristic.
-    // Since seed data lacks parent IIDs, indent all children of root by simple rule:
-    // msiexec at root, its executors indented under it. Use time order as fallback.
+    // Process rows (system + process lanes). DT-I1D: indentation follows evidence-backed parent identity
+    // only (parent process_iid -> row); time delay never implies ancestry.
     const procRows = [];
     const procKeys = [];
     for (const [k, r] of byKey) {
       if (r.lane === "process" || r.lane === "system") { procRows.push(r); procKeys.push(k); }
     }
     procRows.sort((a, b) => a.firstTs - b.firstTs);
-    const rootTs = procRows.length ? procRows[0].firstTs : 0;
-    procRows.forEach((r, i) => {
-      // Root, first child, deeper descendants — approximate depth via first-seen delay.
-      const delta = r.firstTs - rootTs;
-      const depth = delta < 30 ? 0 : delta < 100 ? 1 : delta < 250 ? 2 : 3;
-      r.indent = i === 0 ? 0 : depth;
-      const glyphs = ["", "├─ ", "│  ├─ ", "│  │  └─ ", "│  │     └─ "];
-      r.indentGlyph = glyphs[Math.min(depth, glyphs.length - 1)] || "";
+    const rowOfEnt = new Map();
+    frames.forEach(f => { const id = f.lane === "process" && identityOf(f.entity || f.process).id;
+                          if (id && !rowOfEnt.has(id)) rowOfEnt.set(id, keyOf(f)); });
+    const parentRow = new Map();
+    frames.forEach(f => {
+      if (f.lane !== "process") return;
+      const pk = rowOfEnt.get(identityOf(f.parent).id), k = keyOf(f);
+      if (pk && pk !== k && !parentRow.has(k)) parentRow.set(k, pk);
+    });
+    const depthOf = (k, seen = new Set()) => {
+      const p = parentRow.get(k);
+      if (!p || seen.has(k)) return 0;
+      seen.add(k);
+      return 1 + depthOf(p, seen);
+    };
+    procRows.forEach((r) => {
+      const depth = Math.min(4, depthOf(r.key));
+      r.indent = depth;
+      r.indentGlyph = ["", "└─ ", "│  └─ ", "│  │  └─ ", "│  │  │  └─ "][depth];
       r.kind = "process";
       r.eventCount = r.events.length;
     });
@@ -333,7 +344,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     const seenEdge = new Set();
     const evEdges = [];
     frames.forEach(f => {
-      const pIid = f.parent?.iid;
+      const pIid = identityOf(f.parent).id;   // PID-only parents never produce a connector
       if (!pIid) return;
       const from = entToKey.get(pIid);
       const to   = keyOf(f);
@@ -714,7 +725,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
 
           {/* Evidence pane */}
           <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab}
-                        nameByIid={nameByIid}
+                        nameByIid={nameByIid} frames={frames}
                         onFocusParent={(pIid) => {
                           const target = events.find(e => e.meta?.entity?.iid === pIid);
                           if (target) setSelected(target.id);
@@ -1416,7 +1427,7 @@ export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} }) {
+export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {}, frames = [] }) {
   // Resolve friendly names for the actor (entity) and its parent so
   // the analyst never has to read raw internal IIDs.
   const actorName = event?.meta?.entity?.name ||
@@ -1614,7 +1625,8 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               </button>
             </div>
           </Section>
-          <ActivityDetailsSections view={buildActivityView(event.meta || {})} />
+          <ActivityDetailsSections view={buildActivityView(event.meta || {},
+            frames.length ? buildCausalContext(frames, event.id) : null)} />
         </div>
       )}
     </div>
