@@ -194,6 +194,27 @@
 .nvf-console .sidebar .nav-item.active .ic { color: var(--cyan); }
 .nvf-console .sidebar .nav-item.disabled { color: var(--faint); opacity: .6; cursor: not-allowed; }
 
+/* Outlook-style icon rail (EdrSidebar). Expanded mode is unchanged. */
+.nvf-console .sidebar { transition: width .18s ease, flex-basis .18s ease; overflow-x: hidden; }
+.nvf-console .sidebar .nav-toggle {
+  display: flex; align-items: center; justify-content: flex-end; width: 100%; height: 28px; padding: 0 14px;
+  background: transparent; border: 0; color: var(--faint); cursor: pointer; font-size: 15px; font-family: inherit;
+}
+.nvf-console .sidebar .nav-toggle:hover, .nvf-console .sidebar .nav-toggle:focus-visible { color: var(--text); }
+.nvf-console .sidebar .nav-item .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvf-console .sidebar .nav-item:focus-visible, .nvf-console .sidebar .nav-toggle:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.nvf-console .sidebar.collapsed { width: 64px !important; flex: 0 0 64px !important; padding-top: 6px; }
+.nvf-console .sidebar.collapsed .nav-toggle { justify-content: center; padding: 0; }
+.nvf-console .sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0 !important; gap: 0 !important; }
+.nvf-console .sidebar.collapsed .nav-item .ic { width: auto !important; }
+.nvf-console .sidebar.collapsed .nav-item .lbl, .nvf-console .sidebar.collapsed .nav-item .chip { display: none; }
+.nvf-console .sidebar .nav-sep { height: 1px; background: var(--border); margin: 8px 14px; }
+.nvf-console .sidebar .nav-rail-tip {
+  position: fixed; transform: translateY(-50%); z-index: 1000; pointer-events: none; white-space: nowrap;
+  background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+
 .nvf-console .main { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 26px 36px; }
 .nvf-console .row  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .nvf-console .grow { flex: 1; min-width: 0; }

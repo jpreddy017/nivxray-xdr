@@ -22,6 +22,7 @@ import {
   BookOpen, Monitor } from "lucide-react";
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
+import EdrSidebar, { readCollapsed, setCollapsedGlobal } from "./EdrSidebar";
 import WorkspaceLaunch from "@/components/WorkspaceLaunch";
 import { isCrossOrigin, productHref,
          productMode } from "@/productOrigins";
@@ -324,6 +325,14 @@ export default function NivXForgeConsole({ activeTab, children }) {
     document.documentElement.setAttribute("data-nx-theme", theme);
   }, [theme]);
 
+  // Outlook-style rail collapse; one persisted truth across EDR pages and reloads.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  useEffect(() => {
+    const on = (e) => setCollapsed(!!e.detail);
+    window.addEventListener("nvx-sidebar", on);
+    return () => window.removeEventListener("nvx-sidebar", on);
+  }, []);
+
   // One theme truth across both products — shared service, not a copy.
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -361,10 +370,10 @@ export default function NivXForgeConsole({ activeTab, children }) {
          data-testid="nivxforge-console"
          data-product="NIVXFORGE_EDR">
       <div className="topbar" data-testid="nvf-topbar">
-        <Link to="/edr" className="brand" data-testid="nvf-product-brand">
+        <Link to="/edr" className="brand" data-testid="nvf-product-brand" data-collapsed={collapsed ? "1" : "0"}>
           <NivxrayMark size={20} boxed={false} />
-          {EDR_BRAND.wordmark.replace(/ EDR$/, "")}{" "}
-          <span className="accent">{EDR_BRAND.suffix}</span>
+          {!collapsed && <span data-testid="nvf-brand-wordmark">{EDR_BRAND.wordmark.replace(/ EDR$/, "")}{" "}
+          <span className="accent">{EDR_BRAND.suffix}</span></span>}
         </Link>
         <span className="mono" data-testid="nvf-product-tagline"
               style={{ fontSize: 9.4, letterSpacing: .8, opacity: .55,
@@ -423,43 +432,8 @@ export default function NivXForgeConsole({ activeTab, children }) {
       </div>
       <div className="nvf-console nvf-embedded">
         <div className="body">
-          <aside className="sidebar" data-testid="nvf-sidebar">
-            {NAV.map((section) => (
-              <React.Fragment key={section.title}>
-                <div className="nav-title">{section.title}</div>
-                {section.items.map((t) => {
-                  const Icon = t.icon;
-                  if (!t.to) {
-                    return (
-                      <button key={t.key} className="nav-item disabled"
-                              disabled title={t.reason}
-                              data-testid={`nvf-nav-${t.key}`}
-                              data-state="NOT_IMPLEMENTED">
-                        <span className="ic"><Icon size={13} /></span>
-                        {t.label}
-                        <span className="chip"
-                              style={{ marginLeft: "auto", fontSize: 8,
-                                       padding: "0 4px" }}>N/I</span>
-                      </button>
-                    );
-                  }
-                  const isActive = t.key === active;
-                  return (
-                    <button
-                      key={t.key}
-                      className={`nav-item ${isActive ? "active" : ""}`}
-                      onClick={() => navigate(propagate(t.to))}
-                      data-active={isActive || undefined}
-                      data-testid={`nvf-nav-${t.key}`}
-                    >
-                      <span className="ic"><Icon size={13} /></span>
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </aside>
+          <EdrSidebar nav={NAV} active={active} collapsed={collapsed} onGo={(to) => navigate(propagate(to))}
+                      onToggle={() => setCollapsedGlobal(!collapsed)} />
           <main className="main" data-testid="nvf-main">
             <XdrContextBar />
             <IncidentContextBanner />

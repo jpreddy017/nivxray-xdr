@@ -28,8 +28,8 @@ export const CSS = `
 .v3amp .v3-scroll::-webkit-scrollbar-track{background:transparent}
 @keyframes v3spin{to{transform:rotate(360deg)}}
 @keyframes v3in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.nvf-console .sidebar{width:360px;flex:0 0 360px}
-.nvf-console .sidebar .nav-item{font-size:14px;padding:10px 22px;gap:14px}
-.nvf-console .sidebar .nav-item .ic{width:18px}
+.nvf-console .sidebar:not(.collapsed){width:360px;flex:0 0 360px}
+.nvf-console .sidebar:not(.collapsed) .nav-item{font-size:14px;padding:10px 22px;gap:14px}
+.nvf-console .sidebar:not(.collapsed) .nav-item .ic{width:18px}
 .nvf-console .sidebar .nav-title{padding:18px 22px 6px}
 `;
