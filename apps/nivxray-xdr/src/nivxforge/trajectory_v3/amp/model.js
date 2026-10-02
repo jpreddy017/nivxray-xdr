@@ -158,6 +158,8 @@ export function narrative(it) {
     L.push([tok(t?.label || nc, t?.path), ...hash(t?.hash), `[${TYPE_DESC[t?.type] || "Unknown"}] was ${it.kind.verb} by `, ...who, `${user}.`]);
     L.push([{ unk: "Unknown" }, " disposition."]);
   }
+  const prod = e.product_name || e.file_product, ver = e.product_version || e.file_version;
+  if (t?.hash || t?.path) L.push(["Product: ", prod ? { name: prod, full: prod } : { unk: "not reported by sensor" }, " · Version: ", ver ? { name: ver, full: ver } : { unk: "not reported by sensor" }, "."]);
   if (t?.path) L.push(["File full path: ", tok(t.path)]);
   if (e.command_line) L.push(["Command line: ", tok(e.command_line)]);
   for (const s of e.e3_status_history || []) L.push([`Added later at ${s.recorded_at}: ${s.from} → ${s.to} (${s.provenance?.source}); original observation unchanged.`]);

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Info, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Info, Search, X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
@@ -70,9 +70,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [legend, setLegend] = useState(false);
   const [netSum, setNetSum] = useState(false);
   const [approvals, setApprovals] = useState({});
+  const [devPending, setDevPending] = useState({});
   const [colW, setColW] = useState(24);
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
+  const [draft, setDraft] = useState(q);
+  useEffect(() => setDraft(q), [q]);
   const returnTo = useRef(false), req = useRef(0), timing = useRef({}), pendingJump = useRef(false);
   const wsRef = useRef(null);
   const [railed, setRailed] = useState(readCollapsed);
@@ -216,36 +219,44 @@ export default function TrajectoryPage({ device, onLegacy }) {
     else if (a === "search") { upd({ q: v }); setHitIdx(-1); }
     else if (a === "isolate") upd({ iso: v.ev.event_iid });
     else if (a === "nyb") say(`${v} is not yet built`);
-    else if (a === "approve") setApproval({ action: v, it, target: v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });
+    else if (a === "pivot") say(`${v} opens in the XDR console (not wired in this preview)`);
+    else if (a === "approve") setApproval({ action: v, it: menu?.deviceOnly ? null : it, device: !!menu?.deviceOnly, target: menu?.deviceOnly || v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });
   };
-  const confirmApproval = async () => {
+  const confirmApproval = async (extra = {}) => {
     const { action, it } = approval;
     setApproval(null);
     try {
       const { data: r } = await api.post("/e3/trajectory/approvals", { tenant_id: data?.identity?.tenant_id, action, requested_by: "preview-analyst",
-        target: { device_id: device, event_iid: it?.ev.event_iid, path: it?.target?.path }, idempotency_key: `${action}:${it?.ev.event_iid || device}`, reason: "trajectory" });
+        target: { device_id: device, event_iid: it?.ev.event_iid, path: it?.target?.path, ...extra }, idempotency_key: `${action}:${it?.ev.event_iid || device}${extra.group ? `:${extra.group}` : ""}`, reason: "trajectory" });
       say(`Approval Requested — not executed. (${r.request?.state || "REQUESTED"})`);
+      if (!it) setDevPending((p) => ({ ...p, [action]: r.request?.state || "APPROVAL_REQUESTED", ...(action === "ISOLATE_DEVICE" ? { STOP_ISOLATION: undefined } : action === "STOP_ISOLATION" ? { ISOLATE_DEVICE: undefined } : {}) }));
       if (it) setApprovals((a) => ({ ...a, [it.ev.event_iid]: [...(a[it.ev.event_iid] || []), { action, state: r.request?.state || "APPROVAL_REQUESTED" }] }));
     } catch (e) { say(`Approval request not recorded: ${e.message}`); }
   };
   const filtered = shown.length !== model.items.length;
+  const isoSt = String((data?.computer?.isolation && typeof data.computer.isolation === "object" ? data.computer.isolation.state : data?.computer?.isolation) || data?.computer?.isolation_status || "").toUpperCase();
+  const isolated = isoSt === "ISOLATED";
+  const pendingIso = devPending.STOP_ISOLATION ? "STOP_ISOLATION" : devPending.ISOLATE_DEVICE ? "ISOLATE_DEVICE" : null;
 
   return (
     <div className="v3amp" data-testid="v3-page" style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }} onClick={() => { setMenu(null); setShowF(false); }}>
       <style>{CSS}</style>
-      <Header data={data} device={device} dets={dets} onShare={() => copy(window.location.href)}
-        onActions={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 16, deviceOnly: true, device })} />
+      <Header data={data} device={device} dets={dets} onShare={() => copy(window.location.href)} onJump={jump} pendingIso={pendingIso}
+        onActions={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 16, deviceOnly: true, device, isolated: isolated || pendingIso === "ISOLATE_DEVICE", pending: devPending })} />
       <div style={{ background: C.panel, borderRadius: 12, padding: 16, border: `1px solid ${C.line}` }}>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, position: "relative" }} onClick={(e) => e.stopPropagation()}>
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: C.page, border: `1px solid ${C.line}`, borderRadius: 20, padding: "0 8px 0 16px", height: 38 }}>
-            <input data-testid="v3-search" defaultValue={q} key={q} placeholder="Search Device Trajectory"
-              onKeyDown={(e) => { if (e.key === "Enter") { upd({ q: e.currentTarget.value.trim() }); setHitIdx(-1); } }}
+            <Search size={16} color="currentColor" data-testid="v3-search-icon" style={{ color: C.muted, flex: "none" }} />
+            <input data-testid="v3-search" value={draft} placeholder="Search Device Trajectory" aria-label="Search Device Trajectory"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { upd({ q: draft.trim() }); setHitIdx(-1); } if (e.key === "Escape") { setDraft(""); upd({ q: null }); } }}
               style={{ flex: 1, background: "transparent", border: 0, outline: "none", color: C.text, fontSize: 14 }} />
             {q && <>
-              <span data-testid="v3-search-count" style={{ fontSize: 13, color: C.label, whiteSpace: "nowrap" }}>{shown.length} results</span>
-              <button className="v3-link" data-testid="v3-search-prev" onClick={() => step(-1)} title="Previous result"><ChevronLeft size={16} /></button>
-              <button className="v3-link" data-testid="v3-search-next" onClick={() => step(1)} title="Next result"><ChevronRight size={16} /></button>
-              <button className="v3-link" data-testid="v3-search-clear" onClick={() => upd({ q: null })} title="Clear"><X size={16} color="currentColor" /></button></>}
+              <span data-testid="v3-search-count" style={{ fontSize: 13, color: shown.length ? C.label : C.amber, whiteSpace: "nowrap" }}>{shown.length} {shown.length === 1 ? "result" : "results"}</span>
+              <button className="v3-link" data-testid="v3-search-prev" disabled={!shown.length} onClick={() => step(-1)} title="Previous result"><ChevronLeft size={16} /></button>
+              <button className="v3-link" data-testid="v3-search-next" disabled={!shown.length} onClick={() => step(1)} title="Next result"><ChevronRight size={16} /></button></>}
+            {(draft || q) && <button className="v3-link" data-testid="v3-search-clear" aria-label="Clear search" onClick={() => { setDraft(""); upd({ q: null }); setHitIdx(-1); }} title="Clear search"
+              style={{ display: "flex", color: C.muted }}><X size={16} color="currentColor" /></button>}
             <span title="Searches SHA-256, filename, process, command line, IP, domain and user" style={{ color: C.muted, display: "flex" }}><Info size={16} /></span>
           </div>
           {filtered && <span data-testid="v3-filter-indicator" style={{ fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{shown.length} of {model.items.length}
@@ -284,6 +295,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
                 hits={hits} height={gridH} onContext={(e, it) => { setHover(null); setMenu({ x: e.clientX, y: e.clientY, it }); }}
                 onRowClick={(r) => { if (r.type === "Network") { setNetSum(true); setDetails(false); } }} />
+              {q && !shown.length && !loading && <div data-testid="v3-search-empty" style={{ position: "absolute", inset: `${78}px 0 0 0`, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
+                <Search size={28} color="currentColor" style={{ color: C.muted }} />
+                <div>No events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                <div style={{ color: C.muted, fontSize: 12.5 }}>Search matches SHA-256, filename, process, command line, IP, domain, user, detection name and ATT&amp;CK ID. Try a wider time range.</div>
+                <div style={{ display: "flex", gap: 14 }}>
+                  <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
+                  <button className="v3-link" data-testid="v3-search-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Search last 30 days</button></div></div>}
               {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}
             </div>
