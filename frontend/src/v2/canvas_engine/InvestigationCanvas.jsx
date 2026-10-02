@@ -18,6 +18,9 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { Stage, Layer, Group, Rect, Line, Circle, Text, Path } from "react-konva";
 import { clampOffset, visibleWorldRect } from "./core/viewport";
 import { T } from "../theme";
+import { mitreItems } from "../investigation/activityView.mjs";
+
+const DETECTED = "#FBBF24"; // engine claim (rule / behavioral MATCH) — distinct from assessed-malicious red
 
 // ── Layout constants — MUST NOT DEVIATE from mockup ──
 const AXIS_H       = 26;   // inner canvas time ruler
@@ -171,6 +174,7 @@ export default function InvestigationCanvas({
   const [ctxMenu,  setCtxMenu]  = useState(null);
   const [hover,    setHover]    = useState(null);
   const [hoverRow, setHoverRow] = useState(null);
+  const [rowTip,   setRowTip]   = useState(null);
   const [rowMenu,  setRowMenu]  = useState(null);
   const [focusedRow, setFocusedRow] = useState(null); // rowKey when "Focus row" chosen
 
@@ -409,12 +413,14 @@ export default function InvestigationCanvas({
             const y  = rowY[i] + ROW_H / 2;
             const sel = selected && events.some(e => e.id === selected && e.rowKey === r.key);
             const isMal = r.worstVerdict === "malicious";
+            const isDet = r.worstVerdict === "detected";
             const isCompromise = r.kind === "compromise";
             const filteredOut = matchedRowKeys && !matchedRowKeys.has(r.key);
             const dim = (focusedRow && focusedRow !== r.key) || filteredOut;
             const stroke = isCompromise ? T.amber
                          : sel          ? T.amber
                          : isMal        ? T.red
+                         : isDet        ? DETECTED
                          :                T.gray;
             const w = sel ? 2.5 : (isCompromise ? 1.5 : 1);
             const op = dim ? 0.10 : (sel ? 1.0 : (isMal || isCompromise ? 0.65 : 0.5));
@@ -497,11 +503,13 @@ export default function InvestigationCanvas({
                 stroke={T.line} strokeWidth={1} listening={false} />
           {rows.map((r, i) => {
             const isMal = r.worstVerdict === "malicious";
+            const isDet = r.worstVerdict === "detected";
             const isSus = r.worstVerdict === "suspicious";
             const isCompromise = r.kind === "compromise";
             const isSelected = selected && events.some(e => e.id === selected && e.rowKey === r.key);
             const fill = isCompromise ? T.amber
                        : isMal        ? T.red
+                       : isDet        ? DETECTED
                        : isSus        ? T.amber
                        :                T.ink;
             const indent = 6 + (r.indent || 0) * 14;
@@ -539,7 +547,7 @@ export default function InvestigationCanvas({
                       y={y - 6}
                       text={`${glyph}${r.label}`}
                       fontFamily="Inter, sans-serif"
-                      fontStyle={isMal || isCompromise ? "700" : "500"}
+                      fontStyle={isMal || isDet || isCompromise ? "700" : "500"}
                       fontSize={11}
                       fill={fill}
                       width={GUTTER_W - indent - 30}
@@ -551,7 +559,7 @@ export default function InvestigationCanvas({
                         text={String(r.eventCount)}
                         fontFamily="'IBM Plex Mono', ui-monospace, monospace"
                         fontSize={9}
-                        fill={isMal ? T.red : T.inkFaint}
+                        fill={isMal ? T.red : isDet ? DETECTED : T.inkFaint}
                         width={20} align="right"
                         listening={false} />
                 )}
@@ -562,12 +570,18 @@ export default function InvestigationCanvas({
                       onMouseEnter={(e) => {
                         setHoverRow(r.key);
                         const st = e.target.getStage();
-                        if (st) st.container().style.cursor = "pointer";
+                        if (st) {
+                          st.container().style.cursor = "pointer";
+                          st.container().title = r.label || r.key;
+                          const rect = st.container().getBoundingClientRect();
+                          setRowTip({ label: r.label || r.key, x: rect.left + 8, y: rect.top + rowY[i] + offset.y + ROW_H });
+                        }
                       }}
                       onMouseLeave={(e) => {
                         setHoverRow(null);
+                        setRowTip(null);
                         const st = e.target.getStage();
-                        if (st) st.container().style.cursor = "default";
+                        if (st) { st.container().style.cursor = "default"; st.container().title = ""; }
                       }}
                       onClick={pickEvent}
                       onTap={pickEvent}
@@ -584,6 +598,21 @@ export default function InvestigationCanvas({
         </Layer>
 
       </Stage>
+
+      {/* Full row labels: hover tooltip + an accessible (screen-reader) list; canvas text stays compact */}
+      {rowTip && (
+        <div className="fixed pointer-events-none z-50 text-[11px] font-mono px-2 py-1 rounded"
+             data-testid="row-label-tooltip"
+             style={{ left: rowTip.x, top: rowTip.y, background: T.paper2, color: T.ink,
+                      border: `1px solid ${T.line}`, maxWidth: 520, wordBreak: "break-all" }}>
+          {rowTip.label}
+        </div>
+      )}
+      <ul data-testid="canvas-row-labels" aria-label="Timeline rows (full names)"
+          style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)",
+                   whiteSpace: "nowrap", margin: -1, padding: 0 }}>
+        {rows.map((r) => <li key={r.key} data-testid={`row-label-${r.key}`}>{r.label}</li>)}
+      </ul>
 
       {/* HTML overlays outside the Stage */}
       {hover && !ctxMenu && !rowMenu && <HoverTooltip hover={hover} />}
@@ -714,6 +743,7 @@ function EventGlyph({ ev, x, y, selected, triggered, onSelect,
   const [hovered, setHovered] = useState(false);
   const isSource = ev.source !== false; // default true if unspecified
   const disposition = ev.verdict === "malicious" ? T.red
+                    : ev.verdict === "detected" ? DETECTED
                     : ev.verdict === "suspicious" ? T.gray
                     : ev.verdict === "benign" ? T.green
                     : T.gray;
@@ -816,9 +846,9 @@ function ActivitySymbol({ kind, color, isSource, r }) {
 function HoverTooltip({ hover }) {
   const { ev, x, y } = hover;
   const isMal = ev.verdict === "malicious";
-  const badgeBg = isMal ? T.redT : ev.verdict === "suspicious" ? T.amberT
+  const badgeBg = isMal ? T.redT : ev.verdict === "detected" ? "#3B2A06" : ev.verdict === "suspicious" ? T.amberT
                 : ev.verdict === "benign" ? "#DCFCE7" : "#F1F5F9";
-  const badgeFg = isMal ? T.red : ev.verdict === "suspicious" ? T.amber
+  const badgeFg = isMal ? T.red : ev.verdict === "detected" ? DETECTED : ev.verdict === "suspicious" ? T.amber
                 : ev.verdict === "benign" ? T.green : T.inkDim;
   const ts = new Date(ev.ts);
   const p2 = (n) => (n < 10 ? "0" + n : "" + n);
@@ -851,9 +881,9 @@ function HoverTooltip({ hover }) {
       </div>
       {ev.mitre && ev.mitre.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {ev.mitre.slice(0, 6).map(t => (
+          {mitreItems(ev.meta || { mitre: ev.mitre }).slice(0, 6).map(({ technique: t, style }) => (
             <span key={t} className="text-[9px] px-1.5 py-0.5 rounded font-semibold"
-                  style={{ background: T.redT, color: T.red,
+                  style={{ background: style === "threat" ? T.redT : "#F1F5F9", color: style === "threat" ? T.red : T.inkDim,
                            fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{t}</span>
           ))}
         </div>

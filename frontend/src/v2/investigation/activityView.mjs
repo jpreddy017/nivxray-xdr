@@ -39,6 +39,25 @@ export function attributionOf(f) {
 }
 export const ATTRIBUTION_LABEL = { detected: "DETECTED", unattributed: "MITRE · UNATTRIBUTED", unknown: "NOT ASSESSED" };
 
+// A detection answers "did a defined condition match?"; an assessment answers "what does the evidence justify?".
+export function machineAssessmentOf(f) {
+  const h = historyOf(f || {});
+  return h.length ? h[h.length - 1].assessment : "NOT_ASSESSED";
+}
+// Trajectory verdict key: "malicious" ONLY from an evidence-backed MALICIOUS machine assessment. A rule or
+// behavioral MATCH is "detected" and never increments or renders as malicious.
+export function trajectoryVerdict(f) {
+  return machineAssessmentOf(f) === "MALICIOUS" ? "malicious" : attributionOf(f);
+}
+export const VERDICT_LABEL = { malicious: "ASSESSED MALICIOUS", detected: "DETECTED",
+  unattributed: "MITRE · UNATTRIBUTED", unknown: "NOT ASSESSED" };
+export const VERDICT_RANK = { unknown: 0, unattributed: 1, detected: 2, malicious: 3 };
+export function chainCounts(stages) {
+  return { stages: stages.length, detected: stages.filter((s) => s.detected).length,
+           malicious: stages.filter((s) => s.malicious).length };
+}
+export const chainCountsText = (c) => `${c.stages} stages · ${c.detected} detected · ${c.malicious} assessed malicious`;
+
 export function participatingFrameIds(f) {
   return [...new Set(matches(f).flatMap((b) => b.contributing_frame_ids || []))].sort();
 }
