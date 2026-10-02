@@ -73,7 +73,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [colW, setColW] = useState(24);
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
-  const returnTo = useRef(false), req = useRef(0), timing = useRef({});
+  const returnTo = useRef(false), req = useRef(0), timing = useRef({}), pendingJump = useRef(false);
   const wsRef = useRef(null);
   const [railed, setRailed] = useState(readCollapsed);
   useEffect(() => { const on = (e) => setRailed(!!e.detail); window.addEventListener("nvx-sidebar", on); return () => window.removeEventListener("nvx-sidebar", on); }, []);
@@ -112,7 +112,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
     api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
-      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d); setOlder({ events: [], cursor: d?.e3_preview?.older_cursor || null }); })
+      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: d?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") say(`Trajectory read failed: ${e.message}`); })
       .finally(() => { if (id === req.current) setLoading(false); });
     return () => ac.abort();
@@ -184,12 +184,18 @@ export default function TrajectoryPage({ device, onLegacy }) {
     }).catch(() => setDeep({ state: "NOT_FOUND", id: wanted }));
   }, [data, wanted, model]); // eslint-disable-line
 
+  // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
-    let id = d.event_iid, f = null;
-    if (!id) { ({ data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } })); id = f?.focus?.event_iid; }
+    let id = d.event_iid, ms = d.ms;
+    if (!id) {
+      setLoading(true);
+      try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } }); id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
+      catch (e) { say(`Could not locate that detection: ${e.message}`); setLoading(false); return; }
+      setLoading(false);
+    }
     if (!id) { say("That event could not be resolved in retained evidence."); return; }
-    setDeep(null);
-    upd({ event: id, ...(f ? { t0: Date.parse(f.focus.window.time_start), t1: Date.parse(f.focus.window.time_end) } : {}) });
+    setDeep(null); setDetails(true); setNetSum(false); returnTo.current = true; pendingJump.current = true;
+    upd({ event: id, ...(ms ? { t0: Math.round(ms - 30 * 60_000), t1: Math.round(Math.min(ms + 30 * 60_000, now)) } : {}) });
   };
 
   const span = t1 - t0;
@@ -254,7 +260,9 @@ export default function TrajectoryPage({ device, onLegacy }) {
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
           border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 18px", fontSize: 13.5, boxShadow: "0 10px 30px rgba(0,0,0,.5)", animation: "v3in .15s ease-out" }}>{notice}</div>}
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "visible" }}>
-          <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} />
+          <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} selMs={sel?.ev.e3_detection ? sel.ev.timestamp_instant_ms : null}
+            onMore={(a, b) => { try { sessionStorage.setItem("e3.dt.strip.collapsed.tab", "ioc"); sessionStorage.setItem("e3.dt.strip.collapsed", "0"); } catch { /* ok */ }
+              setView({ t0: a, t1: Math.min(b, now) }); window.dispatchEvent(new Event("e3:strip-ioc")); }} />
           {!perf && <AttackPanel url={url} device={device} t0={t0} t1={t1} active={att} dets={dets} onJump={jump} onPick={(v) => upd({ att: v })}
             sev={sev} onSev={(v) => upd({ sev: v })} ioc={ioc} onIoc={(v, d) => (d?.event_iid ? upd({ ioc: v, event: d.event_iid }) : (upd({ ioc: v }), d && setTimeout(() => jump(d), 0)))} scenario={scenario} />}
           {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>

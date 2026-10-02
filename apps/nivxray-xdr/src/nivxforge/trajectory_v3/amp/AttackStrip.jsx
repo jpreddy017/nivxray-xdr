@@ -185,6 +185,7 @@ export function AttackPanel({ url, device, t0, t1, active, onPick, dets, onJump,
     return () => ac.abort();
   }, [url, t0, t1, heur, scenario]);
   useLayoutEffect(() => { window.__e3StripMs = performance.now() - start; });
+  useEffect(() => { const f = () => { setTab("ioc"); setOpen(true); }; window.addEventListener("e3:strip-ioc", f); return () => window.removeEventListener("e3:strip-ioc", f); }); // eslint-disable-line
   const toggle = () => { setOpen(!open); try { sessionStorage.setItem(KEY, open ? "1" : "0"); } catch { /* ok */ } };
   const heat = (technique) => navigate(heatmapHref({ technique, device, t0, t1 }));
   const onExport = () => { const l = layerFromStrip(data, { device, t0, t1 }); window.__e3LastLayer = l; download(`nivxforge-dt-${device}-attack-layer.json`, l); };

@@ -210,7 +210,7 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
               const ty = yOf.get(rk(it.target, it.targetIid));
               if (ty == null) return null;
               return (<g key={`m${it.col}`} data-mk="1" data-testid={`v3-marker-${it.col}`} data-shape={it.shape} data-glyph={it.kind.glyph} data-detection={it.ev.e3_detection ? "1" : "0"}
-                transform={`translate(${x(it.col)},${ty})`} style={{ cursor: "pointer" }}
+                data-event-iid={it.ev.event_iid} data-selected={sel?.col === it.col ? "1" : "0"} transform={`translate(${x(it.col)},${ty})`} style={{ cursor: "pointer" }}
                 onClick={() => onSelect(it)} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContext(e, it); }}
                 onMouseEnter={(e) => setHover({ a: it.actor?.key, t: it.target?.key, col: it.col, x: e.clientX, y: e.clientY, it })} onMouseLeave={() => setHover(null)}>
                 <g data-testid="dt-marker"><Mark it={it} selected={sel?.col === it.col} small={small} /></g>
