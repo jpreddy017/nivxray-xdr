@@ -245,3 +245,9 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
 - **Preview fix:** `file_facts` used `distinct()` (500 under the preview driver); it now uses a `$group` aggregate. Preview-only module.
 - **Tests:** `tools/e3ui/fields.test.mjs` (6, node --test) and `tools/e3ui/art_details_test.py` (Playwright, 5 event types + network summary + real-mouse right-click → Quarantine → approval, `/edr/device-trajectory` preview redirect).
 
+
+## 13. Activation (E3, 2026-10-02)
+- The ordered go-live list (what to strip, which flags, endpoint → module wiring, tests, rollback, day-one expectations) is in `docs/e3/E1_DT_ACTIVATION_CHECKLIST.md`.
+- MITRE techniques link to `attack.mitre.org/techniques/T####/sub/` and tactics to `/tactics/TA####/`. Both open in a new tab with `rel="noopener noreferrer"`, and the URL is shown under each technique.
+- Grid clicks within 14 px of a marker select it, the same nearest-marker hit test right-click uses, so network-row markers are reliably clickable.
+- `/api/e3/preview/deeplink-cases` (preview-only, STRIP) now also returns `quarantined` and `quarantine_failed`.
