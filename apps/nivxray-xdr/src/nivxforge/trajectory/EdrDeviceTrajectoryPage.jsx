@@ -52,6 +52,16 @@ import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
 import AmpNavigator from "./AmpNavigator";
 import AmpCompromisePanel from "./AmpCompromisePanel";
 import AmpActivityPanel from "./AmpActivityPanel";
+import { MODES, advanceRolling, binsInDomain, capOf, classifyObservations, daysTouched,
+         evidenceBoundedWindow, evidenceExtent, futurePart, initialWindow, isoZ,
+         modeOf, navBounds, navDomain, observedAt, pageBudget, presentIn,
+         queryInterval, rollingWindow, tailWindow, truncationOf, utcDayStart,
+         windowLabel, withMode } from "./dt2/timeWindow.mjs";
+
+const REF_TICK_MS = 60_000;
+//: the server returns the OLDEST `limit` rows of a window (and builds dt2.graph from them)
+const WINDOW_PAGE_LIMIT = 2500;
+const capKey = (t0, t1) => `${Math.round(t0)}|${Math.round(t1)}`;
 
 /** One rendered trajectory ROW can consume MANY projection lanes (a
  *  process lane plus its file/registry/network lanes all collapse onto
@@ -83,7 +93,8 @@ const iconBtn = { width: 34, height: 32, cursor: "pointer",
                   flexShrink: 0 };
 
 export default function EdrDeviceTrajectoryPage({ embedded = false,
-                                                 device: deviceProp = null }) {
+                                                 device: deviceProp = null,
+                                                 referenceNow = null }) {
   const [params, setParams] = useSearchParams();
   const device = deviceProp || params.get("device") || "";
 
@@ -110,7 +121,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     const f = Date.parse(params.get("from"));
     const t = Date.parse(params.get("to"));
     linkedWindow.current = (Number.isFinite(f) && Number.isFinite(t) && t > f)
-      ? { t0: f, t1: t } : null;
+      ? { t0: f, t1: t, mode: MODES.LINKED, ref: null } : null;
   }
   const [view, setView] = useState(linkedWindow.current);
   const [laneStart, setLaneStart] = useState(0);
@@ -138,6 +149,23 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const [locating, setLocating] = useState(false);
   const [endpoints, setEndpoints] = useState([]);
   const [sessCtx, setSessCtx] = useState(null);
+
+  /** dt.time.v1 · the REFERENCE time. Rolling windows end here; the newest
+   *  delivered observation never stands in for it. `referenceNow` is a
+   *  fixed instant for previews/tests only; production reads the clock. */
+  const [refNow, setRefNow] = useState(() => referenceNow ?? Date.now());
+  const refNowRef = useRef(refNow);
+  refNowRef.current = refNow;
+  useEffect(() => {
+    if (referenceNow != null) { setRefNow(referenceNow); return undefined; }
+    const id = setInterval(() => setRefNow(Date.now()), REF_TICK_MS);
+    return () => clearInterval(id);
+  }, [referenceNow]);
+  useEffect(() => { setView((v) => advanceRolling(v, refNow)); }, [refNow]);
+  const [binsByDay, setBinsByDay] = useState(new Map());
+  //: per-query delivery cap (oldest-first page) — see capOf/truncationOf
+  const [caps, setCaps] = useState(new Map());
+  const [narrowed, setNarrowed] = useState(null);
 
   const cache = useRef(new Map());
   const plotRef = useRef(null);
@@ -212,6 +240,8 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
    *  keeping them would draw row 0's evidence on row 300. */
   useEffect(() => {
     cache.current.clear();
+    setBinsByDay(new Map());
+    setCaps(new Map());
     setEvents(new Map());
     setLanes(new Map());
     setLaneStart(0);
@@ -272,27 +302,15 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
           ? dayKeyOf(selectedDay) : null);
         if (dead) return;
         setStatus({ loading: false, err: null });
-        const s = data.time_range?.observed_start;
-        const e = data.time_range?.observed_end;
-        if (s && e) {
-          const b = msUTC(e);
-          // Detection → Trajectory: land on the detection's own moment,
-          // not on "now" and not on the endpoint's last day.
-          const at = params.get("at") ? msUTC(params.get("at")) : null;
-          const anchor = Number.isFinite(at) && at ? at : b;
-          setSelectedDay((d) => d ?? startOfDayUTC(anchor));
-          /** Cisco's trajectory axis is the SELECTED DAY: the date
-           *  header names the day(s), the time scale carries the hour
-           *  reference marks, and the 24-hour navigator band above it
-           *  describes the same interval. No timestamp is moved,
-           *  spread or collapsed to fill it. */
-          setView((v) => {
-            if (v) return v;
-            const day = startOfDayUTC(Number.isFinite(at) && at ? at : b);
-            return { t0: day, t1: day + DAY_MS };
-          });
-          if (preset === "all") setPreset("1d");
-        }
+        // Detection → Trajectory lands on the detection's own UTC day
+        // (linked). Otherwise: rolling 24 h to the REFERENCE time — never
+        // the day of the newest delivered observation (hotfix RC1).
+        const at = params.get("at") ? msUTC(params.get("at")) : null;
+        const atOk = Number.isFinite(at) && at ? at : null;
+        setSelectedDay((d) => d ?? utcDayStart(atOk ?? refNowRef.current));
+        setView((v) => v || initialWindow({ refNow: refNowRef.current,
+                                            at: atOk }));
+        if (preset === "all") setPreset("1d");
         // Progressive completion: the first paint is a BOUNDED projection
         // of the most recent observations. The complete, viewport-invariant
         // axis is being built server-side, so re-read once it is ready
@@ -318,39 +336,42 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, filterKey]);
 
-  /** DT2-3a.2 · the PRIMARY VIEWPORT opens on the evidence-bearing
-   *  interval of the selected day, not on the whole day. The day stays
-   *  the navigator's domain; the trajectory is the focused window. Runs
-   *  once per device+day, so an analyst's own pan/zoom always wins. */
-  const autoFocusRef = useRef(null);
-  useEffect(() => {
-    const g = graphOf(dt2);
-    if (!g || selectedDay == null) return;
-    const key = `${device}|${selectedDay}|${filterKey}`;
-    if (autoFocusRef.current === key) return;
-    /** An EXPLICIT window from the URL outranks auto-focus: the analyst
-     *  (or the deep link that sent them here) already chose the
-     *  interval, so it is consumed, not overridden. */
-    if (linkedWindow.current) {
-      autoFocusRef.current = key;
-      linkedWindow.current = null;
-      return;
-    }
-    const b = graphBoundsOf(g);
-    if (b.min == null) return;
-    const w = evidenceWindow(b.min, b.max, { dayStart: selectedDay });
-    if (!w) return;
-    autoFocusRef.current = key;
-    setView((v) => (v && v.t0 === w.t0 && v.t1 === w.t1 ? v : w));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dt2, device, selectedDay, filterKey]);
+  /** DT2-3a.2 evidence focus is now EXPLICIT ("Fit to evidence"). The
+   *  automatic 6 h focus centred on the evidence MIDPOINT hid the newest
+   *  hours of a live endpoint (hotfix RC2). Its result is labelled
+   *  evidence-bounded, never "last 24 h". */
+  const fitEvidence = useCallback(() => {
+    const b = graphBoundsOf(graphOf(dt2));
+    const w = b.min != null ? evidenceWindow(b.min, b.max) : null;
+    if (w) setView(withMode(w, MODES.EVIDENCE_BOUNDED));
+  }, [dt2]);
 
   /** The 24-hour band needs the selected day's bins. */
   useEffect(() => {
     if (!device || selectedDay == null || status.loading) return;
     loadMeta(dayKeyOf(selectedDay)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [device, selectedDay]);
+  }, [device, selectedDay, refNow]);
+
+  /** Navigator bins for EVERY UTC day the band domain touches, joined on
+   *  absolute observed time — a rolling window crosses midnight (RC7). */
+  const domain = useMemo(() => navDomain(view, refNow), [view, refNow]);
+  const binDays = daysTouched(domain).join(",");
+  useEffect(() => {
+    if (!device || !binDays) return undefined;
+    let live = true;
+    for (const day of binDays.split(",")) {
+      api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+              { params: { lane_start: 0, lane_end: 1, limit: 1,
+                          hist_day: day, ...filterParams } })
+        .then(({ data }) => live && setBinsByDay((m) => new Map(m)
+          .set(day, data?.activity?.day_bins || [])))
+        .catch(() => {});
+    }
+    return () => { live = false; };
+  }, [device, binDays, filterParams, refNow]);
+  const navBins = useMemo(() => binsInDomain(binsByDay, domain),
+                          [binsByDay, domain]);
 
   /** DT2-1 · one windowed request, protected against races.
    *
@@ -375,13 +396,14 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
       const { data } = await api.get(
         `/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
         { params: { time_start: iso(t0), time_end: iso(t1), lane_start: l0,
-                    lane_end: l1, limit: 2500, ...filterParams },
+                    lane_end: l1, limit: WINDOW_PAGE_LIMIT, ...filterParams },
           signal: begun.signal });
       if (coord.current.commit(begun.generation) !== REQ.COMMITTED) {
         /** A stale success is not evidence about the current window. */
         setReq((s) => ({ ...s, loading: false, staleDiscarded: true }));
         return;
       }
+      setCaps((m) => new Map(m).set(capKey(t0, t1), capOf(data)));
       if (data.dt2) setDt2(data.dt2);
       if (data.lane_axis) {
         setLanes((prev) => {
@@ -407,17 +429,6 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     }
   }, [device, filterKey, filterParams]);
 
-  useEffect(() => {
-    if (!device || !view) return;
-    const span = view.t1 - view.t0;
-    const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
-                          LANE_PREFETCH);
-    fetchWindow(view.t0 - span * TIME_PREFETCH,
-                view.t1 + span * TIME_PREFETCH, lw.from, lw.to)
-      .catch((x) => setReq((s) => ({ ...s,
-        err: x?.message || String(x) })));
-  }, [device, view, laneStart, rows, fetchWindow]);
-
   const total = meta?.lane_axis?.total_lanes || 0;
   const obsStart = meta?.time_range?.observed_start
     ? msUTC(meta.time_range.observed_start) : null;
@@ -432,8 +443,42 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const retention = useMemo(
     () => retentionBounds(dt2, { min: obsStart, max: obsEnd }),
     [dt2, obsStart, obsEnd]);
-  boundsRef.current = { min: retention.min ?? obsStart,
-                        max: retention.max ?? obsEnd };
+  // Pan/zoom may reach the REFERENCE time (+ skew), not just the newest
+  // observation or a stale retention snapshot (hotfix RC3).
+  boundsRef.current = navBounds({ min: retention.min ?? obsStart,
+                                  max: retention.max ?? obsEnd }, refNow);
+
+  /** ONE interval: the API query covers the view; the canvas draws the
+   *  view; the Activity pane lists the view's observations. */
+  const qWin = queryInterval(view, TIME_PREFETCH, boundsRef.current);
+  useEffect(() => {
+    if (!device || !qWin) return;
+    const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
+                          LANE_PREFETCH);
+    fetchWindow(qWin.t0, qWin.t1, lw.from, lw.to)
+      .catch((x) => setReq((s) => ({ ...s,
+        err: x?.message || String(x) })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, qWin?.t0, qWin?.t1, laneStart, rows, fetchWindow]);
+
+  /** RC8 · an oldest-first capped page hides the NEWEST part of the
+   *  window. The default rolling view narrows to its newest part that fits
+   *  one page (still ending at the reference time) and says so; any other
+   *  mode is left where it was put and offers "Show newest" explicitly. */
+  const cap = qWin ? caps.get(capKey(qWin.t0, qWin.t1)) : null;
+  const truncation = truncationOf(cap, view);
+  const budget = pageBudget(WINDOW_PAGE_LIMIT, TIME_PREFETCH);
+  useEffect(() => {
+    if (!view) return;
+    if (modeOf(view) !== MODES.ROLLING) { setNarrowed(null); return; }
+    if (!truncation.hidden) return;
+    const tw = tailWindow(navBins, view, budget);
+    if (!tw || tw.t1 - tw.t0 >= view.t1 - view.t0) return;
+    setNarrowed((n) => ({ fromSpan: n?.fromSpan ?? view.t1 - view.t0,
+                          matched: cap?.matched ?? null }));
+    setView(tw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [truncation.hidden?.from, view?.t0, view?.t1, view?.mode]);
   tenantRef.current = sessCtx?.active_customer?.value
     || meta?.computer?.tenant_id || null;
 
@@ -458,7 +503,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     for (const e of events.values()) {
       if (e.lane_index < laneStart || e.lane_index >= laneStart + rows)
         continue;
-      const t = msUTC(e.timestamp);
+      const t = observedAt(e);
       if (!(t >= view.t0 && t <= view.t1)) continue;
       const arr = m.get(e.lane_index) || [];
       arr.push(e);
@@ -670,14 +715,24 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   const onPreset = (key, days) => {
     setPreset(key);
-    if (obsEnd == null) return;
     if (!days) {
-      if (obsStart != null) setView({ t0: obsStart, t1: obsEnd });
+      const w = evidenceBoundedWindow(obsStart, obsEnd);
+      if (w) setView(w);
       return;
     }
-    setView({ t0: obsEnd - days * DAY_MS, t1: obsEnd });
-    setSelectedDay(startOfDayUTC(obsEnd));
+    // "N days" means N days to the reference time (hotfix RC4).
+    setView(rollingWindow(refNow, days * DAY_MS));
+    setSelectedDay(utcDayStart(refNow));
   };
+
+  /** What the window holds, by OBSERVED time against the reference time. */
+  const timeModel = useMemo(() => {
+    const times = [];
+    for (const e of events.values()) times.push(observedAt(e));
+    return { counts: classifyObservations(times, view, refNow),
+             extent: evidenceExtent(view, obsStart, obsEnd, refNow),
+             future: futurePart(view, refNow) };
+  }, [events, view, refNow, obsStart, obsEnd]);
 
   /** DT2-1 · Previous / Next observation and Previous / Next detection.
    *  Ordering is deterministic (timestamp, event_iid) and comes from the
@@ -733,7 +788,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
     if (!r.view) return;
     if (!view || r.view.t0 !== view.t0 || r.view.t1 !== view.t1) {
       urlWriteRef.current = paramKey;
-      setView(r.view);
+      setView(withMode(r.view, MODES.LINKED));
       setSelectedDay(startOfDayUTC(r.view.t0));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -759,7 +814,7 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
                 { params: { time_start: iso(w.t0), time_end: iso(w.t1),
                             lane_start: lw.from, lane_end: lw.to,
-                            limit: 2500, ...filterParams },
+                            limit: WINDOW_PAGE_LIMIT, ...filterParams },
                   signal: slot.signal })
           .then(({ data }) => setEvents((prev) => {
             const m = new Map(prev);
@@ -870,10 +925,82 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         ? (meta?.matched_after_filters ?? null) : null} />
   );
 
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const { counts: tmCounts, extent: tmExtent, future: tmFuture } = timeModel;
+  const timeStrip = view && (
+    <div data-testid="dt-time-model" data-window-mode={modeOf(view)}
+         data-window-from={iso(view.t0)} data-window-to={iso(view.t1)}
+         data-reference-time={iso(refNow)}
+         style={{ display: "flex", flexWrap: "wrap", alignItems: "center",
+                  gap: "4px 14px", fontSize: 12, color: C.inkDim,
+                  padding: "6px 0 2px", borderTop: `1px solid ${C.grid}`,
+                  marginTop: 4 }}>
+      <span data-testid="dt-window-label"
+            style={{ color: C.ink, fontWeight: 600 }}>{windowLabel(view)}</span>
+      <span data-testid="dt-reference-time">
+        Reference {isoZ(refNow)} · {tz}: {presentIn(refNow, tz)}
+      </span>
+      {tmFuture && (
+        <span data-testid="dt-future-part">
+          After {isoZ(tmFuture.from)}: not yet occurred
+        </span>
+      )}
+      {tmExtent.statement && (
+        <span data-testid="dt-evidence-extent" data-state={tmExtent.state}
+              style={{ color: C.suspicious }}>{tmExtent.statement}</span>
+      )}
+      {truncation.state !== "COMPLETE" && (
+        <span data-testid="dt-window-truncated" data-state={truncation.state}
+              style={{ color: C.suspicious }}>{truncation.statement}</span>
+      )}
+      {narrowed && modeOf(view) === MODES.ROLLING && (
+        <span data-testid="dt-window-narrowed" style={{ color: C.suspicious }}>
+          Rolling window narrowed from {(narrowed.fromSpan / 3_600_000).toFixed(1)} h
+          to {((view.t1 - view.t0) / 3_600_000).toFixed(1)} h so the NEWEST
+          observations fit one {WINDOW_PAGE_LIMIT}-observation page
+          {narrowed.matched != null ? ` (${narrowed.matched} matched)` : ""}.
+          Pan left for older evidence.
+        </span>
+      )}
+      {truncation.hidden && modeOf(view) !== MODES.ROLLING && (
+        <button data-testid="dt-truncation-newest" style={navBtn}
+                onClick={() => setView(tailWindow(navBins, view, budget))}>
+          Show newest
+        </button>
+      )}
+      {tmCounts.skewed > 0 && (
+        <span data-testid="dt-skewed-observations">
+          {tmCounts.skewed} observation(s) dated up to 2 min after the
+          reference time (within clock-skew tolerance) — reachable by panning.
+        </span>
+      )}
+      {tmCounts.future > 0 && (
+        <span data-testid="dt-future-observations" style={{ color: C.suspicious }}>
+          {tmCounts.future} observation(s) dated more than 2 min after the
+          reference time (sensor clock ahead?) — kept at their observed
+          time; the window is not stretched.
+        </span>
+      )}
+      <span style={{ flex: 1 }} />
+      <button data-testid="dt-mode-rolling" style={navBtn}
+              data-active={String(modeOf(view) === MODES.ROLLING)}
+              onClick={() => { setView(rollingWindow(refNow));
+                               setSelectedDay(utcDayStart(refNow)); }}>
+        Rolling 24 h
+      </button>
+      <button data-testid="dt-mode-evidence" style={navBtn}
+              data-active={String(modeOf(view) === MODES.EVIDENCE_BOUNDED)}
+              onClick={fitEvidence}>
+        Fit to evidence
+      </button>
+    </div>
+  );
+
   const navigator_ = view && (
     <AmpNavigator
       days={meta?.activity?.days || []}
-      dayBins={meta?.activity?.day_bins || []}
+      bins={navBins} domain={domain} refNow={refNow} status={timeStrip}
+      unloaded={truncation.hidden}
       selectedDay={selectedDay} onSelectDay={setSelectedDay}
       view={view} onView={setView}
       bounds={boundsRef.current}
@@ -1193,6 +1320,13 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
                data-row-end={Math.min(total, laneStart + rows)}
                data-row-total={total}
                data-window-observations={windowEvents.length}
+               data-window-mode={modeOf(view)}
+               data-truncation={truncation.state}
+               data-window-from={iso(view.t0)} data-window-to={iso(view.t1)}
+               data-query-from={qWin ? iso(qWin.t0) : ""}
+               data-query-to={qWin ? iso(qWin.t1) : ""}
+               data-domain-from={domain ? iso(domain.t0) : ""}
+               data-domain-to={domain ? iso(domain.t1) : ""}
                data-cached-observations={events.size}
                data-lane-axis-version={meta?.lane_axis?.lane_axis_version}
                data-axis-scope={meta?.lane_axis?.axis_scope}

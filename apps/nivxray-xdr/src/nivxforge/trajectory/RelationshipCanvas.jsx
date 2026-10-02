@@ -239,6 +239,12 @@ export default function RelationshipCanvas({
         <svg width={width} height={height} role="img"
              aria-label="device trajectory"
              style={{ display: "block" }}>
+          <defs>
+            {/* presentation clip: a span that began before the window never draws into the row-label gutter */}
+            <clipPath id="dt2-plot-clip">
+              <rect x={LEFT} y={0} width={Math.max(0, width - LEFT)} height={height} />
+            </clipPath>
+          </defs>
           {/* date header · Timeline, then one label per day observed */}
           <text x={LEFT - 14} y={DATE_H - 7} textAnchor="end" fill={C.text}
                 fontSize={14} fontWeight={700}>Timeline</text>
@@ -439,7 +445,7 @@ export default function RelationshipCanvas({
                 </text>
 
                 {x0 != null ? (
-                  <g>
+                  <g clipPath="url(#dt2-plot-clip)">
                     <line x1={x0} x2={Math.max(x0 + 2, x1 ?? x0 + 2)} y1={mid}
                           y2={mid} stroke={C.lifeline}
                           strokeWidth={sel ? 2 : 1.3}
@@ -465,6 +471,7 @@ export default function RelationshipCanvas({
                   </g>
                 ) : null}
 
+                <g clipPath="url(#dt2-plot-clip)">
                 {r.activities.map((a) => {
                   const ams = activityTimeMs(a);
                   const ax = xOf(ams);
@@ -509,6 +516,7 @@ export default function RelationshipCanvas({
                           data-activity-y={mid.toFixed(2)} />
                   );
                 })}
+                </g>
               </g>
             );
           })}

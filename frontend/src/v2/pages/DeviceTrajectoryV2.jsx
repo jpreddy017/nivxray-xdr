@@ -26,6 +26,14 @@ import CorrelationPanel from "./CorrelationPanel";
 import { ABSENCE, NO_DETECTION, VERDICT_LABEL, VERDICT_RANK, attributionOf, buildActivityView, chainCounts,
   chainCountsText, mitreItems, participatingFrameIds, trajectoryVerdict } from "@/v2/investigation/activityView.mjs";
 import { buildDateStrip, buildTicks, densityPoints, spanLabel, timelineTitle } from "@/v2/investigation/navigatorDates.mjs";
+import { DAY as TW_DAY, evidenceBoundedWindow, isoZ, windowLabel } from "@/v2/investigation/timeWindow.mjs";
+
+// DT-only range labels: a case window is evidence-bounded (IRG keeps CardToolbar's defaults).
+export const CASE_RANGE_OPTIONS = [
+  ["all", "Entire case (evidence-bounded)"], ["24h", "Last 24 h of case evidence"],
+  ["7d", "Last 7 d of case evidence"], ["30d", "Last 30 d of case evidence"],
+  ["90d", "Last 90 d of case evidence"],
+];
 import { buildCausalContext, identityOf } from "@/v2/investigation/causalView.mjs";
 import { ActivityDetailsSections } from "@/v2/investigation/ActivityDetailsSections";
 
@@ -546,13 +554,25 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     setViewport({ start: s.firstTs - pad, end: s.lastTs + pad });
   }, [selectedStageIdx, stages]);
 
-  // ── Date-range dropdown: set viewport to N hours around case end ───
+  // ── Date-range dropdown: N hours ending at the CASE's last evidence ───
+  // dt.time.v1: a case is evidence-bounded, so every range is labelled
+  // "of case evidence", never as a rolling "last 24 h" to now (hotfix V2).
   const handleRangeChange = useCallback((range) => {
     if (range === "all") { setViewport(null); return; }
     const ms = { "24h": 24*3600e3, "7d": 7*24*3600e3, "30d": 30*24*3600e3, "90d": 90*24*3600e3 }[range];
     if (!ms) return;
     setViewport({ start: caseBounds.end - ms, end: caseBounds.end });
   }, [caseBounds]);
+  const caseTimeModel = useMemo(() => {
+    if (!events.length) return null;
+    const refNow = Date.now();
+    const w = evidenceBoundedWindow(caseBounds.start, caseBounds.end);
+    const lag = refNow - caseBounds.end;
+    const label = `${windowLabel(w)} · case evidence ends `
+      + `${lag > TW_DAY ? `${(lag / TW_DAY).toFixed(1)} d` : `${Math.max(0, Math.round(lag / 60000))} min`}`
+      + ` before reference ${isoZ(refNow)}`;
+    return { mode: w.mode, label, title: label };
+  }, [events.length, caseBounds]);
 
   // ── Keyboard navigation ───────────────────────────────────────────
   useEffect(() => {
@@ -646,6 +666,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         {/* Card toolbar — logo · search · filters · date range · expand · close */}
         <CardToolbar caseId={caseId} meta={caseMeta}
                      onRangeChange={handleRangeChange}
+                     rangeOptions={CASE_RANGE_OPTIONS}
+                     timeModel={caseTimeModel}
                      reportedVp={reportedVp}
                      caseBounds={caseBounds}
                      onDetails={() => setDrawerOpen(o => !o)}
@@ -763,10 +785,11 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
                               activeTab = "trajectory", onDetails, detailsOpen,
                               searchQuery = "", onSearch = () => {},
                               filters, onFilters = () => {},
-                              onFullscreen = () => {}, onClose = () => {} }) {
+                              onFullscreen = () => {}, onClose = () => {},
+                              rangeOptions = null, timeModel = null }) {
   const [range, setRange] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const options = [
+  const options = rangeOptions || [
     ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
     ["30d", "30 Days"], ["90d", "90 Days"],
   ];
@@ -873,6 +896,15 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
+      {timeModel && (
+        <span data-testid="dt-v2-time-model" data-window-mode={timeModel.mode}
+              title={timeModel.title}
+              className="text-[10px] font-mono px-2 py-1 rounded"
+              style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkMute,
+                       maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {timeModel.label}
+        </span>
+      )}
       <button onClick={copyRange}
               className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}

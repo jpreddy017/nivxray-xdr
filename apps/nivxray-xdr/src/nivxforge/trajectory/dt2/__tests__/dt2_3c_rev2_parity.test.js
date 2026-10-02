@@ -97,7 +97,11 @@ describe("D · time focusing moves the viewport, not the evidence", () => {
   });
 
   it("does not let auto-focus override an explicit linked window", () => {
-    expect(PAGE).toMatch(/if \(linkedWindow\.current\) \{[\s\S]*?return;/);
+    // dt.time.v1 hotfix (RC2): there is no automatic evidence focus at all; a
+    // linked window carries mode LINKED and evidence focus is an explicit action.
+    expect(PAGE).not.toMatch(/autoFocusRef/);
+    expect(PAGE).toContain("{ t0: f, t1: t, mode: MODES.LINKED, ref: null }");
+    expect(PAGE).toContain("setView((v) => v || initialWindow(");
   });
 
   it("rejects an incomplete or inverted range", () => {

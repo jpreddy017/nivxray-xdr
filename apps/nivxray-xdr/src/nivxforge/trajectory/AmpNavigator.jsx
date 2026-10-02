@@ -19,10 +19,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { C, DAY_MS, DAY_BINS, MONTHS, startOfDayUTC,
+import { C, DAY_MS, MONTHS, startOfDayUTC,
          dayKeyOf } from "./ampModel";
 import { moveRange } from "./dt2";
 import { msUTC } from "./dt2/instant";
+import { MODES, calendarDayWindow, domainLabel, hourMarks, utcDayStart } from "./dt2/timeWindow.mjs";
 
 const DAYS = 30;
 const PAD = 9;
@@ -34,10 +35,12 @@ const dens = (n, max) => (!n ? 0
   : Math.log1p(n) / Math.log1p(Math.max(1, max)));
 
 export default function AmpNavigator({
-  days, dayBins, selectedDay, onSelectDay, view, onView, observedEnd,
+  days, bins = null, selectedDay, onSelectDay, view, onView, observedEnd,
   onFocusTime, collapsed, onCollapsed, bounds = null, header = null,
-  searchActive = false,
+  searchActive = false, domain = null, refNow = null, status = null,
+  unloaded = null,
 }) {
+  const dayBins = bins || [];
   const hourRef = useRef(null);
   const dragRef = useRef(null);
   const [hourW, setHourW] = useState(700);
@@ -60,8 +63,8 @@ export default function AmpNavigator({
   }, [days]);
 
   const cells = useMemo(() => {
-    const anchor = observedEnd ? startOfDayUTC(msUTC(observedEnd))
-                               : startOfDayUTC(Date.now());
+    // Day strip ends at the REFERENCE day, never at the newest evidence day (backlog-safe).
+    const anchor = utcDayStart(Number.isFinite(refNow) ? refNow : Date.now());
     const out = [];
     for (let i = DAYS - 1; i >= 0; i -= 1) {
       const ms = anchor - i * DAY_MS;
@@ -71,18 +74,22 @@ export default function AmpNavigator({
       out.push({ ms, key: dayKeyOf(ms), ...rec, d: new Date(ms) });
     }
     return out;
-  }, [byDay, observedEnd]);
+  }, [byDay, refNow]);
 
   const maxTotal = Math.max(1, ...cells.map((c) => c.total));
   const dayStart = selectedDay ?? cells[cells.length - 1]?.ms
     ?? startOfDayUTC(Date.now());
-  const dayEnd = dayStart + DAY_MS;
+  // The band domain is the explicit time model (rolling or calendar), never an implied day.
+  const band = domain || calendarDayWindow(dayStart);
+  const bandStart = band.t0, bandEnd = band.t1, bandSpan = Math.max(1, band.t1 - band.t0);
+  const calendar = band.mode === MODES.CALENDAR_DAY;
+  const marks = useMemo(() => hourMarks(band), [bandStart, bandEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const innerW = Math.max(1, hourW - PAD * 2);
-  const xOfHour = useCallback((t) => PAD + ((Math.min(Math.max(t, dayStart),
-    dayEnd) - dayStart) / DAY_MS) * innerW, [dayStart, dayEnd, innerW]);
-  const tOfX = useCallback((x) => dayStart + ((Math.min(Math.max(x, PAD),
-    PAD + innerW) - PAD) / innerW) * DAY_MS, [dayStart, innerW]);
+  const xOfHour = useCallback((t) => PAD + ((Math.min(Math.max(t, bandStart),
+    bandEnd) - bandStart) / bandSpan) * innerW, [bandStart, bandEnd, bandSpan, innerW]);
+  const tOfX = useCallback((x) => bandStart + ((Math.min(Math.max(x, PAD),
+    PAD + innerW) - PAD) / innerW) * bandSpan, [bandStart, bandSpan, innerW]);
 
   const xs = view ? xOfHour(view.t0) : PAD;
   const xe = view ? xOfHour(view.t1) : PAD;
@@ -99,14 +106,14 @@ export default function AmpNavigator({
     setDrag(st);
     const onMove = (ev) => {
       if (Math.abs(ev.clientX - st.px) > 3) st.moved = true;
-      const dMs = ((ev.clientX - st.px) / innerW) * DAY_MS;
+      const dMs = ((ev.clientX - st.px) / innerW) * bandSpan;
       const moved = moveRange({ t0: st.vs, t1: st.ve }, dMs, bounds);
-      onView(moved.view);
+      onView({ ...moved.view, mode: MODES.ANALYST });
       const d = startOfDayUTC(moved.view.t0);
-      if (d !== dayStart) onSelectDay(d);
+      if (calendar && d !== dayStart) onSelectDay(d);
     };
     const onUp = (ev) => {
-      if (!st.moved && (dayBins || []).length) {
+      if (!st.moved && dayBins.length) {
         const rect = hourRef.current?.getBoundingClientRect();
         const lx = (ev?.clientX ?? st.px) - (rect?.left ?? 0);
         const t = tOfX(lx);
@@ -133,11 +140,15 @@ export default function AmpNavigator({
     window.addEventListener("mouseup", onUp);
   };
 
-  const maxBin = Math.max(1, ...(dayBins || []).map((b) => b.total));
+  const maxBin = Math.max(1, ...dayBins.map((b) => b.total));
+  const hasRef = Number.isFinite(refNow);
+  //: the selected column is the explicit calendar day; otherwise every day the domain overlaps
+  const inBand = (ms) => (calendar ? ms === dayStart
+    : ms + DAY_MS > bandStart && ms < bandEnd);
 
   const onDayClick = (cell) => {
     onSelectDay(cell.ms);
-    onView({ t0: cell.ms, t1: cell.ms + DAY_MS });
+    onView(calendarDayWindow(cell.ms));
   };
 
   const sel = new Date(dayStart);
@@ -187,7 +198,7 @@ export default function AmpNavigator({
                       gridTemplateColumns: `repeat(${DAYS}, 1fr)` }}
              data-testid="amp-nav-day-band">
           {cells.map((c) => {
-            const active = c.ms === dayStart;
+            const active = inBand(c.ms);
             const has = c.total > 0;
             /** Cisco: red dots are compromise events, blue dots are
              *  search results, sized relative to the day's events. A red
@@ -205,6 +216,8 @@ export default function AmpNavigator({
                       data-observations={c.total}
                       data-compromise={red}
                       data-selected={active ? "true" : "false"}
+                      data-reference-day={hasRef && c.ms === startOfDayUTC(refNow)
+                        ? "true" : "false"}
                       title={`${c.total} event(s) on ${c.key}`
                         + (red ? ` · ${red} compromise event(s)` : "")}
                       style={{ height: 28, padding: 0, position: "relative",
@@ -236,11 +249,11 @@ export default function AmpNavigator({
           {cells.map((c) => (
             <div key={c.key}
                  style={{ fontSize: 15, textAlign: "center", paddingTop: 5,
-                          background: c.ms === dayStart ? C.selectionRow
+                          background: inBand(c.ms) ? C.selectionRow
                             : "transparent",
-                          color: c.ms === dayStart ? C.selectionStrong
+                          color: inBand(c.ms) ? C.selectionStrong
                             : C.inkDim,
-                          fontWeight: c.ms === dayStart ? 700 : 400 }}>
+                          fontWeight: inBand(c.ms) ? 700 : 400 }}>
               {c.d.getUTCDate()}
             </div>
           ))}
@@ -251,7 +264,7 @@ export default function AmpNavigator({
           {cells.map((c, i) => (
             <div key={`m-${c.key}`}
                  style={{ fontSize: 13, color: C.inkDim,
-                          background: c.ms === dayStart ? C.selectionRow
+                          background: inBand(c.ms) ? C.selectionRow
                             : "transparent",
                           textAlign: "center", whiteSpace: "nowrap",
                           paddingBottom: 4 }}>
@@ -266,7 +279,18 @@ export default function AmpNavigator({
           <svg width={hourW} height={HOUR_H}
                style={{ display: "block", touchAction: "none" }}
                data-dragging={drag ? "band" : "none"}
-               data-testid="amp-nav-hour-band">
+               data-testid="amp-nav-hour-band"
+               data-domain-mode={band.mode}
+               data-domain-from={new Date(bandStart).toISOString()}
+               data-domain-to={new Date(bandEnd).toISOString()}>
+            <defs>
+              <pattern id="amp-nav-future-hatch" width="6" height="6"
+                       patternUnits="userSpaceOnUse"
+                       patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke={C.inkDim}
+                      strokeWidth="1.2" opacity="0.55" />
+              </pattern>
+            </defs>
             <rect x={PAD} y={0} width={innerW} height={HOUR_H}
                   fill={C.selectionRow} stroke={C.selection}
                   strokeWidth={0.8} />
@@ -277,24 +301,49 @@ export default function AmpNavigator({
                     strokeWidth={0.8} pointerEvents="none"
                     data-testid="amp-nav-window-region" />
             )}
+            {/* after the reference time: not yet occurred — never "no activity" */}
+            {unloaded && unloaded.to > bandStart && unloaded.from < bandEnd && (
+              <rect x={xOfHour(Math.max(unloaded.from, bandStart))} y={0}
+                    width={Math.max(0, xOfHour(Math.min(unloaded.to, bandEnd))
+                      - xOfHour(Math.max(unloaded.from, bandStart)))}
+                    height={30} fill={C.suspicious} opacity={0.14}
+                    pointerEvents="none" data-testid="amp-nav-unloaded">
+                <title>Not delivered (per-request cap) — not absent</title>
+              </rect>
+            )}
+            {hasRef && refNow < bandEnd && (
+              <rect x={xOfHour(Math.max(refNow, bandStart))} y={0}
+                    width={Math.max(0, xOfHour(bandEnd)
+                      - xOfHour(Math.max(refNow, bandStart)))}
+                    height={30} fill="url(#amp-nav-future-hatch)"
+                    pointerEvents="none" data-testid="amp-nav-future">
+                <title>After the reference time: not yet occurred</title>
+              </rect>
+            )}
+            {hasRef && refNow >= bandStart && refNow <= bandEnd && (
+              <line x1={xOfHour(refNow)} x2={xOfHour(refNow)} y1={0} y2={36}
+                    stroke={C.link} strokeWidth={1.6}
+                    data-testid="amp-nav-now"
+                    data-iso={new Date(refNow).toISOString()} />
+            )}
 
-            {Array.from({ length: 23 }, (_, i) => (
-              <line key={i} x1={PAD + ((i + 1) / 24) * innerW} y1={0}
-                    x2={PAD + ((i + 1) / 24) * innerW} y2={30}
-                    stroke={C.selection} strokeWidth={0.5}
-                    opacity={0.45} />
+            {marks.filter((m) => m.t > bandStart && m.t < bandEnd).map((m) => (
+              <line key={m.t} x1={xOfHour(m.t)} y1={0} x2={xOfHour(m.t)} y2={30}
+                    stroke={C.selection} strokeWidth={m.midnight ? 1.4 : 0.5}
+                    opacity={m.midnight ? 0.9 : 0.45} />
             ))}
 
-            {(dayBins || []).map((b) => {
-              const x = PAD + ((b.bin + 0.5) / DAY_BINS) * innerW;
+            {dayBins.map((b) => {
+              const x = xOfHour(b.mid);
               //: authoritative only — see the day band above
               const red = b.malicious + (b.compromises || 0) > 0;
               const r = 2.4 + dens(b.total, maxBin) * 3;
               return (
-                <circle key={b.bin} cx={x} cy={15} r={r}
+                <circle key={b.key} cx={x} cy={15} r={r}
                         fill={red ? C.malicious : C.telemetry}
                         data-compromises={b.compromises || 0}
-                        data-testid={`amp-nav-bin-${b.bin}`}>
+                        data-bin-start={new Date(b.t).toISOString()}
+                        data-testid={`amp-nav-bin-${calendar ? b.bin : b.key}`}>
                   <title>{`${b.total} event(s) · `
                     + `${b.first_timestamp}`
                     + (b.compromises
@@ -304,31 +353,32 @@ export default function AmpNavigator({
               );
             })}
 
-            {(dayBins || []).map((b) => (
-              <rect key={`hit-${b.bin}`}
-                    x={PAD + (b.bin / DAY_BINS) * innerW - 3} y={0}
+            {dayBins.map((b) => (
+              <rect key={`hit-${b.key}`}
+                    x={xOfHour(b.mid) - 3} y={0}
                     width={7} height={30} fill="transparent"
                     onClick={() => onFocusTime(
                       msUTC(b.first_timestamp), b.first_event_iid)}
-                    data-testid={`amp-nav-bin-hit-${b.bin}`}>
+                    data-testid={`amp-nav-bin-hit-${calendar ? b.bin : b.key}`}>
                 <title>{`${b.total} event(s) · ${b.first_timestamp}`}</title>
               </rect>
             ))}
 
             {/* Cisco keeps the hour scale INSIDE the band, 0:00 … 24,
                 with the selected date under the first label. */}
-            {Array.from({ length: 25 }, (_, h) => (
-              <text key={`h-${h}`}
-                    x={h === 24 ? PAD + innerW - 2 : PAD + (h / 24) * innerW + 2}
-                    y={50} fontSize={13} fill={C.inkDim}
-                    textAnchor={h === 24 ? "end" : "start"}
-                    data-testid={`amp-nav-hour-label-${h}`}>
-                {h === 0 ? "0:00" : String(h)}
+            {marks.filter((m, i) => calendar || m.midnight || i % 2 === 0).map((m) => (
+              <text key={`h-${m.t}`}
+                    x={Math.min(xOfHour(m.t) + 2, PAD + innerW - 2)}
+                    y={50} fontSize={m.midnight ? 12 : 13} fill={m.midnight ? C.ink : C.inkDim}
+                    fontWeight={m.midnight ? 700 : 400}
+                    textAnchor={m.t >= bandEnd ? "end" : "start"}
+                    data-testid={`amp-nav-hour-label-${m.hour}`} data-iso={new Date(m.t).toISOString()}>
+                {calendar && m.hour === 0 ? (m.t === bandStart ? "0:00" : "24") : m.label}
               </text>
             ))}
             <text x={PAD + 2} y={66} fontSize={13} fill={C.inkDim}
-                  data-testid="amp-nav-day-label">
-              {MONTHS[sel.getUTCMonth()]} {sel.getUTCDate()}
+                  data-testid="amp-nav-day-label" data-mode={band.mode}>
+              {calendar ? `${MONTHS[sel.getUTCMonth()]} ${sel.getUTCDate()}` : domainLabel(band)}
             </text>
 
             <rect x={PAD} y={0} width={innerW} height={30}
@@ -336,6 +386,7 @@ export default function AmpNavigator({
                   onPointerDown={down} onMouseDown={down}
                   data-testid="amp-nav-band" />
           </svg>
+          {status}
         </div>
         </div>
       </div>
