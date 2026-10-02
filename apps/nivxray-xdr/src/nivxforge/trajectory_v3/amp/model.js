@@ -35,6 +35,14 @@ export const KIND = {
   network_connect: { verb: "Connected", glyph: "net", label: "Network connection", filter: "network" },
   dns_query: { verb: "Queried", glyph: "dns", label: "DNS", filter: "dns" },
   registry_value_set: { verb: "Set", glyph: "reg", label: "Registry", filter: "registry" },
+  usb_connect: { verb: "Connected", glyph: "usb", label: "External device", filter: "usb" },
+  usb_disconnect: { verb: "Disconnected", glyph: "usb", label: "External device", filter: "usb" },
+  policy_update: { verb: "Policy updated", glyph: "other", label: "Policy update", filter: "policy", system: true },
+  sensor_update: { verb: "Sensor updated", glyph: "other", label: "Sensor update", filter: "sensor_update", system: true },
+  isolation_status: { verb: "Isolation changed", glyph: "other", label: "Isolation status", filter: "isolation", system: true },
+  scan: { verb: "Scanned", glyph: "scan", label: "Scan", filter: "scan", system: true },
+  reboot: { verb: "Rebooted", glyph: "restore", label: "Reboot", filter: "reboot", system: true },
+  sensor_service_status: { verb: "Service status", glyph: "other", label: "Sensor service status", filter: "telemetry", system: true },
 };
 const kindOf = (e) => KIND[e.event_type] || { verb: e.event_type, glyph: "other", label: e.event_type, filter: "other" };
 
@@ -45,8 +53,10 @@ function targetOf(e, pf) {
   if (t === "process_create") return { key: `exe:${String(e.image || e.file_sha256 || e.event_iid).toLowerCase()}`,
     label: e.image ? base(e.image) : short(e.file_sha256), path: e.image, hash: e.file_sha256, type: fileType(e.image, pf), section: "System" };
   if (["create", "modify", "delete", "move"].includes(k)) return fileRow(e.file, e.file_sha256 || e.file_artefacts?.[0]?.sha256);
-  if (k === "net") return { key: `net:${e.network}`, label: e.network, type: "Network", section: "Files & Network" };
-  if (k === "dns") return { key: `dns:${e.entity || e.network || e.file}`, label: e.lane_label || e.entity || "dns", type: "DNS", section: "Files & Network" };
+  if (k === "net") return { key: `net:${e.file || e.network}`, label: e.file || e.network, type: "Network", section: "Files & Network" };
+  if (k === "dns") return { key: `dns:${e.entity || e.network || e.file}`, label: e.file || e.lane_label || e.entity || "dns", type: "DNS", section: "Files & Network" };
+  if (k === "usb") return { key: `usb:${e.device_serial || e.device_product || e.event_iid}`, label: e.device_product || "External device", type: "USB", section: "Files & Network" };
+  if (KIND[t]?.system) return { key: `sys:${t}`, label: KIND[t].label, type: "System", section: "System" };
   if (k === "reg") return { key: `reg:${e.file}`, label: String(e.file || "").split("\\").slice(-2).join("\\"), path: e.file, type: "Registry", section: "Files & Network" };
   return null;
 }
@@ -94,7 +104,7 @@ export function buildModel(events, lanes, platform) {
     };
     if (isExec) mark(target, targetIid); else mark(actor, actorIid);
     const causal = !actor ? "UNRESOLVED" : !isExec ? "PROVEN" : (e.parent_process_guid || e.parent_process_iid) ? "PROVEN" : "CORRELATED";
-    const ftype = tgt && !["Network", "DNS", "Registry"].includes(tgt.type) ? tgt.type : null;
+    const ftype = tgt && !["Network", "DNS", "Registry", "USB", "System"].includes(tgt.type) ? tgt.type : null;
     items.push({ col, ev, kind: kindOf(e), actor, target, actorIid, targetIid, causal, shape: dispositionShape(e), actorImage, ftype,
       flags: { warn: !!e.e3_detection, cmd: !!e.command_line, audit: e.audit_only === true } });
     col += 1;
@@ -145,7 +155,9 @@ export function narrative(it) {
   if (d) {
     L.push(["Detected ", tok(t?.label || nc, t?.path), ...hash(t?.hash), `[${TYPE_DESC[t?.type] || t?.type || "Unknown"}] as `, { det: d.name, sev: d.severity }, "."]);
     L.push([`${it.kind.verb} by `, ...who, `${user}.`]);
-    L.push([d.response ? `Response evidence: ${d.response}.` : "No quarantine/response evidence recorded."]);
+    const en = e.e3_enforcement;
+    L.push([en ? `${en.outcome === "QUARANTINED" ? "Quarantined" : en.outcome === "QUARANTINE_FAILED" ? "Quarantine failed" : en.outcome} at ${en.at} (${en.source}).`
+      : d.response ? `Response evidence: ${d.response}.` : "No quarantine/response evidence recorded."]);
     L.push(["Process disposition ", { unk: "Unknown" }, "."]);
   } else if (e.event_type === "process_create") {
     L.push([tok(t?.label || nc, e.image), ...hash(e.file_sha256), `[${TYPE_DESC[t?.type] || "Unknown"}] was Executed by `, ...who, "."]);
@@ -180,3 +192,4 @@ export const FILTER_GROUPS = [
     ["t_Archive", "Zip/GZ archive"], ["t_MSI", "MS Cabinet/MSI"], ["t_Script", "Script"], ["t_Other", "Other"]]],
 ];
 export const DEFAULT_ON = FILTER_GROUPS.flatMap(([, its]) => its.filter((x) => !x[2]).map((x) => x[0]));
+export const presentKinds = (items) => new Set(items.map((it) => it.kind.filter));

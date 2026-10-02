@@ -4,7 +4,7 @@ import { C } from "./theme";
 
 const LIVE = FILTER_GROUPS.flatMap(([, its]) => its.filter((x) => !x[2]).map((x) => x[0]));
 
-export function FiltersPanel({ applied, onApply, onCancel }) {
+export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }) {
   const [on, setOn] = useState(new Set(applied));
   const set = (keys, v) => setOn((s) => { const n = new Set(s); keys.forEach((k) => (v ? n.add(k) : n.delete(k))); return n; });
   const allOn = LIVE.every((k) => on.has(k));
@@ -19,9 +19,9 @@ export function FiltersPanel({ applied, onApply, onCancel }) {
           return (<div key={g} style={{ marginBottom: 10, paddingLeft: 10 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600 }}>
               <input type="checkbox" data-testid={`v3-filter-group-${g.split(" ")[1]}`} checked={all} onChange={() => set(live, !all)} /> {g}</label>
-            {its.map(([k, l, nc]) => <label key={k} data-testid={`v3-filter-${k}`} style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 22, color: nc ? C.muted : C.label, opacity: nc ? 0.55 : 1 }}>
+            {its.map(([k, l, nc0]) => { const nc = nc0 && !present.has(k); return <label key={k} data-testid={`v3-filter-${k}`} style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 22, color: nc ? C.muted : C.label, opacity: nc ? 0.55 : 1 }}>
               <span style={{ color: C.muted }}>•</span>
-              <input type="checkbox" disabled={!!nc} checked={!nc && on.has(k)} onChange={() => set([k], !on.has(k))} /> {l}{nc ? <i style={{ fontSize: 11 }}> · not collected</i> : ""}</label>)}
+              <input type="checkbox" disabled={!!nc} checked={!nc && on.has(k)} onChange={() => set([k], !on.has(k))} /> {l}{nc ? <i style={{ fontSize: 11 }}> · not collected</i> : ""}</label>; })}
           </div>);
         })}
       </div>

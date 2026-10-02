@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Artifacts } from "./Artifacts";
 import { GlyphIcon } from "./Glyphs";
 import { cap, fmt, narrative, short } from "./model";
 import { ACT_H, C } from "./theme";
 
 const SEV = { HIGH: C.red, CRITICAL: C.red, MEDIUM: C.amber, LOW: C.accent };
 
-export function ActivityList({ items, sel, onSelect, hidden, height }) {
+export function ActivityList({ items, sel, onSelect, hidden, height, onCtx }) {
   const ref = useRef(null);
   const [st, setSt] = useState(0);
   const idx = sel ? items.findIndex((it) => it.col === sel.col) : -1;
@@ -24,11 +25,12 @@ export function ActivityList({ items, sel, onSelect, hidden, height }) {
           const on = sel?.col === it.col, d = it.ev.e3_detection;
           return (
             <div key={it.col} data-testid={`v3-activity-row-${it.col}`} data-selected={on ? "1" : "0"} onClick={() => onSelect(it)}
+              onContextMenu={(e) => { e.preventDefault(); onCtx?.(e, it); }}
               title={fmt(it.ev.timestamp_instant_ms)}
               style={{ position: "absolute", top: (r0 + i) * ACT_H, left: 0, right: 0, height: ACT_H, boxSizing: "border-box", display: "grid",
                 gridTemplateColumns: "16px minmax(0,1fr) 24px minmax(0,1fr)", gap: 8, alignItems: "center", padding: "0 14px", fontSize: 15, cursor: "pointer",
                 background: on ? C.sel : "transparent", borderBottom: `1px solid ${C.line}`, boxShadow: on ? `inset 3px 0 0 ${C.accent}` : "none", transition: "background-color .12s" }}>
-              <span>{d && <svg width={13} height={12} viewBox="0 0 13 12"><path d="M6.5,0.5 L12.5,11.5 L0.5,11.5 Z" fill={SEV[d.severity] || C.amber} /></svg>}</span>
+              <span data-testid="dt-activity-row">{d && <svg width={13} height={12} viewBox="0 0 13 12"><path d="M6.5,0.5 L12.5,11.5 L0.5,11.5 Z" fill={SEV[d.severity] || C.amber} /></svg>}</span>
               <b style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.text }}>{it.actor?.label || "Unknown"}</b>
               <GlyphIcon it={it} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.label }}>{it.target?.label}</span>
@@ -54,7 +56,7 @@ function Tok({ t, onCtx, onCopy }) {
 
 const ago = (a, b) => (a && b ? `${Math.round((Date.parse(b) - a) / 1000)} s` : "not collected");
 
-export function ActivityDetails({ it, onBack, onCtx, onCopy, height }) {
+export function ActivityDetails({ it, onBack, onCtx, onCopy, height, model, computer, device, approvals, onSearch, onJump }) {
   const e = it.ev, d = e.e3_detection;
   const ev = [["Observation", e.observation_id], ["Event", e.event_iid], ["Process instance", e.process_iid], ["Parent instance", e.parent_process_iid], ["PID", e.pid],
     ["Causal state", it.causal === "PROVEN" ? "PROVEN — creation record names the parent instance" : it.causal === "CORRELATED" ? "CORRELATED — parent image only" : "UNRESOLVED — actor not observed"],
@@ -67,12 +69,15 @@ export function ActivityDetails({ it, onBack, onCtx, onCopy, height }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <button data-testid="v3-details-back" onClick={onBack} style={{ background: "none", border: 0, color: C.accent, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>‹</button>
         <span data-testid="v3-details-time" title={`Local: ${fmt(e.timestamp_instant_ms, true)}`} style={{ color: C.muted, borderBottom: `1px dashed ${C.muted}` }}>{fmt(e.timestamp_instant_ms)}</span>
+        <span data-testid="dt-event-type" style={{ fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 10, padding: "0 7px", color: C.label }}>{it.kind.label}</span>
+        {it.flags.warn && <span title="Warning" style={{ color: C.amber }}>▲</span>}{it.flags.cmd && <span title="Command line" style={{ color: C.muted, fontSize: 11 }}>&gt;_</span>}
         <span style={{ flex: 1 }} />
         {d && <span data-testid="v3-severity" style={{ border: `1px solid ${SEV[d.severity] || C.amber}`, color: SEV[d.severity] || C.amber, borderRadius: 3, padding: "0 8px", fontSize: 12 }}>{cap(d.severity)}</span>}
       </div>
       <div data-testid="v3-narrative">{narrative(it).map((ln, i) => <p key={i} style={{ margin: "0 0 8px" }}>{ln.map((t, j) => <Tok key={j} t={t} onCtx={onCtx} onCopy={onCopy} />)}</p>)}</div>
+      <Artifacts it={it} model={model} computer={computer} device={device} approvals={approvals} onCopy={onCopy} onSearch={onSearch} onJump={onJump} />
       <details data-testid="v3-evidence" style={{ marginTop: 12, color: C.muted, fontSize: 12.5 }}>
-        <summary style={{ cursor: "pointer", color: C.text }}>Evidence &amp; provenance</summary>
+        <summary style={{ cursor: "pointer", color: C.text, fontWeight: 600, fontSize: 13.5 }}>Evidence &amp; provenance</summary>
         {ev.map(([k, v]) => <div key={k} style={{ display: "grid", gridTemplateColumns: "112px minmax(0,1fr)", gap: 8, padding: "2px 0" }}><span>{k}</span>
           <span style={{ color: C.text, overflowWrap: "anywhere" }}>{wrapText(v ?? "not collected")}</span></div>)}
       </details>
