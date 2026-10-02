@@ -19,7 +19,7 @@ Work through this in order. E3 has applied **none** of it to production. Every s
 | `E3_TRAJECTORY_ROUTER` | unset | No `/api/e3/trajectory/*` |
 | `E3_PREVIEW_E1_SHAPE` | unset | No preview adapter |
 | `VITE_E3_DT_CONTRACT_PREVIEW` | unset | `DeviceTrajectoryEntry` renders the legacy page; the Phase 2 source switch is hidden |
-| **New, E1 adds it:** `VITE_E3_DT_V3` | `1` on staging first, then prod | In `trajectory_amp/DeviceTrajectoryEntry.jsx`: when set, render `trajectory_v3/DeviceTrajectoryPage` (it's the e3shell page; the "Use Legacy" debug button remains). When unset, render `EdrDeviceTrajectoryPage` unchanged. |
+| `VITE_E3_DT_V3` (**implemented by E3**, `trajectory_amp/flags.js`, commit `ebf34d39`) | `1` on staging first, then prod (tenant-gated by E1) | Set: `DeviceTrajectoryEntry` renders `trajectory_v3/DeviceTrajectoryPage` (the e3shell page) and `EdrSidebar` gets the icon-rail toggle. Unset: `EdrDeviceTrajectoryPage` unchanged and the sidebar is expanded with no toggle. |
 
 ## 3. Wire E1 endpoints to E3 modules (all under E1 auth + tenant middleware)
 1. **Newest-first paging.** `GET /api/edr/endpoints/{id}/trajectory`: fix `trajectory_window.py:1463` (oldest-first `in_lane[:limit]`) and `:605` (string sort). Order by `(observed_ms DESC, event_id DESC)` from `edr_trajectory.paging`. Return `e3_preview.older_cursor`-equivalent and accept `before=` (brief §5, §9.1).
@@ -34,9 +34,9 @@ Work through this in order. E3 has applied **none** of it to production. Every s
 
 ## 4. Tests (in E1's real environments)
 - `cd apps/nivxray-xdr && yarn install && yarn test`. Expect **≥ 207 vitest** (179 dt2 + 28 trajectory_amp) plus the timeWindow suite, all green.
-- Backend: `cd backend && python -m pytest -p asyncio -o asyncio_mode=auto tests/edr_trajectory` (49), then the full E1 suite with the repo's `pytest.ini` (xdist `-n 2`), plus the new `tests/edr/test_trajectory_window_order.py`.
-- `node --test tools/e3ui/fields.test.mjs` (6).
-- Playwright against **E1 staging** (set `HOST`/`B`/`DEV` at the top of each file to the staging URL and a real device): `tools/e3ui/m2_interaction_test.py` (55), `ui3_shell_panel_test.py` (51), `art_details_test.py` (55). Expect differences only where staging has no TI or enforcement (see §6).
+- Backend: `cd backend && python -m pytest -p asyncio -o asyncio_mode=auto tests/edr_trajectory` (63), then the full E1 suite with the repo's `pytest.ini` (xdist `-n 2`), plus the new `tests/edr/test_trajectory_window_order.py`.
+- `node --test tools/e3ui/fields.test.mjs tools/e3ui/labels.test.mjs tools/e3ui/attack_catalog.test.mjs` (12).
+- Playwright against **E1 staging** (set `HOST`/`B`/`DEV` at the top of each file to the staging URL and a real device): `tools/e3ui/m2_interaction_test.py` (56), `ui3_shell_panel_test.py` (51), `art_details_test.py` (58), `mitre_test.py` (72), `nav_test.py` (38), `actions_search_test.py` (31). Expect differences only where staging has no TI or enforcement (see §6).
 - Perf: `tools/e3ui/m2_perf_matrix.py` (100 → 50k).
 
 ## 5. Rollout and rollback
@@ -52,3 +52,6 @@ Work through this in order. E3 has applied **none** of it to production. Every s
 - Action taken shows "No enforcement/response evidence recorded." until §3.8 is live.
 - Navigator no-data hatch: until §3.4 heartbeats arrive, it means "0 retained observations", not "sensor offline".
 - USB and system/sensor sections never appear: the sensor emits no such events today.
+
+## 7. Production sync
+The full production task, with rollback first, is in `docs/e3/E1_PRODUCTION_SYNC_BRIEF.md`. The owner backlog status is in `docs/e3/DT_OWNER_BACKLOG.md`.

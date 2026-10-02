@@ -251,3 +251,14 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
 - MITRE techniques link to `attack.mitre.org/techniques/T####/sub/` and tactics to `/tactics/TA####/`. Both open in a new tab with `rel="noopener noreferrer"`, and the URL is shown under each technique.
 - Grid clicks within 14 px of a marker select it, the same nearest-marker hit test right-click uses, so network-row markers are reliably clickable.
 - `/api/e3/preview/deeplink-cases` (preview-only, STRIP) now also returns `quarantined` and `quarantine_failed`.
+
+## 14. Final production sync (E3, 2026-10-02)
+- The owner accepted the Device Trajectory as DONE. E1's task is in `docs/e3/E1_PRODUCTION_SYNC_BRIEF.md`: rollback, scope inventory, merge/strip plan, flags, wiring, data, tests, staged rollout + verification, known E1 items.
+- New in this pass:
+  - navigator pinned popovers and detection jump (±30 min, one history entry);
+  - AMP search bar + empty state;
+  - device Actions menu (approval-only, 9 actions now in `APPROVAL_ACTIONS`) + isolation chip;
+  - details drawer in UTC;
+  - Product/Version narrative line;
+  - `VITE_E3_DT_V3` flag implemented (gates the V3 page + sidebar rail);
+  - MITRE inventory doc + old/new parity test.
