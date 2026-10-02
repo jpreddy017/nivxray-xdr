@@ -12,7 +12,7 @@ NAMES instead of canonical T-ids:
 
 Output:
   /app/backend/mitre_catalogue/name_index.json
-  /app/apps/nivxray-xdr/src/xdr/mitre/attackNameIndex.generated.js
+  /app/apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js
 
 Runs after `build_catalogue.py`.
 """
@@ -26,7 +26,7 @@ HERE     = pathlib.Path(__file__).parent
 sys.path.insert(0, str(HERE.parent))
 from services.mitre_catalogue.service import CATALOGUE_PATH as CAT_IN  # noqa: E402  single source of truth
 OUT_BE   = HERE / "name_index.json"
-OUT_FE   = HERE.parents[1] / "apps/nivxray-xdr/src/xdr/mitre/attackNameIndex.generated.js"
+OUT_FE   = HERE.parents[1] / "apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js"
 
 
 _ATT_ID_RE = re.compile(r"\b(T\d{4})(?:\.(\d{3}))?\b")

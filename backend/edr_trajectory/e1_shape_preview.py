@@ -37,7 +37,9 @@ async def ensure_seeded(force: bool = False) -> dict[str, Any]:
         db = _db()
         meta = await db["e3_preview_meta"].find_one({"_id": "dataset"})
         now = int(time.time() * 1000)
-        if meta and not force and now - meta["ref_ms"] < STALE_AFTER_MS:
+        # Saved deep links must keep working: reuse the existing dataset (stable IDs); age-based reseed only when opted in.
+        auto = os.environ.get("E3_PREVIEW_AUTO_RESEED") == "1"
+        if meta and not force and (not auto or now - meta["ref_ms"] < STALE_AFTER_MS):
             _state["ident"] = meta["identity"]
             return meta
         ref = now // 60_000 * 60_000

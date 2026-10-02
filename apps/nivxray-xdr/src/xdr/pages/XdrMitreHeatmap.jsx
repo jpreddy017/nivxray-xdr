@@ -32,7 +32,7 @@ import api from "@/lib/api";
 import { attackHrefFor, attackLinkTitle }
   from "@/xdr/mitre/attackLink";
 import { apiErrorText } from "@/xdr/nx/apiError";
-import { ATTACK_ATTRIBUTION, CATALOGUE_VERSION } from "@/xdr/mitre/attackNameIndex.generated";
+import { ATTACK_ATTRIBUTION, CATALOGUE_VERSION } from "@/xdr/lib/mitre/attackNameIndex.generated";
 // E3 → E1 REVIEW: Device Trajectory pivot, inert unless VITE_E3_ATTACK_PIVOT=1.
 import { E3_ATTACK_PIVOT } from "@/xdr/mitre/attackPivotFlag";
 import { DtContextBanner, OpenInDeviceTrajectory } from "@/xdr/mitre/AttackDtPivot";

@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ATTACK_TACTICS, CATALOGUE_VERSION } from "../../apps/nivxray-xdr/src/xdr/mitre/attackNameIndex.generated.js";
-import { buildLayer, layerFromStrip, validateLayer } from "../../apps/nivxray-xdr/src/xdr/mitre/navigatorLayer.js";
+import { ATTACK_TACTICS, CATALOGUE_VERSION } from "../../apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js";
+import { buildLayer, layerFromStrip, validateLayer } from "../../apps/nivxray-xdr/src/xdr/lib/mitre/navigatorLayer.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -23,7 +23,10 @@ test("ONE catalogue version: backend compact == FE generated index == name_index
 test("HeatMap and Device Trajectory import the SAME generated catalogue module (no second copy)", () => {
   const heat = read("apps/nivxray-xdr/src/xdr/pages/XdrMitreHeatmap.jsx");
   const dt = read("apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/attack.js");
-  for (const src of [heat, dt]) assert.match(src, /from "@\/xdr\/mitre\/attackNameIndex\.generated"/);
+  // ONE shared ATT&CK authority, in a Gate-16 shared-safe namespace. XDR
+  // (heatmap) and EDR (trajectory) must both import the same generated index;
+  // the EDR bundle may not reach into an XDR product namespace to get it.
+  for (const src of [heat, dt]) assert.match(src, /from "@\/xdr\/lib\/mitre\/attackNameIndex\.generated"/);
   assert.doesNotMatch(dt, /mitreTactics/);
   assert.doesNotMatch(heat, /"16\.1"/);
 });

@@ -21,7 +21,7 @@ KNOWN_E1_RETIRED = {
 
 
 def test_one_catalogue_version_backend_frontend():
-    fe = (ROOT / "apps/nivxray-xdr/src/xdr/mitre/attackNameIndex.generated.js").read_text()
+    fe = (ROOT / "apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js").read_text()
     assert attack.version() == get_catalogue().version == re.search(r'CATALOGUE_VERSION = "([\d.]+)"', fe).group(1)
     assert [t["shortname"] for t in attack.tactics()] == [t["key"] for t in json.loads(re.search(r"ATTACK_TACTICS = (\[.*?\]);", fe, re.S).group(1))]
 

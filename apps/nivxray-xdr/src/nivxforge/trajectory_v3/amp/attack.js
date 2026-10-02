@@ -1,7 +1,7 @@
 // ATT&CK helpers for DT V3. Tactic order, catalogue version and attribution text come from the SAME generated module
 // the ATT&CK HeatMap uses (built from MITRE's official STIX release). Technique data is E1's own attribution
 // (row.mitre / findings) decorated server-side: `ev.e3_attack`.
-import { ATTACK_ATTRIBUTION, ATTACK_TACTICS, CATALOGUE_MODIFIED, CATALOGUE_VERSION } from "@/xdr/mitre/attackNameIndex.generated";
+import { ATTACK_ATTRIBUTION, ATTACK_TACTICS, CATALOGUE_MODIFIED, CATALOGUE_VERSION } from "@/xdr/lib/mitre/attackNameIndex.generated";
 
 export const ATTACK_CATALOGUE_VERSION = CATALOGUE_VERSION;
 export { ATTACK_ATTRIBUTION, ATTACK_TACTICS, CATALOGUE_MODIFIED };

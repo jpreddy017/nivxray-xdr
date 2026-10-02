@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
-import { layerFromStrip } from "@/xdr/mitre/navigatorLayer";
+import { layerFromStrip } from "@/xdr/lib/mitre/navigatorLayer";
 import { ATTACK_ATTRIBUTION, heatmapHref, sevTone } from "./attack";
 import { C } from "./theme";
 
