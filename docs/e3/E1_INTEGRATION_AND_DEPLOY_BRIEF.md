@@ -201,3 +201,9 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
    - **S-6:** Processes seen only through 4688 have no GUID and no start time, so identity is `PID_ONLY_NOT_AUTHORITATIVE` and lineage is at best CORRELATED.
    - **S-7:** Process end needs the Sysmon config to emit EventID 5. Otherwise lanes show `continues_after`.
 6. **Store authority (E1-1)** and **Mongo aggregation push-down for viewport/density (E1-2)**. These restate §8.7 and the gap audit row 10.
+7. **Phase 2 UI flag.** `/edr/device-trajectory` now routes through `trajectory_amp/DeviceTrajectoryEntry.jsx`.
+   - With `VITE_E3_DT_CONTRACT_PREVIEW` unset (every E1/prod build), it renders `EdrDeviceTrajectoryPage` exactly as before, and the E3 UI chunk is never loaded.
+   - With the flag set to `1`, a "Data source" control appears: Live (unchanged page) or E3 contract preview (reads `/api/e3/trajectory`). The flag needs the §9.4 router.
+   - To strip it, revert the Phase 2 commit, or keep the flag unset.
+   - E3 does not wire the AMP-parity UI to production evidence. That needs E1 to serve `e3.dt.v1` over the authoritative store.
+   - `/viewport` returns every marker for lanes under the bucket threshold (1.4 MB on the 12k fixture). E1 should cap this server-side before production use.
