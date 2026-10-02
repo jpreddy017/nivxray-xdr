@@ -13,7 +13,8 @@ const Item = ({ id, label, onClick, disabled }) => (
 export function ContextMenu({ menu, onAction }) {
   const it = menu.it, hash = it?.target?.hash || it?.ev?.file_sha256;
   return (
-    <div data-testid="v3-context-menu" onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 60, background: C.tip,
+    <div data-testid="v3-context-menu" onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left: Math.max(8, Math.min(menu.x, window.innerWidth - 280)),
+      top: Math.max(8, Math.min(menu.y, window.innerHeight - (menu.deviceOnly ? 120 : 400))), zIndex: 60, background: C.tip,
       border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 0", minWidth: 260, fontSize: 13.5, boxShadow: "0 14px 40px rgba(0,0,0,.55)", animation: "v3in .1s ease-out" }}>
       {!menu.deviceOnly && <>
         <Item id="copy-hash" label={hash ? "Copy hash" : "Copy hash (not collected)"} disabled={!hash} onClick={() => onAction("copy-hash", hash)} />
