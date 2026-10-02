@@ -232,3 +232,16 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
    - E1 must serve an equivalent coverage read before adopting this.
    - Glyphs added: execute-blocked (red hexagon badge) and the audit-only eye. They are drawn in the Legend; their filters stay "not collected" until the sensor emits `process_blocked` / `audit_only`.
 
+
+## 12. Activity Details artifacts, right-click and field coverage (E3, 2026-10-02). E1-owned wiring; nothing applied by E3
+- **UI:** `trajectory_v3/amp/fields.js` (pure `buildSections(item, ctx)`), `Artifacts.jsx` (sections, "Not collected for this event (N)", Network summary), `Menu.jsx` (`dt-context-menu`). Right-click works on markers, row labels, lifelines, Activity rows, narrative tokens, and empty grid space (nearest-marker hit test).
+- **Field coverage** (which fields populate from KUSHU on day one, which need E1 projection, sensor or TI work): `docs/e3/DT_ACTIVITY_DETAILS_FIELD_COVERAGE.md`. New sensor items S-8..S-12 are appended to the gap audit §3.
+- **E1 day-one wiring required:**
+  1. **Projection additions (E1-PRJ):** network `Initiated` (direction), `SourceIp/SourcePort` (local endpoint), DNS `QueryType`, process `LogonId/TerminalSessionId` (session). They're already in the raw Sysmon record; the E1 normalizer drops them.
+  2. **File facts read:** an authoritative, tenant-scoped equivalent of the preview `GET /api/edr/endpoints/{id}/trajectory/file-facts?sha256=&path=` (first seen on device, prevalence across devices). The preview implementation (`edr_trajectory/artifacts_overlay.file_facts`) reads only `e3_dt_preview`. STRIP it.
+  3. **Disposition / IOC:** serve `e3_disposition {state, source, at, provenance, history[]}` and `e3_ti[]` per event from the TI plane once it's live (`DT_I1E_TI_DESIGN.md`). Until then the UI shows `Unknown` and "provider not configured". The preview overlay in `artifacts_overlay.py` is a **SYNTHETIC TI / enforcement fixture**. STRIP it; it must never ship.
+  4. **Enforcement:** serve `e3_enforcement {outcome, detail, at, source}` only from response-plane evidence. With none, the UI says "No enforcement/response evidence recorded." Approval requests from the menu stay APPROVAL_REQUESTED (§9.2).
+- **Export snippet** (`tools/kushu_dt_export.js`): additionally captures `/api/edr/observation-narrative` for up to 300 detection events (`e3_prod_detail`). It's GET-only and throttled 350 ms per request.
+- **Preview fix:** `file_facts` used `distinct()` (500 under the preview driver); it now uses a `$group` aggregate. Preview-only module.
+- **Tests:** `tools/e3ui/fields.test.mjs` (6, node --test) and `tools/e3ui/art_details_test.py` (Playwright, 5 event types + network summary + real-mouse right-click → Quarantine → approval, `/edr/device-trajectory` preview redirect).
+

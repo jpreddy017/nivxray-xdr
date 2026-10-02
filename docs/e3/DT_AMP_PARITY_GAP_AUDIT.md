@@ -56,6 +56,12 @@ Status:
 - **S-5** No image-load / remote-thread / process-access (Sysmon 7/8/10).
 - **S-6** 4688-only processes have no GUID and no start time, so their identity is PID_ONLY_NOT_AUTHORITATIVE and their lineage is at best CORRELATED.
 - **S-7** Process end requires the Sysmon config to emit EventID 5. Otherwise lanes show `continues_after`.
+- **S-8** No signer / signature status (Sysmon 1). Needs Sysmon 7 signature fields or a sensor Authenticode check.
+- **S-9** No network bytes / duration (Sysmon 3 is connection-start only).
+- **S-10** No file size on Sysmon 11.
+- **S-11** SHA-1 / MD5 aren't collected (the hash config is SHA-256 only).
+- **S-12** No Exploit Prevention / System Process Protection / Malicious Activity Protection engines on this sensor.
+
 - **E1-1** Store authority (`v2_shadow_observations` vs `xdr_canonical_evidence`) is undecided. E3 selects neither.
 - **E1-2** RC8 server ordering; push the aggregation down; the per-endpoint gap/heartbeat feed.
 
