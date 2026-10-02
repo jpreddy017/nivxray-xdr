@@ -1007,6 +1007,9 @@ async def endpoint_trajectory_window(
     dispositions: Optional[str] = None,
     hist_day: Optional[str] = None,
     raw_event_id: Optional[str] = None,
+    e3_page_size: int = 200,
+    e3_cursor: Optional[str] = None,
+    e3_event_id: Optional[str] = None,
     user=Depends(get_current_user),
     tenant_id: str = Depends(edr_tenant),
 ):
@@ -1080,6 +1083,27 @@ async def endpoint_trajectory_window(
                       "state": "DT2_CONTRACT_UNAVAILABLE",
                       "reason": type(ex).__name__}
         _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
+    # §d · PRODUCTION WIRING for the E3 Device Trajectory capability.
+    #
+    # Additive under `e3`: V1 and `dt2` above are untouched and a client that does not know
+    # this key simply ignores it. It is the same authoritative identity (`res.refs`) and the
+    # same authoritative customer resolved above — this route adds no second resolver and no
+    # second authority. Chronology is the stores' own stored observation time; `ingest_time`
+    # is never an ordering key. Failure degrades to an explicit unavailable state and can
+    # never take V1 or dt2 down with it.
+    try:
+        from edr_trajectory import production_service as e3prod
+        out["e3"] = await e3prod.device_trajectory(
+            _db, tenant_id=str(identity.get("tenant_id") or tenant_id),
+            refs=res.refs,
+            endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+            page_size=e3_page_size, cursor=e3_cursor, focus_event_id=e3_event_id)
+    except Exception as ex:                        # noqa: BLE001
+        out["e3"] = {"contract": "e3.dt.production.v1",
+                     "state": "E3_PRODUCTION_CONTRACT_UNAVAILABLE",
+                     "reason": type(ex).__name__, "detail": str(ex)[:200],
+                     "mock_data_reachable": False}
+        _log.warning("[trajectory] e3 production contract unavailable: %r", ex)
     _log.info("[trajectory] resolve=%.2fs projection=%.2fs tail=%.2fs "
               "total=%.2fs state=%s observations=%s",
               _t1 - _t0, _t2 - _t1, _t.perf_counter() - _t2,

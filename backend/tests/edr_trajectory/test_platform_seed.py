@@ -1,15 +1,21 @@
 import os
 
 import pytest
+import pytest_asyncio
 
 from edr_trajectory import kushu_import as kx
 from edr_trajectory import platform_seed as pls
 
-pytestmark = pytest.mark.skipif(not os.environ.get("MONGO_URL"), reason="needs a local MongoDB (preview DB only)")
+# pytest-asyncio needs the marker explicitly (no auto mode in pytest.ini), and an async
+# generator fixture must come from pytest_asyncio — without both, these tests ERROR at setup
+# instead of running, which reads as "no coverage" rather than "coverage not executed".
+pytestmark = [pytest.mark.skipif(not os.environ.get("MONGO_URL"),
+                                 reason="needs a local MongoDB (preview DB only)"),
+              pytest.mark.asyncio]
 REF = 1_790_900_000_000
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def dbs():
     from motor.motor_asyncio import AsyncIOMotorClient
     c = AsyncIOMotorClient(os.environ["MONGO_URL"])

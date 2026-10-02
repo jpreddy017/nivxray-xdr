@@ -1,0 +1,82 @@
+[
+  {
+    "check": "INDEX_SERVED_NO_BLOCKING_SORT",
+    "result": "PASS",
+    "detail": "blocking branches=none; worst docsExamined=264 (bounded by fetch size 264)"
+  },
+  {
+    "check": "NEWEST_FIRST",
+    "result": "PASS",
+    "detail": "items=50 newest=2026-10-02T14:36:41.330Z oldest=2026-10-02T14:36:02.226Z"
+  },
+  {
+    "check": "INGEST_TIME_NOT_ORDERING_KEY",
+    "result": "PASS",
+    "detail": "ordering_authority=STORED_OBSERVATION_TIME"
+  },
+  {
+    "check": "PAGE1_PAGE2_OVERLAP_EMPTY",
+    "result": "PASS",
+    "detail": "overlap=0"
+  },
+  {
+    "check": "NO_DUPLICATES_ACROSS_PAGES",
+    "result": "PASS",
+    "detail": "300 rows across 6 pages, 300 distinct"
+  },
+  {
+    "check": "NO_BOUNDARY_LOSS",
+    "result": "PASS",
+    "detail": "single page(300) == paged sequence(300): True"
+  },
+  {
+    "check": "TIE_TOTAL_ORDER_STRICT",
+    "result": "PASS",
+    "detail": "289 tied instants inside the paged range; (observed_ms,event_id) strictly descending=True"
+  },
+  {
+    "check": "CROSS_TENANT_EVIDENCE_LEAK_NO",
+    "result": "PASS",
+    "detail": "tenant=default asking for another customer's refs returned 0 rows"
+  },
+  {
+    "check": "OWN_TENANT_REACHED",
+    "result": "PASS",
+    "detail": "tenant=ten_f1a5479243e901cf159e230fa0 got 25 rows, all own-tenant"
+  },
+  {
+    "check": "NO_TENANT_FAILS_CLOSED",
+    "result": "PASS",
+    "detail": "TenantRequired raised; no evidence returned"
+  },
+  {
+    "check": "DEEP_LINK_RESOLVES_EXACT",
+    "result": "PASS",
+    "detail": "FOCUS_RESOLVED event_id=act_fecd830301021b8a35452b28 observed_at=2026-10-02T14:36:41.330Z"
+  },
+  {
+    "check": "DEEP_LINK_MISS_IS_EXPLICIT",
+    "result": "PASS",
+    "detail": "FOCUS_NOT_RESOLVED reason=EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT"
+  },
+  {
+    "check": "DEEP_LINK_CANNOT_CROSS_ENDPOINT",
+    "result": "PASS",
+    "detail": "FOCUS_NOT_RESOLVED \u2014 this endpoint's refs do not resolve another endpoint's evidence"
+  },
+  {
+    "check": "UNPLACEABLE_TRUTHFUL",
+    "result": "PASS",
+    "detail": "unplaceable_count=0; every emitted row carries a real observation time"
+  },
+  {
+    "check": "PROVENANCE_ON_EVERY_ROW",
+    "result": "PASS",
+    "detail": "stores_read=['v2_shadow_observations', 'xdr_canonical_evidence'] rows_per_store={'v2_shadow_observations': 228, 'xdr_canonical_evidence': 114}"
+  },
+  {
+    "check": "BAD_CURSOR_REFUSED",
+    "result": "PASS",
+    "detail": "BadCursor raised"
+  }
+]

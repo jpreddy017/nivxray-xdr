@@ -1,16 +1,19 @@
 import os
 
 import pytest
+import pytest_asyncio
 from fastapi import HTTPException
 
 from edr_trajectory import kushu_import as kx
 
-pytestmark = pytest.mark.skipif(not os.environ.get("MONGO_URL"), reason="needs a local MongoDB (preview DB only)")
+pytestmark = [pytest.mark.skipif(not os.environ.get("MONGO_URL"),
+                                 reason="needs a local MongoDB (preview DB only)"),
+              pytest.mark.asyncio]
 DEV = "dev_test_import"
 T = 1_790_000_000_000
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db():
     from motor.motor_asyncio import AsyncIOMotorClient
     c = AsyncIOMotorClient(os.environ["MONGO_URL"])

@@ -2,16 +2,18 @@ import os
 import time
 
 import pytest
+import pytest_asyncio
 
 from edr_plane.instant import instant_ms
 from edr_trajectory import e1_shape_preview as pv
 from edr_trajectory import prodshape as ps
 from edr_trajectory.stale_trace import trace
 
-pytestmark = pytest.mark.skipif(not os.environ.get("MONGO_URL"), reason="needs a local MongoDB (preview DB only)")
+pytestmark = pytest.mark.skipif(not os.environ.get("MONGO_URL"),
+                                reason="needs a local MongoDB (preview DB only)")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def seeded(monkeypatch):
     monkeypatch.setenv("E3_PREVIEW_DB", "e3_dt_preview_pytest")
     pv._state.clear()
@@ -23,6 +25,7 @@ async def seeded(monkeypatch):
     pv._state.update({"ident": None, "lock": None})
 
 
+@pytest.mark.asyncio
 async def test_newest_observation_vanishes_at_e1_page_selection_and_survives_newest_first(seeded):
     out = await trace(pv._db(), pv._state["ident"], pv._refs(pv._state["ident"]), observation_id=None,
                       now_ms=int(time.time() * 1000))
@@ -35,6 +38,7 @@ async def test_newest_observation_vanishes_at_e1_page_selection_and_survives_new
     assert not out["e1_deep_link_locate"]["present"] and out["e1_deep_link_locate"]["observations_examined"] == 15000
 
 
+@pytest.mark.asyncio
 async def test_paging_into_history_loses_and_duplicates_nothing(seeded):
     t1 = int(time.time() * 1000)
     q = {"time_start": ps._iso(t1 - ps.D), "time_end": ps._iso(t1), "lane_start": 0, "lane_end": 100000,
