@@ -1,14 +1,16 @@
 import React, { useState } from "react";
+import { E3_DT_V3 } from "./trajectory_amp/flags";
 
 export const SIDEBAR_KEY = "nvx.sidebar.collapsed";
-export const readCollapsed = () => { try { return window.localStorage.getItem(SIDEBAR_KEY) === "1"; } catch { return false; } };
+export const readCollapsed = () => { if (!E3_DT_V3) return false; try { return window.localStorage.getItem(SIDEBAR_KEY) === "1"; } catch { return false; } };
 export function setCollapsedGlobal(v) {
   try { window.localStorage.setItem(SIDEBAR_KEY, v ? "1" : "0"); } catch { /* ok */ }
   window.dispatchEvent(new CustomEvent("nvx-sidebar", { detail: v }));
 }
 
 /** EDR shell navigation: expanded (icons + names) or an Outlook-style icon rail. */
-export default function EdrSidebar({ nav, active, collapsed, onToggle, onGo }) {
+export default function EdrSidebar({ nav, active, collapsed: c, onToggle, onGo }) {
+  const collapsed = E3_DT_V3 && c;
   const [tip, setTip] = useState(null);
   const show = (text) => (e) => {
     if (!collapsed) return;
@@ -18,11 +20,11 @@ export default function EdrSidebar({ nav, active, collapsed, onToggle, onGo }) {
   const hide = () => setTip(null);
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`} data-testid="nvf-sidebar" data-collapsed={collapsed ? "1" : "0"}>
-      <button type="button" className="nav-toggle" data-testid="nvf-sidebar-toggle" aria-expanded={!collapsed}
+      {E3_DT_V3 && <button type="button" className="nav-toggle" data-testid="nvf-sidebar-toggle" aria-expanded={!collapsed}
               aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} title={collapsed ? "Expand navigation" : "Collapse navigation"}
               onClick={() => { hide(); onToggle(); }}>
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" data-testid="nvf-sidebar-hamburger"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-      </button>
+      </button>}
       {nav.map((section, si) => (
         <React.Fragment key={section.title}>
           {collapsed ? (si > 0 && <div className="nav-sep" data-testid="nvf-nav-sep" role="separator" />)

@@ -1,15 +1,17 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import EdrDeviceTrajectoryPage from "@/nivxforge/trajectory/EdrDeviceTrajectoryPage";
-import { E3_DT_CONTRACT_PREVIEW } from "./flags";
+import { E3_DT_CONTRACT_PREVIEW, E3_DT_V3 } from "./flags";
 import { e3 } from "./e3Api";
 import { PAL } from "./model";
 import { FONT, ui } from "./ui";
 
 const E3TrajectoryPage = lazy(() => import("./E3TrajectoryPage"));
+const DeviceTrajectoryV3Page = lazy(() => import("@/nivxforge/trajectory_v3/DeviceTrajectoryPage"));
 
 // Flag OFF (default, every E1/prod build): renders the existing live page exactly as before.
 export default function DeviceTrajectoryEntry(props) {
+  if (E3_DT_V3) return <Suspense fallback={null}><DeviceTrajectoryV3Page {...props} /></Suspense>;
   if (!E3_DT_CONTRACT_PREVIEW) return <EdrDeviceTrajectoryPage {...props} />;
   return <SourceSwitch {...props} />;
 }
