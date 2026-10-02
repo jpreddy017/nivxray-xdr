@@ -52,6 +52,7 @@ async def ensure_seeded(force: bool = False) -> dict[str, Any]:
         meta = {"_id": "dataset", "ref_ms": ref, "identity": ident, "count": len(docs), "label": ps.LABEL,
                 "source": "EXPORT" if export else "GENERATED"}
         await db["e3_preview_meta"].replace_one({"_id": "dataset"}, meta, upsert=True)
+        await _seed_detections(db, docs, ref)
         from edr_plane import trajectory_window as tw
         tw._proj_cache.clear()
         _state["ident"] = ident
@@ -60,6 +61,34 @@ async def ensure_seeded(force: bool = False) -> dict[str, Any]:
 
 def _refs(ident):
     return [ps.ENDPOINT, ident["hostname"], ident["device_iid"]]
+
+
+async def _seed_detections(db, docs, ref):
+    """E3 overlay collection in e3_dt_preview only. E1's own attribution path (edr_raw_events joins) is not modelled."""
+    def find(pred):
+        return next((d["observation_id"] for d in docs if pred(d["event"])), None)
+    raw = lambda e: e.get("raw") or {}
+    eicar = find(lambda e: e["kind"] == "file_create" and raw(e).get("target", "").endswith("eicar_test_file.com"))
+    psh = find(lambda e: e["kind"] == "process_create" and "-enc" in (raw(e).get("command_line") or ""))
+    upd = find(lambda e: e["kind"] == "process_create" and (raw(e).get("image_path") or "").endswith("upd.exe"))
+    dets = [d for d in [
+        eicar and {"observation_id": eicar, "kind": "SIGNATURE", "name": "EICAR-Test-Signature", "severity": "MEDIUM",
+                   "engine": "nivxforge-av (synthetic)", "at": ps._iso(ref - 3 * ps.H + 4000), "is_verdict": False,
+                   "response": None},
+        psh and {"observation_id": psh, "kind": "BEHAVIORAL_MATCH", "name": "E3-SEQ-OFFICE-SCRIPT-PS", "severity": "HIGH",
+                 "engine": "nivxforge-behavior", "at": ps._iso(ref - 46 * ps.M), "is_verdict": False, "mitre": ["T1059.001"],
+                 "response": None},
+    ] if d]
+    status = [{"observation_id": upd, "subject_path": "C:\\Users\\priya\\AppData\\Local\\Temp\\upd.exe",
+               "kind": "RETRO_DISPOSITION_CHANGE", "from": "UNKNOWN", "to": "DETECTED", "recorded_at": ps._iso(ref - 5 * ps.M),
+               "provenance": {"source": "nivxforge-own:retro-rescan", "rule": "E3-RETRO-DROPPED-PE"},
+               "note": "appended; the original observation is unchanged"}] if upd else []
+    await db["e3_dt_detections"].delete_many({})
+    await db["e3_dt_status_events"].delete_many({})
+    if dets:
+        await db["e3_dt_detections"].insert_many([dict(d) for d in dets])
+    if status:
+        await db["e3_dt_status_events"].insert_many([dict(s) for s in status])
 
 
 async def window_rows(db, ident, *, time_start, time_end, lane_start, lane_end, kinds, q, dispositions):
@@ -74,9 +103,9 @@ async def window_rows(db, ident, *, time_start, time_end, lane_start, lane_end, 
         rows = [r for r in rows if tw._matches(r, ks, nd, ds)]
         keep = {r["lane_id"] for r in rows}
         remap = {ln["lane_id"]: i for i, ln in enumerate(ln for ln in cat["lanes"] if ln["lane_id"] in keep)}
-        lane_of = lambda r: remap[r["lane_id"]]  # noqa: E731
+        lane_of = lambda r: remap[r["lane_id"]]
     else:
-        lane_of = lambda r: r["lane_index"]  # noqa: E731
+        lane_of = lambda r: r["lane_index"]
     t0 = tw.instant_ms(time_start) if time_start else None
     t1 = tw.instant_ms(time_end) if time_end else None
 
@@ -137,7 +166,16 @@ async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
                                                          requested_end=p.get("time_end"), focus=None).to_dict()
     except Exception as ex:  # noqa: BLE001
         out["dt2"] = {"state": "DT2_CONTRACT_UNAVAILABLE", "reason": type(ex).__name__}
-    out["e3_preview"] = {**e3, "data_label": ps.LABEL, "preview_only": True}
+    dets = {d["observation_id"]: d async for d in db["e3_dt_detections"].find({}, {"_id": 0})}
+    stat = [s async for s in db["e3_dt_status_events"].find({}, {"_id": 0})]
+    for e in out.get("events") or []:
+        if e.get("observation_id") in dets:
+            e["e3_detection"] = dets[e["observation_id"]]
+        hits = [s for s in stat if s["observation_id"] == e.get("observation_id")]
+        if hits:
+            e["e3_status_history"] = hits
+    out["e3_preview"] = {**e3, "data_label": ps.LABEL, "preview_only": True, "status_events": stat,
+                         "detections_basis": "E3 overlay collection e3_dt_detections (synthetic); not E1 attribution"}
     return out
 
 
@@ -178,6 +216,18 @@ def build_router() -> APIRouter:
             "event_iid": hit["event_iid"], "timestamp": hit["timestamp"], "event_type": hit.get("event_type"),
             "lane_index": hit.get("lane_index"), "observation_id": hit.get("observation_id"),
             "window": {"time_start": ps._iso(ms - 30 * ps.M), "time_end": ps._iso(ms + 30 * ps.M)}}}
+
+    @r.get("/e3/preview/stale-trace")
+    async def stale_trace(observation_id: str | None = None, limit: int = 500):
+        from .stale_trace import trace
+        meta = await ensure_seeded()
+        return await trace(_db(), _state["ident"], _refs(_state["ident"]), observation_id=observation_id,
+                           now_ms=int(time.time() * 1000), limit=limit) | {"dataset_ref_ms": meta["ref_ms"]}
+
+    @r.post("/e3/preview/reseed")
+    async def reseed():
+        meta = await ensure_seeded(force=True)
+        return {k: meta[k] for k in ("ref_ms", "count", "label", "source")}
 
     @r.get("/xdr/rbac/session-context")
     async def session_context():

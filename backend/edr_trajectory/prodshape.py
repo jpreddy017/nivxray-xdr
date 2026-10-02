@@ -49,7 +49,7 @@ def _line(src: tuple[str, str], eid: int, rec: int, t: int, ing: int, data: dict
 
 
 class Proc:
-    def __init__(self, g: "Gen", t: int, image: str, cmd: str, parent: "Proc | None", user: str = USER,
+    def __init__(self, g: Gen, t: int, image: str, cmd: str, parent: Proc | None, user: str = USER,
                  sha256: str | None = None, guid: bool = True):
         g.pidn += 4
         self.pid, self.image, self.cmd, self.parent, self.user, self.t = g.pidn % 30000 + 400, image, cmd, parent, user, t
@@ -232,6 +232,7 @@ def generate(ref_ms: int, seed: int = 4270) -> tuple[list[str], list[dict[str, A
                     rec["observed_at"] = _iso(ref_ms - 25 * M + i % 600).replace("Z", "+00:00")
                     g.lines[i] = (json.dumps(rec, separators=(",", ":")), {**meta, "late": True, "tag": meta["tag"] or "backlog"})
             _office_chain(g, exp, ref_ms - 50 * M)
+            g.file(ref_ms - 3 * H, exp, "C:\\Users\\priya\\Downloads\\eicar_test_file.com", tag="eicar")
         if k == 5:
             _lateral_dump(g, t0 + 3 * H)
     return [x[0] for x in g.lines], [x[1] for x in g.lines]
