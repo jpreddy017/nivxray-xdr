@@ -1,81 +1,102 @@
-# Post-Deploy Acceptance Verification — greeting-app-5782 (nivxray XDR)
+# Device Trajectory Evidence Baseline — READ-ONLY measurement
 
-**Scope:** READ-ONLY acceptance verification. No deploy/restart/scale/source/Mongo-write was performed. No telemetry posted. No endpoints (KUSHU / DESKTOP-A9HGFJJ) touched. Backlog left alone.
-
-**Deployment:** greeting-app-5782 (deployment_id 96834a37-643a-4d79-aa15-44810db52b06)
-**Active run (publish "ec9e994"):** `ec9e9940-5c50-4b53-8dea-366bacc0afdc` — type=redeploy, status=success, tier_3, template fastapi_react_mongo_shadcn_base_image, cluster target-8, created 2026-10-01T15:34:11Z, completed 15:44:18Z.
-**Image:** us-central1-docker.pkg.dev/emergent-default/customers-app/greeting-app-5782:ec9e9940-5c50-4b53-8dea-366bacc0afdc (1813182676 bytes)
-
----
-
-## 1. DEPLOYED BUILD IDENTITY — CONFIRMED (with one caveat on git-SHA mapping)
-
-**Publish id → run/image mapping:** The Deployment Panel's "ec9e994" is the prefix of the active run_id `ec9e9940-...`, which is also the Docker image tag. The live pods are confirmed pulling exactly this tag (see K8s Pulled events). So "publish ec9e994" == this run == this image. CONFIRMED.
-
-**Caveat — git SHA cannot be mapped by the platform.** The Emergent deployer does NOT record a git commit SHA; the image is tagged by run_id, not by `f900ad7d...`. I therefore cannot assert from platform metadata that the image == commit f900ad7d. What I CAN do is verify the *source content* that was packaged into this run and built into the image, via the run's pulled-source archive (extracted to /app/scratch in an eph sandbox). These greps ran against that archive:
-
-| Check | Expected | Actual | Result |
-|---|---|---|---|
-| `grep -c 'PROCESSING_CONTRACT = "durable_queue_v1"' backend/edr_plane/processing_queue.py` | 1 | 1 | ✅ |
-| `grep -c 'processing_created.get("created")' backend/routers/edr_enrollment.py` | 1 | 1 | ✅ |
-| `grep -c 'worker_count=1' backend/server.py` | 1 | 1 | ✅ |
-| `grep -c '$lookup' backend/edr_plane/processing_queue.py` | 0 | 0 | ✅ |
-| `backend/edr_plane/processing_queue.py` exists (new in release) | yes | yes (16596 bytes) | ✅ |
-
-All five source-content markers of the RC2 EDR durable-ACK release are present in the build that produced this image. Consistent with f900ad7d, though the git SHA itself is not stored/verifiable from platform metadata. (Note: the archive is the pull_source input to the build; it is not a read of the live pod's running filesystem, but image == archive by construction.)
-
-## 2. STARTUP LOG — DURABLE WORKER SUPERVISOR — CONFIRMED, N=1
-
-Literal line (observed on BOTH replicas):
-`[startup] EDR durable processing supervisor started (workers=1, reconcile=60s)`
-- Replica 1: 2026-10-01T15:44:11.372Z
-- Replica 2: 2026-10-01T15:44:37.386Z
-
-**N = 1** on both pods. ✅
-`[startup] EDR durable processing supervisor failed:` — NOT present. ✅
-`INFO: Application startup complete.` seen for both replicas.
-
-## 3. PRODUCTION MONGO INDEX STATE (listIndexes only; DB greeting-app-5782-test_database)
-
-**edr_processing_queue (4 indexes):**
-- `uniq_tenant_raw` — key {raw_id:1, tenant_id:1}, unique:true ✅
-- `claimable_work` — key {available_at:1, created_at:1, state:1} ✅ (present)
-- `expired_leases` — key {lease_until:1, state:1} ✅ (present)
-- (plus _id_)
-
-**edr_raw_events (9 indexes):**
-- `reconcile_contract_window` — PRESENT, partialFilterExpression {processing_contract:{$exists:true}} ✅
-  - ⚠️ **FIELD-ORDER DISCREPANCY:** actual key is `{ingest_time:1, processing_contract:1}` (ingest_time first). You specified "(processing_contract, ingest_time)". Name + partial filter match exactly; the compound key order is reversed vs. your spec. Factual flag only — not an error, but confirm this matches the intended index definition in code.
-- Other existing indexes: _id_, uniq_tenant_dedup (unique, {dedup_key,tenant_id}), tenant_id_1_ingest_time_-1, tenant_id_1_endpoint_ref_1, tenant_id_1_derivations.parser_state_1, events_keyset, events_detection_time, events_payload_hash.
-
-**Index-build health:** `[startup] edr_raw_events + enrollment indexes ensured (append-only)` logged successfully on both pods (15:44:11 / 15:44:37). No index-build warning, stall, timeout, or `[startup] ... indexes failed` line anywhere in the startup logs. ✅
-
-## 4. POD STABILITY — HEALTHY
-
-2 replicas, both phase=Running, container ready=true, **restart_count=0** on both:
-- r-ec9e9940-...-5b87cbbd4f-5gdld — started 2026-10-01T15:42:39Z
-- r-ec9e9940-...-5b87cbbd4f-8btg9 — started 2026-10-01T15:42:39Z
-
-No CrashLoopBackOff, no OOMKill, no liveness-probe kills, no repeated pod replacement. The only Warning events are transient **Startup** probe "connection refused" at 15:43–15:44 (6 each) while the backend was still binding port 8080 during boot — both cleared and pods went Ready. Expected boot behavior, not instability.
-
-## 5. FEATURE-ATTRIBUTABLE RUNTIME ERRORS — NONE FOUND
-
-Searched last 1440 min. HTTP status histogram over the sampled window: **200×59, 403×10, zero 5xx.**
-- `[edr-reconcile] durable-job reconciliation FAILED` — NOT present. ✅
-- `AttributeError: module 'edr_plane.processing_queue'` — NOT present. ✅
-- Any traceback with frames in edr_plane/processing_queue.py or routers/edr_enrollment.py — NONE. ✅
-- 5xx on POST /api/edr/agent/telemetry or /api/edr/agent/telemetry/batch — NONE (no 5xx on any route). ✅
-
-**Observed but NOT feature-attributable (for your awareness, no action implied by this task):**
-- 403s are all on `POST /api/edr/agent/session` (agent auth rejections from 35.227.215.211 / default tenant) — not telemetry, not 5xx, expected auth behavior.
-- `nightly benchmark failed: can't subtract offset-naive and offset-aware datetimes` (×2, 15:49) — a pre-existing nightly-benchmark job tz bug, unrelated to the EDR durable queue release. Flagging only; out of scope for this acceptance.
-
-## 6. AUTHORITATIVE LIVE BACKEND URL
-
-Platform deployed URL: **https://greeting-app-5782.emergent.host** (this is what the active run serves; `/api/*` → Kubernetes backend on target-8).
-Verified custom domain alias: **https://nivxray.nivxforge.com** (verified=true) — same backend. Either is authoritative; emergent.host is the canonical platform origin.
+**Target:** deployment `greeting-app-5782` (Publish 100), run `ec9e9940`, DB `greeting-app-5782-test_database`.
+**Endpoint of interest:** hostname **KUSHU**, `endpoint_id = ep_a67be48d5b4e01d4d9e8`, `tenant_id = ten_e759b7288598bd882e3dcac49d`.
+**Excluded entirely:** DESKTOP-A9HGFJJ (`ep_1989031c8c1d0085812f`). It appears in the same tenant; wherever a collection is tenant-scoped with no endpoint field, I say so rather than attributing its rows to KUSHU.
+All operations were find/count/distinct with projections. No writes, no host access, no credential material displayed, backlog only measured.
 
 ---
 
-## VERDICT
-Deploy ec9e9940 (publish ec9e994) is live and healthy and carries the RC2 EDR durable-ACK source. Build-identity markers (1), supervisor worker=1 (2), required indexes (3), pod stability (4) and absence of feature-attributable errors (5) all PASS. Two non-blocking flags: (a) `reconcile_contract_window` compound-key field order is reversed vs. your spec (name + partial filter correct); (b) git SHA f900ad7d is not independently verifiable from platform metadata — confirmed instead via build source content. No remediation performed (read-only).
+## A. Endpoint record — collection `edr_endpoints`, key `endpoint_id`
+(credential material projected OUT; no agent_credential/token/secret/hash/digest/salt read)
+
+| field | value |
+|---|---|
+| endpoint_id | ep_a67be48d5b4e01d4d9e8 |
+| hostname | KUSHU |
+| tenant_id | ten_e759b7288598bd882e3dcac49d |
+| sensor_version | 0.3.0-windows |
+| enrollment_state | ENROLLED |
+| credential_state | ACTIVE |
+| sensor_state | REPORTING |
+| last_telemetry_at | 2026-10-02T13:47:55.118424+00:00 |
+| last_heartbeat_at | 2026-10-02T13:47:55.741275+00:00 |
+| report_interval_seconds | 30 |
+| event_count | **2683** |
+| outbox_queue_depth | **249455** |
+
+Note: the earlier `event_count=61` snapshot is stale — current value is 2683, and the sensor is REPORTING. The on-host outbox is still very deep (249,455), i.e. the host has a large un-shipped backlog on top of what has been ingested.
+
+---
+
+## B. Raw evidence volume — collection `edr_raw_events`
+Filter field: both `endpoint_ref` and `source` are populated and identical for this endpoint (each returns 131,750). I used **`endpoint_ref`** + `tenant_id`.
+
+- Total documents: **131,750**
+- With `processing_contract == "durable_queue_v1"`: **130,500** (the remaining 1,250 — the oldest rows — carry no `processing_contract` field, i.e. predate that contract)
+- ingest_time — oldest: **2026-10-01T09:54:59.592921+00:00**, newest: **2026-10-02T13:47:55.071240+00:00**
+- **Observation time — NOT directly queryable on this collection.** Top-level `event_time` is **null for 100%** of this endpoint's raw rows (count of `event_time != null` = 0). The observation timestamp exists only INSIDE the `payload` JSON string (`observed_at`, and the Sysmon `UtcTime`/`TimeCreated` in the embedded XML). With find/count/distinct only (no aggregate, string payload) a true min/max across 131,750 payloads cannot be computed. The queryable observation time lives on the canonical collection (see below).
+- Observation window from `xdr_canonical_evidence.event_time` (the processed subset, 17,721 rows): oldest **2026-09-29T04:16:54Z**, newest **2026-10-01T09:59:36Z**.
+- **Backlog replay still visible: YES.** Newest ingest_time (2026-10-02 13:47) is ~28h newer than the newest observation time (2026-10-01 09:59). ingest_time ≫ observation time → replay ongoing.
+
+---
+
+## C. Processing queue — collection `edr_processing_queue`
+**Important limitation:** this collection carries only `raw_id` + `tenant_id` + `state`/timestamps — **no endpoint field.** A per-endpoint breakdown is NOT derivable from it directly (would require resolving each `raw_id` back to `edr_raw_events.endpoint_ref`). Counts below are **tenant-level** and therefore include the excluded host DESKTOP-A9HGFJJ; they cannot be attributed purely to KUSHU.
+
+Counts by state (tenant `ten_e759b7288598bd882e3dcac49d`):
+| state | count |
+|---|---|
+| PENDING | 76,358 |
+| PROCESSING | 1 |
+| DONE | 54,191 |
+| RETRY | 0 |
+| **total** | **130,550** |
+
+- Oldest PENDING `created_at`: **2026-10-02T07:40:30.428Z**
+- Draining assessment: **not draining meaningfully.** 76,358 PENDING vs 54,191 DONE, only 1 PROCESSING (worker_count=1). The queue is still ~58% pending.
+
+---
+
+## D. Evidence TYPE availability — collection `xdr_canonical_evidence`
+Filter: `host.host_id = ep_a67be48d5b4e01d4d9e8` + `tenant_id`. Category derived from `additional_fields.winlog.event_id` (the Sysmon EventID). Total canonical evidence for KUSHU = **17,721**.
+
+| category | Sysmon EventID | count |
+|---|---|---|
+| process create | 1 | **69** |
+| file create | 11 | **239** |
+| registry (create/setvalue/rename) | 12 / 13 / 14 | **15,983 / 591 / 0** → **16,574 total** |
+| network connect | 3 | **360** |
+| DNS query | 22 | **4** |
+| process terminate | 5 | **66** |
+| image load | 7 | **0** |
+| driver load | 6 | **0** |
+
+(Typed EventIDs above sum to 17,312; the remaining ~409 are other event types e.g. `logon_success`, winsec 5379, etc.)
+
+Process-lineage viability (EventID 1, n=69):
+- with non-empty `process.command_line`: **69 / 69 (100%)**
+- with `process.parent_process_guid`: **69 / 69 (100%)**
+
+→ Evidence-backed process lineage IS possible, but only across **69** process-create events. Registry (EventID 12) dominates the dataset. Image/driver load (6/7) are absent.
+
+---
+
+## E. Detection / ATT&CK availability
+- `edr_findings`: **0** (entire collection empty; also 0 filtered to this endpoint) → **no detection/finding records.**
+- `edr_finding_evaluations` (endpoint-scoped via `endpoint_ref`): **55,432** evaluations for KUSHU, but states are only `EVALUATED_NO_FINDING` and `NOT_EVALUATED`; rows with a non-empty `finding_ids` = **0**. So evaluations ran, none produced a finding.
+- `xdr_correlation_matches`: 0 · `xdr_multi_evidence_incidents`: 0 · `correlations`: 0 (all tenant-scoped).
+- **MITRE/ATT&CK attribution records: 0.** No findings exist, so no `findings.attck` / `event.mitre` / `mitre_basis` attribution is attached to any of this tenant's evidence. No example can be given — there is no end-to-end attribution trace to produce.
+
+---
+
+## F. Retired ATT&CK v19.2 techniques in stored evidence
+Because this tenant has **zero** findings and **zero** ATT&CK-attributed evidence/correlation records, **none** of the 16 retired technique ids (T1070.001, T1070.002, T1562[.001–.012], T1574.002, T1656) appear in any stored ATT&CK attribution for this tenant. Record count for each = **0**. An ATT&CK catalogue upgrade would therefore have **no effect on historical evidence display** for this tenant — there is no stored technique attribution to re-map.
+
+---
+
+## Bottom line for the Device Trajectory UI validation
+- The sensor is live and ingesting (131,750 raw rows), but the pipeline is mid-replay: ingest is ~28h ahead of observation time, and the processing queue is ~58% PENDING with a single worker — canonical evidence (17,721) is a partial, lagging view that will keep growing.
+- Trajectory content is overwhelmingly **registry** (16,574) and **network** (360); **process-create is only 69 events** (all with CommandLine + ParentProcessGuid, so lineage is sound but sparse). DNS=4, terminate=66, image/driver load=0.
+- There is **no detection or ATT&CK layer at all** for this endpoint/tenant — any trajectory UI element that expects findings or MITRE technique badges will have nothing to render from real data here.
+- Observation time is NOT stored queryably on `edr_raw_events` (event_time null; only inside payload) — any UI/analytics relying on a top-level raw observation timestamp must read it from `xdr_canonical_evidence.event_time` instead.

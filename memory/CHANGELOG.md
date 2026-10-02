@@ -1,3 +1,67 @@
+## 2026-06 · integration/e3-dt · E3 Device Trajectory + ATT&CK v19.2 integrated (NOT deployed)
+
+Branch `integration/e3-dt` = `1800aeea` (E1 deployable baseline) fast-forwarded to E3
+`6858734fd61cd868c79f84afecf6c117ba372298`, then `96232631` strips the E3 preview router
+mount. `feature/rc2-alignment` @ `1800aeea` untouched and still the deployed line.
+
+Scope: 189 files, +34,363/-14,301. New backend packages (`edr_trajectory`, `edr_behavior`,
+`edr_ml`, `edr_investigation`), new DT surfaces `trajectory_v3/**` (production candidate,
+behind `VITE_E3_DT_V3`) and `trajectory_amp/**` (preview-only, behind
+`VITE_E3_DT_CONTRACT_PREVIEW`), legacy `trajectory/**` kept as rollback.
+
+Durable-ACK invariants re-verified intact. `edr_plane/`, `routers/`, `deps.py`, `agents/`,
+`.github/` and all dependency manifests UNTOUCHED by E3.
+
+### Results
+- `backend/tests/edr/`: 2050 passed / **1 failed** / 3 skipped (baseline 2051/3)
+- New E3 trees: 190 passed / 9 skipped (9 skip because the preview adapter was stripped)
+- MITRE consumers 117 passed · tenant isolation 207 passed · response authority 78 passed
+- vitest (XDR app) 246 passed · jest (frontend) 14 passed · node --test 50 + 12 passed
+- Full `backend/tests/` (550 files): BLOCKED - live-network dependent, >3h; the baseline at
+  `1800aeea` shows the same F/E population, so it is not a usable gate in this environment
+
+### BLOCKERS (owner decision required)
+1. **Gate 16 EDR independence FAILS.** `trajectory_v3/amp/AttackStrip.jsx` imports
+   `@/xdr/mitre/navigatorLayer`; `trajectory_v3/amp/attack.js` imports
+   `@/xdr/mitre/attackNameIndex.generated`. Gate 16 allows `@/xdr/(lib|nx|components|hooks|util)`
+   only. It is in the production-candidate path. Do not weaken the test.
+2. **ATT&CK v19.2 renames the `defense-evasion` tactic to `stealth`** (14 -> 15 tactics).
+   223 repo files reference `defense-evasion`/`Defense Evasion`; only 6 mention `stealth`.
+   No test fails, but every catalogue-cross-referencing consumer needs adjudication.
+3. **Real-KUSHU DT validation A-T is not achievable yet.** Brief section (d) lists ~11
+   production wiring items (newest-first paging, timestamp sort, focus resolver, file facts,
+   attack annotate, approvals durability) as E1 work NOT YET DONE, so the E3 UI cannot read
+   real data.
+
+### ATT&CK v16.1 -> v19.2 compatibility (computed, read-only)
+656 -> 697 active techniques; 0 -> 161 retired entries. **Zero IDs become unresolvable**
+(every v16.1 ID still resolves via `retired[]` carrying `revoked_by`). 16 active->retired,
+11 renames, 188 tactic-set changes. Catalogue coherent across backend service, router and
+the generated frontend index.
+
+### KUSHU real-evidence baseline (production, read-only)
+`ep_a67be48d5b4e01d4d9e8` ENROLLED/ACTIVE, 0.3.0-windows. 131,750 raw docs (130,500 marked
+`durable_queue_v1`), ingest 2026-10-01T09:54Z -> 2026-10-02T13:47Z, observation window
+2026-09-29T04:16Z -> 2026-10-01T09:59Z, i.e. **backlog replay still ~28h behind**.
+Canonical 17,721: registry 16,574, network 360, file 239, process-create **69** (all 69 have
+CommandLine + ParentProcessGuid), DNS 4, terminate 66, imageload/driverload 0.
+**edr_findings = 0, zero ATT&CK attribution** -> MITRE real trace = INSUFFICIENT_REAL_EVIDENCE.
+Queue tenant-level: PENDING 76,358 / DONE 54,191 / RETRY 0 - not draining at 1 worker.
+Top-level `event_time` is NULL on 100% of raw rows; observation time lives only in payload
+JSON and in `xdr_canonical_evidence.event_time`.
+
+### Verified safe
+`PRODUCTION_MOCK_DATA_REACHABLE = NO` - proven with `E3_TRAJECTORY_ROUTER=1` forced ON:
+zero `/api/e3/*` routes register. Flag matrix proven by build: OFF/unset -> legacy entry chunk
+statically depends on `EdrDeviceTrajectoryPage` (13,186 B); ON -> that dependency is folded
+out (1,837 B) and `trajectory_v3` renders. IRG isolation holds: `trajectoryVerdict()` returns
+`malicious` only from an evidence-backed MALICIOUS machine assessment, a rule/behavioral MATCH
+is `detected`, and `InvestigationCanvas.jsx` does not import `VERDICT_LABEL`.
+
+NOTHING DEPLOYED OR PUBLISHED. DESKTOP-A9HGFJJ UNTOUCHED. KUSHU sensor / enrollment /
+identity / journal UNTOUCHED. Gate 4 HOLD.
+
+
 ## 2026-06 · P0 CLOSED IN PRODUCTION · durable-ACK boundary + bounded reconciler deployed
 
 Deployable line `feature/rc2-alignment`:
