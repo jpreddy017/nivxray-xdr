@@ -754,6 +754,10 @@ except Exception as _v2_exc:                             # pragma: no cover
 
 app.include_router(api)
 
+# E3 PREVIEW-ONLY (E1: STRIP). Read-only /api/e3/trajectory/*, OFF unless E3_TRAJECTORY_ROUTER=1.
+from edr_trajectory.preview_mount import mount_if_enabled as _e3_dt_mount  # noqa: E402
+_e3_dt_mount(app, lambda: __import__("deps").db)
+
 # Production hardening: X-Request-ID, hard timeouts, payload caps
 app.add_middleware(RequestHardeningMiddleware)
 # RC3.0 · Feb-2026 · Cloudflare origin-parse hardening.

@@ -394,3 +394,15 @@ def test_api_openapi_and_endpoints(client):
     assert ap.status_code == 201 and ap.json()["request"]["state"] == "APPROVAL_REQUESTED"
     assert client.get("/api/e3/trajectory/approvals?tenant=ten_syn_b").json()["requests"] == []
     assert client.get("/api/e3/trajectory/devices/SYN-EDGE-04/lineage?scenario=edge_cases&tenant=ten_syn_a").status_code == 400
+
+
+def test_preview_mount_off_by_default(monkeypatch):
+    from edr_trajectory.preview_mount import mount_if_enabled
+
+    monkeypatch.delenv("E3_TRAJECTORY_ROUTER", raising=False)
+    app = FastAPI()
+    assert mount_if_enabled(app, lambda: None) is False
+    assert not [r for r in app.routes if "/e3/" in getattr(r, "path", "")]
+    monkeypatch.setenv("E3_TRAJECTORY_ROUTER", "1")
+    assert mount_if_enabled(app, lambda: None) is True
+    assert TestClient(app).get("/api/openapi.json").json()["paths"].get("/api/e3/trajectory/contracts")
