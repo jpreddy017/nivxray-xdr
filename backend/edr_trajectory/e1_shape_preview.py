@@ -216,8 +216,14 @@ def build_router() -> APIRouter:
 
     @r.get("/edr/endpoints/{endpoint_id}/trajectory/focus")
     async def focus(endpoint_id: str, raw_event_id: str | None = None, canonical_event_id: str | None = None,
-                    event_iid: str | None = None, observation_id: str | None = None):
+                    event_iid: str | None = None, observation_id: str | None = None, event: str | None = None):
+        from urllib.parse import unquote
+
         from edr_plane import trajectory_window as tw
+        ref = unquote(event_iid or event or "") or None
+        if ref and "#" not in ref:
+            observation_id, ref = observation_id or ref, None
+        event_iid = ref
         m = await kx.meta_for(_db(), endpoint_id)
         if m:
             return await kx.focus(_db(), m, event_iid=event_iid, observation_id=observation_id, raw_event_id=raw_event_id)

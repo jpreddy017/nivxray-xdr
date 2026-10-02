@@ -101,6 +101,28 @@ async def main():
         await pg.mouse.move(box["x"] + 900, box["y"] + 500); await pg.mouse.down()
         await pg.mouse.move(box["x"] + 700, box["y"] + 500, steps=5); await pg.mouse.up()
         ok("drag_pan", await grid.evaluate("g=>g.scrollLeft") > s0, s0)
+        # determinism: 3 repeats each of wheel-zoom (header + ctrl over body) and drag-pan
+        det = []
+        for i in range(3):
+            z0 = float(await grid.get_attribute("data-colw"))
+            await pg.mouse.move(box["x"] + 800, box["y"] + 40); await pg.mouse.wheel(0, -200); await pg.wait_for_timeout(150)
+            z1 = float(await grid.get_attribute("data-colw"))
+            await pg.mouse.move(box["x"] + 800, box["y"] + 500); await pg.keyboard.down("Control"); await pg.mouse.wheel(0, 200)
+            await pg.keyboard.up("Control"); await pg.wait_for_timeout(150)
+            z2 = float(await grid.get_attribute("data-colw"))
+            await grid.evaluate("g=>g.scrollLeft=500"); a = await grid.evaluate("g=>g.scrollLeft")
+            await pg.mouse.move(box["x"] + 900, box["y"] + 600); await pg.mouse.down()
+            await pg.mouse.move(box["x"] + 600, box["y"] + 600, steps=6); await pg.mouse.up()
+            c = await grid.evaluate("g=>g.scrollLeft")
+            det.append(z1 > z0 and z2 < z1 and c - a >= 250)
+        ok("wheel_zoom_and_drag_pan_deterministic_x3", all(det), det)
+        # search filters rows
+        n_rows = await pg.locator('[data-testid^="v3-row-"]').count()
+        await pg.fill('[data-testid="v3-search"]', "upd.exe"); await pg.press('[data-testid="v3-search"]', "Enter"); await pg.wait_for_timeout(400)
+        n_hit = await pg.locator('[data-testid^="v3-row-"]').count()
+        labels = await pg.eval_on_selector_all('[data-testid^="v3-row-"]', "e=>e.map(x=>x.title.toLowerCase())")
+        ok("search_filters_rows", 0 < n_hit < n_rows and any("upd.exe" in t for t in labels), f"{n_rows}->{n_hit}")
+        await pg.click('[data-testid="v3-search-clear"]'); await pg.wait_for_timeout(300)
         # expand instances
         exp = pg.locator('[data-testid^="v3-expand-"]').first
         if await exp.count():

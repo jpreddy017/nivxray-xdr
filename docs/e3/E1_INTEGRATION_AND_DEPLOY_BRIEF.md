@@ -215,3 +215,6 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
    - **Linux device** `dev_syn_lnx01`: synthetic lines go through E1's real Linux sensor path (`canonical_bridge.parse` → `bind_process_identity` → `observation_doc` → E1 projection). The Linux FILE writer is NOT_OBSERVED and network rows carry no `process_iid`, so those connectors render as UNRESOLVED "?". That is honest, not a UI bug.
    - **macOS device** `dev_fix_mac01`: **FIXTURE-ONLY, no E1 macOS parser.** The rows are hand-built in the E1 projection shape, solely to prove MachO/GZ row tags and narratives.
 
+   - **Deep-link resolver fix.** `/trajectory/focus` used to accept only `event_iid=`. A tester calling `?event=<obs>%23<suffix>` was silently ignored, so the endpoint returned OBSERVATION_NOT_RESOLVED. The preview adapter now accepts `event=` as an alias, URL-decodes it (double-encoded `%2523` included), and treats a bare `obs_…` value as `observation_id`. E1's own `/focus` should adopt the same alias. Regression: `tests/edr_trajectory/test_deeplink_http.py` runs through the real HTTP layer with an encoded `#`, 9 cases.
+   - The Playwright interaction suite (`tools/e3ui/m2_interaction_test.py`, 53 checks) and the perf matrix (`tools/e3ui/m2_perf_matrix.py`) run against the preview shell.
+

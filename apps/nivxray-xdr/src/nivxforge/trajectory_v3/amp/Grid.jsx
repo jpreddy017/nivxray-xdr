@@ -111,7 +111,7 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
     for (const n of insts) if (n.to >= c0 && n.from <= c1) instLines.push({ l, n, glow: sel && [sel.targetIid, sel.actorIid].includes(n.iid) });
   }
   return (
-    <div data-testid="v3-grid" ref={box} className="v3-scroll" onScroll={sync} onMouseDown={down}
+    <div data-testid="v3-grid" data-colw={colW.toFixed(2)} ref={box} className="v3-scroll" onScroll={sync} onMouseDown={down}
       style={{ overflow: "auto", height, position: "relative", background: C.page, userSelect: "none" }}>
       <div style={{ width: LABEL_W + W, height: HDR_H + H, position: "relative" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 6, display: "flex", width: LABEL_W + W, height: HDR_H, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
