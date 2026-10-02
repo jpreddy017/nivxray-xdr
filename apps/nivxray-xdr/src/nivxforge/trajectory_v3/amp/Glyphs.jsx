@@ -6,6 +6,8 @@ const INNER = {
   copy: <path d="M-3,2 L0,-2.5 L3,2" stroke={C.text} strokeWidth={1.5} fill="none" />,
   move: <path d="M-3.5,0 H3 M1,-2.2 L3.2,0 L1,2.2" stroke={C.text} strokeWidth={1.4} fill="none" />,
   exec: <path d="M-2.3,-3.2 L3.2,0 L-2.3,3.2 Z" fill="none" stroke={C.text} strokeWidth={1.3} />,
+  exec_blocked: <g><path d="M-2.3,-3.2 L3.2,0 L-2.3,3.2 Z" fill="none" stroke={C.text} strokeWidth={1.3} />
+    <path data-testid="v3-glyph-exec-blocked" d="M4,4.5 L6,1.1 L10,1.1 L12,4.5 L10,7.9 L6,7.9 Z" fill={C.red} stroke={C.page} strokeWidth={0.6} /></g>,
   open: <circle r={2.6} fill="none" stroke={C.text} strokeWidth={1.3} />,
   net: <path d="M-3.5,-1.4 H3 M1.4,-3 L3,-1.4 L1.4,0.2 M3.5,1.6 H-3 M-1.4,0 L-3,1.6 L-1.4,3.2" stroke={C.text} strokeWidth={1.1} fill="none" />,
   exploit: <path d="M0.8,-3.8 L-2.2,0.4 H0.2 L-0.8,3.8 L2.4,-0.6 H0 Z" fill={C.text} />,
@@ -33,6 +35,8 @@ export function Mark({ it, selected, small }) {
       <Shape shape={it.shape} />
       {INNER[it.kind.glyph] || INNER.other}
       {it.flags?.warn && <path data-testid="v3-flag-warning" d="M5,-13 L10.5,-4 L-0.5,-4 Z" fill={C.amber} stroke={C.page} strokeWidth={0.8} />}
+      {it.flags?.audit && <g data-testid="v3-flag-audit" transform="translate(8,-9)"><path d="M-4.5,0 Q0,-3.6 4.5,0 Q0,3.6 -4.5,0 Z" fill={C.panel} stroke={C.muted} strokeWidth={0.9} />
+        <circle r={1.4} fill={C.muted} /></g>}
       {it.flags?.cmd && !it.flags?.warn && <path d="M-11,-11 h5 v4 h-5 z M-10,-9.5 l1,0.8 l-1,0.8" stroke={C.muted} strokeWidth={0.8} fill={C.panel} />}
       {it.ev?.e3_status_history && <circle cx={-8} cy={8} r={2.6} fill={C.accent} />}
     </g>
@@ -41,4 +45,28 @@ export function Mark({ it, selected, small }) {
 
 export function GlyphIcon({ it, size = 20 }) {
   return <svg width={size} height={size} viewBox="-10 -10 20 20" style={{ flex: "none" }}><Mark it={it} /></svg>;
+}
+
+const LEG_GLYPHS = [["create", "Create"], ["copy", "Copy"], ["move", "Move"], ["exec", "Execute"], ["exec_blocked", "Execute blocked (not collected)"], ["open", "Open (not collected)"],
+  ["net", "Network"], ["exploit", "Exploit prevention (not collected)"], ["restore", "Restore (not collected)"], ["scan", "Scan detection (not collected)"],
+  ["usb", "External device (not collected)"], ["dns", "DNS"], ["reg", "Registry"], ["modify", "File modify"], ["delete", "File delete"]];
+const fake = (shape, glyph, flags = {}) => ({ shape, kind: { glyph }, flags });
+
+export function Legend() {
+  const cell = (it, label, k) => (
+    <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+      <svg width={30} height={26} viewBox="-15 -13 30 26"><Mark it={it} /></svg><span>{label}</span></div>);
+  return (
+    <div data-testid="v3-legend" style={{ position: "absolute", right: 0, top: 30, zIndex: 45, width: 520, background: C.tip, border: `1px solid ${C.line}`, borderRadius: 8,
+      padding: "12px 16px", fontSize: 12.5, color: C.text, boxShadow: "0 14px 40px rgba(0,0,0,.55)", display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 16 }}>
+      <b style={{ gridColumn: "1 / -1", marginBottom: 4 }}>Disposition (outer shape)</b>
+      {cell(fake("circle", "other"), "Benign (known-good evidence only)", "c")}{cell(fake("hexagon", "other"), "Malicious (evidence-backed only)", "h")}
+      {cell(fake("square", "other"), "Unknown / no hit / no detection", "s")}
+      <b style={{ gridColumn: "1 / -1", margin: "8px 0 4px" }}>Activity (inner symbol)</b>
+      {LEG_GLYPHS.map(([g, l]) => cell(fake("square", g), l, g))}
+      <b style={{ gridColumn: "1 / -1", margin: "8px 0 4px" }}>Flags</b>
+      {cell(fake("square", "exec", { warn: true }), "Warning (detection)", "fw")}{cell(fake("square", "exec", { audit: true }), "Audit only (not collected)", "fa")}
+      {cell(fake("square", "exec", { cmd: true }), "Command line", "fc")}
+    </div>
+  );
 }

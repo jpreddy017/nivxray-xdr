@@ -11,7 +11,7 @@ import os
 import time
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from . import kushu_import as kx
 from . import prodshape as ps
@@ -240,6 +240,25 @@ def build_router() -> APIRouter:
             "event_iid": hit["event_iid"], "timestamp": hit["timestamp"], "event_type": hit.get("event_type"),
             "lane_index": hit.get("lane_index"), "observation_id": hit.get("observation_id"),
             "window": {"time_start": ps._iso(ms - 30 * ps.M), "time_end": ps._iso(ms + 30 * ps.M)}}}
+
+    @r.get("/edr/endpoints/{endpoint_id}/trajectory/hours")
+    async def hours(endpoint_id: str, day: str):
+        from edr_plane import trajectory_window as tw
+        d0 = tw.instant_ms(f"{day}T00:00:00Z")
+        if d0 is None:
+            raise HTTPException(422, "day must be YYYY-MM-DD")
+        m = await kx.meta_for(_db(), endpoint_id)
+        if m:
+            ms = [x["ms"] for x in await kx._rows(_db(), m["device"], d0, d0 + ps.D - 1)]
+        else:
+            await ensure_seeded()
+            proj = await tw._projected(_db(), ident=_state["ident"], refs=_refs(_state["ident"]), docs_limit=None)
+            ms = [v for v in (tw._row_ms(x) for x in proj["rows"]) if v is not None and d0 <= v < d0 + ps.D]
+        counts = [0] * 24
+        for v in ms:
+            counts[(v - d0) // ps.H] += 1
+        return {"day": day, "hours": counts, "basis": "OBSERVATIONS_PER_HOUR_IN_RETAINED_EVIDENCE",
+                "note": "0 = no observation retained for that hour; not proof the sensor was offline"}
 
     @r.get("/e3/preview/stale-trace")
     async def stale_trace(observation_id: str | None = None, limit: int = 500):

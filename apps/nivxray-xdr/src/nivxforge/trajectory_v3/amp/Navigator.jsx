@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { C, DAY } from "./theme";
 
 const MON = (t) => new Date(t).toLocaleString("en-US", { month: "short", timeZone: "UTC" });
@@ -20,7 +20,7 @@ function DayTip({ t, dets, onJump, edge }) {
   );
 }
 
-function HourStrip({ day0, view, now, dets, onView }) {
+function HourStrip({ day0, view, now, dets, onView, hours }) {
   const ref = useRef(null);
   const [tmp, setTmp] = useState(null);
   const frac = (x) => Math.min(1, Math.max(0, (x - ref.current.getBoundingClientRect().left) / ref.current.clientWidth));
@@ -46,6 +46,9 @@ function HourStrip({ day0, view, now, dets, onView }) {
       <div ref={ref} data-testid="v3-hour-strip" onMouseDown={down} style={{ position: "relative", height: 24, background: C.inset, borderRadius: 4, cursor: "crosshair", userSelect: "none" }}>
         {Array.from({ length: 25 }, (_, h) => <span key={h} style={{ position: "absolute", left: `${(h / 24) * 100}%`, top: 0, bottom: 0, borderLeft: h % 24 ? `1px solid rgba(255,255,255,.06)` : "none" }}>
           <span style={{ position: "absolute", left: 3, top: 5, fontSize: 10.5, color: C.muted }}>{h === 0 ? "0:00" : h === 24 ? "" : h}</span></span>)}
+        {(hours || []).map((n, h) => (n === 0 && day0 + (h + 1) * 3_600_000 <= now ? <div key={`nd${h}`} data-testid="v3-nodata-hour"
+          title="No observation retained for this hour (not proof the sensor was offline)" style={{ position: "absolute", left: `${(h / 24) * 100}%`, width: `${100 / 24}%`,
+          top: 0, bottom: 0, background: `repeating-linear-gradient(135deg, ${C.hatch} 0 2px, transparent 2px 7px)` }} /> : null))}
         {now < day0 + DAY && <div title="Not yet occurred" style={{ position: "absolute", left: pct(now), right: 0, top: 0, bottom: 0, borderRadius: "0 4px 4px 0",
           background: `repeating-linear-gradient(135deg, ${C.hatch} 0 2px, transparent 2px 7px)` }} />}
         {dets.filter((d) => d.ms >= day0 && d.ms < day0 + DAY).map((d, i) => <span key={i} data-testid="v3-hour-det" title={`${d.name} ${hhmm(d.ms)}`}
@@ -58,14 +61,21 @@ function HourStrip({ day0, view, now, dets, onView }) {
   );
 }
 
-export default function Navigator({ days, dets, view, now, onView, onJump }) {
+export default function Navigator({ days, dets, view, now, onView, onJump, fetchHours }) {
   const [open, setOpen] = useState(true);
+  const [hours, setHours] = useState(null);
   const [tip, setTip] = useState(null);
   const today = Math.floor(now / DAY) * DAY;
   const cells = Array.from({ length: 30 }, (_, i) => today - (29 - i) * DAY);
   const tot = new Map((days || []).map((d) => [Date.parse(`${d.day}T00:00:00Z`), d.total]));
   const max = Math.max(1, ...cells.map((t) => tot.get(t) || 0));
   const day0 = Math.floor(Math.min(view.t1 - 1, now) / DAY) * DAY;
+  useEffect(() => {
+    let live = true;
+    setHours(null);
+    fetchHours?.(new Date(day0).toISOString().slice(0, 10)).then((h) => { if (live) setHours(h); }).catch(() => {});
+    return () => { live = false; };
+  }, [day0, fetchHours]);
   const pts = cells.map((t, i) => `${i * 48 + 24},${30 - ((tot.get(t) || 0) / max) * 26}`).join(" ");
   return (
     <div data-testid="v3-navigator" style={{ background: C.nav, padding: "10px 16px 6px 8px", display: "flex", gap: 8, borderRadius: "10px 10px 0 0" }}>
@@ -91,7 +101,7 @@ export default function Navigator({ days, dets, view, now, onView, onJump }) {
               </div>);
           })}
         </div>
-        <HourStrip day0={day0} view={view} now={now} dets={dets} onView={onView} />
+        <HourStrip day0={day0} view={view} now={now} dets={dets} onView={onView} hours={hours} />
       </div> : <div style={{ color: C.muted, fontSize: 12, paddingTop: 2 }}>Navigator</div>}
     </div>
   );

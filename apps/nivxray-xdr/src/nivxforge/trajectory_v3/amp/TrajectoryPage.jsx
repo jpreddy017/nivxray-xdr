@@ -6,6 +6,7 @@ import { ActivityDetails, ActivityList } from "./Activity";
 import { FiltersPanel } from "./Filters";
 import Grid from "./Grid";
 import Header from "./Header";
+import { Legend } from "./Glyphs";
 import { ApprovalDialog, ContextMenu } from "./Menu";
 import { buildModel, DEFAULT_ON, lineage, matches, passes } from "./model";
 import Navigator from "./Navigator";
@@ -61,6 +62,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
   const [dbg, setDbg] = useState(false);
+  const [legend, setLegend] = useState(false);
   const [colW, setColW] = useState(24);
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
@@ -109,6 +111,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     return () => ac.abort();
   }, [url, t0, t1, perf]); // eslint-disable-line
 
+  const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
     const id = req.current;
     setLoading(true);
@@ -235,11 +238,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
         {notice && <div data-testid="v3-notice" onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
           border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 18px", fontSize: 13.5, boxShadow: "0 10px 30px rgba(0,0,0,.5)", animation: "v3in .15s ease-out" }}>{notice}</div>}
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "visible" }}>
-          <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} />
+          <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} />
           <div data-testid="v3-toolbar" style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", padding: "6px 10px", background: C.panel, borderBottom: `1px solid ${C.line}`, fontSize: 12 }}>
             <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
             {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
               <button key={k} className="v3-btn" data-testid={`v3-${k}`} style={{ padding: "3px 10px", fontSize: 12 }} onClick={nav(k)}>{l}</button>)}
+            <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+              <button className="v3-btn" data-testid="v3-legend-toggle" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => setLegend(!legend)}>Legend</button>
+              {legend && <Legend />}</span>
             <button className="v3-btn" data-testid="v3-workspace-mode" data-mode={railed ? "max" : "standard"} style={{ padding: "3px 10px", fontSize: 12 }}
               onClick={() => { setCollapsedGlobal(!railed); setPanel(railed ? PANEL_DEFAULT : PANEL_MIN); }}>{railed ? "Standard layout" : "Maximum workspace"}</button>
           </div>

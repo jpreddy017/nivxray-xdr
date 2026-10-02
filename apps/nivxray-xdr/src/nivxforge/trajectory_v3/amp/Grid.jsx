@@ -21,7 +21,7 @@ function buildLines(rows, expanded) {
 
 function Label({ l, y, sel, hover, hits, expanded, toggle }) {
   if (l.hdr) return <div style={{ position: "absolute", top: y, left: 0, right: 0, height: ROW_H, background: C.band, display: "flex", alignItems: "center",
-    justifyContent: "flex-end", padding: "0 12px", boxSizing: "border-box", fontWeight: 700, fontSize: 15, color: "#fff" }}>{l.hdr}</div>;
+    justifyContent: "flex-end", padding: "0 12px", boxSizing: "border-box", fontWeight: 600, fontSize: 18, color: "#fff" }}>{l.hdr}</div>;
   const r = l.row, on = sel && (sel.target?.key === r.key || sel.actor?.key === r.key), hov = hover && (hover.a === r.key || hover.t === r.key);
   const hit = hits?.has(r.key);
   return (
@@ -132,7 +132,7 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
         </div>
         {lines[secIdx]?.hdr && <div data-testid="v3-sticky-section" style={{ position: "sticky", top: HDR_H, left: 0, zIndex: 5, height: ROW_H, marginBottom: -ROW_H, width: LABEL_W + vp.vw,
           background: C.band, display: "flex", alignItems: "center", pointerEvents: "none" }}>
-          <span style={{ width: LABEL_W, textAlign: "right", padding: "0 12px", boxSizing: "border-box", fontWeight: 700, fontSize: 15, color: "#fff" }}>{lines[secIdx].hdr}</span></div>}
+          <span style={{ width: LABEL_W, textAlign: "right", padding: "0 12px", boxSizing: "border-box", fontWeight: 600, fontSize: 18, color: "#fff" }}>{lines[secIdx].hdr}</span></div>}
         <div style={{ display: "flex" }}>
           <div style={{ position: "sticky", left: 0, zIndex: 4, width: LABEL_W, height: H, flex: "none", background: C.panel, borderRight: `1px solid ${C.line}` }}>
             {vlines.map((l, i) => <Label key={l.key} l={l} y={(r0 + i) * ROW_H} sel={sel} hover={hover} hits={hits} expanded={expanded} toggle={toggle} />)}

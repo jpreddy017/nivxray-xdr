@@ -26,6 +26,7 @@ const DISP = { hexagon: "d_malicious", circle: "d_benign", square: "d_unknown" }
 
 export const KIND = {
   process_create: { verb: "Executed", glyph: "exec", label: "Execute", filter: "execute" },
+  process_blocked: { verb: "Blocked from executing", glyph: "exec_blocked", label: "Execute blocked", filter: "exec_blocked" },
   file_create: { verb: "Created", glyph: "create", label: "Create", filter: "create" },
   file_write: { verb: "Created", glyph: "create", label: "Create", filter: "create" },
   file_modify: { verb: "Modified", glyph: "modify", label: "File modify", filter: "modify" },
@@ -95,7 +96,7 @@ export function buildModel(events, lanes, platform) {
     const causal = !actor ? "UNRESOLVED" : !isExec ? "PROVEN" : (e.parent_process_guid || e.parent_process_iid) ? "PROVEN" : "CORRELATED";
     const ftype = tgt && !["Network", "DNS", "Registry"].includes(tgt.type) ? tgt.type : null;
     items.push({ col, ev, kind: kindOf(e), actor, target, actorIid, targetIid, causal, shape: dispositionShape(e), actorImage, ftype,
-      flags: { warn: !!e.e3_detection, cmd: !!e.command_line } });
+      flags: { warn: !!e.e3_detection, cmd: !!e.command_line, audit: e.audit_only === true } });
     col += 1;
   }
   const order = (s) => [...rows.values()].filter((r) => r.section === s).sort((a, b) => b.count - a.count || String(a.label).localeCompare(b.label));
