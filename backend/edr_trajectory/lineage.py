@@ -2,7 +2,7 @@
 lane model for the UI, and lineage isolation. Temporal proximity alone never creates an edge."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from .contracts import CORRELATED, ID_PID_ONLY, PROVEN_CAUSAL, UNRESOLVED, parse_instant
 from .identity import parent_spoof
@@ -10,8 +10,8 @@ from .identity import parent_spoof
 FILE_KINDS = ("FILE_CREATE", "FILE_WRITE", "FILE_DELETE", "FILE_MOVE", "FILE_EXECUTE")
 
 
-def _node(key: str, ev: Optional[Dict[str, Any]], *, synthetic: bool = False, observed: bool = True,
-          label: Optional[str] = None) -> Dict[str, Any]:
+def _node(key: str, ev: dict[str, Any] | None, *, synthetic: bool = False, observed: bool = True,
+          label: str | None = None) -> dict[str, Any]:
     p = (ev or {}).get("process") or {}
     return {"key": key, "synthetic": synthetic, "observed": observed,
             "identity_state": (ev or {}).get("process_identity"), "pid": p.get("pid"), "guid": p.get("guid"),
@@ -22,9 +22,9 @@ def _node(key: str, ev: Optional[Dict[str, Any]], *, synthetic: bool = False, ob
             "parent_spoof": None}
 
 
-def build_graph(events: List[Dict[str, Any]]) -> Dict[str, Any]:
-    nodes: Dict[str, Dict[str, Any]] = {}
-    unattributed: List[str] = []
+def build_graph(events: list[dict[str, Any]]) -> dict[str, Any]:
+    nodes: dict[str, dict[str, Any]] = {}
+    unattributed: list[str] = []
     for ev in sorted(events, key=lambda e: (e["observed_ms"] or 0, e["event_id"])):
         k = ev.get("process_key")
         if not k:
@@ -54,7 +54,7 @@ def build_graph(events: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"nodes": nodes, "unattributed_network": unattributed}
 
 
-def _resolve_parent(n: Dict[str, Any], nodes: Dict[str, Dict[str, Any]]) -> None:
+def _resolve_parent(n: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> None:
     ev = n.get("_start_ev")
     if n["synthetic"]:
         return
@@ -99,15 +99,15 @@ def _unresolved(n, nodes, ppid, reason, keep_state=False):
         n.update(causal_state=UNRESOLVED, causal_basis=reason)
 
 
-def lanes(events: List[Dict[str, Any]], t0: int, t1: int) -> Dict[str, Any]:
+def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
     g = build_graph(events)
     nodes = g["nodes"]
-    children: Dict[Optional[str], List[str]] = {}
+    children: dict[str | None, list[str]] = {}
     for k, n in nodes.items():
         children.setdefault(n["parent_key"], []).append(k)
-    order: List[Dict[str, Any]] = []
+    order: list[dict[str, Any]] = []
 
-    def visit(k: str, depth: int, seen: Set[str]) -> None:
+    def visit(k: str, depth: int, seen: set[str]) -> None:
         if k in seen:
             return
         seen.add(k)
@@ -127,10 +127,10 @@ def lanes(events: List[Dict[str, Any]], t0: int, t1: int) -> Dict[str, Any]:
             visit(c, depth + 1, seen)
 
     roots = [k for k, n in nodes.items() if n["parent_key"] is None or n["parent_key"] not in nodes]
-    seen: Set[str] = set()
+    seen: set[str] = set()
     for r in sorted(roots, key=lambda x: (nodes[x]["first_ms"] or 0, x)):
         visit(r, 0, seen)
-    files: Dict[str, Dict[str, Any]] = {}
+    files: dict[str, dict[str, Any]] = {}
     for ev in events:
         f = ev.get("file") or {}
         if ev["kind"] in FILE_KINDS and f.get("path"):
@@ -149,7 +149,7 @@ def lanes(events: List[Dict[str, Any]], t0: int, t1: int) -> Dict[str, Any]:
     return {"lanes": out, "graph": g}
 
 
-def lane_of(ev: Dict[str, Any]) -> str:
+def lane_of(ev: dict[str, Any]) -> str:
     if ev.get("process_key"):
         return ev["process_key"]
     if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
@@ -157,21 +157,30 @@ def lane_of(ev: Dict[str, Any]) -> str:
     return "net:unattributed"
 
 
-def isolate(events: List[Dict[str, Any]], *, sha256: Optional[str] = None, filename: Optional[str] = None,
-            process_key: Optional[str] = None) -> Dict[str, Any]:
+def lanes_of(ev: dict[str, Any]) -> list[str]:
+    """Every lane an event is drawn on: its process row and, for file activity, the file row."""
+    out = [lane_of(ev)]
+    if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
+        f = f"file:{ev['file']['path'].lower()}"
+        if f not in out:
+            out.append(f)
+    return out
+
+
+def isolate(events: list[dict[str, Any]], *, sha256: str | None = None, filename: str | None = None,
+            process_key: str | None = None) -> dict[str, Any]:
     """Lineage isolation: seeds + PROVEN ancestors + all descendants. Correlated links are not followed."""
     nodes = build_graph(events)["nodes"]
-    seeds: Set[str] = set()
+    seeds: set[str] = set()
     for ev in events:
         p, f = ev.get("process") or {}, ev.get("file") or {}
-        if sha256 and sha256.lower() in ((p.get("sha256") or ""), (f.get("sha256") or "")):
-            if ev.get("process_key"):
-                seeds.add(ev["process_key"])
+        if not ev.get("process_key"):
+            continue
         name = (filename or "").lower()
-        if name and any(x and x.lower().replace("\\", "/").rsplit("/", 1)[-1] == name
-                        for x in (p.get("image"), f.get("path"))):
-            if ev.get("process_key"):
-                seeds.add(ev["process_key"])
+        if (sha256 and sha256.lower() in ((p.get("sha256") or ""), (f.get("sha256") or ""))) or (
+                name and any(x and x.lower().replace("\\", "/").rsplit("/", 1)[-1] == name
+                             for x in (p.get("image"), f.get("path")))):
+            seeds.add(ev["process_key"])
     if process_key and process_key in nodes:
         seeds.add(process_key)
     keep = set(seeds)

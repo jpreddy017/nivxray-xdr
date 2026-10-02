@@ -2,14 +2,15 @@
 No keys, no network: only the own-engine detections and injected test providers exist."""
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 REPUTATION_STATES = ("MALICIOUS", "CLEAN", "NO_HIT", "UNKNOWN", "PROVIDER_ERROR", "RATE_LIMITED", "OUTAGE")
 EVIDENCE_REQUIRED = ("MALICIOUS", "CLEAN")
 
 
-def reputation(state: str, *, provider: str, at: Optional[str], evidence: Optional[List[Dict[str, Any]]] = None,
-               detail: Optional[str] = None) -> Dict[str, Any]:
+def reputation(state: str, *, provider: str, at: str | None, evidence: list[dict[str, Any]] | None = None,
+               detail: str | None = None) -> dict[str, Any]:
     s = state if state in REPUTATION_STATES else "UNKNOWN"
     ev = list(evidence or [])
     note = detail
@@ -26,13 +27,13 @@ class ProviderFailure(Exception):
         self.state = state if state in ("PROVIDER_ERROR", "RATE_LIMITED", "OUTAGE") else "PROVIDER_ERROR"
 
 
-Lookup = Callable[[str], Dict[str, Any]]
+Lookup = Callable[[str], dict[str, Any]]
 
 
-def file_status(sha256: str, *, detections: List[Dict[str, Any]], providers: Dict[str, Lookup],
-                now_iso: Optional[str]) -> Dict[str, Any]:
+def file_status(sha256: str, *, detections: list[dict[str, Any]], providers: dict[str, Lookup],
+                now_iso: str | None) -> dict[str, Any]:
     """`detections` = own-engine detection records for this hash (a detection is not a verdict)."""
-    reps: List[Dict[str, Any]] = []
+    reps: list[dict[str, Any]] = []
     for name, fn in sorted(providers.items()):
         try:
             r = fn(sha256)

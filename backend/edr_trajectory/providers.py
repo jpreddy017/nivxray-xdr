@@ -6,7 +6,8 @@ A "collection" is anything with async `find(filter, projection)` returning an as
 """
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Sequence
+from collections.abc import AsyncIterator, Sequence
+from typing import Any, Protocol
 
 from .contracts import event, iso, parse_instant, require_tenant
 from .identity import dedupe, fallback_event_id, process_key
@@ -19,7 +20,7 @@ _FILE_OPS = {"create": "FILE_CREATE", "write": "FILE_WRITE", "modify": "FILE_WRI
 _SEV = ("NONE", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL")
 
 
-def _kind(activity: Optional[str], op: Optional[str]) -> str:
+def _kind(activity: str | None, op: str | None) -> str:
     a, o = (activity or "").upper(), (op or "").lower()
     if a == "PROCESS":
         return "PROCESS_END" if o in ("end", "terminate", "termination", "exit") else "PROCESS_START"
@@ -34,14 +35,14 @@ def _sev(v: Any) -> str:
     return s if s in _SEV else "NONE"
 
 
-def _sha256(h: Any) -> Optional[str]:
+def _sha256(h: Any) -> str | None:
     if isinstance(h, dict):
         v = h.get("sha256") or h.get("SHA256")
         return v.lower() if isinstance(v, str) else None
     return None
 
 
-def from_canonical(doc: Dict[str, Any]) -> Dict[str, Any]:
+def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
     af, p, f, n = (doc.get("additional_fields") or {}), (doc.get("process") or {}), (doc.get("file") or {}), \
         (doc.get("network") or {})
     host, prov = doc.get("host") or {}, doc.get("provenance") or {}
@@ -67,7 +68,7 @@ def from_canonical(doc: Dict[str, Any]) -> Dict[str, Any]:
     return ev
 
 
-def from_shadow(doc: Dict[str, Any]) -> Dict[str, Any]:
+def from_shadow(doc: dict[str, Any]) -> dict[str, Any]:
     e = doc.get("event") or {}
     p, f, n = e.get("process") or {}, e.get("file") or {}, e.get("network") or {}
     tenant, device = doc.get("tenant_id"), e.get("device_iid") or doc.get("collector_id") or e.get("computer")
@@ -92,7 +93,7 @@ def from_shadow(doc: Dict[str, Any]) -> Dict[str, Any]:
     return ev
 
 
-def finalize(ev: Dict[str, Any]) -> Dict[str, Any]:
+def finalize(ev: dict[str, Any]) -> dict[str, Any]:
     ev["process_key"], ev["process_identity"] = process_key(ev["tenant_id"], ev["device_id"], ev["process"], ev["boot_id"])
     ev["parent_key"], ev["parent_identity"] = process_key(ev["tenant_id"], ev["device_id"], ev["parent"], ev["boot_id"]) \
         if ev["parent"] and any(ev["parent"].get(k) is not None for k in ("pid", "guid")) else (None, None)
@@ -101,8 +102,8 @@ def finalize(ev: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class EvidenceProvider(Protocol):
-    async def events(self, tenant_id: str, device_id: str, t0_ms: Optional[int] = None,
-                     t1_ms: Optional[int] = None) -> List[Dict[str, Any]]: ...
+    async def events(self, tenant_id: str, device_id: str, t0_ms: int | None = None,
+                     t1_ms: int | None = None) -> list[dict[str, Any]]: ...
 
 
 class MongoStoreProvider:
@@ -114,11 +115,11 @@ class MongoStoreProvider:
         self.device_fields = (["event.device_iid", "collector_id", "event.computer"] if store == STORE_SHADOW
                               else ["provenance.collector_id", "host.host_id", "host.hostname"])
 
-    async def events(self, tenant_id: str, device_id: str, t0_ms: Optional[int] = None,
-                     t1_ms: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def events(self, tenant_id: str, device_id: str, t0_ms: int | None = None,
+                     t1_ms: int | None = None) -> list[dict[str, Any]]:
         tenant = require_tenant(tenant_id)
         flt = {"tenant_id": tenant, "$or": [{f: device_id} for f in self.device_fields]}
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         cursor: AsyncIterator = self.c.find(flt, {"_id": 0})
         async for doc in cursor:
             ev = finalize(self.normalize(doc))
@@ -138,10 +139,10 @@ class MergedProvider:
         self.providers = list(providers)
         self.last_suppressed = 0
 
-    async def events(self, tenant_id: str, device_id: str, t0_ms: Optional[int] = None,
-                     t1_ms: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def events(self, tenant_id: str, device_id: str, t0_ms: int | None = None,
+                     t1_ms: int | None = None) -> list[dict[str, Any]]:
         tenant = require_tenant(tenant_id)
-        rows: List[Dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
         for p in self.providers:
             rows.extend(await p.events(tenant, device_id, t0_ms, t1_ms))
         merged, self.last_suppressed = dedupe(rows)
@@ -151,17 +152,17 @@ class MergedProvider:
 class ListCollection:
     """In-memory read-only collection double (fixtures/tests). Supports the filter shape used above."""
 
-    def __init__(self, docs: Sequence[Dict[str, Any]]) -> None:
+    def __init__(self, docs: Sequence[dict[str, Any]]) -> None:
         self._docs = list(docs)
 
     @staticmethod
-    def _get(doc: Dict[str, Any], path: str) -> Any:
+    def _get(doc: dict[str, Any], path: str) -> Any:
         cur: Any = doc
         for part in path.split("."):
             cur = cur.get(part) if isinstance(cur, dict) else None
         return cur
 
-    def _match(self, doc: Dict[str, Any], flt: Dict[str, Any]) -> bool:
+    def _match(self, doc: dict[str, Any], flt: dict[str, Any]) -> bool:
         for k, v in flt.items():
             if k == "$or":
                 if not any(self._match(doc, sub) for sub in v):
@@ -170,7 +171,7 @@ class ListCollection:
                 return False
         return True
 
-    def find(self, flt: Dict[str, Any], projection: Optional[Dict[str, Any]] = None):
+    def find(self, flt: dict[str, Any], projection: dict[str, Any] | None = None):
         docs = [d for d in self._docs if self._match(d, flt)]
 
         async def gen():

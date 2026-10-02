@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 PAGE_DEFAULT = 200
 PAGE_MAX = 500
@@ -14,24 +14,24 @@ class BadCursor(ValueError):
     pass
 
 
-def _enc(d: Dict[str, Any]) -> str:
+def _enc(d: dict[str, Any]) -> str:
     return base64.urlsafe_b64encode(json.dumps(d, separators=(",", ":")).encode()).decode()
 
 
-def _dec(c: str) -> Dict[str, Any]:
+def _dec(c: str) -> dict[str, Any]:
     try:
         d = json.loads(base64.urlsafe_b64decode(c.encode()).decode())
         return {"t": int(d["t"]), "id": str(d["id"]), "as_of": d.get("as_of")}
-    except Exception as ex:  # noqa: BLE001
+    except Exception as ex:
         raise BadCursor("cursor is not a valid e3 trajectory cursor") from ex
 
 
-def _key(ev: Dict[str, Any]):
+def _key(ev: dict[str, Any]):
     return (ev["observed_ms"], ev["event_id"])
 
 
-def page_newest_first(events: List[Dict[str, Any]], page_size: int = PAGE_DEFAULT,
-                      cursor: Optional[str] = None, as_of_ms: Optional[int] = None) -> Dict[str, Any]:
+def page_newest_first(events: list[dict[str, Any]], page_size: int = PAGE_DEFAULT,
+                      cursor: str | None = None, as_of_ms: int | None = None) -> dict[str, Any]:
     """Order: observed_ms DESC, event_id DESC (total order → no dup/loss at page boundaries).
 
     `as_of` freezes the session on ingested_ms, so an event delivered late during paging cannot

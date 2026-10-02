@@ -3,6 +3,7 @@ lanes, approvals, cross-tenant, UTC/DST, KUSHU-shaped, adapters, read-only, API.
 import asyncio
 import copy
 import random
+from itertools import pairwise
 
 import pytest
 from fastapi import FastAPI
@@ -10,14 +11,30 @@ from fastapi.testclient import TestClient
 
 from edr_trajectory.actions import AppendOnlyViolation, ApprovalStore, StatusLog, pivot
 from edr_trajectory.api import build_router
-from edr_trajectory.contracts import (CORRELATED, ID_GUID, ID_PID_ONLY, ID_START_TIME, PROVEN_CAUSAL, SHAPE_FAITHFUL,
-                                      SYNTHETIC, UNRESOLVED, TenantRequired, parse_instant)
+from edr_trajectory.contracts import (
+    CORRELATED,
+    ID_GUID,
+    ID_PID_ONLY,
+    ID_START_TIME,
+    PROVEN_CAUSAL,
+    SHAPE_FAITHFUL,
+    SYNTHETIC,
+    UNRESOLVED,
+    TenantRequired,
+    parse_instant,
+)
 from edr_trajectory.fixtures import H_PS, H_UPD
 from edr_trajectory.identity import process_key
 from edr_trajectory.lineage import build_graph, isolate, lanes
 from edr_trajectory.paging import PAGE_MAX, BadCursor, page_newest_first
-from edr_trajectory.providers import (STORE_CANONICAL, STORE_SHADOW, ListCollection, MongoStoreProvider, from_canonical,
-                                      from_shadow)
+from edr_trajectory.providers import (
+    STORE_CANONICAL,
+    STORE_SHADOW,
+    ListCollection,
+    MongoStoreProvider,
+    from_canonical,
+    from_shadow,
+)
 from edr_trajectory.service import load, scenario
 from edr_trajectory.ti import ProviderFailure, file_status, reputation
 from edr_trajectory.timeline import coverage, density, lateness, viewport
@@ -260,6 +277,8 @@ def test_bulk_process_viewport_bounded_and_expandable(ev):
     zoom = viewport(evs, ids, b0["from_ms"], b0["from_ms"] + 30_000, 1200, 8, 50)
     assert any(x["mode"] == "EVENTS" and x["count"] > 0 for x in zoom["lanes"])
     assert viewport(evs, ids, REF_ - 3 * H, REF_, 10**6, 1, 10**4)["n_buckets"] == 400
+    files = [x for x in viewport(evs, ids, REF_ - 3 * H, REF_, 1200, 8, 200)["lanes"] if x["lane_id"].startswith("file:")]
+    assert len(files) == 97 and sum(x["count"] for x in files) == 12_000   # file rows carry their own activity
 
 
 def test_density_30d_with_events_of_interest(ev):
@@ -305,8 +324,8 @@ def test_approval_only_idempotent_tenant_scoped():
     assert [x["event"] for x in st.audit] == ["APPROVAL_REQUESTED", "IDEMPOTENT_REPLAY"]
     for bad in ({"action": "RUN_SCRIPT"}, {"tenant_id": ""}):
         with pytest.raises((ValueError, TenantRequired)):
-            st.request(**{**dict(tenant_id="ten_syn_a", action="ISOLATE_DEVICE", target={}, requested_by="u",
-                                 idempotency_key="k", reason="", at="t"), **bad})
+            st.request(**{"tenant_id": "ten_syn_a", "action": "ISOLATE_DEVICE", "target": {}, "requested_by": "u",
+                          "idempotency_key": "k", "reason": "", "at": "t", **bad})
     p = pivot("SEARCH_HASH", H_UPD)
     assert p["read_only"] and not p["approval_required"] and st.list("ten_syn_a") == [a]
 
@@ -325,7 +344,7 @@ def test_cross_tenant_isolation(ev):
 # ── UTC / DST ────────────────────────────────────────────────────────
 def test_utc_dst_boundaries(ev):
     dst = sorted(e["observed_ms"] for e in ev("edge_cases")["events"] if (e["file"].get("path") or "").endswith("dst.txt"))
-    assert [b - a for a, b in zip(dst, dst[1:])][::2] == [120_000, 2000]   # instants: no phantom DST hour
+    assert [b - a for a, b in pairwise(dst)][::2] == [120_000, 2000]   # instants: no phantom DST hour
     assert parse_instant("2026-03-29 00:59:59") == parse_instant("2026-03-29T00:59:59Z") == 1774745999000
     assert parse_instant("2026-03-29T02:59:59+02:00") == 1774745999000
     assert all(e["observed_at"].endswith("Z") for e in ev("edge_cases")["events"])
@@ -340,7 +359,7 @@ def test_kushu_shape_labelled_and_honest(ev):
     assert msi["process_identity"] == ID_PID_ONLY
     n = next(x for x in build_graph(d["events"])["nodes"].values() if x["pid"] == 9120)
     assert n["causal_state"] == CORRELATED
-    fc = [e for e in d["events"] if e["kind"] == "FILE_CREATE"][0]
+    fc = next(e for e in d["events"] if e["kind"] == "FILE_CREATE")
     assert fc["file"]["sha256"] is None                                 # never invented
     assert all(e["lateness"]["late"] for e in d["events"])
     assert scenario("office_chain")["label"] == SYNTHETIC

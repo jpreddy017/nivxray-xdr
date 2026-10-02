@@ -4,7 +4,7 @@ store-authority question are exercised, not assumed. No real host, tenant or evi
 from __future__ import annotations
 
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .contracts import SHAPE_FAITHFUL, SYNTHETIC, iso
 
@@ -20,19 +20,19 @@ def _zless(ms: int) -> str:     # Sysmon-style zone-less UTC string
 class _B:
     def __init__(self, tenant: str, device: str, label: str = SYNTHETIC, zless: bool = False) -> None:
         self.t, self.d, self.label, self.zless, self.n = tenant, device, label, zless, 0
-        self.shadow: List[Dict[str, Any]] = []
-        self.canonical: List[Dict[str, Any]] = []
+        self.shadow: list[dict[str, Any]] = []
+        self.canonical: list[dict[str, Any]] = []
 
-    def ts(self, ms: Optional[int]) -> Optional[str]:
+    def ts(self, ms: int | None) -> str | None:
         return None if ms is None else (_zless(ms) if self.zless else iso(ms))
 
-    def add(self, t: int, act: str, op: str, proc: Optional[Dict[str, Any]] = None, parent: Optional[Dict] = None,
-            *, store: str = "both", ing: Optional[int] = None, file: Optional[Dict] = None, net: Optional[Dict] = None,
-            sev: str = "INFO", detection: Optional[Dict] = None, creator: Optional[Dict] = None, aid: Optional[str] = None):
+    def add(self, t: int, act: str, op: str, proc: dict[str, Any] | None = None, parent: dict | None = None,
+            *, store: str = "both", ing: int | None = None, file: dict | None = None, net: dict | None = None,
+            sev: str = "INFO", detection: dict | None = None, creator: dict | None = None, aid: str | None = None):
         self.n += 1
         aid = aid or f"act_{self.t}_{self.d}_{self.n:05d}"
         p, q, ing = dict(proc or {}), dict(parent or {}), (t + 2000 if ing is None else ing)
-        st = lambda x: self.ts(x) if isinstance(x, int) else x  # noqa: E731
+        st = lambda x: self.ts(x) if isinstance(x, int) else x
         if store in ("both", "canonical"):
             self.canonical.append({
                 "event_id": f"cev_{aid}_1", "tenant_id": self.t, "event_type": f"{act.lower()}_{op}",
@@ -82,7 +82,7 @@ H_UPD = "a1" * 32
 H_PS = "b2" * 32
 
 
-def office_chain() -> Dict[str, Any]:
+def office_chain() -> dict[str, Any]:
     b = _B(TA, "SYN-WS-01")
     exp = _p(3120, REF - 6 * H, "C:\\Windows\\explorer.exe", guid="{AAAA0001}")
     b.start(REF - 6 * H, exp, {"pid": 2900, "image": "C:\\Windows\\System32\\userinit.exe"})
@@ -116,7 +116,7 @@ def office_chain() -> Dict[str, Any]:
                                      "at": iso(REF - 46 * M)}]})
 
 
-def benign_tree() -> Dict[str, Any]:
+def benign_tree() -> dict[str, Any]:
     b = _B(TA, "SYN-WS-02")
     svc = _p(700, REF - 3 * D, "C:\\Windows\\System32\\services.exe", guid="{BBBB0001}", user="NT AUTHORITY\\SYSTEM")
     b.start(svc["start"], svc, {"pid": 560, "image": "C:\\Windows\\System32\\wininit.exe", "guid": "{BBBB0000}"})
@@ -143,7 +143,7 @@ def benign_tree() -> Dict[str, Any]:
     return _pack("benign_tree", b, "Benign service and browser process trees (no detections)")
 
 
-def lateral_dump() -> Dict[str, Any]:
+def lateral_dump() -> dict[str, Any]:
     b = _B(TA, "SYN-SRV-03")
     wmi = _p(2800, REF - 9 * D, "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe", user="NT AUTHORITY\\NETWORK SERVICE")
     b.add(REF - 30 * M, "NETWORK", "connect", wmi, net={"dest_ip": "10.0.4.20", "dest_port": 135, "protocol": "tcp"},
@@ -167,7 +167,7 @@ def lateral_dump() -> Dict[str, Any]:
                  "PPID-spoofed child; unattributed network")
 
 
-def edge_cases() -> Dict[str, Any]:
+def edge_cases() -> dict[str, Any]:
     b = _B(TA, "SYN-EDGE-04")
     orphan = _p(4100, REF - 3 * H, "C:\\Tools\\orphan.exe", guid="{EEEE0001}")
     b.start(orphan["start"], orphan, {"guid": "{EEEE9999}", "pid": 4000, "image": "C:\\Tools\\launcher.exe"})
@@ -210,7 +210,7 @@ def edge_cases() -> Dict[str, Any]:
     return pk
 
 
-def bulk_process(n: int = 12_000) -> Dict[str, Any]:
+def bulk_process(n: int = 12_000) -> dict[str, Any]:
     b = _B(TA, "SYN-BULK-05")
     bp = _p(5600, REF - 3 * H, "C:\\Program Files\\Backup\\backup_agent.exe", guid="{FFFF0001}", user="NT AUTHORITY\\SYSTEM")
     b.start(bp["start"], bp, None, store="canonical")
@@ -220,7 +220,7 @@ def bulk_process(n: int = 12_000) -> Dict[str, Any]:
     return _pack("bulk_process", b, f">10k-event process ({n} file writes in 2 h)")
 
 
-def kushu_shape() -> Dict[str, Any]:
+def kushu_shape() -> dict[str, Any]:
     """SHAPE-FAITHFUL / NOT PRODUCTION DATA. Mirrors the field shapes of the Sysmon/Security channels the
     sensor collects (zone-less UTC strings, braced GUIDs, shadow store only). No real KUSHU evidence was
     available to E3; values are invented."""
@@ -247,7 +247,7 @@ def kushu_shape() -> Dict[str, Any]:
                  "4688-style process without GUID or start time; delivered ~17 h late (backlog)")
 
 
-def _pack(sid: str, b: _B, desc: str, **extra: Any) -> Dict[str, Any]:
+def _pack(sid: str, b: _B, desc: str, **extra: Any) -> dict[str, Any]:
     return {"scenario_id": sid, "tenant_id": b.t, "device_id": b.d, "label": b.label, "description": desc,
             "reference_ms": REF, "reference_at": iso(REF), "shadow": b.shadow, "canonical": b.canonical,
             "heartbeats_ms": extra.get("heartbeats_ms", []), "declared_gaps": extra.get("declared_gaps", []),

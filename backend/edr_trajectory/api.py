@@ -2,8 +2,9 @@
 fixtures through the EvidenceProvider. Not mounted by E1's server; the preview mounts it behind a flag."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
@@ -13,7 +14,16 @@ from .contracts import TenantRequired, parse_instant
 from .fixtures import BUILDERS
 from .lineage import isolate, lanes
 from .paging import PAGE_DEFAULT, BadCursor, page_newest_first
-from .service import APPROVALS, SEED_CANONICAL, SEED_SHADOW, load, scenario, scenario_meta, status_log_for, window
+from .service import (
+    APPROVALS,
+    SEED_CANONICAL,
+    SEED_SHADOW,
+    load,
+    scenario,
+    scenario_meta,
+    status_log_for,
+    window,
+)
 from .ti import file_status
 from .timeline import coverage, density, viewport
 
@@ -47,17 +57,17 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
         return window(sid, parse_instant(t0), parse_instant(t1))
 
     @r.get("/contracts")
-    async def contracts() -> Dict[str, Any]:
+    async def contracts() -> dict[str, Any]:
         return {"version": CONTRACT_VERSION, "contracts": CONTRACTS, "approval_actions": APPROVAL_ACTIONS,
                 "pivots": PIVOTS, "response_states": RESPONSE_STATES, "e3_can_set": ["APPROVAL_REQUESTED"]}
 
     @r.get("/scenarios")
-    async def scenarios() -> Dict[str, Any]:
+    async def scenarios() -> dict[str, Any]:
         return {"scenarios": [scenario_meta(s) for s in BUILDERS]}
 
     @r.get("/devices/{device_id}/events")
     async def events(device_id: str, scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                     source: str = "merged", page_size: int = PAGE_DEFAULT, cursor: Optional[str] = None):
+                     source: str = "merged", page_size: int = PAGE_DEFAULT, cursor: str | None = None):
         d = await _load(scenario_id, tenant, device_id, source)
         try:
             pg = page_newest_first(d["events"], page_size, cursor, as_of_ms=scenario(scenario_id)["reference_ms"])
@@ -67,7 +77,7 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
 
     @r.get("/devices/{device_id}/lanes")
     async def lanes_ep(device_id: str, scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                       source: str = "merged", t0: Optional[str] = None, t1: Optional[str] = None):
+                       source: str = "merged", t0: str | None = None, t1: str | None = None):
         a, b = _win(scenario_id, t0, t1)
         d = await _load(scenario_id, tenant, device_id, source)
         ln = lanes(d["events"], a, b)
@@ -75,7 +85,7 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
 
     @r.get("/devices/{device_id}/viewport")
     async def viewport_ep(device_id: str, scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                          source: str = "merged", t0: Optional[str] = None, t1: Optional[str] = None,
+                          source: str = "merged", t0: str | None = None, t1: str | None = None,
                           width: int = 1200, rows: int = 50, offset: int = 0, bucket_px: int = 8):
         a, b = _win(scenario_id, t0, t1)
         d = await _load(scenario_id, tenant, device_id, source)
@@ -90,7 +100,7 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
 
     @r.get("/devices/{device_id}/coverage")
     async def coverage_ep(device_id: str, scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                          source: str = "merged", t0: Optional[str] = None, t1: Optional[str] = None):
+                          source: str = "merged", t0: str | None = None, t1: str | None = None):
         a, b = _win(scenario_id, t0, t1)
         d = await _load(scenario_id, tenant, device_id, source)
         s = scenario(scenario_id)
@@ -100,8 +110,8 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
 
     @r.get("/devices/{device_id}/lineage")
     async def lineage_ep(device_id: str, scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                         source: str = "merged", sha256: Optional[str] = None, filename: Optional[str] = None,
-                         process_key: Optional[str] = None):
+                         source: str = "merged", sha256: str | None = None, filename: str | None = None,
+                         process_key: str | None = None):
         if not (sha256 or filename or process_key):
             raise HTTPException(400, "one of sha256, filename, process_key is required")
         d = await _load(scenario_id, tenant, device_id, source)
@@ -121,14 +131,14 @@ def build_router(get_db: Callable[[], Any] = lambda: None) -> APIRouter:
 
     @r.get("/status-events")
     async def status_events(scenario_id: str = Query(..., alias="scenario"), tenant: str = "",
-                            subject: Optional[str] = None):
+                            subject: str | None = None):
         try:
             return {"append_only": True, "events": status_log_for(_sid(scenario_id)).history(tenant, subject)}
         except TenantRequired as ex:
             raise HTTPException(400, str(ex)) from ex
 
     @r.post("/approvals", status_code=201)
-    async def approvals_create(body: Dict[str, Any] = Body(...)):
+    async def approvals_create(body: Annotated[dict[str, Any], Body()]):
         try:
             row, created = APPROVALS.request(tenant_id=body.get("tenant_id", ""), action=body.get("action", ""),
                                              target=body.get("target") or {}, requested_by=body.get("requested_by", ""),

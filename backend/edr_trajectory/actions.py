@@ -1,9 +1,10 @@
 """Append-only retrospective status/detection events and approval-only response requests."""
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .contracts import require_tenant
 
@@ -18,10 +19,10 @@ class StatusLog:
     """Append-only. Each record references the ORIGINAL event; originals are never rewritten."""
 
     def __init__(self) -> None:
-        self._rows: List[Dict[str, Any]] = []
+        self._rows: list[dict[str, Any]] = []
 
     def append(self, *, tenant_id: str, subject: str, kind: str, state: str, recorded_at: str,
-               references_event_id: Optional[str], provenance: Dict[str, Any]) -> Dict[str, Any]:
+               references_event_id: str | None, provenance: dict[str, Any]) -> dict[str, Any]:
         t = require_tenant(tenant_id)
         if kind not in RETRO_KINDS:
             raise ValueError(f"kind must be one of {RETRO_KINDS}")
@@ -39,11 +40,11 @@ class StatusLog:
 
     delete = update
 
-    def history(self, tenant_id: str, subject: Optional[str] = None) -> List[Dict[str, Any]]:
+    def history(self, tenant_id: str, subject: str | None = None) -> list[dict[str, Any]]:
         t = require_tenant(tenant_id)
         return [dict(r) for r in self._rows if r["tenant_id"] == t and (subject is None or r["subject"] == subject)]
 
-    def current(self, tenant_id: str, subject: str) -> Optional[Dict[str, Any]]:
+    def current(self, tenant_id: str, subject: str) -> dict[str, Any] | None:
         h = self.history(tenant_id, subject)
         return h[-1] if h else None
 
@@ -56,11 +57,11 @@ RESPONSE_STATES = ("APPROVAL_REQUESTED", "ACCEPTED", "EXECUTED", "CONTAINED", "V
 
 class ApprovalStore:
     def __init__(self) -> None:
-        self._rows: Dict[Tuple[str, str], Dict[str, Any]] = {}
-        self.audit: List[Dict[str, Any]] = []
+        self._rows: dict[tuple[str, str], dict[str, Any]] = {}
+        self.audit: list[dict[str, Any]] = []
 
-    def request(self, *, tenant_id: str, action: str, target: Dict[str, Any], requested_by: str,
-                idempotency_key: str, reason: str, at: str) -> Tuple[Dict[str, Any], bool]:
+    def request(self, *, tenant_id: str, action: str, target: dict[str, Any], requested_by: str,
+                idempotency_key: str, reason: str, at: str) -> tuple[dict[str, Any], bool]:
         t = require_tenant(tenant_id)
         if action not in APPROVAL_ACTIONS:
             raise ValueError(f"action must be one of {APPROVAL_ACTIONS}")
@@ -81,12 +82,12 @@ class ApprovalStore:
                            "by": requested_by, "action": action})
         return dict(row), True
 
-    def list(self, tenant_id: str) -> List[Dict[str, Any]]:
+    def list(self, tenant_id: str) -> builtins.list[dict[str, Any]]:
         t = require_tenant(tenant_id)
         return [dict(r) for r in self._rows.values() if r["tenant_id"] == t]
 
 
-def pivot(kind: str, value: str) -> Dict[str, Any]:
+def pivot(kind: str, value: str) -> dict[str, Any]:
     if kind not in PIVOTS:
         raise ValueError(f"pivot must be one of {PIVOTS}")
     targets = {"COPY_HASH": {"clipboard": value}, "SEARCH_HASH": {"route": f"/edr/search?sha256={value}"},

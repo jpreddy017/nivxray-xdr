@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 EVENT_SCHEMA = "e3.dt.event.v1"
 
@@ -29,14 +29,14 @@ class TenantRequired(ValueError):
     """Raised when a query arrives without a tenant: reads fail closed."""
 
 
-def require_tenant(tenant_id: Optional[str]) -> str:
+def require_tenant(tenant_id: str | None) -> str:
     t = (tenant_id or "").strip()
     if not t:
         raise TenantRequired("tenant_id is required for every evidence read")
     return t
 
 
-def parse_instant(v: Any) -> Optional[int]:
+def parse_instant(v: Any) -> int | None:
     """UTC epoch ms. A zone-less sensor string is UTC, never local time."""
     if v is None or v == "":
         return None
@@ -57,15 +57,15 @@ def parse_instant(v: Any) -> Optional[int]:
     return int(dt.timestamp() * 1000)
 
 
-def iso(ms: Optional[int]) -> Optional[str]:
+def iso(ms: int | None) -> str | None:
     if ms is None:
         return None
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def event(**kw: Any) -> Dict[str, Any]:
+def event(**kw: Any) -> dict[str, Any]:
     """Build a normalized event with every contract key present (absent = None, never guessed)."""
-    base: Dict[str, Any] = {
+    base: dict[str, Any] = {
         "schema": EVENT_SCHEMA, "event_id": None, "tenant_id": None, "device_id": None,
         "kind": "OTHER", "observed_ms": None, "ingested_ms": None, "severity": "NONE",
         "process": {}, "parent": {}, "creator": {}, "file": {}, "network": {}, "detection": None,

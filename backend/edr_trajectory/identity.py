@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from typing import Any
 
 from .contracts import ID_GUID, ID_PID_ONLY, ID_START_TIME, parse_instant
 
 
-def process_key(tenant_id: str, device_id: str, proc: Dict[str, Any],
-                boot_id: Optional[str] = None) -> Tuple[Optional[str], str]:
+def process_key(tenant_id: str, device_id: str, proc: dict[str, Any],
+                boot_id: str | None = None) -> tuple[str | None, str]:
     """(key, identity_state). Key = tenant+device+pid+start time [+boot]; PID reuse safe.
 
     A source GUID (one lifetime per host) is accepted when start time is absent. PID alone is
@@ -26,7 +27,7 @@ def process_key(tenant_id: str, device_id: str, proc: Dict[str, Any],
     return None, ID_PID_ONLY
 
 
-def parent_spoof(ev: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def parent_spoof(ev: dict[str, Any]) -> dict[str, Any] | None:
     """Flag when the reported parent differs from creator evidence (e.g. PPID spoofing)."""
     par, cre = ev.get("parent") or {}, ev.get("creator") or {}
     if not cre or not par:
@@ -41,7 +42,7 @@ def parent_spoof(ev: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
-def fallback_event_id(tenant_id: str, device_id: str, ev: Dict[str, Any]) -> str:
+def fallback_event_id(tenant_id: str, device_id: str, ev: dict[str, Any]) -> str:
     """Content identity when no source identity exists (same real activity → same id)."""
     p, f, n = ev.get("process") or {}, ev.get("file") or {}, ev.get("network") or {}
     material = [tenant_id, device_id, ev.get("kind"), ev.get("observed_ms"), p.get("pid"), p.get("guid"),
@@ -49,7 +50,7 @@ def fallback_event_id(tenant_id: str, device_id: str, ev: Dict[str, Any]) -> str
     return "ce_" + hashlib.sha256(json.dumps(material, default=str).encode()).hexdigest()[:24]
 
 
-def _merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
+def _merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     out = dict(a)
     for k, v in b.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
@@ -63,9 +64,9 @@ def _merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def dedupe(events: Iterable[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
+def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """Collapse the same activity seen in several stores (stable event identity). Returns (events, suppressed)."""
-    seen: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    seen: dict[tuple[str, str], dict[str, Any]] = {}
     suppressed = 0
     for ev in events:
         k = (ev["tenant_id"], ev["event_id"])
