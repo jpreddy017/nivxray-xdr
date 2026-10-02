@@ -56,6 +56,14 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
     const y = yOf.get(rk(sel.target, sel.targetIid));
     if (y != null && (y < vp.st || y > vp.st + vp.vh)) box.current.scrollTop = Math.max(0, y - vp.vh / 2);
   });
+  const firstCol = items[0]?.col, lastCol = items[items.length - 1]?.col;
+  useEffect(() => {
+    // Filtered/search view: bring the matched columns into view (AMP search shows the matched events, not empty space).
+    const b = box.current;
+    if (!b || sel || firstCol == null || items.length === model.items.length) return;
+    if (firstCol * colW < b.scrollLeft || lastCol * colW > b.scrollLeft + vp.vw) b.scrollLeft = Math.max(0, firstCol * colW - 60);
+  }, [firstCol, lastCol, items.length]); // eslint-disable-line
+
   const zoomRef = useRef({ colW, vp });
   zoomRef.current = { colW, vp };
   useEffect(() => {

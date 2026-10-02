@@ -1,4 +1,9 @@
 // Event-compressed trajectory model over the page's /edr/endpoints/{id}/trajectory rows. Evidence-only.
+import { attackText, KILL_CHAIN, tacticsOf } from "./attack";
+import { ACTIVITY_FILTERS, KIND, outcomeSentence, SYSTEM_FILTERS } from "./labels";
+
+export { KIND };
+
 const base = (p) => (p ? String(p).replace(/\\/g, "/").split("/").pop() : "");
 export const short = (h) => (h && h.length > 16 ? `${h.slice(0, 8)}…${h.slice(-8)}` : h || "");
 const EXT = { exe: "PE", dll: "PE", sys: "PE", pyd: "PE", com: "PE", scr: "PE", js: "Script", ps1: "Script", vbs: "Script", py: "Script",
@@ -24,26 +29,6 @@ export function dispositionShape(ev) {
 }
 const DISP = { hexagon: "d_malicious", circle: "d_benign", square: "d_unknown" };
 
-export const KIND = {
-  process_create: { verb: "Executed", glyph: "exec", label: "Execute", filter: "execute" },
-  process_blocked: { verb: "Blocked from executing", glyph: "exec_blocked", label: "Execute blocked", filter: "exec_blocked" },
-  file_create: { verb: "Created", glyph: "create", label: "Create", filter: "create" },
-  file_write: { verb: "Created", glyph: "create", label: "Create", filter: "create" },
-  file_modify: { verb: "Modified", glyph: "modify", label: "File modify", filter: "modify" },
-  file_delete: { verb: "Deleted", glyph: "delete", label: "File delete", filter: "delete" },
-  file_rename: { verb: "Moved", glyph: "move", label: "Move", filter: "move" },
-  network_connect: { verb: "Connected", glyph: "net", label: "Network connection", filter: "network" },
-  dns_query: { verb: "Queried", glyph: "dns", label: "DNS", filter: "dns" },
-  registry_value_set: { verb: "Set", glyph: "reg", label: "Registry", filter: "registry" },
-  usb_connect: { verb: "Connected", glyph: "usb", label: "External device", filter: "usb" },
-  usb_disconnect: { verb: "Disconnected", glyph: "usb", label: "External device", filter: "usb" },
-  policy_update: { verb: "Policy updated", glyph: "other", label: "Policy update", filter: "policy", system: true },
-  sensor_update: { verb: "Sensor updated", glyph: "other", label: "Sensor update", filter: "sensor_update", system: true },
-  isolation_status: { verb: "Isolation changed", glyph: "other", label: "Isolation status", filter: "isolation", system: true },
-  scan: { verb: "Scanned", glyph: "scan", label: "Scan", filter: "scan", system: true },
-  reboot: { verb: "Rebooted", glyph: "restore", label: "Reboot", filter: "reboot", system: true },
-  sensor_service_status: { verb: "Service status", glyph: "other", label: "Sensor service status", filter: "telemetry", system: true },
-};
 const kindOf = (e) => KIND[e.event_type] || { verb: e.event_type, glyph: "other", label: e.event_type, filter: "other" };
 
 function targetOf(e, pf) {
@@ -127,10 +112,12 @@ export function matches(it, q) {
   if (!q) return true;
   const n = q.toLowerCase(), e = it.ev;
   return [e.image, e.file, e.network, e.entity, e.command_line, e.user, e.parent_image, e.file_sha256, e.lane_label,
-    e.e3_detection?.name, e.observation_id, e.event_iid].some((v) => v && String(v).toLowerCase().includes(n));
+    e.e3_detection?.name, e.observation_id, e.event_iid, attackText(it)].some((v) => v && String(v).toLowerCase().includes(n));
 }
 
 export function passes(it, f) {
+  const tac = tacticsOf(it);
+  if (tac.length && !tac.some((t) => f.has(`ta_${t}`))) return false;
   if (!f.has(it.kind.filter) && it.kind.filter !== "other") return false;
   if (!f.has(DISP[it.shape])) return false;
   if (it.ftype && !f.has(TYPE_FILTER[it.ftype] || "t_Other")) return false;
@@ -153,12 +140,11 @@ export function narrative(it) {
   const L = [];
   const user = e.user ? ` executing as ${e.user}` : "";
   if (d) {
-    L.push(["Detected ", tok(t?.label || nc, t?.path), ...hash(t?.hash), `[${TYPE_DESC[t?.type] || t?.type || "Unknown"}] as `, { det: d.name, sev: d.severity }, "."]);
-    L.push([`${it.kind.verb} by `, ...who, `${user}.`]);
-    const en = e.e3_enforcement;
-    L.push([en ? `${en.outcome === "QUARANTINED" ? "Quarantined" : en.outcome === "QUARANTINE_FAILED" ? "Quarantine failed" : en.outcome} at ${en.at} (${en.source}).`
-      : d.response ? `Response evidence: ${d.response}.` : "No quarantine/response evidence recorded."]);
-    L.push(["Process disposition ", { unk: "Unknown" }, "."]);
+    const actorWho = it.actorImage ? [{ name: base(it.actorImage), full: it.actorImage }, ...hash(it.actor?.hash), `[${TYPE_DESC[fileType(it.actorImage)] || "Unknown"}] `] : [{ unk: "Unknown" }, " "];
+    L.push(["Detected ", { name: t?.label || nc, full: t?.path }, ...hash(t?.hash), `[${TYPE_DESC[t?.type] || t?.type || "Unknown"}] as `, { det: d.name, sev: d.severity }, "."]);
+    L.push([`${it.kind.verb} by `, ...actorWho, e.user ? `executing as ${e.user}.` : "(user not reported)."]);
+    L.push([outcomeSentence(e.e3_enforcement)]);
+    L.push(["Process disposition ", e.e3_assessment?.state ? cap(e.e3_assessment.state) : { unk: "Unknown" }, "."]);
   } else if (e.event_type === "process_create") {
     L.push([tok(t?.label || nc, e.image), ...hash(e.file_sha256), `[${TYPE_DESC[t?.type] || "Unknown"}] was Executed by `, ...who, "."]);
     L.push([{ unk: "Unknown" }, " disposition."], [{ unk: "Unknown" }, " parent disposition."]);
@@ -179,17 +165,14 @@ export function narrative(it) {
 }
 
 export const FILTER_GROUPS = [
-  ["All activity", [["create", "Create"], ["copy", "Copy", 1], ["move", "Move"], ["execute", "Execute"], ["exec_blocked", "Execute blocked", 1],
-    ["open", "Open", 1], ["network", "Network connection"], ["exploit", "Exploit prevention", 1], ["restore", "Restore", 1],
-    ["scan_det", "Scan detection", 1], ["usb", "External devices", 1], ["dns", "DNS"], ["registry", "Registry"], ["modify", "File modify"],
-    ["delete", "File delete"], ["match", "Behavioral detection (MATCH)"], ["approval", "Response request", 1]]],
-  ["All system", [["compromise", "Compromise", 1], ["reboot", "Reboot", 1], ["scan", "Scan", 1], ["defs", "Definitions update", 1],
-    ["policy", "Policy update", 1], ["sensor_update", "Sensor update", 1], ["scan_sched", "Scan schedule", 1], ["uninstall", "Uninstall", 1],
-    ["isolation", "Isolation status", 1], ["snapshot", "System snapshot", 1], ["hunt", "Threat-hunting incident", 1], ["telemetry", "Behavioral telemetry", 1]]],
+  ["All activity", ACTIVITY_FILTERS],
+  ["All system", SYSTEM_FILTERS],
   ["All dispositions", [["d_benign", "Benign (circle)"], ["d_malicious", "Malicious (hexagon)"], ["d_unknown", "Unknown (square)"]]],
   ["All flags", [["f_warning", "Warning"], ["f_audit", "Audit only", 1], ["f_cmd", "Command line"], ["f_none", "No flag"]]],
   ["All file types", [["t_PE", "Executable [PE]"], ["t_ELF", "ELF"], ["t_MachO", "Mach-O"], ["t_Office", "MS Office"], ["t_PDF", "PDF"],
     ["t_Archive", "Zip/GZ archive"], ["t_MSI", "MS Cabinet/MSI"], ["t_Script", "Script"], ["t_Other", "Other"]]],
+  // Hides only events whose mappings are all in unchecked tactics; unmapped events are never hidden (no mapping ≠ no attack).
+  ["All ATT&CK tactics", KILL_CHAIN.map((t) => [`ta_${t.key}`, t.label])],
 ];
 export const DEFAULT_ON = FILTER_GROUPS.flatMap(([, its]) => its.filter((x) => !x[2]).map((x) => x[0]));
 export const presentKinds = (items) => new Set(items.map((it) => it.kind.filter));

@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
+import { AttackPanel } from "./AttackStrip";
+import { hasTechnique } from "./attack";
 import { FiltersPanel } from "./Filters";
 import Grid from "./Grid";
 import Header from "./Header";
@@ -50,7 +52,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const perf = Number(params.get("perf") || 0);
   const t0 = Number(params.get("t0")) || now - DAY, t1 = Number(params.get("t1")) || now;
   const view = useMemo(() => ({ t0, t1 }), [t0, t1]);
-  const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event");
+  const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event"), att = params.get("att");
+  const sev = params.get("sev"), ioc = params.get("ioc"), scenario = params.get("scenario") || undefined;
   const [present, setPresent] = useState(() => new Set());
   const filters = useMemo(() => new Set(fp ? fp.split(",") : [...DEFAULT_ON, ...present]), [fp, present]);
   const [data, setData] = useState(null);
@@ -108,19 +111,19 @@ export default function TrajectoryPage({ device, onLegacy }) {
     }
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
-    api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500 }, signal: ac.signal })
+    api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
       .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d); setOlder({ events: [], cursor: d?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") say(`Trajectory read failed: ${e.message}`); })
       .finally(() => { if (id === req.current) setLoading(false); });
     return () => ac.abort();
-  }, [url, t0, t1, perf]); // eslint-disable-line
+  }, [url, t0, t1, perf, scenario]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
     const id = req.current;
     setLoading(true);
     try {
-      const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor } });
+      const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
       if (id === req.current) setOlder((o) => ({ events: [...(d.events || []), ...o.events], cursor: d?.e3_preview?.older_cursor || null }));
     } catch (e) { say(`Older events read failed: ${e.message}`); } finally { setLoading(false); }
   };
@@ -137,8 +140,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
   useEffect(() => { setPresent(presentKinds(model.items)); }, [model]);
   useEffect(() => { window.__v3perf = { ...timing.current, n: model.total, cols: model.ncol, rows: model.rows.length }; }, [model]);
   const lin = useMemo(() => (isoItem ? lineage(model, isoItem) : null), [model, isoItem]);
-  const shown = useMemo(() => model.items.filter((it) => passes(it, filters) && matches(it, q) && (!lin || lin.has(it.actorIid) || lin.has(it.targetIid))),
-    [model, filters, q, lin]);
+  const shown = useMemo(() => model.items.filter((it) => passes(it, filters) && matches(it, q) && (!lin || lin.has(it.actorIid) || lin.has(it.targetIid))
+    && (!att || hasTechnique(it, att)) && (!sev || it.ev.e3_detection?.severity === sev)
+    && (!ioc || (it.ev.e3_detection && (it.ev.e3_detection.rule_id || it.ev.e3_detection.name) === ioc))), [model, filters, q, lin, att, sev, ioc]);
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape" && (att || sev || ioc)) upd({ att: null, sev: null, ioc: null }); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }); // eslint-disable-line
   const vmodel = useMemo(() => {
     if (shown.length === model.items.length) return model;
     const keep = new Set(shown.flatMap((it) => [it.target?.key, it.actor?.key]));
@@ -189,7 +198,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     last24: () => upd({ t0: null, t1: null }), now: () => setView({ t0: now - span, t1: now }), prev: () => setView({ t0: t0 - span, t1: t1 - span }),
     next: () => setView({ t0: Math.min(t0 + span, now - span), t1: Math.min(t1 + span, now) }),
     fit: () => { const g = document.querySelector('[data-testid="v3-grid"]'); setColW(Math.max(1.5, Math.min(48, ((g?.clientWidth || 1200) - 300) / Math.max(1, vmodel.ncol)))); },
-    reset: () => { upd({ t0: null, t1: null, q: null, f: null, iso: null, event: null }); setColW(24); setExpanded(new Set()); setDetails(false); },
+    reset: () => { upd({ t0: null, t1: null, q: null, f: null, iso: null, event: null, att: null }); setColW(24); setExpanded(new Set()); setDetails(false); },
     zin: () => setColW((w) => Math.min(48, w * 1.25)), zout: () => setColW((w) => Math.max(1.5, w * 0.8)),
   })[k]();
   const step = (d) => { if (!shown.length) return; const i = (hitIdx + d + shown.length) % shown.length; setHitIdx(i); select(shown[i], true); };
@@ -209,7 +218,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     try {
       const { data: r } = await api.post("/e3/trajectory/approvals", { tenant_id: data?.identity?.tenant_id, action, requested_by: "preview-analyst",
         target: { device_id: device, event_iid: it?.ev.event_iid, path: it?.target?.path }, idempotency_key: `${action}:${it?.ev.event_iid || device}`, reason: "trajectory" });
-      say(`Approval requested — not executed. (${r.request?.state || "REQUESTED"})`);
+      say(`Approval Requested — not executed. (${r.request?.state || "REQUESTED"})`);
       if (it) setApprovals((a) => ({ ...a, [it.ev.event_iid]: [...(a[it.ev.event_iid] || []), { action, state: r.request?.state || "APPROVAL_REQUESTED" }] }));
     } catch (e) { say(`Approval request not recorded: ${e.message}`); }
   };
@@ -234,7 +243,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
             <span title="Searches SHA-256, filename, process, command line, IP, domain and user" style={{ color: C.muted, display: "flex" }}><Info size={16} /></span>
           </div>
           {filtered && <span data-testid="v3-filter-indicator" style={{ fontSize: 13, color: C.amber, whiteSpace: "nowrap" }}>{shown.length} of {model.items.length}
-            <button className="v3-link" data-testid="v3-filter-reset" style={{ marginLeft: 8, fontSize: 13 }} onClick={() => upd({ f: null, q: null, iso: null })}>Reset</button></span>}
+            <button className="v3-link" data-testid="v3-filter-reset" style={{ marginLeft: 8, fontSize: 13 }} onClick={() => upd({ f: null, q: null, iso: null, att: null, sev: null, ioc: null })}>Reset</button></span>}
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
@@ -246,6 +255,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
           border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 18px", fontSize: 13.5, boxShadow: "0 10px 30px rgba(0,0,0,.5)", animation: "v3in .15s ease-out" }}>{notice}</div>}
         <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "visible" }}>
           <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} />
+          {!perf && <AttackPanel url={url} device={device} t0={t0} t1={t1} active={att} dets={dets} onJump={jump} onPick={(v) => upd({ att: v })}
+            sev={sev} onSev={(v) => upd({ sev: v })} ioc={ioc} onIoc={(v, d) => (d?.event_iid ? upd({ ioc: v, event: d.event_iid }) : (upd({ ioc: v }), d && setTimeout(() => jump(d), 0)))} scenario={scenario} />}
+          {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
+            ATT&amp;CK {att} · {shown.length} mapped events in the loaded window (observed technique, not a confirmed attack)
+            <button className="v3-link" data-testid="dt-attack-filter-clear" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ att: null })}>Clear</button></div>}
           <div data-testid="v3-toolbar" style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", padding: "6px 10px", background: C.panel, borderBottom: `1px solid ${C.line}`, fontSize: 12 }}>
             <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
             {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
@@ -275,7 +289,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
               <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
               {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
               {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
-                model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} />}
+                model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>

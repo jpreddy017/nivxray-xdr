@@ -20,7 +20,9 @@ export default function EdrSidebar({ nav, active, collapsed, onToggle, onGo }) {
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`} data-testid="nvf-sidebar" data-collapsed={collapsed ? "1" : "0"}>
       <button type="button" className="nav-toggle" data-testid="nvf-sidebar-toggle" aria-expanded={!collapsed}
               aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} title={collapsed ? "Expand navigation" : "Collapse navigation"}
-              onClick={() => { hide(); onToggle(); }}>{collapsed ? "»" : "«"}</button>
+              onClick={() => { hide(); onToggle(); }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" data-testid="nvf-sidebar-hamburger"><path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+      </button>
       {nav.map((section, si) => (
         <React.Fragment key={section.title}>
           {collapsed ? (si > 0 && <div className="nav-sep" data-testid="nvf-nav-sep" role="separator" />)
@@ -45,6 +47,7 @@ export default function EdrSidebar({ nav, active, collapsed, onToggle, onGo }) {
                       data-active={isActive || undefined} aria-current={isActive ? "page" : undefined} {...common}>
                 <span className="ic"><Icon size={collapsed ? 17 : 13} /></span>
                 <span className="lbl">{t.label}</span>
+                {t.children?.length > 0 && !collapsed && <span data-testid={`nvf-nav-chevron-${t.key}`} style={{ marginLeft: "auto", opacity: 0.6 }}>›</span>}
               </button>
             );
           })}

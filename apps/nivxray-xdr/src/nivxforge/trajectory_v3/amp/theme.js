@@ -23,6 +23,7 @@ export const CSS = `
 .v3amp .v3-sq{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .v3amp .v3-link{background:none;border:0;color:var(--v3-accent);cursor:pointer;font-size:14px;padding:0}
 .v3amp .v3-link:hover{text-decoration:underline}
+.v3amp .v3-hashchip:hover{outline:1px solid var(--v3-muted);border-radius:2px}
 .v3amp input[type=checkbox]{accent-color:var(--v3-accent);width:14px;height:14px;border-radius:2px}
 .v3amp .v3-scroll::-webkit-scrollbar{height:10px;width:10px}.v3amp .v3-scroll::-webkit-scrollbar-thumb{background:#4a4f57;border-radius:6px}
 .v3amp .v3-scroll::-webkit-scrollbar-track{background:transparent}
