@@ -754,9 +754,12 @@ except Exception as _v2_exc:                             # pragma: no cover
 
 app.include_router(api)
 
-# E3 PREVIEW-ONLY (E1: STRIP). Read-only /api/e3/trajectory/*, OFF unless E3_TRAJECTORY_ROUTER=1.
-from edr_trajectory.preview_mount import mount_if_enabled as _e3_dt_mount  # noqa: E402
-_e3_dt_mount(app, lambda: __import__("deps").db)
+# E3 preview router mount STRIPPED for production integration (brief §b).
+# `/api/e3/trajectory/*` was the ONLY runtime entry point into the E3 preview
+# plumbing (api.py, e1_shape_preview, kushu_import, fixtures, prodshape,
+# platform_seed, stale_trace, artifacts_overlay). With this mount removed those
+# modules are unreachable at runtime and survive only as test assets, so no
+# synthetic fixture can be served by production regardless of env flags.
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps
 app.add_middleware(RequestHardeningMiddleware)
