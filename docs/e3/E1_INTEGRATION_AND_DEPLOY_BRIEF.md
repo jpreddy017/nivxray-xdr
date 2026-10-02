@@ -207,3 +207,11 @@ Gate: everything green, plus the flags-OFF byte-identical response check (§6.1)
    - To strip it, revert the Phase 2 commit, or keep the flag unset.
    - E3 does not wire the AMP-parity UI to production evidence. That needs E1 to serve `e3.dt.v1` over the authoritative store.
    - `/viewport` returns every marker for lanes under the bucket threshold (1.4 MB on the 12k fixture). E1 should cap this server-side before production use.
+8. **V3 Device Trajectory (M2, preview-only, E1: STRIP or adopt behind a flag).**
+   - Source: `apps/nivxray-xdr/src/nivxforge/trajectory_v3/` (`DeviceTrajectoryPage.jsx` → `amp/*`). The V2 files `Grid3/Side3/model.js/DeviceTrajectoryV3Page.jsx` were removed and converged into `amp/`.
+   - It reads only the page's own `/api/edr/endpoints/{id}/trajectory` and `/focus`. It needs E1 to serve newest-first pages (`e3_preview.older_cursor` / `before=`); E1's oldest-first page is the stale defect.
+   - Preview-only backend modules (strip for E1): `edr_trajectory/e1_shape_preview.py`, `kushu_import.py`, `platform_seed.py`, `prodshape.py`, `stale_trace.py`.
+   - `POST /api/e3/trajectory/import` is token-gated (`E3_IMPORT_TOKEN`) and writes only `E3_PREVIEW_DB`. It must never be mounted in production.
+   - **Linux device** `dev_syn_lnx01`: synthetic lines go through E1's real Linux sensor path (`canonical_bridge.parse` → `bind_process_identity` → `observation_doc` → E1 projection). The Linux FILE writer is NOT_OBSERVED and network rows carry no `process_iid`, so those connectors render as UNRESOLVED "?". That is honest, not a UI bug.
+   - **macOS device** `dev_fix_mac01`: **FIXTURE-ONLY, no E1 macOS parser.** The rows are hand-built in the E1 projection shape, solely to prove MachO/GZ row tags and narratives.
+

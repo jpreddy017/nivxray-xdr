@@ -55,7 +55,7 @@ def _detection(e: dict[str, Any]) -> dict[str, Any] | None:
             "basis": "E1_EXPORTED_DETECTION_FIELD"}
 
 
-async def ingest(db, body: dict[str, Any]) -> dict[str, Any]:
+async def ingest(db, body: dict[str, Any], *, label: str = LABEL, source: str = "KUSHU_BROWSER_EXPORT") -> dict[str, Any]:
     if body.get("format") != FORMAT:
         raise HTTPException(422, f"format must be {FORMAT}")
     dev = str(body.get("device") or "")
@@ -78,16 +78,16 @@ async def ingest(db, body: dict[str, Any]) -> dict[str, Any]:
         await db[EV].create_index([("device", 1), ("ms", 1), ("event_iid", 1)])
     count = await db[EV].count_documents({"device": dev})
     prev = await db[META].find_one({"device": dev}) or {}
-    meta = {"device": dev, "label": LABEL, "source": "KUSHU_BROWSER_EXPORT",
+    meta = {"device": dev, "label": label, "source": source,
             "source_origin": body.get("source_origin") or prev.get("source_origin"),
             "exported_at": body.get("exported_at") or prev.get("exported_at"),
             "export_window": body.get("window") or prev.get("export_window"),
             "identity": body.get("identity") or prev.get("identity") or {"device_iid": dev},
-            "computer": body.get("computer") or prev.get("computer"),
+            "computer": body.get("computer") or prev.get("computer"), "probes": body.get("probes") or prev.get("probes"),
             "imported_at": _iso(int(time.time() * 1000)), "count": count,
             "chunks": sorted({*prev.get("chunks", []), (body.get("chunk") or {}).get("index", 0)})}
     await db[META].replace_one({"device": dev}, meta, upsert=True)
-    return {"device": dev, "accepted": len(ops), "rejected": bad, "stored_total": count, "label": LABEL}
+    return {"device": dev, "accepted": len(ops), "rejected": bad, "stored_total": count, "label": label}
 
 
 async def _rows(db, dev: str, t0: int | None, t1: int | None) -> list[dict[str, Any]]:
@@ -123,6 +123,8 @@ async def trajectory(db, meta: dict[str, Any], *, time_start=None, time_end=None
             e["e3_detection"] = det
     allr = await _rows(db, dev, None, None)
     days = Counter(_iso(r["ms"])[:10] for r in allr)
+    dets = [{"observation_id": r.get("observation_id"), "event_iid": r["event_iid"], "at": _iso(r["ms"]), "ms": r["ms"],
+             "name": d["name"], "severity": d["severity"]} for r in allr if (d := _detection(r["event"]))]
     ident = {"device_iid": dev, "addressed_by": [dev], **(meta.get("identity") or {})}
     return {"engine_id": "E3_KUSHU_EXPORT_REPLAY", "events": page, "returned": len(page),
             "matched_in_window": len(rows), "observations_all_time": len(allr),
@@ -134,7 +136,8 @@ async def trajectory(db, meta: dict[str, Any], *, time_start=None, time_end=None
             "e3_preview": {"engine": "E3_NEWEST_FIRST_OVER_KUSHU_EXPORT", "order": "NEWEST_FIRST", "window_rows": len(rows),
                            "remaining_older": start, "remaining_newer": len(rows) - end,
                            "older_cursor": _enc(rows[start]["ms"], rows[start]["event_iid"]) if start > 0 else None,
-                           "data_label": LABEL, "preview_only": True, "source_origin": meta.get("source_origin"),
+                           "data_label": meta.get("label") or LABEL, "source": meta.get("source"), "preview_only": True,
+                           "source_origin": meta.get("source_origin"), "detections_all": dets,
                            "exported_at": meta.get("exported_at"), "status_events": [],
                            "detections_basis": "E1 detection fields as exported (not re-derived)"}}
 

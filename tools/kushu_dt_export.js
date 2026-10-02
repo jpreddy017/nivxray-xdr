@@ -4,6 +4,7 @@
 (async () => {
   const DEVICE = "dev_8b90e7c9a70d";
   const DAYS = 30, LIMIT = 4000, CHUNK = 1500, MAX_PAGES_PER_DAY = 200;
+  const PROBE_EVENTS = ["obs_2e29e40ee2dc#c133a4ab50"];
   const PREVIEW = "https://edr-forge-complete.preview.emergentagent.com/api/e3/trajectory/import";
   const TOKEN = "e3imp_b15b1c9df69ed529c11f1c0c707333b9";
   const H = { Authorization: `Bearer ${localStorage.getItem("nvx_token")}` };
@@ -20,6 +21,7 @@
       if (cursor) qs.set("cursor", cursor);
       const r = await fetch(`/api/edr/endpoints/${encodeURIComponent(DEVICE)}/trajectory?${qs}`, { headers: H, credentials: "include" });
       gets++;
+      await new Promise((res) => setTimeout(res, 350));
       if (!r.ok) throw new Error(`GET trajectory ${r.status} (day -${d})`);
       const j = await r.json();
       computer = computer || j.computer; identity = identity || j.identity;
@@ -31,8 +33,19 @@
     console.log(`[nvx-dt-export] day -${d}: ${byIid.size} unique events so far (${gets} GETs)`);
   }
   const events = [...byIid.values()].sort((a, b) => a.timestamp_instant_ms - b.timestamp_instant_ms);
+  // Raw observation records: production exposes no read-only GET for raw v2_shadow_observations docs. The closest read-only
+  // evidence reads are the page's own focus + observation-narrative endpoints; capture them for the probe event(s).
+  const probes = {};
+  for (const iid of PROBE_EVENTS) {
+    const f = await fetch(`/api/edr/endpoints/${encodeURIComponent(DEVICE)}/trajectory/focus?event_iid=${encodeURIComponent(iid)}`, { headers: H, credentials: "include" });
+    await new Promise((res) => setTimeout(res, 350));
+    const n = await fetch(`/api/edr/observation-narrative?device=${encodeURIComponent(DEVICE)}&event_iid=${encodeURIComponent(iid)}`, { headers: H, credentials: "include" });
+    await new Promise((res) => setTimeout(res, 350));
+    probes[iid] = { focus: f.ok ? await f.json() : { http: f.status }, narrative: n.ok ? await n.json() : { http: n.status },
+      in_export: byIid.has(iid) };
+  }
   const head = { format: "NVX_DT_EXPORT_V1", device: DEVICE, source_origin: location.origin, exported_at: new Date().toISOString(),
-    window: { start: new Date(now - DAYS * DAY).toISOString(), end: new Date(now).toISOString() }, computer, identity };
+    window: { start: new Date(now - DAYS * DAY).toISOString(), end: new Date(now).toISOString() }, computer, identity, probes };
   const blob = new Blob([JSON.stringify({ ...head, events })], { type: "application/json" });
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `nvx_dt_export_${DEVICE}.json` });
   document.body.appendChild(a); a.click(); a.remove();

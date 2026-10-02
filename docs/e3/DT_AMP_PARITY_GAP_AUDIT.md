@@ -58,3 +58,11 @@ Status:
 - **S-7** Process end requires the Sysmon config to emit EventID 5. Otherwise lanes show `continues_after`.
 - **E1-1** Store authority (`v2_shadow_observations` vs `xdr_canonical_evidence`) is undecided. E3 selects neither.
 - **E1-2** RC8 server ordering; push the aggregation down; the per-endpoint gap/heartbeat feed.
+
+## M2 platform coverage (2026-10-02)
+| Platform | Preview device | Path | Status |
+|---|---|---|---|
+| Windows | dev_f22d20b97b6d | E1 Windows pipeline (prodshape.py) | synthetic, shape-faithful |
+| Linux | dev_syn_lnx01 | E1 Linux sensor path (canonical_bridge → observation_doc → E1 projection) | synthetic; FILE writer NOT_OBSERVED, network rows lack process_iid → UNRESOLVED connectors |
+| macOS | dev_fix_mac01 | **fixture-only, no E1 macOS parser** | hand-built rows in E1 projection shape; proves MachO/GZ tags + narratives only |
+

@@ -169,6 +169,11 @@ async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
         out["dt2"] = {"state": "DT2_CONTRACT_UNAVAILABLE", "reason": type(ex).__name__}
     dets = {d["observation_id"]: d async for d in db["e3_dt_detections"].find({}, {"_id": 0})}
     stat = [s async for s in db["e3_dt_status_events"].find({}, {"_id": 0})]
+    obs_ids = [e.get("observation_id") for e in out.get("events") or []]
+    ing = {d["observation_id"]: d.get("ingest_time") async for d in db["v2_shadow_observations"].find(
+        {"observation_id": {"$in": obs_ids + list(dets)}}, {"_id": 0, "observation_id": 1, "ingest_time": 1, "event.ts": 1})}
+    for e in out.get("events") or []:
+        e["e3_ingested_at"] = ing.get(e.get("observation_id"))
     for e in out.get("events") or []:
         if e.get("observation_id") in dets:
             e["e3_detection"] = dets[e["observation_id"]]
@@ -176,6 +181,8 @@ async def trajectory(engine: str = "e3", **p) -> dict[str, Any]:
         if hits:
             e["e3_status_history"] = hits
     out["e3_preview"] = {**e3, "data_label": ps.LABEL, "preview_only": True, "status_events": stat,
+                         "detections_all": [{"observation_id": k, "at": d["at"], "name": d["name"], "severity": d["severity"]}
+                                            for k, d in dets.items()],
                          "detections_basis": "E3 overlay collection e3_dt_detections (synthetic); not E1 attribution"}
     return out
 
@@ -257,6 +264,15 @@ def build_router() -> APIRouter:
     async def reseed():
         meta = await ensure_seeded(force=True)
         return {k: meta[k] for k in ("ref_ms", "count", "label", "source")}
+
+    @r.post("/e3/preview/seed-platforms")
+    async def seed_platforms():
+        from . import platform_seed as pls
+        ref = int(time.time() * 1000) // 60_000 * 60_000
+        stage = _db().client[os.environ["E3_PREVIEW_DB"] + "_linux_stage"]
+        out = {"linux": await pls.seed_linux(_db(), stage, ref), "macos": await pls.seed_mac(_db(), ref)}
+        await _db().client.drop_database(stage.name)
+        return out
 
     @r.get("/xdr/rbac/session-context")
     async def session_context():
