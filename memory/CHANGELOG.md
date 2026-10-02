@@ -1,3 +1,40 @@
+## 2026-06 · integration/e3-dt @ da4c9098 · Gate 16 fixed, final E3 absorbed, §d still open
+
+`96232631` -> `2c36a0e0` (report) -> `da4c9098`. FINAL_E3_SOURCE = `258c8854` (absorbed;
+2 files, preview-only stable synthetic observation ids + brief text). Base `1800aeea`,
+`feature/rc2-alignment` untouched.
+
+**Gate 16 FIXED by architecture, not by weakening.** `trajectory_v3/amp` reached into the
+XDR product namespace `@/xdr/mitre/*`. The two genuinely shared modules
+(`navigatorLayer.js`, `attackNameIndex.generated.js`) moved to `@/xdr/lib/mitre/` - a
+namespace Gate 16 already sanctions - and BOTH `XdrMitreHeatmap` (XDR) and
+`trajectory_v3/amp/attack.js` (EDR) import from there. Catalogue NOT duplicated,
+allow-list NOT extended, `build_name_index.py` emits to the shared path (one generated
+index). `attack_catalog.test.mjs` now asserts the shared path.
+
+`backend/tests/edr/` back to **2051 passed / 3 skipped** (regression closed).
+Gate16+attack_catalog 10 · vitest 246 · tools/e3ui 12 · node --test 50 · jest 14 ·
+E3 trees 190/9.
+
+Invariants: worker_count=1, PROCESSING_CONTRACT durable_queue_v1, `$lookup` 0,
+created-fix present, reconcile index present. `PRODUCTION_MOCK_DATA_REACHABLE = NO`
+(re-proved with `E3_TRAJECTORY_ROUTER=1` forced ON -> zero `/api/e3` routes).
+Flag matrix re-proved by build: OFF 13,186 B chunk with static dep on
+`EdrDeviceTrajectoryPage`; ON 1,837 B, dep folded out.
+Routing: `/edr` -> EdrOverviewPage; `/edr/device-trajectory` -> DeviceTrajectoryEntry ->
+trajectory_v3 with `device` search param; Vercel rewrites `/(.*)` -> `/index.html` so
+refresh works.
+
+**STILL NOT_PRODUCTION_READY.** §d wiring 2/11 addressable; 9 items NOT_WIRED. Blocking
+architecture contradiction surfaced for the owner: §d.1 and §e require ordering/indexing on
+`observed_ms`, which is NOT a stored field anywhere, while §e also forbids any migration
+that rewrites evidence. Cannot be resolved from repository contracts - needs an owner
+decision (stamp `observed_ms` at canonicalisation for new evidence, the `processing_contract`
+precedent, plus a separate decision on historical backfill).
+
+NOTHING DEPLOYED/PUBLISHED. DESKTOP-A9HGFJJ UNTOUCHED. KUSHU endpoint UNTOUCHED. Gate 4 HOLD.
+
+
 ## 2026-06 · integration/e3-dt · E3 Device Trajectory + ATT&CK v19.2 integrated (NOT deployed)
 
 Branch `integration/e3-dt` = `1800aeea` (E1 deployable baseline) fast-forwarded to E3
