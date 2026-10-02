@@ -82,7 +82,8 @@ const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewP
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
 const EdrProcessTreePage     = lazy(() => import("@/nivxforge/pages/EdrProcessTreePage"));
 const EdrCampaignStoryPage   = lazy(() => import("@/nivxforge/pages/EdrCampaignStoryPage"));
-const EdrDeviceTrajectoryPage = lazy(() => import("@/nivxforge/trajectory/EdrDeviceTrajectoryPage"));
+// /edr/device-trajectory: flag VITE_E3_DT_CONTRACT_PREVIEW (default OFF) → renders EdrDeviceTrajectoryPage unchanged.
+const DeviceTrajectoryEntry = lazy(() => import("@/nivxforge/trajectory_amp/DeviceTrajectoryEntry"));
 
 const EdrReserved = lazy(() =>
   import("@/nivxforge/pages/EdrReservedPages").then((m) => ({ default: m })),
@@ -369,7 +370,7 @@ export default function App() {
         <Route path="/edr/campaign-story" element={<Protected><EdrCampaignStoryPage /></Protected>} />
         {/* Y1 · D-2 · permanent context-preserving compatibility route. */}
         <Route path="/xdr/edr/device-trajectory" element={<EdrTrajectoryRedirect />} />
-        <Route path="/edr/device-trajectory" element={<Protected><EdrDeviceTrajectoryPage /></Protected>} />
+        <Route path="/edr/device-trajectory" element={<Protected><DeviceTrajectoryEntry /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
         <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
         <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />
