@@ -39,6 +39,9 @@ export function ActivityList({ items, sel, onSelect, hidden, height }) {
   );
 }
 
+const BRK = /([\\/=,;&?:|. -])/;
+export const wrapText = (s) => String(s ?? "").split(BRK).map((p, i) => (i % 2 ? <React.Fragment key={i}>{p}<wbr /></React.Fragment> : p));
+
 function Tok({ t, onCtx, onCopy }) {
   if (typeof t === "string") return t;
   if (t.unk) return <span data-testid="v3-unknown-token" style={{ color: C.accent }}>{t.unk}</span>;
@@ -46,7 +49,7 @@ function Tok({ t, onCtx, onCopy }) {
   if (t.hash) return <span data-testid="v3-hash-chip" title={t.hash} onClick={() => onCopy(t.hash)} style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12,
     background: "rgba(255,255,255,.07)", border: `1px solid ${C.line}`, borderRadius: 3, padding: "0 5px", cursor: "copy" }}>{short(t.hash)} ⧉</span>;
   return <span data-testid="v3-token" title={t.full} onClick={(e) => onCtx(e)} onContextMenu={(e) => { e.preventDefault(); onCtx(e); }}
-    style={{ borderBottom: `1px dotted ${C.muted}`, cursor: "pointer", wordBreak: "break-all" }}>{t.tok}</span>;
+    style={{ borderBottom: `1px dotted ${C.muted}`, cursor: "pointer", overflowWrap: "anywhere" }}>{wrapText(t.tok)}</span>;
 }
 
 const ago = (a, b) => (a && b ? `${Math.round((Date.parse(b) - a) / 1000)} s` : "not collected");
@@ -60,7 +63,7 @@ export function ActivityDetails({ it, onBack, onCtx, onCopy, height }) {
     ["Detection", d ? `${d.name} · ${d.engine} · ${d.at} · is_verdict=${String(d.is_verdict)}` : "none recorded"],
     ["What we cannot tell you", "File SHA-256 where the sensor did not hash; the true creator under PPID spoofing; process end time; any verdict without an evidence-backed assessment."]];
   return (
-    <div data-testid="v3-activity-details" className="v3-scroll" style={{ padding: "12px 16px", height, boxSizing: "border-box", overflowY: "auto", fontSize: 14, lineHeight: 1.6, animation: "v3in .15s ease-out" }}>
+    <div data-testid="v3-activity-details" className="v3-scroll" style={{ padding: "12px 16px", height, boxSizing: "border-box", overflowY: "auto", overflowX: "hidden", fontSize: 14, lineHeight: 1.6, animation: "v3in .15s ease-out" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <button data-testid="v3-details-back" onClick={onBack} style={{ background: "none", border: 0, color: C.accent, fontSize: 22, cursor: "pointer", lineHeight: 1 }}>‹</button>
         <span data-testid="v3-details-time" title={`Local: ${fmt(e.timestamp_instant_ms, true)}`} style={{ color: C.muted, borderBottom: `1px dashed ${C.muted}` }}>{fmt(e.timestamp_instant_ms)}</span>
@@ -70,8 +73,8 @@ export function ActivityDetails({ it, onBack, onCtx, onCopy, height }) {
       <div data-testid="v3-narrative">{narrative(it).map((ln, i) => <p key={i} style={{ margin: "0 0 8px" }}>{ln.map((t, j) => <Tok key={j} t={t} onCtx={onCtx} onCopy={onCopy} />)}</p>)}</div>
       <details data-testid="v3-evidence" style={{ marginTop: 12, color: C.muted, fontSize: 12.5 }}>
         <summary style={{ cursor: "pointer", color: C.text }}>Evidence &amp; provenance</summary>
-        {ev.map(([k, v]) => <div key={k} style={{ display: "grid", gridTemplateColumns: "130px 1fr", gap: 8, padding: "2px 0" }}><span>{k}</span>
-          <span style={{ color: C.text, wordBreak: "break-all" }}>{v ?? "not collected"}</span></div>)}
+        {ev.map(([k, v]) => <div key={k} style={{ display: "grid", gridTemplateColumns: "112px minmax(0,1fr)", gap: 8, padding: "2px 0" }}><span>{k}</span>
+          <span style={{ color: C.text, overflowWrap: "anywhere" }}>{wrapText(v ?? "not collected")}</span></div>)}
       </details>
     </div>
   );

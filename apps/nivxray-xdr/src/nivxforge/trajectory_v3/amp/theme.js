@@ -6,7 +6,7 @@ export const C = {
   tip: "var(--v3-tip)", hatch: "var(--v3-hatch)",
 };
 export const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif';
-export const ROW_H = 26, HDR_H = 78, LABEL_W = 260, PANEL_W = 400, ACT_H = 45, DAY = 86_400_000;
+export const ROW_H = 26, HDR_H = 78, LABEL_W = 260, ACT_H = 45, DAY = 86_400_000;
 
 export const CSS = `
 .v3amp{--v3-page:#1a1c20;--v3-panel:#24272c;--v3-nav:#2e3a4c;--v3-inset:#232d3b;--v3-band:#0f1012;--v3-line:#3a3d42;

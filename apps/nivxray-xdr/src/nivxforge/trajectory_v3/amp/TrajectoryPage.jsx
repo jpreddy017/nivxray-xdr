@@ -10,7 +10,10 @@ import { ApprovalDialog, ContextMenu } from "./Menu";
 import { buildModel, DEFAULT_ON, lineage, matches, passes } from "./model";
 import Navigator from "./Navigator";
 import { perfEvents } from "./perf";
-import { C, CSS, DAY, PANEL_W } from "./theme";
+import { C, CSS, DAY } from "./theme";
+import { readCollapsed, setCollapsedGlobal } from "../../EdrSidebar";
+
+const PANEL_KEY = "nvx.dt.panelW", PANEL_MIN = 320, PANEL_DEFAULT = 336;
 
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -62,6 +65,29 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
   const returnTo = useRef(false), req = useRef(0), timing = useRef({});
+  const wsRef = useRef(null);
+  const [railed, setRailed] = useState(readCollapsed);
+  useEffect(() => { const on = (e) => setRailed(!!e.detail); window.addEventListener("nvx-sidebar", on); return () => window.removeEventListener("nvx-sidebar", on); }, []);
+  const panelMax = useCallback(() => Math.max(PANEL_MIN, Math.floor((wsRef.current?.clientWidth || 1600) * 0.4)), []);
+  const [panelW, setPanelW] = useState(() => { const v = Number(sessionStorage.getItem(PANEL_KEY)); return v >= PANEL_MIN ? v : PANEL_DEFAULT; });
+  const setPanel = useCallback((w) => {
+    const v = Math.round(Math.min(panelMax(), Math.max(PANEL_MIN, w)));
+    setPanelW(v);
+    try { sessionStorage.setItem(PANEL_KEY, String(v)); } catch { /* ok */ }
+  }, [panelMax]);
+  useEffect(() => {
+    const o = new ResizeObserver(() => setPanelW((w) => Math.min(panelMax(), Math.max(PANEL_MIN, w))));
+    wsRef.current && o.observe(wsRef.current);
+    return () => o.disconnect();
+  }, [panelMax]);
+  const dragPanel = (e) => {
+    e.preventDefault();
+    const right = wsRef.current.getBoundingClientRect().right;
+    const mv = (ev) => setPanel(right - ev.clientX);
+    const up = () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); document.body.style.cursor = ""; };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+  };
   const gridH = useRef(Math.max(420, (typeof window !== "undefined" ? window.innerHeight : 1000) - 470)).current;
   const say = useCallback((m) => { setNotice(m); setTimeout(() => setNotice((n) => (n === m ? null : n)), 4500); }, []);
   const url = `/edr/endpoints/${encodeURIComponent(device)}/trajectory`;
@@ -214,8 +240,10 @@ export default function TrajectoryPage({ device, onLegacy }) {
             <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
             {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
               <button key={k} className="v3-btn" data-testid={`v3-${k}`} style={{ padding: "3px 10px", fontSize: 12 }} onClick={nav(k)}>{l}</button>)}
+            <button className="v3-btn" data-testid="v3-workspace-mode" data-mode={railed ? "max" : "standard"} style={{ padding: "3px 10px", fontSize: 12 }}
+              onClick={() => { setCollapsedGlobal(!railed); setPanel(railed ? PANEL_DEFAULT : PANEL_MIN); }}>{railed ? "Standard layout" : "Maximum workspace"}</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) ${PANEL_W}px` }}>
+          <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
               <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW}
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
@@ -223,12 +251,17 @@ export default function TrajectoryPage({ device, onLegacy }) {
               {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}
             </div>
-            <div style={{ borderLeft: `1px solid ${C.line}`, background: C.panel }}>
+            <div data-testid="v3-panel-divider" role="separator" aria-orientation="vertical" aria-label="Resize Activity panel" tabIndex={0}
+              aria-valuemin={PANEL_MIN} aria-valuemax={panelMax()} aria-valuenow={panelW} onMouseDown={dragPanel}
+              onKeyDown={(e) => { if (e.key === "ArrowLeft") setPanel(panelW + 16); if (e.key === "ArrowRight") setPanel(panelW - 16); }}
+              style={{ cursor: "col-resize", background: C.line, opacity: 0.6, transition: "opacity .12s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }} />
+            <div data-testid="v3-activity-panel" style={{ background: C.panel, minWidth: 0, overflow: "hidden" }}>
               <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{details && sel ? "Activity Details" : "Activity"}</div>
               <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={details && !!sel} height={gridH - 44} />
               {details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })} />}
             </div>
-          </div>
+          </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
             <span data-testid="v3-loaded-count">Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</span>
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" onClick={loadOlder}>Load older events</button>}
