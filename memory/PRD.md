@@ -6117,3 +6117,43 @@ frontend has no knowledge of observation_us) and `vercel.json` already routes ed
 publishing today ships the LEGACY Device Trajectory, not V3. Branch `integration/e3-dt`, HEAD
 14884069. Recommendation: enable V3 AFTER the backfill so V3 is not an analyst's first experience
 while `pending_temporal_migration` is still 122,369.
+
+### G-41 WRITER DEPLOYED TO PRODUCTION — GATE PASS, POPULATION CLOSED (2026-06)
+
+Publish succeeded (rollout cut 2026-10-03T14:16:35Z). Read-only verification + census returned PASS
+on every item. Deployer report: `/app/deployer-agent-docs/RCA_3633b408-22eb-4741-ab0f-90ea44ebd6d1.MD`.
+No backfill, no index created, no V3, no frontend deploy, no KUSHU/DESKTOP/sensor/TI action.
+
+PRODUCTION (new rows only): observation_us present and rising 19->21->25->34; BSON **long** (int 0,
+double 0); value 1790849994669000 ~= 1.79e15 = MICROSECONDS (not ms — the failure mode that would
+have sunk the gate); exact correspondence e.g. `2026-10-01T10:19:54.669Z` -> 1790849994669000;
+state distinct = ["DERIVED_FROM_STORED_OBSERVATION_TIME"], basis distinct =
+["ARITHMETIC_OVER_STORED_EVENT_TIME"], UNPLACEABLE_* = 0; event_time NOT rewritten (new rows Z$=25,
+space=0, offset=0); missing tenant_id = 0, non-`ep_` endpoint_id = 0; 2/2 pods ready,
+restart_count=0, and **0 ERROR/Traceback/AssertionError over 120 minutes** — no
+observation_us/temporal_authority invariant rejection, so the writer is stamping rather than
+refusing.
+
+DECISIVE GROWTH CHECK (two readings ~2-3 min apart):
+  read 1 @14:19Z  total=122,496  stamped=19  unstamped=122,477
+  read 2 @14:22Z  total=122,511  stamped=34  unstamped=122,477
+  dTotal=+15, dStamped=+15, dUnstamped=**0**; stamped+unstamped==total at both readings, residual 0.
+Every new row landed stamped. No ingest path writes canonical endpoint evidence without the stamp.
+
+PREVIEW CROSS-CHECK (independent, same writer code, live agent traffic): total 306,586->306,596
+(+10), stamped 1,374->1,384 (+10), unstamped FLAT at 305,212; types all `long`; one state and one
+basis value only; UNPLACEABLE 0; stamped rows missing tenant_id 0 and non-`ep_` endpoint_id 0;
+**400/400 sampled rows' observation_us equals to_epoch_us(event_time) exactly, 0 mismatches**.
+
+EXACT_BACKFILL_CANDIDATES = **122,477**
+  representation breakdown within it: space-separated 43,521 + trailing-Z 78,956 + offset 0 =
+  122,477 exactly, residual 0 — no unaccounted representation, so every candidate is parseable.
+  NOTE the delta vs the earlier 122,369 census: +108 rows arrived BETWEEN that census and the
+  rollout, i.e. before the writer shipped, so they legitimately joined the candidate set. That is
+  the explanation, not post-closure drift. Post-closure the number can only DECREASE (retention),
+  never increase.
+
+GATES: G41_WRITER_PRODUCTION_GATE = **PASS** · HISTORICAL_POPULATION_CLOSED = **YES** ·
+EXACT_BACKFILL_CANDIDATES = **122,477**.
+`EXPECTED_CANDIDATES` in `observation_us_migration.py` remains **None** — locking 122,477 is a
+reviewed commit and an owner decision, NOT taken. Next step awaits owner authorization.
