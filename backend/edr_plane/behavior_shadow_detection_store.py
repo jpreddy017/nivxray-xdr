@@ -66,6 +66,10 @@ SHADOW_MARKERS: Dict[str, Any] = {
 #: ever see OPEN on a shadow document.
 MARKERS: Dict[str, Any] = {**SHADOW_MARKERS, "status": STATUS_SHADOW_ONLY}
 
+#: STREAM identity. A caller may not choose or inherit a different stream.
+STREAM_FIELDS = ("replay_id", "ruleset_id", "ruleset_version",
+                 "ruleset_content_hash")
+
 WRITE_CREATED = "CREATED"
 WRITE_MERGED = "MERGED"
 WRITE_DUPLICATE = "DUPLICATE_UNCHANGED"
@@ -372,7 +376,7 @@ class ShadowDetectionStore:
         for field, value in SHADOW_MARKERS.items():
             if field in doc and doc[field] != value:
                 raise ShadowDetectionRefused(REFUSED_MARKER_OVERRIDE)
-        for field in self.stream:
+        for field in STREAM_FIELDS:
             if field in doc and doc[field] != self.stream[field]:
                 raise ShadowDetectionRefused(REFUSED_MARKER_OVERRIDE)
 
@@ -410,7 +414,14 @@ class ShadowDetectionStore:
         if self._trigger_key and self._trigger_key not in ref_keys:
             raise ShadowDetectionRefused(REFUSED_TRIGGER_ABSENT)
 
+        # `shadow_run_id` is write PROVENANCE, not stream identity: a later run
+        # legitimately merges a document a previous run created, so an inherited
+        # value is re-stamped to the current run and the first one is retained.
+        inherited = str(body.get("shadow_run_id") or "").strip()
         body.update(self.stream)
+        if inherited and inherited != self.stream["shadow_run_id"]:
+            body["first_shadow_run_id"] = \
+                body.get("first_shadow_run_id") or inherited
         engine_status = str(body.get("status") or "").strip()
         if engine_status and engine_status != STATUS_SHADOW_ONLY:
             body["engine_status"] = engine_status

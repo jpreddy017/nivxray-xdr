@@ -177,8 +177,7 @@ async def test_marker_tampering_is_refused(field, value):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("field,value", [("shadow_run_id", "other_run"),
-                                         ("replay_id", "shadow:zzz"),
+@pytest.mark.parametrize("field,value", [("replay_id", "shadow:zzz"),
                                          ("ruleset_content_hash", HASH_B),
                                          ("ruleset_id", "rs_other"),
                                          ("ruleset_version", 99)])
@@ -186,6 +185,21 @@ async def test_stream_identity_cannot_be_supplied_by_the_caller(field, value):
     with pytest.raises(ShadowDetectionRefused) as e:
         await store().put(det(**{field: value}), None)
     assert e.value.reason == REFUSED_MARKER_OVERRIDE
+
+
+@pytest.mark.asyncio
+async def test_shadow_run_id_is_restamped_and_the_first_one_is_retained():
+    """A later run legitimately merges a document an earlier run created, so an
+    inherited run id is write provenance — not a stream override."""
+    b = InMemoryShadowDetectionBackend()
+    await store(b, run="run_a").put(det(), None)
+    stored = b.all()[0]
+    merged = {**stored, "confidence": 90,
+              "last_seen": "2026-10-03T04:30:00Z", "status": "OPEN"}
+    await store(b, run="run_b").put(merged, 1)
+    doc = b.all()[0]
+    assert doc["shadow_run_id"] == "run_b"
+    assert doc["first_shadow_run_id"] == "run_a"
 
 
 # ── evidence integrity ───────────────────────────────────────────────────

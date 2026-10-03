@@ -4366,3 +4366,63 @@ Owner review of Step 29, then the runner (Step 30) may be considered. Runner mus
 refuse NO_EVIDENCE streams, refuse the page on any adapter refusal, checkpoint advance LAST,
 MATCH persistence proven only via the store's verified write outcome.
 
+
+---
+
+## STEP 30 — BEHAVIOR SHADOW RUNNER, SYNTHETIC ONLY (2026-06, completed)
+
+**First authorized SequenceEngine execution. Hermetic evidence only** — in-memory §d collection,
+in-memory checkpoint/run/detection stores. No production Mongo, no real endpoint, no KUSHU, no
+DESKTOP, no sensor, no Fabric Finding, no ledger, no index/collection creation, no deploy, no flag.
+
+- `backend/edr_plane/behavior_shadow_runner.py` — `run_shadow(...)`, `ShadowBudgets`,
+  `_BoundedProvider` (per-call timeout + aggregate §d page ceiling; `SdEvidenceProvider` untouched,
+  E9 hold), `ruleset_digest()`, `_FixedRegistry`.
+- Ordering per item: `expect_trigger` → `engine.process(mode=MODE_SHADOW)` → classify →
+  verified shadow-detection persistence (for MATCH/SUPPRESSED) → durable run-record measurement →
+  `frontier.advance()` LAST. Proven by a journal test asserting
+  `["detection", "run_record", "checkpoint"]`.
+- Advances only on NO_MATCH / MATCH / SUPPRESSED (the latter two only after a VERIFIED store write
+  and a read-back whose refs are tenant-owned, raw_id-bearing and contain the trigger key).
+  INSUFFICIENT_EVIDENCE → INTERRUPTED, BUDGET/truncation → TRUNCATED, engine exception or any
+  persistence failure → FAILED. In every case the frontier stays put and a resume cursor is
+  recorded. Never NO_MATCH for an unevaluated item.
+- G-8 honoured: `duplicates_prevented` is counted from `DUPLICATE_UNCHANGED` store outcomes; a
+  test asserts the engine's own counter stays 0 while the record reports 1.
+- G-9 honoured: `expect_trigger` precedes every `engine.process`, proven by trace order, by a
+  put-time spy, and by source order.
+- Budgets are runner-local dataclass defaults (25 trigger rows / 100 page size / 24 §d pages /
+  500 window events / 2000 matcher budget / 50 rules / 6 h span / 8 s per §d call / 60 s wall
+  clock, soft 20 s). No env var, no config. The wall-clock value is PROVISIONAL pending hermetic
+  measurement; the earlier "below the ~35 s ingress" justification was withdrawn as incoherent.
+- Tests: `backend/tests/edr_trajectory/test_shadow_runner.py` — 47 passed (all 21 mandated
+  synthetic scenarios + crash/retry assertions). Full suite
+  `tests/edr_trajectory tests/edr tests/edr_behavior` = 2609 passed / 12 skipped / the SAME 4
+  pre-existing `test_p0_f13_5_detection_handoff.py` failures. Backend healthy (/api/health 200).
+
+### GAP-10 (NEW, HARD BLOCKER for real-evidence shadow) — field namespace mismatch
+The Step-22 §d adapter emits a FLAT field namespace (`image`, `command_line`, `user`, `file_path`,
+`dest_ip`, …). The engine requires the CANONICAL NESTED namespace: `predicates.FIELD_PREFIXES`
+only permits dotted paths (`process.image`, `user.name`, …) and `get_field` walks nested dicts, and
+`detection.build` reads `(e.fields.get("user") or {}).get("name")`. Consequences, both observed:
+1. No predicate can ever match §d-sourced evidence except `detection.*` (the only nested key the
+   adapter emits).
+2. Any row carrying `process.user` CRASHES `detection.build` with
+   `AttributeError: 'str' object has no attribute 'get'`.
+The runner fails closed on (2) — FAILED, no detection, no advance — and that behaviour is tested.
+But a real KUSHU-class row carries a user on essentially every process event, so **real-evidence
+shadow validation is not possible until the adapter namespace is reconciled.** Fixing it means
+amending Step 22, which is owner-gated.
+
+### Step-29 amendment made (needed for retry idempotency)
+`shadow_run_id` is write PROVENANCE, not stream identity. The engine's merge path legitimately
+carries a previous run's id, which the original Step-29 check refused
+(`SHADOW_DETECTION_MARKER_OVERRIDE_REFUSED`), breaking crash-retry. The store now re-stamps
+`shadow_run_id` to the current run and retains the earliest as `first_shadow_run_id`;
+`replay_id`/`ruleset_id`/`ruleset_version`/`ruleset_content_hash` remain caller-forbidden
+(`STREAM_FIELDS`).
+
+### NEXT (owner-gated)
+Owner review of Step 30. Then Step 31 candidate: reconcile the §d adapter field namespace
+(GAP-10) with hermetic tests only — still no real evidence, no production, no real endpoint.
+
