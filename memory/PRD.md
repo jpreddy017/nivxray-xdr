@@ -5501,3 +5501,48 @@ untouched — i.e. verification does NOT come from the same call that made the c
 Untouched this step: no index created/modified/renamed/dropped, no backfill, no legacy-index removal,
 no §d branch retirement, no canonical-evidence mutation, no Behavior, no frontier/shadow, no TI work,
 no deploy/redeploy, no KUSHU access, DESKTOP untouched, no Windows/Mac/sensor action.
+
+## PRODUCTION-ADMIN AUTHENTICATION PATH — 2026-06 — READ-ONLY INVESTIGATION (NOTHING CHANGED)
+
+No token minted, no user created or reset, no credential read or exposed, no code/config/database
+change, no weakening of authentication.
+
+### The one legitimate flow (as implemented)
+1. `POST /api/auth/login` (`routers/auth.py:32`) with `{email, password}` -> `{access_token, email}`.
+   Passwords are verified against `users.password` (hashed); the endpoint is rate-limited per
+   `(email, client_ip)` with HTTP 429 + `Retry-After` on lockout, and a failed attempt returns 401.
+2. The token is a JWT signed with `JWT_SECRET`, `sub = email`, expiry `JWT_EXPIRE_HOURS`
+   (default 24) — `deps.py:283`.
+3. `deps.get_current_user` decodes it, loads the user, and returns 428 `password_change_required`
+   if `must_change_password` is set (that gate must be cleared via `/api/auth/change-password`
+   before any other authenticated route works).
+4. `deps.require_admin` then demands `user.role == "admin"` -> 403 otherwise. The migration routes
+   use exactly this.
+5. The admin account itself is seeded idempotently from the platform secrets `ADMIN_EMAIL` /
+   `ADMIN_PASSWORD` (`deps.seed_admin`), and an EXISTING admin's password is never re-set by the
+   seed (SEC-001). So the production admin credential is the owner's, held in the Deployment Panel
+   secrets — not something this plane can or should read.
+6. Frontend: `POST /api/auth/login` via `apps/nivxray-xdr/src/lib/auth.jsx`, token stored in
+   `localStorage["nvx_token"]` (email in `nvx_email`), attached as
+   `Authorization: Bearer <token>` by `src/lib/api.js`. Login pages: `/login` and `/edr/login`.
+
+### Safest owner-executed method for the already-approved migration call
+Use the EXISTING browser session, so the token never leaves the browser and never appears in chat,
+a file or shell history:
+  1. sign in at `https://nivxray.nivxforge.com/login` with the production ADMIN account;
+  2. confirm the principal: DevTools Console ->
+     `await (await fetch('/api/auth/me',{headers:{Authorization:'Bearer '+localStorage.getItem('nvx_token')}})).json()`
+     and check `role === "admin"`;
+  3. run the approved call from the same console:
+     `await (await fetch('/api/internal/admin/migrations/ensure-canonical-identity-indexes',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('nvx_token'),'Content-Type':'application/json'},body:JSON.stringify({mode:'report'})})).json()`
+     (swap `report` for `apply` only when the owner authorizes the mutation);
+  4. paste ONLY the returned JSON back — never the token.
+Alternative if the console is not desired: the same request from the owner's own shell with the token
+in an environment variable they set themselves. Rejected alternatives (not implemented, not
+recommended): minting a token, adding a debug/bypass route, a service credential, relaxing
+`require_admin`, or reading `ADMIN_PASSWORD` from anywhere.
+
+### If the production admin login is unknown
+It is the `ADMIN_EMAIL`/`ADMIN_PASSWORD` pair in the production Deployment Panel secrets; the owner
+can read/rotate it there. Rotation is a platform action, not a code change, and the seed will not
+overwrite an existing admin.
