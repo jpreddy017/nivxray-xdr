@@ -489,7 +489,38 @@ progress probe registered · takeover conditioned on both `migration_run_id` and
 Production state untouched: candidates 0 · ledger WRITTEN 122,477 · lock table empty · no
 `observation_us` index. `SAFE_FOR_VERIFY = YES`.
 
-Still not done, each a separate owner-authorized step: **`verify_canonical_observation_us`** (needs
-the owner's admin session) → the two indexes → `explain` plan proof → delete the transitional legacy
-read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3 (`apply` must not block on the 30-second gateway
-timeout), and the deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.
+### 13.9 VERIFIED — `G-41 IS CLOSED ON CORRECTNESS` `[2026-10-03 20:4x]`
+
+Independent verifier run `mig_c54cea5058df4fe3`, COMPLETED:
+
+```
+checked             = 122477
+disagreeing         = 0
+collateral_diverged = 0
+ok                  = true
+```
+
+**This is the number the collateral-digest fix (§13.2) was built to make meaningful.** Each of the
+122,477 rows was re-read against the prior state captured BEFORE its write: `observation_us` still
+equals the exact epoch-microseconds of its `event_time`, and `collateral_diverged = 0` proves
+nothing outside the four temporal paths moved — `event_time`, tenant, endpoint identity, provenance
+and raw evidence all intact. Had the APPLY run against the unfixed digest, this would have read
+122,477 and been worthless.
+
+Operationally confirmed at the same time: the corrected lock behaved exactly as designed. The first
+invocation 504'd at the gateway and completed detached; a second invocation started
+`mig_941b32cf430f4925`; a third was REFUSED with `MIGRATION_ALREADY_RUNNING`. Heartbeat advanced
++60 s across two samples, `stale: false`, no `LockLost`, no pod restart, 0 restarts on both replicas.
+
+**Reporting infelicity, recorded so nobody misreads it as a hazard:** the refusal's conflict block
+shows `holder_alive: false` with `stale: false`. `holder_alive` is keyed ONLY off the per-row
+progress probe, and the verifier writes no ledger rows, so it has no progress signal. Eligibility —
+the thing that actually gates takeover — is keyed off HEARTBEAT age, which stays near zero while a
+run is alive. So `stale` can never become true for a live holder whatever its runtime. The field
+reads misleadingly; the logic is correct. Tidy it when convenient (report heartbeat-derived liveness
+alongside progress-derived liveness); it changes no behaviour.
+
+Remaining, each owner-authorized: the two `observation_us` indexes → `explain` plan proof → delete
+the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3 (`apply`/`verify` must
+not block on the 30-second gateway timeout — it has now detached a worker TWICE), and the
+deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.

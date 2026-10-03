@@ -1,3 +1,30 @@
+## 2026-10-03 · G-41 VERIFIED · 122,477 CHECKED, 0 DISAGREEING, 0 COLLATERAL DIVERGENCE
+
+Verifier run `mig_c54cea5058df4fe3` COMPLETED: **`checked 122477 · disagreeing 0 ·
+collateral_diverged 0 · ok true`**. Every migrated row re-reads correctly against the prior state
+recorded before its write, and nothing outside the four temporal paths moved. The temporal authority
+is now real across the entire history: 122,477 historical rows plus every new row stamped at ingest.
+
+The corrected lock proved itself in the same episode — first invocation 504'd at the gateway and
+completed detached, a second started, a third was REFUSED as concurrent, heartbeat advancing +60 s
+per minute, no `LockLost`, no restarts. Under the pre-`776bdbd` build the third request would have
+stolen the lock from a live holder.
+
+Also recorded: the owner's production login 401 resolved to a DATA fault, not code — the `password`
+field had been set to a 12-character plain string instead of the 60-character `$2b$12$` hash, so
+`bcrypt.checkpw` raised `invalid salt` and `verify_password` returned False. Decisive evidence was
+latency: 6 ms for the failing attempt (no KDF work) versus 331 ms / 524 ms against a real hash.
+Auth code was correct and untouched throughout. Preview `users` is a separate database from the live
+pod's `greeting-app-5782-test_database`, so editing preview would have changed nothing.
+
+Remaining for G-41 closure: the two `observation_us` indexes → `explain` plan proof → remove the
+transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Open: `apply`/`verify` still block on the
+30-second gateway timeout (it has detached a worker twice now); the `holder_alive` field reports only
+progress-derived liveness and reads misleadingly for operations with no progress signal (harmless —
+eligibility is heartbeat-derived); and the audit row for `mig_fcc460da6f2f4fd5` stays unfilled by
+owner decision.
+
+
 ## 2026-10-03 · G-41 APPLY EXECUTED · THE 122,477 HISTORICAL ROWS ARE MIGRATED
 
 Owner-authorized, owner-executed against production build `7f12980`.
