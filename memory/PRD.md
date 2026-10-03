@@ -4259,3 +4259,59 @@ no production/Vercel/KUSHU/DESKTOP contact.
   ordering BEFORE any engine execution: a checkpoint must never advance past evidence that was
   not successfully evaluated AND persisted.
 
+
+---
+
+## STEP 28 — BEHAVIOR SHADOW RUNNER ORCHESTRATION CONTRACT (DESIGN ONLY, 2026-06)
+
+No code, no tests, no engine execution, no DB access. Design recorded for owner review.
+
+**Primary invariant proved structurally:** the checkpoint is ALWAYS the last durable write for an
+item. Ordering per item: engine evaluate (+ engine-internal shadow-detection persist, verified) →
+run-record measurement write → `frontier.advance(expected_revision=R, item_resolved=True)`.
+Everything before the advance is idempotent (deterministic `detection_id` + `merge()` +
+`material()` equality ⇒ `duplicates_prevented`), so any crash degrades to at-least-once
+re-processing, never to an unevaluated skip.
+
+**Structural findings that shape the design (read from existing code):**
+- `SequenceEngine._emit` persists the detection INSIDE evaluation via the injected
+  `DetectionStore`; the runner cannot separate evaluate from persist. The injected store must
+  therefore be a shadow-specific wrapper.
+- `_emit` exhausting `MAX_PUT_RETRIES` increments `rule_errors` but STILL returns
+  `OUTCOME_MATCH`. ⇒ **`outcome == MATCH` is NOT proof of persistence.** The runner must observe
+  persistence through the shadow store wrapper and through engine `Metrics` deltas.
+- `process()` swallows per-rule `ValueError/KeyError/TypeError` into `rule_errors` and omits the
+  rule from the returned list ⇒ a missing result is an engine failure, not a NO_MATCH.
+- `_evaluate` already prefers BUDGET/INSUFFICIENT over NO_MATCH (engine.py 111–132): budget and
+  truncation can never become NO_MATCH. Preserved, not re-implemented.
+- `provider.window()` reads ±`rule.time_window_seconds` around the trigger and therefore legally
+  reads evidence BEFORE the frontier. That is window CONTEXT, not a trigger, and is not replay.
+- Cost multiplier: per item, per candidate rule, `SdEvidenceProvider` may consume up to
+  `MAX_PAGES=8` §d pages. Budgets are set against this, not against row counts alone.
+
+**Checkpoint eligibility per outcome:** advance only on NO_MATCH, MATCH (persist-verified) and
+SUPPRESSED (persist-verified). INSUFFICIENT_EVIDENCE, BUDGET_EXCEEDED, engine exception, detection
+persist failure, run-record persist failure and checkpoint failure all leave the frontier where it
+is and end the run (TRUNCATED / INTERRUPTED / FAILED) with a resume cursor.
+
+**Adapter refusals:** refused §d rows never become `EvidenceRecord`s, so they have no sort key —
+they cannot block the stream, but advancing past a later good row implicitly passes them. Silent
+skip is forbidden; design requires a bounded durable quarantine entry (raw_ref + observed time +
+reason) before advancing. This needs the provider to surface refusal IDENTITY, which it currently
+does not (counts only) ⇒ owner decision E9.
+
+**Owner decisions required before any runner code:** E5 additive `MODE_SHADOW`; E6 separate
+`e3_behavior_shadow_detections` + shadow store wrapper; E7 refuse NO_EVIDENCE streams in v1 (vs
+additive `scanned_through` checkpoint field); E8 adapter-refusal quarantine policy; E9 provider
+refusal identity; E10 initial budgets; E11 frontier initialization stays a separate operator act.
+
+**Gap status:** G-3 carried (no Mongo CAS at store layer). G-4 UNSOLVED, blocker stated: a
+NO_EVIDENCE stream has no durable upper scan bound, so first-evidence eligibility cannot be
+defined without one additive checkpoint field. G-5 solved at DESIGN level (runner-derived
+measurement mapping; callers cannot supply metric values). G-6 carried (overlapping-invocation
+guard is advisory + optimistic only). G-7 carried (`evidence_lag_ms` is a scalar).
+
+SAFE_TO_IMPLEMENT_RUNNER = NO until E5–E9 are decided.
+NEXT: owner decisions, then Step 29 = shadow detection store wrapper + additive `MODE_SHADOW`
+ONLY (no runner, no engine execution).
+
