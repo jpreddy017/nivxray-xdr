@@ -4777,3 +4777,42 @@ prohibited, no sensor/Windows/Mac action. Stop after the ten explains; do not fi
 Await the deployer's production plan report, then the owner decides: healthy plan -> bounded KUSHU
 page + family composition; weak plan -> strengthen that exact index/query boundary first.
 G-20/G-21/G-23 remain OPEN. Family Composition = HOLD. Index Decision = HOLD.
+
+### 34C-B RESULT (2026-06) — EXPLAIN BLOCKED BY TOOLSET, BUT A HARDER FACT MEASURED
+
+Deployer diagnose returned (run `f1c94ac6-...`, prod store `greeting-app-5782-test_database`,
+Emergent-managed Atlas). RCA: `/app/deployer-agent-docs/RCA_f1c94ac6-f853-4a32-80ef-eb51577ac230.MD`.
+
+NOT MEASURED: the 10 `explain("executionStats")` commands. The deployer's production-DB tool is
+read-only `mongo_query` limited to find|count|distinct|list_collections|list_indexes — no
+`explain`/`runCommand` surface. It stopped at the boundary and substituted nothing. (G-24)
+
+MEASURED IN PRODUCTION (read-only, metadata only):
+- KUSHU: tenant `ten_e759b7288598bd882e3dcac49d`, endpoint `ep_a67be48d5b4e01d4d9e8`,
+  hostname KUSHU, **device_iid = null, collector_id = absent/null** -> REFS = {ep_..., "KUSHU"}
+  only. No DESKTOP ref; DESKTOP never queried.
+- `xdr_canonical_evidence` production indexes = EXACTLY TWO: `_id_` and
+  `tenant_id_1_ingest_time_-1` = `{ingest_time: -1, tenant_id: 1}`.
+  => NO index on `event_time` (the §d sort key) and NO index on ANY §d identity field
+  (`host.host_id`, `host.hostname`, `provenance.collector_id`). The preview `pvw_sd_*` indexes are
+  confirmed ABSENT in production.
+- Confirmations: PRODUCTION_WRITES=NONE, INDEX_CREATED=NONE, PAGE_READ=NO, ENGINE_EXECUTED=NO,
+  FRONTIER_CREATED=NO, DESKTOP_ACCESSED=NO, DEPLOYED=NO, RESTARTED=NO, SECRETS_DISCLOSED=NO.
+
+CONSEQUENCE (structural, not inferred from any plan): the three canonical §d branches filter on an
+unindexed identity field and sort newest-first on an unindexed `event_time`. With only
+`{ingest_time, tenant_id}` available, no index can both select the branch and provide the order, so
+those branches cannot be index-served as written — the exact latency the preview `pvw_sd_*` indexes
+were hiding (G-20 now has a measured production cause). G-25: production KUSHU carries no
+`device_iid`/`collector_id`, so §d addressing for KUSHU rests on `endpoint_id` + `hostname` alone.
+
+NOT DONE, deliberately: no index created, no query rewritten, no explain route added, nothing
+deployed. The owner's rule stands — strengthen the boundary on evidence, do not work around it.
+
+### NEXT (owner choice, one only)
+(a) authorize a temporary admin-only read-only explain route on the production backend to obtain
+    the real plans (one deploy), or
+(b) accept the structural finding and design the canonical index/query strengthening first
+    (then verify with (a) afterwards), or
+(c) operator-side Atlas explain by the owner, outside this plane.
+Family Composition = HOLD. Index Decision = HOLD until the owner picks.
