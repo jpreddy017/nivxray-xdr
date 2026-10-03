@@ -5659,3 +5659,54 @@ Authorized sequence from here:
 DESIGN -> owner review -> implement + tests -> owner review -> deploy control plane only ->
 production report mode -> owner review of census -> owner-run apply -> V1-V8 verification ->
 retire legacy §d identity branches -> FIRST REAL-EVIDENCE SHADOW RUN (canary KUSHU).
+
+## STEP 35 — FINAL DESIGN (owner decisions incorporated) · STILL DESIGN ONLY (2026-06)
+
+Owner review returned six binding decisions; the design was re-finalized against them. No
+operation code written, nothing executed, the 1,236 rows UNMODIFIED, Behavior not run, KUSHU and
+DESKTOP untouched, no UI work.
+
+Binding decisions now compiled into the design (each with a named test):
+- D1 hard ceiling EXACTLY 1236; any drift in either direction -> REFUSE/HOLD, never truncate,
+  never widen; no env var or request field can relax it; census also re-asserted before the write
+  phase (CENSUS_UNSTABLE).
+- D2 row ledger `e3_migration_row_ledger` is a PERMANENT auditable artifact — no TTL, no cleanup;
+  required index `{migration_run_id, doc_id}` via the reviewed index-contract mechanism.
+- D3 the bounded revert operation is defined, registered and its test suite GREEN BEFORE apply
+  (gate G3). Membership requires all four of: authority == BACKFILL_DETERMINISTIC, matching
+  migration_run_id, a ledger row with outcome WRITTEN, and current value == ledger endpoint_id_set.
+  It restores RECORDED prior state only — a test deletes the ledger row and asserts the revert
+  REFUSES rather than inferring. Diverged rows are skipped (COLLATERAL_DIVERGED_SINCE_BACKFILL).
+  Never automatic.
+- D4 apply REFUSES without an attested point-in-time recoverable state (<24h old, earlier than the
+  request) recorded in `e3_migration_preconditions` by a separate operation. Opaque snapshot
+  reference only — no credential or connection string is accepted. Three recoverability layers:
+  snapshot, full prior-projection ledger, bounded revert.
+- D5 FULL prior projection captured for every one of the 1,236 rows in a read-only capture phase
+  (gate G1), including a `collateral_digest` = sha256 over the document EXCLUDING the two paths the
+  migration may set. V5 recomputes it for ALL rows post-apply and requires byte-identical — proving
+  collateral immutability over fields we never enumerated, without storing event content.
+- D6 new report-only `explain_canonical_identity_read_plan` operation asserts IXSCAN on
+  `sd_canonical_endpointid_eventtime`, NO SORT stage, NO COLLSCAN, and `indexBounds` key order
+  tenant_id -> additional_fields.endpoint_id -> event_time. This also serves as the
+  order-preserving compound-key attestation that G-39 says `list_indexes` can never provide, and
+  permanently closes the deferred STEP 34C-revisit.
+- D7 Residual Census UI panel DEFERRED. No frontend work in STEP 35.
+
+Design now specifies FOUR registered closed-registry operations in mandated order
+(capture_identity_backfill_prior_state -> revert_authoritative_endpoint_identity_backfill
+[registered+tested first] -> attest_pre_change_recoverable_state ->
+backfill_authoritative_endpoint_identity), six ordered gates G1-G6 evaluated before the first write
+and surfaced by report mode, verification V1-V9, and 22 test cases across 18 numbered requirements
+— all local, none against production.
+
+Accepted trade recorded explicitly: D1 means a crash-interrupted run's resume HOLDS at G2 (census
+< 1236) and becomes a reviewed human decision rather than a silent completion. Four other residual
+judgement calls are listed in §12 of the design for the reviewer to overturn if desired
+(attestation is an audited human precondition not machine-verified; the ledger retains host /
+additional_fields / provenance sub-documents verbatim; 24h freshness window; explain runs
+post-apply).
+
+Design: `/app/memory/STEP35_IDENTITY_BACKFILL_DESIGN.md`
+Next authorized step: OWNER REVIEW of this final design, then separate authorization to implement
+the 4 operations + 22 tests.
