@@ -5331,3 +5331,63 @@ no Behavior, no frontier/shadow, no family census, no endpoint/sensor action, DE
 Exactly ONE production `mode=report` invocation of `ensure_canonical_identity_indexes`, as a separate
 authorization. Apply, backfill, branch retirement, production explain, KUSHU family composition and
 the first real Behavior run all remain frozen behind it.
+
+## THREAT-INTELLIGENCE ARCHITECTURE DECISION — 2026-06 — RECORD ONLY (NOT IMPLEMENTED)
+
+Owner decision, recorded so no future step "fixes" G-37 by coupling the product harder to a single
+external feed. Industry-reference classification: **INDUSTRY-ALIGNED** (mature EDRs combine native/
+platform intelligence, endpoint telemetry, customer indicators and third-party intelligence instead
+of making endpoint verdicts depend on one external IOC provider).
+
+### G-37 decision (deferred, DO NOT ACT)
+Do NOT troubleshoot, refresh, replace, request, expose or modify the ThreatFox/abuse.ch credential
+in this stage. Do NOT redeploy for ThreatFox. Do NOT introduce a dependency from NivXForge EDR to a
+separate NivX Machines threat-intelligence service. The current ThreatFox 401 (recurring, predating
+the Publish 100 rollout, `threatfox:0` every TI sync cycle) and the misleading "7/7 live" wording are
+recorded as DEFERRED TI-HARDENING FINDINGS.
+Also recorded: **provider registration/configuration is NOT provider health**, so "7/7 live" is
+semantically incorrect while ThreatFox pulls return 401. Not fixed here; carried into TI hardening.
+
+### Target architecture (future, NOT to be implemented now)
+Threat Intelligence is a NATIVE NivXForge EDR subsystem; external providers are PLUGGABLE enrichment
+sources, never product authorities and never mandatory runtime dependencies.
+  TI sources (NivX-native · external connectors · customer/private indicators)
+    -> source adapters -> normalization -> deduplication -> provenance
+    -> confidence / freshness / lifecycle
+    -> correlation with CANONICAL ENDPOINT EVIDENCE
+    -> detection · investigation · hunting · assessment
+ThreatFox, VirusTotal, URLhaus, MalwareBazaar and any other provider must remain REPLACEABLE.
+Customer/private indicators must be supportable with no external provider present.
+Provenance must always answer: which source supplied it · when observed · when retrieved ·
+confidence / source assessment · expiration or freshness · which canonical evidence it enriched.
+
+### Critical invariants (binding on all future work)
+1. **TI_MATCH != MALICIOUS_VERDICT.** A TI match is SUPPORTING EVIDENCE. Final assessment stays
+   evidence-driven and may require behavior, causality, endpoint context, contradictory evidence and
+   analyst/investigation state. Assessment space stays TP / FP / SUSPICIOUS / UNKNOWN.
+2. **Provider failure must never silently become "clean", "benign" or "no threat."** It must surface
+   as an explicit state: UNAVAILABLE · STALE · RATE_LIMITED · AUTH_FAILED (or equivalent).
+3. Provider registration is not provider health; status surfaces must distinguish them.
+4. The differentiator is the CORRELATION layer — TI + behavior + process ancestry + identity +
+   network + prevalence + temporal/causal evidence, explaining WHY the intelligence matters to THIS
+   endpoint — not a local re-implementation of VirusTotal/ThreatFox.
+
+Nothing in the TI plane was touched by this record: no secret, no provider, no TI synchronization, no
+canonical evidence, no Behavior, no frontier/shadow, no KUSHU, DESKTOP prohibited, no
+sensor/Windows/Mac action, no `mode=apply`, no index, no backfill.
+
+### 34H-B CLOSEOUT
+STEP34H_B_STATUS = PASS accepted. G-35 CLOSED. No further 34H-B implementation.
+
+### PREPARED, AWAITING SEPARATE AUTHORIZATION — one production report-mode call
+  POST https://nivxray.nivxforge.com/api/internal/admin/migrations/ensure-canonical-identity-indexes
+  Headers: Authorization: Bearer <production admin token — NEVER pasted into chat or this repo>
+           Content-Type: application/json
+  Body:    {"mode":"report"}
+Report mode only LISTS indexes and returns per-index WOULD_CREATE / ALREADY_PRESENT_VERIFIED /
+NAME_CONFLICT_REFUSED plus `indexes_before` / `indexes_after` / `existing_indexes_changed`. It writes
+no index and no evidence; the only write is the migration AUDIT record in `e3_migration_runs`.
+EXECUTION PATH: this plane holds no production admin credential, and I will not accept one through
+chat. The secure path is OWNER-EXECUTED (your authenticated production admin session or your own
+shell), with the JSON pasted back for review -> `SECURE_ADMIN_EXECUTION_PATH_NOT_AVAILABLE_FROM_THIS_PLANE`.
+NOT EXECUTED pending the owner's separate authorization.
