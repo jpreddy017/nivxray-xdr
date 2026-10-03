@@ -1053,7 +1053,7 @@ async def endpoint_trajectory_window(
     _t2 = _t.perf_counter()
     ep = await _db["edr_endpoints"].find_one(
         res.predicate("edr_endpoints"), {"_id": 0})
-    out["identity"] = res.descriptor()
+    out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
     out["epistemic_state"] = tw.empty_state(
         identity=identity,
         enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
@@ -1159,6 +1159,42 @@ async def endpoint_trajectory_window(
     return out
 
 
+def _display_hostname(identity: Dict[str, Any],
+                      ep: Optional[Dict[str, Any]]) -> tuple[Optional[str], str]:
+    """The name to SHOW for this endpoint, and the authority that stated it.
+
+    The enrolment registry (`edr_endpoints.hostname`) is the authoritative
+    statement of a machine's name. The observation plane's hostname is
+    derived from the stored observation, which substitutes the platform
+    `endpoint_id` when the authenticated ingest carried no hostname — so
+    preferring it presents an internal identifier as the machine name.
+    Identity resolution, aliases, `device_iid`, tenancy and evidence
+    addressing are untouched: this decides a LABEL only, and when neither
+    authority states a name the absence is preserved.
+    """
+    enrolled = str((ep or {}).get("hostname") or "").strip()
+    if enrolled:
+        return enrolled, "ENROLMENT_REPORTED"
+    observed = str(identity.get("hostname") or "").strip()
+    if observed:
+        return observed, "OBSERVATION_DERIVED"
+    return None, "HOSTNAME_NOT_COLLECTED"
+
+
+def _identity_with_display_hostname(descriptor: Dict[str, Any],
+                                    ep: Optional[Dict[str, Any]]
+                                    ) -> Dict[str, Any]:
+    """`descriptor()` plus the authoritative display name and its basis.
+
+    `endpoint_id`, `device_iid`, `tenant_id`, `addressed_by` and
+    `resolved_via` are passed through byte-for-byte — resolution happened
+    before any evidence was read and is not revisited here.
+    """
+    hostname, basis = _display_hostname(descriptor, ep)
+    return {**descriptor, "hostname": hostname, "hostname_basis": basis,
+            "observed_hostname": descriptor.get("hostname")}
+
+
 def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
                      out: Dict[str, Any]) -> Dict[str, Any]:
     """The AMP-equivalent computer summary, from persisted fields only.
@@ -1171,8 +1207,10 @@ def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
     ep = ep or {}
     NC = {"state": "NOT_COLLECTED",
           "reason": "not reported by the NivXForge Linux sensor"}
+    hostname, hostname_basis = _display_hostname(identity, ep)
     return {
-        "hostname": identity.get("hostname"),
+        "hostname": hostname,
+        "hostname_basis": hostname_basis,
         "device_iid": identity.get("device_iid"),
         "identity_confidence": identity.get("identity_confidence"),
         "operating_system": ep.get("platform") or NC,
