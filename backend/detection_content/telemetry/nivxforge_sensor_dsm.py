@@ -147,8 +147,11 @@ class NivXForgeSensorNormalizer:
         from edr_plane.canonical_bridge import bind_process_identity
         bind_process_identity(canonical, endpoint_id)
         extra = dict(canonical.get("additional_fields") or {})
-        if endpoint_id:
-            extra["endpoint_id"] = endpoint_id
+        # G-29 · a DSM has NO authority over the platform endpoint identity.
+        # `additional_fields.endpoint_id` is stamped by the authenticated
+        # ingest boundary (`canonical_identity_contract`), so this normalizer
+        # deliberately does not set it — an event-content value could be
+        # shaped by whatever wrote the event.
         extra.setdefault("normalizer_id", self.id)
         extra.setdefault("dsm_id", dsm_id)
         canonical["additional_fields"] = extra

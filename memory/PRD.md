@@ -4996,3 +4996,66 @@ Owner decides: implement the G-26 strengthening in the recommended order (next s
 boundary writer fix, hermetic), or fall back to applying the 34D three-index set now and defer the
 identity work. Family Composition, the bounded KUSHU page and the production explain route remain
 HOLD.
+
+## STEP 34F — AUTHENTICATED INGEST-BOUNDARY ENDPOINT IDENTITY STAMPING (G-29) — 2026-06 — DONE
+
+Implements G-29 only. No production change, no backfill, no index, no §d query-branch change, no
+deploy, no engine/frontier/shadow, no sensor/Windows/Mac action, DESKTOP untouched.
+
+### Change
+- `edr_plane/canonical_identity_contract.py` (+): `BOUNDARY_AUTHORITY = AUTHENTICATED_INGEST_BOUNDARY`,
+  `boundary_identity()` and `stamp_boundary_endpoint_identity()`. Identity may come from exactly two
+  BOUNDARY-supplied places, in trust order: `authenticated_ingest.authenticated_endpoint_id`
+  (envelope the authenticated handler attaches) then `ingest_boundary.collector_id` (explicit call
+  argument). Both require `trust_state == AUTHENTICATED`, and both must be PLATFORM-MINTED (`ep_…`).
+  Nothing is read from the event body, a hostname/vendor host_id/device_iid/IP/collector string is
+  never promoted, and the decision is recorded under `provenance.endpoint_identity`
+  (`{state, authority, source|reason, refused_claim?}`).
+- `detection_content/xdr_pipeline.py`: the stamp is applied after the normalizer and BEFORE
+  `insert_one` into `xdr_canonical_evidence`, for EVERY DSM, and reported as its own pipeline stage
+  (`endpoint_identity`).
+- `detection_content/telemetry/nivxforge_sensor_dsm.py`: no longer stamps
+  `additional_fields.endpoint_id` (it previously used `raw.endpoint_id or collector_id`, i.e. event
+  content). DSMs now normalize content only.
+- A claim already sitting in the authoritative field carries no authority: it is OVERRIDDEN when the
+  boundary resolves an identity and REMOVED + recorded as refused when it does not.
+
+### Proof
+- `tests/edr/test_34f_boundary_endpoint_identity.py` (12 hermetic tests): four DSM-family document
+  shapes (NivXForge sensor, a windows DSM writing a hostname into host_id, a network DSM with no
+  host object, a cloud DSM keyed on an account id) all receive the SAME boundary identity; envelope
+  beats boundary argument; boundary argument used when the envelope names none; identity is never
+  taken from event content; a DSM claim is refused/overridden and RECORDED; unauthenticated calls
+  (no envelope, empty envelope, `UNVERIFIED` trust) produce NO platform identity; a non-platform
+  boundary value fails closed; stamping touches nothing but the identity and its record (tenant,
+  host, hostname, event_time, raw_ref, prior provenance stamps all verified unchanged); the sensor
+  DSM and EVERY registered telemetry DSM contain no authoritative-field stamping (source-level
+  guard against future DSM-specific authority); the writer stamps before persisting.
+- End-to-end through the REAL writer in a scratch DB (`tools/check_34f_pipeline_stamping.py`,
+  dropped afterwards): authenticated -> `af.endpoint_id = ep_a67be…`, record
+  `{RESOLVED, AUTHENTICATED_INGEST_BOUNDARY, authenticated_ingest.authenticated_endpoint_id}`; the
+  SAME event without the envelope -> no `af.endpoint_id`, record
+  `{UNRESOLVED, NO_AUTHENTICATED_INGEST_BOUNDARY}`, even though the event body claimed `ep_…`;
+  third-party collector -> same UNRESOLVED outcome. Tenant, host, collector_id and raw refs
+  preserved in all three.
+- Regression: `tests/edr` = 2,200 passed (only the 4 known pre-existing `test_p0_f13_5` failures),
+  `tests/edr_trajectory` = 413 passed / 9 skipped, plus the pipeline-driving suites
+  (`test_xdr_round11_pipeline`, `test_d15_declared_source_routing`, `test_d11_ingest_provenance`,
+  `test_xdr_round12_investigation`, `test_xdr_round23_traversal_completion`,
+  `test_n2_endpoint_process_attribution`, `test_p0_dedupe_hardening`, `test_d13_json_ingest_shape`)
+  = 192 passed.
+
+### NEW GAPS
+- G-30: `host.host_id` is STILL event-derivable — the sensor DSM sets it from `raw.endpoint_id or
+  collector_id`, so an unauthenticated event can put an `ep_…`-shaped string there (observed in the
+  scratch run). Harmless under the target contract, which declares `host.host_id` NEVER_IDENTITY and
+  retires it as an addressing field, but it must not be trusted anywhere before then.
+- G-31 (artifact, not investigated): in the scratch run the canonical `event_time` took an
+  ingest-time value for the synthetic event shape used. Possibly just the synthetic payload missing
+  the field the parser reads; NOT a finding, flagged so it is re-checked with a real sensor payload
+  rather than forgotten.
+
+### NEXT (owner-gated)
+Review 34F, then the likely sequence: create the 2 target indexes -> bounded deterministic backfill
+of the 1,236 authenticated-boundary rows -> verify 0 remaining -> retire the ambiguous §d branches
+-> production explain -> KUSHU family composition -> first real Behavior run.

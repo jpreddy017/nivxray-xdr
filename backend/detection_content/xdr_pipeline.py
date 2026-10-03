@@ -29,6 +29,7 @@ from services import provenance_timestamps as pts
 from services import event_time_basis
 from services import ingest_provenance as ingest_prov
 from services import source_routing
+from edr_plane import canonical_identity_contract as identity_contract
 from services import tenant_authority
 
 
@@ -390,6 +391,21 @@ async def process_event_through_pipeline(db, raw_event: dict,
     # the DSM, and how content validation answered.
     canonical.setdefault("provenance", {})["routing"] = dict(_routing)
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
+
+    # G-29 · the AUTHORITATIVE endpoint identity is stamped HERE, at the
+    # authenticated ingest boundary, for every DSM. A normalizer reads an
+    # event's CONTENT and has no authority over which platform endpoint
+    # produced it; before this, whether canonical evidence carried a platform
+    # endpoint id depended on which DSM happened to be selected.
+    _identity = identity_contract.stamp_boundary_endpoint_identity(
+        canonical,
+        envelope=(raw_event.get("_authenticated_ingest")
+                  if isinstance(raw_event.get("_authenticated_ingest"), dict)
+                  else None),
+        boundary_collector_id=collector_id)
+    _s("endpoint_identity", "EXECUTED", state=_identity["state"],
+       authority=_identity["authority"], source=_identity.get("source"),
+       reason=_identity.get("reason"))
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
     _s("canonical_evidence", "EXECUTED",

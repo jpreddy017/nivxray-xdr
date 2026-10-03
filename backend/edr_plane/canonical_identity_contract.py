@@ -112,3 +112,89 @@ def backfill_candidate(row: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
     return {"set": {AUTHORITATIVE_FIELD: boundary},
             "source": AUTHENTICATED_BOUNDARY_FIELD,
             "basis": "AUTHENTICATED_INGEST_BOUNDARY_SUPPLIED_PLATFORM_ID"}
+
+
+# ── Step 34F · the ingest-boundary stamping authority ─────────────────────
+#
+# G-29. The authoritative endpoint identity is stamped HERE — at the
+# authenticated ingest boundary — and by nothing else. A DSM normalizes an
+# event's CONTENT; it has no authority over which platform endpoint produced
+# that content, and content can be shaped by whatever wrote it.
+
+BOUNDARY_AUTHORITY = "AUTHENTICATED_INGEST_BOUNDARY"
+TRUST_AUTHENTICATED = "AUTHENTICATED"
+
+#: The two boundary-supplied places an identity may come from, in trust order.
+#: Both are supplied BY the authenticated handler (an envelope it attaches and
+#: an explicit call argument) — neither is a field of the event's own content.
+SOURCE_ENVELOPE = "authenticated_ingest.authenticated_endpoint_id"
+SOURCE_BOUNDARY_ARG = "ingest_boundary.collector_id"
+
+STATE_RESOLVED = "RESOLVED"
+STATE_UNRESOLVED = "UNRESOLVED"
+NO_AUTHENTICATED_BOUNDARY = "NO_AUTHENTICATED_INGEST_BOUNDARY"
+BOUNDARY_ID_NOT_PLATFORM_MINTED = "BOUNDARY_IDENTITY_NOT_PLATFORM_MINTED"
+
+
+def boundary_identity(*, envelope: Optional[Mapping[str, Any]],
+                      boundary_collector_id: Optional[str]
+                      ) -> Tuple[Optional[str], str, Optional[str]]:
+    """`(endpoint_id or None, reason, source)` from the BOUNDARY only.
+
+    Requires an authenticated envelope. Nothing is read from the event body,
+    and a non-platform-minted value is refused rather than promoted.
+    """
+    if not isinstance(envelope, Mapping) or \
+            str(envelope.get("trust_state") or "") != TRUST_AUTHENTICATED:
+        return None, NO_AUTHENTICATED_BOUNDARY, None
+    claimed = _s(envelope.get("authenticated_endpoint_id"))
+    if is_platform_minted(claimed):
+        return claimed, STATE_RESOLVED, SOURCE_ENVELOPE
+    supplied = _s(boundary_collector_id)
+    if is_platform_minted(supplied):
+        return supplied, STATE_RESOLVED, SOURCE_BOUNDARY_ARG
+    return None, BOUNDARY_ID_NOT_PLATFORM_MINTED, None
+
+
+def stamp_boundary_endpoint_identity(
+        canonical: Dict[str, Any], *, envelope: Optional[Mapping[str, Any]],
+        boundary_collector_id: Optional[str]) -> Dict[str, Any]:
+    """Set — or refuse — the authoritative endpoint identity on ONE canonical
+    document. Mutates only `additional_fields.endpoint_id` and records the
+    decision under `provenance.endpoint_identity`.
+
+    A claim already sitting in the authoritative field carries no authority: if
+    the boundary resolves nothing, the claim is REMOVED and recorded as refused,
+    so a DSM can never smuggle an endpoint identity past this point.
+    Tenant, host, hostname, provenance stamps, raw references and every
+    timestamp are left exactly as they were.
+    """
+    extra = canonical.setdefault("additional_fields", {})
+    prior = _s(extra.get("endpoint_id"))
+    ep, reason, source = boundary_identity(
+        envelope=envelope, boundary_collector_id=boundary_collector_id)
+    record: Dict[str, Any]
+    if ep:
+        extra["endpoint_id"] = ep
+        record = {"state": STATE_RESOLVED, "authority": BOUNDARY_AUTHORITY,
+                  "source": source}
+        if prior and prior != ep:
+            record["refused_claim"] = prior
+            record["refused_reason"] = "NON_BOUNDARY_CLAIM_OVERRIDDEN"
+    else:
+        if prior is not None:
+            extra.pop("endpoint_id", None)
+        record = {"state": STATE_UNRESOLVED, "authority": BOUNDARY_AUTHORITY,
+                  "reason": reason}
+        if prior is not None:
+            record["refused_claim"] = prior
+            record["refused_reason"] = "NON_BOUNDARY_CLAIM_REFUSED"
+    canonical.setdefault("provenance", {})["endpoint_identity"] = dict(record)
+    return record
+
+
+def _s(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
