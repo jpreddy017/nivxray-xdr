@@ -51,6 +51,26 @@ def test_v3_is_enabled_for_the_integration_build_only():
         assert "VITE_E3_DT_V3" not in _read(prod)
 
 
+def test_the_activation_flag_is_version_controlled():
+    """`.gitignore` excludes `.env.*`, so this file had to be force-added.
+
+    Without it the flag lives only on one machine: a fresh clone would build the LEGACY
+    trajectory while every gate still reported V3 active. The file carries a build flag and no
+    credential, which is why force-adding it is safe — asserted here so it stays that way.
+    """
+    import subprocess
+    tracked = subprocess.run(["git", "ls-files", "--error-unmatch",
+                              "apps/nivxray-xdr/.env.development"],
+                             cwd="/app", capture_output=True, text=True)
+    assert tracked.returncode == 0, (
+        "the V3 activation flag must be in version control or the integration build is not "
+        "reproducible: " + tracked.stderr)
+    body = _read(APP / ".env.development").strip().splitlines()
+    assert body == ["VITE_E3_DT_V3=1"], (
+        "this file is force-added past .gitignore, so it must never hold anything but the "
+        "build flag: " + repr(body))
+
+
 def test_v3_consumes_the_production_v3_contract_key():
     page = _read(V3 / "amp" / "TrajectoryPage.jsx")
     assert "d.v3 || d" in page, \

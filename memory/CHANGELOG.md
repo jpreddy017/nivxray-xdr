@@ -1,3 +1,107 @@
+## 2026-06 · integration/e3-dt · CORE V3 REAL-EVIDENCE INTEGRATION (E1 ↔ E3 Device Trajectory)
+
+**Owner directive:** wire the exact E3 V3 Device Trajectory to E1's real production evidence.
+Test-gated, bounded, reversible. **No production deployment. No endpoint actions. No protected
+endpoint access. No production env/index/schema change.**
+
+**Owner decisions taken BEFORE implementation:**
+1. `REAL_ENDPOINT_VALIDATION = BLOCKED_ENVIRONMENT`. DESKTOP-A9HGFJJ was NOT read as a
+   validation target even though only already-stored records were involved; the anonymous
+   default-tenant corpus was NOT substituted for a named endpoint; KUSHU was NOT manufactured
+   or imported.
+2. Baseline = the intentional source only; runtime SQLite side files excluded.
+3. The V3 contract is an **additive `v3` key** on the existing trajectory response, derived from
+   the already-produced §d `e3` result with **no second evidence read**. V1 / `dt2` / `e3`
+   untouched.
+4. Truthful neutral states preserved: `NOT_COLLECTED` / `NO_DATA` / `UNKNOWN` / `NO_HIT`.
+   **NO DETECTION stays distinct from BENIGN.**
+
+### Change ledger
+
+| # | Change | Reason | Files | Tests | Rollback |
+|---|---|---|---|---|---|
+| 1 | V3 presentation contract (pure mapping, no DB read) | V3 consumed a field vocabulary no production endpoint produced | `edr_trajectory/v3_presentation.py` (new) | 31 gates in `tests/edr_trajectory/test_v3_presentation.py` | delete the file; only the `v3` key imports it |
+| 2 | Additive `v3` key + `before` cursor alias | §4/§7 owner decision | `routers/edr.py` | live curl + V3 gates | remove the `try` block; `e3`/`dt2`/V1 unaffected |
+| 3 | Bijective presentation identity `encode_iid`/`decode_iid` | V3 silently de-duplicates repeated `event_iid`, so a collision DELETES evidence from the analyst's screen | `v3_presentation.py` | 9 identity gates incl. same-ms/different-µs and two-store collapse | identity is derived, not stored — no migration |
+| 4 | Focus accepts `event=` alias, V3 identity and `observation_id` | the ATT&CK HeatMap and the XDR pivot both build `?event=`; an ignored identifier resolved to nothing while looking like a successful read | `routers/edr.py`, `production_adapter.resolve_evidence(match=…)` | 5 deep-link gates + live curl on all three identifier forms | params optional; V1 namespace untouched (`decode_iid` → None) |
+| 5 | Bounded deep-link search `FOCUS_PAGE_BUDGET = 8` | an unresolvable identifier walked the endpoint's ENTIRE history on every request — an unbounded read on a 279,554-observation endpoint | `production_adapter.py` | 2 gates: budget-reached ≠ exhausted | raise/remove the constant |
+| 6 | Production `/trajectory/hours`, `/file-facts`, `/attack` | existed ONLY in the stripped preview router, so V3's navigator, artefact panel and ATT&CK strip had no production backend | `routers/edr_trajectory_v3.py` (new), `server.py` (2 lines) | live curl + static gates | remove the `include_router` line |
+| 7 | Analyst time window pushed INTO the §d query | the toolbar claimed a range the page had not read, and a deep link to an observation older than the newest page resolved correctly and then never appeared | `production_adapter.py`, `production_service.py`, `routers/edr.py` | 9 window gates, 2 of which assert the bound is in the QUERY | window is optional; absent window = previous unbounded behaviour |
+| 8 | V3 reads `d.v3 \|\| d`; truthful data-source label; Actions → E1 durable response authority; server-supplied deep-link miss text | §7, §10, §14 | `trajectory_v3/amp/TrajectoryPage.jsx` (4 edits) | Gate 17 static + live browser | revert 4 lines; 15/18 V3 files stay byte-identical to `258c8854` |
+| 9 | `VITE_E3_DT_V3=1` in `.env.development` ONLY | §17 activation without touching production configuration | `apps/nivxray-xdr/.env.development` (new) | Gate 17 asserts the flag is absent from `.env`/`.env.production`; verified in the built bundle (`A={}` → flag `undefined`) | delete the file |
+| 10 | EDR route guard sends `/edr/*` to the EDR login | an expired session on an EDR route rendered the **NivXRay XDR** sign-in — the same product-boundary leak as XDR chrome, at the one moment nobody is looking | `App.jsx` `Protected` | new Gate 16 test (7 → 8) | revert 2 lines |
+
+### Defects found DURING this phase by measurement, not by review
+
+1. **`/hours` returned 0 for a populated day.** Matching the endpoint and filtering the day in
+   Python fetched an unordered 200k prefix of a 279,554-observation history, never reached the
+   requested day, and reported every hour as `0`. A zero meaning "I did not look" rendered
+   identically to a zero meaning "nothing was retained". Fixed by ranging the QUERY on the
+   store's own observation-time field: 12,476 rows examined instead of 279,554, 2.5 s,
+   per-store `{shadow: 8507, canonical: 8475}`, plus an explicit `truncated` lower-bound flag.
+2. **A populated window returned zero rows.** The window's query bound was widened by an hour to
+   absorb offset-format differences, so the per-branch `limit` was consumed by rows ABOVE the
+   ceiling: a ten-minute window holding evidence returned 0 rows while reporting 138 excluded.
+   Fixed to ±1 s of slack. Verified live: 14:00–14:10 → 5 rows / 0 excluded; a 30-second window
+   → 36 rows, all inside.
+3. **An unauthenticated EDR route rendered the XDR login.** Found by driving the browser, not by
+   reading code. Fixed and gated.
+4. **An empty read claimed "Synthetic data".** With no customer selected the V3 status bar
+   asserted a data source it had never read. Now "No data read", with "Data source not declared"
+   for an undeclared label.
+
+### Verified results
+
+| Gate | Result | Evidence |
+|---|---|---|
+| EXACT_E3_V3_PRESENT | **PASS** | 18/18 files present; 15/18 byte-identical to `258c8854`. `AttackStrip.jsx` + `attack.js` differ by the shared-ATT&CK import path only (earlier unification); `TrajectoryPage.jsx` carries this phase's 4 directed edits |
+| V3_REAL_EVIDENCE_CONTRACT | **PASS** | live: 200 events, label "Production evidence (read-only)", real lanes (`mongod`, `python3.11`, `104.18.10.243:443`) |
+| EVENT_IID_STABLE / UNIQUE | **PASS / PASS** | bijective on §d evidence identity; unique by construction (§d collapses one activity to one identity per customer); 200/200 unique live |
+| FULL_PRECISION_ORDERING | **PASS** | `observed_us` remains the sole order/cursor authority; `timestamp_instant_ms` is render-only and asserted absent from ordering |
+| NEWEST_FIRST | **PASS** | live newest row 2026-10-02T15:03; descending verified |
+| PAGING_NO_GAP_NO_DUP | **PASS** | ordered union of 5-row pages == bounded reference, windowed and unwindowed |
+| DEEP_LINK_EXACT | **PASS** | browser round trip in a clean navigation resolved to the same observation (15:02:44); all three identifier forms resolve live |
+| HOURS_REAL_EVIDENCE | **PASS** | real per-hour counts; `ingest_time_used_as_observation_time: false`; "0 ≠ clean" stated in the payload |
+| FILE_FACTS_TRUTHFUL | **PASS (truthful degradation)** | first-seen + in-customer prevalence only; signer / reputation / creator / disposition → `NOT_COLLECTED`; `NO_KEY` with neither hash nor path |
+| REAL_DETECTIONS_CONNECTED | **PASS** | joined from `edr_plane.fabric` findings on exact `evidence_refs`; live: "No detection engine claimed this observation … Absence of a detection is not a verdict of clean." |
+| MITRE_AUTHORITY_PRESERVED | **PASS** | one authority (vendored ATT&CK Enterprise v19.2); empty strip renders "no technique attributed … Absence of an attribution is not evidence that no technique was used." |
+| TI_TRUTHFUL_DEGRADATION | **PASS** | no `e3_assessment` emitted; V3 shows "Unknown · not assessed" rather than a verdict |
+| E1_DURABLE_RESPONSE_AUTHORITY | **PASS** | Actions → `POST /api/edr/response/actions`; unimplemented verbs refused client-side with **zero POSTs issued** |
+| TENANT_FAIL_CLOSED | **PASS** | no customer → 403 `TENANT_REQUIRED` `fail_closed: true`; wrong customer → `ENDPOINT_NOT_RESOLVED` with zero evidence |
+| PRODUCTION_MOCK_DATA_REACHABLE | **NO** | source gate over `v3_presentation` and every `trajectory_v3` module |
+| PREVIEW_AUTH / APPROVAL_REACHABLE | **NO / NO** | preview router unmounted; the in-memory approval endpoint removed from V3 and gated |
+| GATE16 | **PASS (8/8)** | includes the new EDR-login gate |
+| GATE17 | **PASS (8/8)** | route → gateway → exact V3; flag in the integration build only |
+| REGRESSION | **2181 passed, 12 skipped, 0 failed** | baseline 2131/12 → +50 gates, 0 new failures |
+| REAL_ENDPOINT_VALIDATION | **BLOCKED_ENVIRONMENT** | owner decision; not fabricated, not substituted |
+| PRODUCTION_DEPLOYED | **NO** | — |
+
+### Known remaining gaps (declared, not fixed)
+
+- **REAL_ENDPOINT_VALIDATION is BLOCKED_ENVIRONMENT.** Everything above was proven on the
+  preview-runtime integration endpoint `dev_42e8c6dc74b9` (tenant `default`) — a preview-database
+  endpoint carrying genuine runtime telemetry, NOT an authorized production endpoint. No gate
+  above may be read as real-endpoint proof.
+- `xdr_canonical_evidence` has **no index on `event_time`**, so every windowed read is a blocking
+  sort. Three indexes were measured as needed; creating them is owner-gated and was not done.
+- Canonical authority between `v2_shadow_observations` and `xdr_canonical_evidence` remains
+  **NOT SELECTED**; the adapter reads both and collapses on identity.
+- `/hours` does **not** collapse identity across stores, so an observation in both stores counts
+  once per store. Declared in the payload (`cross_store_identity_collapsed: false`).
+- A merged event's `provenance.ref` may differ between the page row and the resolver row, so a
+  deep link by `observation_id` can miss for a cross-store-merged observation while the same
+  event resolves by presentation identity.
+- Old E3-shell deep links use the **V1** iid shape (`obs_…#…`) and fall through to the V1
+  resolver; they do not resolve against the V3 presentation namespace.
+- `edr_behavior`, `edr_ml`, `edr_investigation` remain **NOT production-wired** (deliberate, §19).
+  See `docs/e3/BEHAVIOR_ML_INVESTIGATION_READINESS.md`.
+- One live test (`test_an_admin_call_without_an_explicit_tenant_is_refused`) failed once on a
+  **TCP connection failure to the preview host** during concurrent browser runs. It passes 10/10
+  in isolation and a fresh token still returns `403 TENANT_REQUIRED`; not a code regression.
+- `preview_mount.py` + `E3_TRAJECTORY_ROUTER` still exist with no call site.
+
+---
+
 ## 2026-06 · integration/e3-dt @ da4c9098 · Gate 16 fixed, final E3 absorbed, §d still open
 
 `96232631` -> `2c36a0e0` (report) -> `da4c9098`. FINAL_E3_SOURCE = `258c8854` (absorbed;

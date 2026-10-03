@@ -293,6 +293,134 @@ def test_hours_bounds_the_day_on_the_stored_time_field():
     assert "truncation_meaning" in src, "a truncated count must declare itself a lower bound"
 
 
+def test_an_analyst_window_bounds_the_read_on_the_ordering_field():
+    # Without this, the toolbar claims a range the page did not read, and a deep link to an
+    # observation older than the newest page resolves correctly and then never appears.
+    docs = [shadow_doc(f"2026-01-01T0{h}:00:00.000000+00:00", h) for h in range(1, 8)]
+    db = FakeDB(shadow=docs)
+    out = asyncio.run(_v3(db, time_start="2026-01-01T03:00:00+00:00",
+                          time_end="2026-01-01T05:00:00+00:00"))
+    stamps = [r["timestamp"] for r in out["events"]]
+    assert len(stamps) == 3, stamps
+    assert all("T03" in s or "T04" in s or "T05" in s for s in stamps), stamps
+
+
+def test_an_unwindowed_read_is_still_the_newest_evidence_unbounded():
+    docs = [shadow_doc(f"2026-01-01T0{h}:00:00.000000+00:00", h) for h in range(1, 8)]
+    out = asyncio.run(_v3(FakeDB(shadow=docs)))
+    assert len(out["events"]) == 7, "absent window must mean unbounded, not empty"
+
+
+def test_a_window_boundary_is_inclusive_and_decided_on_microseconds():
+    a = shadow_doc("2026-01-01T03:00:00.000000+00:00", 1)
+    b = shadow_doc("2026-01-01T03:00:00.000001+00:00", 2)
+    out = asyncio.run(_v3(FakeDB(shadow=[a, b]),
+                          time_start="2026-01-01T03:00:00.000000+00:00",
+                          time_end="2026-01-01T03:00:00.000000+00:00"))
+    # one microsecond past the ceiling is OUTSIDE — the decision is not made on a string
+    assert len(out["events"]) == 1
+    assert out["events"][0]["timestamp"].endswith("00.000Z") or "03:00:00" in out["events"][0]["timestamp"]
+
+
+def test_an_empty_window_is_reported_as_an_absence_not_as_nothing_happened():
+    docs = [shadow_doc("2026-01-01T01:00:00.000000+00:00", 1)]
+    e3 = asyncio.run(ps.device_trajectory(FakeDB(shadow=docs), tenant_id=T, refs=REFS,
+                                          endpoint_id="ep_1",
+                                          time_start="2026-06-01T00:00:00+00:00",
+                                          time_end="2026-06-02T00:00:00+00:00"))
+    assert e3["evidence_state"] == "NO_REAL_EVIDENCE_FOR_THIS_ENDPOINT"
+    assert "IN THE REQUESTED WINDOW" in e3["meaning"]
+    assert "not evidence that nothing happened" in e3["meaning"]
+
+
+def test_windowed_pages_do_not_overlap_and_do_not_lose_events():
+    docs = [shadow_doc(f"2026-01-01T02:{i:02d}:00.000000+00:00", i) for i in range(10)]
+    db = FakeDB(shadow=docs)
+    kw = {"time_start": "2026-01-01T02:00:00+00:00", "time_end": "2026-01-01T02:09:00+00:00"}
+    reference = asyncio.run(_v3(db, page_size=50, **kw))
+    seen: list[str] = []
+    cursor = None
+    for _ in range(10):
+        out = asyncio.run(_v3(db, page_size=3, cursor=cursor, **kw))
+        page = [r["event_iid"] for r in out["events"]]
+        assert not (set(page) & set(seen)), "windowed page boundary repeated an event"
+        seen += page
+        cursor = out["e3_preview"]["older_cursor"]
+        if not cursor:
+            break
+    assert seen == [r["event_iid"] for r in reference["events"]]
+
+
+def test_the_deep_link_resolver_is_never_limited_by_the_analyst_window():
+    # The window is a VIEW. A deep link must be able to find evidence outside it, or "resolve
+    # exactly" would mean "resolve exactly, within whatever happens to be on screen".
+    docs = [shadow_doc(f"2026-01-01T0{h}:00:00.000000+00:00", h) for h in range(1, 8)]
+    db = FakeDB(shadow=docs)
+    everything = asyncio.run(_v3(db))
+    oldest = everything["events"][-1]
+    got = asyncio.run(pa.resolve_evidence(db, tenant_id=T, refs=REFS,
+                                          event_id=v3.decode_iid(oldest["event_iid"])))
+    assert got["state"] == "FOCUS_RESOLVED"
+    assert got["event"]["observed_at"] == oldest["timestamp"]
+
+
+def test_a_populated_window_is_never_emptied_by_the_fetch_limit():
+    # Regression guard for a defect found during this phase against real evidence: the query
+    # bound was widened by an hour, so on a busy endpoint the per-branch limit was consumed by
+    # rows ABOVE the ceiling and a ten-minute window holding evidence returned ZERO rows while
+    # reporting 138 rows excluded. A limit applied outside the window is not a window.
+    busy = [shadow_doc(f"2026-01-01T05:{m:02d}:{s:02d}.000000+00:00", m * 60 + s)
+            for m in range(30, 60) for s in (0, 30)]           # 60 rows ABOVE the window
+    inside = [shadow_doc(f"2026-01-01T05:0{m}:00.000000+00:00", 900 + m) for m in range(1, 6)]
+    out = asyncio.run(_v3(FakeDB(shadow=busy + inside), page_size=5,
+                          time_start="2026-01-01T05:00:00+00:00",
+                          time_end="2026-01-01T05:10:00+00:00"))
+    assert out["returned"] == 5, (out["returned"], [r["timestamp"] for r in out["events"]])
+
+
+def test_the_query_bound_stays_inside_the_analyst_window():
+    docs = [shadow_doc("2026-01-01T05:05:00.000000+00:00", 1)]
+    db = FakeDB(shadow=docs)
+    asyncio.run(_v3(db, time_start="2026-01-01T05:00:00+00:00",
+                    time_end="2026-01-01T05:10:00+00:00"))
+    tkey = pa.OBSERVATION_TIME_KEY[pa.STORE_SHADOW]
+    for q in db[pa.STORE_SHADOW].queries:
+        rng = q[tkey]
+        assert rng["$gte"] >= "2026-01-01T04:59:59", rng
+        assert rng["$lte"] <= "2026-01-01T05:10:01", rng
+
+
+def test_the_window_is_pushed_into_the_query_not_applied_afterwards():
+    docs = [shadow_doc(f"2026-01-01T0{h}:00:00.000000+00:00", h) for h in range(1, 8)]
+    db = FakeDB(shadow=docs)
+    asyncio.run(_v3(db, time_start="2026-01-01T03:00:00+00:00",
+                    time_end="2026-01-01T05:00:00+00:00"))
+    issued = db[pa.STORE_SHADOW].queries
+    assert issued, "no query was issued"
+    tkey = pa.OBSERVATION_TIME_KEY[pa.STORE_SHADOW]
+    for q in issued:
+        rng = q.get(tkey)
+        assert isinstance(rng, dict) and "$gte" in rng and "$lte" in rng, (
+            "a window applied after the read leaves the read unbounded: " + repr(q))
+
+
+def test_the_resume_bound_still_wins_when_it_is_stricter_than_the_window():
+    docs = [shadow_doc(f"2026-01-01T02:{i:02d}:00.000000+00:00", i) for i in range(10)]
+    db = FakeDB(shadow=docs)
+    kw = {"time_start": "2026-01-01T02:00:00+00:00", "time_end": "2026-01-01T02:09:00+00:00"}
+    first = asyncio.run(_v3(db, page_size=3, **kw))
+    cursor = first["e3_preview"]["older_cursor"]
+    db[pa.STORE_SHADOW].queries.clear()
+    second = asyncio.run(_v3(db, page_size=3, cursor=cursor, **kw))
+    tkey = pa.OBSERVATION_TIME_KEY[pa.STORE_SHADOW]
+    ceilings = {q[tkey]["$lte"] for q in db[pa.STORE_SHADOW].queries}
+    assert ceilings, "no resumed query was issued"
+    # the resume bound is inside the window, so it — not the window ceiling — must be the ceiling
+    assert all(c < "2026-01-01T02:09" for c in ceilings), ceilings
+    assert not ({r["event_iid"] for r in second["events"]}
+                & {r["event_iid"] for r in first["events"]})
+
+
 def test_no_preview_or_fixture_path_is_reachable_from_the_v3_contract():
     import inspect
     src = inspect.getsource(v3)

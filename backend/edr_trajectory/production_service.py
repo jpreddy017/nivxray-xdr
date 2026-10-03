@@ -93,10 +93,12 @@ def activity_details(ev: dict[str, Any]) -> dict[str, Any]:
 async def device_trajectory(db: Any, *, tenant_id: str, refs: list[str], endpoint_id: str,
                             page_size: int = PAGE_DEFAULT, cursor: str | None = None,
                             focus_event_id: str | None = None,
+                            time_start: str | None = None, time_end: str | None = None,
                             stores: tuple[str, ...] = STORES) -> dict[str, Any]:
     """One production Device Trajectory read: evidence + lanes + lineage + coverage + focus."""
     page = await page_device_evidence(db, tenant_id=tenant_id, refs=refs,
-                                      page_size=page_size, cursor=cursor, stores=stores)
+                                      page_size=page_size, cursor=cursor,
+                                      time_start=time_start, time_end=time_end, stores=stores)
     events = page["items"]
     for e in events:
         e["lateness"] = lateness(e)
@@ -104,8 +106,11 @@ async def device_trajectory(db: Any, *, tenant_id: str, refs: list[str], endpoin
     if not events:
         return {"contract": CONTRACT, "endpoint_id": endpoint_id, "state": page["state"],
                 "evidence_state": "NO_REAL_EVIDENCE_FOR_THIS_ENDPOINT",
-                "meaning": "no stored observation for this endpoint in this customer. Nothing "
-                           "is substituted: an empty trajectory is the truthful answer.",
+                "meaning": ("no stored observation for this endpoint in this customer"
+                            + (" IN THE REQUESTED WINDOW" if page.get("window", {}).get("applied")
+                               else "")
+                            + ". Nothing is substituted: an empty trajectory is the truthful "
+                              "answer, and it is not evidence that nothing happened."),
                 "page": page, "lanes": [], "process_graph": {"nodes": {}},
                 "families": _families([]), "focus": _focus_miss(focus_event_id),
                 "mock_data_reachable": False}

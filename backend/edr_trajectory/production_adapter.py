@@ -162,12 +162,19 @@ def branches(store: str, refs: list[str], tenant_id: str) -> list[dict[str, Any]
 
 
 async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
-                       upper_bound: str | None, fetch: int) -> list[dict[str, Any]]:
+                       upper_bound: str | None, fetch: int,
+                       lo: str | None = None, hi: str | None = None) -> list[dict[str, Any]]:
     """This branch's newest `fetch` rows THROUGH ITS OWN INDEX.
 
     `$lte` on the stored time is a range on the same index that provides the order, so resuming
     stays index-served. Rows with no observation time are excluded by the range itself — they
     are unplaceable and are reported separately instead of being ordered by something else.
+
+    `lo`/`hi` are an OPTIONAL analyst time window, expressed as bare ISO-8601 prefixes and
+    deliberately widened by the caller. The two stores write different offset representations
+    (`+00:00` and `Z`), so the string range is a BOUND, not the decision: exact placement is
+    applied afterwards by the same `observation_us` that provides the order. A string comparison
+    never decides whether an observation is inside the analyst's window.
 
     `_id` is projected because one document is legitimately matched by several identity
     branches and the store key is the only guaranteed-unique way to recognise it as the same
@@ -175,19 +182,72 @@ async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
     returned and is never presented as evidence identity.
     """
     q = dict(flt)
-    q[time_key] = {"$lte": upper_bound} if upper_bound else {"$ne": None}
+    rng: dict[str, Any] = {}
+    # The resume bound and the window ceiling are both upper bounds; the stricter one wins, and
+    # "stricter" is decided on parsed microseconds rather than on string order.
+    ceiling = upper_bound
+    if hi is not None:
+        a, b = observation_us(upper_bound), observation_us(hi)
+        if upper_bound is None or (a is not None and b is not None and b < a):
+            ceiling = hi
+    if ceiling is not None:
+        rng["$lte"] = ceiling
+    if lo is not None:
+        rng["$gte"] = lo
+    q[time_key] = rng or {"$ne": None}
     cur = coll.find(q, {}).sort(time_key, -1).limit(fetch)
     return [d async for d in cur]
 
 
+def _window_bounds(time_start: str | None, time_end: str | None
+                   ) -> tuple[int | None, int | None, str | None, str | None]:
+    """Exact microsecond window for placement, plus the string bounds for the query.
+
+    THE BOUND MUST BE TIGHT. The first implementation widened it by an hour so a differing
+    offset representation could not exclude a row — and that made the per-branch `limit` useless:
+    on a busy endpoint the newest 69 rows of the widened range all sat ABOVE the window ceiling,
+    so a ten-minute window holding evidence returned zero rows while reporting 138 rows excluded.
+    A limit applied outside the window is not a window.
+
+    The bound is therefore the window itself with one second of slack, which keeps the read inside
+    the analyst's range while absorbing the sub-second and `Z`-versus-`+00:00` differences between
+    the two stores. Exactness is still decided afterwards on microseconds, so the one-second slack
+    can never widen what the analyst is shown.
+
+    Known limitation, declared rather than hidden: a stored observation time written with a
+    NON-UTC offset would sort outside this string bound. Three such corrupt strings are known to
+    exist in this platform's evidence and are already reported as unplaceable.
+    """
+    lo_us = observation_us(time_start) if time_start else None
+    hi_us = observation_us(time_end) if time_end else None
+    if lo_us is None and hi_us is None:
+        return None, None, None, None
+    from datetime import datetime, timedelta, timezone
+
+    def prefix(us: int | None, slack_s: int) -> str | None:
+        if us is None:
+            return None
+        dt = datetime.fromtimestamp(us / 1_000_000, tz=timezone.utc) + timedelta(seconds=slack_s)
+        return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    return lo_us, hi_us, prefix(lo_us, -1), prefix(hi_us, 1)
+
+
 async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                                page_size: int = PAGE_DEFAULT, cursor: str | None = None,
+                               time_start: str | None = None, time_end: str | None = None,
                                stores: tuple[str, ...] = STORES) -> dict[str, Any]:
     """One newest-first page of REAL evidence for one endpoint, in one customer.
 
     Returns the E3 normalized event contract plus the provenance needed to prove where every
     row came from. No store is promoted to canonical authority here: both are read and the
     same activity seen in both is collapsed by stable evidence identity.
+
+    `time_start`/`time_end` are the analyst's window. They are OPTIONAL and default to absent,
+    which means "the newest evidence, unbounded". When supplied they bound the read on the same
+    field that provides the order, so the range the UI claims to be showing is the range it
+    actually read — and a deep link can bring an observation older than the newest page into
+    view instead of resolving correctly and then never appearing.
     """
     tenant = require_tenant(tenant_id)
     size = max(1, min(int(page_size or PAGE_DEFAULT), PAGE_MAX))
@@ -196,6 +256,7 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     if not refs:
         return _empty(size, "ENDPOINT_NOT_ADDRESSABLE_NO_VALIDATED_REFS")
 
+    lo_us, hi_us, lo_s, hi_s = _window_bounds(time_start, time_end)
     fetch = size + TIE_MARGIN
     jobs, plan = [], []
     for store in stores:
@@ -204,7 +265,7 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         for flt in branches(store, refs, tenant):
             plan.append({"store": store, "time_key": tkey, "upper_bound": bound,
                          "fields": [k for k in flt if k != TENANT_PARTITIONED_STORES.get(store)]})
-            jobs.append(_branch_page(db[store], flt, tkey, bound, fetch))
+            jobs.append(_branch_page(db[store], flt, tkey, bound, fetch, lo_s, hi_s))
     raw_pages = await asyncio.gather(*jobs)
 
     rows: list[dict[str, Any]] = []
@@ -213,6 +274,7 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     #: precision so a resume bound is expressed in the exact value the store holds.
     order: dict[str, dict[str, Any]] = {}
     unplaceable = 0
+    outside_window = 0
     seen_docs: set[tuple[str, str]] = set()
     for spec, docs in zip(plan, raw_pages):
         store = spec["store"]
@@ -232,6 +294,10 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                 continue
             if us is None or ev.get("observed_ms") is None:
                 unplaceable += 1
+                continue
+            # EXACT window placement, on microseconds. The string range above is only a bound.
+            if (lo_us is not None and us < lo_us) or (hi_us is not None and us > hi_us):
+                outside_window += 1
                 continue
             per_store[store] += 1
             eid = ev["event_id"]
@@ -273,6 +339,12 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         "next_cursor": nxt,
         "suppressed_duplicates": suppressed,
         f"{UNPLACEABLE.lower()}_count": unplaceable,
+        "window": {"time_start": time_start, "time_end": time_end,
+                   "applied": lo_us is not None or hi_us is not None,
+                   "excluded_outside_window": outside_window,
+                   "basis": ("exact microsecond placement against the stored observation time; "
+                             "the query bound is the window itself with one second of slack and "
+                             "never decides membership")},
         "state": TIE_OVERFLOW if tie_overflow else "PAGE_READY",
         "provenance": {
             "stores_read": list(stores),

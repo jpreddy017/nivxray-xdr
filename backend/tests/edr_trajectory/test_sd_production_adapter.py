@@ -61,10 +61,16 @@ class FakeCursor:
 
 
 class FakeCollection:
-    """Supports exactly the shape the adapter issues: eq, $in, $lte, $ne on a dotted path."""
+    """Supports exactly the shape the adapter issues: eq, $in, $lte, $gte, $ne on a dotted path.
+
+    `queries` records every filter issued so a test can assert that a bound was pushed INTO the
+    query rather than applied to the result afterwards. The difference is invisible in the output
+    and decisive in production: a bound applied after the read makes the read unbounded.
+    """
 
     def __init__(self, docs):
         self.docs = list(docs)
+        self.queries = []
 
     def _match(self, doc, flt):
         for k, cond in flt.items():
@@ -74,6 +80,8 @@ class FakeCollection:
                     return False
                 if "$lte" in cond and not (v is not None and str(v) <= str(cond["$lte"])):
                     return False
+                if "$gte" in cond and not (v is not None and str(v) >= str(cond["$gte"])):
+                    return False
                 if "$ne" in cond and v == cond["$ne"]:
                     return False
             elif v != cond:
@@ -81,6 +89,7 @@ class FakeCollection:
         return True
 
     def find(self, flt, projection=None):
+        self.queries.append(flt)
         return FakeCursor([d for d in self.docs if self._match(d, flt)])
 
 

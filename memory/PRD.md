@@ -4177,3 +4177,50 @@ or change routing to make automation pass.
 - RESIDUAL: 11 EDR pages import `apiErrorText` from `@/xdr/nx/apiError` (Gate-16
   SHARED_*_SAFE, sanctioned); `apps/nivxray-xdr/.git` is a NESTED repo inside the outer repo
   so `git mv` from inside it silently fails — pre-existing hygiene debt, not altered.
+
+---
+
+## 2026-06 · CORE V3 REAL-EVIDENCE INTEGRATION — COMPLETE (phase result)
+
+Full change ledger, defect log, gate-by-gate evidence and declared gaps:
+**`memory/CHANGELOG.md`** (newest entry at the top) and
+**`docs/e3/BEHAVIOR_ML_INVESTIGATION_READINESS.md`** (§19 inventory, nothing activated).
+
+`CORE_V3_REAL_EVIDENCE_INTEGRATION = PASS`, with `REAL_ENDPOINT_VALIDATION = BLOCKED_ENVIRONMENT`
+by owner decision. `PRODUCTION_DEPLOYED = NO`.
+
+The exact E3 V3 Device Trajectory (`trajectory_v3/**`, 15/18 files byte-identical to handoff
+`258c8854`; the 3 diffs are 2 shared-ATT&CK import paths + 4 directed edits in `TrajectoryPage.jsx`) now renders at `/edr/device-trajectory` in the integration build, backed by an
+additive `v3` presentation contract derived from the §d real-evidence adapter with no second
+evidence read. 2181 passed / 12 skipped / 0 failed (+50 gates over the 2131 baseline).
+
+### OWNER DEPLOYMENT INTENT — edr.nivxforge.com (RECORDED, NOT EXECUTED)
+The owner has authorized PREPARING the tested build for promotion to the existing production EDR
+surface `edr.nivxforge.com`, to stop depending on the unstable Emergent preview. Promotion is
+authorized ONLY when the mandatory gate list passes AND no new owner-gated production change is
+required. The gate list passes today EXCEPT that real-endpoint validation is
+`BLOCKED_ENVIRONMENT`, which must be preserved as a stated limitation and never reported as a
+pass. Before any promotion the following must be reported and owner-approved:
+`PRE_DEPLOY_SHA`, `DEPLOY_SHA`, `ROLLBACK_SHA`, `PRODUCTION_BUILD_CONFIG`,
+`V3_ROUTE_CONFIGURATION`, `DATABASE_MIGRATION_REQUIRED`, `PRODUCTION_INDEX_CHANGE_REQUIRED`,
+`PRODUCTION_ENV_CHANGE_REQUIRED`.
+
+**Known blocker for promotion with V3 enabled:** V3 is currently enabled via
+`apps/nivxray-xdr/.env.development` only. Serving V3 in production would require a PRODUCTION
+BUILD CONFIG change (`PRODUCTION_ENV_CHANGE_REQUIRED = YES`), which is owner-gated. Promoting
+without it deploys the hardened backend plus the LEGACY trajectory page.
+
+### NEXT PHASES (owner's stated sequence, unchanged)
+1. Behavior Engine — settle the tenant boundary, emit through `findings_intake`, shadow only.
+2. ML — per-customer baseline isolation is an owner data-boundary decision first.
+3. Investigation / Hypothesis — consumes §d lineage + durable findings; needs a truthful "unknown".
+4. Richer TI / retrospection · response validation · sensor & coverage gaps · performance/scale ·
+   complete real-endpoint acceptance · release & security hardening.
+
+### STILL OPEN (carried forward)
+- KUSHU sensor stopped (`DELIVERY_CEASED`) — owner-gated; 0 KUSHU rows in all four stores here.
+- SENSOR: REPORTING stale-badge defect (freshness vs sticky lifecycle flag) — NOT addressed.
+- Threatfox 401 / OTX pull failure (stale production API keys).
+- 3 corrupt `event.ts` offsets + null canonical `event_time` rows (already truthfully unplaceable).
+- MITRE "defense-evasion" → "stealth" consumer impact (visible as `Stealth TA0005` in the strip).
+- 3 production indexes on `xdr_canonical_evidence` — measured as needed, owner-gated, NOT created.

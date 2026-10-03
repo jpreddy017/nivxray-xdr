@@ -123,7 +123,12 @@ function Protected({ children }) {
   if (!user) {
     // Preserve the requested URL so login can bounce back.
     const returnTo = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+    // EDR INDEPENDENCE (Gate 16): an expired session on an EDR route must land on the EDR
+    // sign-in, not the NivXRay XDR one. Sending an EDR analyst to the XDR login is the same
+    // product-boundary leak as rendering an EDR surface inside the XDR shell — it just happens
+    // at the moment the session dies, which is exactly when nobody is looking.
+    const loginPath = location.pathname.startsWith("/edr") ? "/edr/login" : "/login";
+    return <Navigate to={`${loginPath}?returnTo=${returnTo}`} replace />;
   }
   return children;
 }

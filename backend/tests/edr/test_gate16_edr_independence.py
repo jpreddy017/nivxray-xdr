@@ -187,3 +187,21 @@ def test_the_edr_trajectory_resolver_redirects_inside_edr():
         "the resolver must redirect to the EDR Device Trajectory surface")
     assert not re.search(r"""to=\{?[`"']/xdr/""", code), (
         "the resolver must not navigate into an XDR route")
+
+
+def test_an_expired_session_on_an_edr_route_lands_on_the_edr_login():
+    """An EDR analyst whose session died must not be handed the NivXRay XDR sign-in.
+
+    Found by driving the real browser: `/edr/device-trajectory` with no session rendered the
+    NIVXRAY XDR login card. The route guard was sending EVERY unauthenticated request to
+    `/login`, so the product boundary held for every surface except the one moment the session
+    expired — which is precisely when no one is watching.
+    """
+    app = APP.read_text(encoding="utf8")
+    guard = app[app.index("function Protected"):]
+    guard = guard[:guard.index("\n}\n") + 3]
+    assert 'startsWith("/edr")' in guard, (
+        "the route guard must choose the EDR sign-in for EDR routes")
+    assert '"/edr/login"' in guard
+    assert not re.search(r'Navigate to=\{`/login\?returnTo', guard), (
+        "an EDR route must never be redirected to the XDR login")

@@ -1098,7 +1098,8 @@ async def endpoint_trajectory_window(
             _db, tenant_id=str(identity.get("tenant_id") or tenant_id),
             refs=res.refs,
             endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
-            page_size=e3_page_size, cursor=e3_cursor or before, focus_event_id=e3_event_id)
+            page_size=e3_page_size, cursor=e3_cursor or before, focus_event_id=e3_event_id,
+            time_start=time_start, time_end=time_end)
     except Exception as ex:                        # noqa: BLE001
         out["e3"] = {"contract": "e3.dt.production.v1",
                      "state": "E3_PRODUCTION_CONTRACT_UNAVAILABLE",
