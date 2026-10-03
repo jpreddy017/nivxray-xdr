@@ -5991,3 +5991,65 @@ R5 explicitly REJECTED: never normalise `event_time` in place.
 
 G-40: recorded as HISTORICAL/UNATTESTED per owner decision. No retrospective provenance to be
 manufactured. Not actioned.
+
+### G-41 PRODUCTION RESULT — WRITE SIDE CLEAN, READ SIDE ACTIVELY DEFECTIVE (2026-06)
+
+Production measured read-only (DB `greeting-app-5782-test_database`). Report:
+`/app/memory/G41_EVENT_TIME_INTEGRITY_RCA.md`. Zero writes, no admin/migration call, no code change.
+
+CORRECTION TO AN EARLIER CLAIM OF MINE: production has **0** rows missing `event_time` (0 missing,
+0 null, 0 non-string, 0 date-typed). The 819 figure was PREVIEW-only and I wrongly stated it as a
+production fact; it propagated into the owner's prompt. Production also has **0** rows with
+`+00:00` offset format, **0** `UNPARSEABLE_FORMAT`, **0** rows unstamped by the current resolver,
+and `event_time_basis = ACTIVITY_TIME` on **100%** (122,097). Production carries NO legacy-writer
+rows at all. Preview is a contaminated corpus (218,451 OBSERVATION_TIME, 67,036 unstamped) and its
+figures must never be carried across.
+
+WRITE SIDE = HISTORICAL, NOT ONGOING:
+- two formats exist and they are SEQUENTIAL: space/no-TZ 43,521 (ingest 2026-09-18 -> 2026-09-29,
+  ENDED; `sysmon:EventData.UtcTime` / `winlog:sysmon`, dsm microsoft-sysmon + nivxforge-linux-sensor)
+  and trailing-Z 78,563 (ingest 2026-09-27 -> now; `winlog:sysmon` + `winlog:winsec`).
+- last ~24h slice (33,759 rows) = 100% trailing-Z, 0 space, 0 missing, basis ACTIVITY_TIME only.
+  The current writer produces ONE format and cannot omit the field (`resolve()` has an
+  unconditional clock fallback; `Resolution.verify()` enforces the invariant).
+
+READ SIDE = ACTIVE DEFECT. Inversion CONFIRMED on all three overlap dates (latest space vs earliest
+Z on the same date):
+- 2026-09-27: 24,057 space / 411 Z; latest space 23:55:38.144 vs earliest Z 00:06:30.755 -> INVERSION
+- 2026-09-28: 15,840 space / 228 Z; latest space 20:01:56.128 vs earliest Z 00:03:46.071 -> INVERSION
+- 2026-09-29:  3,619 space / 8,293 Z; latest space 07:39:22.097 vs earliest Z 03:29:19.612 -> INVERSION
+Mechanism: at string position 10 space (0x20) < 'T' (0x54), so within an equal calendar date EVERY
+space row sorts below EVERY Z row regardless of time of day — a ~24h ordering error. Scope:
+43,516 of 43,521 space rows (99.99%) sit on dates that also hold Z rows; co-resident Z rows = 8,932.
+
+TWO OMISSION PATHS (both via `edr_trajectory/production_adapter._branch_page`):
+1. `.sort(time_key,-1).limit(fetch)` — the LIMIT is applied under the non-chronological string sort,
+   so the wrong "newest N" are fetched; the later in-process microsecond re-sort orders correctly but
+   cannot recover a row it never fetched.
+2. WORSE — the resume cursor's `$lte` carries the RAW STORED STRING (`bound = cursor["b"][store]`,
+   deliberately "the exact value the store holds"). If a descending page ENDS on a space-format row
+   (e.g. "2026-09-27 23:55:38.144") then `$lte` on that string EXCLUDES every same-date Z row
+   ("...T..." > "... ..."), although at 00:06 they are chronologically far earlier and belong on a
+   LATER page. They are excluded from every subsequent page too -> PERMANENTLY SKIPPED. Reverse
+   direction is safe. Likely to trigger on 09-27/09-28 where space outnumbers Z 24057:411 and
+   15840:228.
+Device Trajectory's DISPLAYED order remains correct (final `merged.sort` on parsed `observed_us`;
+`parse_instant` handles both formats; resume comparison uses `observation_us`). The defect is
+SELECTION/OMISSION, not ordering — and omission is worse for an EDR because nothing on screen
+indicates evidence is missing. Behavior inherits it through `SdEvidenceProvider` -> §d.
+
+RC-3 CONFIRMED IN PRODUCTION: `provenance.timestamps.activity_occurred_at` is AVAILABLE on 100% of
+rows but its `.value` carries the IDENTICAL format spread (43,521 space / 78,576 Z / 0 offset), so
+the contract's own suggested alternative axis does not give a comparable instant either. `observed_us`
+/`observed_ms` are persisted on 0 rows — they are in-flight §d contract fields, NOT stored columns,
+which is correct by design and not a defect.
+
+RECOMMENDATION (design only, NOT implemented): R2 + R1 BEFORE Behavior validation. R2 = add an
+ADDITIVE derived `observation_us` (int microseconds) at write time using the existing correct
+`parse_instant` logic, plus index (tenant_id, additional_fields.endpoint_id, observation_us -1);
+`event_time` is NOT touched so the evidentiary contract is preserved. R1 = stop letting a string
+decide page selection/resume. New ingest can carry `observation_us` immediately; any historical
+backfill needs full STEP-35 discipline. R4 = fix the stale comment at behavior_shadow_runner.py:59.
+R5 = REJECTED: never normalise `event_time` in place.
+Validating Behavior before R1/R2 would measure it against an evidence feed that can silently omit
+rows.
