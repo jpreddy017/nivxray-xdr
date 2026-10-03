@@ -5759,3 +5759,72 @@ Design: `/app/memory/STEP35_IDENTITY_BACKFILL_DESIGN.md`
 Next authorized step: OWNER REVIEW, then deploy control plane only -> production report mode.
 Production backfill NOT executed. The 1,236 rows are UNMODIFIED. Behavior not run. KUSHU/DESKTOP
 untouched.
+
+## NIVXFORGE SHARED TI INTEGRATION — READ-ONLY DISCOVERY + DESIGN ONLY (2026-06)
+
+Owner directive: reuse the existing NivX TI estate for NivXForge EDR via a proper shared contract;
+do NOT build a second EDR TI ingestion platform. Discovery/design only.
+
+ISOLATION PROVEN: `git status` shows ONE new untracked file (the design doc). No code changed.
+STEP 35 apply/revert not run, 1,236 rows unmodified, Behavior not run, no KUSHU canary prepared,
+DESKTOP untouched, no provider config or credential work, no deploy, no DB/index change, no UI.
+
+HEADLINE FINDING: the shared normalized TI contract we were asked to design ALREADY EXISTS and is
+tested — `backend/edr_investigation/ti_contracts.py`, schema `dt-i1e.ti.v1`, 436 lines, with
+adapters over ALL FOUR existing TI clients (A `backend/enrichment`, B `backend/threat_intel_enrich`,
+C `backend/services/ioc_intelligence`, H `backend/edr_plane/reputation`), a TIBroker with
+TTL/quota/scope and stale-on-failure, GLOBAL vs TENANT cache keys with no default tenant, and
+`ReputationHistory`/`IntelChangeEvent` already bound to `RETRO_TRIGGERS.INTEL_CHANGE` and
+`edr_behavior.replay.INTEL_CHANGED`. `backend/edr_plane/reputation/` (B4, 732 lines, tested) is the
+EDR observable->provider->result path. So this is a WIRING problem, not a design problem.
+
+ESTATE MAPPED (from code + read-only preview counts): 4 TI clients; `db.iocs` = 148,262 docs,
+indexes `{kind,value,source}`/source/severity/last_seen, sources abuse.ch(feodo,urlhaus), otx,
+alienvault_otx, blocklist.de, cins_army, cisa_kev, sans_dshield; `tenant_id` on 0 rows,
+`disposition` on 0, `valid_until` on 0, `confidence` on 134,421, `kind: null` on 8,896;
+`ti_feed_sync.py` hourly asyncio loop + `ti_sync_runs` receipts (latest threatfox: 0);
+`ti_source_meta` (8 docs) already holds REAL per-source last_status/last_error incl. HTTP 401/403.
+
+FIVE GAPS (all wiring/honesty, none needing a new contract):
+- GAP-1 the shared contract has NO production caller — TIBroker never constructed outside tests,
+  ReputationService never instantiated in any router. 148,262 indicators unreachable by E1/E3.
+- GAP-2 E3 Behavior's enrichment provider is `NullEnrichmentProvider`, so every INTEL stage is
+  UNKNOWN forever. Seam is correct (`engine._intel` dedupes per tenant+observable;
+  `matcher.stage_value` is three-valued and a missing lookup can never match). Secondary:
+  `edr_behavior.contracts.Enrichment` has no failure state, so "could not ask" and "nobody knows"
+  collapse at the E3 boundary — the ONE additive contract change the plan needs.
+- GAP-3 provider health reports CONFIGURATION not health: `ioc_intelligence/health.py` returns
+  "live" purely on env-var presence. Root of the misleading 7/7 live. Also found (RECORDED, NOT
+  TOUCHED, G-37 stays deferred): env name mismatch `ABUSECH_AUTH_KEY` (ti_feed_sync.py:61) vs
+  `ABUSE_CH_AUTH_KEY` (health.py + all three abuse.ch providers).
+- GAP-4 the store cannot express tenant-private policy, disposition or expiry. Consequence: all
+  148,262 feed rows are implicit KNOWN_MALICIOUS via `local_ioc`'s default, incl. 5,000
+  blocklist.de scanner IPs the feed itself rated confidence 50. No allow-listing, so no FP
+  suppression. Latent non-determinism: `local_ioc._find` queries {kind,value} vs unique index
+  {kind,value,source}.
+- GAP-5 client C's cache is process-local and TENANT-BLIND — C must stay GLOBAL-scope only.
+
+PLAN T1-T7 (sequenced, each independently testable, none to start before the current gate):
+T1 provider health truth (HEALTHY/STALE/RATE_LIMITED/AUTH_FAILED/UNAVAILABLE/NEVER_SYNCED derived
+from ti_source_meta); T2 one production ProviderRoute table (B4 offline first, C GLOBAL-only);
+T3 E1 read-side enrichment keyed by evidence_refs (ingest must never await a provider);
+T4 the E3 bridge + additive non-judgement state; T5 investigation surfacing with failures routed to
+MISSING evidence; T6 `db.iocs` schema/index work for private IOCs + allow-listing — needs its own
+STEP-35-style bounded migration design; T7 retrospective executor (needs an observable->evidence
+reverse-lookup design).
+
+OWNER DECISIONS OPEN: (1) confirm client C's weighted consensus never enters EDR — consume per
+provider only; (2) decide the implicit-KNOWN_MALICIOUS default BEFORE any route goes live, it
+directly shapes FP rate; (3) the 8,896 `kind: null` rows; (4) reuse the existing XDR
+`xdr_intelligence_policy_*` + `services/intelligence_policy/` for ALLOW/AUDIT-DETECT/BLOCK or build
+EDR-native; (5) G-37 stays deferred; (6) certificate/signer observables do not exist anywhere —
+confirm they stay a future extension.
+
+VERDICTS: SHARED_TI_REUSE = YES · EDR_TI_DUPLICATION_REQUIRED = NO ·
+SAFE_TO_IMPLEMENT_AFTER_CURRENT_GATE = YES (T1/T2 additive; T6 needs its own bounded design;
+decisions 1-2 first).
+
+Report: `/app/memory/NIVXFORGE_SHARED_TI_INTEGRATION_DESIGN.md`
+Execution-critical path UNCHANGED and unblocked: STEP 35 control-plane deploy -> production REPORT
+on the real 1,236 rows -> review -> verify Atlas recovery point -> authorize apply -> verify ->
+retire legacy identity path -> real KUSHU Behavior.
