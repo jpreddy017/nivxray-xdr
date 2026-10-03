@@ -42,13 +42,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from services.edr.endpoint_query import (
     ENDPOINT_KEYED_STORES,
     TENANT_PARTITIONED_STORES,
 )
+from edr_plane import temporal_authority as _ta
 
 from .contracts import require_tenant
 from .identity import dedupe
@@ -61,8 +62,32 @@ from .providers import (
     from_shadow,
 )
 
-#: The store's OWN stored observation time. The one ordering authority per store.
+#: The store's OWN stored observation time. Evidence/compatibility value only.
 OBSERVATION_TIME_KEY = {STORE_SHADOW: "event.ts", STORE_CANONICAL: "event_time"}
+
+#: G-41 · the key chronological SELECTION uses. For the canonical store this is
+#: the comparable integer `observation_us`, NOT the verbatim `event_time`:
+#: production holds two valid `event_time` renderings of the same clock, and a
+#: byte-wise string comparison put an event at 23:55 below one at 00:06 of the
+#: same day on every date where both appear. Ordering was recoverable in memory;
+#: SELECTION was not — a `LIMIT` under that sort fetched the wrong newest N, and
+#: a resume bound expressed as a raw stored string excluded same-date rows that
+#: belonged on a later page, permanently. Evidence never fetched cannot be
+#: re-sorted into view.
+TEMPORAL_SELECT_KEY = {STORE_SHADOW: "event.ts",
+                       STORE_CANONICAL: _ta.OBSERVATION_US}
+
+#: True where the selection key is a comparable scalar, so the bound may be an
+#: exact value instead of a string prefix. Declared per store rather than
+#: assumed, because the shadow store has no derived comparable value and keeps
+#: its existing string behaviour until it does.
+COMPARABLE_TEMPORAL = {STORE_SHADOW: False, STORE_CANONICAL: True}
+
+#: The deterministic secondary order for a comparable store. Thousands of
+#: endpoint events legitimately share one microsecond, so an index and a LIMIT
+#: on time alone are not a total order — which is how a fix for string ordering
+#: would otherwise introduce a fresh skip/duplicate bug at equal timestamps.
+TEMPORAL_TIEBREAK_KEY = "_id"
 NORMALIZER = {STORE_SHADOW: from_shadow, STORE_CANONICAL: from_canonical}
 STORES = (STORE_SHADOW, STORE_CANONICAL)
 
@@ -84,31 +109,20 @@ FOCUS_PAGE_BUDGET = 8
 def observation_us(value: Any) -> int | None:
     """The stored observation time at FULL SOURCE PRECISION, in epoch microseconds.
 
-    E3's `observed_ms` is a millisecond REPRESENTATION, and the stores write microseconds:
-    `...30.219438+00:00` and `...30.219516+00:00` are two distinct observations that both
-    truncate to the same millisecond. Ordering and paging on the truncated value therefore
-    manufactured ties that do not exist in the evidence, and because the resume boundary was
-    expressed in that same truncated value, rows inside an artificial tie were skipped —
-    measured as 16 observations returned at one page size and never returned at another.
-    So ordering and the cursor use this value; `observed_ms` stays the rendering contract.
+    ONE parser, hosted in `edr_plane.temporal_authority`, so the value the
+    writer stores and the value this adapter compares can never drift apart.
+
+    E3's `observed_ms` is a millisecond REPRESENTATION, and the stores write
+    microseconds: `...30.219438+00:00` and `...30.219516+00:00` are two distinct
+    observations that both truncate to the same millisecond. Ordering and paging
+    on the truncated value therefore manufactured ties that do not exist in the
+    evidence, and because the resume boundary was expressed in that same
+    truncated value, rows inside an artificial tie were skipped — measured as 16
+    observations returned at one page size and never returned at another. So
+    ordering and the cursor use this value; `observed_ms` stays the rendering
+    contract.
     """
-    if value is None or value == "":
-        return None
-    if isinstance(value, (int, float)):
-        return int(value) * 1000
-    if isinstance(value, datetime):
-        dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-        return int(dt.replace(microsecond=0).timestamp()) * 1_000_000 + dt.microsecond
-    s = str(value).strip().replace(" ", "T", 1)
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    try:
-        dt = datetime.fromisoformat(s)
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return int(dt.replace(microsecond=0).timestamp()) * 1_000_000 + dt.microsecond
+    return _ta.to_epoch_us(value)
 
 
 def _encode(us: int, event_id: str, bounds: dict[str, str]) -> str:
@@ -162,41 +176,83 @@ def branches(store: str, refs: list[str], tenant_id: str) -> list[dict[str, Any]
 
 
 async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
-                       upper_bound: str | None, fetch: int,
-                       lo: str | None = None, hi: str | None = None) -> list[dict[str, Any]]:
+                       upper_bound: Any, fetch: int,
+                       lo: Any = None, hi: Any = None,
+                       comparable: bool = False,
+                       tiebreak: str | None = None,
+                       legacy: str | None = None,
+                       legacy_bound: Any = None,
+                       legacy_lo: Any = None,
+                       legacy_hi: Any = None) -> list[dict[str, Any]]:
     """This branch's newest `fetch` rows THROUGH ITS OWN INDEX.
 
-    `$lte` on the stored time is a range on the same index that provides the order, so resuming
-    stays index-served. Rows with no observation time are excluded by the range itself — they
-    are unplaceable and are reported separately instead of being ordered by something else.
+    G-41 · FOR A COMPARABLE STORE the bound, the order and the LIMIT are all on
+    an integer microsecond key, with `_id` as a deterministic secondary order so
+    a tie group cannot shuffle between reads. That is what makes the LIMIT
+    return the actual newest N: a byte-wise string comparison used to put an
+    event at 23:55 below one at 00:06 of the same day, so the newest N by string
+    were not the newest N in time, and a resume bound expressed as a raw stored
+    string permanently excluded same-date rows that belonged on a later page.
+    The resume bound stays INCLUSIVE (`$lte`) and exact exclusion is applied
+    afterwards on `(observation_us, event_id)`; an inclusive integer bound can
+    never drop a chronologically eligible row, which is the whole defect.
 
-    `lo`/`hi` are an OPTIONAL analyst time window, expressed as bare ISO-8601 prefixes and
-    deliberately widened by the caller. The two stores write different offset representations
-    (`+00:00` and `Z`), so the string range is a BOUND, not the decision: exact placement is
-    applied afterwards by the same `observation_us` that provides the order. A string comparison
-    never decides whether an observation is inside the analyst's window.
+    FOR A NON-COMPARABLE STORE the previous behaviour is unchanged: `$lte` on
+    the stored string is a BOUND, not the decision, and exact placement is
+    applied afterwards by the same microseconds that provide the order. A string
+    comparison never decides whether an observation is inside the analyst's
+    window.
 
-    `_id` is projected because one document is legitimately matched by several identity
-    branches and the store key is the only guaranteed-unique way to recognise it as the same
-    document. It is an internal de-duplication key only: it is stripped before the contract is
-    returned and is never presented as evidence identity.
+    Rows with no observation time are excluded by the range itself — they are
+    unplaceable and are reported separately instead of being ordered by
+    something else.
+
+    `_id` is projected because one document is legitimately matched by several
+    identity branches and the store key is the only guaranteed-unique way to
+    recognise it as the same document. It is an internal de-duplication key
+    only: it is stripped before the contract is returned and is never presented
+    as evidence identity.
     """
     q = dict(flt)
     rng: dict[str, Any] = {}
-    # The resume bound and the window ceiling are both upper bounds; the stricter one wins, and
-    # "stricter" is decided on parsed microseconds rather than on string order.
     ceiling = upper_bound
     if hi is not None:
-        a, b = observation_us(upper_bound), observation_us(hi)
-        if upper_bound is None or (a is not None and b is not None and b < a):
-            ceiling = hi
+        if comparable:
+            if upper_bound is None or int(hi) < int(upper_bound):
+                ceiling = hi
+        else:
+            a, b = observation_us(upper_bound), observation_us(hi)
+            if upper_bound is None or (a is not None and b is not None and b < a):
+                ceiling = hi
     if ceiling is not None:
         rng["$lte"] = ceiling
     if lo is not None:
         rng["$gte"] = lo
     q[time_key] = rng or {"$ne": None}
-    cur = coll.find(q, {}).sort(time_key, -1).limit(fetch)
-    return [d async for d in cur]
+    sort = [(time_key, -1)] + ([(tiebreak, -1)] if tiebreak else [])
+    rows = [d async for d in coll.find(q, {}).sort(sort).limit(fetch)]
+    if not comparable or legacy is None:
+        return rows
+    # TRANSITIONAL · evidence written before the comparable value existed, and
+    # not yet migrated, would otherwise VANISH from this read. It is fetched by
+    # the legacy string path, scoped strictly to rows that have no comparable
+    # value, and merged by the same microsecond order as everything else. This
+    # sub-read still carries the old limit-under-a-string-sort weakness, so it
+    # exists only until the historical backfill completes — at which point it
+    # returns nothing and can be deleted. `pending_temporal_migration` makes the
+    # remaining exposure visible rather than silent.
+    lq = dict(flt)
+    lq[time_key] = {"$exists": False}
+    lrng: dict[str, Any] = {}
+    if legacy_bound is not None:
+        lrng["$lte"] = legacy_bound
+    if legacy_lo is not None:
+        lrng["$gte"] = legacy_lo
+    if legacy_hi is not None and (legacy_bound is None or legacy_hi < legacy_bound):
+        lrng["$lte"] = legacy_hi
+    lq[legacy] = lrng or {"$ne": None}
+    rows += [d async for d in coll.find(lq, {}).sort(legacy, -1).limit(fetch)]
+    return rows
 
 
 def _window_bounds(time_start: str | None, time_end: str | None
@@ -222,7 +278,6 @@ def _window_bounds(time_start: str | None, time_end: str | None
     hi_us = observation_us(time_end) if time_end else None
     if lo_us is None and hi_us is None:
         return None, None, None, None
-    from datetime import datetime, timedelta, timezone
 
     def prefix(us: int | None, slack_s: int) -> str | None:
         if us is None:
@@ -260,12 +315,25 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     fetch = size + TIE_MARGIN
     jobs, plan = [], []
     for store in stores:
-        tkey = OBSERVATION_TIME_KEY[store]
-        bound = (cur or {}).get("b", {}).get(store)
+        tkey = TEMPORAL_SELECT_KEY[store]
+        comparable = COMPARABLE_TEMPORAL[store]
+        tiebreak = TEMPORAL_TIEBREAK_KEY if comparable else None
+        # G-41 · a comparable store resumes on the cursor's exact microsecond,
+        # which is store-independent; only a non-comparable store still needs a
+        # per-store raw-string bound.
+        bound = (cur or {}).get("us") if comparable \
+            else (cur or {}).get("b", {}).get(store)
+        legacy_key = OBSERVATION_TIME_KEY[store] if comparable else None
+        legacy_bound = (cur or {}).get("b", {}).get(store) if comparable else None
+        w_lo, w_hi = (lo_us, hi_us) if comparable else (lo_s, hi_s)
         for flt in branches(store, refs, tenant):
             plan.append({"store": store, "time_key": tkey, "upper_bound": bound,
+                         "comparable_temporal": comparable,
+                         "legacy_time_key": legacy_key,
                          "fields": [k for k in flt if k != TENANT_PARTITIONED_STORES.get(store)]})
-            jobs.append(_branch_page(db[store], flt, tkey, bound, fetch, lo_s, hi_s))
+            jobs.append(_branch_page(db[store], flt, tkey, bound, fetch,
+                                     w_lo, w_hi, comparable, tiebreak,
+                                     legacy_key, legacy_bound, lo_s, hi_s))
     raw_pages = await asyncio.gather(*jobs)
 
     rows: list[dict[str, Any]] = []
@@ -274,6 +342,7 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     #: precision so a resume bound is expressed in the exact value the store holds.
     order: dict[str, dict[str, Any]] = {}
     unplaceable = 0
+    pending_temporal_migration = 0
     outside_window = 0
     seen_docs: set[tuple[str, str]] = set()
     for spec, docs in zip(plan, raw_pages):
@@ -281,13 +350,20 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         tkey = spec["time_key"]
         for doc in docs:
             raw_t = _dig(doc, tkey)
+            pending_migration = False
+            if raw_t is None and spec["comparable_temporal"]:
+                # not yet migrated: fall back to the stored evidence value, and
+                # count it so the remaining exposure is visible, never silent.
+                raw_t = _dig(doc, spec["legacy_time_key"])
+                pending_migration = raw_t is not None
             # one document is matched by several identity branches; recognise it by the
             # store's own unique key rather than by inferred fields, which can be absent.
             dk = (store, str(doc.get("_id")))
             if dk in seen_docs:
                 continue
             seen_docs.add(dk)
-            us = observation_us(raw_t)
+            us = int(raw_t) if (spec["comparable_temporal"]
+                                and isinstance(raw_t, int)) else observation_us(raw_t)
             # never mutate the document the store handed us: strip the internal key on a copy.
             ev = finalize(NORMALIZER[store]({k: v for k, v in doc.items() if k != "_id"}))
             if ev.get("tenant_id") != tenant:     # defence in depth: never trust the filter alone
@@ -304,7 +380,13 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
             o = order.setdefault(eid, {"us": us, "raw": {}})
             o["us"] = min(o["us"], us)
             prev = o["raw"].get(store)
-            o["raw"][store] = str(raw_t) if prev is None else min(prev, str(raw_t))
+            # the cursor's per-store bound is only consumed by the transitional
+            # legacy sub-read, so it is always the stored evidence value
+            raw_bound = str(_dig(doc, spec["legacy_time_key"]) if
+                            spec["comparable_temporal"] else raw_t)
+            o["raw"][store] = raw_bound if prev is None else min(prev, raw_bound)
+            if pending_migration:
+                pending_temporal_migration += 1
             rows.append(ev)
 
     merged, suppressed = dedupe(rows)
@@ -339,6 +421,9 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         "next_cursor": nxt,
         "suppressed_duplicates": suppressed,
         f"{UNPLACEABLE.lower()}_count": unplaceable,
+        # G-41 · rows still selected through the legacy string path because they
+        # predate `observation_us`. Zero once the historical backfill completes.
+        "pending_temporal_migration": pending_temporal_migration,
         "window": {"time_start": time_start, "time_end": time_end,
                    "applied": lo_us is not None or hi_us is not None,
                    "excluded_outside_window": outside_window,
@@ -384,11 +469,14 @@ def _next_bounds(items: list[dict[str, Any]], order: dict[str, dict[str, Any]],
                  stores: tuple[str, ...], previous: dict[str, str]) -> dict[str, str]:
     """The resume bound per store: the OLDEST raw stored time this page emitted from that store.
 
-    Kept per store and in the store's own representation, because the two stores write
-    different formats and precisions — comparing one store's value against the other's is how
-    a boundary row goes missing. A store that contributed nothing to this page keeps its
-    previous bound rather than inheriting another store's: not advancing only re-reads, while
-    advancing past unseen rows would drop them.
+    G-41 · a COMPARABLE store no longer needs one: it resumes on the cursor's
+    exact microsecond, which is representation-independent, so its bound is
+    omitted rather than carried as a string that could exclude an eligible row.
+    A non-comparable store keeps its own representation, because comparing one
+    store's value against the other's is how a boundary row goes missing. A
+    store that contributed nothing keeps its previous bound rather than
+    inheriting another store's: not advancing only re-reads, while advancing
+    past unseen rows would drop them.
     """
     out: dict[str, str] = {}
     for store in stores:
@@ -404,7 +492,8 @@ def _next_bounds(items: list[dict[str, Any]], order: dict[str, dict[str, Any]],
 def _empty(size: int, reason: str) -> dict[str, Any]:
     return {"order": ORDER, "contract": {"event": "e3.dt.event.v1", "cursor": CURSOR_CONTRACT},
             "page_size": size, "items": [], "has_more": False, "next_cursor": None,
-            "suppressed_duplicates": 0, f"{UNPLACEABLE.lower()}_count": 0, "state": reason,
+            "suppressed_duplicates": 0, f"{UNPLACEABLE.lower()}_count": 0,
+            "pending_temporal_migration": 0, "state": reason,
             "provenance": {"stores_read": [], "reason": reason}}
 
 

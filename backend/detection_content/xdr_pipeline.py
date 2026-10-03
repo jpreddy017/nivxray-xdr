@@ -25,6 +25,7 @@ from .xdr_response_fabric import orchestrate as response_orchestrate
 from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
 from .telemetry.registry import TELEMETRY_DSM_REGISTRY
+from edr_plane import temporal_authority as _temporal
 from services import provenance_timestamps as pts
 from services import event_time_basis
 from services import ingest_provenance as ingest_prov
@@ -406,6 +407,16 @@ async def process_event_through_pipeline(db, raw_event: dict,
     _s("endpoint_identity", "EXECUTED", state=_identity["state"],
        authority=_identity["authority"], source=_identity.get("source"),
        reason=_identity.get("reason"))
+
+    # G-41 · the comparable temporal value is derived HERE, at the one canonical
+    # writer boundary, so no endpoint evidence can enter the store without it.
+    # `event_time` is untouched; an unreadable value fails closed to UNPLACEABLE
+    # rather than being given an invented instant.
+    _temporal.stamp(canonical)
+    _temporal.assert_stamped(canonical)
+    _s("observation_us", "EXECUTED",
+       state=(canonical.get("additional_fields") or {}).get(_temporal.STATE_KEY),
+       observation_us=canonical.get(_temporal.OBSERVATION_US))
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
     _s("canonical_evidence", "EXECUTED",

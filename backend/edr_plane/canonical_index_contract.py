@@ -31,7 +31,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from edr_plane import canonical_identity_contract as idc
-from edr_trajectory.production_adapter import OBSERVATION_TIME_KEY
+from edr_trajectory.production_adapter import (OBSERVATION_TIME_KEY,
+                                               TEMPORAL_SELECT_KEY)
 from services.edr.endpoint_query import (ENDPOINT_KEYED_STORES,
                                          TENANT_PARTITIONED_STORES)
 
@@ -86,6 +87,33 @@ def missing_against(existing_keys: List[Tuple[Tuple[str, int], ...]],
 # identity branches. `host.host_id` disappears as an addressing field because
 # measurement showed it is a byte-identical copy of the authoritative field
 # whenever that field exists (0 disagreeing rows) and is otherwise a hostname.
+
+#: G-41 · the comparable-selection target. `observation_us` is an integer
+#: microsecond instant derived at the canonical writer boundary, so the index
+#: that supplies the order also supplies a TOTAL order once `_id` is appended —
+#: which is what makes a bounded LIMIT return the actual newest N and keeps a
+#: tie group of identical timestamps from shuffling between reads.
+TARGET_TEMPORAL_INDEXES: Tuple[Dict[str, Any], ...] = (
+    {"collection": CANONICAL_COLLECTION,
+     "identity_field": idc.AUTHORITATIVE_FIELD,
+     "name": "sd_canonical_endpointid_observationus",
+     "key": ((TENANT_PARTITIONED_STORES[CANONICAL_COLLECTION], 1),
+             (idc.AUTHORITATIVE_FIELD, 1),
+             (TEMPORAL_SELECT_KEY[CANONICAL_COLLECTION], -1),
+             ("_id", -1)),
+     "role": "AUTHORITATIVE_ENDPOINT_IDENTITY_COMPARABLE_TIME",
+     "unique": False, "partial": None},
+    {"collection": CANONICAL_COLLECTION,
+     "identity_field": idc.LEGACY_NAME_FIELD,
+     "name": "sd_canonical_hostname_observationus",
+     "key": ((TENANT_PARTITIONED_STORES[CANONICAL_COLLECTION], 1),
+             (idc.LEGACY_NAME_FIELD, 1),
+             (TEMPORAL_SELECT_KEY[CANONICAL_COLLECTION], -1),
+             ("_id", -1)),
+     "role": "LEGACY_NAME_BRANCH_COMPARABLE_TIME",
+     "unique": False, "partial": None},
+)
+
 
 TARGET_CANONICAL_INDEXES: Tuple[Dict[str, Any], ...] = (
     {"collection": CANONICAL_COLLECTION,

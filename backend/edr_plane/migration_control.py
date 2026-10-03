@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pymongo.errors import DuplicateKeyError
 
-from edr_plane import identity_backfill
+from edr_plane import identity_backfill, observation_us_migration
 from edr_plane.canonical_index_contract import (CANONICAL_COLLECTION,
                                                 TARGET_CANONICAL_INDEXES)
 
@@ -145,7 +145,8 @@ async def _op_ensure_canonical_identity_indexes(db, *, mode: str,
 #: other. A later bounded identity-backfill operation registers HERE; nothing
 #: about this framework lets a caller invent one.
 OPERATIONS = {OP_ENSURE_IDENTITY_INDEXES: _op_ensure_canonical_identity_indexes,
-              **identity_backfill.OPERATIONS}
+              **identity_backfill.OPERATIONS,
+              **observation_us_migration.OPERATIONS}
 
 OP_BACKFILL_IDENTITY = identity_backfill.OP_BACKFILL
 OP_REVERT_IDENTITY_BACKFILL = identity_backfill.OP_REVERT

@@ -6053,3 +6053,67 @@ backfill needs full STEP-35 discipline. R4 = fix the stale comment at behavior_s
 R5 = REJECTED: never normalise `event_time` in place.
 Validating Behavior before R1/R2 would measure it against an evidence feed that can silently omit
 rows.
+
+## G-41 TEMPORAL AUTHORITY — IMPLEMENTED + TESTED, NOT APPLIED/PUSHED/DEPLOYED (2026-06)
+
+Report: `/app/memory/G41_TEMPORAL_AUTHORITY_IMPLEMENTATION_STATUS.md`. No production mutation, no
+GitHub push, no deploy, no historical APPLY. No KUSHU/DESKTOP/sensors/TI/response-plane/unrelated UI.
+
+NEW: `backend/edr_plane/temporal_authority.py` (the ONE derivation of `observation_us` = signed int
+UTC epoch microseconds, writer stamp + `assert_stamped` invariant, fail-closed, `event_time` never
+rewritten, `ingest_time` never a source); `backend/edr_plane/observation_us_migration.py` (bounded
+backfill + read-only verify, registered in the closed registry).
+CHANGED: `edr_trajectory/production_adapter.py` (selection/order/LIMIT/cursor on `observation_us` +
+`_id`; `production_adapter.observation_us` now DELEGATES to temporal_authority so there is exactly
+one parser; transitional legacy read; `pending_temporal_migration` counter);
+`detection_content/xdr_pipeline.py` (stamp + assert immediately before the single canonical
+insert_one); `canonical_index_contract.py` (TARGET_TEMPORAL_INDEXES declared, NOT created);
+`migration_control.py` (registry now 6 operations).
+
+CURSOR: total order `(observation_us, event_id)`; DB order `(observation_us -1, _id -1)`. The
+owner's strengthening was essential — `_id` makes the DB sort and the LIMIT deterministic so fixing
+string ordering does not introduce a skip/duplicate bug at equal timestamps. Resume bound is the
+cursor's exact microsecond, store-independent and INCLUSIVE; exact exclusion happens in memory. An
+inclusive integer bound cannot drop a chronologically eligible row.
+
+INDEX (declared only): sd_canonical_endpointid_observationus / sd_canonical_hostname_observationus =
+(tenant_id 1, <identity> 1, observation_us -1, _id -1). Production has NO observation_us index. The
+no-COLLSCAN/no-blocking-SORT proof must be taken by the authenticated explain operation AFTER the
+field exists.
+
+DESIGN GAP THE FIRST CUT EXPOSED (important): making selection depend on `observation_us` broke 140
+existing tests because every historical fixture — and ALL 122,369 production rows — predate the
+field. Shipping that would have made all historical evidence VANISH from Device Trajectory and
+Behavior's window. Fix: a bounded TRANSITIONAL second read scoped strictly to rows with no
+comparable value, selected by the legacy string path, merged on the same microsecond order, with
+`pending_temporal_migration` surfaced so the residual exposure is counted not silent. It returns
+nothing and can be deleted once the backfill completes.
+
+TESTS: 37 (`test_g41_temporal_authority.py`) + 6 (`test_g41_transitional_read.py`) + 401
+(`tests/edr_trajectory`) all green. Combined edr/edr_investigation/edr_trajectory = 2,724 passed,
+16 failed — all PRE-EXISTING xdist-isolation failures, NOT regressions (34h_a passes 19/19 alone;
+p0_f13_5 fails 4/7 on a STASHED unmodified tree with `deps.db accessed before init_database()`;
+measured baseline earlier this session was 18). Production-inversion fixture uses the literal
+confirmed values and includes a test asserting the STRING comparison still says the wrong thing, so
+the fixture cannot silently stop reproducing the bug.
+WRITER VERIFIED LIVE IN PREVIEW: 912 rows stamped post-reload with correct state/basis/microseconds.
+
+PRODUCTION CENSUS (read-only snapshot): total 122,369; migration candidates 122,369 (THE ENTIRE
+CORPUS); observation_us present 0; no-source-value rows 0/0/0; classes space 43,521 + Z 78,849 +
+offset 0; no unaccounted representation (deployer flagged a +1 EXCESS = live-ingest skew across
+non-atomic counts, dual-match 0 — excess is the safe direction); no observation_us index; 0
+migration runs; ledger absent.
+
+GATES: TEMPORAL_AUTHORITY_GATE = PASS. SAFE_TO_MIGRATE_HISTORY = **NO (sequencing, not safety)** —
+`EXPECTED_CANDIDATES` is deliberately None so apply is structurally impossible, because the
+candidate population is still OPEN: the writer is not deployed, so every new write joins the
+candidate set. STEP 35's exact-ceiling discipline only works on a CLOSED population. Correct order:
+deploy writer -> population closes -> re-census -> declare expectation in a reviewed commit ->
+PIT recovery point -> production report -> owner-run apply -> verify -> create indexes -> explain
+proof -> transitional read reports 0 and is deleted.
+SAFE_TO_PUBLISH_EDR_UI = YES with one disclosure: publication is ISOLATED (fix is backend-only;
+frontend has no knowledge of observation_us) and `vercel.json` already routes edr.nivxforge.com ->
+/edr; BUT `VITE_E3_DT_V3` is a BUILD-TIME flag and is NOT set in `apps/nivxray-xdr/.env`, so
+publishing today ships the LEGACY Device Trajectory, not V3. Branch `integration/e3-dt`, HEAD
+14884069. Recommendation: enable V3 AFTER the backfill so V3 is not an analyst's first experience
+while `pending_temporal_migration` is still 122,369.

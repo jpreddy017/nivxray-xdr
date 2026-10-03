@@ -137,9 +137,13 @@ def test_no_collection_index_or_query_can_be_supplied(client, admin_user):
 
 
 def test_the_registry_is_the_only_operation_source(client):
-    assert mc.allowed_operations() == sorted([
-        mc.OP_ENSURE_IDENTITY_INDEXES, mc.OP_BACKFILL_IDENTITY,
-        mc.OP_REVERT_IDENTITY_BACKFILL, mc.OP_EXPLAIN_IDENTITY_READ_PLAN])
+    # derived from the registry, so adding a reviewed operation does not
+    # require editing this test — what matters is that the list IS the registry
+    assert mc.allowed_operations() == sorted(mc.OPERATIONS)
+    for named in (mc.OP_ENSURE_IDENTITY_INDEXES, mc.OP_BACKFILL_IDENTITY,
+                  mc.OP_REVERT_IDENTITY_BACKFILL,
+                  mc.OP_EXPLAIN_IDENTITY_READ_PLAN):
+        assert named in mc.OPERATIONS
     src = inspect.getsource(mc)
     assert "CANONICAL_COLLECTION" in src and "TARGET_CANONICAL_INDEXES" in src
     code = "\n".join(line for line in src.splitlines()

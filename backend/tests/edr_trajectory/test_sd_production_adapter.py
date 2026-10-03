@@ -38,8 +38,10 @@ class FakeCursor:
         self._sort = None
         self._limit = None
 
-    def sort(self, key, direction):
-        self._sort = (key, direction)
+    def sort(self, key, direction=None):
+        # the real driver accepts both sort(key, dir) and sort([(k, dir), ...]);
+        # G-41's comparable path uses the list form for a total order
+        self._sort = list(key) if direction is None else [(key, direction)]
         return self
 
     def limit(self, n):
@@ -48,9 +50,14 @@ class FakeCursor:
 
     def __aiter__(self):
         docs = list(self._docs)
-        if self._sort:
-            key, direction = self._sort
-            docs.sort(key=lambda d: str(pa._dig(d, key) or ""), reverse=direction < 0)
+        for key, direction in reversed(self._sort or []):
+            def _k(d, key=key):
+                v = pa._dig(d, key)
+                # a comparable integer key sorts numerically; everything else
+                # keeps the previous string behaviour
+                return (0, v, "") if isinstance(v, int) and not isinstance(v, bool) \
+                    else (1, 0, str(v or ""))
+            docs.sort(key=_k, reverse=direction < 0)
         if self._limit:
             docs = docs[: self._limit]
 
