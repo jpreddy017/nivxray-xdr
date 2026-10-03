@@ -108,8 +108,29 @@ def test_a_substituted_hostname_ref_is_matched_as_an_endpoint_id_only(store):
 
 # ── the engine stays outside the room ────────────────────────────────────
 
-def test_declaring_the_stores_does_not_import_the_behavior_engine():
-    assert not [m for m in sys.modules if m.startswith("edr_behavior")]
+#: The contract types (`contracts`) are allowed to be imported — a mapping
+#: layer needs them. What must stay out of the process is the EXECUTION path.
+BEHAVIOR_RUNTIME = {"edr_behavior.engine", "edr_behavior.matcher",
+                    "edr_behavior.rules", "edr_behavior.store",
+                    "edr_behavior.provider", "edr_behavior.detection",
+                    "edr_behavior.replay", "edr_behavior.integration",
+                    "edr_behavior.content", "edr_behavior.suppression",
+                    "edr_behavior.predicates", "edr_behavior.normalize"}
+
+
+def test_declaring_the_stores_does_not_import_the_behavior_runtime():
+    """Clean interpreter: importing the declarations must pull in NO
+    edr_behavior module at all — not even the contracts."""
+    import subprocess
+    from pathlib import Path
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; import services.edr.endpoint_query;"
+         "print(sorted(m for m in sys.modules if m.startswith('edr_behavior')))"],
+        capture_output=True, text=True,
+        cwd=str(Path(__file__).resolve().parents[2]))
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "[]"
 
 
 def test_no_router_imports_the_behavior_engine():
