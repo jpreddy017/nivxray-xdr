@@ -4315,3 +4315,54 @@ SAFE_TO_IMPLEMENT_RUNNER = NO until E5–E9 are decided.
 NEXT: owner decisions, then Step 29 = shadow detection store wrapper + additive `MODE_SHADOW`
 ONLY (no runner, no engine execution).
 
+
+---
+
+## STEP 29 — SHADOW DETECTION BOUNDARY ONLY (2026-06, completed)
+
+Owner decisions applied: E5 YES (MODE_SHADOW), E6 YES (separate collection + dedicated store),
+E7 v1 refuses NO_EVIDENCE streams (Step 26 unamended, G-4 explicit), E8 v1 refuses the whole
+invocation/page on any adapter refusal, E9 HOLD (provider untouched), E10 budgets are design
+ceilings only, E11 frontier initialization stays a separate operator act, E12 no real endpoint.
+
+- `backend/edr_behavior/contracts.py` — additive `MODE_SHADOW = "SHADOW"` and
+  `EXECUTION_MODES = {LIVE, RETRO, SHADOW}`. LIVE/RETRO semantics unchanged; no engine or replay
+  code path references MODE_SHADOW (asserted by test).
+- `backend/edr_plane/behavior_shadow_detection_store.py` — `ShadowDetectionStore`
+  (`get`/`find_overlapping`/`put` only) plus `InMemoryShadowDetectionBackend` and
+  `MongoShadowDetectionBackend`. Routes exclusively to `e3_behavior_shadow_detections`; the string
+  `e3_behavior_detections` does not appear in executable source.
+- Non-overridable markers on every doc: `shadow=true`, `analyst_visible=false`,
+  `detection_source_claim="NONE"`, `status="SHADOW_ONLY"`, plus `shadow_run_id`, `replay_id`,
+  `ruleset_id`, `ruleset_version`, `ruleset_content_hash`. Caller attempts to set the three shadow
+  markers or any stream-identity field fail closed. **`status` is FORCED, not refused**, because
+  `detection.build` always computes OPEN/TESTING/SUPPRESSED; the engine value is preserved as
+  `engine_status` for audit so no reader ever sees OPEN.
+- Evidence integrity validated, never repaired: resolved tenant + platform endpoint, non-empty
+  `evidence_refs`, every ref tenant-owned with a durable `raw_id` and a `stable_key`,
+  `evidence_keys` == ref key set, and (when declared via `expect_trigger`) the trigger key must be
+  represented. A refused document leaves no trace.
+- Per-write observable outcome CREATED / MERGED / DUPLICATE_UNCHANGED / FAILED_CONFLICT with a
+  `verified` flag, plus `verify(detection_id)` read-back. Every successful write is read back and
+  compared before being reported; a backend that claims success without storing raises
+  `SHADOW_DETECTION_READBACK_VERIFICATION_FAILED`.
+- Isolation: tenant-keyed, endpoint-scoped, and ruleset-stream-scoped overlap search; a doc from
+  another ruleset content hash can neither be merged into nor found; a non-shadow document is
+  never adopted.
+- Index DESIGN only (4 specs, incl. `(tenant_id, detection_id)` UNIQUE). Nothing created.
+- Tests: `backend/tests/edr_trajectory/test_shadow_detection_store.py` — 62 passed. Scoped
+  regression `tests/edr_trajectory tests/edr tests/edr_behavior` = 2562 passed / 12 skipped /
+  the SAME 4 pre-existing failures in `tests/edr/test_p0_f13_5_detection_handoff.py`.
+
+### GAP introduced and recorded (G-8)
+Because `status` is rewritten to SHADOW_ONLY, the engine's internal
+`material(merged) == material(existing)` check in `_emit` will never match for shadow writes, so
+the engine's `duplicates_prevented` counter under-reports. The store's `DUPLICATE_UNCHANGED`
+outcome is the authority for shadow duplicate suppression, and the runner must source
+`duplicates_prevented` from the store's write outcomes, not from engine metrics.
+
+### NEXT (owner-gated)
+Owner review of Step 29, then the runner (Step 30) may be considered. Runner must still honour:
+refuse NO_EVIDENCE streams, refuse the page on any adapter refusal, checkpoint advance LAST,
+MATCH persistence proven only via the store's verified write outcome.
+

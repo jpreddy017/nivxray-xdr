@@ -54,6 +54,11 @@ STATUS_SUPPRESSED = "SUPPRESSED"
 
 MODE_LIVE = "LIVE"
 MODE_RETRO = "RETRO"
+# Additive: a bounded, operator-triggered SHADOW invocation. Never LIVE, because
+# a shadow run is not the live detection path, and never RETRO, because it
+# replays no history. LIVE and RETRO semantics are unchanged by its existence.
+MODE_SHADOW = "SHADOW"
+EXECUTION_MODES = frozenset({MODE_LIVE, MODE_RETRO, MODE_SHADOW})
 
 
 def sha(*parts: Any) -> str:
