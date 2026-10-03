@@ -298,6 +298,23 @@ measured mutation surface equals exactly those four paths and a post-apply verif
 `collateral_diverged = 0` while still catching a tampered `endpoint_id` and an `observation_us` that
 stops agreeing with `event_time`.
 
-Still not done, each a separate owner-authorized step, in this order: production REPORT review →
-Atlas PIT position → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan
-proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.
+### 13.3 `G41_MIGRATION_CONTROL_DEPLOY_GATE = PASS` `[commit c6ed841 · run c6ed8410]`
+
+The locked expectation and the verifier correction are **live in production**; nothing was applied.
+
+* Backend healthy · `/health` 200 low latency · telemetry batch 200 · heartbeat 200 · no tracebacks.
+* Verified from the RUNNING image: `EXPECTED_CANDIDATES = 122_477` live · `digest_excluding`,
+  `g41_collateral_digest`, `PROVENANCE_KEY` and `G41_MUTABLE_PATHS` live with exactly the four
+  paths, wired into both ledger-write and verify · STEP 35 `collateral_digest()` still excludes
+  exactly `additional_fields.endpoint_id` + `provenance.endpoint_identity`.
+* Database untouched: candidates **exactly 122,477** · `e3_migration_runs` backfill 0 / verify 0
+  (only `ensure_canonical_identity_indexes` present) · `e3_migration_row_ledger` **absent** ·
+  4 indexes, **none** referencing `observation_us`.
+* Writer still correct under live ingest: total 122,818 = 343 stamped + 122,477 candidates, stamped
+  rising 341 → 343, all BSON int64; spot-check `2026-10-01T10:19:58.863Z` ↔ `1790849998863000`,
+  state `DERIVED_FROM_STORED_OBSERVATION_TIME`.
+
+Still not done, each a separate owner-authorized step, in this order: **Atlas PITR / earliest
+restorable point (owner, control plane)** → final pre-APPLY REPORT → APPLY →
+`verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete the transitional
+legacy read → `VITE_E3_DT_V3=1` → KUSHU.

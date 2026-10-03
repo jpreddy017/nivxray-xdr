@@ -1,3 +1,61 @@
+## 2026-06 · G-41 STEP 2 · MIGRATION CONTROL LOCKED, VERIFIER FIXED, DEPLOYED `[commit c6ed841]`
+
+Owner-gated sequence, each step a separate authorization. **No APPLY. The 122,477 historical
+evidence rows remain untouched.** No index, no transitional-reader removal, no V3, no frontend
+deploy, no KUSHU/DESKTOP/sensors/TI/response plane.
+
+**1 · Population locked.** Read-only production recount after the writer went live:
+`OBSERVED_CANDIDATES = 122,477`, exact and stable across two reads · total 122,567 · stamped 94
+(BSON int64) · `event_time` absent/empty/non-string 0/0/0 · representation space 43,521 + Z 78,956
++ offset 0 + unaccounted 0, sum − candidates **0** · candidates already stamped 0.
+`EXPECTED_CANDIDATES = 122_477` declared in a reviewed commit, with the drift decision recorded:
+the number is never adjusted to make a gate pass.
+
+**2 · `G41_MIGRATION_REPORT_GATE = PASS`** (read-only production REPORT): 122,477/122,477
+derivable, 0 non-derivable, 0 conflicts, 0 unaccounted, total decomposes exactly, mutation boundary
+`TEMPORAL_FIELDS_ONLY`, `event_time` preserved, identity and provenance preserved.
+
+**3 · A real defect the REPORT exposed, then fixed — `G41_COLLATERAL_VERIFIER_GATE = PASS`.**
+The backfill recorded and rechecked its collateral digest with STEP 35's `collateral_digest()`,
+whose exclusion set is the two *identity* paths. The four paths G-41 intends to set were therefore
+inside the protected surface, so `verify_canonical_observation_us` would have reported collateral
+divergence for all 122,477 intentionally migrated rows — destroying its ability to tell an intended
+temporal change from accidental modification of something else. Applying before this fix would have
+meant applying with no working post-APPLY verification.
+Fix, scoped to the verification boundary: `identity_backfill.digest_excluding(doc, paths)` lets the
+caller name its own exclusion set and excludes nothing by default; `collateral_digest()` keeps
+exactly STEP 35's two identity paths (values proven byte-identical to the prior semantics against
+an independently written reference); `observation_us_migration.g41_collateral_digest()` forgives
+exactly `observation_us`, `additional_fields.observation_us_state`,
+`additional_fields.observation_us_basis`, `provenance.observation_us_provenance`, derived from the
+writer contract so write and exclusion set cannot drift. 25 new tests
+(`tests/edr/test_g41_collateral_verification.py`): 14 non-temporal mutations each detected,
+STEP 35 unchanged, an end-to-end apply whose *measured* mutation surface equals exactly those four
+paths, and a post-apply verify at `collateral_diverged = 0` that still catches a tampered
+`endpoint_id` and an `observation_us` that stops agreeing with `event_time`.
+Regression: 97/97 focused · 34h migration control 19/19 in isolation · combined
+`tests/edr` + `tests/edr_trajectory` 2,715 passed / 16 failed = the identical pre-existing
+xdist-isolation failures. No regression.
+
+**4 · `G41_MIGRATION_CONTROL_DEPLOY_GATE = PASS`** — run `c6ed8410`, backend healthy, ingest and
+heartbeat 200. Verified from the running image: expectation live at 122,477; verifier live with the
+four paths wired into both ledger-write and verify; STEP 35 digest still excluding exactly its two
+identity paths. Database: candidates **exactly 122,477** · migration runs backfill 0 / verify 0 ·
+`e3_migration_row_ledger` **absent** · 4 indexes, **none** referencing `observation_us` · total
+122,818 = 343 stamped + 122,477 candidates, stamped rising 341 → 343 under live ingest, all int64 ·
+spot-check `2026-10-01T10:19:58.863Z` ↔ `1790849998863000`, state
+`DERIVED_FROM_STORED_OBSERVATION_TIME`.
+
+**Next gates, in order, each owner-authorized:** Atlas PITR / earliest-restorable-point
+confirmation (owner, control plane — the deployer has no visibility, which is the only reason
+`RECOVERY_PREREQUISITE = NOT_READY`) → final pre-APPLY REPORT → APPLY the 122,477 →
+`verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete the transitional
+legacy reader → `VITE_E3_DT_V3=1` → KUSHU.
+
+**Observation, not a defect:** one telemetry batch took ~7.8s against a 1.4–2.2s band, HTTP 200, no
+traceback. Not on any path this change touches. Revisit only if it recurs or trends.
+
+
 ## 2026-06 · integration/e3-dt · CORE V3 REAL-EVIDENCE INTEGRATION (E1 ↔ E3 Device Trajectory)
 
 **Owner directive:** wire the exact E3 V3 Device Trajectory to E1's real production evidence.
