@@ -4749,3 +4749,31 @@ a URI into a shell/chat. `tools/preflight_34c.py` stays the local/one-off form a
 
 ### NEXT (owner-gated)
 Owner picks route 1 or route 2. Nothing executed until then. G-20/G-21/G-23 remain OPEN.
+
+## STEP 34C-B — PRODUCTION EXPLAIN VIA DEPLOYER DIAGNOSE — 2026-06 — DISPATCHED (AWAITING RESULT)
+
+Owner chose the zero-deploy route. Read-only production diagnose dispatched to the Emergent
+deployer with `intent=debug`; job ref `95e7e8cd-6528-4f50-8702-566d0dc3b0ce` (queued, runs
+asynchronously). No result has been produced or assumed.
+
+Brief (verbatim scope): resolve KUSHU in production (`edr_endpoints.hostname = "KUSHU"` ->
+tenant_id/endpoint_id/device_iid/collector_id), build REFS from those platform identifiers, derive
+END = newest KUSHU `xdr_canonical_evidence.event_time` and START = END - 10 min, then run EXACTLY
+10 `explain("executionStats")` commands — the 7 `v2_shadow_observations` identity branches
+(event.device_iid, device_iid, collector_id, connector_id, event.computer, event.raw.computer,
+event.raw.hostname; time key `event.ts`) and the 3 `xdr_canonical_evidence` branches
+(provenance.collector_id, host.host_id, host.hostname; time key `event_time`), each
+`{identity: {$in: REFS}, tenant_id, time: {$gte,$lte}}` sorted newest-first with limit 89
+(25 + TIE_MARGIN 64). Report per branch: collection, identity field, index used, winning-plan stage
+chain, blocking SORT y/n, totalKeysExamined, totalDocsExamined, nReturned, executionTimeMillis;
+plus `xdr_canonical_evidence` index NAMES and key patterns (names only).
+
+Prohibited in the brief and restated to the deployer: no page read, no evidence content, no family
+census, no adapter, no engine, no frontier, no shadow run, no index creation/change, no production
+write, no deploy, no restart, no secret values returned or logged, DESKTOP-A9HGFJJ explicitly
+prohibited, no sensor/Windows/Mac action. Stop after the ten explains; do not fix a poor plan.
+
+### NEXT (owner-gated)
+Await the deployer's production plan report, then the owner decides: healthy plan -> bounded KUSHU
+page + family composition; weak plan -> strengthen that exact index/query boundary first.
+G-20/G-21/G-23 remain OPEN. Family Composition = HOLD. Index Decision = HOLD.
