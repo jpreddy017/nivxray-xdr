@@ -4716,3 +4716,36 @@ NEW GAPS
 Owner supplies a shell with the production MONGO_URL resolvable (PROD_MONGO_URL/PROD_DB_NAME) and
 runs `python backend/tools/preflight_34c.py`, or authorizes another route to obtain the production
 explain output. G-20/G-21 stay OPEN. No index decision, no bounded page, no family census.
+
+## STEP 34C-A — SAFE PRODUCTION PREFLIGHT EXECUTION ROUTE — 2026-06 — DISCOVERY ONLY
+
+No secret requested, printed, copied or stored. No query executed. No deploy, no config/secret
+change, no index, no Behavior.
+
+Evidence read (repo/deployment config + this program's own prior production record):
+- `.emergent/emergent.yml` — this app is an Emergent-platform job/deployment (no DB URI present).
+- `backend/.env` in this container is the PREVIEW binding only (loopback mongod, no ingress).
+- `deploy/docker-compose.yml` + `docs/DEPLOYMENT.md` describe an ALTERNATIVE self-host VPS route
+  (Docker Compose + Atlas, secrets in a VPS-side `.env`). That is NOT the live production runtime
+  for this program and must not be used as the access path.
+- `vercel.json` / `apps/nivxray-xdr` — Vercel hosts the FRONTEND only; it holds no DB binding.
+- PRD 2026-09-29 production diagnose (already-proven facts): the live backend is the Emergent
+  deployment with an Emergent-managed Atlas store; MONGO_URL/DB_NAME are injected by the platform
+  into the production pod. Credentials have never been exposed to this plane, and that is correct.
+- `backend/routers/` has NO Mongo `explain`/index-diagnostic endpoint today.
+
+CONCLUSION: a safe route exists and does NOT require disclosing the URI.
+1. PRIMARY — Emergent deployer, `intent=debug` (read-only production diagnose). Runs inside the
+   authorized production context, reads pod runtime, DB binding and secret PRESENCE, and has
+   already been used successfully on this program (job ref 95e7e8cd-..., 2026-09-29). It diagnoses
+   only and cannot write production data. Lowest blast radius; no secret ever leaves the platform.
+2. FALLBACK (only if the deployer cannot return per-branch explain plans) — add an admin-only,
+   read-only diagnostic endpoint that runs the Step-34C explain set SERVER-SIDE inside production
+   using the already-injected binding, returning plan metadata only (index, stage chain, blocking
+   SORT, keys/docs/nReturned/ms). KUSHU-only and DESKTOP-prohibited guards are reused from
+   `tools/preflight_34c.py`. Costs one deploy; still zero secret disclosure, zero writes.
+REJECTED: exporting production credentials to any other machine (incl. the owner's Mac) or pasting
+a URI into a shell/chat. `tools/preflight_34c.py` stays the local/one-off form and is unchanged.
+
+### NEXT (owner-gated)
+Owner picks route 1 or route 2. Nothing executed until then. G-20/G-21/G-23 remain OPEN.
