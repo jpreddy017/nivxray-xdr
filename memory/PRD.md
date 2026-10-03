@@ -4494,3 +4494,42 @@ Backend healthy (/api/health 200).
 ### NEXT (owner-gated)
 Owner review of Step 31. A bounded real-evidence shadow run is NOT authorized by this step.
 
+
+---
+
+## STEP 32 — BEHAVIOR ADAPTER NAMESPACE CONFORMANCE GUARD (2026-06, completed)
+
+TEST-ONLY regression lock. No runtime file changed. Hermetic: no engine execution, no real
+evidence, no production, no KUSHU/DESKTOP/sensor, no deploy/Vercel, no collection/index change.
+
+- `backend/tests/edr/test_behavior_namespace_conformance.py` (new, 16 tests).
+- Both namespaces are read from their OWN SOURCE, not a hand-written list:
+  `authoritative_paths()` = every canonical path `edr_behavior/normalize.py` labels for itself
+  (`b.s(value, "process.executable_path")`, incl. `from_detection_observation`);
+  `emitted_paths()` = every `_put(tree, "<literal>", ...)` path in the adapter (also pins paths to
+  literals — a computed path would make the guard unenforceable). `addressable()` applies the
+  resolver's own rule (`predicates.FIELD_PREFIXES` + nested walk).
+- Asserts: every emitted path is addressable AND accepted by the real `parse_rule` gate; emitted ⊆
+  authoritative ∪ G-11 allow-list; AST view == runtime output for a maximal §d row; nested paths
+  resolve through `predicates.get_field`.
+- G-11 (owner decision): `file.previous_path` and `network.initiated` are KEPT as the only
+  explicit additive exceptions. Tests assert they are genuinely additive (absent from the
+  normalizer), addressable, type-preserving (`initiated` stays a real bool incl. `False`), and
+  consumed by NO shipped rule in `content/starter_rules.json` — i.e. non-authoritative for rule
+  semantics.
+- Negative proof executed: re-introducing `_put(tree, "image", image)` makes 4 independent tests
+  fail; the adapter was then restored byte-identical and all 16 pass again.
+- Also locked: registry/auth stay missing (and no `registry.`/`auth.` path is emittable);
+  `network.direction` is never inferred from `initiated`; unavailable canonical paths are absent
+  rather than empty; only the adapter shapes fields (provider and runner contain no `_put(`,
+  `.fields[` or `fields=`); `FIELD_PREFIXES` and `NORMALIZER_ID` unchanged; `raw_id`/`stable_key`
+  determinism and `STORED_OBSERVATION_TIME` authority unchanged.
+- Scoped suite `tests/edr_trajectory tests/edr tests/edr_behavior` = 2633 passed / 12 skipped /
+  the SAME 4 pre-existing `test_p0_f13_5_detection_handoff.py` failures. Backend healthy.
+
+### Blockers standing before any real-evidence shadow run (owner-acknowledged)
+1. `xdr_canonical_evidence.event_time` index still missing — measured ~35 s / 504 risk on a real
+   §d read (P1, owner-gated).
+2. Runner wall-clock budget (60 s) remains PROVISIONAL and unmeasured.
+3. G-12 bounds coverage: §d carries no registry/auth data.
+
