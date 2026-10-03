@@ -4816,3 +4816,87 @@ deployed. The owner's rule stands — strengthen the boundary on evidence, do no
     (then verify with (a) afterwards), or
 (c) operator-side Atlas explain by the owner, outside this plane.
 Family Composition = HOLD. Index Decision = HOLD until the owner picks.
+
+## STEP 34D — CANONICAL §d INDEX/QUERY STRENGTHENING DESIGN — 2026-06 — DONE (HERMETIC)
+
+No production change. Nothing in production was read, written or indexed in this step; the only
+database touched is a scratch DB (`nivx_34d_hermetic_scratch`) created and dropped by the
+measurement script on the local mongod.
+
+### Identity contract (G-25 investigated BEFORE any index was proposed)
+Writers (code, not inference):
+- `edr_plane/canonical_bridge.py` — authenticated EDR sensor path: `host.host_id = <platform
+  endpoint_id>` (L561), `host.hostname = hostname` (L561), `provenance.collector_id =
+  <platform endpoint_id>` (L650/L713), and `additional_fields.endpoint_id = <platform endpoint_id>`
+  (L591).
+- `detection_content/telemetry/nivxforge_sensor_dsm.py` — XDR DSM path: `host.host_id =
+  raw.endpoint_id OR collector_id`, i.e. may legitimately hold a VENDOR/collector id rather than a
+  platform id.
+Preview census (read-only, 297,832 canonical docs; field presence only, no DESKTOP targeting):
+- 293,873 docs have `host.host_id == provenance.collector_id == additional_fields.endpoint_id`
+- 293,834 `host.host_id` values are platform `ep_…`; 1,236 docs have `provenance.collector_id =
+  ep_…` while `host.host_id` is NOT a platform id (legacy/other path)
+- 270,715 docs carry a hostname; 26,757 docs have a platform `host.host_id` and NO hostname
+- 0 docs have a hostname that is a substituted `ep_…` string
+=> THE AUTHORITATIVE PLATFORM ENDPOINT FIELD ON CANONICAL EVIDENCE IS
+   `additional_fields.endpoint_id` (with `host.host_id` carrying the same value on the
+   authenticated path). It is NOT a declared §d identity field and NOT indexed. Recorded as an
+   IDENTITY-CONTRACT GAP (G-26), NOT solved here and NOT worked around by overloading hostname.
+   KUSHU addressability: production registry has device_iid = null and collector_id = null, so
+   REFS = {ep_a67be48d5b4e01d4d9e8, "KUSHU"}; KUSHU's authenticated canonical rows are therefore
+   addressable through `host.host_id` / `provenance.collector_id` (both = the ep_ value) and
+   through `host.hostname`. No identifier was invented.
+
+### Declared contract + guard
+- NEW `backend/edr_plane/canonical_index_contract.py` — DECLARATION ONLY, creates nothing. Derives
+  one spec per declared canonical identity field from `ENDPOINT_KEYED_STORES`,
+  `TENANT_PARTITIONED_STORES` and `OBSERVATION_TIME_KEY`:
+    sd_canonical_collector_eventtime  {tenant_id: 1, provenance.collector_id: 1, event_time: -1}
+    sd_canonical_hostid_eventtime     {tenant_id: 1, host.host_id: 1,            event_time: -1}
+    sd_canonical_hostname_eventtime   {tenant_id: 1, host.hostname: 1,           event_time: -1}
+  Also records `PRODUCTION_INDEXES_MEASURED` (the 2026-06 production fact) and `missing_against()`.
+- NEW `backend/tests/edr_trajectory/test_canonical_index_contract.py` — 7 pure tests: one spec per
+  declared field, tenant partition is the LEADING equality prefix, identity second, `event_time`
+  last and DESCENDING, every filter `branches()` actually builds has a matching spec, no spec
+  addresses an undeclared field, the measured production index set satisfies NONE of the specs, and
+  a complete set reports complete. Full `tests/edr_trajectory` = 387 passed, 9 skipped;
+  `tests/edr/test_p0_2c_alias_invariant.py` = 11 passed.
+
+### Hermetic explain proof (`backend/tools/measure_34d_canonical_index.py`, scratch DB, 36,000 docs)
+- BEFORE (production index set reproduced: `_id_` + `{ingest_time: -1, tenant_id: 1}`): all three
+  canonical branches = `SORT + COLLSCAN`, 36,000 docs examined, 0 keys. The production weakness
+  reproduced exactly.
+- AFTER (the three proposed indexes): `LIMIT → FETCH → SORT_MERGE → IXSCAN×2`, no COLLSCAN, no
+  blocking SORT, keys = docs = 3, max 2 ms. (`SORT_MERGE` is an index-ordered merge of the `$in`
+  scans, not an in-memory sort.)
+- BOUNDEDNESS: widened to a window holding 5,400 matching rows -> keys = docs = nReturned = 89, the
+  exact `25 + TIE_MARGIN 64` fetch bound. The index bounds the read; it does not scan the corpus.
+- NECESSITY: with the hostname index dropped, the hostname branch falls back to the collector index
+  and reintroduces a BLOCKING SORT (`SORT → FETCH → IXSCAN`). All three are required while §d
+  addresses all three fields.
+- TENANT ISOLATION: the same refs under a different tenant return 0 rows, 0 docs examined, still
+  index-served — the equality prefix holds.
+- ORDER/WINDOW: rows return newest-first and entirely inside the window.
+- COST (measured on the scratch sample): each index ≈ 920 KiB for 36,000 docs ≈ 26 B/doc; three
+  ≈ 2.7 MiB ≈ 15.7% of data size ≈ 79 B/doc. Extrapolated to a preview-sized corpus (~300k docs)
+  ≈ 23 MB total. Write amplification = 3 extra short index entries per insert on an append-mostly
+  collection. Justified; the alternative is a per-branch collection scan plus an in-memory sort on
+  every Device Trajectory page.
+- QUERY CHANGES REQUIRED: NONE. The §d query shape is already correct and needs no rewrite, no
+  hint and no broadening.
+
+### NEW GAPS
+- G-26 (identity contract): `additional_fields.endpoint_id` is the authoritative platform endpoint
+  identity on canonical evidence but is neither a declared §d identity field nor indexed, so §d
+  addresses three derived fields instead of one hard key. A future strengthening could reduce the
+  canonical branch set to one authoritative key plus a legacy-name branch — that is an identity
+  decision plus a backfill proof, NOT an index decision, and is explicitly deferred.
+- G-27: `host.host_id` is overloaded across ingest paths (platform `ep_…` on the authenticated
+  path, vendor/collector id on the XDR DSM path), which is why the collector branch is not
+  redundant (1,236 preview rows).
+
+### NEXT (owner-gated)
+Owner decides whether to (a) authorize applying the three declared indexes to production
+(idempotent, background, additive — no schema or query change), and/or (b) authorize the temporary
+read-only explain route to prove the plans in production before/after. Family Composition and the
+bounded KUSHU page remain HOLD.
