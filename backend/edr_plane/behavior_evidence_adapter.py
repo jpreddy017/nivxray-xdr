@@ -64,6 +64,40 @@ REFUSED_NO_ENDPOINT = "NO_RESOLVED_ENDPOINT_ID"
 REFUSED_NO_TIME = "NO_STORED_OBSERVATION_TIME"
 REFUSED_KIND = "ACTIVITY_FAMILY_NOT_SUPPORTED_BY_BEHAVIOR_CONTRACT"
 REFUSED_NO_RAW_REF = "NO_DURABLE_RAW_EVIDENCE_REFERENCE"
+REFUSED_FIELD_SHAPE = "SOURCE_FIELD_STRUCTURALLY_INCOMPATIBLE"
+REFUSED_FIELD_COLLISION = "SOURCE_FIELDS_COLLIDE_ON_ONE_CANONICAL_PATH"
+
+#: The §d row containers this adapter reads. Each must be an object when
+#: present: a scalar where the evidence contract says object is a source defect,
+#: not something to coerce.
+CONTAINERS = ("process", "parent", "file", "network", "detection")
+
+
+class _FieldCollision(Exception):
+    pass
+
+
+def _base(p: Optional[str]) -> Optional[str]:
+    """Basename, exactly as `edr_behavior.normalize` derives `process.name`."""
+    return p.replace("\\", "/").rsplit("/", 1)[-1] if p else None
+
+
+def _put(tree: Dict[str, Any], path: str, value: Any) -> None:
+    """Place one leaf on the canonical path. Absent stays absent, and two source
+    fields may never silently overwrite one canonical path."""
+    if value is None or value == "" or value == [] or value == {}:
+        return
+    parts = path.split(".")
+    node = tree
+    for part in parts[:-1]:
+        nxt = node.setdefault(part, {})
+        if not isinstance(nxt, dict):
+            raise _FieldCollision(path)
+        node = nxt
+    leaf = parts[-1]
+    if leaf in node and node[leaf] != value:
+        raise _FieldCollision(path)
+    node[leaf] = value
 
 
 def _s(v: Any) -> Optional[str]:
@@ -106,33 +140,53 @@ def _process_ref(row: Dict[str, Any]) -> Optional[ProcessRef]:
 
 
 def _fields(row: Dict[str, Any], kind: str) -> Dict[str, Any]:
-    """Only keys the evidence actually holds. An absent field is OMITTED, so a
-    predicate reads "not collected" instead of matching an empty string."""
+    """The CANONICAL nested Behavior field namespace.
+
+    This is not a schema choice made here: it is the namespace
+    `edr_behavior.normalize` already produces, `predicates.FIELD_PREFIXES`
+    already permits, and the shipped rules already address
+    (`process.name`, `process.command_line`, `process.executable_path`,
+    `process.signer`, `file.path`, `file.operation`, `registry.key`,
+    `network.dest_ip`, `network.dest_hostname`, `dns.query_name`). A flat key
+    such as `image` is unreachable by any valid predicate, which is why the
+    earlier representation silently evaluated nothing.
+
+    Only what the §d row actually carries is mapped. Nothing is invented: the §d
+    row has no registry, auth, signer, integrity-level, current-directory or DNS
+    answer data, so those canonical paths stay ABSENT rather than empty.
+    """
     p = row.get("process") or {}
+    par = row.get("parent") or {}
     f = row.get("file") or {}
     n = row.get("network") or {}
-    candidates = {
-        "activity_family": row.get("kind"),
-        "severity": row.get("severity"),
-        "image": p.get("image"),
-        "command_line": p.get("command_line"),
-        "user": p.get("user"),
-        "process_sha256": p.get("sha256"),
-        "parent_image": (row.get("parent") or {}).get("image"),
-        "file_path": f.get("path"),
-        "file_previous_path": f.get("prev_path"),
-        "file_sha256": f.get("sha256"),
-        "file_operation": f.get("operation"),
-        "dest_ip": n.get("dest_ip"),
-        "dest_port": n.get("dest_port"),
-        "protocol": n.get("protocol"),
-        "src_ip": n.get("src_ip"),
-        "dns_query": n.get("query"),
-    }
-    out = {k: v for k, v in candidates.items() if v not in (None, "", [], {})}
-    if kind == KIND_DETECTION and row.get("detection"):
-        out["detection"] = row["detection"]
-    return out
+    image, parent_image = _s(p.get("image")), _s(par.get("image"))
+    path = _s(f.get("path"))
+    tree: Dict[str, Any] = {}
+    _put(tree, "process.executable_path", image)
+    _put(tree, "process.name", _base(image))
+    _put(tree, "process.command_line", p.get("command_line"))
+    _put(tree, "process.sha256", p.get("sha256"))
+    _put(tree, "parent.executable_path", parent_image)
+    _put(tree, "parent.name", _base(parent_image))
+    # §d carries the acting user on the process object; canonically it is
+    # identity, exactly as the normalizer emits `user.name`.
+    _put(tree, "user.name", p.get("user"))
+    _put(tree, "file.path", path)
+    _put(tree, "file.name", _base(path))
+    _put(tree, "file.previous_path", _s(f.get("prev_path")))
+    _put(tree, "file.operation", f.get("operation"))
+    _put(tree, "file.sha256", f.get("sha256"))
+    _put(tree, "network.dest_ip", n.get("dest_ip"))
+    _put(tree, "network.dest_port", n.get("dest_port"))
+    _put(tree, "network.src_ip", n.get("src_ip"))
+    _put(tree, "network.protocol", n.get("protocol"))
+    _put(tree, "network.initiated", n.get("initiated"))
+    # §d keeps the DNS question on the network object; its canonical home is
+    # `dns.query_name`. Same datum, canonical name — not a new field.
+    _put(tree, "dns.query_name", n.get("query"))
+    if kind == KIND_DETECTION:
+        _put(tree, "detection", row.get("detection"))
+    return {k: v for k, v in tree.items() if v not in (None, "", [], {})}
 
 
 def _tuple(row: Dict[str, Any], key: str) -> Tuple[str, ...]:
@@ -164,6 +218,15 @@ def to_evidence_record(row: Dict[str, Any], *, tenant_id: Optional[str],
     kind = KIND_MAP.get(str(row.get("kind") or ""))
     if kind not in EVIDENCE_KINDS:
         return None, REFUSED_KIND
+
+    for name in CONTAINERS:
+        value = row.get(name)
+        if value is not None and not isinstance(value, dict):
+            return None, REFUSED_FIELD_SHAPE
+    try:
+        fields = _fields(row, kind)
+    except _FieldCollision:
+        return None, REFUSED_FIELD_COLLISION
 
     when = _event_time(row)
     if when is None:
@@ -197,7 +260,7 @@ def to_evidence_record(row: Dict[str, Any], *, tenant_id: Optional[str],
         kind=kind,
         event_time=when,
         ref=ref,
-        fields=_fields(row, kind),
+        fields=fields,
         process=_process_ref(row),
         source=str(prov.get("store") or ""),
         not_observed=_tuple(row, "not_observed"),
@@ -207,4 +270,8 @@ def to_evidence_record(row: Dict[str, Any], *, tenant_id: Optional[str],
                     "evidence_stores": list(row.get("sources") or []),
                     "observation_time_authority": "STORED_OBSERVATION_TIME",
                     "ingested_at": row.get("ingested_at"),
+                    # §d's own activity family and severity are provenance, not
+                    # evidence fields: no predicate can address them, so keeping
+                    # them in `fields` would be a second, unreachable namespace.
+                    "sd_severity": row.get("severity"),
                     "sd_activity_family": row.get("kind")}), None

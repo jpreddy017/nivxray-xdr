@@ -9,12 +9,15 @@ from datetime import datetime, timezone
 
 import pytest
 
+from edr_behavior import predicates as P
 from edr_behavior.contracts import (KIND_AUTH, KIND_DETECTION, KIND_DNS,
                                     KIND_FILE, KIND_NETWORK, KIND_PROCESS,
                                     KIND_PROCESS_TERMINATION, KIND_REGISTRY,
                                     STORE_SHADOW_OBSERVATION,
                                     STORE_XDR_CANONICAL)
-from edr_plane.behavior_evidence_adapter import (REFUSED_KIND,
+from edr_plane.behavior_evidence_adapter import (REFUSED_FIELD_COLLISION,
+                                                 REFUSED_FIELD_SHAPE,
+                                                 REFUSED_KIND,
                                                  REFUSED_NO_ENDPOINT,
                                                  REFUSED_NO_RAW_REF,
                                                  REFUSED_NO_TENANT,
@@ -69,12 +72,18 @@ def ok(**kw):
 
 # ── supported mappings ───────────────────────────────────────────────────
 
-def test_process_start_maps_to_process_evidence():
+def test_process_start_maps_to_canonical_process_evidence():
     rec = ok()
     assert rec.kind == KIND_PROCESS
-    assert rec.fields["image"].endswith("chrome.exe")
-    assert rec.fields["command_line"] == "chrome.exe --type=renderer"
-    assert rec.fields["user"] == "KUSHU\\jp"
+    assert rec.fields["process"]["executable_path"].endswith("chrome.exe")
+    assert rec.fields["process"]["name"] == "chrome.exe"
+    assert rec.fields["process"]["command_line"] == \
+        "chrome.exe --type=renderer"
+    assert rec.fields["user"]["name"] == "KUSHU\\jp"
+    # the canonical paths the shipped rules actually address
+    assert P.get_field(rec, "process.name") == "chrome.exe"
+    assert P.get_field(rec, "process.command_line").startswith("chrome.exe")
+    assert P.get_field(rec, "user.name") == "KUSHU\\jp"
 
 
 @pytest.mark.parametrize("family,expected", [
@@ -99,19 +108,40 @@ def test_file_evidence_fields():
     rec = ok(kind="FILE_MOVE",
              file={"path": r"C:\\tmp\\b.exe", "prev_path": r"C:\\tmp\\a.exe",
                    "sha256": "cd" * 32, "operation": "rename"})
-    assert rec.fields["file_path"].endswith("b.exe")
-    assert rec.fields["file_previous_path"].endswith("a.exe")
-    assert rec.fields["file_operation"] == "rename"
+    assert P.get_field(rec, "file.path").endswith("b.exe")
+    assert P.get_field(rec, "file.name") == "b.exe"
+    assert P.get_field(rec, "file.previous_path").endswith("a.exe")
+    assert P.get_field(rec, "file.operation") == "rename"
+    assert P.get_field(rec, "file.sha256") == "cd" * 32
 
 
 def test_network_and_dns_evidence_fields():
     rec = ok(kind="NETWORK_CONNECT",
              network={"dest_ip": "93.184.216.34", "dest_port": 443,
                       "protocol": "tcp", "src_ip": "10.0.0.5"})
-    assert rec.fields["dest_ip"] == "93.184.216.34"
-    assert rec.fields["dest_port"] == 443
+    assert P.get_field(rec, "network.dest_ip") == "93.184.216.34"
+    assert P.get_field(rec, "network.dest_port") == 443
+    assert P.get_field(rec, "network.src_ip") == "10.0.0.5"
     dns = ok(kind="DNS_QUERY", network={"query": "updates.example.test"})
-    assert dns.fields["dns_query"] == "updates.example.test"
+    assert P.get_field(dns, "dns.query_name") == "updates.example.test"
+
+
+def test_canonically_unavailable_domains_stay_absent():
+    """§d carries no registry, auth, signer or DNS-answer data. Those canonical
+    paths must be ABSENT, so a predicate reads UNKNOWN instead of matching a
+    fabricated value."""
+    rec = ok(kind="REGISTRY_SET")
+    for path in ("registry.key", "registry.operation", "auth.logon_type",
+                 "process.signer", "process.integrity_level",
+                 "process.current_directory", "dns.answers",
+                 "network.dest_hostname", "network.direction"):
+        assert P.get_field(rec, path) is None, path
+
+
+def test_parent_process_is_canonical_when_the_row_states_one():
+    rec = ok(parent={"image": r"C:\\Windows\\explorer.exe", "pid": 7})
+    assert P.get_field(rec, "parent.executable_path").endswith("explorer.exe")
+    assert P.get_field(rec, "parent.name") == "explorer.exe"
 
 
 def test_detection_family_carries_the_detection_the_row_holds():
@@ -136,7 +166,7 @@ def test_a_substituted_hostname_device_alias_is_never_promoted_to_identity():
     never identity, so it must not become the endpoint or leak into fields."""
     rec = ok(device_id="KUSHU")
     assert rec.endpoint_id == EP
-    assert "KUSHU" not in str(rec.fields.get("image", ""))
+    assert "KUSHU" not in str(P.get_field(rec, "process.executable_path"))
     assert "device_id" not in rec.fields
 
 
@@ -254,9 +284,43 @@ def test_no_process_evidence_yields_no_process_ref():
 def test_absent_fields_are_omitted_never_emptied():
     rec = ok(process={"pid": "9", "image": None, "command_line": "",
                       "user": None, "sha256": None})
-    assert "image" not in rec.fields
-    assert "command_line" not in rec.fields
+    assert "process" not in rec.fields          # nothing left to carry
     assert "user" not in rec.fields
+    for path in ("process.name", "process.executable_path",
+                 "process.command_line", "user.name"):
+        assert P.get_field(rec, path) is None, path
+
+
+def test_a_structurally_incompatible_source_container_fails_closed():
+    """A scalar where the evidence contract says object is a SOURCE defect: it
+    is refused, never coerced and never silently dropped."""
+    for bad in ({"process": "chrome.exe"}, {"file": "C:/a.exe"},
+                {"network": 443}, {"parent": []}):
+        rec, why = to_evidence_record(row(**bad), tenant_id=TEN,
+                                      endpoint_id=EP, raw_id=RAW)
+        assert rec is None and why == REFUSED_FIELD_SHAPE, bad
+
+
+def test_two_source_values_colliding_on_one_canonical_path_fail_closed():
+    rec, why = to_evidence_record(
+        row(kind="DETECTION", detection="not-an-object"), tenant_id=TEN,
+        endpoint_id=EP, raw_id=RAW)
+    assert rec is None and why == REFUSED_FIELD_SHAPE
+    assert REFUSED_FIELD_COLLISION == \
+        "SOURCE_FIELDS_COLLIDE_ON_ONE_CANONICAL_PATH"
+
+
+def test_native_types_are_preserved_not_stringified():
+    rec = ok(kind="NETWORK_CONNECT",
+             network={"dest_ip": "10.1.1.1", "dest_port": 443,
+                      "initiated": True})
+    assert P.get_field(rec, "network.dest_port") == 443
+    assert isinstance(P.get_field(rec, "network.dest_port"), int)
+    assert P.get_field(rec, "network.initiated") is True
+    det = ok(kind="DETECTION", detection={"rule_id": "R-1", "score": 7,
+                                          "tags": ["a", "b"]})
+    assert P.get_field(det, "detection.score") == 7
+    assert P.get_field(det, "detection.tags") == ["a", "b"]
 
 
 def test_not_observed_not_supported_and_truncated_are_preserved():

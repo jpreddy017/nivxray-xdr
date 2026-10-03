@@ -4426,3 +4426,71 @@ carries a previous run's id, which the original Step-29 check refused
 Owner review of Step 30. Then Step 31 candidate: reconcile the §d adapter field namespace
 (GAP-10) with hermetic tests only — still no real evidence, no production, no real endpoint.
 
+
+---
+
+## STEP 31 — §d → BEHAVIOR CANONICAL FIELD NAMESPACE RECONCILIATION (2026-06, completed)
+
+HERMETIC ONLY. No production DB, no production §d query, no real evidence, no KUSHU/DESKTOP/
+sensor, no deploy, no Vercel, no collection/index creation, no replay, no Fabric Finding.
+
+**Contract authority (established read-only, Phase A, not inferred from a failing test):**
+`edr_behavior/normalize.py` (`NORMALIZER_ID = edr_behavior.normalize.canonical_v1`) is the
+producer of the canonical `EvidenceRecord.fields`; `edr_behavior/predicates.py`
+(`FIELD_PREFIXES` + `get_field`, which walks NESTED dicts) is the resolver; the shipped rules in
+`edr_behavior/content/starter_rules.json` address `process.name` (23x),
+`process.command_line` (11x), `network.dest_ip`, `process.executable_path`, `process.signer`,
+`file.path`, `file.operation`, `registry.key`, `network.dest_hostname`, `dns.query_name`.
+`detection.build`, `detection._summary` and `normalize.scope_key` consume the same nested shape
+(`user.name`, `file.path`, `file.sha256`, `dns.query_name`, `network.dest_ip`). The contract is
+CONSISTENT across all four consumers — so there was one authority to satisfy, not a choice to make.
+
+**Change: `backend/edr_plane/behavior_evidence_adapter.py` `_fields()` only.** It now emits the
+canonical nested namespace via a collision-safe `_put(tree, path, value)`:
+process.{executable_path,name,command_line,sha256} · parent.{executable_path,name} · user.name ·
+file.{path,name,previous_path,operation,sha256} · network.{dest_ip,dest_port,src_ip,protocol,
+initiated} · dns.query_name · detection (verbatim object).
+`process.name`/`parent.name`/`file.name` are basenames derived exactly as the normalizer derives
+them (`_base`). §d's own `kind`/`severity` moved OUT of `fields` into provenance
+(`sd_activity_family`, `sd_severity`) — no predicate can address them, so keeping them in `fields`
+was a second, unreachable namespace.
+
+- RULES / MATCHER / PROVIDER / RUNNER: unchanged. No flat-field fallback anywhere.
+- Absent stays absent: §d carries no registry, auth, signer, integrity level, current directory,
+  DNS answers, dest_hostname or direction, so those canonical paths are OMITTED (predicate reads
+  UNKNOWN). Nothing invented.
+- Types preserved: `dest_port` stays int, `initiated` stays bool, detection stays an object with
+  its arrays. No stringification.
+- Collisions fail closed: a §d container present but not an object →
+  `SOURCE_FIELD_STRUCTURALLY_INCOMPATIBLE`; two source values on one canonical path →
+  `SOURCE_FIELDS_COLLIDE_ON_ONE_CANONICAL_PATH`. Never overwritten, never coerced.
+- Unchanged invariants: resolved tenant, `ep_…` endpoint identity, stored-observation-time
+  authority, `EvidenceRef.raw_id`, `stable_key`, provenance, refusal semantics, Step-25 provider
+  path, Step-26 frontier, Step-27 run record, Step-29 shadow boundary, Step-30 checkpoint-last.
+
+**GAP-10 CLOSED.** The two observed symptoms are gone: a §d row carrying `process.user` no longer
+crashes `detection.build` (it resolves `user.name` and appears in `involved_entities`), and a
+shipped-shape rule (`process.name`, `process.command_line`) now MATCHES an ordinary
+`PROCESS_START` row end to end: §d row → adapter → canonical EvidenceRecord → SequenceEngine →
+ShadowDetectionStore (verified) → ShadowRunRecord → checkpoint LAST.
+
+**New, smaller gaps recorded:**
+- G-11: `file.previous_path` and `network.initiated` are additive canonical paths not emitted by
+  `normalize.py` (real §d data with no canonical home). Addressable, consumed by no rule.
+- G-12: §d carries no registry/auth data, so registry and auth rules can only ever return
+  INSUFFICIENT_EVIDENCE on §d evidence. Truthful, but it bounds shadow coverage.
+- G-13: `network.direction` is not derived from §d `initiated` (that would be invention), so
+  direction predicates stay UNKNOWN.
+- G-3/G-4/G-6/G-7 carried, untouched.
+
+Tests: `tests/edr/test_behavior_evidence_adapter.py` (canonical process/parent/user/file/network/
+DNS/detection resolution, absent domains, shape + collision refusals, type preservation),
+`tests/edr_trajectory/test_sd_behavior_provider.py` (2 namespace assertions updated),
+`tests/edr_trajectory/test_shadow_runner.py` (50 passed, incl. 3 new canonical-evaluation
+scenarios). Scoped suite `tests/edr_trajectory tests/edr tests/edr_behavior` = 2617 passed /
+12 skipped / the SAME 4 pre-existing `test_p0_f13_5_detection_handoff.py` failures.
+Backend healthy (/api/health 200).
+
+### NEXT (owner-gated)
+Owner review of Step 31. A bounded real-evidence shadow run is NOT authorized by this step.
+

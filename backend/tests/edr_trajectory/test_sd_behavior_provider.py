@@ -72,8 +72,8 @@ async def win(p, *, kinds=("PROCESS",), limit=50, start=T0, end=T9):
 async def test_process_sequence_window_returns_ascending_real_evidence():
     p = provider(db_with(doc(ts(1), 1), doc(ts(3), 3), doc(ts(2), 2)))
     recs = await win(p)
-    assert [r.fields["image"][-6:] for r in recs] == ["p1.exe", "p2.exe",
-                                                      "p3.exe"]
+    assert [r.fields["process"]["name"] for r in recs] == ["p1.exe", "p2.exe",
+                                                           "p3.exe"]
     assert all(r.kind == "PROCESS" for r in recs)
 
 
@@ -127,8 +127,8 @@ async def test_same_endpoint_identifier_in_two_tenants_stays_separate():
     rows = [doc(ts(1), 1), doc(ts(2), 2, tenant=T_B)]
     a = await win(provider(db_with(*rows)))
     b = await win(provider(db_with(*rows), tenant=T_B))
-    assert [r.fields["image"][-6:] for r in a] == ["p1.exe"]
-    assert [r.fields["image"][-6:] for r in b] == ["p2.exe"]
+    assert [r.fields["process"]["name"] for r in a] == ["p1.exe"]
+    assert [r.fields["process"]["name"] for r in b] == ["p2.exe"]
     assert {r.tenant_id for r in a} == {T}
     assert {r.tenant_id for r in b} == {T_B}
 

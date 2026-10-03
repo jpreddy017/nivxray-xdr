@@ -52,8 +52,22 @@ STAGE_UNKNOWABLE = {"id": "s2", "type": "DETECTION",
 #: INSUFFICIENT_EVIDENCE (matcher `_requirements`), never NO_MATCH.
 REQUIRES_ABSENT = ["process.sha256"]
 
+#: Canonical predicates of the shape the shipped rules actually use. None of
+#: these could resolve before the Step-31 namespace reconciliation.
+STAGE_PROC_NAME = {"id": "s1", "type": "PROCESS",
+                   "predicate": {"field": "process.name", "op": "eq",
+                                 "value": "p30.exe"}}
+STAGE_CMDLINE = {"id": "s1", "type": "COMMAND",
+                 "predicate": {"field": "process.command_line",
+                               "op": "contains", "value": "p30 run"}}
+STAGE_REGISTRY = {"id": "s1", "type": "REGISTRY",
+                  "predicate": {"field": "registry.key", "op": "contains",
+                                "value": "CurrentVersion\\Run"}}
+
 
 def rule_doc(stages, *, rule_id="shadow_demo", version=1):
+    if stages and stages[0] is STAGE_PROC_NAME and rule_id == "shadow_demo":
+        rule_id = "shadow_proc"
     return {"rule_id": rule_id, "version": version, "name": "shadow demo",
             "description": "hermetic shadow rule", "lifecycle": "ACTIVE",
             "severity": "HIGH", "confidence": 60, "time_window_seconds": 300,
@@ -68,13 +82,13 @@ def registry_of(*docs):
 
 
 def detection_row(minute, pid, *, rule_id="sig_evil", tenant=T,
-                  activity="DETECTION", with_user=False):
-    """A §d DETECTION observation.
+                  activity="DETECTION", with_user=True):
+    """A §d DETECTION observation, carrying an acting user by default.
 
-    `process.user` is omitted by default: see GAP-10 — the Step-22 adapter emits
-    a FLAT `user` string while `detection.build` expects the canonical NESTED
-    `user` object, so a row carrying a user crashes the engine. The GAP-10 test
-    below exercises that case deliberately.
+    Before Step 31 a row with a user crashed `detection.build` (GAP-10): the
+    adapter emitted a FLAT `user` string where the canonical contract requires
+    `user: {"name": ...}`. It is kept here deliberately so the regression stays
+    covered.
     """
     d = doc(ts(minute), pid, tenant=tenant, activity=activity)
     if not with_user:
@@ -82,6 +96,13 @@ def detection_row(minute, pid, *, rule_id="sig_evil", tenant=T,
     d["event"]["detection"] = {"rule_id": rule_id, "source": "RULE",
                                "name": "Evil", "severity": "HIGH"}
     return d
+
+
+def process_row(minute, pid, *, tenant=T):
+    """A plain §d PROCESS_START observation — the evidence shape a real endpoint
+    produces constantly, and the one no predicate could address before Step 31.
+    """
+    return doc(ts(minute), pid, tenant=tenant, activity="PROCESS")
 
 
 def db_of(*docs):
@@ -259,25 +280,61 @@ async def test_completed_carries_no_clean_or_benign_meaning():
 
 
 @pytest.mark.asyncio
-async def test_gap10_flat_adapter_fields_crash_the_engine_and_fail_closed():
-    """GAP-10, found by the first real execution.
+async def test_gap10_canonical_namespace_restored_a_row_with_a_user_evaluates():
+    """GAP-10 regression (Step 31).
 
-    The Step-22 §d adapter emits a FLAT field namespace ("user", "image",
-    "file_path", ...) while the engine's predicate contract (`FIELD_PREFIXES`)
-    and `detection.build` both require the canonical NESTED namespace
-    ("user": {"name": ...}). A row carrying a user therefore crashes
-    `detection.build`. What this test asserts is only the RUNNER's behaviour:
-    it fails closed, writes no detection and does not advance the frontier.
+    A §d row carrying `process.user` used to crash `detection.build` because the
+    adapter emitted a flat `user` string. It now resolves through the canonical
+    `user.name` path and the item completes normally.
     """
     b = Bench()
     db = db_of(detection_row(1, 1), detection_row(30, 30, with_user=True))
     out = await b.go(db)
-    assert out["state"] == rr.STATE_FAILED
-    assert out["failure_reason"] == run.STOP_ENGINE
-    assert out["record"]["counters"]["engine_failures"] >= 1
+    assert out["state"] == rr.STATE_COMPLETED
+    assert out["record"]["counters"]["engine_failures"] == 0
+    assert out["record"]["outcome_counts"]["MATCH"] == 1
+    d = b.backend.all()[0]
+    assert d["involved_entities"]["user"] == ["KUSHU\\jp"]
+    assert b.checkpoint()["after_key"] == d["evidence_keys"][0]
+
+
+@pytest.mark.asyncio
+async def test_a_process_rule_now_matches_a_plain_process_observation():
+    """The evaluation that was structurally impossible before Step 31: a shipped
+    rule shape (`process.name` + `process.command_line`) against an ordinary §d
+    PROCESS_START row."""
+    b = Bench(rule_doc([STAGE_PROC_NAME]))
+    db = db_of(process_row(1, 1), process_row(30, 30))
+    out = await b.go(db)
+    assert out["state"] == rr.STATE_COMPLETED
+    assert out["record"]["outcome_counts"]["MATCH"] == 1
+    assert out["record"]["counters"]["engine_failures"] == 0
+    d = b.backend.all()[0]
+    assert d["rule_id"] == "shadow_proc"
+    assert "p30.exe" in d["explanation"]
+    assert b.checkpoint()["after_key"] == d["evidence_keys"][0]
+
+
+@pytest.mark.asyncio
+async def test_a_command_line_predicate_resolves_canonically():
+    b = Bench(rule_doc([STAGE_CMDLINE], rule_id="shadow_cmd"))
+    out = await b.go(db_of(process_row(1, 1), process_row(30, 30)))
+    assert out["state"] == rr.STATE_COMPLETED
+    assert out["record"]["outcome_counts"]["MATCH"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_predicate_on_a_domain_sd_does_not_carry_is_unknown_not_false():
+    """§d carries no registry data, so a registry predicate must yield
+    INSUFFICIENT_EVIDENCE — never a NO_MATCH that would read as 'we checked'."""
+    b = Bench(rule_doc([STAGE_REGISTRY], rule_id="shadow_reg"))
+    out = await b.go(db_of(process_row(1, 1),
+                           doc(ts(30), 30, activity="REGISTRY")))
+    assert out["state"] == rr.STATE_INTERRUPTED
+    assert out["failure_reason"] == run.STOP_INSUFFICIENT
     assert out["record"]["outcome_counts"]["NO_MATCH"] == 0
+    assert out["record"]["outcome_counts"]["INSUFFICIENT_EVIDENCE"] == 1
     assert b.backend.all() == []
-    assert b.checkpoint()["after_time"].startswith("2026-10-03T04:01")
 
 
 # ── NO_MATCH ─────────────────────────────────────────────────────────────
