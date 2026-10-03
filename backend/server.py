@@ -81,6 +81,7 @@ from routers.xdr_mss import router as xdr_mss_router
 from routers.xdr_queue_ops import router as xdr_queue_ops_router
 from routers.edr import router as edr_projections_router
 from routers.edr_trajectory_v3 import router as edr_trajectory_v3_router
+from routers.edr_migration_control import router as edr_migration_control_router
 from routers.incident_summary import router as incident_summary_router
 from routers.ops import router as ops_router
 from routers.analyze import router as analyze_router
@@ -285,6 +286,7 @@ api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)
 api.include_router(edr_projections_router)
 api.include_router(edr_trajectory_v3_router)
+api.include_router(edr_migration_control_router)
 from routers.edr_response import (agent as edr_resp_agent,
                                   router as edr_resp_router)
 api.include_router(edr_resp_router)

@@ -5192,3 +5192,59 @@ endpoint/sensor action; DESKTOP untouched.
 Pick route (a) or (b). After the two indexes verify in production: bounded 1,236-row deterministic
 backfill -> verify 0 remaining -> retire the legacy §d branches -> production query proof -> KUSHU
 family composition -> first real Behavior run.
+
+## STEP 34H-A — BOUNDED PRODUCTION MIGRATION CONTROL ROUTE — 2026-06 — DONE (NOT EXECUTED IN PROD)
+
+Implements the control plane for G-34. No production execution, no production index, no backfill,
+no §d change, no Behavior/frontier, no KUSHU/DESKTOP/Mac/sensor action, no deploy.
+
+### What was built
+- NEW `backend/edr_plane/migration_control.py` — a CLOSED REGISTRY of named operations. There is no
+  caller-supplied collection, index spec, filter, update, pipeline, command, database or URI
+  anywhere in the module; the collection and both index specifications come from the compiled
+  `canonical_index_contract`. First and only operation: `ensure_canonical_identity_indexes`
+  (`sd_canonical_endpointid_eventtime`, `sd_canonical_hostname_eventtime`).
+  Per-index outcomes: `WOULD_CREATE` / `CREATED_VERIFIED` (read back and compared) /
+  `ALREADY_PRESENT_VERIFIED` / `NAME_CONFLICT_REFUSED` / `CREATED_BUT_UNVERIFIED`. Nothing is ever
+  dropped, renamed or altered — the module contains no `drop_index`/`drop`/`rename`/`delete_many`/
+  `update_many`/`aggregate`/`command` call (asserted by test).
+  Build mode follows the live server version: hybrid non-blocking on >= 4.2, legacy
+  `background=True` below it.
+- NEW `backend/routers/edr_migration_control.py` — `GET /api/internal/admin/migrations` (allowed
+  operations, modes, recent runs), `POST …/ensure-canonical-identity-indexes`, and
+  `POST …/{operation}` which refuses any unregistered name. Auth/authorization REUSE the existing
+  admin principal (`deps.require_admin` → `get_current_user` JWT + `role == "admin"`); no new auth
+  logic. The whole request model is `{mode: "report"|"apply"}` with `extra: forbid`, so any attempt
+  to pass a collection, index, filter, pipeline, command, db or uri is a 422.
+- `server.py`: router registered under the existing `/api` prefix.
+- Audit: `e3_migration_runs` records REQUESTED → RUNNING → COMPLETED | FAILED | REFUSED with
+  `migration_run_id`, operation, mode, authenticated actor, timestamps and the result; refusals
+  record the reason. Secrets, tokens and connection details are never read, returned or logged.
+- Concurrency: single-writer lock document in `e3_migration_locks` keyed by operation; a duplicate
+  concurrent request gets HTTP 409 `MIGRATION_ALREADY_RUNNING` with the holder and a staleness flag
+  (a stale lock is REPORTED, never stolen). The lock is released in a `finally`, so a failure is
+  retry-safe and observable (HTTP 500 + a durable FAILED record).
+- A future bounded identity-backfill operation registers in the same registry; it was NOT
+  implemented or registered in this step.
+
+### Security tests — `backend/tests/edr/test_34h_a_migration_control.py`, 18 passed
+unauthenticated → 401/403 (all three routes) · invalid token → 401 · non-admin → 403 and NO audit
+record written · arbitrary operation → 400 REFUSED + audited with the actor · unknown mode → 400 ·
+collection/index/filter/pipeline/command/uri/db in the body → 422 (×7 payloads) · registry is the
+only operation source and the module contains no destructive call · the route module performs no DB
+write of its own · report mode changes nothing and names the exact specs · two runs are idempotent
+with distinct run ids · apply → `CREATED_VERIFIED` once, re-apply → `ALREADY_PRESENT_VERIFIED`, and
+an injected same-name/different-key spec → `NAME_CONFLICT_REFUSED` with the original index intact
+(proven on a THROWAWAY collection via a temporarily registered scratch operation) · concurrent
+duplicate → 409 with holder + stale flag and a REFUSED record · the lock is released so the next run
+proceeds · a failing operation → FAILED record, released lock · every lifecycle field durable ·
+no secret/connection string in any response (scanned for mongodb://, mongodb+srv, password,
+jwt_secret, bearer, mongo_url, api_key, secret) · the listing exposes only registered operations.
+Regression: `tests/edr_trajectory` + 34F/34G + the two earlier corrected suites = 488 passed,
+9 skipped. Live preview check after restart: `GET /api/health` 200, and an unauthenticated POST to
+the migration route returns 403 `Not authenticated`.
+
+### NEXT (owner-gated)
+Security review of 34H-A, then a controlled DEPLOY of the control plane, then a SEPARATE
+authorization to execute `ensure_canonical_identity_indexes` in production — first `mode=report`,
+then `mode=apply`.
