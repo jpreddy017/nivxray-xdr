@@ -361,7 +361,13 @@ def test_detection_dsm_claims_and_normalises_windows_evidence():
         # Tenant authority comes from the authenticated delivery, never
         # from the sensor payload.
         assert canonical["tenant_id"] == "ten_test"
-        assert canonical["host"]["host_id"] == ENDPOINT
+        # G-30 · `host.host_id` is a SOURCE attribute and never carries the
+        # platform endpoint identity. The authoritative identity is stamped by
+        # the authenticated ingest boundary into
+        # `additional_fields.endpoint_id`, which a direct normalizer call
+        # (no authenticated envelope) deliberately does not produce.
+        assert (canonical.get("host") or {}).get("host_id") != ENDPOINT
+        assert "endpoint_id" not in (canonical.get("additional_fields") or {})
         assert canonical["provenance"]["trace_id"] == "raw_test"
         seen.add(parsed["event_type"])
     assert seen == {"PROCESS", "FILE", "NETWORK", "REGISTRY", "DNS",

@@ -172,8 +172,9 @@ def from_canonical(canonical: dict[str, Any], *, tenant_id: str = "",
         writer_process_guid=writer_guid, writer_pid=writer_pid,
         writer_image=writer_image,
         tenant_id=_s(tenant_id or canonical.get("tenant_id")),
-        endpoint_id=_s(endpoint_id or extra.get("endpoint_id")
-                       or (canonical.get("host") or {}).get("host_id")),
+        # G-30 · authoritative platform identity only; `host.host_id` is a
+        # source attribute and is never promoted to an endpoint identity.
+        endpoint_id=_s(endpoint_id or extra.get("endpoint_id")),
         evidence_ref=_s(evidence_ref or canonical.get("event_id")),
         source=_s(canonical.get("source_product")
                   or canonical.get("source_vendor")),

@@ -159,12 +159,14 @@ def _endpoint_scope(canonical: dict) -> tuple[str, str] | None:
     """The endpoint this evidence belongs to, or None for non-endpoint
     sources (whose behaviour is deliberately left unchanged).
 
-    Identity first: the platform-minted `endpoint_id` is authoritative and
-    survives a hostname change. Hostname is only a display label here.
+    G-30 · ONLY the authoritative platform identity counts. It is stamped by
+    the authenticated ingest boundary; `host.host_id` is a source attribute and
+    an event could shape it, so it is no longer consulted here. A hostname is a
+    display label only.
     """
     extra = canonical.get("additional_fields") or {}
     host = canonical.get("host") or {}
-    endpoint_id = (extra.get("endpoint_id") or host.get("host_id") or "")
+    endpoint_id = extra.get("endpoint_id") or ""
     if not str(endpoint_id).startswith("ep_"):
         return None
     return str(endpoint_id), str(host.get("hostname") or "")

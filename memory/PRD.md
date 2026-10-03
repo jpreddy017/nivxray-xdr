@@ -5059,3 +5059,90 @@ deploy, no engine/frontier/shadow, no sensor/Windows/Mac action, DESKTOP untouch
 Review 34F, then the likely sequence: create the 2 target indexes -> bounded deterministic backfill
 of the 1,236 authenticated-boundary rows -> verify 0 remaining -> retire the ambiguous §d branches
 -> production explain -> KUSHU family composition -> first real Behavior run.
+
+## STEP 34G — CLOSE G-30: host.host_id IS NOT AN IDENTITY — 2026-06 — DONE (HERMETIC)
+
+Implements G-30 only. No production change, no index, no backfill, no §d query-branch change, no
+deploy, no engine/frontier/shadow, no real KUSHU evidence, no family census, no sensor/Windows/Mac
+action, DESKTOP untouched.
+
+### Invariant now enforced
+`additional_fields.endpoint_id`, stamped by the authenticated ingest boundary (34F), is the SOLE
+authoritative platform endpoint identity. `host.host_id` can no longer acquire platform-identity
+meaning from event-controlled data, and no reader promotes it.
+
+### Writers
+- `detection_content/telemetry/nivxforge_sensor_dsm.py`: `host.host_id` is now taken ONLY from a
+  host identifier the SOURCE itself declares (`raw.host_id`). The event's own `endpoint_id` claim is
+  no longer written there, and neither the collector id nor the hostname is substituted for one.
+  The endpoint SCOPE passed to `bind_process_identity` now comes from
+  `canonical_identity_contract.boundary_identity()` instead of `raw.endpoint_id or collector_id`.
+- Other DSMs (windows_security, defender, auditd, cloudtrail…) write `host_id = hostname/account id`
+  = SOURCE_ATTRIBUTE, unchanged and never promoted.
+- `edr_plane/canonical_bridge.py:561` still sets `host_id = endpoint_id` on ITS OWN canonical dict
+  (shadow-observation / address-observation plane). That value is BOUNDARY-sourced, not
+  event-controlled, so it satisfies the invariant; logged as G-32 to retire once the §d legacy
+  branches go.
+- Fixtures/seeds/tools (`prodshape.py`, `platform_seed.py`, `fixtures.py`, the 34D/34E measurement
+  scripts) are test material.
+
+### Readers — every use classified
+AUTHORITATIVE outside `additional_fields.endpoint_id` = ZERO. Four uses were found and FIXED:
+  `edr_plane/process_identity.py` · `edr_plane/file_identity.py` ·
+  `edr_plane/reputation/observables.py` (all dropped the `host.host_id` endpoint-scope fallback) and
+  `detection_content/xdr_incident.py::_endpoint_scope` (incident campaign scope now requires the
+  authoritative field; an event-forged `ep_…` in `host.host_id` no longer creates or consolidates an
+  endpoint incident).
+LEGACY_LOOKUP (addressing refs resolved against the validated alias set, never identity):
+  `services/edr/endpoint_query.ENDPOINT_KEYED_STORES`, `edr_trajectory/providers.py:81` (frame
+  device id) and `:153`, `routers/edr_trajectory_v3.py:196`,
+  `edr_plane/detection_replay.CANONICAL_ENDPOINT_FIELDS` and `_endpoint_ref` (now
+  authoritative-FIRST, then the refs).
+SOURCE_ATTRIBUTE: the DSM-written vendor host identifiers; `services/entity_resolution.py:197`
+  already adds host_id/hostname as DECLARED context, explicitly "not identity".
+ARTIFACT_SCOPED (different plane, not event-controlled): `edr_plane/authority.py::_approved_endpoint`
+  reads `host_id|endpoint_id|device_id` from a RESPONSE APPROVAL artifact. Logged as G-33 for the
+  response plane; not changed here.
+INVALID_IDENTITY_USE remaining = none.
+RAW EVENT CLAIM PRESERVED: the original payload (incl. any `endpoint_id` claim) is untouched in
+`edr_raw_events` and in the parsed `raw` block; claims are refused and RECORDED
+(`provenance.endpoint_identity.refused_claim`), never erased.
+§d LEGACY DEPENDENCY: new authenticated rows will carry `host.host_id = null`; §d still reaches them
+via `provenance.collector_id` (= the platform id on the authenticated path) and `host.hostname`, and
+the target contract reaches them via the authoritative field. No addressability loss — which is why
+the collector branch stays until the backfill is verified.
+
+### G-31 recheck (`tools/check_34g_g31_event_time.py`, hermetic, parser/normalizer only)
+With the documented sensor field `observed_at`, canonical `event_time` PRESERVES the sensor
+observation to the microsecond and `event_time_basis = OBSERVATION_TIME`. The 34F scratch payload
+carried `ts`/`timestamp` instead, which the sensor parser does not read, so the platform honestly
+recorded `event_time_basis = INGEST_TIME_SUBSTITUTED`. **G-31 = malformed synthetic-fixture
+artifact, CLOSED. No timestamp defect.** Worth noting: a payload with no readable observation time
+is LABELLED as substituted rather than silently presented as observed.
+
+### Tests
+NEW `tests/edr/test_34g_host_id_is_not_an_identity.py` (10 tests): an event-body `ep_` claim never
+reaches `host_id`; the collector id is not substituted into `host_id` (it stays collector
+provenance); a source-declared host identifier is preserved as an attribute and is still not an
+identity; the authoritative field still comes only from the boundary (authenticated vs forged);
+the raw claim is never deleted; process/file/reputation identity never scope themselves from
+`host_id` (plus a source-level guard that no `edr_plane` identity module reads `.get("host_id")`);
+the incident endpoint scope requires a platform identity.
+Two PRE-EXISTING tests encoded the OLD weaker contract and were corrected rather than the rule
+weakened: `test_phase0_windows_canonical_bridge` asserted `host.host_id == ep_…` from a direct
+normalizer call; `test_p0_f_endpoint_detection::_sensor_ev` simulated the authenticated path WITHOUT
+the `_authenticated_ingest` envelope, so after 34F it no longer had an endpoint scope — it now
+attaches the envelope exactly as `canonical_bridge` does on the real path.
+Regression: `tests/edr` + `tests/edr_trajectory` = 2,611 passed, 12 skipped, only the 4 known
+pre-existing `test_p0_f13_5` failures; pipeline-driving suites = 185 passed.
+
+### NEW GAPS
+- G-32: `canonical_bridge.py:561` still writes the platform id into `host.host_id` on the
+  shadow-observation plane (boundary-sourced, so safe) — retire with the legacy §d branches.
+- G-33: `authority.py::_approved_endpoint` accepts `host_id` from a response-approval artifact;
+  review on the response plane.
+
+### NEXT (owner-gated)
+Identity architecture work is complete. Next: create the 2 target indexes -> bounded deterministic
+backfill of the 1,236 authenticated-boundary rows -> verify 0 remaining -> retire the legacy §d
+branches -> production explain -> KUSHU family composition -> first real Behavior run.

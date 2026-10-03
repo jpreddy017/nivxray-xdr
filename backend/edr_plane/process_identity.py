@@ -141,8 +141,9 @@ def from_canonical(canonical: dict[str, Any], *, tenant_id: str = "",
     extra = canonical.get("additional_fields") or {}
     return ProcessView(
         tenant_id=_s(tenant_id or canonical.get("tenant_id")),
-        endpoint_id=_s(endpoint_id or extra.get("endpoint_id")
-                       or (canonical.get("host") or {}).get("host_id")),
+        # G-30 · the endpoint scope is the authoritative platform identity
+        # only. `host.host_id` is a source attribute and is never promoted.
+        endpoint_id=_s(endpoint_id or extra.get("endpoint_id")),
         process_guid=_s(proc.get("process_guid")),
         pid=_s(proc.get("pid")),
         start_time=_s(proc.get("start_time")),

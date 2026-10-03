@@ -112,10 +112,14 @@ def _citations(matches: List[Dict[str, Any]],
 
 
 def _endpoint_ref(canonical: Dict[str, Any]) -> Optional[str]:
+    # G-30 · the authoritative platform identity first; the remaining values
+    # are ADDRESSING REFS resolved against the validated alias set, never
+    # identities in their own right.
+    extra = canonical.get("additional_fields") or {}
     prov = canonical.get("provenance") or {}
     host = canonical.get("host") or {}
-    return (prov.get("collector_id") or host.get("host_id")
-            or host.get("hostname") or None)
+    return (extra.get("endpoint_id") or prov.get("collector_id")
+            or host.get("host_id") or host.get("hostname") or None)
 
 
 async def replay_endpoint(db, *, tenant_id: str, refs: Sequence[str],

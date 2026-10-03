@@ -48,8 +48,9 @@ def extract(canonical: dict[str, Any], *, tenant_id: str = "",
     out: list[Observable] = []
     extra = canonical.get("additional_fields") or {}
     tenant = _s(tenant_id or canonical.get("tenant_id"))
-    endpoint = _s(endpoint_id or extra.get("endpoint_id")
-                  or (canonical.get("host") or {}).get("host_id"))
+    # G-30 · authoritative platform identity only; a source host id is never
+    # promoted to an endpoint identity.
+    endpoint = _s(endpoint_id or extra.get("endpoint_id"))
     ref = _s(evidence_ref or canonical.get("event_id"))
     refs = (ref,) if ref else ()
 

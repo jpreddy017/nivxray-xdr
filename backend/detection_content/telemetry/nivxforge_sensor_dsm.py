@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from edr_plane import canonical_identity_contract as identity_contract
 from services import tenant_authority
 
 DSM_ID = "nivxforge-linux-sensor"
@@ -137,15 +138,23 @@ class NivXForgeSensorNormalizer:
                 "trust_state": auth.get("trust_state"),
             })
         endpoint_id = raw.get("endpoint_id") or collector_id
-        if endpoint_id or raw.get("hostname"):
+        # G-30 · `host.host_id` is a SOURCE attribute, never a platform
+        # endpoint identity. Only a host identifier the SOURCE itself declares
+        # may appear here: the event's own `endpoint_id` claim is not promoted,
+        # and neither the collector id nor the hostname is substituted for one.
+        source_host_id = str(raw.get("host_id") or "").strip() or None
+        hostname = str(raw.get("hostname") or "").strip() or None
+        if source_host_id or hostname:
             canonical["host"] = {**(canonical.get("host") or {}),
-                                 "host_id": endpoint_id or None,
-                                 "hostname": raw.get("hostname") or None}
-        # N2.1 · same binding rule on the XDR ingest path: the endpoint
-        # scope comes from the authenticated envelope, never from the
-        # event's shape.
+                                 "host_id": source_host_id,
+                                 "hostname": hostname}
+        # N2.1 + G-30 · the endpoint SCOPE for identity minting comes from the
+        # authenticated boundary, never from the event's shape.
+        bound_endpoint, _reason, _source = identity_contract.boundary_identity(
+            envelope=auth if isinstance(auth, dict) else None,
+            boundary_collector_id=collector_id)
         from edr_plane.canonical_bridge import bind_process_identity
-        bind_process_identity(canonical, endpoint_id)
+        bind_process_identity(canonical, bound_endpoint)
         extra = dict(canonical.get("additional_fields") or {})
         # G-29 · a DSM has NO authority over the platform endpoint identity.
         # `additional_fields.endpoint_id` is stamped by the authenticated
