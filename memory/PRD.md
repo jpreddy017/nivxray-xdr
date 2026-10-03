@@ -5566,3 +5566,45 @@ never repaired.
 Still frozen: no backfill, no legacy-branch retirement, no §d change, no Behavior, no
 frontier/shadow, no TI work, no deploy, KUSHU untouched, DESKTOP untouched, no
 Windows/Mac/sensor action.
+
+### 34H-D VERIFICATION RESULT (2026-06) — PARTIAL: HOLD ON COMPOUND-KEY ORDER ONLY
+
+Read-only diagnose verification of production `xdr_canonical_evidence` CONFIRMED:
+- EXACTLY FOUR indexes: `_id_`, `tenant_id_1_ingest_time_-1`, `sd_canonical_endpointid_eventtime`,
+  `sd_canonical_hostname_eventtime`;
+- both new indexes carry the correct FIELD SET and the correct PER-FIELD DIRECTIONS;
+- both are plain: no unique / partial / sparse / TTL flags;
+- no in-progress build; no duplicate key pattern under another name; the two originals still present;
+- no write, no repair, no credential printed.
+
+NOT CONFIRMED (hence HOLD): compound-key FIELD ORDER. The diagnose channel's `list_indexes` returns
+key documents ALPHABETISED rather than in true BSON order — proven by `tenant_id_1_ingest_time_-1`,
+whose auto-generated name implies `{tenant_id:1, ingest_time:-1}` while the channel returned
+`ingest_time` first. For our two indexes the alphabetical rendering
+(`additional_fields.endpoint_id` / `event_time` / `tenant_id`) therefore says nothing about order.
+Order is the one property that decides whether the tenant equality prefix leads and whether the sort
+is index-served, so it cannot be waived.
+
+Two facts already point the right way but are NOT independent attestations: the creating code passes
+the compiled `TARGET_CANONICAL_INDEXES` order, and the control plane's own read-back comparison
+(order-sensitive, via Motor/pymongo SON) returned CREATED_VERIFIED.
+
+ORDER-PRESERVING CLOSURE — one authenticated READ-ONLY call, owner-executed from the production admin
+browser session (report mode lists indexes only; its single write is the audit record):
+  await (await fetch('/api/internal/admin/migrations/ensure-canonical-identity-indexes',
+    {method:'POST',
+     headers:{Authorization:'Bearer '+localStorage.getItem('nvx_token'),
+              'Content-Type':'application/json'},
+     body:JSON.stringify({mode:'report'})})).json()
+Paste `result.indexes` (the `key` arrays preserve true server order, unlike the diagnose channel).
+PASS requires:
+  sd_canonical_endpointid_eventtime -> ALREADY_PRESENT_VERIFIED,
+    key [[tenant_id,1],[additional_fields.endpoint_id,1],[event_time,-1]]
+  sd_canonical_hostname_eventtime   -> ALREADY_PRESENT_VERIFIED,
+    key [[tenant_id,1],[host.hostname,1],[event_time,-1]]
+  existing_indexes_changed = false
+Alternatives, equally valid: `mongosh … db.xdr_canonical_evidence.getIndexes()`, or an `explain()`
+whose `indexBounds` field order shows the real key order.
+
+G-39: the platform's read-only index channel cannot attest compound-key order; any future index
+verification must use an order-preserving channel.
