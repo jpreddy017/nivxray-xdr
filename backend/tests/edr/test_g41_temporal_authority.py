@@ -352,8 +352,8 @@ def test_the_historical_migration_is_registered_and_cannot_apply_undeclared():
     from edr_plane import observation_us_migration as m
     assert m.OP_BACKFILL_OBSERVATION_US in mc.allowed_operations()
     assert m.OP_VERIFY_OBSERVATION_US in mc.allowed_operations()
-    assert m.EXPECTED_CANDIDATES is None, \
-        "an expectation must come from a production REPORT, in a reviewed commit"
+    assert m.EXPECTED_CANDIDATES == 122_477, \
+        "the expectation is the production recount taken after the writer went live"
 
 
 @pytest.mark.asyncio
@@ -372,8 +372,10 @@ async def test_the_migration_report_writes_nothing_and_classifies_candidates(db)
     assert out["contract_eligible"] == 2
     assert out["contract_unparseable"] == 1
     assert out["written"] == 0
-    assert out["gates"]["expectation_declared"] is False
-    assert out["ok"] is False, "no expectation declared, so it cannot be ready"
+    assert out["gates"]["expectation_declared"] is True
+    assert out["gates"]["candidate_population_exact"] is False
+    assert out["ok"] is False, \
+        "this fixture is not the production population, so the gate must still refuse"
     assert [d async for d in coll.find({})] == before
 
 

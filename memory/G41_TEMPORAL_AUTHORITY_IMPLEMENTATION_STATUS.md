@@ -226,3 +226,37 @@ publish *with* E3 V3, the flag must be set at build time — and my recommendati
 `pending_temporal_migration` is still 122,369.
 
 **STOPPED** before historical APPLY, GitHub push and production deployment.
+
+---
+
+## 13. POST-WRITER-DEPLOY · POPULATION LOCK `[2026-06]`
+
+The writer is live in production. Two consequences, both measured read-only, nothing mutated:
+
+* **The candidate population is now closed.** New evidence is stamped at ingest, so no new row can
+  join the set. Recount sequence across the deploy: 122,496 → 122,511 total (+15) with stamped
+  19 → 34 (+15) and unstamped **122,477 → 122,477 (+0)**. Latest recount: total 122,567, stamped 94
+  (all BSON int64), candidates **122,477 — stable across two reads**.
+* **Representation reconciles exactly** over the candidate set: space 43,521 · `Z` 78,956 ·
+  offset 0 · unaccounted 0 · sum − candidates **0**. The earlier +1 excess is gone, as expected
+  once the counts were no longer taken against an open population.
+* `event_time` absent / empty / non-string: **0 / 0 / 0**. Candidates already carrying
+  `observation_us`: **0** (structural). Index on `observation_us`: **still none** (4 indexes).
+  `e3_migration_runs` for both new operations: 0 · 0. `e3_migration_row_ledger`: absent.
+
+`EXPECTED_CANDIDATES` is therefore declared in a reviewed commit as **122,477**, from the recount
+taken *after* the writer went live. **Drift decision, recorded deliberately:** the number is never
+adjusted to make the gate pass — a lower count means the population changed (retention), a higher
+count means a population believed closed has grown; both HOLD for the owner.
+
+The local fixture test keeps `candidate_population_exact = False` and therefore `ok = False`,
+because that fixture is not the production population. Declaring the expectation must not weaken
+the gate.
+
+**RECOVERY_PREREQUISITE = NOT_READY — a visibility gap, not a measured "backup off".** The deployer
+has read-only collection access and no Atlas control-plane access, so continuous cloud backup / PITR
+and the earliest restorable point must be confirmed by the owner in the Atlas UI/API before APPLY.
+
+Still not done, each a separate owner-authorized step, in this order: production REPORT review →
+Atlas PIT position → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan
+proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.

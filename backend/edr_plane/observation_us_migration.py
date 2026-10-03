@@ -37,7 +37,16 @@ OUTCOME_SKIPPED_UNPARSEABLE = "SKIPPED_UNPARSEABLE_OBSERVATION_TIME"
 
 #: Set ONLY by a reviewed commit, from a production REPORT census. Until then
 #: `apply` cannot run: an unset expectation is not an expectation.
-EXPECTED_CANDIDATES: Optional[int] = None
+#:
+#: Declared 2026-06 from a read-only production recount taken AFTER the G-41
+#: writer went live, so the population is closed, not open: new evidence is
+#: stamped at ingest and can no longer join this set. Measured twice, stable:
+#: candidates 122,477 · representation space 43,521 + Z 78,956 + offset 0,
+#: unaccounted 0, sum − candidates 0 · candidates already carrying a value 0.
+#: Drift decision: this number is NEVER adjusted to make the gate pass. A lower
+#: count means the population changed (retention) and a higher count means a
+#: population believed closed has grown; both HOLD for owner investigation.
+EXPECTED_CANDIDATES: Optional[int] = 122_477
 
 
 async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict[str, Any]:
