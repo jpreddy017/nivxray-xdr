@@ -282,8 +282,21 @@ preserved.
 paths. So `verify_canonical_observation_us` would count every intentional `observation_us` addition
 as `collateral_diverged`, i.e. the post-APPLY verify would report divergence for all 122,477 rows
 and lose its ability to detect *real* collateral change. The fix is to exclude the four G-41 paths
-from the digest used by this verify. Found by the REPORT gate; **not changed**, pending owner
-authorization.
+from the digest used by this verify. Found by the REPORT gate.
+
+**FIXED — `G41_COLLATERAL_VERIFIER_GATE = PASS`.** The exclusion set is now named by the caller:
+`identity_backfill.digest_excluding(doc, paths)` excludes nothing by default, `collateral_digest()`
+keeps exactly STEP 35's two identity paths (values proven byte-identical to the previous semantics
+against an independently written reference), and `observation_us_migration.g41_collateral_digest()`
+excludes exactly the four G-41 paths, derived from the writer contract:
+`observation_us` · `additional_fields.observation_us_state` ·
+`additional_fields.observation_us_basis` · `provenance.observation_us_provenance`.
+`event_time`, tenant, endpoint identity, all other provenance and all other evidence stay
+collateral-protected under both digests; a path deeper than one level is refused, not ignored.
+25 new tests in `tests/edr/test_g41_collateral_verification.py`, including an end-to-end apply whose
+measured mutation surface equals exactly those four paths and a post-apply verify reporting
+`collateral_diverged = 0` while still catching a tampered `endpoint_id` and an `observation_us` that
+stops agreeing with `event_time`.
 
 Still not done, each a separate owner-authorized step, in this order: production REPORT review →
 Atlas PIT position → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan

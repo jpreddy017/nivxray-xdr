@@ -103,29 +103,48 @@ def _digest(obj: Any) -> str:
                    separators=(",", ":")).encode()).hexdigest()
 
 
-def _without_mutable_paths(doc: Mapping[str, Any]) -> Dict[str, Any]:
+def _without_paths(doc: Mapping[str, Any],
+                   paths: Any) -> Dict[str, Any]:
     out = deepcopy(dict(doc))
-    af = out.get("additional_fields")
-    if isinstance(af, Mapping):
-        af = dict(af)
-        af.pop("endpoint_id", None)
-        out["additional_fields"] = af
-    prov = out.get("provenance")
-    if isinstance(prov, Mapping):
-        prov = dict(prov)
-        prov.pop("endpoint_identity", None)
-        out["provenance"] = prov
+    for path in paths:
+        head, _, tail = str(path).partition(".")
+        if "." in tail:
+            raise ValueError(f"unsupported nesting depth in excluded path: {path}")
+        if not tail:
+            out.pop(head, None)
+            continue
+        parent = out.get(head)
+        if isinstance(parent, Mapping):
+            parent = dict(parent)
+            parent.pop(tail, None)
+            out[head] = parent
     return out
 
 
+def digest_excluding(doc: Mapping[str, Any], paths: Any) -> str:
+    """A collateral digest whose exclusion set is named by the CALLER.
+
+    Each migration states its own intended mutation paths, so a second
+    migration's intended change is never silently forgiven here. Nothing is
+    excluded by default: a caller that names nothing protects everything.
+    """
+    return _digest(_without_paths(doc, paths))
+
+
+def _without_mutable_paths(doc: Mapping[str, Any]) -> Dict[str, Any]:
+    return _without_paths(doc, MUTABLE_PATHS)
+
+
 def collateral_digest(doc: Mapping[str, Any]) -> str:
-    """A digest of EVERYTHING except the two paths this correction may set.
+    """A digest of EVERYTHING except the two paths THIS correction may set.
 
     It must be byte-identical before and after the run. That proves nothing
     unrelated moved — including fields nobody enumerated, and event content we
     deliberately do not copy into the ledger.
+
+    STEP 35 semantics, unchanged: the exclusion set is exactly `MUTABLE_PATHS`.
     """
-    return _digest(_without_mutable_paths(doc))
+    return digest_excluding(doc, MUTABLE_PATHS)
 
 
 def prior_projection(doc: Mapping[str, Any]) -> Dict[str, Any]:

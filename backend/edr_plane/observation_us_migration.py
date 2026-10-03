@@ -19,9 +19,37 @@ from typing import Any, Dict, List, Optional
 from edr_plane import temporal_authority as ta
 from edr_plane.canonical_index_contract import CANONICAL_COLLECTION
 from edr_plane.identity_backfill import (LEDGER, _as_id, _digest, _now_iso,
-                                         collateral_digest)
+                                         digest_excluding)
 
 OP_BACKFILL_OBSERVATION_US = "backfill_canonical_observation_us"
+
+#: The provenance key this migration writes. Named once so the `$set` below and
+#: the exclusion set beneath it cannot drift apart.
+PROVENANCE_KEY = "observation_us_provenance"
+
+#: The four — and only four — document paths this migration may set. Derived
+#: from the writer contract, not restated by hand.
+G41_MUTABLE_PATHS = (
+    ta.OBSERVATION_US,
+    f"additional_fields.{ta.STATE_KEY}",
+    f"additional_fields.{ta.BASIS_KEY}",
+    f"provenance.{PROVENANCE_KEY}",
+)
+
+
+def g41_collateral_digest(doc: Dict[str, Any]) -> str:
+    """Collateral protection for THIS migration: everything except the four
+    intended temporal paths.
+
+    The shared STEP 35 digest excludes the identity paths instead, so using it
+    here would have counted every intended `observation_us` addition as
+    collateral divergence — and the verify would then be unable to tell an
+    intended temporal change from an accidental one. `event_time`, tenant
+    identity, endpoint identity, all other provenance and all other evidence
+    stay protected.
+    """
+    return digest_excluding(doc, G41_MUTABLE_PATHS)
+
 
 #: Narrows the scan only; eligibility is decided in Python by the contract.
 CANDIDATE_SELECTOR: Dict[str, Any] = {
@@ -97,7 +125,7 @@ async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict
                       "tenant_id": doc.get("tenant_id"),
                       "prior": {"doc_id": str(doc["_id"]),
                                 ta.SOURCE_FIELD: doc.get(ta.SOURCE_FIELD),
-                                "collateral_digest": collateral_digest(doc),
+                                "collateral_digest": g41_collateral_digest(doc),
                                 "full_doc_digest": _digest(doc)},
                       "observation_us_set": us, "prior_observation_us": None,
                       "outcome": "CAPTURED", "at": _now_iso()}}, upsert=True)
@@ -107,7 +135,7 @@ async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict
             {"$set": {ta.OBSERVATION_US: us,
                       f"additional_fields.{ta.STATE_KEY}": ta.STATE_DERIVED,
                       f"additional_fields.{ta.BASIS_KEY}": ta.BASIS,
-                      "provenance.observation_us_provenance": {
+                      f"provenance.{PROVENANCE_KEY}": {
                           "authority": AUTHORITY, "migration_run_id": run_id,
                           "source": ta.SOURCE_FIELD,
                           "contract_version": ta.CONTRACT_VERSION,
@@ -141,7 +169,7 @@ async def op_verify_observation_us(db, *, mode: str, run_id: str = "") -> Dict[s
         checked += 1
         if doc.get(ta.OBSERVATION_US) != ta.to_epoch_us(doc.get(ta.SOURCE_FIELD)):
             disagreeing += 1
-        if collateral_digest(doc) != row["prior"]["collateral_digest"]:
+        if g41_collateral_digest(doc) != row["prior"]["collateral_digest"]:
             collateral_diverged += 1
     return {"collection": CANONICAL_COLLECTION, "mode": mode, "checked": checked,
             "disagreeing": disagreeing, "collateral_diverged": collateral_diverged,
