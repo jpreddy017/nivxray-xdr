@@ -4900,3 +4900,99 @@ Owner decides whether to (a) authorize applying the three declared indexes to pr
 (idempotent, background, additive — no schema or query change), and/or (b) authorize the temporary
 read-only explain route to prove the plans in production before/after. Family Composition and the
 bounded KUSHU page remain HOLD.
+
+## STEP 34E — G-26 AUTHORITATIVE ENDPOINT IDENTITY CONTRACT — 2026-06 — DESIGN DONE (HERMETIC)
+
+No production change, no migration, no deploy, no index created anywhere real. Preview was read
+(counts/field-presence/classification only, no evidence content, no DESKTOP targeting, zero writes);
+the explain proof ran in a scratch DB created and dropped by the script.
+
+### Writer coverage (read from code)
+- `detection_content/xdr_pipeline.py:394` is the ONLY canonical writer. The document it inserts is
+  whatever the selected DSM normalizer produced.
+- `detection_content/telemetry/nivxforge_sensor_dsm.py:151` is the ONLY normalizer that stamps
+  `additional_fields.endpoint_id` (= `raw.endpoint_id or collector_id`). No other DSM (snort,
+  windows_security, defender, auditd, cloudtrail, powershell…) stamps it at all.
+- `edr_plane/canonical_bridge.py:711` calls the pipeline with `collector_id = <platform
+  endpoint_id>` and `_authenticated_ingest.authenticated_endpoint_id` for AUTHENTICATED endpoint
+  ingest. So on that path `provenance.collector_id` carries an authenticated platform id even when
+  a non-sensor DSM normalizes the event.
+=> ROOT CAUSE of G-26: the authoritative identity is stamped by ONE DSM instead of by the
+   authenticated ingest BOUNDARY, so DSM selection decides whether canonical evidence carries a
+   platform endpoint identity.
+
+### Measured coverage (preview corpus, 299,865 canonical rows, classified by the new pure classifier)
+  ENDPOINT_IDENTITY_AUTHORITATIVE            294,189   98.1%   (af.endpoint_id, platform-minted)
+  ENDPOINT_IDENTITY_UNRESOLVED_NAME_ONLY       3,552    1.2%   (hostname only, no platform id)
+  ENDPOINT_IDENTITY_AUTHENTICATED_BOUNDARY     1,236    0.4%   (collector_id = ep_, af absent)
+  EVIDENCE_NOT_ENDPOINT_SCOPED                   801    0.3%   (no host object; collector sources)
+  ENDPOINT_IDENTITY_UNRESOLVED                    88    0.0%
+  DETERMINISTICALLY_BACKFILLABLE               1,236    0.4%
+Additional facts that change the migration order:
+- 0 rows exist where `af.endpoint_id` is present and `host.host_id` differs from it -> `host.host_id`
+  is a COPY, never an independent identity.
+- 1,230 of the 1,236 authenticated-boundary rows have NO hostname at all. So retiring the collector
+  branch BEFORE the backfill would make them unreachable. The backfill is a PREREQUISITE, not an
+  optimisation.
+- 9 distinct hostnames appear under MORE THAN ONE tenant (G-28) — proof that a name is only
+  meaningful inside the tenant equality prefix and may never be an identity.
+
+### Target contract (declaration only)
+NEW `backend/edr_plane/canonical_identity_contract.py`: `AUTHORITATIVE_FIELD =
+additional_fields.endpoint_id`; `AUTHENTICATED_BOUNDARY_FIELD = provenance.collector_id` (the only
+fallback, and only when platform-minted); `LEGACY_NAME_FIELD = host.hostname` (a NAME, never an
+identity); `NEVER_IDENTITY = host.host_id, host.hostname, device_iid, event.computer, host.ip`.
+Pure `classify(row)` and `backfill_candidate(row)`; nothing is wired into any read or write path.
+NEW `TARGET_CANONICAL_INDEXES` in `canonical_index_contract.py`:
+  sd_canonical_endpointid_eventtime {tenant_id:1, additional_fields.endpoint_id:1, event_time:-1}
+  sd_canonical_hostname_eventtime   {tenant_id:1, host.hostname:1,                 event_time:-1}
+
+### Hermetic proof (`backend/tools/measure_34e_identity_contract.py`, scratch DB, 20,000 docs)
+Both target branches: `LIMIT → FETCH → IXSCAN`, no COLLSCAN, no blocking SORT. Wide window holding
+4,250 matching rows -> keys = docs = nReturned = 89 (the exact 25 + TIE_MARGIN bound). Coverage: the
+target pair reached the SAME row set as the three legacy branches, with 0 rows reachable only the
+legacy way once the backfill is applied. Tenant isolation: same id under another tenant -> 0 rows,
+0 docs, still index-served. Order/window: newest-first, all inside the window. Cost: 2 target
+indexes ≈ 53.5 B/doc ≈ 10.9% of data size, versus 21.9% for the 34D three-index set + target.
+
+### Options compared
+- A (authoritative + all three legacy branches): 4 indexes, keeps the ambiguity. REJECTED.
+- B (authoritative + one bounded legacy NAME branch): 2 indexes — but UNSAFE ALONE, because 1,230
+  authenticated-boundary rows have no hostname and would become unreachable.
+- C (deterministic backfill, then authoritative only): 1 index — UNSAFE, it would strand the 3,552
+  name-only rows that have no platform identity at all.
+RECOMMENDED = B + the bounded deterministic backfill, executed in this ORDER:
+  1. writer fix: stamp the authoritative field at the AUTHENTICATED INGEST BOUNDARY for every DSM
+     (never from the event's shape) — new writes then always carry it;
+  2. create the 2 target indexes (additive, background) and KEEP the collector branch transitionally;
+  3. deterministic backfill of exactly the 1,236 rows: copy `provenance.collector_id` into
+     `additional_fields.endpoint_id` ONLY when platform-minted (no hostname, no vendor id, no
+     device_iid, no inference), recorded with its basis;
+  4. verify 0 remaining backfillable rows, then retire the `host.host_id` and
+     `provenance.collector_id` branches and their indexes.
+Minimum production index set under the target contract = 2 (transitional = 3 until step 4).
+`host.host_id` is never needed: 0 rows disagree with the authoritative field and its remaining
+values are hostnames already covered by the name branch.
+KUSHU: its evidence comes from the authenticated sensor path, so it carries the authoritative field
+and is reachable by the authoritative branch alone.
+
+### Regression guard
+NEW `backend/tests/edr_trajectory/test_canonical_identity_contract.py` (14 pure tests): only a
+platform-minted value is an identity; authoritative field first, authenticated boundary second;
+hostname / vendor host_id / device_iid / IP are NEVER promoted; a non-platform value in the
+authoritative field is UNRESOLVED; collector-sourced evidence is NOT endpoint-scoped; the backfill
+copies only an authenticated platform id and refuses names, vendor ids and already-stamped rows;
+target set is one authoritative key + one legacy name branch, keeps the tenant equality prefix and
+the descending event_time, and drops the two copy branches. `tests/edr_trajectory` = 401 passed,
+9 skipped.
+
+### NEW GAPS
+- G-28: 9 hostnames are shared across tenants in preview — names are tenant-local, never identities.
+- G-29: the writer fix (step 1) is an ingest-boundary change and needs its own hermetic step before
+  any backfill; not started.
+
+### NEXT (owner-gated)
+Owner decides: implement the G-26 strengthening in the recommended order (next step = the
+boundary writer fix, hermetic), or fall back to applying the 34D three-index set now and defer the
+identity work. Family Composition, the bounded KUSHU page and the production explain route remain
+HOLD.
