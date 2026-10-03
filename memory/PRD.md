@@ -5460,3 +5460,44 @@ A separate authorization for `{"mode":"apply"}` — owner-executed against produ
 deployed control plane with the owner's admin session. After it: verify both indexes
 CREATED_VERIFIED with exact key patterns, then the bounded 1,236-row backfill, verification, legacy
 branch retirement, production explain, KUSHU family composition, first real Behavior run.
+
+## STEP 34H-D — APPLY THE TWO APPROVED CANONICAL INDEXES — 2026-06 — BLOCKED (PRODUCTION WRITE ACCESS)
+
+Authorized: create exactly `sd_canonical_endpointid_eventtime` and `sd_canonical_hostname_eventtime`
+via the deployed control plane in `mode=apply`, then verify independently from production index
+metadata; HOLD on any conflict or mismatch.
+
+NOT EXECUTED. Same boundary as 34H-C, now on the write side (G-34/G-36): the control plane requires a
+bearer JWT for a production `role == "admin"` user and this plane holds no production admin
+credential; the platform's diagnose mechanism is read-only (find/count/distinct/list_collections/
+list_indexes) and cannot create an index. Per the standing constraints I did not request a token or
+connection string, and created no bypass, debug route, auth exception, service credential, alternate
+endpoint or weaker authorization. `SECURE_ADMIN_EXECUTION_PATH_NOT_AVAILABLE` from this plane.
+
+OWNER-EXECUTED APPLY (one call; token stays in your shell/session):
+  curl -sS -X POST \
+    https://nivxray.nivxforge.com/api/internal/admin/migrations/ensure-canonical-identity-indexes \
+    -H "Authorization: Bearer $NVX_ADMIN_TOKEN" -H "Content-Type: application/json" \
+    -d '{"mode":"apply"}'
+EXPECTED (pre-computed from the 34H-C observation, so any deviation is a HOLD):
+  state = COMPLETED · mode = apply · collection = xdr_canonical_evidence
+  indexes[0] = sd_canonical_endpointid_eventtime · CREATED_VERIFIED ·
+    [[tenant_id,1],[additional_fields.endpoint_id,1],[event_time,-1]]
+  indexes[1] = sd_canonical_hostname_eventtime · CREATED_VERIFIED ·
+    [[tenant_id,1],[host.hostname,1],[event_time,-1]]
+  existing_indexes_changed = false · refusals = [] · ok = true
+  indexes_after = [_id_, tenant_id_1_ingest_time_-1, sd_canonical_endpointid_eventtime,
+                   sd_canonical_hostname_eventtime]
+HOLD CONDITIONS (no auto-repair, by contract): any NAME_CONFLICT_REFUSED ·
+CREATED_BUT_UNVERIFIED · a key pattern differing in field, order or direction ·
+existing_indexes_changed = true · refusals non-empty · HTTP 409 (lock held) · HTTP 500 (FAILED
+record) · `tenant_id_1_ingest_time_-1` or `_id_` missing or altered afterwards.
+
+INDEPENDENT VERIFICATION, ready to run after the apply: a read-only production `list_indexes`
+observation through the platform diagnose mechanism (zero writes, no credential movement) to confirm
+both names exist with the exact approved key patterns and that the two pre-existing indexes are
+untouched — i.e. verification does NOT come from the same call that made the change.
+
+Untouched this step: no index created/modified/renamed/dropped, no backfill, no legacy-index removal,
+no §d branch retirement, no canonical-evidence mutation, no Behavior, no frontier/shadow, no TI work,
+no deploy/redeploy, no KUSHU access, DESKTOP untouched, no Windows/Mac/sensor action.
