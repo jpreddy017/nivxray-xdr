@@ -4224,3 +4224,38 @@ without it deploys the hardened backend plus the LEGACY trajectory page.
 - 3 corrupt `event.ts` offsets + null canonical `event_time` rows (already truthfully unplaceable).
 - MITRE "defense-evasion" → "stealth" consumer impact (visible as `Stealth TA0005` in the strip).
 - 3 production indexes on `xdr_canonical_evidence` — measured as needed, owner-gated, NOT created.
+
+---
+
+## STEP 27 — BEHAVIOR SHADOW RUN RECORD ONLY (2026-06, completed)
+
+Additive, isolated engineering/audit record for a FUTURE Behavior shadow invocation. No engine
+execution, no evidence read, no checkpoint touch, no detection/Fabric write, no index creation,
+no production/Vercel/KUSHU/DESKTOP contact.
+
+- `backend/edr_plane/behavior_shadow_run.py` — record contract + `InMemoryShadowRunStore` /
+  `MongoShadowRunStore`. Identity `(tenant_id, shadow_run_id)`; binds `endpoint_id`,
+  `ruleset_id`/`ruleset_version`/`ruleset_content_hash`, `replay_id`, `invoked_by`, `reason`,
+  `started_at`, `completed_at`, `state`.
+- Closed lifecycle: `STARTED` → `COMPLETED` | `TRUNCATED` | `INTERRUPTED` | `FAILED`; terminals
+  immutable. `completed_meaning = BOUNDED_SHADOW_INVOCATION_COMPLETED_ONLY` — COMPLETED is NOT a
+  clean/benign/no-threat claim.
+- Step-24 measurements persisted (counters, per-outcome MATCH/NO_MATCH/INSUFFICIENT_EVIDENCE/
+  BUDGET_EXCEEDED/SUPPRESSED, adapter refusals by reason, durations, resume cursor). Zero-target
+  counters `cross_tenant_reference_count` and `matches_without_valid_evidence_refs` always
+  materialised at 0. Quality/verdict fields (TP/FP/precision/accuracy/malicious/benign) refused.
+- Shadow markers forced on every write: `shadow=true`, `analyst_visible=false`,
+  `detection_source_claim="NONE"`; tampered markers refused on read.
+- Index DESIGN only: `(tenant_id, shadow_run_id)` UNIQUE on `e3_behavior_shadow_runs`. NOT created.
+- G-3 stated, not solved (app-level revision ≠ Mongo CAS; `supports_atomic_cas` advertised per
+  store). G-4 untouched.
+- Tests: `backend/tests/edr_trajectory/test_shadow_run_record.py` — 64 passed. Scoped regression
+  `tests/edr_trajectory tests/edr tests/edr_behavior` = 2500 passed / 12 skipped / 4 PRE-EXISTING
+  failures in `tests/edr/test_p0_f13_5_detection_handoff.py` (unrelated; only 2 new files added).
+
+### NEXT (owner-gated, do not start without approval)
+- Step 28: DESIGN ONLY of the shadow runner orchestration (§d provider → adapter → engine →
+  measurement → persistence → checkpoint advance). Owner wants to review transaction/checkpoint
+  ordering BEFORE any engine execution: a checkpoint must never advance past evidence that was
+  not successfully evaluated AND persisted.
+
