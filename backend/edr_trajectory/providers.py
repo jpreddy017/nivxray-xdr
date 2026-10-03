@@ -42,6 +42,38 @@ def _sha256(h: Any) -> str | None:
     return None
 
 
+def _str(v: Any) -> str | None:
+    """A reference is a non-empty string or it is absent. Never coerced."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
+def _raw_ref_canonical(doc: dict[str, Any]) -> str | None:
+    """The durable `edr_raw_events` id this canonical evidence was derived from.
+
+    `provenance.trace_id` is stamped with the raw id by the canonical bridge, and
+    `raw_ref.raw_id` records the same durable pointer explicitly. Either is the real stored
+    value; nothing else is accepted, and no identifier is substituted for it.
+    """
+    prov = doc.get("provenance") or {}
+    rr = doc.get("raw_ref")
+    return _str(prov.get("trace_id")) or (
+        _str(rr.get("raw_id")) if isinstance(rr, dict) else None)
+
+
+def _raw_ref_shadow(doc: dict[str, Any]) -> str | None:
+    """Same durable raw id as carried on a shadow observation.
+
+    The shadow writer stores it as `ingest_job_id` (taken from the canonical
+    `provenance.trace_id`); some rows also carry an explicit `provenance.trace_id`. The
+    observation id is NOT a fallback — it identifies the observation, not the raw delivery.
+    """
+    prov = doc.get("provenance") or {}
+    return _str(doc.get("ingest_job_id")) or _str(prov.get("trace_id"))
+
+
 def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
     af, p, f, n = (doc.get("additional_fields") or {}), (doc.get("process") or {}), (doc.get("file") or {}), \
         (doc.get("network") or {})
@@ -63,7 +95,8 @@ def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
                  "src_ip": n.get("src_ip"), "initiated": n.get("initiated"), "query": (doc.get("dns") or {}).get("query")}
         if (n or doc.get("dns")) else {},
         detection=af.get("detection"), sources=[STORE_CANONICAL],
-        provenance={"store": STORE_CANONICAL, "ref": doc.get("event_id"), "label": af.get("data_label")})
+        provenance={"store": STORE_CANONICAL, "ref": doc.get("event_id"), "label": af.get("data_label"),
+                    "raw_ref": _raw_ref_canonical(doc)})
     ev["event_id"] = af.get("activity_identity") or fallback_event_id(tenant, device, ev)
     return ev
 
@@ -88,7 +121,11 @@ def from_shadow(doc: dict[str, Any]) -> dict[str, Any]:
         network={"dest_ip": n.get("dest_ip"), "dest_port": n.get("dest_port"), "protocol": n.get("proto"),
                  "src_ip": n.get("src_ip"), "initiated": n.get("initiated"), "query": n.get("query")} if n else {},
         detection=e.get("detection"), sources=[STORE_SHADOW],
-        provenance={"store": STORE_SHADOW, "ref": doc.get("observation_id"), "label": e.get("data_label")})
+        provenance={"store": STORE_SHADOW, "ref": doc.get("observation_id"), "label": e.get("data_label"),
+                    # The DURABLE raw-event pointer the store already holds. Carried, never
+                    # derived: the observation id identifies the observation, not the delivery,
+                    # and substituting it would break the raw join.
+                    "raw_ref": _raw_ref_shadow(doc)})
     ev["event_id"] = doc.get("activity_identity") or fallback_event_id(tenant, device, ev)
     return ev
 

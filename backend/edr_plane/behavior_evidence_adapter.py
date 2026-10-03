@@ -174,12 +174,11 @@ def to_evidence_record(row: Dict[str, Any], *, tenant_id: Optional[str],
     ref_value = _s(prov.get("ref"))
     activity_identity = _s(row.get("event_id"))
 
-    # The §d row does not carry the durable raw-event reference (the §d
-    # normalizers drop it). EvidenceRef.raw_id is identity-bearing, so it is
-    # taken from the caller when the caller holds it and REFUSED otherwise —
-    # substituting the observation or canonical id would mislabel one identity
-    # as another and silently break the raw join.
-    raw = _s(raw_id)
+    # The durable raw-event pointer now travels on the §d row itself
+    # (provenance.raw_ref). The explicit argument stays as an override for a
+    # caller that already holds the raw id; neither is ever substituted from
+    # another identifier.
+    raw = _s(raw_id) or _s(prov.get("raw_ref"))
     if not raw:
         return None, REFUSED_NO_RAW_REF
 
