@@ -5146,3 +5146,49 @@ pre-existing `test_p0_f13_5` failures; pipeline-driving suites = 185 passed.
 Identity architecture work is complete. Next: create the 2 target indexes -> bounded deterministic
 backfill of the 1,236 authenticated-boundary rows -> verify 0 remaining -> retire the legacy §d
 branches -> production explain -> KUSHU family composition -> first real Behavior run.
+
+## STEP 34H — APPLY TARGET CANONICAL INDEXES IN PRODUCTION — 2026-06 — BLOCKED (WRITE-ACCESS BOUNDARY)
+
+Authorized scope: create exactly `sd_canonical_endpointid_eventtime`
+{tenant_id:1, additional_fields.endpoint_id:1, event_time:-1} and `sd_canonical_hostname_eventtime`
+{tenant_id:1, host.hostname:1, event_time:-1} on production `xdr_canonical_evidence`, additive,
+idempotent, non-disruptive, nothing else changed.
+
+NOT APPLIED. Boundary (re-measured, not assumed):
+- this container has NO production connection string (`backend/.env` = loopback preview; no Atlas
+  credential in the environment or repo) — same boundary as 34C/34C-A;
+- the Emergent read-only diagnose route CANNOT write: its production-DB tool is limited to
+  find|count|distinct|list_collections|list_indexes (measured in 34C-B). An index build is a
+  production write, so that route is structurally unable to perform it (G-24 extends to writes).
+No substitution of any kind was attempted.
+
+DELIVERED INSTEAD: `backend/tools/apply_34h_target_indexes.py` — idempotent, additive, with
+refusals in CODE: `PROD_MONGO_URL` must be supplied explicitly, localhost/127.0.0.1 and the
+container's own `MONGO_URL` are refused, `PROD_DB_NAME` required, and `--apply` is mandatory to
+write (default is report-only). It creates ONLY the two declared specs, reads the index list back to
+verify name + exact key pattern, never drops/modifies/renames anything, and reports a same-name
+different-key collision as `NAME_CONFLICT_REFUSED` instead of resolving it. Build mode is chosen from
+the live server version (hybrid non-blocking on >= 4.2, legacy `background=True` below that; the
+local check reported MongoDB 7.0.43).
+SELF-CHECK = PASS on a scratch DB (dropped afterwards), four passes: report-only -> WOULD_CREATE ×2;
+apply -> CREATED_VERIFIED ×2 with the exact key patterns; re-run -> ALREADY_PRESENT_VERIFIED ×2
+(idempotent); injected name conflict -> NAME_CONFLICT_REFUSED. `EXISTING_INDEXES_CHANGED = NO` in
+every pass, with a pre-existing `tenant_id_1_ingest_time_-1` surviving untouched. Refusal paths
+verified by running the tool with no URI and with a localhost URI.
+
+### The two routes to actually apply it (owner choice)
+(a) OPERATOR-SIDE, zero deploy: run the tool where production resolves —
+    `PROD_MONGO_URL=… PROD_DB_NAME=… python backend/tools/apply_34h_target_indexes.py` (report),
+    then `--apply`. The URI never enters this chat, this repo or any committed file.
+(b) APP-SIDE ROUTE, needs one deploy: an admin-only, authenticated, idempotent ensure-index endpoint
+    (or a lazy ensure on the §d read path — the established pattern in this codebase, e.g.
+    `routers/correlations.py::_ensure_indexes`, `routers/edr_saved_views.py::ensure_indexes`), which
+    runs inside the production pod using the already-injected binding, so no credential moves.
+Production writes other than index metadata: NONE in either route. Collector branch stays
+transitionally; §d queries unchanged; no backfill; no Behavior; no frontier; no family census; no
+endpoint/sensor action; DESKTOP untouched.
+
+### NEXT (owner-gated)
+Pick route (a) or (b). After the two indexes verify in production: bounded 1,236-row deterministic
+backfill -> verify 0 remaining -> retire the legacy §d branches -> production query proof -> KUSHU
+family composition -> first real Behavior run.
