@@ -4682,3 +4682,37 @@ run started. G-22 (E14) is now CLOSED. G-20/G-21 remain open.
 ### NEXT (owner-gated)
 Hold. Likely 34C: read-only production explain preflight, run where production `MONGO_URL` is
 resolvable. No index creation until that output is reviewed.
+
+## STEP 34C — PRODUCTION §d QUERY-PLAN PREFLIGHT — 2026-06 — BLOCKED (ACCESS BOUNDARY)
+
+Authorized scope: P1 explain("executionStats") only, on the 10 Step-33 branch queries, KUSHU only,
+10-minute window. No page read, no family census, no adapter, no engine, no frontier, no index,
+no writes, DESKTOP prohibited.
+
+ACCESS MEASUREMENT (read-only, this container):
+- `backend/.env` MONGO_URL = mongodb://localhost:27017, DB_NAME = test_database.
+- No production connection string exists in the process environment or in any `.env` (repo-wide
+  search for `mongodb+srv` returns documentation and export artifacts only).
+- The single reachable mongod is localhost:27017, whose databases are all local/CI/preview
+  (`test_database`, `xdr`, `nivxray_ci*`, probe/temp DBs). No production cluster is routable.
+=> Production explain CANNOT be executed from here. Preview was NOT substituted.
+
+DELIVERED INSTEAD (so running it elsewhere is one command, and preview substitution is impossible
+BY CODE rather than by discipline): `backend/tools/preflight_34c.py` — explain-only, reusing
+`branches()`, `_window_bounds()` and `OBSERVATION_TIME_KEY` verbatim from the §d production adapter.
+Hard refusals, each verified by running the tool: PROD_MONGO_URL unset -> BLOCKED
+NO_EXPLICIT_PRODUCTION_URI; a localhost/127.0.0.1 URI -> BLOCKED
+REFUSED_PREVIEW_OR_LOCAL_DATABASE_SUBSTITUTION; a URI equal to the container MONGO_URL -> refused;
+PROD_DB_NAME unset -> refused; hostname != KUSHU -> refused; any ref containing DESKTOP -> refused.
+It issues `explain` commands only, reports per-branch index/stage-chain/blocking-SORT/keys/docs/
+nReturned/executionTimeMillis, and prints PASS only when no branch shows a blocking SORT.
+
+NEW GAPS
+- G-23: the preview/dev container has no credential path to the production cluster, so NO
+  production-plane measurement (explain, census or bounded page) is executable from here. This is
+  an environment/authorization gap, not an engineering one.
+
+### NEXT (owner-gated)
+Owner supplies a shell with the production MONGO_URL resolvable (PROD_MONGO_URL/PROD_DB_NAME) and
+runs `python backend/tools/preflight_34c.py`, or authorizes another route to obtain the production
+explain output. G-20/G-21 stay OPEN. No index decision, no bounded page, no family census.
