@@ -5431,3 +5431,32 @@ no KUSHU access, DESKTOP prohibited, no Windows/Mac action, no `mode=apply`.
 Read the production index list, then: all ABSENT -> the owner may consider authorizing
 `mode=apply`; any PRESENT_WITH_DIFFERENT_KEY -> **HOLD** (a name conflict is a stop condition and is
 never auto-repaired).
+
+### 34H-C RESULT (2026-06) — PRODUCTION INDEX STATE OBSERVED DIRECTLY — NO CONFLICT
+
+Read-only observation returned (production DB `greeting-app-5782-test_database`, collection
+`xdr_canonical_evidence`, `list_indexes` only, zero writes):
+- COMPLETE current index list = exactly TWO:
+    `_id_`                        {_id: 1}
+    `tenant_id_1_ingest_time_-1`  {ingest_time: -1, tenant_id: 1}
+- `sd_canonical_endpointid_eventtime` = **ABSENT**
+- `sd_canonical_hostname_eventtime`   = **ABSENT**
+- No OTHER index carries either expected key pattern under a different name.
+- => no NAME_CONFLICT condition exists; the equivalent report-mode outcome for both targets is
+  WOULD_CREATE. `indexes_before` == `indexes_after` == [`_id_`, `tenant_id_1_ingest_time_-1`];
+  `existing_indexes_changed` = false.
+- Confirmed: no index created/modified/dropped, no document read beyond index metadata, no document
+  modified, no collection created, no production write of any kind, no credential printed.
+- This also re-confirms the 34C-B measurement independently: production still has NO index on
+  `event_time` and none on any §d identity field (G-20 cause unchanged).
+
+The ROUTE-BASED report-mode call itself remains UNEXECUTED
+(`SECURE_ADMIN_EXECUTION_PATH_NOT_AVAILABLE` from this plane; authentication was not weakened). The
+inspection gate's PURPOSE is nevertheless satisfied by direct production observation, with strictly
+less privilege and no audit-record write.
+
+### NEXT (owner-gated, mutation)
+A separate authorization for `{"mode":"apply"}` — owner-executed against production, or via the
+deployed control plane with the owner's admin session. After it: verify both indexes
+CREATED_VERIFIED with exact key patterns, then the bounded 1,236-row backfill, verification, legacy
+branch retirement, production explain, KUSHU family composition, first real Behavior run.
