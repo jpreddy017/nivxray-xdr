@@ -54,6 +54,21 @@ ENDPOINT_KEYED_STORES: Dict[str, List[str]] = {
     "edr_endpoints":         ["endpoint_id", "device_iid", "hostname"],
     "workspace_cases":       ["endpoint_campaign.endpoint_id",
                               "endpoint_campaign.hostname"],
+    # E3 Behavior · DECLARATION ONLY. The engine is not imported, mounted or
+    # executed, and these collections do not exist in production. They are
+    # declared here FIRST so that a behavior record can never be read by any
+    # path other than the one endpoint resolver, and so the tenant partition
+    # below is enforced by the predicate builder rather than by caller
+    # discipline.
+    #
+    # The platform-minted `endpoint_id` is the SOLE identity field by owner
+    # decision (D3). `hostname` is deliberately absent: an observation-derived
+    # hostname can be a substituted `ep_…` string, and an entry here is queried
+    # against the VALIDATED ALIAS SET, so admitting a soft name would widen
+    # addressing on a store that needs exactly one hard key. `device_iid` is
+    # absent for the same reason — it is derived from that same name.
+    "e3_behavior_detections":         ["endpoint_id"],
+    "e3_behavior_replay_checkpoints": ["endpoint_id"],
 }
 
 # store -> the field that PARTITIONS the store by customer.
@@ -70,6 +85,11 @@ TENANT_PARTITIONED_STORES: Dict[str, str] = {
     "edr_raw_events":         "tenant_id",
     "xdr_canonical_evidence": "tenant_id",
     "edr_endpoints":          "tenant_id",
+    # E3 Behavior · a behavior detection is a statement about ONE customer's
+    # endpoint. Declared partitioned so an unresolved customer fails closed
+    # instead of reading every customer that shares an endpoint reference.
+    "e3_behavior_detections":         "tenant_id",
+    "e3_behavior_replay_checkpoints": "tenant_id",
 }
 
 TENANT_NOT_RESOLVED_FOR_EVIDENCE = "TENANT_NOT_RESOLVED_FOR_EVIDENCE"
