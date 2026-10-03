@@ -4585,3 +4585,65 @@ Owner authorization for Step 34 = preflight measurement, then (only if preflight
 bounded real-evidence shadow invocation. Otherwise the index becomes the declared production
 blocker.
 
+
+---
+
+## STEP 34A — §d BOUNDED-READ PREFLIGHT (2026-06) — BLOCKED, two reasons, both measured
+
+READ-ONLY throughout. Zero writes, no engine, no frontier, no checkpoint, no shadow document,
+no index creation, no collection creation, no response, no sensor, no deploy.
+Tool (reusable, read-only): `backend/tools/preflight_34a.py`.
+
+### BLOCKER 1 — the authorized target is not reachable from this container
+`backend/.env` → `MONGO_URL=mongodb://localhost:27017`, `DB_NAME=test_database`: this is the
+PREVIEW database. KUSHU does not exist in it — `edr_endpoints` matching /KUSHU/i = 0,
+`v2_shadow_observations` with `event.computer` ~ KUSHU = 0, `xdr_canonical_evidence` with
+`host.hostname` ~ KUSHU = 0. Production was NOT accessed and must not be from here.
+
+### BLOCKER 2 — a measured adapter-refusal blocker that would abort Step 34b anyway
+On a real 25-row bounded page, 13 rows converted (all NETWORK) and **12 refused with
+`ACTIVITY_FAMILY_NOT_SUPPORTED_BY_BEHAVIOR_CONTRACT`** — they normalize to §d kind `OTHER`
+(`providers._kind` fallback) and `KIND_MAP` accepts only PROCESS_START/END, the 5 FILE kinds,
+NETWORK_CONNECT, DNS_QUERY, REGISTRY_SET, AUTH, DETECTION. Under owner decision E8 (refuse the
+whole page on ANY adapter refusal) the first real run would abort before the engine executes.
+**`REFUSED_KIND` is categorically different from `REFUSED_NO_RAW_REF` / `REFUSED_TENANT_CONFLICT`:
+the first means "out of Behavior's scope" (benign, deterministic, lossless to skip), the others
+mean "defective or unsafe evidence" (must block).** E8 currently conflates them. Owner decision
+E14 required.
+Also: that window contained ZERO process evidence, so E3-SEQ-001 (`process.name`) had nothing to
+evaluate — rule/window selection must be driven by a measured activity-family census, not by
+rule elegance (G-21).
+
+### What the preflight DID prove (preview, tenant `default`, busiest endpoint
+`ep_2d57cbe6f80152062109`, 10-minute window, page_size 25)
+All 10 branches index-served, **NO blocking sort anywhere**:
+`LIMIT → FETCH → SORT_MERGE → IXSCAN` on every branch; max docs examined 78 (ceiling 890);
+max branch 11 ms (ceiling 2,000); **one bounded page = 22.9 ms** (ceiling 5,000);
+rows 25, has_more true, `state = PAGE_READY`, suppressed_duplicates 0, unplaceable 0,
+excluded_outside_window 0, raw_ref missing 0.
+The three canonical branches used `pvw_sd_collector_eventtime`,
+`pvw_sd_hostid_eventtime`, `pvw_sd_hostname_eventtime` — i.e.
+`(tenant_id, <identity>, event_time:-1)`. **These are the three deferred indexes, present in
+PREVIEW ONLY (note the `pvw_` prefix) and absent in production.** So this run does not clear
+production; it proves the query SHAPE is right and that those three indexes are exactly what make
+the canonical branches index-served. That is the measured justification the owner asked for.
+
+### Disclosure
+`DESKTOP-A9HGFJJ` appeared in a COUNT-ONLY aggregate ranking endpoints by document volume
+(3,299 canonical docs, tenant `ten_f1a5479243e901cf159e230fa0`). No DESKTOP document content was
+read, projected, converted or targeted by any query; no branch explain, no page and no adapter
+conversion touched it. Reported rather than omitted.
+
+### NEW GAPS
+- G-20: preview carries the 3 `pvw_sd_*` indexes, production does not — preview latency numbers
+  are NOT transferable to production. Only a production explain can answer it.
+- G-21: evidence-family composition is unmeasured; a window can be full of evidence yet contain
+  nothing a selected rule can evaluate.
+- G-22 (E14): E8's "any adapter refusal refuses the page" is unworkable against real telemetry
+  because benign out-of-scope activity families are routine.
+
+### NEXT (owner-gated)
+E14 (split benign `REFUSED_KIND` from defect refusals), then a production-side read-only preflight
+(the same tool, run where production `MONGO_URL` is resolvable), then the index decision from
+production explain output.
+
