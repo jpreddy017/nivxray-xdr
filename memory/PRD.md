@@ -5828,3 +5828,22 @@ Report: `/app/memory/NIVXFORGE_SHARED_TI_INTEGRATION_DESIGN.md`
 Execution-critical path UNCHANGED and unblocked: STEP 35 control-plane deploy -> production REPORT
 on the real 1,236 rows -> review -> verify Atlas recovery point -> authorize apply -> verify ->
 retire legacy identity path -> real KUSHU Behavior.
+
+### TI ARCHITECTURE DECISIONS RECORDED (2026-06) — implementation HOLD
+- TI-DECISION-1 PER-PROVIDER EVIDENCE: EDR consumes normalized TI per provider; client C's weighted
+  consensus is never an EDR verdict or detection authority. Preserve provider, observable, provider
+  verdict/context, confidence, freshness, provenance and availability/failure state independently.
+  Multi-provider agreement may later contribute to Investigation confidence but must stay
+  explainable and must not collapse into an opaque truth score.
+- TI-DECISION-2 STORED IOC IS NOT AUTOMATICALLY MALICIOUS: the assumption `in db.iocs =>
+  KNOWN_MALICIOUS` is removed from the target architecture. Public-feed records are intelligence
+  OBSERVATIONS, not endpoint verdicts. Confidence-50 scanner/blocklist data, stale intel, sightings
+  and ambiguous records must never auto-create malicious endpoint detections. Direction:
+  TI observation -> contextual enrichment/supporting evidence -> Behavior + causal evidence +
+  Investigation -> assessment. UNKNOWN preserved when evidence cannot justify more. Provider
+  failure/unavailability never becomes BENIGN. Consequence: GAP-4's `local_ioc` malicious-by-default
+  is now a target-architecture DEFECT to correct in the later bounded TI stage.
+- KEEP: dt-i1e.ti.v1, TIBroker, ReputationService/edr_plane.reputation, the four A/B/C/H adapters,
+  retrospective seams. Do NOT build another TI stack or contract. GAP-1..GAP-5 stay recorded.
+- NOT NOW: provider credentials (G-37 deferred), health semantics, db.iocs, caching, E3 enrichment,
+  TI UI. CURRENT PRIORITY: STEP 35 ONLY. Nothing implemented for either decision.

@@ -607,3 +607,68 @@ real detection.
 
 **STOP.** Design report only. Nothing implemented, nothing deployed, no production data read beyond
 read-only counts on the preview database.
+
+---
+
+# OWNER ARCHITECTURE DECISIONS — RECORDED 2026-06 · TI IMPLEMENTATION ON HOLD
+
+Discovery report ACCEPTED. Both open decisions are now settled. **Neither is implemented. TI
+implementation remains HOLD until STEP 35 completes.**
+
+## TI-DECISION-1 — PER-PROVIDER EVIDENCE (binding)
+
+NivXForge EDR consumes normalized TI **per provider**. Client C's weighted consensus
+(`services/ioc_intelligence/consensus.py` — `verdict` / `trust_score` / `confidence_percent`) is
+**NOT** an EDR verdict and **NOT** a detection authority. It remains an XDR IOC-card presentation
+device only.
+
+Preserved independently, per provider, never collapsed:
+`provider · observable · provider verdict/context · confidence · freshness · provenance ·
+availability/failure state`.
+
+Multi-provider agreement MAY later contribute to Investigation confidence, but it must stay
+**explainable** and must never become an opaque truth score. Blocker #1 of the report is closed:
+consume C strictly through `adapt_ioc_intelligence`, one `NormalizedTIResult` per provider.
+`normalize_ioc_card()`'s existing "no consensus collapse" property is now a requirement, not an
+implementation detail.
+
+## TI-DECISION-2 — A STORED IOC IS NOT AUTOMATICALLY MALICIOUS (binding)
+
+**REMOVED from the target architecture:** the assumption
+`indicator exists in db.iocs  =>  KNOWN_MALICIOUS`.
+
+Public-feed records are **threat-intelligence observations, not endpoint verdicts**. Confidence-50
+scanner/blocklist data, stale intelligence, reputation observations, sightings and other ambiguous
+records must **never** automatically produce a malicious endpoint detection.
+
+Required semantic direction:
+```
+TI observation
+  → contextual enrichment / supporting evidence
+  → Behavior + causal evidence + Investigation
+  → assessment
+```
+`UNKNOWN` is preserved whenever the available evidence cannot justify a stronger conclusion.
+Provider failure or unavailability must **never** become `BENIGN`.
+
+**Direct consequence for the later work (not to be actioned now):** GAP-4's finding — that
+`edr_plane/reputation/providers/local_ioc.py` defaults a dispositionless `iocs` entry to
+`KNOWN_MALICIOUS`, making all 148,262 feed rows implicit malicious assertions — is now a
+**target-architecture defect to correct during the bounded TI integration stage**, not a behaviour
+to preserve. Blocker #2 of the report is closed in favour of observation semantics.
+
+## WHAT STAYS
+
+Keep and reuse: `dt-i1e.ti.v1` (`edr_investigation/ti_contracts.py`), `TIBroker`,
+`ReputationService` / `edr_plane.reputation`, the four existing adapters (A/B/C/H), and the
+retrospective seams (`ReputationHistory`, `IntelChangeEvent`, `RETRO_TRIGGERS.INTEL_CHANGE`,
+`replay.INTEL_CHANGED`). **Do not create another TI stack or another contract.**
+
+GAP-1 … GAP-5 remain recorded for the later bounded TI integration stage.
+
+## EXPLICITLY NOT TO BE DONE NOW
+
+No provider credential work (G-37 stays deferred), no health-semantics fix, no `db.iocs` schema or
+index work, no cache changes, no E3 enrichment wiring, no TI UI.
+
+**CURRENT PRIORITY: STEP 35 ONLY.**
