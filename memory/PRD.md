@@ -5710,3 +5710,52 @@ post-apply).
 Design: `/app/memory/STEP35_IDENTITY_BACKFILL_DESIGN.md`
 Next authorized step: OWNER REVIEW of this final design, then separate authorization to implement
 the 4 operations + 22 tests.
+
+## STEP 35 — IMPLEMENTED + TESTED LOCALLY · NOT EXECUTED (2026-06)
+
+Owner directive: implement the MINIMUM SAFE EDR backfill, not a new migration product. The heavier
+4-operation / 22-test / snapshot-attestation / rehearsal design was deliberately cut back.
+
+Shipped: 1 new module, 3 registered operations, 29 tests, NO new route, NO UI.
+- `backend/edr_plane/identity_backfill.py` (NEW, 471 lines) — eligibility delegation, exact-1236
+  population HOLD, guarded write, permanent ledger, collateral digests, bounded revert,
+  index-served explain.
+- `backend/edr_plane/migration_control.py` — 4-line change merging the three operations into the
+  existing closed registry and passing `run_id` to operations.
+- `backend/tests/edr/test_35_identity_backfill.py` (NEW, 419 lines) — 29 tests, all green.
+- `backend/tests/edr/test_34h_a_migration_control.py` — updated for the 4-operation registry; added
+  a closure test asserting the new operations hold no destructive call (only one `db.command`, an
+  explain).
+
+Operations (all take ONLY `mode` from the caller):
+- `backfill_authoritative_endpoint_identity` (report/apply) — report writes nothing at all.
+- `revert_authoritative_endpoint_identity_backfill` (report/apply) — restores RECORDED prior state.
+- `explain_canonical_identity_read_plan` (report only) — IXSCAN / no COLLSCAN / no SORT proof.
+
+Production safety gates G1-G8: admin principal; registered name; known mode; single-writer lock;
+population EXACTLY 1236 else HOLD `CANDIDATE_POPULATION_DRIFT` with zero writes (both directions,
+never truncated, never broadened); per-row contract eligibility; per-row guard IN THE UPDATE FILTER
+so an existing authoritative identity can never be overwritten even under a race; post-write
+collateral digest re-verified for EVERY written row. Clean pass = written 1236, residual 0,
+skipped 0, diverged 0, ok true.
+
+Tests: 29/29 new green; 19/19 `test_34h_a` green; 34f / 34g / behavior-adapter regression green.
+Two tests exist to prove the others are load-bearing (tampering trips the digest; the explain check
+fails when the index is absent).
+
+OPEN ITEM NEEDING OWNER CALL: the point-in-time backup is NOT enforced in code. The backend cannot
+verify a cloud snapshot exists, so the gate could only check that someone typed an attestation —
+a runbook step in a code costume, plus a 4th operation and 5th collection for a one-time fix. It is
+now a runbook precondition the owner performs before `apply`; in-database recoverability is the
+permanent per-row prior-state ledger plus the tested bounded revert. Owner to accept or request the
+attestation gate.
+
+Known consequence of the exact ceiling (specified, not a defect): a crash mid-run cannot be resumed
+by re-running `apply` — the census is then < 1236 and G5 HOLDs. Recovery is revert-then-retry or a
+reviewed constant change.
+
+Report: `/app/memory/STEP35_IMPLEMENTATION_STATUS.md`
+Design: `/app/memory/STEP35_IDENTITY_BACKFILL_DESIGN.md`
+Next authorized step: OWNER REVIEW, then deploy control plane only -> production report mode.
+Production backfill NOT executed. The 1,236 rows are UNMODIFIED. Behavior not run. KUSHU/DESKTOP
+untouched.

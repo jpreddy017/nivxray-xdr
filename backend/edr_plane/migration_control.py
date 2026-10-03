@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pymongo.errors import DuplicateKeyError
 
+from edr_plane import identity_backfill
 from edr_plane.canonical_index_contract import (CANONICAL_COLLECTION,
                                                 TARGET_CANONICAL_INDEXES)
 
@@ -105,7 +106,8 @@ async def _ensure_one(coll, spec: Dict[str, Any], *, apply_changes: bool,
             "build_ms": int((time.perf_counter() - started) * 1000)}
 
 
-async def _op_ensure_canonical_identity_indexes(db, *, mode: str) -> Dict[str, Any]:
+async def _op_ensure_canonical_identity_indexes(db, *, mode: str,
+                                                run_id: str = "") -> Dict[str, Any]:
     """Ensure EXACTLY the two declared target canonical indexes. The collection
     and both specifications come from the compiled contract — never from a
     caller."""
@@ -142,7 +144,12 @@ async def _op_ensure_canonical_identity_indexes(db, *, mode: str) -> Dict[str, A
 #: The closed registry. Adding an operation is a code change, reviewed like any
 #: other. A later bounded identity-backfill operation registers HERE; nothing
 #: about this framework lets a caller invent one.
-OPERATIONS = {OP_ENSURE_IDENTITY_INDEXES: _op_ensure_canonical_identity_indexes}
+OPERATIONS = {OP_ENSURE_IDENTITY_INDEXES: _op_ensure_canonical_identity_indexes,
+              **identity_backfill.OPERATIONS}
+
+OP_BACKFILL_IDENTITY = identity_backfill.OP_BACKFILL
+OP_REVERT_IDENTITY_BACKFILL = identity_backfill.OP_REVERT
+OP_EXPLAIN_IDENTITY_READ_PLAN = identity_backfill.OP_EXPLAIN
 
 
 def allowed_operations() -> List[str]:
@@ -221,7 +228,7 @@ async def run_migration(db, *, operation: str, mode: str, actor: str
     await _audit_update(db, run_id, {"state": STATE_RUNNING,
                                      "started_at": started_at})
     try:
-        result = await OPERATIONS[operation](db, mode=mode)
+        result = await OPERATIONS[operation](db, mode=mode, run_id=run_id)
     except Exception as exc:
         patch = {"state": STATE_FAILED, "completed_at": _iso(_now()),
                  "failure": type(exc).__name__,

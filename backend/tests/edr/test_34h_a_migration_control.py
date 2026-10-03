@@ -137,7 +137,9 @@ def test_no_collection_index_or_query_can_be_supplied(client, admin_user):
 
 
 def test_the_registry_is_the_only_operation_source(client):
-    assert mc.allowed_operations() == [mc.OP_ENSURE_IDENTITY_INDEXES]
+    assert mc.allowed_operations() == sorted([
+        mc.OP_ENSURE_IDENTITY_INDEXES, mc.OP_BACKFILL_IDENTITY,
+        mc.OP_REVERT_IDENTITY_BACKFILL, mc.OP_EXPLAIN_IDENTITY_READ_PLAN])
     src = inspect.getsource(mc)
     assert "CANONICAL_COLLECTION" in src and "TARGET_CANONICAL_INDEXES" in src
     code = "\n".join(line for line in src.splitlines()
@@ -146,6 +148,21 @@ def test_the_registry_is_the_only_operation_source(client):
                       ".delete_many(", ".update_many(", ".aggregate(",
                       ".command("):
         assert forbidden not in code, forbidden
+
+
+def test_the_registered_operations_hold_no_destructive_call(client):
+    """Every operation reachable through the registry, not just the index one."""
+    from edr_plane import identity_backfill as ib
+    src = inspect.getsource(ib)
+    code = "\n".join(line for line in src.splitlines()
+                     if not line.strip().startswith(("#", "*", '"""')))
+    for forbidden in (".drop_index(", ".drop_indexes(", ".drop(", ".rename(",
+                      ".delete_many(", ".delete_one(", ".update_many(",
+                      ".insert_many(", ".aggregate("):
+        assert forbidden not in code, forbidden
+    # the one command issued is an explain, and it is the only one
+    assert code.count("db.command(") == 1
+    assert '"explain":' in code
 
 
 def test_the_route_module_exposes_no_other_write_surface(client):
@@ -197,7 +214,7 @@ def test_apply_then_reapply_creates_once_and_then_verifies(client, admin_user):
     scratch = f"t34ha_scratch_{uuid.uuid4().hex[:8]}"
     spec = {"name": "t34ha_idx", "key": (("tenant_id", 1), ("x", -1))}
 
-    async def op(db, *, mode):
+    async def op(db, *, mode, run_id=""):
         res = await mc._ensure_one(db[scratch], spec,
                                    apply_changes=(mode == "apply"),
                                    legacy_background=False)
@@ -264,7 +281,7 @@ def test_the_lock_is_released_so_the_next_run_is_not_blocked(client, admin_user)
 
 
 def test_a_failing_operation_is_recorded_and_releases_the_lock(client, admin_user):
-    async def boom(db, *, mode):
+    async def boom(db, *, mode, run_id=""):
         raise RuntimeError("deliberate test failure")
 
     mc.OPERATIONS["t34ha_failing_op"] = boom
@@ -309,6 +326,7 @@ def test_no_secret_or_connection_detail_is_ever_returned(client, admin_user):
 
 def test_the_listing_exposes_only_registered_operations(client, admin_user):
     body = client.get(BASE, headers=_hdr(admin_user)).json()
-    assert body["allowed_operations"] == [mc.OP_ENSURE_IDENTITY_INDEXES]
+    assert body["allowed_operations"] == mc.allowed_operations()
+    assert mc.OP_ENSURE_IDENTITY_INDEXES in body["allowed_operations"]
     assert body["modes"] == list(mc.MODES)
     assert isinstance(body["runs"], list)
