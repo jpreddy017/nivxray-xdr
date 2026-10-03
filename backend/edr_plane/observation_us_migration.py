@@ -14,6 +14,7 @@ ELIGIBILITY — all three required, no inference:
 from __future__ import annotations
 
 import copy
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from edr_plane import temporal_authority as ta
@@ -233,6 +234,24 @@ async def op_verify_observation_us(db, *, mode: str, run_id: str = "") -> Dict[s
 
 
 OP_VERIFY_OBSERVATION_US = "verify_canonical_observation_us"
+
+#: Observable progress for THIS operation: the newest row the backfill wrote.
+#: A worker that is writing rows is alive, however long it has been running —
+#: which is the signal elapsed age could not provide.
+async def last_backfill_progress(db):
+    row = await db[LEDGER].find_one(
+        {"operation": OP_BACKFILL_OBSERVATION_US,
+         "population_id": POPULATION_ID},
+        sort=[("at", -1)])
+    if not row:
+        return None
+    try:
+        return datetime.fromisoformat(str(row.get("at")).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+LIVENESS = {OP_BACKFILL_OBSERVATION_US: last_backfill_progress}
 
 OPERATIONS = {OP_BACKFILL_OBSERVATION_US: op_backfill_observation_us,
               OP_VERIFY_OBSERVATION_US: op_verify_observation_us}

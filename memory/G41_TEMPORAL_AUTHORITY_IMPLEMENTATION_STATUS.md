@@ -404,6 +404,84 @@ lock is never taken. Stale takeover is covered in the resumability suite.
 **NOT deployed.** `PRODUCTION_APPLY_READY = NO` until this commit is live: applying against the
 currently deployed build would reinstate the trap.
 
-Still not done, each a separate owner-authorized step, in this order: **deploy this resumability
-fix** → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete
-the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.
+### 13.6 APPLY EXECUTED AND RECONCILED `[2026-10-03 · the 122,477 are migrated]`
+
+Owner-authorized, owner-executed. **`WRITTEN = 122,477 · RESIDUAL = 0 · CAPTURED = 0 · outcomes
+[WRITTEN] only · WRITTEN + RESIDUAL = 122,477 vs 122,477, difference 0`**, confirmed by two equal
+samples ≥60 s apart with the newest ledger row ~17 min stale. Evidence intact: `observation_us`
+`1789720697563000` is the exact epoch-microseconds of `event_time` `2026-09-18 08:38:17.563`, and
+matches the ledger's prior state. `event_time` untouched throughout.
+
+**What actually happened, recorded because it matters more than the happy path.** The launch POST hit
+the gateway's 30-second timeout and returned 504 while the server-side worker detached and kept
+writing. Forty minutes of work then proceeded with the client blind to it. Three consequences:
+
+1. **A `report` taken mid-flight showed impossible-looking numbers** — `written_before + observed =
+   122,507` (+30), ledger `distinct 94,885` vs rows `94,837` (+48), `contract_eligible` 117 BELOW
+   `observed`. All three were read skew from the fixed read order (candidates → written count →
+   distinct → eligibility cursor) against a concurrently advancing population. The gates refused,
+   correctly. **The decisive discriminator: duplication would make `distinct` LESS than the row
+   count; we saw GREATER, which is only possible if rows arrived between the two reads.** Direction
+   of inequality ruled out duplication without needing to enumerate anything.
+2. **That same `report` took over the live worker's lock** and flipped the run to
+   `FAILED / STALE_LOCK_TAKEOVER`. The worker never died. See the defect below.
+3. **The run left no `e3_migration_runs` lifecycle row.** Evidence and ledger are complete; the audit
+   trail for `mig_fcc460da6f2f4fd5` is not. Unresolved — filling it is a write.
+
+### 13.7 DEFECT INTRODUCED BY THE RESUMABILITY FIX — STILL LIVE, MUST BE CORRECTED
+
+`LOCK_STALE_AFTER` is 30 minutes; this migration's own runtime was ~40. **Age cannot distinguish a
+dead worker from a slow one**, so the takeover declared a demonstrably-alive holder stale, removed
+its lock, and left a lock-less writer mutating canonical evidence while the lock table sat empty —
+the single-writer guarantee was gone, and any further invocation would not have been refused. No
+evidence was harmed (the per-row guard requires `observation_us` absent, so a second writer could
+not double-write a row), but the property was lost by accident.
+
+Three corrections, to be made before ANY future migration, owner-authorized:
+1. **Takeover must require liveness, not age** — the newest ledger row's timestamp is the real
+   signal. Age alone is not evidence of death.
+2. **The worker must renew its lock and abort if it loses it**, so a takeover actually stops the
+   writer instead of orphaning it.
+3. **`apply` must not block on a 30-second gateway timeout** — that 504 is what detached the worker
+   and started the whole sequence.
+
+### 13.8 CORRECTIONS 1 AND 2 IMPLEMENTED `[2026-10-03 · local, pending deploy]`
+
+**Age now only opens the question; liveness answers it.** `LOCK_STALE_AFTER` (30 min) makes a lock
+ELIGIBLE for takeover, nothing more. Two independent signals can save the holder, and either one is
+enough:
+
+* **its own heartbeat** — `_heartbeat()` renews `heartbeat_at` on the lock every `HEARTBEAT_SEC`
+  (30 s, deliberately far below the threshold so a live holder is never even eligible); before the
+  first beat lands, `acquired_at` stands in;
+* **observable progress** — `LIVENESS[operation]`, an async probe registered by the operation
+  itself. For the backfill it is `last_backfill_progress()`: the newest ledger row for the
+  population. A worker that is writing rows is alive, however long it has been running.
+
+`_takeover_stale()` now takes one final liveness read before acting, and its delete is conditioned on
+**both** the holder's run id **and the exact `heartbeat_at` that was judged** — so a beat landing
+between the decision and the write keeps the lock. A liveness probe that raises does not decide by
+crashing; it falls back to the heartbeat.
+
+**And the other half, which is what actually prevents an orphan:** the heartbeat raises `LockLost`
+the moment its `update_one` fails to match, and `_run_guarded()` races the work against the
+heartbeat (`FIRST_COMPLETED`), cancelling the work and failing the run as `LOCK_LOST`. Before, a
+takeover removed the lock and the worker carried on writing regardless. A run that lost its lock
+also never deletes the new holder's lock, because `_release` is conditioned on its own run id.
+
+13 tests in `tests/edr/test_g41_lock_liveness.py`, led by the exact production regression — 42
+minutes of age against a 30-minute threshold, with a ledger row written seconds ago ⇒ refused as
+concurrent, `holder_alive: true`, `stale: false`, lock untouched, second run never executed. Plus: a
+fresh heartbeat defends a holder with no progress signal at all; progress older than the threshold
+does NOT save a dead holder (reclaimed, prior run marked FAILED with "no observable progress"); a
+young lock is never eligible however dead it looks; a heartbeat landing mid-decision keeps the lock;
+a crashing probe falls back; a running operation visibly renews its lock; losing the lock aborts the
+run; a victim does not delete the thief's lock; and short runs plus failing runs are unaffected.
+
+Correction 3 (`apply` not blocking on the gateway timeout) is **still open** — deliberately not
+bundled here.
+
+Still not done, each a separate owner-authorized step: **deploy these lock corrections** → **`verify_canonical_observation_us`** (needs
+the owner's admin session) → the two indexes → `explain` plan proof → delete the transitional legacy
+read → `VITE_E3_DT_V3=1` → KUSHU. Plus the three lock corrections above, and optionally the missing
+audit row.

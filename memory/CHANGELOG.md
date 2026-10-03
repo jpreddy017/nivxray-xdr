@@ -1,3 +1,38 @@
+## 2026-10-03 · G-41 APPLY EXECUTED · THE 122,477 HISTORICAL ROWS ARE MIGRATED
+
+Owner-authorized, owner-executed against production build `7f12980`.
+**`WRITTEN = 122,477 · RESIDUAL = 0 · CAPTURED = 0 · WRITTEN + RESIDUAL = 122,477, difference 0`.**
+Only outcome present is `WRITTEN`. Evidence intact: `observation_us 1789720697563000` is the exact
+epoch-microseconds of `event_time '2026-09-18 08:38:17.563'` and matches the ledger's prior state;
+`event_time` untouched. Every historical canonical evidence record now carries a comparable integer
+instant, with per-row prior state recorded before each write.
+
+The launch POST 504'd at the gateway's 30-second timeout while the worker detached and kept writing
+for ~40 minutes. A mid-flight `report` then showed +30 / +48 / −117 discrepancies that were pure
+read skew — and **took over the live worker's lock**, flipping the run to
+`FAILED / STALE_LOCK_TAKEOVER` while the worker carried on lock-less. Duplication was ruled out by
+direction alone: a duplicate shares a `doc_id`, so it would make `distinct` LESS than the row count,
+and we measured GREATER.
+
+**Defect introduced by the resumability fix, still live:** `LOCK_STALE_AFTER` (30 min) is shorter
+than the migration's runtime (~40 min), so age-based takeover cannot tell a dead worker from a slow
+one. Corrections required before any future migration: takeover must require liveness (newest ledger
+row), the worker must renew its lock and abort if it loses it, and `apply` must not block on the
+gateway timeout. No evidence was harmed — the per-row guard prevents double-writes — but the
+single-writer guarantee was lost by accident.
+
+Open: `verify_canonical_observation_us` (needs the owner's admin session) · the two indexes ·
+`explain` plan proof · remove the transitional legacy read · `VITE_E3_DT_V3=1` · KUSHU. Also open:
+`e3_migration_runs` has no lifecycle row for `mig_fcc460da6f2f4fd5`, an audit gap.
+
+Separately, the owner's production login returned 401: credentials rejected by bcrypt (`$2b$12`),
+**zero 429s so not a lockout**, one canonical active admin doc with `role: admin`, email stored
+byte-exact. Cause is a credential mismatch (likely the dead SEC-001 password). Hardening noted but
+NOT applied: `routers/auth.py` looks the user up with raw `find_one({"email": body.email})` while
+the rate-limit key normalises, so a differing-case or whitespace-padded email 401s even with the
+correct password.
+
+
 ## 2026-06 · G-41 · ACTUAL-PARSER REPORT PASS, THEN APPLY RESUMABILITY FIXED `[not deployed]`
 
 **Owner executed the production REPORT** (`mig_dde7b04395bc4cc0`, ~5 s): expected 122,477 ·
