@@ -5275,3 +5275,28 @@ sensor/Windows/Mac action.
 ### NEXT (owner-gated)
 Review the deploy report, then a SEPARATE authorization for a production `mode=report` run, and only
 after reviewing that, `mode=apply`.
+
+### 34H-B POST-DEPLOY VERIFICATION (2026-06) — EXTERNAL PROOF PASS; PIPELINE FACTS PENDING
+
+Publish reported by the panel as "Publish 100 / b6055ae". Read-only verification performed by me
+against production `https://nivxray.nivxforge.com` (no authentication used, no migration invoked):
+- `GET /api/health` -> 200
+- `GET /api/internal/admin/migrations` (unauth) -> **403** `{"detail":"Not authenticated"}`
+- `POST /api/internal/admin/migrations/ensure-canonical-identity-indexes` (unauth) -> **403**
+- `POST /api/internal/admin/migrations/ensure_canonical_identity_indexes` (unauth) -> **403**
+- same route with an INVALID bearer token -> **401** `{"detail":"Invalid or expired token"}`
+- control probe `GET /api/internal/admin/migrations-nonexistent` -> **404**
+  => the router IS registered in production (403, not 404, while a sibling path genuinely 404s) and
+     IS guarded by the existing admin principal.
+- existing surface healthy: `/api/edr/endpoints` -> 403, `/api/auth/me` -> 403, app shell `/` -> 200.
+- No response body contained any secret, token or connection string.
+NOT invoked: `mode=report`, `mode=apply`. No index, no backfill, no Behavior, no frontier, no family
+census, no endpoint/sensor action, DESKTOP untouched.
+
+PENDING (dispatched to the deployer, read-only, job `95e7e8cd-6528-4f50-8702-566d0dc3b0ce`):
+deployment run id, full commit SHA, image digest, desired-vs-ready replicas and per-pod restart
+count, this revision's startup log health (incl. clean import of `routers/edr_migration_control`),
+sustained-5xx comparison and top repeated errors, confirmation that the production Mongo binding is
+UNCHANGED (mechanism/presence only), confirmation that no secret appears in build/deploy output, and
+— tracked separately, not fixed — whether the startup ThreatFox 401 is recurring and predates this
+rollout.
