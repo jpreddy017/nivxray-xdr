@@ -5546,3 +5546,23 @@ recommended): minting a token, adding a debug/bypass route, a service credential
 It is the `ADMIN_EMAIL`/`ADMIN_PASSWORD` pair in the production Deployment Panel secrets; the owner
 can read/rotate it there. Rotation is a platform action, not a code change, and the seed will not
 overwrite an existing admin.
+
+### 34H-D APPLY EXECUTED BY OWNER — INDEPENDENT VERIFICATION DISPATCHED (2026-06)
+
+Owner executed the authorized `{"mode":"apply"}` call through their authenticated production admin
+session (no token in chat, no bypass, no auth change). Control-plane response: migration run
+`mig_a32bd78e2478488b`, state COMPLETED, collection `xdr_canonical_evidence`, production MongoDB
+8.0.34, ~2.4s.
+
+Independent verification dispatched to the platform's READ-ONLY diagnose mechanism (job
+`95e7e8cd-6528-4f50-8702-566d0dc3b0ce`) — deliberately a DIFFERENT channel from the change. It must
+confirm: `sd_canonical_endpointid_eventtime` = {tenant_id:1, additional_fields.endpoint_id:1,
+event_time:-1} and `sd_canonical_hostname_eventtime` = {tenant_id:1, host.hostname:1,
+event_time:-1}, both exact in fields/order/direction and plain (non-unique, non-partial); `_id_` and
+`tenant_id_1_ingest_time_-1` UNCHANGED; EXACTLY FOUR indexes total with no duplicate key pattern
+under another name; plus any observable in-progress build state. Any discrepancy = HOLD, reported and
+never repaired.
+
+Still frozen: no backfill, no legacy-branch retirement, no §d change, no Behavior, no
+frontier/shadow, no TI work, no deploy, KUSHU untouched, DESKTOP untouched, no
+Windows/Mac/sensor action.
