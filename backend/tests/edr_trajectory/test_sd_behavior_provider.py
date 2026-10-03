@@ -282,12 +282,18 @@ async def test_missing_raw_reference_is_counted_never_silently_converted():
 
 
 @pytest.mark.asyncio
-async def test_unsupported_kind_is_counted_never_coerced():
+async def test_unsupported_kind_is_out_of_scope_not_an_adapter_defect():
+    """E14: a valid row of an activity family the Behavior contract does not
+    consume is counted as OUT_OF_SCOPE, never as an adapter defect."""
     p = provider(db_with(doc(ts(1), 1, activity="SOMETHING_ELSE"),
                          doc(ts(2), 2)))
     recs = await win(p, kinds=())
     assert len(recs) == 1
-    assert p.refusals[REFUSED_KIND] == 1
+    assert p.out_of_scope[REFUSED_KIND] == 1
+    assert p.counters["rows_out_of_scope"] == 1
+    assert REFUSED_KIND not in p.refusals
+    assert p.counters["rows_refused"] == 0
+    assert p.snapshot()["out_of_scope"] == {REFUSED_KIND: 1}
 
 
 @pytest.mark.asyncio

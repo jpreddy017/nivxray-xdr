@@ -67,6 +67,26 @@ REFUSED_NO_RAW_REF = "NO_DURABLE_RAW_EVIDENCE_REFERENCE"
 REFUSED_FIELD_SHAPE = "SOURCE_FIELD_STRUCTURALLY_INCOMPATIBLE"
 REFUSED_FIELD_COLLISION = "SOURCE_FIELDS_COLLIDE_ON_ONE_CANONICAL_PATH"
 
+#: Owner decision E14. Exactly one non-conversion reason is OUT_OF_SCOPE: the
+#: §d row is valid evidence, but its activity family is outside the current
+#: Behavior EvidenceRecord contract. The row stays in §d untouched, no
+#: EvidenceRecord is manufactured, and it is NOT an adapter defect.
+OUT_OF_SCOPE_REASONS = frozenset({REFUSED_KIND})
+
+#: Every other non-conversion reason is an evidence-integrity, identity,
+#: tenancy, timestamp or schema DEFECT and stays fail-closed (E8).
+DEFECT_REASONS = frozenset({
+    REFUSED_NO_TENANT, REFUSED_TENANT_CONFLICT, REFUSED_NO_ENDPOINT,
+    REFUSED_NO_TIME, REFUSED_NO_RAW_REF, REFUSED_FIELD_SHAPE,
+    REFUSED_FIELD_COLLISION,
+})
+
+
+def is_out_of_scope(reason: Optional[str]) -> bool:
+    """True only for the explicitly named unsupported-activity-family reason.
+    Any unknown or new reason is treated as a defect, never as out of scope."""
+    return reason in OUT_OF_SCOPE_REASONS
+
 #: The §d row containers this adapter reads. Each must be an object when
 #: present: a scalar where the evidence contract says object is a source defect,
 #: not something to coerce.

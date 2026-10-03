@@ -15,8 +15,12 @@ is idempotent, so a crash degrades to at-least-once re-evaluation and never to a
 silently skipped, unaccounted evidence item.
 
 Deliberate refusals (owner decisions E7/E8): a NO_EVIDENCE frontier is refused
-outright, and ANY adapter refusal on a page refuses the whole invocation BEFORE
-the engine runs. Neither is papered over.
+outright, and ANY adapter DEFECT on a page refuses the whole invocation BEFORE
+the engine runs. Neither is papered over. Owner decision E14 carves out exactly
+one non-defect class: a valid §d row whose activity family is outside the
+Behavior EvidenceRecord contract is OUT_OF_SCOPE — counted, preserved in §d,
+never adapted, never engine-evaluated, never a detection — and the run
+continues.
 
 Two authorities that are NOT the engine's:
 * `duplicates_prevented` comes from the shadow store's DUPLICATE_UNCHANGED write
@@ -415,9 +419,13 @@ def _budget_ok(ctx: _Ctx, t0: float) -> bool:
 
 
 async def _read_page(ctx: _Ctx) -> Optional[List[Any]]:
-    """Bounded forward read. ANY adapter refusal refuses the page before the
-    engine is given anything (owner decision E8)."""
+    """Bounded forward read. Any adapter DEFECT refuses the page before the
+    engine is given anything (owner decision E8). A valid §d row whose activity
+    family the Behavior contract does not consume is OUT_OF_SCOPE (E14): it is
+    counted, left in §d, never adapted, never given to the engine, and
+    processing continues."""
     pre_ref = dict(ctx.inner.refusals)
+    pre_oos = int(ctx.inner.counters.get("rows_out_of_scope", 0))
     pre_conv = int(ctx.inner.counters.get("rows_converted", 0))
     pre_rows = int(ctx.inner.counters.get("sd_rows_read", 0))
     remaining = max(1, ctx.budgets.max_trigger_rows - ctx.items)
@@ -433,6 +441,8 @@ async def _read_page(ctx: _Ctx) -> Optional[List[Any]]:
         return None
     ctx.m.bump("rows_read",
                int(ctx.inner.counters.get("sd_rows_read", 0)) - pre_rows)
+    ctx.m.bump("rows_out_of_scope",
+               int(ctx.inner.counters.get("rows_out_of_scope", 0)) - pre_oos)
     converted = int(ctx.inner.counters.get("rows_converted", 0)) - pre_conv
     ctx.m.bump("skipped_observed_before_frontier",
                max(0, converted - len(page)))
@@ -638,13 +648,17 @@ async def _finalize(ctx: _Ctx, duration_ms: int) -> Dict[str, Any]:
     if ctx.state != rr.STATE_COMPLETED and ctx.cp.get("after_time"):
         t, k = _after(ctx)
         resume = {"resume_after_time": t, "resume_after_key": k}
+    # Anything measured on a page that produced no processable item (e.g. only
+    # OUT_OF_SCOPE rows) is still measurement, and must not be lost.
+    pending = ctx.m.drain()
     try:
         record = await rr.finalize(
             ctx.run_store, tenant_id=ctx.tenant,
             shadow_run_id=ctx.shadow_run_id, state=ctx.state,
             expected_revision=ctx.run_rev, completed_at=ctx.now(),
             failure_reason=ctx.failure, execution_duration_ms=duration_ms,
-            **resume)
+            counters=pending["counters"], outcomes=pending["outcomes"],
+            adapter_refusals=pending["adapter_refusals"], **resume)
     except Exception:
         # A STARTED record with no completed_at is the truthful statement that
         # this run cannot be accounted for. The checkpoint proves nothing was

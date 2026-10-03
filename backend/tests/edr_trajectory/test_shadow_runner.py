@@ -435,13 +435,26 @@ async def test_sd_page_budget_stops_the_run_rather_than_broadening():
     assert out["provider"]["counters"]["sd_pages_read"] <= 3
 
 
-# ── adapter refusal (E8) ─────────────────────────────────────────────────
+# ── adapter DEFECT (E8) vs OUT_OF_SCOPE (E14) ────────────────────────────
+
+def defect_row(minute, pid, *, rule_id="sig_second"):
+    """A §d row with no durable raw-evidence reference: an evidence-integrity
+    DEFECT, which must stay fail-closed."""
+    d = detection_row(minute, pid, rule_id=rule_id)
+    d.pop("ingest_job_id", None)
+    return d
+
+
+def out_of_scope_row(minute, pid):
+    """Valid §d telemetry whose activity family the Behavior contract does not
+    consume. NOT a defect (E14)."""
+    return doc(ts(minute), pid, activity="SOMETHING_UNMAPPED")
+
 
 @pytest.mark.asyncio
-async def test_any_adapter_refusal_refuses_the_page_before_the_engine_runs():
+async def test_any_adapter_defect_refuses_the_page_before_the_engine_runs():
     b = Bench()
-    db = db_of(detection_row(1, 1),
-               doc(ts(30), 30, activity="SOMETHING_UNMAPPED"))
+    db = db_of(detection_row(1, 1), defect_row(30, 30))
     out = await b.go(db)
     assert out["state"] == rr.STATE_INTERRUPTED
     assert out["failure_reason"] == run.STOP_ADAPTER_REFUSAL
@@ -452,6 +465,80 @@ async def test_any_adapter_refusal_refuses_the_page_before_the_engine_runs():
     assert any(v > 0 for v in
                out["record"]["adapter_refusals"].values())
     assert "process" not in out["trace"]
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_page_skips_out_of_scope_rows_and_keeps_processing():
+    """supported -> unsupported family -> supported:
+    2 engine-eligible records, 1 rows_out_of_scope, 0 adapter defects, and the
+    frontier progresses past the out-of-scope row."""
+    b = Bench(rule_doc([STAGE_PROC_NAME]))
+    db = db_of(process_row(1, 1), process_row(30, 30),
+               out_of_scope_row(31, 31), process_row(32, 32))
+    out = await b.go(db)
+    assert out["state"] == rr.STATE_COMPLETED
+    assert out["items_processed"] == 2
+    assert out["engine_metrics"]["counters"]["events_evaluated"] == 2
+    rec = out["record"]
+    assert rec["counters"]["rows_out_of_scope"] == 1
+    assert rec["adapter_refusals"] == {}
+    assert out["provider"]["counters"].get("rows_refused", 0) == 0
+    # the provider counts every READ occurrence (the engine's own window
+    # re-reads the same bounded set); the run record counts frontier rows once.
+    assert out["provider"]["out_of_scope"][
+        "ACTIVITY_FAMILY_NOT_SUPPORTED_BY_BEHAVIOR_CONTRACT"] >= 1
+    assert out["provider"]["adapter_refusals"] == {}
+    # the engine never saw the out-of-scope row, and it produced no outcome
+    assert sum(rec["outcome_counts"].values()) == \
+        rec["counters"]["rules_evaluated"]
+    assert rec["counters"]["engine_failures"] == 0
+    # frontier moved past the out-of-scope row to the LAST supported row
+    assert b.checkpoint()["after_time"].startswith("2026-10-03T04:32")
+
+
+@pytest.mark.asyncio
+async def test_an_out_of_scope_row_never_creates_a_shadow_detection():
+    b = Bench()
+    db = db_of(detection_row(1, 1), out_of_scope_row(30, 30))
+    out = await b.go(db)
+    assert out["state"] == rr.STATE_COMPLETED
+    assert out["items_processed"] == 0
+    assert out["record"]["counters"]["rows_out_of_scope"] == 1
+    assert out["record"]["adapter_refusals"] == {}
+    assert out["detection_writes"] == []
+    assert b.backend.all() == []
+    assert sum(out["record"]["outcome_counts"].values()) == 0
+    assert "process" not in out["trace"]
+
+
+@pytest.mark.asyncio
+async def test_a_defect_between_supported_rows_still_refuses_the_whole_page():
+    """supported -> defect -> supported: page refused, zero engine work."""
+    b = Bench(rule_doc([STAGE_PROC_NAME]))
+    db = db_of(process_row(1, 1), process_row(30, 30), defect_row(31, 31),
+               process_row(32, 32))
+    out = await b.go(db)
+    assert out["state"] == rr.STATE_INTERRUPTED
+    assert out["failure_reason"] == run.STOP_ADAPTER_REFUSAL
+    assert out["items_processed"] == 0
+    assert out["engine_metrics"]["counters"]["events_evaluated"] == 0
+    assert out["detection_writes"] == []
+    assert b.backend.all() == []
+    assert out["record"]["adapter_refusals"] == {
+        "NO_DURABLE_RAW_EVIDENCE_REFERENCE": 1}
+    assert b.checkpoint()["after_time"].startswith("2026-10-03T04:01")
+    assert "process" not in out["trace"]
+
+
+def test_only_the_named_unsupported_family_reason_is_out_of_scope():
+    from edr_plane import behavior_evidence_adapter as ad
+    assert ad.OUT_OF_SCOPE_REASONS == frozenset(
+        {"ACTIVITY_FAMILY_NOT_SUPPORTED_BY_BEHAVIOR_CONTRACT"})
+    assert not (ad.OUT_OF_SCOPE_REASONS & ad.DEFECT_REASONS)
+    for why in ad.DEFECT_REASONS:
+        assert ad.is_out_of_scope(why) is False
+    assert ad.is_out_of_scope("SOME_NEW_UNKNOWN_REASON") is False
+    assert ad.is_out_of_scope(None) is False
 
 
 # ── engine failure ───────────────────────────────────────────────────────
@@ -792,10 +879,10 @@ async def test_checkpoint_never_advances_for_any_unresolved_outcome():
                                         detection_row(30, 30),
                                         detection_row(31, 31)),
                                   budgets=ShadowBudgets(max_window_events=1))))
-    # adapter refusal
+    # adapter defect (an out-of-scope activity family is NOT a defect, E14)
     b3 = Bench()
     cases.append((b3, await b3.go(db_of(detection_row(1, 1),
-                                        doc(ts(30), 30, activity="NOPE")))))
+                                        defect_row(30, 30)))))
     for bench, out in cases:
         assert out["state"] != rr.STATE_COMPLETED
         assert bench.checkpoint()["after_time"].startswith(

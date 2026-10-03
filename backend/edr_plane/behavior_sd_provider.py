@@ -23,7 +23,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from edr_behavior.contracts import EvidenceRecord
-from edr_plane.behavior_evidence_adapter import to_evidence_record
+from edr_plane.behavior_evidence_adapter import (is_out_of_scope,
+                                                 to_evidence_record)
 from edr_trajectory.paging import PAGE_DEFAULT, PAGE_MAX
 from edr_trajectory.production_adapter import page_device_evidence
 
@@ -65,6 +66,10 @@ class SdEvidenceProvider:
         self._max_pages = max(1, int(max_pages))
         self.counters: Counter = Counter()
         self.refusals: Counter = Counter()
+        #: E14: valid §d evidence whose activity family the Behavior contract
+        #: does not consume. Counted separately from `refusals`, which carry
+        #: only adapter DEFECTS.
+        self.out_of_scope: Counter = Counter()
 
     # ── internals ────────────────────────────────────────────────────────
 
@@ -87,6 +92,12 @@ class SdEvidenceProvider:
                     row, tenant_id=self.tenant_id,
                     endpoint_id=self.endpoint_id)
                 if rec is None:
+                    if is_out_of_scope(why):
+                        # The §d row is preserved as-is; no EvidenceRecord is
+                        # manufactured and nothing reaches the engine.
+                        self.out_of_scope[why] += 1
+                        self.counters["rows_out_of_scope"] += 1
+                        continue
                     self.refusals[why] += 1
                     self.counters["rows_refused"] += 1
                     continue
@@ -163,4 +174,5 @@ class SdEvidenceProvider:
         """Counters only. Nothing durable is written by this provider."""
         return {"tenant_id": self.tenant_id, "endpoint_id": self.endpoint_id,
                 "counters": dict(self.counters),
-                "adapter_refusals": dict(self.refusals)}
+                "adapter_refusals": dict(self.refusals),
+                "out_of_scope": dict(self.out_of_scope)}

@@ -4647,3 +4647,38 @@ E14 (split benign `REFUSED_KIND` from defect refusals), then a production-side r
 (the same tool, run where production `MONGO_URL` is resolvable), then the index decision from
 production explain output.
 
+
+## STEP 34B — OUT_OF_SCOPE vs DEFECT CLASSIFICATION (E14) — 2026-06 — DONE (HERMETIC)
+
+Owner decision E14 APPROVED and implemented. Adapter non-conversion now has exactly two semantic
+classes, with no generalized "skip adapter errors" behaviour.
+
+- `behavior_evidence_adapter.py`: added `OUT_OF_SCOPE_REASONS = {ACTIVITY_FAMILY_NOT_SUPPORTED_BY_BEHAVIOR_CONTRACT}`,
+  an explicit `DEFECT_REASONS` set (tenant/endpoint/time/raw-ref/field-shape/field-collision) and
+  `is_out_of_scope()`, which is fail-closed: any unknown/new reason is a DEFECT. Conversion logic,
+  supported families and `KIND_MAP` unchanged. No OTHER support added.
+- `behavior_sd_provider.py`: out-of-scope rows go to a separate `out_of_scope` counter and
+  `counters["rows_out_of_scope"]`; they never touch `refusals`/`rows_refused`, no EvidenceRecord is
+  manufactured, the §d row is left untouched and nothing reaches the engine. `snapshot()` now
+  reports `out_of_scope` alongside `adapter_refusals`.
+- `behavior_shadow_run.py`: `rows_out_of_scope` added to `COUNTERS` (materialized at zero).
+- `behavior_shadow_runner.py`: `_read_page` measures the per-page `rows_out_of_scope` delta and
+  continues; only DEFECT refusals still set `STATE_INTERRUPTED/STOP_ADAPTER_REFUSAL` before the
+  engine runs (E8 intact). `_finalize` now flushes any pending measurement so a page that yields no
+  processable item (e.g. only out-of-scope rows) is still accounted for.
+- Frontier semantics unchanged: out-of-scope rows are never acknowledged individually, and the
+  forward `after`-key read naturally progresses past them once later supported rows are processed.
+  Checkpoint stays the LAST durable operation; MATCH/NO_MATCH/INSUFFICIENT/BUDGET untouched.
+
+Tests (hermetic, synthetic only): mixed page supported→unsupported→supported = 2 engine-eligible
+records, 1 `rows_out_of_scope`, 0 adapter defects, frontier at the last supported row; out-of-scope
+row creates no shadow detection and no outcome; supported→defect→supported still refuses the page
+with zero engine work; reason-class invariants asserted. Full `tests/edr_trajectory` = 380 passed,
+9 skipped. `tests/edr` = only the 4 pre-existing `test_p0_f13_5_detection_handoff` failures remain.
+
+No production access, no real KUSHU evidence, no DESKTOP, no index creation, no deploy, no shadow
+run started. G-22 (E14) is now CLOSED. G-20/G-21 remain open.
+
+### NEXT (owner-gated)
+Hold. Likely 34C: read-only production explain preflight, run where production `MONGO_URL` is
+resolvable. No index creation until that output is reviewed.

@@ -69,7 +69,8 @@ OUTCOMES = ("MATCH", "NO_MATCH", "INSUFFICIENT_EVIDENCE", "BUDGET_EXCEEDED",
 
 # Always materialised at zero so "we measured zero" is distinguishable from
 # "we never measured".
-COUNTERS = ("rows_read", "events_evaluated", "rules_evaluated", "matches",
+COUNTERS = ("rows_read", "rows_out_of_scope",
+            "events_evaluated", "rules_evaluated", "matches",
             "skipped_observed_before_frontier", "duplicates_prevented",
             "concurrency_retries", "cross_tenant_reference_count",
             "matches_without_valid_evidence_refs", "engine_failures")
