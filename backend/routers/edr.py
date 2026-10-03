@@ -1195,6 +1195,24 @@ def _identity_with_display_hostname(descriptor: Dict[str, Any],
             "observed_hostname": descriptor.get("hostname")}
 
 
+def _focus_endpoint_block(endpoint_id: str, descriptor: Dict[str, Any],
+                          ep: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The `endpoint` block every /trajectory/focus branch returns.
+
+    Same authority and same precedence as the window route's header, so a
+    deep link can never name the machine differently from the page that
+    produced the link. Presentation only: the resolved identity, its
+    aliases and the addressing they drive are not consulted or altered
+    beyond reading the already-resolved values.
+    """
+    hostname, basis = _display_hostname(descriptor, ep)
+    return {"endpoint_id": endpoint_id,
+            "device_iid": descriptor.get("device_iid"),
+            "hostname": hostname,
+            "hostname_basis": basis,
+            "observed_hostname": descriptor.get("hostname")}
+
+
 def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
                      out: Dict[str, Any]) -> Dict[str, Any]:
     """The AMP-equivalent computer summary, from persisted fields only.
@@ -1736,6 +1754,15 @@ async def trajectory_focus(endpoint_id: str,
                 "focus": None}
     identity = res.identity
 
+    # The deep link must NAME the machine exactly as the main trajectory does, or one analyst
+    # session disagrees with itself about which host it is looking at. Same authority, same
+    # precedence helper, same tenant/ref-bound predicate as the window route — a LABEL only:
+    # `res.identity` is never mutated, so cache keys, alias refs and addressing are untouched.
+    _ep_doc = await _db["edr_endpoints"].find_one(
+        res.predicate("edr_endpoints"), {"_id": 0})
+    endpoint_block = _focus_endpoint_block(endpoint_id, res.descriptor(),
+                                           _ep_doc)
+
     # §8 · `event` is an ACCEPTED ALIAS of `event_iid`. The ATT&CK HeatMap and the XDR pivot both
     # build `?event=`, and an identifier the resolver silently ignored resolved to nothing while
     # looking like a successful read.
@@ -1782,9 +1809,7 @@ async def trajectory_focus(endpoint_id: str,
             "engine_id": "nivxray::edr_trajectory::v3_focus",
             "state": "FOCUS_RESOLVED",
             "resolved_by": "v3_presentation_identity" if v3_event_id else "observation_id",
-            "endpoint": {"endpoint_id": endpoint_id,
-                         "device_iid": identity.get("device_iid"),
-                         "hostname": identity.get("hostname")},
+            "endpoint": endpoint_block,
             "focus": {
                 "event_iid": e3v3.encode_iid(hit["event_id"]),
                 "event_id": hit["event_id"],
@@ -1919,9 +1944,7 @@ async def trajectory_focus(endpoint_id: str,
             "searched": search["identities_searched"],
             "search": search,
             "context": context,
-            "endpoint": {"endpoint_id": endpoint_id,
-                         "device_iid": identity.get("device_iid"),
-                         "hostname": identity.get("hostname")},
+            "endpoint": endpoint_block,
             "observations_searched": searched,
             "resolution_reason": ("no observation examined on this "
                                   "endpoint carries the requested "
@@ -1944,9 +1967,7 @@ async def trajectory_focus(endpoint_id: str,
     return {
         "engine_id": "nivxray::edr_plane::trajectory_focus",
         "state": "FOCUS_RESOLVED",
-        "endpoint": {"endpoint_id": endpoint_id,
-                     "device_iid": identity.get("device_iid"),
-                     "hostname": identity.get("hostname")},
+        "endpoint": endpoint_block,
         "context": context,
         "search": search,
         "focus": {

@@ -8,7 +8,10 @@ identity resolution, aliases, `device_iid`, tenancy and evidence addressing are
 unchanged, and an absent name stays absent rather than being fabricated.
 """
 from routers.edr import (_computer_header, _display_hostname,
-                         _identity_with_display_hostname)
+                         _focus_endpoint_block,
+                         _identity_with_display_hostname, trajectory_focus)
+import inspect
+from pathlib import Path
 
 ENDPOINT_ID = "ep_a67be48d5b4e01d4d9e8"
 DEVICE_IID = "dev_d21e1278f914"
@@ -85,3 +88,60 @@ def test_blank_enrolment_hostname_is_not_treated_as_a_name():
     name, basis = _display_hostname(DESCRIPTOR, {**ENDPOINT_DOC,
                                                  "hostname": "   "})
     assert (name, basis) == (ENDPOINT_ID, "OBSERVATION_DERIVED")
+
+
+# ── /trajectory/focus · the deep link must name the machine identically ──
+
+def test_focus_endpoint_block_shows_kushu():
+    blk = _focus_endpoint_block(ENDPOINT_ID, DESCRIPTOR, ENDPOINT_DOC)
+    assert blk["hostname"] == "KUSHU"
+    assert blk["hostname_basis"] == "ENROLMENT_REPORTED"
+    assert blk["observed_hostname"] == ENDPOINT_ID
+    assert blk["endpoint_id"] == ENDPOINT_ID
+    assert blk["device_iid"] == DEVICE_IID
+
+
+def test_focus_block_matches_the_window_header_exactly():
+    """The defect this closes: main view said KUSHU, deep link said ep_…."""
+    blk = _focus_endpoint_block(ENDPOINT_ID, DESCRIPTOR, ENDPOINT_DOC)
+    comp = _computer_header(DESCRIPTOR, ENDPOINT_DOC, OUT)
+    ident = _identity_with_display_hostname(DESCRIPTOR, ENDPOINT_DOC)
+    assert blk["hostname"] == comp["hostname"] == ident["hostname"] == "KUSHU"
+    assert (blk["hostname_basis"] == comp["hostname_basis"]
+            == ident["hostname_basis"] == "ENROLMENT_REPORTED")
+
+
+def test_focus_block_absent_hostname_stays_absent():
+    doc = {k: v for k, v in ENDPOINT_DOC.items() if k != "hostname"}
+    blk = _focus_endpoint_block(ENDPOINT_ID, {**DESCRIPTOR, "hostname": None},
+                                doc)
+    assert blk["hostname"] is None
+    assert blk["hostname_basis"] == "HOSTNAME_NOT_COLLECTED"
+    assert blk["endpoint_id"] == ENDPOINT_ID
+    assert blk["device_iid"] == DEVICE_IID
+
+
+def test_focus_block_falls_back_to_observation_name():
+    doc = {k: v for k, v in ENDPOINT_DOC.items() if k != "hostname"}
+    blk = _focus_endpoint_block(ENDPOINT_ID,
+                                {**DESCRIPTOR, "hostname": "real-sensor-host"},
+                                doc)
+    assert blk["hostname"] == "real-sensor-host"
+    assert blk["hostname_basis"] == "OBSERVATION_DERIVED"
+
+
+def test_all_three_focus_branches_use_the_shared_block():
+    """Structural guard: no focus branch may hand back a raw identity hostname."""
+    src = Path(inspect.getsourcefile(trajectory_focus)).read_text()
+    body = src.split('@router.get("/endpoints/{endpoint_id}/trajectory/focus")')[1]
+    assert body.count('"endpoint": endpoint_block,') == 3
+    assert '"hostname": identity.get("hostname")' not in body
+
+
+def test_focus_reads_the_tenant_and_ref_bound_enrolment_predicate():
+    src = Path(inspect.getsourcefile(trajectory_focus)).read_text()
+    body = src.split('@router.get("/endpoints/{endpoint_id}/trajectory/focus")')[1]
+    assert 'res.predicate("edr_endpoints")' in body
+    # res.identity itself is never rebound or mutated inside the handler
+    assert "identity[" not in body
+    assert "res.identity =" not in body
