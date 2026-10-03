@@ -5847,3 +5847,74 @@ retire legacy identity path -> real KUSHU Behavior.
   retrospective seams. Do NOT build another TI stack or contract. GAP-1..GAP-5 stay recorded.
 - NOT NOW: provider credentials (G-37 deferred), health semantics, db.iocs, caching, E3 enrichment,
   TI UI. CURRENT PRIORITY: STEP 35 ONLY. Nothing implemented for either decision.
+
+## STEP 35 — PRODUCTION READ-ONLY CENSUS RESULT (2026-06) · CANDIDATE COUNT = 0
+
+Read-only production census completed via deployer (DB `greeting-app-5782-test_database`, collection
+`xdr_canonical_evidence`). ZERO writes, NO migration operation invoked, admin boundary not crossed.
+Full report: `/app/deployer-agent-docs/RCA_8a4b87da-e8ae-4bb5-87c3-da0be590c2df.MD`.
+
+DECISIVE RESULT: **the STEP 35 candidate population DOES NOT EXIST IN PRODUCTION.**
+- production total ~121,987 (drifting upward — live ingestion; all figures are snapshots)
+- STEP 35 candidate predicate -> **0**
+- `additional_fields.endpoint_id` present on 121,982; missing on only **5**
+- all 5 missing-authoritative rows carry a collector_id that is PRESENT but NOT platform-minted
+  (C3=5, C2=C4=0, reconciles exactly to C1=5) -> correctly INELIGIBLE, must never be touched
+- C7 = 0: no row would require inference from a NEVER_IDENTITY field
+- C8 = 0: no non-minted authoritative value exists (no identity defect of that class)
+- single tenant holds the entire corpus: `ten_e759b7288598bd882e3dcac49d`
+- `BACKFILL_DETERMINISTIC` = 0 (the backfill has never written anywhere)
+- no TTL index; TTL does not explain the preview/production difference; cause otherwise
+  NO EVIDENCE AVAILABLE from read-only data
+- 1,236 is confirmed a PREVIEW-ONLY figure (preview: 303,234 docs / exactly 1,236 candidates)
+
+CONSEQUENCE: STEP 35 apply is UNNECESSARY in production. G5 will HOLD (observed 0 vs expected
+1,236) when the owner runs the authenticated REPORT. The correct disposition is to CLOSE the
+backfill as "no production population", NOT to execute it and NOT to change EXPECTED_CANDIDATES.
+`EXPECTED_CANDIDATES` remains 1,236 and G5 remains intact — unchanged, as instructed.
+
+TWO NEW FINDINGS, both more consequential than the backfill was:
+
+G-40 (P0) · IDENTITY PRESENT BUT UNATTESTED ON 120,767 PRODUCTION ROWS.
+`provenance.endpoint_identity` is ABSENT on 120,767 of ~121,999 rows; present on only 1,232, all
+`AUTHENTICATED_INGEST_BOUNDARY` / `RESOLVED`. So 99% of production rows carry an `ep_`-prefixed
+authoritative endpoint_id with NO record of where that identity came from. Those rows were written
+before STEP 34F boundary stamping (ingest_time from 2026-09-18) and therefore before STEP 34G
+removed event-derived identity spoofing. The VALUES all look correct (C8=0, every present value is
+`ep_`-prefixed) but their PROVENANCE is unrecorded, so we cannot prove they came from the
+authenticated boundary rather than event-derived derivation. This is the real residual identity
+question, and it is 98x larger than the 1,236 ever was. NOT a reason to write to those rows — an
+attestation/classification question to design deliberately.
+
+G-41 (P0) · `event_time` IS NOT A SINGLE COMPARABLE TYPE — ORDERING IS LATENTLY NON-CHRONOLOGICAL.
+Verified in preview (production confirmed mixed by the deployer):
+- 819 rows have **NO `event_time` at all** (missing/null). They are invisible to every
+  `event_time` range filter and cannot be ordered — the Behavior engine's `window(start, end)` can
+  never return them. This is a PRESENT fact, not a latent risk.
+- three incompatible string formats coexist: `"YYYY-MM-DD HH:MM:SS.mmm"` (space, NO timezone, 3,347),
+  `"...Z"` (1,167, with 7 fractional digits), `"...+00:00"` (299,553, 6 fractional digits). Zero
+  BSON date-typed values.
+- consequence: in a lexicographic `sort({event_time:-1})` the FORMAT CLASS dominates time-of-day
+  within a calendar date (space `0x20` < `T` `0x54`), and unequal fractional-digit padding breaks
+  equality for identical instants. So `sd_canonical_endpointid_eventtime`'s newest-first ordering
+  is only accidentally correct.
+- HONEST LIMIT: I checked for a concrete inversion in today's preview data and found NONE — on the
+  one shared calendar date (2026-09-22) the space-format rows all genuinely precede the Z-format
+  rows. The defect is therefore LATENT, one data-arrival accident away, not a present mis-ordering.
+  Stated as latent, not claimed as broken.
+This matters directly for Device Trajectory newest-first presentation and for E3 Behavior time
+windows — i.e. for the very milestone this work exists to reach.
+
+NOT OBTAINABLE (honest gaps, no workaround attempted):
+- A (migration run id / actor / audit timestamps) and E (the operation's own G1-G8 gate board):
+  only exist when the OWNER runs the authenticated `{"mode":"report"}` POST. I hold no admin
+  credential, did not ask for one, and added no route or bypass.
+- F (explain / query-plan proof): the deployer's read-only toolset exposes only
+  find/count/distinct/list_collections/list_indexes — no `explain`, no `aggregate`. The shipped
+  report-only `explain_canonical_identity_read_plan` operation exists for exactly this and is the
+  owner's authenticated path to it.
+- `e3_migration_runs` holds 3 records, ALL for `ensure_canonical_identity_indexes` (apply + two
+  reports, actor admin@nivxray.com). The three STEP 35 operations each have 0 records. That
+  creation record is also the order-preserving source for the two `sd_canonical_*` compound key
+  orders (tenant_id, <identity|hostname>, event_time -1), since `list_indexes` alphabetises (G-39).
+- `e3_migration_row_ledger`: collection ABSENT.
