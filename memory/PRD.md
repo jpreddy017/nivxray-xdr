@@ -5887,8 +5887,11 @@ question, and it is 98x larger than the 1,236 ever was. NOT a reason to write to
 attestation/classification question to design deliberately.
 
 G-41 (P0) · `event_time` IS NOT A SINGLE COMPARABLE TYPE — ORDERING IS LATENTLY NON-CHRONOLOGICAL.
+CORRECTION: the 819 figure below is a PREVIEW measurement. I previously stated it as a production
+fact in chat — that was wrong. The deployer confirmed mixed FORMATS in production but never reported
+a production missing-event_time count. Production figure dispatched read-only, result pending.
 Verified in preview (production confirmed mixed by the deployer):
-- 819 rows have **NO `event_time` at all** (missing/null). They are invisible to every
+- [PREVIEW] 819 rows have **NO `event_time` at all** (missing/null). They are invisible to every
   `event_time` range filter and cannot be ordered — the Behavior engine's `window(start, end)` can
   never return them. This is a PRESENT fact, not a latent risk.
 - three incompatible string formats coexist: `"YYYY-MM-DD HH:MM:SS.mmm"` (space, NO timezone, 3,347),
@@ -5918,3 +5921,73 @@ NOT OBTAINABLE (honest gaps, no workaround attempted):
   creation record is also the order-preserving source for the two `sd_canonical_*` compound key
   orders (tenant_id, <identity|hostname>, event_time -1), since `list_indexes` alphabetises (G-39).
 - `e3_migration_row_ledger`: collection ABSENT.
+
+## G-41 EVENT_TIME INTEGRITY RCA — code-level root cause CLOSED, production counts PENDING (2026-06)
+
+Read-only. No code/data/schema/index change, no deploy, no Behavior, no KUSHU/DESKTOP/sensor, no TI,
+no UI. Report: `/app/memory/G41_EVENT_TIME_INTEGRITY_RCA.md`.
+
+ROOT CAUSE — a deliberate design decision, not a bug:
+- `services/ingest_provenance.validate()` returns the collector's timestamp VERBATIM by explicit
+  policy: "we deliberately do not normalise it to UTC: re-rendering a collector's timestamp would
+  make our arithmetic look like their measurement". Heterogeneous formats are the INTENDED
+  consequence.
+- `services/event_time_basis.py` is the single decision point (4 bases, invariant enforced in
+  `Resolution.verify()`), and its own docstring already states the conclusion: "`event_time` remains
+  a COMPATIBILITY FIELD. It is not the universal source of temporal truth, and a consumer that wants
+  causal ordering must read `provenance.timestamps` instead."
+- RC-3, the real finding: consumers order on a field the contract forbids ordering on, because it is
+  the only time field present on ~100% of rows — and the alternative (`provenance.timestamps`) is
+  both sparse (6.5% AVAILABLE in preview) and stored in the SAME verbatim formats. There is NO
+  normalized comparable instant persisted anywhere in the canonical schema.
+
+CURRENT WRITER STATUS:
+- Still omitting event_time? NO. `resolve()` has an unconditional clock fallback
+  (INGEST_TIME_SUBSTITUTED); there is no path yielding an empty event_time.
+- Still producing multiple formats? YES, by design.
+- Malformed values? NONE — `event_time_format_state` has one distinct value corpus-wide, ISO_8601;
+  UNPARSEABLE_FORMAT = 0.
+
+[PREVIEW] FORMAT ATTRIBUTION (303,346 docs): space/no-tz 3,347 = Sysmon's native
+`sysmon:EventData.UtcTime` wire format, basis ACTIVITY_TIME on 100% (our BEST evidence carries the
+most awkward format); `...Z` 1,167 = sysmon + windows TimeCreated + winsec + cloudtrail;
+`...+00:00` 299,627 = sensor observed_at / /proc start_time, auditd, cef-leef, pipeline clock,
+sysmon, windows.
+
+[PREVIEW] MISSING-TIME POPULATION (819, all lacking ingest_time entirely -> all LEGACY_WRITER):
+786 `network_alert` from dsm `snort-eve` with top-level `timestamp` AND `raw_ref.timestamp` on
+786/786 -> SOURCE_TIME_AVAILABLE_BUT_NOT_NORMALIZED (the writer emits the key `timestamp`, never
+`event_time` — confirmed at xdr_pipeline.py:170); 18 with no event_type but a `timestamp` -> same
+class; 15 `cortex.*` entity projections with no time anywhere -> SOURCE_TIME_ABSENT. Reconciles
+786+18+15=819. CURRENT_WRITER_DEFECT = 0. UNRESOLVED = 0. No timestamp inferred or manufactured.
+
+ORDERING ANALYSIS: lexicographic comparison makes FORMAT CLASS dominate time-of-day within an equal
+calendar date (space 0x20 < 'T' 0x54), fractional-digit padding differs (7 vs 6), `Z` vs `+00:00`
+differ textually, and BSON String sorts before Date (0 date-typed rows today, latent trap).
+HONEST LIMIT: I searched for a concrete inversion and found NONE — on the one shared date
+(2026-09-22) the space rows genuinely precede the Z rows. LATENT, not presently broken.
+
+DEVICE TRAJECTORY: ORDERS CORRECTLY. `production_adapter._branch_page` already documents the
+problem ("the string range is a BOUND, not the decision... a string comparison never decides whether
+an observation is inside the analyst's window"); final order is `merged.sort` on parsed
+`observed_us`; the resume cursor compares parsed microseconds; timeless rows are excluded by the
+range and REPORTED as unplaceable. `contracts.parse_instant` correctly handles all three formats.
+
+THE ONE GENUINE RESIDUAL (shared by Behavior and Trajectory): `_branch_page` applies
+`.sort(time_key,-1).limit(fetch)` — the LIMIT runs under the STRING sort. A genuinely-newer row
+whose string sorts lower can be cut by the limit, and the later in-process microsecond re-sort
+orders correctly but cannot recover a row it never fetched. SELECTION defect, not an ordering
+defect. Systematically biased against the Sysmon ACTIVITY_TIME class. Real exposure on a dense
+endpoint-day with provider_page_size=100 / max_sd_pages=24.
+
+SMALLEST SAFE REMEDIATION (DESIGN NOTE ONLY, NOT IMPLEMENTED): R1 stop paging on a non-comparable
+key; R2 add an ADDITIVE derived `observation_us` (int microseconds) at write time using the existing
+correct `parse_instant` logic + an index on it — `event_time` stays verbatim, so the evidentiary
+contract is preserved; any historical backfill of R2 would need full STEP-35 discipline. R3 do
+nothing to the timeless rows yet (804/819 recoverable without inference, but it is a write to
+historical evidence); they are already correctly excluded and counted as unplaceable. R4 fix the
+stale comment at behavior_shadow_runner.py:59 ("still has no event_time index" — superseded by 34H).
+R5 explicitly REJECTED: never normalise `event_time` in place.
+
+G-40: recorded as HISTORICAL/UNATTESTED per owner decision. No retrospective provenance to be
+manufactured. Not actioned.
