@@ -5391,3 +5391,43 @@ EXECUTION PATH: this plane holds no production admin credential, and I will not 
 chat. The secure path is OWNER-EXECUTED (your authenticated production admin session or your own
 shell), with the JSON pasted back for review -> `SECURE_ADMIN_EXECUTION_PATH_NOT_AVAILABLE_FROM_THIS_PLANE`.
 NOT EXECUTED pending the owner's separate authorization.
+
+## STEP 34H-C — ONE PRODUCTION REPORT-MODE EXECUTION — 2026-06 — AUTH PATH BLOCKED / OBSERVATION DISPATCHED
+
+Authorized: exactly one `{"mode":"report"}` call to
+`POST /api/internal/admin/migrations/ensure-canonical-identity-indexes` in production, as an
+inspection gate before mutation.
+
+ROUTE EXECUTION = NOT PERFORMED. `SECURE_ADMIN_EXECUTION_PATH_NOT_AVAILABLE` from this plane: the
+route requires a bearer JWT for a production user with `role == "admin"`, and this plane holds no
+production admin credential. Per the owner's constraints I did NOT request a token, cookie, key or
+connection string in chat, and I did NOT create a bypass, debug route, auth exception, service
+credential, alternate admin endpoint or any weaker authorization path to run it. Nothing about
+authentication was changed.
+
+Minimum safe OWNER-EXECUTED method (run from your authenticated production admin session/shell; the
+token never enters chat or the repo):
+  curl -sS -X POST \
+    https://nivxray.nivxforge.com/api/internal/admin/migrations/ensure-canonical-identity-indexes \
+    -H "Authorization: Bearer $NVX_ADMIN_TOKEN" -H "Content-Type: application/json" \
+    -d '{"mode":"report"}'
+(`mode=report` lists indexes only; its single production write is the audit record in
+`e3_migration_runs`, which the owner permitted.)
+
+IN PARALLEL, to satisfy the gate's PURPOSE with strictly LESS privilege and ZERO writes, a read-only
+production index-metadata observation was dispatched to the Emergent deployer (job
+`95e7e8cd-6528-4f50-8702-566d0dc3b0ce`): the complete current index list for
+`xdr_canonical_evidence`, and for each of the two target names one of ABSENT /
+PRESENT_WITH_EXPECTED_KEY / PRESENT_WITH_DIFFERENT_KEY (quoting the actual key), plus whether any
+other index already carries one of the expected key patterns under a different name. Its tool is
+limited to find/count/distinct/list_collections/list_indexes, so it cannot create, alter or drop
+anything. This is direct observation of production, NOT inference from preview, code or config.
+
+Untouched: no index created/modified/dropped, no backfill, no canonical-evidence mutation, no
+Behavior, no frontier/shadow, no TI/ThreatFox work, no deploy/redeploy, no endpoint or sensor action,
+no KUSHU access, DESKTOP prohibited, no Windows/Mac action, no `mode=apply`.
+
+### NEXT
+Read the production index list, then: all ABSENT -> the owner may consider authorizing
+`mode=apply`; any PRESENT_WITH_DIFFERENT_KEY -> **HOLD** (a name conflict is a stop condition and is
+never auto-repaired).
