@@ -1,3 +1,39 @@
+## 2026-06 · G-41 · ACTUAL-PARSER REPORT PASS, THEN APPLY RESUMABILITY FIXED `[not deployed]`
+
+**Owner executed the production REPORT** (`mig_dde7b04395bc4cc0`, ~5 s): expected 122,477 ·
+observed 122,477 · `contract_eligible` **122,477 executed through `to_epoch_us`, not regex-inferred**
+· `contract_unparseable` 0 · all three gates true · `written` 0 · `would_write` 122,477 · `ok` true ·
+state COMPLETED. `G41_ACTUAL_PARSER_REPORT_GATE = PASS`. Production evidence untouched.
+
+Closed from source, no production call needed: **no delete of any kind** against
+`CANONICAL_COLLECTION` in runtime code and no TTL index on it (every TTL in the codebase targets
+other collections), so `TTL_OR_RETENTION_LOSS = NO`; and `xdr_pipeline.py:415-421` is
+`stamp()` → `assert_stamped()` → the single `insert_one`, with the only other canonical write a
+narrow `$set` of two provenance timestamps, so `NEW_UNSTAMPED_WRITER_PATH = NO`. The earlier
+"75-row drift" was non-atomic counting (stamped read at one moment, total at another); a
+contemporaneous pass gave total 123,003 = 526 stamped + 122,477 unstamped, residual 0.
+
+**Then the sequencing review found the real remaining weakness — and it was in the tool, not the
+data.** A half-completed APPLY could not resume: the next attempt saw fewer candidates than
+`EXPECTED_CANDIDATES` and refused, leaving only the choice between a stalled migration and editing
+the expectation down to the residual. Fixed with an accounting identity that never moves 122,477:
+every ledger row carries `population_id`, and continuation requires
+`written_before + remaining == 122,477` — identical to the old gate on a first run, strictly
+stronger on a resume, because a vanished row and a joined row both break the sum. Plus
+`ledger_integrity` gating on intact prior state, and an audited, age-gated stale-lock takeover (a
+live lock is still refused 409; a presumed-dead one is taken over with both runs recording it).
+
+19 new tests in `tests/edr/test_g41_resumability.py` (interrupt → resume → verify end-to-end through
+the control plane, idempotent repeat resume, and HOLD on vanished / extra / unparseable /
+fail-closed-UNPLACEABLE / corrupt-ledger / duplicated-ledger). One 34h lock test updated to the new
+contract. `G41_RESUMABILITY_GATE = PASS`; **`PRODUCTION_APPLY_READY = NO` until deployed.**
+
+Also recorded, by owner direction and with no implementation: `/app/memory/E1_CANONICAL_NORMALIZATION_AUTHORITY.md`
+— the permanent Canonical Normalization Authority invariant, of which `observation_us` is the
+temporal instance. A bounded KEEP / EXTEND / CONSOLIDATE / REPLACE inventory is deferred until after
+G-41 closes and must not interrupt the Production V1 critical path.
+
+
 ## 2026-06 · G-41 STEP 2 · MIGRATION CONTROL LOCKED, VERIFIER FIXED, DEPLOYED `[commit c6ed841]`
 
 Owner-gated sequence, each step a separate authorization. **No APPLY. The 122,477 historical

@@ -59,6 +59,11 @@ CANDIDATE_SELECTOR: Dict[str, Any] = {
 
 AUTHORITY = "BACKFILL_TEMPORAL_AUTHORITY"
 HOLD_DRIFT = "CANDIDATE_POPULATION_DRIFT"
+
+#: ONE immutable logical migration, across however many runs it takes. Runs are
+#: disposable; the POPULATION is not. Stamped into every ledger row so a
+#: continuation can prove what a previous run completed instead of being told.
+POPULATION_ID = "g41_observation_us_historical"
 OUTCOME_WRITTEN = "WRITTEN"
 OUTCOME_SKIPPED_CHANGED = "SKIPPED_CHANGED_UNDER_RUN"
 OUTCOME_SKIPPED_UNPARSEABLE = "SKIPPED_UNPARSEABLE_OBSERVATION_TIME"
@@ -77,9 +82,38 @@ OUTCOME_SKIPPED_UNPARSEABLE = "SKIPPED_UNPARSEABLE_OBSERVATION_TIME"
 EXPECTED_CANDIDATES: Optional[int] = 122_477
 
 
+def _written_query() -> Dict[str, Any]:
+    return {"operation": OP_BACKFILL_OBSERVATION_US,
+            "population_id": POPULATION_ID, "outcome": OUTCOME_WRITTEN}
+
+
+async def _progress(db) -> Dict[str, Any]:
+    """What a PREVIOUS run of this population provably completed.
+
+    Read from the ledger and nowhere else. The expectation is never consulted
+    here, so a continuation cannot be manufactured by editing a constant.
+    """
+    q = _written_query()
+    written_before = await db[LEDGER].count_documents(q)
+    if written_before == 0:
+        return {"written_before": 0, "ledger_integrity": True,
+                "ledger_detail": "no prior run for this population"}
+    malformed = await db[LEDGER].count_documents({**q, "$or": [
+        {f"prior.{ta.SOURCE_FIELD}": {"$exists": False}},
+        {"prior.collateral_digest": {"$exists": False}},
+        {"prior.full_doc_digest": {"$exists": False}},
+        {"observation_us_set": {"$exists": False}}]})
+    distinct = len(await db[LEDGER].distinct("doc_id", q))
+    return {"written_before": written_before,
+            "ledger_integrity": malformed == 0 and distinct == written_before,
+            "ledger_detail": f"malformed={malformed} distinct={distinct}"}
+
+
 async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict[str, Any]:
     coll = db[CANONICAL_COLLECTION]
     observed = await coll.count_documents(CANDIDATE_SELECTOR)
+    prog = await _progress(db)
+    written_before = prog["written_before"]
     eligible = unparseable = 0
     async for doc in coll.find(CANDIDATE_SELECTOR, {ta.SOURCE_FIELD: 1}).limit(
             observed if observed < 500_000 else 500_000):
@@ -91,29 +125,47 @@ async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict
     out: Dict[str, Any] = {
         "collection": CANONICAL_COLLECTION, "mode": mode,
         "expected_candidates": EXPECTED_CANDIDATES,
+        "original_population": EXPECTED_CANDIDATES,
+        "population_id": POPULATION_ID,
         "observed_candidates": observed,
+        "written_before": written_before,
+        "ledger_detail": prog["ledger_detail"],
         "contract_eligible": eligible,
         "contract_unparseable": unparseable,
         "gates": {
             "expectation_declared": EXPECTED_CANDIDATES is not None,
             "candidate_population_exact": (EXPECTED_CANDIDATES is not None
                                            and observed == EXPECTED_CANDIDATES),
+            #: THE resume invariant. On a first run `written_before` is 0, so
+            #: this is exactly the old exact-population gate. On a continuation
+            #: it proves the same original population is still fully accounted
+            #: for — a row that vanished, or a row that joined, breaks the sum.
+            "population_accounted": (EXPECTED_CANDIDATES is not None
+                                     and written_before + observed
+                                     == EXPECTED_CANDIDATES),
             "all_candidates_parse": unparseable == 0,
+            "ledger_integrity": prog["ledger_integrity"],
         },
     }
+    #: `candidate_population_exact` is REPORTED for continuity but is not a
+    #: precondition: a legitimate continuation has fewer candidates left. The
+    #: accounting gate is what may never be false.
+    required = {k: v for k, v in out["gates"].items()
+                if k != "candidate_population_exact"}
+
     if mode == "report":
         out.update({"written": 0, "would_write": eligible,
-                    "ok": all(out["gates"].values())})
+                    "ok": all(required.values())})
         return out
 
-    if not all(out["gates"].values()):
+    if not all(required.values()):
         out.update({"hold": HOLD_DRIFT, "ok": False, "written": 0})
         return out
 
     written: List[str] = []
     skipped = {OUTCOME_SKIPPED_CHANGED: 0, OUTCOME_SKIPPED_UNPARSEABLE: 0}
     await db[LEDGER].create_index([("migration_run_id", 1), ("doc_id", 1)])
-    async for doc in coll.find(CANDIDATE_SELECTOR).limit(EXPECTED_CANDIDATES):
+    async for doc in coll.find(CANDIDATE_SELECTOR).limit(observed):
         us = ta.to_epoch_us(doc.get(ta.SOURCE_FIELD))
         if us is None:
             skipped[OUTCOME_SKIPPED_UNPARSEABLE] += 1
@@ -121,6 +173,7 @@ async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict
         await db[LEDGER].update_one(
             {"migration_run_id": run_id, "doc_id": str(doc["_id"])},
             {"$set": {"operation": OP_BACKFILL_OBSERVATION_US,
+                      "population_id": POPULATION_ID,
                       "collection": CANONICAL_COLLECTION,
                       "tenant_id": doc.get("tenant_id"),
                       "prior": {"doc_id": str(doc["_id"]),
@@ -149,10 +202,14 @@ async def op_backfill_observation_us(db, *, mode: str, run_id: str = "") -> Dict
             skipped[OUTCOME_SKIPPED_CHANGED] += 1
 
     residual = await coll.count_documents(CANDIDATE_SELECTOR)
-    out.update({"written": len(written), "residual_candidates": residual,
+    population_written = written_before + len(written)
+    out.update({"written": len(written), "written_this_run": len(written),
+                "population_written_total": population_written,
+                "residual_candidates": residual,
                 "skipped_changed_under_run": skipped[OUTCOME_SKIPPED_CHANGED],
                 "skipped_unparseable": skipped[OUTCOME_SKIPPED_UNPARSEABLE],
-                "ok": len(written) == EXPECTED_CANDIDATES and residual == 0})
+                "ok": (population_written == EXPECTED_CANDIDATES
+                       and residual == 0)})
     return out
 
 
@@ -161,8 +218,7 @@ async def op_verify_observation_us(db, *, mode: str, run_id: str = "") -> Dict[s
     evidence, and did anything else move?"""
     coll = db[CANONICAL_COLLECTION]
     checked = disagreeing = collateral_diverged = 0
-    async for row in db[LEDGER].find({"operation": OP_BACKFILL_OBSERVATION_US,
-                                      "outcome": OUTCOME_WRITTEN}):
+    async for row in db[LEDGER].find(_written_query()):
         doc = await coll.find_one({"_id": _as_id(row["doc_id"])})
         if doc is None:
             continue

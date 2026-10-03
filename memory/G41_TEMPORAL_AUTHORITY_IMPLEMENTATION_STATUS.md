@@ -342,6 +342,68 @@ restore semantics later; it does not block G-41.
    full-document digest per row) as first line, with PITR as the backstop. Accepted knowingly —
    recorded here so a future reader does not mistake the absence for an oversight.
 
-Still not done, each a separate owner-authorized step, in this order: **final pre-APPLY REPORT** →
-APPLY (sequencing to be decided after that report) → `verify_canonical_observation_us` → the two
-indexes → `explain` plan proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.
+### 13.5 `G41_RESUMABILITY_GATE = PASS` — the APPLY trap, closed `[2026-06]`
+
+**The weakness.** A 122,477-row APPLY that died half way left evidence perfectly consistent (each
+row is an independent guarded update, so a row is whole or untouched, never half), but the migration
+could not CONTINUE: the next attempt saw fewer candidates than `EXPECTED_CANDIDATES` and refused.
+The only escape would have been to edit the expectation down to the residual — weakening the one
+invariant that makes this migration safe. A gate you can only pass by lowering it is a trap, not a
+gate.
+
+**The fix, and the whole of it: runs are disposable, the POPULATION is not.** Every ledger row now
+carries `population_id = "g41_observation_us_historical"`, so a continuation PROVES what a previous
+run completed instead of being told.
+
+```
+EXACT RESUME INVARIANT
+  written_before            = ledger rows (operation, population_id, outcome=WRITTEN)
+  remaining                 = live count of CANDIDATE_SELECTOR
+  ORIGINAL_POPULATION       = EXPECTED_CANDIDATES = 122,477   ← never edited, ever
+
+  gate population_accounted : written_before + remaining == ORIGINAL_POPULATION
+```
+
+* **First run**: `written_before = 0`, so this is bit-for-bit the old exact-population gate.
+* **Continuation**: 70,000 + 52,477 == 122,477 → proceeds, with `candidate_population_exact`
+  reported as `false` (a legitimate continuation HAS fewer candidates left) but no longer gating.
+* **Strictly stronger than a bare count**: a row that *vanished* and a row that *joined* both break
+  the sum. A fail-closed `UNPLACEABLE` live arrival — the single way live ingest can reopen a closed
+  population — breaks both this gate and the parse gate.
+* **`ledger_integrity`** gates continuation on the prior state being intact: no WRITTEN row missing
+  `prior.event_time` / `prior.collateral_digest` / `prior.full_doc_digest` / `observation_us_set`,
+  and distinct `doc_id` count == written count (a duplicated WRITTEN row HOLDS).
+* **Idempotent by construction**: a stamped row is not a candidate and the guard also demands
+  `observation_us` absent, so an already-migrated row is never revisited or rewritten — its
+  provenance keeps naming the run that actually wrote it.
+* **Success now means the POPULATION finished**: `ok = (written_before + written_this_run ==
+  122,477 and residual == 0)`, so a resume cannot claim success for a partial total, and a row
+  skipped by the `event_time unchanged` guard keeps `ok = false`.
+
+**Stale-lock recovery (audited, never silent).** A killed worker cannot release its own lock, which
+would have blocked every retry. A holder younger than `LOCK_STALE_AFTER` (30 min) is still refused
+with 409 — a live run is a live run. Past that age the holder is presumed dead and is taken over:
+the delete is conditioned on the holder's own run id (a run that revives keeps its lock), the new
+run records `lock_takeover`, and the abandoned run is marked `FAILED / STALE_LOCK_TAKEOVER` — but
+only if it was still `RUNNING`, so a finished run's record is never rewritten.
+
+**Tests** — `tests/edr/test_g41_resumability.py`, 19 tests: uninterrupted full population · first
+run still demands exactness · interruption leaves whole rows · safe resume to completion · repeated
+resume is a no-op · already-written rows never rewritten · vanished row HOLDS · unexpected extra
+candidate HOLDS · live *stamped* arrival ignored · fail-closed UNPLACEABLE arrival HOLDS ·
+unparseable candidate HOLDS · `event_time` changing under the run is skipped not stamped, and still
+accounted for · corrupt ledger prior-state HOLDS · duplicated WRITTEN row HOLDS · report mode shows
+the resume position and writes nothing · live lock never taken · stale lock taken over with both
+runs recording it · a completed run's record untouched · end-to-end through the control plane:
+interrupt → FAILED + lock released → resume → COMPLETED → verify 0/0.
+
+`tests/edr/test_34h_a_migration_control.py` — one test updated to the new lock contract: it held a
+lock dated 2026-06-01, which is now stale by definition, so it holds the lock NOW and asserts a live
+lock is never taken. Stale takeover is covered in the resumability suite.
+
+**NOT deployed.** `PRODUCTION_APPLY_READY = NO` until this commit is live: applying against the
+currently deployed build would reinstate the trap.
+
+Still not done, each a separate owner-authorized step, in this order: **deploy this resumability
+fix** → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete
+the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.

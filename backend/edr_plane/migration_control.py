@@ -50,9 +50,12 @@ STATE_REFUSED = "REFUSED"
 REFUSED_UNKNOWN_OPERATION = "UNKNOWN_MIGRATION_OPERATION"
 REFUSED_UNKNOWN_MODE = "UNKNOWN_MIGRATION_MODE"
 REFUSED_CONCURRENT = "MIGRATION_ALREADY_RUNNING"
+TAKEOVER_STALE_LOCK = "STALE_LOCK_TAKEOVER"
 
-#: A lock older than this is reported as stale. It is never stolen: the
-#: operator is told, and the record says why.
+#: A lock younger than `LOCK_STALE_AFTER` is NEVER taken: a live run is a live
+#: run. Past that age the holder is presumed dead — a killed worker cannot
+#: release its own lock — and the takeover is recorded on both runs, so no lock
+#: is ever cleared silently.
 LOCK_STALE_AFTER = timedelta(minutes=30)
 
 INDEX_CREATED = "CREATED_VERIFIED"
@@ -189,6 +192,35 @@ async def _acquire(db, operation: str, run_id: str, actor: str
                        "stale": stale}
 
 
+async def _takeover_stale(db, operation: str, run_id: str, actor: str,
+                          holder: Dict[str, Any]) -> bool:
+    """Claim a lock whose holder is demonstrably gone. Audited, never silent.
+
+    Conditioned on the holder's own run id, so a run that comes back to life
+    between the staleness read and this write keeps its lock.
+    """
+    res = await db[LOCKS].delete_one({"_id": operation,
+                                      "migration_run_id": holder["holder_run_id"]})
+    if res.deleted_count != 1:
+        return False
+    try:
+        await db[LOCKS].insert_one({
+            "_id": operation, "migration_run_id": run_id, "actor": actor,
+            "acquired_at": _iso(_now()),
+            "took_over_from": holder["holder_run_id"]})
+    except DuplicateKeyError:
+        return False
+    if holder.get("holder_run_id"):
+        await db[RUNS].update_one(
+            {"migration_run_id": holder["holder_run_id"],
+             "state": STATE_RUNNING},
+            {"$set": {"state": STATE_FAILED, "completed_at": _iso(_now()),
+                      "failure": TAKEOVER_STALE_LOCK,
+                      "failure_detail": f"lock taken over by {run_id} after "
+                                        f"{LOCK_STALE_AFTER}"}})
+    return True
+
+
 async def _release(db, operation: str, run_id: str) -> None:
     await db[LOCKS].delete_one({"_id": operation, "migration_run_id": run_id})
 
@@ -218,6 +250,10 @@ async def run_migration(db, *, operation: str, mode: str, actor: str
 
     await _audit(db, base)
     acquired, holder = await _acquire(db, operation, run_id, actor)
+    took_over = None
+    if not acquired and holder and holder.get("stale"):
+        if await _takeover_stale(db, operation, run_id, actor, holder):
+            acquired, took_over = True, holder
     if not acquired:
         patch = {"state": STATE_REFUSED,
                  "refusal_reason": REFUSED_CONCURRENT,
@@ -227,7 +263,9 @@ async def run_migration(db, *, operation: str, mode: str, actor: str
 
     started_at = _iso(_now())
     await _audit_update(db, run_id, {"state": STATE_RUNNING,
-                                     "started_at": started_at})
+                                     "started_at": started_at,
+                                     **({"lock_takeover": took_over}
+                                        if took_over else {})})
     try:
         result = await OPERATIONS[operation](db, mode=mode, run_id=run_id)
     except Exception as exc:

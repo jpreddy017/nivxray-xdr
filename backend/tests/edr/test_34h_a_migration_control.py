@@ -259,9 +259,12 @@ def test_apply_then_reapply_creates_once_and_then_verifies(client, admin_user):
 # ── concurrency, audit and secrecy ───────────────────────────────────────
 
 def test_a_concurrent_duplicate_request_conflicts_instead_of_racing(client, admin_user):
+    """A LIVE holder still conflicts. (A holder older than LOCK_STALE_AFTER is a
+    presumed-dead worker and is taken over with an audit record instead — see
+    tests/edr/test_g41_resumability.py, which is why this lock is held NOW.)"""
     sync[mc.LOCKS].insert_one({
         "_id": mc.OP_ENSURE_IDENTITY_INDEXES, "migration_run_id": "mig_held",
-        "actor": "someone-else", "acquired_at": "2026-06-01T00:00:00Z"})
+        "actor": "someone-else", "acquired_at": mc._iso(mc._now())})
     try:
         resp = client.post(ENSURE, headers=_hdr(admin_user),
                            json={"mode": "apply"})
@@ -269,10 +272,13 @@ def test_a_concurrent_duplicate_request_conflicts_instead_of_racing(client, admi
         detail = resp.json()["detail"]
         assert detail["refusal_reason"] == mc.REFUSED_CONCURRENT
         assert detail["conflict"]["holder_run_id"] == "mig_held"
-        assert detail["conflict"]["stale"] is True
+        assert detail["conflict"]["stale"] is False
         record = sync[mc.RUNS].find_one(
             {"migration_run_id": detail["migration_run_id"]}, {"_id": 0})
         assert record["state"] == mc.STATE_REFUSED
+        assert sync[mc.LOCKS].find_one(
+            {"_id": mc.OP_ENSURE_IDENTITY_INDEXES})["migration_run_id"] \
+            == "mig_held", "a live lock is never taken"
     finally:
         sync[mc.LOCKS].delete_one({"_id": mc.OP_ENSURE_IDENTITY_INDEXES})
 
