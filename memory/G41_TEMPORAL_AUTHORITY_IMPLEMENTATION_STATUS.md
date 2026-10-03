@@ -481,7 +481,15 @@ run; a victim does not delete the thief's lock; and short runs plus failing runs
 Correction 3 (`apply` not blocking on the gateway timeout) is **still open** — deliberately not
 bundled here.
 
-Still not done, each a separate owner-authorized step: **deploy these lock corrections** → **`verify_canonical_observation_us`** (needs
+**Deployed and verified in production as build `776bdbd`** (`G41_LOCK_LIVENESS_PRODUCTION_GATE =
+PASS`): `HEARTBEAT_SEC` 30 · `LOCK_STALE_AFTER` 30 min · `stale = eligible AND NOT working` ·
+progress probe registered · takeover conditioned on both `migration_run_id` and `heartbeat_at` ·
+`_run_guarded` cancels the work on lock loss · `_release` scoped to its own run id ·
+`EXPECTED_CANDIDATES` unchanged at 122,477 · 2 replicas, 0 restarts, clean startup, ingest 200s.
+Production state untouched: candidates 0 · ledger WRITTEN 122,477 · lock table empty · no
+`observation_us` index. `SAFE_FOR_VERIFY = YES`.
+
+Still not done, each a separate owner-authorized step: **`verify_canonical_observation_us`** (needs
 the owner's admin session) → the two indexes → `explain` plan proof → delete the transitional legacy
-read → `VITE_E3_DT_V3=1` → KUSHU. Plus the three lock corrections above, and optionally the missing
-audit row.
+read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3 (`apply` must not block on the 30-second gateway
+timeout), and the deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.
