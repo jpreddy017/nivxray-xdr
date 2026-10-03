@@ -5608,3 +5608,54 @@ whose `indexBounds` field order shows the real key order.
 
 G-39: the platform's read-only index channel cannot attest compound-key order; any future index
 verification must use an order-preserving channel.
+
+---
+
+## STEP 34H-D — CLOSED: PASS (2026-06)
+
+Order-preserving closure obtained. The owner ran the authenticated production `report`-mode call
+from the admin browser session; `result.indexes` returned, in true server key order:
+- `sd_canonical_endpointid_eventtime` -> ALREADY_PRESENT_VERIFIED
+- `sd_canonical_hostname_eventtime`   -> ALREADY_PRESENT_VERIFIED
+
+Both target canonical §d indexes are therefore CONFIRMED present and correct in production.
+`created: false` in that report is expected: report mode re-verifies, it does not recreate.
+The index work stream is CLOSED. G-39 remains recorded as a standing lesson (the read-only
+diagnose channel alphabetises index keys and can never attest compound-key order).
+
+## STEP 35 — BOUNDED DETERMINISTIC IDENTITY BACKFILL · DESIGN ONLY (2026-06)
+
+Owner authorized DESIGN ONLY. No operation code written, nothing executed, Behavior not run,
+KUSHU and DESKTOP untouched.
+
+Deliverable: `/app/memory/STEP35_IDENTITY_BACKFILL_DESIGN.md` — covers
+- population: the 1,236 rows with no `additional_fields.endpoint_id` but a platform-minted
+  `provenance.collector_id` (authenticated boundary value, non-sensor DSM normalisation);
+- eligibility delegated wholly to `canonical_identity_contract.backfill_candidate` — the migration
+  holds no predicate of its own; five explicitly non-eligible populations enumerated (name-only,
+  host-less, `host.host_id`-present, non-minted authoritative, already-resolved);
+- a second CLOSED-REGISTRY operation `backfill_authoritative_endpoint_identity`, inheriting the
+  tested registry, zero-parameter, `require_admin`, single-writer-lock, audited, report/apply
+  properties of the index operation;
+- safety gates: census-before-write, `CANDIDATE_HARD_CEILING` with abort-on-drift (never truncate),
+  per-row re-validation, guarded `update_one` (changed-under-run rows SKIPPED not overwritten),
+  no `update_many`/`bulk_write`, bounded cursor;
+- per-row provenance `authority = BACKFILL_DETERMINISTIC` (deliberately distinct from
+  `AUTHENTICATED_INGEST_BOUNDARY`) carrying `migration_run_id`, so a backfilled identity stays
+  permanently separable from a boundary-stamped one;
+- rollback/recovery: idempotent-by-construction resume as the primary path, lock released on
+  failure and never auto-stolen, a declared inverse operation scoped strictly to
+  `BACKFILL_DETERMINISTIC` + matching `migration_run_id`, and a durable per-row prior-state ledger
+  `e3_migration_row_ledger` that makes the inverse a restore rather than a guess;
+- post-backfill verification V1–V8, including V7 — the deferred STEP 34C-revisit `explain()` proof
+  that the authoritative §d branch is IXSCAN-served with no SORT stage;
+- 12 tests to be written at implementation time, none against production.
+
+Five open review questions are collected in §10 of the design (hard ceiling 2000 vs exactly 1236;
+ledger retention; register the revert operation up front or on demand; point-in-time backup as
+policy; V5 sampling vs full prior-projection capture).
+
+Authorized sequence from here:
+DESIGN -> owner review -> implement + tests -> owner review -> deploy control plane only ->
+production report mode -> owner review of census -> owner-run apply -> V1-V8 verification ->
+retire legacy §d identity branches -> FIRST REAL-EVIDENCE SHADOW RUN (canary KUSHU).
