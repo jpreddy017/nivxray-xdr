@@ -5248,3 +5248,30 @@ the migration route returns 403 `Not authenticated`.
 Security review of 34H-A, then a controlled DEPLOY of the control plane, then a SEPARATE
 authorization to execute `ensure_canonical_identity_indexes` in production — first `mode=report`,
 then `mode=apply`.
+
+## STEP 34H-B — DEPLOY MIGRATION CONTROL PLANE — 2026-06 — DEPLOY DISPATCHED (AWAITING RESULT)
+
+Owner authorized DEPLOYMENT ONLY. Dispatched to the Emergent deployer (job
+`95e7e8cd-6528-4f50-8702-566d0dc3b0ce`); the pipeline runs asynchronously and the panel reports the
+outcome. No result assumed, no migration invoked.
+
+Deployed content: the reviewed migration control plane (`edr_plane/migration_control.py`,
+`routers/edr_migration_control.py`, one import + one `include_router` in `server.py`) plus the
+already-regression-tested identity hardening (34F/34G) and the declaration-only
+`canonical_index_contract` / `canonical_identity_contract`. No .env change, no new dependency, no
+new environment variable, no DB-binding change.
+
+Post-deploy verification requested (read-only): pod health + replica readiness + no crash loop; no
+sustained 5xx increase; the migration routes PRESENT in production (unauthenticated POST and GET
+must return 401/403 and NOT 404 — a 404 would mean the router failed to register); existing
+functionality still healthy; production Mongo binding unchanged (mechanism/presence only); no secret
+or connection string in output or logs; run id / commit / image digest / replica count.
+
+Explicitly prohibited in the run and restated to the deployer: no `mode=apply` and no `mode=report`
+invocation, no index creation, no backfill, no production data write, no Behavior engine, no
+frontier/checkpoint/shadow run, no KUSHU evidence read, no family census, DESKTOP prohibited, no
+sensor/Windows/Mac action.
+
+### NEXT (owner-gated)
+Review the deploy report, then a SEPARATE authorization for a production `mode=report` run, and only
+after reviewing that, `mode=apply`.
