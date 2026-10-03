@@ -314,7 +314,34 @@ The locked expectation and the verifier correction are **live in production**; n
   rising 341 → 343, all BSON int64; spot-check `2026-10-01T10:19:58.863Z` ↔ `1790849998863000`,
   state `DERIVED_FROM_STORED_OBSERVATION_TIME`.
 
-Still not done, each a separate owner-authorized step, in this order: **Atlas PITR / earliest
-restorable point (owner, control plane)** → final pre-APPLY REPORT → APPLY →
-`verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete the transitional
-legacy read → `VITE_E3_DT_V3=1` → KUSHU.
+### 13.4 RECOVERABILITY — RESOLVED `[2026-06]`
+
+The production MongoDB is **Emergent-managed and Emergent-controlled**; credentials are platform-held
+and KMS-sealed, and the owner has no control-plane access. `PITR_VISIBILITY = UNAVAILABLE` from the
+deployment toolset, and the data plane cannot run `buildInfo` / `hello` / `serverStatus`, so provider,
+server version and topology are **UNKNOWN**. A separate Atlas account was deliberately NOT created:
+it would have produced a recovery point for a database we do not use.
+
+**Emergent platform confirms** automated cloud backups on managed databases — hourly 7d · daily 7d ·
+weekly 4w · monthly 12m · yearly 1y — with **continuous 7-day point-in-time recovery**.
+`RECOVERY_PREREQUISITE = READY`, **policy-asserted rather than instrument-measured**: nobody read a
+cluster-specific earliest-restorable-point, so it is derived as now − 7 days.
+
+**Still undocumented, disclosed not resolved:** the restore *mechanism* — whether a single collection
+can be restored to a side namespace, versus a whole-database rollback. This matters because a
+whole-database PIT restore on a live EDR would discard every event ingested since the restore point,
+i.e. the recovery would itself be a data-loss event. Owner decision: ask the platform team about
+restore semantics later; it does not block G-41.
+
+**Owner decisions recorded (two paths deliberately NOT taken):**
+1. **No backup/export subsystem** will be built inside NivXForge. A `snapshot_canonical_evidence`
+   operation would mean new production code, artifact storage, a restore procedure, security review
+   and tests — all to make one migration safe, when the platform already backs the database up.
+2. **No G-41 revert operation.** STEP 35 has `op_revert`; this migration intentionally does not. The
+   undo path is therefore: the pre-write row ledger (prior `event_time`, collateral digest and
+   full-document digest per row) as first line, with PITR as the backstop. Accepted knowingly —
+   recorded here so a future reader does not mistake the absence for an oversight.
+
+Still not done, each a separate owner-authorized step, in this order: **final pre-APPLY REPORT** →
+APPLY (sequencing to be decided after that report) → `verify_canonical_observation_us` → the two
+indexes → `explain` plan proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.
