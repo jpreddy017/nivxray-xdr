@@ -29,9 +29,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pymongo.errors import DuplicateKeyError
 
-from edr_plane import identity_backfill, observation_us_migration
+from edr_plane import (identity_backfill, observation_us_migration,
+                       temporal_read_plan)
 from edr_plane.canonical_index_contract import (CANONICAL_COLLECTION,
-                                                TARGET_CANONICAL_INDEXES)
+                                                TARGET_CANONICAL_INDEXES,
+                                                TARGET_TEMPORAL_INDEXES)
 
 RUNS = "e3_migration_runs"
 LOCKS = "e3_migration_locks"
@@ -164,12 +166,58 @@ async def _op_ensure_canonical_identity_indexes(db, *, mode: str,
     }
 
 
+#: G-41 · the two temporal indexes, and the plan proof for the paging shape the
+#: Device Trajectory read actually executes. Separate operations from the
+#: event_time pair above: that one must keep working while the transitional read
+#: still exists, so neither is allowed to replace the other.
+OP_ENSURE_TEMPORAL_INDEXES = "ensure_canonical_temporal_indexes"
+OP_EXPLAIN_TEMPORAL_READ_PLAN = temporal_read_plan.OP_EXPLAIN_TEMPORAL_READ_PLAN
+
+
+async def _op_ensure_canonical_temporal_indexes(db, *, mode: str,
+                                                run_id: str = "") -> Dict[str, Any]:
+    """Ensure EXACTLY the two declared temporal indexes. Both specifications
+    come from the compiled contract — never from a caller."""
+    coll = db[CANONICAL_COLLECTION]
+    try:
+        version = (await db.client.server_info())["version"]
+        major, minor = (int(p) for p in version.split(".")[:2])
+    except Exception:
+        version, major, minor = "unknown", 4, 4
+    legacy_background = (major, minor) < (4, 2)
+    before = await _existing(coll)
+    results: List[Dict[str, Any]] = []
+    for spec in TARGET_TEMPORAL_INDEXES:
+        results.append(await _ensure_one(
+            coll, spec, apply_changes=(mode == MODE_APPLY),
+            legacy_background=legacy_background))
+    after = await _existing(coll)
+    unchanged = all(after.get(name) == key for name, key in before.items())
+    refused = [r for r in results if r["state"] == INDEX_NAME_CONFLICT]
+    return {
+        "collection": CANONICAL_COLLECTION,
+        "server_version": version,
+        "build_mode": ("legacy_background" if legacy_background
+                       else "hybrid_non_blocking"),
+        "indexes": results,
+        "indexes_before": sorted(before),
+        "indexes_after": sorted(after),
+        #: the event_time pair must survive untouched: the transitional read
+        #: still uses it until the legacy path is deleted
+        "existing_indexes_changed": not unchanged,
+        "refusals": [r["name"] for r in refused],
+        "ok": (not refused) and unchanged,
+    }
+
+
 #: The closed registry. Adding an operation is a code change, reviewed like any
 #: other. A later bounded identity-backfill operation registers HERE; nothing
 #: about this framework lets a caller invent one.
 OPERATIONS = {OP_ENSURE_IDENTITY_INDEXES: _op_ensure_canonical_identity_indexes,
+              OP_ENSURE_TEMPORAL_INDEXES: _op_ensure_canonical_temporal_indexes,
               **identity_backfill.OPERATIONS,
-              **observation_us_migration.OPERATIONS}
+              **observation_us_migration.OPERATIONS,
+              **temporal_read_plan.OPERATIONS}
 
 OP_BACKFILL_IDENTITY = identity_backfill.OP_BACKFILL
 OP_REVERT_IDENTITY_BACKFILL = identity_backfill.OP_REVERT

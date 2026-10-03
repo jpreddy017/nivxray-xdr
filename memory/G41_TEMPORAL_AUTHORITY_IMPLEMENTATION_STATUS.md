@@ -520,7 +520,47 @@ run is alive. So `stale` can never become true for a live holder whatever its ru
 reads misleadingly; the logic is correct. Tidy it when convenient (report heartbeat-derived liveness
 alongside progress-derived liveness); it changes no behaviour.
 
-Remaining, each owner-authorized: the two `observation_us` indexes → `explain` plan proof → delete
-the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3 (`apply`/`verify` must
-not block on the 30-second gateway timeout — it has now detached a worker TWICE), and the
-deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.
+### 13.10 TEMPORAL INDEXES + PLAN PROOF — IMPLEMENTED `[2026-10-03 · local, pending deploy]`
+
+The index is not the deliverable; the PLAN is. Without the compound index the server selects on
+identity and then sorts in memory — the same blocking sort that made a bounded `LIMIT` return the
+wrong newest N, just with a correct key.
+
+Two new operations in the closed registry, both from the already-declared contract
+(`canonical_index_contract.TARGET_TEMPORAL_INDEXES`), never from a caller:
+
+* **`ensure_canonical_temporal_indexes`** (report/apply) — creates exactly two indexes:
+  `sd_canonical_endpointid_observationus` and `sd_canonical_hostname_observationus`, each
+  `(tenant_id, <identity>, observation_us DESC, _id DESC)`. Tenant first as an EQUALITY prefix;
+  `_id` last so the order is TOTAL and a tie group of identical instants cannot shuffle between
+  reads. Refuses on a name collision rather than dropping and rebuilding. The existing `event_time`
+  pair is left untouched — the transitional read still needs it until the legacy path is deleted.
+* **`explain_canonical_temporal_read_plan`** (read-only) — proves BOTH identity branches in all
+  three shapes the read executes: first page, resume cursor, bounded window. Checks per shape:
+  IXSCAN present, index name matches the contract, no COLLSCAN, **no blocking SORT**, index-bound key
+  order equals the contract key order, and the tenant and identity predicates both still present.
+
+**The filter and sort come from `production_adapter.branch_query`, the same function the read
+itself calls.** `_branch_page` was refactored to use it, so the proven shape and the executed shape
+cannot drift apart — a plan proof against a reconstructed query proves nothing about production.
+
+Deliberate placement: the explain lives in its own module `edr_plane/temporal_read_plan.py`, like
+`identity_backfill`'s, so `migration_control` keeps its guarantee of issuing no database command at
+all. Moving it there was preferable to weakening that guard, which an existing test enforces.
+
+13 tests in `tests/edr/test_g41_temporal_indexes.py`: the contract shape (equality prefix, DESC
+order, `_id` total order, one index per branch, no overlap with the `event_time` pair) · report mode
+creates nothing · apply creates exactly two and leaves `_id_` untouched · apply is idempotent · a
+name collision REFUSES · every paging shape is an IXSCAN with no blocking sort · **the proof fails
+loudly when the indexes are absent** (otherwise it proves nothing) · the explained shape is the
+executed shape · explain writes nothing in either mode · a branch with no sample HOLDS rather than
+passing vacuously · end to end through the control plane with lock release.
+
+Regression: 2,760 passed / 16 failed = the identical pre-existing xdist-isolation failures
+(12 in `test_34h_a_migration_control.py`, 4 in `test_p0_f13_5_detection_handoff.py`); 34h passes
+19/19 in isolation. **NOT deployed.**
+
+Remaining, each owner-authorized: deploy these two operations → owner runs `apply` then the plan
+proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3
+(`apply`/`verify` must not block on the 30-second gateway timeout — it has detached a worker twice),
+and the deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.

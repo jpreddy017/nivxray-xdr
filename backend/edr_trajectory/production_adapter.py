@@ -175,6 +175,36 @@ def branches(store: str, refs: list[str], tenant_id: str) -> list[dict[str, Any]
     return out
 
 
+def branch_query(flt: dict[str, Any], time_key: str, *,
+                 upper_bound: Any = None, lo: Any = None, hi: Any = None,
+                 comparable: bool = False, tiebreak: str | None = None
+                 ) -> tuple[dict[str, Any], list[tuple[str, int]]]:
+    """The filter and sort this branch ACTUALLY executes.
+
+    Extracted so an `explain` can prove the shape the read really uses rather
+    than a hand-written imitation of it. A plan proof against a reconstructed
+    query proves nothing about production.
+    """
+    q = dict(flt)
+    rng: dict[str, Any] = {}
+    ceiling = upper_bound
+    if hi is not None:
+        if comparable:
+            if upper_bound is None or int(hi) < int(upper_bound):
+                ceiling = hi
+        else:
+            a, b = observation_us(upper_bound), observation_us(hi)
+            if upper_bound is None or (a is not None and b is not None and b < a):
+                ceiling = hi
+    if ceiling is not None:
+        rng["$lte"] = ceiling
+    if lo is not None:
+        rng["$gte"] = lo
+    q[time_key] = rng or {"$ne": None}
+    sort = [(time_key, -1)] + ([(tiebreak, -1)] if tiebreak else [])
+    return q, sort
+
+
 async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
                        upper_bound: Any, fetch: int,
                        lo: Any = None, hi: Any = None,
@@ -213,23 +243,8 @@ async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
     only: it is stripped before the contract is returned and is never presented
     as evidence identity.
     """
-    q = dict(flt)
-    rng: dict[str, Any] = {}
-    ceiling = upper_bound
-    if hi is not None:
-        if comparable:
-            if upper_bound is None or int(hi) < int(upper_bound):
-                ceiling = hi
-        else:
-            a, b = observation_us(upper_bound), observation_us(hi)
-            if upper_bound is None or (a is not None and b is not None and b < a):
-                ceiling = hi
-    if ceiling is not None:
-        rng["$lte"] = ceiling
-    if lo is not None:
-        rng["$gte"] = lo
-    q[time_key] = rng or {"$ne": None}
-    sort = [(time_key, -1)] + ([(tiebreak, -1)] if tiebreak else [])
+    q, sort = branch_query(flt, time_key, upper_bound=upper_bound, lo=lo,
+                           hi=hi, comparable=comparable, tiebreak=tiebreak)
     rows = [d async for d in coll.find(q, {}).sort(sort).limit(fetch)]
     if not comparable or legacy is None:
         return rows
