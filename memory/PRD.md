@@ -4533,3 +4533,55 @@ evidence, no production, no KUSHU/DESKTOP/sensor, no deploy/Vercel, no collectio
 2. Runner wall-clock budget (60 s) remains PROVISIONAL and unmeasured.
 3. G-12 bounds coverage: §d carries no registry/auth data.
 
+
+---
+
+## STEP 33 — FIRST REAL-EVIDENCE BEHAVIOR SHADOW GATE (DESIGN ONLY, 2026-06)
+
+No execution. No production query, no real evidence, no KUSHU/DESKTOP access, no index,
+no frontier init, no engine run, no deploy. Design recorded for owner authorization.
+
+**Query risk re-assessed from source, and it is better than feared.** `page_device_evidence`
+(`edr_trajectory/production_adapter.py::_branch_page`) puts the time range ON THE SAME FIELD THAT
+PROVIDES THE SORT and applies `.limit(page_size + 64)` PER IDENTITY BRANCH, 10 branches in
+parallel (7 shadow + 3 canonical identity fields from `ENDPOINT_KEYED_STORES`). Work is
+O(branches x fetch), never O(endpoint history). The unbounded reader is
+`providers.MongoStoreProvider`, which filters time IN PYTHON after streaming the whole cursor —
+it is NOT on the Behavior path and remains forbidden. So the residual risk is narrow: the 3
+`xdr_canonical_evidence` branches (equality on identity + tenant, range+sort on `event_time`)
+may plan a BLOCKING SORT without the deferred index. That is what preflight must measure.
+
+**Proposed first invocation:** one tenant, one platform `ep_…` (KUSHU as canary, owner-supplied
+id; DESKTOP-A9HGFJJ excluded by name in the guard), a 10-minute recent window, `page_size = 25`,
+`max_trigger_rows = 25`, `max_sd_pages = 4`, 8 s per §d call, Step-30 budgets otherwise unchanged
+(60 s wall clock stays PROVISIONAL and untuned).
+
+**Rule selection by availability, not convenience** (fields available through §d:
+process.name/executable_path/command_line/sha256, parent.*, user.name,
+file.path/name/operation/sha256, network.dest_ip/dest_port/src_ip/protocol, dns.query_name):
+- ELIGIBLE: E3-SEQ-001, -002, -003, -004, -006, -007, -008
+- NOT ELIGIBLE: E3-SEQ-005 (needs `registry.key`, G-12)
+- SELECTED FIRST: **E3-SEQ-001 ALONE** — needs only `process.name`, `entity_scope: device`,
+  `time_window_seconds: 120` (the smallest window that can exercise any rule: runner requires
+  span >= 2x rule window = 240 s, so 10 min gives 2.5x headroom), and its
+  `parent_child / min_linkage: PID_SURROGATE` relationship is satisfiable from §d parent pid/guid.
+  Process-scope rules (-002, -004) and file-scope (-006) are deferred to avoid a second-order
+  `scope_key` dependency on the first run; -007 needs a 1 h span.
+  No rule is created or weakened. NO_MATCH is a valid PASS. INSUFFICIENT_EVIDENCE stays distinct.
+
+**Preflight gate (read-only, separately authorized):** per-branch `explain()` + one timed
+`page_device_evidence` call. ABORT BEFORE ENGINE EXECUTION if any branch > 2000 ms, total page
+> 5000 ms, any plan shows a blocking SORT, `totalDocsExamined > 10 x fetch`,
+`excluded_outside_window > 10 x rows`, or `state != PAGE_READY`. On abort: report the missing
+`xdr_canonical_evidence.event_time` index as a MEASURED blocker. NEVER widen the query.
+
+**Owner decision E13 (optional mitigation, not implemented):** `SdEvidenceProvider` does not
+expose the `stores` parameter `page_device_evidence` already supports, so the first run cannot be
+restricted to `v2_shadow_observations` (avoiding the unindexed store entirely) without a small
+additive provider parameter.
+
+### NEXT
+Owner authorization for Step 34 = preflight measurement, then (only if preflight passes) ONE
+bounded real-evidence shadow invocation. Otherwise the index becomes the declared production
+blocker.
+
