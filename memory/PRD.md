@@ -5300,3 +5300,34 @@ sustained-5xx comparison and top repeated errors, confirmation that the producti
 UNCHANGED (mechanism/presence only), confirmation that no secret appears in build/deploy output, and
 — tracked separately, not fixed — whether the startup ThreatFox 401 is recurring and predates this
 rollout.
+
+### 34H-B CLOSED — 2026-06 — PASS (DEPLOY VERIFIED, NOTHING MIGRATED)
+
+Deployer read-only report (run `b6055ae4-25bc-4220-8c04-ebb74853f056`; RCA
+`/app/deployer-agent-docs/RCA_b6055ae4-25bc-4220-8c04-ebb74853f056.MD`):
+- 2/2 replicas Ready, `restart_count = 0` on both pods, no crash/restart loop (the early `:8080`
+  connection-refused probe warnings were the normal pre-listen boot window, then both passed);
+  "Application startup complete." on both pods with no import/registration error.
+- `routers/edr_migration_control` imported and registered cleanly, serving
+  `/api/internal/admin/migrations` and `.../{operation}` as guarded 403/401, never 404.
+- No 5xx since rollout; the only 401/403 are my own auth probes.
+- Mongo binding UNCHANGED (`mongodb_migrate` ran 0s, no restore); `MONGO_URL` and `DB_NAME` present
+  and platform-injected, values never read. No secret or connection string in build output
+  (grep MONGO_URL/mongodb/SECRET = no match; caveat: Cloud Build shows the last 500 lines) or pod logs.
+- Image digest `sha256:69b8bba7ef42299122f16c9213b623a5dc18fb9e64d697bb5758fd5607968a9c`
+  (build `d4618159`). IMPORTANT: `b6055ae` is the run-id-derived IMAGE TAG, not a git commit SHA —
+  the pipeline records no git SHA (G-38: if the acceptance checklist needs a commit SHA, it must come
+  from the build-trigger/source side).
+- G-37 (tracked, NOT fixed): the ThreatFox 401 at `threatfox-api.abuse.ch/api/v1/` is RECURRING and
+  PREDATES this rollout (identical hourly 401s in the earlier run across 05:40-09:53 UTC). The
+  "7/7 live" line reflects provider REGISTRATION, not a successful pull — TI sync records
+  `threatfox:0` every cycle. `ABUSE_CH_AUTH_KEY` is set but rejected; fix = verify/refresh the
+  abuse.ch key in the Deployment Panel secrets and redeploy, when the owner reaches TI hardening.
+
+Migration state unchanged: `mode=report` and `mode=apply` NOT invoked, no index created, no backfill,
+no Behavior, no frontier/shadow, no family census, no endpoint/sensor action, DESKTOP untouched.
+
+### NEXT (owner-gated)
+Exactly ONE production `mode=report` invocation of `ensure_canonical_identity_indexes`, as a separate
+authorization. Apply, backfill, branch retirement, production explain, KUSHU family composition and
+the first real Behavior run all remain frozen behind it.
