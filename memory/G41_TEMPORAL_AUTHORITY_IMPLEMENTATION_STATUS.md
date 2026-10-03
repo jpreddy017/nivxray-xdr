@@ -257,6 +257,34 @@ the gate.
 has read-only collection access and no Atlas control-plane access, so continuous cloud backup / PITR
 and the earliest restorable point must be confirmed by the owner in the Atlas UI/API before APPLY.
 
+### 13.1 PRODUCTION REPORT GATE `[read-only]`
+
+**G41_MIGRATION_REPORT_GATE = PASS.** Declared 122,477 == observed 122,477 (stable ×2) ·
+derivable 122,477 / non-derivable 0 (full set, parser validated on live values including 7-digit
+fractional `Z`, deterministic on repeat) · conflicts 0 · unaccounted 0 · space/Z/offset/other
+43,521 / 78,956 / 0 / 0 with sum − candidates 0 · total 122,622 = 122,477 candidates + 145 stamped
++ 0 + 0 + 0. Mutation boundary **TEMPORAL_FIELDS_ONLY** (guarded `update_one` on
+`{_id, observation_us:$exists:false, event_time:unchanged}`, `$set` of only the four temporal paths,
+pre-write row ledger, read-only verify present). `event_time` preserved · identity and provenance
+preserved.
+
+**SAFE_TO_APPLY = NO**, on two prerequisites that are not defects:
+1. `RECOVERY_PREREQUISITE = NOT_READY` — owner must confirm in the Atlas control plane that
+   continuous backup / PITR is enabled and the earliest restorable point precedes the apply window.
+2. `EXPECTATION_LIVE_IN_PROD = NO` — the reviewed commit is not deployed, so the in-prod gate board
+   evaluates `expectation_declared` / `candidate_population_exact` as False. A backend deploy of
+   that commit is a prerequisite for APPLY.
+
+### 13.2 ONE DEFECT FOUND IN THE APPLY PATH — must be fixed before APPLY, not now
+
+`collateral_digest()` (shared from `identity_backfill`) excludes only
+`additional_fields.endpoint_id` and `provenance.endpoint_identity` — **not** the four G-41 temporal
+paths. So `verify_canonical_observation_us` would count every intentional `observation_us` addition
+as `collateral_diverged`, i.e. the post-APPLY verify would report divergence for all 122,477 rows
+and lose its ability to detect *real* collateral change. The fix is to exclude the four G-41 paths
+from the digest used by this verify. Found by the REPORT gate; **not changed**, pending owner
+authorization.
+
 Still not done, each a separate owner-authorized step, in this order: production REPORT review →
 Atlas PIT position → APPLY → `verify_canonical_observation_us` → the two indexes → `explain` plan
 proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU.
