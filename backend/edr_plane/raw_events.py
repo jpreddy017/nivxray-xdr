@@ -99,6 +99,19 @@ class RawEndpointEvent(BaseModel):
                     "authorisation be attributable rather than assumed. Null "
                     "means the event predates authenticated transport.")
 
+    processing_contract: Optional[str] = Field(
+        default=None,
+        description="Immutable provenance marker declaring WHICH ingest "
+                    "architecture created this raw event. Stamped only by "
+                    "the durable-ACK ingest path, at creation, as "
+                    "'durable_queue_v1'. It is never retrofitted onto "
+                    "historical evidence: absence means 'this event was "
+                    "created before the durable queue existed', which is a "
+                    "true statement about provenance and is exactly what "
+                    "lets reconciliation know what it does and does not "
+                    "own. It is NOT part of event identity — payload, "
+                    "payload_sha256, dedup_key and raw_id are unaffected.")
+
     derivations: list[Derivation] = Field(default_factory=list)
     duplicate_count: int = 0
 
@@ -118,7 +131,13 @@ class RawEndpointEvent(BaseModel):
               endpoint_ref: str | None = None,
               event_time: str | None = None,
               received_from_ip: str | None = None,
-              trust_state: str = "UNAUTHENTICATED") -> "RawEndpointEvent":
+              trust_state: str = "UNAUTHENTICATED",
+              processing_contract: str | None = None,
+              ) -> "RawEndpointEvent":
+        # `processing_contract` is deliberately NOT an input to `digest()`.
+        # The dedup key is a statement about the bytes we received; it must
+        # stay stable across architecture changes so a re-delivery of the
+        # same telemetry can never be counted twice.
         dedup = cls.digest(tenant_id, source, payload)
         return cls(
             raw_id=f"raw_{dedup[:24]}", tenant_id=tenant_id, source=source,
@@ -127,7 +146,8 @@ class RawEndpointEvent(BaseModel):
             payload_sha256=hashlib.sha256(payload.encode()).hexdigest(),
             event_time=event_time, ingest_time=cls.now(),
             received_from_ip=received_from_ip, dedup_key=dedup,
-            trust_state=trust_state)
+            trust_state=trust_state,
+            processing_contract=processing_contract)
 
 
 async def ensure_indexes(db: Any) -> None:
@@ -138,6 +158,14 @@ async def ensure_indexes(db: Any) -> None:
     await db[COLLECTION].create_index([("tenant_id", 1), ("endpoint_ref", 1)])
     await db[COLLECTION].create_index(
         [("tenant_id", 1), ("derivations.parser_state", 1)])
+    # Reconciliation support. PARTIAL on purpose: only raw evidence created
+    # by the durable-ACK ingest path is indexed, so this index stays
+    # proportional to new traffic instead of the historical corpus, and the
+    # reconciler can never be tempted into a full-collection scan.
+    await db[COLLECTION].create_index(
+        [("processing_contract", 1), ("ingest_time", 1)],
+        name="reconcile_contract_window",
+        partialFilterExpression={"processing_contract": {"$exists": True}})
 
 
 async def append(db: Any, event: RawEndpointEvent) -> dict[str, Any]:

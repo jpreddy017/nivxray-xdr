@@ -179,3 +179,14 @@ frontend/node_modules/.cache/default-development/13.pack
 # file paths). The state dir lives under /app only because that is the
 # persistent path in this environment.
 agents/nivxforge-linux/.state/
+agents/nivxforge-linux/.state/outbox.jsonl
+
+# Generated at build time by build_windows_installer.ps1 (commit provenance
+# baked into the frozen artifact). Never committed: it would go stale and
+# then lie about which commit an installer came from.
+agents/nivxforge-windows/nivxforge_build.py
+
+# Runtime SQLite side files of the XDR response store. Regenerated on every run;
+# committing them makes every working tree dirty and tells us nothing.
+apps/nivxray-xdr-response/data/*.db-wal
+apps/nivxray-xdr-response/data/*.db-shm

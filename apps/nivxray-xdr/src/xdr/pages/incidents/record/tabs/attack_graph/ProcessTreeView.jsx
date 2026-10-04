@@ -20,8 +20,8 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
       <div style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "6px 8px", marginLeft: depth * 24,
-              background: isSelected ? "#1e1b4b" : "#0f172a",
-              border: `1px solid ${isSelected ? "#a78bfa" : "#1e293b"}`,
+              background: isSelected ? "var(--nx-surf-inset)" : "var(--nx-surf-inset)",
+              border: `1px solid ${isSelected ? "#a78bfa" : "var(--nx-bd-quiet)"}`,
               borderRadius: 3, marginBottom: 4, cursor: "pointer",
               position: "relative",
             }}
@@ -29,7 +29,7 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
         <button onClick={(e) => { e.stopPropagation();
                                             setExpanded(v => !v); }}
                  style={{ background: "transparent", border: 0,
-                             color: "#94a3b8", padding: 0,
+                             color: "var(--nx-low)", padding: 0,
                              visibility: hasChildren ? "visible" : "hidden",
                              display: "flex", alignItems: "center" }}
                  data-testid={`xdr-proctree-toggle-${proc.name}`}>
@@ -39,28 +39,28 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
         <Cpu size={12} style={{ color: proc.role === "parent"
                                            ? "#fca5a5" : "#fdba74" }} />
         <span className="mono" style={{ fontSize: 12,
-                                                  color: "#f8fafc",
+                                                  color: "var(--nx-text)",
                                                   fontWeight: 600 }}>
           {proc.name}
         </span>
         {proc.role && (
-          <span style={{ fontSize: 9, color: "#94a3b8",
-                            background: "#1e293b", padding: "1px 5px",
+          <span style={{ fontSize: 9, color: "var(--nx-low)",
+                            background: "var(--nx-surf-inset)", padding: "1px 5px",
                             borderRadius: 2, textTransform: "uppercase",
                             letterSpacing: 0.4 }}>
             {proc.role}
           </span>
         )}
         {proc.host && (
-          <span style={{ fontSize: 10, color: "#7dd3fc" }}>
+          <span style={{ fontSize: 10, color: "var(--nx-teal)" }}>
             @{proc.host}
           </span>
         )}
         {proc.commandlines && proc.commandlines.length > 0 && (
           <span style={{ marginLeft: "auto", display: "flex",
                               alignItems: "center", gap: 4 }}>
-            <Terminal size={11} style={{ color: "#94a3b8" }} />
-            <span style={{ color: "#94a3b8", fontSize: 10 }}>
+            <Terminal size={11} style={{ color: "var(--nx-low)" }} />
+            <span style={{ color: "var(--nx-low)", fontSize: 10 }}>
               {proc.commandlines.length}
             </span>
           </span>
@@ -72,13 +72,13 @@ function ProcessNode({ proc, depth, onSelect, selected }) {
           {proc.commandlines.map((cli, i) => (
             <div key={i}
                   className="mono"
-                  style={{ fontSize: 11, color: "#e2e8f0",
-                              background: "#0b0f1a", padding: "3px 8px",
+                  style={{ fontSize: 11, color: "var(--nx-text)",
+                              background: "var(--nx-surf-inset)", padding: "3px 8px",
                               borderRadius: 2, marginBottom: 2,
-                              border: "1px solid #1e293b",
+                              border: "1px solid var(--nx-bd-quiet)",
                               wordBreak: "break-all" }}
                   data-testid={`xdr-proctree-cli-${proc.name}-${i}`}>
-              <span style={{ color: "#fca5a5" }}>$</span>{" "}
+              <span style={{ color: "var(--nx-critical)" }}>$</span>{" "}
               {cli.full || cli.label}
             </div>
           ))}
@@ -98,11 +98,11 @@ export function ProcessTreeView({ tree, onSelectProcess, selectedId }) {
   if (roots.length === 0) {
     return (
       <div style={{ padding: 32, textAlign: "center",
-                       color: "#94a3b8" }}
+                       color: "var(--nx-low)" }}
             data-testid="xdr-proctree-empty">
         <Cpu size={20} style={{ margin: "0 auto 8px", display: "block",
-                                          color: "#475569" }} />
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
+                                          color: "var(--nx-text-dim)" }} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--nx-low)" }}>
           NO PROCESS EXECUTION TELEMETRY
         </div>
         <div style={{ fontSize: 11, marginTop: 4 }}>
@@ -114,7 +114,7 @@ export function ProcessTreeView({ tree, onSelectProcess, selectedId }) {
   }
   return (
     <div style={{ padding: 12 }} data-testid="xdr-proctree-view">
-      <div style={{ marginBottom: 10, color: "#94a3b8", fontSize: 11 }}>
+      <div style={{ marginBottom: 10, color: "var(--nx-low)", fontSize: 11 }}>
         <span data-testid="xdr-proctree-totals">
           {tree.totals?.processes ?? 0} process(es) · {roots.length} root(s)
         </span>

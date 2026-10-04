@@ -52,6 +52,20 @@ function presetOf(values) {
 }
 
 // ---- Component ----------------------------------------------------
+/** A FastAPI `detail` is often an object (`{code, permission, reason}`), and
+ *  rendering an object as a React child throws. This is the one place the
+ *  panel turns any error shape into a readable line — never a crash. */
+function errText(e) {
+  const d = e?.response?.data?.detail ?? e?.detail ?? e;
+  if (d == null) return "Request failed.";
+  if (typeof d === "string") return d;
+  if (typeof d === "object") {
+    return d.reason || d.message || d.detail || d.code
+      || (e?.message ?? JSON.stringify(d));
+  }
+  return String(d);
+}
+
 export default function IntelligenceControlPanel({
   scope,               // "global" | "incident"
   incidentId,          // required when scope === "incident"
@@ -92,7 +106,7 @@ export default function IntelligenceControlPanel({
         setGlobalPol(ef.data.global);
       }
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || String(e));
+      setError(errText(e));
     } finally { setLoading(false); }
   };
 
@@ -125,8 +139,7 @@ export default function IntelligenceControlPanel({
         setError("You do not have permission to change this policy. " +
                          "Ask a tenant_admin or soc_manager.");
       } else {
-        setError(typeof detail === "string" ? detail :
-                         JSON.stringify(detail || e));
+        setError(errText(e));
       }
     } finally { setSavingKey(null); }
   };
@@ -140,7 +153,7 @@ export default function IntelligenceControlPanel({
         `?reason=${encodeURIComponent(reason || "cleared")}`);
       await load();
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message);
+      setError(errText(e));
     } finally { setSavingKey(null); }
   };
 
@@ -152,7 +165,7 @@ export default function IntelligenceControlPanel({
           `/intelligence/policy/${scopeKind}/${scopeId}/history`);
         setHistory(data.history || []);
       } catch (e) {
-        setError(e?.response?.data?.detail || e?.message);
+        setError(errText(e));
       }
     }
   };
@@ -206,8 +219,8 @@ export default function IntelligenceControlPanel({
         display: "inline-flex", alignItems: "center", gap: 6,
         padding: "2px 10px", fontSize: 10,
         borderRadius: 999,
-        border: "1px solid " + (on ? "#7c3aed" : "#334155"),
-        background: on ? "#4c1d95" : "#0f172a",
+        border: "1px solid " + (on ? "var(--nx-bd-quiet)" : "var(--nx-bd-quiet)"),
+        background: on ? "var(--nx-surf-inset)" : "var(--nx-surf-inset)",
         color: on ? "#f5f3ff" : "#94a3b8",
         cursor: disabled ? "not-allowed" : "pointer",
         letterSpacing: 0.5, textTransform: "uppercase",
@@ -218,7 +231,7 @@ export default function IntelligenceControlPanel({
         ? <span style={{ width: 6, height: 6, borderRadius: 999,
                                     background: "#c4b5fd", boxShadow: "0 0 6px #a78bfa" }} />
         : <span style={{ width: 6, height: 6, borderRadius: 999,
-                                    background: "#475569" }} />)}
+                                    background: "var(--nx-surf-inset)" }} />)}
       {on ? "ON" : "OFF"}
     </button>
   );
@@ -229,7 +242,7 @@ export default function IntelligenceControlPanel({
                              letterSpacing: 0.4, textTransform: "uppercase", fontWeight: 700 }}
               title={hp === "ready" ? "Runtime provisioned" : "Runtime not provisioned"}>
       <span style={{ width: 6, height: 6, borderRadius: 999,
-                            background: hp === "ready" ? "#22d3ee" : "#64748b" }} />
+                            background: hp === "ready" ? "#22d3ee" : "var(--nx-surf-inset)" }} />
       {label}
     </span>
   );
@@ -240,17 +253,17 @@ export default function IntelligenceControlPanel({
       data-mode={badge.tone}
       style={{
         background: "linear-gradient(180deg, #0b1220 0%, #0a0e1a 100%)",
-        border: "1px solid #1e293b", borderRadius: 6,
-        padding: compact ? 10 : 14, color: "#e2e8f0",
+        border: "1px solid var(--nx-bd-quiet)", borderRadius: 6,
+        padding: compact ? 10 : 14, color: "var(--nx-text)",
         fontFamily: "ui-sans-serif, system-ui",
       }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 10,
                           marginBottom: 10 }}>
-        <Cpu size={14} style={{ color: "#a78bfa" }} />
+        <Cpu size={14} style={{ color: "var(--nx-purple)" }} />
         <span data-testid={`${scope}-intel-title`}
                   style={{ fontWeight: 700, fontSize: 12, letterSpacing: 0.4,
-                              textTransform: "uppercase", color: "#c4b5fd" }}>
+                              textTransform: "uppercase", color: "var(--nx-text)" }}>
           NivXRay XDR Intelligence · {scope === "global"
             ? "Global Policy" : "Incident Policy"}
         </span>
@@ -276,9 +289,9 @@ export default function IntelligenceControlPanel({
           disabled={loading}
           data-testid={`${scope}-intel-refresh`}
           title="Refresh policy"
-          style={{ background: "transparent", border: "1px solid #334155",
+          style={{ background: "transparent", border: "1px solid var(--nx-bd-quiet)",
                           borderRadius: 3, cursor: "pointer",
-                          color: "#94a3b8", padding: "3px 6px" }}>
+                          color: "var(--nx-low)", padding: "3px 6px" }}>
           <RefreshCcw size={11}
             style={{ animation: loading ? "nx-spin .9s linear infinite" : "none" }} />
         </button>
@@ -287,9 +300,9 @@ export default function IntelligenceControlPanel({
       {/* Error banner */}
       {error && (
         <div data-testid={`${scope}-intel-error`}
-              style={{ color: "#fca5a5", fontSize: 11,
-                          padding: "6px 10px", background: "#2b0f0f",
-                          border: "1px solid #7f1d1d", borderRadius: 3,
+              style={{ color: "var(--nx-critical)", fontSize: 11,
+                          padding: "6px 10px", background: "var(--nx-surf-inset)",
+                          border: "1px solid var(--nx-bd-quiet)", borderRadius: 3,
                           marginBottom: 10, display: "flex",
                           alignItems: "center", gap: 6 }}>
           <AlertTriangle size={11} /> {error}
@@ -299,7 +312,7 @@ export default function IntelligenceControlPanel({
       {/* ─── ONLINE INTELLIGENCE ─── */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 10, letterSpacing: 0.6,
-                             textTransform: "uppercase", color: "#64748b",
+                             textTransform: "uppercase", color: "var(--nx-text-dim)",
                              marginBottom: 4 }}>
           Online Intelligence
         </div>
@@ -350,7 +363,7 @@ export default function IntelligenceControlPanel({
       {/* ─── OFFLINE INTELLIGENCE ─── */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 10, letterSpacing: 0.6,
-                             textTransform: "uppercase", color: "#64748b",
+                             textTransform: "uppercase", color: "var(--nx-text-dim)",
                              marginBottom: 4 }}>
           Offline Intelligence
         </div>
@@ -381,7 +394,7 @@ export default function IntelligenceControlPanel({
       {/* ─── PRESETS ─── */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 10, letterSpacing: 0.6,
-                            textTransform: "uppercase", color: "#64748b",
+                            textTransform: "uppercase", color: "var(--nx-text-dim)",
                             marginBottom: 4 }}>
           Intelligence Mode
         </div>
@@ -412,8 +425,8 @@ export default function IntelligenceControlPanel({
                      ceilingLocks ? "#334155" : "#334155"),
                   borderRadius: 3,
                   cursor: ceilingLocks ? "not-allowed" : "pointer",
-                  background: activePreset === p.id ? "#4c1d95" : "transparent",
-                  color: ceilingLocks ? "#475569"
+                  background: activePreset === p.id ? "var(--nx-surf-inset)" : "transparent",
+                  color: ceilingLocks ? "var(--nx-text-dim)"
                           : activePreset === p.id ? "#f5f3ff" : "#94a3b8",
                   letterSpacing: 0.4, textTransform: "uppercase",
                   fontWeight: 700,
@@ -438,8 +451,8 @@ export default function IntelligenceControlPanel({
           onChange={(e) => setReason(e.target.value)}
           style={{
             flex: 1, minWidth: 180,
-            background: "#0a0e1a", border: "1px solid #334155",
-            borderRadius: 3, color: "#e2e8f0",
+            background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
+            borderRadius: 3, color: "var(--nx-text)",
             padding: "4px 8px", fontSize: 11,
           }} />
         {scope === "incident" && overrideIsActive && (
@@ -447,8 +460,8 @@ export default function IntelligenceControlPanel({
                         onClick={clearOverride}
                         disabled={savingKey === "clear"}
                         style={{ padding: "4px 10px", fontSize: 10,
-                                     border: "1px solid #78350f", background: "#292412",
-                                     color: "#fbbf24", borderRadius: 3, cursor: "pointer",
+                                     border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
+                                     color: "var(--nx-high)", borderRadius: 3, cursor: "pointer",
                                      letterSpacing: 0.4, textTransform: "uppercase",
                                      fontWeight: 700 }}>
             Clear Override
@@ -461,8 +474,8 @@ export default function IntelligenceControlPanel({
         <button data-testid={`${scope}-history-toggle`}
                     onClick={loadHistory}
                     style={{ display: "inline-flex", alignItems: "center",
-                                 gap: 6, fontSize: 10, color: "#94a3b8",
-                                 background: "transparent", border: "1px solid #334155",
+                                 gap: 6, fontSize: 10, color: "var(--nx-low)",
+                                 background: "transparent", border: "1px solid var(--nx-bd-quiet)",
                                  borderRadius: 3, cursor: "pointer",
                                  padding: "3px 8px",
                                  letterSpacing: 0.4, textTransform: "uppercase",
@@ -474,7 +487,7 @@ export default function IntelligenceControlPanel({
           <div data-testid={`${scope}-history-list`}
                 style={{ marginTop: 6, fontSize: 11 }}>
             {history.length === 0 && (
-              <div style={{ color: "#64748b" }}>No history entries yet.</div>
+              <div style={{ color: "var(--nx-text-dim)" }}>No history entries yet.</div>
             )}
             {history.map((h, i) => (
               <div key={h.audit_id || i}
@@ -483,14 +496,14 @@ export default function IntelligenceControlPanel({
                                     gridTemplateColumns: "auto 1fr",
                                     gap: "2px 10px",
                                     padding: "4px 6px",
-                                    borderTop: "1px solid #1e293b",
+                                    borderTop: "1px solid var(--nx-bd-quiet)",
                                     fontFamily: "ui-monospace, monospace" }}>
-                <span style={{ color: "#a78bfa" }}>{h.recorded_at}</span>
-                <span style={{ color: "#cbd5e1" }}>
+                <span style={{ color: "var(--nx-purple)" }}>{h.recorded_at}</span>
+                <span style={{ color: "var(--nx-low)" }}>
                   {h.changed_by} · {h.changed_by_role}
                 </span>
                 <span></span>
-                <span style={{ color: "#94a3b8" }}>
+                <span style={{ color: "var(--nx-low)" }}>
                   {JSON.stringify(h.previous)} → {JSON.stringify(h.new)}
                   {h.reason ? ` · ${h.reason}` : ""}
                 </span>
@@ -511,14 +524,14 @@ function Row({ icon, label, sub, testidBase, dim, children }) {
       data-testid={`${testidBase}-row`}
       style={{ display: "flex", alignItems: "center", gap: 10,
                     padding: "4px 6px",
-                    background: "#0a0e1a", borderRadius: 3,
+                    background: "var(--nx-surf-inset)", borderRadius: 3,
                     opacity: dim ? 0.65 : 1 }}>
-      <span style={{ color: "#94a3b8" }}>{icon}</span>
+      <span style={{ color: "var(--nx-low)" }}>{icon}</span>
       <span style={{ flex: 1, fontSize: 12, fontWeight: 500,
-                             color: "#e2e8f0", whiteSpace: "pre" }}>
+                             color: "var(--nx-text)", whiteSpace: "pre" }}>
         {label}
         {sub && (
-          <span style={{ marginLeft: 8, fontSize: 10, color: "#64748b",
+          <span style={{ marginLeft: 8, fontSize: 10, color: "var(--nx-text-dim)",
                               fontFamily: "ui-monospace, monospace" }}>
             {sub}
           </span>

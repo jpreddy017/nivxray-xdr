@@ -107,6 +107,8 @@ def mint(name, scopes, tenant=TENANT):
     r = requests.post(f"{API}/xdr/api-keys",
                       headers={**ADM, "X-Tenant-Id": tenant},
                       json={"name": name, "scopes": scopes,
+                            "confirm_tenant_id": tenant,
+                            "allow_new_tenant": True,
                             "description": "PREVIEW COLLECTOR PROOF · throwaway"},
                       timeout=60)
     assert r.status_code == 200, r.text

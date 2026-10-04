@@ -152,9 +152,30 @@ async def test_a_non_detected_observation_keeps_its_previous_behaviour():
     assert row["disposition"] == tw.DISPOSITION_UNKNOWN
     assert row["is_detection"] is False
     assert row["detection"] is None
-    assert row["assessment_state"] == "NO_DETECTION_CLAIMED_THIS_OBSERVATION"
+    # E3 · this used to be `NO_DETECTION_CLAIMED_THIS_OBSERVATION`, which
+    # read as "evaluated and nothing claimed it" — exactly the ambiguity
+    # that let silence look benign. With no attribution AND no evaluation
+    # ledger entry, the honest answer is that nothing has looked at it.
+    assert row["assessment_state"] == tw.NOT_EVALUATED
+    assert "detection gap, not an absence of activity" in \
+        row["evaluation_meaning"]
+    assert row["evaluation"] is None
+    assert row["findings"] == []
+    assert row["mitre_basis"] in ("NOT_ATTRIBUTED",
+                                  "SOURCE_NORMALIZER_TAG_NOT_VALIDATED"
+                                  "_DETECTION")
     assert row["detected_by"][0]["telemetry_only"] is True
     assert row["rule_ids"] == []
+
+
+@pytest.mark.asyncio
+async def test_an_evaluated_observation_is_not_the_same_as_an_unexamined_one():
+    """The whole point of the ledger: three states, not two."""
+    assert tw._assessment_state(None, None) == tw.NOT_EVALUATED
+    assert tw._assessment_state(
+        None, {"state": "EVALUATED_NO_FINDING"}) == tw.EVALUATED_NO_DETECTION
+    assert tw._assessment_state({"rule_ids": ["R"]}, None) == tw.ASSESSED
+    assert tw.NOT_EVALUATED != tw.EVALUATED_NO_DETECTION
 
 
 @pytest.mark.asyncio

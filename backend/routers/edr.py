@@ -13,6 +13,7 @@ Owner-locked rules (Slice 2 · P0 · 2026-08-29):
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -20,8 +21,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from deps import get_current_user, sync_collection
+from edr_plane import trajectory as dt2
+from edr_plane import windows_eventlog as win_eventlog
+from routers.edr_tenancy import edr_scope, edr_tenant
 from services.activity.projector import build_inventory
-from services.dashboard_lenses import resolve_tenant_scope
 from services.edr import device_identity as dir_svc
 from services.edr import endpoint_query as eq
 from services.edr import observation_narrative as narrative_svc
@@ -34,7 +37,7 @@ router = APIRouter(prefix="/edr", tags=["edr"])
 _col = sync_collection("workspace_cases")
 
 
-def _case_scope(user) -> Optional[Dict[str, Any]]:
+def _case_scope(user, tenant_id: str) -> Dict[str, Any]:
     """Tenant-authorised case filter for the EDR projections.
 
     P0 · 2026-09-05: the EDR routes previously filtered on
@@ -42,30 +45,32 @@ def _case_scope(user) -> Optional[Dict[str, Any]]:
     gate — the same defect that hid 180 of 198 incidents from the queue.
     They now share ``resolve_tenant_scope()`` with the incident plane.
 
-    Returns ``None`` when the caller is not authorised (honest empty).
+    P2 · B5/B7 · the caller's authorisation is now INTERSECTED with the
+    explicit, registry-resolved tenant, so a cross-tenant principal that
+    names a tenant is answered about that tenant only. Authority narrows;
+    it never widens. ``edr_scope`` raises rather than returning ``None``,
+    so an unauthorised caller can no longer be answered with an empty
+    projection that reads like "no evidence".
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return None
-    q: Dict[str, Any] = {"name": {"$exists": True, "$ne": ""}}
-    if not scope.get("all_tenants"):
-        q["tenant_id"] = {"$in": scope["tenant_ids"]}
-    return q
+    scope = edr_scope(tenant_id, user)
+    return {"name": {"$exists": True, "$ne": ""},
+            "tenant_id": {"$in": scope["tenant_ids"]}}
 
 
-def _is_cross_tenant(user) -> Any:
-    """The principal's authorisation scope.
+def _tenant_scope(user, tenant_id: str) -> Dict[str, Any]:
+    """The principal's authorisation NARROWED to the explicit tenant.
 
-    Returns the scope object the EDR identity plane needs, not a bare
-    boolean: a customer-scoped analyst must be able to see ITS OWN
-    endpoints, which a boolean cannot express. Kept under the original
-    name so every existing call site passes the scope unchanged.
+    Returns the scope object the EDR identity plane already consumes
+    (``device_identity._norm_scope``, ``endpoint_query.resolve_endpoint``,
+    ``telemetry_freshness.fleet_freshness``), so one resolution propagates
+    to every query site instead of each site inventing a filter.
+
+    Because ``all_tenants`` is always False here,
+    ``device_identity.list_devices`` already excludes
+    ``UNATTRIBUTED_LEGACY_OBSERVATION`` and both ``*_FAILED_CLOSED`` rows:
+    an explicit tenant request is never answered with unowned evidence.
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return {"all_tenants": False, "tenant_ids": []}
-    return {"all_tenants": bool(scope.get("all_tenants")),
-            "tenant_ids": list(scope.get("tenant_ids") or [])}
+    return edr_scope(tenant_id, user)
 
 
 def _extract_host(doc: Dict[str, Any]) -> Optional[str]:
@@ -396,19 +401,28 @@ def _project_endpoint_process_tree(endpoint_id: str,
 
 
 # ── HTTP surfaces ────────────────────────────────────────────────────
-def _load(incident_id: str) -> Dict[str, Any]:
-    doc = _col.find_one({"id": incident_id})
+def _load(incident_id: str, tenant_id: str) -> Dict[str, Any]:
+    """The incident, read WITHIN the explicit tenant.
+
+    P3 · B5/B7 · an incident is tenant evidence, so the lookup is
+    tenant-partitioned. A caller naming another tenant's incident gets the
+    same `incident_not_found` it would get for an id that does not exist —
+    existence in another tenant is not disclosed.
+    """
+    doc = _col.find_one({"id": incident_id, "tenant_id": tenant_id})
     if not doc:
         raise HTTPException(status_code=404,
                               detail={"error": "incident_not_found",
-                                       "id": incident_id})
+                                       "id": incident_id,
+                                       "tenant_id": tenant_id})
     return doc
 
 
 @router.get("/detections")
 async def list_detections(incident_id: str,
-                             user=Depends(get_current_user)):
-    doc = _load(incident_id)
+                          user=Depends(get_current_user),
+                          tenant_id: str = Depends(edr_tenant)):
+    doc = _load(incident_id, tenant_id)
     rows = _project_detections(doc)
     return {
         "incident_id": incident_id,
@@ -422,7 +436,8 @@ async def list_detections(incident_id: str,
 
 @router.get("/endpoint-detections")
 async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
-                                   user=Depends(get_current_user)):
+                                  user=Depends(get_current_user),
+                                  tenant_id: str = Depends(edr_tenant)):
     """P0-F · read-only projection of the AUTHORITATIVE detection records.
 
     It creates no detection store and holds no detection state: every row
@@ -436,7 +451,7 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
     `device_iid` and its platform-minted `endpoint_id` return the same
     detections instead of one of them reading as "no rule fired".
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {**eq.unresolved_envelope(endpoint_id),
@@ -469,6 +484,10 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
                 p = json.loads(raw.get("payload") or "{}")
             except ValueError:
                 p = {}
+            if not p.get("activity"):
+                # Windows records carry no flat `activity`; project the
+                # canonical evidence the bridge already derived.
+                p = {**p, **(win_eventlog.flat_view(p) or {})}
             rows.append({
                 "raw_id": raw["raw_id"],
                 "canonical_event_id": d.get("event_id"),
@@ -507,11 +526,202 @@ async def list_endpoint_detections(endpoint_id: str, hours: int = 24,
 
 
 
+@router.get("/endpoint-commands")
+async def list_endpoint_commands(endpoint_id: str, hours: int = 24,
+                                 limit: int = 200,
+                                 user=Depends(get_current_user),
+                                 tenant_id: str = Depends(edr_tenant)):
+    """Command Intelligence — OBSERVED endpoint command execution.
+
+    This is deliberately NOT the response plane. `/edr/response/actions`
+    records commands NivXRay *sent* to a sensor; this surface records
+    commands the endpoint was *observed executing*, read from the
+    immutable raw sensor evidence:
+
+        parent process -> process -> raw command line -> decoder ->
+        decoded command -> canonical evidence -> detection -> ATT&CK
+
+    Every link is rendered only where the evidence carries it. The
+    decoder join is content-addressed (`sha256(command_line)` ->
+    `v2_decoded_payloads`), so a command with no persisted decode reads
+    DECODE_NOT_RECORDED instead of being decoded in the browser.
+    """
+    scope = _tenant_scope(user, tenant_id)
+    res = eq.resolve_endpoint(endpoint_id, scope)
+    window = max(1, min(hours, 24 * 90))
+    cap = max(1, min(limit, 500))
+    if not res:
+        return {**eq.unresolved_envelope(endpoint_id),
+                "window_hours": window, "commands": [], "count": 0,
+                "processes_observed": 0, "truncated": False,
+                "source": "edr_raw_events.payload (activity=PROCESS)"}
+    since = (datetime.now(timezone.utc)
+             - timedelta(hours=window)).isoformat()
+    observations: List[Dict[str, Any]] = []
+    scanned = 0
+    cursor = sync_collection("edr_raw_events").find(
+        {**res.predicate("edr_raw_events"),
+         "ingest_time": {"$gte": since}},
+        {"_id": 0, "raw_id": 1, "payload": 1, "derivations": 1,
+         "ingest_time": 1, "trust_state": 1, "telemetry_quality": 1,
+         "sensor_version": 1}).sort("ingest_time", -1).limit(cap * 8)
+    for raw in cursor:
+        scanned += 1
+        try:
+            p = json.loads(raw.get("payload") or "{}")
+        except ValueError:
+            continue
+        if not p.get("activity"):
+            # Windows: project the canonical evidence into the flat shape
+            # this surface reads. `flat_view` returns nothing when the
+            # record produced no canonical evidence, so an unsupported
+            # event family is never surfaced as a process.
+            p = {**p, **(win_eventlog.flat_view(p) or {})}
+        if p.get("activity") != "PROCESS" or not p.get("command_line"):
+            continue
+        matched, evaluated_state, rules, verdict, engine = [], None, [], None, None
+        canonical_ids = []
+        for d in (raw.get("derivations") or ()):
+            outcome = d.get("outcome")
+            if d.get("event_id") and d["event_id"] not in canonical_ids:
+                canonical_ids.append(d["event_id"])
+            if outcome == "DETECTION_MATCHED":
+                evaluated_state = "DETECTION_MATCHED"
+                rules += [r.strip() for r in
+                          str(d.get("reason") or "").replace("rules:", "")
+                          .split(",") if r.strip()]
+                verdict = d.get("verdict_version") or verdict
+                engine = d.get("detection_content_version") or engine
+                matched.append(d)
+            elif (outcome == "DETECTION_EVALUATED_NO_MATCH"
+                  and evaluated_state is None):
+                evaluated_state = "EVALUATED_NO_MATCH"
+            elif (outcome == "DETECTION_NOT_EVALUATED"
+                  and evaluated_state is None):
+                evaluated_state = "NOT_EVALUATED"
+        command_line = str(p["command_line"])
+        observations.append({
+            "raw_id": raw.get("raw_id"),
+            "observed_at": p.get("observed_at"),
+            "start_time": p.get("start_time"),
+            "ingest_time": raw.get("ingest_time"),
+            "pid": p.get("pid"),
+            "ppid": p.get("ppid"),
+            "user": p.get("user"),
+            "image": p.get("image"),
+            "image_path": p.get("image_path"),
+            "sha256": p.get("sha256"),
+            "command_line": command_line,
+            "command_sha256": hashlib.sha256(
+                command_line.encode()).hexdigest(),
+            "parent": {
+                "image": p.get("parent_image"),
+                "image_path": p.get("parent_image_path"),
+                "lookup_state": p.get("parent_lookup_state")
+                                or "NOT_OBSERVED",
+            },
+            "collection_method": p.get("collection_method"),
+            "sensor_version": p.get("sensor_version")
+                              or raw.get("sensor_version"),
+            "not_observed": list(p.get("not_observed") or []),
+            "trust_state": raw.get("trust_state"),
+            "telemetry_quality": raw.get("telemetry_quality"),
+            "canonical_event_ids": canonical_ids,
+            "detection": {
+                "state": evaluated_state or "NOT_RECORDED",
+                "rule_ids": sorted(set(rules)),
+                "verdict": verdict,
+                "engine": engine,
+                "basis": ("read from the detection derivations written onto "
+                          "this raw event; NOT_EVALUATED is a detection gap, "
+                          "not an absence of malicious activity"),
+            },
+        })
+        if len(observations) >= cap:
+            break
+    # ONE content-addressed decoder join for the whole page — no per-row read.
+    digests = sorted({o["command_sha256"] for o in observations})
+    decoded = {}
+    if digests:
+        for doc in sync_collection("v2_decoded_payloads").find(
+                {"_id": {"$in": digests}},
+                {"_id": 1, "report": 1, "command_binary": 1}):
+            decoded[doc["_id"]] = doc
+    # Child links come from observed pids inside the SAME window only.
+    by_ppid: Dict[Any, List[Dict[str, Any]]] = {}
+    for o in observations:
+        by_ppid.setdefault(o.get("ppid"), []).append(o)
+    techniques: Dict[str, Dict[str, Any]] = {}
+    for o in observations:
+        doc = decoded.get(o["command_sha256"])
+        report = (doc or {}).get("report") or {}
+        trace = report.get("trace") or []
+        mitre = []
+        for layer in trace:
+            for hint in (layer.get("mitre_hints") or []):
+                if hint.get("id"):
+                    mitre.append(hint)
+                    techniques.setdefault(hint["id"], {
+                        "id": hint["id"],
+                        "technique": hint.get("technique"),
+                        "tactic": hint.get("tactic"),
+                        "source": "DECODER_EVIDENCE",
+                        "commands": 0})
+                    techniques[hint["id"]]["commands"] += 1
+        o["decode"] = {
+            "state": "DECODED" if doc else "DECODE_NOT_RECORDED",
+            "decoded_command": report.get("output"),
+            "layers": [{"layer": t.get("layer"), "decoder": t.get("decoder"),
+                        "why": t.get("why"), "confidence": t.get("confidence"),
+                        "preview": t.get("preview")} for t in trace],
+            "mitre_hints": mitre,
+            "lolbas": [h for t in trace for h in (t.get("lolbas_hits") or [])],
+            "tradecraft": [f for t in trace
+                           for f in (t.get("tradecraft") or [])],
+            "basis": ("content-addressed join on sha256(command_line) into "
+                      "the persisted decoder store; a command with no "
+                      "persisted decode is reported, never decoded here"),
+        }
+        o["children_observed"] = [
+            {"pid": c.get("pid"), "image": c.get("image"),
+             "command_line": c.get("command_line"),
+             "observed_at": c.get("observed_at")}
+            for c in by_ppid.get(o.get("pid"), []) if c is not o]
+    return {
+        "endpoint_id": endpoint_id,
+        "window_hours": window,
+        "identity": {"resolved": True,
+                     "resolved_via": res.identity.get("resolved_via"),
+                     "device_iid": res.device_iid,
+                     "hostname": res.hostname,
+                     "addressed_by": res.refs},
+        "commands": observations,
+        "count": len(observations),
+        "distinct_commands": len({o["command_sha256"] for o in observations}),
+        "decoded_count": sum(1 for o in observations
+                             if o["decode"]["state"] == "DECODED"),
+        "detected_count": sum(1 for o in observations
+                              if o["detection"]["state"]
+                              == "DETECTION_MATCHED"),
+        "attack_techniques": sorted(techniques.values(),
+                                    key=lambda t: -t["commands"]),
+        "raw_events_scanned": scanned,
+        "truncated": len(observations) >= cap,
+        "source": ("edr_raw_events.payload (activity=PROCESS) + "
+                   "derivations[] + v2_decoded_payloads"),
+        "note": ("Observed endpoint command execution. Response actions "
+                 "dispatched BY the platform are a different authority "
+                 "(/edr/response/actions) and are never presented as "
+                 "observed endpoint execution."),
+    }
+
+
 @router.get("/process-tree")
 async def get_process_tree(incident_id: str | None = None,
                            endpoint_id: str | None = None,
                            hours: int = 24,
-                           user=Depends(get_current_user)):
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)):
     """Root-first process ancestry.
 
     Two pivots, one projection contract:
@@ -522,19 +732,21 @@ async def get_process_tree(incident_id: str | None = None,
     """
     if endpoint_id:
         return _project_endpoint_process_tree(endpoint_id, hours,
-                                              _is_cross_tenant(user))
+                                              _tenant_scope(user, tenant_id))
     if not incident_id:
         raise HTTPException(
             status_code=422,
             detail={"error": "pivot_required",
                     "reason": "supply either endpoint_id or incident_id",
                     "note": "No tree is invented without a pivot."})
-    doc = _load(incident_id)
+    doc = _load(incident_id, tenant_id)
     return _project_process_tree(doc)
 
 
 @router.get("/campaign-story")
-async def campaign_story(incident_id: str, user=Depends(get_current_user)):
+async def campaign_story(incident_id: str,
+                         user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
     """P0-F.7 · one intrusion, told once, from the authoritative records.
 
     A read model: endpoint → process activity → detection → evidence →
@@ -545,8 +757,7 @@ async def campaign_story(incident_id: str, user=Depends(get_current_user)):
     from deps import db as _db
     from edr_plane.campaign_story import build_story
     story = await build_story(
-        _db, tenant_id=(user.get("tenant_id") or "default"),
-        incident_id=incident_id)
+        _db, tenant_id=tenant_id, incident_id=incident_id)
     if story.get("error"):
         raise HTTPException(status_code=404, detail=story)
     return story
@@ -555,13 +766,14 @@ async def campaign_story(incident_id: str, user=Depends(get_current_user)):
 
 @router.get("/observation-narrative")
 async def observation_narrative(device: str, event_iid: str,
-                                user=Depends(get_current_user)):
+                                user=Depends(get_current_user),
+                                tenant_id: str = Depends(edr_tenant)):
     """Evidence-gated prose for a single persisted observation.
 
     Returns ``resolved: false`` rather than an invented sentence when the
     device reference or the ``event.iid`` does not resolve.
     """
-    scope = _is_cross_tenant(user)
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(device, scope)
     doc = (dir_svc.find_observation(device, event_iid, scope, refs=res.refs)
            if res else None)
@@ -583,7 +795,8 @@ async def observation_narrative(device: str, event_iid: str,
 
 @router.get("/file-trajectory")
 async def file_trajectory(key: str, key_type: str = "name",
-                          user=Depends(get_current_user)):
+                          user=Depends(get_current_user),
+                          tenant_id: str = Depends(edr_tenant)):
     """P1.8 · Fleet (multi-endpoint) artifact trajectory.
 
     `key_type` is one of `sha256` (content digest over
@@ -591,14 +804,19 @@ async def file_trajectory(key: str, key_type: str = "name",
     `path` (exact image or file path).  The response always states which
     fields were matched and why a content-digest correlation may be
     impossible on this substrate.
+
+    P3 · B5/B7 · the substrate is read WITHIN the explicit tenant, so
+    observations that carry no owner are not returned as this tenant's
+    artefact spread.
     """
-    return file_traj_svc.fleet_trajectory(key_type, key)
+    return file_traj_svc.fleet_trajectory(key_type, key, tenant_id=tenant_id)
 
 
 @router.get("/fleet-spread-index")
-async def fleet_spread_index(user=Depends(get_current_user)):
+async def fleet_spread_index(user=Depends(get_current_user),
+                             tenant_id: str = Depends(edr_tenant)):
     """Every observable artifact and the number of endpoints it appears on."""
-    return file_traj_svc.spread_index()
+    return file_traj_svc.spread_index(tenant_id=tenant_id)
 
 
 # ── XDR Endpoints projection (Slice 6 · read-only) ───────────────────
@@ -609,7 +827,8 @@ async def fleet_spread_index(user=Depends(get_current_user)):
 # ── P0-3 · telemetry freshness / blindness ──────────────────────────
 @router.get("/telemetry/freshness")
 async def telemetry_freshness(endpoint: str | None = None,
-                              user=Depends(get_current_user)):
+                              user=Depends(get_current_user),
+                              tenant_id: str = Depends(edr_tenant)):
     """Is this product's own telemetry pipeline delivering, or are we blind?
 
     The console previously had no way to ask this, so a fleet that had
@@ -618,23 +837,15 @@ async def telemetry_freshness(endpoint: str | None = None,
     authority in `services/edr/endpoint_health.py`, against thresholds
     derived from each sensor's OWN declared cadence.
     """
-    scope = resolve_tenant_scope((user or {}).get("email"))
-    if not scope.get("authorized"):
-        return {"engine_id": "nivxray::edr_plane::telemetry_freshness",
-                "endpoints": [], "count": 0, "fleet": None,
-                "reason": "not_authorized"}
-    return fresh_svc.fleet_freshness(scope, endpoint=endpoint)
+    return fresh_svc.fleet_freshness(_tenant_scope(user, tenant_id),
+                                     endpoint=endpoint)
 
 
 
 @router.get("/endpoints")
-async def list_endpoints(user=Depends(get_current_user)):
-    q = _case_scope(user)
-    if q is None:
-        return {"endpoints": [], "count": 0,
-                "source": "v2_shadow_observations · workspace_cases",
-                "reason": "not_authorized",
-                "note": "no_matching_evidence"}
+async def list_endpoints(user=Depends(get_current_user),
+                         tenant_id: str = Depends(edr_tenant)):
+    q = _case_scope(user, tenant_id)
     projection = {
         "_id": 0, "id": 1, "name": 1, "user_email": 1, "tenant_id": 1,
         "created_at": 1, "updated_at": 1, "ssot": 1,
@@ -698,7 +909,7 @@ async def list_endpoints(user=Depends(get_current_user)):
     # See services/edr/device_identity.py.  This is the substrate that
     # actually carries `device_iid`; the SSOT host field is empty in
     # every persisted case.
-    for dev in dir_svc.list_devices(_is_cross_tenant(user)):
+    for dev in dir_svc.list_devices(_tenant_scope(user, tenant_id)):
         rows.append({
             "host":                dev.get("hostname") or dev.get("device_iid"),
             "device_ref":          dev.get("device_ref"),
@@ -790,12 +1001,18 @@ async def endpoint_trajectory_window(
     lane_start: int = 0,
     lane_end: int = 40,
     cursor: Optional[str] = None,
+    before: Optional[str] = None,
     limit: int = 500,
     kinds: Optional[str] = None,
     q: Optional[str] = None,
     dispositions: Optional[str] = None,
     hist_day: Optional[str] = None,
+    raw_event_id: Optional[str] = None,
+    e3_page_size: int = 200,
+    e3_cursor: Optional[str] = None,
+    e3_event_id: Optional[str] = None,
     user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
 ):
     """A WINDOWED, endpoint-scoped trajectory read.
 
@@ -805,8 +1022,19 @@ async def endpoint_trajectory_window(
     """
     from deps import db as _db
     from edr_plane import trajectory_window as tw
+    import asyncio
+    import logging, time as _t
+    _log = logging.getLogger("nvx.edr.trajectory")
+    _t0 = _t.perf_counter()
 
-    res = eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+    # GATE 10 · identity resolution is a SYNC pymongo path (it has to be —
+    # it is the one resolver, shared with the sync surfaces), so calling it
+    # inline blocked this single-worker event loop for its whole duration
+    # and every concurrent trajectory read queued behind it. Same function,
+    # same scope, same result — just not on the loop.
+    res = await asyncio.to_thread(eq.resolve_endpoint, endpoint_id,
+                                  _tenant_scope(user, tenant_id))
+    _t1 = _t.perf_counter()
     if not res:
         return {"engine_id": tw.ENGINE_ID, "endpoint": None, "events": [],
                 "lane_axis": {"total_lanes": 0, "lanes": []},
@@ -822,16 +1050,167 @@ async def endpoint_trajectory_window(
         lane_start=max(0, lane_start), lane_end=max(1, lane_end),
         cursor=cursor, limit=limit, kinds=kinds, q=q,
         dispositions=dispositions, hist_day=hist_day, refs=res.refs)
+    _t2 = _t.perf_counter()
     ep = await _db["edr_endpoints"].find_one(
         res.predicate("edr_endpoints"), {"_id": 0})
-    out["identity"] = res.descriptor()
+    out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
     out["epistemic_state"] = tw.empty_state(
         identity=identity,
         enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
         observations_all_time=out["observations_all_time"],
         observations_in_window=out["matched_in_window"])
     out["computer"] = _computer_header(identity, ep, out)
+    # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
+    # client simply ignores `dt2`. Read-only projection, no store.
+    try:
+        dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
+                     if raw_event_id else None)
+        dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
+                                         or endpoint_id),
+                    requested_start=time_start, requested_end=time_end,
+                    focus=dt2_focus)
+        # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
+        # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
+        # the server-derived nodes and edges and infers no relationship of
+        # its own. Composed from the SAME rows already projected above.
+        from edr_plane.trajectory import projection as dt2_projection
+        out["dt2"]["graph"] = dt2_projection.build_graph(
+            out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+            requested_start=time_start, requested_end=time_end,
+            focus=dt2_focus).to_dict()
+    except Exception as ex:                        # noqa: BLE001
+        # The V2 contract must never take the V1 surface down with it.
+        out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
+                      "state": "DT2_CONTRACT_UNAVAILABLE",
+                      "reason": type(ex).__name__}
+        _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
+    # §d · PRODUCTION WIRING for the E3 Device Trajectory capability.
+    #
+    # Additive under `e3`: V1 and `dt2` above are untouched and a client that does not know
+    # this key simply ignores it. It is the same authoritative identity (`res.refs`) and the
+    # same authoritative customer resolved above — this route adds no second resolver and no
+    # second authority. Chronology is the stores' own stored observation time; `ingest_time`
+    # is never an ordering key. Failure degrades to an explicit unavailable state and can
+    # never take V1 or dt2 down with it.
+    try:
+        from edr_trajectory import production_service as e3prod
+        out["e3"] = await e3prod.device_trajectory(
+            _db, tenant_id=str(identity.get("tenant_id") or tenant_id),
+            refs=res.refs,
+            endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+            page_size=e3_page_size, cursor=e3_cursor or before, focus_event_id=e3_event_id,
+            time_start=time_start, time_end=time_end)
+    except Exception as ex:                        # noqa: BLE001
+        out["e3"] = {"contract": "e3.dt.production.v1",
+                     "state": "E3_PRODUCTION_CONTRACT_UNAVAILABLE",
+                     "reason": type(ex).__name__, "detail": str(ex)[:200],
+                     "mock_data_reachable": False}
+        _log.warning("[trajectory] e3 production contract unavailable: %r", ex)
+    # §4/§7 · the ADDITIVE V3 PRESENTATION CONTRACT.
+    #
+    # `v3` is a pure re-expression of the `e3` result above in the field vocabulary the exact E3
+    # V3 surface consumes. It performs NO second evidence read and introduces NO second authority:
+    # one endpoint resolution, one customer resolution, one evidence read, one ordering authority.
+    # V1, `dt2` and `e3` are untouched, so every existing caller is unaffected.
+    #
+    # Detections are joined from E1's OWN durable findings authority on an exact evidence
+    # reference — never on timestamp proximity — and a row with no finding is left with no
+    # detection, because NO DETECTION is not BENIGN.
+    try:
+        from edr_trajectory import v3_presentation as e3v3
+        out["v3"] = e3v3.build(out.get("e3") or {}, computer=out.get("computer"),
+                               identity=out.get("identity"))
+        if out["v3"].get("events"):
+            try:
+                from edr_plane.fabric import store as _finding_store
+                _findings, _ = await asyncio.to_thread(
+                    _finding_store.read,
+                    str(identity.get("tenant_id") or tenant_id), limit=500,
+                    endpoint_ref=str(identity.get("endpoint_id") or endpoint_id))
+                out["v3"]["detection_join"] = e3v3.apply_findings(out["v3"]["events"], _findings)
+                out["v3"]["e3_preview"]["detections_all"] = [
+                    {"event_iid": r["event_iid"], "observation_id": r.get("observation_id"),
+                     "at": r["timestamp"], "ms": r["timestamp_instant_ms"],
+                     "name": r["e3_detection"]["name"],
+                     "severity": r["e3_detection"]["severity"],
+                     "rule_id": r["e3_detection"].get("rule_id")}
+                    for r in out["v3"]["events"] if r.get("e3_detection")]
+            except Exception as ex:                    # noqa: BLE001
+                # A findings outage must never remove EVIDENCE from the analyst's screen, and it
+                # must never be rendered as "no detections". It is reported as unavailable.
+                out["v3"]["detection_join"] = {
+                    "state": "E1_FINDINGS_AUTHORITY_UNAVAILABLE",
+                    "reason": type(ex).__name__,
+                    "meaning": "detections could not be read. This is NOT a statement that this "
+                               "endpoint has no detections."}
+                _log.warning("[trajectory] v3 detection join unavailable: %r", ex)
+    except Exception as ex:                            # noqa: BLE001
+        out["v3"] = {"contract": "e3.dt.v3_presentation.v1",
+                     "state": "V3_CONTRACT_UNAVAILABLE",
+                     "reason": type(ex).__name__, "detail": str(ex)[:200],
+                     "events": [], "mock_data_reachable": False}
+        _log.warning("[trajectory] v3 presentation contract unavailable: %r", ex)
+    _log.info("[trajectory] resolve=%.2fs projection=%.2fs tail=%.2fs "
+              "total=%.2fs state=%s observations=%s",
+              _t1 - _t0, _t2 - _t1, _t.perf_counter() - _t2,
+              _t.perf_counter() - _t0,
+              (out.get("projection") or {}).get("state"),
+              (out.get("projection") or {}).get("observations_projected"))
     return out
+
+
+def _display_hostname(identity: Dict[str, Any],
+                      ep: Optional[Dict[str, Any]]) -> tuple[Optional[str], str]:
+    """The name to SHOW for this endpoint, and the authority that stated it.
+
+    The enrolment registry (`edr_endpoints.hostname`) is the authoritative
+    statement of a machine's name. The observation plane's hostname is
+    derived from the stored observation, which substitutes the platform
+    `endpoint_id` when the authenticated ingest carried no hostname — so
+    preferring it presents an internal identifier as the machine name.
+    Identity resolution, aliases, `device_iid`, tenancy and evidence
+    addressing are untouched: this decides a LABEL only, and when neither
+    authority states a name the absence is preserved.
+    """
+    enrolled = str((ep or {}).get("hostname") or "").strip()
+    if enrolled:
+        return enrolled, "ENROLMENT_REPORTED"
+    observed = str(identity.get("hostname") or "").strip()
+    if observed:
+        return observed, "OBSERVATION_DERIVED"
+    return None, "HOSTNAME_NOT_COLLECTED"
+
+
+def _identity_with_display_hostname(descriptor: Dict[str, Any],
+                                    ep: Optional[Dict[str, Any]]
+                                    ) -> Dict[str, Any]:
+    """`descriptor()` plus the authoritative display name and its basis.
+
+    `endpoint_id`, `device_iid`, `tenant_id`, `addressed_by` and
+    `resolved_via` are passed through byte-for-byte — resolution happened
+    before any evidence was read and is not revisited here.
+    """
+    hostname, basis = _display_hostname(descriptor, ep)
+    return {**descriptor, "hostname": hostname, "hostname_basis": basis,
+            "observed_hostname": descriptor.get("hostname")}
+
+
+def _focus_endpoint_block(endpoint_id: str, descriptor: Dict[str, Any],
+                          ep: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The `endpoint` block every /trajectory/focus branch returns.
+
+    Same authority and same precedence as the window route's header, so a
+    deep link can never name the machine differently from the page that
+    produced the link. Presentation only: the resolved identity, its
+    aliases and the addressing they drive are not consulted or altered
+    beyond reading the already-resolved values.
+    """
+    hostname, basis = _display_hostname(descriptor, ep)
+    return {"endpoint_id": endpoint_id,
+            "device_iid": descriptor.get("device_iid"),
+            "hostname": hostname,
+            "hostname_basis": basis,
+            "observed_hostname": descriptor.get("hostname")}
 
 
 def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
@@ -846,8 +1225,10 @@ def _computer_header(identity: Dict[str, Any], ep: Optional[Dict[str, Any]],
     ep = ep or {}
     NC = {"state": "NOT_COLLECTED",
           "reason": "not reported by the NivXForge Linux sensor"}
+    hostname, hostname_basis = _display_hostname(identity, ep)
     return {
-        "hostname": identity.get("hostname"),
+        "hostname": hostname,
+        "hostname_basis": hostname_basis,
         "device_iid": identity.get("device_iid"),
         "identity_confidence": identity.get("identity_confidence"),
         "operating_system": ep.get("platform") or NC,
@@ -877,6 +1258,7 @@ async def get_device_trajectory(
     hours: int = 24,
     all_time: bool = False,
     user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
 ):
     """Return a device-scoped trajectory aggregation for the XDR
     3-pane canvas.  Aggregates, in this order of authority:
@@ -899,7 +1281,7 @@ async def get_device_trajectory(
     since = now - timedelta(hours=hours)
     since_iso = None if all_time else since.isoformat()
 
-    cross_tenant = _is_cross_tenant(user)
+    cross_tenant = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(device, cross_tenant)
     identity = res.identity if res else None
 
@@ -920,7 +1302,7 @@ async def get_device_trajectory(
                                     "source": "v2_shadow_observations"}
 
     # 2/3) Case-derived detections + activity, matched on hostname.
-    q = _case_scope(user)
+    q = _case_scope(user, tenant_id)
     docs: List[Dict[str, Any]] = []
     if q is not None:
         host_needle = (identity or {}).get("hostname") or device
@@ -1116,14 +1498,16 @@ async def get_device_trajectory(
 @router.get("/context")
 async def edr_entry_context(endpoint_id: Optional[str] = None,
                             incident_id: Optional[str] = None,
-                            user=Depends(get_current_user)) -> Dict[str, Any]:
+                            user=Depends(get_current_user),
+                            tenant_id: str = Depends(edr_tenant)
+                            ) -> Dict[str, Any]:
     from services.session_context import authorised_incident, tenant_context
 
     errors: List[str] = []
     investigation: Optional[Dict[str, Any]] = None
     inherited: Optional[str] = None
 
-    _res = (eq.resolve_endpoint(endpoint_id, _is_cross_tenant(user))
+    _res = (eq.resolve_endpoint(endpoint_id, _tenant_scope(user, tenant_id))
             if endpoint_id else None)
     identity = _res.identity if _res else None
 
@@ -1180,7 +1564,8 @@ async def edr_entry_context(endpoint_id: Optional[str] = None,
                 "href": f"/xdr/incidents/{doc.get('id')}",
             }
 
-    ctx = tenant_context((user or {}).get("email"), inherited_tenant=inherited)
+    ctx = tenant_context((user or {}).get("email"), inherited_tenant=inherited,
+                         explicit_tenant=tenant_id)
     ctx.update({
         "engine_id": "nivxray::edr_plane::entry_context",
         "entry_context": "XDR_PIVOT" if investigation else "DIRECT_EDR",
@@ -1223,8 +1608,10 @@ def _ms_iso(ms: int) -> str:
 # ═══════════════════════════════════════════════════════════════════
 @router.get("/endpoints/{endpoint_id}/linked-incidents")
 async def linked_incidents(endpoint_id: str,
-                           user=Depends(get_current_user)) -> Dict[str, Any]:
-    scope = _is_cross_tenant(user)
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)
+                           ) -> Dict[str, Any]:
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {"engine_id": "nivxray::edr_plane::linked_incidents",
@@ -1242,7 +1629,7 @@ async def linked_incidents(endpoint_id: str,
     refs = res.refs
     q: Dict[str, Any] = {"endpoint_campaign": {"$exists": True},
                          **res.predicate("workspace_cases")}
-    tscope = resolve_tenant_scope((user or {}).get("email"))
+    tscope = scope
     if not tscope.get("all_tenants"):
         q["tenant_id"] = {"$in": tscope.get("tenant_ids") or []}
 
@@ -1296,6 +1683,46 @@ async def linked_incidents(endpoint_id: str,
 # Cisco-observable behaviour, implemented independently: opening the
 # Device Trajectory from a detection must land on the EXACT observation
 # that produced it — not merely on the right machine.
+
+# ═══════════════════════════════════════════════════════════════════
+# E3 · DETECTION REPLAY over already-canonical endpoint evidence.
+#
+# It is NOT a second detection engine. The verdict comes from
+# `detection_content.xdr_pipeline.evaluate_detection` — the identical
+# function the live ingest pipeline calls — and durability from
+# `record_endpoint_detection`, the identical function live ingest uses.
+# Replay defines no rule, no predicate and no match shape, so live and
+# replayed verdicts cannot diverge.
+#
+# `apply=false` (the default) evaluates and REPORTS and writes nothing.
+# ═══════════════════════════════════════════════════════════════════
+@router.post("/endpoints/{endpoint_id}/detection-replay")
+async def endpoint_detection_replay(
+    endpoint_id: str,
+    apply: bool = False,
+    limit: Optional[int] = None,
+    user=Depends(get_current_user),
+    tenant_id: str = Depends(edr_tenant),
+):
+    from deps import db as _db
+    from edr_plane import detection_replay as dr
+    import asyncio
+
+    res = await asyncio.to_thread(eq.resolve_endpoint, endpoint_id,
+                                  _tenant_scope(user, tenant_id))
+    if not res:
+        return {"engine_id": "nivxray::edr_plane::detection_replay",
+                **eq.unresolved_envelope(endpoint_id)}
+    # The AUTHORITATIVE owner of the resolved identity, never the
+    # requested context: replay reads a tenant-partitioned evidence
+    # store and an unresolved owner reads nothing.
+    out = await dr.replay_endpoint(
+        _db, tenant_id=res.identity.get("tenant_id"), refs=res.refs,
+        apply=bool(apply), limit=limit)
+    out["identity"] = res.descriptor()
+    return out
+
+
 #
 # Resolution is by stable identifier only. Hostname, process name, pid
 # and timestamp proximity are NOT resolution keys here; if the exact
@@ -1307,21 +1734,100 @@ async def trajectory_focus(endpoint_id: str,
                            raw_event_id: Optional[str] = None,
                            canonical_event_id: Optional[str] = None,
                            event_iid: Optional[str] = None,
+                           event: Optional[str] = None,
+                           observation_id: Optional[str] = None,
                            detection_id: Optional[str] = None,
                            incident_id: Optional[str] = None,
-                           user=Depends(get_current_user)) -> Dict[str, Any]:
+                           user=Depends(get_current_user),
+                           tenant_id: str = Depends(edr_tenant)
+                           ) -> Dict[str, Any]:
     from services.session_context import authorised_incident
     from deps import db as _db
     from edr_plane import trajectory_window as tw
 
 
-    scope = _is_cross_tenant(user)
+    scope = _tenant_scope(user, tenant_id)
     res = eq.resolve_endpoint(endpoint_id, scope)
     if not res:
         return {"engine_id": "nivxray::edr_plane::trajectory_focus",
                 **eq.unresolved_envelope(endpoint_id),
                 "focus": None}
     identity = res.identity
+
+    # The deep link must NAME the machine exactly as the main trajectory does, or one analyst
+    # session disagrees with itself about which host it is looking at. Same authority, same
+    # precedence helper, same tenant/ref-bound predicate as the window route — a LABEL only:
+    # `res.identity` is never mutated, so cache keys, alias refs and addressing are untouched.
+    _ep_doc = await _db["edr_endpoints"].find_one(
+        res.predicate("edr_endpoints"), {"_id": 0})
+    endpoint_block = _focus_endpoint_block(endpoint_id, res.descriptor(),
+                                           _ep_doc)
+
+    # §8 · `event` is an ACCEPTED ALIAS of `event_iid`. The ATT&CK HeatMap and the XDR pivot both
+    # build `?event=`, and an identifier the resolver silently ignored resolved to nothing while
+    # looking like a successful read.
+    event_iid = event_iid or event
+
+    # §8 · V3 PRESENTATION IDENTITY and `observation_id` resolve through the §d authority.
+    # `decode_iid` returns None for anything outside the V3 identity namespace, so the V1
+    # `event_iid` contract below is reached unchanged — no existing caller changes behaviour.
+    from edr_trajectory import v3_presentation as e3v3
+    v3_event_id = e3v3.decode_iid(event_iid) if event_iid else None
+    if v3_event_id or observation_id:
+        from edr_trajectory import production_adapter as e3pa
+        try:
+            deep = await e3pa.resolve_evidence(
+                _db, tenant_id=str(identity.get("tenant_id") or tenant_id), refs=res.refs,
+                event_id=v3_event_id,
+                match=((lambda ev: (ev.get("provenance") or {}).get("ref") == observation_id)
+                       if (observation_id and not v3_event_id) else None))
+        except Exception as ex:                        # noqa: BLE001
+            return {"engine_id": "nivxray::edr_trajectory::v3_focus",
+                    "state": "FOCUS_AUTHORITY_UNAVAILABLE", "focus": None,
+                    "reason": type(ex).__name__,
+                    "meaning": ("the deep-link resolver could not read evidence. This is NOT a "
+                                "statement that the requested observation does not exist.")}
+        if deep.get("state") != "FOCUS_RESOLVED":
+            incomplete = (deep.get("search") or {}).get("state", "").startswith("PAGE_BUDGET")
+            return {"engine_id": "nivxray::edr_trajectory::v3_focus",
+                    "state": ("OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE" if incomplete
+                              else "OBSERVATION_NOT_RESOLVED"),
+                    "focus": None,
+                    "requested": {"event_iid": event_iid, "observation_id": observation_id},
+                    "reason": deep.get("reason"),
+                    "search": deep.get("search"),
+                    "observations_searched": deep.get("scanned"),
+                    "missing_link": (deep.get("meaning") if incomplete else
+                                     ("no observation on this endpoint, in this customer, carries "
+                                      "the requested identifier. Nothing is focused in its place "
+                                      "— no timestamp, hostname or process-name proximity is "
+                                      "substituted for an exact identifier match."))}
+        hit = deep["event"]
+        ms = hit.get("observed_ms")
+        half = 30 * 60 * 1000
+        return {
+            "engine_id": "nivxray::edr_trajectory::v3_focus",
+            "state": "FOCUS_RESOLVED",
+            "resolved_by": "v3_presentation_identity" if v3_event_id else "observation_id",
+            "endpoint": endpoint_block,
+            "focus": {
+                "event_iid": e3v3.encode_iid(hit["event_id"]),
+                "event_id": hit["event_id"],
+                "observation_id": (hit.get("provenance") or {}).get("ref"),
+                "event_type": e3v3.EVENT_TYPE.get(hit.get("kind"),
+                                                  str(hit.get("kind") or "").lower()),
+                "timestamp": hit.get("observed_at"),
+                "observed_at": hit.get("observed_at"),
+                "timestamp_instant_ms": ms,
+                "observation_time_authority": "STORED_OBSERVATION_TIME",
+                "position": deep.get("position"),
+                "basis": deep.get("provenance", {}).get("ordering_authority"),
+                "window": ({"time_start": _ms_iso(ms - half),
+                            "time_end": _ms_iso(ms + half)} if ms is not None else None),
+            },
+            "note": ("exact evidence-identity match inside the authorized customer and the "
+                     "authorized endpoint — no inference of any kind"),
+        }
 
     wanted_raw = {raw_event_id} if raw_event_id else set()
     wanted_cev = {canonical_event_id} if canonical_event_id else set()
@@ -1438,9 +1944,7 @@ async def trajectory_focus(endpoint_id: str,
             "searched": search["identities_searched"],
             "search": search,
             "context": context,
-            "endpoint": {"endpoint_id": endpoint_id,
-                         "device_iid": identity.get("device_iid"),
-                         "hostname": identity.get("hostname")},
+            "endpoint": endpoint_block,
             "observations_searched": searched,
             "resolution_reason": ("no observation examined on this "
                                   "endpoint carries the requested "
@@ -1463,9 +1967,7 @@ async def trajectory_focus(endpoint_id: str,
     return {
         "engine_id": "nivxray::edr_plane::trajectory_focus",
         "state": "FOCUS_RESOLVED",
-        "endpoint": {"endpoint_id": endpoint_id,
-                     "device_iid": identity.get("device_iid"),
-                     "hostname": identity.get("hostname")},
+        "endpoint": endpoint_block,
         "context": context,
         "search": search,
         "focus": {

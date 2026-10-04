@@ -89,10 +89,13 @@ class RootKeyProvider(ABC):
 
 class EnvRootKeyProvider(RootKeyProvider):
     def root_key(self) -> bytes:
-        raw = os.environ.get("XDR_ROOT_KEY")
-        if not raw:
-            raise KeyError("XDR_ROOT_KEY not set")
-        return raw.encode("ascii")
+        """P0-PROD-1 · via the secret policy: production requires
+        `XDR_ROOT_KEY` and fails closed, preview/CI derive an
+        instance-local vault root used for no other purpose."""
+        from security import secret_policy
+        key, _kid, _basis = secret_policy.resolve_fernet(
+            "XDR_ROOT_KEY", secret_policy.PURPOSE_VAULT_ROOT)
+        return key
 
 
 class FileRootKeyProvider(RootKeyProvider):

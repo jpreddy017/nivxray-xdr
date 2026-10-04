@@ -19,6 +19,8 @@
 import React, { useState } from "react";
 import { Plug, X } from "lucide-react";
 import * as C from "@/xdr/admin/collectorApi";
+import { activeTenant } from "@/lib/tenant";
+import { refusalText } from "@/lib/refusal";
 
 export function ConnectorWizard({ category, editing, onClose, onCreated }) {
   const isEdit    = !!editing;
@@ -27,7 +29,7 @@ export function ConnectorWizard({ category, editing, onClose, onCreated }) {
   const [cfg,     setCfg]     = useState(() => (editing?.config || {}));
   const [saving,  setSaving]  = useState(false);
   const [err,     setErr]     = useState(null);
-  const [tenant,  setTenant]  = useState("default");
+  const [tenant,  setTenant]  = useState(activeTenant() || "");
 
   const patch = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
   const patchCred = (k, v) =>
@@ -43,7 +45,7 @@ export function ConnectorWizard({ category, editing, onClose, onCreated }) {
       }
       onCreated();
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "Save failed.");
+      setErr(refusalText(e, "Save failed."));
     } finally {
       setSaving(false);
     }

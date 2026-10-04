@@ -22,9 +22,12 @@ from typing import Any, Dict, List, Optional
 from fastapi   import APIRouter, HTTPException, Request, Header
 from pydantic  import BaseModel, Field
 
+from framework import collector_identity
+
 from framework.rest_poller import RestPollerConnector
 from framework.webhook     import WebhookConnector
 from framework.syslog      import SyslogConnector
+from framework.m365_activity import M365ManagementActivityConnector
 
 
 router = APIRouter(tags=["connectors"])
@@ -75,6 +78,26 @@ SOURCE_CATALOGUE = [
         "capabilities": [c.value for c in SyslogConnector.capabilities],
         "credentials":  [],
     },
+    {
+        "source_type":  "m365-management-activity",
+        "label":        M365ManagementActivityConnector.label,
+        "category":     "api",
+        "transport":    "https",
+        "config_schema": M365ManagementActivityConnector.configuration_schema,
+        "capabilities": [c.value for c in
+                         M365ManagementActivityConnector.capabilities],
+        "credentials":  ["client_id", "client_secret",
+                         "certificate_thumbprint",
+                         "certificate_private_key_pem"],
+        "declared_source": M365ManagementActivityConnector.DECLARED_SOURCE,
+        "auth":         "oauth2_client_credentials (app-only, admin "
+                        "consent required)",
+        "notes":        ("Office 365 Management Activity API · content "
+                         "types Audit.Exchange / "
+                         "Audit.AzureActiveDirectory / Audit.General · "
+                         "contentCreated is blob availability, never "
+                         "activity time"),
+    },
 ]
 
 
@@ -82,11 +105,36 @@ CLASS_BY_TYPE = {
     "rest":    RestPollerConnector,
     "webhook": WebhookConnector,
     "syslog":  SyslogConnector,
+    "m365-management-activity": M365ManagementActivityConnector,
 }
 
 
 def _tenant(x_tenant_id: Optional[str]) -> str:
-    return x_tenant_id or "default"
+    """The authoritative tenant for a connector operation.
+
+    B7 Option A · this returned ``x_tenant_id or "default"``, so a connector
+    CREATE with no header persisted a record under a tenant the registry does
+    not hold — collector creation inferring tenancy, which is exactly what the
+    Organization -> Tenant authority forbids. The header is now resolved
+    through the registry when this package is mounted inside the NivXRay
+    backend, and refused outright when absent.
+    """
+    raw = (x_tenant_id or "").strip()
+    try:
+        from services import tenant_registry            # mounted in the core
+    except ImportError:                                  # standalone deployment
+        if not raw:
+            raise HTTPException(403, detail={
+                "code": "TENANT_REQUIRED",
+                "reason": ("no tenant named for xdr.collector.connectors: the "
+                           "authoritative tenant must be presented "
+                           "explicitly; there is no default tenant")})
+        return raw
+    try:
+        return tenant_registry.authoritative(
+            raw, purpose="xdr.collector.connectors")
+    except tenant_registry.TenantRegistryError as e:
+        raise HTTPException(e.http, detail=e.detail()) from None
 
 
 # ── catalogue ─────────────────────────────────────────────────
@@ -120,11 +168,19 @@ async def create_connector(body: ConnectorCreate, request: Request,
                                               "known": list(CLASS_BY_TYPE.keys())})
     tenant = _tenant(x_tenant_id)
     store  = request.app.state.store
+    cls    = CLASS_BY_TYPE[body.source_type]
     rec    = store.create(tenant_id=tenant, source_type=body.source_type,
                               label=body.label, config=body.config)
-    # instantiate live object (not started)
-    cls   = CLASS_BY_TYPE[body.source_type]
-    inst  = cls(tenant_id=tenant, config=body.config, identity=rec.id)
+    # instantiate live object (not started). A configuration the connector
+    # refuses is a client error, and the unusable record is not kept.
+    try:
+        inst = cls(tenant_id=tenant, config=body.config, identity=rec.id)
+    except ValueError as exc:
+        store.delete(rec.id)
+        raise HTTPException(400, detail={
+            "error": "invalid_connector_configuration",
+            "source_type": body.source_type,
+            "reason": str(exc)}) from exc
     request.app.state.instances[rec.id] = inst
     request.app.state.registry.register_instance(inst)
     return rec.redacted()
@@ -176,6 +232,11 @@ async def delete_connector(cid: str, request: Request):
     inst  = request.app.state.instances.pop(cid, None)
     if inst is not None:
         await request.app.state.runtime.stop(inst)
+        # Release the collector identity so the id can be re-enrolled
+        # (including by another tenant) once this connector is gone.
+        held = getattr(inst, "collector_id", None)
+        if held:
+            collector_identity.release(held)
     gone = store.delete(cid)
     if not gone:
         raise HTTPException(404, detail={"error": "connector_not_found"})

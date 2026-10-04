@@ -55,10 +55,25 @@ class DetectionLibraryRegistry:
         Returns a list of match records (never verdicts).
         """
         matches: List[Dict[str, Any]] = []
+        ev_ref = (f"xdr_canonical_evidence/{canonical_event.get('event_id')}"
+                  if canonical_event.get("event_id") else None)
         for r in self._rules.values():
             if r.evaluate(canonical_event):
+                citation = r.cite(canonical_event, evidence_ref=ev_ref)
+                # A rule that fired but whose declaration explains nothing is
+                # a DECLARATION defect. It is surfaced, never papered over,
+                # and never back-filled by guessing which field matched.
+                if citation["declaration_state"] == "DECLARED" \
+                        and not citation["matched_conditions"]:
+                    citation["citation_completeness"] = (
+                        "NO_DECLARED_CONDITION_MATCHED_DESPITE_RULE_MATCH")
+                elif citation["declaration_state"] == "DECLARED":
+                    citation["citation_completeness"] = "CITED"
+                else:
+                    citation["citation_completeness"] = "NOT_DECLARED"
                 matches.append({
                     "rule_id": r.rule_id,
+                    "rule_version": r.rule_version,
                     "name": r.name,
                     "tactic": r.tactic.value,
                     "technique_id": r.technique_id,
@@ -67,6 +82,8 @@ class DetectionLibraryRegistry:
                     "confidence": r.confidence,
                     "lane": r.lane,
                     "mitre_attack": r.mitre_attack,
+                    "telemetry_requirements": r.telemetry_requirements,
+                    "citation": citation,
                 })
         return matches
 

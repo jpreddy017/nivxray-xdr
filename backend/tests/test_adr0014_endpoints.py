@@ -15,7 +15,6 @@ admin upsert pattern (v1.5.5 · Feb-2026).
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -42,21 +41,6 @@ REGSVR32_PARTIAL = (
 )
 
 
-def _read_seeded_password() -> str:
-    cred = Path("/app/memory/test_credentials.md")
-    if not cred.exists():
-        return ""
-    for line in cred.read_text().splitlines():
-        low = line.lower().strip()
-        if low.startswith("- **password**:") or low.startswith("- password:"):
-            _, _, val = line.partition(":")
-            val = val.strip()
-            if "`" in val:
-                return val.split("`")[1]
-            return val.split()[0] if val else val
-    return ""
-
-
 @pytest.fixture(scope="module")
 def client():
     from server import app  # noqa: WPS433
@@ -70,7 +54,13 @@ def auth_headers(client):
     from deps import hash_password
 
     email = os.environ.get("ADMIN_EMAIL", "admin@nivxray.com")
-    password = os.environ.get("ADMIN_PASSWORD") or _read_seeded_password()
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not password:
+        pytest.skip(
+            "Missing test credential: inject ADMIN_PASSWORD via the "
+            "shell/CI environment. Credential files are never read by "
+            "tests (P0-PROD-1 hygiene)."
+        )
 
     mongo_url = os.environ["MONGO_URL"]
     db_name = os.environ["DB_NAME"]

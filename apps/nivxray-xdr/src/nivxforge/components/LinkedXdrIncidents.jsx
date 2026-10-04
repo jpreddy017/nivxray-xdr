@@ -44,7 +44,7 @@ export default function LinkedXdrIncidents({ device, incidentId }) {
                        fontSize: 10.4, padding: "4px 9px", borderRadius: 2,
                        cursor: "pointer", background: "var(--panel)",
                        border: "1px solid var(--border)",
-                       color: rows.length ? "var(--cyan, #22B8CF)"
+                       color: rows.length ? "var(--cyan, var(--cyan))"
                          : "var(--muted)" }}>
           Linked XDR Incidents: {data.count || 0}
           <ChevronDown size={11} />

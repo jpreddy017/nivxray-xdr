@@ -113,7 +113,7 @@ export default function ProcessAncestryTree({ events }) {
                       marginBottom: 4,
                       padding: "6px 9px",
                       cursor: root ? "default" : "pointer",
-                      border: root ? "1px dashed #2A364F"
+                      border: root ? "1px dashed var(--nx-bd-quiet)"
                                     : `1px solid ${isSel ? "var(--mint)" : "var(--border)"}`,
                       borderStyle: uncertain ? "dotted" : undefined,
                       borderRadius: 4,
@@ -125,7 +125,7 @@ export default function ProcessAncestryTree({ events }) {
                 <span className="mono"
                         style={{ fontSize: 11,
                                   fontWeight: root ? 600 : 800,
-                                  color: root ? "#6b7686" : "var(--text)" }}>
+                                  color: root ? "var(--nx-text-dim)" : "var(--text)" }}>
                   {n.label}
                 </span>
                 {root ? (
@@ -148,7 +148,7 @@ export default function ProcessAncestryTree({ events }) {
                     </span>
                     {/-enc|-EncodedCommand|-e /i.test(n.commandLine || "") && (
                       <span className="nx-ep" data-ep="evidence_present" data-known="true"
-                              style={{ color: "#f5a623" }}
+                              style={{ color: "var(--nx-high)" }}
                               title="Encoded-command switch observed in the persisted command line">
                         ! -enc DETECTED
                       </span>

@@ -75,6 +75,58 @@ def _authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
     return doc, query
 
 
+def authorized_incident(incident_id: str, user: Optional[Dict[str, Any]],
+                        projection: Optional[Dict[str, Any]] = None):
+    """S1 · THE authority for addressing ONE incident, exported.
+
+    Every incident SUB-RESOURCE router (attack story, attack graph, report,
+    autonomous investigation) resolves the incident through this function, so
+    the plane has exactly one authorization model:
+
+        authenticated principal → server-resolved tenant scope
+        → incident belongs to that scope → resource
+
+    A client can never present a tenant: the scope comes from the verified
+    principal. Out of scope is indistinguishable from non-existent (404), so
+    a sub-resource cannot disclose that another customer's incident exists.
+    """
+    return _authorized_incident(incident_id, user, projection)
+
+
+def require_incident_action(user: Optional[Dict[str, Any]],
+                            permission: str) -> None:
+    """S1 · the ACTION gate for a write on an incident sub-resource.
+
+    Read access is the incident record's own contract (tenant scope, above);
+    a MUTATION additionally requires the permission, resolved server-side
+    from the principal's own RBAC record in its own tenant. The
+    cross-tenant platform-admin role keeps the authority it already has
+    everywhere else (`routers.xdr_rbac`), so no second model is introduced.
+    """
+    email = (user or {}).get("email")
+    if not email:
+        raise HTTPException(status_code=401,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": "unauthenticated",
+                                    "permission": permission})
+    if (user or {}).get("role") == "admin":
+        return
+    tenant = (user or {}).get("tenant_id")
+    if not tenant:
+        raise HTTPException(status_code=403,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": "no-tenant-scope",
+                                    "permission": permission})
+    from routers.xdr_rbac import check_access
+    decision = check_access(tenant, email, permission)
+    if not decision.get("allow"):
+        raise HTTPException(status_code=403,
+                            detail={"code": "ACCESS_DENIED",
+                                    "reason": decision.get("reason")
+                                              or "permission-not-granted",
+                                    "permission": permission})
+
+
 # ── Lifecycle state machine ──────────────────────────────────────────
 # Deterministic, allow-listed transitions.  Any transition not in
 # this map is rejected with HTTP 409.
@@ -702,7 +754,12 @@ def _build_evidence_pointers(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
         "status":   "available" if ioc_count > 0 else "no_matching_evidence",
         "reason":   None if ioc_count > 0
                      else "No IOCs extracted from this incident yet.",
-        "deep_link": _link_with_context("/threat-intel", case_id, doc)
+        # PR-XDR-0 · this pointer navigates a NivXRay XDR user, so it must
+        # address a canonical NivXRay XDR route. `/threat-intel` is a base-app
+        # path that does not exist in the NivXRay XDR bundle, so the console
+        # opened a tab that fell through to the catch-all. No route, API,
+        # collection or infrastructure identifier is renamed by this change.
+        "deep_link": _link_with_context("/xdr/intelligence/iocs", case_id, doc)
                         if ioc_count > 0 else None,
         "hint":     "Threat-intel enrichment for extracted IOCs.",
         "bullets":  _bullets_for_iocs(iocs) if ioc_count > 0 else [],
@@ -1084,6 +1141,23 @@ async def get_incident_understanding(incident_id: str,
         return latest.model_dump(mode="python")
     finally:
         client.close()
+
+
+# ── Task 3A · Investigation pivots ──────────────────────────────────
+@router.get("/{incident_id}/pivots")
+async def get_incident_pivots(incident_id: str,
+                                 user=Depends(get_current_user)):
+    """Telemetry origin · IOC investigation · recommended pivots.
+
+    The SERVER is the authority: a native console pivot exists in the
+    response only when this tenant's own integration record declares the
+    console route AND the incident carries the required identifier. Every
+    other case keeps its own distinct state and reason. Cross-tenant
+    addressing is 404 — existence is never disclosed.
+    """
+    from services.investigation_pivots import build_pivots
+    doc, _q = _authorized_incident(incident_id, user)
+    return build_pivots(_db_sync_for_provenance(), doc)
 
 
 # ── LIFECYCLE ────────────────────────────────────────────────────────

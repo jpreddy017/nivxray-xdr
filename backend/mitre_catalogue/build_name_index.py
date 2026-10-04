@@ -1,6 +1,6 @@
 """
 Emit a compact name → external_id index of the entire MITRE ATT&CK
-Enterprise v16.1 catalogue for consumers that receive technique
+Enterprise catalogue (version from CATALOGUE_PATH) for consumers that receive technique
 NAMES instead of canonical T-ids:
 
   · Frontend `attackLink.js` — bundles the generated index so every
@@ -12,7 +12,7 @@ NAMES instead of canonical T-ids:
 
 Output:
   /app/backend/mitre_catalogue/name_index.json
-  /app/apps/nivxray-xdr/src/xdr/mitre/attackNameIndex.generated.js
+  /app/apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js
 
 Runs after `build_catalogue.py`.
 """
@@ -23,10 +23,10 @@ import re
 import sys
 
 HERE     = pathlib.Path(__file__).parent
-CAT_IN   = HERE / "enterprise_v16_1.compact.json"
+sys.path.insert(0, str(HERE.parent))
+from services.mitre_catalogue.service import CATALOGUE_PATH as CAT_IN  # noqa: E402  single source of truth
 OUT_BE   = HERE / "name_index.json"
-OUT_FE   = (pathlib.Path("/app/apps/nivxray-xdr/src/xdr/mitre")
-              / "attackNameIndex.generated.js")
+OUT_FE   = HERE.parents[1] / "apps/nivxray-xdr/src/xdr/lib/mitre/attackNameIndex.generated.js"
 
 
 _ATT_ID_RE = re.compile(r"\b(T\d{4})(?:\.(\d{3}))?\b")
@@ -67,6 +67,8 @@ def build() -> dict:
             # catalogue does not repeat exact names across parents.
             idx.setdefault(k, ext)
     return {
+        "tactics": [{"key": t["shortname"], "id": t["external_id"], "label": t["name"]} for t in raw.get("tactics", [])],
+        "modified": raw.get("modified"),
         "catalogue_version": raw.get("version"),
         "generated_at":      raw.get("generated_at"),
         "name_to_external_id": idx,
@@ -80,7 +82,7 @@ def main() -> int:
               file=sys.stderr)
         return 2
     payload = build()
-    OUT_BE.write_text(json.dumps(payload, indent=2, sort_keys=False))
+    OUT_BE.write_text(json.dumps({k: v for k, v in payload.items() if k != "tactics"}, indent=2, sort_keys=False))
 
     js = [
         "/**",
@@ -90,7 +92,7 @@ def main() -> int:
               + str(payload["catalogue_version"])
               + " name → canonical id index.  Regenerate with:",
         " *",
-        " *   python3 /app/backend/mitre_catalogue/build_name_index.py",
+        " *   python3 backend/mitre_catalogue/build_name_index.py",
         " *",
         " * Every entry is a real technique/sub-technique published on",
         " * attack.mitre.org.  Unknown names fall through to the honest",
@@ -99,6 +101,10 @@ def main() -> int:
         " */",
         "export const CATALOGUE_VERSION = "
               + json.dumps(payload["catalogue_version"]) + ";",
+        "export const CATALOGUE_MODIFIED = " + json.dumps(payload["modified"]) + ";",
+        "// Official x-mitre-matrix tactic order for this catalogue version (HeatMap + Device Trajectory).",
+        "export const ATTACK_TACTICS = " + json.dumps(payload["tactics"], indent=2) + ";",
+        "export const ATTACK_ATTRIBUTION = " + json.dumps("© The MITRE Corporation. Reproduced and distributed with the permission of The MITRE Corporation (ATT&CK® Terms of Use).") + ";",
         "export const ATTACK_NAME_INDEX = "
               + json.dumps({k: _to_external_url_slug(v)
                                     for k, v in payload["name_to_external_id"].items()},

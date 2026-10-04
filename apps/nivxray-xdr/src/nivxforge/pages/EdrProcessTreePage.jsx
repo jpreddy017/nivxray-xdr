@@ -139,7 +139,7 @@ export default function EdrProcessTreePage() {
       <h1 className="page-h1" data-testid="edr-processtree-heading">Process Tree</h1>
       <div className="page-sub">
         {endpointId
-          ? "Real ancestry from NivXForge sensor evidence. Links are "
+          ? "Real ancestry from NivXRay EDR sensor evidence. Links are "
             + "canonical process identities, never pid alone — Linux "
             + "reuses pids. A ghost parent is a visibility gap, not an "
             + "absent process."
@@ -167,7 +167,7 @@ export default function EdrProcessTreePage() {
         </div>
       )}
       {pivot && !loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--red)" }}
              data-testid="edr-processtree-error">
           {String(error)}
         </div>
@@ -190,7 +190,7 @@ export default function EdrProcessTreePage() {
               {tree.counts.observed} observed processes ·{" "}
               {tree.counts.roots} root{tree.counts.roots === 1 ? "" : "s"}
               {tree.counts.ghost_parents > 0 && (
-                <span style={{ color: "#ffb454" }}>
+                <span style={{ color: "var(--amber)" }}>
                   {" · "}{tree.counts.ghost_parents} ghost parent
                   {tree.counts.ghost_parents === 1 ? "" : "s"} (never
                   observed — a visibility gap, not an absent process)

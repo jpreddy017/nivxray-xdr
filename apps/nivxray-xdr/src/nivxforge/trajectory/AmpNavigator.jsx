@@ -1,45 +1,53 @@
 /**
- * Navigator — the Cisco Secure Endpoint trajectory navigator panel:
+ * DT2-3a · AMP parity — the Device Trajectory navigator.
  *
- *   ▼ [Filters ⌄] [Search Device Trajectory] 🔍
- *   ──────── activity sparkline over the retained period ────────
- *   [ 30-day band · blue dot = activity · red dot = compromise ]
- *     18 19 20 … 16      JUL          AUG
- *   [ 24-hour band · ▲▼ handles on the window edges ]
- *     0:00 1 2 … 23      AUG 16
+ * Cisco (User Guide p.402 figure; "The Navigator", AMP guide p.171):
+ *   ‑ upper ribbon = 30 days of day cells, red dots for compromise
+ *     events, dot size relative to the number of events per day
+ *   ‑ lower ribbon = the 24 hours of the selected day, a solid band with
+ *     circles of varying size; hovering a circle gives the count and the
+ *     time, clicking it focuses the trajectory on those events
+ *   ‑ the navigator collapses with `-` and expands with `+` or by
+ *     clicking the ribbon
  *
- * Every bar, cell and dot is a count of persisted observations. A day
- * with nothing observed stays empty — never interpolated. An empty day
- * means "nothing was observed", not "nothing happened".
+ * NOT rendered, deliberately: the line graph above the dates. Cisco's
+ * current guide defines it as the endpoint's cloud-query volume per day
+ * (p.403), a metric NivXForge does not collect. Substituting our own
+ * activity curve under Cisco's meaning would be false parity, so the
+ * element is omitted and recorded as a data gap.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
-import { C, DAY_MS, DAY_BINS, MONTHS, fmtHM, fmtSpan, startOfDayUTC,
+import { C, DAY_MS, MONTHS, startOfDayUTC,
          dayKeyOf } from "./ampModel";
+import { moveRange } from "./dt2";
+import { msUTC } from "./dt2/instant";
+import { MODES, calendarDayWindow, domainLabel, hourMarks, utcDayStart } from "./dt2/timeWindow.mjs";
 
 const DAYS = 30;
-const PAD = 9;            // keeps the window handles INSIDE the svg;
-                          // at PAD 0 a handle on the last pixel of the
-                          // day was clipped away and could not be grabbed
-const CELL = 10;          // sparkline user units per day column
-const SPARK_H = 38;
+const PAD = 9;
+const HOUR_H = 72;
 
-/** Density on a log scale — one busy day must not flatten 29 others
- *  into a straight line at zero. */
+/** Dot radius relative to the number of events per day, log-damped so one
+ *  busy day does not erase 29 others. */
 const dens = (n, max) => (!n ? 0
   : Math.log1p(n) / Math.log1p(Math.max(1, max)));
 
 export default function AmpNavigator({
-  days, dayBins, selectedDay, onSelectDay, view, onView, observedEnd,
-  cursorTs, onFocusTime, collapsed, header = null,
+  days, bins = null, selectedDay, onSelectDay, view, onView, observedEnd,
+  onFocusTime, collapsed, onCollapsed, bounds = null, header = null,
+  searchActive = false, domain = null, refNow = null, status = null,
+  unloaded = null,
 }) {
+  const dayBins = bins || [];
   const hourRef = useRef(null);
   const dragRef = useRef(null);
   const [hourW, setHourW] = useState(700);
   const [drag, setDrag] = useState(null);
 
   useEffect(() => {
-    if (!hourRef.current) return;
+    if (!hourRef.current) return undefined;
     const ro = new ResizeObserver((en) => {
       const w = en[0]?.contentRect?.width;
       if (w) setHourW(Math.max(280, Math.floor(w)));
@@ -54,84 +62,68 @@ export default function AmpNavigator({
     return m;
   }, [days]);
 
-  /** Anchored on the latest OBSERVED day: Cisco retains 30 days, and
-   *  anchoring on "today" would show 30 empty cells for an endpoint
-   *  whose last telemetry is older. */
   const cells = useMemo(() => {
-    const anchor = observedEnd ? startOfDayUTC(Date.parse(observedEnd))
-                               : startOfDayUTC(Date.now());
+    // Day strip ends at the REFERENCE day, never at the newest evidence day (backlog-safe).
+    const anchor = utcDayStart(Number.isFinite(refNow) ? refNow : Date.now());
     const out = [];
     for (let i = DAYS - 1; i >= 0; i -= 1) {
       const ms = anchor - i * DAY_MS;
       const rec = byDay.get(dayKeyOf(ms)) || { total: 0, malicious: 0,
-                                               suspicious: 0, detections: 0 };
+                                               suspicious: 0, detections: 0,
+                                               compromises: 0 };
       out.push({ ms, key: dayKeyOf(ms), ...rec, d: new Date(ms) });
     }
     return out;
-  }, [byDay, observedEnd]);
+  }, [byDay, refNow]);
 
   const maxTotal = Math.max(1, ...cells.map((c) => c.total));
-  const maxMal = Math.max(1, ...cells.map((c) => c.malicious + c.detections));
   const dayStart = selectedDay ?? cells[cells.length - 1]?.ms
     ?? startOfDayUTC(Date.now());
-  const dayEnd = dayStart + DAY_MS;
-  const selIdx = cells.findIndex((c) => c.ms === dayStart);
+  // The band domain is the explicit time model (rolling or calendar), never an implied day.
+  const band = domain || calendarDayWindow(dayStart);
+  const bandStart = band.t0, bandEnd = band.t1, bandSpan = Math.max(1, band.t1 - band.t0);
+  const calendar = band.mode === MODES.CALENDAR_DAY;
+  const marks = useMemo(() => hourMarks(band), [bandStart, bandEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const innerW = Math.max(1, hourW - PAD * 2);
-  const xOfHour = useCallback((t) => PAD + ((Math.min(Math.max(t, dayStart),
-    dayEnd) - dayStart) / DAY_MS) * innerW, [dayStart, dayEnd, innerW]);
-  const tOfX = useCallback((x) => dayStart + ((Math.min(Math.max(x, PAD),
-    PAD + innerW) - PAD) / innerW) * DAY_MS, [dayStart, innerW]);
+  const xOfHour = useCallback((t) => PAD + ((Math.min(Math.max(t, bandStart),
+    bandEnd) - bandStart) / bandSpan) * innerW, [bandStart, bandEnd, bandSpan, innerW]);
+  const tOfX = useCallback((x) => bandStart + ((Math.min(Math.max(x, PAD),
+    PAD + innerW) - PAD) / innerW) * bandSpan, [bandStart, bandSpan, innerW]);
 
-  const xs = xOfHour(view.t0);
-  const xe = xOfHour(view.t1);
+  const xs = view ? xOfHour(view.t0) : PAD;
+  const xe = view ? xOfHour(view.t1) : PAD;
 
-  /** The drag is tracked on the WINDOW, not on the handle. Capturing
-   *  the pointer on a 12 px handle made the band emit pointerleave the
-   *  moment the drag began, which cancelled it — the control looked
-   *  wired and did nothing. */
-  const down = (mode) => (e) => {
+  /** The band slides, as Cisco's date and time bars do. The triangle
+   *  handles are gone from the presentation; the range engine underneath
+   *  is unchanged. */
+  const down = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (dragRef.current) return;      // pointerdown + mousedown both fire
-    const st = { mode, px: e.clientX, vs: view.t0, ve: view.t1 };
+    if (dragRef.current || !view) return;
+    const st = { px: e.clientX, vs: view.t0, ve: view.t1 };
     dragRef.current = st;
     setDrag(st);
     const onMove = (ev) => {
-      const rect = hourRef.current?.getBoundingClientRect();
-      if (!rect) return;
       if (Math.abs(ev.clientX - st.px) > 3) st.moved = true;
-      const lx = ev.clientX - rect.left;
-      if (st.mode === "left") {
-        onView({ t0: Math.min(tOfX(lx), st.ve - 1000), t1: st.ve });
-      } else if (st.mode === "right") {
-        onView({ t0: st.vs, t1: Math.max(tOfX(lx), st.vs + 1000) });
-      } else {
-        const dMs = ((ev.clientX - st.px) / innerW) * DAY_MS;
-        const dur = st.ve - st.vs;
-        const s = st.vs + dMs;
-        onView({ t0: s, t1: s + dur });
-        // Dragging past midnight must MOVE THE DAY, not stall at the
-        // edge: a control that appears not to work is worse than none.
-        const d = startOfDayUTC(s);
-        if (d !== dayStart) onSelectDay(d);
-      }
+      const dMs = ((ev.clientX - st.px) / innerW) * bandSpan;
+      const moved = moveRange({ t0: st.vs, t1: st.ve }, dMs, bounds);
+      onView({ ...moved.view, mode: MODES.ANALYST });
+      const d = startOfDayUTC(moved.view.t0);
+      if (calendar && d !== dayStart) onSelectDay(d);
     };
     const onUp = (ev) => {
-      // A click on the band (no movement) centres the trajectory on the
-      // nearest OBSERVED bin — the behaviour the bin hit targets used
-      // to own before they were moved behind the band.
-      if (st.mode === "band" && !st.moved && (dayBins || []).length) {
+      if (!st.moved && dayBins.length) {
         const rect = hourRef.current?.getBoundingClientRect();
         const lx = (ev?.clientX ?? st.px) - (rect?.left ?? 0);
         const t = tOfX(lx);
         let best = null;
         for (const b of dayBins) {
-          const d = Math.abs(Date.parse(b.first_timestamp) - t);
+          const d = Math.abs(msUTC(b.first_timestamp) - t);
           if (!best || d < best.d) best = { d, b };
         }
         if (best) {
-          onFocusTime(Date.parse(best.b.first_timestamp),
+          onFocusTime(msUTC(best.b.first_timestamp),
                       best.b.first_event_iid);
         }
       }
@@ -148,282 +140,262 @@ export default function AmpNavigator({
     window.addEventListener("mouseup", onUp);
   };
 
-  /** A continuous activity-density curve over the retained period,
-   *  built from the per-day observation counts the projection reports.
-   *  A day with nothing observed sits on the baseline — it is never
-   *  interpolated upwards to make the curve look busy. */
-  const sparkPath = useMemo(() => {
-    const yOf = (n) => SPARK_H - 2 - dens(n, maxTotal) * (SPARK_H - 6);
-    const pts = cells.map((c, i) => [i * CELL + CELL / 2, yOf(c.total)]);
-    if (!pts.length) return "";
-    let d = `M 0 ${pts[0][1]} L ${pts[0][0]} ${pts[0][1]}`;
-    for (let i = 1; i < pts.length; i += 1) {
-      const [x0, y0] = pts[i - 1];
-      const [x1, y1] = pts[i];
-      const mx = (x0 + x1) / 2;
-      d += ` C ${mx} ${y0} ${mx} ${y1} ${x1} ${y1}`;
-    }
-    return `${d} L ${DAYS * CELL} ${pts[pts.length - 1][1]}`;
-  }, [cells, maxTotal]);
-
-  const maxBin = Math.max(1, ...(dayBins || []).map((b) => b.total));
-  const dayTotal = (dayBins || []).reduce((n, b) => n + b.total, 0);
+  const maxBin = Math.max(1, ...dayBins.map((b) => b.total));
+  const hasRef = Number.isFinite(refNow);
+  //: the selected column is the explicit calendar day; otherwise every day the domain overlaps
+  const inBand = (ms) => (calendar ? ms === dayStart
+    : ms + DAY_MS > bandStart && ms < bandEnd);
 
   const onDayClick = (cell) => {
     onSelectDay(cell.ms);
-    onView({ t0: cell.ms, t1: cell.ms + DAY_MS });
+    onView(calendarDayWindow(cell.ms));
   };
 
+  const sel = new Date(dayStart);
+
+  if (collapsed) {
+    return (
+      <section data-testid="amp-navigator" data-collapsed="true"
+               style={{ background: "transparent" }}>
+        {header || null}
+        {/* Cisco: expand by clicking the ribbon or the chevron */}
+        <div data-testid="amp-navigator-ribbon"
+             onClick={() => onCollapsed(false)}
+             style={{ display: "flex", alignItems: "center", gap: 10,
+                      padding: "6px 0", cursor: "pointer" }}>
+          <button onClick={(e) => { e.stopPropagation(); onCollapsed(false); }}
+                  data-testid="amp-navigator-expand"
+                  title="Expand the navigator"
+                  style={collapseBtn}>
+            <ChevronRight size={16} />
+          </button>
+          <div style={{ flex: 1, height: 3, background: C.link,
+                        opacity: 0.55, borderRadius: 2 }} />
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section data-testid="amp-navigator"
-             style={{ background: C.paper,
-                      border: `1px solid ${C.gridStrong}`,
-                      borderRadius: 6, height: "100%",
+    <section data-testid="amp-navigator" data-collapsed="false"
+             style={{ background: "transparent", height: "100%",
                       display: "flex", flexDirection: "column" }}>
       {header || null}
-      {!collapsed && (
-        <div style={{ padding: "10px 12px 12px", display: "flex",
-                      flexDirection: "column", gap: 6 }}>
-          {/* activity density over the retained period */}
-          <svg width="100%" height={SPARK_H} preserveAspectRatio="none"
-               viewBox={`0 0 ${DAYS * CELL} ${SPARK_H}`}
-               style={{ display: "block" }}
-               data-testid="amp-nav-sparkline">
-            <defs>
-              <linearGradient id="amp-spark-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.spark} stopOpacity={0.34} />
-                <stop offset="100%" stopColor={C.spark} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            {cells.map((c, i) => (
-              <line key={`gl-${c.key}`} x1={i * CELL} y1={0} x2={i * CELL}
-                    y2={SPARK_H} stroke={C.grid} strokeWidth={0.5}
-                    vectorEffect="non-scaling-stroke" />
-            ))}
-            {selIdx >= 0 && (
-              <rect x={selIdx * CELL} y={0} width={CELL} height={SPARK_H}
-                    fill={C.selectionRow} data-testid="amp-nav-spark-selected" />
-            )}
-            <path d={`${sparkPath} L ${DAYS * CELL} ${SPARK_H} L 0 ${SPARK_H} Z`}
-                  fill="url(#amp-spark-fill)" />
-            <path d={sparkPath} fill="none" stroke={C.spark} strokeWidth={1.4}
-                  vectorEffect="non-scaling-stroke" />
-            {cells.map((c, i) => (c.total > 0 ? (
-              <circle key={`sp-${c.key}`} cx={i * CELL + CELL / 2}
-                      cy={SPARK_H - 2 - dens(c.total, maxTotal)
-                        * (SPARK_H - 6)}
-                      r={1.7} vectorEffect="non-scaling-stroke"
-                      fill={(c.malicious + c.detections) > 0 ? C.malicious
-                        : C.spark} />
-            ) : null))}
-          </svg>
+      <div style={{ padding: "6px 0 2px", display: "flex", gap: 10 }}>
+        {/* F3 · Cisco places the collapse chevron at the left of the
+            ribbon, vertically centred against it. */}
+        <button onClick={() => onCollapsed(true)}
+                data-testid="amp-navigator-collapse"
+                title="Collapse the navigator"
+                style={{ ...collapseBtn, alignSelf: "center" }}>
+          <ChevronDown size={16} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0, display: "flex",
+                      flexDirection: "column", gap: 0 }}>
 
-          {/* 30-day band */}
-          <div style={{ display: "grid",
-                        gridTemplateColumns: `repeat(${DAYS}, 1fr)` }}
-               data-testid="amp-nav-day-band">
-            {cells.map((c) => {
-              const active = c.ms === dayStart;
-              const has = c.total > 0;
-              const red = c.malicious + c.detections;
-              const barH = has
-                ? Math.max(2, Math.round(dens(c.total, maxTotal) * 26)) : 0;
+        {/* 30-day ribbon */}
+        <div style={{ display: "grid",
+                      gridTemplateColumns: `repeat(${DAYS}, 1fr)` }}
+             data-testid="amp-nav-day-band">
+          {cells.map((c) => {
+            const active = inBand(c.ms);
+            const has = c.total > 0;
+            /** Cisco: red dots are compromise events, blue dots are
+             *  search results, sized relative to the day's events. A red
+             *  dot requires an AUTHORITATIVE compromise — a malicious
+             *  disposition or a server-declared `compromise_authority`.
+             *  A telemetry kind named "detection" earns nothing: on
+             *  Windows, Sysmon registry events arrive as kind=detection,
+             *  and 2431 of them are not 2431 compromises. */
+            const red = c.malicious + (c.compromises || 0);
+            const blue = !red && searchActive && c.total > 0;
+            const r = (red || blue) ? 3 + dens(c.total, maxTotal) * 4 : 0;
+            return (
+              <button key={c.key} onClick={() => onDayClick(c)}
+                      data-testid={`amp-nav-day-${c.key}`}
+                      data-observations={c.total}
+                      data-compromise={red}
+                      data-selected={active ? "true" : "false"}
+                      data-reference-day={hasRef && c.ms === startOfDayUTC(refNow)
+                        ? "true" : "false"}
+                      title={`${c.total} event(s) on ${c.key}`
+                        + (red ? ` · ${red} compromise event(s)` : "")}
+                      style={{ height: 28, padding: 0, position: "relative",
+                               cursor: has ? "pointer" : "default",
+                               background: active ? C.paper : C.paper,
+                               borderStyle: "solid",
+                               borderColor: active ? C.selectionStrong
+                                 : C.grid,
+                               borderWidth: active ? "1px 1.5px" : "1px 0.5px",
+                               display: "flex", alignItems: "center",
+                               justifyContent: "center" }}>
+                {(red > 0 || blue) && (
+                  <span data-testid={red > 0
+                          ? `amp-nav-day-red-${c.key}`
+                          : `amp-nav-day-blue-${c.key}`}
+                        style={{ width: r * 2, height: r * 2,
+                                 borderRadius: "50%",
+                                 background: red > 0 ? C.malicious
+                                   : C.telemetry }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {/* Cisco: the selected day column stays tinted from the day cell
+            through its labels and into the 24-hour band. */}
+        <div style={{ display: "grid",
+                      gridTemplateColumns: `repeat(${DAYS}, 1fr)` }}>
+          {cells.map((c) => (
+            <div key={c.key}
+                 style={{ fontSize: 15, textAlign: "center", paddingTop: 5,
+                          background: inBand(c.ms) ? C.selectionRow
+                            : "transparent",
+                          color: inBand(c.ms) ? C.selectionStrong
+                            : C.inkDim,
+                          fontWeight: inBand(c.ms) ? 700 : 400 }}>
+              {c.d.getUTCDate()}
+            </div>
+          ))}
+        </div>
+        {/* month name under the day the month begins, as Cisco labels it */}
+        <div style={{ display: "grid",
+                      gridTemplateColumns: `repeat(${DAYS}, 1fr)` }}>
+          {cells.map((c, i) => (
+            <div key={`m-${c.key}`}
+                 style={{ fontSize: 13, color: C.inkDim,
+                          background: inBand(c.ms) ? C.selectionRow
+                            : "transparent",
+                          textAlign: "center", whiteSpace: "nowrap",
+                          paddingBottom: 4 }}>
+              {i === 0 || c.d.getUTCDate() === 1
+                ? MONTHS[c.d.getUTCMonth()] : ""}
+            </div>
+          ))}
+        </div>
+
+        {/* 24-hour ribbon for the selected day */}
+        <div ref={hourRef} style={{ width: "100%", marginTop: 4 }}>
+          <svg width={hourW} height={HOUR_H}
+               style={{ display: "block", touchAction: "none" }}
+               data-dragging={drag ? "band" : "none"}
+               data-testid="amp-nav-hour-band"
+               data-domain-mode={band.mode}
+               data-domain-from={new Date(bandStart).toISOString()}
+               data-domain-to={new Date(bandEnd).toISOString()}>
+            <defs>
+              <pattern id="amp-nav-future-hatch" width="6" height="6"
+                       patternUnits="userSpaceOnUse"
+                       patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke={C.inkDim}
+                      strokeWidth="1.2" opacity="0.55" />
+              </pattern>
+            </defs>
+            <rect x={PAD} y={0} width={innerW} height={HOUR_H}
+                  fill={C.selectionRow} stroke={C.selection}
+                  strokeWidth={0.8} />
+            {view && (
+              <rect x={Math.min(xs, xe)} y={0}
+                    width={Math.max(2, Math.abs(xe - xs))} height={30}
+                    fill={C.paper} stroke={C.selectionStrong}
+                    strokeWidth={0.8} pointerEvents="none"
+                    data-testid="amp-nav-window-region" />
+            )}
+            {/* after the reference time: not yet occurred — never "no activity" */}
+            {unloaded && unloaded.to > bandStart && unloaded.from < bandEnd && (
+              <rect x={xOfHour(Math.max(unloaded.from, bandStart))} y={0}
+                    width={Math.max(0, xOfHour(Math.min(unloaded.to, bandEnd))
+                      - xOfHour(Math.max(unloaded.from, bandStart)))}
+                    height={30} fill={C.suspicious} opacity={0.14}
+                    pointerEvents="none" data-testid="amp-nav-unloaded">
+                <title>Not delivered (per-request cap) — not absent</title>
+              </rect>
+            )}
+            {hasRef && refNow < bandEnd && (
+              <rect x={xOfHour(Math.max(refNow, bandStart))} y={0}
+                    width={Math.max(0, xOfHour(bandEnd)
+                      - xOfHour(Math.max(refNow, bandStart)))}
+                    height={30} fill="url(#amp-nav-future-hatch)"
+                    pointerEvents="none" data-testid="amp-nav-future">
+                <title>After the reference time: not yet occurred</title>
+              </rect>
+            )}
+            {hasRef && refNow >= bandStart && refNow <= bandEnd && (
+              <line x1={xOfHour(refNow)} x2={xOfHour(refNow)} y1={0} y2={36}
+                    stroke={C.link} strokeWidth={1.6}
+                    data-testid="amp-nav-now"
+                    data-iso={new Date(refNow).toISOString()} />
+            )}
+
+            {marks.filter((m) => m.t > bandStart && m.t < bandEnd).map((m) => (
+              <line key={m.t} x1={xOfHour(m.t)} y1={0} x2={xOfHour(m.t)} y2={30}
+                    stroke={C.selection} strokeWidth={m.midnight ? 1.4 : 0.5}
+                    opacity={m.midnight ? 0.9 : 0.45} />
+            ))}
+
+            {dayBins.map((b) => {
+              const x = xOfHour(b.mid);
+              //: authoritative only — see the day band above
+              const red = b.malicious + (b.compromises || 0) > 0;
+              const r = 2.4 + dens(b.total, maxBin) * 3;
               return (
-                <button key={c.key} onClick={() => onDayClick(c)}
-                        data-testid={`amp-nav-day-${c.key}`}
-                        data-observations={c.total}
-                        data-compromise={red}
-                        data-selected={active ? "true" : "false"}
-                        title={`${c.key} · ${c.total} observation(s)`
-                          + (c.malicious ? ` · ${c.malicious} malicious` : "")
-                          + (c.detections ? ` · ${c.detections} detection(s)`
-                                          : "")}
-                        style={{ height: 34, padding: 0, position: "relative",
-                                 cursor: has ? "pointer" : "default",
-                                 background: active ? C.selectionRow
-                                   : (has ? C.paperAlt : C.paper),
-                                 borderStyle: "solid",
-                                 borderColor: active ? C.selectionStrong
-                                   : C.grid,
-                                 borderWidth: active ? 2 : "1px 0.5px",
-                                 display: "flex", alignItems: "flex-end",
-                                 justifyContent: "center" }}>
-                  {red > 0 && (
-                    <span data-testid={`amp-nav-day-red-${c.key}`}
-                          style={{ position: "absolute", top: 0, left: 0,
-                                   right: 0,
-                                   height: 2 + Math.round(
-                                     dens(red, maxMal) * 2.5),
-                                   background: C.malicious }} />
-                  )}
-                  {has && (
-                    <span style={{ width: "62%", height: barH,
-                                   background: C.telemetry,
-                                   opacity: active ? 1 : 0.72 }} />
-                  )}
-                </button>
+                <circle key={b.key} cx={x} cy={15} r={r}
+                        fill={red ? C.malicious : C.telemetry}
+                        data-compromises={b.compromises || 0}
+                        data-bin-start={new Date(b.t).toISOString()}
+                        data-testid={`amp-nav-bin-${calendar ? b.bin : b.key}`}>
+                  <title>{`${b.total} event(s) · `
+                    + `${b.first_timestamp}`
+                    + (b.compromises
+                      ? ` · ${b.compromises} compromise event(s) · `
+                        + `${b.first_compromise_at}` : "")}</title>
+                </circle>
               );
             })}
-          </div>
-          <div style={{ display: "grid",
-                        gridTemplateColumns: `repeat(${DAYS}, 1fr)`,
-                        marginTop: 2 }}>
-            {cells.map((c) => (
-              <div key={c.key}
-                   style={{ fontSize: 9, textAlign: "center",
-                            color: c.ms === dayStart ? C.ink : C.inkFaint,
-                            fontWeight: c.ms === dayStart ? 700 : 400 }}>
-                {c.d.getUTCDate()}
-              </div>
+
+            {dayBins.map((b) => (
+              <rect key={`hit-${b.key}`}
+                    x={xOfHour(b.mid) - 3} y={0}
+                    width={7} height={30} fill="transparent"
+                    onClick={() => onFocusTime(
+                      msUTC(b.first_timestamp), b.first_event_iid)}
+                    data-testid={`amp-nav-bin-hit-${calendar ? b.bin : b.key}`}>
+                <title>{`${b.total} event(s) · ${b.first_timestamp}`}</title>
+              </rect>
             ))}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between",
-                        fontSize: 9, color: C.inkFaint, marginTop: 1 }}>
-            <span>{MONTHS[cells[0].d.getUTCMonth()]}</span>
-            {cells[0].d.getUTCMonth() !== cells[DAYS - 1].d.getUTCMonth() && (
-              <span>{MONTHS[cells[DAYS - 1].d.getUTCMonth()]}</span>
-            )}
-          </div>
 
-          {/* the selected day connects down to the 24-hour band */}
-          <svg width="100%" height={10} preserveAspectRatio="none"
-               viewBox="0 0 100 10" style={{ display: "block" }}>
-            {selIdx >= 0 && (
-              <polyline
-                points={`${((selIdx + 0.5) / DAYS) * 100},0 `
-                  + `${((selIdx + 0.5) / DAYS) * 100},5 100,5 100,10 0,10 0,5`}
-                fill="none" stroke={C.selectionStrong} strokeWidth={0.6}
-                vectorEffect="non-scaling-stroke" opacity={0.65} />
-            )}
+            {/* Cisco keeps the hour scale INSIDE the band, 0:00 … 24,
+                with the selected date under the first label. */}
+            {marks.filter((m, i) => calendar || m.midnight || i % 2 === 0).map((m) => (
+              <text key={`h-${m.t}`}
+                    x={Math.min(xOfHour(m.t) + 2, PAD + innerW - 2)}
+                    y={50} fontSize={m.midnight ? 12 : 13} fill={m.midnight ? C.ink : C.inkDim}
+                    fontWeight={m.midnight ? 700 : 400}
+                    textAnchor={m.t >= bandEnd ? "end" : "start"}
+                    data-testid={`amp-nav-hour-label-${m.hour}`} data-iso={new Date(m.t).toISOString()}>
+                {calendar && m.hour === 0 ? (m.t === bandStart ? "0:00" : "24") : m.label}
+              </text>
+            ))}
+            <text x={PAD + 2} y={66} fontSize={13} fill={C.inkDim}
+                  data-testid="amp-nav-day-label" data-mode={band.mode}>
+              {calendar ? `${MONTHS[sel.getUTCMonth()]} ${sel.getUTCDate()}` : domainLabel(band)}
+            </text>
+
+            <rect x={PAD} y={0} width={innerW} height={30}
+                  fill="transparent"
+                  onPointerDown={down} onMouseDown={down}
+                  data-testid="amp-nav-band" />
           </svg>
-
-          {/* 24-hour band */}
-          <div ref={hourRef} style={{ width: "100%" }}>
-            <svg width={hourW} height={44}
-                 style={{ display: "block", touchAction: "none" }}
-                 data-dragging={drag ? drag.mode : "none"}
-                 data-testid="amp-nav-hour-band">
-              <defs>
-                <pattern id="amp-nav-hatch" width={6} height={6}
-                         patternUnits="userSpaceOnUse"
-                         patternTransform="rotate(45)">
-                  <rect width={6} height={6} fill={C.paperAlt} />
-                  <line x1={0} y1={0} x2={0} y2={6} stroke={C.hatch}
-                        strokeWidth={2.6} />
-                </pattern>
-              </defs>
-              {Array.from({ length: 24 }, (_, h) => (
-                <rect key={h} x={PAD + (h / 24) * innerW} y={8}
-                      width={innerW / 24} height={30}
-                      fill={C.paper} stroke={C.grid} strokeWidth={0.8} />
-              ))}
-
-              {(dayBins || []).map((b) => {
-                const x = PAD + ((b.bin + 0.5) / DAY_BINS) * innerW;
-                const red = b.malicious + b.detections > 0;
-                const r = 2 + Math.round(dens(b.total, maxBin) * 2.4);
-                return (
-                  <circle key={b.bin} cx={x} cy={red ? 17 : 28} r={r}
-                          fill={red ? C.malicious : C.telemetry}
-                          data-testid={`amp-nav-bin-${b.bin}`} />
-                );
-              })}
-
-              {/* bin hit targets sit BEHIND the window band and its
-                  handles, so a drag is never stolen by a 7 px click
-                  target — the band's own click still centres the
-                  trajectory on the nearest observed bin. */}
-              {(dayBins || []).map((b) => (
-                <rect key={`hit-${b.bin}`}
-                      x={PAD + (b.bin / DAY_BINS) * innerW - 3} y={8}
-                      width={7} height={30} fill="transparent"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => onFocusTime(
-                        Date.parse(b.first_timestamp), b.first_event_iid)}
-                      data-testid={`amp-nav-bin-hit-${b.bin}`}>
-                  <title>{`${b.total} observation(s) · ${b.first_timestamp}`
-                    + " · click to centre the trajectory here"}</title>
-                </rect>
-              ))}
-
-              {/* time outside the window is hatched: it is not empty,
-                  it is OUT OF VIEW */}
-              <rect x={PAD} y={8} width={Math.max(0, xs - PAD)} height={30}
-                    fill="url(#amp-nav-hatch)" pointerEvents="none"
-                    data-testid="amp-nav-hatch-before" />
-              <rect x={xe} y={8} width={Math.max(0, PAD + innerW - xe)}
-                    height={30} fill="url(#amp-nav-hatch)"
-                    pointerEvents="none"
-                    data-testid="amp-nav-hatch-after" />
-              <rect x={xs} y={8} width={Math.max(1, xe - xs)} height={30}
-                    fill={C.navWindow} pointerEvents="none" />
-
-              <rect x={xs} y={8} width={Math.max(1, xe - xs)} height={30}
-                    fill="transparent" style={{ cursor: "grab" }}
-                    onPointerDown={down("band")} onMouseDown={down("band")}
-                    data-testid="amp-nav-band" />
-
-              {/* triangle handles, as in the Cisco band */}
-              {[["left", xs], ["right", xe]].map(([side, x]) => (
-                <g key={side} style={{ cursor: "ew-resize" }}
-                   onPointerDown={down(side)} onMouseDown={down(side)}
-                   data-testid={`amp-nav-handle-${side}`}>
-                  <rect x={x - 8} y={0} width={16} height={44}
-                        fill="transparent" />
-                  <path d={`M ${x - 5} 1 L ${x + 5} 1 L ${x} 8 Z`}
-                        fill={C.handle} />
-                  <path d={`M ${x - 5} 43 L ${x + 5} 43 L ${x} 36 Z`}
-                        fill={C.handle} />
-                  <line x1={x} y1={8} x2={x} y2={38} stroke={C.handle}
-                        strokeWidth={1.2} />
-                </g>
-              ))}
-
-              {/* precise temporal selection cursor on the window edge */}
-              <g pointerEvents="none" data-testid="amp-nav-window-cursor"
-                 data-window-start={new Date(view.t0).toISOString()}>
-                <line x1={xs} y1={0} x2={xs} y2={44}
-                      stroke={C.selectionStrong} strokeWidth={0.8}
-                      strokeDasharray="2 2" />
-                <text x={Math.min(xs + 3, Math.max(0, innerW - 34))} y={7}
-                      fontSize={7.6} fill={C.selectionStrong}>
-                  {fmtHM(view.t0)}
-                </text>
-              </g>
-
-              {cursorTs != null && cursorTs >= dayStart
-                && cursorTs < dayEnd && (
-                <line x1={xOfHour(cursorTs)} y1={6} x2={xOfHour(cursorTs)}
-                      y2={40} stroke={C.ink} strokeWidth={1}
-                      pointerEvents="none" data-testid="amp-nav-cursor" />
-              )}
-            </svg>
-            <div style={{ display: "grid",
-                          gridTemplateColumns: "repeat(24, 1fr)",
-                          margin: `1px ${PAD}px 0` }}>
-              {Array.from({ length: 24 }, (_, h) => (
-                <div key={h} style={{ fontSize: 9, color: C.inkFaint }}>
-                  {h === 0 ? "0:00" : h}
-                </div>
-              ))}
-            </div>
-            <div data-testid="amp-nav-day-label"
-                 style={{ fontSize: 9, color: C.inkFaint, marginTop: 1 }}>
-              {MONTHS[new Date(dayStart).getUTCMonth()]}{" "}
-              {new Date(dayStart).getUTCDate()} · {dayTotal} observation(s)
-              on this day
-            </div>
-            <div className="mono" data-testid="amp-nav-window"
-                 style={{ fontSize: 9, color: C.inkDim, marginTop: 2 }}>
-              window {fmtSpan(Math.max(1, view.t1 - view.t0))} ·{" "}
-              {new Date(view.t0).toISOString().slice(0, 19)
-                .replace("T", " ")} → {new Date(view.t1).toISOString()
-                .slice(0, 19).replace("T", " ")} UTC
-            </div>
-
-          </div>
+          {status}
         </div>
-      )}
+        </div>
+      </div>
     </section>
   );
 }
+
+const collapseBtn = {
+  width: 20, height: 20, display: "flex", alignItems: "center",
+  justifyContent: "center", cursor: "pointer", background: "transparent",
+  color: C.inkDim, border: "none", padding: 0, flexShrink: 0,
+};

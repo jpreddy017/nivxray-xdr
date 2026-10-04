@@ -115,6 +115,85 @@ class TelemetryDSMRegistry:
                 continue
         return None
 
+    # ── D15 · declared-source routing support ───────────────────────
+    def get(self, dsm_id: str) -> Optional[Any]:
+        """The ONE DSM with this id, or None when it never loaded.
+
+        Declared routing selects BY id. A missing id is a code failure and
+        must look like one (`load_failures()`), never like a data mismatch
+        that another DSM may absorb.
+        """
+        for d in self._dsms:
+            if (getattr(d, "id", None) or d.__class__.__name__) == dsm_id:
+                return d
+        return None
+
+    def compatible(self, dsm: Any, ev: Dict[str, Any]) -> bool:
+        """Does this payload match what the declared DSM interprets?
+
+        Used to VALIDATE a declaration — never to pick a DSM. A raising
+        `supports()` fails closed and is recorded.
+        """
+        try:
+            return bool(dsm.supports(ev))
+        except BaseException as exc:  # noqa: BLE001 — fail closed, stay observable
+            dsm_id = getattr(dsm, "id", None) or dsm.__class__.__name__
+            self._resolve_failures.append({
+                "dsm_id": dsm_id,
+                "status": "SUPPORTS_ERROR",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:400],
+            })
+            log.error(
+                "DSM supports() FAILED · dsm_id=%s %s: %s — failing closed",
+                dsm_id, type(exc).__name__, str(exc)[:400])
+            return False
+
+    def format_recognized(self, dsm: Any, ev: Dict[str, Any]) -> bool:
+        """B4 · does the declared DSM RECOGNISE this payload's format, even
+        though it does not interpret this particular record type?
+
+        Asked only after `compatible()` has already said no. It separates two
+        facts that were previously reported as one:
+
+          * the payload is not the declared format at all — a declaration
+            violation (`SOURCE_FORMAT_MISMATCH`);
+          * the payload IS the declared format and the DSM simply has no
+            support for this record type yet — a coverage gap
+            (`SOURCE_RECORD_NOT_SUPPORTED`).
+
+        Fail closed twice over: a DSM that does not implement the hook, and a
+        hook that raises, both answer "not recognised", so the stricter
+        refusal stands and no declaration is ever rescued by this question.
+        """
+        hook = getattr(dsm, "recognizes_format", None)
+        if not callable(hook):
+            return False
+        try:
+            return bool(hook(ev))
+        except BaseException as exc:  # noqa: BLE001 — fail closed, stay observable
+            dsm_id = getattr(dsm, "id", None) or dsm.__class__.__name__
+            self._resolve_failures.append({
+                "dsm_id": dsm_id,
+                "status": "RECOGNIZES_FORMAT_ERROR",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:400],
+            })
+            log.error(
+                "DSM recognizes_format() FAILED · dsm_id=%s %s: %s — "
+                "failing closed", dsm_id, type(exc).__name__, str(exc)[:400])
+            return False
+
+    def recognize(self, ev: Dict[str, Any]) -> List[str]:
+        """Every DSM that WOULD have claimed this payload by content.
+
+        Reported as mismatch EVIDENCE when a declaration is refused. It
+        selects nothing: a payload crafted to resemble another source is
+        exactly why content may not choose.
+        """
+        return [(getattr(d, "id", None) or d.__class__.__name__)
+                for d in self._dsms if self.compatible(d, ev)]
+
     # ── observability ───────────────────────────────────────────────
     def list(self) -> List[Dict[str, Any]]:
         """Identities of loaded DSMs.  Shape unchanged from pre-P0-2."""
@@ -174,12 +253,45 @@ def _register_builtin_dsms(reg: TelemetryDSMRegistry) -> None:
         from .cef_leef_dsm import CefLeefDSM
         return CefLeefDSM()
 
+    # Microsoft Phase 1a · Office 365 Management Activity API records
+    # (Audit.Exchange, Audit.AzureActiveDirectory, Audit.General).
+    def _m365():
+        from .m365_unified_audit_dsm import M365UnifiedAuditDSM
+        return M365UnifiedAuditDSM()
+
+    def _zeek():
+        from .zeek_json_dsm import ZeekJsonDSM
+        return ZeekJsonDSM()
+
+    # W2-1 · the PowerShell channels acquired by the native Windows adapter.
+    def _powershell():
+        from .windows_powershell_dsm import WindowsPowerShellDSM
+        return WindowsPowerShellDSM()
+
+    # W2-1 · Microsoft Defender Antivirus operational channel. Defender's
+    # own verdict is SOURCE evidence; it is never a NivXRay verdict.
+    def _defender():
+        from .windows_defender_dsm import WindowsDefenderDSM
+        return WindowsDefenderDSM()
+
     reg.try_register("windows-security-evd", _windows)
     reg.try_register("linux-auditd", _linux)
     reg.try_register("aws-cloudtrail", _cloudtrail)
     reg.try_register("microsoft-sysmon", _sysmon)
     # P1.10 · live CEF/LEEF payloads forwarded by nivxray-xdr-collector.
     reg.try_register("cef-leef", _cef_leef)
+    reg.try_register("m365-unified-audit", _m365)
+    # N1 · Zeek/Corelight conn + dns JSON — the first authoritative network
+    # source. Registered last: it is selected by DECLARATION, and its
+    # `supports()` is narrow enough that content recognition can only ever
+    # confirm what the collector declared.
+    reg.try_register("zeek-json", _zeek)
+    # W2-1 · Microsoft-Windows-PowerShell/Operational and the classic
+    # `Windows PowerShell` channel. Selected by DECLARATION; its
+    # `supports()` additionally requires the PowerShell provider, so a
+    # small event id shared with another provider can never be claimed.
+    reg.try_register("windows-powershell-evd", _powershell)
+    reg.try_register("windows-defender-evd", _defender)
 
 
 _register_builtin_dsms(TELEMETRY_DSM_REGISTRY)

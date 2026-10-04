@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from framework.base    import Connector, Envelope, Health, Capability
+from framework.oauth2  import ClientCredentialsTokenProvider, TokenError
 from framework.parsers import get_path, utcnow_iso
 from framework.identity import collector_id
 
@@ -73,6 +74,35 @@ class RestPollerConnector(Connector):
         if identity:
             self.identity = identity
         self.label = config.get("label") or self.label
+        # Phase 1b · OAuth2 client credentials, added because Entra-issued
+        # tokens cannot be expressed by the bearer/basic/api-key modes.
+        # Instantiated only when the config asks for it, so no existing
+        # connector's behaviour changes.
+        auth = config.get("auth") or {}
+        self.tokens: Optional[ClientCredentialsTokenProvider] = None
+        if (auth.get("type") or "").lower() == "oauth2_client_credentials":
+            self.tokens = ClientCredentialsTokenProvider(
+                authority=auth.get("authority") or "",
+                tenant_id=auth.get("tenant_id") or "",
+                scope=auth.get("scope") or "",
+                credentials=config.get("credentials") or {},
+                timeout=float(config.get("timeout_seconds") or 30))
+
+    async def _auth_headers(self) -> Dict[str, str]:
+        """Headers that require an async credential exchange.
+
+        A token failure is returned as an honest connector state instead of
+        being retried inside the request path.
+        """
+        if self.tokens is None:
+            return {}
+        try:
+            return {"Authorization": f"Bearer {await self.tokens.token()}"}
+        except TokenError as e:
+            self.health = (Health.AUTHENTICATION_FAILED if not e.retryable
+                           else Health.DISCONNECTED)
+            self.metrics.last_error = f"{e.code}: {e.message}"
+            raise
 
     def _build_request(self, cursor: Optional[str]) -> Dict[str, Any]:
         cfg = self.config
@@ -107,6 +137,7 @@ class RestPollerConnector(Connector):
     async def test_connection(self) -> Dict[str, Any]:
         try:
             req = self._build_request(cursor=None)
+            req["headers"] = {**req["headers"], **(await self._auth_headers())}
             async with httpx.AsyncClient() as client:
                 resp = await client.request(**req)
             ok = resp.status_code < 400
@@ -123,6 +154,7 @@ class RestPollerConnector(Connector):
         self.metrics.last_attempt = utcnow_iso()
         try:
             req = self._build_request(cursor=self.checkpoint.cursor)
+            req["headers"] = {**req["headers"], **(await self._auth_headers())}
             async with httpx.AsyncClient() as client:
                 resp = await client.request(**req)
             if resp.status_code == 429:

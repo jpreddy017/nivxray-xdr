@@ -9,6 +9,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, ShieldCheck, FileText, AlertTriangle, ExternalLink, RefreshCcw } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Action from "@/xdr/design/Action";
 import IntelligenceOverlayEditor from "@/xdr/components/IntelligenceOverlayEditor";
@@ -30,19 +31,24 @@ export default function ExecutiveSummaryPanel({ incidentId, onSelectRef }) {
     setLoading(true); setError(null);
     try {
       // Load Gateway narration and existing analyst overlay in parallel.
+      // The overlay path is `/incidents/{id}/intelligence/overlays/...`
+      // (routers/intelligence_overlay.py). The previous
+      // `/intelligence-overlays/?…` form never existed and 404'd on every
+      // incident open.
       const [narr, ov] = await Promise.all([
         api.get(`/narration/incident/${incidentId}/executive-summary`),
         api.get(
-          `/intelligence-overlays/?incident_id=${encodeURIComponent(incidentId)}` +
-          `&target_kind=exec_summary&target_id=${encodeURIComponent(incidentId)}` +
-          `&field_key=content`,
+          `/incidents/${encodeURIComponent(incidentId)}/intelligence/overlays`
+          + `/exec_summary/${encodeURIComponent(incidentId)}/content`,
         ).catch(() => ({ data: [] })),
       ]);
       setData(narr.data);
-      const list = Array.isArray(ov.data) ? ov.data : (ov.data?.overlays || []);
+      const list = Array.isArray(ov.data) ? ov.data
+        : (ov.data?.overlays
+           || (ov.data?.overlay ? [ov.data.overlay] : []));
       setOverlay(list && list[0] ? list[0] : null);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load Narration Gateway executive summary.");
+      setError(refusalText(e, "Failed to load Narration Gateway executive summary."));
     } finally {
       setLoading(false);
     }

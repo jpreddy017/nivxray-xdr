@@ -29,6 +29,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from edr_plane import evidence_resolution
 from edr_plane.response import COLLECTION as RESPONSE_COLLECTION
 from edr_plane.response import proof_of
 
@@ -72,25 +73,12 @@ async def _activity(db, tenant_id: str, det: Dict[str, Any]
     else:
         outcomes = []
 
-    obs = await db["v2_shadow_observations"].find_one(
-        {"tenant_id": tenant_id,
-         "canonical_event_id": det.get("canonical_event_id")},
-        {"_id": 0, "event.process": 1, "event.kind": 1,
-         "canonical_event_id": 1,
-         "epistemic_state": 1}) if det.get("canonical_event_id") else None
-    resolved_via = "canonical_event_id" if obs else None
-    if not obs and raw_id:
-        # A LOOKUP, not an inference: the pipeline stamps its own canonical
-        # id suffix while the bridge stamps the generation, so the two ids
-        # for one real event can differ. The raw event id is carried inside
-        # the canonical evidence provenance, so it resolves the identity
-        # exactly, without guessing.
-        obs = await db["v2_shadow_observations"].find_one(
-            {"tenant_id": tenant_id,
-             "event.provenance.ingest_job_id": raw_id},
-            {"_id": 0, "event.process": 1, "event.kind": 1,
-             "canonical_event_id": 1, "epistemic_state": 1})
-        resolved_via = "raw_event_id" if obs else None
+    resolution = await evidence_resolution.resolve(
+        db, tenant_id=tenant_id,
+        canonical_event_id=det.get("canonical_event_id"),
+        raw_event_id=raw_id)
+    obs = resolution["observation"]
+    resolved_via = resolution["resolved_via"]
     proc = ((obs or {}).get("event") or {}).get("process") or {}
     pdet = det.get("process") or {}
 
@@ -139,6 +127,13 @@ async def _activity(db, tenant_id: str, det: Dict[str, Any]
             "canonical_event_id_in_evidence_plane": (obs or {}).get(
                 "canonical_event_id"),
             "process_identity_resolved_via": resolved_via,
+            #: R3 · a fallback that keeps working must never hide a
+            #: regression in the PRIMARY identifier, so the reference
+            #: actually used is published on every activity.
+            "resolution_is_fallback": resolution["is_fallback"],
+            "canonical_event_id_form": resolution["canonical_event_id_form"],
+            "resolution_attempts": resolution["attempts"],
+            "resolution_unresolved_reason": resolution["unresolved_reason"],
             "process_iid": proc.get("iid"),
             "parent_iid": proc.get("parent_iid"),
             "canonical_kind": ((obs or {}).get("event") or {}).get("kind"),
@@ -325,22 +320,26 @@ async def build_story(db, *, tenant_id: str, incident_id: str
                                     + str(a["provenance"]
                                           ["canonical_event_id"])
                                     + " carries no process identity")})
-        elif a["provenance"]["process_identity_resolved_via"] == \
-                "raw_event_id":
+        elif a["provenance"]["resolution_is_fallback"]:
             gaps.append({"gap": "canonical_id_scheme_divergence",
                          "state": "UNKNOWN",
                          "reason": ("the incident records canonical id "
                                     + str(a["provenance"]
                                           ["canonical_event_id"])
-                                    + " while the evidence plane holds "
+                                    + " ("
+                                    + str(a["provenance"]
+                                          ["canonical_event_id_form"])
+                                    + ") while the evidence plane holds "
                                     + str(a["provenance"]
                                           ["canonical_event_id_in_evidence_"
                                            "plane"])
                                     + " for the same raw event; the link "
-                                      "was resolved by raw_event_id, which "
-                                      "is exact, but the two id schemes "
-                                      "diverging is a real defect and is "
-                                      "shown rather than hidden")})
+                                      "was resolved by "
+                                    + str(a["provenance"]
+                                          ["process_identity_resolved_via"])
+                                    + ", which is exact, but resolving by a "
+                                      "fallback reference is a real defect "
+                                      "and is shown rather than hidden")})
 
     ep_id = camp.get("endpoint_id")
     return {

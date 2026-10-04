@@ -25,6 +25,7 @@ from pymongo import MongoClient
 os.environ.setdefault("DB_NAME", "test_database")
 
 from server import app  # noqa: E402
+from services import tenant_registry as reg  # noqa: E402
 from services.ingest_idempotency import (  # noqa: E402
     COLLECTION as DEDUPE_COLLECTION, claim, event_identity)
 
@@ -58,6 +59,29 @@ def client():
         yield c
 
 
+@pytest.fixture(scope="module", autouse=True)
+def registered_tenants():
+    """B4/B5 · tenancy is established ONLY by the registry service.
+
+    Without this the collector fixture is refused `403 TENANT_NOT_FOUND`, which
+    is the registry working correctly — the drift was in the test, not the
+    product.  `tenant_id=` is the registry's own adoption path, so the module's
+    tenant constants stay stable for every assertion below.
+    """
+    org = reg.create_organization(slug=f"dedupe-org-{uuid.uuid4().hex[:8]}",
+                                  display_name="Dedupe Proof Org",
+                                  kind="VENDOR", created_by="pytest")
+    for tid in (TENANT, TENANT_B):
+        reg.create_tenant(organization_id=org["id"],
+                          slug=f"t-{uuid.uuid4().hex[:8]}",
+                          display_name=tid, kind="INTERNAL_VALIDATION",
+                          products=["XDR"], created_by="pytest",
+                          tenant_id=tid)
+    yield
+    _db["tenants"].delete_many({"id": {"$in": [TENANT, TENANT_B]}})
+    _db["organizations"].delete_one({"id": org["id"]})
+
+
 def _login(c):
     r = c.post("/api/auth/login", json={"email": os.environ["ADMIN_EMAIL"],
                                         "password": os.environ["ADMIN_PASSWORD"]})
@@ -75,6 +99,10 @@ def env(client):
         r = client.post("/api/xdr/collectors",
                         headers={**auth, "X-Tenant-Id": ten},
                         json={"name": f"dedupe-{uuid.uuid4().hex[:8]}",
+                              # D15 · a collector may only send what it is
+                              # registered to send, and every delivery must
+                              # declare it explicitly.
+                              "authorized_sources": ["cef-leef"],
                               "protocol": "webhook"})
         assert r.status_code == 200, r.text
         out[key] = r.json()["data"]["id"]
@@ -83,6 +111,9 @@ def env(client):
         _db["xdr_collectors"].delete_many({"tenant_id": ten})
         _db["xdr_canonical_events"].delete_many({"tenant_id": ten})
         _db["xdr_canonical_evidence"].delete_many({"tenant_id": ten})
+        # D8 · a citation must always resolve to the evidence it cites, so
+        # the citations go with the evidence they point at.
+        _db["xdr_detection_matches"].delete_many({"tenant_id": ten})
         _db["workspace_cases"].delete_many({"tenant_id": ten})
         _db[DEDUPE_COLLECTION].delete_many({"tenant_id": ten})
 
@@ -90,6 +121,7 @@ def env(client):
 def _env(collector, tenant=TENANT, sei="evt-1", line=CEF_LINE, source="fw"):
     return {"tenant_id": tenant, "collector_id": collector,
             "collection_method": "webhook", "source": source,
+            "declared_source": "cef-leef",
             "connector_id": "webhook-dedupe", "parser_version": "cef-leef/1.0",
             "event_type": "alert", "source_event_id": sei,
             "source_timestamp": "2026-06-10T12:40:11Z",

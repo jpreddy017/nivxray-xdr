@@ -100,6 +100,11 @@ export const ADMIN_SECTIONS = [
     payloadKey: "data_sources",
   },
   {
+    key: "ingest-routing", label: "Ingest Routing", icon: ArrowRightLeft,
+    subtitle: "D21 · read-only visibility over the declared-source routing decisions the authenticated ingest boundary already made. Accepted deliveries are read from the routing decision that travels with the canonical evidence; refusals from the refusal record, which exists precisely because no evidence was produced. This surface is not a routing authority and cannot alter a decision.",
+    api: null, kind: "ingest_routing", connected: true, authoritative: true,
+  },
+  {
     key: "collectors", label: "Collectors", icon: Cpu,
     subtitle: "Collector control plane · protocol registry (IMPLEMENTED / SCAFFOLD / BLOCKED) · CONNECTED only after real telemetry.",
     api: null, kind: "collectors_native", connected: true,
@@ -148,6 +153,12 @@ export const ADMIN_SECTIONS = [
     subtitle: "Per-tenant approval + auto-response policies.",
     api: null, connected: false,
     integration: "Response Policy engine (arrives with Slice 11)",
+  },
+  {
+    key: "intelligence-policy", label: "Intelligence Policy", icon: Cpu,
+    subtitle: "Which intelligence NivXRay is permitted to use for this tenant · three modes · audited reason on every change. Policy ≠ Provisioning ≠ Availability ≠ Effective state; each is reported separately and never as the other.",
+    api: null, kind: "intelligence_policy", connected: true,
+    authoritative: true,
   },
   {
     key: "users-roles", label: "Users & Roles", icon: Users,

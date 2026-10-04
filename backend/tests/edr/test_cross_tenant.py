@@ -248,6 +248,24 @@ def test_v10_investigation_foreign_case_denied_or_empty():
 # route (currently the same underlying handler).
 # ─────────────────────────────────────────────────────────────────────
 def test_v11_body_tenant_id_never_trusted():
+    """CONTRACT CORRECTION (`OBSOLETE_CONTRACT`).
+
+    This asserted `TENANT_B in r.text or "TENANT_ISOLATION" in r.text or
+    422` — i.e. it ACCEPTED the poisoned tenant being echoed back, and it
+    assumed the request would reach the isolation check at all. Ingest is
+    now credential-gated (`require_permission("collectors.enroll")`), so
+    an unauthenticated poisoned envelope is refused BEFORE the envelope is
+    read, which is the stronger outcome.
+
+    Both halves of the invariant are asserted where each is actually
+    provable:
+      * here — unauthenticated ingest is refused and the refusal does NOT
+        echo the poisoned tenant;
+      * live, WITH a credential —
+        `test_p1_10_live_contract.py::TestIngestContract::
+        test_tenant_isolation_envelope_mismatch` proves the header/body
+        mismatch is refused with `TENANT_ISOLATION_VIOLATION`.
+    """
     body = {
         "envelopes": [
             {
@@ -270,11 +288,16 @@ def test_v11_body_tenant_id_never_trusted():
         headers=_hdrs(TENANT_A, PRINCIPAL_A),
         json=body,
     )
-    assert r.status_code in (400, 403, 422), (
-        f"Body tenant_id must be rejected when header says otherwise. Got {r.status_code}"
+    assert r.status_code in (400, 401, 403, 422), (
+        f"Body tenant_id must never be trusted. Got {r.status_code}"
     )
-    # Explicit assertion that the response does NOT contain the poisoned tenant.
-    assert TENANT_B in r.text or "TENANT_ISOLATION" in r.text or r.status_code == 422
+    assert TENANT_B not in r.text, (
+        "the refusal echoed the poisoned tenant id back to the caller"
+    )
+    if r.status_code == 403:
+        detail = r.json()["detail"]
+        assert detail["code"] == "ACCESS_DENIED"
+        assert detail["reason"] == "unauthenticated"
 
 
 # ─────────────────────────────────────────────────────────────────────

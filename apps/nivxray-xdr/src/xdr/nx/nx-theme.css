@@ -76,7 +76,11 @@
   /* ── Brand ink ──────────────────────────────────────────────── */
   --nx-purple:       #F59E0B;
   --nx-purple-hover: #D97706;
-  --nx-purple-dim:   rgba(245, 158, 11, 0.15);
+  /* 2026-06 · was an AMBER wash (rgba(245,158,11,.15)) while every
+     consumer treats it as the accent wash — the active nav pill therefore
+     rendered light text on amber (1.96:1). It is now the accent it claims
+     to be. */
+  --nx-purple-dim:   rgba(109, 78, 224, 0.22);
   --nx-purple-ring:  rgba(56, 189, 248, 0.55);
   --nx-purple-soft:  #FCD34D;
 
@@ -105,7 +109,7 @@
   --nx-ep-none:       #93A1B4; --nx-ep-none-bg:    rgba(147,161,180,0.13); --nx-ep-none-bd:    #556274;
   --nx-ep-unknown:    #FDE047; --nx-ep-unknown-bg: rgba(242,193, 78,0.13); --nx-ep-unknown-bd: #8E7130;
   --nx-ep-notrun:     #A5B4FC; --nx-ep-notrun-bg:  rgba(169,139,250,0.13); --nx-ep-notrun-bd:  #6B54B0;
-  --nx-ep-nocap:      #8896A8; --nx-ep-nocap-bg:   rgba(136,150,168,0.11); --nx-ep-nocap-bd:   #4E5A6B;
+  --nx-ep-nocap:      #BCC7D6; --nx-ep-nocap-bg:   rgba(136,150,168,0.11); --nx-ep-nocap-bd:   #4E5A6B;
   --nx-ep-noconn:     #D9A343; --nx-ep-noconn-bg:  rgba(217,163, 67,0.13); --nx-ep-noconn-bd:  #7E6127;
 
   /* ── §3 RELATIONSHIP GRAMMAR · locked ────────────────────────
@@ -136,6 +140,17 @@
   --nx-pri-5: #94A3B8;   /* P5 · INFORMATIONAL · slate  */
   --nx-graph-bg:   #090C12;
   --nx-graph-grid: rgba(255, 255, 255, 0.035);
+
+  /* ── Annotation surface · analyst-authored content ─────────────
+   * The analyst interpretation overlay used to hard-code a light
+   * paper palette (#fff / #f8fafc / #fffbeb) while its text consumed
+   * the THEME tokens, so in the default dark console the paragraph,
+   * the section label and the Edit/History controls rendered light
+   * text on white. These two tokens give that surface a themed
+   * identity; `scripts/nx_contrast_audit.py` gates them in BOTH
+   * themes like every other surface. */
+  --nx-surf-note: #1C1A12;
+  --nx-note-bd:   rgba(245, 158, 11, 0.32);
 }
 
 /* ══ LIGHT · preserved toggle ═════════════════════════════════════ */
@@ -156,15 +171,18 @@
   --nx-elevated:       #FFFFFF;
   --nx-inset:          var(--nx-surf-inset);
 
-  --nx-bd-quiet:       #E2E8F0;
-  --nx-bd-strong:      #CBD5E1;
+  /* Seams carry table structure in a dense console, so they are held to a
+     measurable floor (≥1.4:1 against every surface) rather than to taste.
+     `scripts/nx_contrast_audit.py` gates these values in BOTH themes. */
+  --nx-bd-quiet:       #C3CDDA;
+  --nx-bd-strong:      #A8B5C6;
   --nx-divider:        var(--nx-bd-quiet);
   --nx-divider-strong: var(--nx-bd-strong);
 
   --nx-text:      #0F172A;
   --nx-text-dim:  #475569;
   --nx-muted:     #475569;
-  --nx-faint:     #64748B;
+  --nx-faint:     #5A6777;   /* 4.9:1 on the inset surface too */
 
   --nx-shadow-1: 0 1px 2px rgba(15, 20, 30, 0.05);
   --nx-shadow-2: 0 2px 8px rgba(15, 20, 30, 0.09);
@@ -172,7 +190,7 @@
 
   --nx-purple:       #D97706;
   --nx-purple-hover: #92400E;
-  --nx-purple-dim:   #FEF3C7;
+  --nx-purple-dim:   #EDE9FE;
   --nx-purple-ring:  rgba(2, 132, 199, 0.45);
   --nx-purple-soft:  #B45309;
 
@@ -217,6 +235,9 @@
   --nx-pri-5: #64748B;
   --nx-graph-bg:   #FBFBF9;
   --nx-graph-grid: rgba(15, 23, 42, 0.05);
+
+  --nx-surf-note: #FDF6E3;
+  --nx-note-bd:   #D9B45A;
 }
 
 /* ══ Base surface application ═════════════════════════════════════ */
@@ -343,6 +364,66 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nx-theme-toggle, .nx-drawer__toggle { transition: none; }
+}
+
+/* ══ Analyst annotation surface (overlay editor) ══════════════════
+ * One themed surface for analyst-authored narrative. Body text is
+ * `--nx-text`, not a dimmed token: an interpretation an analyst wrote
+ * is primary content, not metadata. */
+.nx-ovr {
+  margin-top: 8px;
+  border: 1px solid var(--nx-bd-quiet);
+  border-radius: var(--nx-r-card, 8px);
+  background: var(--nx-surf-primary);
+  overflow: hidden;
+}
+.nx-ovr--edited {
+  background: var(--nx-surf-note);
+  border-color: var(--nx-note-bd);
+}
+.nx-ovr__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--nx-surf-inset);
+  border-bottom: 1px solid var(--nx-bd-quiet);
+}
+.nx-ovr__label {
+  font: 800 10px/1.4 var(--sans, system-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nx-muted);
+}
+.nx-ovr__spacer { flex: 1; }
+.nx-ovr__head .nx-btn { padding: 3px 8px; font-size: 10px; height: auto; }
+.nx-ovr__body {
+  padding: 8px 10px;
+  font: 400 12.5px/1.6 var(--sans, system-ui);
+  color: var(--nx-text);
+}
+.nx-ovr__absent { color: var(--nx-muted); font-style: italic; }
+.nx-ovr__machine {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--nx-bd-strong);
+  font: 500 11px/1.55 var(--mono, monospace);
+  color: var(--nx-text-dim);
+}
+.nx-ovr__machine b, .nx-ovr__audit b { color: var(--nx-text); }
+.nx-ovr__meta { margin-top: 4px; color: var(--nx-muted); }
+.nx-ovr__edit { padding: 8px 10px; display: grid; gap: 6px; }
+.nx-ovr__audit {
+  padding: 6px 10px;
+  background: var(--nx-surf-inset);
+  border-top: 1px solid var(--nx-bd-quiet);
+  font: 500 11px/1.55 var(--mono, monospace);
+  color: var(--nx-text-dim);
+}
+.nx-ovr__audit-row {
+  padding-top: 4px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--nx-bd-quiet);
 }
 
 /* ── Priority ladder rendering (owner spec 2026-09-05) ─────────────

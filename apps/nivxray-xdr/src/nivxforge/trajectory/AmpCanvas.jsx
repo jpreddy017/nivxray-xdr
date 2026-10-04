@@ -21,7 +21,11 @@ import React, { useCallback, useEffect, useMemo, useRef,
 
 import { C, ROW_H, GUTTER, AXIS_H, GROUP_SECTION, eventColor, isRed,
          typeLabel, rowTag, ticksFor } from "./ampModel";
+import { INTENT, clampLaneStart, clampToBounds, createGovernor,
+         normalizeWheel, panByFraction, timeAtX,
+         zoomBySteps } from "./dt2";
 import EventGlyph, { CompromiseMarker } from "./AmpIcons";
+import { msUTC } from "./dt2/instant";
 
 const AGG_PX = 16;
 
@@ -47,6 +51,7 @@ export default function AmpCanvas({
   lanes, laneStart, rows, totalLanes, view, plotW, height, byLane,
   selected, onSelect, onView, onLaneStart, onPivot,
   observedStart = null, observedEnd = null,
+  compromise = null, onCompromise,
 }) {
   const [hover, setHover] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -54,12 +59,19 @@ export default function AmpCanvas({
   const boxRef = useRef(null);
   const viewRef = useRef(view);
   const plotWRef = useRef(plotW);
+  /** DT2-1 · one governor instance per canvas: the rolling sensitivity
+   *  budget must survive across wheel events to bound a burst. */
+  const govRef = useRef(null);
+  if (!govRef.current) govRef.current = createGovernor();
+  const pointerXRef = useRef(null);
+  const boundsRef = useRef(null);
   viewRef.current = view;
   plotWRef.current = plotW;
+  boundsRef.current = { min: observedStart, max: observedEnd };
 
   const span = Math.max(1, view.t1 - view.t0);
   const xOf = useCallback((ts) => {
-    const t = typeof ts === "number" ? ts : Date.parse(ts);
+    const t = typeof ts === "number" ? ts : msUTC(ts);
     return ((t - view.t0) / span) * plotW;
   }, [view.t0, span, plotW]);
 
@@ -76,13 +88,16 @@ export default function AmpCanvas({
 
   /** Compromise instants in view — Cisco marks them above the axis and
    *  bands the time column they occupy. */
-  const compromises = useMemo(() => {
-    const out = [];
-    for (const list of byLane.values()) {
-      for (const e of list) if (isRed(e)) out.push(e);
-    }
-    return out.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
-  }, [byLane]);
+  /* DT2-3c · AUTHORITATIVE compromises only. This used to band every
+     row `isRed()` returned, which on this Windows corpus meant every
+     Sysmon registry event that arrived as `kind=detection` — 3,100 false
+     compromise bands. A compromise is what an authority concluded, so it
+     now comes from the server contract and nothing else. */
+  const compromises = useMemo(
+    () => (compromise?.events || [])
+      .filter((c) => c.observedMs != null)
+      .sort((a, b) => a.observedMs - b.observedMs),
+    [compromise]);
 
   const onMouseDown = (ev) => {
     if (ev.button !== 0) return;
@@ -95,10 +110,10 @@ export default function AmpCanvas({
       if (!p.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
       p.moved = true;
       const dt = -(dx / Math.max(1, plotW)) * (p.t1 - p.t0);
-      onView({ t0: p.t0 + dt, t1: p.t1 + dt });
+      onView(clampToBounds({ t0: p.t0 + dt, t1: p.t1 + dt },
+                           boundsRef.current).view);
       const dl = Math.round(-dy / ROW_H);
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
-                                       p.lane0 + dl)));
+      onLaneStart(clampLaneStart(p.lane0 + dl, rows, totalLanes));
     };
     const onUp = () => {
       pan.current = null;
@@ -109,22 +124,27 @@ export default function AmpCanvas({
     window.addEventListener("mouseup", onUp);
   };
 
-  /** The mouse wheel must NOT drive the trajectory: not zoom, not time,
-   *  not the activity axis, not the Navigator. Cisco navigates through
-   *  the Navigator bands, the two scrollbars and deliberate dragging.
+  /** DT2-1 · the normalized pointer pipeline.
    *
-   *  React registers `onWheel` as PASSIVE, so calling preventDefault
-   *  there is rejected by the browser and logs on every tick. The
-   *  listener is therefore attached natively and non-passively, which
-   *  is the only way to stop an ancestor from scrolling instead.
-   */
-  /** Wheel mapping, as an analyst expects of a 2D workspace:
-   *    wheel            → the activity axis (process rows)
-   *    shift/deltaX     → the time axis (scrub the timeline)
-   *    ctrl/cmd + wheel → zoom the time window
-   *  Attached natively and non-passively; React's synthetic onWheel is
-   *  passive and cannot preventDefault, which would let an ancestor
-   *  scroll the page instead of the trajectory.
+   *   RAW WheelEvent
+   *     → deltaMode normalization (PIXEL | LINE | PAGE)
+   *     → device classification (mouse-like | trackpad-like)
+   *     → intent (ZOOM | TIME_PAN | LANE_SCROLL)
+   *     → bounded sensitivity (per-event clamp + rolling budget)
+   *     → viewport transition (anchored zoom | scale-preserving pan)
+   *
+   *  Before DT2-1 this handler divided the RAW delta by the plot width
+   *  and multiplied by the span, so a single 100 px notch moved a 24-hour
+   *  window by more than three hours, and ctrl+wheel applied a 1.25
+   *  factor per event — a 50-frame trackpad burst compounded to 1.25^50.
+   *  Both are now impossible: pan is clamped per event and per rolling
+   *  window, and zoom advances at most ONE ladder level per event with a
+   *  minimum interval between commits.
+   *
+   *  React registers `onWheel` as PASSIVE, so preventDefault there is
+   *  rejected by the browser. The listener is attached natively and
+   *  non-passively, which is also what keeps the gesture inside this
+   *  scroll domain instead of leaking to the page.
    */
   useEffect(() => {
     const el = boxRef.current;
@@ -132,25 +152,29 @@ export default function AmpCanvas({
     const onWheel = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.ctrlKey || e.metaKey) {
-        const f = e.deltaY > 0 ? 1.25 : 0.8;
-        const c = (viewRef.current.t0 + viewRef.current.t1) / 2;
-        const sp = Math.max(1000,
-                            (viewRef.current.t1 - viewRef.current.t0) * f);
-        onView({ t0: c - sp / 2, t1: c + sp / 2 });
+      const n = normalizeWheel(e);
+      const gov = govRef.current;
+      const v = viewRef.current;
+      const w = Math.max(1, plotWRef.current);
+      if (n.intent === INTENT.ZOOM) {
+        const steps = gov.governZoom(n.dyPx);
+        if (!steps) return;
+        /** Anchored on the pointer: the moment under the cursor keeps
+         *  its screen position, so the investigation anchor survives. */
+        const anchor = timeAtX(v, (pointerXRef.current ?? (GUTTER + w / 2))
+          - GUTTER, w);
+        onView(zoomBySteps(v, steps, anchor, boundsRef.current).view);
         return;
       }
-      const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-      if (horizontal) {
-        const d = (e.shiftKey ? e.deltaY : e.deltaX) || 0;
-        const sp = viewRef.current.t1 - viewRef.current.t0;
-        const dt = (d / Math.max(1, plotWRef.current)) * sp;
-        onView({ t0: viewRef.current.t0 + dt, t1: viewRef.current.t1 + dt });
+      if (n.intent === INTENT.TIME_PAN) {
+        const f = gov.governPan(n.panPx, w, n.source);
+        if (!f) return;
+        onView(panByFraction(v, f, boundsRef.current).view);
         return;
       }
-      const step = Math.sign(e.deltaY) * Math.max(1, Math.round(rows / 6));
-      onLaneStart(Math.max(0, Math.min(Math.max(0, totalLanes - rows),
-                                       laneStart + step)));
+      const step = gov.governLane(n.dyPx, ROW_H, n.source);
+      if (!step) return;
+      onLaneStart(clampLaneStart(laneStart + step, rows, totalLanes));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -170,11 +194,17 @@ export default function AmpCanvas({
   return (
     <div ref={boxRef} data-testid="amp-canvas"
          style={{ position: "relative", background: C.paper,
-                  overflow: "hidden", height, cursor: "grab", flex: 1,
+                  overflow: "hidden", height, cursor: "default", flex: 1,
                   minWidth: 0 }}
          onMouseDown={onMouseDown}
+         onMouseMove={(e) => {
+           const b = boxRef.current?.getBoundingClientRect();
+           pointerXRef.current = e.clientX - (b?.left || 0);
+         }}
+         data-dt2-scroll-domain="trajectory"
+         data-dt2-gesture-map="wheel:lanes|shift-or-dx:time|ctrl-or-meta:zoom"
          data-wheel-navigation="rows|shift-time|ctrl-zoom"
-         onMouseLeave={() => setHover(null)}
+         onMouseLeave={() => { setHover(null); pointerXRef.current = null; }}
          onClick={() => setMenu(null)}>
       <svg width={GUTTER + plotW} height={height} data-testid="amp-svg">
         <defs>
@@ -248,16 +278,22 @@ export default function AmpCanvas({
 
         {/* ── amber compromise bands + axis markers ─────────────── */}
         {compromises.map((e) => {
-          const x = GUTTER + xOf(e.timestamp);
+          const x = GUTTER + xOf(e.observedMs);
           return (
-            <g key={`k-${e.event_iid}`}
-               data-testid={`amp-compromise-band-${e.event_iid}`}>
+            <g key={`k-${e.compromise_event_id}`}
+               data-ioc-authority={e.authority}
+               data-ioc-contributors={e.contributorIds.length}
+               data-testid={`amp-compromise-band-${e.compromise_event_id}`}>
               <rect x={x - 26} y={AXIS_H} width={52} height={height - AXIS_H}
                     fill={C.band} pointerEvents="none" />
               <g transform={`translate(${x},${AXIS_H - 22})`}
-                 style={{ cursor: "pointer" }}
-                 onClick={(ev) => { ev.stopPropagation(); onSelect(e); }}
-                 data-testid={`amp-compromise-marker-${e.event_iid}`}>
+                 style={{ cursor: "default" }}
+                 onClick={(ev) => {
+                   ev.stopPropagation();
+                   if (onCompromise) onCompromise(e);
+                 }}
+                 data-testid={
+                   `amp-compromise-marker-${e.compromise_event_id}`}>
                 <CompromiseMarker />
               </g>
             </g>
@@ -266,7 +302,7 @@ export default function AmpCanvas({
 
         {/* ── selected observation · precise temporal guide ─────── */}
         {selected?.timestamp && (() => {
-          const t = Date.parse(selected.timestamp);
+          const t = msUTC(selected.timestamp);
           if (!(t >= view.t0 && t <= view.t1)) return null;
           const x = GUTTER + xOf(t);
           const hhmmss = new Date(t).toISOString().slice(11, 19);
@@ -340,8 +376,8 @@ export default function AmpCanvas({
           const newSection = section !== lastSection;
           lastSection = section;
           const isSelRow = selected?.lane_index === ln.lane_index;
-          const f = ln.first_seen ? Date.parse(ln.first_seen) : null;
-          const l = ln.last_seen ? Date.parse(ln.last_seen) : null;
+          const f = ln.first_seen ? msUTC(ln.first_seen) : null;
+          const l = ln.last_seen ? msUTC(ln.last_seen) : null;
           const lx0 = f == null ? null : GUTTER + xOf(f);
           const lx1 = l == null ? null : GUTTER + xOf(l);
           const clip0 = Math.max(GUTTER, Math.min(lx0 ?? GUTTER,
@@ -467,7 +503,7 @@ export default function AmpCanvas({
               {marks.map((m) => (
                 <g key={m.primary.event_iid}
                    transform={`translate(${GUTTER + m.x},${mid})`}
-                   style={{ cursor: "pointer" }}
+                   style={{ cursor: "default" }}
                    onMouseEnter={() => setHover({ x: GUTTER + m.x, y: mid,
                                                   mark: m })}
                    onClick={(e) => { e.stopPropagation();

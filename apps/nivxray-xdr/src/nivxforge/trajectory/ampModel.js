@@ -26,7 +26,7 @@
  *    itself, so the wheel scrolls the activity axis.
  */
 
-export const ROW_H = 15;
+export const ROW_H = 18;
 export const GUTTER = 280;
 export const AXIS_H = 32;
 
@@ -61,6 +61,14 @@ const DARK = {
   suspicious: "#E0A200",
   detection: "#E5484D",
   band: "rgba(224, 162, 0, 0.13)",
+  /* DT2-3c · an INDICATOR of compromise reads yellow, exactly as Cisco
+     presents an IOC; a PROVEN contributor reads blue. Both are drawn only
+     from the server contract. */
+  ioc: "#E0A200",
+  iocRow: "rgba(224, 162, 0, 0.22)",
+  iocBand: "rgba(224, 162, 0, 0.16)",
+  contributor: "#4A9EFF",
+  contributorHalo: "rgba(74, 158, 255, 0.22)",
   telemetry: "#4A9EFF",
   spark: "#4A9EFF",
   sparkFill: "rgba(74, 158, 255, 0.12)",
@@ -97,6 +105,11 @@ const LIGHT = {
   suspicious: "#D97706",
   detection: "#DC2626",
   band: "rgba(251, 191, 36, 0.18)",
+  ioc: "#D97706",
+  iocRow: "rgba(251, 191, 36, 0.30)",
+  iocBand: "rgba(251, 191, 36, 0.22)",
+  contributor: "#2563EB",
+  contributorHalo: "rgba(37, 99, 235, 0.20)",
   telemetry: "#2563EB",
   spark: "#2563EB",
   sparkFill: "rgba(59, 130, 246, 0.15)",
@@ -149,8 +162,19 @@ export const dispositionOf = (e) =>
   DISPOSITION[e?.disposition] || DISPOSITION.UNKNOWN_NOT_ASSESSED;
 
 /** Red treatment is reserved for evidence that earns it. */
+/** Cisco's red is a CLAIM about the evidence, so NivXForge draws it only
+ *  where it holds an AUTHORITATIVE one: a MALICIOUS disposition, or a
+ *  detection the detection fabric actually assessed.
+ *
+ *  `is_detection` alone is NOT a claim: the historical Windows corpus
+ *  carries 480/500 observations with `kind=detection`,
+ *  `disposition=UNKNOWN_NOT_ASSESSED` and
+ *  `assessment_state=NO_DETECTION_CLAIMED_THIS_OBSERVATION`, and reading
+ *  red off that flag painted ordinary Sysmon telemetry as malicious. */
 export const isRed = (e) =>
-  e?.disposition === "MALICIOUS" || e?.is_detection === true;
+  e?.disposition === "MALICIOUS"
+  || (e?.is_detection === true
+      && e?.assessment_state === "ASSESSED_BY_DETECTION_FABRIC");
 
 export const eventColor = (e) => {
   if (isRed(e)) return C.malicious;

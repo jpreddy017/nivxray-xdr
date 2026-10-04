@@ -1,0 +1,36 @@
+{
+  "_note": "SYNTHETIC recorded output shapes of existing E1 clients (A/B/C/H). Fictional values; RFC 5737 IPs; no real keys; no network.",
+  "C": {
+    "vt_malicious":   {"provider": "virustotal", "verdict": "malicious", "score": 0.62, "detail": "43/70 engines", "source": "live", "error": ""},
+    "vt_404":         {"provider": "virustotal", "verdict": "clean", "score": 0.0, "detail": "not found in VirusTotal", "source": "live", "error": ""},
+    "vt_zero":        {"provider": "virustotal", "verdict": "clean", "score": 0.0, "detail": "0/70 engines", "source": "live", "error": ""},
+    "vt_pending":     {"provider": "virustotal", "verdict": "unknown", "detail": "VT_API_KEY not set", "source": "pending", "error": ""},
+    "vt_429":         {"provider": "virustotal", "verdict": "unknown", "detail": "lookup failed", "source": "error", "error": "HTTP 429"},
+    "vt_500":         {"provider": "virustotal", "verdict": "unknown", "detail": "lookup failed", "source": "error", "error": "HTTP 500"},
+    "abuse_low":      {"provider": "abuseipdb", "verdict": "clean", "score": 0.05, "detail": "abuse confidence 5%", "source": "live", "error": ""},
+    "abuse_cached":   {"provider": "abuseipdb", "verdict": "malicious", "score": 0.9, "detail": "abuse confidence 90%", "source": "cache", "error": ""},
+    "talos_miss":     {"provider": "talos", "verdict": "clean", "detail": "not on blacklist", "source": "live", "error": ""},
+    "mb_miss":        {"provider": "malwarebazaar", "verdict": "clean", "detail": "no record in MalwareBazaar", "source": "live", "error": ""},
+    "urlscan_429":    {"provider": "urlscan", "verdict": "unknown", "detail": "rate limited (HTTP 429) — retry later", "source": "live", "error": ""}
+  },
+  "A": {
+    "vt_nokey":   {"provider": "virustotal", "verdict": "no-key", "score": 0.0, "sources": 0, "details": {}, "queried_at": "2026-09-05T09:00:00Z"},
+    "vt_404":     {"provider": "virustotal", "verdict": "unknown", "score": 0.0, "sources": 0, "details": {"status": 404, "reason": "not-found-in-vt"}, "queried_at": "2026-09-05T09:00:00Z"},
+    "otx_clean":  {"provider": "otx", "verdict": "clean", "score": 0.0, "sources": 0, "details": {}, "queried_at": "2026-09-05T09:00:00Z"},
+    "vt_mal":     {"provider": "virustotal", "verdict": "malicious", "score": 0.6, "sources": 70, "details": {}, "queried_at": "2026-09-05T09:00:00Z"},
+    "abuse_err":  {"provider": "abuseipdb", "verdict": "error", "score": 0.0, "sources": 0, "details": {"error": "Client error '429 Too Many Requests'"}, "queried_at": "2026-09-05T09:00:00Z"}
+  },
+  "B": {
+    "vt_ok":      ["virustotal", {"status": "ok", "malicious": 41, "suspicious": 2, "harmless": 0, "undetected": 27, "reputation": -55}],
+    "vt_nf":      ["virustotal", {"status": "not-found"}],
+    "otx_err":    ["otx", {"status": "error", "error": "ConnectTimeout"}],
+    "abuse_nokey":["abuseipdb", {"status": "no-key"}]
+  },
+  "H": {
+    "known_good": {"provider_id": "local_ioc", "verdict": "KNOWN_GOOD", "queried_at": "2026-09-05T09:00:00Z", "cache_state": "CACHE_MISS", "tenant_scope": "t1", "confidence": 1.0},
+    "unknown":    {"provider_id": "local_ioc", "verdict": "UNKNOWN", "queried_at": "2026-09-05T09:00:00Z", "cache_state": "CACHE_MISS", "tenant_scope": null},
+    "failed":     {"provider_id": "local_ioc", "verdict": "LOOKUP_FAILED", "queried_at": "2026-09-05T09:00:00Z", "failure_reason": "mongo timeout", "cache_state": "CACHE_MISS"},
+    "stale_mal":  {"provider_id": "local_ioc", "verdict": "KNOWN_MALICIOUS", "queried_at": "2026-09-01T09:00:00Z", "cache_state": "CACHE_HIT_STALE", "tenant_scope": "t1"},
+    "unsupported":{"provider_id": "local_ioc", "verdict": "NOT_SUPPORTED", "queried_at": "2026-09-05T09:00:00Z", "cache_state": "CACHE_NOT_CACHEABLE"}
+  }
+}

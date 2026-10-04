@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxTabs } from "@/xdr/nx";
 import { useAuth } from "@/lib/auth";
 import EndpointLanes from "@/xdr/components/EndpointLanes";
 import ProcessAncestryTree from "@/xdr/components/ProcessAncestryTree";
@@ -40,6 +41,7 @@ import {
   dedupeObservations, compromiseSpans, caseReferences, tsOf, fmtUtc,
   severityTier, TIER_MALICIOUS, GLYPHS,
 } from "@/xdr/lib/trajectoryModel";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const WINDOWS = [
   { key: 1, label: "1h" }, { key: 6, label: "6h" }, { key: 24, label: "24h" },
@@ -113,7 +115,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
     try {
       setData(await getDeviceTrajectory(deviceRef, hours));
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load endpoint entity.");
+      setError(apiErrorText(e, "Failed to load endpoint entity."));
       setData(null);
     } finally { setLoading(false); }
   }, [deviceRef, hours]);
@@ -311,8 +313,15 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
         reason: "◇ NO INCIDENT IS BOUND TO THIS ENDPOINT — no incident has "
                 + "been promoted from its observations.",
         run: () => navigate(`/xdr/incidents/${incidentId}`) },
+      // Fleet file trajectory is keyed on a FILE, and this endpoint view
+      // binds no file hash — the route is `/xdr/intelligence/files/:key`.
+      // Offering it without a key sent the analyst to the catch-all, which
+      // bounced them home. It is now declared for what it is.
       { id: "fleet-file-trajectory", label: "Fleet file trajectory",
-        state: "available", run: () => navigate("/xdr/intelligence/files") },
+        state: "no_evidence",
+        reason: "◇ NO FILE IS BOUND TO THIS VIEW — fleet file trajectory is "
+                + "keyed on a file hash; open it from a file or hash entity.",
+        run: () => {} },
       { id: "spread-watchlist", label: "Spread watchlist",
         state: "available", run: () => navigate("/xdr/endpoints") },
       { id: "audit-log", label: "Device audit log", state: "no_evidence",
@@ -380,7 +389,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
           <EndpointActionsMenu groups={actionGroups} />
         </div>
         <span className="mono" style={{ fontSize: 10,
-                color: maliciousCount ? "#FF3838" : "var(--faint)" }}
+                color: maliciousCount ? "var(--nx-text-dim)" : "var(--faint)" }}
               data-testid="entity360-compromise-count">
           {maliciousCount
             ? `${maliciousCount} compromise event${maliciousCount === 1 ? "" : "s"}`
@@ -458,7 +467,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
         </div>
       )}
       {!loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }}
+        <div className="x-empty" style={{ color: "var(--nx-critical)" }}
              data-testid="xdr-trajectory-error">{String(error)}</div>
       )}
 
@@ -506,22 +515,11 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
 
           {/* Tabbed workspace (order: 1 — sits left of the drawer) */}
           <div style={{ minWidth: 0, order: 1 }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}
-                 data-testid="entity360-tabs">
-              {TABS.map((t) => {
-                const Icon = t.icon;
-                return (
-                  <button key={t.key}
-                          className={`btn ${tab === t.key ? "primary" : ""}`}
-                          style={{ padding: "5px 10px", fontSize: 11 }}
-                          onClick={() => setTab(t.key)}
-                          data-testid={`entity360-tab-${t.key}`}>
-                    <Icon size={11} /> {t.label}
-                  </button>
-                );
-              })}
-            </div>
-
+            {/* E2E-3 · ONE tab grammar. This page used bespoke `btn primary`
+                pills; it now uses the same NxTabs bar as Incidents, the
+                Investigation workspace and Data Sources. */}
+            <NxTabs tabs={TABS} active={tab} onChange={setTab}
+                    testid="entity360-tab" />
             {events.length === 0 && (
               <div className="x-empty" data-testid="xdr-trajectory-empty">
                 <b>◇ NO EVIDENCE</b>
@@ -569,7 +567,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
                         No related compromise events observed.
                         <div style={{ marginTop: 6 }}>
                           <span className="mono" style={{ fontSize: 9.8,
-                                                          color: "#F39C12" }}>
+                                                          color: "var(--nx-high)" }}>
                             {attributedCount} observation
                             {attributedCount === 1 ? "" : "s"} carry an ATT&amp;CK
                             technique or label asserted by the ingest adapter —
@@ -578,7 +576,7 @@ export default function XdrEntity360Page({ initialTab = "overview" }) {
                         </div>
                       </div>
                     ) : (
-                      <div className="mono" style={{ fontSize: 11, color: "#FF3838" }}>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--nx-text-dim)" }}>
                         {maliciousCount} compromise observation
                         {maliciousCount === 1 ? "" : "s"} in the observed span
                       </div>

@@ -42,7 +42,7 @@ const SURFACES = [
     // reserved stub, so this product must not offer to open it.
     stubInThisProduct: "the file-trajectory capability is graded implemented, but it is "
                      + "currently delivered by the XDR-hosted Fleet File Trajectory — "
-                     + "the NivXForge route is not wired to it yet (F-3 class)",
+                     + "the NivXRay EDR route is not wired to it yet (F-3 class)",
     hint: "File-system evidence: writes, drops, signers, hashes." },
   { key: "network",      label: "Network",           to: "/edr/network",
     icon: Wifi,        capability: "experience.network_ui",

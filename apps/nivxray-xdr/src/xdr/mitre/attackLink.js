@@ -26,7 +26,7 @@
 import {
   CATALOGUE_VERSION,
   ATTACK_NAME_INDEX as GENERATED_INDEX,
-} from "./attackNameIndex.generated.js";
+} from "../lib/mitre/attackNameIndex.generated.js";
 
 const ATTACK_ID_RE = /\b(T\d{4})(?:\.(\d{3}))?\b/i;
 

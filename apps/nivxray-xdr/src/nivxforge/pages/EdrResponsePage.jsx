@@ -49,7 +49,7 @@ const STATE_UI = {
 };
 
 const TONE = { mint: "var(--mint)", cyan: "var(--cyan)", amber: "var(--amber)",
-               red: "var(--red, #FF6B6B)", faint: "var(--faint)" };
+               red: "var(--red, var(--red))", faint: "var(--faint)" };
 
 export default function EdrResponsePage() {
   const ctx = useIncidentContext();

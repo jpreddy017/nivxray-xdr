@@ -1,0 +1,28 @@
+PRE-REPUBLISH SNAPSHOT #2 — https://nivxray.nivxforge.com
+Captured 2026-09-17 (UTC), read-only, no credential used, nothing modified.
+
+CURRENT LIVE (this is the rollback baseline for the next republish)
+  build (owner-reported, previous republish): 8e473e4
+  GET /api/openapi.json          200 · paths = 790
+    /api/xdr/organizations                     ABSENT
+    /api/xdr/organizations/{org_id}/state      ABSENT
+    /api/xdr/tenants                           ABSENT
+    /api/xdr/tenants/{tenant_id}               ABSENT
+    /api/xdr/tenants/{tenant_id}/state         ABSENT
+  (D15 contract already live: declared_source PRESENT, routing_blocked PRESENT)
+
+CANDIDATE (this pod, HEAD 166ed36e5c28e3c5cb7838d04c6f0d9d03a8ed5f)
+  OpenAPI generated from the app object: paths = 795
+  new paths = the five tenancy paths listed above
+  NIVX_TENANT_REGISTRY_ENFORCE: NOT present in backend/.env (count = 0)
+    -> ships OFF; production must NOT define it during this republish
+
+EXPECTED AFTER REPUBLISH
+  paths 790 -> 795, five tenancy paths PRESENT
+  GET  /api/xdr/organizations (anon)              403
+  POST /api/xdr/tenants (anon)                    403
+  GET  /api/v2/security-state/... (anon)          403   <- was 200 before B6
+  POST /api/xdr/ingest/telemetry (no credential)  403
+  POST /api/xdr/ingest/telemetry (unknown key)    401
+  GET  /api/xdr/tenants (admin JWT + X-Tenant-Id) 200 {count: 0, enforcing: false}
+  organizations/tenants collections: absent or empty (no auto-seed)

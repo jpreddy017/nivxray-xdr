@@ -21,6 +21,7 @@ import api from "@/lib/api";
 import AnnotationsEditor from "../AnnotationsEditor";
 import ThreatAssessmentCard from "../ThreatAssessmentCard";
 import ExecutiveSummaryPanel from "@/xdr/design/ExecutiveSummaryPanel";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 const STATE_BADGE = {
   ok:                    { label: "OK",                    cls: "ok"     },
@@ -53,7 +54,7 @@ export default function ExecutiveTab({ incident }) {
         if (!cancelled) setSummary(data);
       } catch (e) {
         if (!cancelled)
-          setError(e?.response?.data?.detail || e?.message || "Failed to load summary.");
+          setError(apiErrorText(e, "Failed to load summary."));
       } finally {
         if (!cancelled) setLoading(false);
       }

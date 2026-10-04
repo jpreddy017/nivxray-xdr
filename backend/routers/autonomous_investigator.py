@@ -13,7 +13,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from deps import get_current_user_optional, sync_collection
+from deps import get_current_user, get_current_user_optional, sync_collection
+from routers.incidents import authorized_incident
 from services.investigator.orchestrator import InvestigatorService
 from services.investigator.planner import registry_descriptor
 
@@ -49,15 +50,15 @@ async def list_capabilities(user=Depends(get_current_user_optional)):
 
 @router.get("/{incident_id}/investigation")
 async def get_investigation(incident_id: str,
-                                  user=Depends(get_current_user_optional)):
+                                  user=Depends(get_current_user)):
     """Return the autonomous investigation state + activity feed +
     execution + finding rollups for one incident.  Read-only.
+
+    S1 · this projection carries another customer's activity, executions and
+    findings, so it is resolved through the incident record's own tenant
+    authority. Anonymous is refused; cross-tenant is 404.
     """
-    doc = _col.find_one({"id": incident_id}, {"_id": 0, "id": 1})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+    authorized_incident(incident_id, user, {"_id": 0, "id": 1})
 
     client = _new_async_client()
     try:
@@ -115,7 +116,10 @@ async def get_investigation(incident_id: str,
 
 @router.get("/{incident_id}/investigation/executions")
 async def get_executions(incident_id: str,
-                              user=Depends(get_current_user_optional)) -> Dict[str, Any]:
+                              user=Depends(get_current_user)) -> Dict[str, Any]:
+    # S1 · these two routes previously did not even establish that the
+    # incident exists, let alone that the caller may address it.
+    authorized_incident(incident_id, user, {"_id": 0, "id": 1})
     client = _new_async_client()
     try:
         async_db = client[os.environ["DB_NAME"]]
@@ -129,7 +133,8 @@ async def get_executions(incident_id: str,
 
 @router.get("/{incident_id}/investigation/findings")
 async def get_findings(incident_id: str,
-                            user=Depends(get_current_user_optional)) -> Dict[str, Any]:
+                            user=Depends(get_current_user)) -> Dict[str, Any]:
+    authorized_incident(incident_id, user, {"_id": 0, "id": 1})
     client = _new_async_client()
     try:
         async_db = client[os.environ["DB_NAME"]]

@@ -14,37 +14,31 @@
  * a sample; the header states the count in the window.
  */
 import React, { useEffect, useMemo, useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 
-import { C, eventColor, isRed, fmtHMS } from "./ampModel";
+import { C, eventColor, isRed } from "./ampModel";
 import EventGlyph from "./AmpIcons";
 import AmpEventDetails from "./AmpEventDetails";
 
 const MAX_ROWS = 400;
 
 /** What the observation acted ON — the artefact, from evidence only. */
-const targetOf = (e) => e.file || e.network || e.entity || e.process
-  || "◇ not reported";
+const targetOf = (e) => e.file || e.network || e.entity || e.process || "";
 
-/** Cisco's left column: the actor. Where no parent was observed it says
- *  so rather than repeating the child and implying self-parentage. */
+/** Cisco's left column: the actor. */
 const actorOf = (e, lanes) => {
   if (e.parent_process_name) return e.parent_process_name;
   if (e.parent_lane_index !== null && e.parent_lane_index !== undefined) {
     const ln = lanes.get(e.parent_lane_index);
     if (ln?.label) return ln.label;
   }
-  if (e.parent_process_iid) return e.parent_process_iid;
-  if (e.parent_state === "PARENT_NOT_OBSERVED_VISIBILITY_GAP") {
-    return "◇ parent not observed";
-  }
-  if (e.parent_state === "PARENT_NOT_REPORTED_BY_SENSOR") {
-    return `${e.process || e.lane_id} · root`;
-  }
-  return e.process || "◇ no lineage reported";
+  return e.process || "";
 };
 
 export default function AmpActivityPanel({ events, lanes, selected, onSelect,
-                                           onPivot, width, height }) {
+                                           onPivot, width, height,
+                                           windowState = null,
+                                           emptiness = null , compromise = null }) {
   const listRef = useRef(null);
   const selRef = useRef(null);
 
@@ -60,7 +54,7 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
 
   if (selected) {
     return (
-      <AmpEventDetails event={selected}
+      <AmpEventDetails event={selected} compromise={compromise}
                        lane={lanes.get(selected.lane_index)}
                        onPivot={onPivot} width={width} height={height}
                        onBack={() => onSelect(null)} />
@@ -69,32 +63,34 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
 
   return (
     <aside data-testid="amp-activity-panel"
+           data-dt2-scroll-domain="inspector"
            style={{ width, height, flexShrink: 0, background: C.paper,
                     borderLeft: `1px solid ${C.gridStrong}`,
                     display: "flex", flexDirection: "column",
+                    overscrollBehavior: "contain",
                     minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8,
-                    padding: "9px 10px",
+                    padding: "22px 14px 20px",
                     borderBottom: `1px solid ${C.gridStrong}` }}>
-        <span style={{ fontSize: 12.5, color: C.ink, fontWeight: 600,
+        <span style={{ fontSize: 15, color: C.ink, fontWeight: 600,
                        flex: 1 }}>
           Activity
         </span>
-        <span className="mono" data-testid="amp-activity-count"
-              data-shown={rows.length} data-in-window={events.length}
-              style={{ fontSize: 9.4, color: C.inkFaint }}>
-          {events.length}
-        </span>
       </div>
 
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
       <div ref={listRef} data-testid="amp-activity-list"
-           style={{ overflowY: "auto", flex: 1, minHeight: 100 }}>
+           data-dt2-scroll-domain="inspector"
+           style={{ overflowY: "auto", flex: 1, minHeight: 100,
+                    minWidth: 0, overscrollBehavior: "contain" }}>
         {rows.length === 0 && (
           <div data-testid="amp-activity-empty"
+               data-window-state={windowState || ""}
+               data-observation-absence={String(
+                 emptiness?.isObservationAbsence ?? "")}
                style={{ padding: "12px 10px", fontSize: 10.5,
                         color: C.inkFaint, lineHeight: 1.55 }}>
-            No activity in this window. That is an absence of
-            observation, not an absence of activity.
+            No activity to display.
           </div>
         )}
         {rows.map((e) => {
@@ -105,40 +101,55 @@ export default function AmpActivityPanel({ events, lanes, selected, onSelect,
                     data-parent-state={e.parent_state}
                     data-lane-index={e.lane_index}
                     data-parent-lane-index={e.parent_lane_index}
-                    style={{ display: "flex", width: "100%", gap: 6,
+                    style={{ display: "flex", width: "100%", gap: 8,
                              alignItems: "center", textAlign: "left",
-                             padding: "5px 8px", cursor: "pointer",
+                             padding: "10px 12px", cursor: "pointer",
                              background: "none", border: "none",
                              borderBottom: `1px solid ${C.grid}` }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%",
-                             flexShrink: 0,
-                             background: red ? C.malicious
-                               : (e.disposition === "SUSPICIOUS"
-                                 ? C.suspicious : "transparent") }} />
-              <span style={{ flex: 1, fontSize: 10.4, color: C.inkDim,
+              <span style={{ width: 13, flexShrink: 0, display: "flex" }}>
+                {red ? <AlertTriangle size={12} color={C.suspicious} />
+                  : null}
+              </span>
+              <span style={{ flex: 1, fontSize: 13, color: C.inkDim,
                              overflow: "hidden", textOverflow: "ellipsis",
                              whiteSpace: "nowrap" }}>
                 {actorOf(e, lanes)}
               </span>
-              <svg width={15} height={15} viewBox="-7.5 -7.5 15 15"
+              <svg width={16} height={16} viewBox="-8 -8 16 16"
                    style={{ flexShrink: 0 }}>
                 <EventGlyph event={e} color={eventColor(e)} red={red} />
               </svg>
-              <span style={{ flex: 1.1, fontSize: 10.4,
+              <span style={{ flex: 1.1, fontSize: 13,
                              color: red ? C.malicious : C.ink,
                              overflow: "hidden", textOverflow: "ellipsis",
                              whiteSpace: "nowrap" }}>
                 {String(targetOf(e))}
               </span>
-              <span className="mono" style={{ fontSize: 8.8,
-                                              color: C.inkFaint,
-                                              flexShrink: 0 }}>
-                {e.timestamp ? fmtHMS(Date.parse(e.timestamp)) : ""}
-              </span>
             </button>
           );
         })}
       </div>
+      {/* Cisco's Activity pane carries its own ▲ ▼ scroll track. */}
+      <div style={{ width: 15, flexShrink: 0, display: "flex",
+                    flexDirection: "column", background: C.paperAlt,
+                    borderLeft: `1px solid ${C.grid}` }}>
+        <button data-testid="amp-activity-up"
+                onClick={() => listRef.current?.scrollBy(
+                  { top: -120, behavior: "smooth" })}
+                style={actArrow}>▲</button>
+        <div style={{ flex: 1 }} />
+        <button data-testid="amp-activity-down"
+                onClick={() => listRef.current?.scrollBy(
+                  { top: 120, behavior: "smooth" })}
+                style={actArrow}>▼</button>
+      </div>
+      </div>
     </aside>
   );
 }
+
+const actArrow = {
+  width: 15, height: 14, lineHeight: "12px", fontSize: 8, padding: 0,
+  cursor: "pointer", background: C.paper, color: C.inkFaint,
+  border: `1px solid ${C.grid}`, borderRadius: 2,
+};

@@ -241,7 +241,11 @@ def test_bridge_maps_a_network_event_without_inventing_a_process():
     assert c["network"]["dest_ip"] == "203.0.113.7"
     # A remote IP is a network peer. It is never promoted to a process or
     # an endpoint — the bug this codebase already had to fix once.
-    assert c["process"] == {}
+    # N2.1 · no process is NAMED, and the absence now says why it is
+    # absent instead of looking like an empty field nobody filled in.
+    assert "pid" not in c["process"] and "name" not in c["process"]
+    assert c["process"]["attribution_state"] == "NOT_OBSERVED"
+    assert "not observed" in c["process"]["attribution_reason"]
     assert "owning_process" in c["additional_fields"][
         "epistemic_state"]["not_observed"]
 

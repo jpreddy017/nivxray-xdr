@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from deps import get_current_user_optional, sync_collection
+from deps import get_current_user, sync_collection
+from routers.incidents import authorized_incident
 from services.threat_model import ThreatModelService
 
 router = APIRouter(prefix="/incidents", tags=["incident-threat-model"])
@@ -25,12 +26,9 @@ def _new_async_client():
 
 @router.get("/{incident_id}/threat-model")
 async def get_incident_threat_model(incident_id: str,
-                                          user=Depends(get_current_user_optional)) -> Dict[str, Any]:
-    doc = _col.find_one({"id": incident_id}, {"_id": 0, "id": 1})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+                                          user=Depends(get_current_user)) -> Dict[str, Any]:
+    # S1 · authenticated principal → server-resolved tenant → incident.
+    authorized_incident(incident_id, user, {"_id": 0, "id": 1})
     client = _new_async_client()
     try:
         async_db = client[os.environ["DB_NAME"]]

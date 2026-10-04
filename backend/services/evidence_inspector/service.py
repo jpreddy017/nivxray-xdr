@@ -223,20 +223,49 @@ async def resolve(db, incident_id: str, kind: str, ref_id: str
 
     # ── EVENT ────────────────────────────────────────────────────
     elif kind == "event":
-        if canonical and canonical.get("event_id") == ref_id:
+        # P1 · EVIDENCE NAMESPACE BRIDGE. This used to resolve ONLY the
+        # incident's single `xdr_pipeline.canonical_event_id`, so every OTHER
+        # real canonical evidence id of the same incident answered MISSING —
+        # which is what made a bridged causal anchor look unresolvable. The
+        # ref is now resolved against the incident's FULL authoritative
+        # canonical-evidence set (server-resolved from what the incident
+        # itself persists, tenant-checked). An id outside that set stays
+        # MISSING: holding an identifier is never lookup authority.
+        from services.evidence_bridge import resolvable_canonical_row
+        row = (canonical if canonical and canonical.get("event_id") == ref_id
+               else await resolvable_canonical_row(db, inc, ref_id))
+        if row:
+            src = row.get("source") or {}
             identity = {
                 "label": ref_id,
-                "subtitle": (canonical.get("dsm") or {}).get("id") or "EVENT",
+                "subtitle": (row.get("dsm") or {}).get("id")
+                            or row.get("event_type") or "EVENT",
                 "badges": [{"label": "CANONICAL", "tone": "kind"}],
             }
             rows = []
-            for k in ("timestamp",):
-                if canonical.get(k):
-                    rows.append({"label": k.upper(), "value": str(canonical[k])})
-            sig = (canonical.get("security") or {}).get("signature") or {}
+            for label, value in (
+                    ("TIMESTAMP", row.get("timestamp") or row.get("event_time")),
+                    ("EVENT TYPE", row.get("event_type")),
+                    ("SOURCE", " · ".join(
+                        p for p in (row.get("source_vendor") or src.get("vendor"),
+                                    row.get("source_product") or src.get("product"))
+                        if p) or None),
+                    ("INGESTED", row.get("ingest_time")),
+                    ("NORMALIZER", (row.get("provenance") or {}).get("normalizer_id")),
+            ):
+                if value:
+                    rows.append({"label": label, "value": str(value)})
+            sig = (row.get("security") or {}).get("signature") or {}
             if sig:
                 rows.append({"label": "SIGNATURE",
                                   "value": f"{sig.get('id','?')} · {sig.get('name','')}"})
+            raw = row.get("raw_ref")
+            if isinstance(raw, dict) and raw.get("raw_id"):
+                rows.append({"label": "RAW SOURCE",
+                             "value": f"{raw.get('collection')} · {raw['raw_id']}"})
+            elif raw:
+                rows.append({"label": "RAW SOURCE",
+                             "value": "retained on the canonical record"})
             context = {"relationships": rows}
             evidence.append({"id": f"canonical:{ref_id}", "kind": "event",
                                   "label": ref_id, "source_ref": ref_id})
@@ -244,7 +273,9 @@ async def resolve(db, incident_id: str, kind: str, ref_id: str
                                     "evidence_id": f"canonical:{ref_id}",
                                     "note": "Canonical detection event."})
         else:
-            return {"state": "MISSING", "kind": kind, "ref_id": ref_id}
+            return {"state": "MISSING", "kind": kind, "ref_id": ref_id,
+                    "reason": ("this incident references no canonical "
+                               "evidence record with that id")}
 
     # ── FINDING ──────────────────────────────────────────────────
     elif kind == "finding":

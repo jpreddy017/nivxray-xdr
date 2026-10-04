@@ -16,6 +16,7 @@ import {
   History,
 } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -81,8 +82,7 @@ function AddModal({ onClose, onCreated }) {
       const r = await api.post("/xdr/webhooks", body);
       onCreated?.(r?.data); onClose();
     } catch (e) {
-      setErr(e?.response?.data?.detail?.reason
-                 || e?.response?.data?.detail || e?.message);
+      setErr(refusalText(e));
     } finally { setBusy(false); }
   };
   return (
@@ -111,7 +111,7 @@ function AddModal({ onClose, onCreated }) {
           <label style={{ ...lbl, flex: 1 }}>Timeout (s)<input type="number"
             value={f.timeout_seconds} onChange={(e) => setF({ ...f, timeout_seconds: +e.target.value })} style={inp} /></label>
         </div>
-        {err && <div style={{ color: "#f87171", fontSize: 11 }}
+        {err && <div style={{ color: "var(--nx-critical)", fontSize: 11 }}
                                 data-testid="xdr-webhook-add-error">{err}</div>}
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
           <span style={{ flex: 1 }} />
@@ -176,7 +176,7 @@ function DeliveriesPanel({ hook, onClose }) {
                 </button>
               )}
             </div>
-            {d.last_error && <div style={{ color: "#f87171" }}>{d.last_error}</div>}
+            {d.last_error && <div style={{ color: "var(--nx-critical)" }}>{d.last_error}</div>}
           </div>
         ))}
       </div>
@@ -201,7 +201,7 @@ export default function WebhooksBody() {
         if (j?.ok === false) { setErr(j?.error?.detail || "unavailable"); setRows([]); return; }
         setRows(j?.data?.webhooks || []); setErr(null);
       } catch (e) {
-        setErr(e?.response?.data?.detail?.reason || e?.message);
+        setErr(refusalText(e));
         setRows([]);
       }
     })();
@@ -214,27 +214,27 @@ export default function WebhooksBody() {
       });
       setLastAudit(r?.data?.audit_ref);
       alert(`Test delivery · state=${r?.data?.data?.final_state} · ${r?.data?.data?.last_status ?? "no-http-status"}`);
-    } catch (e) { alert(e?.response?.data?.detail || e?.message); }
+    } catch (e) { alert(refusalText(e)); }
   };
   const rotate = async (h) => {
     try {
       const r = await api.post(`/xdr/webhooks/${h.id}/rotate-secret`);
       setRevealSecret(r?.data?.data?.secret);
       setLastAudit(r?.data?.audit_ref);
-    } catch (e) { alert(e?.response?.data?.detail || e?.message); }
+    } catch (e) { alert(refusalText(e)); }
   };
   const remove = async (h) => {
     if (!window.confirm(`Delete webhook '${h.name}'?`)) return;
     try {
       const r = await api.delete(`/xdr/webhooks/${h.id}`);
       setLastAudit(r?.data?.audit_ref); setTick((n) => n + 1);
-    } catch (e) { alert(e?.response?.data?.detail || e?.message); }
+    } catch (e) { alert(refusalText(e)); }
   };
   const toggle = async (h) => {
     try {
       const r = await api.put(`/xdr/webhooks/${h.id}`, { enabled: !h.enabled });
       setLastAudit(r?.data?.audit_ref); setTick((n) => n + 1);
-    } catch (e) { alert(e?.response?.data?.detail || e?.message); }
+    } catch (e) { alert(refusalText(e)); }
   };
 
   const enabled = rows.filter((h) => h.enabled).length;
@@ -326,7 +326,7 @@ export default function WebhooksBody() {
               <button className="btn ghost" title="Delete"
                            data-testid={`xdr-webhook-delete-${h.id}`}
                            onClick={() => remove(h)}
-                           style={{ ...iconBtn, color: "#f87171" }}><Trash2 size={11} /></button>
+                           style={{ ...iconBtn, color: "var(--nx-critical)" }}><Trash2 size={11} /></button>
             </div>
           </div>
         ))}

@@ -52,8 +52,8 @@ export default function ExportMenu({ build, basename, testid = "export" }) {
 
       {open && (
         <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)",
-                      zIndex: 80, width: 300, background: "#11161D",
-                      border: "1px solid #212B36", borderRadius: 5,
+                      zIndex: 80, width: 300, background: "var(--nx-surf-inset)",
+                      border: "1px solid var(--nx-bd-quiet)", borderRadius: 5,
                       boxShadow: "0 12px 34px rgba(0,0,0,0.55)", padding: 8 }}
              data-testid={`${testid}-menu`}>
           <div className="mono" style={{ fontSize: 9, color: "var(--faint)",
@@ -73,7 +73,7 @@ export default function ExportMenu({ build, basename, testid = "export" }) {
               {f.label}
             </button>
           ))}
-          <div className="mono" style={{ fontSize: 8.8, color: "#5D6875",
+          <div className="mono" style={{ fontSize: 8.8, color: "var(--nx-text-dim)",
                                          marginTop: 4, lineHeight: 1.6 }}>
             Forensic fields (user, host, path, command line) are PRESERVED.
             Credential material inside a command line is replaced with
@@ -87,8 +87,8 @@ export default function ExportMenu({ build, basename, testid = "export" }) {
                                        top: "calc(100% + 4px)", zIndex: 79,
                                        width: 300, fontSize: 8.8,
                                        color: "var(--faint)",
-                                       background: "#0B0F14",
-                                       border: "1px solid #212B36",
+                                       background: "var(--nx-surf-inset)",
+                                       border: "1px solid var(--nx-bd-quiet)",
                                        borderRadius: 4, padding: 6,
                                        display: open ? "none" : "block" }}
              data-testid={`${testid}-receipt`}>

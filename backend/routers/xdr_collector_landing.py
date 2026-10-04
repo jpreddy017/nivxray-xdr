@@ -44,7 +44,7 @@ import os
 import sys
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 log = logging.getLogger("nivxray.xdr.collector.landing")
 
@@ -90,6 +90,18 @@ def attach_collector_landing(app: FastAPI,
     from routes.webhooks         import router as webhooks_router          # noqa: E402
     from routes.outbox           import router as outbox_router            # noqa: E402
     from routes.preflight        import router as preflight_router         # noqa: E402
+
+    # Collector Auth P0 · the plane was mounted with NO authentication
+    # dependency, so 22 operations were anonymous. One guard, attached at
+    # mount time, enforces AUTHENTICATION -> PERMISSION -> TENANT AUTHORITY
+    # -> CAPABILITY off the route classification, and refuses any collector
+    # operation that is not classified.
+    from framework.authz import collector_guard                            # noqa: E402
+
+    # The guard keys classification on the MOUNT-RELATIVE path, so it must
+    # know the prefix this plane was landed under.
+    app.state.collector_mount_prefix = prefix
+    _guarded = [Depends(collector_guard)]
 
     class_by_type = {
         "rest":    RestPollerConnector,
@@ -164,17 +176,21 @@ def attach_collector_landing(app: FastAPI,
             pass
 
     # ── Mount the seven collector routers under the landing prefix.
-    app.include_router(connectors_router,       prefix=prefix)
-    app.include_router(collectors_router,       prefix=prefix)
-    app.include_router(telemetry_health_router, prefix=prefix)
-    app.include_router(data_sources_router,     prefix=prefix)
-    app.include_router(webhooks_router,         prefix=prefix)
-    app.include_router(outbox_router,           prefix=prefix)
-    app.include_router(preflight_router,        prefix=prefix)
+    # Every router carries the guard, including the webhook router: the guard
+    # recognises `POST /webhooks/{secret_id}` as MACHINE and passes it through
+    # to the per-connector HMAC check unchanged, so the vendor contract is not
+    # broken and no route is left unguarded by omission.
+    app.include_router(connectors_router,       prefix=prefix, dependencies=_guarded)
+    app.include_router(collectors_router,       prefix=prefix, dependencies=_guarded)
+    app.include_router(telemetry_health_router, prefix=prefix, dependencies=_guarded)
+    app.include_router(data_sources_router,     prefix=prefix, dependencies=_guarded)
+    app.include_router(webhooks_router,         prefix=prefix, dependencies=_guarded)
+    app.include_router(outbox_router,           prefix=prefix, dependencies=_guarded)
+    app.include_router(preflight_router,        prefix=prefix, dependencies=_guarded)
 
     # Tiny liveness echo so the frontend can distinguish "landed"
     # from "not deployed" cheaply.  Never touches Mongo.
-    @app.get(f"{prefix}/landing")
+    @app.get(f"{prefix}/landing", dependencies=_guarded)
     def _landing_receipt():
         return {
             "landed":  True,

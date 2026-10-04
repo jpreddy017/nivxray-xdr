@@ -1,0 +1,129 @@
+{
+ "tenant": "ten_f1a5479243e901cf159e230fa0",
+ "canonical_observations": 3299,
+ "kinds": {
+  "registry_value_set": 2335,
+  "registry_create": 766,
+  "file_create": 107,
+  "network_connect": 70,
+  "process_create": 16,
+  "special_privileges_assigned": 2,
+  "logon_success": 2,
+  "dns_query": 1
+ },
+ "B1_preservation": {
+  "file.field_provenance": {
+   "present_in_canonical": 107,
+   "preserved_in_projection": 107,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "file.path": {
+   "present_in_canonical": 107,
+   "preserved_in_projection": 107,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.command_line": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.field_provenance": {
+   "present_in_canonical": 3295,
+   "preserved_in_projection": 3295,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.hashes.md5": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.hashes.sha256": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.original_file_name": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.parent_command_line": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.parent_executable_path": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.parent_process_guid": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.ppid": {
+   "present_in_canonical": 16,
+   "preserved_in_projection": 16,
+   "lost": 0,
+   "example_lost_event_ids": []
+  },
+  "process.process_guid": {
+   "present_in_canonical": 3295,
+   "preserved_in_projection": 3295,
+   "lost": 0,
+   "example_lost_event_ids": []
+  }
+ },
+ "B1_fields_still_lost": {},
+ "B2_process_identity": {
+  "processes": 54,
+  "identity_authorities": {
+   "SOURCE_PROCESS_GUID": 54
+  },
+  "lifetime_states": {
+   "PROCESS_LIFETIME_UNKNOWN": 54
+  },
+  "relationship_bases": {
+   "PARENT_STATED_BY_SOURCE_PROCESS_GUID": 16
+  },
+  "unattributed_observations": 4,
+  "pid_reuse_cases": 0
+ },
+ "B3_file_identity": {
+  "file_observations": 107,
+  "with_any_hash": 0,
+  "with_sha256": 0,
+  "content_identified": 0,
+  "path_identity_only": 107,
+  "with_size": 0,
+  "with_source_stated_writer": 107,
+  "hash_states": {
+   "HASH_OBSERVED": 0,
+   "HASH_NOT_OBSERVED": 107
+  },
+  "note": "`path_identity_only` files are NOT unknown-good and NOT unknown-bad: their CONTENT was never identified, so no reputation verdict about their bytes is possible",
+  "process_image_hash_states": {
+   "HASH_NOT_OBSERVED": 3281,
+   "HASH_OBSERVED": 16,
+   "HASH_NOT_APPLICABLE": 2
+  }
+ },
+ "B4_observables": {
+  "IP:NETWORK_PEER": 140,
+  "MD5:PROCESS_IMAGE": 16,
+  "SHA256:PROCESS_IMAGE": 16,
+  "DOMAIN:DNS_QUESTION": 1,
+  "IP:DNS_QUESTION": 1
+ }
+}

@@ -208,18 +208,35 @@ def _func(rel: str, name: str):
 
 def test_every_live_route_resolves_identity():
     """Route-contract half of the guard: each enumerated live surface
-    must call the authoritative resolver itself."""
+    must reference the authoritative resolver ITSELF.
+
+    A surface may call it directly, or hand it to `asyncio.to_thread`
+    (the resolver is a sync pymongo path, and an async route that calls
+    it inline blocks the event loop — see
+    `production-gates/GATE_10_SCALE_AND_PERFORMANCE.md`). Both forms name
+    the same single authority, which is what this invariant protects;
+    what stays forbidden is a route resolving identity some other way,
+    or not resolving it at all.
+    """
     missing = []
     for rel, name in LIVE_ENDPOINT_ROUTES:
         fn = _func(rel, name)
         if fn is None:
             missing.append(f"{rel}::{name} NOT FOUND")
             continue
-        calls = {(n.func.attr if isinstance(n.func, ast.Attribute)
-                  else getattr(n.func, "id", None))
-                 for n in ast.walk(fn) if isinstance(n, ast.Call)}
-        if "resolve_endpoint" not in calls:
-            missing.append(f"{rel}::{name} does not call resolve_endpoint")
+        names = set()
+        for n in ast.walk(fn):
+            if isinstance(n, ast.Call):
+                names.add(n.func.attr if isinstance(n.func, ast.Attribute)
+                          else getattr(n.func, "id", None))
+            # `to_thread(eq.resolve_endpoint, ...)` — the resolver appears
+            # as a callable argument rather than as the called function.
+            elif isinstance(n, ast.Attribute):
+                names.add(n.attr)
+            elif isinstance(n, ast.Name):
+                names.add(n.id)
+        if "resolve_endpoint" not in names:
+            missing.append(f"{rel}::{name} does not use resolve_endpoint")
     assert not missing, ("P0-2C ROUTE CONTRACT VIOLATION:\n  " +
                          "\n  ".join(missing))
 
@@ -326,9 +343,20 @@ def test_an_undeclared_field_cannot_be_smuggled_in():
 
 
 def test_an_empty_alias_set_never_degrades_to_an_unfiltered_read():
-    pred = endpoint_predicate([], "v2_shadow_observations")
+    # v2_shadow_observations is tenant-partitioned, so the customer is
+    # supplied here; the point of this case is the EMPTY ALIAS SET.
+    pred = endpoint_predicate([], "v2_shadow_observations",
+                              tenant_id="ten_a")
     assert pred and pred != {}
     assert "_nivx_unresolved_endpoint" in pred
+    # an unpartitioned store behaves identically
+    assert "_nivx_unresolved_endpoint" in endpoint_predicate(
+        [], "edr_response_commands")
+
+
+def test_a_resolved_alias_set_without_a_customer_never_reads_evidence():
+    pred = endpoint_predicate(["DESKTOP-A9HGFJJ"], "v2_shadow_observations")
+    assert pred == {"_nivx_unresolved_tenant": {"$exists": True}}
 
 
 def test_a_single_field_store_yields_an_in_predicate():
@@ -337,8 +365,11 @@ def test_a_single_field_store_yields_an_in_predicate():
 
 
 def test_a_multi_field_store_addresses_every_declared_field():
-    pred = endpoint_predicate(["a"], "v2_shadow_observations")
-    got = {list(c.keys())[0] for c in pred["$or"]}
+    pred = endpoint_predicate(["a"], "v2_shadow_observations",
+                              tenant_id="ten_a")
+    tenant_clause, identity_clause = pred["$and"]
+    assert tenant_clause == {"tenant_id": "ten_a"}
+    got = {list(c.keys())[0] for c in identity_clause["$or"]}
     assert got == set(ENDPOINT_KEYED_STORES["v2_shadow_observations"])
 
 

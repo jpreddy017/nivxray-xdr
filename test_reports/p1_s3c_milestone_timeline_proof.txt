@@ -1,0 +1,33 @@
+PASS · the single investigation timeline is present tables=1
+PASS · no second timeline table was introduced 
+PASS · a causal milestone appears inside the timeline 1 milestone row(s)
+PASS · observed evidence events appear alongside 1 evidence event row(s)
+PASS · a milestone is visually distinguished from a raw event 'ATTACK MILESTONE · COMMAND AND CONTROL\nShow in story\npowersh'
+PASS · the milestone carries the cited event's activity time milestone='2026-06-01 10:00:00' event='2026-06-01 10:00:00'
+PASS · timeline order agrees with the authoritative time ['2026-09-16 16:11:01', '2026-06-01 10:00:00', '2026-06-01 10:00:00']
+PASS · the milestone states it has no clock of its own 'A milestone has no clock of its own — it is positioned by the activity time of the cited e'
+PASS · the three clocks are reported separately · Activity time 
+PASS · the three clocks are reported separately · Sensor observed 
+PASS · the three clocks are reported separately · Ingested 
+PASS · ingest time is not presented as activity time 
+PASS · the milestone exposes its evidence chain chain=True
+PASS · the cited evidence is inspectable in place inspectors=1
+PASS · the story offers a hand-off to the timeline 1 button(s)
+PASS · the hand-off lands on the timeline focused on that milestone url=tab=timeline&focus=m-0
+PASS · the handed-over milestone row is focused and expanded focused=1
+PASS · the timeline offers a hand-off back to the story 1 button(s)
+PASS · the hand-off lands on the story focused on that milestone url=tab=story&focus=m-0
+PASS · the story milestone row is focused 
+PASS · no causal milestone is fabricated without causal analysis 
+PASS · no unpositioned-milestone block is invented either 
+PASS · the timeline itself still renders for that incident 1757 chars
+PASS · another tenant's incident exposes no milestone or event rows 
+PASS · tab still renders · overview 7830 chars
+PASS · tab still renders · story 8316 chars
+PASS · tab still renders · timeline 1996 chars
+PASS · tab still renders · evidence 3111 chars
+PASS · tab still renders · detections 1986 chars
+PASS · tab still renders · response 1621 chars
+PASS · tab still renders · activity 10936 chars
+
+S3-C DOM PROOF · 31 PASS · 0 FAIL

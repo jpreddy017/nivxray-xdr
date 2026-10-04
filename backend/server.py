@@ -68,6 +68,8 @@ from routers.incident_threat_model import router as incident_threat_model_router
 from routers.attack_graph import router as attack_graph_router
 from routers.attack_evidence import router as attack_evidence_router
 from routers.evidence_inspector import router as evidence_inspector_router
+from routers.incident_canonical_evidence import (
+    router as incident_canonical_evidence_router)
 from routers.report import router as report_router
 from routers.intelligence_overlay import router as intelligence_overlay_router
 from routers.mitre_catalogue import router as mitre_catalogue_router
@@ -78,6 +80,8 @@ from routers.xdr_dashboard import router as xdr_dashboard_router
 from routers.xdr_mss import router as xdr_mss_router
 from routers.xdr_queue_ops import router as xdr_queue_ops_router
 from routers.edr import router as edr_projections_router
+from routers.edr_trajectory_v3 import router as edr_trajectory_v3_router
+from routers.edr_migration_control import router as edr_migration_control_router
 from routers.incident_summary import router as incident_summary_router
 from routers.ops import router as ops_router
 from routers.analyze import router as analyze_router
@@ -165,6 +169,21 @@ app = FastAPI(
 if obs_enabled():
     app.add_middleware(ObservabilityMiddleware)
 api = APIRouter(prefix="/api")
+
+
+# ── OpenAPI root alias ──────────────────────────────────────────────────
+# The canonical schema stays at `/api/openapi.json` (P0-H, owner-locked, so
+# the ingress can reach it). The RC5 API contract additionally requires the
+# schema at the SPEC-DEFAULT location `/openapi.json`
+# (tests/rc5/api/test_diag_endpoint.py::test_openapi_lists_rc5_parse and the
+# three sibling contract tests). Both now serve the same document.
+#
+# Not an exposure change: the Kubernetes ingress routes only `/api/*` to this
+# service, so `/openapi.json` is reachable in-process (TestClient, local
+# tooling) and never externally. No route, model, prefix or auth is altered.
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_root_alias() -> dict:
+    return app.openapi()
 
 
 # ── Health endpoints ────────────────────────────────────────────────────
@@ -255,6 +274,7 @@ api.include_router(incident_threat_model_router)
 api.include_router(attack_graph_router)
 api.include_router(attack_evidence_router)
 api.include_router(evidence_inspector_router)
+api.include_router(incident_canonical_evidence_router)
 api.include_router(report_router)
 api.include_router(intelligence_overlay_router)
 api.include_router(mitre_catalogue_router)
@@ -265,6 +285,8 @@ api.include_router(xdr_dashboard_router)
 api.include_router(xdr_mss_router)
 api.include_router(xdr_queue_ops_router)
 api.include_router(edr_projections_router)
+api.include_router(edr_trajectory_v3_router)
+api.include_router(edr_migration_control_router)
 from routers.edr_response import (agent as edr_resp_agent,
                                   router as edr_resp_router)
 api.include_router(edr_resp_router)
@@ -331,8 +353,16 @@ from routers.xdr_lolbas import router as xdr_lolbas_router
 app.include_router(xdr_lolbas_router)
 from routers.xdr_rbac import router as xdr_rbac_router
 app.include_router(xdr_rbac_router)
+from routers.xdr_scope import router as xdr_scope_router
+app.include_router(xdr_scope_router)
 from routers.xdr_api_keys import router as xdr_api_keys_router
 app.include_router(xdr_api_keys_router)
+from routers.xdr_delivery_receipts import router as xdr_delivery_receipts_router
+app.include_router(xdr_delivery_receipts_router)
+from routers.xdr_tenancy import (organizations_router as xdr_organizations_router,
+                                 tenants_router as xdr_tenants_router)
+app.include_router(xdr_organizations_router)
+app.include_router(xdr_tenants_router)
 from routers.xdr_webhooks import router as xdr_webhooks_router
 app.include_router(xdr_webhooks_router)
 # P0-8 · Data Sources + Collectors + Ingest telemetry (evidence-backed
@@ -342,8 +372,26 @@ from routers.xdr_data_sources import router as xdr_data_sources_router
 app.include_router(xdr_data_sources_router)
 from routers.xdr_collectors import router as xdr_collectors_router
 app.include_router(xdr_collectors_router)
+from routers.xdr_detection_citations import router as xdr_detection_citations_router
+app.include_router(xdr_detection_citations_router)
 from routers.xdr_ingest import router as xdr_ingest_router
 app.include_router(xdr_ingest_router)
+# Lane G · Data Sources → Windows (read-only channel/device truth)
+from routers.xdr_windows import router as xdr_windows_router
+app.include_router(xdr_windows_router)
+# Lane H · Event Explorer (source-agnostic canonical event search)
+from routers.xdr_events import router as xdr_events_router
+app.include_router(xdr_events_router)
+# Program D · Access Management write paths + Effective Access
+from routers.xdr_access import router as xdr_access_router
+app.include_router(xdr_access_router)
+
+# D21 · routing visibility — READ-ONLY projection of ingest routing decisions.
+from routers.xdr_ingest_routing import router as xdr_ingest_routing_router
+app.include_router(xdr_ingest_routing_router)
+from routers.xdr_delivery_reconciliation import (
+    router as xdr_delivery_reconciliation_router)
+app.include_router(xdr_delivery_reconciliation_router)
 from routers.xdr_spread import router as xdr_spread_router
 app.include_router(xdr_spread_router)
 # P1 · Detection Content Registry (Sigma + MITRE analytics + native).
@@ -626,6 +674,11 @@ api.include_router(deck_download_router)
 from routers.edr_wave0 import router as edr_wave0_router
 api.include_router(edr_wave0_router)
 
+# P0-FIX-6B-2 · explicit, audited customer-context switch. Authority is the
+# existing `edr_tenant` dependency; this route only records the transition.
+from routers.edr_session import router as edr_session_router
+api.include_router(edr_session_router)
+
 from routers.xdr_search import router as xdr_search_router
 api.include_router(xdr_search_router)
 
@@ -639,6 +692,29 @@ from routers.edr_enrollment import admin as edr_enrollment_admin_router
 from routers.edr_enrollment import agent as edr_agent_router
 api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
+from routers.edr_onboarding import router as edr_onboarding_router
+api.include_router(edr_onboarding_router)
+# GATE 5 · policy authority + GATE 7 exclusions + GATE 11 events explorer
+# + connector productization (Management -> Downloads).
+from routers.edr_policies import (agent as edr_policy_agent,
+                                  groups_router as edr_groups_router,
+                                  router as edr_policies_router)
+api.include_router(edr_policies_router)
+api.include_router(edr_groups_router)
+api.include_router(edr_policy_agent)
+from routers.edr_exclusions import router as edr_exclusions_router
+api.include_router(edr_exclusions_router)
+from routers.edr_events import router as edr_events_router
+api.include_router(edr_events_router)
+from routers.edr_connector import releases as edr_connector_router
+api.include_router(edr_connector_router)
+from routers.edr_audit import router as edr_audit_router
+api.include_router(edr_audit_router)
+from routers.edr_saved_views import router as edr_saved_views_router
+api.include_router(edr_saved_views_router)
+# P0-C · durable EDR findings (read plane).
+from routers.edr_findings import router as edr_findings_router
+api.include_router(edr_findings_router)
 
 
 # v2 · Additive next-generation namespace (Phase 3+).
@@ -681,6 +757,13 @@ except Exception as _v2_exc:                             # pragma: no cover
     )
 
 app.include_router(api)
+
+# E3 preview router mount STRIPPED for production integration (brief §b).
+# `/api/e3/trajectory/*` was the ONLY runtime entry point into the E3 preview
+# plumbing (api.py, e1_shape_preview, kushu_import, fixtures, prodshape,
+# platform_seed, stale_trace, artifacts_overlay). With this mount removed those
+# modules are unreachable at runtime and survive only as test assets, so no
+# synthetic fixture can be served by production regardless of env flags.
 
 # Production hardening: X-Request-ID, hard timeouts, payload caps
 app.add_middleware(RequestHardeningMiddleware)
@@ -772,6 +855,13 @@ async def _startup():
     validate_config()
     init_database()
     await seed_admin(log)
+    # P0 · explicit PLATFORM designation. Fix 6B-2 retired role-derived tenant
+    # breadth, so the Super Admin needs `authority_scope = "PLATFORM"` written
+    # explicitly; without it every tenant is (correctly) refused. Idempotent,
+    # server-side only, refuses on any ambiguity, and never a startup crash —
+    # the authorization path stays fail-closed on its own.
+    from services.platform_designation import designate_platform_principal
+    await designate_platform_principal(db.users, log)
     # Seed the Sample1 golden diagnostic case if absent.  Idempotent —
     # only inserts when workspace_cases lacks the frozen case id and the
     # on-disk snapshot fingerprint matches the locked golden value.
@@ -845,22 +935,142 @@ async def _startup():
         from edr_plane.raw_events import ensure_indexes as _ensure_raw_indexes
         from deps import db as _raw_db
         await _ensure_raw_indexes(_raw_db)
+        from edr_plane.processing_queue import (
+            ensure_indexes as _ensure_processing_queue_indexes)
+        await _ensure_processing_queue_indexes(_raw_db)
+
         from edr_plane.enrollment.store import ensure_indexes as _ensure_enr
         from edr_plane.enrollment.rejection import (
             ensure_indexes as _ensure_rej)
         from edr_plane.response import ensure_indexes as _ensure_resp
         await _ensure_resp(_raw_db)
+        from edr_plane.delivery_counters import (
+            ensure_indexes as _ensure_counters)
+        await _ensure_counters(_raw_db)
         await _ensure_enr(_raw_db)
         await _ensure_rej(_raw_db)
+        # N2.1 · endpoint address OBSERVATIONS (evidence, not identity).
+        from edr_plane.endpoint_address_observation import (
+            ensure_indexes as _ensure_addr)
+        await _ensure_addr(_raw_db)
+        # X1 · entity resolution + multi-evidence incidents.
+        from services.multi_evidence_incident import (
+            ensure_indexes as _ensure_x1)
+        await _ensure_x1(_raw_db)
         # P0-D · the activity-identity lookup that keeps a re-observation
         # from becoming a second piece of evidence.
         await _raw_db["v2_shadow_observations"].create_index(
             [("tenant_id", 1), ("activity_identity", 1)],
             name="tenant_activity_identity", sparse=True)
+        # P0-TRAJ · the observation store was endpoint-keyed but NOT
+        # endpoint-INDEXED, so every Device Trajectory read and every
+        # endpoint resolution examined the whole collection (measured:
+        # 3.85 s to resolve + 10.2 s to project one 205k-observation
+        # endpoint). These indexes cover the declared identity fields of
+        # the store and the time axis the trajectory sorts on.
+        for spec, name in (
+            ([("event.device_iid", 1), ("event.ts", -1)], "obs_device_ts"),
+            ([("event.raw.computer", 1), ("event.ts", -1)], "obs_computer_ts"),
+            ([("event.raw.hostname", 1), ("event.ts", -1)], "obs_hostname_ts"),
+            ([("event.computer", 1), ("event.ts", -1)], "obs_evcomputer_ts"),
+            ([("collector_id", 1), ("event.ts", -1)], "obs_collector_ts"),
+            ([("connector_id", 1), ("event.ts", -1)], "obs_connector_ts"),
+            ([("device_iid", 1), ("event.ts", -1)], "obs_deviceiid_ts"),
+            # B5.1 · OWNER-AUTHORISED. Campaign Story resolves each
+            # activity's canonical observation by its EVIDENCE
+            # REFERENCE, and neither reference field was indexed, so
+            # every lookup examined the whole store (measured: 256,944
+            # documents, 0.51 s and 0.55 s per lookup, 15 activities ×
+            # 2 lookups = the whole 11 s request). These two indexes
+            # change only HOW the row is found, never WHICH row.
+            ([("tenant_id", 1), ("canonical_event_id", 1)],
+             "obs_tenant_canonical_event_id"),
+            ([("tenant_id", 1), ("event.provenance.ingest_job_id", 1)],
+             "obs_tenant_ingest_job_id"),
+        ):
+            await _raw_db["v2_shadow_observations"].create_index(
+                spec, name=name, sparse=True, background=True)
+        # GATE 10 · endpoint identity resolution aggregates the tenant /
+        # collector / connector facts over EVERY observation of the device
+        # (that is deliberate — tenancy is decided over all of them, not
+        # over one document). With only `(device_iid, ts)` available the
+        # group had to fetch documents; this index lets it stay inside the
+        # index. Measured on the 208k-observation endpoint:
+        # 0.33 s -> 0.22 s, same result.
+        await _raw_db["v2_shadow_observations"].create_index(
+            [("event.device_iid", 1), ("tenant_id", 1),
+             ("collector_id", 1), ("connector_id", 1)],
+            name="obs_device_identity_facts", sparse=True, background=True)
+
+        # GATE 11 · the Events Explorer paginates on the keyset
+        # (ingest_time, raw_id); the index for that is ensured in its own
+        # block below so a legacy index conflict here cannot skip it.
         log.info("[startup] edr_raw_events + enrollment indexes ensured "
                  "(append-only)")
     except Exception as e:  # noqa: BLE001
         log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
+    # GATE 5 / GATE 7 / GATE 11 · policy authority, exclusion plane and the
+    # estate-wide Events Explorer keyset. Deliberately its OWN try block:
+    # an unrelated legacy index conflict above must not skip these.
+    try:
+        from edr_plane.policy.store import ensure_indexes as _ensure_pol
+        from edr_plane.exclusions.store import ensure_indexes as _ensure_exc
+        from routers.edr_saved_views import ensure_indexes as _ensure_views
+        from deps import db as _pol_db
+        await _ensure_pol(_pol_db)
+        await _ensure_exc(_pol_db)
+        await _ensure_views(_pol_db)
+        for spec, name in (
+            ([("tenant_id", 1), ("ingest_time", -1), ("raw_id", -1)],
+             "events_keyset"),
+            ([("tenant_id", 1), ("derivations.outcome", 1),
+              ("ingest_time", -1)], "events_detection_time"),
+            ([("tenant_id", 1), ("payload_sha256", 1)],
+             "events_payload_hash"),
+        ):
+            await _pol_db["edr_raw_events"].create_index(
+                spec, name=name, background=True)
+        log.info("[startup] policy authority + exclusion + events indexes "
+                 "ensured")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] policy/exclusion/events indexes failed: {e}")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] edr_raw_events indexes failed: {e}")
+
+    # P0-C · durable EDR findings + the evaluation-state ledger. Its OWN
+    # try block: a legacy index conflict elsewhere must not leave the
+    # findings plane unindexed.
+    try:
+        import asyncio as _asyncio
+        from edr_plane.fabric import (evaluation_state as _ev_state,
+                                      store as _finding_store)
+        await _asyncio.to_thread(_finding_store.ensure_indexes)
+        await _asyncio.to_thread(_ev_state.ensure_indexes)
+        log.info("[startup] EDR findings + evaluation-state indexes ensured")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[startup] EDR findings indexes failed: {e}")
+
+    # Start durable EDR processing only after all synchronous EDR index
+    # initialization above has had an opportunity to complete. This avoids
+    # workers racing raw-event, observation, policy, or findings setup.
+    try:
+        from edr_plane.processing_queue import start_workers as _start_edr_workers
+        from deps import db as _edr_worker_db
+        await _start_edr_workers(
+            _edr_worker_db,
+            worker_count=1,
+            reconcile_interval_seconds=60,
+        )
+        log.info(
+            "[startup] EDR durable processing supervisor started "
+            "(workers=1, reconcile=60s)"
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning(
+            f"[startup] EDR durable processing supervisor failed: {e}"
+        )
+
 
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
@@ -969,6 +1179,13 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
+    try:
+        from edr_plane.processing_queue import stop_workers as _stop_edr_workers
+        await _stop_edr_workers()
+        log.info("[shutdown] EDR durable processing supervisor stopped")
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[shutdown] EDR processing supervisor stop failed: {e}")
+
     try:
         from services.files.retention_sweeper import stop_retention_sweeper
         await stop_retention_sweeper()

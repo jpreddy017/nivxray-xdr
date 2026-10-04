@@ -204,7 +204,7 @@ export default function RecordHeader({ incident, onOpenRespond }) {
                 className="rl-btn"
                 title="Open full IKG Causal Investigation Workspace"
                 data-testid="xdr-record-open-investigation"
-                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5, color: "#5cc0a5", border: "1px solid rgba(92,192,165,0.35)", background: "rgba(92,192,165,0.08)" }}
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5, color: "var(--nx-benign)", border: "1px solid rgba(92,192,165,0.35)", background: "rgba(92,192,165,0.08)" }}
               >
                 <FolderSearch size={13} /> Full Investigation ↗
               </Link>

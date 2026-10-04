@@ -7,23 +7,53 @@
  * byte-identical.  Vite `base: "/xdr/"` handles asset URL prefixing.
  */
 import React, { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { HOME_PATH } from "@/productScope";
 import ProductScopeGuard from "@/components/ProductScopeGuard";
 
 import { useAuth } from "@/lib/auth";
+import { useAccess } from "@/xdr/access/AccessProvider";
 import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+// B2-NAV · `/xdr/control-center` is the canonical landing. The previous
+// card-heavy MSS Dashboard stays reachable at `/xdr/mss-dashboard/_legacy`
+// so nothing is deleted while the new surface is in review.
+const XdrControlCenterPage    = lazy(() => import("@/xdr/pages/XdrControlCenterPage"));
 const XdrMssDashboardPage     = lazy(() => import("@/xdr/pages/XdrMssDashboardPage"));
+const XdrHuntingPage          = lazy(() => import("@/xdr/pages/XdrHuntingPage"));
+const XdrReportsPage          = lazy(() => import("@/xdr/pages/XdrReportsPage"));
+const XdrClientManagementPage = lazy(() => import("@/xdr/pages/XdrClientManagementPage"));
+// Slice 1 · Data Sources is a first-class XDR destination, not an admin page.
+const DataSourcesPage         = lazy(() => import("@/xdr/datasources/DataSourcesPage"));
+// Lane G · Data Sources → Windows. Per-channel acquisition, understanding and
+// detection truth, with the five dimensions kept independent.
+const WindowsPage             = lazy(() => import("@/xdr/datasources/windows/WindowsPage"));
+// Lane H · Event Explorer. Source-agnostic canonical event surface.
+const XdrEventExplorerPage    = lazy(() => import("@/xdr/pages/XdrEventExplorerPage"));
+// E2E-3 · ONE authoritative asset inventory. `/xdr/endpoints` redirects here.
+const AssetsPage              = lazy(() => import("@/xdr/assets/AssetsPage"));
+// Task 2 · ONE incident queue. The nx surface (dense table → contextual
+// pane → investigation) owns `/xdr/incidents`; the earlier ux0-styled
+// split view is retired because its capabilities — search, sort, inline
+// inspection and per-tab pivots — are all carried here, and a second
+// visual system on the same workflow is the thing we are removing.
 const XdrIncidentsPage        = lazy(() => import("@/xdr/pages/XdrIncidentsPage"));
 const XdrIncidentDetailPage   = lazy(() => import("@/xdr/pages/XdrIncidentDetailPage"));
+// E2E-UX0 · non-destructive design prototype at `/xdr/_ux0-preview`.
+const Ux0PreviewPage          = lazy(() => import("@/xdr/ux0/Ux0PreviewPage"));
+// E2E-UX0 Wave 1 · Cortex-reference incident workspace (additive preview).
+const Ux0CortexWorkspace      = lazy(() => import("@/xdr/ux0/Ux0CortexWorkspace"));
 const XdrDeviceTrajectoryPage = lazy(() => import("@/xdr/pages/XdrDeviceTrajectoryPage"));
 const XdrEntity360Page        = lazy(() => import("@/xdr/pages/XdrEntity360Page"));
 const XdrFleetFileTrajectoryPage =
   lazy(() => import("@/xdr/pages/XdrFleetFileTrajectoryPage"));
 const XdrIncidentDomainPage   = lazy(() => import("@/xdr/pages/XdrIncidentDomainPage"));
 const XdrReservedPage         = lazy(() => import("@/xdr/pages/XdrReservedPage"));
+const XdrThreatIntelPage      = lazy(() => import("@/xdr/pages/XdrThreatIntelPage"));
+const XdrIocIntelPage         = lazy(() => import("@/xdr/pages/XdrIocIntelPage"));
+const XdrCommandIntelPage     = lazy(() => import("@/xdr/pages/XdrCommandIntelPage"));
+const XdrMalwareIntelPage     = lazy(() => import("@/xdr/pages/XdrMalwareIntelPage"));
 const XdrAdminPage            = lazy(() => import("@/xdr/pages/XdrAdminPage"));
 const XdrMitreHeatmap         = lazy(() => import("@/xdr/pages/XdrMitreHeatmap"));
 const XdrPlaybooksPage        = lazy(() => import("@/xdr/pages/XdrPlaybooksPage"));
@@ -42,8 +72,8 @@ const XdrRuleStudioPage       = lazy(() => import("@/xdr/pages/XdrRuleStudioPage
 const XdrInvestigationsListPage   = lazy(() => import("@/xdr/pages/XdrInvestigationsListPage"));
 const XdrInvestigationWorkspacePage = lazy(() => import("@/xdr/pages/XdrInvestigationWorkspacePage"));
 const XdrEvidenceExplorerPage     = lazy(() => import("@/xdr/pages/XdrEvidenceExplorerPage"));
-const EdrTrajectoryResolver       = lazy(() => import("@/xdr/pages/EdrTrajectoryResolver"));
-const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));
+const EdrTrajectoryResolver       = lazy(() => import("@/nivxforge/pages/EdrTrajectoryResolver"));
+const XdrEndpointsPage            = lazy(() => import("@/xdr/pages/XdrEndpointsPage"));   // retained · superseded by AssetsPage, kept for rollback
 const XdrSearchPage               = lazy(() => import("@/xdr/pages/XdrSearchPage"));
 const EdrTrajectoryRedirect       = lazy(() => import("@/nivxforge/EdrTrajectoryRedirect"));
 const XdrNotImplementedPage       = lazy(() => import("@/xdr/pages/XdrNotImplementedPage"));
@@ -52,7 +82,8 @@ const EdrOverviewPage        = lazy(() => import("@/nivxforge/pages/EdrOverviewP
 const EdrDetectionsPage      = lazy(() => import("@/nivxforge/pages/EdrDetectionsPage"));
 const EdrProcessTreePage     = lazy(() => import("@/nivxforge/pages/EdrProcessTreePage"));
 const EdrCampaignStoryPage   = lazy(() => import("@/nivxforge/pages/EdrCampaignStoryPage"));
-const EdrDeviceTrajectoryPage = lazy(() => import("@/nivxforge/trajectory/EdrDeviceTrajectoryPage"));
+// /edr/device-trajectory: flag VITE_E3_DT_CONTRACT_PREVIEW (default OFF) → renders EdrDeviceTrajectoryPage unchanged.
+const DeviceTrajectoryEntry = lazy(() => import("@/nivxforge/trajectory_amp/DeviceTrajectoryEntry"));
 
 const EdrReserved = lazy(() =>
   import("@/nivxforge/pages/EdrReservedPages").then((m) => ({ default: m })),
@@ -69,6 +100,22 @@ const EdrLiveQueryPage  = lazy(() => import("@/nivxforge/pages/EdrReservedPages"
 // reserved stub.
 const EdrResponsePage   = lazy(() => import("@/nivxforge/pages/EdrResponsePage"));
 
+// NivXForge EDR · Fleet Operations wave. Each surface is its own lazy
+// chunk inside the /edr/* product bundle, so the EDR console can move to
+// its own hostname without a rewrite.
+const EdrComputersPage  = lazy(() => import("@/nivxforge/pages/EdrComputersPage"));
+const EdrAddDevicePage  = lazy(() => import("@/nivxforge/pages/EdrAddDevicePage"));
+const EdrDownloadsPage  = lazy(() => import("@/nivxforge/pages/EdrDownloadsPage"));
+// GATE 11 / GATE 5 / GATE 7 · Events, Policies and Exclusions are now
+// implemented EDR-native surfaces, not placeholders.
+const EdrEventsPage     = lazy(() => import("@/nivxforge/pages/EdrEventsPage"));
+const EdrPoliciesPage   = lazy(() => import("@/nivxforge/pages/EdrPoliciesPage"));
+const EdrExclusionsPage = lazy(() => import("@/nivxforge/pages/EdrExclusionsPage"));
+const EdrAuditPage      = lazy(() => import("@/nivxforge/pages/EdrAuditPage"));
+const EdrDevicePage     = lazy(() => import("@/nivxforge/device/EdrDevicePage"));
+const EdrNotImplementedPage =
+  lazy(() => import("@/nivxforge/pages/EdrNotImplementedPage"));
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -76,9 +123,78 @@ function Protected({ children }) {
   if (!user) {
     // Preserve the requested URL so login can bounce back.
     const returnTo = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+    // EDR INDEPENDENCE (Gate 16): an expired session on an EDR route must land on the EDR
+    // sign-in, not the NivXRay XDR one. Sending an EDR analyst to the XDR login is the same
+    // product-boundary leak as rendering an EDR surface inside the XDR shell — it just happens
+    // at the moment the session dies, which is exactly when nobody is looking.
+    const loginPath = location.pathname.startsWith("/edr") ? "/edr/login" : "/login";
+    return <Navigate to={`${loginPath}?returnTo=${returnTo}`} replace />;
   }
   return children;
+}
+
+/**
+ * Route authorization (owner directive §24).
+ *
+ * Hiding a rail item is UX; this is the route layer. The BACKEND remains the
+ * security boundary — every admin API already answers 403 — but an analyst
+ * who types an admin URL should not get to enumerate the administration
+ * surface tree. Three-valued `canAny`: `false` denies, `true`/`null` allows
+ * (a transient authorization read must never lock an authorized operator out
+ * of their own console).
+ */
+function RequirePermission({ anyOf, label, children }) {
+  const access = useAccess();
+  if (access.loading) return null;
+  if (access.canAny(anyOf) !== false) return children;
+  return (
+    <XdrShellGuardShell>
+      <div className="nx-page" data-testid="route-not-authorized">
+        <div className="nx-empty nx-empty--noicon" role="alert">
+          <div className="nx-empty__title">
+            You are not authorized for {label}
+          </div>
+          <div className="nx-empty__hint">
+            Your effective permissions do not include any of{" "}
+            <code>{(anyOf || []).join(", ")}</code>.
+            {access.basis
+              ? ` Authorization basis: ${access.basis}.`
+              : ""}{" "}
+            This is an authorization decision, not a missing feature and not an
+            empty dataset — the server enforces the same answer on every API
+            call behind this page.
+          </div>
+        </div>
+      </div>
+    </XdrShellGuardShell>
+  );
+}
+
+/** Compatibility redirect that PRESERVES the query string — a deep link
+ *  with `?q=` must keep working after a route consolidation. */
+function KeepQuery({ to }) {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search || ""}`} replace />;
+}
+
+/** `/xdr/investigations/:caseId?tab=<engine tab>` → the analyst tab that
+ *  owns that question in the unified workspace. Capability preserved,
+ *  navigation simplified. */
+const ENGINE_TAB_TO_ANALYST_TAB = {
+  story: "story", process: "story",
+  trajectory: "timeline",
+  graph: "entities",
+  evidence: "evidence",
+  verdict: "overview", security_state: "overview",
+  attack: "mitre",
+};
+function InvestigationRedirect() {
+  const { caseId } = useParams();
+  const { search } = useLocation();
+  const engineTab = new URLSearchParams(search).get("tab") || "story";
+  const tab = ENGINE_TAB_TO_ANALYST_TAB[engineTab] || "story";
+  return <Navigate to={`/xdr/incidents/${encodeURIComponent(caseId)}?tab=${tab}`}
+                   replace />;
 }
 
 function RouteFallback() {
@@ -121,17 +237,46 @@ export default function App() {
             /xdr and /xdr/dashboard redirect to /xdr/incidents.  The
             MSS Dashboard remains a separate destination under the
             Command Center sidebar section. */}
-        <Route path="/xdr"                 element={<Navigate to="/xdr/incidents" replace />} />
-        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/incidents" replace />} />
-        <Route path="/xdr/mss-dashboard"   element={<Protected><XdrMssDashboardPage /></Protected>} />
+        {/* Cisco XDR lands on Control Center; Incidents is a peer
+            destination, not the root. Owner decision O-2. */}
+        {/* Cisco XDR places Activities under Investigate. The surface itself
+            is the telemetry studio, so the canonical route redirects rather
+            than duplicating the page. Typing /xdr/activities now resolves. */}
+        <Route path="/xdr/activities"      element={<Navigate to="/xdr/hunting" replace />} />
+        <Route path="/xdr"                 element={<Navigate to="/xdr/control-center" replace />} />
+        <Route path="/xdr/dashboard"       element={<Navigate to="/xdr/control-center" replace />} />
+        {/* B2-NAV · navigation label, page identity and route now agree. */}
+        <Route path="/xdr/control-center"  element={<Protected><XdrControlCenterPage /></Protected>} />
+        <Route path="/xdr/mss-dashboard"   element={<Navigate to="/xdr/control-center" replace />} />
+        <Route path="/xdr/mss-dashboard/_legacy"
+                                            element={<Protected><XdrMssDashboardPage /></Protected>} />
+        {/* Hunting is the single analyst-initiated interrogation surface;
+            `/xdr/search` redirects into it and keeps `?q=`. */}
+        <Route path="/xdr/hunting"         element={<Protected><XdrHuntingPage /></Protected>} />
+        <Route path="/xdr/reports"         element={<Protected><XdrReportsPage /></Protected>} />
+        <Route path="/xdr/clients"         element={<Protected><XdrClientManagementPage /></Protected>} />
+        <Route path="/xdr/client-management" element={<Navigate to="/xdr/clients" replace />} />
         <Route path="/xdr/incidents"       element={<Protected><XdrIncidentsPage /></Protected>} />
+        <Route path="/xdr/incidents/_table" element={<Navigate to="/xdr/incidents" replace />} />
+        {/* E2E-UX0 · additive visual acceptance environment. Replaces no
+            production route; awaiting owner visual approval. */}
+        <Route path="/xdr/_ux0-preview"    element={<Protected><Ux0PreviewPage /></Protected>} />
+        <Route path="/xdr/_ux0-preview/workspace"
+                                            element={<Protected><Ux0CortexWorkspace /></Protected>} />
         <Route path="/xdr/incidents/:id"   element={<Protected><XdrIncidentDetailPage /></Protected>} />
         <Route path="/xdr/incidents/:id/domain/:domainKey"
                                             element={<Protected><XdrIncidentDomainPage /></Protected>} />
 
         {/* P0 · Flagship Causal Investigation Workspace & Evidence Explorer */}
         <Route path="/xdr/investigations"          element={<Protected><XdrInvestigationsListPage /></Protected>} />
-        <Route path="/xdr/investigations/:caseId"  element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
+        {/* B2-INV · ONE investigation workspace. The engine-centric tab set
+            resolves into the analyst tab that owns the same question, so
+            every existing deep link keeps landing on the right surface. */}
+        <Route path="/xdr/investigations/:caseId"  element={<InvestigationRedirect />} />
+        {/* Retained for rollback and for engineering inspection of the raw
+            causal pipeline. Not a rail destination. */}
+        <Route path="/xdr/investigations/:caseId/_engine"
+                                            element={<Protected><XdrInvestigationWorkspacePage /></Protected>} />
         <Route path="/xdr/evidence-explorer"       element={<Protected><XdrEvidenceExplorerPage /></Protected>} />
 
         {/* Slice 6 canvas remains reachable at the incident-scoped
@@ -141,8 +286,26 @@ export default function App() {
         {/* P0 · 2026-09-05 — the inventory now resolves real endpoint
             entities from v2_shadow_observations, so it is a real page
             again instead of a redirect to the incident queue. */}
-        <Route path="/xdr/search"          element={<Protected><XdrSearchPage /></Protected>} />
-        <Route path="/xdr/endpoints"       element={<Protected><XdrEndpointsPage /></Protected>} />
+        <Route path="/xdr/search"          element={<KeepQuery to="/xdr/hunting" />} />
+        {/* Retained for rollback — the hunt surface supersedes it. */}
+        <Route path="/xdr/search/_legacy"  element={<Protected><XdrSearchPage /></Protected>} />
+        {/* Slice 1 · Data Sources. Deep links to the old admin telemetry
+            surfaces are untouched; this is an additional destination. */}
+        <Route path="/xdr/data-sources"      element={<Protected><DataSourcesPage /></Protected>} />
+        {/* Lane G · the Windows console is a NAMED destination under Data
+            Sources, matched before the generic `:tab` route so it is never
+            swallowed by it. */}
+        <Route path="/xdr/data-sources/windows"      element={<Protected><WindowsPage /></Protected>} />
+        <Route path="/xdr/data-sources/windows/:tab" element={<Protected><WindowsPage /></Protected>} />
+        {/* Lane H · Event Explorer. Filters ride on the query string so a
+            pivot from any surface is a shareable deep link. */}
+        <Route path="/xdr/events"            element={<Protected><XdrEventExplorerPage /></Protected>} />
+        <Route path="/xdr/data-sources/:tab" element={<Protected><DataSourcesPage /></Protected>} />
+        <Route path="/xdr/endpoints"       element={<Navigate to="/xdr/assets" replace />} />
+        {/* E2E-3 · Assets is the single inventory destination. Tabs are query
+            params (`?tab=`) so every pre-existing `/xdr/assets/*` route keeps
+            resolving exactly as before — nothing was removed. */}
+        <Route path="/xdr/assets"          element={<Protected><AssetsPage /></Protected>} />
         {/* X1 · the information architecture stays complete; unsupported
             capabilities render an explicit NOT_IMPLEMENTED page. */}
         <Route path="/xdr/assets/identity"     element={<Protected><XdrNotImplementedPage node="assets-identity" /></Protected>} />
@@ -161,10 +324,10 @@ export default function App() {
         {/* Reserved native XDR capabilities — transitional placeholders
             for surfaces that WILL be built native in later slices.
             Never a deep-link back into the base NivXRay UI. */}
-        <Route path="/xdr/intelligence/threat"  element={<Protected><XdrReservedPage capability="threat" /></Protected>} />
-        <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrReservedPage capability="iocs" /></Protected>} />
-        <Route path="/xdr/intelligence/command" element={<Protected><XdrReservedPage capability="command" /></Protected>} />
-        <Route path="/xdr/intelligence/malware" element={<Protected><XdrReservedPage capability="malware" /></Protected>} />
+        <Route path="/xdr/intelligence/threat"  element={<Protected><XdrThreatIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/iocs"    element={<Protected><XdrIocIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/command" element={<Protected><XdrCommandIntelPage /></Protected>} />
+        <Route path="/xdr/intelligence/malware" element={<Protected><XdrMalwareIntelPage /></Protected>} />
         <Route path="/xdr/intelligence/mitre"   element={<Protected><XdrMitreHeatmap /></Protected>} />
         <Route path="/xdr/respond/playbooks"          element={<Protected><XdrPlaybooksPage /></Protected>} />
         <Route path="/xdr/respond/playbooks/:id"      element={<Protected><XdrPlaybookDesigner /></Protected>} />
@@ -190,6 +353,12 @@ export default function App() {
             NivXRay backend API where available and surfaces four
             distinct honest states otherwise. */}
         <Route path="/xdr/admin"          element={<Protected><XdrAdminPage /></Protected>} />
+        {/* Retired rail target. `detection-rules` was never an admin section
+            key, so the row rendered "Unknown admin section". Old deep links
+            resolve to the registry that actually owns detection content. */}
+        <Route path="/xdr/admin/detection-rules"
+               element={<Navigate to="/xdr/admin/detection-registry" replace />} />
+
         <Route path="/xdr/admin/:section" element={<Protected><XdrAdminPage /></Protected>} />
 
         {/* NivXForge EDR Console — pivots to /edr/trajectory in the
@@ -206,13 +375,37 @@ export default function App() {
         <Route path="/edr/campaign-story" element={<Protected><EdrCampaignStoryPage /></Protected>} />
         {/* Y1 · D-2 · permanent context-preserving compatibility route. */}
         <Route path="/xdr/edr/device-trajectory" element={<EdrTrajectoryRedirect />} />
-        <Route path="/edr/device-trajectory" element={<Protected><EdrDeviceTrajectoryPage /></Protected>} />
+        <Route path="/edr/device-trajectory" element={<Protected><DeviceTrajectoryEntry /></Protected>} />
         <Route path="/edr/files"         element={<Protected><EdrFilesPage /></Protected>} />
         <Route path="/edr/network"       element={<Protected><EdrNetworkPage /></Protected>} />
         <Route path="/edr/hunting"       element={<Protected><EdrHuntingPage /></Protected>} />
         <Route path="/edr/forensics"     element={<Protected><EdrForensicsPage /></Protected>} />
         <Route path="/edr/live-query"    element={<Protected><EdrLiveQueryPage /></Protected>} />
         <Route path="/edr/response"      element={<Protected><EdrResponsePage /></Protected>} />
+
+        {/* Fleet operations · the Computers plane and the device workspace.
+            `add` is matched before `:endpointId` so the workflow route is
+            never swallowed by an endpoint identifier. */}
+        <Route path="/edr/computers"     element={<Protected><EdrComputersPage /></Protected>} />
+        <Route path="/edr/computers/add" element={<Protected><EdrAddDevicePage /></Protected>} />
+        <Route path="/edr/computers/:endpointId"      element={<Protected><EdrDevicePage /></Protected>} />
+        <Route path="/edr/computers/:endpointId/:tab" element={<Protected><EdrDevicePage /></Protected>} />
+        <Route path="/edr/management/downloads" element={<Protected><EdrDownloadsPage /></Protected>} />
+        <Route path="/edr/management"    element={<Navigate to="/edr/management/downloads" replace />} />
+
+        {/* GATE 11 · estate-wide Events explorer (implemented). */}
+        <Route path="/edr/events" element={<Protected><EdrEventsPage /></Protected>} />
+        {/* GATE 5 · policy authority + GATE 7 exclusion sets (implemented). */}
+        <Route path="/edr/policies" element={<Protected><EdrPoliciesPage /></Protected>} />
+        <Route path="/edr/exclusions" element={<Protected><EdrExclusionsPage /></Protected>} />
+        {/* EDR-native audit, aggregated from the authoritative stores. */}
+        <Route path="/edr/audit" element={<Protected><EdrAuditPage /></Protected>} />
+
+        {/* Permanent information architecture. These destinations exist in
+            the product and are NOT implemented in this wave: each states the
+            capability and why it is unavailable, and the navigation renders
+            them disabled rather than as an enabled link. */}
+
 
         {/* Scope-aware catch-all. Previously this was a hard
             `Navigate to="/xdr"`, which meant an unknown path on the EDR

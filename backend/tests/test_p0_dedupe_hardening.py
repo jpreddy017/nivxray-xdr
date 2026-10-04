@@ -25,6 +25,7 @@ os.environ.setdefault("DB_NAME", "test_database")
 from routers import xdr_ingest as ing  # noqa: E402
 from server import app  # noqa: E402
 from services import ingest_idempotency as idem  # noqa: E402
+from services import tenant_registry as reg  # noqa: E402
 
 _db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
 _claims = _db[idem.COLLECTION]
@@ -47,6 +48,23 @@ def client():
         yield c
 
 
+@pytest.fixture(scope="module", autouse=True)
+def registered_tenant():
+    """B4/B5 · tenancy comes only from the registry service, never as a side
+    effect of creating a collector.  Registering `TENANT` up front is what the
+    enforced registry requires; `tenant_id=` is its own adoption path."""
+    org = reg.create_organization(slug=f"harden-org-{uuid.uuid4().hex[:8]}",
+                                  display_name="Dedupe Hardening Org",
+                                  kind="VENDOR", created_by="pytest")
+    reg.create_tenant(organization_id=org["id"],
+                      slug=f"t-{uuid.uuid4().hex[:8]}", display_name=TENANT,
+                      kind="INTERNAL_VALIDATION", products=["XDR"],
+                      created_by="pytest", tenant_id=TENANT)
+    yield
+    _db["tenants"].delete_one({"id": TENANT})
+    _db["organizations"].delete_one({"id": org["id"]})
+
+
 def _auth(c):
     r = c.post("/api/auth/login", json={"email": os.environ["ADMIN_EMAIL"],
                                         "password": os.environ["ADMIN_PASSWORD"]})
@@ -60,12 +78,17 @@ def collector(client):
     hdrs = _auth(client)
     r = client.post("/api/xdr/collectors", headers=hdrs,
                     json={"name": f"harden-{uuid.uuid4().hex[:8]}",
+                          # D15 · declared-source routing: this collector is
+                          # registered for CEF/LEEF only.
+                          "authorized_sources": ["cef-leef"],
                           "protocol": "webhook"})
     assert r.status_code == 200, r.text
     yield r.json()["data"]["id"]
     _db["xdr_collectors"].delete_many({"tenant_id": TENANT})
     _db["xdr_canonical_events"].delete_many({"tenant_id": TENANT})
     _db["xdr_canonical_evidence"].delete_many({"tenant_id": TENANT})
+    # D8 · citations are removed with the evidence they cite.
+    _db["xdr_detection_matches"].delete_many({"tenant_id": TENANT})
     _db["workspace_cases"].delete_many({"tenant_id": TENANT})
     _claims.delete_many({"tenant_id": TENANT})
 
@@ -73,6 +96,7 @@ def collector(client):
 def _env(collector, sei, line=CEF_LINE):
     return {"tenant_id": TENANT, "collector_id": collector,
             "collection_method": "webhook", "source": "fw",
+            "declared_source": "cef-leef",
             "connector_id": "webhook-harden", "event_type": "alert",
             "source_event_id": sei,
             "raw": {"line": line, "payload_format": "cef"}}

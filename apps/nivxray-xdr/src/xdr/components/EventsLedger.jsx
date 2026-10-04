@@ -34,8 +34,8 @@ export default function EventsLedger({
   return (
     <section className="panel" style={{ padding: 0 }} data-testid="edr-events-ledger">
       <div style={{ display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px", borderBottom: "1px solid #212B36",
-                    background: "#11161D" }}>
+                    padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)",
+                    background: "var(--nx-surf-inset)" }}>
         <span className="section-title" style={{ margin: 0 }}>Events Ledger</span>
         <span className="mono" style={{ fontSize: 9.8, color: "var(--faint)" }}
               data-testid="edr-ledger-count">
@@ -111,7 +111,7 @@ export default function EventsLedger({
                         </span>
                       )}
                     </td>
-                    <td className="mono" style={{ fontSize: 9.5, color: "#F39C12" }}>
+                    <td className="mono" style={{ fontSize: 9.5, color: "var(--nx-high)" }}>
                       {(e.mitre || []).length
                         ? e.mitre.join(", ")
                         : <span className="nx-ep" data-ep="no_evidence" data-known="true">◇</span>}

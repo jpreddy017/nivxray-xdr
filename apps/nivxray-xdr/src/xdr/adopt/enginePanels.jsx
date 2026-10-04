@@ -158,7 +158,7 @@ export function XdrDieChainPanel({ incident, defaultInput }) {
               </span>
               {s.interpreter && (
                 <span className="mono" style={{ marginLeft: 6,
-                                                              color: "#c084fc", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · {s.interpreter}
                 </span>
               )}
@@ -308,7 +308,7 @@ export function XdrIeddeStagePanel({ incident, defaultInput }) {
                 iter {s.iteration ?? i + 1}
               </span>
               <span className="mono" style={{ marginLeft: 6,
-                                                            color: "#c084fc", fontSize: 10 }}>
+                                                            color: "var(--nx-purple)", fontSize: 10 }}>
                 · {s.interpreter || "?"} (c{s.interpreter_confidence ?? "—"})
               </span>
               {s.decision && (
@@ -355,7 +355,7 @@ export function XdrIeddeStagePanel({ incident, defaultInput }) {
                           style={{ padding: "1px 5px", borderRadius: 3,
                                       border: "1px solid #f472b6",
                                       background: "rgba(244,114,182,.08)",
-                                      color: "#f472b6", fontSize: 9.5 }}>
+                                      color: "var(--nx-purple)", fontSize: 9.5 }}>
                   {t.technique_id || t.id || t}
                 </span>
               ))}
@@ -463,13 +463,13 @@ export function XdrIueTimelinePanel({ incident }) {
               </span>
               {ev.lane && (
                 <span className="mono" style={{ marginLeft: 4,
-                                                              color: "#c084fc", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · lane {ev.lane}
                 </span>
               )}
               {ev.technique_id && (
                 <span className="mono" style={{ marginLeft: 4,
-                                                              color: "#f472b6", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · {ev.technique_id}
                 </span>
               )}

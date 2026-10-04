@@ -86,10 +86,21 @@ def _hdrs(email=ADMIN, ten=None):
 
 @pytest.fixture(scope="module", autouse=True)
 def _clean():
+    # 2026-06 · ISOLATION DEFECT FIXED. This fixture used to run
+    # `delete_many({})` on xdr_users / xdr_roles / xdr_groups /
+    # xdr_assignments — wiping EVERY tenant's principals, not just this
+    # suite's. In a full-suite run it destroyed the principals provisioned by
+    # `test_p0_security_gate.py` and `test_xdr_rbac_enforcement.py`, which
+    # then reported ~90 failures that did not exist in isolation. A test may
+    # only delete what it created.
+    _SUITE_ROLES = ["detection_engineer", "bogus", "platform_admin",
+                    "sneaky", "soc_l2"]
     for c in (rb._c_users, rb._c_roles, rb._c_groups, rb._c_assignments):
         if c() is not None:
             c().delete_many({"tenant_id": TEN})
-            c().delete_many({})  # also clear any global (roles) leftovers
+            # Global (tenant-less) role leftovers THIS suite creates by name.
+            c().delete_many({"tenant_id": {"$exists": False},
+                             "name": {"$in": _SUITE_ROLES}})
     if al._get_coll() is not None:
         al._get_coll().delete_many({"tenant_id": TEN})
     yield

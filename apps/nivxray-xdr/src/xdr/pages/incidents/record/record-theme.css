@@ -49,9 +49,15 @@
   --rs-mono: 'IBM Plex Mono','SFMono-Regular',Consolas,ui-monospace,monospace;
   --rs-sans: 'Inter','Segoe UI',system-ui,sans-serif;
 
-  background: var(--rl-bg);
   color: var(--rl-text);
   font-family: var(--rs-sans);
+}
+
+/* The full-bleed record canvas is OPT-IN. The base class now only carries
+   tokens, so an embedded tab can adopt the `rl-*` vocabulary without the
+   negative margins and background of a standalone page. */
+.xdr-record-l3--canvas {
+  background: var(--rl-bg);
   min-height: 100%;
   margin: -18px -22px -32px;
   padding: 20px 24px 40px;

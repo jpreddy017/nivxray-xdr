@@ -1,0 +1,47 @@
+{
+ "iteration": 120,
+ "testing_type": "frontend only",
+ "summary": "DOM verification of the P1 core-SOC migration wave. PASS: Detections (NxFilter + table + active-filter chips), Investigations list, Control Center (raw token leaks cleared), Clients, Event Explorer, LIGHT-theme contrast 0 failures on 6 routes, and 11 non-migrated routes still mount. FAIL: workspace tab rail unreachable, Approvals not migrated, Evidence Explorer table missing, Rules/Playbooks tables missing.",
+ "defects": [
+  {
+   "id": "F1",
+   "route": "/xdr/investigations -> open-case-<id>",
+   "finding": "Landed on /xdr/incidents/<caseId> which answers fail-closed; the 8-tab workspace rail was never mounted.",
+   "root_cause": "A case id is not an incident id. The list navigated to the incident route, so cases without a same-id incident dead-ended on the deliberate 'existence is never disclosed' page.",
+   "fix": "XdrInvestigationsListPage.open() now navigates to /xdr/investigations/<caseId>/_engine?tab=story (the surface that renders a case).",
+   "status": "FIXED, retest needed"
+  },
+  {
+   "id": "F2",
+   "route": "/xdr/respond/approvals",
+   "finding": "Raw tokens WAITING_APPROVAL and VITE_XDR_RESPONSE_URL visible; no xdr-approvals-state-*, no xdr-approvals-empty.",
+   "root_cause": "The page short-circuited to a bespoke 'NOT WIRED' block before the migrated list; prose also printed machine tokens.",
+   "fix": "Not-wired block replaced with NxSection + NxState(NOT_CONFIGURED) stating the queue is UNKNOWN rather than empty; prose de-tokenised.",
+   "status": "FIXED, retest needed"
+  },
+  {
+   "id": "F3",
+   "route": "/xdr/evidence-explorer",
+   "finding": "evidence-table absent; bespoke 'NO MATCHING EVIDENCE' block rendered instead.",
+   "root_cause": "Same short-circuit pattern: a hand-built empty block replaced the table, so the column contract disappeared exactly when the analyst needed to see what was searched.",
+   "fix": "The platform table now always renders and owns its empty state.",
+   "status": "FIXED, retest needed"
+  },
+  {
+   "id": "F4",
+   "route": "/xdr/respond/automation-rules, /xdr/respond/playbooks",
+   "finding": "xdr-rules-table / xdr-playbooks-table absent when the store is empty.",
+   "root_cause": "Same short-circuit pattern.",
+   "fix": "Tables render alongside the not-wired section; their own empty state replaces the bespoke block.",
+   "status": "FIXED, retest needed"
+  }
+ ],
+ "not_reached": [
+  "DARK-theme contrast sweep (xdr-theme-toggle exists; session died mid-run)",
+  "Windows tab re-verify (covered by iteration_119; wx-* tree untouched this wave)",
+  "Event Explorer flyout tabs + URL round-trip"
+ ],
+ "test_credentials": "admin@nivxray.com / uulVDp5cCSB3Hva99s7UUAwK; set scope via xdr-tenant-pill -> xdr-scope-tenant-default before any tenant-scoped page",
+ "retest_needed": true,
+ "note_for_next_agent": "Space page.goto by >=3s on this preview or Cloudflare blanks the app. All four defects above are fixed; verify F1 at /xdr/investigations/<caseId>/_engine and search Approvals for WAITING_APPROVAL / VITE_XDR_RESPONSE_URL."
+}

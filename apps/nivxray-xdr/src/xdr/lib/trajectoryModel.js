@@ -38,7 +38,7 @@ export const GLYPHS = {
 export function glyphFor(evt) {
   if (evt.kind === "detection") return GLYPHS.detection;
   return GLYPHS[evt.observation_kind] || {
-    sym: "○", tag: "OBS", color: "#78808f", label: evt.observation_kind || "observation",
+    sym: "○", tag: "OBS", color: "var(--nx-text-dim)", label: evt.observation_kind || "observation",
   };
 }
 

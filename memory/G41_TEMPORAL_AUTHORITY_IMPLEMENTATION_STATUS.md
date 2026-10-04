@@ -1,0 +1,566 @@
+# G41_TEMPORAL_AUTHORITY_IMPLEMENTATION_STATUS
+
+**Implemented and tested locally. Nothing applied to production, nothing pushed, nothing deployed.**
+No KUSHU, no DESKTOP-A9HGFJJ, no sensors, no TI, no STEP 35 identity data, no historical identity
+provenance, no response plane, no unrelated UI. No production data mutation.
+
+---
+
+## 1. FILES CHANGED
+
+| File | Change |
+|---|---|
+| `backend/edr_plane/temporal_authority.py` | **NEW** · the one derivation of `observation_us`, the writer stamp and the writer invariant |
+| `backend/edr_plane/observation_us_migration.py` | **NEW** · bounded historical backfill + read-only verify, registered, `apply` structurally impossible until an expectation is declared |
+| `backend/edr_trajectory/production_adapter.py` | selection/ordering/LIMIT/cursor moved onto `observation_us` + `_id`; one parser (delegates to `temporal_authority`); transitional legacy read; `pending_temporal_migration` counter |
+| `backend/detection_content/xdr_pipeline.py` | `stamp()` + `assert_stamped()` immediately before the single canonical `insert_one` |
+| `backend/edr_plane/canonical_index_contract.py` | `TARGET_TEMPORAL_INDEXES` declared (declaration only — **no index created anywhere**) |
+| `backend/edr_plane/migration_control.py` | two operations merged into the existing closed registry |
+| `backend/tests/edr/test_g41_temporal_authority.py` | **NEW** · 37 tests incl. the production-inversion regression |
+| `backend/tests/edr/test_g41_transitional_read.py` | **NEW** · 6 tests proving unmigrated evidence is not lost |
+| `backend/tests/edr_trajectory/test_sd_production_adapter.py` | test double's `sort()` now models the driver's list form and numeric keys |
+| `backend/tests/edr/test_34h_a_migration_control.py` | registry assertion derived from the registry instead of enumerated |
+
+No route added. No `.env` change. No dependency change. No frontend change.
+
+## 2. WRITER IMPLEMENTATION
+
+`observation_us` — **signed int, UTC epoch microseconds**, derived at the single canonical writer
+boundary (`xdr_pipeline`, immediately before the only `insert_one`), then asserted.
+
+* **Same instant → same value**, from any representation. Proven for space-vs-`Z`, `Z`-vs-`+00:00`,
+  `+02:00`-vs-UTC and `-05:00`-vs-UTC.
+* **`event_time` is never rewritten.** Only `observation_us` and two declarations
+  (`additional_fields.observation_us_state` / `observation_us_basis`) are added.
+* **`ingest_time` is never a source.** Backlog replay is real here; an absent source time stays
+  absent.
+* **Fail closed.** An unreadable value leaves the field ABSENT with state
+  `UNPLACEABLE_UNPARSEABLE_OBSERVATION_TIME`. Nothing is manufactured. Ingestion still succeeds —
+  evidence durability must never depend on this derivation.
+* **One parser.** `production_adapter.observation_us` now delegates to
+  `temporal_authority.to_epoch_us`; a test reads the source and fails if a second
+  `fromisoformat` appears there.
+* **Invariant.** `assert_stamped()` raises if a document reaches the writer unstamped, or if the
+  declared state and the stored value disagree. A test asserts stamp → assert → insert in that
+  order.
+
+## 3. QUERY / PAGINATION IMPLEMENTATION
+
+`TEMPORAL_SELECT_KEY[canonical] = "observation_us"` while `OBSERVATION_TIME_KEY` keeps `event_time`
+as the evidence value. Raw timestamp strings no longer drive range selection, newest/oldest
+ordering, the LIMIT, or the resume cursor for the canonical store.
+
+* Range, sort and LIMIT run on the integer key with `_id` as a second sort key.
+* The resume bound is the cursor's exact microsecond, **store-independent** and **inclusive**
+  (`$lte`); exact exclusion is then applied in memory on `(observation_us, event_id)`. An inclusive
+  integer bound cannot drop a chronologically eligible row — which was the entire defect.
+* The shadow store is declared non-comparable (`COMPARABLE_TEMPORAL`) and keeps its existing
+  behaviour. It has no derived value yet; this is stated as a declared residual, not assumed away.
+* **Behavior consumes the identical path.** `SdEvidenceProvider` already calls
+  `page_device_evidence`; a test asserts it contains no timestamp parsing of its own.
+
+### 3.1 A design gap the first implementation exposed — and how it is handled
+Making selection depend on `observation_us` made **140 existing tests fail**, because every
+historical fixture — and all 122,369 production rows — predate the field. Shipping that would have
+made every historical row **vanish** from Device Trajectory and from Behavior's window: far worse
+than the ordering defect being fixed.
+
+So `_branch_page` now issues a **bounded transitional second read**, scoped strictly to rows with no
+comparable value, selected by the legacy string path, and merged by the same microsecond order as
+everything else. It carries the old limit-under-a-string-sort weakness **only for unmigrated rows**,
+and the page response exposes `pending_temporal_migration` so the remaining exposure is counted
+rather than silent. It returns nothing — and can be deleted — once the backfill completes.
+
+## 4. CURSOR DESIGN
+
+The total order is `(observation_us, event_id)`; the database order is
+`(observation_us desc, _id desc)`.
+
+Thousands of endpoint events legitimately share one microsecond, so time alone is not a total order
+— fixing string ordering without a tiebreaker would have introduced a fresh skip/duplicate bug at
+equal timestamps. `_id` makes the database sort and therefore the LIMIT deterministic; `event_id`
+remains the in-memory tiebreaker because two stores can record the same activity at the same
+microsecond. `TIE_MARGIN = 64` gives headroom so a tie group cannot straddle a page, and
+`TIE_GROUP_EXCEEDS_PAGE_SIZE` still reports the case where it would.
+
+## 5. PROPOSED INDEX — declared, **not created**
+
+```
+sd_canonical_endpointid_observationus
+  (tenant_id 1, additional_fields.endpoint_id 1, observation_us -1, _id -1)
+sd_canonical_hostname_observationus
+  (tenant_id 1, host.hostname 1, observation_us -1, _id -1)
+```
+
+Equality prefix → identity → descending comparable time → deterministic tiebreak, matching the
+query the adapter actually issues; a test asserts the key list and directions against the contract.
+`[PROD]` **no index on `observation_us` exists today** (4 indexes present). Creating these is a
+separate owner-authorized action, and the no-COLLSCAN / no-blocking-SORT proof must be taken by the
+authenticated `explain_canonical_identity_read_plan` **after** the field exists — before then the
+plan would prove nothing.
+
+## 6. REGRESSION RESULTS
+
+| Suite | Result |
+|---|---|
+| `test_g41_temporal_authority.py` | **37 passed** |
+| `test_g41_transitional_read.py` | **6 passed** |
+| `tests/edr_trajectory` (full) | **401 passed, 9 skipped** |
+| `tests/edr` + `tests/edr_investigation` + `tests/edr_trajectory` | **2,724 passed, 12 skipped, 16 failed** |
+
+The 16 are **pre-existing xdist-isolation failures, not regressions**: `test_34h_a_migration_control.py`
+passes **19/19 in isolation**, and `test_p0_f13_5_detection_handoff.py` fails **4/7 on a stashed
+(unmodified) tree** with `RuntimeError: deps.db accessed before init_database()`. Measured baseline
+on the same combined run earlier in this session was 18 failures; it is now 16.
+
+Coverage against the required matrix: space-vs-`Z` representations · timezone-equivalent instants ·
+fractional precision to the microsecond · ordering across second/minute/hour/day boundaries · equal
+timestamps paginating deterministically and repeatably · forward page boundaries at sizes
+1/2/3/5/7/20/24 · no duplicate across pages · no missing event across pages · resume cursor cannot
+skip eligible evidence · LIMIT returns the actual newest N · tenant isolation · endpoint isolation ·
+malformed timestamp fails closed · Device Trajectory chronological selection · Behavior window
+selection · writer invariant · single-parser guard.
+
+**The production-inversion fixture** uses the literal confirmed values
+`"2026-09-27 23:55:38.144"` and `"2026-09-27T00:06:30.7557375Z"`. One test asserts that the string
+comparison still says the wrong thing (`PROD_LATE_SPACE < PROD_EARLY_Z`), so the fixture cannot
+silently stop reproducing the bug; the others prove correct order, that `limit=1` returns 23:55, and
+that a cursor landing on the space-format row no longer excludes the same-date `Z` rows from any
+later page.
+
+## 7. PRODUCTION HISTORICAL CENSUS `[read-only, snapshot]`
+
+| | |
+|---|---|
+| total | **122,369** |
+| migration candidates (`observation_us` absent ∧ `event_time` string non-empty) | **122,369 — the entire corpus** |
+| `observation_us` already present | **0** |
+| no source value (`event_time` absent / empty / non-string) | **0 / 0 / 0** |
+| candidate format classes | space 43,521 · `Z` 78,849 · offset 0 |
+| unaccounted representation | **none** — no shortfall |
+| index on `observation_us` | **none** |
+| `e3_migration_runs` for the two new operations · `e3_migration_row_ledger` | 0 · 0 · absent |
+
+The deployer flagged a **+1 excess** in the format sum (122,370 vs 122,369) and correctly refused to
+reconcile it. Dual-match is 0, so it is live-ingestion skew across non-atomic counts, not an overlap.
+That it is **excess rather than shortfall** is the safe direction: every candidate maps to a known
+parseable class.
+
+## 8. MIGRATION READINESS — and why it is NOT ready
+
+`EXPECTED_CANDIDATES` is **deliberately `None`**, so `apply` cannot run: an undeclared expectation
+is not an expectation, and a test pins it.
+
+**The STEP 35 exact-ceiling discipline cannot be applied yet, and this is the important finding.**
+There, the population was closed: STEP 34F/34G meant no new row could join it. Here the population
+is **open and growing** — the writer is not deployed, so every row ingested from now until it is
+deployed becomes another candidate. A census taken today is stale by the next write.
+
+Correct sequence, and the reason `SAFE_TO_MIGRATE_HISTORY = NO` today:
+1. deploy the writer → new evidence is stamped at ingest, so the candidate set **closes**;
+2. re-census → the number is now monotonically non-increasing;
+3. declare `EXPECTED_CANDIDATES` in a reviewed commit, with an explicit drift decision;
+4. owner takes a point-in-time recovery position;
+5. production `report` → review gate board;
+6. owner-run `apply`, then `verify_canonical_observation_us` (read-only: recomputes
+   `observation_us` from the stored `event_time` for every ledgered row and re-checks the collateral
+   digest);
+7. create the two indexes, then take the `explain` proof;
+8. the transitional legacy read reports `pending_temporal_migration = 0` and can be deleted.
+
+Eligibility is already exactly as required: valid existing `event_time`, successful deterministic
+parse, no conflicting `observation_us`; `event_time` never rewritten; guarded `update_one`;
+prior-state ledger; audited; and it fails closed on an undeclared or drifting population.
+
+## 9. DEVICE TRAJECTORY VALIDATION
+
+Order and page membership proven correct against the production inversion and across the full
+mixed-representation corpus at six page sizes, with no duplicate and no missing event. The window
+still applies exactly, on microseconds, to both migrated and unmigrated rows. A row with no
+readable time is **reported** as unplaceable, never placed and never dropped silently.
+
+## 10. BEHAVIOR-PROVIDER VALIDATION
+
+`SdEvidenceProvider.window()` returns both sides of the inversion through the corrected path, and a
+guard test asserts Behavior holds no timestamp parsing of its own. No separate Behavior time
+implementation exists.
+
+## 11. PARALLEL RELEASE READINESS `[read-only — nothing pushed or deployed]`
+
+* **Repo/branch/HEAD:** branch `integration/e3-dt`, HEAD `14884069` (2026-10-03).
+* **Frontend:** `apps/nivxray-xdr` (Vite + Vercel). `vercel.json` already routes host
+  `edr.nivxforge.com` → `/edr` (and `xdr.nivxforge.com` → `/xdr`), SPA rewrite in place,
+  `outputDirectory: dist`, build via `scripts/vercel-build.sh`.
+* **E3 Device Trajectory integration:** `src/nivxforge/trajectory_amp/DeviceTrajectoryEntry.jsx`
+  switches on `E3_DT_V3` → lazy `trajectory_v3/DeviceTrajectoryPage`; otherwise the legacy
+  `EdrDeviceTrajectoryPage`.
+* **Feature/config state:** `E3_DT_V3` is a **build-time** flag (`VITE_E3_DT_V3 === "1"`) and is
+  **NOT set** in `apps/nivxray-xdr/.env` (which carries only `REACT_APP_NIVXRAY_API_URL`).
+  **Publishing today therefore ships the LEGACY Device Trajectory, not V3.** Enabling V3 requires
+  setting `VITE_E3_DT_V3=1` in the Vercel build environment.
+* **Isolation from this migration:** **YES.** The temporal fix is backend-only; the frontend
+  consumes `page_device_evidence` through the API and has no knowledge of `observation_us`.
+  Publishing cannot be made worse by the migration, and the migration cannot be made worse by
+  publishing.
+* `dist/` is a stale local build (Oct 2 21:32) and is not the artifact Vercel would ship.
+
+## 12. GATES
+
+**TEMPORAL_AUTHORITY_GATE = PASS**
+Writer derivation, writer invariant, single parser, comparable selection, deterministic
+`(observation_us, _id)` cursor, index contract, Device Trajectory and Behavior validation, and the
+production-inversion regression are all implemented and green, with no regression attributable to
+the change.
+
+**SAFE_TO_MIGRATE_HISTORY = NO — sequencing, not safety.**
+The migration code is ready and fails closed, but the candidate population is still **open**: all
+122,369 rows are candidates and more join with every write until the writer is deployed. Deploy the
+writer first, then re-census, then declare the expectation in a reviewed commit. Migrating against
+an open population is how a bounded migration stops being bounded.
+
+**SAFE_TO_PUBLISH_EDR_UI = YES, with one disclosure.**
+Publication is isolated from the temporal work and the routing is already in place. But with
+`VITE_E3_DT_V3` unset the published site shows the **legacy** Device Trajectory. If the intent is to
+publish *with* E3 V3, the flag must be set at build time — and my recommendation is to do that
+**after** the backfill, so V3 is not the first thing an analyst uses while
+`pending_temporal_migration` is still 122,369.
+
+**STOPPED** before historical APPLY, GitHub push and production deployment.
+
+---
+
+## 13. POST-WRITER-DEPLOY · POPULATION LOCK `[2026-06]`
+
+The writer is live in production. Two consequences, both measured read-only, nothing mutated:
+
+* **The candidate population is now closed.** New evidence is stamped at ingest, so no new row can
+  join the set. Recount sequence across the deploy: 122,496 → 122,511 total (+15) with stamped
+  19 → 34 (+15) and unstamped **122,477 → 122,477 (+0)**. Latest recount: total 122,567, stamped 94
+  (all BSON int64), candidates **122,477 — stable across two reads**.
+* **Representation reconciles exactly** over the candidate set: space 43,521 · `Z` 78,956 ·
+  offset 0 · unaccounted 0 · sum − candidates **0**. The earlier +1 excess is gone, as expected
+  once the counts were no longer taken against an open population.
+* `event_time` absent / empty / non-string: **0 / 0 / 0**. Candidates already carrying
+  `observation_us`: **0** (structural). Index on `observation_us`: **still none** (4 indexes).
+  `e3_migration_runs` for both new operations: 0 · 0. `e3_migration_row_ledger`: absent.
+
+`EXPECTED_CANDIDATES` is therefore declared in a reviewed commit as **122,477**, from the recount
+taken *after* the writer went live. **Drift decision, recorded deliberately:** the number is never
+adjusted to make the gate pass — a lower count means the population changed (retention), a higher
+count means a population believed closed has grown; both HOLD for the owner.
+
+The local fixture test keeps `candidate_population_exact = False` and therefore `ok = False`,
+because that fixture is not the production population. Declaring the expectation must not weaken
+the gate.
+
+**RECOVERY_PREREQUISITE = NOT_READY — a visibility gap, not a measured "backup off".** The deployer
+has read-only collection access and no Atlas control-plane access, so continuous cloud backup / PITR
+and the earliest restorable point must be confirmed by the owner in the Atlas UI/API before APPLY.
+
+### 13.1 PRODUCTION REPORT GATE `[read-only]`
+
+**G41_MIGRATION_REPORT_GATE = PASS.** Declared 122,477 == observed 122,477 (stable ×2) ·
+derivable 122,477 / non-derivable 0 (full set, parser validated on live values including 7-digit
+fractional `Z`, deterministic on repeat) · conflicts 0 · unaccounted 0 · space/Z/offset/other
+43,521 / 78,956 / 0 / 0 with sum − candidates 0 · total 122,622 = 122,477 candidates + 145 stamped
++ 0 + 0 + 0. Mutation boundary **TEMPORAL_FIELDS_ONLY** (guarded `update_one` on
+`{_id, observation_us:$exists:false, event_time:unchanged}`, `$set` of only the four temporal paths,
+pre-write row ledger, read-only verify present). `event_time` preserved · identity and provenance
+preserved.
+
+**SAFE_TO_APPLY = NO**, on two prerequisites that are not defects:
+1. `RECOVERY_PREREQUISITE = NOT_READY` — owner must confirm in the Atlas control plane that
+   continuous backup / PITR is enabled and the earliest restorable point precedes the apply window.
+2. `EXPECTATION_LIVE_IN_PROD = NO` — the reviewed commit is not deployed, so the in-prod gate board
+   evaluates `expectation_declared` / `candidate_population_exact` as False. A backend deploy of
+   that commit is a prerequisite for APPLY.
+
+### 13.2 ONE DEFECT FOUND IN THE APPLY PATH — must be fixed before APPLY, not now
+
+`collateral_digest()` (shared from `identity_backfill`) excludes only
+`additional_fields.endpoint_id` and `provenance.endpoint_identity` — **not** the four G-41 temporal
+paths. So `verify_canonical_observation_us` would count every intentional `observation_us` addition
+as `collateral_diverged`, i.e. the post-APPLY verify would report divergence for all 122,477 rows
+and lose its ability to detect *real* collateral change. The fix is to exclude the four G-41 paths
+from the digest used by this verify. Found by the REPORT gate.
+
+**FIXED — `G41_COLLATERAL_VERIFIER_GATE = PASS`.** The exclusion set is now named by the caller:
+`identity_backfill.digest_excluding(doc, paths)` excludes nothing by default, `collateral_digest()`
+keeps exactly STEP 35's two identity paths (values proven byte-identical to the previous semantics
+against an independently written reference), and `observation_us_migration.g41_collateral_digest()`
+excludes exactly the four G-41 paths, derived from the writer contract:
+`observation_us` · `additional_fields.observation_us_state` ·
+`additional_fields.observation_us_basis` · `provenance.observation_us_provenance`.
+`event_time`, tenant, endpoint identity, all other provenance and all other evidence stay
+collateral-protected under both digests; a path deeper than one level is refused, not ignored.
+25 new tests in `tests/edr/test_g41_collateral_verification.py`, including an end-to-end apply whose
+measured mutation surface equals exactly those four paths and a post-apply verify reporting
+`collateral_diverged = 0` while still catching a tampered `endpoint_id` and an `observation_us` that
+stops agreeing with `event_time`.
+
+### 13.3 `G41_MIGRATION_CONTROL_DEPLOY_GATE = PASS` `[commit c6ed841 · run c6ed8410]`
+
+The locked expectation and the verifier correction are **live in production**; nothing was applied.
+
+* Backend healthy · `/health` 200 low latency · telemetry batch 200 · heartbeat 200 · no tracebacks.
+* Verified from the RUNNING image: `EXPECTED_CANDIDATES = 122_477` live · `digest_excluding`,
+  `g41_collateral_digest`, `PROVENANCE_KEY` and `G41_MUTABLE_PATHS` live with exactly the four
+  paths, wired into both ledger-write and verify · STEP 35 `collateral_digest()` still excludes
+  exactly `additional_fields.endpoint_id` + `provenance.endpoint_identity`.
+* Database untouched: candidates **exactly 122,477** · `e3_migration_runs` backfill 0 / verify 0
+  (only `ensure_canonical_identity_indexes` present) · `e3_migration_row_ledger` **absent** ·
+  4 indexes, **none** referencing `observation_us`.
+* Writer still correct under live ingest: total 122,818 = 343 stamped + 122,477 candidates, stamped
+  rising 341 → 343, all BSON int64; spot-check `2026-10-01T10:19:58.863Z` ↔ `1790849998863000`,
+  state `DERIVED_FROM_STORED_OBSERVATION_TIME`.
+
+### 13.4 RECOVERABILITY — RESOLVED `[2026-06]`
+
+The production MongoDB is **Emergent-managed and Emergent-controlled**; credentials are platform-held
+and KMS-sealed, and the owner has no control-plane access. `PITR_VISIBILITY = UNAVAILABLE` from the
+deployment toolset, and the data plane cannot run `buildInfo` / `hello` / `serverStatus`, so provider,
+server version and topology are **UNKNOWN**. A separate Atlas account was deliberately NOT created:
+it would have produced a recovery point for a database we do not use.
+
+**Emergent platform confirms** automated cloud backups on managed databases — hourly 7d · daily 7d ·
+weekly 4w · monthly 12m · yearly 1y — with **continuous 7-day point-in-time recovery**.
+`RECOVERY_PREREQUISITE = READY`, **policy-asserted rather than instrument-measured**: nobody read a
+cluster-specific earliest-restorable-point, so it is derived as now − 7 days.
+
+**Still undocumented, disclosed not resolved:** the restore *mechanism* — whether a single collection
+can be restored to a side namespace, versus a whole-database rollback. This matters because a
+whole-database PIT restore on a live EDR would discard every event ingested since the restore point,
+i.e. the recovery would itself be a data-loss event. Owner decision: ask the platform team about
+restore semantics later; it does not block G-41.
+
+**Owner decisions recorded (two paths deliberately NOT taken):**
+1. **No backup/export subsystem** will be built inside NivXForge. A `snapshot_canonical_evidence`
+   operation would mean new production code, artifact storage, a restore procedure, security review
+   and tests — all to make one migration safe, when the platform already backs the database up.
+2. **No G-41 revert operation.** STEP 35 has `op_revert`; this migration intentionally does not. The
+   undo path is therefore: the pre-write row ledger (prior `event_time`, collateral digest and
+   full-document digest per row) as first line, with PITR as the backstop. Accepted knowingly —
+   recorded here so a future reader does not mistake the absence for an oversight.
+
+### 13.5 `G41_RESUMABILITY_GATE = PASS` — the APPLY trap, closed `[2026-06]`
+
+**The weakness.** A 122,477-row APPLY that died half way left evidence perfectly consistent (each
+row is an independent guarded update, so a row is whole or untouched, never half), but the migration
+could not CONTINUE: the next attempt saw fewer candidates than `EXPECTED_CANDIDATES` and refused.
+The only escape would have been to edit the expectation down to the residual — weakening the one
+invariant that makes this migration safe. A gate you can only pass by lowering it is a trap, not a
+gate.
+
+**The fix, and the whole of it: runs are disposable, the POPULATION is not.** Every ledger row now
+carries `population_id = "g41_observation_us_historical"`, so a continuation PROVES what a previous
+run completed instead of being told.
+
+```
+EXACT RESUME INVARIANT
+  written_before            = ledger rows (operation, population_id, outcome=WRITTEN)
+  remaining                 = live count of CANDIDATE_SELECTOR
+  ORIGINAL_POPULATION       = EXPECTED_CANDIDATES = 122,477   ← never edited, ever
+
+  gate population_accounted : written_before + remaining == ORIGINAL_POPULATION
+```
+
+* **First run**: `written_before = 0`, so this is bit-for-bit the old exact-population gate.
+* **Continuation**: 70,000 + 52,477 == 122,477 → proceeds, with `candidate_population_exact`
+  reported as `false` (a legitimate continuation HAS fewer candidates left) but no longer gating.
+* **Strictly stronger than a bare count**: a row that *vanished* and a row that *joined* both break
+  the sum. A fail-closed `UNPLACEABLE` live arrival — the single way live ingest can reopen a closed
+  population — breaks both this gate and the parse gate.
+* **`ledger_integrity`** gates continuation on the prior state being intact: no WRITTEN row missing
+  `prior.event_time` / `prior.collateral_digest` / `prior.full_doc_digest` / `observation_us_set`,
+  and distinct `doc_id` count == written count (a duplicated WRITTEN row HOLDS).
+* **Idempotent by construction**: a stamped row is not a candidate and the guard also demands
+  `observation_us` absent, so an already-migrated row is never revisited or rewritten — its
+  provenance keeps naming the run that actually wrote it.
+* **Success now means the POPULATION finished**: `ok = (written_before + written_this_run ==
+  122,477 and residual == 0)`, so a resume cannot claim success for a partial total, and a row
+  skipped by the `event_time unchanged` guard keeps `ok = false`.
+
+**Stale-lock recovery (audited, never silent).** A killed worker cannot release its own lock, which
+would have blocked every retry. A holder younger than `LOCK_STALE_AFTER` (30 min) is still refused
+with 409 — a live run is a live run. Past that age the holder is presumed dead and is taken over:
+the delete is conditioned on the holder's own run id (a run that revives keeps its lock), the new
+run records `lock_takeover`, and the abandoned run is marked `FAILED / STALE_LOCK_TAKEOVER` — but
+only if it was still `RUNNING`, so a finished run's record is never rewritten.
+
+**Tests** — `tests/edr/test_g41_resumability.py`, 19 tests: uninterrupted full population · first
+run still demands exactness · interruption leaves whole rows · safe resume to completion · repeated
+resume is a no-op · already-written rows never rewritten · vanished row HOLDS · unexpected extra
+candidate HOLDS · live *stamped* arrival ignored · fail-closed UNPLACEABLE arrival HOLDS ·
+unparseable candidate HOLDS · `event_time` changing under the run is skipped not stamped, and still
+accounted for · corrupt ledger prior-state HOLDS · duplicated WRITTEN row HOLDS · report mode shows
+the resume position and writes nothing · live lock never taken · stale lock taken over with both
+runs recording it · a completed run's record untouched · end-to-end through the control plane:
+interrupt → FAILED + lock released → resume → COMPLETED → verify 0/0.
+
+`tests/edr/test_34h_a_migration_control.py` — one test updated to the new lock contract: it held a
+lock dated 2026-06-01, which is now stale by definition, so it holds the lock NOW and asserts a live
+lock is never taken. Stale takeover is covered in the resumability suite.
+
+**NOT deployed.** `PRODUCTION_APPLY_READY = NO` until this commit is live: applying against the
+currently deployed build would reinstate the trap.
+
+### 13.6 APPLY EXECUTED AND RECONCILED `[2026-10-03 · the 122,477 are migrated]`
+
+Owner-authorized, owner-executed. **`WRITTEN = 122,477 · RESIDUAL = 0 · CAPTURED = 0 · outcomes
+[WRITTEN] only · WRITTEN + RESIDUAL = 122,477 vs 122,477, difference 0`**, confirmed by two equal
+samples ≥60 s apart with the newest ledger row ~17 min stale. Evidence intact: `observation_us`
+`1789720697563000` is the exact epoch-microseconds of `event_time` `2026-09-18 08:38:17.563`, and
+matches the ledger's prior state. `event_time` untouched throughout.
+
+**What actually happened, recorded because it matters more than the happy path.** The launch POST hit
+the gateway's 30-second timeout and returned 504 while the server-side worker detached and kept
+writing. Forty minutes of work then proceeded with the client blind to it. Three consequences:
+
+1. **A `report` taken mid-flight showed impossible-looking numbers** — `written_before + observed =
+   122,507` (+30), ledger `distinct 94,885` vs rows `94,837` (+48), `contract_eligible` 117 BELOW
+   `observed`. All three were read skew from the fixed read order (candidates → written count →
+   distinct → eligibility cursor) against a concurrently advancing population. The gates refused,
+   correctly. **The decisive discriminator: duplication would make `distinct` LESS than the row
+   count; we saw GREATER, which is only possible if rows arrived between the two reads.** Direction
+   of inequality ruled out duplication without needing to enumerate anything.
+2. **That same `report` took over the live worker's lock** and flipped the run to
+   `FAILED / STALE_LOCK_TAKEOVER`. The worker never died. See the defect below.
+3. **The run left no `e3_migration_runs` lifecycle row.** Evidence and ledger are complete; the audit
+   trail for `mig_fcc460da6f2f4fd5` is not. Unresolved — filling it is a write.
+
+### 13.7 DEFECT INTRODUCED BY THE RESUMABILITY FIX — STILL LIVE, MUST BE CORRECTED
+
+`LOCK_STALE_AFTER` is 30 minutes; this migration's own runtime was ~40. **Age cannot distinguish a
+dead worker from a slow one**, so the takeover declared a demonstrably-alive holder stale, removed
+its lock, and left a lock-less writer mutating canonical evidence while the lock table sat empty —
+the single-writer guarantee was gone, and any further invocation would not have been refused. No
+evidence was harmed (the per-row guard requires `observation_us` absent, so a second writer could
+not double-write a row), but the property was lost by accident.
+
+Three corrections, to be made before ANY future migration, owner-authorized:
+1. **Takeover must require liveness, not age** — the newest ledger row's timestamp is the real
+   signal. Age alone is not evidence of death.
+2. **The worker must renew its lock and abort if it loses it**, so a takeover actually stops the
+   writer instead of orphaning it.
+3. **`apply` must not block on a 30-second gateway timeout** — that 504 is what detached the worker
+   and started the whole sequence.
+
+### 13.8 CORRECTIONS 1 AND 2 IMPLEMENTED `[2026-10-03 · local, pending deploy]`
+
+**Age now only opens the question; liveness answers it.** `LOCK_STALE_AFTER` (30 min) makes a lock
+ELIGIBLE for takeover, nothing more. Two independent signals can save the holder, and either one is
+enough:
+
+* **its own heartbeat** — `_heartbeat()` renews `heartbeat_at` on the lock every `HEARTBEAT_SEC`
+  (30 s, deliberately far below the threshold so a live holder is never even eligible); before the
+  first beat lands, `acquired_at` stands in;
+* **observable progress** — `LIVENESS[operation]`, an async probe registered by the operation
+  itself. For the backfill it is `last_backfill_progress()`: the newest ledger row for the
+  population. A worker that is writing rows is alive, however long it has been running.
+
+`_takeover_stale()` now takes one final liveness read before acting, and its delete is conditioned on
+**both** the holder's run id **and the exact `heartbeat_at` that was judged** — so a beat landing
+between the decision and the write keeps the lock. A liveness probe that raises does not decide by
+crashing; it falls back to the heartbeat.
+
+**And the other half, which is what actually prevents an orphan:** the heartbeat raises `LockLost`
+the moment its `update_one` fails to match, and `_run_guarded()` races the work against the
+heartbeat (`FIRST_COMPLETED`), cancelling the work and failing the run as `LOCK_LOST`. Before, a
+takeover removed the lock and the worker carried on writing regardless. A run that lost its lock
+also never deletes the new holder's lock, because `_release` is conditioned on its own run id.
+
+13 tests in `tests/edr/test_g41_lock_liveness.py`, led by the exact production regression — 42
+minutes of age against a 30-minute threshold, with a ledger row written seconds ago ⇒ refused as
+concurrent, `holder_alive: true`, `stale: false`, lock untouched, second run never executed. Plus: a
+fresh heartbeat defends a holder with no progress signal at all; progress older than the threshold
+does NOT save a dead holder (reclaimed, prior run marked FAILED with "no observable progress"); a
+young lock is never eligible however dead it looks; a heartbeat landing mid-decision keeps the lock;
+a crashing probe falls back; a running operation visibly renews its lock; losing the lock aborts the
+run; a victim does not delete the thief's lock; and short runs plus failing runs are unaffected.
+
+Correction 3 (`apply` not blocking on the gateway timeout) is **still open** — deliberately not
+bundled here.
+
+**Deployed and verified in production as build `776bdbd`** (`G41_LOCK_LIVENESS_PRODUCTION_GATE =
+PASS`): `HEARTBEAT_SEC` 30 · `LOCK_STALE_AFTER` 30 min · `stale = eligible AND NOT working` ·
+progress probe registered · takeover conditioned on both `migration_run_id` and `heartbeat_at` ·
+`_run_guarded` cancels the work on lock loss · `_release` scoped to its own run id ·
+`EXPECTED_CANDIDATES` unchanged at 122,477 · 2 replicas, 0 restarts, clean startup, ingest 200s.
+Production state untouched: candidates 0 · ledger WRITTEN 122,477 · lock table empty · no
+`observation_us` index. `SAFE_FOR_VERIFY = YES`.
+
+### 13.9 VERIFIED — `G-41 IS CLOSED ON CORRECTNESS` `[2026-10-03 20:4x]`
+
+Independent verifier run `mig_c54cea5058df4fe3`, COMPLETED:
+
+```
+checked             = 122477
+disagreeing         = 0
+collateral_diverged = 0
+ok                  = true
+```
+
+**This is the number the collateral-digest fix (§13.2) was built to make meaningful.** Each of the
+122,477 rows was re-read against the prior state captured BEFORE its write: `observation_us` still
+equals the exact epoch-microseconds of its `event_time`, and `collateral_diverged = 0` proves
+nothing outside the four temporal paths moved — `event_time`, tenant, endpoint identity, provenance
+and raw evidence all intact. Had the APPLY run against the unfixed digest, this would have read
+122,477 and been worthless.
+
+Operationally confirmed at the same time: the corrected lock behaved exactly as designed. The first
+invocation 504'd at the gateway and completed detached; a second invocation started
+`mig_941b32cf430f4925`; a third was REFUSED with `MIGRATION_ALREADY_RUNNING`. Heartbeat advanced
++60 s across two samples, `stale: false`, no `LockLost`, no pod restart, 0 restarts on both replicas.
+
+**Reporting infelicity, recorded so nobody misreads it as a hazard:** the refusal's conflict block
+shows `holder_alive: false` with `stale: false`. `holder_alive` is keyed ONLY off the per-row
+progress probe, and the verifier writes no ledger rows, so it has no progress signal. Eligibility —
+the thing that actually gates takeover — is keyed off HEARTBEAT age, which stays near zero while a
+run is alive. So `stale` can never become true for a live holder whatever its runtime. The field
+reads misleadingly; the logic is correct. Tidy it when convenient (report heartbeat-derived liveness
+alongside progress-derived liveness); it changes no behaviour.
+
+### 13.10 TEMPORAL INDEXES + PLAN PROOF — IMPLEMENTED `[2026-10-03 · local, pending deploy]`
+
+The index is not the deliverable; the PLAN is. Without the compound index the server selects on
+identity and then sorts in memory — the same blocking sort that made a bounded `LIMIT` return the
+wrong newest N, just with a correct key.
+
+Two new operations in the closed registry, both from the already-declared contract
+(`canonical_index_contract.TARGET_TEMPORAL_INDEXES`), never from a caller:
+
+* **`ensure_canonical_temporal_indexes`** (report/apply) — creates exactly two indexes:
+  `sd_canonical_endpointid_observationus` and `sd_canonical_hostname_observationus`, each
+  `(tenant_id, <identity>, observation_us DESC, _id DESC)`. Tenant first as an EQUALITY prefix;
+  `_id` last so the order is TOTAL and a tie group of identical instants cannot shuffle between
+  reads. Refuses on a name collision rather than dropping and rebuilding. The existing `event_time`
+  pair is left untouched — the transitional read still needs it until the legacy path is deleted.
+* **`explain_canonical_temporal_read_plan`** (read-only) — proves BOTH identity branches in all
+  three shapes the read executes: first page, resume cursor, bounded window. Checks per shape:
+  IXSCAN present, index name matches the contract, no COLLSCAN, **no blocking SORT**, index-bound key
+  order equals the contract key order, and the tenant and identity predicates both still present.
+
+**The filter and sort come from `production_adapter.branch_query`, the same function the read
+itself calls.** `_branch_page` was refactored to use it, so the proven shape and the executed shape
+cannot drift apart — a plan proof against a reconstructed query proves nothing about production.
+
+Deliberate placement: the explain lives in its own module `edr_plane/temporal_read_plan.py`, like
+`identity_backfill`'s, so `migration_control` keeps its guarantee of issuing no database command at
+all. Moving it there was preferable to weakening that guard, which an existing test enforces.
+
+13 tests in `tests/edr/test_g41_temporal_indexes.py`: the contract shape (equality prefix, DESC
+order, `_id` total order, one index per branch, no overlap with the `event_time` pair) · report mode
+creates nothing · apply creates exactly two and leaves `_id_` untouched · apply is idempotent · a
+name collision REFUSES · every paging shape is an IXSCAN with no blocking sort · **the proof fails
+loudly when the indexes are absent** (otherwise it proves nothing) · the explained shape is the
+executed shape · explain writes nothing in either mode · a branch with no sample HOLDS rather than
+passing vacuously · end to end through the control plane with lock release.
+
+Regression: 2,760 passed / 16 failed = the identical pre-existing xdist-isolation failures
+(12 in `test_34h_a_migration_control.py`, 4 in `test_p0_f13_5_detection_handoff.py`); 34h passes
+19/19 in isolation. **NOT deployed.**
+
+Remaining, each owner-authorized: deploy these two operations → owner runs `apply` then the plan
+proof → delete the transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Plus correction 3
+(`apply`/`verify` must not block on the 30-second gateway timeout — it has detached a worker twice),
+and the deliberately-unfilled audit row for `mig_fcc460da6f2f4fd5`.

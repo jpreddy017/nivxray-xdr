@@ -36,7 +36,7 @@ const Nope = ({ label, ep = "no_evidence" }) => (
 function Section({ id, title, badge, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ borderTop: "1px solid #212B36", paddingTop: 9, marginTop: 9 }}>
+    <div style={{ borderTop: "1px solid var(--nx-bd-quiet)", paddingTop: 9, marginTop: 9 }}>
       <button className="btn ghost"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -160,7 +160,7 @@ export const EndpointDetailsDrawer = ({
         </div>
       ) : null}
       {tele?.note ? (
-        <div style={{ fontSize: 9.5, color: "#E8B931", lineHeight: 1.6,
+        <div style={{ fontSize: 9.5, color: "var(--nx-high)", lineHeight: 1.6,
                       marginTop: 5 }}
              data-testid="endpoint-drawer-health-note">
           {tele.note}

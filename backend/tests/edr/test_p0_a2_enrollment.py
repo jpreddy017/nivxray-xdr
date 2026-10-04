@@ -327,7 +327,10 @@ async def test_no_route_returns_a_token_digest_or_plaintext():
     assert tok["enrollment_token"] not in blob
     assert "token_hash" not in blob
     assert digest(tok["enrollment_token"]) not in blob
-    assert rows[0]["state"] == "USED" and rows[0]["single_use"] is True
+    # P0-PROD-2 · the state vocabulary is now ACTIVE / CONSUMED / EXPIRED /
+    # REVOKED. `legacy_state` keeps the old word for an older console.
+    assert rows[0]["state"] == "CONSUMED" and rows[0]["single_use"] is True
+    assert rows[0]["legacy_state"] == "USED" and rows[0]["usable"] is False
 
 
 def test_redact_never_reveals_any_fragment_of_the_secret():

@@ -98,7 +98,7 @@ export default function TrajectoryFiltersModal({ active, onToggle, onClear, onCl
       <section onClick={(e) => e.stopPropagation()}
                className="panel"
                style={{ width: 1000, maxWidth: "95vw", maxHeight: "78vh",
-                        overflow: "auto", padding: 14, background: "#11161D" }}
+                        overflow: "auto", padding: 14, background: "var(--nx-surf-inset)" }}
                data-testid="edr-filters-modal">
         <div style={{ display: "flex", alignItems: "center", gap: 10,
                       marginBottom: 10 }}>
@@ -115,8 +115,8 @@ export default function TrajectoryFiltersModal({ active, onToggle, onClear, onCl
                       gridTemplateColumns: "repeat(auto-fit,minmax(228px,1fr))",
                       gap: 12 }}>
           {FILTER_GROUPS.map((g) => (
-            <div key={g.key} style={{ border: "1px solid #212B36", borderRadius: 4,
-                                      padding: 10, background: "#0B0F14" }}>
+            <div key={g.key} style={{ border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
+                                      padding: 10, background: "var(--nx-surf-inset)" }}>
               <div style={{ color: "var(--faint)", fontSize: 9, fontWeight: 800,
                             textTransform: "uppercase", letterSpacing: ".4px",
                             marginBottom: 7 }}>{g.title}</div>
@@ -129,7 +129,7 @@ export default function TrajectoryFiltersModal({ active, onToggle, onClear, onCl
                          title={usable ? undefined : `⊘ ${i.reason}`}
                          style={{ display: "flex", gap: 6, alignItems: "flex-start",
                                   marginBottom: 5, fontSize: 10.5,
-                                  color: usable ? "#C7D0DB" : "#5D6875",
+                                  color: usable ? "#C7D0DB" : "var(--nx-text-dim)",
                                   cursor: usable ? "pointer" : "not-allowed" }}>
                     <input type="checkbox" checked={on} disabled={!usable}
                            onChange={() => onToggle(id)}
@@ -139,7 +139,7 @@ export default function TrajectoryFiltersModal({ active, onToggle, onClear, onCl
                       {usable ? i.label : `⊘ ${i.label}`}
                       {!usable && (
                         <div className="mono" style={{ fontSize: 8.6,
-                                                       color: "#4B5563" }}>
+                                                       color: "var(--nx-text-dim)" }}>
                           {i.reason}
                         </div>
                       )}

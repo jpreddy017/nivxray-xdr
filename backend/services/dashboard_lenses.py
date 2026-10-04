@@ -149,11 +149,37 @@ _DISPLAY_NAME_CLAUSE: Dict[str, Any] = {
 }
 
 
-# Roles that operate the MSS/SOC across every onboarded customer tenant.
-# Any other authenticated principal is restricted to its own tenant(s).
-_CROSS_TENANT_ROLES = frozenset({
+# P0-FIX-6B-2 · these role names are NO LONGER AUTHORITY. They once made
+# `all_tenants: True` by themselves, which meant a free-text role string on a
+# user document granted every customer tenant. Tenant breadth now comes ONLY
+# from `users.authority_scope == "PLATFORM"` (explicit owner designation) or
+# from the explicit grant list `users.tenant_ids[]`. The constant is retained
+# for documentation/legacy references only and is read by no decision.
+_LEGACY_ROLE_BREADTH_RETIRED = frozenset({
     "admin", "platform_admin", "soc_manager", "mssp_operator",
 })
+
+#: The two authority classes. PLATFORM is EXCEPTIONAL and must be stored
+#: explicitly; absent / null / malformed / anything else ⇒ CUSTOMER, the
+#: least-authority default.
+PLATFORM_SCOPE = "PLATFORM"
+CUSTOMER_SCOPE = "CUSTOMER"
+
+
+def authority_scope(user: Dict[str, Any] | None) -> str:
+    """The principal's authority CLASS — where it may operate.
+
+    PLATFORM iff the stored `authority_scope` is exactly "PLATFORM"
+    (whitespace-stripped, case-sensitive). Never inferred from role,
+    `tenants.read`, `organization.kind`, the number of tenant grants, the
+    customer picker or `X-Tenant-Id`. Anything else — absent, null, a
+    non-string, a role name, "platform", "CUSTOMER" — is CUSTOMER, the
+    least-authority default.
+    """
+    raw = (user or {}).get("authority_scope")
+    if isinstance(raw, str) and raw.strip() == PLATFORM_SCOPE:
+        return PLATFORM_SCOPE
+    return CUSTOMER_SCOPE
 
 
 def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
@@ -165,23 +191,37 @@ def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
     incidents from the very analysts responsible for them.
 
     - anonymous          → ``{"authorized": False}`` (honest empty state)
-    - cross-tenant role  → ``{"all_tenants": True}``
-    - everyone else      → ``{"tenant_ids": [...]}``
+    - PLATFORM scope     → ``{"all_tenants": True}`` (explicit designation)
+    - everyone else      → ``{"tenant_ids": [...]}`` (explicit grants)
+
+    P0-FIX-6B-2 · ROLE IS NO LONGER TENANT AUTHORITY. ``role`` is still
+    returned because RBAC needs it, but it decides only WHAT the principal
+    may do. WHERE now comes from exactly two explicit, server-side facts:
+    ``authority_scope == "PLATFORM"`` or the grant list ``tenant_ids[]``.
+    ``all_tenants`` survives as a DERIVED convenience for existing consumers
+    and is true only for a PLATFORM principal.
+
+    P5 · B5/B7 · a user carrying neither ``tenant_ids`` nor ``tenant_id``
+    previously fell back to the literal ``"default"``, a scope concept that
+    exists nowhere in the tenant registry. It now returns an honest EMPTY
+    tenant list: authorised as a principal, holding no tenant. There is no
+    default tenant.
     """
     if not email:
         return {"authorized": False}
     from deps import sync_collection
     user = sync_collection("users").find_one(
         {"email": email},
-        {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1},
+        {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1,
+         "authority_scope": 1},
     ) or {}
     role = str(user.get("role") or "").strip().lower()
-    if role in _CROSS_TENANT_ROLES:
-        return {"authorized": True, "all_tenants": True, "role": role}
+    scope = authority_scope(user)
     tenants = [t for t in (user.get("tenant_ids") or []) if t]
-    if not tenants:
-        tenants = [str(user.get("tenant_id") or "default")]
-    return {"authorized": True, "all_tenants": False,
+    if not tenants and user.get("tenant_id"):
+        tenants = [str(user["tenant_id"])]
+    return {"authorized": True, "authority_scope": scope,
+            "all_tenants": scope == PLATFORM_SCOPE,
             "tenant_ids": tenants, "role": role}
 
 

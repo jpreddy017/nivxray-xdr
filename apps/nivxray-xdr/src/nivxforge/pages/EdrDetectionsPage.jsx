@@ -49,7 +49,7 @@ const EndpointDetections = ({ endpointId, incidentId }) => {
   }, [endpointId]);
 
   if (err) {
-    return <div className="x-empty" style={{ color: "#ff9494" }}
+    return <div className="x-empty" style={{ color: "var(--red)" }}
                 data-testid="edr-endpoint-detections-error">{err}</div>;
   }
   if (!data) {
@@ -74,7 +74,7 @@ const EndpointDetections = ({ endpointId, incidentId }) => {
           {data.count} detection{data.count === 1 ? "" : "s"}</span>
         {"  ·  "}{data.events_evaluated} events evaluated
         {data.events_not_evaluated > 0 && (
-          <span style={{ color: "#ffb454" }}
+          <span style={{ color: "var(--amber)" }}
                 data-testid="edr-endpoint-detection-gap">
             {"  ·  "}{data.events_not_evaluated} NOT EVALUATED (detection gap)
           </span>)}
@@ -119,10 +119,14 @@ const EndpointDetections = ({ endpointId, incidentId }) => {
                     {r.raw_id} → {r.canonical_event_id}
                   </td>
                   <td>
-                    {/* Hand off on the stable identifier, so the
-                        trajectory opens on THIS observation. */}
+                    {/* EDR-NATIVE pivot. This linked to
+                        `/xdr/edr/device-trajectory`, which meant an
+                        ordinary endpoint investigation step (detection →
+                        trajectory) left the NivXForge product. The
+                        EDR-native route carries the same identifiers, so
+                        the trajectory still opens on THIS observation. */}
                     <Link
-                      to={`/xdr/edr/device-trajectory?device=`
+                      to={`/edr/device-trajectory?device=`
                         + `${encodeURIComponent(endpointId)}`
                         + `&raw_event_id=${encodeURIComponent(r.raw_id)}`
                         + (r.canonical_event_id
@@ -216,7 +220,7 @@ export default function EdrDetectionsPage() {
         </div>
       )}
       {ctx.incident_id && !loading && error && (
-        <div className="x-empty" style={{ color: "#ff9494" }} data-testid="edr-detections-error">
+        <div className="x-empty" style={{ color: "var(--red)" }} data-testid="edr-detections-error">
           {String(error)}
         </div>
       )}
@@ -274,7 +278,7 @@ export default function EdrDetectionsPage() {
                       <td className="mono">{r.user || "—"}</td>
                       <td className="mono">{r.process || "—"}</td>
                       <td className="mono" style={{ textTransform: "uppercase",
-                                                          color: r.disposition === "malicious" ? "#ff9494" : "var(--text-dim)" }}>
+                                                          color: r.disposition === "malicious" ? "var(--red)" : "var(--text-dim)" }}>
                         {r.disposition}
                       </td>
                       <td style={{ textAlign: "right" }}>

@@ -83,7 +83,8 @@ def test_windows_security_4768_kerberos_tgt():
 
     normalizer = dsm.select_normalizer()
     canonical = normalizer.normalize(
-        parsed, dsm.id, "collector-01", "integ-win", "trace-test-2"
+        parsed, dsm.id, "collector-01", "integ-win", "trace-test-2",
+        tenant_id="tenant-corp"
     )
 
     assert canonical["event_type"] == "kerberos_tgt_request"
@@ -116,7 +117,8 @@ def test_windows_security_4769_kerberoasting():
 
     parsed = dsm.select_parser().parse(raw_ev)
     canonical = dsm.select_normalizer().normalize(
-        parsed, dsm.id, "collector-01", "integ-win", "trace-test-3"
+        parsed, dsm.id, "collector-01", "integ-win", "trace-test-3",
+        tenant_id="tenant-corp"
     )
 
     assert canonical["event_type"] == "kerberos_service_ticket_request"
@@ -145,7 +147,8 @@ def test_linux_auditd_execve_unhex():
 
     parsed = dsm.select_parser().parse(raw_ev)
     canonical = dsm.select_normalizer().normalize(
-        parsed, dsm.id, "collector-linux", "integ-auditd", "trace-linux-1"
+        parsed, dsm.id, "collector-linux", "integ-auditd", "trace-linux-1",
+        tenant_id="tenant-corp"
     )
 
     assert canonical["source_vendor"] == "Linux"
@@ -187,7 +190,8 @@ def test_aws_cloudtrail_iam_escalation():
 
     parsed = dsm.select_parser().parse(raw_ev)
     canonical = dsm.select_normalizer().normalize(
-        parsed, dsm.id, "collector-aws", "integ-cloudtrail", "trace-aws-1"
+        parsed, dsm.id, "collector-aws", "integ-cloudtrail", "trace-aws-1",
+        tenant_id="tenant-corp"
     )
 
     assert canonical["source_vendor"] == "AWS"

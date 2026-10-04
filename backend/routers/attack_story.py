@@ -11,7 +11,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from deps import get_current_user_optional, sync_collection
+from deps import get_current_user, sync_collection
+from routers.incidents import authorized_incident
 from services.attack_story import AttackStoryService
 
 router = APIRouter(prefix="/incidents", tags=["attack-story"])
@@ -24,12 +25,11 @@ def _new_async_client():
 
 @router.get("/{incident_id}/attack-story")
 async def get_attack_story(incident_id: str,
-                                 user=Depends(get_current_user_optional)) -> Dict[str, Any]:
-    doc = _col.find_one({"id": incident_id}, {"_id": 0, "id": 1})
-    if not doc:
-        raise HTTPException(status_code=404,
-                              detail={"error": "incident_not_found",
-                                       "id": incident_id})
+                                 user=Depends(get_current_user)) -> Dict[str, Any]:
+    # S1 · the incident record's own authority decides whether this
+    # principal may address this incident at all. Anonymous never reaches
+    # here; cross-tenant reads 404 without disclosing existence.
+    authorized_incident(incident_id, user, {"_id": 0, "id": 1})
     client = _new_async_client()
     try:
         async_db = client[os.environ["DB_NAME"]]

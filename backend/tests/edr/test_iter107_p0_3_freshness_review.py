@@ -16,7 +16,16 @@ if not BASE:
                 BASE = line.split("=", 1)[1].strip().rstrip("/")
 
 ADMIN = ("admin@nivxray.com", "uulVDp5cCSB3Hva99s7UUAwK")
-ANALYST_LIVE = ("analyst@nivx-live.com", "NivxLive!Analyst2026")
+_LIVE_CRED_PREREQUISITE = (
+    "TEST_ANALYST_NIVXLIVE_PASSWORD is not supplied by the test "
+    "environment. This live suite needs the nivx-live analyst "
+    "credential and will NOT substitute a default password (P0-PROD-1: "
+    "no credential value is committed). Export it in the CI or shell "
+    "environment to run this suite.")
+_ANALYST_PW = os.environ.get("TEST_ANALYST_NIVXLIVE_PASSWORD")
+if not _ANALYST_PW:
+    pytest.skip(_LIVE_CRED_PREREQUISITE, allow_module_level=True)
+ANALYST_LIVE = ("analyst@nivx-live.com", _ANALYST_PW)
 
 LIVE_DEV = "dev_42e8c6dc74b9"
 LIVE_EP = "ep_2d57cbe6f80152062109"
@@ -26,22 +35,23 @@ OUTSIDE_WINDOW_DEV = "dev_a0267ae20737"
 FORGED = "dev_ffffffffffff"
 
 
-def _login(email, password):
+def _login(email, password, tenant):
     r = requests.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=60)
     assert r.status_code == 200, f"login failed {r.status_code}: {r.text[:200]}"
     tok = r.json().get("access_token") or r.json().get("token")
     assert tok
-    return {"Authorization": f"Bearer {tok}"}
+    # B7 Option A · tenant-scoped EDR routes require an explicit tenant.
+    return {"Authorization": f"Bearer {tok}", "X-Tenant-Id": tenant}
 
 
 @pytest.fixture(scope="module")
 def admin_h():
-    return _login(*ADMIN)
+    return _login(*ADMIN, "default")
 
 
 @pytest.fixture(scope="module")
 def analyst_h():
-    return _login(*ANALYST_LIVE)
+    return _login(*ANALYST_LIVE, "nivx-live")
 
 
 # --- Freshness API ---
@@ -153,11 +163,20 @@ class TestWindowHonesty:
         assert w720 >= w1, f"expected 720h >= 1h; got {w720} vs {w1}"
 
     def test_evidence_outside_window(self, admin_h):
+        """`dev_a0267ae20737` is ENG-42 — an UNATTRIBUTED legacy device. A
+        tenant-scoped process tree therefore fails closed, and the
+        outside-window statement is asserted on the cross-tenant projection
+        that can still see the evidence."""
         r = requests.get(f"{BASE}/api/edr/process-tree",
                          params={"endpoint_id": OUTSIDE_WINDOW_DEV, "hours": 24},
                          headers=admin_h, timeout=30)
         assert r.status_code == 200, r.text[:300]
-        body = r.json()
+        assert r.json().get("reason") in ("identity_unresolved",
+                                          "ENDPOINT_NOT_RESOLVED")
+
+        from routers.edr import _project_endpoint_process_tree
+        body = _project_endpoint_process_tree(
+            OUTSIDE_WINDOW_DEV, 24, {"all_tenants": True, "tenant_ids": []})
         assert body.get("reason") == "evidence_outside_window", f"reason={body.get('reason')}"
         w = body.get("window") or {}
         assert w.get("state") == "EVIDENCE_OUTSIDE_WINDOW", w.get("state")

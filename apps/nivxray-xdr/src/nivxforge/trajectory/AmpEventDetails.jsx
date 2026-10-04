@@ -27,6 +27,7 @@ import { ChevronDown, ChevronLeft, ChevronUp,
 
 import { C, dispositionOf, eventColor, isRed, typeLabel } from "./ampModel";
 import EventGlyph from "./AmpIcons";
+import { contributionBasisOf } from "./dt2/compromise";
 
 const Row = ({ k, v, mono = true, testid }) => {
   const empty = v === null || v === undefined || v === "" ||
@@ -41,7 +42,7 @@ const Row = ({ k, v, mono = true, testid }) => {
       <div className={mono ? "mono" : undefined}
            style={{ fontSize: 10.4, marginTop: 1, wordBreak: "break-all",
                     color: empty ? C.inkFaint : C.ink }}>
-        {empty ? "◇ not reported"
+        {empty ? "Not reported"
           : Array.isArray(v) ? v.join(", ") : String(v)}
       </div>
     </div>
@@ -89,7 +90,8 @@ const Shell = ({ width, height, children, onBack }) => (
 );
 
 export default function AmpEventDetails({ event, lane, onPivot, width,
-                                          height, onBack }) {
+                                          height, onBack,
+                                          compromise = null }) {
   const [openHash, setOpenHash] = useState(null);
 
   if (!event) {
@@ -111,6 +113,15 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
     || event.disposition !== "UNKNOWN_NOT_ASSESSED";
   const tactics = (event.mitre || []).filter((m) => /^TA/i.test(m));
   const techniques = (event.mitre || []).filter((m) => !/^TA/i.test(m));
+  const attributed = tactics.length > 0 || techniques.length > 0;
+  /** The evaluation ledger for THIS observation. Its absence is itself
+   *  an answer — "nothing has looked at this yet" — and is never shown
+   *  as "clean". */
+  const ev = event.evaluation || {};
+  const evaluated = event.assessment_state === "EVALUATED_NO_DETECTION"
+    || ev.state === "EVALUATED_NO_FINDING";
+  /** Findings the detection engine emitted against THIS observation. */
+  const findings = event.findings || ev.findings || [];
 
   return (
     <Shell width={width} height={height} onBack={onBack}>
@@ -161,31 +172,37 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
          style={{ marginTop: 7, fontSize: 10.6, color: C.inkDim,
                   lineHeight: 1.55 }}>
         {telemetryOnly
-          ? `No detection engine claimed this observation — it is `
-            + `telemetry reported by `
-            + `${engines[0]?.component || "the collector"}. Absence of a `
-            + `detection is not a verdict of clean.`
+          ? `Reported by ${engines[0]?.component || "the collector"}.`
           : `Reported by ${engines.map((d) => d.engine)
               .filter(Boolean).join(", ")}. `
             + `${event.display_label || ""}`}
       </p>
 
+      {/* The red ATT&CK box is a CLAIM. Cisco shows it for an event
+          that carries an indicator's tactics and techniques (C13,
+          p.405). With nothing attributed it must not read as a threat,
+          so the box stays neutral and says so. */}
       <div data-testid="amp-mitre-box"
-           style={{ marginTop: 10, border: "1px solid #FCA5A5",
+           data-mitre-attributed={attributed ? "true" : "false"}
+           style={{ marginTop: 10,
+                    border: `1px solid ${attributed ? "#FCA5A5" : C.grid}`,
                     borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ background: C.malicious, color: "#FFFFFF",
+        <div style={{ background: attributed ? C.malicious : C.paperAlt,
+                      color: attributed ? "#FFFFFF" : C.inkDim,
                       fontSize: 9.6, fontWeight: 800, letterSpacing: ".6px",
                       padding: "4px 8px" }}>
           MITRE | ATT&CK
         </div>
-        <div style={{ padding: "7px 9px", background: C.maliciousHalo }}>
-          <div style={{ fontSize: 9.6, fontWeight: 800, color: "#991B1B" }}>
+        <div style={{ padding: "7px 9px",
+                      background: attributed ? C.maliciousHalo : C.paper }}>
+          <div style={{ fontSize: 9.6, fontWeight: 800,
+                        color: attributed ? "#991B1B" : C.inkFaint }}>
             Tactics
           </div>
           {tactics.length === 0 ? (
             <div data-testid="amp-mitre-tactics-none"
                  style={{ fontSize: 10.2, color: C.inkFaint, marginTop: 2 }}>
-              ◇ no tactic attributed
+              Not attributed
             </div>
           ) : tactics.map((t) => (
             <div key={t} className="mono" data-testid={`amp-mitre-${t}`}
@@ -193,16 +210,15 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
               {t}
             </div>
           ))}
-          <div style={{ fontSize: 9.6, fontWeight: 800, color: "#991B1B",
-                        marginTop: 7 }}>
+          <div style={{ fontSize: 9.6, fontWeight: 800, marginTop: 7,
+                        color: attributed ? "#991B1B" : C.inkFaint }}>
             Techniques
           </div>
           {techniques.length === 0 ? (
             <div data-testid="amp-mitre-none"
                  style={{ fontSize: 10.2, color: C.inkFaint, marginTop: 2,
                           lineHeight: 1.5 }}>
-              ◇ no technique attributed to this observation. Absence of an
-              attribution is not evidence that no technique was used.
+              Not attributed
             </div>
           ) : techniques.map((t) => (
             <div key={t} className="mono" data-testid={`amp-mitre-${t}`}
@@ -213,22 +229,22 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
         </div>
       </div>
 
-      <Section title="Observables" testid="amp-observables">
+      <Section title="File" testid="amp-observables">
         {(event.file_artefacts || []).length === 0 ? (
           <div data-testid="amp-observables-none"
                style={{ fontSize: 10.4, color: C.inkFaint, marginTop: 5,
                         lineHeight: 1.5 }}>
-            ◇ no file artefact was reported with this observation.
+            No file was reported with this event.
           </div>
         ) : (event.file_artefacts || []).map((f, i) => (
           <div key={f.iid || i} data-testid={`amp-observable-${i}`}
                style={{ marginTop: 5, display: "flex", gap: 6,
                         alignItems: "flex-start" }}>
-            <span style={{ fontSize: 10.4, color: C.inkDim }}>File:</span>
+            <span style={{ fontSize: 10.4, color: C.inkDim }}>Path:</span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="mono" style={{ fontSize: 10.4, color: C.ink,
                                               wordBreak: "break-all" }}>
-                {f.path || "◇ path not reported"}
+                {f.path || "Not reported"}
               </span>
               <span className="mono" style={{ display: "block",
                                               fontSize: 9.6,
@@ -238,19 +254,32 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
                   ? (openHash === i ? f.sha256
                     : `${String(f.sha256).slice(0, 10)}…`
                       + String(f.sha256).slice(-8))
-                  : "◇ SHA-256 not reported"}
+                  : "SHA-256 not reported"}
               </span>
             </span>
             {f.sha256 && (
-              <button onClick={() => setOpenHash(openHash === i ? null : i)}
-                      data-testid={`amp-observable-expand-${i}`}
-                      style={{ background: C.paper, cursor: "pointer",
-                               border: `1px solid ${C.gridStrong}`,
-                               borderRadius: 2, color: C.inkDim,
-                               display: "flex", padding: 1 }}>
-                {openHash === i ? <ChevronUp size={10} />
-                                : <ChevronDown size={10} />}
-              </button>
+              <>
+                <button onClick={() => navigator.clipboard
+                          ?.writeText(String(f.sha256))}
+                        data-testid={`amp-copy-sha256-${i}`}
+                        title="Copy SHA-256"
+                        style={{ background: C.paper, cursor: "pointer",
+                                 border: `1px solid ${C.gridStrong}`,
+                                 borderRadius: 2, color: C.link,
+                                 fontSize: 9.6, padding: "1px 5px",
+                                 whiteSpace: "nowrap" }}>
+                  Copy SHA-256
+                </button>
+                <button onClick={() => setOpenHash(openHash === i ? null : i)}
+                        data-testid={`amp-observable-expand-${i}`}
+                        style={{ background: C.paper, cursor: "pointer",
+                                 border: `1px solid ${C.gridStrong}`,
+                                 borderRadius: 2, color: C.inkDim,
+                                 display: "flex", padding: 1 }}>
+                  {openHash === i ? <ChevronUp size={10} />
+                                  : <ChevronDown size={10} />}
+                </button>
+              </>
             )}
           </div>
         ))}
@@ -265,7 +294,7 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           <span className="mono" style={{ color: C.ink,
                                           wordBreak: "break-all" }}>
             {event.command_line || event.file || event.network
-              || event.process || "◇ not reported"}
+              || event.process || "Not reported"}
           </span>
         </div>
         <div style={{ fontSize: 10.2, color: C.inkDim, marginTop: 4 }}>
@@ -273,16 +302,100 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
           <span className="mono" style={{ color: C.ink }}>
             {event.parent_process_name
               || (event.parent_state === "PARENT_NOT_OBSERVED_VISIBILITY_GAP"
-                ? "◇ parent not observed — visibility gap"
+                ? "Not reported"
                 : event.parent_state === "PARENT_NOT_REPORTED_BY_SENSOR"
                   ? `${event.process || "process"} · root`
-                  : event.process || "◇ not reported")}
+                  : event.process || "Not reported")}
           </span>
         </div>
       </Section>
 
+      {/* DT2-3c · WHICH compromise this observation was PROVEN to
+          contribute to, and the authority's own stated basis. Shown only
+          when the server resolved this observation's identity into a
+          compromise's `contributing_event_refs[]`. */}
+      {(event.contributor_of || []).length ? (
+        <Section title="Indication of compromise"
+                 testid="amp-contributor-attribution">
+          {(event.contributor_of || []).map((cid) => {
+            const c = compromise?.byId?.get(cid);
+            const basis = c
+              ? contributionBasisOf(c, event.observation_id) : null;
+            return (
+              <div key={cid} data-testid={`amp-contributor-of-${cid}`}
+                   data-contributor-basis={basis || ""}
+                   style={{ marginTop: 5, background: C.paperAlt,
+                            borderLeft: `3px solid ${C.contributor}`,
+                            border: `1px solid ${C.grid}`,
+                            padding: "6px 8px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700,
+                              color: C.contributor }}>
+                  {c ? c.indicator_id : cid}
+                </div>
+                {c ? (
+                  <div style={{ fontSize: 10.6, color: C.inkDim,
+                                marginTop: 2 }}>{c.description}</div>
+                ) : null}
+                <div style={{ fontSize: 10.2, color: C.inkFaint,
+                              marginTop: 3 }}>
+                  contribution stated by {c ? c.authority : "the authority"}
+                  {basis ? ` · ${basis}` : ""}
+                </div>
+                {c && (c.techniques || []).length ? (
+                  <div data-testid={`amp-contributor-mitre-${cid}`}
+                       style={{ fontSize: 10.2, color: C.suspicious,
+                                marginTop: 3 }}>
+                    {[...(c.tactics || []), ...(c.techniques || [])]
+                      .join(" · ")}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </Section>
+      ) : null}
+
       <Section title="Detection" testid="amp-detection-attribution">
-        {event.detection ? (
+        {(!event.detection && findings.length) ? (
+          /* E3 · the engine matched this observation and the FINDING is
+             the authoritative record. Every value below is the producing
+             rule's own; nothing is inferred from the event. */
+          <div data-testid="amp-detection-findings">
+            {findings.map((f, i) => (
+              <div key={f.finding_id || i}
+                   data-testid={`amp-detection-finding-${i}`}
+                   style={{ marginTop: 5, background: C.paperAlt,
+                            border: `1px solid ${C.grid}`,
+                            padding: "6px 8px" }}>
+                <div style={{ fontSize: 10.8, fontWeight: 700,
+                              color: C.malicious }}>
+                  {f.rule_name || f.rule_id}
+                </div>
+                <Row k="Rule" v={f.rule_version
+                  ? `${f.rule_id} v${f.rule_version}` : f.rule_id}
+                     testid={`amp-d-finding-rule-${i}`} />
+                {f.severity
+                  ? <Row k="Severity" v={f.severity}
+                         testid={`amp-d-finding-severity-${i}`} /> : null}
+                {f.attck?.length
+                  ? <Row k="ATT&CK" v={f.attck.join(", ")}
+                         testid={`amp-d-finding-attck-${i}`} /> : null}
+                <Row k="Engine" v={`${f.engine} · ${f.engine_version}`}
+                     testid={`amp-d-finding-engine-${i}`} />
+                <Row k="Evaluated" v={f.evaluated_at}
+                     testid={`amp-d-finding-evaluated-${i}`} />
+                <Row k="Finding" v={f.finding_id}
+                     testid={`amp-d-finding-id-${i}`} />
+                <div className="mono" style={{ fontSize: 9, marginTop: 3,
+                                               color: C.inkFaint,
+                                               lineHeight: 1.5 }}>
+                  basis: {f.detection_source}
+                  {f.attck_basis ? ` · att&ck: ${f.attck_basis}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : event.detection ? (
           <div data-testid="amp-detection-record"
                data-rule-ids={(event.detection.rule_ids || []).join(",")}
                data-verdict={event.detection.verdict || ""}
@@ -321,17 +434,45 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
             </div>
           </div>
         ) : (
+          /* E3 · "no detection" and "never evaluated" are DIFFERENT
+             facts and are stated as such. Silence used to read as
+             benign; now the evaluation ledger answers the question. */
           <div data-testid="amp-detection-none"
+               data-assessment-state={event.assessment_state || ""}
                style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
                         lineHeight: 1.55, background: C.paperAlt,
                         border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
-            <span className="mono">
-              {event.assessment_state
-                || "NO_DETECTION_CLAIMED_THIS_OBSERVATION"}
-            </span>
-            {" "}— no rule match is recorded against this observation in
-            the authoritative detection records. Absence of a detection is
-            not a verdict of clean.
+            {evaluated ? (
+              <>
+                <span style={{ color: C.ink, fontWeight: 700 }}>
+                  Evaluated · no rule matched.
+                </span>
+                <div data-testid="amp-detection-evaluated-meaning"
+                     style={{ marginTop: 3 }}>
+                  {event.evaluation_meaning}
+                </div>
+                <div className="mono" data-testid="amp-detection-evaluated-by"
+                     style={{ fontSize: 9, color: C.inkFaint, marginTop: 4 }}>
+                  {ev.analyzer_id}
+                  {ev.analyzer_version ? ` v${ev.analyzer_version}` : ""}
+                  {ev.evaluated_at ? ` · evaluated ${ev.evaluated_at}` : ""}
+                  {ev.attempts ? ` · attempt ${ev.attempts}` : ""}
+                </div>
+              </>
+            ) : (
+              <>
+                <span style={{ color: C.ink, fontWeight: 700 }}>
+                  Not evaluated.
+                </span>
+                <div style={{ marginTop: 3 }}>
+                  {event.evaluation_meaning
+                    || ("no detection engine has evaluated this "
+                        + "observation yet. The evidence exists and is "
+                        + "replayable — this is a detection gap, not an "
+                        + "absence of activity.")}
+                </div>
+              </>
+            )}
           </div>
         )}
       </Section>
@@ -342,8 +483,11 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
                style={{ fontSize: 10.4, color: C.inkDim, marginTop: 5,
                         lineHeight: 1.55, background: C.paperAlt,
                         border: `1px solid ${C.grid}`, padding: "6px 8px" }}>
-            No detection engine claimed this observation — it is
-            telemetry. Reported by{" "}
+            {evaluated
+              ? "The detection fabric evaluated this observation and no "
+                + "rule matched, so no engine claims it. "
+              : "No detection engine has evaluated this observation yet. "}
+            Reported by{" "}
             <span className="mono">
               {engines[0]?.component || "the collector"}
             </span>.
@@ -399,53 +543,12 @@ export default function AmpEventDetails({ event, lane, onPivot, width,
         <Row k="Action" v={event.action} testid="amp-d-action" />
         <Row k="Sensor label" v={event.display_label}
              testid="amp-d-display-label" />
-        <Row k="Activity row"
-             v={`${event.lane_group} · row ${event.lane_index}`}
-             testid="amp-d-lane" />
-        <Row k="Row identity" v={event.lane_id} testid="amp-d-lane-id" />
-        <Row k="Observed extent of this row"
-             v={lane ? `${lane.first_seen} → ${lane.last_seen}` : null}
-             testid="amp-d-extent" />
         <Row k="Evidence labels" v={event.labels} testid="amp-d-labels" />
       </Section>
 
-      <Section title="Provenance">
-        <Row k="Event content digest (not a file hash)"
-             v={event.event_content_digest} testid="amp-d-content-digest" />
-        <Row k="Raw event id" v={event.provenance?.raw_event_id}
-             testid="amp-d-raw-id" />
-        <Row k="Canonical event id" v={event.provenance?.canonical_event_id}
-             testid="amp-d-canonical-id" />
-        <Row k="Evidence id" v={event.provenance?.evidence_id}
-             testid="amp-d-evidence-id" />
-        <Row k="Incident" v={event.provenance?.incident_id}
-             testid="amp-d-incident" />
-        <Row k="Collector" v={event.provenance?.origin
-          || event.provenance?.adapter} testid="amp-d-origin" />
-        <Row k="Normalizer" v={event.provenance?.normalizer}
-             testid="amp-d-normalizer" />
-        <Row k="Event identity" v={event.event_iid} testid="amp-d-event-iid" />
-      </Section>
-
-      <div style={{ marginTop: 11, display: "flex", flexDirection: "column",
-                    gap: 4 }}>
-        {[["process-tree", "Open Process Tree"],
-          ["campaign-story", "Open Campaign Story"],
-          ["file-trajectory", "Open fleet File Trajectory"],
-          ["filter-indicator", "Filter trajectory by this indicator"]].map(
-          ([k, label]) => (
-            <button key={k} onClick={() => onPivot(k, event)}
-                    data-testid={`amp-details-pivot-${k}`}
-                    style={{ fontSize: 10.4, textAlign: "left",
-                             padding: "5px 9px", cursor: "pointer",
-                             background: C.paper, color: C.link,
-                             border: `1px solid ${C.gridStrong}`,
-                             borderRadius: 2, display: "flex",
-                             alignItems: "center", gap: 6 }}>
-              <ExternalLink size={10} /> {label}
-            </button>
-          ))}
-      </div>
+      {/* DT2-3a · Cisco's Event Details pane carries no product pivots and
+          no provenance/identity block. Both remain available in the
+          evidence payload for the NivXForge enhancement phase. */}
     </Shell>
   );
 }

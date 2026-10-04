@@ -24,12 +24,13 @@ import XdrShell from "@/xdr/XdrShell";
 import {
   NxPageShell, NxSurface, NxKpi, NxEmptyBlock as NxEmpty, NxPill, NxHBar, NxDonut,
 } from "@/xdr/nx";
-import IntelligenceControlPanel from "@/xdr/components/IntelligenceControlPanel";
+import IntelligenceStatusChip from "@/xdr/intelligence/IntelligenceStatusChip";
 import {
   getMssKpis, getMssStateDistribution, getMssSocQueue,
   getMssAnalystWorkload, getMssCustomerOperations,
   getMssAutoInvestigation, getMssDetectionOverview, getMssRecentActivity,
 } from "@/lib/incidentsApi";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 const LENS_META = {
@@ -78,7 +79,7 @@ export default function XdrMssDashboardPage() {
       setKpi(k); setDist(d); setQueue(q); setWork(w); setCust(c);
       setAuto(a); setDet(dt); setAct(ac);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load MSS dashboard.");
+      setError(apiErrorText(e, "Failed to load MSS dashboard."));
     } finally { setL(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -121,9 +122,12 @@ export default function XdrMssDashboardPage() {
           />
         )}
 
-        {/* ── NivXRay XDR Intelligence · Global Governance ─────── */}
+        {/* ── Intelligence · compact read-only effective state ────
+                 The editable policy lives in Administration ›
+                 Intelligence Policy. A Command Center answers "what is
+                 happening", not "how is this configured". */}
         <div style={{ marginBottom: 14 }} data-testid="xdr-mss-intelligence-slot">
-          <IntelligenceControlPanel scope="global" />
+          <IntelligenceStatusChip />
         </div>
 
         {/* ── Attention strip · 6 top operational lenses ──────────── */}

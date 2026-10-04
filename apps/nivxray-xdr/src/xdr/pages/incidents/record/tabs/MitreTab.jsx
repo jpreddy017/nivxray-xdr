@@ -24,6 +24,7 @@ import api from "@/lib/api";
 import EvidenceInspector from "@/xdr/components/EvidenceInspector";
 import { attackHrefFor, attackLinkTitle }
   from "@/xdr/mitre/attackLink";
+import { apiErrorText } from "@/xdr/nx/apiError";
 
 
 // Round 45 · Inspector consolidation.
@@ -79,8 +80,7 @@ export default function MitreTab({ incident }) {
           `/admin/content-supply-chain/incidents/${incident.id}/attack-chain-graph`);
         if (!cancelled) setData(r.data);
       } catch (e) {
-        if (!cancelled) setErr(e?.response?.data?.detail
-                                          || e?.message || "unavailable");
+        if (!cancelled) setErr(apiErrorText(e, "unavailable"));
       } finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
@@ -132,28 +132,28 @@ export default function MitreTab({ incident }) {
             /* Round 45 · shared inspector opened via evidence pill.
                 Same component used by Attack Graph / Timeline /
                 Evidence Deep-Links (R38.3 · R42 invariant). */
-            <div style={{ background: "#0b1220",
-                             border: "1px solid #1e293b",
+            <div style={{ background: "var(--nx-surf-inset)",
+                             border: "1px solid var(--nx-bd-quiet)",
                              borderRadius: 4, overflow: "hidden" }}
                   data-testid="xdr-mitre-inspector">
               <div style={{ padding: "8px 12px",
-                               borderBottom: "1px solid #1e293b",
-                               background: "#111827",
+                               borderBottom: "1px solid var(--nx-bd-quiet)",
+                               background: "var(--nx-surf-inset)",
                                display: "flex", alignItems: "center",
-                               gap: 8, fontSize: 11, color: "#cbd5e1" }}
+                               gap: 8, fontSize: 11, color: "var(--nx-low)" }}
                     data-testid="xdr-mitre-deeplink-bar">
                 <button
                   data-testid="xdr-mitre-deeplink-back"
                   onClick={() => setDeepLink(null)}
-                  style={{ background: "#0f172a",
-                                 color: "#e2e8f0",
-                                 border: "1px solid #334155",
+                  style={{ background: "var(--nx-surf-inset)",
+                                 color: "var(--nx-text)",
+                                 border: "1px solid var(--nx-bd-quiet)",
                                  borderRadius: 3,
                                  padding: "4px 8px", fontSize: 11,
                                  cursor: "pointer" }}>
                   ← Back
                 </button>
-                <span style={{ color: "#a78bfa", fontWeight: 700,
+                <span style={{ color: "var(--nx-purple)", fontWeight: 700,
                                    letterSpacing: 0.6,
                                    textTransform: "uppercase",
                                    fontSize: 10 }}>
@@ -195,7 +195,7 @@ function Header({ data, confFilter, setConfFilter,
                         background: "var(--panel2)", borderRadius: 4 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center",
                           flexWrap: "wrap" }}>
-        <ShieldCheck size={12} style={{ color: "#a78bfa" }} />
+        <ShieldCheck size={12} style={{ color: "var(--nx-purple)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
           ATT&CK Attack Chain · Evidence-First
         </b>
@@ -438,7 +438,7 @@ function NodePanel({ n, onClear }) {
                                 background: "rgba(167,139,250,0.04)" }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center",
                             flexWrap: "wrap" }}>
-          <b style={{ color: "#a78bfa" }}>PROVENANCE</b>
+          <b style={{ color: "var(--nx-purple)" }}>PROVENANCE</b>
           {["Telemetry", "Canonical", "Correlation", "Mapping",
             "Attack Graph"].map((step, i, arr) => (
             <React.Fragment key={step}>
@@ -525,7 +525,7 @@ function NodePanel({ n, onClear }) {
               data-testid={`mitre-tab-attack-link-${n.id}`}
               style={{ display: "inline-flex", alignItems: "center",
                             gap: 4, marginTop: 8, fontSize: 10,
-                            fontFamily: "var(--mono)", color: "#a78bfa" }}>
+                            fontFamily: "var(--mono)", color: "var(--nx-purple)" }}>
             attack.mitre.org <ChevronRight size={9} />
           </a>
         );

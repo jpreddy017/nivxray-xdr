@@ -15,6 +15,7 @@ this, because ``check_access`` was never reached.
 from __future__ import annotations
 
 import os
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,8 +24,16 @@ os.environ.setdefault("DB_NAME", "test_database")
 
 # Imported after the env defaults above are set.
 from server import app
+from tests._verified_session import register_tenants
 
 client = TestClient(app)
+
+#: The tenant this suite operates in. It is REGISTERED below rather than
+#: assumed: the CI database is clean, and `default` is not registered there —
+#: which is itself the rule under test (`TENANT_NOT_FOUND`), because tenancy
+#: is an administrative act (`POST /api/xdr/tenants`) and never a side effect
+#: of a request naming a tenant.
+LEGITIMATE_TENANT = f"p0sec-{uuid.uuid4().hex[:8]}"
 
 #: Every surface proven reachable anonymously in production on 2026-09-09.
 GATED_GETS = [
@@ -89,6 +98,13 @@ def test_invalid_bearer_token_is_rejected():
 def test_authenticated_admin_still_authorized():
     """Regression: the fix must not lock the legitimate admin out.
 
+    The administrator must NAME the tenant it is operating in. That is not a
+    softening of this guard — it is the companion rule: there is no default
+    tenant, so a cross-tenant principal that names nothing is refused
+    (`TENANT_REQUIRED`), and the tenant it does name is then AUTHORIZED
+    server-side for that principal. The header therefore remains an input to
+    authorization and never an identity.
+
     Context-managed client so FastAPI startup runs (`validate_config()` +
     `init_database()`); the anonymous tests above deliberately run WITHOUT it,
     which also proves the gate fails closed when the datastore is unbound.
@@ -99,10 +115,30 @@ def test_authenticated_admin_still_authorized():
             "password": os.environ["ADMIN_PASSWORD"]})
         assert login.status_code == 200, login.text
         token = login.json()["access_token"]
-        auth = {"Authorization": f"Bearer {token}"}
+        register_tenants(LEGITIMATE_TENANT, label="p0sec")
+        auth = {"Authorization": f"Bearer {token}",
+                "X-Tenant-Id": LEGITIMATE_TENANT}
         for path in GATED_GETS:
             r = c.get(path, headers=auth)
             assert r.status_code == 200, f"{path} answered {r.status_code} for admin"
+
+
+def test_admin_without_a_named_tenant_is_refused():
+    """No default tenant · the companion half of the rule above.
+
+    A verified administrator that names NO tenant must not silently land in
+    `default`. Substituting a tenant is how a cross-tenant read becomes
+    invisible, so the platform refuses instead.
+    """
+    with TestClient(app) as c:
+        login = c.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+        assert login.status_code == 200, login.text
+        auth = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        r = c.get("/api/xdr/collectors", headers=auth)
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "TENANT_REQUIRED", r.text
 
 
 def test_bootstrap_bypass_pattern_is_absent_from_source():

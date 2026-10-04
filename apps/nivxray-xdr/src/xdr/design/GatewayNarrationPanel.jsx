@@ -14,6 +14,7 @@
 import React, { useEffect, useState } from "react";
 import { RefreshCcw, ShieldCheck, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import { neutralGatewayBadges } from "@/xdr/design/providerLabels";
 
 export default function GatewayNarrationPanel({
@@ -37,7 +38,7 @@ export default function GatewayNarrationPanel({
       const r = await api.get(url);
       setData(r.data);
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load");
+      setError(refusalText(e, "Failed to load"));
       setData(null);
     } finally { setLoading(false); }
   };

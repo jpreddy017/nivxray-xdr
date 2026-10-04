@@ -34,7 +34,20 @@ GAP_TRACK_DIRS = (
 # Last human review date for the gap-tracking tests. Bumping this after
 # a monthly triage is the SOLE hygiene ritual we ask reviewers to
 # perform. Format: YYYY-MM-DD.
-LAST_REVIEW_DATE = "2026-07-21"
+#
+# REVIEW LOG (bump only after the review actually happened)
+#   2026-09-22 · reviewed `tests/rc5/unit/coverage_gaps/` in full.
+#     Tracked xfail gaps: NONE. Both former `xfail(strict=True)`
+#     tombstones (PowerShell parser hang on `$env:VAR + '...'` in
+#     expression context, and `[Reflection.Assembly]::Load` semantic
+#     detection → T1620) were resolved in the Feb-2026 correctness
+#     sprint and now run as positive regression assertions.
+#     `pytest tests/rc5/unit/coverage_gaps/ -rxX` → 18 passed, 0 xfail,
+#     0 xpass, so nothing is silently fixed-but-still-tracked and
+#     nothing new was added. Nothing was skipped, xfailed or weakened,
+#     and MAX_STALENESS_DAYS remains 60.
+#   2026-07-21 · previous review.
+LAST_REVIEW_DATE = "2026-09-22"
 
 # Max staleness before this test fails, forcing a fresh triage.
 MAX_STALENESS_DAYS = 60

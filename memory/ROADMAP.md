@@ -1460,3 +1460,110 @@ lineage guides, Activity quick filters). iteration_100 all pass.
   from incident; script-vs-interpreter attribution; short-lived process
   visibility gap; live attack replay; 52 unbound detection rules.
 - P2: quarantine, forensic snapshot, live query, hunting; Windows agent.
+
+## 2026-06 · NEXT, GATED ON OWNER REVIEW (do not self-authorize)
+
+### P0 — awaiting owner decision
+- **UX0 visual approval.** Review `/xdr/_ux0-preview` (light + dark) against
+  `memory/E2E_UX0_BLUEPRINT.md` §6 checklist. On approval: promote `ux0/`
+  candidates into `xdr/nx/` as `NxIncidentHeader`, `NxMetricDrawerCard`,
+  `NxStageRail`, `NxClaimCard`, `NxTechnicalDetails`, then propagate E2E-1…E2E-10.
+- **CI R-4** semantic PowerShell expression evaluator (literal, number,
+  `[char]`, cast, parens, `+` with .NET coercion, `-f`, `-join`, `.Replace`,
+  `.Substring`), behind the existing regexes until it proves equal-or-better on
+  the corpus.
+- **CI R-5** statement list + variable dependency graph; `runtime_value` vs
+  `statically_recovered_value` vs `unresolved`.
+- **D-11 fixture**: pin the owner's exact obfuscated PowerShell sample,
+  byte-for-byte, replacing the NON-AUTHORITATIVE reconstruction.
+
+### P1
+- CI R-6 recursive fixed point with per-artifact `provenance[]` and explicit
+  stop reasons.
+- CI R-7 canonical-payload propagation to Summary / IOC / MITRE / execution
+  flow / auto-investigation / reports (wrapper retained as labelled context).
+- CI R-8 rebuild the production `/xdr/intelligence/command` page on the approved
+  UX0 composition (raw JSON demoted to Technical details).
+- F9: parse the `-c "<program>"` interior as a program instead of one opaque span.
+- RBAC-1+ (RBAC-0 discovery already approved as architectural input).
+
+### P2
+- LOLBAS / GTFOBins offline matching; OSINT enrichment (VirusTotal, AbuseIPDB).
+- Timezone safety for Sysmon `UtcTime` (offset-naive datetimes).
+- Measured `parser_ok` / `normalized_ok` instead of defaulting to true.
+- `xdr_canonical_events.source_timestamp` null on raw projection.
+- Per-tenant / per-analyst incident layout customisation (rejected for UX0).
+
+## 2026-06 (session 2) · WAVE PLAN — each wave gated on owner approval
+
+**Gate now open:** Wave 1 visual + functional review
+(`/xdr/_ux0-preview/workspace`, `memory/E2E_UX0_WAVE1_ACCEPTANCE.md`) and the
+Command Intelligence discovery report (`memory/CI_DISCOVERY_R4_R5.md`).
+
+| wave | surfaces | primary reference | status |
+|---|---|---|---|
+| 1 | Global shell · Incidents queue · Incident workspace (Overview) | Cisco XDR shell · Cortex XDR split view | **DELIVERED — awaiting approval** |
+| 2 | Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360 · Process/Activity graph | Defender attack story · Cortex causality · Cisco evidence/worklog | blocked on Wave 1 approval |
+| 3 | Endpoint investigation · Hunting · Assets · Report tab | Cortex endpoint · Defender advanced hunting · Cisco assets | blocked |
+| 4 | Response · Intelligence · Data Sources · Collector onboarding | Cortex/Defender action centre · Cisco intel · Elastic onboarding | blocked |
+| CI | Command Intelligence page rebuild | NivXRay original | blocked on Lane B R-4/R-5 + R-7 |
+
+**Enforced sequence (owner):** UX0 refinement → owner visual approval →
+CI R-4/R-5 correctness → canonical propagation (R-7) → production Command
+Intelligence rebuild → E2E production workspace promotion.
+
+**Wave 1 follow-ups if approved:** 1440×900 + 2560×1440 captures · automated
+side-by-side image diff · hover-revealed bulk select in the queue · segmented
+alert donut with hover · keyboard focus + sub-1180px sweep · rebuild
+`/xdr/incidents` itself on the same queue grammar.
+
+**Lane B next (approval required):** R-4 expression evaluator · R-5 statement +
+dataflow model · artifact graph with provenance and explicit stop reasons ·
+R-7 canonical fan-out · LOLBAS call-site repair (catalog already exists) ·
+OSINT bridge (providers already exist) · D-11 ATT&CK records · D-12 IOC records
+· evidence-driven Executive Summary · `analysis_completeness` object.
+
+## 2026-06 (session 3) · DUAL-CONSOLE WAVES (all blocked on A0 approval)
+
+| wave | content | gate |
+|---|---|---|
+| **A0** | owner approval of the dual-console architecture + both reference catalogues | **OPEN NOW** |
+| A1 | `NxConsoleShell` + `NxConsoleSwitch`; Analyst rail rebuilt; admin surfaces removed from the analyst rail (routes kept + redirected) | A0 |
+| A2 | Analyst Wave 2 (Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360) | A0 + UX0 Wave 1 approval |
+| B1 | `/admin/login` + Admin Overview (platform health, never SOC graphs) | A0 |
+| B2 | Admin Data & Telemetry (resolve the duplicate data-sources page first) | B1 |
+| B3 | Access Management + Effective Access + Access Simulator | B1 + RBAC-1 grant/restriction/scope contract |
+| B4 | Detection Engineering + Automation & Response (migrated from the analyst rail) | B1 |
+| B5 | Developer/Integration + Platform (SSO, retention, updates) | backend contracts |
+| C | route consolidation + dead-code removal (full mandated sequence) | all above |
+
+**Auth/RBAC lane prerequisite (not UX):** `console.soc.access` /
+`console.admin.access` permissions, and the owner decision on separate token
+audiences per console.
+
+**Still outstanding from the owner:** the exact byte-for-byte obfuscated
+PowerShell sample for the permanent D-19 Command Intelligence fixture.
+
+## 2026-06 (session 4) · A0.5 INSERTED — TENANT/SCOPE CONTRACT GATE
+
+| wave | content | owner status |
+|---|---|---|
+| A0 | dual-console architecture + both catalogues | **APPROVED** |
+| **A0.5** | **auth/RBAC lane:** C1–C9 tenant/scope contracts · `console.soc.access` / `console.admin.access` · **T-RISK-1 fail-closed** (`xdr_rbac.py:332` `"default"` fallback) · 12 acceptance tests | **REQUIRED BEFORE A1/B1 cross-tenant surfaces** |
+| A1 | `NxConsoleShell` + `NxScopeNavigator` + `NxTenantBadge`; analyst rail rebuilt; admin surfaces redirected out of the analyst rail | approved, gated on A0.5 |
+| A2 | Analyst Wave 2 (Attack Story · Timeline · Evidence · Entities · Detections · MITRE · Activity · Entity 360) + cross-tenant incident queue columns | gated on A1 |
+| B1 | `/admin/login` + Admin Overview (platform health, never SOC graphs) | approved, gated on A0.5 |
+| B2 | **Customers/Tenants first-class:** Tenants · Tenant Groups · Tenant Access · Tenant Resource Scope · Tenant Evidence Health · Entitlements · Data Isolation | gated on A0.5 + C3/C5 |
+| B3 | **Effective Access (flagship)** + Access Simulator — must call the production resolver | gated on RBAC-1 (C6/C7) |
+| B4 | Detection Engineering + Automation & Response (migrated from the analyst rail) | gated on B1 |
+| B5 | Developer/Integration + Platform (SSO, retention, updates) | backend contracts |
+| C | route consolidation + dead-code removal (full mandated sequence) | all above |
+
+**Flagship differentiators approved:** Effective Access (grant chain) paired
+with Tenant Evidence Health.
+
+**Command Intelligence (separate lane, unchanged):** R-4 evaluator · R-5
+dataflow · R-7 canonical fan-out · LOLBAS + OSINT call-site repair · D-11/D-12
+records · evidence-driven Executive Summary · `analysis_completeness`.
+**Still outstanding from the owner:** the exact byte-for-byte obfuscated
+PowerShell sample for the permanent D-19 fixture.

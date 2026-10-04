@@ -1,0 +1,72 @@
+edge: https://greeting-app-5782.preview.emergentagent.com
+
+own-tenant incident: inc_639c20a2ac4142ba8df4
+
+PASS · anonymous GET /investigation → 403
+PASS · own-tenant GET /investigation → 200
+PASS · cross-tenant GET /investigation → 404 disclosed=False
+PASS · anonymous GET /investigation/executions → 403
+PASS · own-tenant GET /investigation/executions → 200
+PASS · cross-tenant GET /investigation/executions → 404 disclosed=False
+PASS · anonymous GET /investigation/findings → 403
+PASS · own-tenant GET /investigation/findings → 200
+PASS · cross-tenant GET /investigation/findings → 404 disclosed=False
+PASS · anonymous GET /attack-story → 403
+PASS · own-tenant GET /attack-story → 200
+PASS · cross-tenant GET /attack-story → 404 disclosed=False
+PASS · anonymous GET /attack-graph → 403
+PASS · own-tenant GET /attack-graph → 200
+PASS · cross-tenant GET /attack-graph → 404 disclosed=False
+PASS · anonymous GET /report → 403
+PASS · own-tenant GET /report → 200
+PASS · cross-tenant GET /report → 404 disclosed=False
+PASS · anonymous GET /report/pdf → 403
+PASS · own-tenant GET /report/pdf → 200
+PASS · cross-tenant GET /report/pdf → 404 disclosed=False
+PASS · anonymous GET /attack-evidence → 403
+PASS · own-tenant GET /attack-evidence → 200
+PASS · cross-tenant GET /attack-evidence → 404 disclosed=False
+PASS · anonymous GET /summary → 403
+PASS · own-tenant GET /summary → 200
+PASS · cross-tenant GET /summary → 404 disclosed=False
+PASS · anonymous GET /threat-model → 403
+PASS · own-tenant GET /threat-model → 200
+PASS · cross-tenant GET /threat-model → 404 disclosed=False
+PASS · anonymous GET /inspector/event/s1-live-ref → 403
+PASS · own-tenant GET /inspector/event/s1-live-ref → 200
+PASS · cross-tenant GET /inspector/event/s1-live-ref → 404 disclosed=False
+PASS · anonymous GET /intelligence/overlays → 403
+PASS · own-tenant GET /intelligence/overlays → 200
+PASS · cross-tenant GET /intelligence/overlays → 404 disclosed=False
+PASS · anonymous GET /understanding → 404
+PASS · own-tenant GET /understanding → 200
+PASS · cross-tenant GET /understanding → 404 disclosed=False
+PASS · anonymous GET /pivots → 403
+PASS · own-tenant GET /pivots → 200
+PASS · cross-tenant GET /pivots → 404 disclosed=False
+PASS · anonymous POST report/blocks → 403
+PASS · cross-tenant POST report/blocks → 404
+PASS · own-tenant POST report/blocks without incidents.update → 403 {'code': 'ACCESS_DENIED', 'reason': 'user-not-provisioned', 'permission': 'incidents.update'}
+PASS · anonymous PUT intelligence overlay → 403
+PASS · cross-tenant PUT intelligence overlay → 404
+PASS · own-tenant PUT intelligence overlay without incidents.update → 403
+PASS · cross-tenant GET /report ?tenant=default → 404
+PASS · cross-tenant GET /report ?customer=default → 404
+PASS · cross-tenant GET /report {'X-Tenant-Id': 'default'} → 404
+PASS · cross-tenant GET /report {'X-Principal-Id': 'admin@nivxray.com'} → 404
+PASS · unknown incident GET /investigation → 404
+PASS · unknown incident GET /investigation/executions → 404
+PASS · unknown incident GET /investigation/findings → 404
+PASS · unknown incident GET /attack-story → 404
+PASS · unknown incident GET /attack-graph → 404
+PASS · unknown incident GET /report → 404
+PASS · unknown incident GET /report/pdf → 404
+PASS · unknown incident GET /attack-evidence → 404
+PASS · unknown incident GET /summary → 404
+PASS · unknown incident GET /threat-model → 404
+PASS · unknown incident GET /inspector/event/s1-live-ref → 404
+PASS · unknown incident GET /intelligence/overlays → 404
+PASS · unknown incident GET /understanding → 404
+PASS · unknown incident GET /pivots → 404
+
+S1 LIVE MATRIX · 66 PASS · 0 FAIL

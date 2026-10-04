@@ -13,6 +13,9 @@ from services.investigator.capabilities.base import (
     Capability, EvidenceSufficiency, fid, now_iso,
 )
 from services.investigator.models import Finding, PivotAction
+from services.investigator.capabilities.network_identity_file import (
+    NETWORK_IP_FIELDS, ip_query, network_endpoints,
+)
 
 
 # ── Historical correlation ──────────────────────────────────────────
@@ -59,17 +62,16 @@ class HistoricalCorrelationCapability(Capability):
 
         probes: List[Tuple[str, str]] = []
         if canonical:
-            net = canonical.get("network") or {}
-            for side in ("src", "dst"):
-                ip = (net.get(side) or {}).get("ip")
-                if ip:
-                    probes.append((f"network.{side}.ip", str(ip)))
+            # N1/GAP-2 · both canonical network shapes, so a Zeek / CEF /
+            # Sysmon address is looked up exactly like a snort one.
+            probes = [(side, ip) for side, ip in network_endpoints(canonical)]
         # Deterministic order.
         probes = sorted(set(probes))
 
-        for field, ip in probes:
+        for side, ip in probes:
+            field = "|".join(NETWORK_IP_FIELDS[side])
             cursor = db["xdr_canonical_evidence"].find(
-                {field: ip}, {"_id": 0, "event_id": 1, "timestamp": 1},
+                ip_query(side, ip), {"_id": 0, "event_id": 1, "timestamp": 1},
             ).sort("timestamp", 1)
             prior: List[str] = []
             async for d in cursor:

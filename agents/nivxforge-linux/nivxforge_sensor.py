@@ -45,7 +45,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.1.0"
+SENSOR_VERSION = "0.2.0"
 STATE_DIR = Path(os.environ.get("NIVXFORGE_SENSOR_STATE",
                                 "/var/lib/nivxforge-sensor"))
 IDENTITY_FILE = STATE_DIR / "identity.json"      # mode 0600
@@ -97,6 +97,24 @@ CAPABILITIES = {
         "no eBPF, so no syscall-level fidelity",
     ],
 }
+
+
+# GATE 7 · the CANONICAL endpoint exclusion evaluator, shipped beside
+# this file in the connector release. It is imported rather than
+# reimplemented so Windows and Linux cannot drift apart.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nivxforge_exclusions as nvx_excl        # noqa: E402
+# DELIVERY FIDELITY + B3 CONTENT IDENTITY · both are CAPABILITIES and both
+# are OFF unless their environment flag is set. They are imported here so
+# the Windows and Linux connectors share one implementation.
+import nivxforge_content_acquisition as nvx_hash   # noqa: E402
+import nivxforge_delivery_counters as nvx_counters  # noqa: E402
+
+COUNTERS = nvx_counters.DeliveryCounters(STATE_DIR)
+ACQUIRER = nvx_hash.Acquirer()
+
+POLICY_FILE = STATE_DIR / "policy.json"
+EXCLUSION_JOURNAL = STATE_DIR / "exclusion_enforcement.json"
 
 
 def _now() -> str:
@@ -330,6 +348,45 @@ def _inode_pid_map() -> dict[str, int]:
     return m
 
 
+def _proc_start_identity(pid: int) -> dict:
+    """The owning process's START IDENTITY, re-read from /proc.
+
+    N2.1 · the inode map gives a PID, and a PID is reused by the kernel
+    within minutes. Without the start counter the connection can only be
+    attributed to "whatever holds that PID right now", which is exactly the
+    fabrication this sensor refuses to make elsewhere. Field 22 of
+    /proc/<pid>/stat is the same value the PROCESS lane already uses, so a
+    connection and its process resolve to the SAME identity.
+
+    The process may exit between reading the inode map and this read. That
+    is an honest negative, not a reason to guess.
+    """
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        start_ticks = int(stat[stat.rindex(")") + 2:].split()[19])
+    except (OSError, ValueError, IndexError):
+        return {"process_start_ticks": None, "process_start_time": None}
+    boot, hz = _boot_and_hz()
+    return {
+        "process_start_ticks": start_ticks,
+        "process_start_time": (datetime.fromtimestamp(
+            boot + start_ticks / hz, timezone.utc).isoformat()
+            if boot else None),
+    }
+
+
+def _boot_and_hz() -> tuple[float, int]:
+    try:
+        boot = 0.0
+        for line in Path("/proc/stat").read_text().splitlines():
+            if line.startswith("btime"):
+                boot = float(line.split()[1])
+                break
+        return boot, os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError):
+        return 0.0, 100
+
+
 def _hexip(raw: str) -> str:
     if len(raw) == 8:
         b = bytes.fromhex(raw)
@@ -370,6 +427,15 @@ def collect_network(seen: set[str]) -> list[dict]:
                 continue
             seen.add(key)
             listening = state == "0A"
+            pid = inode_pid.get(inode)
+            # N2.1 · a PID alone is not a process. The start identity is
+            # read for the resolved PID so the connection can be bound to a
+            # process LIFETIME rather than to a reusable number.
+            start = (_proc_start_identity(pid) if pid else
+                     {"process_start_ticks": None, "process_start_time": None})
+            unresolved = ([] if inode in inode_pid else ["owning_process"])
+            if pid and start["process_start_ticks"] is None:
+                unresolved.append("owning_process_start_identity")
             out.append({
                 "activity": "NETWORK",
                 "operation": "CONNECTION_OBSERVED",
@@ -380,10 +446,10 @@ def collect_network(seen: set[str]) -> list[dict]:
                 "remote_port": None if listening else rport_i,
                 "direction": "LISTEN" if listening else "OUTBOUND",
                 "tcp_state": state,
-                "pid": inode_pid.get(inode),
+                "pid": pid,
+                **start,
                 "not_observed": (["remote_ip", "remote_port"] if listening
-                                 else []) + ([] if inode in inode_pid
-                                             else ["owning_process"]),
+                                 else []) + unresolved,
             })
     return out
 
@@ -415,12 +481,26 @@ def collect_files(watch: str, known: dict[str, tuple]) -> list[dict]:
             op = "MODIFY"
         else:
             continue
-        out.append({
-            "activity": "FILE", "operation": op, "observed_at": _now(),
+        observed_at = _now()
+        event = {
+            "activity": "FILE", "operation": op, "observed_at": observed_at,
             "path": p, "filename": p.rsplit("/", 1)[-1], "size": sig[1],
             "sha256": _sha256_file(p),
             "not_observed": ["actor_process"],
-        })
+        }
+        # B3 · when the content-acquisition CAPABILITY is enabled the
+        # digest is carried inside a full acquisition record, so the
+        # server can tell WHEN the bytes were read and whether they were
+        # the bytes the event described. A bare digest cannot say either.
+        if nvx_hash.enabled():
+            record = ACQUIRER.acquire(
+                p, operation=op, event_observed_at=observed_at,
+                settle_seconds=nvx_hash.SETTLE_SECONDS)
+            event["file_content_acquisition"] = record
+            event["sha256"] = (record.get("sha256")
+                               if record.get("acquisition_state")
+                               == "ACQUIRED" else None)
+        out.append(event)
     for p in set(known) - set(current):
         out.append({
             "activity": "FILE", "operation": "DELETE", "observed_at": _now(),
@@ -476,6 +556,7 @@ def _drain(api: str, ident: dict, session: dict,
             try:
                 if not session.get("token"):
                     session["token"] = _open_session(api, ident)
+                COUNTERS.bump("sensor_attempted")
                 _post(api, "/api/edr/agent/telemetry",
                       {"payload": line, "source_kind": "sensor",
                        "sensor_version": SENSOR_VERSION,
@@ -483,6 +564,7 @@ def _drain(api: str, ident: dict, session: dict,
                           if interval else {})},
                       bearer=session["token"])
                 sent += 1
+                COUNTERS.bump("sensor_sent")
                 offset += consumed
                 OFFSET_FILE.write_text(str(offset))
                 if sent >= max_per_cycle:
@@ -497,6 +579,7 @@ def _drain(api: str, ident: dict, session: dict,
                     f.seek(offset)
                     continue
                 failed += 1
+                COUNTERS.bump("sensor_failed")
                 print(f"[queue] held back at offset {offset}: {msg[:140]}")
                 break
     return sent, failed
@@ -536,6 +619,104 @@ def _get(api: str, path: str, bearer: str) -> dict:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"{e.code} {e.read().decode()[:300]}") from None
+
+
+def _sync_policy(api: str, ident: dict, session: dict) -> dict:
+    """Fetch the assigned policy, apply it locally, and acknowledge it.
+
+    Fetching is what the platform records as DELIVERED. Applying it is
+    what this connector then acknowledges with the EXACT config digest,
+    which is the only thing that can make the platform report APPLIED.
+
+    A fetch failure does NOT disable enforcement: the last policy this
+    connector applied is persisted and keeps being enforced, and the
+    report is marked `policy_stale` so the platform can tell an
+    enforcing-but-stale endpoint from an unconfigured one.
+    """
+    persisted = {}
+    try:
+        persisted = json.loads(POLICY_FILE.read_text())
+    except (OSError, ValueError):
+        persisted = {}
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        out = _get(api, "/api/edr/agent/policy", session["token"])
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return {**persisted, "stale": True,
+                "stale_reason": str(e)[:120]} if persisted else {
+            "stale": True, "stale_reason": str(e)[:120], "exclusions": []}
+
+    policy = out.get("policy")
+    if not policy:
+        POLICY_FILE.write_text(json.dumps({"exclusions": [],
+                                           "state": out.get("state"),
+                                           "synced_at": _now()}))
+        return {"exclusions": [], "state": out.get("state"), "stale": False}
+
+    applied = {"policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "config": policy.get("config") or {},
+               "exclusions": out.get("exclusions") or [],
+               "synced_at": _now(), "stale": False}
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    POLICY_FILE.write_text(json.dumps(applied))
+
+    honoured = sum(1 for x in applied["exclusions"]
+                   if nvx_excl.validate(x) == nvx_excl.HONOURED)
+    try:
+        _post(api, "/api/edr/agent/policy-ack",
+              {"policy_id": applied["policy_id"],
+               "version": applied["version"],
+               "config_digest": applied["config_digest"],
+               "applied": True,
+               "running_config_digest": applied["config_digest"],
+               "connector_version": SENSOR_VERSION,
+               "exclusions_applied": honoured},
+              bearer=session["token"])
+        applied["acknowledged"] = True
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        # The policy IS applied locally. Failing to say so must never be
+        # reported as applied by the platform, so the ACK simply retries
+        # next cycle and the platform keeps reading DELIVERED.
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        applied["acknowledged"] = False
+        applied["ack_error"] = str(e)[:120]
+    return applied
+
+
+def _report_enforcement(api: str, ident: dict, session: dict,
+                        journal, policy: dict) -> str:
+    """Tell the platform what the LOCAL engine actually enforced.
+
+    Counts and value digests only. The excluded events themselves were
+    dropped on this machine and are never transmitted — that is the
+    whole point of an endpoint exclusion.
+    """
+    entries = journal.report()
+    if not entries:
+        return "NOTHING_TO_REPORT"
+    try:
+        if not session.get("token"):
+            session["token"] = _open_session(api, ident)
+        _post(api, "/api/edr/agent/exclusion-enforcement",
+              {"evaluator_version": nvx_excl.EVALUATOR_VERSION,
+               "engine": nvx_excl.ENGINE,
+               "policy_id": policy.get("policy_id"),
+               "version": policy.get("version"),
+               "config_digest": policy.get("config_digest"),
+               "policy_stale": bool(policy.get("stale")),
+               "exclusions": entries},
+              bearer=session["token"])
+        return f"SENT:{len(entries)}"
+    except (RuntimeError, urllib.error.URLError, OSError) as e:
+        if str(e).startswith(("401", "403")):
+            session["token"] = None
+        return f"FAILED:{str(e)[:80]}"
 
 
 def _isolation_capability() -> dict:
@@ -1012,7 +1193,10 @@ def _heartbeat(api: str, ident: dict, session: dict,
         _post(api, "/api/edr/agent/heartbeat",
               {"report_interval_seconds": float(interval),
                "sensor_version": SENSOR_VERSION,
-               "queue_depth": _queue_depth()},
+               "queue_depth": _queue_depth(),
+               # Additive and only when the CAPABILITY is enabled: the
+               # endpoint's own delivery counters, metadata only.
+               **COUNTERS.heartbeat_fields()},
               bearer=session["token"])
         return "SENT"
     except (RuntimeError, urllib.error.URLError, OSError) as e:
@@ -1051,20 +1235,45 @@ def run(api: str, interval: int, watch: str | None, once: bool) -> None:
         # Nothing is lost by continuing: unsent events stay in the durable
         # outbox and replay, and the failure is printed with the cycle.
         try:
+            policy = _sync_policy(api, ident, session)
             batch = collect_processes(seen_pids) + collect_network(seen_conns)
             if watch:
                 batch += collect_files(watch, known_files)
             for e in batch:
                 e.update({"sensor_version": SENSOR_VERSION,
                           "collection_method": "PROC_POLL"})
+            # GATE 7 · endpoint exclusion enforcement. Matching events are
+            # dropped HERE: they are never queued, never transmitted and
+            # never reach the platform. Enforcement happens before the
+            # durable outbox precisely so an exclusion cannot be defeated
+            # by a replay.
+            journal = nvx_excl.Journal(EXCLUSION_JOURNAL)
+            batch, excluded = nvx_excl.partition(
+                batch, policy.get("exclusions") or [], journal, policy)
+            journal.save()
+            # DELIVERY FIDELITY · what the endpoint OBSERVED, and what
+            # policy suppressed here, are only knowable at the endpoint.
+            COUNTERS.bump("endpoint_observed", len(batch) + len(excluded or []))
+            COUNTERS.bump("endpoint_read", len(batch) + len(excluded or []))
+            COUNTERS.bump("sensor_suppressed_by_policy", len(excluded or []))
             if batch:
                 _enqueue(batch)
             _save_observed(seen_pids, seen_conns, known_files, baselined)
             beat = _heartbeat(api, ident, session, interval)
             sent, failed = _drain(api, ident, session, interval)
             served = _serve_commands(api, ident, session)
+            reported = _report_enforcement(api, ident, session, journal,
+                                           policy)
+            COUNTERS.observe_gauge("sensor_queue_depth", _queue_depth())
+            COUNTERS.persist()
             print(f"[{_now()}] commands={served} collected={len(batch)} "
-                  f"sent={sent} held={failed} heartbeat={beat} "
+                  f"collection_suppressed_at_endpoint={excluded} sent={sent} "
+                  f"held={failed} heartbeat={beat} "
+                  f"policy={policy.get('policy_id')}"
+                  f"v{policy.get('version')}"
+                  f"{'(stale)' if policy.get('stale') else ''} "
+                  f"exclusions={len(policy.get('exclusions') or [])} "
+                  f"enforcement_report={reported} "
                   f"queued={_queue_depth()} "
                   f"endpoint={ident['endpoint_id']}", flush=True)
         except Exception as e:          # noqa: BLE001 — see the note above

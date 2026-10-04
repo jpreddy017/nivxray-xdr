@@ -20,6 +20,22 @@ import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
 
 
+/** A backend refusal is a STRUCTURE, not a string. Rendering it directly is
+ *  what crashed this page (objects are not valid React children) and took
+ *  the whole console with it, because every page mounts its own XdrShell.
+ *  The refusal is rendered as the analyst statement it actually is. */
+function refusalText(x) {
+  const d = x?.response?.data?.detail;
+  if (d && typeof d === "object") {
+    const code = d.code || d.error || "NOT AUTHORIZED";
+    const bits = [d.reason, d.basis && `basis ${d.basis}`,
+                  d.risk && `risk ${d.risk}`].filter(Boolean);
+    return `${code}${bits.length ? ` — ${bits.join(" · ")}` : ""}`;
+  }
+  if (typeof d === "string") return d;
+  return x?.message || "load failed";
+}
+
 const EXPOSURE_STATES = [
   "CVE_PRESENT",
   "AFFECTED_SOFTWARE",
@@ -58,7 +74,7 @@ export default function XdrExposurePage() {
     (async () => {
       setBusy(true); setErr(null);
       try {
-        const [s, c, a, sw, e] = await Promise.all([
+        const [s, c, a, sw, e] = await Promise.allSettled([
           api.get("/xdr/cve/status"),
           api.get("/xdr/cve/list", { params: { limit: 500,
               q: q || undefined,
@@ -69,13 +85,21 @@ export default function XdrExposurePage() {
           api.get("/xdr/cve/exposures", { params: { limit: 500 } }),
         ]);
         if (cancelled) return;
-        setStatus(s?.data?.data || null);
-        setCves(c?.data?.data?.cves || []);
-        setAssets(a?.data?.data?.assets || []);
-        setSoftware(sw?.data?.data?.software || []);
-        setExposures(e?.data?.data?.exposures || []);
+        const val = (r) => (r.status === "fulfilled" ? r.value : null);
+        setStatus(val(s)?.data?.data || null);
+        setCves(val(c)?.data?.data?.cves || []);
+        setAssets(val(a)?.data?.data?.assets || []);
+        setSoftware(val(sw)?.data?.data?.software || []);
+        setExposures(val(e)?.data?.data?.exposures || []);
+        // Report every refusal by name — a fail-closed surface is an
+        // authorization statement, not an empty dataset.
+        const refused = [["Pillar status", s], ["CVE catalog", c],
+                         ["Assets", a], ["Software", sw], ["Exposures", e]]
+          .filter(([, r]) => r.status === "rejected")
+          .map(([label, r]) => `${label}: ${refusalText(r.reason)}`);
+        setErr(refused.length ? refused.join(" · ") : null);
       } catch (x) {
-        setErr(x?.response?.data?.detail || x?.message || "load failed");
+        setErr(refusalText(x));
       } finally { if (!cancelled) setBusy(false); }
     })();
     return () => { cancelled = true; };
@@ -87,7 +111,7 @@ export default function XdrExposurePage() {
       await api.post("/xdr/cve/exposures/compute");
       setRefresh((n) => n + 1);
     } catch (x) {
-      setErr(x?.response?.data?.detail || x?.message);
+      setErr(refusalText(x));
     } finally { setComputing(false); }
   };
 
@@ -108,7 +132,7 @@ export default function XdrExposurePage() {
       await api.post("/xdr/cve/assets", assetForm);
       setAssetForm({ name: "", kind: "endpoint" });
       setRefresh((n) => n + 1);
-    } catch (x) { setErr(x?.response?.data?.detail || x?.message); }
+    } catch (x) { setErr(refusalText(x)); }
   };
   const createSoftware = async () => {
     if (!swForm.asset_id || !swForm.vendor || !swForm.product) return;
@@ -117,7 +141,7 @@ export default function XdrExposurePage() {
       setSwForm({ asset_id: "", vendor: "", product: "", version: "",
                             patched: false });
       setRefresh((n) => n + 1);
-    } catch (x) { setErr(x?.response?.data?.detail || x?.message); }
+    } catch (x) { setErr(refusalText(x)); }
   };
 
   const s = status || {};
@@ -164,7 +188,7 @@ export default function XdrExposurePage() {
           <Stat label="KEV listed"    value={s.kev_listed ?? "—"}
                     testid="cve-stat-kev" color="#f97316" />
           <Stat label="CVSS Critical" value={s.cvss_critical ?? "—"}
-                    testid="cve-stat-critical" color="#ef4444" />
+                    testid="cve-stat-critical" color="var(--nx-text-dim)" />
           <Stat label="CVSS High"     value={s.cvss_high ?? "—"}
                     testid="cve-stat-high" color="var(--amber)" />
           <Stat label="Assets"        value={s.assets_registered ?? "—"}
@@ -205,7 +229,12 @@ export default function XdrExposurePage() {
           </div>
         </div>
 
-        {err && <div style={errBox} data-testid="xdr-cve-error">{err}</div>}
+        {err && (
+          <div style={errBox} data-testid="xdr-cve-error">
+            {typeof err === "string" ? err : refusalText({ response:
+              { data: { detail: err } } })}
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>

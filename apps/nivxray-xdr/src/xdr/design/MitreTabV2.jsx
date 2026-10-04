@@ -29,6 +29,7 @@ import { RefreshCcw, ExternalLink, User as UserIcon,
          Server as ServerIcon, FileDigit } from "lucide-react";
 
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 import Entity from "@/xdr/design/Entity";
 import EvidenceState from "@/xdr/design/EvidenceState";
 import Provenance from "@/xdr/design/Provenance";
@@ -124,7 +125,7 @@ export default function MitreTabV2({ incident }) {
         `/admin/content-supply-chain/incidents/${incident.id}/attack-chain-graph`);
       setData(r.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "unavailable");
+      setErr(refusalText(e, "unavailable"));
     } finally { setLoading(false); }
   }, [incident?.id]);
 

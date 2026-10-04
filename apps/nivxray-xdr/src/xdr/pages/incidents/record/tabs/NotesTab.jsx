@@ -1,18 +1,21 @@
 /**
- * NotesTab · Layer 3 · analyst notes surface.
+ * NotesTab · analyst notes.
  *
- * No incident-scoped notes API exists yet; notes/attachments are on
- * the Phase-3 lifecycle roadmap.  This tab renders an honest empty
- * state today with a working local draft composer so analysts can
- * still capture context, and clearly signals when the backend contract
- * lands the drafts will be posted through the real API.
+ * There is no incident-scoped notes API in this build, so this tab
+ * captures a LOCAL draft and says so plainly. It never claims a note was
+ * persisted to the platform, and the reserved API path is shown as a code
+ * token on its own line rather than trailing a sentence off the viewport.
  *
- * We keep drafts in localStorage per-incident so an analyst doesn't
- * lose work on refresh — this is UI-only and never claims to be a
- * persisted note.
+ * Rebuilt on `xdr/nx` form primitives: the legacy `rl-*` classes it used
+ * have no stylesheet on these routes, so labels rendered as naked text,
+ * the composer collapsed to a few characters wide and muted colours
+ * resolved to nothing.
  */
 import React, { useEffect, useState } from "react";
-import { Send } from "lucide-react";
+import { Info, Save } from "lucide-react";
+
+import { ABSENCE } from "@/xdr/nx";
+import "@/xdr/nx/nx-form.css";
 
 const key = (id) => `xdr.record.notes.draft.${id}`;
 
@@ -23,55 +26,64 @@ export default function NotesTab({ incident }) {
 
   useEffect(() => {
     if (!iid) return;
-    try { setDraft(localStorage.getItem(key(iid)) || ""); } catch (_) { /* noop */ }
+    try { setDraft(localStorage.getItem(key(iid)) || ""); } catch { /* noop */ }
+    setSavedAt(null);
   }, [iid]);
 
   const save = () => {
     try {
       localStorage.setItem(key(iid), draft);
       setSavedAt(new Date().toLocaleTimeString());
-    } catch (_) { /* noop */ }
+    } catch { /* noop */ }
   };
 
   return (
     <div data-testid="xdr-record-notes">
-      <div className="rl-section">
-        <div className="rl-section-title">Analyst notes</div>
-        <div className="rl-empty" data-testid="xdr-record-notes-empty">
-          NOT AVAILABLE — an incident-scoped notes API arrives with
-          the Phase-3 lifecycle engine.  Use the draft composer below
-          to capture context; drafts are stored locally in your browser
-          until the API is wired up.
-          <span className="kbd">/api/incidents/:id/notes · reserved · Phase 3</span>
+      <div className="nx-alert" data-testid="xdr-record-notes-empty"
+           style={{ marginTop: 12 }}>
+        <Info size={13} style={{ flex: "0 0 auto", marginTop: 2 }} />
+        <span>
+          <b>{ABSENCE.NOT_AVAILABLE}</b> — this platform has no incident-scoped
+          notes API, so nothing you write here is stored on the platform. The
+          composer below keeps a draft in <b>your browser only</b> so triage
+          context is not lost on refresh.
+          <div style={{ marginTop: 6 }}>
+            <span className="nx-code">/api/incidents/:id/notes</span>
+            {" "}
+            <span className="nx-help">reserved · Phase 3 lifecycle engine</span>
+          </div>
+        </span>
+      </div>
+
+      <div className="nx-form">
+        <div className="nx-field nx-field--wide">
+          <label className="nx-label" htmlFor="xdr-notes-draft">
+            Local draft · stored in your browser
+          </label>
+          <textarea id="xdr-notes-draft" className="nx-textarea"
+                    placeholder="Triage context, hypotheses, what you checked, what to do next…"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    data-testid="xdr-record-notes-textarea" />
+          <span className="nx-help">
+            A draft is not a note. It is not attributed, not audited and not
+            visible to anyone else — it disappears if this browser profile is
+            cleared.
+          </span>
         </div>
       </div>
 
-      <div className="rl-section">
-        <div className="rl-section-title">Local draft (stored in your browser)</div>
-        <textarea
-          className="rl-note-input"
-          placeholder="Write triage context, hypotheses, next steps…"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          data-testid="xdr-record-notes-textarea"
-        />
-        <div style={{ display: "flex", alignItems: "center", gap: 12,
-                        marginTop: 8, fontSize: 11, color: "var(--rl-muted)" }}>
-          <button
-            type="button"
-            className="rl-btn primary"
-            onClick={save}
-            disabled={!draft.trim()}
-            data-testid="xdr-record-notes-save-draft"
-          >
-            <Send size={12} /> Save draft locally
-          </button>
-          {savedAt && (
-            <span data-testid="xdr-record-notes-saved-at">
-              Draft saved at {savedAt}
-            </span>
-          )}
-        </div>
+      <div className="nx-actions" style={{ paddingTop: 0 }}>
+        <button type="button" className="nx-btn nx-btn--primary"
+                onClick={save} disabled={!draft.trim()}
+                data-testid="xdr-record-notes-save-draft">
+          <Save size={12} /> Save draft locally
+        </button>
+        {savedAt && (
+          <span className="nx-help" data-testid="xdr-record-notes-saved-at">
+            Draft saved at {savedAt}
+          </span>
+        )}
       </div>
     </div>
   );

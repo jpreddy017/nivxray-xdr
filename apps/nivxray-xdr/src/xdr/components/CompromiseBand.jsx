@@ -34,10 +34,10 @@ export default function CompromiseBand({
                           && c.ioc === rows[0].ioc);
 
   return (
-    <section className="panel" style={{ padding: 0, background: "#11161D" }}
+    <section className="panel" style={{ padding: 0, background: "var(--nx-surf-inset)" }}
              data-testid="edr-compromise-band">
       <div style={{ display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px", borderBottom: "1px solid #212B36" }}>
+                    padding: "7px 10px", borderBottom: "1px solid var(--nx-bd-quiet)" }}>
         <ShieldAlert size={12} style={{ color: spans.length ? IOC_RED : "var(--faint)" }} />
         <span className="section-title" style={{ margin: 0 }}>
           Compromise Band &amp; Detections
@@ -80,7 +80,7 @@ export default function CompromiseBand({
                         padding: "6px 9px", borderRadius: 4,
                         minWidth: 240,
                         background: active ? "rgba(0,210,211,0.08)" : "#0B0F14",
-                        border: `1px solid ${active ? TELEMETRY_CYAN : "#212B36"}`,
+                        border: `1px solid ${active ? TELEMETRY_CYAN : "var(--nx-bd-quiet)"}`,
                       }}
                       title="Click to halo the contributing observations · double-click to scope the window"
                       data-testid={`edr-compromise-span-${s.id}`}>
@@ -107,7 +107,7 @@ export default function CompromiseBand({
       )}
 
       {rows.length > 0 && (
-        <div style={{ borderTop: "1px solid #212B36", overflowX: "auto" }}>
+        <div style={{ borderTop: "1px solid var(--nx-bd-quiet)", overflowX: "auto" }}>
           {collapsible && !expanded ? (
             <div style={{ padding: "8px 10px", display: "flex", gap: 10,
                           alignItems: "center" }}

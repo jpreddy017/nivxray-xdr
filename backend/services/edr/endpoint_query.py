@@ -45,11 +45,54 @@ ENDPOINT_KEYED_STORES: Dict[str, List[str]] = {
         "event.computer", "event.raw.computer", "event.raw.hostname",
     ],
     "edr_raw_events":        ["endpoint_ref"],
+    # E3 · the canonical evidence plane. Detection Replay reads it, so it
+    # must be a DECLARED endpoint-keyed store rather than an ad-hoc query.
+    "xdr_canonical_evidence": [
+        "provenance.collector_id", "host.host_id", "host.hostname",
+    ],
     "edr_response_commands": ["endpoint_id"],
     "edr_endpoints":         ["endpoint_id", "device_iid", "hostname"],
     "workspace_cases":       ["endpoint_campaign.endpoint_id",
                               "endpoint_campaign.hostname"],
+    # E3 Behavior · DECLARATION ONLY. The engine is not imported, mounted or
+    # executed, and these collections do not exist in production. They are
+    # declared here FIRST so that a behavior record can never be read by any
+    # path other than the one endpoint resolver, and so the tenant partition
+    # below is enforced by the predicate builder rather than by caller
+    # discipline.
+    #
+    # The platform-minted `endpoint_id` is the SOLE identity field by owner
+    # decision (D3). `hostname` is deliberately absent: an observation-derived
+    # hostname can be a substituted `ep_…` string, and an entry here is queried
+    # against the VALIDATED ALIAS SET, so admitting a soft name would widen
+    # addressing on a store that needs exactly one hard key. `device_iid` is
+    # absent for the same reason — it is derived from that same name.
+    "e3_behavior_detections":         ["endpoint_id"],
+    "e3_behavior_replay_checkpoints": ["endpoint_id"],
 }
+
+# store -> the field that PARTITIONS the store by customer.
+#
+# An identity field may legitimately hold a NON-UNIQUE value: two
+# customers can both enrol a machine called `DESKTOP-A9HGFJJ`.  Keying
+# an evidence read on the alias set alone therefore merged two
+# customers' corpora into one read (proven: 3,298 + 3,299 = 6,597 rows).
+# Identity widens the reference set; it must never widen the customer.
+# A store listed here can only be queried WITH its tenant, and a missing
+# tenant fails closed instead of degrading to a cross-customer read.
+TENANT_PARTITIONED_STORES: Dict[str, str] = {
+    "v2_shadow_observations": "tenant_id",
+    "edr_raw_events":         "tenant_id",
+    "xdr_canonical_evidence": "tenant_id",
+    "edr_endpoints":          "tenant_id",
+    # E3 Behavior · a behavior detection is a statement about ONE customer's
+    # endpoint. Declared partitioned so an unresolved customer fails closed
+    # instead of reading every customer that shares an endpoint reference.
+    "e3_behavior_detections":         "tenant_id",
+    "e3_behavior_replay_checkpoints": "tenant_id",
+}
+
+TENANT_NOT_RESOLVED_FOR_EVIDENCE = "TENANT_NOT_RESOLVED_FOR_EVIDENCE"
 
 UNRESOLVED_NOTE = ("no endpoint you are authorised for resolves to this "
                    "reference — this is an authorisation or identity "
@@ -89,7 +132,12 @@ class EndpointResolution:
 
     def predicate(self, store: str,
                   fields: Optional[List[str]] = None) -> Dict[str, Any]:
-        return endpoint_predicate(self.refs, store, fields)
+        # The AUTHORITATIVE owner of the resolved identity, never the
+        # caller's requested context. An identity whose ownership failed
+        # closed (TENANT_CONFLICT / MISMATCH / UNATTRIBUTED) carries no
+        # tenant, and a partitioned store then refuses to be read.
+        return endpoint_predicate(self.refs, store, fields,
+                                  tenant_id=self.identity.get("tenant_id"))
 
 
 def resolve_endpoint(supplied: Optional[str],
@@ -103,7 +151,11 @@ def resolve_endpoint(supplied: Optional[str],
     if not supplied or not str(supplied).strip():
         return None
     supplied = str(supplied).strip()
-    identity = dir_svc.resolve(supplied, scope)
+    # Targeted indexed lookup first; the full directory projection remains
+    # the fallback, so resolution can never become NARROWER than before.
+    identity = dir_svc.resolve_fast(supplied, scope) or None
+    if not identity or not isinstance(identity, dict):
+        identity = dir_svc.resolve(supplied, scope)
     if not identity:
         return None
     refs = dir_svc.identity_refs(identity, supplied,
@@ -138,7 +190,8 @@ def _authorised_tenants(scope: Any,
 
 
 def endpoint_predicate(refs: List[str], store: str,
-                       fields: Optional[List[str]] = None) -> Dict[str, Any]:
+                       fields: Optional[List[str]] = None,
+                       *, tenant_id: Any = None) -> Dict[str, Any]:
     """A query predicate over the VALIDATED alias set for one store.
 
     `fields` narrows the registered field list (a projection may only
@@ -156,12 +209,29 @@ def endpoint_predicate(refs: List[str], store: str,
         raise KeyError(f"none of {fields} are declared identity fields of "
                        f"{store}")
     refs = [str(r) for r in (refs or []) if r]
+    partition = TENANT_PARTITIONED_STORES.get(store)
+    tenants: List[str] = []
+    if partition:
+        if isinstance(tenant_id, (list, tuple, set, frozenset)):
+            tenants = sorted({str(t) for t in tenant_id if t})
+        elif tenant_id:
+            tenants = [str(tenant_id)]
+        if not tenants:
+            # Fail closed: an unresolved customer is NOT a licence to read
+            # every customer's records that happen to share an alias.
+            return {"_nivx_unresolved_tenant": {"$exists": True}}
     if not refs:
         # Never degrade to an unfiltered read of an endpoint-keyed store.
         return {"_nivx_unresolved_endpoint": {"$exists": True}}
     if len(use) == 1:
-        return {use[0]: {"$in": refs}}
-    return {"$or": [{f: {"$in": refs}} for f in use]}
+        identity_clause: Dict[str, Any] = {use[0]: {"$in": refs}}
+    else:
+        identity_clause = {"$or": [{f: {"$in": refs}} for f in use]}
+    if not partition:
+        return identity_clause
+    tenant_clause = ({partition: tenants[0]} if len(tenants) == 1
+                     else {partition: {"$in": tenants}})
+    return {"$and": [tenant_clause, identity_clause]}
 
 
 def unresolved_envelope(supplied: Optional[str], *,

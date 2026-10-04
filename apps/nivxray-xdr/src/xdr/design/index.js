@@ -23,7 +23,7 @@ export { default as Action,
          ActionGroup }               from "./Action";
 
 export { default as IntegrationControlCenter } from "./IntegrationControlCenter";
-export { default as CortexOnboardingWizard } from "./CortexOnboardingWizard";
+export { default as NxIntegrationWizard } from "./NxIntegrationWizard";
 export { default as RecommendationsTabV2 } from "./RecommendationsTabV2";
 export { default as MitreTabV2 }            from "./MitreTabV2";
 export { default as RecordHeaderV2 }        from "./RecordHeaderV2";

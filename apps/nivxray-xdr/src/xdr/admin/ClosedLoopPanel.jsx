@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { RefreshCw, GitBranch, ChevronRight, ArrowUpCircle,
                 Circle, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 export default function ClosedLoopPanel({ incidentId, initial, testid }) {
@@ -26,7 +27,7 @@ export default function ClosedLoopPanel({ incidentId, initial, testid }) {
         `/admin/content-supply-chain/response/${incidentId}/recompute`);
       setState(r.data);
     } catch (e) {
-      setErr(e?.response?.data?.detail || e?.message || "unavailable");
+      setErr(refusalText(e, "unavailable"));
     } finally {
       setBusy(false);
     }

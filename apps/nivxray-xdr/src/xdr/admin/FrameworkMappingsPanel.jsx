@@ -13,6 +13,7 @@ import React, { useEffect, useState } from "react";
 import { Layers, ShieldCheck, GitBranch, BookOpen, Target,
                 Circle } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const FW_META = {
@@ -45,7 +46,7 @@ export default function FrameworkMappingsPanel({ incidentId, testid }) {
           `/admin/content-supply-chain/incidents/${incidentId}/framework-mappings`);
         setData(r.data);
       } catch (e) {
-        setErr(e?.response?.data?.detail || e?.message || "unavailable");
+        setErr(refusalText(e, "unavailable"));
       } finally {
         setLoading(false);
       }
@@ -85,7 +86,7 @@ export default function FrameworkMappingsPanel({ incidentId, testid }) {
         <span style={{
           fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
           letterSpacing: ".6px", textTransform: "uppercase",
-          color: "#a78bfa",
+          color: "var(--nx-purple)",
         }}>
           Framework Mapping Fabric · {data.incident_id}
         </span>
@@ -128,7 +129,7 @@ function FrameworkCard({ fwId, meta, mappings }) {
                               borderRadius: 4, background: "var(--panel2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6,
                           marginBottom: 6 }}>
-        <Icon size={12} style={{ color: "#a78bfa" }} />
+        <Icon size={12} style={{ color: "var(--nx-purple)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 12,
                           color: "var(--text)" }}>{meta.label}</b>
         <span style={{ flex: 1 }} />

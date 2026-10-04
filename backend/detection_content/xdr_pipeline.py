@@ -25,6 +25,13 @@ from .xdr_response_fabric import orchestrate as response_orchestrate
 from .xdr_closed_loop import recompute as closed_loop_recompute
 from .xdr_framework_mapping import resolve_mappings as framework_resolve
 from .telemetry.registry import TELEMETRY_DSM_REGISTRY
+from edr_plane import temporal_authority as _temporal
+from services import provenance_timestamps as pts
+from services import event_time_basis
+from services import ingest_provenance as ingest_prov
+from services import source_routing
+from edr_plane import canonical_identity_contract as identity_contract
+from services import tenant_authority
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -131,10 +138,35 @@ class SnortNormalizer:
 
     def normalize(self, parsed: dict, dsm_id: str,
                         collector_id: str, integration_id: str,
-                        trace_id: str) -> dict:
+                        trace_id: str,
+                        tenant_id: str | None = None) -> dict:
         alert = parsed.get("alert") or {}
-        return {
+        # ── D15 · Snort joins the D14 tenant contract ──────────────────
+        # The authenticated delivery is the only authority on ownership. A
+        # tenant named inside an EVE record is a claim by whoever sent it:
+        # recorded as evidence, never used — not for ownership, not for
+        # partitioning, not for any tenant-scoped correlation material.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(parsed.get("raw")))
+        # ── D12 · the EVE timestamp IS the packet instant ──────────────
+        # Suricata/Snort EVE records the time of the packet or flow the
+        # alert was raised on, and the parser already REQUIRES and
+        # ISO-validates it, so the format establishes activity occurrence.
+        # There is no second, separate observation instant to report.
+        etb = event_time_basis.resolve(
+            activity=[(parsed["timestamp"],
+                       "snort-eve:timestamp — the packet/flow instant")],
+            clock=pts.now(),
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "unreachable: the EVE parser rejects an event without a "
+                "valid ISO timestamp"),
+            observation_absent_reason=(
+                "EVE carries one packet timestamp; the sensor reports no "
+                "separate instant at which it observed the packet"))
+        out = {
             "event_id":   str(uuid.uuid4()),
+            "tenant_id":  resolved_tenant,
             "event_type": "network_alert",
             "timestamp":  parsed["timestamp"],
             "source": {
@@ -164,6 +196,9 @@ class SnortNormalizer:
                 "normalizer_id":    SnortNormalizer.id,
             },
         }
+        event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
+        return out
 
 
 # ── Detection via P0.2e harness ──────────────────────────────────
@@ -234,42 +269,87 @@ def evaluate_detection(canonical: dict) -> dict:
 # ── Persistence + full pipeline runner ──────────────────────────
 
 CANONICAL_COLLECTION = "xdr_canonical_evidence"
+#: D8 · one row per (canonical event × matched rule), carrying the declared
+#: conditions, the observed values and the evidence reference.
+DETECTION_MATCH_COLLECTION = "xdr_detection_matches"
 
 
 async def process_event_through_pipeline(db, raw_event: dict,
                                                        trace_id: str,
                                                        integration_id: str,
                                                        collector_id: str,
-                                                       tenant_id: str = "default") -> dict:
+                                                       tenant_id: str = "default",
+                                                       ingest_provenance: dict | None = None,
+                                                       routing: dict | None = None) -> dict:
     """
     Drive one raw event through DSM → Parser → Normalizer →
     Canonical Evidence → Sigma Detection.  Halts honestly at first
     failure with the exact reason recorded.
+
+    D15 · when `routing` is supplied (the authenticated ingest path always
+    supplies it) the DSM is taken FROM the routing decision — the declared,
+    authorized source. Content never selects there. Internal callers that
+    supply no routing decision still resolve by content, and that is
+    recorded as exactly what it is.
     """
     stages: list[dict] = []
     def _s(name, status, **detail):
         stages.append({"stage": name, "status": status, **detail})
 
-    dsm = DSM_REGISTRY.resolve(raw_event)
-    if not dsm:
-        _s("dsm", "BLOCKED", reason="no DSM in registry supports this event")
-        return {"stages": stages, "blocker": "dsm"}
+    if routing is not None:
+        _dsm_id = routing.get("selected_dsm_id")
+        dsm = DSM_REGISTRY.get(_dsm_id) if _dsm_id else None
+        if not dsm:
+            # An accepted routing decision whose DSM cannot be produced is a
+            # code failure. Nothing is re-resolved by content.
+            _s("dsm", "BLOCKED",
+               reason=("the DSM named by the routing decision is not "
+                       "loaded; content is NOT used to select a "
+                       "substitute"),
+               declared_source=routing.get("declared_source"),
+               selected_dsm_id=_dsm_id,
+               routing_authority=routing.get("routing_authority"),
+               mismatch_reason=source_routing.SOURCE_DSM_UNAVAILABLE)
+            return {"stages": stages, "blocker": "dsm", "routing": routing}
+        _routing = routing
+    else:
+        dsm = DSM_REGISTRY.resolve(raw_event)
+        _routing = source_routing.internal_caller(
+            getattr(dsm, "id", None),
+            reason=("no authenticated collector and no declaration exist on "
+                    "this call path, so the DSM was resolved by content; "
+                    "this is NOT the authenticated ingest boundary"))
+        if not dsm:
+            _s("dsm", "BLOCKED", reason="no DSM in registry supports this event")
+            return {"stages": stages, "blocker": "dsm", "routing": _routing}
     _s("dsm", "EXECUTED", dsm_id=dsm.id, vendor=dsm.vendor,
-                product=dsm.product)
+                product=dsm.product,
+                routing_authority=_routing.get("routing_authority"),
+                declared_source=_routing.get("declared_source"),
+                routing_result=_routing.get("routing_result"))
 
     parser = dsm.select_parser()
     try:
         parsed = parser.parse(raw_event)
-    except ParserError as pe:
-        _s("parser", "FAILED", code=pe.code, error=pe.message,
+    except Exception as pe:                                       # noqa: BLE001
+        # D15 · every DSM raises its OWN parser error type. Declared routing
+        # hands the payload to the DECLARED parser, so a parser refusal must
+        # be a recorded failure here — not an exception that escapes and
+        # certainly not a reason to try a different DSM.
+        _s("parser", "FAILED",
+                    code=getattr(pe, "code", type(pe).__name__),
+                    error=getattr(pe, "message", str(pe))[:300],
                     parser_id=parser.id)
-        return {"stages": stages, "blocker": "parser"}
+        return {"stages": stages, "blocker": "parser", "routing": _routing}
+    # D1 · stamped at the REAL parse boundary — the instant the parser
+    # returned, not a nearby convenient value.
+    t_parsed = pts.now()
     _s("parser", "EXECUTED", parser_id=parser.id,
                 fields=len(parsed))
 
     normalizer = dsm.select_normalizer()
-    # Tenant-aware normalizers take an explicit tenant; the older
-    # positional-only ones (snort) resolve it from the raw event.
+    # Every normalizer takes the authenticated tenant explicitly; the older
+    # positional-only signatures are handled for internal callers only.
     import inspect as _inspect
     if "tenant_id" in _inspect.signature(normalizer.normalize).parameters:
         canonical = normalizer.normalize(
@@ -278,7 +358,65 @@ async def process_event_through_pipeline(db, raw_event: dict,
     else:
         canonical = normalizer.normalize(
             parsed, dsm.id, collector_id, integration_id, trace_id)
+    # D1 · the two boundaries are stamped separately and only after the
+    # work they describe has actually completed.
+    pts.put(canonical, "parsed_at",
+            pts.stamp(t_parsed, source=f"pipeline:parser:{parser.id}"))
+    pts.put(canonical, "normalized_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:normalizer:{normalizer.id}"))
+    # D1 · the NivX receipt boundary. The value is only ever taken from the
+    # producer that genuinely observed it — the authenticated ingest handler
+    # that wrote the raw row. If no producer supplied it, it stays MISSING.
+    _recv = (raw_event.get("_authenticated_ingest") or {}).get(
+        "nivx_received_at") or raw_event.get("nivx_received_at")
+    if _recv:
+        pts.put(canonical, "nivx_received_at",
+                pts.stamp(_recv, source="ingest:raw row ingest_time"))
+    # D11 · the collector-delivered transport boundaries. Supplied by the
+    # ingest handler that owns the real HTTP receipt instant, and passed
+    # alongside the raw event rather than inside it, so the stored raw
+    # evidence stays exactly what the collector sent. Absent boundaries stay
+    # NOT_OBSERVED rather than borrowing a nearby stage.
+    _ip = ingest_provenance
+    if isinstance(_ip, dict):
+        ingest_prov.apply(canonical, _ip.get("timestamps") or {})
+        _ident = dict(_ip.get("identity") or {})
+        # D13 · the DSM that actually claimed this event, recorded beside
+        # the format the collector declared. A disagreement is evidence,
+        # not something to reconcile silently.
+        _ident["selected_dsm_id"] = dsm.id
+        canonical.setdefault("provenance", {})["ingest"] = _ident
+    # D15 · the routing decision travels with the evidence it produced:
+    # what was declared, what the collector was authorized for, who chose
+    # the DSM, and how content validation answered.
+    canonical.setdefault("provenance", {})["routing"] = dict(_routing)
     _s("normalizer", "EXECUTED", normalizer_id=normalizer.id)
+
+    # G-29 · the AUTHORITATIVE endpoint identity is stamped HERE, at the
+    # authenticated ingest boundary, for every DSM. A normalizer reads an
+    # event's CONTENT and has no authority over which platform endpoint
+    # produced it; before this, whether canonical evidence carried a platform
+    # endpoint id depended on which DSM happened to be selected.
+    _identity = identity_contract.stamp_boundary_endpoint_identity(
+        canonical,
+        envelope=(raw_event.get("_authenticated_ingest")
+                  if isinstance(raw_event.get("_authenticated_ingest"), dict)
+                  else None),
+        boundary_collector_id=collector_id)
+    _s("endpoint_identity", "EXECUTED", state=_identity["state"],
+       authority=_identity["authority"], source=_identity.get("source"),
+       reason=_identity.get("reason"))
+
+    # G-41 · the comparable temporal value is derived HERE, at the one canonical
+    # writer boundary, so no endpoint evidence can enter the store without it.
+    # `event_time` is untouched; an unreadable value fails closed to UNPLACEABLE
+    # rather than being given an invented instant.
+    _temporal.stamp(canonical)
+    _temporal.assert_stamped(canonical)
+    _s("observation_us", "EXECUTED",
+       state=(canonical.get("additional_fields") or {}).get(_temporal.STATE_KEY),
+       observation_us=canonical.get(_temporal.OBSERVATION_US))
 
     await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
     _s("canonical_evidence", "EXECUTED",
@@ -288,6 +426,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
 
     # ── Detection first (needed by IUE for capability_tags) ──────
     detection = evaluate_detection(canonical)
+    # D1 · stamped when rule evaluation actually finished.
+    t_rule = pts.now()
     if detection.get("status") == "EXECUTION_FAILED":
         _s("detection", "FAILED", detection_error=detection.get("error"))
         return {"stages": stages, "blocker": "detection",
@@ -296,6 +436,54 @@ async def process_event_through_pipeline(db, raw_event: dict,
             matched=detection.get("matched"),
             engine_id=detection.get("engine_id"),
             rule_id=detection.get("rule_id"))
+
+    # ── D8 · persist the citation for every match ───────────────────
+    # One row per (canonical event × matched rule). `observed_value` comes
+    # from the canonical evidence the rule actually read, and
+    # `evidence_ref` points back to it. Nothing is reconstructed later.
+    _cit_rows = []
+    for _m in (detection.get("detections") or []):
+        _c = _m.get("citation") or {}
+        _cit_rows.append({
+            "tenant_id":          canonical.get("tenant_id") or tenant_id,
+            "canonical_event_id": canonical.get("event_id"),
+            "evidence_ref":       f"{CANONICAL_COLLECTION}/"
+                                  f"{canonical.get('event_id')}",
+            "trace_id":           trace_id,
+            "raw_ref":            canonical.get("raw_ref")
+                                  or (canonical.get("provenance")
+                                      or {}).get("trace_id"),
+            "rule_id":            _m.get("rule_id"),
+            "rule_version":       _m.get("rule_version"),
+            "rule_name":          _m.get("name"),
+            "engine_id":          detection.get("engine_id"),
+            "rule_result":        "MATCH",
+            "declaration_state":  _c.get("declaration_state"),
+            "citation_completeness": _c.get("citation_completeness"),
+            "evaluated_conditions":  _c.get("evaluated_conditions") or [],
+            "matched_conditions":    _c.get("matched_conditions") or [],
+            "unmatched_conditions":  _c.get("unmatched_conditions") or [],
+            "severity":           _m.get("severity"),
+            "confidence":         _m.get("confidence"),
+            "mitre_attack":       _m.get("mitre_attack") or [],
+            "telemetry_requirements": _m.get("telemetry_requirements") or [],
+            "source":             (canonical.get("provenance")
+                                   or {}).get("source_kind"),
+            "trust_state":        (canonical.get("provenance")
+                                   or {}).get("trust_state"),
+            "evaluated_at":       t_rule,
+        })
+    if _cit_rows:
+        await db[DETECTION_MATCH_COLLECTION].insert_many(_cit_rows)
+    _s("detection_citations",
+            "EXECUTED" if _cit_rows else "NOT_CREATED",
+            rows=len(_cit_rows),
+            collection=DETECTION_MATCH_COLLECTION,
+            undeclared=[r["rule_id"] for r in _cit_rows
+                        if r["declaration_state"] == "NOT_DECLARED"],
+            unexplained=[r["rule_id"] for r in _cit_rows
+                         if r["citation_completeness"]
+                         == "NO_DECLARED_CONDITION_MATCHED_DESPITE_RULE_MATCH"])
 
     # ── Round 11 · IUE (understanding) ──────────────────────────
     iue = iue_understand(canonical, detection)
@@ -365,6 +553,26 @@ async def process_event_through_pipeline(db, raw_event: dict,
             plane_id=spread["plane_id"])
 
     # ── Round 11 · Incident (gated materialisation) ─────────────
+    # D1 · the detection and verdict boundaries. The canonical row was
+    # persisted earlier on purpose, so evidence survives a detection fault;
+    # these two stamps are therefore APPENDED to it. Only the provenance
+    # block is written — no evidence field is ever rewritten. `verdict_at`
+    # is taken after the spread re-evaluation above, so it marks the
+    # AUTHORITATIVE verdict and not a superseded provisional one.
+    pts.put(canonical, "rule_evaluated_at",
+            pts.stamp(t_rule,
+                      source=f"pipeline:detection:{detection.get('engine_id')}"))
+    pts.put(canonical, "verdict_at",
+            pts.stamp(pts.now(),
+                      source=f"pipeline:verdict:{verdict.get('engine_id')}"))
+    _tsb = canonical["provenance"]["timestamps"]
+    await db[CANONICAL_COLLECTION].update_one(
+        {"event_id": canonical["event_id"]},
+        {"$set": {
+            "provenance.timestamps.rule_evaluated_at":
+                _tsb["rule_evaluated_at"],
+            "provenance.timestamps.verdict_at": _tsb["verdict_at"]}})
+
     incident = await materialise_incident(
         db, canonical, iue, ice, detection, verdict, trace_id,
         tenant_id=canonical.get("tenant_id") or tenant_id)
@@ -503,6 +711,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
     blocker = None if incident.get("created") else "incident_gate"
     return {"stages":         stages,
             "blocker":        blocker,
+            "routing":        _routing,
             "canonical":      canonical,
             "detection":      detection,
             "iue":            iue,

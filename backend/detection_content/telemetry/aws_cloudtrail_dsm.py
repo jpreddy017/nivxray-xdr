@@ -12,6 +12,9 @@ import json
 from typing import Any, Dict, List, Optional
 import uuid
 
+from services import event_time_basis
+from services import tenant_authority
+
 from .models import (
     CanonicalTelemetryEvent,
     CloudContext,
@@ -61,15 +64,13 @@ class AWSCloudTrailNormalizer:
         collector_id: str,
         integration_id: str,
         trace_id: str,
-        tenant_id: Optional[str] = "default",
+        tenant_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         raw = parsed["raw"]
-        if tenant_id is None or (isinstance(tenant_id, str) and not tenant_id.strip()):
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = (raw if isinstance(raw, dict) else {}).get("tenant_id") or parsed.get("tenant_id") or tenant_id
-        if not resolved_tenant or not str(resolved_tenant).strip():
-            raise ValueError("tenant_id is required: NO tenant fallback permitted")
-        resolved_tenant = str(resolved_tenant).strip()
+        # D14 · the authenticated delivery is the only authority; a
+        # payload-named tenant is an untrusted claim, recorded and unused.
+        resolved_tenant, _tenant_claim = tenant_authority.resolve(
+            tenant_id, *tenant_authority.payload_claims(raw))
 
         data = parsed["data"]
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -77,8 +78,24 @@ class AWSCloudTrailNormalizer:
         event_name = str(data.get("eventName") or "")
         event_source = str(data.get("eventSource") or "")
         aws_region = str(data.get("awsRegion") or "")
-        event_time = str(data.get("eventTime") or now_iso)
+        event_time = str(data.get("eventTime") or "")
         event_id = str(data.get("eventID") or uuid.uuid4())
+        # ── D12 · CloudTrail's `eventTime` IS the activity instant ─────
+        # AWS documents it as the date and time the request was made, in
+        # UTC, so the format establishes activity occurrence. Nothing else
+        # in the record may stand in for it.
+        etb = event_time_basis.resolve(
+            activity=([(event_time, "cloudtrail:eventTime")]
+                      if event_time else ()),
+            clock=now_iso,
+            clock_source=f"pipeline:normalizer clock at {self.id}",
+            activity_absent_reason=(
+                "this CloudTrail record carried no eventTime; no other "
+                "field in the format names when the request was made"),
+            observation_absent_reason=(
+                "CloudTrail delivers no separate observation instant — the "
+                "service records the request time, not a sensor's view of "
+                "it"))
 
         # Extract UserIdentity
         user_identity = data.get("userIdentity") or {}
@@ -127,6 +144,10 @@ class AWSCloudTrailNormalizer:
             service=event_source.replace(".amazonaws.com", ""),
             action=event_name,
             principal_arn=user_arn,
+            principal_type=ident_type,
+            request_parameters=(data.get("requestParameters")
+                                if isinstance(data.get("requestParameters"),
+                                              dict) else {}),
             resource_ids=resource_ids,
             user_agent=str(data.get("userAgent") or ""),
         )
@@ -154,7 +175,7 @@ class AWSCloudTrailNormalizer:
             source_product="CloudTrail",
             source_event_id=event_id,
             event_type="cloud_audit",
-            event_time=event_time,
+            event_time=etb.event_time,
             ingest_time=now_iso,
             host=host,
             identity=identity,
@@ -169,7 +190,10 @@ class AWSCloudTrailNormalizer:
                 "response_elements": data.get("responseElements") or {},
             },
         )
-        return canonical.to_dict()
+        out = canonical.to_dict()
+        event_time_basis.apply(out, etb)
+        tenant_authority.record(out, _tenant_claim)
+        return out
 
 
 class AWSCloudTrailDSM:

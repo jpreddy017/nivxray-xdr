@@ -50,7 +50,7 @@ const Field = ({ label, value, note, testid, wide }) => (
         ? NOT_REPORTED : String(value)}
     </div>
     {note && (
-      <div style={{ color: "#8C5A5A", fontSize: 9, marginTop: 2,
+      <div style={{ color: "var(--nx-text-dim)", fontSize: 9, marginTop: 2,
                     lineHeight: 1.5 }}>{note}</div>
     )}
   </div>
@@ -60,7 +60,7 @@ const Block = ({ title, children, testid }) => (
   <div data-testid={testid} style={{ marginTop: 12 }}>
     <div style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: ".6px",
                   textTransform: "uppercase", color: "var(--cyan)",
-                  borderBottom: "1px solid #17202A", paddingBottom: 4 }}>
+                  borderBottom: "1px solid var(--nx-bd-quiet)", paddingBottom: 4 }}>
       {title}
     </div>
     <div style={{ display: "flex", gap: 18, flexWrap: "wrap",
@@ -116,8 +116,8 @@ function ActionRecord({ r }) {
   const probe = (v && v.probe) || null;
   return (
     <div data-testid={`edr-response-record-${r.command_id}`}
-         style={{ padding: "4px 10px 16px", background: "#080C10",
-                  borderTop: "1px solid #141C24" }}>
+         style={{ padding: "4px 10px 16px", background: "var(--nx-surf-inset)",
+                  borderTop: "1px solid var(--nx-bd-quiet)" }}>
       <Block title="Authorisation" testid={`edr-response-auth-${r.command_id}`}>
         <Field label="Requested by" value={r.requested_by}
                testid={`edr-response-requested-by-${r.command_id}`} />
@@ -328,7 +328,7 @@ function IsolationPolicy() {
   if (!p) return null;
   return (
     <div data-testid="edr-isolation-policy"
-         style={{ border: "1px solid #17202A", borderRadius: 4,
+         style={{ border: "1px solid var(--nx-bd-quiet)", borderRadius: 4,
                   marginBottom: 14 }}>
       <div onClick={() => setOpen((o) => !o)}
            data-testid="edr-isolation-policy-toggle"
@@ -356,10 +356,10 @@ function IsolationPolicy() {
         </span>
       </div>
       {open && (
-        <div style={{ padding: "4px 12px 14px", borderTop: "1px solid #141C24",
-                      background: "#080C10" }}>
+        <div style={{ padding: "4px 12px 14px", borderTop: "1px solid var(--nx-bd-quiet)",
+                      background: "var(--nx-surf-inset)" }}>
           {err && (
-            <div style={{ color: "#D08A8A", fontSize: 10.5, marginBottom: 8 }}
+            <div style={{ color: "var(--nx-high)", fontSize: 10.5, marginBottom: 8 }}
                  data-testid="edr-isolation-policy-error">{err}</div>
           )}
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap",
@@ -375,8 +375,8 @@ function IsolationPolicy() {
                                (draft.allow_list || []).join("\n")}
                         onChange={(e) => setDraft({ ...draft,
                                                     allow_list_text: e.target.value })}
-                        style={{ background: "#0C1116", width: 280,
-                                 border: "1px solid #212B36", marginTop: 4,
+                        style={{ background: "var(--nx-surf-inset)", width: 280,
+                                 border: "1px solid var(--nx-bd-quiet)", marginTop: 4,
                                  color: "var(--text)", fontSize: 10.5,
                                  padding: "5px 8px", borderRadius: 3 }} />
             </div>
@@ -393,8 +393,8 @@ function IsolationPolicy() {
                                                    verification_target: {
                                                      ...draft.verification_target,
                                                      host: e.target.value } })}
-                       style={{ background: "#0C1116", width: 150,
-                                border: "1px solid #212B36",
+                       style={{ background: "var(--nx-surf-inset)", width: 150,
+                                border: "1px solid var(--nx-bd-quiet)",
                                 color: "var(--text)", fontSize: 10.5,
                                 padding: "5px 8px", borderRadius: 3 }} />
                 <input className="mono" data-testid="edr-isolation-verify-port"
@@ -403,8 +403,8 @@ function IsolationPolicy() {
                                                    verification_target: {
                                                      ...draft.verification_target,
                                                      port: e.target.value } })}
-                       style={{ background: "#0C1116", width: 70,
-                                border: "1px solid #212B36",
+                       style={{ background: "var(--nx-surf-inset)", width: 70,
+                                border: "1px solid var(--nx-bd-quiet)",
                                 color: "var(--text)", fontSize: 10.5,
                                 padding: "5px 8px", borderRadius: 3 }} />
               </div>
@@ -427,8 +427,8 @@ function IsolationPolicy() {
                        value={draft.auto_release_seconds ?? ""}
                        onChange={(e) => setDraft({ ...draft,
                                                    auto_release_seconds: e.target.value })}
-                       style={{ background: "#0C1116", width: 120,
-                                border: "1px solid #212B36", marginTop: 4,
+                       style={{ background: "var(--nx-surf-inset)", width: 120,
+                                border: "1px solid var(--nx-bd-quiet)", marginTop: 4,
                                 color: "var(--text)", fontSize: 10.5,
                                 padding: "5px 8px", borderRadius: 3 }} />
               </div>
@@ -543,13 +543,13 @@ export default function EdrResponseBody({ refreshNonce = 0 }) {
         <input className="mono" value={endpoint} placeholder="endpoint_id filter"
                onChange={(e) => setEndpoint(e.target.value.trim())}
                data-testid="edr-response-endpoint-filter"
-               style={{ background: "#0C1116", border: "1px solid #212B36",
+               style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                         color: "var(--text)", padding: "5px 9px",
                         fontSize: 10.5, borderRadius: 3, width: 260 }} />
         <select className="mono" value={stateFilter}
                 onChange={(e) => setStateFilter(e.target.value)}
                 data-testid="edr-response-state-filter"
-                style={{ background: "#0C1116", border: "1px solid #212B36",
+                style={{ background: "var(--nx-surf-inset)", border: "1px solid var(--nx-bd-quiet)",
                          color: "var(--text)", padding: "5px 9px",
                          fontSize: 10.5, borderRadius: 3 }}>
           <option value="">all lifecycle states</option>
@@ -607,7 +607,7 @@ export default function EdrResponseBody({ refreshNonce = 0 }) {
           </div>
         </div>
       ) : (
-        <div style={{ border: "1px solid #17202A", borderRadius: 4 }}>
+        <div style={{ border: "1px solid var(--nx-bd-quiet)", borderRadius: 4 }}>
           {rows.map((r) => (
             <div key={r.command_id}
                  data-testid={`edr-response-row-${r.command_id}`}>
@@ -616,7 +616,7 @@ export default function EdrResponseBody({ refreshNonce = 0 }) {
                    data-testid={`edr-response-toggle-${r.command_id}`}
                    style={{ display: "flex", gap: 12, alignItems: "center",
                             padding: "7px 10px", cursor: "pointer",
-                            borderBottom: "1px solid #141C24",
+                            borderBottom: "1px solid var(--nx-bd-quiet)",
                             flexWrap: "wrap" }}>
                 {open[r.command_id] ? <ChevronDown size={12} />
                                     : <ChevronRight size={12} />}

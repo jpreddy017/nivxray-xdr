@@ -20,6 +20,47 @@ from services.investigator.capabilities.base import (
 from services.investigator.models import Finding
 
 
+# ── N1/GAP-2 · the two canonical network shapes ─────────────────────
+#: The snort normalizer writes ``network.src.ip`` / ``network.dst.ip``; the
+#: telemetry models write ``network.src_ip`` / ``network.dest_ip``
+#: (windows-security, sysmon, cef-leef, zeek-json …). Reading only the
+#: nested spelling made every model-shaped source invisible to network and
+#: historical pivots — the evidence was stored and then never found.
+NETWORK_IP_FIELDS: Dict[str, Tuple[str, ...]] = {
+    "src": ("network.src.ip", "network.src_ip"),
+    "dst": ("network.dst.ip", "network.dest_ip"),
+}
+
+
+def _read_path(doc: Dict[str, Any], path: str) -> Any:
+    cur: Any = doc
+    for part in path.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def network_endpoints(canonical: Optional[Dict[str, Any]]
+                      ) -> List[Tuple[str, str]]:
+    """``[(side, ip), …]`` for whichever spelling the source actually used."""
+    out: List[Tuple[str, str]] = []
+    if not canonical:
+        return out
+    for side, paths in NETWORK_IP_FIELDS.items():
+        for path in paths:
+            ip = _read_path(canonical, path)
+            if ip:
+                out.append((side, str(ip)))
+                break
+    return out
+
+
+def ip_query(side: str, ip: str) -> Dict[str, Any]:
+    """A Mongo filter that finds this address in EITHER canonical shape."""
+    return {"$or": [{path: ip} for path in NETWORK_IP_FIELDS[side]]}
+
+
 # ── Network pivot ───────────────────────────────────────────────────
 
 class NetworkPivotCapability(Capability):
@@ -38,10 +79,8 @@ class NetworkPivotCapability(Capability):
     def check_evidence(self, incident, canonical):
         if not canonical:
             return "INSUFFICIENT", "no canonical evidence"
-        net = canonical.get("network") or {}
-        for side in ("src", "dst"):
-            if (net.get(side) or {}).get("ip"):
-                return "SUFFICIENT", "network endpoint present"
+        if network_endpoints(canonical):
+            return "SUFFICIENT", "network endpoint present"
         return "INSUFFICIENT", "no network endpoints in canonical evidence"
 
     async def execute(self, db, pivot, incident, canonical):
@@ -51,14 +90,12 @@ class NetworkPivotCapability(Capability):
         current_evt = pipe.get("canonical_event_id")
 
         findings: List[Finding] = []
-        net = (canonical or {}).get("network") or {}
-        for side in ("src", "dst"):
-            ip = (net.get(side) or {}).get("ip")
-            if not ip:
-                continue
-            # Prevalence across canonical evidence.
+        for side, ip in network_endpoints(canonical):
+            # Prevalence across canonical evidence — BOTH canonical
+            # network shapes, so a firewall/Sysmon/Zeek observation counts
+            # exactly like a snort one.
             prev = await db["xdr_canonical_evidence"].count_documents(
-                {f"network.{side}.ip": ip})
+                ip_query(side, ip))
             # Cross-incident linkage.
             related_ids: List[str] = []
             async for d in db["workspace_cases"].find(
@@ -92,8 +129,9 @@ class NetworkPivotCapability(Capability):
                 evidence_refs=([current_evt] if current_evt else [])
                                     + related_ids[:10],
                 reasoning=(
-                    f"Counted network.{side}.ip=={ip} in xdr_canonical_evidence "
-                    f"({prev}); cross-referenced workspace_cases.iocs.ip "
+                    f"Counted {'|'.join(NETWORK_IP_FIELDS[side])}=={ip} in "
+                    f"xdr_canonical_evidence ({prev}); cross-referenced "
+                    f"workspace_cases.iocs.ip "
                     f"({len(related_ids)} other incident(s))."
                 ),
                 created_at=now_iso(),
@@ -128,8 +166,15 @@ class DnsPivotCapability(Capability):
             elif v:
                 doms.append(str(v))
         if canonical:
+            # N1/GAP-3 · the canonical field DSMs actually emit is
+            # `network.dns_query`. Reading only `dns.query` — a shape no DSM
+            # produces — meant this pivot could never see a resolved domain
+            # that NivX had itself recorded.
+            net = canonical.get("network") or {}
+            if isinstance(net, dict) and net.get("dns_query"):
+                doms.append(str(net["dns_query"]))
             dns = canonical.get("dns") or {}
-            q = dns.get("query")
+            q = dns.get("query") if isinstance(dns, dict) else None
             if q:
                 doms.append(str(q))
         return sorted({d for d in doms if d})

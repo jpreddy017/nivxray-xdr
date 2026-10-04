@@ -9,6 +9,8 @@
  */
 import axios from "axios";
 
+import { TENANT_HEADER, activeTenant } from "@/lib/tenant";
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 export const API_BASE = `${BACKEND_URL}/api`;
 
@@ -27,6 +29,15 @@ const api = axios.create({ baseURL: API_BASE, timeout: TIMEOUT_DEFAULT });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("nvx_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // B7 Option A · attach the operator's selected tenant to every request, in
+  // ONE place, so no call site can forget it. A call site that already set the
+  // header wins (the admin surfaces pick a tenant explicitly). When nothing is
+  // selected no header is sent and the server answers TENANT_REQUIRED — the
+  // client never invents a tenant to avoid that.
+  if (config.headers[TENANT_HEADER] == null) {
+    const tenant = activeTenant();
+    if (tenant) config.headers[TENANT_HEADER] = tenant;
+  }
   if (config.timeout == null || config.timeout === TIMEOUT_DEFAULT) {
     config.timeout = pickTimeout(config.url || "");
   }

@@ -1,6 +1,608 @@
+## 2026-10-03 · G-41 VERIFIED · 122,477 CHECKED, 0 DISAGREEING, 0 COLLATERAL DIVERGENCE
+
+Verifier run `mig_c54cea5058df4fe3` COMPLETED: **`checked 122477 · disagreeing 0 ·
+collateral_diverged 0 · ok true`**. Every migrated row re-reads correctly against the prior state
+recorded before its write, and nothing outside the four temporal paths moved. The temporal authority
+is now real across the entire history: 122,477 historical rows plus every new row stamped at ingest.
+
+The corrected lock proved itself in the same episode — first invocation 504'd at the gateway and
+completed detached, a second started, a third was REFUSED as concurrent, heartbeat advancing +60 s
+per minute, no `LockLost`, no restarts. Under the pre-`776bdbd` build the third request would have
+stolen the lock from a live holder.
+
+Also recorded: the owner's production login 401 resolved to a DATA fault, not code — the `password`
+field had been set to a 12-character plain string instead of the 60-character `$2b$12$` hash, so
+`bcrypt.checkpw` raised `invalid salt` and `verify_password` returned False. Decisive evidence was
+latency: 6 ms for the failing attempt (no KDF work) versus 331 ms / 524 ms against a real hash.
+Auth code was correct and untouched throughout. Preview `users` is a separate database from the live
+pod's `greeting-app-5782-test_database`, so editing preview would have changed nothing.
+
+Remaining for G-41 closure: the two `observation_us` indexes → `explain` plan proof → remove the
+transitional legacy read → `VITE_E3_DT_V3=1` → KUSHU. Open: `apply`/`verify` still block on the
+30-second gateway timeout (it has detached a worker twice now); the `holder_alive` field reports only
+progress-derived liveness and reads misleadingly for operations with no progress signal (harmless —
+eligibility is heartbeat-derived); and the audit row for `mig_fcc460da6f2f4fd5` stays unfilled by
+owner decision.
+
+
+## 2026-10-03 · G-41 APPLY EXECUTED · THE 122,477 HISTORICAL ROWS ARE MIGRATED
+
+Owner-authorized, owner-executed against production build `7f12980`.
+**`WRITTEN = 122,477 · RESIDUAL = 0 · CAPTURED = 0 · WRITTEN + RESIDUAL = 122,477, difference 0`.**
+Only outcome present is `WRITTEN`. Evidence intact: `observation_us 1789720697563000` is the exact
+epoch-microseconds of `event_time '2026-09-18 08:38:17.563'` and matches the ledger's prior state;
+`event_time` untouched. Every historical canonical evidence record now carries a comparable integer
+instant, with per-row prior state recorded before each write.
+
+The launch POST 504'd at the gateway's 30-second timeout while the worker detached and kept writing
+for ~40 minutes. A mid-flight `report` then showed +30 / +48 / −117 discrepancies that were pure
+read skew — and **took over the live worker's lock**, flipping the run to
+`FAILED / STALE_LOCK_TAKEOVER` while the worker carried on lock-less. Duplication was ruled out by
+direction alone: a duplicate shares a `doc_id`, so it would make `distinct` LESS than the row count,
+and we measured GREATER.
+
+**Defect introduced by the resumability fix, still live:** `LOCK_STALE_AFTER` (30 min) is shorter
+than the migration's runtime (~40 min), so age-based takeover cannot tell a dead worker from a slow
+one. Corrections required before any future migration: takeover must require liveness (newest ledger
+row), the worker must renew its lock and abort if it loses it, and `apply` must not block on the
+gateway timeout. No evidence was harmed — the per-row guard prevents double-writes — but the
+single-writer guarantee was lost by accident.
+
+Open: `verify_canonical_observation_us` (needs the owner's admin session) · the two indexes ·
+`explain` plan proof · remove the transitional legacy read · `VITE_E3_DT_V3=1` · KUSHU. Also open:
+`e3_migration_runs` has no lifecycle row for `mig_fcc460da6f2f4fd5`, an audit gap.
+
+Separately, the owner's production login returned 401: credentials rejected by bcrypt (`$2b$12`),
+**zero 429s so not a lockout**, one canonical active admin doc with `role: admin`, email stored
+byte-exact. Cause is a credential mismatch (likely the dead SEC-001 password). Hardening noted but
+NOT applied: `routers/auth.py` looks the user up with raw `find_one({"email": body.email})` while
+the rate-limit key normalises, so a differing-case or whitespace-padded email 401s even with the
+correct password.
+
+
+## 2026-06 · G-41 · ACTUAL-PARSER REPORT PASS, THEN APPLY RESUMABILITY FIXED `[not deployed]`
+
+**Owner executed the production REPORT** (`mig_dde7b04395bc4cc0`, ~5 s): expected 122,477 ·
+observed 122,477 · `contract_eligible` **122,477 executed through `to_epoch_us`, not regex-inferred**
+· `contract_unparseable` 0 · all three gates true · `written` 0 · `would_write` 122,477 · `ok` true ·
+state COMPLETED. `G41_ACTUAL_PARSER_REPORT_GATE = PASS`. Production evidence untouched.
+
+Closed from source, no production call needed: **no delete of any kind** against
+`CANONICAL_COLLECTION` in runtime code and no TTL index on it (every TTL in the codebase targets
+other collections), so `TTL_OR_RETENTION_LOSS = NO`; and `xdr_pipeline.py:415-421` is
+`stamp()` → `assert_stamped()` → the single `insert_one`, with the only other canonical write a
+narrow `$set` of two provenance timestamps, so `NEW_UNSTAMPED_WRITER_PATH = NO`. The earlier
+"75-row drift" was non-atomic counting (stamped read at one moment, total at another); a
+contemporaneous pass gave total 123,003 = 526 stamped + 122,477 unstamped, residual 0.
+
+**Then the sequencing review found the real remaining weakness — and it was in the tool, not the
+data.** A half-completed APPLY could not resume: the next attempt saw fewer candidates than
+`EXPECTED_CANDIDATES` and refused, leaving only the choice between a stalled migration and editing
+the expectation down to the residual. Fixed with an accounting identity that never moves 122,477:
+every ledger row carries `population_id`, and continuation requires
+`written_before + remaining == 122,477` — identical to the old gate on a first run, strictly
+stronger on a resume, because a vanished row and a joined row both break the sum. Plus
+`ledger_integrity` gating on intact prior state, and an audited, age-gated stale-lock takeover (a
+live lock is still refused 409; a presumed-dead one is taken over with both runs recording it).
+
+19 new tests in `tests/edr/test_g41_resumability.py` (interrupt → resume → verify end-to-end through
+the control plane, idempotent repeat resume, and HOLD on vanished / extra / unparseable /
+fail-closed-UNPLACEABLE / corrupt-ledger / duplicated-ledger). One 34h lock test updated to the new
+contract. `G41_RESUMABILITY_GATE = PASS`; **`PRODUCTION_APPLY_READY = NO` until deployed.**
+
+Also recorded, by owner direction and with no implementation: `/app/memory/E1_CANONICAL_NORMALIZATION_AUTHORITY.md`
+— the permanent Canonical Normalization Authority invariant, of which `observation_us` is the
+temporal instance. A bounded KEEP / EXTEND / CONSOLIDATE / REPLACE inventory is deferred until after
+G-41 closes and must not interrupt the Production V1 critical path.
+
+
+## 2026-06 · G-41 STEP 2 · MIGRATION CONTROL LOCKED, VERIFIER FIXED, DEPLOYED `[commit c6ed841]`
+
+Owner-gated sequence, each step a separate authorization. **No APPLY. The 122,477 historical
+evidence rows remain untouched.** No index, no transitional-reader removal, no V3, no frontend
+deploy, no KUSHU/DESKTOP/sensors/TI/response plane.
+
+**1 · Population locked.** Read-only production recount after the writer went live:
+`OBSERVED_CANDIDATES = 122,477`, exact and stable across two reads · total 122,567 · stamped 94
+(BSON int64) · `event_time` absent/empty/non-string 0/0/0 · representation space 43,521 + Z 78,956
++ offset 0 + unaccounted 0, sum − candidates **0** · candidates already stamped 0.
+`EXPECTED_CANDIDATES = 122_477` declared in a reviewed commit, with the drift decision recorded:
+the number is never adjusted to make a gate pass.
+
+**2 · `G41_MIGRATION_REPORT_GATE = PASS`** (read-only production REPORT): 122,477/122,477
+derivable, 0 non-derivable, 0 conflicts, 0 unaccounted, total decomposes exactly, mutation boundary
+`TEMPORAL_FIELDS_ONLY`, `event_time` preserved, identity and provenance preserved.
+
+**3 · A real defect the REPORT exposed, then fixed — `G41_COLLATERAL_VERIFIER_GATE = PASS`.**
+The backfill recorded and rechecked its collateral digest with STEP 35's `collateral_digest()`,
+whose exclusion set is the two *identity* paths. The four paths G-41 intends to set were therefore
+inside the protected surface, so `verify_canonical_observation_us` would have reported collateral
+divergence for all 122,477 intentionally migrated rows — destroying its ability to tell an intended
+temporal change from accidental modification of something else. Applying before this fix would have
+meant applying with no working post-APPLY verification.
+Fix, scoped to the verification boundary: `identity_backfill.digest_excluding(doc, paths)` lets the
+caller name its own exclusion set and excludes nothing by default; `collateral_digest()` keeps
+exactly STEP 35's two identity paths (values proven byte-identical to the prior semantics against
+an independently written reference); `observation_us_migration.g41_collateral_digest()` forgives
+exactly `observation_us`, `additional_fields.observation_us_state`,
+`additional_fields.observation_us_basis`, `provenance.observation_us_provenance`, derived from the
+writer contract so write and exclusion set cannot drift. 25 new tests
+(`tests/edr/test_g41_collateral_verification.py`): 14 non-temporal mutations each detected,
+STEP 35 unchanged, an end-to-end apply whose *measured* mutation surface equals exactly those four
+paths, and a post-apply verify at `collateral_diverged = 0` that still catches a tampered
+`endpoint_id` and an `observation_us` that stops agreeing with `event_time`.
+Regression: 97/97 focused · 34h migration control 19/19 in isolation · combined
+`tests/edr` + `tests/edr_trajectory` 2,715 passed / 16 failed = the identical pre-existing
+xdist-isolation failures. No regression.
+
+**4 · `G41_MIGRATION_CONTROL_DEPLOY_GATE = PASS`** — run `c6ed8410`, backend healthy, ingest and
+heartbeat 200. Verified from the running image: expectation live at 122,477; verifier live with the
+four paths wired into both ledger-write and verify; STEP 35 digest still excluding exactly its two
+identity paths. Database: candidates **exactly 122,477** · migration runs backfill 0 / verify 0 ·
+`e3_migration_row_ledger` **absent** · 4 indexes, **none** referencing `observation_us` · total
+122,818 = 343 stamped + 122,477 candidates, stamped rising 341 → 343 under live ingest, all int64 ·
+spot-check `2026-10-01T10:19:58.863Z` ↔ `1790849998863000`, state
+`DERIVED_FROM_STORED_OBSERVATION_TIME`.
+
+**Next gates, in order, each owner-authorized:** Atlas PITR / earliest-restorable-point
+confirmation (owner, control plane — the deployer has no visibility, which is the only reason
+`RECOVERY_PREREQUISITE = NOT_READY`) → final pre-APPLY REPORT → APPLY the 122,477 →
+`verify_canonical_observation_us` → the two indexes → `explain` plan proof → delete the transitional
+legacy reader → `VITE_E3_DT_V3=1` → KUSHU.
+
+**Observation, not a defect:** one telemetry batch took ~7.8s against a 1.4–2.2s band, HTTP 200, no
+traceback. Not on any path this change touches. Revisit only if it recurs or trends.
+
+
+## 2026-06 · integration/e3-dt · CORE V3 REAL-EVIDENCE INTEGRATION (E1 ↔ E3 Device Trajectory)
+
+**Owner directive:** wire the exact E3 V3 Device Trajectory to E1's real production evidence.
+Test-gated, bounded, reversible. **No production deployment. No endpoint actions. No protected
+endpoint access. No production env/index/schema change.**
+
+**Owner decisions taken BEFORE implementation:**
+1. `REAL_ENDPOINT_VALIDATION = BLOCKED_ENVIRONMENT`. DESKTOP-A9HGFJJ was NOT read as a
+   validation target even though only already-stored records were involved; the anonymous
+   default-tenant corpus was NOT substituted for a named endpoint; KUSHU was NOT manufactured
+   or imported.
+2. Baseline = the intentional source only; runtime SQLite side files excluded.
+3. The V3 contract is an **additive `v3` key** on the existing trajectory response, derived from
+   the already-produced §d `e3` result with **no second evidence read**. V1 / `dt2` / `e3`
+   untouched.
+4. Truthful neutral states preserved: `NOT_COLLECTED` / `NO_DATA` / `UNKNOWN` / `NO_HIT`.
+   **NO DETECTION stays distinct from BENIGN.**
+
+### Change ledger
+
+| # | Change | Reason | Files | Tests | Rollback |
+|---|---|---|---|---|---|
+| 1 | V3 presentation contract (pure mapping, no DB read) | V3 consumed a field vocabulary no production endpoint produced | `edr_trajectory/v3_presentation.py` (new) | 31 gates in `tests/edr_trajectory/test_v3_presentation.py` | delete the file; only the `v3` key imports it |
+| 2 | Additive `v3` key + `before` cursor alias | §4/§7 owner decision | `routers/edr.py` | live curl + V3 gates | remove the `try` block; `e3`/`dt2`/V1 unaffected |
+| 3 | Bijective presentation identity `encode_iid`/`decode_iid` | V3 silently de-duplicates repeated `event_iid`, so a collision DELETES evidence from the analyst's screen | `v3_presentation.py` | 9 identity gates incl. same-ms/different-µs and two-store collapse | identity is derived, not stored — no migration |
+| 4 | Focus accepts `event=` alias, V3 identity and `observation_id` | the ATT&CK HeatMap and the XDR pivot both build `?event=`; an ignored identifier resolved to nothing while looking like a successful read | `routers/edr.py`, `production_adapter.resolve_evidence(match=…)` | 5 deep-link gates + live curl on all three identifier forms | params optional; V1 namespace untouched (`decode_iid` → None) |
+| 5 | Bounded deep-link search `FOCUS_PAGE_BUDGET = 8` | an unresolvable identifier walked the endpoint's ENTIRE history on every request — an unbounded read on a 279,554-observation endpoint | `production_adapter.py` | 2 gates: budget-reached ≠ exhausted | raise/remove the constant |
+| 6 | Production `/trajectory/hours`, `/file-facts`, `/attack` | existed ONLY in the stripped preview router, so V3's navigator, artefact panel and ATT&CK strip had no production backend | `routers/edr_trajectory_v3.py` (new), `server.py` (2 lines) | live curl + static gates | remove the `include_router` line |
+| 7 | Analyst time window pushed INTO the §d query | the toolbar claimed a range the page had not read, and a deep link to an observation older than the newest page resolved correctly and then never appeared | `production_adapter.py`, `production_service.py`, `routers/edr.py` | 9 window gates, 2 of which assert the bound is in the QUERY | window is optional; absent window = previous unbounded behaviour |
+| 8 | V3 reads `d.v3 \|\| d`; truthful data-source label; Actions → E1 durable response authority; server-supplied deep-link miss text | §7, §10, §14 | `trajectory_v3/amp/TrajectoryPage.jsx` (4 edits) | Gate 17 static + live browser | revert 4 lines; 15/18 V3 files stay byte-identical to `258c8854` |
+| 9 | `VITE_E3_DT_V3=1` in `.env.development` ONLY | §17 activation without touching production configuration | `apps/nivxray-xdr/.env.development` (new) | Gate 17 asserts the flag is absent from `.env`/`.env.production`; verified in the built bundle (`A={}` → flag `undefined`) | delete the file |
+| 10 | EDR route guard sends `/edr/*` to the EDR login | an expired session on an EDR route rendered the **NivXRay XDR** sign-in — the same product-boundary leak as XDR chrome, at the one moment nobody is looking | `App.jsx` `Protected` | new Gate 16 test (7 → 8) | revert 2 lines |
+
+### Defects found DURING this phase by measurement, not by review
+
+1. **`/hours` returned 0 for a populated day.** Matching the endpoint and filtering the day in
+   Python fetched an unordered 200k prefix of a 279,554-observation history, never reached the
+   requested day, and reported every hour as `0`. A zero meaning "I did not look" rendered
+   identically to a zero meaning "nothing was retained". Fixed by ranging the QUERY on the
+   store's own observation-time field: 12,476 rows examined instead of 279,554, 2.5 s,
+   per-store `{shadow: 8507, canonical: 8475}`, plus an explicit `truncated` lower-bound flag.
+2. **A populated window returned zero rows.** The window's query bound was widened by an hour to
+   absorb offset-format differences, so the per-branch `limit` was consumed by rows ABOVE the
+   ceiling: a ten-minute window holding evidence returned 0 rows while reporting 138 excluded.
+   Fixed to ±1 s of slack. Verified live: 14:00–14:10 → 5 rows / 0 excluded; a 30-second window
+   → 36 rows, all inside.
+3. **An unauthenticated EDR route rendered the XDR login.** Found by driving the browser, not by
+   reading code. Fixed and gated.
+4. **An empty read claimed "Synthetic data".** With no customer selected the V3 status bar
+   asserted a data source it had never read. Now "No data read", with "Data source not declared"
+   for an undeclared label.
+
+### Verified results
+
+| Gate | Result | Evidence |
+|---|---|---|
+| EXACT_E3_V3_PRESENT | **PASS** | 18/18 files present; 15/18 byte-identical to `258c8854`. `AttackStrip.jsx` + `attack.js` differ by the shared-ATT&CK import path only (earlier unification); `TrajectoryPage.jsx` carries this phase's 4 directed edits |
+| V3_REAL_EVIDENCE_CONTRACT | **PASS** | live: 200 events, label "Production evidence (read-only)", real lanes (`mongod`, `python3.11`, `104.18.10.243:443`) |
+| EVENT_IID_STABLE / UNIQUE | **PASS / PASS** | bijective on §d evidence identity; unique by construction (§d collapses one activity to one identity per customer); 200/200 unique live |
+| FULL_PRECISION_ORDERING | **PASS** | `observed_us` remains the sole order/cursor authority; `timestamp_instant_ms` is render-only and asserted absent from ordering |
+| NEWEST_FIRST | **PASS** | live newest row 2026-10-02T15:03; descending verified |
+| PAGING_NO_GAP_NO_DUP | **PASS** | ordered union of 5-row pages == bounded reference, windowed and unwindowed |
+| DEEP_LINK_EXACT | **PASS** | browser round trip in a clean navigation resolved to the same observation (15:02:44); all three identifier forms resolve live |
+| HOURS_REAL_EVIDENCE | **PASS** | real per-hour counts; `ingest_time_used_as_observation_time: false`; "0 ≠ clean" stated in the payload |
+| FILE_FACTS_TRUTHFUL | **PASS (truthful degradation)** | first-seen + in-customer prevalence only; signer / reputation / creator / disposition → `NOT_COLLECTED`; `NO_KEY` with neither hash nor path |
+| REAL_DETECTIONS_CONNECTED | **PASS** | joined from `edr_plane.fabric` findings on exact `evidence_refs`; live: "No detection engine claimed this observation … Absence of a detection is not a verdict of clean." |
+| MITRE_AUTHORITY_PRESERVED | **PASS** | one authority (vendored ATT&CK Enterprise v19.2); empty strip renders "no technique attributed … Absence of an attribution is not evidence that no technique was used." |
+| TI_TRUTHFUL_DEGRADATION | **PASS** | no `e3_assessment` emitted; V3 shows "Unknown · not assessed" rather than a verdict |
+| E1_DURABLE_RESPONSE_AUTHORITY | **PASS** | Actions → `POST /api/edr/response/actions`; unimplemented verbs refused client-side with **zero POSTs issued** |
+| TENANT_FAIL_CLOSED | **PASS** | no customer → 403 `TENANT_REQUIRED` `fail_closed: true`; wrong customer → `ENDPOINT_NOT_RESOLVED` with zero evidence |
+| PRODUCTION_MOCK_DATA_REACHABLE | **NO** | source gate over `v3_presentation` and every `trajectory_v3` module |
+| PREVIEW_AUTH / APPROVAL_REACHABLE | **NO / NO** | preview router unmounted; the in-memory approval endpoint removed from V3 and gated |
+| GATE16 | **PASS (8/8)** | includes the new EDR-login gate |
+| GATE17 | **PASS (8/8)** | route → gateway → exact V3; flag in the integration build only |
+| REGRESSION | **2181 passed, 12 skipped, 0 failed** | baseline 2131/12 → +50 gates, 0 new failures |
+| REAL_ENDPOINT_VALIDATION | **BLOCKED_ENVIRONMENT** | owner decision; not fabricated, not substituted |
+| PRODUCTION_DEPLOYED | **NO** | — |
+
+### Known remaining gaps (declared, not fixed)
+
+- **REAL_ENDPOINT_VALIDATION is BLOCKED_ENVIRONMENT.** Everything above was proven on the
+  preview-runtime integration endpoint `dev_42e8c6dc74b9` (tenant `default`) — a preview-database
+  endpoint carrying genuine runtime telemetry, NOT an authorized production endpoint. No gate
+  above may be read as real-endpoint proof.
+- `xdr_canonical_evidence` has **no index on `event_time`**, so every windowed read is a blocking
+  sort. Three indexes were measured as needed; creating them is owner-gated and was not done.
+- Canonical authority between `v2_shadow_observations` and `xdr_canonical_evidence` remains
+  **NOT SELECTED**; the adapter reads both and collapses on identity.
+- `/hours` does **not** collapse identity across stores, so an observation in both stores counts
+  once per store. Declared in the payload (`cross_store_identity_collapsed: false`).
+- A merged event's `provenance.ref` may differ between the page row and the resolver row, so a
+  deep link by `observation_id` can miss for a cross-store-merged observation while the same
+  event resolves by presentation identity.
+- Old E3-shell deep links use the **V1** iid shape (`obs_…#…`) and fall through to the V1
+  resolver; they do not resolve against the V3 presentation namespace.
+- `edr_behavior`, `edr_ml`, `edr_investigation` remain **NOT production-wired** (deliberate, §19).
+  See `docs/e3/BEHAVIOR_ML_INVESTIGATION_READINESS.md`.
+- One live test (`test_an_admin_call_without_an_explicit_tenant_is_refused`) failed once on a
+  **TCP connection failure to the preview host** during concurrent browser runs. It passes 10/10
+  in isolation and a fresh token still returns `403 TENANT_REQUIRED`; not a code regression.
+- `preview_mount.py` + `E3_TRAJECTORY_ROUTER` still exist with no call site.
+
+---
+
+## 2026-06 · integration/e3-dt @ da4c9098 · Gate 16 fixed, final E3 absorbed, §d still open
+
+`96232631` -> `2c36a0e0` (report) -> `da4c9098`. FINAL_E3_SOURCE = `258c8854` (absorbed;
+2 files, preview-only stable synthetic observation ids + brief text). Base `1800aeea`,
+`feature/rc2-alignment` untouched.
+
+**Gate 16 FIXED by architecture, not by weakening.** `trajectory_v3/amp` reached into the
+XDR product namespace `@/xdr/mitre/*`. The two genuinely shared modules
+(`navigatorLayer.js`, `attackNameIndex.generated.js`) moved to `@/xdr/lib/mitre/` - a
+namespace Gate 16 already sanctions - and BOTH `XdrMitreHeatmap` (XDR) and
+`trajectory_v3/amp/attack.js` (EDR) import from there. Catalogue NOT duplicated,
+allow-list NOT extended, `build_name_index.py` emits to the shared path (one generated
+index). `attack_catalog.test.mjs` now asserts the shared path.
+
+`backend/tests/edr/` back to **2051 passed / 3 skipped** (regression closed).
+Gate16+attack_catalog 10 · vitest 246 · tools/e3ui 12 · node --test 50 · jest 14 ·
+E3 trees 190/9.
+
+Invariants: worker_count=1, PROCESSING_CONTRACT durable_queue_v1, `$lookup` 0,
+created-fix present, reconcile index present. `PRODUCTION_MOCK_DATA_REACHABLE = NO`
+(re-proved with `E3_TRAJECTORY_ROUTER=1` forced ON -> zero `/api/e3` routes).
+Flag matrix re-proved by build: OFF 13,186 B chunk with static dep on
+`EdrDeviceTrajectoryPage`; ON 1,837 B, dep folded out.
+Routing: `/edr` -> EdrOverviewPage; `/edr/device-trajectory` -> DeviceTrajectoryEntry ->
+trajectory_v3 with `device` search param; Vercel rewrites `/(.*)` -> `/index.html` so
+refresh works.
+
+**STILL NOT_PRODUCTION_READY.** §d wiring 2/11 addressable; 9 items NOT_WIRED. Blocking
+architecture contradiction surfaced for the owner: §d.1 and §e require ordering/indexing on
+`observed_ms`, which is NOT a stored field anywhere, while §e also forbids any migration
+that rewrites evidence. Cannot be resolved from repository contracts - needs an owner
+decision (stamp `observed_ms` at canonicalisation for new evidence, the `processing_contract`
+precedent, plus a separate decision on historical backfill).
+
+NOTHING DEPLOYED/PUBLISHED. DESKTOP-A9HGFJJ UNTOUCHED. KUSHU endpoint UNTOUCHED. Gate 4 HOLD.
+
+
+## 2026-06 · integration/e3-dt · E3 Device Trajectory + ATT&CK v19.2 integrated (NOT deployed)
+
+Branch `integration/e3-dt` = `1800aeea` (E1 deployable baseline) fast-forwarded to E3
+`6858734fd61cd868c79f84afecf6c117ba372298`, then `96232631` strips the E3 preview router
+mount. `feature/rc2-alignment` @ `1800aeea` untouched and still the deployed line.
+
+Scope: 189 files, +34,363/-14,301. New backend packages (`edr_trajectory`, `edr_behavior`,
+`edr_ml`, `edr_investigation`), new DT surfaces `trajectory_v3/**` (production candidate,
+behind `VITE_E3_DT_V3`) and `trajectory_amp/**` (preview-only, behind
+`VITE_E3_DT_CONTRACT_PREVIEW`), legacy `trajectory/**` kept as rollback.
+
+Durable-ACK invariants re-verified intact. `edr_plane/`, `routers/`, `deps.py`, `agents/`,
+`.github/` and all dependency manifests UNTOUCHED by E3.
+
+### Results
+- `backend/tests/edr/`: 2050 passed / **1 failed** / 3 skipped (baseline 2051/3)
+- New E3 trees: 190 passed / 9 skipped (9 skip because the preview adapter was stripped)
+- MITRE consumers 117 passed · tenant isolation 207 passed · response authority 78 passed
+- vitest (XDR app) 246 passed · jest (frontend) 14 passed · node --test 50 + 12 passed
+- Full `backend/tests/` (550 files): BLOCKED - live-network dependent, >3h; the baseline at
+  `1800aeea` shows the same F/E population, so it is not a usable gate in this environment
+
+### BLOCKERS (owner decision required)
+1. **Gate 16 EDR independence FAILS.** `trajectory_v3/amp/AttackStrip.jsx` imports
+   `@/xdr/mitre/navigatorLayer`; `trajectory_v3/amp/attack.js` imports
+   `@/xdr/mitre/attackNameIndex.generated`. Gate 16 allows `@/xdr/(lib|nx|components|hooks|util)`
+   only. It is in the production-candidate path. Do not weaken the test.
+2. **ATT&CK v19.2 renames the `defense-evasion` tactic to `stealth`** (14 -> 15 tactics).
+   223 repo files reference `defense-evasion`/`Defense Evasion`; only 6 mention `stealth`.
+   No test fails, but every catalogue-cross-referencing consumer needs adjudication.
+3. **Real-KUSHU DT validation A-T is not achievable yet.** Brief section (d) lists ~11
+   production wiring items (newest-first paging, timestamp sort, focus resolver, file facts,
+   attack annotate, approvals durability) as E1 work NOT YET DONE, so the E3 UI cannot read
+   real data.
+
+### ATT&CK v16.1 -> v19.2 compatibility (computed, read-only)
+656 -> 697 active techniques; 0 -> 161 retired entries. **Zero IDs become unresolvable**
+(every v16.1 ID still resolves via `retired[]` carrying `revoked_by`). 16 active->retired,
+11 renames, 188 tactic-set changes. Catalogue coherent across backend service, router and
+the generated frontend index.
+
+### KUSHU real-evidence baseline (production, read-only)
+`ep_a67be48d5b4e01d4d9e8` ENROLLED/ACTIVE, 0.3.0-windows. 131,750 raw docs (130,500 marked
+`durable_queue_v1`), ingest 2026-10-01T09:54Z -> 2026-10-02T13:47Z, observation window
+2026-09-29T04:16Z -> 2026-10-01T09:59Z, i.e. **backlog replay still ~28h behind**.
+Canonical 17,721: registry 16,574, network 360, file 239, process-create **69** (all 69 have
+CommandLine + ParentProcessGuid), DNS 4, terminate 66, imageload/driverload 0.
+**edr_findings = 0, zero ATT&CK attribution** -> MITRE real trace = INSUFFICIENT_REAL_EVIDENCE.
+Queue tenant-level: PENDING 76,358 / DONE 54,191 / RETRY 0 - not draining at 1 worker.
+Top-level `event_time` is NULL on 100% of raw rows; observation time lives only in payload
+JSON and in `xdr_canonical_evidence.event_time`.
+
+### Verified safe
+`PRODUCTION_MOCK_DATA_REACHABLE = NO` - proven with `E3_TRAJECTORY_ROUTER=1` forced ON:
+zero `/api/e3/*` routes register. Flag matrix proven by build: OFF/unset -> legacy entry chunk
+statically depends on `EdrDeviceTrajectoryPage` (13,186 B); ON -> that dependency is folded
+out (1,837 B) and `trajectory_v3` renders. IRG isolation holds: `trajectoryVerdict()` returns
+`malicious` only from an evidence-backed MALICIOUS machine assessment, a rule/behavioral MATCH
+is `detected`, and `InvestigationCanvas.jsx` does not import `VERDICT_LABEL`.
+
+NOTHING DEPLOYED OR PUBLISHED. DESKTOP-A9HGFJJ UNTOUCHED. KUSHU sensor / enrollment /
+identity / journal UNTOUCHED. Gate 4 HOLD.
+
+
+## 2026-06 · P0 CLOSED IN PRODUCTION · durable-ACK boundary + bounded reconciler deployed
+
+Deployable line `feature/rc2-alignment`:
+`aaaeb899` integrate durable telemetry ACK processing boundary →
+`c9c2c469` Step-5 read-only evidence harnesses (`scripts/step5_*`) →
+`f900ad7d` fix(edr): report durable queue creation accurately.
+
+Staged release, owner-gated at every step. The GitHub branch `fix/edr-durable-ack-boundary`
+could NOT be deployed directly — Emergent snapshots `/app`, never GitHub — and that branch
+was 5 commits behind the deployable line, so the two backend commits were cherry-picked in
+(`--no-commit`, zero conflicts, zero rc2 files touched) rather than deploying it.
+
+Tests: focused 56 passed; `backend/tests/edr/` 2051 passed / 3 skipped (baseline 2048/3, +3 new).
+
+Preview runtime acceptance (synthetic endpoint `LAB-STEP5-ACCEPT`, raw_id
+`raw_db5eb8219fe941d157027082`): raw evidence → `processing_contract=durable_queue_v1` →
+queue obligation → ACK 200 in 170 ms (canonical deferred) → PENDING → PROCESSING(attempts=1)
+→ DONE, zero RETRY. Duplicate redelivery: same `raw_id`, `stored=false`, `duplicate_count`
+0→1, exactly one raw object and one obligation. 716 marker-bearing raw events ↔ 716 jobs (1:1).
+Measured single-worker throughput ≈ 0.47–0.6 jobs/s (~1,700–2,200/hour); preview backlog
+drained to zero while new telemetry arrived.
+
+Defect found in preview, not by the unit suite, and fixed in `f900ad7d`: the ACK reported
+`processing.created` from the enqueue RESULT DICT (always truthy), so duplicates claimed to
+have created a new obligation. Durability/idempotency were never affected. Regression tests
+proven to fail against the old expression.
+
+Production acceptance (publish `ec9e994` / run `ec9e9940`, 2026-06): PASS. 2/2 replicas
+Running, restart_count=0; `[startup] EDR durable processing supervisor started (workers=1,
+reconcile=60s)` on both replicas; `edr_processing_queue` has `uniq_tenant_raw` (unique),
+`claimable_work`, `expired_leases`; `edr_raw_events` has `reconcile_contract_window` with the
+partial filter; zero 5xx; zero reconciliation failures; no `$lookup` in the running image.
+Authoritative URL `https://greeting-app-5782.emergent.host` (alias `nivxray.nivxforge.com`).
+
+OPEN / NON-BLOCKING:
+- `reconcile_contract_window` key order reported in production as `{ingest_time, processing_contract}`
+  (spec: `{processing_contract, ingest_time}`); name + partial filter correct. Preview shows the
+  spec order, so this is likely a reporting artifact. Even if real it is not a scan risk — the
+  15-minute `ingest_time` bound still applies. Needs one read-only `listIndexes` re-check.
+- Emergent tags images by run_id, so a git SHA is not platform-verifiable; build identity was
+  confirmed by source-marker content inside the image instead.
+- Pre-existing, unrelated: "nightly benchmark failed: offset-naive/aware datetimes" tz bug;
+  stale Threatfox/OTX credentials.
+
+NEXT (owner-approved sequence): discard KUSHU's ~148k disposable backlog → start KUSHU →
+prove fresh ingestion keeps up → Gate 4. DESKTOP-A9HGFJJ untouched throughout.
+
+
+## 2026-06 · P0 · Durable-ACK reconciler bounded to a declared contract (`gh-ack-boundary` @ `7a788850`)
+
+Branch: `gh-ack-boundary` (local mirror of `fix/edr-durable-ack-boundary`). COMMITTED, NOT merged, NOT deployed.
+Patch for manual push: `/app/dist/P0_RECONCILE_CONTRACT_OWNERSHIP.patch`
+
+Defect removed: `reconcile_missing_jobs` ran a `$lookup` anti-join over the whole
+`edr_raw_events` corpus every 60s on every pod, then sorted it — a multi-hundred-MB
+blocking scan plus an in-memory-sort-limit failure on first startup after deployment.
+
+Fix (Option B, owner-approved): ownership is **declared at creation** via an immutable
+`RawEndpointEvent.processing_contract = "durable_queue_v1"`, stamped only by the
+durable-ACK ingest path and never retrofitted. The reconciler's authority is the marker;
+the 15-minute `ingest_time` window is a read/performance bound only. This is what makes a
+rolling deployment safe — events accepted by a pod on the previous build simply never
+carry the marker.
+
+- `backend/edr_plane/raw_events.py` — additive `processing_contract` field + explicit
+  `build()` arg; new index `reconcile_contract_window` on `(processing_contract, ingest_time)`
+  with `partialFilterExpression {processing_contract: {$exists: true}}` (partial, not sparse:
+  a compound sparse index would still cover the whole corpus).
+- `backend/routers/edr_enrollment.py` — `_ingest_one` stamps the contract.
+- `backend/edr_plane/processing_queue.py` — `$lookup` path deleted; index-covered `find`;
+  `enqueue()` remains the sole idempotent authority (no pre-check, no direct queue writes);
+  reconcile failures now logged on onset + every 10th consecutive + on recovery
+  (`reconcile_failure_count()`), replacing `except: pass`.
+- `backend/server.py` + `start_workers` default — `worker_count=1` per pod.
+- Tests: new `backend/tests/edr/test_p0_reconcile_contract_ownership.py` (26 tests incl.
+  rolling-deployment overlap, raw-evidence identity invariance, dedup stability across the
+  contract boundary, REJECTED never reconciled, limit clamping, source-level assertion that
+  `$lookup`/`aggregate` cannot return); queue-worker reconciler tests moved to the `find`
+  contract and their fake no longer exposes `aggregate`.
+
+Invariants verified: `payload`, `payload_sha256`, `dedup_key`, `raw_id` unchanged; marker not
+an input to `digest()`; `append()` still only `$inc`s `duplicate_count` on re-delivery.
+Suite: `backend/tests/edr/` → 2048 passed, 3 skipped.
+Push blocked: pod has no git remote/credentials. Gate 4 remains HOLD. KUSHU / DESKTOP-A9HGFJJ untouched.
+
+
 # NivXRay Changelog
 
 Chronological record of significant releases (newest first).
+
+## 2026-06 · W2-1D — Coverage Impact: POTENTIAL vs EFFECTIVE — SHIPPED
+
+Owner correction to the W2-1C model: "detectable the moment telemetry
+arrives" is too strong, and `AVAILABLE` must never depend on a rule having
+fired. Both are now impossible to express.
+
+**Benchmark recorded before implementing** (standing rule): Elastic
+Security publishes `required_fields` + `related_integrations` per prebuilt
+rule; DeTT&CT separates data-source visibility from detection coverage; the
+documented industry failure mode is *"assuming coverage based on log
+presence"* when the fields a rule cites were never normalized. Rejected
+alternatives: coverage-by-log-source (that failure mode) and
+coverage-by-firing (would report a new customer with 500 valid rules as
+uncovered).
+
+- `coverage_impact()` publishes two independent claims. **POTENTIAL** =
+  deployed content that could use the source, judged against the channel's
+  DECLARED canonical fields. **EFFECTIVE** = source receiving · parser
+  supported · normalization supported · required fields **measured in real
+  evidence** · rule deployed · rule applicable to the schema. Neither needs
+  a detection to have fired.
+- Prerequisites are itemised individually (Source configured · Source
+  receiving · Parsing · Normalization · Canonical evidence produced), each
+  PASS / NOT PROVEN / BLOCKED with the exact blocker.
+- **Evidence gaps** (this deployment must fix) are kept apart from
+  **content gaps** (a rule citing a field this channel will never carry).
+- A rule that declares no required fields is BLOCKED, not effective — its
+  field prerequisite cannot be verified.
+- The `Detectable` stage now reports EFFECTIVE coverage, so the misleading
+  `Security · Detectable ✓ while Acquired ✗` reading is gone. It now reads
+  `Detectable ✗ BLOCKED · potential coverage: 18 rule(s)`.
+- ATT&CK rows appear only where deployed content carries an authoritative
+  technique mapping; a channel with no DSM yields an empty set (asserted).
+- `GET /api/xdr/windows/coverage` → `available_now` / `potential` /
+  `blocked` buckets + estate ATT&CK view. UI `WindowsCoverage.jsx` with a
+  citation pane walking channel → schema/event types → required fields →
+  detection rules → ATT&CK mapping → operational state → evidence.
+- Truthfulness fixes: a channel with no source configured reports
+  `events_delivered = null` (`—`) because nothing was counted (`0` is
+  reserved for NOT OBSERVED, where zero is measured); the tenant-scope
+  refusal now renders once as an actionable "select a customer" notice.
+
+Verified: 56 tests in `test_w2_windows_channel_dsms.py` (8 new for this
+model), 201 passing across the Windows/temporal/routing suites, 175 passing
+across ingest/telemetry regression, clean vite build, live endpoints
+confirmed against a real tenant.
+
+
+## 2026-06 · W2-1C — Windows channel truth model · Event Explorer · Defender DSM — SHIPPED
+
+Report `memory/W2-1C_WINDOWS_TRUTH_AND_EVENT_EXPLORER.md`. Standing owner
+rule recorded in `memory/ENGINEERING_STANDARD_INDUSTRY_BENCHMARK.md`:
+benchmark every decision against current industry-leading XDR/EDR
+architecture, copy proven patterns, never copy a vendor limitation.
+
+**Shared truth contract**
+- `services/windows_channel_truth.py` — one server-side authority
+  publishing FIVE independent dimensions: Collection · Parsing ·
+  Normalization · Detection **capability** · Detection **activity**. None
+  derived from another; `composite_health` is deliberately `null` with the
+  reason published.
+- Capability is computed from the deployed content inventory against the
+  capability tokens each channel's evidence provides — it never depends on
+  a rule having fired, and historical firings never prove present
+  capability. `Security · capability AVAILABLE (21 eligible rules) ·
+  detections observed null` is a valid, verified state.
+- A measurement not taken returns `null` → `—` / `NOT AVAILABLE`, never
+  `0`. `CONFIGURED` / `NOT OBSERVED` / `NOT CONFIGURED` stay three
+  distinct answers. `real_endpoint_proof` = NOT PROVEN until W2-R0…R6.
+
+**Lane G · Data Sources → Windows**
+- `GET /api/xdr/windows/{overview,channels,channels/{id},devices,
+  devices/{origin},collectors,configuration}` (read-only).
+- `/xdr/data-sources/windows/:tab` — Overview | Devices | Channels |
+  Collectors | Coverage | Health | Configuration, with a contextual
+  channel pane and a device pane. `Acquired → Understood → Detectable` is
+  a presentation of the authoritative states and cannot manufacture a
+  stage.
+- Device identity: `origin_computer` is EVIDENCE OF ORIGIN, not the asset
+  id. `canonical_device_id` is null with an alias block for the stronger
+  identifiers; unmatched origins report `EDR association: NOT ESTABLISHED`
+  rather than `UNENROLLED`.
+
+**Lane H · Event Explorer**
+- `GET /api/xdr/events/search · /facets · /{event_id}` over canonical
+  evidence — source-agnostic from day one.
+- `/xdr/events` dense analyst table + inspection pane (Summary | Fields |
+  Raw | Normalized | Canonical Evidence | Relationships | Detection |
+  Provenance) above the explicit chain Raw Event → Parsed Fields →
+  Normalized Event → Canonical Evidence → Detection → Incident, each stage
+  with its own state and evidence reference. Raw XML immutable. No
+  fixtures.
+
+**Defender DSM**
+- `windows-defender-evd` covering the detection, response and posture
+  event families. Microsoft's verdict is carried verbatim as
+  `vendor_verdict` SOURCE evidence and is never promoted to a NivXRay
+  verdict; Command Intelligence is not invoked. `Detection Time` is the
+  activity instant, `TimeCreated` the observation.
+
+**Verification** — self-test only: 337 backend passed / 14 skipped, 134
+collector passed, clean vite build, live endpoints 200 authenticated and
+403 unauthenticated, all three new pages render.
+
+
+## 2026-06 · W2-1B — Windows Security + PowerShell canonical evidence — SHIPPED
+
+The W2-1 adapter delivers rendered EVTX XML; every Windows DSM read a
+decoded document. So a channel could be genuinely RECEIVING and report
+`NO_DSM` forever. That gap is now closed, and Security + PowerShell
+telemetry becomes canonical evidence instead of preserved-but-unreadable
+XML. Report `memory/W2-1B_WINDOWS_CHANNEL_DSM_REPORT.md`.
+
+**Backend**
+- `detection_content/telemetry/evtx_xml.py` (new) — the ONE place rendered
+  Windows XML becomes JSON. Interprets nothing, invents nothing, discards
+  nothing: the verbatim XML remains the authority. Unnamed positional
+  `<Data>` (the classic PowerShell channel) is preserved positionally.
+- `routers/xdr_ingest.py :: _document_for_pipeline` — decodes once, for
+  BOTH declared-source routing and the pipeline, and records the outcome
+  under `_nivx.evtx_decode` so "not a Windows record" can never be
+  confused with "a Windows record we could not read".
+- `windows_security_dsm.py` — accepts rendered XML; coverage widened to
+  4648, 4672, 4720, 4726, 4732, 4776, 4698, 1102. 1102 is normalized from
+  `UserData`. Actor and target account stay separate entities.
+- `windows_powershell_dsm.py` (new) — 4103/4104/4105/4106 plus classic
+  400/403/500/501/600/800. `ContextInfo` and the classic key=value block
+  are parsed (both spaced and unspaced spellings). `ScriptBlockText` is
+  carried verbatim: no decoding, no deobfuscation, no scoring, and
+  Command Intelligence is NOT invoked — it stays a downstream consumer
+  and stays PAUSED.
+- `telemetry/registry.py`, `services/source_routing.py` —
+  `windows-powershell-evd` registered; `windows_security` /
+  `windows_powershell` / `powershell` resolve as aliases to the one
+  catalog key permitted to interpret them. Previously refused
+  `UNSUPPORTED_SOURCE`.
+
+**Collector**
+- `framework/windows_eventlog.py` — `ANALYSIS_SUPPORTED` now states
+  Security (normalization SUPPORTED / detection PARTIAL) and both
+  PowerShell channels (SUPPORTED / NOT AVAILABLE). Collection support and
+  analysis support remain two separate facts.
+
+**Temporal invariant**
+- Neither channel carries an activity-occurrence field, so both DSMs
+  declare `OBSERVATION_TIME` with `activity_occurred_at` `NOT_OBSERVED`.
+  The D12 cross-DSM guard was itself red (`m365-unified-audit` had no
+  temporal sample) and is now green.
+
+**Verification** — self-tested per owner instruction (no testing agent):
+33 new backend tests, 119 passing across the Windows/temporal suites,
+229 passing across ingest/routing/telemetry regression, 134/134 collector
+tests.
+
 
 ## 2026-09-08 · P0-3 — Blindness/Staleness Detection + Linux Sensor Recovery — SHIPPED
 
@@ -7342,3 +7944,144 @@ Accounts (also in `memory/test_credentials.md`):
 
 Next per owner order: P0-F.13.5 Detection → Trajectory handoff, then
 P0-F.13.6 process-exit collection, then P0-F.14 Fleet File Trajectory.
+
+## 2026-06 · B5/B7 EDR TENANT CONVERGENCE — P0–P5 (candidate/preview only)
+Root cause of production Gate H: B5 convergence had been applied to
+`routers/edr_enrollment.py` only; 32 further EDR routes never called
+`services.tenant_registry`, so `NIVX_TENANT_REGISTRY_ENFORCE=true` could not
+reach them. `GET /api/edr/endpoints` accepted an authenticated request with no
+tenant and silently ignored a supplied `X-Tenant-Id`.
+
+- NEW `backend/routers/edr_tenancy.py` — `edr_tenant` dependency,
+  `sensor_tenant`, `edr_scope` (narrow-only intersection), `ROUTE_CLASSIFICATION`.
+- 43 live `/api/edr/*` operations classified: 21+5 TENANT_SCOPED,
+  3+5 SENSOR_SCOPED, 8+1 PRODUCT_METADATA.
+- Retired 8 `"default"` tenancy literals, including 5 on the EDR **response/
+  write** plane (`edr_response.py`) and `edr_wave0._tenant()`.
+- R2: an explicit tenant never returns `UNATTRIBUTED_LEGACY_OBSERVATION` or
+  `*_FAILED_CLOSED` rows; the evidence is preserved, never mis-attributed.
+- R5: `dashboard_lenses.resolve_tenant_scope` no longer invents `["default"]`.
+- NEW `backend/tests/test_edr_route_tenant_authority.py` — 152 passed. Fails
+  when a new `/api/edr` route is unclassified (failed-closed by default).
+- Zero regression across the tenant/RBAC/audit/response/isolation core set
+  (48 pre-existing failures identical before and after).
+- 9 stale-by-design test assertions left RED for owner decision; no assertion
+  weakened. Frontend `nivxforge/edrApi.js` sends no `X-Tenant-Id` and is now
+  403 TENANT_REQUIRED — NOT fixed, needs its own authorisation.
+- Production untouched: publish 100 / build 8833215. W1 Phase 3 paused.
+
+## 2026-06 · FRONTEND TENANT CONTRACT + P6 PREVIEW A–I (candidate/preview only)
+- NEW `apps/nivxray-xdr/src/lib/tenant.js` — single active-tenant source:
+  `?tenant=` → `localStorage.nvx_tenant`. **No "default" fallback, no
+  hardcoded tenant id, no client-side registry check.**
+- `apps/nivxray-xdr/src/lib/api.js` — one axios interceptor attaches
+  `X-Tenant-Id` to every request; yields to a call site that already set it.
+  `edrApi.js` untouched; all 9 EDR console surfaces covered.
+- Removed the two hardcoded `tenant_id=default` usages:
+  `XdrInvestigationWorkspacePage.jsx` and `frontend/src/v2/pages/SecurityStateTab.jsx`
+  (now reports `NO_TENANT_CONTEXT`; evaluate/stage handlers refuse without a tenant).
+- `yarn build` on the XDR SPA: exit 0. Browser validation of the EDR console
+  NOT possible here (Vercel-hosted, not preview-served) — stated, not claimed.
+- 9 stale tests re-pointed: unattributed legacy evidence asserted on the
+  CROSS-TENANT projection; explicit-tenant reads asserted attributed-only. The
+  7 legacy hosts were NOT given artificial owners.
+- `test_b3_ingest_actor_is_never_the_client_claim` made hermetic via the
+  existing `relaxed` fixture; assertion unchanged. b4b5 now 30/0.
+- Regression: R4 gate 152/0 · tests/edr 22 failed (0 new, 1 baseline fixed) ·
+  core tenant/RBAC/audit/response/isolation set 48 → 48 identical.
+- **P6 preview A–I under `NIVX_TENANT_REGISTRY_ENFORCE=true`: A–I ALL PASS.**
+  Gate H PASS including the response/write plane. Tenant count 5 → 5 across G.
+  Zero persistent objects created.
+- Production untouched (publish 100 / build 8833215). W1 Phase 3 paused.
+
+## 2026-06 · COLLECTOR PLANE "default" CLOSURE (pre-production, candidate only)
+Owner-requested narrow closure of `collectorApi.js:77,85` traced through to the
+SERVER side of the collector plane and found the same implicit default there:
+- `apps/nivxray-xdr-collector/routes/connectors.py:111` — `x_tenant_id or
+  "default"`; `POST /connectors` with no header PERSISTED a connector under an
+  unregistered tenant. Now resolves via `tenant_registry.authoritative(
+  purpose="xdr.collector.connectors")`; absent → TENANT_REQUIRED.
+- `apps/nivxray-xdr-collector/routes/preflight.py:70` — `x_tenant_id or
+  "preflight"` injected a synthetic envelope with an invented tenant into the
+  real ingest pipeline. Now registry-resolved, and the tenant is checked
+  BEFORE the runtime/configuration report (authority before capability).
+- `apps/nivxray-xdr-collector/framework/identity.py:18` — `NIVX_TENANT_ID or
+  "default"` made a mis-deployed collector label its telemetry `default`.
+  Now returns "" so the core refuses with TENANT_REQUIRED.
+- Client: `requireTenant()` (NO_TENANT_CONTEXT) on `ingestPreflight` /
+  `createConnector`; the collector axios instance gets the same one-place
+  `X-Tenant-Id` interceptor; the two wizard tenant fields no longer pre-fill
+  `"default"`.
+Live preview: connectors + preflight refuse TENANT_REQUIRED /
+TENANT_NOT_FOUND / TENANT_NOT_ACTIVE; valid tenant 200. Every POST refused, so
+nothing created (connectors count 0, tenant registry 5 → 5).
+Tests: collector suite 105/0 (was 103/1, +2 new) · authority suites 258/0 ·
+tests/edr 22 failed (0 new) · core set 48 identical · XDR build exit 0.
+Candidate: HEAD 0fc9be8a + 7 uncommitted files; cumulative vs e7195597 =
+27 files, +1145/-183; `/api/*` path count unchanged at 795.
+PRODUCTION NOT REPUBLISHED — awaiting owner approval.
+
+## 2026-09-26 · Gate 5 + Gate 7 + Gate 11 + Connector Productization
+
+Owner directive executed as four bounded vertical slices sharing ONE
+policy authority (no duplicate authorities, no waterfall).
+
+### Stream A · shared policy authority (Gate 5, Gate 8)
+- `backend/edr_plane/policy/{contracts,store}.py` — nine-state
+  lifecycle, immutable versions, config digests, group/endpoint
+  assignment, delivery + acknowledgement recording, single state
+  derivation.
+- `routers/edr_policies.py` — admin surface (+ `/edr/groups`) and the
+  connector surface `GET /edr/agent/policy` (delivery) /
+  `POST /edr/agent/policy-ack` (the only route to APPLIED/VERIFIED).
+- `pages/EdrPoliciesPage.jsx` — per-computer delivery truth.
+- `edr_onboarding.ensure_default_placement` now writes the platform
+  default policy THROUGH the same authority (real version 1 + digest).
+- `EndpointRecord` gained `deployment_id`, `policy_source`,
+  `policy_assigned_at`, `policy_assigned_by`.
+
+### Stream B · Gate 11 Events Explorer
+- `routers/edr_events.py` (+ `/facets`, `/{raw_id}`) over
+  `edr_raw_events`; keyset cursor on `(ingest_time, raw_id)`; three new
+  indexes; measured (not asserted) activity coverage.
+- `pages/EdrEventsPage.jsx`.
+
+### Stream C · connector productization
+- `backend/edr_plane/connector/catalog.py` — release catalog with
+  on-disk artifact truth (`PUBLISHED` /
+  `ARTIFACT_NOT_PUBLISHED` / `ARTIFACT_INCOMPLETE` /
+  `ARTIFACT_REFUSED_EMBEDDED_CREDENTIAL`).
+- `routers/edr_connector.py` — releases, artifact download, deployment
+  context created AROUND the release (artifact identity unchanged,
+  `rebuild_required_per_endpoint: false`). The chosen group travels
+  with the enrolment credential server-side.
+- `pages/EdrDownloadsPage.jsx` rewritten to the Cisco-class workflow.
+
+### Stream D · Gate 7 Exclusions (Gate 9)
+- `backend/edr_plane/exclusions/{contracts,store,enforcement}.py` —
+  six truth states kept distinct, two-operator approval, retained
+  revocation, policy-version binding, and a real fabric gate.
+- `routers/edr_exclusions.py` incl.
+  `GET /edr/exclusions/enforcement-proof` — runs the real fabric with
+  and without the gate over real evidence and reports the delta.
+- `pages/EdrExclusionsPage.jsx`.
+
+### Stream E · documentation
+- `/app/docs/nivxforge-edr/` — README, Quick Start, User Guide,
+  Connector Deployment Guide, Policy Guide, Exclusions Guide, Events
+  Guide. Implemented truth only.
+
+### Verification
+- `tests/edr` 400 passed / 1 skipped / 0 failed.
+- `scripts/gate5_7_11_live_proof.py` — all live assertions PASSED.
+- `scripts/seed_edr_approver.py` — second operator required to prove
+  the exclusion approval path (self-approval is refused).
+- Light + dark screenshots of all four new surfaces; honest empty
+  states verified on an isolation-control tenant.
+
+### Also fixed
+- Empty-customer states on Policies and Events now name the CUSTOMER
+  selector instead of rendering bare zeros (reported by the owner).
+- All 20 new EDR routes registered in
+  `routers/edr_tenancy.ROUTE_CLASSIFICATION` (75 EDR routes, 0
+  unclassified).

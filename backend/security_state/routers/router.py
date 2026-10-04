@@ -57,8 +57,41 @@ from ..response_safety.safety_gate import ResponseSafetyGate
 from ..response_safety.verification import ResponseVerificationEngine
 from ..ledger.ledger import SecurityStateLedger
 
+from fastapi import Depends, Request
 
-router = APIRouter(prefix="/api/v2/security-state", tags=["Security State & Causal Intelligence"])
+from routers.xdr_rbac import authorize_tenant, require_permission
+
+
+async def _authorized_tenant(request: Request) -> str:
+    """B6 · authentication + tenant AUTHORITY for every security-state route.
+
+        request body / query tenant_id   =  a REQUEST
+        authenticated principal          =  the AUTHORITY
+
+    Before this dependency these routes had no authentication at all and took
+    `tenant_id` from request content, so any caller could name any tenant.
+    The tenant is now resolved through the one authoritative registry and then
+    checked against what the VERIFIED principal is allowed to act on
+    (`routers.xdr_rbac.authorize_tenant`) — no security-state-specific
+    authority is introduced, and the analytical semantics below are unchanged.
+    """
+    ten = request.query_params.get("tenant_id")
+    if not ten:
+        try:
+            body = await request.json()
+        except Exception:                                    # noqa: BLE001
+            body = None
+        if isinstance(body, dict):
+            ten = body.get("tenant_id")
+    return authorize_tenant(request, str(ten or ""),
+                            purpose="security_state")
+
+
+router = APIRouter(
+    prefix="/api/v2/security-state",
+    tags=["Security State & Causal Intelligence"],
+    dependencies=[Depends(require_permission("incidents.read")),
+                  Depends(_authorized_tenant)])
 
 # In-memory session ledgers and caches for demo/evaluation
 _LEDGERS: Dict[str, SecurityStateLedger] = {}
@@ -131,6 +164,8 @@ class StageInterventionRequest(BaseModel):
 @router.post("/evaluate")
 def evaluate_security_state(req: EvaluateStateRequest) -> Dict[str, Any]:
     """Evaluate, version, and persist immutable security states for enterprise entities."""
+    # Authentication, registry resolution and principal-tenant authorization
+    # are enforced by the router-level `_authorized_tenant` dependency (B6).
     ledger_key = f"{req.tenant_id}:{req.case_id}"
     evaluated_states: List[Dict[str, Any]] = []
 

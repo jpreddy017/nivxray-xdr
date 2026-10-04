@@ -202,7 +202,7 @@ export default function TrajectoryTimelineCanvas({
           const y = laneY(evt.lane);
           const isSel   = selectedId === evt.id;
           const isHover = hoverId === evt.id;
-          const stroke  = isSel ? "#3ce8b8" : "#0a0c11";
+          const stroke  = isSel ? "#3ce8b8" : "var(--nx-bd-strong)";
           const r = isSel ? MARKER_R + 2 : isHover ? MARKER_R + 1 : MARKER_R;
           return (
             <g key={evt.id}
@@ -226,8 +226,8 @@ export default function TrajectoryTimelineCanvas({
                     width={250}
                     height={26}
                     rx={4}
-                    fill="#11141c"
-                    stroke="#212736"
+                    fill="var(--nx-surf-inset)"
+                    stroke="var(--nx-bd-strong)"
                   />
                   <text
                     x={Math.min(x + 16, canvasW - 252)}

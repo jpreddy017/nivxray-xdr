@@ -186,7 +186,7 @@ function AnnRow({ a, editing, onEdit, onCancel, onSave, onRetire, busy }) {
                           gap: 3, padding: "1px 6px", borderRadius: 2,
                           background: "rgba(167,139,250,0.15)",
                           border: "1px solid #a78bfa",
-                          color: "#a78bfa", fontFamily: "var(--mono)",
+                          color: "var(--nx-purple)", fontFamily: "var(--mono)",
                           fontSize: 9, fontWeight: 700,
                           whiteSpace: "nowrap" }}>
         <User size={8} /> ANALYST · {(KIND_LABEL[a.kind] || a.kind).toUpperCase()}
@@ -223,7 +223,7 @@ const lbl = { fontFamily: "var(--mono)", fontSize: 10,
                     color: "var(--faint)", fontWeight: 700 };
 const btnAdd = {
   padding: "3px 8px", fontSize: 10, fontFamily: "var(--mono)",
-  color: "#a78bfa", background: "transparent",
+  color: "var(--nx-purple)", background: "transparent",
   border: "1px dashed #a78bfa", borderRadius: 2, cursor: "pointer",
   display: "inline-flex", alignItems: "center", gap: 4,
 };

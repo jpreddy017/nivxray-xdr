@@ -218,10 +218,19 @@ def _lag_seconds(events: list[CanonicalEvent]) -> float | None:
             try:
                 t = datetime.fromisoformat(
                     p.source_event_time.replace("Z", "+00:00"))
-                if latest_source is None or t > latest_source:
-                    latest_source = t
             except ValueError:
                 continue
+            #: W2 · TIMEZONE SAFETY. A source that writes its instant without
+            #: an offset (Sysmon `UtcTime`, several Windows channels) yielded
+            #: an OFFSET-NAIVE datetime here. Comparing it with the aware
+            #: `now` below raises, so telemetry lag silently stopped being
+            #: computed for exactly the sources we care about. A naive source
+            #: instant is treated as UTC — which is what those sources
+            #: declare — instead of being dropped or crashing the rollup.
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            if latest_source is None or t > latest_source:
+                latest_source = t
     if latest_source is None:
         return None
     now = datetime.now(timezone.utc)

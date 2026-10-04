@@ -1,0 +1,664 @@
+name: NivXForge Windows Installer (V1)
+
+# Builds the genuine Windows artifact ON WINDOWS. PyInstaller cannot
+# cross-compile a Windows PE from Linux, so this workflow is the only
+# place NivXForgeEDRSetup.exe can legitimately come from.
+#
+# SECURITY: this build needs NO secret of any kind — no production admin
+# credential, no JWT, no enrolment token, no EDR_AUTH_PEPPER, no endpoint
+# credential. The artifact is generic; enrolment happens only when an
+# authorised operator installs it with an owner-supplied token.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'agents/nivxforge-windows/**'
+      - '.github/workflows/windows-sensor-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build NivXForgeEDRSetup.exe (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 `
+            -PythonExe python -Commit $env:GITHUB_SHA
+
+      - name: Verify artifact contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = 'agents/nivxforge-windows/dist'
+          $exe  = Join-Path $dist 'NivXForgeEDRSetup.exe'
+          if (-not (Test-Path $exe)) { throw 'no installer produced' }
+          # Genuine PE
+          $b = [System.IO.File]::ReadAllBytes($exe)
+          if ($b[0] -ne 0x4D -or $b[1] -ne 0x5A) { throw 'not a Windows PE' }
+          # Runs without Python installed separately: the frozen binary must
+          # answer `version` using only what it bundles.
+          $out = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "frozen CLI exited $LASTEXITCODE" }
+          Write-Host $out
+          if ($out -notmatch 'sensor_version') { throw 'frozen CLI did not respond' }
+          if ($out -notmatch 'NivXForgeSensor') { throw 'service name missing' }
+          if ($out -notmatch 'ONEDIR_PAYLOAD') {
+            throw 'installer does not declare a onedir service host'
+          }
+          # Refuse non-production backends (guard must be live in the binary).
+          # A NON-ZERO exit is the REQUIRED outcome here, so the exit code is
+          # captured and cleared deliberately: GitHub's pwsh wrapper appends
+          # `exit $LASTEXITCODE`, and a leaked 1 from this intentional refusal
+          # would fail the step even though every assertion passed.
+          $bad = (& $exe install --backend http://localhost:8001 --tenant t --token-stdin 2>&1 | Out-String)
+          $guardExit = $LASTEXITCODE
+          Write-Host $bad
+          if ($guardExit -eq 0) { throw 'production-origin guard exited 0 for localhost' }
+          if ($bad -notmatch 'refusing to install') {
+            throw 'production-origin guard did not refuse localhost'
+          }
+          $global:LASTEXITCODE = 0
+          # The plaintext enrolment-secret interface must be GONE from the
+          # binary: a command line carrying the secret is recorded by
+          # Sysmon EID 1, the SCM and PowerShell history. A NON-ZERO exit
+          # is again the required outcome.
+          $legacy = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --token x 2>&1 | Out-String)
+          $legacyExit = $LASTEXITCODE
+          Write-Host $legacy
+          if ($legacyExit -eq 0) { throw '--token was accepted by the binary' }
+          if ($legacy -notmatch 'is REMOVED') {
+            throw 'the binary did not refuse the plaintext --token interface'
+          }
+          if ($legacy -notmatch '--token-stdin') {
+            throw 'the refusal did not name the stdin interface'
+          }
+          $global:LASTEXITCODE = 0
+          # A secret-SHAPED value carried by ANY argument must also be
+          # refused: `enr_...` is what the platform actually mints, so a
+          # value smuggled in behind an unknown flag must not survive.
+          $shaped = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --provisioning-key=enr_ci_probe_not_a_real_secret 2>&1 | Out-String)
+          $shapedExit = $LASTEXITCODE
+          Write-Host $shaped
+          if ($shapedExit -eq 0) { throw 'a secret-shaped argv value was accepted' }
+          if ($shaped -notmatch 'looks like an enrolment secret') {
+            throw 'the binary did not refuse a secret-shaped argv value'
+          }
+          $global:LASTEXITCODE = 0
+          # BUILD PROVENANCE must be baked in: an operator must be able to
+          # tell a stale installer from a fixed one without guessing.
+          if ($out -notmatch 'build_commit') { throw 'no build provenance in the artifact' }
+          if ($out -match 'UNOFFICIAL_BUILD') { throw 'artifact has no commit provenance' }
+          if ($out -notmatch 'artifact_sha256') { throw 'artifact does not report its own SHA256' }
+          # AN IGNORED FLAG MUST NEVER BE SILENT. A pre-hardening build
+          # discarded --token-stdin and then blamed the token.
+          $junk = (& $exe install --backend https://nivxray.nivxforge.com --tenant t --token-stdin --not-a-real-flag 2>&1 | Out-String)
+          $junkExit = $LASTEXITCODE
+          Write-Host $junk
+          if ($junkExit -eq 0) { throw 'an unknown argument was silently ignored' }
+          if ($junk -notmatch 'unrecognized argument') {
+            throw 'the binary did not name the unrecognized argument'
+          }
+          $global:LASTEXITCODE = 0
+          Get-Content (Join-Path $dist 'build-info.json')
+          Get-Content (Join-Path $dist 'SHA256SUMS.txt')
+          Write-Host 'ARTIFACT CONTRACT: PASS'
+          exit 0
+
+      # ── ACCEPTANCE GATE 0 · B5-GAP-1 EVIDENCE JOURNAL ─────────────
+      # The only place the real questions can be answered: did PyInstaller
+      # actually pack `sqlite3` and its native `_sqlite3` extension into
+      # THIS binary, do WAL + synchronous=FULL behave on NTFS, does a WAL
+      # reopen recover, and does committed evidence survive a restart of
+      # the FROZEN executable? A Linux unit test cannot know any of it.
+      # The artifact proves it about itself, twice, in two processes.
+      - name: Gate 0 · frozen journal selftest (primary + restart process)
+        id: gate0_selftest
+        shell: pwsh
+        run: |
+          # A FAILING selftest must not abort this step: the report step
+          # below has to be able to publish the evidence. So native exit
+          # codes are captured, not thrown (PowerShell 7.4 turns a non-zero
+          # native exit into a terminating error when EAP is Stop).
+          $ErrorActionPreference = 'Continue'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          $scratch = Join-Path $env:RUNNER_TEMP 'gate0-journal'
+          Remove-Item $scratch -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+          $gateDir = 'agents/nivxforge-windows/dist/gate0'
+          New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
+
+          # PHASE 1 — the frozen binary proves the journal about ITSELF.
+          $primary = Join-Path $gateDir 'gate0-selftest-primary.json'
+          $out = (& $exe journal-selftest --dir $scratch `
+                    --json-out $primary 2>&1 | Out-String)
+          $primaryExit = $LASTEXITCODE
+          Write-Host $out
+          $global:LASTEXITCODE = 0
+
+          # PHASE 2 — a NEW PROCESS of the SAME frozen binary reopens the
+          # SAME journal directory. This is the only honest proof of
+          # frozen-executable restart recovery on NTFS.
+          $restart = Join-Path $gateDir 'gate0-selftest-restart.json'
+          $out2 = (& $exe journal-selftest --dir $scratch --restart-check `
+                     --json-out $restart 2>&1 | Out-String)
+          $restartExit = $LASTEXITCODE
+          Write-Host $out2
+          $global:LASTEXITCODE = 0
+
+          # The selftest writes its JSON even when it FAILS, so the report
+          # step below can always produce owner-reviewable evidence. Exit
+          # codes are still recorded and still fail the job there.
+          "primary_exit=$primaryExit"  | Out-File -Append $env:GITHUB_OUTPUT
+          "restart_exit=$restartExit"  | Out-File -Append $env:GITHUB_OUTPUT
+          if ($primaryExit -ne 0 -or $restartExit -ne 0) {
+            Write-Host "GATE 0 SELFTEST: FAIL (primary=$primaryExit restart=$restartExit)"
+          } else {
+            Write-Host 'GATE 0 SELFTEST: executed (verdicts asserted in the report step)'
+          }
+          exit 0
+
+      # ── GATE 0 REPORT · FAIL CLOSED ───────────────────────────────
+      # Every mandatory assertion must be PRESENT and equal to "PASS".
+      # A missing field is a FAILURE, never a warning: a security sensor
+      # build must not ship a journal it cannot prove. The machine-readable
+      # report is what the owner pastes back for review.
+      - name: Gate 0 · compose machine-readable verdict (fail closed)
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $dist    = 'agents/nivxforge-windows/dist'
+          $gateDir = Join-Path $dist 'gate0'
+          New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
+          $primaryPath = Join-Path $gateDir 'gate0-selftest-primary.json'
+          $restartPath = Join-Path $gateDir 'gate0-selftest-restart.json'
+          $exePath     = Join-Path $dist 'NivXForgeEDRSetup.exe'
+          $infoPath    = Join-Path $dist 'build-info.json'
+
+          function Read-Json($path) {
+            if (Test-Path $path) {
+              try { return (Get-Content $path -Raw | ConvertFrom-Json) }
+              catch { return $null }
+            }
+            return $null
+          }
+          $primary = Read-Json $primaryPath
+          $restart = Read-Json $restartPath
+          $info    = Read-Json $infoPath
+          $problems = New-Object 'System.Collections.Generic.List[string]'
+
+          function Field($obj, $name) {
+            if ($null -eq $obj -or $null -eq $obj.gate0) { return 'MISSING' }
+            $v = $obj.gate0.$name
+            if ($null -eq $v -or "$v" -eq '') { return 'MISSING' }
+            return "$v"
+          }
+
+          $mandatory = @(
+            'WINDOWS_SQLITE', 'WINDOWS_SQLITE_NATIVE_BINARY',
+            'WINDOWS_JOURNAL_MODULE', 'WINDOWS_NTFS_DATABASE_CREATE',
+            'WINDOWS_WAL_CREATE', 'WINDOWS_WAL_REOPEN_RECOVERY',
+            'WINDOWS_SYNCHRONOUS_FULL', 'WINDOWS_AUTO_VACUUM_INCREMENTAL',
+            'WINDOWS_SCHEMA', 'WINDOWS_DURABLE_COMMIT',
+            'WINDOWS_CURSOR_COMMIT', 'WINDOWS_REPLAY_IDEMPOTENCY',
+            'WINDOWS_INTEGRITY_SNAPSHOT', 'WINDOWS_GAP_CONTRACT',
+            'WINDOWS_STATE_DIR_ACCESS', 'WINDOWS_SERVICE_PERMISSION_CHECK',
+            'PACKAGING_REGRESSION')
+
+          $verdicts = [ordered]@{}
+          foreach ($name in $mandatory) {
+            $value = Field $primary $name
+            $verdicts[$name] = $value
+            if ($value -ne 'PASS') {
+              $problems.Add("$name = $value (mandatory, must be PASS)")
+            }
+          }
+          # Restart recovery is only provable by the SECOND process.
+          $restartVerdict = Field $restart 'WINDOWS_FROZEN_RESTART'
+          $verdicts['WINDOWS_FROZEN_RESTART'] = $restartVerdict
+          if ($restartVerdict -ne 'PASS') {
+            $problems.Add("WINDOWS_FROZEN_RESTART = $restartVerdict (mandatory, must be PASS)")
+          }
+          # The evidence is only Windows evidence if it came from the
+          # FROZEN artifact. A system-Python run is not acceptable.
+          foreach ($pair in @(@('primary', $primary), @('restart', $restart))) {
+            $frozen = Field $pair[1] 'WINDOWS_FROZEN'
+            if ($frozen -ne 'TRUE') {
+              $problems.Add("$($pair[0]) selftest WINDOWS_FROZEN = $frozen (system Python is NOT acceptable)")
+            }
+          }
+          $sqliteVer = Field $primary 'WINDOWS_SQLITE_LIBRARY_VERSION'
+          if ($sqliteVer -in @('MISSING', 'ABSENT')) {
+            $problems.Add("WINDOWS_SQLITE_LIBRARY_VERSION = $sqliteVer (must be PRESENT)")
+          }
+          foreach ($pair in @(@('PRIMARY', $primary), @('RESTART', $restart))) {
+            if ($null -eq $pair[1]) {
+              $problems.Add("$($pair[0]) selftest produced no JSON evidence")
+            } elseif ($pair[1].result -ne 'PASS') {
+              $problems.Add("$($pair[0]) selftest result = $($pair[1].result) failed=$($pair[1].failed -join ',')")
+            }
+          }
+          if ('${{ steps.gate0_selftest.outputs.primary_exit }}' -ne '0') {
+            $problems.Add('PRIMARY selftest exited non-zero')
+          }
+          if ('${{ steps.gate0_selftest.outputs.restart_exit }}' -ne '0') {
+            $problems.Add('RESTART selftest exited non-zero')
+          }
+          # Packaging provenance: the required modules must have come from
+          # INSIDE the frozen bundle, not from a system Python on the path.
+          if ($primary -and $primary.checks.module_provenance) {
+            foreach ($mod in @('nivxforge_journal', 'nivxforge_sensor',
+                               'sqlite3', '_sqlite3')) {
+              $p = $primary.checks.module_provenance.$mod
+              if ($null -eq $p -or -not $p.present) {
+                $problems.Add("packaging regression: $mod absent from the frozen artifact")
+              } elseif ($p.PSObject.Properties.Name -contains 'in_frozen_bundle' `
+                        -and -not $p.in_frozen_bundle) {
+                $problems.Add("packaging regression: $mod resolved OUTSIDE the frozen bundle ($($p.file))")
+              }
+            }
+            if (-not $primary.checks.module_provenance._sqlite3.file_on_disk) {
+              $problems.Add('packaging regression: native _sqlite3 binary is not a real file in the bundle')
+            }
+          }
+
+          $buildOk = (Test-Path $exePath) -and ($null -ne $info)
+          if (-not $buildOk) { $problems.Add('WINDOWS_ARTIFACT_BUILD = FAIL (no artifact or build-info.json)') }
+          $pyi = ''
+          try { $pyi = (& python -m PyInstaller --version 2>&1 | Out-String).Trim() } catch { $pyi = 'UNKNOWN' }
+
+          $selftestPass = ($problems.Count -eq 0)
+          $report = [ordered]@{
+            GATE                          = 'B5-GAP-1 WINDOWS GATE 0'
+            GENERATED_AT                  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            RUNNER_OS                     = "$env:RUNNER_OS $env:PROCESSOR_ARCHITECTURE"
+
+            WINDOWS_ARTIFACT_BUILD        = $(if ($buildOk) { 'PASS' } else { 'FAIL' })
+            WINDOWS_FROZEN_SELFTEST       = $(if ($selftestPass) { 'PASS' } else { 'FAIL' })
+            WINDOWS_FROZEN                = $(Field $primary 'WINDOWS_FROZEN')
+            WINDOWS_SQLITE                = $verdicts['WINDOWS_SQLITE']
+            WINDOWS_SQLITE_LIBRARY_VERSION = $sqliteVer
+            WINDOWS_SQLITE_NATIVE_BINARY  = $verdicts['WINDOWS_SQLITE_NATIVE_BINARY']
+            WINDOWS_JOURNAL_MODULE        = $verdicts['WINDOWS_JOURNAL_MODULE']
+            WINDOWS_NTFS_DATABASE_CREATE  = $verdicts['WINDOWS_NTFS_DATABASE_CREATE']
+            WINDOWS_WAL_CREATE            = $verdicts['WINDOWS_WAL_CREATE']
+            WINDOWS_WAL_REOPEN_RECOVERY   = $verdicts['WINDOWS_WAL_REOPEN_RECOVERY']
+            WINDOWS_SYNCHRONOUS_FULL      = $verdicts['WINDOWS_SYNCHRONOUS_FULL']
+            WINDOWS_AUTO_VACUUM_INCREMENTAL = $verdicts['WINDOWS_AUTO_VACUUM_INCREMENTAL']
+            WINDOWS_SCHEMA                = $verdicts['WINDOWS_SCHEMA']
+            WINDOWS_DURABLE_COMMIT        = $verdicts['WINDOWS_DURABLE_COMMIT']
+            WINDOWS_CURSOR_COMMIT         = $verdicts['WINDOWS_CURSOR_COMMIT']
+            WINDOWS_REPLAY_IDEMPOTENCY    = $verdicts['WINDOWS_REPLAY_IDEMPOTENCY']
+            WINDOWS_INTEGRITY_SNAPSHOT    = $verdicts['WINDOWS_INTEGRITY_SNAPSHOT']
+            WINDOWS_GAP_CONTRACT          = $verdicts['WINDOWS_GAP_CONTRACT']
+            WINDOWS_FROZEN_RESTART        = $verdicts['WINDOWS_FROZEN_RESTART']
+            WINDOWS_STATE_DIR_ACCESS      = $verdicts['WINDOWS_STATE_DIR_ACCESS']
+            WINDOWS_SERVICE_PERMISSION_CHECK = $verdicts['WINDOWS_SERVICE_PERMISSION_CHECK']
+            PACKAGING_REGRESSION          = $verdicts['PACKAGING_REGRESSION']
+
+            SCRATCH_FILESYSTEM            = $(if ($primary) { $primary.checks.scratch_filesystem } else { 'MISSING' })
+            STATE_DIR                     = $(if ($primary) { $primary.checks.state_dir } else { 'MISSING' })
+            SQLITE_RUNTIME_BINARIES       = $(if ($primary) { $primary.checks.sqlite_runtime_binaries } else { @() })
+
+            ARTIFACT_FILENAME             = $(if ($info) { $info.artifact } else { 'MISSING' })
+            ARTIFACT_VERSION              = $(if ($info) { "sensor $($info.sensor_version) / setup $($info.setup_version)" } else { 'MISSING' })
+            ARTIFACT_SHA256               = $(if ($info) { $info.sha256 } else { 'MISSING' })
+            SERVICE_HOST_SHA256           = $(if ($info) { $info.service_host_sha256 } else { 'MISSING' })
+            COMMIT_SHA                    = $env:GITHUB_SHA
+            BUILD_WORKFLOW                = 'windows-sensor-installer.yml'
+            WORKFLOW_RUN_ID               = $env:GITHUB_RUN_ID
+            BUILD_TIMESTAMP               = $(if ($info) { $info.built_at } else { 'MISSING' })
+            PYINSTALLER_VERSION           = $pyi
+            SIGNING_STATUS                = $(if ($info) { $info.signing_status } else { 'MISSING' })
+
+            CANARY_PLAN_READY             = 'YES'
+            CANARY_STARTED                = 'NO'
+            CORRELATION_CACHE_IMPLEMENTED = 'NO'
+            COUNTER_BATCHING_IMPLEMENTED  = 'NO'
+            RAW_EVENT_PATH_MODIFIED       = 'NO'
+            DESKTOP_A9HGFJJ_TOUCHED       = 'NO'
+            PRODUCTION_DEPLOYED           = 'NO'
+
+            GATE0_VERDICT                 = $(if ($selftestPass -and $buildOk) { 'CLOSED_PASS' } else { 'BLOCKED_FAIL' })
+            PROBLEMS                      = @($problems)
+          }
+          $json = ($report | ConvertTo-Json -Depth 6)
+          $json | Set-Content (Join-Path $gateDir 'GATE0_WINDOWS_REPORT.json') -Encoding ascii
+          Write-Host $json
+          if ($env:GITHUB_STEP_SUMMARY) {
+            "## B5-GAP-1 Windows Gate 0`n`n``````json`n$json`n``````" |
+              Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          }
+          if ($problems.Count -gt 0 -or -not $buildOk) {
+            Write-Host 'WINDOWS GATE 0: BLOCKED (fail closed)'
+            exit 1
+          }
+          Write-Host 'WINDOWS GATE 0: PASS'
+          exit 0
+
+      # ── ACCEPTANCE GATE 1 ─────────────────────────────────────────
+      # The one-file installer must be able to unpack the onedir SERVICE
+      # HOST it carries. This is the image the SCM will launch, so it is
+      # also the binary every later gate exercises.
+      - name: Service host unpacks from the installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          $out = (& $exe stage-host 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "stage-host exited $LASTEXITCODE`n$out" }
+          Write-Host $out
+          $svcExe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
+          if (-not (Test-Path $svcExe)) { throw "service host missing: $svcExe" }
+          Write-Host 'SERVICE HOST: STAGED'
+          exit 0
+
+      # ── ACCEPTANCE GATE 2 ─────────────────────────────────────────
+      # The SCM invocation must be RECOGNISED by the service image. The
+      # Stage-4 1053 defect was invisible to every mocked test: argparse
+      # consumed the backend URL as the positional subcommand and exited 2
+      # before StartServiceCtrlDispatcher() was ever called.
+      - name: SCM command line is recognised (not the installer CLI)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
+          $out = (& $exe --service-run `
+                    --backend https://nivxray.nivxforge.com `
+                    --interval 30 2>&1 | Out-String)
+          $global:LASTEXITCODE = 0
+          Write-Host $out
+          if ($out -match 'invalid choice') {
+            throw 'REGRESSION: the SCM command line reached the installer subcommand parser'
+          }
+          if ($out -match 'usage: NivXForgeEDRSetup') {
+            throw 'REGRESSION: --service-run fell through to the CLI usage path'
+          }
+          # Run by hand there is no SCM to connect to, so reaching the
+          # dispatcher is PROVED by Windows error 1063.
+          if ($out -notmatch 'StartServiceCtrlDispatcher' -and $out -notmatch '1063') {
+            throw 'the binary never reached the service control dispatcher'
+          }
+          Write-Host 'SCM ENTRYPOINT: RECOGNISED'
+          exit 0
+
+      # ── ACCEPTANCE GATE 3 ─────────────────────────────────────────
+      # The real thing: register the staged service host with the SCM
+      # through the PRODUCTION code path (`_install_service`), start it,
+      # prove RUNNING, stop it, prove STOPPED. The runner is NOT enrolled,
+      # so this also proves a failing sensor cycle does not kill the
+      # service instead of being retried.
+      - name: Real Windows SCM lifecycle (artifact acceptance gate)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The diagnostics file must be proved to be written by the SERVICE
+          # itself, so anything an earlier gate left behind is removed first.
+          $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
+          Remove-Item $log -Force -ErrorAction SilentlyContinue
+          @'
+          import sys
+          sys.path.insert(0, r"agents/nivxforge-windows")
+          import nivxforge_setup as s
+          assert s.SERVICE_EXE.exists(), s.SERVICE_EXE
+          print("INSTALLER_STATE_DIR=%s" % s.sensor.STATE_DIR)
+          s._install_service("https://nivxray.nivxforge.com", 30)
+          print("PRODUCTION service creation path completed")
+          '@ | Out-File -FilePath scm_smoke.py -Encoding ascii
+          $smoke = (python scm_smoke.py 2>&1 | Out-String)
+          Write-Host $smoke
+          if ($LASTEXITCODE -ne 0) { throw 'sc.exe create/start path failed' }
+          $installerState = ([regex]::Match($smoke,
+            'INSTALLER_STATE_DIR=(.+)')).Groups[1].Value.Trim()
+          Write-Host "INSTALLER STATE DIR: $installerState"
+          if ($installerState -ne (Split-Path $log -Parent)) {
+            throw "installer resolved an unexpected state dir: $installerState"
+          }
+
+          $svc = 'NivXForgeSensor'
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'RUNNING') { throw "service never reached RUNNING: $q" }
+          Write-Host 'SERVICE STATE: RUNNING'
+          Write-Host (& sc.exe qc $svc | Out-String)
+
+          # EVIDENCE DUMP — printed BEFORE any assertion so a failure is
+          # always diagnosable from the log alone: service state, the
+          # registered command line, the expected diagnostics path, and
+          # every service.log anywhere it could have been written if the
+          # state root had been inferred instead of passed in. No
+          # credential content is read or printed.
+          Write-Host "EXPECTED SERVICE LOG: $log"
+          $searchRoots = @(
+            (Join-Path $env:SystemDrive 'ProgramData\NivXForge'),
+            (Join-Path $env:SystemDrive 'var'),
+            (Join-Path $env:SystemDrive 'Windows\System32\NivXForge'),
+            (Join-Path $env:SystemDrive 'Windows\SysWOW64\NivXForge'),
+            (Join-Path $env:ProgramFiles 'NivXForge')
+          )
+          foreach ($root in $searchRoots) {
+            if (Test-Path $root) {
+              Get-ChildItem -Path $root -Recurse -Filter 'service.log' `
+                -ErrorAction SilentlyContinue |
+                ForEach-Object { Write-Host ("FOUND SERVICE LOG: " + $_.FullName) }
+            }
+          }
+
+          $log = Join-Path $env:ProgramData 'NivXForge\sensor\service.log'
+          # MANDATORY diagnostics: another 1053 must never be silent, so the
+          # lifecycle trail is an ACCEPTANCE ASSERTION, not optional output.
+          $deadline = (Get-Date).AddSeconds(60)
+          do {
+            $logText = if (Test-Path $log) { Get-Content $log -Raw } else { '' }
+            if ($logText -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          if (-not (Test-Path $log)) {
+            throw "service diagnostics missing: $log was never written by the service"
+          }
+          Write-Host $logText
+          foreach ($needle in @('service entrypoint reached', 'START_PENDING',
+                                'RUNNING')) {
+            if ($logText -notmatch [regex]::Escape($needle)) {
+              throw "service diagnostics incomplete: '$needle' absent from service.log"
+            }
+          }
+          # installer state dir == service state dir, proved from the
+          # service's own diagnostics rather than assumed.
+          if ($logText -notmatch [regex]::Escape("state dir: $installerState")) {
+            throw "service is not using the installer state dir ($installerState)"
+          }
+          if ($logText -notmatch [regex]::Escape('(explicit=True)')) {
+            throw 'service inferred its state dir instead of being told'
+          }
+          Write-Host 'STATE ROOT: installer == service (explicit --state-dir)'
+          Write-Host 'SERVICE DIAGNOSTICS: START_PENDING -> RUNNING RECORDED'
+
+          & sc.exe stop $svc | Out-Null
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'STOPPED') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'STOPPED') { throw "service did not stop cleanly: $q" }
+          Write-Host 'SERVICE STATE: STOPPED (clean)'
+          $deadline = (Get-Date).AddSeconds(60)
+          do {
+            $logText = Get-Content $log -Raw
+            if ($logText -match 'STOPPED') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $logText
+          foreach ($needle in @('control STOP received',
+                                'stop event signalled', 'STOPPED')) {
+            if ($logText -notmatch [regex]::Escape($needle)) {
+              throw "stop diagnostics incomplete: '$needle' absent from service.log"
+            }
+          }
+          Write-Host 'SERVICE DIAGNOSTICS: CLEAN STOP RECORDED'
+          & sc.exe delete $svc | Out-Null
+          $global:LASTEXITCODE = 0
+          Write-Host 'WINDOWS SCM LIFECYCLE: PASS'
+          exit 0
+
+      # ── ACCEPTANCE GATE 4 ─────────────────────────────────────────
+      # THE DEFECT THIS GATE EXISTS FOR, reproduced against the real SCM
+      # and real NTFS file locks: `sc.exe stop` is asynchronous, so the
+      # old installer replaced the service image while the process was
+      # still dying and died with
+      #   Permission denied: ...\service\NivXForgeSensor.exe
+      # AFTER stopping the service and BEFORE restarting it — leaving a
+      # healthy endpoint dark. No enrolment token is used or needed here.
+      - name: Re-enrol against a RUNNING service · stop race + rollback
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = 'NivXForgeSensor'
+          @'
+          import json, sys
+          sys.path.insert(0, r"agents/nivxforge-windows")
+          import nivxforge_setup as s
+
+          # A service must exist and be RUNNING for any of this to mean
+          # anything, so it is created through the production path.
+          s._install_service("https://nivxray.nivxforge.com", 30)
+          assert s._wait_for_service_state("RUNNING", 90), s._service_state()
+          print("GATE4 PRECONDITION: RUNNING")
+
+          # 1 . A RUNNING service's image must never be overwritten.
+          try:
+              s._stage_service_host()
+              raise SystemExit("GATE4 FAIL: staged over a RUNNING service")
+          except SystemExit as ex:
+              text = str(ex)
+              if "GATE4 FAIL" in text:
+                  raise
+              assert "RUNNING" in text, text
+              print("GATE4 RUNNING-GUARD: PASS")
+
+          # 2 . Stop must be PROVED, and the image must be PROVED released.
+          prior = s._stop_service_and_wait()
+          assert prior == "RUNNING", prior
+          assert s._service_state() == "STOPPED", s._service_state()
+          assert s._image_is_released(s.SERVICE_EXE), "image still locked"
+          print("GATE4 STOP-AND-PROVE: PASS")
+
+          # 3 . Rollback. The service was RUNNING, so a failure after the
+          #     stop must leave it RUNNING again.
+          s._sc('sc.exe start "%s"' % s.SERVICE_NAME)
+          assert s._wait_for_service_state("RUNNING", 90), s._service_state()
+          s._restore_service("RUNNING")
+          assert s._service_state() == "RUNNING", s._service_state()
+          print("GATE4 RESTORE-IDEMPOTENT: PASS")
+          '@ | Out-File -FilePath gate4_race.py -Encoding ascii
+          $out = (python gate4_race.py 2>&1 | Out-String)
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { throw 'GATE 4 lifecycle checks failed' }
+
+          # 4 . THE END-TO-END PROOF, through the FROZEN artifact and the
+          #     real SCM: a re-enrol that fails at the ENROLMENT step must
+          #     leave the service RUNNING. stdin carries nothing, so
+          #     enrolment cannot succeed and NO token is consumed.
+          $q = (& sc.exe query $svc | Out-String)
+          if ($q -notmatch 'RUNNING') { throw "precondition: service not RUNNING`n$q" }
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          # POWERSHELL 7 HAS NO INPUT REDIRECTION OPERATOR. `< NUL` is a
+          # PARSE error - "The '<' operator is reserved for future use." -
+          # so this gate died before it tested anything.
+          # Start-Process -RedirectStandardInput is the supported way to
+          # hand a child process an EMPTY stdin, and it also reports the
+          # real exit code. Splatted deliberately: no line continuations,
+          # which is where the parse error lived.
+          # Start-Process resolves a RELATIVE FilePath against the OS
+          # process working directory, not the PowerShell location, so the
+          # path is made absolute here rather than hoping they agree.
+          $exe     = (Resolve-Path -Path $exe).Path
+          $empty   = Join-Path $env:RUNNER_TEMP 'gate4-stdin-empty.txt'
+          $outFile = Join-Path $env:RUNNER_TEMP 'gate4-stdout.txt'
+          $errFile = Join-Path $env:RUNNER_TEMP 'gate4-stderr.txt'
+          Set-Content -Path $empty -Value '' -NoNewline
+          $run = @{
+            FilePath               = $exe
+            ArgumentList           = @('install', '--re-enrol',
+                                       '--backend', 'https://nivxray.nivxforge.com',
+                                       '--tenant', 'ten_ci_gate4_not_a_real_tenant',
+                                       '--token-stdin')
+            RedirectStandardInput  = $empty
+            RedirectStandardOutput = $outFile
+            RedirectStandardError  = $errFile
+            NoNewWindow            = $true
+            Wait                   = $true
+            PassThru               = $true
+          }
+          $proc = Start-Process @run
+          $failed = [string](Get-Content -Path $outFile -Raw) +
+                    [string](Get-Content -Path $errFile -Raw)
+          Write-Host $failed
+          if ($proc.ExitCode -eq 0) {
+            throw 'the re-enrol SUCCEEDED on an empty stdin; it must not'
+          }
+          # PROOF THE STDIN PATH WAS REACHED AND READ: this exact refusal
+          # is raised by sensor.read_enrolment_secret(), which runs AFTER
+          # stage 1 has already stopped the service - so the rollback that
+          # follows is the real thing, not an early argument refusal.
+          if ($failed -notmatch 'stdin carried no enrolment secret') {
+            throw "enrolment did not fail at the stdin read`n$failed"
+          }
+          if ($failed -notmatch 'ROLLBACK') {
+            throw 'a failed re-enrol did not run the rollback path'
+          }
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            $q = (& sc.exe query $svc | Out-String)
+            if ($q -match 'RUNNING') { break }
+            Start-Sleep -Seconds 2
+          } while ((Get-Date) -lt $deadline)
+          Write-Host $q
+          if ($q -notmatch 'RUNNING') {
+            throw "REGRESSION: a failed re-enrol left the endpoint dark`n$q"
+          }
+          Write-Host 'GATE 4 RE-ENROL ROLLBACK: PASS'
+          & sc.exe stop $svc | Out-Null
+          & sc.exe delete $svc | Out-Null
+          $global:LASTEXITCODE = 0
+          exit 0
+
+      - name: Remove the CI service if the gate failed
+        if: always()
+        shell: pwsh
+        run: |
+          & sc.exe stop NivXForgeSensor 2>&1 | Out-Null
+          & sc.exe delete NivXForgeSensor 2>&1 | Out-Null
+          $global:LASTEXITCODE = 0
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NivXForgeEDRSetup-windows-x64
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
+            agents/nivxforge-windows/dist/gate0/*.json

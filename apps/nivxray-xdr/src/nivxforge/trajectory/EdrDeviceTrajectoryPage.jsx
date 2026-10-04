@@ -23,10 +23,9 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Maximize2, Minimize2, Moon, Sun } from "lucide-react";
+import { Maximize2, Minimize2, Share2 } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
-import LinkedXdrIncidents from "@/nivxforge/components/LinkedXdrIncidents";
 import { buildFileTrajectoryPivot, buildIncidentPivot,
          buildSightingsPivot } from "@/xdr/lib/pivots";
 import { getSessionContext } from "@/nivxforge/edrApi";
@@ -34,47 +33,114 @@ import api from "@/lib/api";
 
 import { C, GUTTER, ROW_H, AXIS_H, MS, DAY_MS, iso, dayKeyOf, setTheme,
          startOfDayUTC } from "./ampModel";
+import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
+         evidenceWindow,
+         createCoordinator, emptinessMeaning, historyMode, laneWindow,
+         levelOf, panByFraction, prefetchTargets, requestKey, restore,
+         retentionBounds, selectionState, serialize, spikes, stepDetection,
+         stepObservation, windowForBucket, windowStateOf,
+         zoomBySteps } from "./dt2";
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
+import RelationshipCanvas from "./RelationshipCanvas";
+import { msUTC } from "./dt2/instant";
+import { CISCO_DISPLAYED, fileTypeOf } from "./dt2/fileType";
+import { attachContributors, indexCompromise } from "./dt2/compromise";
+import { GRAPH_READY, focusOf, graphBoundsOf, graphOf, graphStateOf,
+         neighbourStep, parentOf } from "./dt2/graphModel";
 import AmpNavigator from "./AmpNavigator";
+import AmpCompromisePanel from "./AmpCompromisePanel";
 import AmpActivityPanel from "./AmpActivityPanel";
+import { MODES, advanceRolling, binsInDomain, capOf, classifyObservations, daysTouched,
+         evidenceBoundedWindow, evidenceExtent, futurePart, initialWindow, isoZ,
+         modeOf, navBounds, navDomain, observedAt, pageBudget, presentIn,
+         queryInterval, rollingWindow, tailWindow, truncationOf, utcDayStart,
+         windowLabel, withMode } from "./dt2/timeWindow.mjs";
 
-const LANE_PREFETCH = 14;
+const REF_TICK_MS = 60_000;
+//: the server returns the OLDEST `limit` rows of a window (and builds dt2.graph from them)
+const WINDOW_PAGE_LIMIT = 2500;
+const capKey = (t0, t1) => `${Math.round(t0)}|${Math.round(t1)}`;
+
+/** One rendered trajectory ROW can consume MANY projection lanes (a
+ *  process lane plus its file/registry/network lanes all collapse onto
+ *  the acting process), so a lane window sized to the visible row count
+ *  under-fills the graph and a dense endpoint looks sparse. The window
+ *  therefore over-fetches lanes; MAX_RENDERED_LANES still caps what is
+ *  drawn, and nothing is fabricated to fill a row. */
+const LANE_PREFETCH = 90;
 const TIME_PREFETCH = 0.3;
 const CACHE_MAX = 28;
-const DETAILS_W = 348;
+const DETAILS_W = 394;
 
-export default function EdrDeviceTrajectoryPage() {
+/** Phase-2 gate. `false` = the AMP-parity presentation. NivXForge's own
+ *  trajectory surfaces (handoff/projection/request banners, the temporal
+ *  toolbar, the endpoint-wide EVENT LANES canvas, the relationship-basis
+ *  rail) stay compiled and wired behind this flag; none of them appears
+ *  in the Cisco reference, so none of them is presented. */
+const PARKED_NIVXFORGE_UI = false;
+
+const navBtn = { fontSize: 10.4, cursor: "pointer", background: C.paperAlt,
+                 color: C.link, border: `1px solid ${C.gridStrong}`,
+                 borderRadius: 2, padding: "3px 7px" };
+
+/** Cisco's two square, blue-outlined icon buttons at the top right. */
+const iconBtn = { width: 34, height: 32, cursor: "pointer",
+                  background: C.paper, color: C.link, borderRadius: 4,
+                  border: `1px solid ${C.link}`, display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                  flexShrink: 0 };
+
+export default function EdrDeviceTrajectoryPage({ embedded = false,
+                                                 device: deviceProp = null,
+                                                 referenceNow = null }) {
   const [params, setParams] = useSearchParams();
-  const device = params.get("device") || "";
+  const device = deviceProp || params.get("device") || "";
 
-  /** Cisco ships both a dark and a light console; the analyst picks.
-   *  Applied before children render so one palette drives every part. */
-  const [theme, setThemeState] = useState(
-    () => (window.localStorage.getItem("nx.theme") === "light"
-      ? "light" : "dark"));
-  setTheme(theme);
-
-  /** One theme truth: the platform shell's toggle and this one write the
-   *  same key and broadcast the same event. */
-  useEffect(() => {
-    const onTheme = (e) => setThemeState(e.detail === "light" ? "light" : "dark");
-    window.addEventListener("nx-theme", onTheme);
-    return () => window.removeEventListener("nx-theme", onTheme);
-  }, []);
+  /** The Cisco Device Trajectory is ONE investigation surface. The
+   *  reference defines it, so this page offers no theme choice; the
+   *  surrounding NivXForge console chrome keeps its own.
+   *
+   *  REV 2 (owner ruling): the current Cisco Secure Endpoint console the
+   *  owner captured is DARK. The light figure in the User Guide remains
+   *  useful for GRAPH SEMANTICS, but the live console takes priority for
+   *  visual parity, so this surface is dark. */
+  setTheme("dark");
 
   const [meta, setMeta] = useState(null);
-  const [view, setView] = useState(null);
+  /** DT2-3c REV 2 · TIME FOCUSING BY DEEP LINK.
+   *
+   *  `?from=&to=` is read ONCE, at mount, and seeds the primary viewport
+   *  before the first paint, so a 4.8-second incident inside a 68-second
+   *  window can be reached by URL. Focusing changes the VIEWPORT ONLY —
+   *  no observation timestamp is moved, and X stays a pure function of
+   *  authoritative time. */
+  const linkedWindow = useRef(undefined);
+  if (linkedWindow.current === undefined) {
+    const f = Date.parse(params.get("from"));
+    const t = Date.parse(params.get("to"));
+    linkedWindow.current = (Number.isFinite(f) && Number.isFinite(t) && t > f)
+      ? { t0: f, t1: t, mode: MODES.LINKED, ref: null } : null;
+  }
+  const [view, setView] = useState(linkedWindow.current);
   const [laneStart, setLaneStart] = useState(0);
   const [rows, setRows] = useState(26);
   const [events, setEvents] = useState(new Map());
   const [lanes, setLanes] = useState(new Map());
   const [selected, setSelected] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(
+    linkedWindow.current ? startOfDayUTC(linkedWindow.current.t0) : null);
   const [preset, setPreset] = useState("all");
   const [kinds, setKinds] = useState([]);
   const [dispositions, setDispositions] = useState([]);
+  //: Cisco's documented displayed file types (User Guide p.401) are the
+  //: default File Type selection; `OTHER` is offered but not displayed
+  //: by default, exactly as Cisco's set implies.
+  const [fileTypes, setFileTypes] = useState(CISCO_DISPLAYED);
+  //: Cisco's Filters de-select individual process trajectories to de-noise
+  //: the graph. Presentation only — nothing is removed from the evidence.
+  const [hiddenProcs, setHiddenProcs] = useState([]);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -84,10 +150,52 @@ export default function EdrDeviceTrajectoryPage() {
   const [endpoints, setEndpoints] = useState([]);
   const [sessCtx, setSessCtx] = useState(null);
 
+  /** dt.time.v1 · the REFERENCE time. Rolling windows end here; the newest
+   *  delivered observation never stands in for it. `referenceNow` is a
+   *  fixed instant for previews/tests only; production reads the clock. */
+  const [refNow, setRefNow] = useState(() => referenceNow ?? Date.now());
+  const refNowRef = useRef(refNow);
+  refNowRef.current = refNow;
+  useEffect(() => {
+    if (referenceNow != null) { setRefNow(referenceNow); return undefined; }
+    const id = setInterval(() => setRefNow(Date.now()), REF_TICK_MS);
+    return () => clearInterval(id);
+  }, [referenceNow]);
+  useEffect(() => { setView((v) => advanceRolling(v, refNow)); }, [refNow]);
+  const [binsByDay, setBinsByDay] = useState(new Map());
+  //: per-query delivery cap (oldest-first page) — see capOf/truncationOf
+  const [caps, setCaps] = useState(new Map());
+  const [narrowed, setNarrowed] = useState(null);
+
   const cache = useRef(new Map());
   const plotRef = useRef(null);
   const vScroll = useRef(null);
   const [plotW, setPlotW] = useState(760);
+
+  /** DT2-1 · navigation engine state.
+   *  `coord` owns request generations and AbortControllers; `boundsRef`
+   *  carries the retention/evidence bounds into callbacks that are
+   *  created before the meta pass has resolved them. */
+  const coord = useRef(null);
+  if (!coord.current) coord.current = createCoordinator();
+  const boundsRef = useRef({ min: null, max: null });
+  const tenantRef = useRef(null);
+  const urlWriteRef = useRef("");
+  const [dt2, setDt2] = useState(null);
+  /* DT2-3c · the AUTHORITATIVE compromise layer, straight from the
+     server contract. `observed === false` means no authoritative
+     compromise exists for this endpoint — a real answer, and not a
+     clean claim. The client never derives one. */
+  const compromise = useMemo(() => indexCompromise(meta), [meta]);
+  /** DT2-3 · the process/relationship/time view over the server graph. The
+   *  event canvas stays one click away; neither view infers relationships. */
+  const [mode, setMode] = useState("RELATIONSHIPS");
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedCompromise, setSelectedCompromise] = useState(null);
+  const [stepCtx, setStepCtx] = useState(null);
+  const [req, setReq] = useState({ loading: false, prefetching: false,
+                                   canceled: false, staleDiscarded: false,
+                                   err: null });
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 350);
@@ -97,6 +205,26 @@ export default function EdrDeviceTrajectoryPage() {
   const filterKey = useMemo(
     () => `${kinds.slice().sort().join(",")}|${dispositions.slice().sort()
       .join(",")}|${debounced}`, [kinds, dispositions, debounced]);
+
+  /** Real counts per Cisco file class, from the observed paths the
+   *  graph already carries. Nothing is counted that was not observed. */
+  const fileTypeCounts = useMemo(() => {
+    const n = new Map();
+    for (const a of (dt2?.graph?.activity_nodes || [])) {
+      if (a.family !== "FILE" || !a.label) continue;
+      const k = fileTypeOf(a.label);
+      n.set(k, (n.get(k) || 0) + 1);
+    }
+    return n;
+  }, [dt2]);
+
+  /** The process trajectories the analyst may de-select, from the graph. */
+  const processChoices = useMemo(
+    () => (dt2?.graph?.process_nodes || []).map((n) => ({
+      nodeId: n.node_id, label: n.label || n.image || n.node_id,
+      pid: n.pid })), [dt2]);
+
+
 
   const filterParams = useMemo(() => {
     const p = {};
@@ -112,6 +240,8 @@ export default function EdrDeviceTrajectoryPage() {
    *  keeping them would draw row 0's evidence on row 300. */
   useEffect(() => {
     cache.current.clear();
+    setBinsByDay(new Map());
+    setCaps(new Map());
     setEvents(new Map());
     setLanes(new Map());
     setLaneStart(0);
@@ -135,8 +265,8 @@ export default function EdrDeviceTrajectoryPage() {
   useEffect(() => {
     const h = () => {
       const top = plotRef.current?.getBoundingClientRect()?.top ?? 300;
-      const avail = window.innerHeight - top - 92;
-      setRows(Math.max(24, Math.floor(Math.max(180, avail) / ROW_H)));
+      const avail = window.innerHeight - top - 150;
+      setRows(Math.max(14, Math.floor(Math.max(180, avail) / ROW_H)));
     };
     const t = setTimeout(h, 120);
     window.addEventListener("resize", h);
@@ -172,19 +302,29 @@ export default function EdrDeviceTrajectoryPage() {
           ? dayKeyOf(selectedDay) : null);
         if (dead) return;
         setStatus({ loading: false, err: null });
-        const s = data.time_range?.observed_start;
-        const e = data.time_range?.observed_end;
-        if (s && e) {
-          const b = Date.parse(e);
-          // Detection → Trajectory: land on the detection's own moment,
-          // not on "now" and not on the endpoint's last day.
-          const at = params.get("at") ? Date.parse(params.get("at")) : null;
-          const anchor = Number.isFinite(at) && at ? at : b;
-          setSelectedDay((d) => d ?? startOfDayUTC(anchor));
-          setView((v) => v ?? (Number.isFinite(at) && at
-            ? { t0: at - 15 * MS.m, t1: at + 15 * MS.m }
-            : { t0: startOfDayUTC(b), t1: startOfDayUTC(b) + DAY_MS }));
-          if (preset === "all") setPreset("1d");
+        // Detection → Trajectory lands on the detection's own UTC day
+        // (linked). Otherwise: rolling 24 h to the REFERENCE time — never
+        // the day of the newest delivered observation (hotfix RC1).
+        const at = params.get("at") ? msUTC(params.get("at")) : null;
+        const atOk = Number.isFinite(at) && at ? at : null;
+        setSelectedDay((d) => d ?? utcDayStart(atOk ?? refNowRef.current));
+        setView((v) => v || initialWindow({ refNow: refNowRef.current,
+                                            at: atOk }));
+        if (preset === "all") setPreset("1d");
+        // Progressive completion: the first paint is a BOUNDED projection
+        // of the most recent observations. The complete, viewport-invariant
+        // axis is being built server-side, so re-read once it is ready
+        // instead of making the analyst wait for it up front.
+        if (data.projection?.state === "BOUNDED_RECENT") {
+          for (let i = 0; i < 12 && !dead; i += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => window.setTimeout(r, 2500));
+            if (dead) return;
+            // eslint-disable-next-line no-await-in-loop
+            const next = await loadMeta(selectedDay != null
+              ? dayKeyOf(selectedDay) : null);
+            if (next?.projection?.state === "COMPLETE") break;
+          }
         }
       } catch (x) {
         if (!dead) setStatus({ loading: false,
@@ -196,55 +336,157 @@ export default function EdrDeviceTrajectoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device, filterKey]);
 
+  /** DT2-3a.2 evidence focus is now EXPLICIT ("Fit to evidence"). The
+   *  automatic 6 h focus centred on the evidence MIDPOINT hid the newest
+   *  hours of a live endpoint (hotfix RC2). Its result is labelled
+   *  evidence-bounded, never "last 24 h". */
+  const fitEvidence = useCallback(() => {
+    const b = graphBoundsOf(graphOf(dt2));
+    const w = b.min != null ? evidenceWindow(b.min, b.max) : null;
+    if (w) setView(withMode(w, MODES.EVIDENCE_BOUNDED));
+  }, [dt2]);
+
   /** The 24-hour band needs the selected day's bins. */
   useEffect(() => {
     if (!device || selectedDay == null || status.loading) return;
     loadMeta(dayKeyOf(selectedDay)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [device, selectedDay]);
+  }, [device, selectedDay, refNow]);
 
+  /** Navigator bins for EVERY UTC day the band domain touches, joined on
+   *  absolute observed time — a rolling window crosses midnight (RC7). */
+  const domain = useMemo(() => navDomain(view, refNow), [view, refNow]);
+  const binDays = daysTouched(domain).join(",");
+  useEffect(() => {
+    if (!device || !binDays) return undefined;
+    let live = true;
+    for (const day of binDays.split(",")) {
+      api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+              { params: { lane_start: 0, lane_end: 1, limit: 1,
+                          hist_day: day, ...filterParams } })
+        .then(({ data }) => live && setBinsByDay((m) => new Map(m)
+          .set(day, data?.activity?.day_bins || [])))
+        .catch(() => {});
+    }
+    return () => { live = false; };
+  }, [device, binDays, filterParams, refNow]);
+  const navBins = useMemo(() => binsInDomain(binsByDay, domain),
+                          [binsByDay, domain]);
+
+  /** DT2-1 · one windowed request, protected against races.
+   *
+   *  A generation token is minted per viewport change and the previous
+   *  in-flight request is aborted. A response whose generation is no
+   *  longer current is DISCARDED — window A completing after window C
+   *  can never reposition the viewport or replace the selection.
+   */
   const fetchWindow = useCallback(async (t0, t1, l0, l1) => {
-    const key = `${Math.round(t0)}|${Math.round(t1)}|${l0}|${l1}|${filterKey}`;
+    const key = requestKey({ tenantId: tenantRef.current, endpointId: device,
+                             t0, t1, laneStart: l0, laneEnd: l1, filterKey });
     if (cache.current.has(key)) return;
+    const begun = coord.current.begin(key);
+    if (begun.deduped) return;
     cache.current.set(key, true);
     if (cache.current.size > CACHE_MAX) {
       cache.current.delete(cache.current.keys().next().value);
     }
-    const { data } = await api.get(
-      `/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
-      { params: { time_start: iso(t0), time_end: iso(t1), lane_start: l0,
-                  lane_end: l1, limit: 2500, ...filterParams } });
-    if (data.lane_axis) {
-      setLanes((prev) => {
+    setReq((s) => ({ ...s, loading: true, err: null, canceled: false,
+                     staleDiscarded: false }));
+    try {
+      const { data } = await api.get(
+        `/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+        { params: { time_start: iso(t0), time_end: iso(t1), lane_start: l0,
+                    lane_end: l1, limit: WINDOW_PAGE_LIMIT, ...filterParams },
+          signal: begun.signal });
+      if (coord.current.commit(begun.generation) !== REQ.COMMITTED) {
+        /** A stale success is not evidence about the current window. */
+        setReq((s) => ({ ...s, loading: false, staleDiscarded: true }));
+        return;
+      }
+      setCaps((m) => new Map(m).set(capKey(t0, t1), capOf(data)));
+      if (data.dt2) setDt2(data.dt2);
+      if (data.lane_axis) {
+        setLanes((prev) => {
+          const m = new Map(prev);
+          for (const ln of data.lane_axis.lanes || []) m.set(ln.lane_index, ln);
+          return m;
+        });
+      }
+      setEvents((prev) => {
         const m = new Map(prev);
-        for (const ln of data.lane_axis.lanes || []) m.set(ln.lane_index, ln);
+        for (const e of data.events || []) m.set(e.event_iid, e);
         return m;
       });
+      setReq((s) => ({ ...s, loading: false }));
+    } catch (x) {
+      coord.current.commit(begun.generation);
+      /** A window that was never delivered must be retryable. */
+      cache.current.delete(key);
+      const aborted = x?.code === "ERR_CANCELED" || x?.name === "CanceledError"
+        || x?.name === "AbortError" || begun.signal?.aborted;
+      setReq((s) => ({ ...s, loading: false, canceled: !!aborted,
+                       err: aborted ? null : (x?.message || String(x)) }));
     }
-    setEvents((prev) => {
-      const m = new Map(prev);
-      for (const e of data.events || []) m.set(e.event_iid, e);
-      return m;
-    });
   }, [device, filterKey, filterParams]);
-
-  useEffect(() => {
-    if (!device || !view) return;
-    const span = view.t1 - view.t0;
-    const l0 = Math.max(0, laneStart - LANE_PREFETCH);
-    const l1 = laneStart + rows + LANE_PREFETCH;
-    fetchWindow(view.t0 - span * TIME_PREFETCH,
-                view.t1 + span * TIME_PREFETCH, l0, l1)
-      .catch((x) => setStatus((s) => ({ ...s,
-        err: x?.message || String(x) })));
-  }, [device, view, laneStart, rows, fetchWindow]);
 
   const total = meta?.lane_axis?.total_lanes || 0;
   const obsStart = meta?.time_range?.observed_start
-    ? Date.parse(meta.time_range.observed_start) : null;
+    ? msUTC(meta.time_range.observed_start) : null;
   const obsEnd = meta?.time_range?.observed_end
-    ? Date.parse(meta.time_range.observed_end) : null;
+    ? msUTC(meta.time_range.observed_end) : null;
   const span = view ? view.t1 - view.t0 : 0;
+
+  /** DT2-1 · retention truth. The bounds that clamp pan/zoom come from
+   *  the DT2-0 contract when it is present and from the V1 observed
+   *  extent otherwise. An unprovable bound stays null and clamps
+   *  nothing — we never invent a retention edge. */
+  const retention = useMemo(
+    () => retentionBounds(dt2, { min: obsStart, max: obsEnd }),
+    [dt2, obsStart, obsEnd]);
+  // Pan/zoom may reach the REFERENCE time (+ skew), not just the newest
+  // observation or a stale retention snapshot (hotfix RC3).
+  boundsRef.current = navBounds({ min: retention.min ?? obsStart,
+                                  max: retention.max ?? obsEnd }, refNow);
+
+  /** ONE interval: the API query covers the view; the canvas draws the
+   *  view; the Activity pane lists the view's observations. */
+  const qWin = queryInterval(view, TIME_PREFETCH, boundsRef.current);
+  useEffect(() => {
+    if (!device || !qWin) return;
+    const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
+                          LANE_PREFETCH);
+    fetchWindow(qWin.t0, qWin.t1, lw.from, lw.to)
+      .catch((x) => setReq((s) => ({ ...s,
+        err: x?.message || String(x) })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, qWin?.t0, qWin?.t1, laneStart, rows, fetchWindow]);
+
+  /** RC8 · an oldest-first capped page hides the NEWEST part of the
+   *  window. The default rolling view narrows to its newest part that fits
+   *  one page (still ending at the reference time) and says so; any other
+   *  mode is left where it was put and offers "Show newest" explicitly. */
+  const cap = qWin ? caps.get(capKey(qWin.t0, qWin.t1)) : null;
+  const truncation = truncationOf(cap, view);
+  const budget = pageBudget(WINDOW_PAGE_LIMIT, TIME_PREFETCH);
+  useEffect(() => {
+    if (!view) return;
+    if (modeOf(view) !== MODES.ROLLING) { setNarrowed(null); return; }
+    if (!truncation.hidden) return;
+    const tw = tailWindow(navBins, view, budget);
+    if (!tw || tw.t1 - tw.t0 >= view.t1 - view.t0) return;
+    setNarrowed((n) => ({ fromSpan: n?.fromSpan ?? view.t1 - view.t0,
+                          matched: cap?.matched ?? null }));
+    setView(tw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [truncation.hidden?.from, view?.t0, view?.t1, view?.mode]);
+  tenantRef.current = sessCtx?.active_customer?.value
+    || meta?.computer?.tenant_id || null;
+
+  /** Density is NAVIGATION QUANTITY from the DT2-0 contract. It is not
+   *  severity, and a spike is not a threat claim. */
+  const density = useMemo(() => bucketsOf(dt2, "events"), [dt2]);
+  const densitySpikes = useMemo(() => spikes(density, { count: 5 }),
+                                [density]);
 
   const visibleLanes = useMemo(() => {
     const out = [];
@@ -261,7 +503,7 @@ export default function EdrDeviceTrajectoryPage() {
     for (const e of events.values()) {
       if (e.lane_index < laneStart || e.lane_index >= laneStart + rows)
         continue;
-      const t = Date.parse(e.timestamp);
+      const t = observedAt(e);
       if (!(t >= view.t0 && t <= view.t1)) continue;
       const arr = m.get(e.lane_index) || [];
       arr.push(e);
@@ -282,28 +524,55 @@ export default function EdrDeviceTrajectoryPage() {
     return out;
   }, [byLane]);
 
+  /** DT2-1 · window state truth. A failed or superseded request is
+   *  never rendered as "no activity". */
+  const windowState = useMemo(() => windowStateOf({
+    hasMeta: !!meta, initial: !meta, loading: status.loading || req.loading,
+    prefetching: req.prefetching, focusResolving: locating,
+    error: status.err || req.err, canceled: req.canceled,
+    staleDiscarded: req.staleDiscarded,
+    observationCount: windowEvents.length,
+  }), [meta, status, req, locating, windowEvents.length]);
+  const emptiness = useMemo(() => emptinessMeaning(windowState),
+                            [windowState]);
+
+  /** Selection is reported, never silently replaced. */
+  const selState = useMemo(
+    () => selectionState(selected,
+                         { view, loadedIds: new Set(events.keys()),
+                           retention: boundsRef.current }),
+    [selected, view, events]);
+
   /** Selecting an observation brings it into view on BOTH axes — a
    *  selection the analyst cannot see is not a selection. */
   const focusEvent = useCallback((e) => {
     if (!e) { setSelected(null); return; }
     setSelected(e);
-    const t = Date.parse(e.timestamp);
+    const t = msUTC(e.timestamp);
     setView((v) => {
       if (!v) return v;
       const s = v.t1 - v.t0;
       if (t >= v.t0 + s * 0.06 && t <= v.t1 - s * 0.06) return v;
-      return { t0: t - s / 2, t1: t + s / 2 };
+      return centreOn(v, t, boundsRef.current).view;
     });
     setSelectedDay((d) => (d === startOfDayUTC(t) ? d : startOfDayUTC(t)));
     if (e.lane_index < laneStart || e.lane_index >= laneStart + rows) {
-      const n = Math.max(0, Math.min(Math.max(0, total - rows),
-                                     e.lane_index - Math.floor(rows / 3)));
+      const n = clampLaneStart(e.lane_index - Math.floor(rows / 3), rows,
+                               total);
       setLaneStart(n);
       if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
     }
+    /** DT2-1 · selecting a different observation IS a materially
+     *  different investigation, so it gets a history entry. V1 replaced
+     *  unconditionally, which is why Back did not step. */
     const next = new URLSearchParams(params);
     next.set("event", e.event_iid);
-    setParams(next, { replace: true });
+    if (e.process_iid) next.set("process_iid", e.process_iid);
+    const mode = historyMode(
+      { event: params.get("event"), process_iid: params.get("process_iid") },
+      { event: e.event_iid, process_iid: e.process_iid || null });
+    urlWriteRef.current = next.toString();
+    setParams(next, { replace: mode !== HISTORY.PUSH });
   }, [laneStart, rows, total, params, setParams]);
 
   const deepLink = params.get("event");
@@ -336,9 +605,9 @@ export default function EdrDeviceTrajectoryPage() {
         const w = data.focus.window;
         if (w) {
           setPreset("custom");
-          setView({ t0: Date.parse(w.time_start),
-                    t1: Date.parse(w.time_end) });
-          setSelectedDay(startOfDayUTC(Date.parse(data.focus.timestamp)));
+          setView({ t0: msUTC(w.time_start),
+                    t1: msUTC(w.time_end) });
+          setSelectedDay(startOfDayUTC(msUTC(data.focus.timestamp)));
         }
         /** The resolver returns the observation's ROW as well as its
          *  moment. Without moving the row viewport the windowed request
@@ -427,14 +696,14 @@ export default function EdrDeviceTrajectoryPage() {
   useEffect(() => {
     const atRaw = params.get("at");
     if (!atRaw || deepLink || anchoredRef.current || selected) return;
-    const at = Date.parse(atRaw);
+    const at = msUTC(atRaw);
     if (!Number.isFinite(at) || events.size === 0) return;
     const wantProc = params.get("process_iid");
     let best = null;
     let bestD = Infinity;
     for (const e of events.values()) {
       if (wantProc && e.process_iid !== wantProc) continue;
-      const d = Math.abs(Date.parse(e.timestamp) - at);
+      const d = Math.abs(msUTC(e.timestamp) - at);
       if (d < bestD) { bestD = d; best = e; }
     }
     if (best) {
@@ -446,14 +715,125 @@ export default function EdrDeviceTrajectoryPage() {
 
   const onPreset = (key, days) => {
     setPreset(key);
-    if (obsEnd == null) return;
     if (!days) {
-      if (obsStart != null) setView({ t0: obsStart, t1: obsEnd });
+      const w = evidenceBoundedWindow(obsStart, obsEnd);
+      if (w) setView(w);
       return;
     }
-    setView({ t0: obsEnd - days * DAY_MS, t1: obsEnd });
-    setSelectedDay(startOfDayUTC(obsEnd));
+    // "N days" means N days to the reference time (hotfix RC4).
+    setView(rollingWindow(refNow, days * DAY_MS));
+    setSelectedDay(utcDayStart(refNow));
   };
+
+  /** What the window holds, by OBSERVED time against the reference time. */
+  const timeModel = useMemo(() => {
+    const times = [];
+    for (const e of events.values()) times.push(observedAt(e));
+    return { counts: classifyObservations(times, view, refNow),
+             extent: evidenceExtent(view, obsStart, obsEnd, refNow),
+             future: futurePart(view, refNow) };
+  }, [events, view, refNow, obsStart, obsEnd]);
+
+  /** DT2-1 · Previous / Next observation and Previous / Next detection.
+   *  Ordering is deterministic (timestamp, event_iid) and comes from the
+   *  evidence, never from DOM order. When the next object is outside the
+   *  loaded window the containing window is resolved instead of the
+   *  control silently doing nothing. */
+  const stepTo = useCallback((dir, detectionsOnly) => {
+    const next = detectionsOnly
+      ? stepDetection(windowEvents, selected, dir)
+      : stepObservation(windowEvents, selected, dir);
+    if (next) { focusEvent(next); return; }
+    if (!view) return;
+    const moved = panByFraction(view, dir * 0.9, boundsRef.current);
+    if (moved.view.t0 !== view.t0) {
+      setView(moved.view);
+      setSelectedDay(startOfDayUTC(moved.view.t0));
+    }
+  }, [windowEvents, selected, view, focusEvent]);
+
+  /** Density spike navigation. A spike is activity VOLUME. */
+  const goToSpike = useCallback((bucket) => {
+    const w = windowForBucket(bucket);
+    if (!w) return;
+    setView(w);
+    setSelectedDay(startOfDayUTC(w.t0));
+  }, []);
+
+  /** DT2-1 · viewport → URL. Transient geometry REPLACES and is
+   *  debounced, so a wheel burst can never flood browser history. */
+  useEffect(() => {
+    if (embedded || !device || !view) return undefined;
+    const t = setTimeout(() => {
+      const next = new URLSearchParams(params);
+      next.set("device", device);
+      next.set("from", iso(view.t0));
+      next.set("to", iso(view.t1));
+      next.set("zoom", String(levelOf(view.t1 - view.t0)));
+      const s = next.toString();
+      if (s === urlWriteRef.current) return;
+      urlWriteRef.current = s;
+      setParams(next, { replace: true });
+    }, 260);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, view, embedded]);
+
+  /** DT2-1 · URL → viewport. Back/Forward restore the investigation
+   *  window; an entry we wrote ourselves is ignored to avoid a loop. */
+  const paramKey = params.toString();
+  useEffect(() => {
+    if (embedded || paramKey === urlWriteRef.current) return;
+    const r = restore(params);
+    if (!r.view) return;
+    if (!view || r.view.t0 !== view.t0 || r.view.t1 !== view.t1) {
+      urlWriteRef.current = paramKey;
+      setView(withMode(r.view, MODES.LINKED));
+      setSelectedDay(startOfDayUTC(r.view.t0));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramKey, embedded]);
+
+  /** Bounded adjacent-window prefetch: at most two, cancelable,
+   *  never recursive, and it never commits the viewport. */
+  useEffect(() => {
+    if (!device || !view || req.loading) return undefined;
+    const t = setTimeout(() => {
+      const lw = laneWindow(laneStart, rows, total || (laneStart + rows),
+                            LANE_PREFETCH);
+      for (const w of prefetchTargets(view, boundsRef.current)) {
+        const key = requestKey({ tenantId: tenantRef.current,
+                                 endpointId: device, t0: w.t0, t1: w.t1,
+                                 laneStart: lw.from, laneEnd: lw.to,
+                                 filterKey });
+        if (cache.current.has(key)) continue;
+        const slot = coord.current.beginPrefetch(key);
+        if (!slot.accepted) continue;
+        cache.current.set(key, true);
+        setReq((s) => ({ ...s, prefetching: true }));
+        api.get(`/edr/endpoints/${encodeURIComponent(device)}/trajectory`,
+                { params: { time_start: iso(w.t0), time_end: iso(w.t1),
+                            lane_start: lw.from, lane_end: lw.to,
+                            limit: WINDOW_PAGE_LIMIT, ...filterParams },
+                  signal: slot.signal })
+          .then(({ data }) => setEvents((prev) => {
+            const m = new Map(prev);
+            for (const e of data.events || []) m.set(e.event_iid, e);
+            return m;
+          }))
+          .catch(() => cache.current.delete(key))
+          .finally(() => {
+            slot.done();
+            setReq((s) => ({ ...s,
+              prefetching: coord.current.prefetchCount() > 0 }));
+          });
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, view, laneStart, rows, total, filterKey, req.loading]);
+
+  useEffect(() => () => coord.current.abortAll(), []);
 
   const openTab = (path, extra) => {
     const p = new URLSearchParams();
@@ -492,7 +872,7 @@ export default function EdrDeviceTrajectoryPage() {
     } else if (kind === "filter-indicator") {
       setQuery(e?.file || e?.network || e?.process || e?.rule_id || "");
     } else if (kind === "focus" && e?.timestamp) {
-      const t = Date.parse(e.timestamp);
+      const t = msUTC(e.timestamp);
       setView({ t0: t - 15 * MS.m, t1: t + 15 * MS.m });
       setSelectedDay(startOfDayUTC(t));
     } else if (kind === "copy-digest") {
@@ -505,131 +885,250 @@ export default function EdrDeviceTrajectoryPage() {
 
   const epi = meta?.epistemic_state;
   const canvasH = AXIS_H + rows * ROW_H;
+
+  /** DT2-3a.1 · Cisco's documented time-start filter: `at:<timestamp>`
+   *  starts the trajectory view at that moment, and `<term> at:<ts>` is
+   *  a logical AND of the term and the start time (User Guide p.409). */
+  const onSearch = (raw) => {
+    const text = String(raw || "");
+    const m = text.match(/(?:^|\s)at:(\S+)/i);
+    if (m) {
+      const lit = m[1];
+      const t = msUTC(lit.length <= 10 ? `${lit}T00:00:00Z` : lit);
+      if (Number.isFinite(t)) {
+        // a bare date starts at midnight and shows the day; a full
+        // timestamp starts there and keeps at least an hour of context
+        const span = lit.length <= 10 ? DAY_MS
+          : Math.max(MS.h, view ? view.t1 - view.t0 : MS.h);
+        setSelectedDay(startOfDayUTC(t));
+        setView({ t0: t, t1: t + span });
+      }
+    }
+    setQuery(text.replace(/(?:^|\s)at:\S+/i, "").trim());
+  };
   const malicious = (meta?.activity?.days || [])
     .reduce((n, d) => n + (d.malicious || 0), 0);
   const detections = (meta?.activity?.days || [])
     .reduce((n, d) => n + (d.detections || 0), 0);
 
   const filterStrip = (
-    <div style={{ background: C.paper,
-                  border: `1px solid ${C.gridStrong}`, borderRadius: 6,
-                  height: "fit-content" }}>
-      <AmpFilterBar
-        typeCounts={meta?.event_type_counts || []}
-        kinds={kinds} onKinds={setKinds}
-        dispositions={dispositions} onDispositions={setDispositions}
-        query={query} onQuery={setQuery}
-        preset={preset} onPreset={onPreset}
-        matched={meta?.matched_after_filters ?? 0}
-        total={meta?.observations_all_time ?? 0}
-        collapsed={navCollapsed} onCollapsed={setNavCollapsed}
-        onZoom={(f) => setView((v) => {
-          if (!v) return v;
-          const c = (v.t0 + v.t1) / 2;
-          const sp = Math.max(1000, (v.t1 - v.t0) * f);
-          return { t0: c - sp / 2, t1: c + sp / 2 };
-        })}
-        onPan={(frac) => setView((v) => {
-          if (!v) return v;
-          const sp = v.t1 - v.t0;
-          return { t0: v.t0 + sp * frac, t1: v.t1 + sp * frac };
-        })}
-        onFitDay={() => selectedDay != null
-          && setView({ t0: selectedDay, t1: selectedDay + DAY_MS })} />
+    <AmpFilterBar
+      typeCounts={meta?.event_type_counts || []}
+      kinds={kinds} onKinds={setKinds}
+      dispositions={dispositions} onDispositions={setDispositions}
+      fileTypes={fileTypes} onFileTypes={setFileTypes}
+      fileTypeCounts={fileTypeCounts}
+      processes={processChoices}
+      hiddenProcesses={hiddenProcs} onHiddenProcesses={setHiddenProcs}
+      query={query} onQuery={onSearch}
+      matchCount={debounced
+        ? (meta?.matched_after_filters ?? null) : null} />
+  );
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const { counts: tmCounts, extent: tmExtent, future: tmFuture } = timeModel;
+  const timeStrip = view && (
+    <div data-testid="dt-time-model" data-window-mode={modeOf(view)}
+         data-window-from={iso(view.t0)} data-window-to={iso(view.t1)}
+         data-reference-time={iso(refNow)}
+         style={{ display: "flex", flexWrap: "wrap", alignItems: "center",
+                  gap: "4px 14px", fontSize: 12, color: C.inkDim,
+                  padding: "6px 0 2px", borderTop: `1px solid ${C.grid}`,
+                  marginTop: 4 }}>
+      <span data-testid="dt-window-label"
+            style={{ color: C.ink, fontWeight: 600 }}>{windowLabel(view)}</span>
+      <span data-testid="dt-reference-time">
+        Reference {isoZ(refNow)} · {tz}: {presentIn(refNow, tz)}
+      </span>
+      {tmFuture && (
+        <span data-testid="dt-future-part">
+          After {isoZ(tmFuture.from)}: not yet occurred
+        </span>
+      )}
+      {tmExtent.statement && (
+        <span data-testid="dt-evidence-extent" data-state={tmExtent.state}
+              style={{ color: C.suspicious }}>{tmExtent.statement}</span>
+      )}
+      {truncation.state !== "COMPLETE" && (
+        <span data-testid="dt-window-truncated" data-state={truncation.state}
+              style={{ color: C.suspicious }}>{truncation.statement}</span>
+      )}
+      {narrowed && modeOf(view) === MODES.ROLLING && (
+        <span data-testid="dt-window-narrowed" style={{ color: C.suspicious }}>
+          Rolling window narrowed from {(narrowed.fromSpan / 3_600_000).toFixed(1)} h
+          to {((view.t1 - view.t0) / 3_600_000).toFixed(1)} h so the NEWEST
+          observations fit one {WINDOW_PAGE_LIMIT}-observation page
+          {narrowed.matched != null ? ` (${narrowed.matched} matched)` : ""}.
+          Pan left for older evidence.
+        </span>
+      )}
+      {truncation.hidden && modeOf(view) !== MODES.ROLLING && (
+        <button data-testid="dt-truncation-newest" style={navBtn}
+                onClick={() => setView(tailWindow(navBins, view, budget))}>
+          Show newest
+        </button>
+      )}
+      {tmCounts.skewed > 0 && (
+        <span data-testid="dt-skewed-observations">
+          {tmCounts.skewed} observation(s) dated up to 2 min after the
+          reference time (within clock-skew tolerance) — reachable by panning.
+        </span>
+      )}
+      {tmCounts.future > 0 && (
+        <span data-testid="dt-future-observations" style={{ color: C.suspicious }}>
+          {tmCounts.future} observation(s) dated more than 2 min after the
+          reference time (sensor clock ahead?) — kept at their observed
+          time; the window is not stretched.
+        </span>
+      )}
+      <span style={{ flex: 1 }} />
+      <button data-testid="dt-mode-rolling" style={navBtn}
+              data-active={String(modeOf(view) === MODES.ROLLING)}
+              onClick={() => { setView(rollingWindow(refNow));
+                               setSelectedDay(utcDayStart(refNow)); }}>
+        Rolling 24 h
+      </button>
+      <button data-testid="dt-mode-evidence" style={navBtn}
+              data-active={String(modeOf(view) === MODES.EVIDENCE_BOUNDED)}
+              onClick={fitEvidence}>
+        Fit to evidence
+      </button>
     </div>
   );
 
   const navigator_ = view && (
     <AmpNavigator
       days={meta?.activity?.days || []}
-      dayBins={meta?.activity?.day_bins || []}
+      bins={navBins} domain={domain} refNow={refNow} status={timeStrip}
+      unloaded={truncation.hidden}
       selectedDay={selectedDay} onSelectDay={setSelectedDay}
       view={view} onView={setView}
+      bounds={boundsRef.current}
       observedEnd={meta?.time_range?.observed_end}
-      cursorTs={selected?.timestamp ? Date.parse(selected.timestamp) : null}
-      collapsed={navCollapsed}
+      searchActive={Boolean(query)}
+      collapsed={navCollapsed} onCollapsed={setNavCollapsed}
       onFocusTime={(t, iid) => {
-        setView({ t0: t - 15 * MS.m, t1: t + 15 * MS.m });
+        setView(centreOn(view, t, boundsRef.current).view);
         const hit = iid ? events.get(iid) : null;
         if (hit) setSelected(hit);
       }} />
   );
 
+  /** DT2-1 · temporal navigation controls.
+   *
+   *  PARKED — NOT PART OF THE AMP-PARITY PRESENTATION (DT2-3a).
+   *  Cisco's Device Trajectory has no trajectory toolbar: none of these
+   *  controls appears in the reference figure, so the strip is not
+   *  rendered. The engines behind it (evidence-ordered stepping,
+   *  detection stepping, the zoom ladder, density buckets, window state)
+   *  are deliberately left intact and wired for the NivXForge
+   *  enhancement phase. */
+  const navBarParked = view && (
+    <div data-testid="dt2-navbar"
+         data-dt2-scroll-domain="controls"
+         data-window-state={windowState}
+         data-selection-state={selState || "NONE"}
+         data-zoom-level={levelOf(span)}
+         data-window-from={iso(view.t0)}
+         data-window-to={iso(view.t1)}
+         data-retention-state={retention.retentionState}
+         data-density-buckets={density.length}
+         style={{ display: "flex", alignItems: "center", gap: 6,
+                  flexWrap: "wrap", background: C.paper,
+                  border: `1px solid ${C.gridStrong}`, borderRadius: 6,
+                  padding: "6px 9px", marginBottom: 8, fontSize: 10.4,
+                  color: C.inkDim, position: "sticky", top: 0,
+                  zIndex: 30 }}>
+      <button data-testid="dt2-prev-event" onClick={() => stepTo(-1, false)}
+              title="Previous observation"
+              style={navBtn}>◀ Event</button>
+      <button data-testid="dt2-next-event" onClick={() => stepTo(1, false)}
+              title="Next observation"
+              style={navBtn}>Event ▶</button>
+      <button data-testid="dt2-prev-detection"
+              onClick={() => stepTo(-1, true)}
+              title="Previous detection"
+              style={navBtn}>◀ Detection</button>
+      <button data-testid="dt2-next-detection"
+              onClick={() => stepTo(1, true)}
+              title="Next detection"
+              style={navBtn}>Detection ▶</button>
+      <span style={{ width: 1, height: 16, background: C.grid }} />
+      <button data-testid="dt2-zoom-in"
+              onClick={() => setView(zoomBySteps(view, -1,
+                (view.t0 + view.t1) / 2, boundsRef.current).view)}
+              style={navBtn}>Zoom in</button>
+      <button data-testid="dt2-zoom-out"
+              onClick={() => setView(zoomBySteps(view, 1,
+                (view.t0 + view.t1) / 2, boundsRef.current).view)}
+              style={navBtn}>Zoom out</button>
+      <span className="mono" data-testid="dt2-window-label"
+            style={{ color: C.inkFaint }}>
+        {iso(view.t0).slice(0, 19)}Z → {iso(view.t1).slice(0, 19)}Z
+      </span>
+      {densitySpikes.length > 0 && (
+        <>
+          <span style={{ width: 1, height: 16, background: C.grid }} />
+          <span style={{ color: C.inkFaint }}>Activity volume:</span>
+          {densitySpikes.map((b) => (
+            <button key={`${b.t0}-${b.count}`}
+                    data-testid={`dt2-spike-${b.t0}`}
+                    data-count={b.count}
+                    data-semantics={b.semantics}
+                    onClick={() => goToSpike(b)}
+                    title={`${b.count} observations — activity volume, `
+                      + "not a severity or threat claim"}
+                    style={navBtn}>
+              {b.count.toLocaleString()}
+            </button>
+          ))}
+        </>
+      )}
+      <span style={{ flex: 1 }} />
+      <span data-testid="dt2-window-state" style={{ color: C.inkFaint }}>
+        {windowState}
+      </span>
+    </div>
+  );
+
   const body = (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 8 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}
-              data-testid="dt-heading">
-          Device Trajectory
-        </span>
+      {/* Cisco titles the page with the DEVICE NAME, followed by
+          Show details and Actions (User Guide p.402 figure). */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12,
+                    marginBottom: 16 }}
+           data-testid="dt-heading">
+        {device && meta && (
+          <AmpComputerHeader computer={meta.computer}
+                             malicious={malicious}
+                             detections={detections}
+                             onAction={(k) => onPivot(k, selected)} />
+        )}
         <span style={{ flex: 1 }} />
-        {/* X3 · EDR → XDR: which incidents reference this endpoint, and
-            open them, without leaving the trajectory. */}
-        <LinkedXdrIncidents device={device}
-                            incidentId={params.get("incident_id")
-                              || params.get("incident")} />
-        <button onClick={() => {
-                  const next = theme === "dark" ? "light" : "dark";
-                  window.localStorage.setItem("nx.theme", next);
-                  setThemeState(next);
-                  window.dispatchEvent(new CustomEvent("nx-theme",
-                                                       { detail: next }));
-                }}
-                data-testid="amp-theme-toggle"
-                data-theme={theme}
-                title={theme === "dark" ? "Switch to the light console"
-                  : "Switch to the dark console"}
-                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
-                         background: C.paper, padding: "4px 8px",
-                         borderRadius: 2,
-                         border: `1px solid ${C.gridStrong}`,
-                         display: "flex", alignItems: "center", gap: 5 }}>
-          {theme === "dark" ? <Sun size={11} /> : <Moon size={11} />}
-          {theme === "dark" ? "Light" : "Dark"}
+        {/* Cisco's share control · Share > Copy URL (p.404) */}
+        <button onClick={() => navigator.clipboard
+                  ?.writeText(window.location.href)}
+                data-testid="amp-share-url" title="Copy URL"
+                style={iconBtn}>
+          <Share2 size={15} />
         </button>
-        <a href="/edr/trajectory" target="_blank" rel="noreferrer"
-           data-testid="amp-legacy-link"
-           style={{ fontSize: 10.6, color: C.link, textDecoration: "none",
-                    background: C.paper, padding: "4px 9px", borderRadius: 2,
-                    border: `1px solid ${C.gridStrong}` }}>
-          Use Legacy Device Trajectory
-        </a>
         <button onClick={() => setFullscreen((v) => !v)}
                 data-testid="amp-fullscreen-toggle"
                 title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-                style={{ fontSize: 10.6, color: C.link, cursor: "pointer",
-                         background: C.paper, padding: "4px 8px",
-                         borderRadius: 2,
-                         border: `1px solid ${C.gridStrong}`,
-                         display: "flex", alignItems: "center" }}>
-          {fullscreen ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                style={iconBtn}>
+          {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
         </button>
       </div>
 
-      {/* X1/X3 · when a reference was named and did not resolve, the
-          outcome is stated as a machine-readable handoff state instead
-          of an empty canvas that could be mistaken for "nothing
-          happened on this endpoint". */}
-      {device && epi?.state === "ENDPOINT_NOT_RESOLVED" && (
-        <div data-testid="amp-handoff-state"
-             data-state={epi.state}
-             style={{ background: C.paper, padding: "8px 10px",
-                      marginBottom: 8, fontSize: 11, color: C.ink,
-                      borderLeft: `3px solid ${C.suspicious}`,
-                      border: `1px solid ${C.grid}` }}>
-          <b>◇ AMP HANDOFF — {epi.state}</b> {epi.message}
-          <div className="mono" style={{ marginTop: 4, fontSize: 10,
-                                         color: C.inkFaint }}>
-            requested reference: {epi.requested_ref || device}
-          </div>
-        </div>
-      )}
+      {/* DT2-3a · the AMP-parity presentation carries no handoff,
+          projection or request-state banners: none appears in the Cisco
+          reference. The handoff resolver, its diagnostics and the
+          epistemic states remain intact server- and client-side. */}
 
       {/* Only ONE handoff state is ever shown. When the endpoint itself
           did not resolve, the focus resolver's echo of the same outcome
           is redundant noise, so it is suppressed. */}
-      {device && handoff && handoff.state !== "FOCUS_RESOLVED"
+      {PARKED_NIVXFORGE_UI && device && handoff && handoff.state !== "FOCUS_RESOLVED"
         && epi?.state !== "ENDPOINT_NOT_RESOLVED" && (
         <div data-testid="amp-handoff-state"
              data-state={handoff.state}
@@ -687,7 +1186,8 @@ export default function EdrDeviceTrajectoryPage() {
         </div>
       )}
 
-      {device && handoff?.state === "FOCUS_RESOLVED" && handoff.focus && (
+      {PARKED_NIVXFORGE_UI && device && handoff?.state === "FOCUS_RESOLVED"
+        && handoff.focus && (
         <div data-testid="amp-handoff-resolved"
              data-event-iid={handoff.focus.event_iid}
              data-lane-index={handoff.focus.lane_index}
@@ -724,33 +1224,7 @@ export default function EdrDeviceTrajectoryPage() {
         <div data-testid="amp-no-endpoint"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 16, color: C.ink, fontSize: 11.5 }}>
-          {endpoints.length > 0 ? (
-            <b>Select an endpoint</b>
-          ) : (
-            <b data-testid="amp-no-endpoint-visible">
-              No endpoint evidence is attributed to{" "}
-              {sessCtx?.active_customer?.value
-                || (sessCtx?.tenant_scope?.all_tenants
-                  ? "any customer" : "your customer")}
-            </b>
-          )}
-          {endpoints.length > 0
-            ? " to open its Device Trajectory."
-            : (
-              <div style={{ marginTop: 8, lineHeight: 1.6,
-                            color: C.inkDim, maxWidth: 760 }}>
-                {sessCtx?.edr_tenant_boundary
-                  || "Endpoint visibility could not be established."}
-                <div style={{ marginTop: 6, color: C.inkFaint }}>
-                  Nothing is shown here rather than something borrowed from
-                  another customer. Your XDR case surfaces
-                  {sessCtx?.tenant_scope?.tenant_ids?.length
-                    ? ` (${sessCtx.tenant_scope.tenant_ids.join(", ")})`
-                    : ""}{" "}
-                  are unaffected.
-                </div>
-              </div>
-            )}
+          <b>Select an endpoint</b>
           <div style={{ marginTop: 10, display: "flex", gap: 8,
                         flexWrap: "wrap" }}>
             {endpoints.map((e) => (
@@ -762,37 +1236,34 @@ export default function EdrDeviceTrajectoryPage() {
                                border: `1px solid ${C.gridStrong}`,
                                color: C.ink }}>
                 {e.hostname || e.device_iid}
-                <span className="mono" style={{ color: C.inkFaint,
-                                                marginLeft: 6 }}>
-                  {e.observation_count} obs
-                </span>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {status.err && (
+      {(status.err || req.err) && (
         <div data-testid="amp-error"
+             data-window-state={windowState}
              style={{ background: "#FDECEC", border: "1px solid #F3C2C2",
                       color: "#8E1E23", padding: "8px 12px", fontSize: 11,
-                      marginBottom: 8 }}>{String(status.err)}</div>
+                      marginBottom: 8 }}>
+          {String(status.err || req.err)}
+        </div>
       )}
 
       {device && (
         <>
-          <div style={{ marginBottom: 8, display: "flex" }}>
-            {meta && (
-              <AmpComputerHeader computer={meta.computer} epistemic={epi}
-                                 malicious={malicious}
-                                 detections={detections}
-                                 onAction={(k) => onPivot(k, selected)} />
-            )}
+          {PARKED_NIVXFORGE_UI && navBarParked}
+          {/* Cisco: ONE card carries the search row and, beneath it, the
+              day and 24-hour navigator. */}
+          <div data-testid="amp-control-card"
+               style={{ marginBottom: 16, background: C.paper,
+                        border: `1px solid ${C.gridStrong}`,
+                        borderRadius: 4, padding: "16px 18px 10px" }}>
+            {filterStrip}
+            {navigator_}
           </div>
-          {/* Cisco puts Search Device Trajectory and Filters ⌄ above the
-              Navigator, full width, as the primary controls. */}
-          <div style={{ marginBottom: 8 }}>{filterStrip}</div>
-          <div style={{ marginBottom: 8 }}>{navigator_}</div>
         </>
       )}
 
@@ -800,11 +1271,11 @@ export default function EdrDeviceTrajectoryPage() {
         <div data-testid="amp-loading"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 14, fontSize: 11, color: C.inkDim }}>
-          Loading endpoint evidence…
+          Loading…
         </div>
       )}
 
-      {locating && (
+      {PARKED_NIVXFORGE_UI && locating && (
         <div data-testid="amp-locating"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: "6px 12px", fontSize: 10.5,
@@ -817,11 +1288,11 @@ export default function EdrDeviceTrajectoryPage() {
         <div data-testid="amp-no-activity"
              style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: 14, fontSize: 11, color: C.inkDim }}>
-          {epi?.message || "No observed activity for this endpoint."}
+          {"No activity to display."}
         </div>
       )}
 
-      {device && deepLink && !events.get(deepLink) && !locating && (
+      {PARKED_NIVXFORGE_UI && device && deepLink && !events.get(deepLink) && !locating && (
         <div style={{ background: C.paper, border: `1px solid ${C.grid}`,
                       padding: "7px 12px", fontSize: 10.5, color: C.inkDim,
                       marginBottom: 8 }}>
@@ -842,20 +1313,110 @@ export default function EdrDeviceTrajectoryPage() {
         <>
           <div style={{ display: "flex", alignItems: "stretch",
                         border: `1px solid ${C.gridStrong}`,
-                        borderRadius: 6, overflow: "hidden",
+                        borderRadius: 4, overflow: "hidden",
                         background: C.paper }}
                data-testid="amp-workspace"
                data-row-start={laneStart}
                data-row-end={Math.min(total, laneStart + rows)}
                data-row-total={total}
                data-window-observations={windowEvents.length}
+               data-window-mode={modeOf(view)}
+               data-truncation={truncation.state}
+               data-window-from={iso(view.t0)} data-window-to={iso(view.t1)}
+               data-query-from={qWin ? iso(qWin.t0) : ""}
+               data-query-to={qWin ? iso(qWin.t1) : ""}
+               data-domain-from={domain ? iso(domain.t0) : ""}
+               data-domain-to={domain ? iso(domain.t1) : ""}
                data-cached-observations={events.size}
                data-lane-axis-version={meta?.lane_axis?.lane_axis_version}
                data-axis-scope={meta?.lane_axis?.axis_scope}
+               data-dt2-engine="dt2.1"
+               data-dt2-window-state={windowState}
+               data-dt2-generation={coord.current.generation()}
+               data-dt2-selection-state={selState || "NONE"}
+               data-dt2-zoom-level={levelOf(span)}
+               data-dt2-process-iid={selected?.process_iid || ""}
                data-wheel-navigation="rows|shift-time|ctrl-zoom">
             <div ref={plotRef} style={{ flex: 1, minWidth: 0,
                                         display: "flex",
                                         flexDirection: "column" }}>
+              {PARKED_NIVXFORGE_UI && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6,
+                            padding: "4px 8px",
+                            borderBottom: `1px solid ${C.grid}`,
+                            background: C.paperAlt }}
+                   data-testid="dt2-view-modes"
+                   data-dt2-graph-state={graphStateOf(dt2)}>
+                {["RELATIONSHIPS", "EVENTS"].map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                          data-testid={`dt2-mode-${m.toLowerCase()}`}
+                          data-active={String(mode === m)}
+                          style={{ ...navBtn,
+                                   color: mode === m ? C.text : C.link,
+                                   background: mode === m ? C.paper
+                                                          : C.paperAlt }}>
+                    {m === "RELATIONSHIPS" ? "PROCESS / RELATIONSHIP / TIME"
+                                           : "EVENT LANES"}
+                  </button>
+                ))}
+                <span style={{ fontSize: 9.6, color: C.faint,
+                               fontFamily: "var(--mono)" }}>
+                  {mode === "RELATIONSHIPS"
+                    ? "server-derived edges only · dashed span = observed evidence, not a process exit"
+                    : "endpoint-wide activity lanes"}
+                </span>
+              </div>
+              )}
+              <AmpCompromisePanel
+                compromise={compromise}
+                selectedId={selectedCompromise}
+                onSelect={(c) => {
+                  setSelectedCompromise(c.compromise_event_id);
+                  if (c?.observedMs != null) {
+                    setView(centreOn(view, c.observedMs,
+                                     boundsRef.current).view);
+                  }
+                }} />
+              {mode === "RELATIONSHIPS" && !PARKED_NIVXFORGE_UI ? (
+                <div data-testid="dt2-graph"
+                     data-dt2-graph-state={graphStateOf(dt2)}>
+                  <RelationshipCanvas
+                    graph={attachContributors(graphOf(dt2), compromise)}
+                    compromise={compromise}
+                    onCompromise={(c) => {
+                      if (c?.observedMs == null) return;
+                      setView(centreOn(view, c.observedMs,
+                                       boundsRef.current).view);
+                      setSelectedCompromise(c.compromise_event_id);
+                    }}
+                    view={view}
+                    plotW={plotW + GUTTER} rows={rows}
+                    laneOffset={laneStart}
+                    bounds={boundsRef.current}
+                    selectedNodeId={selectedNode}
+                    selectedEventMs={selected?.timestamp
+                      ? msUTC(selected.timestamp) : null}
+                    fileTypes={fileTypes}
+                    hiddenProcesses={hiddenProcs}
+                    theme={C}
+                    onView={setView}
+                    onLaneOffset={(n) => {
+                      setLaneStart(n);
+                      if (vScroll.current) {
+                        vScroll.current.scrollTop = n * ROW_H;
+                      }
+                    }}
+                    onReturnToEvent={() => {
+                      if (!selected?.timestamp) return;
+                      const t = msUTC(selected.timestamp);
+                      setView(centreOn(view, t, boundsRef.current).view);
+                    }}
+                    onSelect={(lane) => {
+                      setSelectedNode(lane.nodeId);
+                      setStepCtx(null);
+                    }} />
+                </div>
+              ) : (
               <div style={{ display: "flex" }}>
                 <AmpCanvas
                   lanes={visibleLanes} laneStart={laneStart} rows={rows}
@@ -867,6 +1428,14 @@ export default function EdrDeviceTrajectoryPage() {
                     if (vScroll.current) vScroll.current.scrollTop = n * ROW_H;
                   }}
                   onPivot={onPivot}
+                  compromise={compromise}
+                  onCompromise={(c) => {
+                    setSelectedCompromise(c.compromise_event_id);
+                    if (c?.observedMs != null) {
+                      setView(centreOn(view, c.observedMs,
+                                       boundsRef.current).view);
+                    }
+                  }}
                   observedStart={obsStart} observedEnd={obsEnd} />
                 <div ref={vScroll} data-testid="amp-vscroll"
                      onScroll={(e) => setLaneStart(Math.max(0, Math.min(
@@ -880,8 +1449,12 @@ export default function EdrDeviceTrajectoryPage() {
                                 width: 1 }} />
                 </div>
               </div>
+              )}
 
-              {/* time-axis scrollbar over the whole retained period */}
+              {/* time-axis scrollbar over the whole retained period.
+                  PARKED: the Cisco reference carries ONE bottom time
+                  scroll, which the trajectory itself renders with ◀ ▶. */}
+              {PARKED_NIVXFORGE_UI && (
               <div data-testid="amp-hscroll"
                    onScroll={(e) => {
                      if (obsStart == null || obsEnd == null) return;
@@ -899,6 +1472,7 @@ export default function EdrDeviceTrajectoryPage() {
                   ? `${Math.max(100, ((obsEnd - obsStart) / span) * 100)}%`
                   : "100%", height: 1 }} />
               </div>
+              )}
             </div>
 
             {/* Cisco's right-hand pane: Activity master list, drilling
@@ -906,7 +1480,10 @@ export default function EdrDeviceTrajectoryPage() {
             <AmpActivityPanel events={windowEvents} lanes={lanes}
                               selected={selected} onSelect={focusEvent}
                               onPivot={onPivot} width={DETAILS_W}
-                              height={canvasH + 13} />
+                              windowState={windowState}
+                              emptiness={emptiness}
+                              compromise={compromise}
+                              height="auto" />
           </div>
         </>
       )}
@@ -919,6 +1496,19 @@ export default function EdrDeviceTrajectoryPage() {
            style={{ position: "fixed", inset: 0, zIndex: 2000,
                     background: C.shell, overflow: "auto",
                     padding: "12px 16px" }}>
+        {body}
+      </div>
+    );
+  }
+
+  if (embedded) {
+    // Rendered inside the device workspace: the console chrome and the
+    // page header belong to the parent, so only the canvas is returned.
+    return (
+      <div data-testid="amp-page-surface" data-embedded="true"
+           style={{ background: C.page,
+                    border: `1px solid ${C.gridStrong}`, borderRadius: 6,
+                    padding: "12px 14px 14px" }}>
         {body}
       </div>
     );

@@ -23,22 +23,30 @@ import api from "@/lib/api";
 import Header from "@/components/Header";
 import { InvestigationCanvas } from "@/v2/canvas_engine";
 import CorrelationPanel from "./CorrelationPanel";
+import { ABSENCE, NO_DETECTION, VERDICT_LABEL, VERDICT_RANK, attributionOf, buildActivityView, chainCounts,
+  chainCountsText, mitreItems, participatingFrameIds, trajectoryVerdict } from "@/v2/investigation/activityView.mjs";
+import { buildDateStrip, buildTicks, densityPoints, spanLabel, timelineTitle } from "@/v2/investigation/navigatorDates.mjs";
+import { DAY as TW_DAY, evidenceBoundedWindow, isoZ, windowLabel } from "@/v2/investigation/timeWindow.mjs";
+
+// DT-only range labels: a case window is evidence-bounded (IRG keeps CardToolbar's defaults).
+export const CASE_RANGE_OPTIONS = [
+  ["all", "Entire case (evidence-bounded)"], ["24h", "Last 24 h of case evidence"],
+  ["7d", "Last 7 d of case evidence"], ["30d", "Last 30 d of case evidence"],
+  ["90d", "Last 90 d of case evidence"],
+];
+import { buildCausalContext, identityOf } from "@/v2/investigation/causalView.mjs";
+import { ActivityDetailsSections } from "@/v2/investigation/ActivityDetailsSections";
 
 // ── Design tokens (Glassy-white analyst theme) ─────────────────────
 import { T as SharedT } from "../theme";
 export const T = SharedT;
 
 // ── Data helpers ──────────────────────────────────────────────────
+// "malicious" only from an evidence-backed MALICIOUS machine assessment; an engine claim is "detected" (amber).
+// MITRE-only frames are "unattributed" (neutral); nothing at all is "unknown" — never benign.
+export const DETECTED_COLOR = "#FBBF24";
 function verdictOf(f) {
-  const hasMitre = (f.mitre || []).length > 0;
-  if (!hasMitre) return "benign";
-  const rule = (f.rule_id || f.provenance?.rule_id || "").toLowerCase();
-  if (rule) return "malicious";
-  // MITRE-tagged but no rule: promote impact / credential-access / defense-evasion
-  // techniques to malicious so the compromise band renders.
-  const malRe = /^(T1003|T1027|T1055|T1218|T1486|T1489|T1490|T1547|T1562|T1620)/;
-  const mal = (f.mitre || []).some(t => malRe.test(t));
-  return mal ? "malicious" : "suspicious";
+  return trajectoryVerdict(f);
 }
 function labelOf(f) {
   const raw = f.label || f.action || "";
@@ -117,7 +125,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    verdict: { malicious: true, suspicious: true, benign: true },
+    verdict: { malicious: true, detected: true, unattributed: true, unknown: true },
     kind:    { process: true, file: true, registry: true, network: true },
   });
   const [playing, setPlaying] = useState(false);
@@ -176,7 +184,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         const tac = tacticOf(tech);
         if (!byTactic.has(tac))
           byTactic.set(tac, { tactic: tac, techniques: new Set(), firstTs: Infinity, lastTs: -Infinity,
-                              frames: [], malicious: false });
+                              frames: [], malicious: false, detected: false });
         const s = byTactic.get(tac);
         s.techniques.add(tech);
         const t = new Date(f.ts).getTime();
@@ -184,6 +192,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         if (t > s.lastTs) s.lastTs = t;
         s.frames.push(f);
         if (verdictOf(f) === "malicious") s.malicious = true;
+        if (attributionOf(f) === "detected") s.detected = true;
       });
     });
     // MITRE tactic order
@@ -206,47 +215,56 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         byKey.set(k, { key: k, label: labelOf(f), events: [],
                        firstTs: Infinity, lastTs: -Infinity,
                        lane: f.lane || "process",
-                       worstVerdict: "benign" });
+                       worstVerdict: "unknown" });
       const r = byKey.get(k);
       r.events.push(f);
       const t = new Date(f.ts).getTime();
       if (t < r.firstTs) r.firstTs = t;
       if (t > r.lastTs)  r.lastTs = t;
       const v = verdictOf(f);
-      if (v === "malicious" || (v === "suspicious" && r.worstVerdict !== "malicious"))
-        r.worstVerdict = v;
+      if (VERDICT_RANK[v] > VERDICT_RANK[r.worstVerdict]) r.worstVerdict = v;
     });
 
-    // Compromise indicator rows — one per malicious tactic that has actual data
+    // Indicator rows — one per tactic with an engine claim or an assessed-malicious frame
     const compromiseRows = stages
-      .filter(s => s.malicious)
+      .filter(s => s.detected || s.malicious)
       .map((s, i) => ({
         key: `cmp:${s.tactic}`,
         label: `${s.tactic} · ${s.techniques.slice(0, 2).join(", ")}`,
         kind: "compromise",
         indent: 0,
         firstTs: s.firstTs, lastTs: s.lastTs,
-        worstVerdict: "malicious",
+        worstVerdict: s.malicious ? "malicious" : "detected",
         eventCount: s.frames.length,
       }));
 
-    // Process rows (system + process lanes) — indented by ancestry heuristic.
-    // Since seed data lacks parent IIDs, indent all children of root by simple rule:
-    // msiexec at root, its executors indented under it. Use time order as fallback.
+    // Process rows (system + process lanes). DT-I1D: indentation follows evidence-backed parent identity
+    // only (parent process_iid -> row); time delay never implies ancestry.
     const procRows = [];
     const procKeys = [];
     for (const [k, r] of byKey) {
       if (r.lane === "process" || r.lane === "system") { procRows.push(r); procKeys.push(k); }
     }
     procRows.sort((a, b) => a.firstTs - b.firstTs);
-    const rootTs = procRows.length ? procRows[0].firstTs : 0;
-    procRows.forEach((r, i) => {
-      // Root, first child, deeper descendants — approximate depth via first-seen delay.
-      const delta = r.firstTs - rootTs;
-      const depth = delta < 30 ? 0 : delta < 100 ? 1 : delta < 250 ? 2 : 3;
-      r.indent = i === 0 ? 0 : depth;
-      const glyphs = ["", "├─ ", "│  ├─ ", "│  │  └─ ", "│  │     └─ "];
-      r.indentGlyph = glyphs[Math.min(depth, glyphs.length - 1)] || "";
+    const rowOfEnt = new Map();
+    frames.forEach(f => { const id = f.lane === "process" && identityOf(f.entity || f.process).id;
+                          if (id && !rowOfEnt.has(id)) rowOfEnt.set(id, keyOf(f)); });
+    const parentRow = new Map();
+    frames.forEach(f => {
+      if (f.lane !== "process") return;
+      const pk = rowOfEnt.get(identityOf(f.parent).id), k = keyOf(f);
+      if (pk && pk !== k && !parentRow.has(k)) parentRow.set(k, pk);
+    });
+    const depthOf = (k, seen = new Set()) => {
+      const p = parentRow.get(k);
+      if (!p || seen.has(k)) return 0;
+      seen.add(k);
+      return 1 + depthOf(p, seen);
+    };
+    procRows.forEach((r) => {
+      const depth = Math.min(4, depthOf(r.key));
+      r.indent = depth;
+      r.indentGlyph = ["", "└─ ", "│  └─ ", "│  │  └─ ", "│  │  │  └─ "][depth];
       r.kind = "process";
       r.eventCount = r.events.length;
     });
@@ -259,9 +277,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       if (r.lane === "network")  { r.kind = "network";  r.eventCount = r.events.length; netRows.push(r); }
     }
     const byVerdictThenTime = (a, b) => {
-      const ma = a.worstVerdict === "malicious" ? 0 : 1;
-      const mb = b.worstVerdict === "malicious" ? 0 : 1;
-      if (ma !== mb) return ma - mb;
+      const d = VERDICT_RANK[b.worstVerdict] - VERDICT_RANK[a.worstVerdict];
+      if (d) return d;
       return a.firstTs - b.firstTs;
     };
     fileRows.sort(byVerdictThenTime);
@@ -335,7 +352,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     const seenEdge = new Set();
     const evEdges = [];
     frames.forEach(f => {
-      const pIid = f.parent?.iid;
+      const pIid = identityOf(f.parent).id;   // PID-only parents never produce a connector
       if (!pIid) return;
       const from = entToKey.get(pIid);
       const to   = keyOf(f);
@@ -345,18 +362,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       seenEdge.add(sig);
       evEdges.push({ from, to, kind: f.relationship?.type || "SPAWNED" });
     });
-    // Heuristic fallback if IRG produced nothing (e.g. non-enriched case).
-    if (evEdges.length === 0) {
-      for (let i = 1; i < procRows.length; i++) {
-        const child = procRows[i];
-        for (let j = i - 1; j >= 0; j--) {
-          if ((procRows[j].indent || 0) < (child.indent || 0)) {
-            evEdges.push({ from: procRows[j].key, to: child.key });
-            break;
-          }
-        }
-      }
-    }
+    // DT-I1D: no heuristic depth-based fallback. Without IRG parent identity the
+    // linkage is UNKNOWN and no connector is drawn (directive §2.5 / §5).
 
     return { rows: allRows, bands: bandDefs, edges: evEdges, events: evs };
   }, [frames, stages]);
@@ -368,7 +375,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       return [{ start: focusStage.firstTs, end: focusStage.lastTs,
                 label: `${focusStage.tactic}`, kind: "compromise" }];
     }
-    return stages.filter(s => s.malicious).map(s => ({
+    return stages.filter(s => s.detected || s.malicious).map(s => ({
       start: s.firstTs, end: s.lastTs, label: s.tactic, kind: "compromise",
     }));
   }, [stages, selectedStageIdx]);
@@ -403,12 +410,20 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     const allVerdictsOn = Object.values(verdictOn).every(Boolean);
     const allKindsOn    = Object.values(kindOn).every(Boolean);
     if (!q && allVerdictsOn && allKindsOn) {
+      // DT-I1C: a behavioral MATCH on the selected event highlights ONLY its contributing events.
+      const sel = selected ? events.find(e => e.id === selected) : null;
+      const part = sel ? participatingFrameIds(sel.meta || {}) : [];
+      if (part.length) {
+        const pIds = new Set(part);
+        return { matchedIds: pIds,
+                 matchedRowKeys: new Set(events.filter(e => pIds.has(e.id)).map(e => e.rowKey)) };
+      }
       return { matchedIds: null, matchedRowKeys: null };
     }
     const ids = new Set();
     const rk  = new Set();
     for (const ev of events) {
-      const v = ev.verdict || "benign";
+      const v = ev.verdict || "unknown";
       const k = ev.kind    || "process";
       if (verdictOn[v] === false) continue;
       if (kindOn[k] === false) continue;
@@ -420,7 +435,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
       rk.add(ev.rowKey);
     }
     return { matchedIds: ids, matchedRowKeys: rk };
-  }, [events, searchQuery, filters]);
+  }, [events, searchQuery, filters, selected]);
 
   // ── Search-driven focus ──────────────────────────────────────────
   // When the analyst types a query that resolves to at least one
@@ -539,13 +554,25 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
     setViewport({ start: s.firstTs - pad, end: s.lastTs + pad });
   }, [selectedStageIdx, stages]);
 
-  // ── Date-range dropdown: set viewport to N hours around case end ───
+  // ── Date-range dropdown: N hours ending at the CASE's last evidence ───
+  // dt.time.v1: a case is evidence-bounded, so every range is labelled
+  // "of case evidence", never as a rolling "last 24 h" to now (hotfix V2).
   const handleRangeChange = useCallback((range) => {
     if (range === "all") { setViewport(null); return; }
     const ms = { "24h": 24*3600e3, "7d": 7*24*3600e3, "30d": 30*24*3600e3, "90d": 90*24*3600e3 }[range];
     if (!ms) return;
     setViewport({ start: caseBounds.end - ms, end: caseBounds.end });
   }, [caseBounds]);
+  const caseTimeModel = useMemo(() => {
+    if (!events.length) return null;
+    const refNow = Date.now();
+    const w = evidenceBoundedWindow(caseBounds.start, caseBounds.end);
+    const lag = refNow - caseBounds.end;
+    const label = `${windowLabel(w)} · case evidence ends `
+      + `${lag > TW_DAY ? `${(lag / TW_DAY).toFixed(1)} d` : `${Math.max(0, Math.round(lag / 60000))} min`}`
+      + ` before reference ${isoZ(refNow)}`;
+    return { mode: w.mode, label, title: label };
+  }, [events.length, caseBounds]);
 
   // ── Keyboard navigation ───────────────────────────────────────────
   useEffect(() => {
@@ -604,7 +631,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
   }, [events, rows, selected, caseBounds]);
 
   const caseMeta = data?.case || {};
-  const compromiseCount = stages.filter(s => s.malicious).length;
+  const counts = chainCounts(stages);
+  const boundsKnown = events.length > 0;
 
   if (!enabled) {
     return (
@@ -638,6 +666,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         {/* Card toolbar — logo · search · filters · date range · expand · close */}
         <CardToolbar caseId={caseId} meta={caseMeta}
                      onRangeChange={handleRangeChange}
+                     rangeOptions={CASE_RANGE_OPTIONS}
+                     timeModel={caseTimeModel}
                      reportedVp={reportedVp}
                      caseBounds={caseBounds}
                      onDetails={() => setDrawerOpen(o => !o)}
@@ -664,7 +694,9 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
                       playbackSpeed={playbackSpeed}
                       onSpeedChange={setPlaybackSpeed}
                       bookmarks={bookmarks}
-                      onBookmarksChange={setBookmarks} />
+                      onBookmarksChange={setBookmarks}
+                      boundsKnown={boundsKnown}
+                      eventTs={events.map(e => e.ts)} />
       </div>
 
       {/* ── BOTTOM CONTAINER · Device Trajectory ──────────────────── */}
@@ -683,8 +715,9 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
                         borderLeft: `1px solid ${T.line}`,
                         borderRight: `1px solid ${T.line}` }}>
             <div className="px-4 py-2 text-[10px] tracking-[2px] font-bold flex-shrink-0"
-                 style={{ color: T.inkMute, borderBottom: `1px solid ${T.line}` }}>
-              TIMELINE · JUL 22
+                 style={{ color: T.inkMute, borderBottom: `1px solid ${T.line}` }}
+                 data-testid="timeline-title">
+              {timelineTitle(boundsKnown ? caseBounds : null)}
             </div>
             <div className="relative flex-1 min-h-0">
               {err && <ErrorBanner err={err} />}
@@ -714,7 +747,7 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
 
           {/* Evidence pane */}
           <EvidencePane event={selEvent} tab={rightTab} onTab={setRightTab}
-                        nameByIid={nameByIid}
+                        nameByIid={nameByIid} frames={frames}
                         onFocusParent={(pIid) => {
                           const target = events.find(e => e.meta?.entity?.iid === pIid);
                           if (target) setSelected(target.id);
@@ -724,7 +757,8 @@ export default function DeviceTrajectoryV2({ embedded = false }) {
         {/* Status bar */}
         <StatusBar rows={filteredRows} events={filteredEvents}
                    selectedStageIdx={selectedStageIdx}
-                   compromiseCount={compromiseCount} />
+                   detectedCount={counts.detected}
+                   compromiseCount={counts.malicious} />
       </div>
 
       {/* Slide-in device details drawer */}
@@ -751,10 +785,11 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
                               activeTab = "trajectory", onDetails, detailsOpen,
                               searchQuery = "", onSearch = () => {},
                               filters, onFilters = () => {},
-                              onFullscreen = () => {}, onClose = () => {} }) {
+                              onFullscreen = () => {}, onClose = () => {},
+                              rangeOptions = null, timeModel = null }) {
   const [range, setRange] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const options = [
+  const options = rangeOptions || [
     ["all", "Entire Case"], ["24h", "24 Hours"], ["7d", "7 Days"],
     ["30d", "30 Days"], ["90d", "90 Days"],
   ];
@@ -861,6 +896,15 @@ export function CardToolbar({ caseId, meta, onRangeChange, reportedVp, caseBound
               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
+      {timeModel && (
+        <span data-testid="dt-v2-time-model" data-window-mode={timeModel.mode}
+              title={timeModel.title}
+              className="text-[10px] font-mono px-2 py-1 rounded"
+              style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.inkMute,
+                       maxWidth: 420, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {timeModel.label}
+        </span>
+      )}
       <button onClick={copyRange}
               className="flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-mono"
               style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
@@ -906,12 +950,17 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                        caseBounds, reportedVp, setViewport,
                        playing = false, onTogglePlay = () => {},
                        playbackSpeed = 1, onSpeedChange = () => {},
-                       bookmarks = [], onBookmarksChange = () => {} }) {
-  const days = ["23","24","25","26","27","28","29","30",
-                "1","2","3","4","5","6","7","8","9","10","11","12","13","14",
-                "15","16","17","18","19","20","21","22"];
-  const monthMarks = { 0: "Jun", 8: "Jul" };
-  const caseDayIdx = days.length - 1; // last day = Jul 22
+                       bookmarks = [], onBookmarksChange = () => {},
+                       boundsKnown = true, eventTs = [] }) {
+  // DT-I1: every navigator date derives from the trajectory bounds; UNKNOWN when they can't be established.
+  const known = boundsKnown ? caseBounds : null;
+  const strip = buildDateStrip(known);
+  const days = strip.days;
+  const caseDayIdx = strip.caseDayIdx;
+  const ticks = buildTicks(known);
+  const density = densityPoints(eventTs, known);
+  const claimed = stages.filter(s => s.detected || s.malicious);
+  const dayDot = stages.some(s => s.malicious) ? T.red : claimed.length ? DETECTED_COLOR : null;
 
   const hourStripRef = useRef(null);
   const dragRef      = useRef(null);
@@ -1081,53 +1130,53 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
 
       {/* Right side — trend + day strip + hour strip */}
       <div className="flex-1 relative py-2">
-        {/* Trend sparkline across the top */}
-        <svg viewBox="0 0 1400 24" preserveAspectRatio="none"
-             className="w-full h-6"
-             style={{ display: "block" }}>
-          <polyline fill="none" stroke={T.blue} strokeWidth="1"
-                    opacity="0.55"
-                    points="0,20 50,18 100,15 150,17 200,14 250,12 300,15 350,12 400,10
-                            450,13 500,11 550,14 600,10 650,13 700,11 750,15 800,12 850,14
-                            900,16 950,13 1000,15 1050,17 1100,14 1150,16 1200,15 1250,17
-                            1300,15 1350,13 1400,16"/>
-        </svg>
+        <div className="h-6" />
 
         {/* Day strip */}
-        <div className="flex items-baseline mt-1 pr-4" style={{ paddingLeft: 40 }}>
+        <div className="flex items-baseline mt-1 pr-4" style={{ paddingLeft: 40 }}
+             data-testid="date-strip" data-state={strip.state}>
+          {strip.state !== "AVAILABLE" && (
+            <div className="text-[11px] italic" data-testid="date-strip-unknown" style={{ color: T.inkMute }}>
+              {strip.reason}
+            </div>
+          )}
           {days.map((d, i) => (
             <button key={i}
                     data-testid={`day-chip-${i}`}
                     onClick={() => dayClick(i)}
+                    title={d.iso}
+                    data-iso={d.iso}
                     className="flex-1 flex flex-col items-center relative"
                     style={{ background: "none", border: "none", padding: 0,
                              cursor: i === caseDayIdx ? "pointer" : "default" }}>
               <div className={`text-[11px] ${i === caseDayIdx ? "font-bold rounded flex items-center justify-center" : ""}`}
                    style={i === caseDayIdx
                      ? { background: T.amber, color: "#0A1220", width: 22, height: 22 }
-                     : { color: T.inkDim }}>
-                {d}
+                     : { color: d.inCase ? T.ink : T.inkDim }}>
+                {d.day}
               </div>
-              {monthMarks[i] && (
-                <div className="absolute -bottom-4 text-[10px]" style={{ color: T.inkFaint }}>
-                  {monthMarks[i]}
+              {d.monthMark && (
+                <div className="absolute -bottom-4 text-[10px]" style={{ color: T.inkFaint }}
+                     data-testid={`month-mark-${i}`}>
+                  {d.monthMark}
                 </div>
               )}
-              {i === caseDayIdx && (
+              {i === caseDayIdx && dayDot && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
-                      style={{ background: T.red }} />
+                      style={{ background: dayDot }} />
               )}
             </button>
           ))}
         </div>
 
-        {/* Selected-day (Jul 22) hour strip — INTERACTIVE */}
+        {/* Case-span strip (derived from trajectory bounds) — INTERACTIVE */}
         <div className="mt-6 relative" style={{ height: 44 }}>
           <div className="absolute left-0 top-0 bottom-0 flex items-center px-3"
                style={{ width: 68, background: T.paper2,
                         border: `1px solid ${T.line}`, borderRadius: 4 }}>
-            <span className="text-[11px] font-semibold" style={{ color: T.ink }}>Jul 22</span>
-            <span className="ml-2 w-1.5 h-1.5 rounded-full" style={{ background: T.red }} />
+            <span className="text-[11px] font-semibold" style={{ color: T.ink }}
+                  data-testid="case-span-label">{spanLabel(known)}</span>
+            {dayDot && <span className="ml-2 w-1.5 h-1.5 rounded-full" style={{ background: dayDot }} />}
           </div>
           <div className="absolute inset-0 flex flex-col justify-end" style={{ paddingLeft: 76 }}>
             <div ref={hourStripRef}
@@ -1146,6 +1195,11 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                      background: T.paper, opacity: 0.35,
                      border: `1px solid ${T.line}`,
                    }} />
+              {/* Event-density sparkline over the case-span strip · derived from observed timestamps only */}
+              <svg viewBox="0 0 1400 24" preserveAspectRatio="none" data-testid="density-sparkline"
+                   className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 2 }}>
+                {density && <polyline fill="none" stroke={T.blue} strokeWidth="1.2" opacity="0.9" points={density} />}
+              </svg>
               {/* Yellow "currently visible" window · tracks canvas viewport */}
               <div className="absolute top-0 bottom-0 pointer-events-none"
                    data-testid="viewport-window"
@@ -1155,12 +1209,12 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                      background: T.amber, opacity: 0.60,
                      border: `1.5px solid ${T.amber}`,
                    }} />
-              {/* Compromise dots — one per malicious stage */}
-              {stages.filter(s => s.malicious).map((s, i) => (
+              {/* Stage dots — red only for assessed malicious; amber for detected */}
+              {claimed.map((s, i) => (
                 <div key={`cd-${i}`}
                      className="absolute w-1 h-6 pointer-events-none"
                      style={{ left: `${tsToFrac((s.firstTs + s.lastTs) / 2) * 100}%`,
-                              background: T.red, opacity: 0.55, top: 0 }} />
+                              background: s.malicious ? T.red : DETECTED_COLOR, opacity: 0.55, top: 0 }} />
               ))}
               {/* Bookmarks — label pill + triangle. Click jumps, right-click deletes. */}
               {bookmarks.map(bm => {
@@ -1209,10 +1263,9 @@ export function TimeRangeBox({ stages, selectedStageIdx, onSelectStage,
                 );
               })}
             </div>
-            <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}>
-              {["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00","24:00"].map(h => (
-                <span key={h}>{h}</span>
-              ))}
+            <div className="flex justify-between mt-1 text-[9px] font-mono" style={{ color: T.inkMute }}
+                 data-testid="hour-ticks">
+              {ticks.map((tk, i) => <span key={i}>{tk.label}</span>)}
             </div>
           </div>
         </div>
@@ -1353,23 +1406,28 @@ export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
         {stages.map((s, i) => {
           const isSel = selectedIdx === i;
           const isMal = s.malicious;
+          const isDet = s.detected;
+          const title = s.frames[0]?.label || s.frames[0]?.action || s.tactic.toLowerCase();
           return (
             <button key={i}
                     data-testid={`stage-${i}`}
+                    data-detected={isDet ? "true" : "false"}
+                    data-assessed-malicious={isMal ? "true" : "false"}
                     onClick={() => onSelect(isSel ? null : i)}
                     className="text-left rounded p-3 transition-all"
                     style={{
                       background: isSel ? T.redT : T.paper2,
-                      border: `1px solid ${isSel ? T.red : (isMal ? "#10B98166" : T.line)}`,
+                      border: `1px solid ${isSel ? T.red : (isMal ? T.red : isDet ? "#FBBF2466" : T.line)}`,
                     }}>
               <div className="text-[9px] tracking-[1.5px] font-bold flex items-center gap-1"
-                   style={{ color: isSel ? T.red : (isMal ? T.amber : T.inkMute) }}>
+                   style={{ color: isSel ? T.red : (isMal ? T.red : isDet ? DETECTED_COLOR : T.inkMute) }}>
                 {String(i + 1).padStart(2, "0")} · {s.tactic}
-                {isMal && <span>★</span>}
+                {isMal ? <span>· ASSESSED MALICIOUS</span> : isDet ? <span>· DETECTED</span> : null}
               </div>
-              <div className="text-[11px] font-semibold mt-1"
+              <div className="text-[11px] font-semibold mt-1 truncate" title={title}
+                   data-testid={`stage-label-${i}`}
                    style={{ color: isSel ? T.red : T.ink }}>
-                {s.frames[0]?.label || s.frames[0]?.action || s.tactic.toLowerCase()}
+                {title}
               </div>
               <div className="flex items-center justify-between mt-1">
                 <div className="text-[10px] font-mono" style={{ color: isSel ? T.red : T.inkDim }}>
@@ -1391,8 +1449,8 @@ export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
             {stages.filter(s => s.malicious).length > 2 ? "Ransomware kill chain · complete"
                                                         : "Multi-stage incident"}
           </div>
-          <div className="text-[10px] mt-2" style={{ color: T.inkDim }}>
-            {stages.length} stages · {stages.filter(s => s.malicious).length} malicious
+          <div className="text-[10px] mt-2" style={{ color: T.inkDim }} data-testid="chain-summary-counts">
+            {chainCountsText(chainCounts(stages))}
           </div>
         </div>
       )}
@@ -1401,7 +1459,7 @@ export function AttackChainSidebar({ stages, selectedIdx, onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} }) {
+export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {}, frames = [] }) {
   // Resolve friendly names for the actor (entity) and its parent so
   // the analyst never has to read raw internal IIDs.
   const actorName = event?.meta?.entity?.name ||
@@ -1440,14 +1498,15 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
         <div className="p-4">
           {/* Verdict badges */}
           <div className="flex items-center gap-2 mb-2">
-            <Badge label={event.verdict?.toUpperCase() || "UNKNOWN"}
-                   bg={event.verdict === "malicious" ? T.redT : event.verdict === "benign" ? "#DCFCE7" : "#F1F5F9"}
-                   fg={event.verdict === "malicious" ? T.red   : event.verdict === "benign" ? T.green : T.inkDim} />
+            <Badge label={VERDICT_LABEL[event.verdict] || "NOT ASSESSED"} testId="evidence-verdict-badge"
+                   bg={event.verdict === "malicious" ? T.redT : event.verdict === "detected" ? "#3B2A06" : "#F1F5F9"}
+                   fg={event.verdict === "malicious" ? T.red : event.verdict === "detected" ? DETECTED_COLOR : T.inkDim} />
             {event.source && <Badge label="SOURCE" bg={T.blueT} fg={T.blue} />}
             <Badge label={event.kind?.toUpperCase() || ""} bg="#F1F5F9" fg={T.inkDim} />
           </div>
 
-          <div className="text-[15px] font-bold leading-tight" style={{ color: T.ink }}>
+          <div className="text-[15px] font-bold leading-tight break-all" style={{ color: T.ink }}
+               title={event.label || ""} data-testid="evidence-title">
             {event.label || "—"}
           </div>
           <div className="text-[11px] font-mono mt-1" style={{ color: T.inkMute }}>
@@ -1521,15 +1580,17 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
           {event.mitre && event.mitre.length > 0 && (
             <Section label="MITRE ATT&CK">
               <div className="flex flex-wrap gap-1">
-                {event.mitre.map(t => {
+                {mitreItems(event.meta || {}).map(({ technique: t, style, attribution }) => {
                   const base = t.split(".")[0];
                   const href = `https://attack.mitre.org/techniques/${base}${t.includes(".") ? "/" + t.split(".")[1] : ""}/`;
                   return (
                     <a key={t} href={href} target="_blank" rel="noreferrer"
                        data-testid={`evidence-mitre-${t}`}
+                       data-attribution={attribution}
                        className="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold hover:opacity-80"
-                       style={{ background: T.redT, color: T.red }}
-                       title="Open ATT&CK technique">
+                       style={style === "threat" ? { background: T.redT, color: T.red }
+                                                 : { background: "#F1F5F9", color: T.inkDim }}
+                       title={`Open ATT&CK technique · ${attribution}`}>
                       {t}
                     </a>
                   );
@@ -1563,14 +1624,30 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               </div>
             </Section>
           )}
+          {!(event.meta?.rule_id || event.meta?.provenance?.rule_id) && (
+            <Section label="DETECTION">
+              <div className="text-[11px]" data-testid="evidence-no-detection" style={{ color: T.inkDim }}>
+                {NO_DETECTION}
+              </div>
+              <div className="text-[10px] italic" data-testid="evidence-absence-statement" style={{ color: T.inkMute }}>
+                {ABSENCE}
+              </div>
+            </Section>
+          )}
 
-          {/* Actions */}
+          {/* Actions — Block SHA / Allow-list have no backend authority wired (DT-I1A F4) */}
           <Section label="ACTIONS">
             <div className="flex gap-2 flex-wrap">
-              <button className="text-[11px] px-2.5 py-1 rounded font-semibold"
-                      style={{ background: T.red, color: "#0A0F18" }}>Block SHA</button>
-              <button className="text-[11px] px-2.5 py-1 rounded font-medium"
-                      style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}>Allow-list</button>
+              <button className="text-[11px] px-2.5 py-1 rounded font-semibold opacity-60 cursor-not-allowed"
+                      disabled data-testid="action-block-sha-not-wired"
+                      title="NOT_WIRED: no indicator-block authority is connected"
+                      style={{ background: "#F1F5F9", border: `1px dashed ${T.line}`, color: T.inkDim }}>
+                Block SHA · NOT_WIRED</button>
+              <button className="text-[11px] px-2.5 py-1 rounded font-medium opacity-60 cursor-not-allowed"
+                      disabled data-testid="action-allowlist-not-wired"
+                      title="NOT_WIRED: no allow-list authority is connected"
+                      style={{ background: "#F1F5F9", border: `1px dashed ${T.line}`, color: T.inkDim }}>
+                Allow-list · NOT_WIRED</button>
               <button className="text-[11px] px-2.5 py-1 rounded font-medium"
                       style={{ background: T.paper2, border: `1px solid ${T.line}`, color: T.ink }}
                       onClick={() => navigator.clipboard?.writeText(event.id || "")}>
@@ -1580,6 +1657,8 @@ export function EvidencePane({ event, tab, onTab, onFocusParent, nameByIid = {} 
               </button>
             </div>
           </Section>
+          <ActivityDetailsSections view={buildActivityView(event.meta || {},
+            frames.length ? buildCausalContext(frames, event.id) : null)} />
         </div>
       )}
     </div>
@@ -1596,15 +1675,15 @@ function Section({ label, children }) {
     </div>
   );
 }
-function Badge({ label, bg, fg }) {
+function Badge({ label, bg, fg, testId }) {
   return (
-    <span className="text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider"
+    <span className="text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider" data-testid={testId}
           style={{ background: bg, color: fg }}>{label}</span>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export function StatusBar({ rows, events, selectedStageIdx, compromiseCount }) {
+export function StatusBar({ rows, events, selectedStageIdx, compromiseCount, detectedCount = null }) {
   const procCount = rows.filter(r => r.kind === "process").length;
   return (
     <div className="flex items-center px-4 font-mono text-[10px]"
@@ -1616,7 +1695,8 @@ export function StatusBar({ rows, events, selectedStageIdx, compromiseCount }) {
         {selectedStageIdx != null ? `stage 0${selectedStageIdx + 1}` : "full case"}
       </span>
       <span className="ml-auto">
-        {events.length} events · {procCount} procs · {compromiseCount} compromises · dark ⌘D · help ?
+        {events.length} events · {procCount} procs · {detectedCount == null
+          ? `${compromiseCount} compromises` : `${detectedCount} detected · ${compromiseCount} assessed malicious`} · dark ⌘D · help ?
       </span>
     </div>
   );
@@ -1657,13 +1737,13 @@ function FiltersPopover({ filters, onChange, onClose }) {
     ...filters,
     [group]: Object.fromEntries(Object.keys(filters[group]).map(k => [k, on])),
   });
-  const Row = ({ group, k, dot }) => (
+  const Row = ({ group, k, dot, label }) => (
     <label className="flex items-center gap-2 py-1 cursor-pointer">
       <input type="checkbox" checked={!!filters[group][k]}
              onChange={() => flip(group, k)}
              data-testid={`filter-${group}-${k}`} />
       <span className="inline-block w-2 h-2 rounded-full" style={{ background: dot }} />
-      <span className="text-[11px] capitalize" style={{ color: T.ink }}>{k}</span>
+      <span className="text-[11px] capitalize" style={{ color: T.ink }}>{label || k}</span>
     </label>
   );
   return (
@@ -1687,9 +1767,10 @@ function FiltersPopover({ filters, onChange, onClose }) {
                     className="text-[9px]" style={{ color: T.inkDim }}>none</button>
           </div>
         </div>
-        <Row group="verdict" k="malicious"  dot={T.red} />
-        <Row group="verdict" k="suspicious" dot={T.amber} />
-        <Row group="verdict" k="benign"     dot={T.gray} />
+        <Row group="verdict" k="malicious"  dot={T.red} label="assessed malicious" />
+        <Row group="verdict" k="detected"   dot={DETECTED_COLOR} />
+        <Row group="verdict" k="unattributed" dot={T.gray} />
+        <Row group="verdict" k="unknown"      dot="#CBD5E1" />
 
         <div className="flex items-center justify-between mt-3 mb-1">
           <div className="text-[9px] tracking-[1.6px] font-bold" style={{ color: T.inkMute }}>KIND</div>
@@ -1721,8 +1802,7 @@ function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, case
   const evCount = events.length;
   const procRows = new Set(events.filter(e => e.kind === "process").map(e => e.rowKey)).size;
   const malCount = events.filter(e => e.verdict === "malicious").length;
-  const stageCount = stages.length;
-  const malStages = stages.filter(s => s.malicious).length;
+  const detCount = events.filter(e => attributionOf(e.meta || {}) === "detected").length;
   const topTechniques = [...new Set(stages.flatMap(s => s.techniques || []))].slice(0, 6);
   const firstTs = caseBounds?.start;
   const lastTs  = caseBounds?.end;
@@ -1801,8 +1881,9 @@ function DeviceDetailsDrawer({ open, onClose, caseId, meta, events, stages, case
           </DrawerSection>
 
           <DrawerSection label="Attack chain">
-            <DrawerRow k="Stages"           v={`${stageCount} · ${malStages} malicious`} />
-            <DrawerRow k="Malicious events" v={String(malCount)} />
+            <DrawerRow k="Stages"           v={chainCountsText(chainCounts(stages))} />
+            <DrawerRow k="Detected events"  v={String(detCount)} />
+            <DrawerRow k="Assessed malicious events" v={String(malCount)} />
             {topTechniques.length > 0 && (
               <div className="pt-1">
                 <div className="text-[9px] tracking-[1.4px] font-bold mb-1"

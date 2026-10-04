@@ -18,15 +18,15 @@ import { getTelemetryFreshness } from "@/nivxforge/edrApi";
 
 const TONE = {
   DELIVERING:        { color: "var(--mint)",  Icon: Activity,      label: "DELIVERING" },
-  STALE:             { color: "#ffb454",       Icon: AlertTriangle, label: "STALE" },
-  BLIND_NO_DELIVERY: { color: "#ff6b6b",       Icon: EyeOff,        label: "BLIND · NO DELIVERY" },
+  STALE:             { color: "var(--amber)",       Icon: AlertTriangle, label: "STALE" },
+  BLIND_NO_DELIVERY: { color: "var(--red)",       Icon: EyeOff,        label: "BLIND · NO DELIVERY" },
 };
 
 const FLEET_TONE = {
   DELIVERING:           "var(--mint)",
-  PARTIALLY_DELIVERING: "#ffb454",
-  FLEET_BLIND:          "#ff6b6b",
-  NEVER_DELIVERED:      "#ff6b6b",
+  PARTIALLY_DELIVERING: "var(--amber)",
+  FLEET_BLIND:          "var(--red)",
+  NEVER_DELIVERED:      "var(--red)",
   NO_ENROLLED_ENDPOINTS: "var(--faint)",
 };
 
@@ -50,6 +50,43 @@ export const DeliveryChip = ({ delivery, testid = "edr-delivery-chip" }) => {
         </span>)}
     </span>
   );
+};
+
+/**
+ * A structured backend refusal rendered as words.
+ *
+ * The defect this closes: the API returns `detail` as an OBJECT
+ * (`{code, reason, tenant_id}`), and `String(detail)` produced the
+ * literal text "[object Object]" — the console told the operator nothing
+ * at the exact moment it was reporting that it could prove nothing. The
+ * error is never suppressed and is never replaced with a healthy state.
+ */
+export const readableError = (err) => {
+  if (err == null) return "unreachable";
+  if (typeof err === "string") return err;
+  if (Array.isArray(err)) {
+    return err.map(readableError).filter(Boolean).join("; ") || "unreachable";
+  }
+  if (typeof err === "object") {
+    const code = err.code || err.error || err.type;
+    const reason = err.reason || err.detail || err.message || err.msg;
+    const named = [code, typeof reason === "object"
+      ? readableError(reason) : reason].filter(Boolean).join(" · ");
+    if (named) return named;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "unreachable";
+    }
+  }
+  return String(err);
+};
+
+const INVESTIGABILITY_TONE = {
+  INVESTIGABLE: "var(--green)",
+  RAW_ONLY_NOT_INVESTIGABLE: "var(--red)",
+  NO_DELIVERY_TO_ASSESS: "var(--faint)",
+  UNKNOWN_NOT_ASSESSED: "var(--amber)",
 };
 
 /** Fleet-wide truth about our own pipeline, plus the scoped endpoint. */
@@ -82,8 +119,8 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
     return (
       <div className="x-empty" data-testid="edr-freshness-error"
            style={{ textAlign: "left", padding: "8px 10px", fontSize: 11,
-                    color: "#ff9494" }}>
-        TELEMETRY FRESHNESS UNAVAILABLE ({String(error)}) — the console
+                    color: "var(--red)" }}>
+        TELEMETRY FRESHNESS UNAVAILABLE ({readableError(error)}) — the console
         cannot currently prove whether this product is receiving anything.
       </div>);
   }
@@ -108,6 +145,19 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
         </span>
         {scoped && <DeliveryChip delivery={scoped.delivery}
                                  testid="edr-freshness-endpoint-chip" />}
+        {scoped?.investigability && (
+          <span className="nx-ep"
+                data-testid="edr-freshness-investigability-chip"
+                data-investigability-state={scoped.investigability.state}
+                title={scoped.investigability.statement}
+                style={{ fontSize: 9,
+                         color: INVESTIGABILITY_TONE[
+                           scoped.investigability.state] || "var(--faint)",
+                         borderColor: INVESTIGABILITY_TONE[
+                           scoped.investigability.state] || "var(--faint)" }}>
+            EVIDENCE · {String(scoped.investigability.state)
+              .replace(/_/g, " ")}
+          </span>)}
         {unresolved && (
           <span className="nx-ep" data-testid="edr-freshness-endpoint-unresolved"
                 data-delivery-state="ENDPOINT_NOT_RESOLVED"
@@ -140,6 +190,12 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
           <span className="mono">{scoped.hostname || scoped.endpoint_id}</span>
           {" · "}{scoped.delivery.basis}{" · "}{scoped.delivery.statement}
         </div>)}
+      {scoped?.investigability
+        && scoped.investigability.state !== "INVESTIGABLE" && (
+        <div style={{ marginTop: 4, fontSize: 10.5, color: "var(--amber)" }}
+             data-testid="edr-freshness-investigability-statement">
+          {scoped.investigability.statement}
+        </div>)}
       {scoped?.delivery?.thresholds && (
         <div style={{ marginTop: 4, fontSize: 10, color: "var(--faint)" }}
              data-testid="edr-freshness-thresholds">
@@ -149,7 +205,7 @@ export const TelemetryFreshnessBanner = ({ endpoint = null }) => {
           {scoped.delivery.thresholds.formula}
         </div>)}
       {fleet?.state !== "DELIVERING" && (
-        <div style={{ marginTop: 6, fontSize: 10.5, color: "#ffb454" }}
+        <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--amber)" }}
              data-testid="edr-freshness-blindness-note">
           {data?.note}
         </div>)}

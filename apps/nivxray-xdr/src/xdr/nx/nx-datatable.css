@@ -1,0 +1,209 @@
+/* nx · Slice 1 · table / flyout / tabs vocabulary.
+   Tokens only — no page ever hard-codes a colour, radius or shadow. */
+
+.nx-dt { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.nx-dt-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.nx-dt-search {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--nx-workspace-alt); border: 1px solid var(--nx-divider);
+  border-radius: 999px; padding: 5px 12px; color: var(--nx-text-dim);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.nx-dt-search:focus-within {
+  border-color: var(--nx-purple); box-shadow: 0 0 0 3px var(--nx-purple-dim);
+}
+.nx-dt-search input {
+  background: transparent; border: 0; outline: 0; color: var(--nx-text);
+  font-size: 12.5px; width: 200px;
+}
+.nx-dt-count { font-size: 11.5px; color: var(--nx-text-dim); }
+.nx-dt-spacer { flex: 1 1 auto; }
+
+.nx-dt-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--nx-workspace-alt); color: var(--nx-text);
+  border: 1px solid var(--nx-divider); border-radius: 8px;
+  padding: 5px 10px; font-size: 12px; cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease,
+              transform .16s ease;
+}
+.nx-dt-btn:hover:not(:disabled) {
+  border-color: var(--nx-purple); transform: translateY(-1px);
+}
+.nx-dt-btn:disabled { opacity: .45; cursor: not-allowed; }
+.nx-dt-btn:focus-visible { outline: 2px solid var(--nx-purple); outline-offset: 2px; }
+
+.nx-dt-bulk {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
+  background: var(--nx-purple-dim); border: 1px solid #C7B7FF;
+  border-radius: 8px; padding: 4px 10px;
+}
+.nx-dt-colwrap { position: relative; }
+.nx-dt-colmenu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  background: var(--nx-surface); border: 1px solid var(--nx-divider-strong);
+  border-radius: 10px; padding: 8px; min-width: 190px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.28);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.nx-dt-colopt {
+  display: flex; align-items: center; gap: 8px; font-size: 12px;
+  color: var(--nx-text); padding: 3px 4px; border-radius: 6px; cursor: pointer;
+}
+.nx-dt-colopt:hover { background: var(--nx-workspace-alt); }
+
+.nx-dt-scroll {
+  border: 1px solid var(--nx-divider); border-radius: 12px;
+  overflow: auto; background: var(--nx-surface);
+}
+.nx-dt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.nx-dt-table thead th {
+  position: sticky; top: 0; z-index: 2; text-align: left;
+  background: var(--nx-workspace-alt); color: var(--nx-text-dim);
+  font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+  font-weight: 600; padding: 9px 12px; white-space: nowrap;
+  border-bottom: 1px solid var(--nx-divider-strong);
+}
+.nx-dt-table tbody td {
+  padding: 9px 12px; border-bottom: 1px solid var(--nx-divider);
+  color: var(--nx-text); vertical-align: middle;
+}
+.nx-dt-table tbody tr:last-child td { border-bottom: 0; }
+.nx-dt-table tbody tr:hover { background: var(--nx-workspace-alt); }
+.nx-dt-clickable { cursor: pointer; }
+.nx-dt-clickable:focus-visible {
+  outline: 2px solid var(--nx-purple); outline-offset: -2px;
+}
+.nx-dt-r { text-align: right; }
+.nx-dt-check { width: 34px; }
+.nx-dt-sort {
+  display: inline-flex; align-items: center; gap: 4px; background: none;
+  border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit;
+  letter-spacing: inherit; text-transform: inherit;
+}
+.nx-dt-sort:hover { color: var(--nx-purple); }
+
+.nx-dt-error {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  border: 1px solid var(--nx-critical-bd); background: var(--nx-critical-bg);
+  color: var(--nx-text); border-radius: 12px; padding: 14px 16px;
+  font-size: 12.5px;
+}
+.nx-dt-pager {
+  display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+  font-size: 12px; color: var(--nx-text-dim);
+}
+
+/* ── tabs ─────────────────────────────────────────────── */
+.nx-tabs {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--nx-divider); margin-bottom: 16px;
+}
+.nx-tab {
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 9px 14px; font-size: 12.5px; font-weight: 500; cursor: pointer;
+  color: var(--nx-text-dim); display: inline-flex; align-items: center; gap: 7px;
+  transition: color .16s ease, border-color .16s ease;
+}
+.nx-tab:hover { color: var(--nx-text); }
+.nx-tab.is-active { color: var(--nx-purple); border-bottom-color: var(--nx-purple); }
+.nx-tab:focus-visible { outline: 2px solid var(--nx-purple); outline-offset: -2px; }
+.nx-tab-count {
+  font-size: 10.5px; background: var(--nx-workspace-alt);
+  border: 1px solid var(--nx-divider); border-radius: 999px; padding: 0 6px;
+}
+
+/* ── flyout ───────────────────────────────────────────── */
+.nx-fly-scrim {
+  position: fixed; inset: 0; background: rgba(8,6,16,.5);
+  backdrop-filter: blur(2px); z-index: 60; animation: nxFlyFade .16s ease;
+}
+.nx-fly {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61; max-width: 92vw;
+  background: var(--nx-surface); border-left: 1px solid var(--nx-divider-strong);
+  box-shadow: -24px 0 60px rgba(0,0,0,.34);
+  display: flex; flex-direction: column; animation: nxFlyIn .2s ease;
+}
+@keyframes nxFlyIn { from { transform: translateX(18px); opacity: .6; } }
+@keyframes nxFlyFade { from { opacity: 0; } }
+.nx-fly-head {
+  display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px;
+  border-bottom: 1px solid var(--nx-divider);
+}
+.nx-fly-eyebrow {
+  font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--nx-text-dim);
+}
+.nx-fly-title { font-size: 16px; margin: 2px 0 0; color: var(--nx-text); }
+.nx-fly-back {
+  background: none; border: 0; padding: 0 0 4px; cursor: pointer;
+  color: var(--nx-purple); font-size: 11.5px;
+}
+.nx-fly-actions { margin-left: auto; display: flex; gap: 8px; align-items: center;
+                  flex-shrink: 0; align-self: flex-start; }
+.nx-fly-x {
+  background: none; border: 1px solid var(--nx-divider); border-radius: 8px;
+  color: var(--nx-text-dim); cursor: pointer; padding: 4px;
+}
+.nx-fly-x:hover { color: var(--nx-text); border-color: var(--nx-purple); }
+.nx-fly-body { padding: 16px 18px; overflow: auto; flex: 1 1 auto; }
+.nx-fly-foot {
+  padding: 12px 18px; border-top: 1px solid var(--nx-divider);
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+
+/* ── small shared bits used by Data Sources ───────────── */
+.nx-kv { display: grid; grid-template-columns: 170px 1fr; gap: 6px 14px; font-size: 12.5px; }
+.nx-kv dt { color: var(--nx-text-dim); }
+.nx-kv dd { margin: 0; color: var(--nx-text); word-break: break-word; }
+.nx-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.nx-card {
+  border: 1px solid var(--nx-divider); border-radius: 12px; padding: 14px;
+  background: var(--nx-surface); display: flex; flex-direction: column; gap: 8px;
+  text-align: left; cursor: pointer;
+  transition: border-color .16s ease, transform .16s ease;
+}
+.nx-card:hover { border-color: var(--nx-purple); transform: translateY(-2px); }
+.nx-card:focus-visible { outline: 2px solid var(--nx-purple); outline-offset: 2px; }
+.nx-card-title { font-size: 13.5px; font-weight: 600; color: var(--nx-text); }
+.nx-card-sub { font-size: 11.5px; color: var(--nx-text-dim); }
+.nx-steps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.nx-step {
+  font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px dashed var(--nx-divider-strong); color: var(--nx-text-dim);
+}
+.nx-step.is-active {
+  border-style: solid; border-color: var(--nx-purple);
+  color: var(--nx-purple); background: var(--nx-purple-dim);
+}
+.nx-step.is-done { border-style: solid; color: var(--nx-text); }
+.nx-verify-row {
+  display: flex; align-items: flex-start; gap: 12px; padding: 11px 0;
+  border-bottom: 1px solid var(--nx-divider);
+}
+.nx-verify-row:last-child { border-bottom: 0; }
+.nx-verify-row .nx-vr-body { flex: 1 1 auto; min-width: 0; }
+.nx-vr-label { font-size: 13px; color: var(--nx-text); }
+.nx-vr-src { font-size: 11px; color: var(--nx-text-dim); margin-top: 2px; }
+
+/* Data Sources KPI band · the value must never squeeze the label into a
+   one-word-per-line column. */
+.nx-ds-kpis {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+}
+.nx-ds-kpis .nx-kpi { width: 100%; min-width: 0; }
+.nx-ds-kpis .nx-kpi-body { min-width: 0; flex: 1 1 auto; }
+.nx-ds-kpis .nx-kpi-value { white-space: nowrap; }
+.nx-ds-kpis .nx-kpi-label,
+.nx-ds-kpis .nx-kpi-sub {
+  white-space: normal; overflow-wrap: anywhere; word-break: normal;
+}
+
+/* nx defect fix (design-system level): `.nx-kpi` is a 32px|1fr grid for its
+   icon, so an icon-less tile dropped its body into the 32px column and
+   wrapped one word per line. Any icon-less KPI now collapses to one column. */
+.nx-kpi--noicon { grid-template-columns: 1fr; }

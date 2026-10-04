@@ -118,11 +118,11 @@ export default function EdrCapabilityTruthBody() {
 
       {taxonomy && !taxonomy.complete && (
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start",
-                      border: "1px solid #4A3A16", background: "#1A1508",
+                      border: "1px solid var(--nx-bd-quiet)", background: "var(--nx-surf-inset)",
                       padding: "8px 10px", borderRadius: 4, marginBottom: 12,
                       maxWidth: 900 }}
              data-testid="edr-cap-taxonomy-disclosure">
-          <AlertTriangle size={13} style={{ color: "#E8B931", flexShrink: 0,
+          <AlertTriangle size={13} style={{ color: "var(--nx-high)", flexShrink: 0,
                                             marginTop: 1 }} />
           <div style={{ fontSize: 10.5, lineHeight: 1.6,
                         color: "var(--text-dim)" }}>
@@ -160,7 +160,7 @@ export default function EdrCapabilityTruthBody() {
                   <th key={h} style={{ padding: "4px 7px", fontSize: 8.5,
                                        fontWeight: 800, letterSpacing: ".4px",
                                        textTransform: "uppercase",
-                                       borderBottom: "1px solid #212B36",
+                                       borderBottom: "1px solid var(--nx-bd-quiet)",
                                        whiteSpace: "nowrap" }}>{h}</th>
                 ))}
             </tr>
@@ -168,7 +168,7 @@ export default function EdrCapabilityTruthBody() {
           <tbody>
             {shown.map((r) => (
               <tr key={r.capability_id}
-                  style={{ borderBottom: "1px solid #161D24" }}
+                  style={{ borderBottom: "1px solid var(--nx-bd-quiet)" }}
                   data-testid={`edr-cap-row-${r.capability_id}`}>
                 <td style={{ padding: "5px 7px", maxWidth: 260 }}>
                   <div style={{ color: "var(--text)" }}>{r.name}</div>
@@ -182,7 +182,7 @@ export default function EdrCapabilityTruthBody() {
                     {r.effective_state}
                   </span>
                   {r.downgrade_reason && (
-                    <div style={{ color: "#E8B931", fontSize: 9,
+                    <div style={{ color: "var(--nx-high)", fontSize: 9,
                                   marginTop: 2, whiteSpace: "normal",
                                   maxWidth: 240, lineHeight: 1.5 }}>
                       declared {r.declared_state} — {r.downgrade_reason}
@@ -191,8 +191,8 @@ export default function EdrCapabilityTruthBody() {
                 </td>
                 <td style={{ padding: "5px 7px", whiteSpace: "nowrap" }}>
                   {r.gap_class === "NONE"
-                    ? <ShieldCheck size={11} style={{ color: "#3D8B5F" }} />
-                    : <span style={{ color: "#8C5A5A", fontSize: 9 }}>
+                    ? <ShieldCheck size={11} style={{ color: "var(--nx-text-dim)" }} />
+                    : <span style={{ color: "var(--nx-text-dim)", fontSize: 9 }}>
                         <ShieldOff size={10} style={{ marginRight: 3,
                                                       verticalAlign: -1 }} />
                         {r.gap_class.replace(/_/g, " ").toLowerCase()}

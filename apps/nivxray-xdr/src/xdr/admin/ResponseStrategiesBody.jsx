@@ -15,6 +15,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Layers, ShieldCheck, Lock, Unlock, Loader2, Radar } from "lucide-react";
 import api from "@/lib/api";
+import { refusalText } from "@/lib/refusal";
 
 
 const OBJECTIVE_COLOR = {
@@ -43,7 +44,7 @@ export default function ResponseStrategiesBody() {
           "/admin/content-supply-chain/response-strategies");
         setData(r.data);
       } catch (e) {
-        setError(e?.response?.data?.detail || e?.message || "failed");
+        setError(refusalText(e, "failed"));
       } finally { setLoading(false); }
     })();
   }, []);
@@ -103,7 +104,7 @@ function Header({ summary, rowCount, onSearch, q }) {
                         background: "var(--panel2)" }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center",
                           flexWrap: "wrap" }}>
-        <Layers size={13} style={{ color: "#a78bfa" }} />
+        <Layers size={13} style={{ color: "var(--nx-purple)" }} />
         <b style={{ fontFamily: "var(--mono)", fontSize: 12 }}>
           Response Strategy Knowledge
         </b>

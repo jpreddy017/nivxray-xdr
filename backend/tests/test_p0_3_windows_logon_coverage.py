@@ -143,7 +143,7 @@ def test_preexisting_event_ids_still_supported(eid):
     assert WindowsSecurityDSM().supports(_ev(eid, {})) is True
 
 
-@pytest.mark.parametrize("eid", [1, 4634, 4672, 5140, 255, 0])
+@pytest.mark.parametrize("eid", [1, 4634, 5140, 255, 0])
 def test_unsupported_event_ids_still_refused(eid):
     assert WindowsSecurityDSM().supports(_ev(eid, {})) is False
 

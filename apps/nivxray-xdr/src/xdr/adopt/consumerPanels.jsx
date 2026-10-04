@@ -102,7 +102,7 @@ export function XdrVerdictPanel({ incident }) {
                      style={{ padding: "1px 5px", borderRadius: 3,
                                  border: "1px solid #f472b6",
                                  background: "rgba(244,114,182,.08)",
-                                 color: "#f472b6", fontSize: 9.5,
+                                 color: "var(--nx-purple)", fontSize: 9.5,
                                  textDecoration: "none" }}>
                   {t}
                 </a>
@@ -389,13 +389,13 @@ export function XdrProcessCausalityPanel({ pid, hostId, incidentId }) {
               <span style={{ marginLeft: 6 }}>{p.image || p.name || p.command || "?"}</span>
               {p.user && (
                 <span className="mono" style={{ marginLeft: 4,
-                                                              color: "#c084fc", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · {p.user}
                 </span>
               )}
               {p.technique_id && (
                 <span className="mono" style={{ marginLeft: 4,
-                                                              color: "#f472b6", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · {p.technique_id}
                 </span>
               )}
@@ -452,7 +452,7 @@ export function XdrBehaviorRegistryPanel({ ruleId, pid }) {
               <span style={{ marginLeft: 6 }}>{b.name || b.title}</span>
               {b.technique_id && (
                 <span className="mono" style={{ marginLeft: 4,
-                                                              color: "#f472b6", fontSize: 10 }}>
+                                                              color: "var(--nx-purple)", fontSize: 10 }}>
                   · {b.technique_id}
                 </span>
               )}

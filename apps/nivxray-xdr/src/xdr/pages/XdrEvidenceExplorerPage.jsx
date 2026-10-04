@@ -14,6 +14,8 @@ import {
 
 import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
+import { apiErrorText } from "@/xdr/nx/apiError";
+import { NxDataTable, NxToken } from "@/xdr/nx";
 
 const CATEGORIES = [
   { id: "all", label: "All Evidence" },
@@ -91,7 +93,7 @@ export default function XdrEvidenceExplorerPage() {
 
       setArtifacts(loaded);
     } catch (err) {
-      setError(err?.response?.data?.detail || err?.message || "Failed to load forensic evidence artifacts.");
+      setError(apiErrorText(err, "Failed to load forensic evidence artifacts."));
       setArtifacts([]);
     } finally {
       setLoading(false);
@@ -131,8 +133,8 @@ export default function XdrEvidenceExplorerPage() {
           display: "flex",
           flexDirection: "column",
           minHeight: "calc(100vh - 56px)",
-          background: "#07090e",
-          color: "#e6edf3",
+          background: "var(--nx-surf-inset)",
+          color: "var(--nx-text)",
           padding: "24px 32px",
         }}
       >
@@ -147,7 +149,7 @@ export default function XdrEvidenceExplorerPage() {
                 Evidence Explorer
               </h1>
             </div>
-            <p style={{ margin: "6px 0 0 42px", fontSize: 12.5, color: "#9198a1", maxWidth: 700 }}>
+            <p style={{ margin: "6px 0 0 42px", fontSize: 12.5, color: "var(--nx-muted)", maxWidth: 700 }}>
               Inspect and verify extracted artifacts, SHA-256 cryptographic hash chains, and intermediate decoded outputs
               retained across all transformation stages without data loss.
             </p>
@@ -163,9 +165,9 @@ export default function XdrEvidenceExplorerPage() {
               gap: 6,
               padding: "7px 14px",
               borderRadius: 5,
-              background: "#131822",
-              border: "1px solid #1e2638",
-              color: "#e6edf3",
+              background: "var(--nx-surf-inset)",
+              border: "1px solid var(--nx-bd-quiet)",
+              color: "var(--nx-text)",
               fontSize: 12,
               cursor: "pointer",
               fontWeight: 600,
@@ -182,9 +184,9 @@ export default function XdrEvidenceExplorerPage() {
             justifyContent: "space-between",
             alignItems: "center",
             padding: "12px 16px",
-            background: "#0d1117",
+            background: "var(--nx-surf-inset)",
             borderRadius: "6px 6px 0 0",
-            border: "1px solid #1e2638",
+            border: "1px solid var(--nx-bd-quiet)",
             borderBottom: "none",
             gap: 16,
             flexWrap: "wrap",
@@ -201,7 +203,7 @@ export default function XdrEvidenceExplorerPage() {
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#e6edf3",
+                color: "var(--nx-text)",
                 fontSize: 12.5,
                 outline: "none",
                 width: "100%",
@@ -222,7 +224,7 @@ export default function XdrEvidenceExplorerPage() {
                   fontSize: 11,
                   fontWeight: 600,
                   cursor: "pointer",
-                  background: selectedCat === cat.id ? "#1e293b" : "transparent",
+                  background: selectedCat === cat.id ? "var(--nx-surf-inset)" : "transparent",
                   color: selectedCat === cat.id ? "#38bdf8" : "#9198a1",
                   border: `1px solid ${selectedCat === cat.id ? "#38bdf8" : "transparent"}`,
                 }}
@@ -236,19 +238,19 @@ export default function XdrEvidenceExplorerPage() {
         {/* Evidence Table */}
         <div
           style={{
-            background: "#0d1117",
+            background: "var(--nx-surf-inset)",
             borderRadius: "0 0 6px 6px",
-            border: "1px solid #1e2638",
+            border: "1px solid var(--nx-bd-quiet)",
             overflowX: "auto",
           }}
         >
           {loading ? (
-            <div style={{ padding: 48, textAlign: "center", color: "#9198a1", fontSize: 13 }} data-testid="evidence-loading-state">
+            <div style={{ padding: 48, textAlign: "center", color: "var(--nx-muted)", fontSize: 13 }} data-testid="evidence-loading-state">
               <RefreshCw size={20} className="spin" style={{ margin: "0 auto 10px" }} />
               Loading forensic evidence artifacts...
             </div>
           ) : error ? (
-            <div style={{ padding: 36, textAlign: "center", color: "#f87171", fontSize: 13 }} data-testid="evidence-error-state">
+            <div style={{ padding: 36, textAlign: "center", color: "var(--nx-critical)", fontSize: 13 }} data-testid="evidence-error-state">
               <ShieldAlert size={20} style={{ margin: "0 auto 8px" }} />
               <div>{error}</div>
               <button
@@ -257,9 +259,9 @@ export default function XdrEvidenceExplorerPage() {
                   marginTop: 12,
                   padding: "5px 12px",
                   borderRadius: 4,
-                  background: "#131822",
-                  border: "1px solid #1e2638",
-                  color: "#e6edf3",
+                  background: "var(--nx-surf-inset)",
+                  border: "1px solid var(--nx-bd-quiet)",
+                  color: "var(--nx-text)",
                   fontSize: 11,
                   cursor: "pointer",
                 }}
@@ -267,92 +269,69 @@ export default function XdrEvidenceExplorerPage() {
                 Retry
               </button>
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: "#9198a1" }} data-testid="evidence-empty-state">
-              <Database size={28} color="#656d76" style={{ margin: "0 auto 12px" }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#e6edf3" }}>NO MATCHING EVIDENCE</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: "#656d76" }}>
-                No extracted artifacts, cryptographic hashes, or decoded payloads found matching this filter.
-              </div>
-            </div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #1e2638", color: "#656d76", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  <th style={{ padding: "10px 16px" }}>Artifact Name</th>
-                  <th style={{ padding: "10px 16px" }}>Case / Host</th>
-                  <th style={{ padding: "10px 16px" }}>Decoder / Engine</th>
-                  <th style={{ padding: "10px 16px" }}>SHA-256 Hash</th>
-                  <th style={{ padding: "10px 16px" }}>Decoded Output</th>
-                  <th style={{ padding: "10px 16px" }}>Stop Reason</th>
-                  <th style={{ padding: "10px 16px", textAlign: "right" }}>Inspect</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((art) => (
-                  <tr
-                    key={art.id}
-                    data-testid={`evidence-row-${art.id}`}
-                    style={{
-                      borderBottom: "1px solid #161c28",
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#131822")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td style={{ padding: "12px 16px", fontWeight: 600, color: "#e6edf3" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#38bdf8" }} />
-                        {art.name}
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 16px", fontFamily: "var(--mono, monospace)", fontSize: 11.5 }}>
-                      <div style={{ color: "#5cc0a5" }}>{art.case_id}</div>
-                      <div style={{ color: "#9198a1", fontSize: 10.5 }}>{art.host}</div>
-                    </td>
-                    <td style={{ padding: "12px 16px", color: "#fbbf24", fontFamily: "var(--mono, monospace)", fontSize: 11.5 }}>
-                      {art.decoder}
-                    </td>
-                    <td style={{ padding: "12px 16px", fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#9198a1" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>{art.hash.slice(0, 16)}…</span>
-                        <button
-                          onClick={() => copyToClipboard(art.hash, art.id)}
-                          title="Copy SHA-256"
-                          style={{ background: "transparent", border: "none", cursor: "pointer", color: copiedId === art.id ? "#4ade80" : "#656d76", padding: 2 }}
-                        >
-                          {copiedId === art.id ? <Check size={11} /> : <Copy size={11} />}
-                        </button>
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 16px", fontFamily: "var(--mono, monospace)", color: "#5cc0a5", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {art.decoded}
-                    </td>
-                    <td style={{ padding: "12px 16px", color: "#656d76", fontSize: 11 }}>
-                      {art.stop_reason}
-                    </td>
-                    <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                      <button
-                        onClick={() => setSelectedArtifact(art)}
-                        data-testid={`inspect-art-${art.id}`}
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          background: "rgba(56, 189, 248, 0.12)",
-                          color: "#38bdf8",
-                          border: "1px solid rgba(56, 189, 248, 0.25)",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            /* No bespoke empty block: the platform table owns its own empty
+               state, so the column headers stay visible and the analyst can
+               see WHAT was searched rather than just being told nothing was
+               found. */
+
+            <NxDataTable rows={filtered} rowKey={(a) => a.id} pageSize={50}
+                         searchable={false}
+                         onRowClick={(a) => setSelectedArtifact(a)}
+                         testid="evidence-table"
+                         emptyTitle="No matching evidence"
+                         emptyHint="No extracted artifact, cryptographic hash or
+                                    decoded payload matches this filter"
+                         columns={[
+              { key: "name", header: "Artifact", width: "230px",
+                value: (a) => a.name,
+                render: (a) => (
+                  <strong data-testid={`evidence-row-${a.id}`}>{a.name}</strong>) },
+              { key: "case", header: "Case / host", width: "210px",
+                value: (a) => a.case_id,
+                render: (a) => (
+                  <span>
+                    <span className="nx-mono">{a.case_id}</span>
+                    <div className="nx-absent nx-mono">{a.host}</div>
+                  </span>) },
+              { key: "decoder", header: "Decoder", width: "160px",
+                value: (a) => a.decoder,
+                render: (a) => <NxToken>{a.decoder}</NxToken> },
+              { key: "hash", header: "SHA-256", width: "210px",
+                value: (a) => a.hash,
+                render: (a) => (
+                  <span style={{ display: "inline-flex", alignItems: "center",
+                                 gap: 6 }}>
+                    <span className="nx-mono">{a.hash.slice(0, 16)}…</span>
+                    <button className="nx-btn" title="Copy SHA-256"
+                            style={{ height: 20, padding: "0 6px" }}
+                            onClick={(e) => { e.stopPropagation();
+                                              copyToClipboard(a.hash, a.id); }}>
+                      {copiedId === a.id ? <Check size={11} /> : <Copy size={11} />}
+                    </button>
+                  </span>) },
+              { key: "decoded", header: "Decoded output",
+                value: (a) => a.decoded || "",
+                render: (a) => (
+                  <span className="nx-mono" title={a.decoded}
+                        style={{ display: "inline-block", maxWidth: 280,
+                                 overflow: "hidden", textOverflow: "ellipsis",
+                                 whiteSpace: "nowrap" }}>
+                    {a.decoded}
+                  </span>) },
+              { key: "stop_reason", header: "Stop reason", width: "170px",
+                value: (a) => a.stop_reason || "",
+                render: (a) => (a.stop_reason
+                  || <span className="nx-absent">—</span>) },
+              { key: "inspect", header: "", width: "110px", sortable: false,
+                render: (a) => (
+                  <button className="nx-btn"
+                          data-testid={`inspect-art-${a.id}`}
+                          onClick={(e) => { e.stopPropagation();
+                                            setSelectedArtifact(a); }}>
+                    Inspect
+                  </button>) },
+            ]} />
           )}
         </div>
 
@@ -366,8 +345,8 @@ export default function XdrEvidenceExplorerPage() {
               right: 0,
               width: 500,
               height: "100vh",
-              background: "#0d1117",
-              borderLeft: "1px solid #1e2638",
+              background: "var(--nx-surf-inset)",
+              borderLeft: "1px solid var(--nx-bd-quiet)",
               boxShadow: "-8px 0 32px rgba(0,0,0,0.6)",
               zIndex: 1000,
               padding: 24,
@@ -377,12 +356,12 @@ export default function XdrEvidenceExplorerPage() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#e6edf3" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--nx-text)" }}>
                 Artifact Forensic Inspector
               </div>
               <button
                 onClick={() => setSelectedArtifact(null)}
-                style={{ background: "transparent", border: "none", color: "#9198a1", cursor: "pointer" }}
+                style={{ background: "transparent", border: "none", color: "var(--nx-muted)", cursor: "pointer" }}
               >
                 <X size={16} />
               </button>
@@ -390,48 +369,48 @@ export default function XdrEvidenceExplorerPage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Name:</span>
-                <div style={{ fontWeight: 700, color: "#e6edf3", marginTop: 2 }}>{selectedArtifact.name}</div>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>Name:</span>
+                <div style={{ fontWeight: 700, color: "var(--nx-text)", marginTop: 2 }}>{selectedArtifact.name}</div>
               </div>
 
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Associated Case:</span>
-                <div style={{ fontFamily: "var(--mono, monospace)", color: "#5cc0a5", marginTop: 2 }}>
-                  <Link to={`/xdr/investigations/${encodeURIComponent(selectedArtifact.case_id)}`} style={{ color: "#5cc0a5" }}>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>Associated Case:</span>
+                <div style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-benign)", marginTop: 2 }}>
+                  <Link to={`/xdr/investigations/${encodeURIComponent(selectedArtifact.case_id)}`} style={{ color: "var(--nx-benign)" }}>
                     {selectedArtifact.case_id}
                   </Link>
                 </div>
               </div>
 
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>SHA-256 Forensic Hash:</span>
-                <div style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#e6edf3", background: "#131822", padding: "6px 8px", borderRadius: 4, marginTop: 4, wordBreak: "break-all", border: "1px solid #1e2638" }}>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>SHA-256 Forensic Hash:</span>
+                <div style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "var(--nx-text)", background: "var(--nx-surf-inset)", padding: "6px 8px", borderRadius: 4, marginTop: 4, wordBreak: "break-all", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.hash}
                 </div>
               </div>
 
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Decoder Pipeline:</span>
-                <div style={{ fontFamily: "var(--mono, monospace)", color: "#fbbf24", marginTop: 2 }}>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>Decoder Pipeline:</span>
+                <div style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-high)", marginTop: 2 }}>
                   {selectedArtifact.decoder} (Stop reason: {selectedArtifact.stop_reason})
                 </div>
               </div>
 
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Raw Input Payload ({selectedArtifact.in_len} bytes):</span>
-                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#9198a1", background: "#131822", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto", border: "1px solid #1e2638" }}>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>Raw Input Payload ({selectedArtifact.in_len} bytes):</span>
+                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "var(--nx-muted)", background: "var(--nx-surf-inset)", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.raw}
                 </pre>
               </div>
 
               <div>
-                <span style={{ color: "#9198a1", fontSize: 11, textTransform: "uppercase" }}>Decoded Output Payload ({selectedArtifact.out_len} bytes):</span>
-                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "#5cc0a5", background: "#131822", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto", border: "1px solid #1e2638" }}>
+                <span style={{ color: "var(--nx-muted)", fontSize: 11, textTransform: "uppercase" }}>Decoded Output Payload ({selectedArtifact.out_len} bytes):</span>
+                <pre style={{ fontFamily: "var(--mono, monospace)", fontSize: 11, color: "var(--nx-benign)", background: "var(--nx-surf-inset)", padding: 10, borderRadius: 4, marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto", border: "1px solid var(--nx-bd-quiet)" }}>
                   {selectedArtifact.decoded}
                 </pre>
               </div>
 
-              <div style={{ marginTop: 10, padding: 12, borderRadius: 4, background: "rgba(92,192,165,0.1)", border: "1px solid rgba(92,192,165,0.25)", color: "#5cc0a5", fontSize: 11.5 }}>
+              <div style={{ marginTop: 10, padding: 12, borderRadius: 4, background: "rgba(92,192,165,0.1)", border: "1px solid rgba(92,192,165,0.25)", color: "var(--nx-benign)", fontSize: 11.5 }}>
                 ✓ <b>Forensic Integrity Sealed</b>: Provenance chain preserves input/output length and cryptographic hash for tamper evidence.
               </div>
             </div>

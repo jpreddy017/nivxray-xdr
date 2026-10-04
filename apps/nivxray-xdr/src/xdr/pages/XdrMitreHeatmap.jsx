@@ -1,5 +1,5 @@
 /**
- * XdrMitreHeatmap · ATT&CK Enterprise coverage matrix (v16.1).
+ * XdrMitreHeatmap · ATT&CK Enterprise coverage matrix (version: vendored STIX catalogue, see backend/mitre_catalogue/README.md).
  *
  * The full published ATT&CK Enterprise catalogue is served by
  * the backend at `/api/mitre/catalogue/coverage` — 203 top-level
@@ -23,7 +23,7 @@ import React, {
 } from "react";
 import { RefreshCcw, Search, ExternalLink, ChevronRight, Target,
                 ChevronDown, GitBranch } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import XdrShell from "@/xdr/XdrShell";
 import { NxKpi, NxEmptyBlock as NxEmpty, NxPill } from "@/xdr/nx";
@@ -31,6 +31,11 @@ import { listIncidents } from "@/lib/incidentsApi";
 import api from "@/lib/api";
 import { attackHrefFor, attackLinkTitle }
   from "@/xdr/mitre/attackLink";
+import { apiErrorText } from "@/xdr/nx/apiError";
+import { ATTACK_ATTRIBUTION, CATALOGUE_VERSION } from "@/xdr/lib/mitre/attackNameIndex.generated";
+// E3 → E1 REVIEW: Device Trajectory pivot, inert unless VITE_E3_ATTACK_PIVOT=1.
+import { E3_ATTACK_PIVOT } from "@/xdr/mitre/attackPivotFlag";
+import { DtContextBanner, OpenInDeviceTrajectory } from "@/xdr/mitre/AttackDtPivot";
 
 const AUTO_REFRESH_MS = 60_000;
 
@@ -52,7 +57,10 @@ export default function XdrMitreHeatmap() {
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefresh]  = useState(false);
   const [error, setError]         = useState(null);
-  const [q, setQ]                 = useState("");
+  // PR-XDR-0 · a pivot on an ATT&CK reference lands here with `?q=<ref>`,
+  // so the technique context survives the navigation instead of being lost.
+  const [searchParams]            = useSearchParams();
+  const [q, setQ]                 = useState(searchParams.get("q") || "");
   const [selected, setSelected]   = useState(null);
   const [openTactic, setOpenTactic] = useState(null);
   const [openParent, setOpenParent] = useState(null);
@@ -77,13 +85,26 @@ export default function XdrMitreHeatmap() {
       setIncidents(incs?.incidents || incs || []);
       setSynced(new Date().toISOString());
     } catch (e) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load coverage.");
+      setError(apiErrorText(e, "Failed to load coverage."));
     } finally {
       setLoading(false); setRefresh(false); inflight.current = false;
     }
   }, []);
 
   useEffect(() => { load("initial"); }, [load]);
+  useEffect(() => {
+    const want = E3_ATTACK_PIVOT && searchParams.get("technique");
+    if (!want || !coverage || selected) return;
+    for (const tactic of coverage.tactics || []) {
+      for (const p of tactic.techniques || []) {
+        const sub = (p.subs || []).find((x) => x.external_id === want);
+        if (p.external_id === want || sub) {
+          setSelected({ ...(sub || p), tactic_shortname: tactic.shortname, tactic_name: tactic.name, is_sub: !!sub });
+          return;
+        }
+      }
+    }
+  }, [coverage, searchParams, selected]);
   useEffect(() => {
     const t = setInterval(() => load("refresh"), AUTO_REFRESH_MS);
     return () => clearInterval(t);
@@ -139,7 +160,7 @@ export default function XdrMitreHeatmap() {
             </h1>
             <div className="nx-page-hero-desc">
               Every technique and sub-technique published in ATT&amp;CK
-              Enterprise v{coverage?.catalogue_version || "16.1"} — parents
+              Enterprise v{coverage?.catalogue_version || CATALOGUE_VERSION} — parents
               expandable to their sub-techniques.  Highlighted cells cite
               the real incident ids that observed them; unobserved rows
               are honest coverage gaps, not fabricated risk scores.
@@ -201,7 +222,8 @@ export default function XdrMitreHeatmap() {
           />
         </div>
 
-        {loading && <NxEmpty title="Loading matrix…" body="Fetching v16.1 catalogue and aggregating evidence." />}
+        {loading && <NxEmpty title="Loading matrix…" body={`Fetching v${CATALOGUE_VERSION} catalogue and aggregating evidence.`} />}
+        {E3_ATTACK_PIVOT && <DtContextBanner params={searchParams} />}
         {!loading && error && <NxEmpty title="Failed to load" body={String(error)} />}
 
         {!loading && !error && coverage && (
@@ -526,6 +548,9 @@ export default function XdrMitreHeatmap() {
           color: var(--nx-text-dim); line-height: 1.55; margin: 0;
         }
       `}</style>
+      <div data-testid="xdr-mitre-attribution" style={{ margin: "16px 0 4px", fontSize: 11, color: "var(--nx-muted)" }}>
+        MITRE ATT&amp;CK® Enterprise v{coverage?.catalogue_version || CATALOGUE_VERSION} · {ATTACK_ATTRIBUTION}
+      </div>
     </XdrShell>
   );
 }
@@ -744,6 +769,7 @@ function TechniqueDetail({ row, navigate, incidentDocs }) {
         </div>
       )}
 
+      {E3_ATTACK_PIVOT && <OpenInDeviceTrajectory technique={row.external_id} />}
       <div>
         <div style={{ fontFamily: "var(--sans)", fontSize: 10, fontWeight: 800,
                           textTransform: "uppercase", letterSpacing: 0.5,

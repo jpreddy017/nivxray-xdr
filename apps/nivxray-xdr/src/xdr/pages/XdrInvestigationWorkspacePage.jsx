@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
+import { NxDataTable, NxState, NxTabs, NxToken } from "@/xdr/nx";
 import api from "@/lib/api";
+import { activeTenant } from "@/lib/tenant";
 
 const BAND_COLORS = {
   critical:      { fg: "var(--nx-critical)", bg: "rgba(239, 68, 68, 0.15)",  border: "rgba(239, 68, 68, 0.35)" },
@@ -35,12 +37,49 @@ const PROFILES = [
   { id: "conservative", label: "Conservative (High Precision)" },
 ];
 
-export default function XdrInvestigationWorkspacePage() {
-  const { caseId } = useParams();
+/**
+ * B2-INV · this surface is now a CAPABILITY PROVIDER as well as a page.
+ *
+ * `embedded` + `capabilities` render ONLY the requested engine panels with
+ * no chrome, so the unified analyst workspace (`/xdr/incidents/:id`) can
+ * mount Device Trajectory under Timeline, Process Ancestry under Attack
+ * Story, the IKG under Entities, artifacts under Evidence and the
+ * deterministic verdict / causal FSM under Overview — without a second
+ * investigation experience and without reimplementing an engine.
+ */
+/**
+ * The investigation tab vocabulary.
+ *
+ * NOTE for the next wave: the owner's target set is
+ * Overview | Attack Story | Timeline | Evidence | Entities | Detections |
+ * MITRE | Response | Activity | Report. The tabs below are the ones this
+ * build can actually populate from real case data; the missing ones are
+ * tracked in the migration register rather than added as empty shells,
+ * because an empty tab claims a capability the platform does not have.
+ */
+const WORKSPACE_TABS = [
+  { key: "story",          label: "Attack Story" },
+  { key: "trajectory",     label: "Device Trajectory" },
+  { key: "process",        label: "Process Ancestry" },
+  { key: "graph",          label: "Evidence Graph" },
+  { key: "security_state", label: "Security State" },
+  { key: "evidence",       label: "Evidence" },
+  { key: "verdict",        label: "Verdict" },
+  { key: "attack",         label: "MITRE ATT&CK" },
+];
+
+export default function XdrInvestigationWorkspacePage(
+  { caseId: caseIdProp = null, capabilities = null, embedded = false } = {}) {
+  const { caseId: caseIdParam } = useParams();
+  const caseId = caseIdProp || caseIdParam;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const activeTab = searchParams.get("tab") || "story";
+  /** One gate: a tab when standalone, a requested capability when embedded. */
+  const show = (key) => (embedded
+    ? (capabilities || []).includes(key)
+    : activeTab === key);
   const profile = searchParams.get("profile") || "soc_balanced";
   const trajView = searchParams.get("traj_view") || "timeline";
 
@@ -175,14 +214,25 @@ export default function XdrInvestigationWorkspacePage() {
       .catch(() => setCaseArtifacts([]))
       .finally(() => setArtifactsLoading(false));
 
-    setSecurityStateLoading(true);
-    api.get(`/v2/security-state/${encodeURIComponent(caseId)}?tenant_id=default`)
-      .then((res) => {
-        const states = res.data?.states || [];
-        setSecurityStateData(states[0] || res.data);
-      })
-      .catch(() => setSecurityStateData(null))
-      .finally(() => setSecurityStateLoading(false));
+    // B7 Option A · this named the literal `default`, so the panel read a
+    // tenancy the operator had not selected. The tenant is now the operator's
+    // ACTIVE selection and there is no fallback: with nothing selected the
+    // panel reports the absence rather than querying a tenant it invented.
+    const tenantId = activeTenant();
+    if (!tenantId) {
+      setSecurityStateData(null);
+      setSecurityStateLoading(false);
+    } else {
+      setSecurityStateLoading(true);
+      api.get(`/v2/security-state/${encodeURIComponent(caseId)}`
+              + `?tenant_id=${encodeURIComponent(tenantId)}`)
+        .then((res) => {
+          const states = res.data?.states || [];
+          setSecurityStateData(states[0] || res.data);
+        })
+        .catch(() => setSecurityStateData(null))
+        .finally(() => setSecurityStateLoading(false));
+    }
   }, [caseId, profile]);
 
   useEffect(() => {
@@ -269,11 +319,14 @@ export default function XdrInvestigationWorkspacePage() {
     return list;
   }, [inv?.mitre_techniques, inv?.story?.steps]);
 
+  const Wrapper = embedded ? React.Fragment : XdrShell;
   return (
-    <XdrShell>
+    <Wrapper>
       <div
-        data-testid="xdr-investigation-workspace-page"
-        style={{
+        data-testid={embedded
+          ? `investigation-engine-${(capabilities || []).join("-")}`
+          : "xdr-investigation-workspace-page"}
+        style={embedded ? { color: "var(--nx-text)" } : {
           display: "flex",
           flexDirection: "column",
           minHeight: "calc(100vh - 56px)",
@@ -281,238 +334,21 @@ export default function XdrInvestigationWorkspacePage() {
           color: "var(--nx-text)",
         }}
       >
+        {!embedded && (<>
         {/* Top Breadcrumb & Actions Bar */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "10px 24px",
-            background: "var(--nx-surf-canvas)",
-            borderBottom: "1px solid var(--nx-surf-inset)",
-            fontSize: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link
-              to="/xdr/investigations"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                color: "var(--nx-benign)",
-                textDecoration: "none",
-                fontWeight: 600,
-              }}
-            >
-              <ChevronLeft size={14} /> All Investigations
-            </Link>
-            <span style={{ color: "var(--nx-bd-strong)" }}>/</span>
-            <span style={{ fontFamily: "var(--mono, monospace)", fontWeight: 700, color: "var(--nx-text)" }}>
-              {caseId}
-            </span>
-          </div>
+        {/* One tab rail for the whole product. The hand-rolled rail that
+            used to live here carried its own colours, spacing, active
+            treatment and focus behaviour — a second tab system inside
+            NivXRay XDR. Tab KEYS and `data-testid`s are unchanged. */}
+        <NxTabs tabs={WORKSPACE_TABS} active={activeTab} onChange={setTab}
+                testid="investigation-workspace-tabs" />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--nx-muted)" }}>
-              <span style={{ fontWeight: 700, letterSpacing: "0.05em" }}>PROFILE:</span>
-              <select
-                value={profile}
-                onChange={(e) => setProfile(e.target.value)}
-                style={{
-                  background: "var(--nx-surf-primary)",
-                  border: "1px solid var(--nx-bd-quiet)",
-                  color: "var(--nx-text)",
-                  fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  outline: "none",
-                }}
-              >
-                {PROFILES.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <button
-              onClick={loadInvestigation}
-              disabled={loading}
-              title="Reload investigation graph"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "4px 10px",
-                borderRadius: 4,
-                background: "var(--nx-surf-primary)",
-                border: "1px solid var(--nx-bd-quiet)",
-                color: "var(--nx-text)",
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              <RefreshCw size={11} className={loading ? "spin" : ""} /> Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Persistent Causal Header */}
-        <div
-          style={{
-            padding: "16px 24px",
-            background: "var(--nx-surf-canvas)",
-            borderBottom: "1px solid var(--nx-bd-quiet)",
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>CASE ID</div>
-            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "var(--mono, monospace)", color: "var(--nx-text)" }}>
-              {caseId}
-            </div>
-          </div>
-
-          <div style={{ width: 1, height: 32, background: "var(--nx-bd-quiet)" }} />
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>VERDICT BAND</div>
-            <div style={{ marginTop: 2 }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  fontFamily: "var(--mono, monospace)",
-                  color: c.fg,
-                  background: c.bg,
-                  border: `1px solid ${c.border}`,
-                }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.fg }} />
-                {band.toUpperCase()}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ width: 1, height: 32, background: "var(--nx-bd-quiet)" }} />
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>DEVICE RISK</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--mono, monospace)", color: "var(--nx-critical)" }}>
-              {h.device_score ?? "—"} / 100
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>INCIDENT RISK</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--mono, monospace)", color: "var(--nx-medium)" }}>
-              {h.incident_score ?? "—"} / 100
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>CONFIDENCE</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--mono, monospace)", color: "var(--nx-info)" }}>
-              {h.confidence != null ? `${h.confidence}%` : "—"}
-            </div>
-          </div>
-
-          <div style={{ width: 1, height: 32, background: "var(--nx-bd-quiet)" }} />
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>TELEMETRY</div>
-            <div style={{ fontSize: 12, fontFamily: "var(--mono, monospace)", color: "var(--nx-text)" }}>
-              <b>{h.event_count ?? 0}</b> events · <b>{h.process_count ?? 0}</b> procs
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--nx-muted)", letterSpacing: "0.08em" }}>IKG GRAPH SIZE</div>
-            <div style={{ fontSize: 12, fontFamily: "var(--mono, monospace)", color: "var(--nx-benign)" }}>
-              <b>{inv?.ikg?.stats?.nodes ?? 0}</b> nodes · <b>{inv?.ikg?.stats?.edges ?? 0}</b> edges
-            </div>
-          </div>
-
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 10,
-                fontFamily: "var(--mono, monospace)",
-                padding: "3px 8px",
-                borderRadius: 4,
-                background: "var(--nx-surf-primary)",
-                border: "1px solid var(--nx-bd-quiet)",
-                color: "var(--nx-muted)",
-              }}
-            >
-              Verdict Engine v{inv?.engine_version?.verdict || "3.1b"}
-            </span>
-          </div>
-        </div>
-
-        {/* 8 Causal Investigation Tabs Strip */}
-        <div
-          data-testid="investigation-tab-strip"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "0 20px",
-            background: "var(--nx-surf-canvas)",
-            borderBottom: "1px solid var(--nx-bd-quiet)",
-            gap: 4,
-            overflowX: "auto",
-          }}
-        >
-          {[
-            { key: "story",          label: "Attack Story",               icon: FileText },
-            { key: "trajectory",     label: "Device Trajectory",          icon: Activity },
-            { key: "process",        label: "Process Ancestry",           icon: GitBranch },
-            { key: "graph",          label: "Evidence Graph (IKG)",       icon: Layers },
-            { key: "security_state", label: "Security State & Causal FSM", icon: Shield },
-            { key: "evidence",       label: "Extracted Artifacts & Hashes", icon: Database },
-            { key: "verdict",        label: "Deterministic Verdict",      icon: CheckCircle2 },
-            { key: "attack",         label: "MITRE ATT&CK",               icon: ShieldAlert },
-          ].map((t) => {
-            const active = activeTab === t.key;
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                data-testid={`tab-${t.key}`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "10px 14px",
-                  background: active ? "var(--nx-surf-primary)" : "transparent",
-                  color: active ? "var(--nx-benign)" : "var(--nx-muted)",
-                  border: "none",
-                  borderBottom: `2px solid ${active ? "var(--nx-benign)" : "transparent"}`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.15s",
-                }}
-              >
-                <Icon size={13} color={active ? "var(--nx-benign)" : "var(--nx-muted)"} />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+        </>)}
 
         {/* Tab Content Canvas */}
-        <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto" }}>
+        <div style={embedded
+              ? { padding: 0 }
+              : { flex: 1, padding: "20px 24px", overflowY: "auto" }}>
           {loading ? (
             <div style={{ padding: 60, textAlign: "center", color: "var(--nx-muted)" }}>
               <RefreshCw size={24} className="spin" style={{ margin: "0 auto 12px" }} />
@@ -526,7 +362,7 @@ export default function XdrInvestigationWorkspacePage() {
           ) : (
             <>
               {/* TAB 1: ATTACK STORY */}
-              {activeTab === "story" && (
+              {show("story") && (
                 <div data-testid="tab-story-content" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 20 }}>
                   <div style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px", color: "var(--nx-benign)" }}>
@@ -626,7 +462,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 2: DEVICE TRAJECTORY */}
-              {activeTab === "trajectory" && (
+              {show("trajectory") && (
                 <div data-testid="tab-trajectory-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <div>
@@ -719,7 +555,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 3: PROCESS ANCESTRY */}
-              {activeTab === "process" && (
+              {show("process") && (
                 <div data-testid="tab-process-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Process Execution Hierarchy</h3>
                   {processTreeLoading ? (
@@ -750,7 +586,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 4: EVIDENCE GRAPH (IKG) */}
-              {activeTab === "graph" && (
+              {show("graph") && (
                 <div data-testid="tab-graph-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                     <div>
@@ -789,7 +625,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 5: SECURITY STATE & CAUSAL FSM */}
-              {activeTab === "security_state" && (
+              {show("security_state") && (
                 <div data-testid="tab-security-state-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Security State Computing & Causal Transition FSM</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 20px" }}>
@@ -847,7 +683,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 6: EXTRACTED ARTIFACTS & EVIDENCE */}
-              {activeTab === "evidence" && (
+              {show("evidence") && (
                 <div data-testid="tab-evidence-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Extracted Evidence & Hash Chains</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 16px" }}>
@@ -859,41 +695,51 @@ export default function XdrInvestigationWorkspacePage() {
                       <RefreshCw size={18} className="spin" style={{ margin: "0 auto 8px" }} />
                       Loading extracted artifacts...
                     </div>
-                  ) : caseArtifacts.length > 0 ? (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
-                      <thead>
-                        <tr style={{ borderBottom: "1px solid var(--nx-bd-quiet)", color: "var(--nx-faint)", fontSize: 11, textTransform: "uppercase" }}>
-                          <th style={{ padding: "8px 12px" }}>Artifact / Stage</th>
-                          <th style={{ padding: "8px 12px" }}>Type</th>
-                          <th style={{ padding: "8px 12px" }}>SHA-256 Hash</th>
-                          <th style={{ padding: "8px 12px" }}>Decoded Output Preview</th>
-                          <th style={{ padding: "8px 12px" }}>Stop Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {caseArtifacts.map((row, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid var(--nx-surf-primary)" }}>
-                            <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--nx-text)" }}>{row.stage || row.name || `Artifact ${i + 1}`}</td>
-                            <td style={{ padding: "10px 12px", color: "var(--nx-info)", fontFamily: "var(--mono, monospace)" }}>{row.type || row.category || "artifact"}</td>
-                            <td style={{ padding: "10px 12px", color: "var(--nx-muted)", fontFamily: "var(--mono, monospace)" }}>{row.sha256 || row.hash || "—"}</td>
-                            <td style={{ padding: "10px 12px", color: "var(--nx-benign)", fontFamily: "var(--mono, monospace)" }}>{row.preview || row.decoded || "—"}</td>
-                            <td style={{ padding: "10px 12px", color: "var(--nx-faint)" }}>{row.stop_reason || row.stop || "verified"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   ) : (
-                    <div data-testid="no-matching-artifacts" style={{ padding: 40, textAlign: "center", color: "var(--nx-muted)" }}>
-                      <Database size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--nx-text)" }}>NO EXTRACTED ARTIFACTS RECORDED</div>
-                      <div style={{ fontSize: 11.5, marginTop: 4 }}>No multi-stage decode artifacts or intermediate hashes recorded for this case.</div>
-                    </div>
+                    <NxDataTable rows={caseArtifacts} pageSize={25}
+                                 rowKey={(r, i) => r.sha256 || r.hash
+                                   || `${r.stage || r.name}-${i}`}
+                                 searchPlaceholder="Search artifact, hash, decoder"
+                                 testid="case-artifacts-table"
+                                 emptyTitle="No extracted artifact is recorded"
+                                 emptyHint="No multi-stage decode artifact or
+                                            intermediate hash was recorded for
+                                            this case — that is a statement
+                                            about this case, not a decoder
+                                            failure"
+                                 columns={[
+                      { key: "stage", header: "Artifact / stage", width: "220px",
+                        value: (r) => r.stage || r.name || "",
+                        render: (r) => (
+                          <strong>{r.stage || r.name || "Artifact"}</strong>) },
+                      { key: "type", header: "Type", width: "150px",
+                        value: (r) => r.type || r.category || "artifact",
+                        render: (r) => (
+                          <NxToken>{r.type || r.category || "artifact"}</NxToken>) },
+                      { key: "hash", header: "SHA-256", width: "230px",
+                        value: (r) => r.sha256 || r.hash || "",
+                        render: (r) => ((r.sha256 || r.hash)
+                          ? <span className="nx-mono">{r.sha256 || r.hash}</span>
+                          : <span className="nx-absent">—</span>) },
+                      { key: "decoded", header: "Decoded output",
+                        value: (r) => r.preview || r.decoded || "",
+                        render: (r) => ((r.preview || r.decoded)
+                          ? <span className="nx-mono">
+                              {r.preview || r.decoded}
+                            </span>
+                          : <span className="nx-absent">—</span>) },
+                      { key: "stop_reason", header: "Stop reason", width: "170px",
+                        value: (r) => r.stop_reason || r.stop || "",
+                        render: (r) => (r.stop_reason || r.stop
+                          ? <NxState value={r.stop_reason || r.stop} />
+                          : <span className="nx-absent">—</span>) },
+                    ]} />
                   )}
                 </div>
               )}
 
               {/* TAB 7: DETERMINISTIC VERDICT */}
-              {activeTab === "verdict" && (
+              {show("verdict") && (
                 <div data-testid="tab-verdict-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Deterministic Verdict Engine Breakdown</h3>
                   <p style={{ fontSize: 12.5, color: "var(--nx-muted)", margin: "0 0 16px" }}>
@@ -982,7 +828,7 @@ export default function XdrInvestigationWorkspacePage() {
               )}
 
               {/* TAB 8: MITRE ATT&CK */}
-              {activeTab === "attack" && (
+              {show("attack") && (
                 <div data-testid="tab-attack-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Observed MITRE ATT&CK Matrix Crosswalk</h3>
                   {mitreList.length > 0 ? (
@@ -1098,6 +944,6 @@ export default function XdrInvestigationWorkspacePage() {
           )}
         </div>
       </div>
-    </XdrShell>
+    </Wrapper>
   );
 }
