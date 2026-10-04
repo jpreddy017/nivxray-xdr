@@ -6204,3 +6204,40 @@ string. Each is its own gate.
 
 GATES: G41_LEGACY_READER_RETIREMENT_IMPLEMENTATION = **PASS (not deployed)** ·
 KUSHU = **OFF** · V3 publication = **NOT FLIPPED**.
+
+### G-41 CLOSED IN PRODUCTION (2026-06)
+
+Deployed as Publish 100 / `1e527b0` (run `1e527b08`). Verified read-only against
+the serving image, not the repo and not the publish UI: `legacy`=0,
+`pending_temporal_migration`=0, `legacy_time_key`=0, `_unstamped_probe` present,
+`_temporal_health` present, `OBSERVATION_TIME_KEY` retained 3x. Pods 2/2 Ready,
+0 restarts, no startup errors.
+
+Production state at validation: 125,206 canonical rows, `observation_us` present
+and integer on ALL of them (missing 0, null 0, non-int 0), `event_time` present
+on all 125,206 (missing 0), all six indexes intact including both `*_eventtime`,
+ingest flowing (+16 over a measured 125s), zero
+`E3_PRODUCTION_CONTRACT_UNAVAILABLE` occurrences, no Behavior errors, no 500s,
+no auth/tenant regression, no migration triggered by the rollout.
+
+Owner-executed authenticated proof: Device Trajectory Page 1 + cursor-resumed
+Page 2 on `ep_1989031c8c1d0085812f` (71,994 rows, tenant
+`ten_e759b7288598bd882e3dcac49d`, selected via the `X-Tenant-Id` header) —
+`temporal_health.assessed=true`,
+`ALL_COMPARABLE_EVIDENCE_TEMPORALLY_PLACEABLE`, `unstamped_evidence_present=false`,
+ordering `observation_us DESC, _id DESC` holding across the resume boundary.
+
+GATE: G41_LEGACY_READER_RETIREMENT_PRODUCTION_GATE = **PASS**.
+G-41 canonical temporal authority is **CLOSED**.
+
+Open, recorded, NOT part of this gate — see
+`/app/memory/G41_DEFERRED_STRING_TIME_FINDINGS.md`: `/trajectory/hours` and
+`/trajectory/file-facts` string-time selection; shadow store has no
+`observation_us`; cursor-interface roughness (empty cursor silently restarts,
+malformed cursor degrades the whole `e3` block); 403 storm on
+`POST /api/edr/agent/session`; stale `verify_canonical_observation_us` lock with
+a dead heartbeat and a run row stuck RUNNING.
+
+NEXT: unified NivXForge EDR UI + E3 Device Trajectory V3 publication
+preparation. KUSHU remains OFF. No image build marker exists, so future
+code-to-commit correlation is content-based only.
