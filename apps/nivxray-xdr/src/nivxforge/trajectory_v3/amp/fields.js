@@ -22,6 +22,13 @@ const TACTICS = { reconnaissance: "TA0043", "resource development": "TA0042", "i
 export const tacticUrl = (t) => { const id = /^TA\d{4}$/i.test(t || "") ? t.toUpperCase() : TACTICS[String(t || "").toLowerCase()]; return id ? `https://attack.mitre.org/tactics/${id}/` : null; };
 const has = (v) => v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length);
 
+// IOC empty state. Says ONLY what is true: nothing is recorded against this
+// observation. It must not imply the observation is benign or clean, and it
+// must not imply a TI lookup ran and came back negative — neither is known
+// here. The previous wording named a "synthetic TI fixture", which on real
+// production evidence misstated the basis of the display.
+export const TI_NO_MATCH = "No threat-intelligence match recorded for this observation.";
+
 function Sec(id, title) {
   const s = { id, title, rows: [], missing: [] };
   s.add = (k, v, o = {}) => { if (has(v)) s.rows.push({ k, v: String(v), ...o }); else if (o.reason) s.missing.push({ k, reason: o.reason }); return s; };
@@ -124,7 +131,7 @@ export function buildSections(it, ctx) {
   out.push(a);
   const ti = Sec("ioc", "IOC / threat intel");
   (e.e3_ti || []).forEach((t) => ti.add(`${t.type} ${t.value}`, `${t.status}${t.verdict ? ` · ${t.verdict}` : ""} · matched ${t.matched_field} · ${t.source} · first ${t.first_seen || "—"} · last ${t.last_seen || "—"}`, { wrap: true }));
-  if (!e.e3_ti?.length) ti.add("Indicator match", "No indicator match recorded (synthetic TI fixture)", {});
+  if (!e.e3_ti?.length) ti.add("Indicator match", TI_NO_MATCH, {});
   out.push(ti);
   if (g === "net") {
     const n = Sec("network", "Network"), na = art(it, "network"), ip = na.dst_ip || e.file, host = na.dns || correlatedHost(model, ip);
