@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from edr_plane import temporal_authority as ta
 from edr_trajectory import production_adapter as pa
 from edr_trajectory import production_service as ps
 from edr_trajectory import v3_presentation as v3
@@ -26,7 +27,16 @@ REFS = [DEV]
 
 def canonical_doc(event_time: str | None, pid: int, *, tenant: str = T, device: str = DEV,
                   activity_identity: str | None = None) -> dict[str, Any]:
-    return {"_id": f"cid_{pid}_{event_time}", "tenant_id": tenant,
+    """Canonical evidence AS THE WRITER LEAVES IT.
+
+    G-41 RETIREMENT · `xdr_canonical_evidence` is written through
+    `temporal_authority.stamp()` (asserted at the one insert site), so a fixture
+    without `observation_us` no longer represents anything production holds —
+    and the comparable read correctly refuses to select it. An unparseable or
+    absent `event_time` still yields no comparable value, which is the
+    fail-closed behaviour this stamp preserves.
+    """
+    return ta.stamp({"_id": f"cid_{pid}_{event_time}", "tenant_id": tenant,
             "event_id": f"cev_{pid}_{event_time}", "event_time": event_time,
             "ingest_time": "2030-01-01T00:00:00+00:00",
             "host": {"hostname": device, "host_id": device},
@@ -35,7 +45,7 @@ def canonical_doc(event_time: str | None, pid: int, *, tenant: str = T, device: 
                                   "activity_identity": activity_identity,
                                   "severity": "NONE"},
             "process": {"pid": pid, "executable_path": f"C:\\p{pid}.exe",
-                        "command_line": f"p{pid} run", "start_time": event_time}}
+                        "command_line": f"p{pid} run", "start_time": event_time}})
 
 
 async def _v3(db, **kw) -> dict[str, Any]:

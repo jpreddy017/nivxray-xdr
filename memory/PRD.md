@@ -6157,3 +6157,50 @@ GATES: G41_WRITER_PRODUCTION_GATE = **PASS** · HISTORICAL_POPULATION_CLOSED = *
 EXACT_BACKFILL_CANDIDATES = **122,477**.
 `EXPECTED_CANDIDATES` in `observation_us_migration.py` remains **None** — locking 122,477 is a
 reviewed commit and an owner decision, NOT taken. Next step awaits owner authorization.
+
+---
+
+## G-41 · CANONICAL LEGACY TEMPORAL READER RETIRED (2026-06)
+
+Sequence completed, each as its own owner-authorized gate:
+
+1. historical APPLY — 122,477/122,477 stamped, 0 collateral divergence
+2. read-only VERIFY — checked 122,477, diverging 0, collateral diverged 0
+3. temporal indexes created — `sd_canonical_endpointid_observationus`,
+   `sd_canonical_hostname_observationus`; the four pre-existing indexes intact
+4. production explain proof — 6/6 query shapes (2 identity branches x
+   first-page / resume-cursor / bounded-window) IXSCAN on the intended index,
+   no COLLSCAN, no blocking SORT, bounds
+   `[tenant_id, <identity>, observation_us, _id]`
+5. read-only production census — TOTAL_DOCS 124,898, rows missing or null
+   `observation_us` = **0** (the 2,421 above the migrated figure arrived after
+   the writer went live and were stamped at ingest)
+6. RETIREMENT — implemented, tested, **NOT deployed**
+
+### What the retirement changed
+`edr_trajectory/production_adapter.py`: the second, `event_time`-ordered
+sub-read in `_branch_page` is gone, along with the `legacy*` parameters, the
+canonical per-store raw-string resume bound, and the `pending_temporal_migration`
+counter. Canonical selection / ordering / LIMIT / cursor authority is now
+exclusively `(observation_us DESC, _id DESC)`. `event_time` is untouched: still
+written verbatim, still declared as `OBSERVATION_TIME_KEY`, still indexed, still
+reported in page provenance.
+
+### The counter that replaced the counter
+Deleting `pending_temporal_migration` outright would have turned "we stopped
+looking" into a clean zero: the comparable read excludes an unstamped row AT THE
+DATABASE, so it can no longer be fetched-then-counted as unplaceable. The page
+response therefore carries `temporal_health`, with three distinct answers —
+`ALL_COMPARABLE_EVIDENCE_TEMPORALLY_PLACEABLE`,
+`UNSTAMPED_EVIDENCE_PRESENT_AND_EXCLUDED_FROM_SELECTION`, and
+`NOT_ASSESSED_NO_COMPARABLE_STORE_READ`. It is an index-supported presence probe
+(`find` + `limit(1)`, `_id` projection, no string predicate), run once per paging
+session, with the verdict carried in the cursor as a single bit.
+
+### Deferred, recorded, NOT changed
+See `/app/memory/G41_DEFERRED_STRING_TIME_FINDINGS.md`: `/trajectory/hours`,
+`/trajectory/file-facts` and the shadow store still select on a stored time
+string. Each is its own gate.
+
+GATES: G41_LEGACY_READER_RETIREMENT_IMPLEMENTATION = **PASS (not deployed)** ·
+KUSHU = **OFF** · V3 publication = **NOT FLIPPED**.

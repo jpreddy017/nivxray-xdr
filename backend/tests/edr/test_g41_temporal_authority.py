@@ -285,10 +285,15 @@ async def test_a_row_with_no_comparable_time_is_unplaceable_not_misplaced(db):
                             row("not a time", "broken")])
     p = await page(scoped, page_size=10)
     assert [i["event_id"] for i in p["items"]] == ["ok"]
-    # it has no comparable value, so the transitional legacy read still finds it
-    # by its stored evidence value and it is REPORTED as unplaceable rather than
-    # silently dropped or given an invented time
-    assert p["unplaceable_no_observation_time_count"] == 1
+    # G-41 RETIREMENT · `stamp()` fails closed on an unparseable stored time, so
+    # this row carries no comparable value and the comparable read excludes it
+    # AT THE DATABASE. It is therefore no longer fetched-then-counted — but the
+    # condition must still be visible, or a zero would mean "we stopped
+    # looking" while reading as "nothing is wrong".
+    assert p["unplaceable_no_observation_time_count"] == 0
+    assert p["temporal_health"]["assessed"] is True
+    assert p["temporal_health"]["unstamped_evidence_present"] is True
+    assert p["temporal_health"]["state"] == pa.TEMPORAL_UNSTAMPED
     assert all(i["event_id"] != "broken" for i in p["items"])
 
 

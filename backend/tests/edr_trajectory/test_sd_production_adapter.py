@@ -83,6 +83,11 @@ class FakeCollection:
         for k, cond in flt.items():
             v = pa._dig(doc, k)
             if isinstance(cond, dict):
+                # G-41 RETIREMENT · the unstamped-evidence probe asks for the
+                # ABSENCE of the comparable key. Without this the double would
+                # match every document and report a condition that is not there.
+                if "$exists" in cond and (v is not None) != bool(cond["$exists"]):
+                    return False
                 if "$in" in cond and v not in cond["$in"]:
                     return False
                 if "$lte" in cond and not (v is not None and str(v) <= str(cond["$lte"])):

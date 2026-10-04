@@ -99,6 +99,14 @@ ORDER = "NEWEST_FIRST"
 UNPLACEABLE = "UNPLACEABLE_NO_OBSERVATION_TIME"
 TIE_OVERFLOW = "TIE_GROUP_EXCEEDS_PAGE_SIZE"
 
+#: G-41 RETIREMENT · the canonical temporal-health verdict for THIS endpoint.
+#: The comparable read now excludes an unstamped row at the database, so the
+#: condition is stated explicitly rather than inferred from a counter that would
+#: read as a clean zero.
+TEMPORAL_HEALTHY = "ALL_COMPARABLE_EVIDENCE_TEMPORALLY_PLACEABLE"
+TEMPORAL_UNSTAMPED = "UNSTAMPED_EVIDENCE_PRESENT_AND_EXCLUDED_FROM_SELECTION"
+TEMPORAL_NOT_ASSESSED = "NOT_ASSESSED_NO_COMPARABLE_STORE_READ"
+
 #: Deep-link search budget, in pages of PAGE_MAX. An unresolvable identifier would otherwise walk
 #: the endpoint's entire retained history on every request — measured as an unbounded read on a
 #: 279,554-observation endpoint. A budget that is REACHED is reported as reached, never as "not
@@ -125,10 +133,16 @@ def observation_us(value: Any) -> int | None:
     return _ta.to_epoch_us(value)
 
 
-def _encode(us: int, event_id: str, bounds: dict[str, str]) -> str:
+def _encode(us: int, event_id: str, bounds: dict[str, str],
+            unstamped: bool | None = None) -> str:
+    d: dict[str, Any] = {"v": CURSOR_CONTRACT, "us": int(us),
+                         "id": str(event_id), "b": bounds}
+    if unstamped is not None:
+        #: the session's temporal-health verdict, so a resumed page reports it
+        #: without re-probing. One bit, no evidence and no identity in it.
+        d["th"] = 1 if unstamped else 0
     return base64.urlsafe_b64encode(json.dumps(
-        {"v": CURSOR_CONTRACT, "us": int(us), "id": str(event_id), "b": bounds},
-        separators=(",", ":")).encode()).decode()
+        d, separators=(",", ":")).encode()).decode()
 
 
 def _decode(cursor: str) -> dict[str, Any]:
@@ -136,8 +150,12 @@ def _decode(cursor: str) -> dict[str, Any]:
         d = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
         if d.get("v") != CURSOR_CONTRACT:
             raise ValueError("wrong cursor contract")
+        th = d.get("th")
         return {"us": int(d["us"]), "id": str(d["id"]),
-                "b": {str(k): str(v) for k, v in (d.get("b") or {}).items()}}
+                "b": {str(k): str(v) for k, v in (d.get("b") or {}).items()},
+                #: absent on a cursor minted before this field existed, which
+                #: re-probes rather than asserting a verdict it never measured
+                "th": None if th is None else bool(th)}
     except Exception as ex:
         raise BadCursor("cursor is not a valid e3 production trajectory cursor") from ex
 
@@ -205,18 +223,38 @@ def branch_query(flt: dict[str, Any], time_key: str, *,
     return q, sort
 
 
+async def _unstamped_probe(coll: Any, flt: dict[str, Any], time_key: str) -> bool:
+    """Does this branch hold evidence with NO comparable temporal value?
+
+    G-41 RETIREMENT · the comparable read excludes such a row AT THE DATABASE,
+    so it can no longer be counted while being discarded. Reporting nothing
+    would turn "we stopped looking" into an indistinguishable zero, which is the
+    class of defect this platform refuses to ship — so the condition is probed
+    EXPLICITLY instead.
+
+    PRESENCE, not a count, and `_id` only: the predicate is satisfiable from the
+    temporal index keys alone, it short-circuits on the first match, and it
+    issues NO raw-string `event_time` selection, ordering or bound. It stays
+    inside the collection contract this module already declares — `find` with a
+    projection, bounded by `limit` — so no store or fixture grows a new method.
+    It runs once per session; the verdict then travels in the cursor, so
+    resuming a page never re-pays for it.
+    """
+    q = dict(flt)
+    q[time_key] = {"$exists": False}
+    async for _ in coll.find(q, {"_id": 1}).limit(1):
+        return True
+    return False
+
+
 async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
                        upper_bound: Any, fetch: int,
                        lo: Any = None, hi: Any = None,
                        comparable: bool = False,
-                       tiebreak: str | None = None,
-                       legacy: str | None = None,
-                       legacy_bound: Any = None,
-                       legacy_lo: Any = None,
-                       legacy_hi: Any = None) -> list[dict[str, Any]]:
+                       tiebreak: str | None = None) -> list[dict[str, Any]]:
     """This branch's newest `fetch` rows THROUGH ITS OWN INDEX.
 
-    G-41 · FOR A COMPARABLE STORE the bound, the order and the LIMIT are all on
+    FOR A COMPARABLE STORE the bound, the order and the LIMIT are all on
     an integer microsecond key, with `_id` as a deterministic secondary order so
     a tie group cannot shuffle between reads. That is what makes the LIMIT
     return the actual newest N: a byte-wise string comparison used to put an
@@ -226,6 +264,12 @@ async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
     The resume bound stays INCLUSIVE (`$lte`) and exact exclusion is applied
     afterwards on `(observation_us, event_id)`; an inclusive integer bound can
     never drop a chronologically eligible row, which is the whole defect.
+
+    A row carrying NO comparable value is excluded by the range itself. It is
+    not reachable by a second string-ordered read any more — that transitional
+    path is retired now the historical population is fully stamped — and its
+    existence is reported by `_unstamped_probe` instead of being silently
+    absent.
 
     FOR A NON-COMPARABLE STORE the previous behaviour is unchanged: `$lte` on
     the stored string is a BOUND, not the decision, and exact placement is
@@ -245,29 +289,7 @@ async def _branch_page(coll: Any, flt: dict[str, Any], time_key: str,
     """
     q, sort = branch_query(flt, time_key, upper_bound=upper_bound, lo=lo,
                            hi=hi, comparable=comparable, tiebreak=tiebreak)
-    rows = [d async for d in coll.find(q, {}).sort(sort).limit(fetch)]
-    if not comparable or legacy is None:
-        return rows
-    # TRANSITIONAL · evidence written before the comparable value existed, and
-    # not yet migrated, would otherwise VANISH from this read. It is fetched by
-    # the legacy string path, scoped strictly to rows that have no comparable
-    # value, and merged by the same microsecond order as everything else. This
-    # sub-read still carries the old limit-under-a-string-sort weakness, so it
-    # exists only until the historical backfill completes — at which point it
-    # returns nothing and can be deleted. `pending_temporal_migration` makes the
-    # remaining exposure visible rather than silent.
-    lq = dict(flt)
-    lq[time_key] = {"$exists": False}
-    lrng: dict[str, Any] = {}
-    if legacy_bound is not None:
-        lrng["$lte"] = legacy_bound
-    if legacy_lo is not None:
-        lrng["$gte"] = legacy_lo
-    if legacy_hi is not None and (legacy_bound is None or legacy_hi < legacy_bound):
-        lrng["$lte"] = legacy_hi
-    lq[legacy] = lrng or {"$ne": None}
-    rows += [d async for d in coll.find(lq, {}).sort(legacy, -1).limit(fetch)]
-    return rows
+    return [d async for d in coll.find(q, {}).sort(sort).limit(fetch)]
 
 
 def _window_bounds(time_start: str | None, time_end: str | None
@@ -329,27 +351,33 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     lo_us, hi_us, lo_s, hi_s = _window_bounds(time_start, time_end)
     fetch = size + TIE_MARGIN
     jobs, plan = [], []
+    probes: list[Any] = []
+    #: probed once per session; a resumed page inherits the verdict
+    inherited = (cur or {}).get("th")
+    comparable_read = False
     for store in stores:
         tkey = TEMPORAL_SELECT_KEY[store]
         comparable = COMPARABLE_TEMPORAL[store]
         tiebreak = TEMPORAL_TIEBREAK_KEY if comparable else None
+        comparable_read = comparable_read or comparable
         # G-41 · a comparable store resumes on the cursor's exact microsecond,
         # which is store-independent; only a non-comparable store still needs a
         # per-store raw-string bound.
         bound = (cur or {}).get("us") if comparable \
             else (cur or {}).get("b", {}).get(store)
-        legacy_key = OBSERVATION_TIME_KEY[store] if comparable else None
-        legacy_bound = (cur or {}).get("b", {}).get(store) if comparable else None
         w_lo, w_hi = (lo_us, hi_us) if comparable else (lo_s, hi_s)
         for flt in branches(store, refs, tenant):
             plan.append({"store": store, "time_key": tkey, "upper_bound": bound,
                          "comparable_temporal": comparable,
-                         "legacy_time_key": legacy_key,
                          "fields": [k for k in flt if k != TENANT_PARTITIONED_STORES.get(store)]})
             jobs.append(_branch_page(db[store], flt, tkey, bound, fetch,
-                                     w_lo, w_hi, comparable, tiebreak,
-                                     legacy_key, legacy_bound, lo_s, hi_s))
+                                     w_lo, w_hi, comparable, tiebreak))
+            if comparable and inherited is None:
+                probes.append(_unstamped_probe(db[store], flt, tkey))
     raw_pages = await asyncio.gather(*jobs)
+    unstamped_present = (inherited if inherited is not None
+                         else (any(await asyncio.gather(*probes)) if probes
+                               else None))
 
     rows: list[dict[str, Any]] = []
     per_store: dict[str, int] = {s: 0 for s in stores}
@@ -357,7 +385,6 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     #: precision so a resume bound is expressed in the exact value the store holds.
     order: dict[str, dict[str, Any]] = {}
     unplaceable = 0
-    pending_temporal_migration = 0
     outside_window = 0
     seen_docs: set[tuple[str, str]] = set()
     for spec, docs in zip(plan, raw_pages):
@@ -365,12 +392,6 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         tkey = spec["time_key"]
         for doc in docs:
             raw_t = _dig(doc, tkey)
-            pending_migration = False
-            if raw_t is None and spec["comparable_temporal"]:
-                # not yet migrated: fall back to the stored evidence value, and
-                # count it so the remaining exposure is visible, never silent.
-                raw_t = _dig(doc, spec["legacy_time_key"])
-                pending_migration = raw_t is not None
             # one document is matched by several identity branches; recognise it by the
             # store's own unique key rather than by inferred fields, which can be absent.
             dk = (store, str(doc.get("_id")))
@@ -394,14 +415,12 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
             eid = ev["event_id"]
             o = order.setdefault(eid, {"us": us, "raw": {}})
             o["us"] = min(o["us"], us)
-            prev = o["raw"].get(store)
-            # the cursor's per-store bound is only consumed by the transitional
-            # legacy sub-read, so it is always the stored evidence value
-            raw_bound = str(_dig(doc, spec["legacy_time_key"]) if
-                            spec["comparable_temporal"] else raw_t)
-            o["raw"][store] = raw_bound if prev is None else min(prev, raw_bound)
-            if pending_migration:
-                pending_temporal_migration += 1
+            # only a NON-COMPARABLE store still needs a raw-string resume bound;
+            # a comparable store resumes on the exact microsecond instead.
+            if not spec["comparable_temporal"]:
+                prev = o["raw"].get(store)
+                o["raw"][store] = str(raw_t) if prev is None \
+                    else min(prev, str(raw_t))
             rows.append(ev)
 
     merged, suppressed = dedupe(rows)
@@ -425,7 +444,8 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     if has_more and items:
         last = items[-1]
         nxt = _encode(last["observed_us"], last["event_id"],
-                      _next_bounds(items, order, stores, (cur or {}).get("b", {})))
+                      _next_bounds(items, order, stores, (cur or {}).get("b", {})),
+                      unstamped_present)
 
     return {
         "order": ORDER,
@@ -436,9 +456,11 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         "next_cursor": nxt,
         "suppressed_duplicates": suppressed,
         f"{UNPLACEABLE.lower()}_count": unplaceable,
-        # G-41 · rows still selected through the legacy string path because they
-        # predate `observation_us`. Zero once the historical backfill completes.
-        "pending_temporal_migration": pending_temporal_migration,
+        # G-41 RETIREMENT · the canonical read selects ONLY stamped evidence, so
+        # an unstamped row is no longer fetched-then-discarded and cannot show
+        # up in the counter above. The condition is therefore stated here. A
+        # clean verdict is a MEASURED clean verdict, never the absence of a read.
+        "temporal_health": _temporal_health(unstamped_present, comparable_read),
         "window": {"time_start": time_start, "time_end": time_end,
                    "applied": lo_us is not None or hi_us is not None,
                    "excluded_outside_window": outside_window,
@@ -470,6 +492,41 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                                    "this evidence has no provable position in time. It is "
                                    "counted, never placed at its ingestion instant.",
         },
+    }
+
+
+def _temporal_health(unstamped: bool | None, comparable_read: bool) -> dict[str, Any]:
+    """The canonical temporal-health statement, as a claim this read can prove.
+
+    Three distinct answers, never collapsed into one reassuring number:
+    assessed-and-clean, assessed-and-unstamped-evidence-exists, and not
+    assessed because no comparable store was read.
+    """
+    if unstamped is None:
+        return {"state": TEMPORAL_NOT_ASSESSED, "assessed": False,
+                "unstamped_evidence_present": None,
+                "basis": ("no comparable store was read in this request"
+                          if not comparable_read else
+                          "the comparable store was read but not probed"),
+                "meaning": ("this read makes NO claim about unplaceable "
+                            "evidence. It is not a statement that there is "
+                            "none.")}
+    return {
+        "state": TEMPORAL_UNSTAMPED if unstamped else TEMPORAL_HEALTHY,
+        "assessed": True,
+        "unstamped_evidence_present": bool(unstamped),
+        "selection_authority": f"{_ta.OBSERVATION_US} DESC, {TEMPORAL_TIEBREAK_KEY} DESC",
+        "basis": ("an index-supported presence probe for evidence matching this "
+                  "endpoint's declared identity branches that carries no "
+                  f"{_ta.OBSERVATION_US}. It performs no raw-string "
+                  f"{OBSERVATION_TIME_KEY[STORE_CANONICAL]} selection, ordering "
+                  "or bound, and runs once per paging session."),
+        "meaning": ("true means this endpoint holds evidence whose stored "
+                    "observation time is absent or unparseable. The comparable "
+                    "read EXCLUDES it rather than placing it at an invented "
+                    "time, so it is not in `items` and is not counted in "
+                    f"{UNPLACEABLE.lower()}_count — this flag is the only "
+                    "signal that it exists."),
     }
 
 
@@ -508,7 +565,9 @@ def _empty(size: int, reason: str) -> dict[str, Any]:
     return {"order": ORDER, "contract": {"event": "e3.dt.event.v1", "cursor": CURSOR_CONTRACT},
             "page_size": size, "items": [], "has_more": False, "next_cursor": None,
             "suppressed_duplicates": 0, f"{UNPLACEABLE.lower()}_count": 0,
-            "pending_temporal_migration": 0, "state": reason,
+            # no store was read, so no temporal claim is made. An endpoint that
+            # could not be addressed is NOT an endpoint proven clean.
+            "temporal_health": _temporal_health(None, False), "state": reason,
             "provenance": {"stores_read": [], "reason": reason}}
 
 
