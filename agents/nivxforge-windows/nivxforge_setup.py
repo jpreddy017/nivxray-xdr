@@ -291,6 +291,74 @@ def _restore_service(prior: str) -> None:
               "ENDPOINT IS NOT COLLECTING.")
 
 
+def _remove_partial_service() -> str:
+    """Delete a service THIS failed attempt registered, and prove it gone.
+
+    Only ever called when no service existed before the attempt, so there
+    is nothing of the operator's to destroy: what is removed is a service
+    this run created and could not bring to a working state.
+    """
+    if not _service_exists():
+        return "ABSENT"
+    _sc(f'sc.exe stop "{SERVICE_NAME}"')
+    _wait_for_service_state("STOPPED", SERVICE_STOP_TIMEOUT_SECONDS)
+    _sc(f'sc.exe delete "{SERVICE_NAME}"')
+    return "ABSENT" if not _service_exists() else "STILL_PRESENT"
+
+
+def _remove_partial_staging() -> str:
+    """Remove the program staging only. State is a different directory."""
+    if not INSTALL_DIR.exists():
+        return "ABSENT"
+    shutil.rmtree(INSTALL_DIR, ignore_errors=True)
+    return "ABSENT" if not INSTALL_DIR.exists() else "STILL_PRESENT"
+
+
+def _abort_incomplete_clean_install(enrolled: bool) -> None:
+    """Rollback for an endpoint that had NO service before this attempt.
+
+    `_restore_service` cannot help here: there is nothing to restart. But
+    the attempt has already created program staging and, if enrolment
+    succeeded, a durable endpoint identity — and that combination is the
+    ENROLLED-BUT-SILENT state: the platform holds an endpoint while the
+    computer collects nothing and still looks installed.
+
+    THE STATE DIRECTORY IS NEVER TOUCHED. identity.json, the evidence
+    journal, the outbox, the offset, the cursors and the policy all
+    survive, because deleting them would spend a second enrolment token to
+    recover and could orphan already-acquired evidence. Re-running
+    `install` therefore RESUMES from the existing identity and requires no
+    new token. Only this attempt's program staging is removed, and only
+    after the service it may have registered is proven gone.
+    """
+    service = _remove_partial_service()
+    staging = (_remove_partial_staging() if service == "ABSENT"
+               else "KEPT: the partial service still references this image")
+    identity_kept = sensor.IDENTITY_FILE.exists()
+    print("  no service existed before this attempt, so there is nothing "
+          "to restart")
+    print(f"  partial service : {service}")
+    print(f"  program staging : {staging}")
+    print(f"  identity        : "
+          f"{'PRESERVED' if identity_kept else 'none was ever written'}")
+    print(f"  evidence        : PRESERVED — {sensor.STATE_DIR} was not "
+          "touched by this rollback")
+    if enrolled or identity_kept:
+        print("  enrolment       : this computer IS ENROLLED. Re-run "
+              "`NivXForgeEDRSetup.exe install` to finish it; the installer "
+              "RESUMES from the existing identity and needs NO second "
+              "enrolment token.")
+    else:
+        print("  enrolment       : never completed, so no endpoint identity "
+              "exists and no token was consumed.")
+    # Claimed ONLY from what was just re-verified, never from what was
+    # attempted: a cleanup that cannot be proved is reported as incomplete.
+    if "STILL_PRESENT" in (service, staging) or "KEPT" in staging:
+        print(f"  CLEANUP INCOMPLETE: remove {SERVICE_NAME} and "
+              f"{INSTALL_DIR} by hand before retrying.")
+    print("  INSTALL INCOMPLETE — THIS ENDPOINT IS NOT COLLECTING.")
+
+
 def _replace_tree(payload: Path, dest: Path) -> None:
     """copytree that tolerates the brief post-exit lock window."""
     deadline = time.monotonic() + IMAGE_RELEASE_TIMEOUT_SECONDS
@@ -476,6 +544,10 @@ def install(api: str, tenant: str | None, token_stdin: bool,
     # collecting BEFORE we touched anything? Read it before the first
     # mutation, because every later step can change it.
     prior_state = _service_state()
+    # Whether THIS attempt completed an enrolment. It decides what a clean
+    # endpoint must be told on failure, and it is set only after the
+    # enrolment call has returned.
+    enrolled_now = False
     try:
         print(f"=== 1 . STAGE ===\n  install dir : {INSTALL_DIR}")
         identity = build_identity()
@@ -520,6 +592,7 @@ def install(api: str, tenant: str | None, token_stdin: bool,
             # process builds (the service binPath carries a directory, not a
             # secret).
             sensor.enrol(api, tenant, sensor.read_enrolment_secret())
+            enrolled_now = True
 
         print("\n=== 4 . WINDOWS SERVICE ===")
         _install_service(api, interval)
@@ -530,7 +603,13 @@ def install(api: str, tenant: str | None, token_stdin: bool,
         # in this installer is expressed, so a bare `except Exception` would
         # miss exactly the failures that leave a stopped service behind.
         print("\n=== ROLLBACK ===")
-        _restore_service(prior_state)
+        if prior_state:
+            _restore_service(prior_state)
+        else:
+            # CLEAN ENDPOINT. Nothing to restore, so the job is to make the
+            # failure a deterministic, truthful, resumable incomplete
+            # install instead of an enrolled-but-silent one.
+            _abort_incomplete_clean_install(enrolled_now)
         raise
 
     print("\n=== 5 . IDENTITY ===")
