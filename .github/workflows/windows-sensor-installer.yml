@@ -533,65 +533,65 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $svc = 'NivXForgeSensor'
+          $exe = (Resolve-Path 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe').Path
+
+          # ── PRECONDITION ──────────────────────────────────────────
+          # A real SCM service, created through the PRODUCTION
+          # registration path and PROVED RUNNING by the SCM. This is the
+          # only source import left in this gate, and it is the same
+          # non-payload-dependent call Gate 3 already proves; the PROOF
+          # that follows runs entirely through the frozen artifact.
           @'
-          import json, sys
+          import sys
           sys.path.insert(0, r"agents/nivxforge-windows")
           import nivxforge_setup as s
-
-          # A service must exist and be RUNNING for any of this to mean
-          # anything, so it is created through the production path.
           s._install_service("https://nivxray.nivxforge.com", 30)
           assert s._wait_for_service_state("RUNNING", 90), s._service_state()
           print("GATE4 PRECONDITION: RUNNING")
-
-          # 1 . A RUNNING service's image must never be overwritten.
-          try:
-              s._stage_service_host()
-              raise SystemExit("GATE4 FAIL: staged over a RUNNING service")
-          except SystemExit as ex:
-              text = str(ex)
-              if "GATE4 FAIL" in text:
-                  raise
-              assert "RUNNING" in text, text
-              print("GATE4 RUNNING-GUARD: PASS")
-
-          # 2 . Stop must be PROVED, and the image must be PROVED released.
-          prior = s._stop_service_and_wait()
-          assert prior == "RUNNING", prior
-          assert s._service_state() == "STOPPED", s._service_state()
-          assert s._image_is_released(s.SERVICE_EXE), "image still locked"
-          print("GATE4 STOP-AND-PROVE: PASS")
-
-          # 3 . Rollback. The service was RUNNING, so a failure after the
-          #     stop must leave it RUNNING again.
-          s._sc('sc.exe start "%s"' % s.SERVICE_NAME)
-          assert s._wait_for_service_state("RUNNING", 90), s._service_state()
-          s._restore_service("RUNNING")
-          assert s._service_state() == "RUNNING", s._service_state()
-          print("GATE4 RESTORE-IDEMPOTENT: PASS")
-          '@ | Out-File -FilePath gate4_race.py -Encoding ascii
-          $out = (python gate4_race.py 2>&1 | Out-String)
-          Write-Host $out
-          if ($LASTEXITCODE -ne 0) { throw 'GATE 4 lifecycle checks failed' }
-
-          # 4 . THE END-TO-END PROOF, through the FROZEN artifact and the
-          #     real SCM: a re-enrol that fails at the ENROLMENT step must
-          #     leave the service RUNNING. stdin carries nothing, so
-          #     enrolment cannot succeed and NO token is consumed.
+          '@ | Out-File -FilePath gate4_precondition.py -Encoding ascii
+          $pre = (python gate4_precondition.py 2>&1 | Out-String)
+          Write-Host $pre
+          if ($LASTEXITCODE -ne 0) { throw 'GATE 4 precondition failed' }
           $q = (& sc.exe query $svc | Out-String)
+          Write-Host $q
           if ($q -notmatch 'RUNNING') { throw "precondition: service not RUNNING`n$q" }
-          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+
+          # ── 1 . A RUNNING SERVICE'S IMAGE IS NEVER OVERWRITTEN ────
+          # Proved through the FROZEN artifact, so the bundled onedir
+          # payload is genuinely resolved (sys._MEIPASS) and the refusal
+          # is the RUNNING guard rather than a missing payload. The old
+          # version of this gate ran _stage_service_host() under the
+          # runner's plain CPython, where _MEIPASS cannot exist, so it
+          # always died on the payload precondition and never reached
+          # any re-enrol behaviour at all.
+          $guard = (& $exe stage-host 2>&1 | Out-String)
+          $guardExit = $LASTEXITCODE
+          Write-Host $guard
+          if ($guardExit -eq 0) {
+            throw 'GATE4 FAIL: stage-host staged over a RUNNING service'
+          }
+          if ($guard -match 'carries no Windows service host payload') {
+            throw 'GATE4 FAIL: the frozen artifact carries no service host payload'
+          }
+          if ($guard -notmatch 'refusing to overwrite the image of a RUNNING') {
+            throw "GATE4 FAIL: RUNNING guard did not refuse`n$guard"
+          }
+          $global:LASTEXITCODE = 0
+          Write-Host 'GATE4 RUNNING-GUARD: PASS (frozen artifact)'
+
+          # ── 2 . THE END-TO-END PROOF ──────────────────────────────
+          # The real frozen installer, the real SCM, a real re-enrol.
+          # stdin carries NOTHING, so enrolment cannot succeed, no token
+          # is consumed and the production backend is never contacted:
+          # read_enrolment_secret() refuses BEFORE sensor.enrol() runs,
+          # and it runs AFTER stage 1 has already stopped the service —
+          # which is exactly where the old defect left endpoints dark.
+          #
           # POWERSHELL 7 HAS NO INPUT REDIRECTION OPERATOR. `< NUL` is a
-          # PARSE error - "The '<' operator is reserved for future use." -
-          # so this gate died before it tested anything.
+          # PARSE error - "The '<' operator is reserved for future use."
           # Start-Process -RedirectStandardInput is the supported way to
           # hand a child process an EMPTY stdin, and it also reports the
-          # real exit code. Splatted deliberately: no line continuations,
-          # which is where the parse error lived.
-          # Start-Process resolves a RELATIVE FilePath against the OS
-          # process working directory, not the PowerShell location, so the
-          # path is made absolute here rather than hoping they agree.
-          $exe     = (Resolve-Path -Path $exe).Path
+          # real exit code.
           $empty   = Join-Path $env:RUNNER_TEMP 'gate4-stdin-empty.txt'
           $outFile = Join-Path $env:RUNNER_TEMP 'gate4-stdout.txt'
           $errFile = Join-Path $env:RUNNER_TEMP 'gate4-stderr.txt'
@@ -616,16 +616,48 @@ jobs:
           if ($proc.ExitCode -eq 0) {
             throw 'the re-enrol SUCCEEDED on an empty stdin; it must not'
           }
-          # PROOF THE STDIN PATH WAS REACHED AND READ: this exact refusal
-          # is raised by sensor.read_enrolment_secret(), which runs AFTER
-          # stage 1 has already stopped the service - so the rollback that
-          # follows is the real thing, not an early argument refusal.
-          if ($failed -notmatch 'stdin carried no enrolment secret') {
-            throw "enrolment did not fail at the stdin read`n$failed"
+          # The payload must have resolved inside the frozen process: a
+          # payload refusal here would mean this gate proved nothing.
+          if ($failed -match 'carries no Windows service host payload') {
+            throw 'GATE4 FAIL: frozen re-enrol could not resolve the service host payload'
           }
-          if ($failed -notmatch 'ROLLBACK') {
-            throw 'a failed re-enrol did not run the rollback path'
+          # THE STOP BOUNDARY WAS CROSSED, PROVED BY THE INSTALLER'S OWN
+          # STOP EVIDENCE (`_stop_service_and_wait` only prints this after
+          # the SCM reported STOPPED and the image was proved released).
+          foreach ($needle in @('=== 1 . STAGE ===', 'requesting STOP',
+                                'STOPPED, image released',
+                                '=== 3 . ENROLMENT ===',
+                                'stdin carried no enrolment secret',
+                                '=== ROLLBACK ===')) {
+            if ($failed -notmatch [regex]::Escape($needle)) {
+              throw "GATE4 FAIL: '$needle' absent — the re-enrol never reached it`n$failed"
+            }
           }
+          # ORDER IS THE WHOLE POINT: the enrolment failure must happen
+          # AFTER the stop, and the rollback AFTER the failure. A log that
+          # contains all three in the wrong order is not this proof.
+          $iStop     = $failed.IndexOf('STOPPED, image released')
+          $iFail     = $failed.IndexOf('stdin carried no enrolment secret')
+          $iRollback = $failed.IndexOf('=== ROLLBACK ===')
+          Write-Host "ORDER: stop=$iStop fail=$iFail rollback=$iRollback"
+          if (-not ($iStop -lt $iFail -and $iFail -lt $iRollback)) {
+            throw 'GATE4 FAIL: enrolment failure/rollback did not occur after the service stop'
+          }
+          # Enrolment and service creation must NOT have been reached.
+          if ($failed -match [regex]::Escape('=== 4 . WINDOWS SERVICE ===')) {
+            throw 'GATE4 FAIL: a failed enrolment still reached service creation'
+          }
+          # The rollback must have SUCCEEDED, in the installer's own words.
+          if ($failed -match 'ROLLBACK FAILED') {
+            throw "GATE4 FAIL: the installer reported a FAILED rollback`n$failed"
+          }
+          if ($failed -notmatch 'was RUNNING before this attempt') {
+            throw 'GATE4 FAIL: the rollback did not restore the previously RUNNING service'
+          }
+
+          # ── 3 . INDEPENDENT SCM VERIFICATION ──────────────────────
+          # The installer's own claim is not accepted: Windows must agree
+          # that the endpoint is collecting again.
           $deadline = (Get-Date).AddSeconds(90)
           do {
             $q = (& sc.exe query $svc | Out-String)
@@ -636,7 +668,7 @@ jobs:
           if ($q -notmatch 'RUNNING') {
             throw "REGRESSION: a failed re-enrol left the endpoint dark`n$q"
           }
-          Write-Host 'GATE 4 RE-ENROL ROLLBACK: PASS'
+          Write-Host 'GATE 4 RE-ENROL ROLLBACK: PASS (frozen artifact · real SCM)'
           & sc.exe stop $svc | Out-Null
           & sc.exe delete $svc | Out-Null
           $global:LASTEXITCODE = 0
