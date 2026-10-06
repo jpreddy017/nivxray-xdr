@@ -592,6 +592,36 @@ jobs:
           # Start-Process -RedirectStandardInput is the supported way to
           # hand a child process an EMPTY stdin, and it also reports the
           # real exit code.
+          #
+          # THE TWO STREAMS ARE KEPT SEPARATE ON PURPOSE. stdout and
+          # stderr are buffered INDEPENDENTLY by the frozen CPython
+          # runtime (stdout is block-buffered when it is a file; the
+          # SystemExit message is written to stderr during interpreter
+          # shutdown), so the order in which bytes from the two streams
+          # arrive — whether concatenated or merged into one file — is a
+          # buffering artefact and NOT a clock. The previous harness
+          # compared IndexOf() positions across stdout+stderr and so
+          # could not prove anything about chronology.
+          #
+          # Chronology is therefore proved two ways that cannot lie:
+          #   1. ORDER WITHIN STDOUT, a single sequential stream carrying
+          #      every phase marker the installer prints.
+          #   2. THE SERVICE PROCESS IDENTITY observed from the SCM, which
+          #      is not a log at all: if the stop boundary was really
+          #      crossed and the rollback really restarted the service,
+          #      the PID MUST change.
+          $qx = (& sc.exe queryex $svc | Out-String)
+          Write-Host $qx
+          $mPid = [regex]::Match($qx, 'PID\s*:\s*(\d+)')
+          if (-not $mPid.Success) {
+            throw "GATE4 FAIL: no service PID before the re-enrol`n$qx"
+          }
+          $pidBefore = [int]$mPid.Groups[1].Value
+          if ($pidBefore -le 0) {
+            throw "GATE4 FAIL: service is not live before the re-enrol (PID $pidBefore)"
+          }
+          Write-Host "GATE4 PID BEFORE: $pidBefore"
+
           $empty   = Join-Path $env:RUNNER_TEMP 'gate4-stdin-empty.txt'
           $outFile = Join-Path $env:RUNNER_TEMP 'gate4-stdout.txt'
           $errFile = Join-Path $env:RUNNER_TEMP 'gate4-stderr.txt'
@@ -610,48 +640,62 @@ jobs:
             PassThru               = $true
           }
           $proc = Start-Process @run
-          $failed = [string](Get-Content -Path $outFile -Raw) +
-                    [string](Get-Content -Path $errFile -Raw)
-          Write-Host $failed
+          $out = [string](Get-Content -Path $outFile -Raw)
+          $err = [string](Get-Content -Path $errFile -Raw)
+          Write-Host '───── frozen installer STDOUT ─────'
+          Write-Host $out
+          Write-Host '───── frozen installer STDERR ─────'
+          Write-Host $err
+          # PRESENCE-ONLY view. Never used for ordering.
+          $both = $out + "`n" + $err
           if ($proc.ExitCode -eq 0) {
             throw 'the re-enrol SUCCEEDED on an empty stdin; it must not'
           }
           # The payload must have resolved inside the frozen process: a
           # payload refusal here would mean this gate proved nothing.
-          if ($failed -match 'carries no Windows service host payload') {
+          if ($both -match 'carries no Windows service host payload') {
             throw 'GATE4 FAIL: frozen re-enrol could not resolve the service host payload'
           }
-          # THE STOP BOUNDARY WAS CROSSED, PROVED BY THE INSTALLER'S OWN
-          # STOP EVIDENCE (`_stop_service_and_wait` only prints this after
-          # the SCM reported STOPPED and the image was proved released).
+          # EVERY PHASE MARKER IS A print() TO STDOUT, so each one is
+          # asserted on STDOUT specifically — not on a mixed string.
           foreach ($needle in @('=== 1 . STAGE ===', 'requesting STOP',
                                 'STOPPED, image released',
                                 '=== 3 . ENROLMENT ===',
-                                'stdin carried no enrolment secret',
                                 '=== ROLLBACK ===')) {
-            if ($failed -notmatch [regex]::Escape($needle)) {
-              throw "GATE4 FAIL: '$needle' absent — the re-enrol never reached it`n$failed"
+            if ($out -notmatch [regex]::Escape($needle)) {
+              throw "GATE4 FAIL: '$needle' absent from stdout — the re-enrol never reached it`n$both"
             }
           }
-          # ORDER IS THE WHOLE POINT: the enrolment failure must happen
-          # AFTER the stop, and the rollback AFTER the failure. A log that
-          # contains all three in the wrong order is not this proof.
-          $iStop     = $failed.IndexOf('STOPPED, image released')
-          $iFail     = $failed.IndexOf('stdin carried no enrolment secret')
-          $iRollback = $failed.IndexOf('=== ROLLBACK ===')
-          Write-Host "ORDER: stop=$iStop fail=$iFail rollback=$iRollback"
-          if (-not ($iStop -lt $iFail -and $iFail -lt $iRollback)) {
-            throw 'GATE4 FAIL: enrolment failure/rollback did not occur after the service stop'
+          # THE CAUSE of the failure. read_enrolment_secret() raises
+          # SystemExit, so this text is written to stderr; it is a CAUSE
+          # assertion, never an ordering one. Accepted on either stream so
+          # a future buffering change cannot turn a real pass into a fail.
+          if ($both -notmatch 'stdin carried no enrolment secret') {
+            throw "GATE4 FAIL: enrolment did not fail at the stdin read`n$both"
+          }
+          # CHRONOLOGY · PROOF 1 — ORDER WITHIN STDOUT ONLY.
+          # `=== 3 . ENROLMENT ===` is printed immediately before the
+          # secret is read, and `=== ROLLBACK ===` only from the except
+          # handler, so this ordering proves the enrolment phase began
+          # AFTER the service was stopped and the rollback ran AFTER it.
+          $iStage    = $out.IndexOf('=== 1 . STAGE ===')
+          $iStop     = $out.IndexOf('STOPPED, image released')
+          $iEnrol    = $out.IndexOf('=== 3 . ENROLMENT ===')
+          $iRollback = $out.IndexOf('=== ROLLBACK ===')
+          Write-Host "STDOUT ORDER: stage=$iStage stop=$iStop enrol=$iEnrol rollback=$iRollback"
+          if (-not ($iStage -lt $iStop -and $iStop -lt $iEnrol -and
+                    $iEnrol -lt $iRollback)) {
+            throw 'GATE4 FAIL: stdout does not show stage -> stop -> enrolment -> rollback'
           }
           # Enrolment and service creation must NOT have been reached.
-          if ($failed -match [regex]::Escape('=== 4 . WINDOWS SERVICE ===')) {
+          if ($out -match [regex]::Escape('=== 4 . WINDOWS SERVICE ===')) {
             throw 'GATE4 FAIL: a failed enrolment still reached service creation'
           }
           # The rollback must have SUCCEEDED, in the installer's own words.
-          if ($failed -match 'ROLLBACK FAILED') {
-            throw "GATE4 FAIL: the installer reported a FAILED rollback`n$failed"
+          if ($both -match 'ROLLBACK FAILED') {
+            throw "GATE4 FAIL: the installer reported a FAILED rollback`n$both"
           }
-          if ($failed -notmatch 'was RUNNING before this attempt') {
+          if ($out -notmatch 'was RUNNING before this attempt') {
             throw 'GATE4 FAIL: the rollback did not restore the previously RUNNING service'
           }
 
@@ -668,6 +712,28 @@ jobs:
           if ($q -notmatch 'RUNNING') {
             throw "REGRESSION: a failed re-enrol left the endpoint dark`n$q"
           }
+          # CHRONOLOGY · PROOF 2 — THE SCM'S OWN PROCESS IDENTITY.
+          # Independent of every log line and every buffer: the service
+          # now runs under a DIFFERENT pid, which is only possible if the
+          # original process was really stopped during the attempt and the
+          # rollback really started it again.
+          $qx2 = (& sc.exe queryex $svc | Out-String)
+          Write-Host $qx2
+          $mPid2 = [regex]::Match($qx2, 'PID\s*:\s*(\d+)')
+          if (-not $mPid2.Success) {
+            throw "GATE4 FAIL: no service PID after the rollback`n$qx2"
+          }
+          $pidAfter = [int]$mPid2.Groups[1].Value
+          Write-Host "GATE4 PID AFTER: $pidAfter (before: $pidBefore)"
+          if ($pidAfter -le 0) {
+            throw "GATE4 FAIL: service reports no live pid after the rollback`n$qx2"
+          }
+          if ($pidAfter -eq $pidBefore) {
+            throw ('GATE4 FAIL: the service pid never changed (' +
+                   "$pidBefore), so the re-enrol never stopped it and this " +
+                   'gate proved nothing about the stop/rollback boundary')
+          }
+          Write-Host 'GATE4 STOP-BOUNDARY: PROVED BY SCM PID CHANGE'
           Write-Host 'GATE 4 RE-ENROL ROLLBACK: PASS (frozen artifact · real SCM)'
           & sc.exe stop $svc | Out-Null
           & sc.exe delete $svc | Out-Null
