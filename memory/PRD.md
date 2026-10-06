@@ -6241,3 +6241,31 @@ a dead heartbeat and a run row stuck RUNNING.
 NEXT: unified NivXForge EDR UI + E3 Device Trajectory V3 publication
 preparation. KUSHU remains OFF. No image build marker exists, so future
 code-to-commit correlation is content-based only.
+
+### S1.1 + S1.1A · WINDOWS SENSOR STAGE-1 BASELINE CLOSED (2026-06)
+
+S1.1 audited `ae34056` (branch `integration/e3-dt`). S1.1A closed the one
+qualification: `github.com/jpreddy017/nivxray-xdr` is PUBLIC, and on
+`phase2/edr-production` every Windows-sensor file is last touched by the SAME
+commit `4b6a08b7` as the audited baseline, with an identical 11-file set. The
+baseline is therefore AUTHORITATIVE for production. Sensor dir tree SHA at
+ae34056 = `d99c981cf648c7a73e3acd9326feaace86ebf854`.
+
+Verdict: sensor is real, single-authority, DO NOT REBUILD. Journal/evidence core
+is the strongest component. Critical gaps: unauthorized local-admin
+uninstall/disable (UNSAFE), no anti-tamper prevention OR detection, no secure
+update/downgrade refusal, no SCM recovery/watchdog, ACK durable-processing
+obligation NOT PROVEN, no failure/perf/soak lab.
+
+Corrections learned from S1.1A: signing status is
+`UNSIGNED_INTERNAL_VALIDATION_BUILD` — there is NO signing authority, so
+"signed artifact" must not be used as a remediation goal. Measured (synthetic)
+delivery ceiling: ~11 msgs/cycle at 2.68 s/POST; a 20 rec/s endpoint grows
+backlog, 512 MiB approx 270,000 records approx 3.7 h to JOURNAL_PRESSURE.
+
+The artifact HOLD's stated blocker ("no GitHub push credential") NO LONGER
+EXISTS: the code is on GitHub and `windows-sensor-installer.yml` needs no
+secret. Missing artefacts are owner-dispatch only: workflow run id,
+SHA256SUMS.txt, in-binary refusal verdict, Gate 4 result.
+
+KUSHU remains OFF. No remediation started.
