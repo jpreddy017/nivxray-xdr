@@ -9,6 +9,30 @@
 
 .cc { display: flex; flex-direction: column; gap: 12px; }
 
+/* Priority queue: scoped presentation leaves other shared tables unchanged. */
+.cc-pq { min-width: 0; }
+.cc-pq .cc-card__h { align-items: center; flex-wrap: wrap; }
+.cc-pq h2 { margin: 0; }
+.cc-pq__scope { margin: 8px 14px; color: var(--nx-muted, var(--muted)); font-size: 11px; line-height: 1.5; }
+.cc-pq__notice { margin: 10px 14px; padding: 10px 12px; border-left: 3px solid #8B75DD; background: var(--nx-surf-inset, var(--panel)); font-size: 12px; line-height: 1.5; }
+.cc-pq__search-label { display: block; margin: 12px 14px 0; font-size: 11px; font-weight: 600; }
+.cc-pq .nx-dt-search { flex: 1; max-width: 560px; }
+.cc-pq .nx-dt-search input { width: 100%; min-width: 0; }
+.cc-pq .nx-dt-toolbar { flex-wrap: wrap; }
+.cc-pq .nx-dt-table { min-width: 1120px; font-size: 12px; }
+.cc-pq .nx-dt-table td { padding: 9px 12px; }
+.cc-pq__incident { display: flex; flex-direction: column; gap: 4px; min-width: 190px; max-width: 320px; white-space: normal; overflow-wrap: anywhere; }
+.cc-pq__incident > span { color: var(--nx-muted, var(--muted)); font-size: 11px; }
+.cc-pq__priority { display: inline-block; border: 1px solid currentColor; border-radius: 4px; padding: 2px 7px; font-weight: 700; }
+.cc-pq__priority[data-priority="P1"] { color: #B42332; background: #FFF1F2; }
+.cc-pq__priority[data-priority="P2"] { color: #975509; background: #FFF8EB; }
+.cc-pq__missing { color: var(--nx-muted, var(--muted)); font-size: 11px; }
+.cc-pq__status { text-transform: capitalize; }
+.cc-pq__open { font: inherit; color: #6D4EE0; background: transparent; border: 1px solid #8B75DD; border-radius: 5px; padding: 6px 9px; cursor: pointer; white-space: nowrap; }
+[data-nx-theme="dark"] .cc-pq__open { color: #C4B5FD; }
+.cc-pq__open:disabled { color: var(--nx-muted, var(--muted)); border-color: var(--border); cursor: default; }
+.cc-pq button:focus-visible, .cc-pq input:focus-visible, .cc-pq tr:focus-visible { outline: 2px solid #8B75DD; outline-offset: -2px; }
+
 /* Security overview · six tenant-scoped queue summaries */
 .cc-security { min-width: 0; }
 .cc-security__title { margin: 0 0 8px; font-size: 12px; font-weight: 700; color: var(--nx-text, var(--text)); }

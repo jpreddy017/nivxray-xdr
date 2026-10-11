@@ -31,12 +31,12 @@ import {
 } from "@/lib/incidentsApi";
 import { getResponseEngineHealth, getPendingApprovals } from "@/nivxforge/edrApi";
 import "@/xdr/nx/nx-cc.css";
+import PriorityIncidentQueue from "./PriorityIncidentQueue";
 import SecurityOverviewKpis from "./SecurityOverviewKpis";
 import { projectionState } from "./controlCenterState";
 import { apiErrorText } from "@/xdr/nx/apiError";
 import { NxDataTable, NxState, opsLabel } from "@/xdr/nx";
 
-const ts = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") : null);
 const ago = (iso) => {
   const t = Date.parse(iso || "");
   if (!Number.isFinite(t)) return "—";
@@ -95,7 +95,6 @@ export default function XdrControlCenterPage() {
 
   const respondState = !respond || respond.error || respond.configured === false
     ? "unknown" : respond.reachable ? "ok" : "bad";
-  const queueState = projectionState(queue);
   const customerState = projectionState(cust);
   const pendingCount = typeof approvals?.count === "number" ? approvals.count : null;
 
@@ -194,75 +193,8 @@ export default function XdrControlCenterPage() {
         </div>
 
         {/* ── 3 · Which incidents matter most + who is affected ── */}
-        <div className="cc-grid">
-          <div className="cc-card" data-testid="cc-needs-attention">
-            <div className="cc-card__h">
-              <span className="cc-card__t">Needs attention</span>
-              <span className="cc-card__s">
-                {queue?.error ? "not available"
-                  : ["ready", "empty"].includes(queueState) && typeof queue?.count === "number"
-                    ? `${queue.count} open P1/P2 incident(s)`
-                    : queueState === "loading" ? "reading…" : "not available"}
-              </span>
-              <button className="cc-card__a cx-pill"
-                      data-testid="cc-open-incidents"
-                      onClick={() => navigate("/xdr/incidents")}>
-                Open queue
-              </button>
-            </div>
-            <div className="cc-card__b">
-              {!["ready", "empty"].includes(queueState) ? (
-                <ProjectionNotice state={queueState} error={queue?.error}
-                                  testid="cc-needs-attention-error" />
-              ) : queueState === "empty" ? (
-                <div className="cc-empty" data-testid="cc-needs-attention-empty">
-                  <b>No open P1/P2 incidents returned</b> — no matching records
-                  in this response. Other priorities and unassigned work may still exist.
-                </div>
-              ) : (
-                <NxDataTable rows={(queue.rows || []).slice(0, 10)}
-                             rowKey={(r) => r.id} searchable={false}
-                             pageSize={10}
-                             onRowClick={(r) => navigate(`/xdr/incidents/${r.id}`)}
-                             testid="cc-needs-attention-table"
-                             emptyTitle="Nothing requires attention"
-                             columns={[
-                  { key: "name", header: "Incident",
-                    value: (r) => r.name || "",
-                    render: (r) => (
-                      <span data-testid={`cc-needs-attention-row-${r.id}`}>
-                        <span className="cc-tb__sev" data-s={r.priority} />
-                        {r.name || <NA>Unnamed</NA>}
-                      </span>) },
-                  { key: "priority", header: "Priority", width: "90px",
-                    value: (r) => r.priority || "",
-                    render: (r) => (r.priority || <NA>—</NA>) },
-                  { key: "state", header: "State", width: "120px",
-                    value: (r) => r.state || "",
-                    render: (r) => (r.state
-                      ? String(r.state).replace(/_/g, " ")
-                      : <NA>—</NA>) },
-                  { key: "assignee", header: "Owner", width: "150px",
-                    value: (r) => r.assignee || "",
-                    render: (r) => (r.assignee
-                      || <NA state="UNASSIGNED">Unassigned</NA>) },
-                  { key: "customer", header: "Customer", width: "150px",
-                    value: (r) => r.customer || "",
-                    render: (r) => (r.customer
-                      || <NA state="NOT_REPORTED">Not attributed</NA>) },
-                  { key: "sla", header: "SLA due", width: "150px",
-                    value: (r) => r.sla_due_at || "",
-                    render: (r) => (ts(r.sla_due_at)
-                      || <NA state="NOT_CONFIGURED">Not set</NA>) },
-                  { key: "updated", header: "Updated", width: "100px",
-                    align: "right",
-                    value: (r) => r.updated_at || "",
-                    render: (r) => ago(r.updated_at) },
-                ]} />
-              )}
-            </div>
-          </div>
-
+        <PriorityIncidentQueue data={queue} loading={loading} onNavigate={navigate} />
+        <div>
           <div className="cc-card" data-testid="cc-tenants">
               <div className="cc-card__h">
                 <span className="cc-card__t">Tenants affected</span>
