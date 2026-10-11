@@ -49,9 +49,34 @@ def build_graph(events: list[dict[str, Any]]) -> dict[str, Any]:
             n["_start_ev"] = n.get("_start_ev") or ev   # parent named on a non-start record (still evidence)
     for n in list(nodes.values()):
         _resolve_parent(n, nodes)
+    _reject_parent_cycles(nodes)
     for n in nodes.values():
         n.pop("_start_ev", None)
     return {"nodes": nodes, "unattributed_network": unattributed}
+
+
+def _reject_parent_cycles(nodes: dict[str, dict[str, Any]]) -> None:
+    """Contradictory parent evidence cannot establish a causal process tree.
+
+    Keep every process and demote only the cycle's edges to unresolved roots.
+    Iterative traversal bounds work and avoids recursion on long ancestry.
+    """
+    done: set[str] = set()
+    for key in sorted(nodes):
+        trail: list[str] = []
+        positions: dict[str, int] = {}
+        cur = key
+        while cur in nodes and cur not in done:
+            if cur in positions:
+                for member in trail[positions[cur]:]:
+                    n = nodes[member]
+                    n["candidate_parent"] = n["parent_key"]
+                    _unresolved(n, nodes, None, "contradictory parent evidence forms a cycle")
+                break
+            positions[cur] = len(trail)
+            trail.append(cur)
+            cur = nodes[cur]["parent_key"]
+        done.update(trail)
 
 
 def _resolve_parent(n: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> None:
@@ -107,10 +132,7 @@ def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
         children.setdefault(n["parent_key"], []).append(k)
     order: list[dict[str, Any]] = []
 
-    def visit(k: str, depth: int, seen: set[str]) -> None:
-        if k in seen:
-            return
-        seen.add(k)
+    def append_lane(k: str, depth: int) -> None:
         n = nodes[k]
         start = n["start_ms"] if n["start_ms"] is not None else n["first_ms"]
         order.append({
@@ -123,13 +145,19 @@ def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
             "continues_before": (not n["start_seen"]) or (start is not None and start < t0),
             "continues_after": n["end_ms"] is None or n["end_ms"] > t1,
             "event_count": len(n["event_ids"])})
-        for c in sorted(children.get(k, []), key=lambda x: (nodes[x]["first_ms"] or 0, x)):
-            visit(c, depth + 1, seen)
 
     roots = [k for k, n in nodes.items() if n["parent_key"] is None or n["parent_key"] not in nodes]
     seen: set[str] = set()
     for r in sorted(roots, key=lambda x: (nodes[x]["first_ms"] or 0, x)):
-        visit(r, 0, seen)
+        stack = [(r, 0)]
+        while stack:
+            k, depth = stack.pop()
+            if k in seen:
+                continue
+            seen.add(k)
+            append_lane(k, depth)
+            ordered = sorted(children.get(k, []), key=lambda x: (nodes[x]["first_ms"] or 0, x))
+            stack.extend((c, depth + 1) for c in reversed(ordered))
     files: dict[str, dict[str, Any]] = {}
     for ev in events:
         f = ev.get("file") or {}
