@@ -10,6 +10,13 @@ from .identity import parent_spoof
 FILE_KINDS = ("FILE_CREATE", "FILE_WRITE", "FILE_DELETE", "FILE_MOVE", "FILE_EXECUTE")
 
 
+def _file_lane(path: str) -> str:
+    # Windows-shaped paths retain the established case-insensitive lane key.
+    # POSIX/unknown paths preserve case: /tmp/Drop and /tmp/drop may be distinct.
+    windows = "\\" in path or (len(path) > 1 and path[1] == ":")
+    return f"file:{path.lower() if windows else path}"
+
+
 def _node(key: str, ev: dict[str, Any] | None, *, synthetic: bool = False, observed: bool = True,
           label: str | None = None) -> dict[str, Any]:
     p = (ev or {}).get("process") or {}
@@ -49,9 +56,34 @@ def build_graph(events: list[dict[str, Any]]) -> dict[str, Any]:
             n["_start_ev"] = n.get("_start_ev") or ev   # parent named on a non-start record (still evidence)
     for n in list(nodes.values()):
         _resolve_parent(n, nodes)
+    _reject_parent_cycles(nodes)
     for n in nodes.values():
         n.pop("_start_ev", None)
     return {"nodes": nodes, "unattributed_network": unattributed}
+
+
+def _reject_parent_cycles(nodes: dict[str, dict[str, Any]]) -> None:
+    """Contradictory parent evidence cannot establish a causal process tree.
+
+    Keep every process and demote only the cycle's edges to unresolved roots.
+    Iterative traversal bounds work and avoids recursion on long ancestry.
+    """
+    done: set[str] = set()
+    for key in sorted(nodes):
+        trail: list[str] = []
+        positions: dict[str, int] = {}
+        cur = key
+        while cur in nodes and cur not in done:
+            if cur in positions:
+                for member in trail[positions[cur]:]:
+                    n = nodes[member]
+                    n["candidate_parent"] = n["parent_key"]
+                    _unresolved(n, nodes, None, "contradictory parent evidence forms a cycle")
+                break
+            positions[cur] = len(trail)
+            trail.append(cur)
+            cur = nodes[cur]["parent_key"]
+        done.update(trail)
 
 
 def _resolve_parent(n: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> None:
@@ -107,10 +139,7 @@ def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
         children.setdefault(n["parent_key"], []).append(k)
     order: list[dict[str, Any]] = []
 
-    def visit(k: str, depth: int, seen: set[str]) -> None:
-        if k in seen:
-            return
-        seen.add(k)
+    def append_lane(k: str, depth: int) -> None:
         n = nodes[k]
         start = n["start_ms"] if n["start_ms"] is not None else n["first_ms"]
         order.append({
@@ -123,19 +152,25 @@ def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
             "continues_before": (not n["start_seen"]) or (start is not None and start < t0),
             "continues_after": n["end_ms"] is None or n["end_ms"] > t1,
             "event_count": len(n["event_ids"])})
-        for c in sorted(children.get(k, []), key=lambda x: (nodes[x]["first_ms"] or 0, x)):
-            visit(c, depth + 1, seen)
 
     roots = [k for k, n in nodes.items() if n["parent_key"] is None or n["parent_key"] not in nodes]
     seen: set[str] = set()
     for r in sorted(roots, key=lambda x: (nodes[x]["first_ms"] or 0, x)):
-        visit(r, 0, seen)
+        stack = [(r, 0)]
+        while stack:
+            k, depth = stack.pop()
+            if k in seen:
+                continue
+            seen.add(k)
+            append_lane(k, depth)
+            ordered = sorted(children.get(k, []), key=lambda x: (nodes[x]["first_ms"] or 0, x))
+            stack.extend((c, depth + 1) for c in reversed(ordered))
     files: dict[str, dict[str, Any]] = {}
     for ev in events:
         f = ev.get("file") or {}
         if ev["kind"] in FILE_KINDS and f.get("path"):
-            lane = files.setdefault(f"file:{f['path'].lower()}", {
-                "lane_id": f"file:{f['path'].lower()}", "lane_type": "FILE", "label": f["path"], "sha256": None,
+            lane = files.setdefault(_file_lane(f["path"]), {
+                "lane_id": _file_lane(f["path"]), "lane_type": "FILE", "label": f["path"], "sha256": None,
                 "event_count": 0, "touched_by": []})
             lane["event_count"] += 1
             lane["sha256"] = lane["sha256"] or f.get("sha256")
@@ -153,7 +188,7 @@ def lane_of(ev: dict[str, Any]) -> str:
     if ev.get("process_key"):
         return ev["process_key"]
     if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
-        return f"file:{ev['file']['path'].lower()}"
+        return _file_lane(ev["file"]["path"])
     return "net:unattributed"
 
 
@@ -161,7 +196,7 @@ def lanes_of(ev: dict[str, Any]) -> list[str]:
     """Every lane an event is drawn on: its process row and, for file activity, the file row."""
     out = [lane_of(ev)]
     if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
-        f = f"file:{ev['file']['path'].lower()}"
+        f = _file_lane(ev["file"]["path"])
         if f not in out:
             out.append(f)
     return out
@@ -177,7 +212,7 @@ def isolate(events: list[dict[str, Any]], *, sha256: str | None = None, filename
         if not ev.get("process_key"):
             continue
         name = (filename or "").lower()
-        if (sha256 and sha256.lower() in ((p.get("sha256") or ""), (f.get("sha256") or ""))) or (
+        if (sha256 and sha256.lower() in ((p.get("sha256") or "").lower(), (f.get("sha256") or "").lower())) or (
                 name and any(x and x.lower().replace("\\", "/").rsplit("/", 1)[-1] == name
                              for x in (p.get("image"), f.get("path")))):
             seeds.add(ev["process_key"])

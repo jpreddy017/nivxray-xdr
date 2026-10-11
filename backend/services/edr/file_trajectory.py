@@ -24,6 +24,9 @@ and both figures are returned — `unique_events` (authoritative) and
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+
+from edr_plane.instant import parse_instant
 
 from services.edr.device_identity import _obs, _event_of, _hostname  # noqa: F401
 
@@ -155,7 +158,13 @@ def fleet_trajectory(key_type: str, key: str,
             if m and m not in row["mitre"]:
                 row["mitre"].append(m)
 
-    events = sorted(unique.values(), key=lambda e: str(e.get("timestamp") or ""))
+    def time_key(row):
+        instant = parse_instant(row.get("timestamp"))
+        return (instant is None, instant or datetime.max.replace(tzinfo=timezone.utc),
+                str(row.get("event_iid") or row.get("device_iid") or ""))
+
+    events = sorted(unique.values(), key=time_key)
+    timed_events = [e for e in events if parse_instant(e.get("timestamp")) is not None]
 
     # ── per-endpoint rollup ─────────────────────────────────────────
     endpoints: Dict[str, Dict[str, Any]] = {}
@@ -181,10 +190,11 @@ def fleet_trajectory(key_type: str, key: str,
         row["unique_events"] += 1
         row["raw_observations"] += e["occurrences"]
         ts = e.get("timestamp")
-        if ts:
-            if row["first_seen"] is None or str(ts) < str(row["first_seen"]):
+        instant = parse_instant(ts)
+        if instant is not None:
+            if row["first_seen"] is None or instant < parse_instant(row["first_seen"]):
                 row["first_seen"] = ts
-            if row["last_seen"] is None or str(ts) > str(row["last_seen"]):
+            if row["last_seen"] is None or instant > parse_instant(row["last_seen"]):
                 row["last_seen"] = ts
         for f, v in (("providers", e.get("provider")), ("users", e.get("user"))):
             if v and v not in row[f]:
@@ -199,16 +209,17 @@ def fleet_trajectory(key_type: str, key: str,
 
     endpoint_rows = sorted(endpoints.values(),
                            key=lambda r: (-r["unique_events"],
-                                          str(r.get("first_seen") or "")))
+                                          time_key({**r, "timestamp": r["first_seen"]})))
 
     # ── entry point(s) — earliest observation, all ties kept ────────
     entry_points: List[Dict[str, Any]] = []
-    if endpoint_rows:
-        earliest = min(str(r.get("first_seen") or "~") for r in endpoint_rows)
+    dated_endpoints = [r for r in endpoint_rows if r["first_seen"] is not None]
+    if dated_endpoints:
+        earliest = min(parse_instant(r["first_seen"]) for r in dated_endpoints)
         entry_points = [
             {"device_iid": r["device_iid"], "hostname": r["hostname"],
              "first_seen": r["first_seen"]}
-            for r in endpoint_rows if str(r.get("first_seen") or "~") == earliest
+            for r in dated_endpoints if parse_instant(r["first_seen"]) == earliest
         ]
 
     # ── creators — only where a write/create was actually observed ──
@@ -259,8 +270,9 @@ def fleet_trajectory(key_type: str, key: str,
         "raw_observations": raw_count,
         "affected_endpoints": len([r for r in endpoint_rows if r["device_iid"]]),
         "endpoint_rows": endpoint_rows,
-        "first_observed": events[0]["timestamp"] if events else None,
-        "last_observed": events[-1]["timestamp"] if events else None,
+        "first_observed": timed_events[0]["timestamp"] if timed_events else None,
+        "last_observed": timed_events[-1]["timestamp"] if timed_events else None,
+        "timestamp_unresolved_events": len(events) - len(timed_events),
         "entry_points": entry_points,
         "creators": creators,
         "observed_names": names,
