@@ -53,3 +53,25 @@ production deployment is authorized by passing this engine gate alone.
 Next: validate frontend trajectory/process-tree/graph fixtures and live API
 contract integration, then make the next bounded implementation change using
 the committed E1/E3 substrate. No direct access to uncommitted Emergent work.
+
+## Follow-up: evidence identity boundaries
+
+The trajectory increment at remote `2534adc3` passed **197 tests** including
+MongoDB, plus **207 frontend fixture tests**, **18 Node time-window tests** and
+the standalone Vite build. Browser/live-preview validation remains pending.
+
+The subsequent review found and fixed three additional gaps in the existing
+E3 evidence model:
+
+- Deduplication now scopes a source event identifier to both tenant and device.
+  A host-local identifier reused on another host cannot discard its evidence;
+  same-host cross-store copies still merge provenance and earliest ingestion.
+- POSIX and unknown-shaped file paths retain case in lane identity. Existing
+  Windows-shaped path keys retain their case-insensitive behavior. This is a
+  conservative path-shape rule, not a claim to know each filesystem's settings.
+- Hash-based lineage pivots compare both recorded and requested hashes without
+  hexadecimal letter-case differences, including shadow-store hashes.
+
+Added six regression cases. The follow-up local deterministic scope passed
+**194 tests**; its own remote MongoDB run is required before promotion. Existing
+security HOLDs, live-preview checks and owner approval are unchanged.

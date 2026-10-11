@@ -66,10 +66,10 @@ def _merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 
 def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """Collapse the same activity seen in several stores (stable event identity). Returns (events, suppressed)."""
-    seen: dict[tuple[str, str], dict[str, Any]] = {}
+    seen: dict[tuple[str, str, str], dict[str, Any]] = {}
     suppressed = 0
     for ev in events:
-        k = (ev["tenant_id"], ev["event_id"])
+        k = (ev["tenant_id"], ev["device_id"], ev["event_id"])
         if k in seen:
             seen[k] = _merge(seen[k], ev)
             suppressed += 1

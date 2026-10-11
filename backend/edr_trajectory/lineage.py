@@ -10,6 +10,13 @@ from .identity import parent_spoof
 FILE_KINDS = ("FILE_CREATE", "FILE_WRITE", "FILE_DELETE", "FILE_MOVE", "FILE_EXECUTE")
 
 
+def _file_lane(path: str) -> str:
+    # Windows-shaped paths retain the established case-insensitive lane key.
+    # POSIX/unknown paths preserve case: /tmp/Drop and /tmp/drop may be distinct.
+    windows = "\\" in path or (len(path) > 1 and path[1] == ":")
+    return f"file:{path.lower() if windows else path}"
+
+
 def _node(key: str, ev: dict[str, Any] | None, *, synthetic: bool = False, observed: bool = True,
           label: str | None = None) -> dict[str, Any]:
     p = (ev or {}).get("process") or {}
@@ -162,8 +169,8 @@ def lanes(events: list[dict[str, Any]], t0: int, t1: int) -> dict[str, Any]:
     for ev in events:
         f = ev.get("file") or {}
         if ev["kind"] in FILE_KINDS and f.get("path"):
-            lane = files.setdefault(f"file:{f['path'].lower()}", {
-                "lane_id": f"file:{f['path'].lower()}", "lane_type": "FILE", "label": f["path"], "sha256": None,
+            lane = files.setdefault(_file_lane(f["path"]), {
+                "lane_id": _file_lane(f["path"]), "lane_type": "FILE", "label": f["path"], "sha256": None,
                 "event_count": 0, "touched_by": []})
             lane["event_count"] += 1
             lane["sha256"] = lane["sha256"] or f.get("sha256")
@@ -181,7 +188,7 @@ def lane_of(ev: dict[str, Any]) -> str:
     if ev.get("process_key"):
         return ev["process_key"]
     if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
-        return f"file:{ev['file']['path'].lower()}"
+        return _file_lane(ev["file"]["path"])
     return "net:unattributed"
 
 
@@ -189,7 +196,7 @@ def lanes_of(ev: dict[str, Any]) -> list[str]:
     """Every lane an event is drawn on: its process row and, for file activity, the file row."""
     out = [lane_of(ev)]
     if ev["kind"] in FILE_KINDS and (ev.get("file") or {}).get("path"):
-        f = f"file:{ev['file']['path'].lower()}"
+        f = _file_lane(ev["file"]["path"])
         if f not in out:
             out.append(f)
     return out
@@ -205,7 +212,7 @@ def isolate(events: list[dict[str, Any]], *, sha256: str | None = None, filename
         if not ev.get("process_key"):
             continue
         name = (filename or "").lower()
-        if (sha256 and sha256.lower() in ((p.get("sha256") or ""), (f.get("sha256") or ""))) or (
+        if (sha256 and sha256.lower() in ((p.get("sha256") or "").lower(), (f.get("sha256") or "").lower())) or (
                 name and any(x and x.lower().replace("\\", "/").rsplit("/", 1)[-1] == name
                              for x in (p.get("image"), f.get("path")))):
             seeds.add(ev["process_key"])
