@@ -17,10 +17,10 @@
  * platform does not hold reads NOT AVAILABLE / NOT OBSERVED with its
  * reason.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertOctagon, AlertTriangle, RefreshCw, Timer, UserCheck, UserX, Zap,
+  RefreshCw, Timer,
 } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
@@ -31,18 +31,10 @@ import {
 } from "@/lib/incidentsApi";
 import { getResponseEngineHealth, getPendingApprovals } from "@/nivxforge/edrApi";
 import "@/xdr/nx/nx-cc.css";
+import SecurityOverviewKpis from "./SecurityOverviewKpis";
 import { projectionState } from "./controlCenterState";
 import { apiErrorText } from "@/xdr/nx/apiError";
 import { NxDataTable, NxState, opsLabel } from "@/xdr/nx";
-
-const ATTN = [
-  { id: "critical",         label: "Critical",    icon: AlertOctagon,  tone: "critical" },
-  { id: "high_priority",    label: "High",        icon: AlertTriangle, tone: "high" },
-  { id: "unassigned",       label: "Unassigned",  icon: UserX,         tone: "high" },
-  { id: "aging",            label: "Aging",       icon: Timer,         tone: "high" },
-  { id: "in_progress_mine", label: "My queue",    icon: UserCheck,     tone: "quiet" },
-  { id: "high_fidelity",    label: "High fidelity", icon: Zap,         tone: "quiet" },
-];
 
 const ts = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") : null);
 const ago = (iso) => {
@@ -89,7 +81,7 @@ export default function XdrControlCenterPage() {
         settle(getResponseEngineHealth()), settle(getPendingApprovals()),
       ]);
       if (!k.ok) setError(k.e || q.e);
-      setKpi(k.ok ? k.v : null);
+      setKpi(k.ok ? k.v : { error: k.e, status: k.status });
       setQueue(q.ok ? q.v : { error: q.e, status: q.status });
       setCust(c.ok ? c.v : { error: c.e, status: c.status });
       setDist(d.ok ? d.v : { error: d.e });
@@ -100,13 +92,6 @@ export default function XdrControlCenterPage() {
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
-
-  const tiles = useMemo(() => {
-    const out = {};
-    (kpi?.groups || []).forEach((g) => (g.tiles || [])
-      .forEach((t) => { out[t.id] = t; }));
-    return out;
-  }, [kpi]);
 
   const respondState = !respond || respond.error || respond.configured === false
     ? "unknown" : respond.reachable ? "ok" : "bad";
@@ -152,30 +137,7 @@ export default function XdrControlCenterPage() {
         )}
 
         {/* ── 1 · What needs attention ─────────────────────────── */}
-        <div className="cc-attn" data-testid="cc-attention">
-          {ATTN.map(({ id, label, icon: Icon, tone }) => {
-            const t = tiles[id];
-            const scoped = t && t.count_source !== "empty";
-            const n = scoped ? t.count : null;
-            return (
-              <button key={id} className="cc-attn__i"
-                      data-zero={!t || !t.lens_href ? "1" : undefined}
-                      data-testid={`cc-attn-${id}`}
-                      onClick={() => t?.lens_href && navigate(t.lens_href)}>
-                <span className="cc-attn__k"><Icon size={11} /> {label}</span>
-                <span className="cc-attn__v"
-                      data-tone={n ? tone : "quiet"}
-                      data-testid={`cc-attn-${id}-value`}>
-                  {n == null ? "—" : n}
-                </span>
-                <span className="cc-attn__s">
-                  {!t ? (loading ? "reading…" : opsLabel("NOT_AVAILABLE"))
-                    : t.lens_href ? "Open queue" : "no scope"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SecurityOverviewKpis data={kpi} loading={loading} onNavigate={navigate} />
 
         {/* ── 2 · Platform condition · security / telemetry / response ── */}
         <div className="cc-cond" data-testid="cc-condition">
