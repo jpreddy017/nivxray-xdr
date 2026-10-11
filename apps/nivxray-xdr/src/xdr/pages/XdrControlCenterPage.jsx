@@ -101,16 +101,12 @@ export default function XdrControlCenterPage() {
   return (
     <XdrShell>
       <div className="cc" data-testid="xdr-control-center"
-           style={{ padding: "12px 16px 24px" }}>
+           style={{ padding: "0 0 16px" }}>
         <header className="cc-header" aria-labelledby="cc-page-title">
           <div className="cc-header__identity">
-            <span className="cc-header__eyebrow">Security operations</span>
             <h1 id="cc-page-title" data-testid="xdr-control-center-title">
               Control Center
             </h1>
-            <p className="cc-header__description">
-              Priority work and security condition across your authorized scope.
-            </p>
           </div>
           <div className="cc-header__actions">
             <IntelligenceStatusChip />
@@ -123,8 +119,7 @@ export default function XdrControlCenterPage() {
           </div>
           <div className="cc-header__context" data-testid="cc-time-scope">
             <Timer size={13} aria-hidden="true" />
-            <span>Time scope varies by panel</span>
-            <span className="cc-header__scope-note">Each panel uses its own reporting window.</span>
+            <span>Authorized scope · Reporting window varies by panel</span>
           </div>
         </header>
 
@@ -194,7 +189,7 @@ export default function XdrControlCenterPage() {
 
         {/* ── 3 · Which incidents matter most + who is affected ── */}
         <PriorityIncidentQueue data={queue} loading={loading} onNavigate={navigate} />
-        <div>
+        <div className="cc-dashboard-grid">
           <div className="cc-card" data-testid="cc-tenants">
               <div className="cc-card__h">
                 <span className="cc-card__t">Tenants affected</span>
@@ -248,10 +243,7 @@ export default function XdrControlCenterPage() {
               </div>
             </div>
 
-        </div>
-
-        {/* ── 4 · Distribution · what is driving detections · activity ── */}
-        <div className="cc-grid cc-grid--details">
+        {/* Existing supporting panels share the same dashboard grid. */}
             <div className="cc-card" data-testid="cc-assets">
               <div className="cc-card__h">
                 <span className="cc-card__t">Assets affected</span>

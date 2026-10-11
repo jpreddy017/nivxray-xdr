@@ -32,6 +32,12 @@ function elements(node, predicate) {
 function run(Component, props) { hooks.active = true; hooks.index = 0; return Component(props); }
 
 describe("Priority queue rendering and data states", () => {
+  it("keeps snapshot limitations in a collapsed keyboard-accessible disclosure", () => {
+    const output = html({ data: response() });
+    expect(output).toContain('<details class="cc-pq__about"><summary>About this data');
+    expect(output).toContain('analyst assignment and affected entity are not independently provided');
+    expect(output).toContain('Search and sort apply to this snapshot only');
+  });
   it("renders supported evidence fields, explicit missing entity, labeled search and investigation action", () => {
     const output = html({ data: response() });
     for (const text of ["Priority incident queue", "INC-42", "Test incident", "sensor", "tenant-a", "Reported owner", "Not available", "Open investigation", 'id="cc-pq-search"', 'for="cc-pq-search"']) expect(output).toContain(text);

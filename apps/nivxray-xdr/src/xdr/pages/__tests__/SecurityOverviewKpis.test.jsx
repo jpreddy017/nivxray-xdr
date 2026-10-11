@@ -11,6 +11,14 @@ const data = (override = {}) => ({ groups: [{ tiles: ids.map((id, count) => ({
 const render = (props) => renderToStaticMarkup(<SecurityOverviewKpis {...props} />);
 
 describe("Security overview KPI rendering", () => {
+  it("keeps compact-card definitions accessible in a native disclosure", () => {
+    const html = render({ data: data() });
+    expect(html).toContain('<details class="cc-kpi-definitions">');
+    expect(html).toContain('<summary>Metric definitions</summary>');
+    expect(html.match(/<dt>/g)).toHaveLength(6);
+    expect(html).toContain('class="cc-attn__description cc-visually-hidden"');
+    expect(html).toContain('aria-describedby="cc-kpi-critical-description"');
+  });
   it("renders exactly six named cards, actual counts including zero, and API descriptions", () => {
     const html = render({ data: data() });
     expect(html.match(/<button /g)).toHaveLength(6);

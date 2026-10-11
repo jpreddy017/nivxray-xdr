@@ -68,7 +68,8 @@ export default function PriorityIncidentQueue({ data, loading, onNavigate }) {
         <button type="button" className="cc-card__a cx-pill" onClick={() => onNavigate("/xdr/incidents?lens=high_priority")}>Open full queue</button>
       </div>
       <p className="cc-pq__scope">Open P1 / P2 incidents · Latest {readable ? rows.length : "—"} returned (up to 14). Search and sort apply to this snapshot only.</p>
-      <p className="cc-pq__scope">{readable && time(data.generated_at) ? `Snapshot generated ${time(data.generated_at)}. ` : ""}Updated is the incident update time. Reported owner may be the submitting user; analyst assignment and affected entity are not independently provided.</p>
+      <details className="cc-pq__about"><summary>About this data{readable && time(data.generated_at) ? ` · ${time(data.generated_at)}` : ""}</summary>
+      <p className="cc-pq__scope">{readable && time(data.generated_at) ? `Snapshot generated ${time(data.generated_at)}. ` : ""}Updated is the incident update time. Reported owner may be the submitting user; analyst assignment and affected entity are not independently provided.</p></details>
       {notices[view] && <p className="cc-pq__notice" role={view === "denied" || data?.error ? "alert" : "status"} data-testid={`cc-pq-${view}`}>{notices[view]}</p>}
       {readable && <div role="region" aria-label="Priority incident results">
         <label className="cc-pq__search-label" htmlFor="cc-pq-search">Search returned incidents</label>

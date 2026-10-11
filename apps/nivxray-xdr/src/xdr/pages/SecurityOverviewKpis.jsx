@@ -46,12 +46,18 @@ export default function SecurityOverviewKpis({ data, loading = false, onNavigate
               onClick={() => canOpen && onNavigate(tile.lens_href)}>
               <span className="cc-attn__k"><Icon size={15} aria-hidden="true" />{label}</span>
               <span className="cc-attn__v" data-testid={`cc-attn-${id}-value`}>{ready ? tile.count : "—"}</span>
-              {tile?.description && <span className="cc-attn__description" id={`cc-kpi-${id}-description`}>{tile.description}</span>}
+              {tile?.description && <span className="cc-attn__description cc-visually-hidden" id={`cc-kpi-${id}-description`}>{tile.description}</span>}
               <span className="cc-attn__s">{detail}{canOpen && <ArrowUpRight size={13} aria-hidden="true" />}</span>
             </button>
           );
         })}
       </div>
+      <details className="cc-kpi-definitions">
+        <summary>Metric definitions</summary>
+        <dl>{CARDS.map(({ id, label }) => <React.Fragment key={id}>
+          <dt>{label}</dt><dd>{tiles.get(id)?.description || "Definition not available in this response."}</dd>
+        </React.Fragment>)}</dl>
+      </details>
     </section>
   );
 }
