@@ -246,7 +246,16 @@ def _seed_connectors(state_dir, records):
         json.dump({"connectors": records}, f)
 
 
-def test_rehydration_failure_is_reported_not_swallowed(tmp_path):
+def _tenant_health(client):
+    response = client.get("/api/xdr/telemetry-health", headers={
+        "Authorization": "Bearer synthetic-lifecycle-service",
+        "X-Authenticated-Tenant": TENANT})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_rehydration_failure_is_reported_not_swallowed(tmp_path, monkeypatch):
+    monkeypatch.setenv("COLLECTOR_CONTROL_SERVICE_CREDENTIAL", "synthetic-lifecycle-service")
     """A bad record must not come up silently: boot survives, the failure is
     named on /health, and the healthy connector still starts."""
     good = {"id": "windows-eventlog::good", "tenant_id": TENANT,
@@ -263,7 +272,8 @@ def test_rehydration_failure_is_reported_not_swallowed(tmp_path):
 
     import main
     with TestClient(main.app) as client:
-        body = client.get("/health").json()
+        assert "rehydration" not in client.get("/health").json()
+        body = _tenant_health(client)
     reh = body["rehydration"]
     assert reh["records"] == 2
     assert reh["constructed"] == 1
@@ -275,7 +285,8 @@ def test_rehydration_failure_is_reported_not_swallowed(tmp_path):
     assert "collector_id" in failure["error"]
 
 
-def test_rehydration_resumes_the_same_bookmark_scope(tmp_path):
+def test_rehydration_resumes_the_same_bookmark_scope(tmp_path, monkeypatch):
+    monkeypatch.setenv("COLLECTOR_CONTROL_SERVICE_CREDENTIAL", "synthetic-lifecycle-service")
     """Service restart → rehydrate → resume: the identity that anchors the
     bookmark scope is the configured one, so the position is found again."""
     rec = {"id": "windows-eventlog::resume", "tenant_id": TENANT,
@@ -287,7 +298,7 @@ def test_rehydration_resumes_the_same_bookmark_scope(tmp_path):
 
     import main
     with TestClient(main.app) as client:
-        assert client.get("/health").json()["rehydration"]["started"] == 1
+        assert _tenant_health(client)["rehydration"]["started"] == 1
         inst = main.app.state.instances["windows-eventlog::resume"]
         assert inst.collector_id == "col_resume"
         inst.bookmarks.record_read(
@@ -303,7 +314,7 @@ def test_rehydration_resumes_the_same_bookmark_scope(tmp_path):
         collector_identity.release(cid)
 
     with TestClient(main.app) as client:
-        assert client.get("/health").json()["rehydration"]["started"] == 1
+        assert _tenant_health(client)["rehydration"]["started"] == 1
         inst2 = main.app.state.instances["windows-eventlog::resume"]
         assert inst2.collector_id == "col_resume"
         resume = inst2.bookmarks.resume_for(TENANT, "col_resume", SYSMON)

@@ -78,14 +78,18 @@ async def lifespan(app: FastAPI):
     # Rehydrate persisted connectors and auto-start the enabled ones.
     # G1/B1 · a rehydration or auto-start failure is NEVER swallowed: boot
     # survives one bad record, but the failure is logged and kept in an
-    # observable report (`/health` → `rehydration`) so an operator sees a
+    # tenant-scoped report (`/api/xdr/telemetry-health` → `rehydration`) so an operator sees a
     # connector that did not come up instead of silence.
     rehydration: Dict[str, Any] = {
         "records": len(app.state.store.list()), "constructed": 0,
         "started": 0, "not_started": [], "failures": [],
         "auto_start": os.environ.get("XDR_AUTO_START_CONNECTORS", "1") == "1",
+        "tenants": {},
     }
     for rec in app.state.store.list():
+        scoped = rehydration['tenants'].setdefault(rec.tenant_id,
+            {'records': 0, 'constructed': 0, 'started': 0})
+        scoped['records'] += 1
         cls = _CLASS_BY_TYPE.get(rec.source_type)
         if not cls:
             rehydration["failures"].append({
@@ -111,6 +115,7 @@ async def lifespan(app: FastAPI):
         app.state.instances[rec.id] = inst
         app.state.registry.register_instance(inst)
         rehydration["constructed"] += 1
+        scoped['constructed'] += 1
         if not (rec.enabled and rehydration["auto_start"]):
             rehydration["not_started"].append({
                 "connector_id": rec.id,
@@ -136,6 +141,7 @@ async def lifespan(app: FastAPI):
                        rec.id, result.get("reason"))
             continue
         rehydration["started"] += 1
+        scoped['started'] += 1
     app.state.rehydration = rehydration
     if rehydration["failures"]:
         _LOG.error("rehydrate: %d connector(s) did not come up",
@@ -205,27 +211,9 @@ app.include_router(preflight_router,        prefix="/api/xdr", dependencies=_gua
 @app.get("/health")
 def liveness():
     """Liveness probe.  Never touches downstream systems."""
-    runtime = getattr(app.state, "runtime", None)
-    running_rest    = len(runtime.scheduler.running())    if runtime else 0
-    running_syslog  = len(runtime.syslog.running())       if runtime else 0
-    outbox_metrics  = runtime.outbox.metrics()            if runtime else {}
-    ingest_status   = runtime.ingest.status()             if runtime else {}
-    worker_status   = runtime.worker.status()             if runtime else {}
-    return {
-        "status":         "ok",
-        "service":        "nivxray-xdr-collector",
-        "phase":          "B.5",
-        "version":        "0.3.0-phaseB5",
-        "connectors":     len(getattr(app.state, "instances", {})),
-        "rest_running":   running_rest,
-        "syslog_running": running_syslog,
-        # G1/B1 · connectors that did not come up are stated here, so a
-        # rehydration failure is observable without a control-plane call.
-        "rehydration":    getattr(app.state, "rehydration", None),
-        "ingest":         ingest_status,
-        "outbox":         outbox_metrics,
-        "worker":         worker_status,
-    }
+    # Public liveness is product metadata, never multi-tenant runtime state.
+    return {"status": "ok", "service": "nivxray-xdr-collector",
+            "phase": "B.5", "version": "0.3.0-phaseB5"}
 
 
 @app.get("/")

@@ -33,7 +33,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from framework.route_classification import (HUMAN_CONTROL, MACHINE,  # noqa: E402
                                             PRODUCT_METADATA, TEST_PLANE,
                                             classify, relative_path)
-from routers.xdr_rbac import require_permission
+from routers.xdr_rbac import require_permission, resolve_principal
+from framework.tenant_scope import bind_scope
 from services import tenant_registry
 
 TENANT_HEADER = "X-Tenant-Id"
@@ -80,12 +81,13 @@ async def collector_guard(
     await require_permission(permission)(request, creds)
 
     # 3 · TENANT AUTHORITY — only for operations that act on tenant data.
-    if route_class == HUMAN_CONTROL:
-        raw = (request.headers.get(TENANT_HEADER) or "").strip()
+    if route_class in (HUMAN_CONTROL, TEST_PLANE):
+        raw, _, _ = resolve_principal(request)
         try:
-            tenant_registry.authoritative(raw, purpose="xdr.collector")
+            tenant = tenant_registry.authoritative(raw, purpose="xdr.collector")
         except tenant_registry.TenantRegistryError as e:
             raise HTTPException(status_code=e.http, detail=e.detail()) from None
+        await bind_scope(request, tenant)
 
     if route_class == TEST_PLANE:
         if os.environ.get(TEST_PLANE_FLAG) != "1":

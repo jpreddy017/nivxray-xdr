@@ -66,7 +66,7 @@ COLLECTOR_ROUTE_CLASSIFICATION: Dict[Tuple[str, str], Tuple[str, Optional[str]]]
     ("POST", "/outbox/drain-once"): (HUMAN_CONTROL, "collectors.update"),
     # ── single-operation routers ──────────────────────────────────────
     ("GET", "/data-sources"): (HUMAN_CONTROL, "collectors.read"),
-    ("GET", "/telemetry-health"): (PRODUCT_METADATA, "collectors.read"),
+    ("GET", "/telemetry-health"): (HUMAN_CONTROL, "collectors.read"),
     ("POST", "/ingest-preflight"): (HUMAN_CONTROL, "collectors.test"),
     ("POST", "/webhooks/{secret_id}"): (MACHINE, None),
     # ── landing echo (backend mount only) ─────────────────────────────

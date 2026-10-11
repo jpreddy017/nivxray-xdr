@@ -395,10 +395,11 @@ class Outbox:
             """, (tenant_id, connector_id_, key)).fetchone()
         return self._row(r) if r else None
 
-    def by_id(self, rid: str) -> Optional[OutboxRow]:
+    def by_id(self, rid: str, tenant_id: Optional[str] = None) -> Optional[OutboxRow]:
         with self._lock:
-            r = self._conn.execute("SELECT * FROM envelopes WHERE id=?",
-                                        (rid,)).fetchone()
+            r = self._conn.execute("SELECT * FROM envelopes WHERE id=?" +
+                (" AND tenant_id=?" if tenant_id is not None else ""),
+                (rid, tenant_id) if tenant_id is not None else (rid,)).fetchone()
         return self._row(r) if r else None
 
     def next_batch(self, limit: int = 50) -> List[OutboxRow]:
@@ -672,13 +673,15 @@ class Outbox:
                 "       updated_at=? WHERE id=?",
                 (OutboxStatus.DEAD_LETTER, error, det, now, rid))
 
-    def replay_dead(self, rid: str) -> bool:
+    def replay_dead(self, rid: str, tenant_id: Optional[str] = None) -> bool:
         """Requeue a dead-letter row for another delivery attempt."""
         now = _iso(_utcnow())
         with self._lock:
             row = self._conn.execute(
-                "SELECT id FROM envelopes WHERE id=? AND status=?",
-                (rid, OutboxStatus.DEAD_LETTER)).fetchone()
+                "SELECT id FROM envelopes WHERE id=? AND status=?" +
+                (" AND tenant_id=?" if tenant_id is not None else ""),
+                (rid, OutboxStatus.DEAD_LETTER, tenant_id) if tenant_id is not None
+                else (rid, OutboxStatus.DEAD_LETTER)).fetchone()
             if not row:
                 return False
             self._conn.execute(
@@ -689,26 +692,32 @@ class Outbox:
             return True
 
     # ── metrics / list ────────────────────────────────────────
-    def counts(self, connector_id: Optional[str] = None) -> Dict[str, int]:
+    def counts(self, connector_id: Optional[str] = None,
+               tenant_id: Optional[str] = None) -> Dict[str, int]:
+        clauses, params = [], []
+        if connector_id is not None:
+            clauses.append("connector_id=?"); params.append(connector_id)
+        if tenant_id is not None:
+            clauses.append("tenant_id=?"); params.append(tenant_id)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
         with self._lock:
-            if connector_id:
-                rows = self._conn.execute(
-                    "SELECT status, COUNT(*) AS n FROM envelopes "
-                    " WHERE connector_id=? GROUP BY status",
-                    (connector_id,)).fetchall()
-            else:
-                rows = self._conn.execute(
-                    "SELECT status, COUNT(*) AS n FROM envelopes GROUP BY status"
-                ).fetchall()
+            rows = self._conn.execute(
+                "SELECT status, COUNT(*) AS n FROM envelopes" + where + " GROUP BY status",
+                params).fetchall()
         out = {s: 0 for s in OutboxStatus.ALL}
         for r in rows: out[r["status"]] = int(r["n"])
         return out
 
-    def metrics(self, connector_id: Optional[str] = None) -> Dict[str, Any]:
-        c = self.counts(connector_id)
+    def metrics(self, connector_id: Optional[str] = None,
+                tenant_id: Optional[str] = None) -> Dict[str, Any]:
+        c = self.counts(connector_id, tenant_id)
         with self._lock:
-            where = "WHERE connector_id=?" if connector_id else ""
-            params = (connector_id,) if connector_id else ()
+            clauses, params = [], []
+            if connector_id is not None:
+                clauses.append("connector_id=?"); params.append(connector_id)
+            if tenant_id is not None:
+                clauses.append("tenant_id=?"); params.append(tenant_id)
+            where = "WHERE " + " AND ".join(clauses) if clauses else ""
             oldest = self._conn.execute(
                 f"SELECT MIN(created_at) AS x FROM envelopes "
                 f" {where} {'AND' if where else 'WHERE'} status IN (?, ?)",
@@ -736,9 +745,11 @@ class Outbox:
 
     def list(self, status: Optional[str] = None,
                 connector_id: Optional[str] = None,
-                limit: int = 100) -> List[OutboxRow]:
+                limit: int = 100, tenant_id: Optional[str] = None) -> List[OutboxRow]:
         with self._lock:
             clauses, params = [], []
+            if tenant_id is not None:
+                clauses.append("tenant_id=?"); params.append(tenant_id)
             if status:
                 clauses.append("status=?"); params.append(status)
             if connector_id:

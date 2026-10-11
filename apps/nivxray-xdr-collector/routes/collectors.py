@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
 import os
+from framework.tenant_scope import tenant_scope
 
 router = APIRouter(tags=["collectors"])
 
@@ -35,7 +36,8 @@ def list_collectors(request: Request):
     """
     reg = request.app.state.registry
     me = _self_identity()
-    me["active_connectors"] = len(reg.list_ids())
+    me["active_connectors"] = sum(1 for rec in request.app.state.store.list(tenant_id=tenant_scope(request))
+                                  if rec.id in reg.list_ids())
     return {
         "collectors": [me],
         "fleet":      "not_available",

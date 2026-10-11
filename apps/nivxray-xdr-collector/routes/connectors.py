@@ -23,6 +23,7 @@ from fastapi   import APIRouter, HTTPException, Request, Header
 from pydantic  import BaseModel, Field
 
 from framework import collector_identity
+from framework.tenant_scope import tenant_scope, owned_connector
 
 from framework.rest_poller import RestPollerConnector
 from framework.webhook     import WebhookConnector
@@ -148,7 +149,7 @@ def source_types() -> Dict[str, Any]:
 @router.get("/connectors")
 def list_connectors(request: Request,
                      x_tenant_id: Optional[str] = Header(default=None)):
-    tenant = _tenant(x_tenant_id)
+    tenant = tenant_scope(request)
     store  = request.app.state.store
     rows   = []
     for rec in store.list(tenant_id=tenant):
@@ -166,7 +167,7 @@ async def create_connector(body: ConnectorCreate, request: Request,
     if body.source_type not in CLASS_BY_TYPE:
         raise HTTPException(400, detail={"error": "unknown_source_type",
                                               "known": list(CLASS_BY_TYPE.keys())})
-    tenant = _tenant(x_tenant_id)
+    tenant = tenant_scope(request)
     store  = request.app.state.store
     cls    = CLASS_BY_TYPE[body.source_type]
     rec    = store.create(tenant_id=tenant, source_type=body.source_type,
@@ -190,9 +191,7 @@ async def create_connector(body: ConnectorCreate, request: Request,
 @router.get("/connectors/{cid}")
 def get_connector(cid: str, request: Request):
     store = request.app.state.store
-    rec   = store.get(cid)
-    if not rec:
-        raise HTTPException(404, detail={"error": "connector_not_found"})
+    rec   = owned_connector(request, cid)
     inst = request.app.state.instances.get(cid)
     out  = rec.redacted()
     out["runtime"] = inst.describe() if inst else {"health": "not_started"}
@@ -203,9 +202,7 @@ def get_connector(cid: str, request: Request):
 @router.patch("/connectors/{cid}")
 async def update_connector(cid: str, body: ConnectorUpdate, request: Request):
     store = request.app.state.store
-    rec   = store.get(cid)
-    if not rec:
-        raise HTTPException(404, detail={"error": "connector_not_found"})
+    rec   = owned_connector(request, cid)
     changes = {}
     if body.label   is not None: changes["label"]   = body.label
     if body.config  is not None: changes["config"]  = body.config
@@ -228,6 +225,7 @@ async def update_connector(cid: str, body: ConnectorUpdate, request: Request):
 # ── delete ────────────────────────────────────────────────────
 @router.delete("/connectors/{cid}")
 async def delete_connector(cid: str, request: Request):
+    owned_connector(request, cid)
     store = request.app.state.store
     inst  = request.app.state.instances.pop(cid, None)
     if inst is not None:
@@ -246,6 +244,7 @@ async def delete_connector(cid: str, request: Request):
 # ── control · test / start / stop / inject ────────────────────
 @router.post("/connectors/{cid}/test")
 async def test_connector(cid: str, request: Request):
+    owned_connector(request, cid)
     inst = request.app.state.instances.get(cid)
     if not inst:
         raise HTTPException(404, detail={"error": "connector_not_found"})
@@ -255,6 +254,7 @@ async def test_connector(cid: str, request: Request):
 
 @router.post("/connectors/{cid}/start")
 async def start_connector(cid: str, request: Request):
+    owned_connector(request, cid)
     inst = request.app.state.instances.get(cid)
     if not inst:
         raise HTTPException(404, detail={"error": "connector_not_found"})
@@ -265,6 +265,7 @@ async def start_connector(cid: str, request: Request):
 
 @router.post("/connectors/{cid}/stop")
 async def stop_connector(cid: str, request: Request):
+    owned_connector(request, cid)
     inst = request.app.state.instances.get(cid)
     if not inst:
         raise HTTPException(404, detail={"error": "connector_not_found"})
@@ -279,6 +280,7 @@ async def inject(cid: str, body: InjectBody, request: Request):
     waiting on real vendor traffic.  Never callable in production ingress
     paths — it's guarded by the framework's `X-Debug-Inject: 1` header.
     """
+    owned_connector(request, cid)
     if request.headers.get("X-Debug-Inject") != "1":
         raise HTTPException(403, detail={"error": "inject_requires_debug_header"})
     inst = request.app.state.instances.get(cid)

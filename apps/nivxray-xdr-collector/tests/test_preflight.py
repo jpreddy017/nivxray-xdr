@@ -1,10 +1,16 @@
 """Preflight endpoint tests."""
 import httpx
 import pytest
+from fastapi import HTTPException, Request
 from contextlib import asynccontextmanager
 
 from framework.authz import collector_guard
 from main import app
+
+
+@pytest.fixture(autouse=True)
+def isolated_runtime_state(monkeypatch, tmp_path):
+    monkeypatch.setenv('XDR_STATE_DIR', str(tmp_path))
 
 
 def _client() -> httpx.AsyncClient:
@@ -17,7 +23,13 @@ async def _lifespan_client():
     """Collector Auth P0 · standalone fails closed, so the preflight
     behaviour tests override the guard and the fail-closed contract is
     asserted separately (`test_standalone_preflight_fails_closed`)."""
-    app.dependency_overrides[collector_guard] = lambda: "HUMAN_CONTROL"
+    def synthetic_scope(request: Request):
+        tenant = request.headers.get('X-Tenant-Id')
+        if not tenant:
+            raise HTTPException(403, detail={'code': 'TENANT_REQUIRED'})
+        request.state.collector_tenant_id = tenant
+        return 'HUMAN_CONTROL'
+    app.dependency_overrides[collector_guard] = synthetic_scope
     try:
         async with app.router.lifespan_context(app):
             async with _client() as c:

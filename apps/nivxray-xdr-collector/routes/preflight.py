@@ -81,7 +81,8 @@ async def ingest_preflight(request: Request,
     # into the real ingest pipeline. The tenant is resolved first so an
     # unauthorised probe is refused rather than answered with a configuration
     # report it was never entitled to.
-    tenant_id = _preflight_tenant(x_tenant_id)
+    from framework.tenant_scope import tenant_scope
+    tenant_id = tenant_scope(request)
 
     runtime = getattr(request.app.state, "runtime", None)
     if runtime is None:

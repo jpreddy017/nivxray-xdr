@@ -9,11 +9,17 @@ by `/app/backend/tests/test_collector_plane_auth.py` against the real
 authenticated mount.
 """
 import pytest
+from fastapi import Request
 import httpx
 from contextlib import asynccontextmanager
 
 from framework.authz import collector_guard
 from main import app
+
+
+@pytest.fixture(autouse=True)
+def isolated_runtime_state(monkeypatch, tmp_path):
+    monkeypatch.setenv('XDR_STATE_DIR', str(tmp_path))
 
 
 def _client() -> httpx.AsyncClient:
@@ -25,7 +31,10 @@ def _client() -> httpx.AsyncClient:
 async def _lifespan_client():
     """Runtime/transport client · guard overridden deliberately and
     restored afterwards, so no other test inherits the override."""
-    app.dependency_overrides[collector_guard] = lambda: "TEST_PLANE"
+    def synthetic_scope(request: Request):
+        request.state.collector_tenant_id = request.headers.get('X-Tenant-Id', 'acme')
+        return 'TEST_PLANE'
+    app.dependency_overrides[collector_guard] = synthetic_scope
     try:
         async with app.router.lifespan_context(app):
             async with _client() as c:
@@ -70,7 +79,9 @@ async def test_health_endpoint():
     assert r.status_code == 200
     j = r.json()
     assert j["phase"] == "B.5"
-    assert "connectors" in j
+    assert "connectors" not in j
+    assert "outbox" not in j
+    assert "rehydration" not in j
 
 
 @pytest.mark.asyncio
@@ -114,8 +125,8 @@ async def test_connector_crud_and_webhook_delivery():
         j = r.json()
         wh_rows = [x for x in j["transports"] if x["source_type"] == "webhook"]
         assert any(x.get("identity") == cid for x in wh_rows)
-        # ingest is not configured in the test env → must say so honestly
-        assert j["ingest"]["state"] == "not_configured"
+        # Process-wide ingest counters are not tenant-scoped measurements.
+        assert j["ingest"]["state"] == "not_available"
 
         # 5) data-sources projection shows accepted events
         r = await c.get("/api/xdr/data-sources")

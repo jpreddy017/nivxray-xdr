@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from framework.tenant_scope import tenant_scope
+
 router = APIRouter(tags=["data-sources"])
 
 
@@ -13,7 +15,7 @@ def list_data_sources(request: Request):
     store  = getattr(request.app.state, "store", None)
     instances = getattr(request.app.state, "instances", {})
     rows = []
-    for rec in (store.list() if store else []):
+    for rec in (store.list(tenant_id=tenant_scope(request)) if store else []):
         inst = instances.get(rec.id)
         d = inst.describe() if inst else {}
         rows.append({

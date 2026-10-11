@@ -4,19 +4,20 @@ Landed inside the NivXRay backend the real guard
 (`routers.collector_authz.collector_guard`) is importable and enforces
 AUTHENTICATION -> PERMISSION -> TENANT AUTHORITY -> CAPABILITY.
 
-In a STANDALONE deployment the backend's identity, RBAC and tenant registry do
-not exist, so there is nothing to authenticate against. The shim therefore
-FAILS CLOSED: every operation except the HMAC-authenticated webhook is refused.
-It does not fall back to "no authentication required" — that fallback is the
-defect this closure exists to remove. A standalone operator who needs the
-control plane runs it behind the landed backend (or an authenticating proxy),
-not open.
+Standalone management requires the existing backend-to-collector service
+credential and an explicit backend-authenticated tenant. Without that configured
+credential it fails closed. Shared handlers enforce resource ownership for both
+mounts; a service credential does not grant access to a different request tenant.
+Webhooks keep their separate payload authentication boundary.
 """
 from __future__ import annotations
 
+import hmac
+import os
 from fastapi import HTTPException, Request
+from framework.tenant_scope import bind_scope
 
-from framework.route_classification import MACHINE, classify, relative_path
+from framework.route_classification import MACHINE, TEST_PLANE, classify, relative_path
 
 try:  # landed inside the NivXRay backend
     from routers.collector_authz import collector_guard  # noqa: F401
@@ -31,6 +32,20 @@ except ImportError:  # standalone deployment
         declared = classify(request.method, relative_path(full_path, prefix))
         if declared and declared[0] == MACHINE:
             return MACHINE
+        expected = os.environ.get('COLLECTOR_CONTROL_SERVICE_CREDENTIAL', '')
+        if expected and declared:
+            scheme, _, supplied = request.headers.get('Authorization', '').partition(' ')
+            if scheme.lower() != 'bearer' or not supplied or not hmac.compare_digest(
+                    expected.encode(), supplied.encode()):
+                raise HTTPException(401, detail={'code': 'INVALID_SERVICE_CREDENTIAL'})
+            tenant = request.headers.get('X-Authenticated-Tenant', '').strip()
+            if not tenant:
+                raise HTTPException(403, detail={'code': 'AUTHENTICATED_TENANT_REQUIRED'})
+            await bind_scope(request, tenant)
+            if declared[0] == TEST_PLANE and os.environ.get('NIVX_COLLECTOR_TEST_PLANE') != '1':
+                raise HTTPException(403, detail={'code': 'TEST_PLANE_DISABLED'})
+            request.state.authenticated_service = 'authoritative-backend'
+            return declared[0]
         raise HTTPException(status_code=403, detail={
             "code": "COLLECTOR_AUTH_UNAVAILABLE",
             "reason": ("this collector is running standalone, where no "

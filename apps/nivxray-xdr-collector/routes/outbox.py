@@ -10,6 +10,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 
 
+from framework.tenant_scope import tenant_scope
+
 router = APIRouter(tags=["outbox"])
 
 
@@ -25,29 +27,11 @@ def outbox_health(request: Request):
     runtime = getattr(request.app.state, "runtime", None)
     if runtime is None:
         raise HTTPException(503, detail={"error": "runtime_not_ready"})
-    ingest_status = runtime.ingest.status()
-    outbox_metrics = runtime.outbox.metrics()
-    worker_status  = runtime.worker.status()
-    depth = outbox_metrics["queue_depth"]
-    gate = worker_status.get("health_gate") or {}
-    gate_state = gate.get("state")
-    if not ingest_status["configured"]:
-        state = "not_configured"
-    elif gate_state in ("OPEN", "HALF_OPEN"):
-        # G1-R3 · the destination is unavailable and delivery is paused. Say so
-        # plainly rather than reporting "degraded" as if events were flowing.
-        state = "delivery_paused"
-    elif ingest_status["last_error"] and depth > 0:
-        state = "degraded"
-    elif ingest_status["delivered"] > 0 and ingest_status["last_error"] is None:
-        state = "healthy"
-    else:
-        state = "idle"
-    return {"state":  state,
-              "delivery_health": gate,
-              "ingest": ingest_status,
-              "outbox": outbox_metrics,
-              "worker": worker_status}
+    metrics = runtime.outbox.metrics(tenant_id=tenant_scope(request))
+    # Process-wide delivery/worker counters are not tenant measurements.
+    return {"state": "not_available", "delivery_health": {},
+            "ingest": {"state": "not_available"}, "outbox": metrics,
+            "worker": {"state": "not_available"}}
 
 
 @router.get("/outbox")
@@ -58,7 +42,8 @@ def list_outbox(request: Request,
     ob = _outbox(request)
     if not ob:
         raise HTTPException(503, detail={"error": "runtime_not_ready"})
-    rows = ob.list(status=status, connector_id=connector_id, limit=limit)
+    rows = ob.list(status=status, connector_id=connector_id, limit=limit,
+                   tenant_id=tenant_scope(request))
     return {"envelopes": [{
         "id":              r.id,
         "tenant_id":       r.tenant_id,
@@ -80,7 +65,7 @@ def get_outbox(rid: str, request: Request):
     ob = _outbox(request)
     if not ob:
         raise HTTPException(503, detail={"error": "runtime_not_ready"})
-    row = ob.by_id(rid)
+    row = ob.by_id(rid, tenant_id=tenant_scope(request))
     if not row:
         raise HTTPException(404, detail={"error": "envelope_not_found"})
     return {
@@ -108,7 +93,9 @@ def replay_outbox(rid: str, request: Request):
     ob = _outbox(request)
     if not ob:
         raise HTTPException(503, detail={"error": "runtime_not_ready"})
-    ok = ob.replay_dead(rid)
+    if ob.by_id(rid, tenant_id=tenant_scope(request)) is None:
+        raise HTTPException(404, detail={"error": "envelope_not_found"})
+    ok = ob.replay_dead(rid, tenant_id=tenant_scope(request))
     if not ok:
         raise HTTPException(400, detail={"error": "not_dead_letter_or_missing"})
     return {"ok": True, "requeued": rid}
@@ -117,8 +104,6 @@ def replay_outbox(rid: str, request: Request):
 @router.post("/outbox/drain-once")
 async def drain_once(request: Request):
     """Operator/test-plane endpoint: force one delivery-worker tick."""
-    runtime = getattr(request.app.state, "runtime", None)
-    if runtime is None:
-        raise HTTPException(503, detail={"error": "runtime_not_ready"})
-    result = await runtime.worker.tick_once()
-    return {"ok": True, **result}
+    tenant_scope(request)
+    # The worker tick drains every tenant. No tenant-scoped grant authorizes it.
+    raise HTTPException(403, detail={"code": "GLOBAL_COLLECTOR_OPERATION_DENIED"})
