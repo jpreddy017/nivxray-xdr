@@ -36,6 +36,7 @@ jobs:
           pytest==9.1.1 pytest-xdist==3.8.0 pytest-asyncio==1.4.0
           fastapi==0.115.5 httpx==0.28.1
           motor==3.3.1 pymongo==4.6.3
+          bcrypt==4.1.3 PyJWT==2.13.0 python-dotenv==1.0.1
       - name: Behavior, ML, causal investigation and trajectory contracts
         working-directory: backend
         # auto handles the existing unmarked async Mongo tests and fixtures.
