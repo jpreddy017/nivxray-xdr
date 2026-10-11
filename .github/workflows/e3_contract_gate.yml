@@ -1,0 +1,76 @@
+name: E3 deterministic contracts
+
+on:
+  pull_request:
+    branches: [main, feature/e3-edr-engines, feature/rc2-alignment]
+  push:
+    branches: [feature/e3-edr-engines, 'codex/e3-*']
+  workflow_dispatch:
+
+# Read-only CI; no deployment, response execution, secrets or HOLD promotion.
+permissions:
+  contents: read
+
+jobs:
+  backend-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NIVX_AI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install deterministic test dependencies
+        run: >-
+          python -m pip install pytest==9.1.1 pytest-xdist==3.8.0
+          pytest-asyncio==1.4.0 fastapi==0.115.5 httpx==0.28.1
+          pydantic==2.13.4
+      - name: Existing engines and trajectory contracts
+        working-directory: backend
+        run: |
+          python -m pytest \
+            tests/edr_behavior tests/edr_ml tests/edr_investigation \
+            tests/edr_trajectory/test_edr_trajectory_contracts.py \
+            tests/edr_trajectory/test_signature_disposition.py \
+            tests/edr_trajectory/test_attack_catalog.py \
+            tests/edr_trajectory/test_attack_old_new_parity.py \
+            tests/edr_trajectory/test_cursor_validation.py \
+            -q --junitxml=e3-contracts.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e3-backend-contract-results
+          path: backend/e3-contracts.xml
+          if-no-files-found: error
+
+  trajectory-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install from existing lockfile
+        working-directory: apps/nivxray-xdr
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Trajectory models and rendered UI contracts
+        working-directory: apps/nivxray-xdr
+        run: >-
+          yarn test src/nivxforge/trajectory_amp/__tests__
+          src/nivxforge/trajectory/dt2/__tests__
+          --maxWorkers=2 --minWorkers=2
+      - name: Native time window contract
+        working-directory: apps/nivxray-xdr
+        run: node --test src/nivxforge/trajectory/dt2/__tests__/timeWindow.node-test.mjs
+      - name: Application build
+        working-directory: apps/nivxray-xdr
+        run: yarn build

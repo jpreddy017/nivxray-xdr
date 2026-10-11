@@ -21,7 +21,15 @@ def _enc(d: dict[str, Any]) -> str:
 def _dec(c: str) -> dict[str, Any]:
     try:
         d = json.loads(base64.urlsafe_b64decode(c.encode()).decode())
-        return {"t": int(d["t"]), "id": str(d["id"]), "as_of": d.get("as_of")}
+        # Cursors are client input: reject malformed boundaries here so the
+        # API returns BadCursor/400 instead of a comparison TypeError/500.
+        if not isinstance(d, dict):
+            raise ValueError("cursor must be an object")
+        if type(d.get("t")) is not int or not isinstance(d.get("id"), str) or not d["id"]:
+            raise ValueError("invalid event boundary")
+        if d.get("as_of") is not None and type(d["as_of"]) is not int:
+            raise ValueError("invalid ingestion boundary")
+        return {"t": d["t"], "id": d["id"], "as_of": d.get("as_of")}
     except Exception as ex:
         raise BadCursor("cursor is not a valid e3 trajectory cursor") from ex
 
