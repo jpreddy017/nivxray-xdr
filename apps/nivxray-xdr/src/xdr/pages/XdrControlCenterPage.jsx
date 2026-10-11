@@ -115,26 +115,31 @@ export default function XdrControlCenterPage() {
     <XdrShell>
       <div className="cc" data-testid="xdr-control-center"
            style={{ padding: "12px 16px 24px" }}>
-        {/* ── Identity row ─────────────────────────────────────── */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12,
-                      flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}
-              data-testid="xdr-control-center-title">
-            Control Center
-          </h1>
-          <span style={{ fontSize: 11, color: "var(--nx-muted, var(--muted))" }}>
-            {loading ? "Reading the authoritative records…"
-              : "Operational condition across your authorized scope"}
-          </span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 10,
-                        alignItems: "center" }}>
+        <header className="cc-header" aria-labelledby="cc-page-title">
+          <div className="cc-header__identity">
+            <span className="cc-header__eyebrow">Security operations</span>
+            <h1 id="cc-page-title" data-testid="xdr-control-center-title">
+              Control Center
+            </h1>
+            <p className="cc-header__description">
+              Priority work and security condition across your authorized scope.
+            </p>
+          </div>
+          <div className="cc-header__actions">
             <IntelligenceStatusChip />
-            <button className="cx-pill" onClick={load} disabled={loading}
+            <button className="cc-header__refresh" onClick={load} disabled={loading}
+                    aria-label="Refresh Control Center"
                     data-testid="xdr-control-center-refresh">
-              <RefreshCw size={11} /> Refresh
+              <RefreshCw size={14} aria-hidden="true" />
+              {loading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
-        </div>
+          <div className="cc-header__context" data-testid="cc-time-scope">
+            <Timer size={13} aria-hidden="true" />
+            <span>Time scope varies by panel</span>
+            <span className="cc-header__scope-note">Each panel uses its own reporting window.</span>
+          </div>
+        </header>
 
         {error && (
           <div className="cc-cond" data-testid="xdr-control-center-error"

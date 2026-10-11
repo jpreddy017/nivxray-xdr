@@ -137,3 +137,94 @@
 .cc-feed__t { font-family: var(--nx-font-mono, var(--mono)); font-size: 10px;
               color: var(--nx-muted, var(--muted)); }
 .cc-feed__x { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Task 2: Control Center chrome only. Keep panel styles and shared theme intact. */
+/* The legacy theme calls its amber token "purple". Override only chrome. */
+.xdr-console.cc-shell .topbar,
+.xdr-console.cc-shell .sidebar,
+.xdr-console.cc-shell .cc-header {
+  --nx-purple: #6D4EE0;
+  --nx-purple-dim: #EDE7FF;
+  --nx-purple-ring: rgba(109, 78, 224, .20);
+}
+.xdr-console.cc-shell[data-nx-theme="dark"] .topbar,
+.xdr-console.cc-shell[data-nx-theme="dark"] .sidebar,
+.xdr-console.cc-shell[data-nx-theme="dark"] .cc-header {
+  --nx-purple: #C4B5FD;
+  --nx-purple-dim: #302548;
+}
+
+.cc-header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px;
+  padding: 12px 0 18px; border-bottom: 1px solid var(--nx-divider);
+}
+.cc-header__identity { flex: 1 1 300px; min-width: 0; }
+.cc-header__eyebrow {
+  display: block; margin-bottom: 4px; color: var(--nx-purple);
+  font-size: 11px; font-weight: 600; letter-spacing: .06em;
+}
+.cc-header h1 {
+  margin: 0; color: var(--nx-text); font: 700 26px/1.25 var(--sans);
+  letter-spacing: -.025em;
+}
+.cc-header__description { margin: 6px 0 0; color: var(--nx-text-dim); font-size: 13px; }
+.cc-header__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.cc-header__refresh {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 36px; padding: 7px 12px; border: 1px solid var(--nx-divider-strong);
+  border-radius: 6px; background: var(--nx-surf-primary); color: var(--nx-text);
+  font: 600 12px/1.4 var(--sans); cursor: pointer;
+}
+.cc-header__refresh:hover:not(:disabled) { border-color: var(--nx-purple); color: var(--nx-purple); }
+.cc-header__refresh:disabled { opacity: .65; cursor: wait; }
+.cc-header__context {
+  display: flex; flex: 1 0 100%; align-items: center; flex-wrap: wrap; gap: 6px;
+  color: var(--nx-text-dim); font-size: 11px;
+}
+.cc-header__scope-note { color: var(--nx-muted); margin-left: 6px; }
+.xdr-console.cc-shell .topbar {
+  height: auto; min-height: 64px; flex-basis: auto; gap: 16px;
+  padding: 12px 20px; flex-wrap: wrap;
+}
+.xdr-console.cc-shell .brand { padding-right: 0; flex-shrink: 0; }
+.xdr-console.cc-shell .brand:hover { color: var(--nx-purple); }
+.xdr-console.cc-shell .top-search { margin-left: 0; min-width: 180px; padding: 8px 10px; }
+.xdr-console.cc-shell .top-actions { gap: 10px; flex-wrap: wrap; }
+.xdr-console.cc-shell [data-testid="xdr-scope-navigator"] {
+  border-left: 1px solid var(--nx-divider); padding-left: 12px;
+}
+.xdr-console.cc-shell .sidebar { padding: 16px 10px; }
+.xdr-console.cc-shell .sidebar .nav-item {
+  min-height: 38px; margin-bottom: 3px; font: 500 12px/1.4 var(--sans);
+  border-radius: 6px; gap: 10px;
+}
+.xdr-console.cc-shell .sidebar .nav-item.active {
+  color: var(--nx-purple); background: var(--nx-purple-dim);
+  box-shadow: inset 3px 0 var(--nx-purple);
+}
+.xdr-console.cc-shell .sidebar .nav-item.active .ic { color: var(--nx-purple); }
+.xdr-console.cc-shell .cc-nav-toggle { display: none; }
+.xdr-console.cc-shell :is(button, a, [role="button"]):focus-visible {
+  outline: 2px solid var(--nx-purple); outline-offset: 3px;
+}
+.xdr-console.cc-shell [data-testid="xdr-context-bar"] { row-gap: 8px; }
+@media (max-width: 1100px) {
+  .xdr-console.cc-shell .top-search { max-width: none; }
+  .xdr-console.cc-shell .top-actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 760px) {
+  .xdr-console.cc-shell .topbar { padding: 10px 12px; gap: 12px; position: relative; }
+  .xdr-console.cc-shell .cc-nav-toggle { display: inline-flex; align-items: center; min-height: 36px; }
+  .xdr-console.cc-shell .top-search { flex-basis: 100%; order: 2; }
+  .xdr-console.cc-shell .top-actions { justify-content: flex-start; gap: 8px; }
+  .xdr-console.cc-shell .body { flex-direction: column; }
+  .xdr-console.cc-shell .sidebar { display: none; }
+  .xdr-console.cc-shell .sidebar[data-mobile-open="true"] {
+    display: block; width: 100%; box-sizing: border-box; flex: 0 0 auto;
+    max-height: 280px; border-right: 0; border-bottom: 1px solid var(--nx-divider);
+  }
+  .cc-header { gap: 12px; }
+  .cc-header h1 { font-size: 23px; }
+  .cc-header__actions { width: 100%; justify-content: space-between; }
+  .cc-header__scope-note { flex-basis: 100%; margin-left: 19px; }
+}
