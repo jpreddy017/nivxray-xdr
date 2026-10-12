@@ -22,9 +22,9 @@ missing dependencies, misconfigured env — these are caught by CI/tests.
 from __future__ import annotations
 import base64
 import binascii
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -149,6 +149,9 @@ def _retry_xor_sweep(xored: bytes) -> Optional[Tuple[int, bytes, Dict[str, str]]
 
 
 # ─── Main orchestrator ───────────────────────────────────────────────────
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry()
 def troubleshoot(
     input_text: str,
     current_output: Optional[str] = None,

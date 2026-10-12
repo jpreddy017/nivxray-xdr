@@ -536,6 +536,9 @@ def _detect_multi_fragment(text: str) -> Optional[List[str]]:
 
 
 # ─── Public API ─────────────────────────────────────────────────────────
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def recover_canonical_evidence(
     input_text: str,
     analysis_mode: str = "balanced",

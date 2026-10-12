@@ -62,6 +62,7 @@ xdist test-suite equivalent because we skip the HTTP round-trip). Explicit
 `?refresh=true` bypasses the cache.
 """
 from __future__ import annotations
+import asyncio
 import json
 import os
 import time
@@ -287,7 +288,7 @@ async def get_confusion_matrix(
             body["cache"] = {"hit": True, "age_s": int(round(now - cached["_ts"]))}
             return body
 
-    body = _compute_matrix(only_categories=only_cats, include_negatives=include_negatives)
+    body = await asyncio.to_thread(_compute_matrix, only_categories=only_cats, include_negatives=include_negatives)
     _CACHE[ck] = {"_ts": now, "body": body}
     body = dict(body)
     body["cache"] = {"hit": False, "age_s": 0}

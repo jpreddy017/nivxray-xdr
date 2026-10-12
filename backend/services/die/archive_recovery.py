@@ -19,8 +19,11 @@ into memory.  Callers wanting a recursive walk pass the returned
 child bytes back into ``recover(child_bytes, name=…)``.
 """
 from __future__ import annotations
-import gzip, hashlib, io, tarfile, zipfile
+import hashlib, io, tarfile, zipfile
+from services.decoder.bounded_codecs import gzip
 from typing import Any, Dict, List, Optional, Tuple
+from services.decoder.resource_limits import MAX_OUTPUT, MAX_RATIO, MAX_TOTAL, DecodeLimitExceeded, charge
+from services.decoder.isolated import entry
 
 try:
     import py7zr        # type: ignore
@@ -117,11 +120,14 @@ def _sha256(b: bytes) -> str:
 def _extract_zip(blob: bytes) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     with zipfile.ZipFile(io.BytesIO(blob)) as z:
-        for info in z.infolist():
+        infos = z.infolist()
+        _check_members([(i.file_size, i.compress_size) for i in infos])
+        for info in infos:
             if info.is_dir():
                 continue
             try:
-                data = z.read(info)
+                with z.open(info) as member:
+                    data = _read_member(member)
             except Exception:
                 continue
             out.append(_record(info.filename, data, info.file_size))
@@ -130,14 +136,17 @@ def _extract_zip(blob: bytes) -> List[Dict[str, Any]]:
 
 def _extract_tar(blob: bytes) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
-    with tarfile.open(fileobj=io.BytesIO(blob)) as t:
-        for m in t.getmembers():
+    with tarfile.open(fileobj=io.BytesIO(blob), mode="r|") as t:
+        for index, m in enumerate(t):
+            if index >= 1024:
+                raise DecodeLimitExceeded("Archive member count limit exceeded")
+            _check_members([(m.size, len(blob))])
             if not m.isreg():
                 continue
             f = t.extractfile(m)
             if f is None:
                 continue
-            data = f.read()
+            data = _read_member(f)
             out.append(_record(m.name, data, m.size))
     return out
 
@@ -152,8 +161,9 @@ def _extract_7z(blob: bytes) -> List[Dict[str, Any]]:
         return []
     out: List[Dict[str, Any]] = []
     with py7zr.SevenZipFile(io.BytesIO(blob), mode="r") as sz:  # type: ignore
+        _check_members([(i.uncompressed, len(blob)) for i in sz.list()])
         for name, bio in (sz.readall() or {}).items():
-            data = bio.read()
+            data = _read_member(bio)
             out.append(_record(name, data, len(data)))
     return out
 
@@ -163,15 +173,19 @@ def _extract_rar(blob: bytes) -> List[Dict[str, Any]]:
         return []
     out: List[Dict[str, Any]] = []
     with rarfile.RarFile(io.BytesIO(blob)) as r:  # type: ignore
-        for info in r.infolist():
+        infos = r.infolist()
+        _check_members([(i.file_size, i.compress_size) for i in infos])
+        for info in infos:
             if info.isdir():
                 continue
-            data = r.read(info.filename)
+            with r.open(info.filename) as member:
+                data = _read_member(member)
             out.append(_record(info.filename, data, info.file_size))
     return out
 
 
 def _record(name: str, data: bytes, declared_size: Optional[int]) -> Dict[str, Any]:
+    charge(len(data))
     return {
         "name":  name,
         "size":  len(data),
@@ -183,6 +197,7 @@ def _record(name: str, data: bytes, declared_size: Optional[int]) -> Dict[str, A
 
 
 # ── public API ────────────────────────────────────────────────────
+@entry()
 def recover(blob: bytes, name: Optional[str] = None) -> Dict[str, Any]:
     """Recover an archive's children if ``blob`` is an archive.
 
@@ -221,6 +236,7 @@ def recover(blob: bytes, name: Optional[str] = None) -> Dict[str, Any]:
     return env
 
 
+@entry()
 def recover_recursive(blob: bytes, name: Optional[str] = None,
                       max_depth: int = 3,
                       max_children: int = 200) -> Dict[str, Any]:
@@ -231,6 +247,8 @@ def recover_recursive(blob: bytes, name: Optional[str] = None,
     total artifacts returned across the walk (defense against zip
     bombs).
     """
+    if not (0 <= max_depth <= 12 and 1 <= max_children <= 256):
+        raise DecodeLimitExceeded("Archive recursion/candidate limit exceeded")
     walked: List[Dict[str, Any]] = []
     seen_sha: set = set()
 
@@ -273,21 +291,41 @@ def _reread_child(container: bytes, child_name: str) -> Optional[bytes]:
     try:
         if kind == "zip":
             with zipfile.ZipFile(io.BytesIO(container)) as z:
-                return z.read(child_name)
+                info = z.getinfo(child_name)
+                _check_members([(info.file_size, info.compress_size)])
+                with z.open(info) as member:
+                    return _read_member(member)
         if kind == "tar":
             with tarfile.open(fileobj=io.BytesIO(container)) as t:
                 f = t.extractfile(child_name)
-                return f.read() if f else None
+                return _read_member(f) if f else None
         if kind == "gzip":
             return gzip.decompress(container)
         if kind == "7z" and _HAS_7Z:
             with py7zr.SevenZipFile(io.BytesIO(container), mode="r") as sz:  # type: ignore
+                _check_members([(i.uncompressed, len(container)) for i in sz.list()])
                 got = sz.read([child_name]) or {}
                 bio = got.get(child_name)
-                return bio.read() if bio else None
+                return _read_member(bio) if bio else None
         if kind == "rar" and _HAS_RAR:
             with rarfile.RarFile(io.BytesIO(container)) as r:  # type: ignore
-                return r.read(child_name)
+                info = r.getinfo(child_name)
+                _check_members([(info.file_size, info.compress_size)])
+                with r.open(info) as member:
+                    return _read_member(member)
     except Exception:
         return None
     return None
+
+
+def _check_members(sizes):
+    if len(sizes) > 1024 or sum(s for s, _ in sizes) > MAX_TOTAL:
+        raise DecodeLimitExceeded('Archive member/aggregate limit exceeded')
+    if any(s > min(MAX_OUTPUT, max(1024, c*MAX_RATIO)) for s, c in sizes):
+        raise DecodeLimitExceeded('Archive output/ratio limit exceeded')
+
+def _read_member(stream):
+    data = stream.read(MAX_OUTPUT+1)
+    if len(data) > MAX_OUTPUT:
+        raise DecodeLimitExceeded('Archive member output limit exceeded')
+    return data

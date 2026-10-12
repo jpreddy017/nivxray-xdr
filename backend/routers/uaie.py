@@ -8,6 +8,7 @@ additionally invokes the LEGACY convergence path via analysis_core so
 the graph-diff gate can observe both engines side-by-side.
 """
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 
 from typing import Any, Dict
 
@@ -61,13 +62,13 @@ def _run_legacy(text: str) -> Dict[str, Any]:
 
 @router.post("/uaie/dry-run")
 async def uaie_dry_run(body: CompareIn, user=Depends(get_current_user)):
-    return {"ssot": _run_uaie(body.input or "")}
+    return {"ssot": await run_offloaded(_run_uaie, body.input or "")}
 
 
 @router.post("/uaie/compare")
 async def uaie_compare(body: CompareIn, user=Depends(get_current_user)):
-    legacy = _run_legacy(body.input or "")
-    uaie   = _run_uaie(body.input or "")
+    legacy = await run_offloaded(_run_legacy, body.input or "")
+    uaie   = await run_offloaded(_run_uaie, body.input or "")
     return {"legacy": legacy,
             "uaie":   uaie,
             "diff":   _diff(legacy, uaie)}

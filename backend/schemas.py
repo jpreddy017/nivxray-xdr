@@ -27,7 +27,7 @@ class RecipeStep(BaseModel):
 
 class RunRecipeIn(BaseModel):
     input: str
-    steps: List[RecipeStep] = Field(default_factory=list)
+    steps: List[RecipeStep] = Field(default_factory=list, max_length=32)
 
 
 class RunRecipeOut(BaseModel):
@@ -58,9 +58,9 @@ class AutoIn(BaseModel):
 
 class MagicIn(BaseModel):
     input: str
-    max_depth: int = 4
-    max_branches: int = 3
-    top_n: int = 3
+    max_depth: int = Field(4, ge=0, le=12)
+    max_branches: int = Field(3, ge=1, le=8)
+    top_n: int = Field(3, ge=1, le=20)
 
 
 class ShellcodeIn(BaseModel):
@@ -70,6 +70,7 @@ class ShellcodeIn(BaseModel):
 
 
 class CommandAnalyzeIn(BaseModel):
+    automatic: bool = Field(False, description="Bounded Universal Decoder automatic mode")
     input: str = Field(..., description="Raw command line to semantically analyse")
     force_decode_span: Optional[str] = Field(
         None, description="If the previous /analyze/command call returned "

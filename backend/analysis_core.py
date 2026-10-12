@@ -323,6 +323,9 @@ def _r23_deep_peel_and_merge(result: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def deterministic_best_decode(payload: str, analysis_mode: str = "balanced") -> Dict[str, Any]:
     """Recursive deep-decode wrapper — keeps peeling nested obfuscation layers.
 

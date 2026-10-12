@@ -8,11 +8,11 @@ operations until a "clean" result is produced or no further progress is made.
 from __future__ import annotations
 import base64
 import binascii
-import bz2
-import gzip
-import lzma
+from services.decoder.bounded_codecs import bz2
+from services.decoder.bounded_codecs import gzip
+from services.decoder.bounded_codecs import lzma
 import re
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict, List, Tuple
 
 from operations import run_operation
@@ -136,6 +136,9 @@ MAX_STEPS = 12
 MAX_LENGTH = 2_000_000
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def smart_decode(payload: str) -> Dict[str, Any]:
     """Deterministically chain decoders until no further transformation applies.
 

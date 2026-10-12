@@ -1,0 +1,12 @@
+{
+  "command_input_bytes": 16390,
+  "automatic_http": 422,
+  "legacy_http": 200,
+  "compressed_bytes": 1052,
+  "legacy_gzip_output_bytes": 1048576,
+  "automatic_gzip": "Decompression output/ratio limit reached",
+  "thread_timeout_http": 504,
+  "thread_done_at_timeout": false,
+  "thread_completed_after_timeout": true,
+  "legacy_resource_acceptance": "FAIL: open release blocker"
+}

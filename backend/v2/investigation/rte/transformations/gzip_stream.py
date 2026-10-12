@@ -7,7 +7,7 @@ or any content that starts with those two hex nibbles.
 """
 from __future__ import annotations
 
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
 
 from ...evidence import Evidence

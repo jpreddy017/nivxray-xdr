@@ -22,6 +22,7 @@ report should hit ``/api/decode/smart`` (which also carries the
 certificate when the engine wins).
 """
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -63,7 +64,7 @@ async def decode_certificate(body: CertificateIn, user=Depends(get_current_user)
     """
     payload = body.input or ""
     art = Artifact.from_input(payload)
-    result = converge(art)
+    result = await run_offloaded(converge, art)
     return {
         "engine": "convergence",
         "input_hash": art.content_hash,

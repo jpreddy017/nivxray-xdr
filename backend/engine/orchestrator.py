@@ -928,6 +928,9 @@ class Orchestrator:
             plugin_report=exec_report,
         )}
 
+    from services.decoder.isolated import entry as _bounded_entry
+
+    @_bounded_entry(1)
     def run(self, payload: str) -> AnalystReport:
         ctx = self.ctx
         started = time.monotonic_ns()

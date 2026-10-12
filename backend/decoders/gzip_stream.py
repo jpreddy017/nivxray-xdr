@@ -6,7 +6,7 @@ or hex step surfaced the raw gzip stream.
 """
 from __future__ import annotations
 
-import gzip
+from services.decoder.bounded_codecs import gzip
 from typing import Any, Dict
 
 from engine.decoder_base import BaseDecoder

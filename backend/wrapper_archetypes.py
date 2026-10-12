@@ -18,9 +18,9 @@ matches, the archetype's chain wins with confidence=100 and we skip the race.
 from __future__ import annotations
 import base64
 import binascii
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict, List, Optional
 
 

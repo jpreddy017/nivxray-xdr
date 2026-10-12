@@ -20,7 +20,7 @@ scannable rather than raising.
 from __future__ import annotations
 
 import csv
-import gzip
+from services.decoder.bounded_codecs import gzip
 import io
 import json
 import logging

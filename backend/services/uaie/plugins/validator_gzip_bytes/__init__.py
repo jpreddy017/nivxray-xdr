@@ -16,8 +16,7 @@ where the gzip stream corrupts mid-flight at offset ~1472.
 """
 from __future__ import annotations
 
-import zlib
-
+from services.decoder.bounded_codecs import zlib
 from ...artifact import Artifact
 from ...qa       import (INVALID_MISSING_MAGIC, INVALID_SIZE_BELOW_MIN,
                             INVALID_TRUNCATED, RepairCandidate, RepairResult,

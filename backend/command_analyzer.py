@@ -1054,6 +1054,9 @@ def summarize(interpreter: Optional[InterpreterProfile],
 # 9. Main entry
 # =============================================================================
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def analyze_command(text: str,
                      force_decode_span: Optional[str] = None) -> Dict[str, Any]:
     """Full analyst-focused command-line analysis.

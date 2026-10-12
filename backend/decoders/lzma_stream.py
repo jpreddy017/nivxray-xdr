@@ -6,7 +6,7 @@ recovery — same approach as brotli/zstd plugins.
 """
 from __future__ import annotations
 
-import lzma
+from services.decoder.bounded_codecs import lzma
 from typing import Any, Dict
 
 from engine.decoder_base import BaseDecoder

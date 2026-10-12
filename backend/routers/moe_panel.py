@@ -7,6 +7,7 @@ pre-built `evidence` object from an earlier decode call — this avoids
 double-decoding when the workspace already has the chain in hand.
 """
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -75,6 +76,6 @@ async def moe_analyze(body: MoeAnalyzeIn, user=Depends(get_current_user)):
     if not body.evidence and not body.input:
         raise HTTPException(status_code=400,
                             detail="Provide either 'input' or 'evidence'.")
-    evidence = body.evidence or _build_evidence_from_input(body.input)
+    evidence = body.evidence or await run_offloaded(_build_evidence_from_input, body.input)
     session_id = body.session_id or f"moe-{user.get('email', 'anon')}"
     return await run_panel_async(evidence, session_id=session_id)

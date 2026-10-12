@@ -93,6 +93,9 @@ def _run_one_iteration(
     )
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry()
 def converge(
     artifact: Artifact,
     *,
@@ -107,8 +110,8 @@ def converge(
     """
     if not isinstance(artifact, Artifact):
         raise TypeError("converge() requires an Artifact instance")
-    if max_depth < 1:
-        raise ValueError("max_depth must be >= 1")
+    if not 1 <= max_depth <= MAX_ITERATION_DEPTH:
+        raise ValueError("max_depth must be between 1 and MAX_ITERATION_DEPTH")
 
     initial_hash = artifact.content_hash
     state = _EngineState(artifact=artifact)
