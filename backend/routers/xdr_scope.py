@@ -13,8 +13,8 @@ Unresolved tenant/scope FAILS CLOSED. There is no default tenant.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, ConfigDict
 
 from deps import get_current_user as _deps_current_user
 from routers.xdr_rbac import console_authorization
@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api/xdr/scope", tags=["xdr-scope"])
 
 class ScopeSelection(BaseModel):
     """What the UI requests. Never authority."""
+    model_config = ConfigDict(extra="forbid")
     kind: str = Field(default="all_authorized",
                       pattern=r"^(tenant|group|all_authorized)$")
     tenant_id: str | None = None
@@ -79,7 +80,7 @@ def authorized_scope(user=Depends(_deps_current_user)):
 
 
 @router.post("/select")
-def select_scope(body: ScopeSelection, user=Depends(_deps_current_user)):
+def select_scope(body: ScopeSelection, request: Request, user=Depends(_deps_current_user)):
     """C2 · resolve a requested scope into the authoritative EffectiveScope.
 
     Returns the INTERSECTION with the authorized set and names every
@@ -90,6 +91,21 @@ def select_scope(body: ScopeSelection, user=Depends(_deps_current_user)):
         raise HTTPException(status_code=403, detail={
             "code": "ACCESS_DENIED", "reason": "unauthenticated",
             "fail_closed": True})
+    # Body is the requested destination. X-Tenant-Id is the current browser
+    # context (it legitimately differs while switching A -> B), not a grant.
+    # Validate it independently; reject contradictory query/body selectors.
+    keys = ("tenant_id", "tenant", "customer", "tenantId", "customer_id", "customerId")
+    query_claims = [v for key in keys for v in request.query_params.getlist(key)]
+    header_claims = list(request.headers.getlist("X-Tenant-Id"))
+    if any(not str(v).strip() for v in query_claims + header_claims):
+        raise HTTPException(403, detail={"code": "SCOPE_NOT_AUTHORIZED", "fail_closed": True})
+    current = {v.strip() for v in header_claims}
+    if len(current) > 1 or any(v.strip() != body.tenant_id for v in query_claims):
+        raise HTTPException(403, detail={"code": "SCOPE_SELECTOR_CONFLICT", "fail_closed": True})
+    if current:
+        context = sc.effective_scope(email, kind="tenant", tenant_id=next(iter(current)))
+        if not context.get("authorized"):
+            raise HTTPException(403, detail={"code": "SCOPE_CONTEXT_NOT_AUTHORIZED", "fail_closed": True})
     eff = sc.effective_scope(email, kind=body.kind,
                              tenant_id=body.tenant_id,
                              group_tenant_ids=body.group_tenant_ids,
