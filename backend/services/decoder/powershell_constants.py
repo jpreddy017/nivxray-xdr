@@ -229,7 +229,7 @@ def reconstruct(source):
             first=tokens[parser.i];assignment=False
             if first.kind==TOK_VARIABLE and parser.i+1<len(tokens) and tokens[parser.i+1].value=='=':
                 name=first.value.lower()
-                if not re.fullmatch(r'[a-z][a-z0-9_]*',name) or name in {'true','false','null','args','input','pshome','pwd','error','host','executioncontext','lastexitcode','pid'}:raise Unsupported('Automatic/scoped variable refused')
+                if not re.fullmatch(r'[a-z][a-z0-9_]*',name) or name.startswith('ps') or name in {'true','false','null','args','input','pshome','pwd','error','host','executioncontext','lastexitcode','pid','home','profile','myinvocation','matches','foreach','switch','this','nestedpromptlevel','sender','shellid','stacktrace','islinux','ismacos','iswindows','iscoreclr','event','eventargs','eventsubscriber','enabledexperimentalfeatures','consolefilename'}:raise Unsupported('Automatic/scoped variable refused')
                 parser.i+=2;assignment=True
             elif first.value.lower() in ('write-output','write-host','iex','invoke-expression'):
                 parser.take()

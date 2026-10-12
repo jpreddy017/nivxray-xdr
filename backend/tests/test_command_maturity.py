@@ -35,7 +35,7 @@ def test_benchmark_oracle(case):
  "Write-Output ([char]55296)","Write-Output ([byte]256)",
  "Write-Output ('{0.__class__}' -f 'x')", "Write-Output ('{999999}' -f 'x')",
  "$a='one'; Set-Variable a two; Write-Output $a", "$a='one'; & $a", "$a='one'; $a++ ; Write-Output $a",
- "$global:a='x';Write-Output $global:a", "$a='one'; function change{$a='two'};Write-Output $a",
+ "$global:a='x';Write-Output $global:a", "$HOME='x';Write-Output $HOME", "$PSVersionTable='x';Write-Output $PSVersionTable", "$a='one'; function change{$a='two'};Write-Output $a",
  "Write-Output (-join (65,66 | ForEach-Object { [char]$_; Start-Process nope }))",
  "Write-Output ('unclosed", "Write-Output (2147483647+1)",
 ])

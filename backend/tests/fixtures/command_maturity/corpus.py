@@ -32,7 +32,7 @@ def cases():
     add('embedded',"echo prefix; [Convert]::FromBase64String('"+b64(script.encode())+"'); echo suffix",script,'partial')
     for name,src in [('unknown_variable','Write-Output $env:PATH'),('dynamic_call','IEX (Get-Content unknown.ps1)'),('loop_side_effect',"Write-Output (-join (104,101 | ForEach-Object { Start-Process anything; [char]$_ }))"),('unknown_key',"Write-Output (-join (111,98 | ForEach-Object { [char]($_ -bxor $key) }))"),('encrypted','[AES]::Decrypt($cipher,$key)'),('malformed',"Write-Output ('abc"),('branch',"$a='hello'; if($x){$a='bye'}; Write-Output $a"),('mixed_type',"Write-Output ('x'+1)")]:
         add(name,src,policy='refuse')
-    add('truncated_gzip',b64(gzip.compress(script.encode(),mtime=0)[:-4]),policy='refuse')
+    add('truncated_gzip',b64(gzip.compress(script.encode(),mtime=0)[:-4]),script,'partial')
     add('plain_admin','Get-Service',policy='plain')
     add('plain_output',script,policy='plain')
     add('quoted_behavior',"Write-Output 'IEX DownloadString VirtualAlloc schtasks'",policy='plain',behavior='output_only')
