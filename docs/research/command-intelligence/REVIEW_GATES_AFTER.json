@@ -1,0 +1,112 @@
+[
+  {
+    "input": "Write-Output 1+2",
+    "status": "NOT_REQUIRED",
+    "canonical": {
+      "promoted": false,
+      "text": null,
+      "candidate_text": null,
+      "source": "universal_decoder",
+      "evidence_id": null,
+      "decode_status": "NOT_REQUIRED",
+      "reason": "No supported encoding or obfuscation identified; this is not a benign verdict."
+    },
+    "behaviors": [
+      {
+        "kind": "output_display",
+        "explanation": "Output/display command syntax is present. Runtime execution is not established.",
+        "evidence_id": "sha256:a5ba65efa87b24d5e3290032e6af9a0ff0c1277f2a8d491ebfbf2542ce43e505",
+        "match": "Write-Output",
+        "start": 0,
+        "end": 12,
+        "basis": "observed_syntax",
+        "execution_proven": false
+      }
+    ]
+  },
+  {
+    "input": "Write-Output ('[{0}]' -f 'x' + 'y')",
+    "status": "RECOVERED",
+    "canonical": {
+      "promoted": true,
+      "text": "Write-Output '[x]y'",
+      "candidate_text": null,
+      "source": "universal_decoder",
+      "evidence_id": "sha256:2d75eaa12b428b5ba3193458b7c16c402ed32bfa3cca39948a1b77073e8e704e",
+      "decode_status": "RECOVERED",
+      "reason": "Supported transformations reached a static fixed point; this does not establish execution."
+    },
+    "behaviors": [
+      {
+        "kind": "output_display",
+        "explanation": "Output/display command syntax is present. Runtime execution is not established.",
+        "evidence_id": "sha256:16f29677c9e50b548933061d684130ad1300e7247549d1c7758a110af3af2608",
+        "match": "Write-Output",
+        "start": 0,
+        "end": 12,
+        "basis": "observed_syntax",
+        "execution_proven": false
+      },
+      {
+        "kind": "output_display",
+        "explanation": "Output/display command syntax is present. Runtime execution is not established.",
+        "evidence_id": "sha256:2d75eaa12b428b5ba3193458b7c16c402ed32bfa3cca39948a1b77073e8e704e",
+        "match": "Write-Output",
+        "start": 0,
+        "end": 12,
+        "basis": "observed_syntax",
+        "execution_proven": false
+      }
+    ]
+  },
+  {
+    "input": "$x='a';Write-Output ${x",
+    "status": "UNRECOVERED",
+    "canonical": {
+      "promoted": false,
+      "text": null,
+      "candidate_text": null,
+      "source": "universal_decoder",
+      "evidence_id": null,
+      "decode_status": "UNRECOVERED",
+      "reason": "Recognized encoding/obfuscation could not be safely recovered."
+    },
+    "behaviors": [
+      {
+        "kind": "output_display",
+        "explanation": "Output/display command syntax is present. Runtime execution is not established.",
+        "evidence_id": "sha256:237fa87cc470b9315cf95f94d0b7303acfabe63d2eb4cab13ce965b1d18fb179",
+        "match": ";Write-Output",
+        "start": 6,
+        "end": 19,
+        "basis": "observed_syntax",
+        "execution_proven": false
+      }
+    ]
+  },
+  {
+    "input": "echo Set-MpPreference -DisableRealtimeMonitoring $false",
+    "status": "UNRECOVERED",
+    "canonical": {
+      "promoted": false,
+      "text": null,
+      "candidate_text": null,
+      "source": "universal_decoder",
+      "evidence_id": null,
+      "decode_status": "UNRECOVERED",
+      "reason": "Recognized encoding/obfuscation could not be safely recovered."
+    },
+    "behaviors": [
+      {
+        "kind": "output_display",
+        "explanation": "Output/display command syntax is present. Runtime execution is not established.",
+        "evidence_id": "sha256:7f0dcce3a7f3584efa86f4e96f084744d29b5af31125cd10d1677c31951c8f20",
+        "match": "echo",
+        "start": 0,
+        "end": 4,
+        "basis": "observed_syntax",
+        "execution_proven": false
+      }
+    ]
+  }
+]
