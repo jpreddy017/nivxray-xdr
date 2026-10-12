@@ -43,14 +43,35 @@ const cIC = (typeof window !== "undefined" && window.cancelIdleCallback)
 export function useIdlePersist(key, snapshot, opts = {}) {
   const debounceRef = useRef(null);
   const idleRef     = useRef(null);
+  const previousRef = useRef(null);
   const bulkFields  = opts.bulkFields || [];
 
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (idleRef.current) cIC(idleRef.current);
+    debounceRef.current = null;
+    idleRef.current = null;
+    previousRef.current = null;
+  }, []);
+
+  // Compare committed top-level values, not the identity of the inline
+  // snapshot object. Unrelated renders must not restart a pending debounce.
   useEffect(() => {
-    // Bail out cheaply when tab is hidden — no writes while backgrounded.
-    if (typeof document !== "undefined" && document.hidden) return;
+    const keys = Object.keys(snapshot || {});
+    const values = keys.map(k => snapshot[k]);
+    const previous = previousRef.current;
+    if (previous && previous.key === key &&
+        keys.length === previous.keys.length &&
+        keys.every((k, i) => k === previous.keys[i] && Object.is(values[i], previous.values[i])) &&
+        bulkFields.length === previous.bulkFields.length &&
+        bulkFields.every((field, i) => field === previous.bulkFields[i])) return;
+    previousRef.current = { key, keys, values, bulkFields: [...bulkFields] };
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (idleRef.current)     cIC(idleRef.current);
+    if (idleRef.current) cIC(idleRef.current);
+
+    // Bail out cheaply when tab is hidden — no writes while backgrounded.
+    if (typeof document !== "undefined" && document.hidden) return;
 
     debounceRef.current = setTimeout(() => {
       idleRef.current = rIC(() => {
@@ -100,13 +121,7 @@ export function useIdlePersist(key, snapshot, opts = {}) {
       }, { timeout: 2000 });
     }, DEBOUNCE_MS);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (idleRef.current)     cIC(idleRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, JSON.stringify(Object.keys(snapshot || {})),   // stable shape key
-        ...Object.values(snapshot || {})]);
+  });
 }
 
 

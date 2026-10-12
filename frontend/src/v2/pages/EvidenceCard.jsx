@@ -158,11 +158,11 @@ function AttackProgress({ summary }) {
 
 // ─── Case Overview (empty-selection default) ──────────────────────
 function CaseOverview({ inv, caseId, onDownload, onTacticSelect }) {
-  const h = inv?.header || {};
+  const h = useMemo(() => inv?.header || {}, [inv?.header]);
   const band = h.verdict_band || "benign";
   const tone = BAND_TONES[band] || BAND_TONES.benign;
   const story = (inv?.story || []).slice(0, 10);
-  const ikg = inv?.ikg || {};
+  const ikg = useMemo(() => inv?.ikg || {}, [inv?.ikg]);
   const counts = useMemo(() => {
     const nodes = ikg.nodes || [];
     return {
@@ -427,8 +427,8 @@ export default function EvidenceCard({ inv }) {
   const { caseId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const nodes = inv?.ikg?.nodes || [];
-  const edges = inv?.ikg?.edges || [];
+  const nodes = useMemo(() => inv?.ikg?.nodes || [], [inv?.ikg?.nodes]);
+  const edges = useMemo(() => inv?.ikg?.edges || [], [inv?.ikg?.edges]);
   const nodeById = useMemo(() => {
     const m = {}; nodes.forEach(n => (m[n.id] = n)); return m;
   }, [nodes]);

@@ -266,7 +266,7 @@ export default function OutputView({
     if (typeof output !== "string") return output;
     if (output.length <= DISPLAY_CAP) return output;
     return output.slice(0, DISPLAY_CAP);
-  }, [output]);
+  }, [output, DISPLAY_CAP]);
 
   const diff = useMemo(() => computeDiff(input || "", renderOutput || ""), [input, renderOutput]);
   const shellcode = useMemo(() => detectShellcode(renderOutput || ""), [renderOutput]);

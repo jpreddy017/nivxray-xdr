@@ -200,7 +200,7 @@ function ExplainabilityPanel({ inv, activeTab }) {
   const band = h.verdict_band || "benign";
   const tone = BAND_TONES[band] || BAND_TONES.benign;
   const patterns = inv?.explainability?.negative_patterns || [];
-  const positive = inv?.explainability?.positive || { reasons: [] };
+  const positive = useMemo(() => inv?.explainability?.positive || { reasons: [] }, [inv?.explainability?.positive]);
 
   // Fetch a negative-reasoning response on demand (cached).
   useEffect(() => {

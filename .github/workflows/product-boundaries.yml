@@ -1,0 +1,53 @@
+name: Product boundaries (no deployment)
+on:
+  pull_request:
+    paths:
+      - 'products/**'
+      - 'scripts/product_tasks.py'
+      - 'scripts/tests/test_product_tasks.py'
+      - 'apps/nivxray-xdr/**'
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/product-boundaries.yml'
+permissions:
+  contents: read
+jobs:
+  ownership:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: python3 scripts/product_tasks.py all check
+      - run: python3 -m unittest discover -s scripts/tests -p test_product_tasks.py
+  frontend:
+    name: '${{ matrix.product }} local build and tests'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: xdr
+            root: apps/nivxray-xdr
+          - product: edr
+            root: apps/nivxray-xdr
+          - product: workspace
+            root: frontend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npx --yes yarn@1.22.22 install --frozen-lockfile --non-interactive
+        working-directory: '${{ matrix.root }}'
+      - run: python3 scripts/product_tasks.py '${{ matrix.product }}' test
+      - name: Workspace Jest regressions
+        if: matrix.product == 'workspace'
+        run: CI=true npm run test -- --watchAll=false --runInBand
+        working-directory: '${{ matrix.root }}'
+      - run: python3 scripts/product_tasks.py '${{ matrix.product }}' build
+# Company is deliberately not a green placeholder job: its source is unresolved.
+# Backend regression/release gates remain governed by the existing workflows.

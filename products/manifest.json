@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "repository": "jpreddy017/nivxray-xdr",
+  "baseline": "d9b3cd6c99580df407c5147c49b9b5753338bef7",
+  "products": {
+    "company": {
+      "name": "NivX Machines",
+      "status": "source_not_identified",
+      "source_roots": [],
+      "vercel_projects": [],
+      "build_root": null,
+      "blocked_reason": "Company website source and project are not identified; do not substitute Workspace."
+    },
+    "workspace": {
+      "name": "NivXMachines Workspace",
+      "status": "existing",
+      "source_roots": ["frontend"],
+      "backend_modules": ["backend/routers/cases.py", "backend/routers/workspace_investigation.py", "backend/l1_evidence", "backend/l2_investigation"],
+      "vercel_projects": ["nivxmachines-workspace"],
+      "build_root": "frontend",
+      "shared_dependencies": ["platform_authority", "investigation_services"]
+    },
+    "xdr": {
+      "name": "NivXRay XDR",
+      "status": "existing",
+      "source_roots": ["apps/nivxray-xdr/src/xdr"],
+      "backend_modules": ["backend/routers/xdr_mss.py", "backend/routers/xdr_scope.py", "backend/routers/incident_canonical_evidence.py", "backend/services/dashboard_lenses.py"],
+      "vercel_projects": ["nivxray-xdr", "nivxray-xdr-production"],
+      "build_root": "apps/nivxray-xdr",
+      "shared_dependencies": ["console_shell", "platform_authority", "investigation_services", "collector_response_services"]
+    },
+    "edr": {
+      "name": "NivXForge EDR",
+      "status": "existing",
+      "source_roots": ["apps/nivxray-xdr/src/nivxforge", "agents"],
+      "backend_modules": ["backend/edr_plane", "backend/services/edr", "backend/routers/edr.py", "backend/routers/edr_response.py"],
+      "vercel_projects": ["nivxray-edr-production"],
+      "build_root": "apps/nivxray-xdr",
+      "shared_dependencies": ["console_shell", "platform_authority", "collector_response_services"],
+      "agent_baseline_branch": "feature/e3-edr-engines",
+      "agent_baseline_sha": "258c8854c8b89e5203ba2c0e80f631fb3e700315",
+      "note": "Current RC2 agent files are not the latest EDR engineering milestone. Preserve and review the EDR branches separately; no agent synchronization is authorized here."
+    }
+  },
+  "shared": {
+    "console_shell": ["apps/nivxray-xdr/src/App.jsx", "apps/nivxray-xdr/src/lib", "apps/nivxray-xdr/src/components", "apps/nivxray-xdr/src/productScope.js", "apps/nivxray-xdr/vite.config.js"],
+    "platform_authority": ["backend/deps.py", "backend/routers/auth.py", "backend/routers/xdr_rbac.py", "backend/services/tenant_registry.py", "backend/services/session_context.py"],
+    "investigation_services": ["backend/l1_evidence", "backend/l2_investigation", "backend/routers/workspace_investigation.py"],
+    "collector_response_services": ["apps/nivxray-xdr-collector", "apps/nivxray-xdr-response"],
+    "backend_composition": ["backend/server.py"],
+    "integration_contracts": ["backend/edr_plane/contracts", "backend/services/xdr_observation_contract.py", "apps/nivxray-xdr/docs/RESPONSE_CONTRACT.md"]
+  },
+  "deployment_mapping_status": "Project names verified; live root/env/branch configuration not verified because Vercel detailed inspection is denied.",
+  "policy": "No repository split, production relinking, migration, auth-authority change or HOLD removal. Shared changes require all affected product checks."
+}
