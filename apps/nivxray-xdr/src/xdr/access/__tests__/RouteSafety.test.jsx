@@ -55,15 +55,15 @@ it("page mapping uses resource permissions, never role names", () => {
 it.each([401, 403])("denied investigation authority %s cannot fall back to incidents", async (status) => {
   api.get.mockRejectedValueOnce({ response: { status } });
   await expect(readInvestigationCases()).rejects.toEqual({ response: { status } });
-  expect(api.get).toHaveBeenCalledOnce(); expect(api.get).toHaveBeenCalledWith("/v2/cases");
+  expect(api.get).toHaveBeenCalledOnce(); expect(api.get).toHaveBeenCalledWith("/v2/cases", { signal: undefined });
 });
 it("cancelled investigation cannot start a fallback request", async () => {
   api.get.mockRejectedValueOnce({ code: "ERR_CANCELED" });
   await expect(readInvestigationCases()).rejects.toEqual({ code: "ERR_CANCELED" });
   expect(api.get).toHaveBeenCalledOnce();
 });
-it("existing non-authorization compatibility fallback still works", async () => {
-  api.get.mockRejectedValueOnce({ response: { status: 404 } });
+it("documented absent-route compatibility fallback still works", async () => {
+  api.get.mockRejectedValueOnce({ response: { status: 404, data: { detail: "Not Found" } } });
   api.get.mockResolvedValueOnce({ data: { incidents: [{ id: "A-1", name: "Synthetic incident" }] } });
   expect((await readInvestigationCases())[0].id).toBe("A-1"); expect(api.get).toHaveBeenCalledTimes(2);
 });

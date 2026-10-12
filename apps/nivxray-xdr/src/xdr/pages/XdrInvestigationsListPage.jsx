@@ -2,16 +2,14 @@
  * XdrInvestigationsListPage · `/xdr/investigations` — Investigate landing.
  *
  * B2-INV. The landing lists the investigations the principal may see and
- * opens each one in the SINGLE analyst workspace
- * (`/xdr/incidents/:id?tab=story`). There is no second investigation
- * experience: the causal engine's panels are mounted underneath the
- * analyst tabs that own their question.
+ * opens each one in the existing investigation engine workspace.
+ * Observable entry reuses the authorized Hunting route.
  *
  * Data authority is unchanged — `/api/v2/cases` with the incident
  * registry as the fallback projection. A verdict the platform did not
  * issue stays NO EVIDENCE; nothing is coerced to "benign".
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, ArrowRight, Search } from "lucide-react";
 
@@ -19,6 +17,8 @@ import XdrShell from "@/xdr/XdrShell";
 import api from "@/lib/api";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
+import ObservableEntry from "./ObservableEntry";
+import useScopedRead from "./useScopedRead";
 import { NxChip, NxDataTable, NxButton } from "@/xdr/nx";
 
 const BANDS = ["all", "critical", "malicious", "suspicious", "low",
@@ -44,22 +44,23 @@ function VerdictBadge({ band }) {
   );
 }
 
-export async function readInvestigationCases() {
+export async function readInvestigationCases(signal) {
   let casesList = [];
   try {
-    const resV2 = await api.get("/v2/cases");
-    const raw = resV2?.data?.cases || resV2?.data || [];
-    if (Array.isArray(raw)) casesList = raw;
+    const resV2 = await api.get("/v2/cases", { signal });
+    const raw = resV2?.data?.cases ?? resV2?.data;
+    if (!Array.isArray(raw)) throw new Error("Invalid case list response");
+    casesList = raw;
   } catch (error) {
-    if ([401, 403].includes(error?.response?.status) || error?.code === "ERR_CANCELED") throw error;
+    if (signal?.aborted || error?.code === "ERR_CANCELED" || error?.response?.status !== 404 || error?.response?.data?.detail !== "Not Found") throw error;
   }
 
+  if (signal?.aborted) throw new Error("Investigation read canceled");
   if (casesList.length === 0) {
-    try {
-      const resInc = await api.get("/incidents?limit=500");
-      const incs = resInc?.data?.incidents || resInc?.data || [];
-      if (Array.isArray(incs)) {
-        casesList = incs.map((inc) => {
+      const resInc = await api.get("/incidents?limit=500", { signal });
+      const incs = resInc?.data?.incidents ?? resInc?.data;
+      if (!Array.isArray(incs)) throw new Error("Invalid incident list response");
+      casesList = incs.map((inc) => {
           // Honest coercion: verdict may be a string, an object with
           // .label, or absent. Never "[object Object]", never invented.
           let bandRaw = inc.verdict_stage2?.label ?? inc.verdict;
@@ -83,37 +84,21 @@ export async function readInvestigationCases() {
             updated_at: inc.updated_at || inc.created_at || null,
             source: "incidents",
           };
-        });
-      }
-    } catch (error) {
-      if ([401, 403].includes(error?.response?.status) || error?.code === "ERR_CANCELED") throw error;
-    }
+      });
   }
   return casesList;
 }
 
 export default function XdrInvestigationsListPage() {
   const navigate = useNavigate();
-  const [cases, setCases] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [revision, setRevision] = useState(0);
+  const result = useScopedRead(readInvestigationCases, revision);
+  const cases = result.data || [];
+  const loading = result.loading;
+  const error = result.error ? apiErrorText(result.error, "Failed to load investigations.") : null;
+  const loadCases = () => setRevision(value => value + 1);
   const [filterQuery, setFilterQuery] = useState("");
   const [selectedBand, setSelectedBand] = useState("all");
-
-  const loadCases = useCallback(async () => {
-    setCases([]);
-    setLoading(true);
-    setError(null);
-    try {
-      const casesList = await readInvestigationCases();
-      setCases(casesList);
-    } catch (err) {
-      setCases([]);
-      setError(apiErrorText(err, "Failed to load investigations."));
-    } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { loadCases(); }, [loadCases]);
 
   const filtered = useMemo(() => cases.filter((c) => {
     const id = String(c.id || c.case_id || "").toLowerCase();
@@ -146,10 +131,8 @@ export default function XdrInvestigationsListPage() {
           </h1>
           <span style={{ fontSize: 11, color: "var(--nx-muted, var(--muted))",
                          maxWidth: 760, lineHeight: 1.6 }}>
-            Every investigation the platform holds, opened in one workspace:
-            attack story, timeline, evidence, entities, detections, ATT&amp;CK,
-            response and report. The causal engine sits underneath those
-            surfaces, not beside them.
+            Start from an observable or continue an existing investigation.
+            Review the evidence before reaching a verdict.
           </span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <NxButton onClick={loadCases} disabled={loading}
@@ -159,6 +142,9 @@ export default function XdrInvestigationsListPage() {
           </div>
         </div>
 
+        <ObservableEntry key={result.context} />
+
+        <h2 style={{ fontSize: 16, marginTop: 20 }}>Open Existing Investigation</h2>
         <div className="cc-cond" data-testid="xdr-investigate-summary">
           <span className="cc-cond__i">
             <span className="cc-cond__k">Investigations</span>
@@ -174,6 +160,7 @@ export default function XdrInvestigationsListPage() {
             <span className="cc-cond__k">Verdict</span>
             <select value={selectedBand}
                     onChange={(e) => setSelectedBand(e.target.value)}
+                    aria-label="Filter by verdict"
                     data-testid="xdr-investigate-band-filter"
                     style={{ fontSize: 11, background: "transparent",
                              color: "var(--nx-text, var(--text))",
@@ -190,10 +177,11 @@ export default function XdrInvestigationsListPage() {
             <Search size={11} style={{ opacity: .6 }} />
             <input value={filterQuery}
                    onChange={(e) => setFilterQuery(e.target.value)}
+                   aria-label="Filter existing investigations"
                    data-testid="xdr-investigate-filter"
                    placeholder="Filter case id or title…"
                    style={{ fontSize: 11, background: "transparent",
-                            border: "none", outline: "none", width: 230,
+                            border: "none", width: "min(230px, 55vw)",
                             color: "var(--nx-text, var(--text))" }} />
           </span>
         </div>
@@ -217,10 +205,7 @@ export default function XdrInvestigationsListPage() {
             )}
             {!loading && filtered.length === 0 && !error && (
               <div className="cc-empty" data-testid="xdr-investigate-empty">
-                <b>No investigation in scope</b> — neither the case engine nor
-                the incident registry returns a record your identity is
-                authorized to open. This is an authorization and data
-                statement, not a broken page.
+                <b>{cases.length ? "No investigations match these filters" : "No investigation in scope"}</b> — {cases.length ? "Clear the title or verdict filter to see available records." : "No records were returned for your authorized scope."}
               </div>
             )}
             {filtered.length > 0 && (

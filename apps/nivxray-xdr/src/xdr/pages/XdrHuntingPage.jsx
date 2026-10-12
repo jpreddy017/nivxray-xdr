@@ -27,6 +27,10 @@ import "@/xdr/nx/nx-inv.css";
 import "@/xdr/nx/nx-workspace.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
 
+import useScopedRead from "./useScopedRead";
+
+export const readCapabilities = signal => api.get("/xdr/search/capabilities", { signal }).then(r => r.data);
+
 const UNSUPPORTED = [
   { k: "Saved hunts", state: ABSENCE.NOT_AVAILABLE,
     why: "no saved-hunt persistence model exists in this backend; a saved "
@@ -39,33 +43,35 @@ const UNSUPPORTED = [
        + "incident · process), not a query grammar" },
 ];
 
+export async function readEvidenceSearch(q, signal) {
+  const { data } = await api.get("/xdr/search", { params: { q: q.trim() }, signal });
+  if (!data || !["RESULTS", "NO_MATCH", "NOT_AUTHORIZED", "NO_QUERY"].includes(data.state)
+      || !Array.isArray(data.groups)
+      || data.groups.some(group => !Array.isArray(group.results))) {
+    throw new Error("Search response unavailable or unsupported.");
+  }
+  // A denied/empty response never carries displayable records.
+  if (data.state !== "RESULTS") return { ...data, groups: [], total: 0 };
+  return data;
+}
+
 export default function XdrHuntingPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const q = params.get("q") || "";
   const [term, setTerm] = useState(q);
-  const [data, setData] = useState(null);
-  const [caps, setCaps] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
+  const [revision, setRevision] = useState(0);
   const [types, setTypes] = useState([]);
   const [sel, setSel] = useState(null);
   const [paneTab, setPaneTab] = useState("details");
-
-  const run = useCallback((value) => {
-    if (!value.trim()) { setData(null); return; }
-    setBusy(true); setErr(null); setSel(null);
-    api.get("/xdr/search", { params: { q: value.trim() } })
-      .then(({ data: d }) => setData(d))
-      .catch((e) => setErr(apiErrorText(e) || String(e)))
-      .finally(() => setBusy(false));
-  }, []);
-
-  useEffect(() => { setTerm(q); run(q); }, [q, run]);
-  useEffect(() => {
-    api.get("/xdr/search/capabilities").then(({ data: d }) => setCaps(d))
-      .catch((e) => setCaps({ error: e?.message }));
-  }, []);
+  const read = useCallback(signal => readEvidenceSearch(q, signal), [q]);
+  const result = useScopedRead(read, JSON.stringify([q, revision]), !!q.trim());
+  const capabilities = useScopedRead(readCapabilities, "capabilities");
+  const data = result.data;
+  const caps = capabilities.data;
+  const busy = result.loading;
+  const err = result.error ? apiErrorText(result.error) : null;
+  useEffect(() => { setTerm(q); setTypes([]); setSel(null); setPaneTab("details"); }, [q, result.context]);
 
   const rows = useMemo(() => (data?.groups || []).flatMap((g) =>
     (g.results || []).map((r) => ({ ...r, entity_type: r.entity_type
@@ -125,8 +131,8 @@ export default function XdrHuntingPage() {
           <span style={{ fontSize: 11, color: "var(--nx-muted, var(--muted))",
                          maxWidth: 720, lineHeight: 1.6 }}>
             Interrogate the authoritative NivXRay stores directly. Every result
-            traces to a canonical record; nothing is inferred and nothing is
-            indexed twice.
+            traces to a canonical record. Search covers your authorized customers;
+            selecting a customer does not narrow this search contract.
           </span>
           {/* An estate-wide activity feed does not exist in this build:
               `/api/activity/inventory` is case-scoped. The control states
@@ -141,19 +147,21 @@ export default function XdrHuntingPage() {
         </div>
 
         <form onSubmit={(e) => { e.preventDefault();
-                                 setParams(term.trim() ? { q: term.trim() } : {}); }}
+                                 setParams(term.trim() ? { q: term.trim() } : {});
+                                 setRevision(value => value + 1); }}
               style={{ display: "flex", gap: 8, maxWidth: 860,
-                       marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1,
+                       marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 240px", minWidth: 0,
                         border: "1px solid var(--nx-bd-quiet, var(--border))",
                         borderRadius: 5, padding: "8px 10px",
                         background: "var(--nx-surf, var(--panel))" }}>
             <Search size={13} style={{ opacity: .7 }} />
             <input value={term} onChange={(e) => setTerm(e.target.value)}
+                   aria-label="Search internal evidence"
                    data-testid="xdr-hunting-input"
                    placeholder="Hostname · endpoint id · SHA-256 · IP · rule id · incident · process · evidence id"
-                   style={{ flex: 1, background: "transparent", border: "none",
-                            outline: "none", fontSize: 12,
+                   style={{ flex: 1, minWidth: 0, background: "transparent", border: "none",
+                            fontSize: 12,
                             color: "var(--nx-text, var(--text))" }} />
           </div>
           <button type="submit" className="inv-chip"
@@ -176,18 +184,18 @@ export default function XdrHuntingPage() {
             body={typeof err === "object" ? JSON.stringify(err) : String(err)} />
         )}
 
-        {!q && !busy && (
+        {!q.trim() && !busy && (
           <NxInvSection title="What you can hunt"
                         subtitle="the stores this hunt reads, named at the source"
                         testid="xdr-hunting-idle">
-            {!caps ? (
+            {capabilities.loading ? (
               <div className="inv-empty">Reading capability contract…</div>
-            ) : caps.error ? (
+            ) : capabilities.error || !caps ? (
               <NxInvEmpty testid="xdr-hunting-caps-error"
-                title={ABSENCE.NOT_EVALUATED} body={String(caps.error)} />
+                title={ABSENCE.NOT_EVALUATED} body={apiErrorText(capabilities.error, "Search capabilities unavailable.")} />
             ) : (
               <NxInvTable testid="xdr-hunting-surfaces"
-                          rows={caps.searchable || []}
+                          rows={caps?.searchable || []}
                           rowKey={(r) => r.entity_type}
                           columns={[
                             { key: "entity_type", label: "Entity", width: 200,
@@ -369,7 +377,7 @@ export default function XdrHuntingPage() {
         <NxInvTech label="Entities with no index" testid="xdr-hunting-not-searchable">
           {!caps?.not_searchable?.length ? (
             <div className="inv-empty">
-              Every entity this platform stores is searchable.
+              Search exclusions have not been reported. Domain, URL and email indexes are unavailable in this build.
             </div>
           ) : (
             <NxInvTable testid="xdr-hunting-not-searchable-table"
