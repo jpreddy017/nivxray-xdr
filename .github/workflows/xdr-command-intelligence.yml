@@ -25,6 +25,7 @@ jobs:
       - run: >-
           PYTHONPATH=backend python -m pytest -n 0
           backend/tests/test_die_cycle_b_archives.py
+          backend/tests/test_command_maturity.py
           backend/tests/test_command_resource_limits.py
           backend/tests/test_command_automatic.py
           backend/tests/test_command_automatic_api.py

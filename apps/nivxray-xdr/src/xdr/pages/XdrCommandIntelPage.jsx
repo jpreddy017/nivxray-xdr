@@ -47,7 +47,7 @@ export function CommandResult({ result }) {
       </div>
     </section>)}
     <section style={panel}><h2 style={panelH}>Behavioral evidence</h2><div style={body}>
-      {result.behaviors.length ? result.behaviors.map((b, i) => <p key={i}>{b.explanation} <code>{b.match}</code><br/><small style={muted}>{b.evidence_id}</small></p>) : <p>No supported behavioral pattern identified. This is not a benign verdict.</p>}
+      {result.behaviors.length ? result.behaviors.map((b, i) => <p key={i}>{b.kind && <strong>{b.kind.replaceAll("_", " ")} · </strong>}{b.explanation} <code>{b.match}</code><br/><small style={muted}>{b.evidence_id}{b.basis && ` · ${b.basis.replaceAll("_", " ")} · characters ${b.start}–${b.end}`}</small></p>) : <p>No supported behavioral pattern identified. This is not a benign verdict.</p>}
       <p style={muted}>{result.mitre_status}</p>
     </div></section>
     <section style={panel}><h2 style={panelH}>Extracted indicators · observed strings, not reputation verdicts</h2><div style={{ overflowX: "auto" }}>

