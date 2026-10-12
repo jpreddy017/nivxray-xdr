@@ -87,8 +87,8 @@ const EDGE_TYPE_ALIAS = {
 // ═══════════════════════════════════════════════════════════════════
 export default function EvidenceGraphTab({ inv }) {
   const { selection, setSelection } = useSelection();
-  const nodesRaw = inv?.ikg?.nodes || [];
-  const edgesRaw = inv?.ikg?.edges || [];
+  const nodesRaw = useMemo(() => inv?.ikg?.nodes || [], [inv?.ikg?.nodes]);
+  const edgesRaw = useMemo(() => inv?.ikg?.edges || [], [inv?.ikg?.edges]);
 
   // ─── Project IKG into entity-to-entity causality graph ──────────
   const { entities, causalEdges, tsBounds } = useMemo(() => {

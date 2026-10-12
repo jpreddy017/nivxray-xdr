@@ -227,7 +227,7 @@ export default function StructuredEvidenceTab({ wire: externalWire = null }) {
     const [selectedEv, setSelectedEv] = useState(null);
 
     const wire = externalWire || internalWire;
-    const events = wire?.logical_events || [];
+    const events = useMemo(() => wire?.logical_events || [], [wire?.logical_events]);
     const iocs = useMemo(() => extractIOCs(events), [events]);
     const malformedCount = wire?.malformed?.length || 0;
 

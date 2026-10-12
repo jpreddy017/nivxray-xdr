@@ -7,7 +7,7 @@
  *   • Auto-scan suggestions with confirm/dismiss/create actions
  *   • "Create new Investigation from this case" fallback
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import CorrelationSuggestionCard from "@/components/investigation/CorrelationSuggestionCard";
 import { X, Sparkles, Radar, RefreshCcw, Plus, ExternalLink } from "lucide-react";
@@ -17,7 +17,7 @@ export default function FindRelatedDrawer({ caseId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  const load = async (refresh = false) => {
+  const load = useCallback(async (refresh = false) => {
     setLoading(true); setErr("");
     try {
       const r = await api.post("/correlations/find-related", {
@@ -27,9 +27,9 @@ export default function FindRelatedDrawer({ caseId, onClose }) {
     } catch (e) {
       setErr(e?.response?.data?.detail || e.message || String(e));
     } finally { setLoading(false); }
-  };
+  }, [caseId]);
 
-  useEffect(() => { load(false); }, [caseId]);
+  useEffect(() => { load(false); }, [load]);
 
   const linkTo = async (targetCorrelationId, targetCaseId) => {
     try {
