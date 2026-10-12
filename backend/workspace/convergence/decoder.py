@@ -39,10 +39,9 @@ from __future__ import annotations
 
 import base64
 import binascii
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
-import zlib
-
+from services.decoder.bounded_codecs import zlib
 from .artifact import Artifact
 from .provenance import PassRecord
 from .transformation import Transformation

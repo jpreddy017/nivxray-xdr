@@ -60,9 +60,9 @@ from __future__ import annotations
 import base64
 import binascii
 import codecs
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Callable
 
 from .artifact import Artifact

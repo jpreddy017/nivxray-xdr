@@ -9,7 +9,7 @@ inside PowerShell obfuscators that skip the zlib header for size.
 """
 from __future__ import annotations
 
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict
 
 from engine.decoder_base import BaseDecoder

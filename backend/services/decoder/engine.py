@@ -89,6 +89,9 @@ class UniversalDecoderEngine:
         text: str,
         parent_canonical_id: Optional[str] = None,
     ) -> ReconstructionResult:
+        from .isolated import _IN_WORKER
+        if not _IN_WORKER:
+            return _decode_isolated(text, parent_canonical_id)
         if not isinstance(text, str) or not text:
             return ReconstructionResult(
                 raw_input="", final="", engine_version=ENGINE_VERSION)
@@ -173,3 +176,10 @@ def decode(
 
 
 __all__ = ["UniversalDecoderEngine", "decode", "ENGINE_VERSION"]
+
+
+from .isolated import entry as _bounded_entry
+
+@_bounded_entry()
+def _decode_isolated(text, parent_canonical_id=None):
+    return UniversalDecoderEngine().decode(text, parent_canonical_id)

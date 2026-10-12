@@ -22,6 +22,7 @@ Row schema in the output CSV:
     iocs_hashes, decoded_snippet, reached_shellcode, error
 """
 from __future__ import annotations
+import asyncio
 
 import csv
 import io
@@ -340,7 +341,7 @@ async def batch_test_upload(
     rows = []
     for i, p in enumerate(payloads):
         base   = {"id": _row_id("row", i), "input_snippet": _snip(p)}
-        result = _run_single(p, analysis_mode)
+        result = await asyncio.to_thread(_run_single, p, analysis_mode)
         base.update(result)
         rows.append(base)
 
@@ -393,7 +394,7 @@ async def batch_test_json(body: BatchInJson, user=Depends(get_current_user)):
     rows = []
     for i, p in enumerate(payloads):
         base   = {"id": _row_id("row", i), "input_snippet": _snip(p)}
-        result = _run_single(p, mode)
+        result = await asyncio.to_thread(_run_single, p, mode)
         base.update(result)
         if not body.include_full_output:
             base.pop("decoded_full", None)
@@ -660,7 +661,7 @@ async def nxgec_run(volume: Optional[int] = None,
     rows: List[Dict[str, Any]] = []
     passed = 0
     for c in cases:
-        actual = _run_single(c["input"], analysis_mode)
+        actual = await asyncio.to_thread(_run_single, c["input"], analysis_mode)
         actual["id"]            = c.get("id")
         actual["title"]         = c.get("title")
         actual["volume"]        = c.get("volume")
@@ -826,7 +827,7 @@ async def batch_test_mine_and_run(
             "source_origin":   cand.get("origin") or "",
             "source_kind":     cand.get("kind") or "",
         }
-        base.update(_run_single(cand["text"], analysis_mode))
+        base.update(await asyncio.to_thread(_run_single, cand["text"], analysis_mode))
         rows.append(base)
 
     summary = {

@@ -29,7 +29,8 @@ from routers.helpers.decode_offload import run_offloaded
 
 log = logging.getLogger("nivx.routers.ops")
 
-router = APIRouter()
+from services.decoder.http_boundary import DecoderRoute
+router = APIRouter(route_class=DecoderRoute)
 
 
 # ─── ADR-0012 · Progressive Partial Recovery ─────────────────────────────────
@@ -349,30 +350,10 @@ async def get_examples(user=Depends(get_current_user)):
 
 @router.post("/recipe/run", response_model=RunRecipeOut)
 async def run_recipe(body: RunRecipeIn, user=Depends(get_current_user)):
-    # v1.5.6 · Offload the whole recipe replay onto a thread executor.
-    # A single recipe can chain 10+ ops including xor-brute/L3 that
-    # each hold the GIL for seconds. Running the full loop off-loop
-    # keeps `/api/health` responsive throughout.
-    def _replay():
-        current = body.input
-        steps_output: List[Dict[str, Any]] = []
-        errors: List[Dict[str, str]] = []
-        for i, step in enumerate(body.steps):
-            try:
-                nxt = run_operation(step.op, current, step.args)
-                current = nxt
-                steps_output.append({
-                    "index": i, "op": step.op,
-                    "output_preview": current[:400],
-                    "output_length": len(current),
-                })
-            except Exception as e:
-                errors.append({"index": str(i), "op": step.op, "error": str(e)})
-                steps_output.append({"index": i, "op": step.op, "error": str(e)})
-                break
-        return current, steps_output, errors
-
-    current, steps_output, errors = await run_offloaded(_replay)
+    from services.decoder.recipe import replay
+    current, steps_output, errors = await run_offloaded(
+        replay, body.input, [s.model_dump() for s in body.steps],
+    )
     return RunRecipeOut(
         output=current, steps_output=steps_output,
         detected_type=detect_payload_type(current), errors=errors,
@@ -578,7 +559,8 @@ async def analyze_command_endpoint(body: CommandAnalyzeIn, user=Depends(get_curr
     if body.automatic:
         from services.decoder.automatic_worker import analyze_isolated
         try:
-            return await run_offloaded(analyze_isolated, body.input, timeout_s=6.0)
+            import asyncio
+            return await asyncio.to_thread(analyze_isolated, body.input)
         except ValueError as exc:
             raise HTTPException(422, detail={"code": "invalid_command", "message": str(exc)})
         except TimeoutError as exc:
@@ -787,6 +769,11 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
     return a MERGED output — so pasting a Kibana / Sentinel `<br>`-joined
     log dump shows every decoded fragment, not just the first.
     """
+    from services.decoder.resource_limits import check_input, DecodeLimitExceeded
+    try:
+        check_input(body.input)
+    except DecodeLimitExceeded as exc:
+        raise HTTPException(413, detail={"code":"decode_limit", "message":str(exc)}) from None
     from analysis_core import deterministic_best_decode
 
     # ═══════════════════════════════════════════════════════════════════
@@ -889,7 +876,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
             from v2.semantic.ps_recovery import recover_powershell_from_b64
             _blob = _ps_enc_m.group(1).strip("= ").rstrip("=")
             _blob = _blob + "=" * ((-len(_blob)) % 4)
-            _rep = recover_powershell_from_b64(_blob)
+            _rep = await run_offloaded(recover_powershell_from_b64, _blob)
             if _rep.status == "decode_error":
                 # ── ADR-0012 · Progressive Partial Recovery ──────────────
                 # If the decoder recovered a readable prefix, run IOC /
@@ -1286,7 +1273,7 @@ async def decode_smart(body: AutoIn, user=Depends(get_current_user)):
                                       and re.search(r"[a-fA-F]", h)]
                         nxt = max(hex_valid, key=len) if hex_valid else cur
             else:
-                nxt = run_operation(op_id, cur, args)
+                nxt = await run_offloaded(run_operation, op_id, cur, args)
         except Exception as e:
             trace.append({"op": op_id, "args": args,
                           "error": str(e), "reason": _reason_for_op(op_id)})
@@ -2605,8 +2592,8 @@ async def decode_candidates(body: CandidatesIn, user=Depends(get_current_user)):
         HIGH_THRESHOLD, MIN_ACCEPT,
     )
     top_n = max(1, min(int(body.top_n or 8), 20))
-    cands = score_candidates(body.input, top_n=top_n)
-    best = best_candidate(body.input)
+    cands = await run_offloaded(score_candidates, body.input, top_n=top_n)
+    best = await run_offloaded(best_candidate, body.input)
     # Build structured candidate dicts. WINNER gets `as_dict` (no runner-up
     # comparison), all OTHERS get `as_rejected_dict(winner)` so the
     # frontend can render "why not Y?" tooltips.

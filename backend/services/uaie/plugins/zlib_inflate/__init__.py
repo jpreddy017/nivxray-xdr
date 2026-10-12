@@ -54,7 +54,7 @@ class _Capability:
         buf = artifact.payload or b""
         if (len(buf) >= 2 and buf[0] == 0x78
                 and buf[1] in (0x01, 0x5E, 0x9C, 0xDA)):
-            import zlib as _zlib
+            from services.decoder.bounded_codecs import zlib as _zlib
             try:
                 inflated = _zlib.decompress(buf)
             except Exception:

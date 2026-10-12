@@ -22,8 +22,9 @@ Static-only:
 """
 from __future__ import annotations
 
-import gzip
+from services.decoder.bounded_codecs import gzip
 import zlib
+from services.decoder.bounded_codecs import zlib as _bounded_zlib
 from typing import Any, Dict, Optional, Tuple
 
 from ._shared import _extract_rawbytes, _mostly_printable, _shellcode_string_scan
@@ -52,7 +53,7 @@ def decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         inflated = gzip.decompress(raw)
     except (OSError, EOFError, zlib.error):
         try:
-            do = zlib.decompressobj(wbits=31)
+            do = _bounded_zlib.decompressobj(wbits=31)
             part = do.decompress(raw) + do.flush()
             if part:
                 inflated = part
@@ -93,7 +94,7 @@ def decode_gzip_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 def decode_zlib_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     """Zlib inflate (magic 0x78 followed by 0x01/0x5E/0x9C/0xDA).
 
-    Partial-inflate recovery via `zlib.decompressobj()` — see
+    Partial-inflate recovery via `_bounded_zlib.decompressobj()` — see
     `decode_gzip_bytes` rationale.  Reserved for Gate 2D-B3.1 · Family 2.
     """
     hit = _extract_rawbytes(text)
@@ -105,10 +106,10 @@ def decode_zlib_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     inflated: Optional[bytes] = None
     inflation_mode = "clean"
     try:
-        inflated = zlib.decompress(raw)
+        inflated = _bounded_zlib.decompress(raw)
     except zlib.error:
         try:
-            do = zlib.decompressobj()   # wbits=15 (default zlib header)
+            do = _bounded_zlib.decompressobj()   # wbits=15 (default zlib header)
             part = do.decompress(raw) + do.flush()
             if part:
                 inflated = part

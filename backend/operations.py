@@ -3,8 +3,8 @@ from __future__ import annotations
 import base64
 import binascii
 import codecs
-import gzip
-import zlib
+from services.decoder.bounded_codecs import gzip
+from services.decoder.bounded_codecs import zlib
 import re
 import html
 import json
@@ -88,6 +88,9 @@ def list_operations() -> List[Dict[str, Any]]:
     ]
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(1)
 def run_operation(op_id: str, data: str, args: Optional[Dict[str, Any]] = None) -> str:
     if op_id not in OPERATIONS:
         raise ValueError(f"Unknown operation: {op_id}")
@@ -921,7 +924,7 @@ def _magic_integer_array(data: str) -> str:
 def _snappy_decompress(data: str) -> str:
     raw = _as_bytes(data) if _is_hexlike(data) else data.encode("latin-1", errors="replace")
     try:
-        import snappy  # optional dependency
+        from services.decoder.bounded_codecs import snappy  # optional dependency
         return snappy.decompress(raw).decode("utf-8", errors="replace")
     except ImportError:
         return "# snappy decode error: python-snappy not installed"

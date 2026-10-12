@@ -22,9 +22,9 @@ the variable name matches exactly, and decompression succeeds.
 """
 import base64
 import binascii
-import gzip as _gzip_lib
+from services.decoder.bounded_codecs import gzip as _gzip_lib
 import re
-import zlib as _zlib_lib
+from services.decoder.bounded_codecs import zlib as _zlib_lib
 from typing import TYPE_CHECKING
 
 from ...evidence import Evidence
@@ -185,7 +185,7 @@ def _diagnose_pattern(txt: str) -> tuple[str, str, str, dict, str, str] | None:
                 _zlib_lib.decompress(raw, -_zlib_lib.MAX_WBITS)
             elif kind == "brotli":
                 try:
-                    import brotli  # noqa: WPS433
+                    from services.decoder.bounded_codecs import brotli  # noqa: WPS433
                 except ImportError:
                     reason = (
                         "Detected Brotli compression consumer but the "

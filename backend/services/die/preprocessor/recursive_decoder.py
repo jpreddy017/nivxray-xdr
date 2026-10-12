@@ -271,6 +271,9 @@ _DECODERS: List[Tuple[str, Any]] = [
 ]
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def peel_recursively(text: str,
                        *,
                        max_layers: int = 8,
@@ -287,6 +290,9 @@ def peel_recursively(text: str,
       · ``max_bytes``   — reject expansions past ~512 KB
       · no-progress detector — same output twice in a row exits
     """
+    from services.decoder.resource_limits import DecodeLimitExceeded
+    if not (0 <= max_layers <= 12 and 0 < max_bytes <= 512 * 1024):
+        raise DecodeLimitExceeded("Recursive decoder parameter limit exceeded")
     if not text:
         return text, []
     layers_meta: List[Dict[str, Any]] = []

@@ -1,5 +1,6 @@
 """AI router — /api/ai/auto-decode, /api/ai/auto-investigate, /api/ai/troubleshoot."""
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 import asyncio
 import hashlib
 import json
@@ -238,8 +239,8 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
             "errors": r.errors,
         }
 
-    def _run_magic() -> Dict[str, Any]:
-        m = magic_decode(body.input, max_depth=6, max_branches=5, top_n=3)
+    async def _run_magic() -> Dict[str, Any]:
+        m = await run_offloaded(magic_decode, body.input, max_depth=6, max_branches=5, top_n=3)
         top = (m.get("top_results") or [{}])[0]
         return {
             "engine": "magic", "output": top.get("output", ""),
@@ -253,7 +254,7 @@ async def ai_auto_decode(body: AutoIn, user=Depends(get_current_user)):
         }
 
     ai_task = asyncio.create_task(_run_ai_plan())
-    magic_result = _run_magic()
+    magic_result = await _run_magic()
     ai_result = await ai_task
 
     def _quality_score(res: Dict[str, Any]) -> Dict[str, Any]:
@@ -408,7 +409,7 @@ async def ai_auto_investigate(body: AutoIn, user=Depends(get_current_user)):
          AI-planned decode.
       3. Run OSINT enrichment and AI describe/verdict against the decoded output.
     """
-    det = deterministic_best_decode(body.input)
+    det = await run_offloaded(deterministic_best_decode, body.input)
     if det["steps"]:
         steps = [RecipeStep(op=x["op"], args=x.get("args", {})) for x in det["steps"]]
         reasoning = (
@@ -498,7 +499,7 @@ async def troubleshoot_auto(body: TroubleshootIn, use_ai: bool = False, user=Dep
     """
     from troubleshoot_engine import troubleshoot
     current_steps = [s.model_dump() for s in body.steps]
-    result = troubleshoot(
+    result = await run_offloaded(troubleshoot,
         input_text=body.input,
         current_output=None,
         current_steps=current_steps,

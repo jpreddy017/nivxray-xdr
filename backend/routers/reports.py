@@ -1,5 +1,6 @@
 """Reports router — /api/share, /api/share/{token}, /api/report, /api/report/{fmt}, /api/report/stix."""
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 import base64
 import json
 from datetime import datetime, timezone
@@ -71,7 +72,7 @@ async def build_stix_report(body: AutoIn, user=Depends(get_current_user)):
     together with a single top-level bundle. Ready to import into MISP,
     OpenCTI, ThreatConnect, Anomali, or any other STIX 2.1-aware platform.
     """
-    det = deterministic_best_decode(body.input)
+    det = await run_offloaded(deterministic_best_decode, body.input)
     decoded = det.get("output") or ""
     text = (decoded or "") + "\n" + body.input
     iocs = extract_iocs(text)

@@ -20,6 +20,7 @@ an analyst-style attack-chain narrative — this is the "AI runs on aggregate"
 design principle: deterministic bytes first, LLM narrative last.
 """
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
@@ -60,7 +61,7 @@ async def decode_single_stage(payload: str, stage_index: int = 0) -> Dict[str, A
     from corrupt_payload_detector import detect_corrupt_payload
     import re as _re
 
-    det = deterministic_best_decode(payload)
+    det = await run_offloaded(deterministic_best_decode, payload)
     decoded = det.get("output") or ""
     # Augment the scan corpus with reversed copies of same-quote-paired
     # string literals from the raw payload — captures PowerShell's

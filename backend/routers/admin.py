@@ -1,5 +1,6 @@
 """Admin router — OSINT keys, Model Studio, Sample Library, Users, LOLBAS."""
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -214,7 +215,7 @@ async def test_admin_model(model_id: str, body: ModelTestIn, user=Depends(requir
                     steps_out.append({"op": op, "error": "unknown op"})
                     break
                 try:
-                    output = run_operation(op, output, step.get("args") or {})
+                    output = await run_offloaded(run_operation, op, output, step.get("args") or {})
                     steps_out.append({"op": op, "output_preview": (output or "")[:300]})
                 except Exception as e:
                     steps_out.append({"op": op, "error": str(e)})

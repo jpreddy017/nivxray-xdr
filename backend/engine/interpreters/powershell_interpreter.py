@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import gzip
-import zlib
+from services.decoder.bounded_codecs import gzip
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..exec_graph import (

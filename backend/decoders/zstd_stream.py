@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-import zstandard as zstd
-
+from services.decoder.bounded_codecs import zstandard as zstd
 from engine.decoder_base import BaseDecoder
 from engine.fingerprint_util import compute as _fp
 from engine.models import AnalysisContext, DetectResult, Fingerprint, PluginResult

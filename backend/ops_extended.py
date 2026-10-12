@@ -16,12 +16,12 @@ missing dep doesn't break the whole module import.
 from __future__ import annotations
 import base64
 import binascii
-import bz2
+from services.decoder.bounded_codecs import bz2
 import codecs
 import hashlib
 import hmac
 import json
-import lzma
+from services.decoder.bounded_codecs import lzma
 import re
 import struct
 from typing import Any, Dict, List, Optional
@@ -38,8 +38,8 @@ except Exception:  # pragma: no cover
     _HAS_CRYPTO = False
 
 try:
-    import lz4.frame as _lz4frame  # type: ignore
-    import lz4.block as _lz4block  # type: ignore
+    from services.decoder.bounded_codecs import lz4frame as _lz4frame  # type: ignore
+    from services.decoder.bounded_codecs import lz4block as _lz4block  # type: ignore
     _HAS_LZ4 = True
 except Exception:  # pragma: no cover
     _HAS_LZ4 = False

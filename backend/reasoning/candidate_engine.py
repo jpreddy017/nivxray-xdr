@@ -712,6 +712,9 @@ def _score_one(
 # ---------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def score_candidates(text: str, top_n: int = 10) -> List[Candidate]:
     """Score every registered encoding against `text` and return the
     top-N candidates ranked by confidence descending.
@@ -733,6 +736,9 @@ def score_candidates(text: str, top_n: int = 10) -> List[Candidate]:
     return results[:top_n]
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def best_candidate(text: str) -> Optional[Candidate]:
     """Return the single most confident candidate, or None if no candidate
     reaches MIN_ACCEPT — in which case the input is likely NOT one of

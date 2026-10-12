@@ -12,6 +12,7 @@ INSUFFICIENT and emits a NOT_OBSERVED finding — the gap remains
 open for a future EDR feed.
 """
 from __future__ import annotations
+from routers.helpers.decode_offload import run_offloaded
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -166,7 +167,7 @@ class CommandLineDecodeCapability(Capability):
         # Reuse existing decoder infrastructure.
         try:
             from smart_decoder import smart_decode
-            decoded = smart_decode(cli)
+            decoded = await run_offloaded(smart_decode, cli)
         except Exception as ex:
             return [Finding(
                 finding_id=fid(f"{incident_id}|cli|err|{cli[:40]}"),

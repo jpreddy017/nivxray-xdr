@@ -64,7 +64,7 @@ class _Capability:
         # text-mode legacy behaviour for every other input.
         buf = artifact.payload or b""
         if len(buf) >= 2 and buf[0] == 0x1F and buf[1] == 0x8B:
-            import gzip as _gzip
+            from services.decoder.bounded_codecs import gzip as _gzip
             try:
                 inflated = _gzip.decompress(buf)
             except Exception:

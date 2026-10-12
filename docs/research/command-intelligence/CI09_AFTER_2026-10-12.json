@@ -1,0 +1,12 @@
+{
+  "command_input_bytes": 16390,
+  "automatic_http": 422,
+  "legacy_http": 413,
+  "compressed_bytes": 1052,
+  "legacy_gzip": "Decompression output/ratio limit exceeded",
+  "automatic_gzip": "Decompression output/ratio limit reached",
+  "worker_timeout_http": 504,
+  "worker_done_at_timeout": false,
+  "worker_completed_after_timeout": false,
+  "legacy_resource_acceptance": "PASS"
+}

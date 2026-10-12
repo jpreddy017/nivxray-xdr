@@ -18,16 +18,16 @@ from __future__ import annotations
 
 import base64
 import binascii
-import gzip as _gzip_lib
+from services.decoder.bounded_codecs import gzip as _gzip_lib
 import hashlib as _hashlib
 import io as _io
 import re
 import time as _time
-import zlib as _zlib_lib
+from services.decoder.bounded_codecs import zlib as _zlib_lib
 from dataclasses import dataclass, field, asdict
 
 try:
-    import brotli as _brotli_lib          # type: ignore
+    from services.decoder.bounded_codecs import brotli as _brotli_lib          # type: ignore
 except Exception:                          # pragma: no cover
     _brotli_lib = None                     # runtime-optional
 

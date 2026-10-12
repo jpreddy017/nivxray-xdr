@@ -4,9 +4,8 @@ Two concurrent workers per API process, no unbounded pending queue. Unlike a
 thread timeout, expiration actually terminates the CPU work and reaps the child.
 """
 import multiprocessing
-import threading
+from .isolated import _CAPACITY
 
-_CAPACITY = threading.BoundedSemaphore(2)
 WORKER_SECONDS = 4.0
 
 

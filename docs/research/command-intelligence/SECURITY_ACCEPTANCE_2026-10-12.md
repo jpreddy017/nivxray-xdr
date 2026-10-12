@@ -1,3 +1,5 @@
+> Follow-up: CI-09 is now CLOSED within the reviewed scope. See [CI09_CLOSURE_2026-10-12.md](CI09_CLOSURE_2026-10-12.md) for the repair, before/after probes, independent verification and current regression results. The original assessment below is retained as historical evidence. Release remains NO-GO; deployed acceptance is still BLOCKED.
+
 # Command Intelligence independent security and acceptance assessment
 
 Date: 2026-10-12. Repository: `jpreddy017/nivxray-xdr`. Draft PR #11,

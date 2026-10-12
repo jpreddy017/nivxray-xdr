@@ -644,8 +644,14 @@ def _pick_candidates(payload: str, chain: Optional[List[Dict[str, Any]]] = None)
 # =============================================================================
 # Recursive search
 # =============================================================================
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry(0)
 def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                  min_score_delta: float = 0.05, top_n: int = 3) -> Dict[str, Any]:
+    from services.decoder.resource_limits import DecodeLimitExceeded
+    if not (0 <= max_depth <= 12 and 1 <= max_branches <= 8 and 1 <= top_n <= 20):
+        raise DecodeLimitExceeded('Decoder search parameter limit exceeded')
     """Return the top-N final decode chains sorted by score.
 
     Each result: {chain: [{op, args}, ...], output, score_breakdown, path_scores}
@@ -783,12 +789,12 @@ def magic_decode(payload: str, max_depth: int = 4, max_branches: int = 3,
                         raw = cur.encode("latin-1") if all(ord(x) < 256 for x in cur) \
                                                     else cur.encode("utf-8", errors="replace")
                         if label == "GZIP" and len(raw) >= 18:
-                            import zlib as _z
+                            from services.decoder.bounded_codecs import zlib as _z
                             inner = raw[10:-8]
                             plain = _z.decompress(inner, -_z.MAX_WBITS)
                             salvaged = plain.decode("utf-8", errors="replace")
                         elif label == "ZLIB" and len(raw) >= 4:
-                            import zlib as _z
+                            from services.decoder.bounded_codecs import zlib as _z
                             # ZLIB check-fail: retry with raw deflate (skip 2-byte header, 4-byte adler32 trailer)
                             plain = _z.decompress(raw[2:-4], -_z.MAX_WBITS)
                             salvaged = plain.decode("utf-8", errors="replace")

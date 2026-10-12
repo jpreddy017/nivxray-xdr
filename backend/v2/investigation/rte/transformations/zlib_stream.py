@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import re
-import zlib
-
+from services.decoder.bounded_codecs import zlib
 from ...evidence import Evidence
 from ..models import Artifact
 from ._util import bytes_to_text

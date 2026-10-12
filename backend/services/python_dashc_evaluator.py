@@ -43,10 +43,10 @@ import ast
 import base64 as _b64
 import binascii
 import codecs
-import gzip
+from services.decoder.bounded_codecs import gzip
 import io
 import re
-import zlib
+from services.decoder.bounded_codecs import zlib
 from typing import Any, Dict, Optional
 
 
@@ -347,6 +347,9 @@ def _detect_python_dashc(text: str) -> Optional[Dict[str, Any]]:
     }
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry()
 def try_python_dashc_evaluator(text: str) -> Optional[Dict[str, Any]]:
     """Deterministically evaluate a ``python -c "…"`` expression.
 

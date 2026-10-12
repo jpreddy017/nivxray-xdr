@@ -27,10 +27,10 @@ from __future__ import annotations
 
 import base64
 import binascii
-import gzip
+from services.decoder.bounded_codecs import gzip
 import re
 import time
-import zlib
+from services.decoder.bounded_codecs import zlib
 from dataclasses import dataclass, field, asdict
 
 
@@ -213,6 +213,9 @@ class DecodeReport:
 
 
 # ── Public entrypoint ────────────────────────────────────────────
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry()
 def recover_powershell_from_b64(blob: str) -> DecodeReport:
     """Best-effort deterministic recovery of a PowerShell script from a
     Base64 blob. Returns a `DecodeReport` — never raises."""

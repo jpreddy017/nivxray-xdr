@@ -55,6 +55,9 @@ def _new_id(parent_id: str, layer_index: int) -> str:
     return f"{parent_id}::decoded[{layer_index}]::{salt}"
 
 
+from services.decoder.isolated import entry as _bounded_entry
+
+@_bounded_entry()
 def decode_commandline(
     text: str,
     parent_canonical_id: str,
