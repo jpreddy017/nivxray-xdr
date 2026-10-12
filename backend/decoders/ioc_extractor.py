@@ -71,7 +71,7 @@ _RX_UNIX_PATH = re.compile(
 )
 
 
-def _extract_all(text: str) -> Dict[str, List[str]]:
+def _extract_all(text: str) -> Dict[str, Any]:
     if not text:
         return {}
     out: Dict[str, Set[str]] = {
@@ -175,7 +175,12 @@ class IocExtractor(BaseDecoder):
         return DetectResult(confidence=0.6, why="Candidate IOC patterns present")
 
     def decode(self, payload: str, args: Dict[str, Any], ctx: AnalysisContext) -> PluginResult:
-        iocs = _extract_all(payload)
+        extracted = _extract_all(payload)
+        # Classification diagnostics are structured records, not IOC strings.
+        # Keep the raw helper contract while respecting PluginResult's typed IOC
+        # map; otherwise a single IPv4 classification rejects every indicator.
+        iocs = {key: values for key, values in extracted.items()
+                if key != "_entity_classifications"}
         if not iocs:
             return PluginResult(output="", notes=["ioc-extractor: nothing extracted"])
         mitre: List[MitreHint] = []

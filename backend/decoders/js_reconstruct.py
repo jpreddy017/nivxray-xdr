@@ -157,7 +157,8 @@ class JavaScriptReconstructDecoder(BaseDecoder):
             signals.append("js-atob")
         if _RX_UNESCAPE.search(payload):
             signals.append("js-unescape")
-        if _RX_CONCAT.search(payload):
+        if _RX_CONCAT.search(payload) and not re.search(
+                r"(?i)\[char(?:\[\])?\]|-(?:join|f)\b|\b(?:Write-Output|Write-Host|Invoke-Expression)\b", payload):
             signals.append("js-concat")
         if not signals:
             return DetectResult(confidence=0.0, why="No JS reconstruction pattern")

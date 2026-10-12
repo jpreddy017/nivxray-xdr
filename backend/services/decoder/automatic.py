@@ -19,9 +19,9 @@ from .base.compression import inflate_bounded
 from .base.encoding import _DECODERS
 from .types import Capability, CapabilityKind, DecodedLayer, Provenance, now_iso
 from . import cmd, powershell
-from .powershell_constants import reconstruct, unresolved as constants_unresolved
+from .powershell_constants import reconstruct, unresolved as constants_unresolved, legacy_fold_context
 
-VERSION = "1.1.0-auto"
+VERSION = "1.1.1-auto"
 MAX_INPUT = 16384
 MAX_OUTPUT = 131072
 MAX_TOTAL = 1048576
@@ -68,7 +68,7 @@ def static_folds(text):
     Quoted token boundaries prevent matching code inside strings. Interpolation,
     comments, escapes and mixed numeric concatenation are deliberately refused.
     """
-    if any(s in text for s in ('`', '#', '@"', "@'")):
+    if not legacy_fold_context(text) or any(s in text for s in ('`', '#', '@"', "@'")):
         return
     token_re = re.compile(r"'[^']*'|\"[^\"]*\"|\[char\]\s*(?:0x[0-9a-f]+|\d+)|\s+|.", re.I | re.S)
     tokens = [m for m in token_re.finditer(text) if not m.group().isspace()]
@@ -227,7 +227,11 @@ def transitions(node):
         if constant and constant[1]:
             yield 'powershell.constant_ast', constant[0], {'edits':[{'start':e['start'],'end':e['end'],'replacement_sha256':digest(e['replacement']),'operations':e['operations']} for e in constant[1]]}, (), '', False, False
         for out, args, name in static_folds(text):
-            yield name, out, args, (), '', False, False
+            # Preserve valid historical recipes only when the typed whole-program
+            # pass independently proves the same output. Never use a suffix fold
+            # as a fallback around unsupported grammar or operators.
+            if constant and out == constant[0]:
+                yield name, out, args, (), '', False, False
     from .cmd_constants import reconstruct as reconstruct_cmd
     cmd_constant = reconstruct_cmd(text)
     if cmd_constant:

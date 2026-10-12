@@ -29,6 +29,12 @@ try {
  const b64=s=>Buffer.from(s).toString('base64');
  const script='Write-Output "https://example.com/harmless.txt"';
  const samples=[
+   'Write-Output 2+2',
+   'Write-Output (1)+2',
+   "Write-Output ('[{0}]' -f 'x' + 'y')",
+   "$x='a';Write-Output ${x",
+   'cmd /d /c echo [Native]::VirtualAlloc() [Native]::WriteProcessMemory() [Native]::CreateRemoteThread()',
+
    "Write-Output (-join [char[]](104,101,108,108,111))",
    "$a='he'; $b='llo'; Write-Output ($a+$b)",
    "Write-Output (-join (111,98,107,107,104 | ForEach-Object {[char]($_ -bxor 7)}))",
@@ -84,7 +90,7 @@ try {
    assert.equal(await result.locator('img,script').count(),0,'evidence is inert escaped text');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth));
  }
- console.log('PASS: 17 additional HTTP/browser cases; all layers, recipes, candidates, IOCs, limitations, inert text and mobile width');
+ console.log('PASS: 22 additional HTTP/browser cases; all layers, recipes, candidates, IOCs, limitations, inert text and mobile width');
  // Late response must not reappear after tenant change.
  let release; const gate=new Promise(resolve=>release=resolve);
  await page.route('**/api/analyze/command',async route=>{await gate;await route.continue();});

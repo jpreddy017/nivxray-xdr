@@ -64,7 +64,15 @@ def test_ps_encoded_command_utf16le_end_to_end():
     assert "http://c2.evil.com/beacon.ps1" in r.output
     assert "http://c2.evil.com/beacon.ps1" in r.findings.iocs.urls
     ids = [s.decoder for s in r.trace]
-    assert "utf16-decode" in ids
+    # The strict PS preamble superseded the old generic-plugin route.
+    # Validate the real transformation provenance, not an obsolete alias.
+    assert ids[0] == "ps-encodedcommand-recovery"
+    recovery = r.trace[0]
+    assert recovery.preview == inner
+    assert recovery.args["recovery_winner"] == "utf16le_strict"
+    assert recovery.args["attempts"] == ["base64_decode", "utf16le_strict"]
+    assert recovery.in_len == len(f"powershell.exe -enc {b64}")
+    assert recovery.out_len == len(inner)
 
 
 def test_utf16_be_bom():
@@ -97,8 +105,13 @@ def test_ps_reconstruct_char_singletons():
 
 def test_ps_reconstruct_char_array_join():
     r = _run("[char[]](80,111,119,101,114,83,104,101,108,108) -join '' + '_MARK_'")
-    assert "PowerShell" in r.output
-    assert "_MARK_" in r.output
+    # '+' binds above binary '-join': the marker is the delimiter.
+    assert r.output == "'" + "_MARK_".join("PowerShell") + "'"
+
+
+def test_ps_reconstruct_parenthesized_join_then_concat():
+    r = _run("([char[]](80,111,119,101,114,83,104,101,108,108) -join '') + '_MARK_'")
+    assert r.output == "'PowerShell_MARK_'"
 
 
 # --------------------------------------------------------------------------- #
