@@ -718,11 +718,23 @@ def classify_behaviors(pipeline: List[Dict[str, str]],
         behaviors.append({"tag": "file-decode",
                           "detail": "certutil is being used to decode/encode a FILE — not an inline payload"})
     if interpreter and interpreter.high_risk_switches:
-        toks_lc = " ".join(cmd.split()).lower()
-        hits = [s for s in interpreter.high_risk_switches if s.lower() in toks_lc]
+        # Interpreter options end at the payload flag. Script strings and
+        # switch prefixes are data, not evidence of launcher configuration.
+        options = []
+        launcher = pipeline[0]["cmd"] if pipeline else cmd
+        for token in tokenize(launcher)[1:]:
+            if token.lower() in interpreter.payload_flags + interpreter.file_operand_flags:
+                break
+            options.append(token.lower())
+        if interpreter.name == "powershell":
+            hits = [f"{option} {value}" for option, value in zip(options, options[1:])
+                    if (option in ("-windowstyle", "-w") and value == "hidden")
+                    or (option in ("-executionpolicy", "-ep") and value in ("bypass", "unrestricted"))]
+        else:
+            hits = [s for s in interpreter.high_risk_switches if s.lower() in options]
         if hits:
             behaviors.append({"tag": "stealth-flags",
-                              "detail": f"High-risk interpreter switches: {', '.join(hits)}"})
+                              "detail": f"Interpreter configuration: {', '.join(hits)}; this does not establish malicious intent"})
 
     # Pipeline: downloader → interpreter
     if len(pipeline) >= 2:
@@ -741,6 +753,10 @@ def classify_behaviors(pipeline: List[Dict[str, str]],
 # 5. Recursive decode of a single payload span
 # =============================================================================
 
+_PLAIN_INLINE_ROLES = {"powershell-command", "powershell-c", "cmd/c", "cmd/k",
+                       "bash-c", "python-c", "javascript-e"}
+
+
 def _decode_span(span: PayloadSpan, hint_xor_key: Optional[int] = None) -> Dict[str, Any]:
     """Run the decoder chain against a single payload span. Uses `smart_decode`
     (deterministic) plus `magic_decode` (recursive search) and returns the
@@ -755,6 +771,18 @@ def _decode_span(span: PayloadSpan, hint_xor_key: Optional[int] = None) -> Dict[
         "final_output": "",
         "is_shellcode": False,
     }
+    if span.encoding == "inline-command" and span.role in _PLAIN_INLINE_ROLES:
+        # Generic binary recipes must not reinterpret an identified script as
+        # permissive Base64 (e.g. Write-Output hello becomes garbage bytes).
+        # Retain the script as zero-step candidate evidence. Embedded encoded
+        # spans and semantic AST transformations still use their existing paths.
+        # Reuse the bounded automatic detector rather than a new heuristic.
+        # Retain the legacy transformation path for recognized encodings and
+        # obfuscation (including the existing partial-construction fixtures).
+        from services.decoder.automatic import analyze as _automatic
+        if _automatic(text)["decode_status"] == "NOT_REQUIRED":
+            result["chains"].append({"engine": "inline", "steps": [], "output": text})
+            return result
     try:
         s = smart_decode(text)
         if s.get("steps"):
@@ -1331,12 +1359,16 @@ def analyze_command(text: str,
             unresolved.append({**u, "found_in": src_label})
 
     recovered_layers = [d for d in decodes if (d.get("final_output") or "")]
-    attempted = bool(to_decode) or bool(ast_report.get("semantic_transformations"))
+    # A -Command/-c body is an identified script, not an encoding attempt.
+    # Keep its candidates/provenance, but do not call identity output a failed
+    # decode or fabricate a successful transformation/canonical artifact.
+    attempted = any(s.encoding != "inline-command" or s.role not in _PLAIN_INLINE_ROLES
+                    for s in to_decode) or bool(ast_report.get("semantic_transformations"))
 
     if needs_choice:
         decode_status = DECODE_AMBIGUOUS
         status_reason = choice_reason
-    elif not spans and not attempted and not unresolved:
+    elif not recovered_layers and not attempted and not unresolved:
         decode_status = DECODE_NOT_REQUIRED
         status_reason = "No encoded or obfuscated construct was identified."
     elif not recovered_layers and attempted:
