@@ -6,7 +6,7 @@ refused. This is not a full PowerShell parser or an execution environment.
 """
 import re
 import base64
-from v2.semantic.ps_ast import tokenize, Token, TOK_OPERATOR, TOK_EOF, TOK_STRING, TOK_NUMBER, TOK_VARIABLE, TOK_TYPECAST
+from v2.semantic.ps_ast import tokenize, Token, TOK_OPERATOR, TOK_EOF, TOK_STRING, TOK_NUMBER, TOK_VARIABLE, TOK_TYPECAST, TOK_IDENT
 
 MAX_TOKENS=2048
 MAX_ITEMS=512
@@ -43,8 +43,12 @@ def lex(source):
             else: raise Unsupported('Unrecognized token')
         if t.kind==TOK_STRING and t.quote=="'" and "''" in source[t.start+1:t.end-1]:
             raise Unsupported('Escaped quote grammar remains unsupported')
-        if t.kind==TOK_STRING and (t.end<=t.start+1 or source[t.end-1]!=t.quote):
+        if t.kind==TOK_STRING and not re.fullmatch(r'"(?:[^"]|"")*"' if t.quote=='"' else r"'(?:[^']|'')*'",source[t.start:t.end]):
             raise Unsupported('Unterminated string')
+        if t.kind==TOK_VARIABLE:
+            raw=source[t.start:t.end]
+            if not re.fullmatch(r'\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\}',raw):
+                raise Unsupported('Incomplete or unsupported variable syntax')
         if t.kind!=TOK_EOF:result.append(t)
         pos=t.end
     if len(result)>MAX_TOKENS:raise Unsupported('Token limit exceeded')
@@ -52,7 +56,7 @@ def lex(source):
 
 
 class Parser:
-    def __init__(self,tokens):self.tokens=tokens;self.i=0;self.nodes=0
+    def __init__(self,tokens):self.tokens=tokens;self.i=0;self.nodes=0;self.base64_args={}
     def peek(self):return self.tokens[self.i].value.lower() if self.i<len(self.tokens) else ''
     def take(self):
         if self.i>=len(self.tokens):raise Unsupported('Incomplete expression')
@@ -70,7 +74,7 @@ class Parser:
         if v in ('(','@('):
             left=self.expression(0,depth+1);self.require(')')
             if v=='@(':left=self.node('array_wrap',left)
-        elif v=='-join':left=self.node('unary_join',self.expression(6,depth+1))
+        elif v=='-join':left=self.node('unary_join',self.expression(9,depth+1))
         elif t.kind==TOK_STRING:
             raw=t.value
             # Tokenizer decodes literals; check original quote metadata.
@@ -84,7 +88,10 @@ class Parser:
             left=self.node('variable',v)
         elif t.kind==TOK_TYPECAST and v in ('convert','system.convert'):
             self.require('::');self.require('frombase64string');self.require('(')
-            argument=self.expression(0,depth+1);self.require(')');left=self.node('base64',argument)
+            argument_start=self.i
+            argument=self.expression(0,depth+1);argument_end=self.i-1
+            self.require(')');left=self.node('base64',argument)
+            self.base64_args[id(left)]=(self.tokens[argument_start].start,self.tokens[argument_end].end)
         elif t.kind==TOK_TYPECAST and v in ('text.encoding','system.text.encoding'):
             self.require('::');member=self.take().value.lower()
             if not re.fullmatch(r'(utf8|unicode|bigendianunicode|ascii)\.getstring',member):raise Unsupported('Encoding unsupported')
@@ -92,9 +99,9 @@ class Parser:
             self.require('(');argument=self.expression(0,depth+1);self.require(')')
             left=self.node('decode_text',encoding,argument)
         elif t.kind==TOK_TYPECAST and v in ('char','char[]','byte','byte[]','int'):
-            left=self.node('cast',v,self.expression(6,depth+1))
+            left=self.node('cast',v,self.expression(9,depth+1))
         else:raise Unsupported('Unsupported atom')
-        precedence={',':1,'-f':2,'-join':2,'-bxor':3,'-band':3,'-bor':3,'+':4,'-':4,'*':5,'%':5}
+        precedence={',':8,'-f':7,'*':6,'%':6,'+':5,'-':5,'-join':4,'-bxor':3,'-band':3,'-bor':3}
         while self.i<len(self.tokens):
             op=self.peek()
             if op=='|' and minimum==0:
@@ -104,7 +111,7 @@ class Parser:
                 left=self.node('map',left,body);continue
             rank=precedence.get(op,-1)
             if rank<minimum:break
-            self.take();right=self.expression(1 if op=='-f' else rank+1,depth+1)
+            self.take();right=self.expression(rank+1,depth+1)
             left=self.node('binary',op,left,right)
         return left
 
@@ -159,7 +166,12 @@ def evaluate(node,env,depth=0,steps=None):
         return bounded([evaluate(node[2],{**env,'_':x},depth+1,steps) for x in source])
     if kind!='binary':raise Unsupported('Unknown AST node')
     op=node[1];a=evaluate(node[2],env,depth+1,steps);b=evaluate(node[3],env,depth+1,steps)
-    if op==',':return bounded((a if isinstance(a,list) else [a])+[b])
+    if op==',':
+        # Flatten only the syntactic left-associated comma sequence. A cast or
+        # array-valued operand is a nested array, whose string coercion is not
+        # represented by this evaluator and must be refused.
+        sequence = node[2][0]=='binary' and node[2][1]==','
+        return bounded((a if sequence else [a])+[b])
     if op=='-join':
         if not isinstance(a,(list,str)) or not isinstance(b,str):raise Unsupported('Join type unsupported')
         return bounded(safe_join(a,b) if isinstance(a,list) else a)
@@ -226,20 +238,39 @@ def reconstruct(source):
             if parser.peek()==';':parser.take();continue
             statements+=1
             if statements>32:raise Unsupported('Statement limit exceeded')
-            first=tokens[parser.i];assignment=False
+            first=tokens[parser.i];assignment=False;command_group=False
             if first.kind==TOK_VARIABLE and parser.i+1<len(tokens) and tokens[parser.i+1].value=='=':
                 name=first.value.lower()
                 if not re.fullmatch(r'[a-z][a-z0-9_]*',name) or name.startswith('ps') or name in {'true','false','null','args','input','pshome','pwd','error','host','executioncontext','lastexitcode','pid','home','profile','myinvocation','matches','foreach','switch','this','nestedpromptlevel','sender','shellid','stacktrace','islinux','ismacos','iswindows','iscoreclr','event','eventargs','eventsubscriber','enabledexperimentalfeatures','consolefilename'}:raise Unsupported('Automatic/scoped variable refused')
                 parser.i+=2;assignment=True
-            elif first.value.lower() in ('write-output','write-host','iex','invoke-expression'):
+            elif first.kind==TOK_IDENT and first.value.lower() in ('write-output','write-host','iex','invoke-expression'):
                 parser.take()
+                # Command arguments are NOT arbitrary expression-mode tokens.
+                # Compute only parenthesized expressions or one simple value.
+                if parser.i>=len(tokens):raise Unsupported('Missing command argument')
+                if parser.peek()=='(':
+                    command_group=True
+                else:
+                    arg=tokens[parser.i]
+                    next_value=tokens[parser.i+1].value if parser.i+1<len(tokens) else ''
+                    if arg.kind not in (TOK_STRING,TOK_VARIABLE,TOK_NUMBER) or next_value not in ('',';','\n','\r'):
+                        raise Unsupported('Unsupported command argument mode')
             start=parser.i
-            tree=parser.expression();value=evaluate(tree,env,steps=steps)
+            if command_group:
+                parser.require('(');tree=parser.expression();parser.require(')')
+            else:
+                tree=parser.expression()
+            value=evaluate(tree,env,steps=steps)
             if parser.i<len(tokens) and parser.peek() not in (';','\n','\r'):
                 raise Unsupported('Trailing unsupported statement')
             if assignment:env[name]=value
             if start==parser.i:raise Unsupported('Empty expression')
             lo,hi=tokens[start].start,tokens[parser.i-1].end
+            if tree[0]=='base64' and not assignment:
+                # Restore the established literal-argument recipe without
+                # pretending that a byte-valued call is a recovered script.
+                lo,hi=parser.base64_args[id(tree)]
+                value=evaluate(tree[1],env,steps=steps)
             replacement=render(value)
             if tree[0]!='literal' and source[lo:hi]!=replacement:edits.append({'start':lo,'end':hi,'replacement':replacement,'operations':operations(tree)})
             if parser.i<len(tokens):parser.take()
@@ -253,4 +284,16 @@ def reconstruct(source):
 
 def unresolved(source):
     # Only the fully validated restricted program can establish constant scope.
-    return reconstruct(source) is None
+    return reconstruct(source) is None or bool(re.search(r'(?i)\[(?:system\.)?convert\]\s*::\s*frombase64string',source))
+
+
+def legacy_fold_context(source):
+    try:
+        tokens=lex(source)
+        if not tokens:return False
+        first=tokens[0]
+        if first.kind==TOK_IDENT:
+            return (first.value.lower() in ('write-output','write-host','iex','invoke-expression')
+                    and len(tokens)>1 and tokens[1].value=='(')
+        return first.value in ('(','@(') or first.kind in (TOK_TYPECAST,TOK_STRING)
+    except Unsupported:return False

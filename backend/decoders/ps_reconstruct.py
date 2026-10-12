@@ -141,7 +141,13 @@ def _replace_char_arrays(text: str) -> Tuple[str, int]:
         except (ValueError, OverflowError):
             return m.group(0)
         hits += 1
-        return "'" + "".join(chars).replace("'", "''") + "'"
+        # A following operator can extend the delimiter expression. The full
+        # typed pass handles supported complete programs above; do not fold a
+        # suffix independently when its precedence is unknown.
+        if re.match(r"\s*(?:[+*%]|-(?:f|join|bxor|band|bor)\b)", text[m.end():], re.I):
+            hits -= 1
+            return m.group(0)
+        return "'" + m.group(3).join(chars).replace("'", "''") + "'"
 
     return _RX_CHAR_ARRAY.sub(_sub, text), hits
 
@@ -449,7 +455,12 @@ class PowerShellReconstructDecoder(BaseDecoder):
             total_hits += n
             notes.append(f"Unwrapped {n} [ScriptBlock]::Create(...) call(s)")
 
-        text, n = _replace_char_arrays(text)
+        from services.decoder.powershell_constants import reconstruct
+        constant = reconstruct(text) if _RX_CHAR_ARRAY.search(text) else None
+        if constant and constant[1]:
+            text, n = constant[0], 1
+        else:
+            text, n = _replace_char_arrays(text)
         if n:
             total_hits += n
             notes.append(f"Expanded {n} [char[]]-join(...) block(s)")
