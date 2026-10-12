@@ -332,3 +332,20 @@
   .cc-shell .cc-pq .nx-dt-search { min-width: 0; flex-basis: 100%; }
   .xdr-console.cc-shell .main { padding: 10px 12px; }
 }
+
+/* Selected incident preview keeps the underlying queue mounted. */
+.cc-pq__actions { display: flex; gap: 6px; justify-content: flex-end; }
+.cc-context { font-size: 13px; color: var(--nx-text); overflow-wrap: anywhere; }
+.cc-context__facts { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px 12px; margin: 0 0 20px; }
+.cc-context__facts dt, .cc-context__hint { color: var(--nx-text-dim); }
+.cc-context__facts dd { margin: 0; }
+.cc-context h3 { font-size: 13px; margin: 0; }
+.cc-context__hint { font-size: 12px; line-height: 1.5; }
+.cc-context__pivots { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.cc-context__pivots a { text-decoration: none; }
+[data-testid="cc-incident-context"] { max-width: 100vw; }
+[data-testid="cc-incident-context"] .nx-fly-title { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  [data-testid="cc-incident-context"] { width: 100vw !important; }
+  .cc-context__facts { grid-template-columns: 92px minmax(0, 1fr); }
+}

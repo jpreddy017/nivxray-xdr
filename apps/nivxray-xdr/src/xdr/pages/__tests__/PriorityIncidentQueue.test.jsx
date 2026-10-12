@@ -2,6 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import PriorityIncidentQueue, { investigationHref, priorityQueueColumns, queueView } from "../PriorityIncidentQueue";
+import SelectedIncidentContext from "../SelectedIncidentContext";
 import NxDataTable from "../../nx/NxDataTable";
 
 // An element-level interaction harness: exercise the shared table's real handlers
@@ -16,6 +17,7 @@ vi.mock("react", async () => {
       if (!(i in hooks.values)) hooks.values[i] = typeof initial === "function" ? initial() : initial;
       return [hooks.values[i], (next) => { hooks.values[i] = typeof next === "function" ? next(hooks.values[i]) : next; }];
     },
+    useCallback: (fn, deps) => hooks.active ? fn : actual.useCallback(fn, deps),
     useMemo: (fn, deps) => hooks.active ? fn() : actual.useMemo(fn, deps),
     useEffect: (fn, deps) => { if (!hooks.active) actual.useEffect(fn, deps); },
   };
@@ -91,9 +93,27 @@ describe("Priority queue interactions", () => {
     table.props.onRowClick({});
     expect(navigate).not.toHaveBeenCalled();
     const stopPropagation = vi.fn();
-    table.props.rowActions(row).props.onClick({ stopPropagation });
+    elements(table.props.rowActions(row), (node) => node.type === "button" && node.props.children === "Open investigation")[0].props.onClick({ stopPropagation });
     expect(stopPropagation).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledOnce();
+  });
+  it("previews without navigating or replacing the table, then closes back to the queue", () => {
+    const navigate = vi.fn();
+    const props = { data: response(), onNavigate: navigate };
+    let tree = run(PriorityIncidentQueue, props);
+    const table = elements(tree, (node) => node.type === NxDataTable)[0];
+    const preview = elements(table.props.rowActions(row), (node) => node.type === "button" && node.props.children === "Preview")[0];
+    const stopPropagation = vi.fn();
+    preview.props.onClick({ stopPropagation });
+    expect(stopPropagation).toHaveBeenCalledOnce(); expect(navigate).not.toHaveBeenCalled();
+    tree = run(PriorityIncidentQueue, props);
+    expect(elements(tree, (node) => node.type === NxDataTable)).toHaveLength(1);
+    const context = elements(tree, (node) => node.type === SelectedIncidentContext)[0];
+    expect(context.props.id).toBe(row.id);
+    context.props.onClose();
+    tree = run(PriorityIncidentQueue, props);
+    expect(elements(tree, (node) => node.type === SelectedIncidentContext)).toHaveLength(0);
+    expect(elements(tree, (node) => node.type === NxDataTable)).toHaveLength(1);
   });
   it("searches, sorts, paginates all returned records, and supports Enter navigation", () => {
     const navigate = vi.fn();

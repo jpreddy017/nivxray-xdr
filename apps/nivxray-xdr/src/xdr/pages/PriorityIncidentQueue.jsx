@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { NxDataTable } from "@/xdr/nx";
+import SelectedIncidentContext from "./SelectedIncidentContext";
 import { projectionState } from "./controlCenterState";
 
 const missing = <span className="cc-pq__missing">Not available</span>;
@@ -41,6 +42,8 @@ export const priorityQueueColumns = [
 ];
 
 export default function PriorityIncidentQueue({ data, loading, onNavigate }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const closePreview = useCallback(() => setSelectedId(null), []);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
@@ -49,6 +52,7 @@ export default function PriorityIncidentQueue({ data, loading, onNavigate }) {
   const view = queueView(data, loading, now);
   const readable = ["ready", "empty", "stale", "freshness_unknown"].includes(view);
   const rows = readable ? data.rows : [];
+  useEffect(() => { if (!readable) closePreview(); }, [readable, closePreview]);
   const open = (row) => {
     const href = investigationHref(row);
     if (readable && href) onNavigate(href);
@@ -80,11 +84,15 @@ export default function PriorityIncidentQueue({ data, loading, onNavigate }) {
           testid="cc-priority-table"
           emptyTitle={rows.length ? "No matching incidents in this snapshot" : "No open P1/P2 incidents returned"}
           emptyHint="Other priorities or unassigned work may still exist. Open the full queue to investigate further."
-          rowActions={(row) => <button type="button" className="cc-pq__open" disabled={!investigationHref(row)}
+          rowActions={(row) => <span className="cc-pq__actions"><button type="button" className="cc-pq__open" disabled={!investigationHref(row)}
+            aria-label={`Preview incident ${row.id || "unavailable"}`}
+            onKeyDown={(event) => event.stopPropagation()}
+            onClick={(event) => { event.stopPropagation(); setSelectedId(row.id); }}>Preview</button><button type="button" className="cc-pq__open" disabled={!investigationHref(row)}
             aria-label={`Open investigation ${row.id || "unavailable"}`}
             onKeyDown={(event) => event.stopPropagation()}
-            onClick={(event) => { event.stopPropagation(); open(row); }}>Open investigation</button>} />
+            onClick={(event) => { event.stopPropagation(); open(row); }}>Open investigation</button></span>} />
       </div>}
+      {selectedId && readable && <SelectedIncidentContext id={selectedId} onClose={closePreview} />}
     </section>
   );
 }
