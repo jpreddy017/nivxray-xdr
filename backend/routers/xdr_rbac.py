@@ -376,6 +376,14 @@ _BUILTIN_ROLE_BY_NAME = {r["name"]: r for r in _BUILTIN_ROLES}
 #   · no resolvable tenant/principal → DENY. There is no default tenant and
 #     absence of identity never increases privilege.
 def resolve_principal(req: Request) -> tuple[str, str, str]:
+    context = getattr(req.state, "rbac_customer_context", None)
+    if context:
+        # Preserve non-authoritative claim attribution while using the exact
+        # permission check's server-validated principal/customer.
+        actor, kind = verified_actor(req)
+        if actor != context["principal"] or kind != "user":
+            raise HTTPException(403, detail={"code": "ACCESS_DENIED", "reason": "principal conflict"})
+        return context["tenant"], context["principal"], "user"
     pid, pkd = verified_actor(req)
     if not pid:
         _audit_scope_denial(None, None, "principal",
@@ -594,7 +602,7 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
             access_authority.SOURCE_DIRECT_GRANT:
         scope = decision["winning_path"].get("scope") or {}
         allowed_ids = scope.get("resource_ids") or []
-        if not allowed_ids or not resource_id or resource_id in allowed_ids:
+        if not allowed_ids or (resource_id is not None and resource_id in allowed_ids):
             return {"allow": True, "reason": decision["reason"],
                          "matched_role": None,
                          "matched_permission": permission,
@@ -618,7 +626,7 @@ def check_access(tenant_id: str, principal_id: str, permission: str,
         # Scope filter.
         scope = a.get("scope") or {}
         allowed_ids = scope.get("resource_ids") or []
-        if allowed_ids and resource_id and resource_id not in allowed_ids:
+        if allowed_ids and resource_id not in allowed_ids:
             continue
         return {"allow": True,
                      "reason": (access_authority.REASON_GRANTED_GROUP
@@ -897,6 +905,75 @@ def authorize_tenant(request: Request, tenant_id: str, *, purpose: str) -> str:
 _bearer_optional = HTTPBearer(auto_error=False)
 
 
+async def selected_customer(request: Request, user: dict) -> str:
+    """One verified customer for projection, permission and downstream handlers.
+
+    Caller selectors only narrow persisted grants. The home tenant is a
+    compatibility request, not authority; even it must survive both checks.
+    """
+    from services.session_context import ScopeDenied, authorize_requested_tenant
+    from services import tenant_registry
+
+    email = (user or {}).get("email")
+    if not email or (user or {}).get("enabled") is False:
+        raise HTTPException(403, detail={"code": "ACCESS_DENIED", "reason": "principal unavailable"})
+    cached = getattr(request.state, "rbac_customer_context", None)
+    if cached:
+        if cached["principal"] != email:
+            raise HTTPException(403, detail={"code": "ACCESS_DENIED", "reason": "principal conflict"})
+        return cached["tenant"]
+    claims = list(request.headers.getlist("X-Tenant-Id"))
+    keys = ("tenant_id", "tenant", "customer", "tenantId", "customer_id", "customerId")
+    for key in keys:
+        claims.extend(request.query_params.getlist(key))
+    content_type = request.headers.get("content-type", "").split(";")[0]
+    if not content_type or content_type == "application/json" or content_type.endswith("+json"):
+        raw = await request.body()
+        if raw:
+            try:
+                import json
+                payload = json.loads(raw)
+            except (ValueError, UnicodeDecodeError):
+                raise HTTPException(400, detail={"code": "INVALID_JSON"}) from None
+            if isinstance(payload, dict):
+                claims.extend(payload[key] for key in keys if key in payload)
+    if any(not isinstance(value, str) or not value.strip() for value in claims):
+        _audit_scope_denial(None, email, "rbac-selected-customer", "CLAIM_CONFLICT")
+        raise HTTPException(403, detail={"code": "RBAC_TENANT_CLAIM_CONFLICT"})
+    claims = [value.strip() for value in claims]
+    if len(set(claims)) > 1:
+        _audit_scope_denial(None, email, "rbac-selected-customer", "CLAIM_CONFLICT")
+        raise HTTPException(403, detail={"code": "RBAC_TENANT_CLAIM_CONFLICT"})
+    requested = claims[0] if claims else (user or {}).get("tenant_id")
+    try:
+        tenant, basis = authorize_requested_tenant(email, requested)
+        tenant = tenant_registry.authoritative_required(tenant, purpose="xdr.rbac.selected_customer")
+    except ScopeDenied as error:
+        _audit_scope_denial(requested, email, "rbac-selected-customer", f"{error.code}:{error.basis}")
+        raise HTTPException(error.http, detail=error.detail()) from None
+    except tenant_registry.TenantRegistryError as error:
+        _audit_scope_denial(requested, email, "rbac-selected-customer", error.code)
+        raise HTTPException(error.http, detail=error.detail()) from None
+    request.state.rbac_customer_context = {"tenant": tenant, "principal": email}
+    request.state.effective_tenant_id = tenant
+    request.state.tenant_resolution_basis = basis
+    request.state.principal_id = email
+    request.state.principal_kind = "user"
+    return tenant
+
+
+def requested_resource(request: Request, header: str | None) -> str | None:
+    """Use the route target when unambiguous; a resource header cannot replace it."""
+    ids = [str(value) for key, value in request.path_params.items()
+           if key == "id" or key.endswith("_id")]
+    claim = request.headers.get(header) if header else None
+    if claim and ids and (len(ids) != 1 or claim != ids[0]):
+        context = getattr(request.state, "rbac_customer_context", {})
+        _audit_scope_denial(context.get("tenant"), context.get("principal"), "resource", "CLAIM_CONFLICT")
+        raise HTTPException(403, detail={"code": "RBAC_RESOURCE_CLAIM_CONFLICT"})
+    return ids[0] if len(ids) == 1 else claim if not ids else None
+
+
 def require_permission(permission: str, *, resource_id_header: str | None = None):
     """FastAPI dependency factory.  Use like:
 
@@ -948,23 +1025,10 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
         # `deps.seed_admin()` at startup, which never traverses RBAC, so no
         # chicken-and-egg lockout exists.
         email = (user or {}).get("email")
-        role = (user or {}).get("role")
         if not email:
-            raise HTTPException(status_code=403, detail={
-                "code": "ACCESS_DENIED", "permission": permission,
-                "reason": "unauthenticated"})
-        rid = request.headers.get(resource_id_header) if resource_id_header else None
-        # Cross-tenant platform administrator — the same role gate
-        # `deps.require_admin` enforces elsewhere.
-        if role == "admin":
-            return True
-        # Tenant-scoped principal: the tenant is read from the AUTHENTICATED
-        # user record, never from a request header.
-        ten = (user or {}).get("tenant_id")
-        if not ten:
-            raise HTTPException(status_code=403, detail={
-                "code": "ACCESS_DENIED", "permission": permission,
-                "reason": "principal has no tenant scope"})
+            raise HTTPException(status_code=403, detail={"code": "ACCESS_DENIED", "reason": "unauthenticated"})
+        ten = await selected_customer(request, user)
+        rid = requested_resource(request, resource_id_header)
         # Datastore unavailable => fail closed, never open.
         if _c_users() is None:
             raise HTTPException(status_code=503, detail={
@@ -992,8 +1056,9 @@ def require_permission(permission: str, *, resource_id_header: str | None = None
 
 
 # ── A0.5-5 · Console authorization ────────────────────────────────
-#: The legacy cross-tenant `role == "admin"` JWT short-circuit in
-#: `require_permission` is PRESERVED (A0.5 is not an auth redesign), so a
+#: console_authorization retains the legacy admin presentation projection.
+#: RBAC-2 removes that shortcut from require_permission/me/effective; this
+#: remaining console projection needs separate migration. A
 #: platform administrator holds both consoles as a declared break-glass
 #: authority — reported as `PLATFORM_ADMIN_BREAK_GLASS`, never inferred
 #: from one console to the other.
@@ -1542,7 +1607,9 @@ def simulate(body: SimulateBody, request: Request):
 #
 # This is a PROJECTION of the existing resolver, not a new authority:
 #   · identity comes only from the verified JWT (`_deps_current_user`)
-#   · the tenant comes only from the persisted user record, never a header
+#   · customer selectors are validated against persisted grants and the
+#     mandatory active registry by selected_customer; the home is only a
+#     compatibility request, never authority
 #   · permissions come from `_resolve_user_permissions()` — the same function
 #     `check_access()` uses, so there is no second algorithm
 #   · it grants nothing and mutates nothing
@@ -1550,37 +1617,9 @@ def simulate(body: SimulateBody, request: Request):
 # `basis` tells the client WHY it received this set, so the UI can render an
 # honest state instead of guessing.
 @router.get("/me/effective")
-def my_effective_access(user=Depends(_deps_current_user)):
+async def my_effective_access(request: Request, user=Depends(_deps_current_user)):
     email = (user or {}).get("email")
-    role  = (user or {}).get("role")
-    if not email:
-        raise HTTPException(status_code=403, detail={
-            "code": "ACCESS_DENIED", "reason": "unauthenticated"})
-
-    # Cross-tenant platform administrator — the same gate
-    # `require_permission` short-circuits on (`:783`). Its authority is
-    # platform-wide, so its effective set is the whole catalog.
-    if role == "admin":
-        return {"ok": True, "data": {
-            "principal":    email,
-            "tenant":       (user or {}).get("tenant_id"),
-            "cross_tenant": True,
-            "basis":        "CROSS_TENANT_ADMIN_ROLE",
-            "roles":        ["platform_admin"],
-            "groups":       [],
-            "permissions":  sorted(_all_permissions()),
-            "scopes":       [],
-            "note":         ("platform administrator · authority is not "
-                                    "narrowed by a tenant-scoped RBAC grant"),
-        }}
-
-    ten = (user or {}).get("tenant_id")
-    if not ten:
-        return {"ok": True, "data": {
-            "principal": email, "tenant": None, "cross_tenant": False,
-            "basis": "NO_TENANT_SCOPE", "roles": [], "groups": [],
-            "permissions": [], "scopes": [],
-            "note": "principal has no tenant scope"}}
+    ten = await selected_customer(request, user)
 
     if _c_users() is None:
         raise HTTPException(status_code=503, detail={
