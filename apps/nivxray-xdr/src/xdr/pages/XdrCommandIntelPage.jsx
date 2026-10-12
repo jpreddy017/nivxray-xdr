@@ -53,6 +53,9 @@ export function CommandResult({ result }) {
     <section style={panel}><h2 style={panelH}>Extracted indicators · observed strings, not reputation verdicts</h2><div style={{ overflowX: "auto" }}>
       {result.iocs.length ? <table style={{ width: "100%", fontSize: 12 }}><thead><tr><th>Type</th><th>Value</th><th>Evidence</th></tr></thead><tbody>{result.iocs.map((ioc, i) => <tr key={i}><td>{ioc.type}</td><td><code>{ioc.value}</code></td><td style={muted}>{ioc.evidence_id}</td></tr>)}</tbody></table> : <p style={body}>No supported indicators extracted.</p>}
     </div></section>
+    {result.unresolved_portions.length > 0 && <section style={panel}><h2 style={panelH}>Unresolved limitations</h2><div style={body}>
+      {result.unresolved_portions.map((w, i) => <p key={i} style={warning}>{w}</p>)}
+    </div></section>}
     <details style={panel}><summary style={panelH}>Full evidence report and resource limits</summary><pre style={pre}>{JSON.stringify(result, null, 2)}</pre></details>
   </div>;
 }

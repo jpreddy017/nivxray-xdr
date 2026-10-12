@@ -1,3 +1,5 @@
+> Follow-up security review: [2026-10-12 acceptance assessment](SECURITY_ACCEPTANCE_2026-10-12.md). Scoped repairs pass; overall release remains NO-GO because legacy limits fail and deployed acceptance is blocked. Baseline results below are historical.
+
 # Automatic Command Intelligence — implementation and validation
 
 Date: 2026-10-12. Release status: **NO-GO for production; isolated review candidate**.

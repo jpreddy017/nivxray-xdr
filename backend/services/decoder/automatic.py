@@ -20,7 +20,7 @@ from .base.encoding import _DECODERS
 from .types import Capability, CapabilityKind, DecodedLayer, Provenance, now_iso
 from . import cmd, powershell
 
-VERSION = "1.0.0-auto"
+VERSION = "1.0.1-auto"
 MAX_INPUT = 16384
 MAX_OUTPUT = 131072
 MAX_TOTAL = 1048576
@@ -35,6 +35,18 @@ _PS_ENC = re.compile(r"(?i)(?<!\S)-(?:e|en|enc|enco|encod|encode|encoded|encoded
 _PS_CALL = re.compile(r"(?i)\[(?:System\.)?Convert\]\s*::\s*FromBase64String\s*\(\s*(['\"])([A-Za-z0-9+/=]+)\1\s*\)")
 _SCRIPT = re.compile(r"(?i)\b(?:write-output|write-host|powershell|pwsh|iex|invoke-expression|invoke-webrequest|start-process|cmd|echo|curl|wget|whoami)\b")
 _DYNAMIC = re.compile(r"(?i)\$[\w{(]|%[A-Za-z_][^%\r\n]*%|![A-Za-z_]\w*!|\b(?:AES|RC4|decrypt|GZipStream|DeflateStream)\b|FromBase64String|-(?:join|replace|f)\b|\[char\]|`|'\s*\+|\+\s*'")
+
+
+def standalone_encodedcommand(text):
+    """Only a complete, conservative PS invocation can stand for its child.
+
+    Unknown flags, comments, wrappers and trailing commands remain separate
+    evidence. This establishes extraction scope, never execution.
+    """
+    match = _PS_ENC.search(text)
+    return bool(match and re.fullmatch(
+        r'(?i)\s*(?:powershell|pwsh)(?:\.exe)?\s+(?:-(?:nop|noprofile|noni|noninteractive)\s+)*',
+        text[:match.start()]) and not text[match.end():].strip())
 
 
 def digest(value):
@@ -156,6 +168,7 @@ def transitions(node):
         return
     text = value
     stripped = text.strip()
+    is_cmd = bool(re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text)) or any(p['stage'].startswith('cmd.') for p in node.path)
     # Whole-value encodings. Never turn a 32/40/64-hex digest into a payload.
     if len(stripped) >= 8 and _B64.fullmatch(stripped):
         url = '-' in stripped or '_' in stripped
@@ -171,7 +184,12 @@ def transitions(node):
     for name, fn in _DECODERS:
         signature = {'encoding.unicode_escape': r'\\[uxU][0-9a-fA-F]{2}', 'encoding.html_entities': r'&#(?:x[0-9a-fA-F]+|[0-9]+);', 'encoding.base32': r'^[A-Z2-7]{8,}={0,6}$', 'encoding.base85': r'^<~.*~>$', 'encoding.octal_ascii': r'^(?:\\[0-7]{3})+$', 'encoding.decimal_ascii': r'^\d{2,3}(?:[, ]+\d{2,3}){2,}$'}.get(name)
         if signature and re.search(signature, stripped):
-            out = fn(stripped)
+            # Decode only recognized spans: utf8 -> unicode_escape corrupts
+            # existing non-ASCII text and also interprets unrelated escapes.
+            if name == 'encoding.unicode_escape':
+                out = re.sub(r'\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|x[0-9a-fA-F]{2})', lambda m: chr(int(m.group()[2:], 16)), stripped)
+            else:
+                out = fn(stripped)
             if out and out != stripped and readable(out):
                 yield name, out, {}, (), '', False, bool(_SCRIPT.search(text))
     # Explicit command payloads have source offsets in their immediate parent.
@@ -195,18 +213,19 @@ def transitions(node):
             yield 'extract.literal_candidate', val, {"start": m.start()+1, "end": m.end()-1}, ('Literal meaning is not established by a decode operation',), '', True, True
     # Reuse existing format/join folds only when the entire expression is
     # composed of unescaped single-quoted literals (no interpolation).
-    safe_literal = r"'[^'\r\n]*'"
+    safe_literal = r"'[^'\"\r\n]*'"
     format_pattern = safe_literal + r"\s+-f\s+" + safe_literal + r"(?:\s*,\s*" + safe_literal + r")*"
     join_pattern = r"\(\s*" + safe_literal + r"(?:\s*,\s*" + safe_literal + r")+\s*\)\s+-join\s*" + safe_literal
     for pattern, fn, name in ((format_pattern, powershell._run_format_string, 'powershell.format_string_assembly'), (join_pattern, powershell._run_join_split, 'powershell.join_split_fold')):
-        if re.fullmatch(pattern, stripped, re.I):
+        if not is_cmd and re.fullmatch(pattern, stripped, re.I):
             folded = fn(stripped, 'auto:literal', 0)
             if folded and readable(folded.output):
                 yield name, folded.output, {}, (), '', False, False
-    for out, args, name in static_folds(text):
-        yield name, out, args, (), '', False, False
+    if not is_cmd:
+        for out, args, name in static_folds(text):
+            yield name, out, args, (), '', False, False
     # Strict CMD wrapper and caret support; do not guess wildcard executables.
-    if re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text) and not any(s in text for s in ('%', '!', '\n', '\r', '^^')):
+    if re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text) and not any(s in text for s in ('%', '!', '\n', '\r', '^^')) and not re.search(r'\^(?![A-Za-z0-9])', text):
         out, peeled, _ = cmd._peel_cmd_wrapper(text)
         if peeled:
             out, _ = cmd.strip_carets_outside_quotes(out)
@@ -233,7 +252,11 @@ def annotations(evidence):
         found['urls'] = [u.rstrip(');,]') for u in found.get('urls', [])]
         found['file_paths'] = [p for p in found.get('file_paths', []) if not any(p in u for u in found['urls'])]
         for url in found.get('urls', []):
-            host = urlsplit(url).hostname
+            try:
+                host = urlsplit(url).hostname
+            except ValueError:
+                # Preserve the observed URL string; malformed host is not a domain.
+                continue
             if host:
                 found.setdefault('domains', []).append(host)
         for kind, vals in found.items():
@@ -284,7 +307,7 @@ def analyze(text: str):
                 # Path-local cycles; retain independently sourced identical payloads.
                 if digest(out) in [p['input_sha256'] for p in node.path]:
                     continue
-                key = (digest(node.value), op, digest(out), tuple((p['stage'], str(p['args'])) for p in node.path))
+                key = (digest(node.value), op, digest(out), str(sorted(args.items())), tuple((p['stage'], str(p['args'])) for p in node.path))
                 if key in seen:
                     continue
                 seen.add(key)
@@ -318,13 +341,13 @@ def analyze(text: str):
     alternatives = len({c['id'] for c in plausible}) > 1
     original_dynamic = bool(_DYNAMIC.search(text))
     # An extracted child does not prove that its surrounding script was recovered.
-    wrapper_unresolved = bool(best and best['embedded'] and original_dynamic)
+    wrapper_unresolved = bool(best and any(p['stage'].startswith('extract.') and (p['stage'] != 'extract.encodedcommand' or not standalone_encodedcommand(p['input']['value'])) for p in best['layers']))
     if wrapper_unresolved:
         warnings.append('Surrounding script remains separate evidence; recovering an embedded payload does not resolve the wrapper')
     status = 'NOT_REQUIRED'
     if candidates:
         status = 'AMBIGUOUS' if alternatives else 'PARTIALLY_RECOVERED' if warnings or best['unresolved'] or best['speculative'] else 'RECOVERED'
-    elif original_dynamic or _PS_ENC.search(text) or _B64.fullmatch(text.strip()) or re.search(r'(?i)-(?:enc|encodedcommand)\b|\\[ux][0-9a-f]|%[0-9a-f]{2}', text):
+    elif original_dynamic or re.search(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k).*\^', text) or _PS_ENC.search(text) or _B64.fullmatch(text.strip()) or re.search(r'(?i)-(?:enc|encodedcommand)\b|\\[ux][0-9a-f]|%[0-9a-f]{2}', text):
         status = 'UNRECOVERED'
     if not candidates and original_dynamic:
         warnings.append('Runtime-dependent variables, calls or unsupported literal constructions were not evaluated')
@@ -354,7 +377,7 @@ def replay_recipe(original: str, recipe: list):
                 total += size
                 if size > MAX_OUTPUT or total > MAX_TOTAL:
                     raise ValueError('Recipe output limit')
-                node = Node(out, [], node.reasons + reasons, hint, embedded, speculative)
+                node = Node(out, node.path + [layer(node.value, op, out, args, len(node.path))], node.reasons + reasons, hint, embedded, speculative)
                 matched = True
                 break
         if not matched:

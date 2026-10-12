@@ -26,10 +26,11 @@ def analyze_isolated(text):
         raise ValueError('Enter a nonempty command of at most 16 KiB')
     if not _CAPACITY.acquire(blocking=False):
         raise RuntimeError('Command analysis is busy; retry shortly')
-    ctx = multiprocessing.get_context('spawn')
-    reader, writer = ctx.Pipe(duplex=False)
-    process = ctx.Process(target=_child, args=(writer, text), daemon=True)
+    reader = writer = process = None
     try:
+        ctx = multiprocessing.get_context('spawn')
+        reader, writer = ctx.Pipe(duplex=False)
+        process = ctx.Process(target=_child, args=(writer, text), daemon=True)
         process.start()
         writer.close()
         if not reader.poll(WORKER_SECONDS):
@@ -42,7 +43,7 @@ def analyze_isolated(text):
             raise RuntimeError(result)
         return result
     finally:
-        if process.pid:
+        if process is not None and process.pid:
             process.join(timeout=.05)
             if process.is_alive():
                 process.terminate()
@@ -50,6 +51,8 @@ def analyze_isolated(text):
             if process.is_alive():
                 process.kill()
                 process.join()
-        reader.close()
-        writer.close()
+        if reader is not None:
+            reader.close()
+        if writer is not None:
+            writer.close()
         _CAPACITY.release()

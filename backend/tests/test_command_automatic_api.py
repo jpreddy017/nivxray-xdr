@@ -109,3 +109,16 @@ def test_capacity_rejects_without_queue():
         with pytest.raises(RuntimeError, match='busy'): automatic_worker.analyze_isolated('whoami')
     finally:
         automatic_worker._CAPACITY.release(); automatic_worker._CAPACITY.release()
+
+
+def test_worker_setup_failure_releases_capacity(monkeypatch):
+    def unavailable(_):
+        raise RuntimeError('spawn unavailable')
+    monkeypatch.setattr(automatic_worker.multiprocessing, 'get_context', unavailable)
+    for _ in range(3):
+        with pytest.raises(RuntimeError, match='spawn unavailable'):
+            automatic_worker.analyze_isolated('whoami')
+    assert automatic_worker._CAPACITY.acquire(blocking=False)
+    assert automatic_worker._CAPACITY.acquire(blocking=False)
+    automatic_worker._CAPACITY.release()
+    automatic_worker._CAPACITY.release()

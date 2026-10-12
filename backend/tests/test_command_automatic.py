@@ -184,3 +184,58 @@ def test_deterministic():
             for step in candidate['layers']:
                 assert step['provenance'].pop('recorded_at')
     assert left == right
+
+# Independent security-review regressions: never promote changed/incomplete evidence.
+@pytest.mark.parametrize('raw', ["'{0}' -f 'a\"b'", 'cmd /c echo hello ^& echo bye', 'cmd /c echo ^> example.txt'])
+def test_review_unsupported_semantics_are_preserved(raw):
+    r = analyze(raw)
+    assert r['final_recoverable']['value'] == raw
+    assert not r['canonical_decoded_artifact']['promoted']
+    assert r['decode_status'] == 'UNRECOVERED'
+
+@pytest.mark.parametrize('prefix,suffix', [('# ', ''), ('echo ', ''), ('', ' ; echo untouched'), ('', ' # comment'), ('', ' | echo tail')])
+def test_review_embedded_child_never_erases_surrounding_evidence(prefix, suffix):
+    raw = prefix + 'powershell -enc ' + b64(SCRIPT.encode('utf-16le')) + suffix
+    r = analyze(raw)
+    assert r['original_command'] == raw
+    assert r['final_recoverable']['value'] == SCRIPT
+    assert r['decode_status'] == 'PARTIALLY_RECOVERED'
+    assert not r['canonical_decoded_artifact']['promoted']
+    assert any('Surrounding' in w for w in r['unresolved_portions'])
+
+def test_review_cmd_does_not_acquire_powershell_semantics():
+    raw = "cmd /c echo 'a'+'b'"
+    r = analyze(raw)
+    assert r['final_recoverable']['value'] == "echo 'a'+'b'"
+    assert all(not op.startswith('powershell.') for op in r['detected_methods'])
+    for c in r['candidates']:
+        assert replay_recipe(raw, c['recipe']) == c['payload']
+
+def test_review_unicode_escape_preserves_existing_unicode_and_backslashes():
+    assert final(r'é\u0021') == 'é!'
+    assert final(r'é\u0021\n') == 'é!\\n'
+
+def test_review_malformed_url_cannot_abort_report():
+    raw = 'Write-Output "http://[bad"'
+    r = analyze(raw)
+    assert r['original_command'] == raw
+    assert r['decode_status'] == 'NOT_REQUIRED'
+    assert not any(i['type'] == 'domains' for i in r['iocs'])
+
+def test_review_identical_embedded_payloads_keep_both_source_locations():
+    raw = '; '.join(["[Convert]::FromBase64String('" + b64(SCRIPT.encode()) + "')"] * 2)
+    r = analyze(raw)
+    assert len(r['candidates']) == 2
+    assert len({c['recipe'][0]['args']['start'] for c in r['candidates']}) == 2
+    for c in r['candidates']:
+        assert replay_recipe(raw, c['recipe']) == c['payload']
+
+
+@pytest.mark.parametrize('inner', ['powershell -enc {blob} ; echo untouched', '# powershell -enc {blob}', "[Convert]::FromBase64String('{utf8}')"])
+def test_review_nested_wrapper_scope_is_checked_at_every_extraction(inner):
+    inner = inner.format(blob=b64(SCRIPT.encode('utf-16le')), utf8=b64(SCRIPT.encode()))
+    raw = 'powershell -enc ' + b64(inner.encode('utf-16le'))
+    r = analyze(raw)
+    assert r['final_recoverable']['value'] == SCRIPT
+    assert r['decode_status'] == 'PARTIALLY_RECOVERED'
+    assert not r['canonical_decoded_artifact']['promoted']

@@ -9,7 +9,7 @@ export function validateCommandResult(data, original) {
       !data.canonical_decoded_artifact || !data.final_recoverable ||
       typeof data.final_recoverable.value !== "string" ||
       !["text", "base64"].includes(data.final_recoverable.format) ||
-      !["candidates", "detected_methods", "warnings", "behaviors", "iocs"].every(key => Array.isArray(data[key]))) {
+      !["candidates", "detected_methods", "warnings", "behaviors", "iocs", "unresolved_portions"].every(key => Array.isArray(data[key]))) {
     throw new Error("The backend did not return a compatible automatic analysis report. Verify frontend/backend release compatibility.");
   }
   if (data.candidates.some(c => !c || !Array.isArray(c.layers) || !Array.isArray(c.recipe) || !Array.isArray(c.unresolved) || typeof c.confidence !== "string" || !c.payload ||
