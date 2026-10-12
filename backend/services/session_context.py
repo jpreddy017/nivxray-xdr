@@ -289,7 +289,7 @@ def authorize_requested_tenant(email: Optional[str],
 
 
 def _authorized_universe(scope: Dict[str, Any]) -> List[str]:
-    """The tenants this principal is authorized in — informational count.
+    """The validated active subset of this principal's persisted authority.
 
     P0-FIX-6B-2 · previously a cross-tenant principal's "authorized" universe
     was the CASE CORPUS (customers with incidents), conflating evidence with
@@ -298,8 +298,8 @@ def _authorized_universe(scope: Dict[str, Any]) -> List[str]:
     * CUSTOMER — the explicit grants that survive authoritative registry
       validation (a granted-but-archived tenant is not authorized).
     * PLATFORM — every currently authoritative tenant (tenant ACTIVE under an
-      ACTIVE organization). This count is CONTEXT METADATA ONLY; it grants
-      nothing. Platform authority comes solely from
+      ACTIVE organization). Scope selection and picker/count projections use
+      this validated subset; it never creates a grant. Platform authority comes from
       ``authority_scope == "PLATFORM"``.
     """
     from services import tenant_registry
@@ -308,10 +308,20 @@ def _authorized_universe(scope: Dict[str, Any]) -> List[str]:
             active_orgs = {o.get("id") for o in
                            tenant_registry.list_organizations(limit=1000)
                            if o.get("state") == "ACTIVE"}
-            return [str(t.get("id")) for t in
-                    tenant_registry.list_tenants(limit=2000)
-                    if t.get("state") == "ACTIVE"
-                    and t.get("organization_id") in active_orgs]
+            candidates = [str(t.get("id")) for t in
+                          tenant_registry.list_tenants(limit=2000)
+                          if t.get("state") == "ACTIVE"
+                          and t.get("organization_id") in active_orgs]
+            # Enumeration is not authority: revalidate each tenant through
+            # the same mandatory registry boundary used by RBAC.
+            survived = []
+            for tenant in candidates:
+                try:
+                    survived.append(tenant_registry.authoritative_required(
+                        tenant, purpose="scope.authorized_universe"))
+                except Exception:
+                    continue
+            return list(dict.fromkeys(survived))
         except Exception:                                   # noqa: BLE001
             return []                                       # fail closed
     survived: List[str] = []
@@ -321,7 +331,7 @@ def _authorized_universe(scope: Dict[str, Any]) -> List[str]:
                 tenant, purpose="scope.authorized_count"))
         except Exception:                                   # noqa: BLE001
             continue
-    return survived
+    return list(dict.fromkeys(survived))
 
 
 def effective_scope(email: Optional[str],
@@ -338,12 +348,12 @@ def effective_scope(email: Optional[str],
     requested = {"kind": kind, "tenant_id": tenant_id,
                  "group_tenant_ids": list(group_tenant_ids or [])}
     scope = resolve_tenant_scope(email)
-    authorized = [t for t in (scope.get("tenant_ids") or []) if t]
     all_tenants = bool(scope.get("all_tenants"))
     # P0-FIX-6B-2 · the authorized universe is AUTHORITY-derived (explicit
     # grants, or every authoritative tenant for a PLATFORM principal) — never
     # the case corpus.
     universe = _authorized_universe(scope) if scope.get("authorized") else []
+    authorized = universe  # Raw grants and PLATFORM labels cannot bypass registry validation.
 
     def _deny(basis: str, reason: str) -> Dict[str, Any]:
         return {"tenant_ids": [], "requested": requested,
@@ -361,12 +371,21 @@ def effective_scope(email: Optional[str],
         return _deny("NOT_AUTHORIZED",
                      "principal is not authorized for any tenant")
 
+    if kind not in {"tenant", "group", "all_authorized"}:
+        return _deny("NOT_AUTHORIZED", "unsupported scope kind")
+    if (kind != "tenant" and tenant_id) or (kind != "group" and group_tenant_ids):
+        return _deny("NOT_AUTHORIZED", "conflicting scope selectors")
+    if not universe:
+        return _deny("NOT_AUTHORIZED", "no active authorized customer is available")
+
     # Incident-bound scope is a SECURITY property, not a UX preference.
     if incident_id:
         bound = authorised_incident(incident_id, email)
         if bound["state"] != "AUTHORIZED":
             return _deny("NOT_AUTHORIZED", bound["state"])
         locked_tenant = bound["tenant"]
+        if locked_tenant not in universe:
+            return _deny("NOT_AUTHORIZED", "incident customer is not active and authorized")
         if tenant_id and tenant_id != locked_tenant:
             out = _deny("INHERITED_FROM_INCIDENT",
                         "SCOPE_LOCKED_TO_INCIDENT · this incident belongs to "
@@ -393,7 +412,7 @@ def effective_scope(email: Optional[str],
         if not tenant_id:
             return _deny("NOT_AUTHORIZED",
                          "scope kind 'tenant' requires a tenant_id")
-        if all_tenants or tenant_id in authorized:
+        if tenant_id in authorized:
             return {"tenant_ids": [tenant_id], "requested": requested,
                     "authorized_count": len(universe),
                     "basis": "EXPLICIT_REQUEST_TENANT",
@@ -406,13 +425,12 @@ def effective_scope(email: Optional[str],
                      "principal is not authorized for the requested tenant")
 
     if kind == "group":
-        members = [t for t in (group_tenant_ids or []) if t]
+        members = list(dict.fromkeys(t for t in (group_tenant_ids or []) if t))
         if not members:
             return _deny("NOT_AUTHORIZED",
                          "scope kind 'group' requires the group's tenant_ids; "
                          "tenant groups are not authoritative in this build")
-        granted = ([m for m in members] if all_tenants
-                   else [m for m in members if m in authorized])
+        granted = [m for m in members if m in authorized]
         denied = [m for m in members if m not in granted]
         if not granted:
             out = _deny("NOT_AUTHORIZED",
