@@ -24,6 +24,18 @@ describe("Automatic Command Intelligence", () => {
     for (const data of [null, {}, {...report, original_command:"other"}, {...report, unresolved_portions:undefined}]) expect(() => validateCommandResult(data, "  whoami\n")).toThrow(/compatible/);
     expect(validateCommandResult(report, "  whoami\n")).toBe(report);
   });
+  it("rejects the observed legacy-style 200 response even when a candidate contains output", () => {
+    const original = 'powershell -NoProfile -Command "Write-Output \'NivXRay-Test-123\'"';
+    // Minimal reproduction of the observed field shape, not an automatic report.
+    const legacy = {original_command:original, parsed_structure:{interpreter:"powershell"},
+      decode_status:"FAILED", decode_chains:[{final_output:"",chains:[{steps:[],output:"Write-Output 'NivXRay-Test-123'"}]}],
+      behaviors:[{tag:"stealth-flags",detail:"High-risk interpreter switches: -noprofile, -nop"}],
+      iocs:{urls:[],domains:[],ips:[]}};
+    const before = JSON.stringify(legacy);
+    expect(commandRequest(original)).toEqual({input:original,automatic:true});
+    expect(() => validateCommandResult(legacy,original)).toThrow(/compatible automatic analysis report/);
+    expect(JSON.stringify(legacy)).toBe(before);
+  });
   it("renders evidence as escaped text and partial output as noncanonical", () => {
     const html = renderToStaticMarkup(<CommandResult result={report}/>);
     expect(html).toContain("not canonical");

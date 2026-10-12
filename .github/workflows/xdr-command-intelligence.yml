@@ -26,6 +26,7 @@ jobs:
           PYTHONPATH=backend python -m pytest -n 0
           backend/tests/test_die_cycle_b_archives.py
           backend/tests/test_command_review_gates.py
+          backend/tests/test_command_staging_contract.py
           backend/tests/test_rc22_decoder_pack.py
           backend/tests/test_ps_reconstruct_p03.py
           backend/tests/test_entity_classifier.py

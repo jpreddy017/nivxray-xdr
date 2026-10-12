@@ -16,7 +16,9 @@ try {
  await page.getByTestId('xdr-cmd-input').fill(raw);
  const request=page.waitForRequest(r=>r.url().endsWith('/api/analyze/command'));
  await page.getByTestId('xdr-cmd-analyze').click();
- assert.equal((await request).postDataJSON().input,raw);
+ const submitted=(await request).postDataJSON();
+ assert.equal(submitted.input,raw);
+ assert.equal(submitted.automatic,true);
  await page.getByTestId('xdr-cmd-result').waitFor();
  assert.match(await page.getByTestId('xdr-cmd-result').innerText(),/Canonical decoded evidence/);
  await page.getByText('Reproducible recipe', {exact:false}).click();
@@ -29,6 +31,7 @@ try {
  const b64=s=>Buffer.from(s).toString('base64');
  const script='Write-Output "https://example.com/harmless.txt"';
  const samples=[
+   'powershell -NoProfile -Command "Write-Output \'NivXRay-Test-123\'"',
    'Write-Output 2+2',
    'Write-Output (1)+2',
    "Write-Output ('[{0}]' -f 'x' + 'y')",
@@ -60,6 +63,12 @@ try {
    const received=await response;
    assert.equal(received.status(),200);
    const report=await received.json();
+   if(input.includes('NivXRay-Test-123')) {
+     assert.equal(report.decode_status,'NOT_REQUIRED');
+     assert.equal(report.final_recoverable.value,input);
+     assert.deepEqual(report.behaviors,[]);
+     assert.equal(report.canonical_decoded_artifact.promoted,false);
+   }
    await page.getByTestId('xdr-cmd-result').waitFor();
    const result=page.getByTestId('xdr-cmd-result');
    await result.locator('details').evaluateAll(ds=>ds.forEach(d=>{if(!d.textContent.startsWith('Full evidence report'))d.open=true;}));
@@ -91,6 +100,22 @@ try {
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth));
  }
  console.log('PASS: 22 additional HTTP/browser cases; all layers, recipes, candidates, IOCs, limitations, inert text and mobile width');
+ // A legacy-style HTTP 200 is an explicit contract failure, not a usable
+ // automatic report. No fallback request or stale canonical result may appear.
+ const harmless='powershell -NoProfile -Command "Write-Output \'NivXRay-Test-123\'"';
+ let legacyRequests=0;
+ await page.route('**/api/analyze/command',route=>{
+   legacyRequests++;
+   assert.equal(route.request().postDataJSON().automatic,true);
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({original_command:harmless,parsed_structure:{interpreter:'powershell'},decode_status:'FAILED',decode_chains:[{final_output:'',chains:[{steps:[],output:"Write-Output 'NivXRay-Test-123'"}]}],behaviors:[{tag:'stealth-flags'}],iocs:{urls:[]}})});
+ });
+ await page.getByTestId('xdr-cmd-input').fill(harmless);
+ await page.getByTestId('xdr-cmd-analyze').click();
+ await page.getByTestId('xdr-cmd-error').waitFor();
+ assert.match(await page.getByTestId('xdr-cmd-error').innerText(),/compatible automatic analysis report/);
+ assert.equal(await page.getByTestId('xdr-cmd-result').count(),0);
+ assert.equal(legacyRequests,1);
+ await page.unroute('**/api/analyze/command');
  // Late response must not reappear after tenant change.
  let release; const gate=new Promise(resolve=>release=resolve);
  await page.route('**/api/analyze/command',async route=>{await gate;await route.continue();});

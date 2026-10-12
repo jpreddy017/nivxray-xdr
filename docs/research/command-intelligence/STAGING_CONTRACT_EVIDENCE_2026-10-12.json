@@ -1,0 +1,88 @@
+{
+  "collected_at_utc": "2026-10-12T11:32:10.714674+00:00",
+  "source": "https://nivxray.nivxforge.com/api/openapi.json",
+  "http_status": 200,
+  "document_sha256": "0e39a0ef3a8c9b7cf69f391ba85fc38bf501965b16dcb4dc2fbc549d03dab2f8",
+  "info": {
+    "title": "NivXRay API",
+    "version": "1.0.0-rc"
+  },
+  "path": "/api/analyze/command",
+  "operation": {
+    "post": {
+      "summary": "Analyze Command Endpoint",
+      "description": "Intelligent Command-Line Analysis Engine \u2014 semantic parsing first.",
+      "operationId": "analyze_command_endpoint_api_analyze_command_post",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CommandAnalyzeIn"
+            }
+          }
+        },
+        "required": true
+      },
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "security": [
+        {
+          "HTTPBearer": []
+        }
+      ]
+    }
+  },
+  "request_model": {
+    "properties": {
+      "input": {
+        "type": "string",
+        "title": "Input",
+        "description": "Raw command line to semantically analyse"
+      },
+      "force_decode_span": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Force Decode Span",
+        "description": "If the previous /analyze/command call returned needs_choice=true, resubmit with the chosen span here."
+      }
+    },
+    "type": "object",
+    "required": [
+      "input"
+    ],
+    "title": "CommandAnalyzeIn"
+  },
+  "backend_git_sha": "UNKNOWN: not exposed by this schema",
+  "frontend_deployment": {
+    "id": "dpl_72i1GFUuNFiV75T9BWBDiDnufzYB",
+    "project": "nivxray-xdr",
+    "git_sha": "d3327a8d93a4bbb8a4a553588edfd09e2fafeb10",
+    "branch": "engineering/xdr-command-review-gates",
+    "state": "READY"
+  },
+  "evidence_note": "Public GET only; no authenticated production POST, credential access, environment values or configuration changes."
+}
