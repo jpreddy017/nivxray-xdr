@@ -150,3 +150,23 @@ __all__ = [
     "is_valid_base64", "decode_base64", "decode_base64_as_string",
     "register_all", "_run_base_b64_literal",
 ]
+
+
+def decode_base64_candidate(text: str, *, urlsafe: bool = False) -> Optional[bytes]:
+    """Strict automatic-mode codec, including canonical unpadded input.
+
+    Round-trip validation rejects malformed padding and nonzero unused bits.
+    Detection/size budgets belong to the Universal Decoder orchestrator.
+    """
+    alphabet = r"[A-Za-z0-9_-]+={0,2}" if urlsafe else r"[A-Za-z0-9+/]+={0,2}"
+    if not re.fullmatch(alphabet, text) or len(text) % 4 == 1:
+        return None
+    if "=" in text and len(text) % 4:
+        return None
+    try:
+        raw = base64.b64decode(text + "=" * (-len(text) % 4),
+                               altchars=b"-_" if urlsafe else None, validate=True)
+        encoded = (base64.urlsafe_b64encode(raw) if urlsafe else base64.b64encode(raw)).decode()
+        return raw if encoded.rstrip("=") == text.rstrip("=") else None
+    except (ValueError, binascii.Error):
+        return None

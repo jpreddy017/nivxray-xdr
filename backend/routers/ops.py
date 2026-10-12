@@ -575,6 +575,16 @@ async def decode_magic(body: MagicIn, user=Depends(get_current_user)):
 @router.post("/analyze/command")
 async def analyze_command_endpoint(body: CommandAnalyzeIn, user=Depends(get_current_user)):
     """Intelligent Command-Line Analysis Engine — semantic parsing first."""
+    if body.automatic:
+        from services.decoder.automatic_worker import analyze_isolated
+        try:
+            return await run_offloaded(analyze_isolated, body.input, timeout_s=6.0)
+        except ValueError as exc:
+            raise HTTPException(422, detail={"code": "invalid_command", "message": str(exc)})
+        except TimeoutError as exc:
+            raise HTTPException(504, detail={"code": "decode_timeout", "message": str(exc)})
+        except RuntimeError as exc:
+            raise HTTPException(503, detail={"code": "decode_unavailable", "message": str(exc)})
     from command_analyzer import analyze_command as _ac
     # v1.5.6 · analyzer chains xor-brute internally for defanged decode —
     # same starvation risk, same offload treatment.

@@ -1,0 +1,50 @@
+// Run against the synthetic loopback fixture, never against a deployment.
+import {createRequire} from 'node:module';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.NIVX_PLAYWRIGHT_PATH || 'playwright');
+const browser=await chromium.launch({headless:true,executablePath:process.env.NIVX_CHROMIUM_PATH || undefined,args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});
+try {
+ const page=await browser.newPage({viewport:{width:1280,height:1000}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const token=fs.readFileSync(process.env.NIVX_COMMAND_TEST_TOKEN_PATH,'utf8');
+ await page.addInitScript(t=>{localStorage.setItem('nvx_token',t);localStorage.setItem('nvx_tenant','synthetic-a');},token);
+ await page.goto('http://127.0.0.1:3197');
+ const raw='  powershell -enc '+Buffer.from('Write-Output "hello"','utf16le').toString('base64')+'\n';
+ await page.getByTestId('xdr-cmd-input').fill(raw);
+ const request=page.waitForRequest(r=>r.url().endsWith('/api/analyze/command'));
+ await page.getByTestId('xdr-cmd-analyze').click();
+ assert.equal((await request).postDataJSON().input,raw);
+ await page.getByTestId('xdr-cmd-result').waitFor();
+ assert.match(await page.getByTestId('xdr-cmd-result').innerText(),/Canonical decoded evidence/);
+ await page.getByText('Reproducible recipe', {exact:false}).click();
+ assert.match(await page.getByTestId('xdr-cmd-result').innerText(),/utf-16-le/);
+ await page.screenshot({path:process.env.NIVX_COMMAND_SCREENSHOT || '/tmp/command-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'/tmp/command-mobile.png',fullPage:true});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth));
+ // Late response must not reappear after tenant change.
+ let release; const gate=new Promise(resolve=>release=resolve);
+ await page.route('**/api/analyze/command',async route=>{await gate;await route.continue();});
+ await page.getByTestId('xdr-cmd-analyze').click();
+ await page.evaluate(()=>window.switchSyntheticTenant());
+ release();
+ await page.waitForTimeout(600);
+ assert.equal(await page.getByTestId('xdr-cmd-result').count(),0);
+ assert.equal(await page.getByTestId('xdr-cmd-input').inputValue(),'');
+ await page.unroute('**/api/analyze/command');
+ await page.route('**/api/analyze/command', route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:{code:'decode_unavailable',message:'Worker busy; retry shortly'}})}));
+ await page.getByTestId('xdr-cmd-input').fill('whoami');
+ await page.getByTestId('xdr-cmd-analyze').click();
+ await page.getByTestId('xdr-cmd-error').waitFor();
+ assert.match(await page.getByTestId('xdr-cmd-error').innerText(),/Worker busy/);
+ await page.unroute('**/api/analyze/command');
+ await page.evaluate(()=>localStorage.setItem('nvx_token','invalid'));
+ await page.getByTestId('xdr-cmd-input').fill('whoami');
+ await page.getByTestId('xdr-cmd-analyze').click();
+ await page.waitForFunction(()=>localStorage.getItem('nvx_token') === null);
+ assert.equal(await page.getByTestId('xdr-cmd-result').count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: actual page → authenticated HTTP → worker → rendered evidence; exact input, recipe, mobile, tenant cancellation and 401');
+} finally {await browser.close();}

@@ -1,0 +1,45 @@
+name: XDR Command Intelligence (no deployment)
+on:
+  pull_request:
+    paths:
+      - 'backend/services/decoder/**'
+      - 'backend/routers/ops.py'
+      - 'backend/schemas.py'
+      - 'backend/tests/test_command*'
+      - 'backend/tests/command-automatic-requirements.txt'
+      - 'backend/tests/fixtures/command_browser/**'
+      - 'apps/nivxray-xdr/**'
+      - '.github/workflows/xdr-command-intelligence.yml'
+permissions:
+  contents: read
+jobs:
+  command-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: python -m pip install -r backend/tests/command-automatic-requirements.txt
+      - run: >-
+          PYTHONPATH=backend python -m pytest -n 0
+          backend/tests/test_command_automatic.py
+          backend/tests/test_command_automatic_api.py
+          backend/tests/test_command_analyzer.py
+          backend/tests/test_ci_r1_r3_decoder_honesty.py
+          backend/tests/decoder_harness/test_ddo_dispatch_matrix.py -q
+      - run: npx --yes yarn@1.22.22 install --frozen-lockfile --non-interactive
+        working-directory: apps/nivxray-xdr
+      - run: npm test
+        working-directory: apps/nivxray-xdr
+      - run: npm run build
+        working-directory: apps/nivxray-xdr
+        env:
+          REACT_APP_PRODUCT_SCOPE: xdr
+          REACT_APP_NIVXRAY_API_URL: http://127.0.0.1:9

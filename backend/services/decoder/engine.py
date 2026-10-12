@@ -79,6 +79,11 @@ class UniversalDecoderEngine:
         # Ensure registry is initialised (registers CMD capabilities).
         self.registry = get_registry()
 
+    def analyze_automatic(self, text: str) -> dict:
+        """Opt-in bounded exploration for Command Intelligence; no external runtime."""
+        from .automatic import analyze
+        return analyze(text)
+
     def decode(
         self,
         text: str,

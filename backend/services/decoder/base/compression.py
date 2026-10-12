@@ -132,3 +132,27 @@ def decode_zlib_bytes(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 
 
 __all__ = ["decode_gzip_bytes", "decode_zlib_bytes"]
+
+
+def inflate_bounded(raw: bytes, *, max_output: int, ratio: int = 128):
+    """Automatic-mode streaming inflate. Never allocate beyond the budget.
+
+    Returns (bytes, incomplete). Truncated streams retain an explicitly partial
+    prefix; bad CRC/format raises ValueError. Concatenated members/trailing data
+    remain unresolved rather than silently disappearing.
+    """
+    if raw.startswith(b"\x1f\x8b"):
+        bits = 31
+    elif len(raw) >= 2 and raw[0] == 0x78 and int.from_bytes(raw[:2], "big") % 31 == 0:
+        bits = 15
+    else:
+        raise ValueError("Unsupported compression signature")
+    limit = min(max_output, max(1024, len(raw) * ratio))
+    decoder = zlib.decompressobj(bits)
+    try:
+        out = decoder.decompress(raw, limit + 1)
+    except zlib.error as exc:
+        raise ValueError("Compression integrity/format failure") from exc
+    if len(out) > limit or decoder.unconsumed_tail:
+        raise ValueError("Decompression output/ratio limit reached")
+    return out, not decoder.eof or bool(decoder.unused_data)

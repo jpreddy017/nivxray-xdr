@@ -1,0 +1,277 @@
+{
+  "version": "11.5.0",
+  "registry": [
+    "From Base64",
+    "From Hex",
+    "Gunzip",
+    "Zlib Inflate",
+    "Decode text",
+    "URL Decode"
+  ],
+  "full_distribution": false,
+  "results": [
+    {
+      "name": "base64",
+      "input": "V3JpdGUtT3V0cHV0ICJoZWxsbyI=",
+      "candidates": [
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [],
+          "data": "V3JpdGUtT3V0cHV0ICJoZWxsbyI=",
+          "isUTF8": true,
+          "entropy": 4.351823225551765
+        }
+      ]
+    },
+    {
+      "name": "nested",
+      "input": "VjNKcGRHVXRUM1YwY0hWMElDSm9aV3hzYnlJPQ==",
+      "candidates": [
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        }
+      ]
+    },
+    {
+      "name": "gzip",
+      "input": "H4sIAAAAAAAAAwsvyixJ1fUvLSkoLVFQykjNyclXAgCff9zPFAAAAA==",
+      "candidates": [
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "\u001f\b\u0000\u0000\u0000\u0000\u0000\u0000\u0003\u000b/Ê,IÕõ/-)(-QPÊHÍÉÉW\u0002\u0000ÜÏ\u0014\u0000\u0000\u0000",
+          "isUTF8": false,
+          "entropy": 4.291446071165521
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            }
+          ],
+          "data": "\u001f\b\u0000\u0000\u0000\u0000\u0000\u0000\u0003\u000b/Ê,IÕõ/-)(-QPÊHÍÉÉW\u0002\u0000ÜÏ\u0014\u0000\u0000\u0000",
+          "isUTF8": false,
+          "entropy": 4.291446071165521
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+/=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "Gunzip",
+              "args": []
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [
+            {
+              "op": "From Base64",
+              "args": [
+                "A-Za-z0-9+\\-=",
+                true,
+                false
+              ]
+            },
+            {
+              "op": "Gunzip",
+              "args": []
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        }
+      ]
+    },
+    {
+      "name": "utf16",
+      "input": "VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAGgAZQBsAGwAbwAiAA==",
+      "candidates": [
+        {
+          "recipe": [],
+          "data": "VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAGgAZQBsAGwAbwAiAA==",
+          "isUTF8": true,
+          "entropy": 3.7032470964470363
+        }
+      ]
+    },
+    {
+      "name": "hex",
+      "input": "57726974652d4f7574707574202268656c6c6f22",
+      "candidates": [
+        {
+          "recipe": [
+            {
+              "op": "From Hex",
+              "args": [
+                "None"
+              ]
+            }
+          ],
+          "data": "Write-Output \"hello\"",
+          "isUTF8": true,
+          "entropy": 3.6841837197791887
+        },
+        {
+          "recipe": [],
+          "data": "57726974652d4f7574707574202268656c6c6f22",
+          "isUTF8": true,
+          "entropy": 3.0991128603062803
+        }
+      ]
+    },
+    {
+      "name": "encodedcommand",
+      "input": "powershell -enc VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAGgAZQBsAGwAbwAiAA==",
+      "candidates": [
+        {
+          "recipe": [],
+          "data": "powershell -enc VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAGgAZQBsAGwAbwAiAA==",
+          "isUTF8": true,
+          "entropy": 4.267849255429039
+        }
+      ]
+    }
+  ]
+}

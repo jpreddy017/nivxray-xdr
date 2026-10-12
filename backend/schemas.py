@@ -70,6 +70,7 @@ class ShellcodeIn(BaseModel):
 
 
 class CommandAnalyzeIn(BaseModel):
+    automatic: bool = Field(False, description="Bounded Universal Decoder automatic mode")
     input: str = Field(..., description="Raw command line to semantically analyse")
     force_decode_span: Optional[str] = Field(
         None, description="If the previous /analyze/command call returned "
