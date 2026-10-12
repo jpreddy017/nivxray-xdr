@@ -268,6 +268,7 @@ export default function XdrShell({ children, flush = false }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState({});
   const { pathname } = useLocation();
+  const isControlCenter = pathname === "/xdr/control-center";
   const [q, setQ] = useState("");
   const [theme, setTheme] = useState(readTheme);
 
@@ -306,16 +307,19 @@ export default function XdrShell({ children, flush = false }) {
 
   return (
     <NxDensityProvider>
-    <div className="xdr-console"
+    <div className={`xdr-console${isControlCenter ? " cc-shell" : ""}`}
           data-nx-theme={theme}
           data-testid="xdr-shell">
       {/* ── Top bar (utility only) ────────────────────────── */}
       <div className="topbar">
-        {focusMode && (
+        {(focusMode || isControlCenter) && (
           <button
             onClick={() => setNavOverlay((v) => !v)}
             title={navOverlay ? "Hide navigation" : "Show navigation (overlay)"}
             aria-label="Toggle product navigation"
+            aria-expanded={navOverlay}
+            aria-controls="xdr-product-navigation"
+            className={isControlCenter ? "cc-nav-toggle" : undefined}
             style={{ background: "transparent", border: "none",
                      color: "var(--nav-text-dim)", cursor: "pointer",
                      fontSize: 15, padding: "0 10px 0 0" }}
@@ -333,6 +337,7 @@ export default function XdrShell({ children, flush = false }) {
               data-testid="xdr-topbar-search-form">
           <Search size={12} />
           <input
+            aria-label="Search observables in Hunting"
             placeholder="Hunt an observable — hostname · SHA-256 · IP · rule · incident · process…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -395,6 +400,9 @@ export default function XdrShell({ children, flush = false }) {
         )}
         <aside className={`sidebar${focusMode
                   ? (navOverlay ? " nav-overlay" : " nav-hidden") : ""}`}
+               id="xdr-product-navigation"
+               data-mobile-open={navOverlay || undefined}
+               aria-label="Product navigation"
                data-testid="xdr-sidebar"
                aria-hidden={focusMode && !navOverlay ? "true" : "false"}>
           {NAV.filter((primary) => {

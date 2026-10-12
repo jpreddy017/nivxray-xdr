@@ -14,7 +14,7 @@ import "./nx-datatable.css";
 export default function NxDataTable({
   columns, rows, rowKey = (r, i) => r.id ?? i,
   loading = false, error = null, onRefresh = null,
-  searchable = true, searchPlaceholder = "Search",
+  searchable = true, searchPlaceholder = "Search", searchInputId,
   pageSize = 25, selectable = false, bulkActions = null,
   rowActions = null, onRowClick = null,
   emptyTitle = "Nothing here yet", emptyHint = null, emptyCta = null,
@@ -71,7 +71,7 @@ export default function NxDataTable({
         {searchable && (
           <label className="nx-dt-search">
             <Search size={13} aria-hidden="true" />
-            <input value={q} data-testid={`${testid}-search`}
+            <input id={searchInputId} value={q} data-testid={`${testid}-search`}
                    placeholder={searchPlaceholder}
                    onChange={(e) => { setQ(e.target.value); setPage(0); }} />
           </label>

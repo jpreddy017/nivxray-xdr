@@ -9,6 +9,8 @@
  */
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/lib/api";
+import { sessionChanged, securitySnapshot, subscribeSecurity } from "./securityState";
+import { resetServerTenant } from "./tenant";
 
 const AuthCtx = createContext(null);
 
@@ -17,31 +19,40 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("nvx_token");
-    const email = localStorage.getItem("nvx_email");
-    if (!token) { setLoading(false); return; }
-    api.get("/auth/me")
-      .then((r) => setUser(r.data))
-      .catch(() => {
-        localStorage.removeItem("nvx_token");
-        localStorage.removeItem("nvx_email");
-      })
-      .finally(() => setLoading(false));
-    if (email && !user) setUser({ email });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let generation = 0;
+    const load = async () => {
+      const ticket = ++generation;
+      setUser(null);
+      if (!localStorage.getItem("nvx_token")) { setLoading(false); return; }
+      setLoading(true);
+      try {
+        const response = await api.get("/auth/me");
+        if (ticket === generation) setUser(response.data);
+      } catch {
+        if (ticket === generation) setUser(null);
+      } finally { if (ticket === generation) setLoading(false); }
+    };
+    load();
+    const unsubscribe = subscribeSecurity(() => {
+      const reason = securitySnapshot().reason;
+      if (reason === "session" || reason === "expired") load();
+    });
+    return () => { ++generation; unsubscribe(); };
   }, []);
 
   const login = async (email, password) => {
     const r = await api.post("/auth/login", { email, password });
     localStorage.setItem("nvx_token", r.data.access_token);
     localStorage.setItem("nvx_email", r.data.email);
-    const me = await api.get("/auth/me");
-    setUser(me.data);
+    resetServerTenant();
+    sessionChanged();
   };
 
   const logout = () => {
     localStorage.removeItem("nvx_token");
     localStorage.removeItem("nvx_email");
+    resetServerTenant();
+    sessionChanged();
     setUser(null);
     window.location.href = "/login";
   };
