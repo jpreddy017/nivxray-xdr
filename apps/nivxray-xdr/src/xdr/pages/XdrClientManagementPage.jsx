@@ -10,13 +10,15 @@
  * Nothing here GRANTS anything. Selecting a client requests a scope
  * through the authoritative selector; the server decides.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { RefreshCw, Users, ShieldCheck } from "lucide-react";
 
 import XdrShell from "@/xdr/XdrShell";
 import { getAuthorizedScope, selectScope } from "@/lib/scopeApi";
-import { setActiveTenant } from "@/lib/tenant";
+import { applyCustomerSelection } from "@/lib/customerSelection";
+import { createRequestFence } from "@/lib/requestFence";
+import { invalidateSecurity } from "@/lib/securityState";
 import { getMssCustomerOperations } from "@/lib/incidentsApi";
 import "@/xdr/nx/nx-cc.css";
 import { apiErrorText } from "@/xdr/nx/apiError";
@@ -29,6 +31,8 @@ export default function XdrClientManagementPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(null);
+  const selection = useRef(createRequestFence());
+  useEffect(() => () => selection.current.cancel(), []);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -48,15 +52,17 @@ export default function XdrClientManagementPage() {
   useEffect(() => { load(); }, [load]);
 
   const enter = async (tenantId) => {
+    const ticket = selection.current.begin();
     setDenied(null);
     try {
       const eff = await selectScope({ kind: "tenant", tenantId });
+      if (!selection.current.current(ticket)) return;
       if (eff?.authorized) {
-        setActiveTenant(tenantId);
+        applyCustomerSelection(eff, tenantId);
         navigate(`/xdr/incidents?customer=${encodeURIComponent(tenantId)}`);
-      }
+      } else { invalidateSecurity("denied", window.location.pathname); }
     } catch (e) {
-      setDenied({ tenantId, detail: apiErrorText(e) });
+      if (selection.current.current(ticket)) setDenied({ tenantId, detail: apiErrorText(e) });
     }
   };
 
@@ -148,7 +154,7 @@ export default function XdrClientManagementPage() {
               <NxDataTable rows={scope.tenants || []} pageSize={25}
                            searchPlaceholder="Search client"
                            rowKey={(t) => t.customer}
-                           onRowClick={(t) => navigate(t.queue_href)}
+                           onRowClick={(t) => enter(t.customer)}
                            testid="xdr-clients-table"
                            emptyTitle="No client in scope"
                            columns={[

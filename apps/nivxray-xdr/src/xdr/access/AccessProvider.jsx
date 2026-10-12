@@ -23,8 +23,10 @@
  * "authorization unavailable", and the backend rejects regardless.
  */
 import React, { createContext, useCallback, useContext, useEffect,
-                useMemo, useState } from "react";
+                useMemo, useState, useRef } from "react";
 import api from "@/lib/api";
+import { activeTenant } from "@/lib/tenant";
+import { securitySnapshot, subscribeSecurity } from "@/lib/securityState";
 
 const Ctx = createContext(null);
 
@@ -34,15 +36,25 @@ const RESOLVED_BASES = new Set([
   "USER_NOT_PROVISIONED", "USER_DISABLED", "NO_TENANT_SCOPE",
 ]);
 
+export function effectivePermission(state, perm, tenant = activeTenant()) {
+  if (!state.available || (tenant && state.data?.tenant
+      && !state.data?.cross_tenant && tenant !== state.data.tenant)) return null;
+  if (!perm) return true;
+  return (state.data?.permissions || []).includes(perm);
+}
+
 export function AccessProvider({ children }) {
   const [state, setState] = useState({
     loading: true, available: false, error: null, data: null,
   });
 
+  const generation = useRef(0);
   const load = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true }));
+    const ticket = ++generation.current;
+    setState({ loading: true, available: false, error: null, data: null });
     try {
       const { data } = await api.get("/xdr/rbac/me/effective");
+      if (ticket !== generation.current) return;
       const d = data?.data || null;
       setState({
         loading: false,
@@ -51,6 +63,7 @@ export function AccessProvider({ children }) {
         data: d,
       });
     } catch (e) {
+      if (ticket !== generation.current) return;
       setState({
         loading: false, available: false, data: null,
         error: e?.response?.data?.detail?.reason
@@ -61,21 +74,19 @@ export function AccessProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!localStorage.getItem("nvx_token")) {
-      setState({ loading: false, available: false, error: "unauthenticated",
-                 data: null });
-      return;
-    }
-    load();
+    const refresh = () => {
+      ++generation.current;
+      const reason = securitySnapshot().reason;
+      setState({ loading: false, available: false, error: reason, data: null });
+      if (localStorage.getItem("nvx_token") && !["expired", "denied"].includes(reason)) load();
+    };
+    refresh();
+    const unsubscribe = subscribeSecurity(refresh);
+    return () => { ++generation.current; unsubscribe(); };
   }, [load]);
 
   const value = useMemo(() => {
-    const perms = new Set(state.data?.permissions || []);
-    const can = (perm) => {
-      if (!state.available) return null;           // UNKNOWN — never a guess
-      if (!perm) return true;
-      return perms.has(perm);
-    };
+    const can = (perm) => effectivePermission(state, perm);
     /** true when EVERY listed permission is allowed; null if any is unknown. */
     const canAll = (list) => {
       const r = (list || []).map(can);

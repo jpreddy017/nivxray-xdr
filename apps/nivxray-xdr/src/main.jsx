@@ -1,3 +1,4 @@
+import { installSecurityEvents } from "@/lib/securityState";
 /**
  * NivXRay XDR standalone entry point.
  *
@@ -17,6 +18,8 @@ import "./styles/globals.css";
 // index.html ships a single static <title>, so a scoped deployment must
 // correct it at boot — otherwise the EDR host shows "NivXRay XDR" in the tab.
 document.title = BRAND.documentTitle;
+
+installSecurityEvents();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

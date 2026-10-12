@@ -24,7 +24,8 @@ import {
 
 import api from "@/lib/api";
 import { refusalText } from "@/lib/refusal";
-import { activeTenant, setActiveTenant } from "@/lib/tenant";
+import CustomerContextInput from "./CustomerContextInput";
+import { activeTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 
 
@@ -299,12 +300,7 @@ export default function ApiKeysBody() {
                               fontSize: 10.5, color: "var(--faint)",
                               fontFamily: "var(--mono)" }}>
             TENANT
-            <input value={tenant} data-testid="xdr-api-key-tenant-context"
-                       onChange={(e) => {
-                         const next = e.target.value.trim();
-                         setTenant(next);
-                         setActiveTenant(next || null);
-                       }}
+            <CustomerContextInput onApplied={setTenant} data-testid="xdr-api-key-tenant-context"
                        placeholder="authoritative tenant"
                        style={{ ...inp, display: "inline-block", width: 150,
                                        marginTop: 0, padding: "3px 6px" }} />

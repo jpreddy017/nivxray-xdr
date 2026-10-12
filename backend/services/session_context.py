@@ -42,18 +42,24 @@ def list_customers(email: Optional[str], limit: int = 25) -> List[Dict[str, Any]
 
     Same predicate as the incident queue and the MSS panels, so the
     customer list can never drift from the queue it links to.
+
+    P0-FIX-5B · a case that names neither a tenant nor an owning analyst is
+    UNATTRIBUTED and is dropped. It is not folded into a manufactured
+    customer called "default" — that collided with the real registered
+    tenant `default` and inflated its counts with unowned evidence. A case
+    whose tenant_id genuinely IS `default` is unaffected.
     """
     q = _scope({}, email)
     pipeline = [
         {"$match": q},
         {"$group": {
-            "_id": {"$ifNull": ["$tenant_id",
-                                {"$ifNull": ["$user_email", "default"]}]},
+            "_id": {"$ifNull": ["$tenant_id", "$user_email"]},
             "open": {"$sum": {"$cond": [
                 {"$not": [{"$in": ["$incident_state",
                                    ["resolved", "closed"]]}]}, 1, 0]}},
             "total": {"$sum": 1},
         }},
+        {"$match": {"_id": {"$nin": [None, ""]}}},
         {"$sort": {"open": -1, "_id": 1}},
         {"$limit": int(limit)},
     ]
@@ -61,6 +67,38 @@ def list_customers(email: Optional[str], limit: int = 25) -> List[Dict[str, Any]
              "incidents": int(r["total"]),
              "queue_href": f"/xdr/incidents?customer={r['_id']}"}
             for r in _cases.aggregate(pipeline)]
+
+
+def authorized_customers(email: Optional[str]) -> List[Dict[str, Any]]:
+    """The customers this principal may ACT AS — the picker's only source.
+
+    P0-FIX-6B-2/PICKER · the EDR customer picker used to read the whole
+    tenant registry (`GET /api/xdr/tenants`), so its list was a
+    `tenants.read` artefact rather than an authorization. This returns the
+    AUTHORITY-derived set instead:
+
+    * CUSTOMER — its explicit `tenant_ids[]` grants that survive
+      authoritative registry validation.
+    * PLATFORM — every currently authoritative tenant (ACTIVE tenant under
+      an ACTIVE organization).
+
+    Selecting one of these still re-authorises server-side on every request;
+    this list only decides what may be OFFERED.
+    """
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return []
+    from services import tenant_registry
+    out: List[Dict[str, Any]] = []
+    for tenant_id in _authorized_universe(scope):
+        try:
+            doc = tenant_registry.get_tenant(tenant_id) or {}
+        except Exception:                                   # noqa: BLE001
+            doc = {}
+        out.append({"customer": tenant_id,
+                    "display_name": doc.get("display_name") or tenant_id,
+                    "slug": doc.get("slug"), "kind": doc.get("kind")})
+    return sorted(out, key=lambda r: str(r.get("display_name") or ""))
 
 
 def tenant_context(email: Optional[str],
@@ -99,6 +137,10 @@ def tenant_context(email: Optional[str],
         "principal": {"email": email, "role": scope.get("role")},
         "tenant_scope": {
             "authorized": bool(scope.get("authorized")),
+            # P0-FIX-6B-2 · the authority CLASS, stated rather than inferred.
+            # PLATFORM only ever comes from the explicit server-side
+            # designation; every other principal is CUSTOMER.
+            "authority_scope": scope.get("authority_scope"),
             "all_tenants": False if explicit_tenant
                            else bool(scope.get("all_tenants")),
             "tenant_ids": ([explicit_tenant] if explicit_tenant
@@ -106,6 +148,11 @@ def tenant_context(email: Optional[str],
             "explicit_tenant": explicit_tenant,
         },
         "customers": customers,
+        # P0-FIX-6B-2/PICKER · AUTHORITY-derived (grants, or the authoritative
+        # registry for a PLATFORM principal). `customers` above stays
+        # EVIDENCE-derived for the queue panels; the two legitimately differ.
+        "authorized_customers": (authorized_customers(email)
+                                 if scope.get("authorized") else []),
         "active_customer": {"value": active, "basis": basis},
         "edr_tenant_boundary": EDR_TENANT_BOUNDARY,
     }
@@ -194,6 +241,14 @@ def authorize_requested_tenant(email: Optional[str],
     Returns ``(tenant_id, basis)``; raises :class:`ScopeDenied` when no
     tenant can be authoritatively established. **Never returns a fallback
     tenant** — that was T-RISK-1.
+
+    P0-FIX-6B-2 · breadth is no longer role-derived. A PLATFORM principal
+    (``authority_scope == "PLATFORM"``, explicit owner designation) may name
+    any tenant the authoritative registry then validates; every other
+    principal is CUSTOMER-scoped and may name only a tenant inside its
+    explicit ``tenant_ids[]`` grant list. Registry validation
+    (``authoritative_required``) and RBAC still run downstream for BOTH
+    classes — PLATFORM is breadth, never a bypass.
     """
     if not email:
         raise ScopeDenied("ACCESS_DENIED",
@@ -205,7 +260,7 @@ def authorize_requested_tenant(email: Optional[str],
         raise ScopeDenied("ACCESS_DENIED",
                           "principal is not authorized for any tenant",
                           "NOT_AUTHORIZED", requested)
-    all_tenants = bool(scope.get("all_tenants"))
+    all_tenants = bool(scope.get("all_tenants"))          # PLATFORM scope
     authorized = [t for t in (scope.get("tenant_ids") or []) if t]
 
     if requested:
@@ -217,8 +272,8 @@ def authorize_requested_tenant(email: Optional[str],
                           "NOT_AUTHORIZED", requested)
     if all_tenants:
         raise ScopeDenied("TENANT_REQUIRED",
-                          "cross-tenant principal must name the tenant it is "
-                          "operating in; there is no default tenant",
+                          "platform-scoped principal must name the customer "
+                          "it is operating in; there is no default customer",
                           "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER", requested)
     if len(authorized) == 1:
         return authorized[0], "SINGLE_AUTHORIZED_TENANT"
@@ -231,6 +286,42 @@ def authorize_requested_tenant(email: Optional[str],
                       "principal holds no tenant scope; no tenant can be "
                       "established, so the request fails closed",
                       "NOT_AUTHORIZED", requested)
+
+
+def _authorized_universe(scope: Dict[str, Any]) -> List[str]:
+    """The tenants this principal is authorized in — informational count.
+
+    P0-FIX-6B-2 · previously a cross-tenant principal's "authorized" universe
+    was the CASE CORPUS (customers with incidents), conflating evidence with
+    authority. Now:
+
+    * CUSTOMER — the explicit grants that survive authoritative registry
+      validation (a granted-but-archived tenant is not authorized).
+    * PLATFORM — every currently authoritative tenant (tenant ACTIVE under an
+      ACTIVE organization). This count is CONTEXT METADATA ONLY; it grants
+      nothing. Platform authority comes solely from
+      ``authority_scope == "PLATFORM"``.
+    """
+    from services import tenant_registry
+    if scope.get("authority_scope") == "PLATFORM":
+        try:
+            active_orgs = {o.get("id") for o in
+                           tenant_registry.list_organizations(limit=1000)
+                           if o.get("state") == "ACTIVE"}
+            return [str(t.get("id")) for t in
+                    tenant_registry.list_tenants(limit=2000)
+                    if t.get("state") == "ACTIVE"
+                    and t.get("organization_id") in active_orgs]
+        except Exception:                                   # noqa: BLE001
+            return []                                       # fail closed
+    survived: List[str] = []
+    for tenant in (scope.get("tenant_ids") or []):
+        try:
+            survived.append(tenant_registry.authoritative_required(
+                tenant, purpose="scope.authorized_count"))
+        except Exception:                                   # noqa: BLE001
+            continue
+    return survived
 
 
 def effective_scope(email: Optional[str],
@@ -249,11 +340,10 @@ def effective_scope(email: Optional[str],
     scope = resolve_tenant_scope(email)
     authorized = [t for t in (scope.get("tenant_ids") or []) if t]
     all_tenants = bool(scope.get("all_tenants"))
-    customers = [c.get("customer") for c in
-                 (list_customers(email) if scope.get("authorized") else [])]
-    # For a cross-tenant principal the authorized universe is the real
-    # customer corpus it may see — never a tenant table, never invented.
-    universe = customers if all_tenants else authorized
+    # P0-FIX-6B-2 · the authorized universe is AUTHORITY-derived (explicit
+    # grants, or every authoritative tenant for a PLATFORM principal) — never
+    # the case corpus.
+    universe = _authorized_universe(scope) if scope.get("authorized") else []
 
     def _deny(basis: str, reason: str) -> Dict[str, Any]:
         return {"tenant_ids": [], "requested": requested,
@@ -385,7 +475,14 @@ def authorised_incident(incident_id: str,
     scope = resolve_tenant_scope(email)
     if not scope.get("authorized"):
         return {"state": "NOT_AUTHORIZED", "doc": None}
-    tenant = doc.get("tenant_id") or doc.get("user_email") or "default"
+    # P0-FIX-5B · an incident that names no owner is UNOWNED, not the
+    # customer "default". The old terminal `or "default"` attributed such a
+    # document to whichever principal held the real tenant `default`, and
+    # released it outright to any cross-tenant principal. An unresolved
+    # tenant is a refusal.
+    tenant = doc.get("tenant_id") or doc.get("user_email")
+    if not tenant:
+        return {"state": "INCIDENT_TENANT_UNRESOLVED", "doc": None}
     if not scope.get("all_tenants") and tenant not in (scope.get("tenant_ids") or []):
         return {"state": "INCIDENT_TENANT_OUT_OF_SCOPE", "doc": None}
     return {"state": "AUTHORIZED", "doc": doc, "tenant": tenant}

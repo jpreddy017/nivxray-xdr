@@ -14,11 +14,14 @@
  * resolver answers `INHERITED_FROM_INCIDENT` the selector is disabled
  * and reads `TENANT · Incident locked`.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, Lock, Users } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
+import { invalidateSecurity } from "@/lib/securityState";
+import { applyCustomerSelection } from "@/lib/customerSelection";
+import { createRequestFence } from "@/lib/requestFence";
 import { getAuthorizedScope, selectScope, scopeLabel } from "@/lib/scopeApi";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import { apiErrorText } from "@/xdr/nx/apiError";
@@ -45,6 +48,8 @@ export default function XdrScopeNavigator() {
   const [denied, setDenied] = useState(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const pendingScope = useRef(createRequestFence());
+  useEffect(() => () => pendingScope.current.cancel(), [incidentId]);
 
   useEffect(() => {
     let live = true;
@@ -59,25 +64,34 @@ export default function XdrScopeNavigator() {
   /** Resolve the EFFECTIVE scope for the route we are on. Incident
    *  context wins: the server decides whether it locks. */
   const resolve = useCallback(async (request) => {
+    const ticket = pendingScope.current.begin();
     setBusy(true); setDenied(null);
     try {
       const out = await selectScope({ ...request, incidentId });
-      setEff(out);
+      if (!pendingScope.current.current(ticket)) return null;
+      if (!out?.authorized) {
+        invalidateSecurity("denied", window.location.pathname);
+        setDenied(out || { code: "SCOPE_NOT_AUTHORIZED" });
+        setEff(null);
+        return null;
+      }
       if (out?.basis === "INHERITED_FROM_INCIDENT") {
-        setActiveTenant((out.tenant_ids || [])[0] || null);
+        applyCustomerSelection(out, (out.tenant_ids || [])[0]);
       } else if (request.kind === "tenant") {
-        setActiveTenant(request.tenantId);
+        applyCustomerSelection(out, request.tenantId);
       } else if (request.kind === "all_authorized") {
         setActiveTenant(null);
       }
+      setEff(out);
       return out;
     } catch (e) {
+      if (!pendingScope.current.current(ticket)) return null;
       const d = e?.response?.data?.detail;
       setDenied(d || { code: "SCOPE_NOT_AUTHORIZED",
                        reason: e?.message || "scope could not be resolved" });
       setEff(null);
       return null;
-    } finally { setBusy(false); }
+    } finally { if (pendingScope.current.current(ticket)) setBusy(false); }
   }, [incidentId]);
 
   useEffect(() => {
