@@ -9,7 +9,7 @@
  *   GET /api/v2/cases/:caseId/investigation?profile=:profile
  * with fallback to /api/incidents/:caseId.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef, useSyncExternalStore } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   FolderSearch, ChevronLeft, RefreshCw, GitBranch, AlertOctagon,
@@ -20,6 +20,8 @@ import {
 import XdrShell from "@/xdr/XdrShell";
 import { NxDataTable, NxState, NxTabs, NxToken } from "@/xdr/nx";
 import api from "@/lib/api";
+import { securitySnapshot, subscribeSecurity } from "@/lib/securityState";
+import { startInvestigationLoad } from "./investigationLoader";
 import { activeTenant } from "@/lib/tenant";
 
 const BAND_COLORS = {
@@ -83,7 +85,7 @@ export default function XdrInvestigationWorkspacePage(
   const profile = searchParams.get("profile") || "soc_balanced";
   const trajView = searchParams.get("traj_view") || "timeline";
 
-  const [inv, setInv] = useState(null);
+  const [record, setInv] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [explainOpen, setExplainOpen] = useState(false);
@@ -98,6 +100,16 @@ export default function XdrInvestigationWorkspacePage(
   const [artifactsLoading, setArtifactsLoading] = useState(false);
   const [securityStateData, setSecurityStateData] = useState(null);
   const [securityStateLoading, setSecurityStateLoading] = useState(false);
+  const [primaryState, setPrimaryState] = useState("loading");
+  const [secondaryStates, setSecondaryStates] = useState({});
+  const currentLoad = useRef(null);
+  const privacy = useSyncExternalStore(subscribeSecurity, securitySnapshot, securitySnapshot);
+  const mountedEpoch = useRef(privacy.epoch);
+  const tenantId = activeTenant();
+  const contextKey = JSON.stringify([caseId, profile, tenantId, privacy.epoch]);
+  const [loadedContext, setLoadedContext] = useState(null);
+  // Mask cached records during the render preceding effect cleanup.
+  const inv = loadedContext === contextKey ? record : null;
 
   const setTab = useCallback((key) => {
     const next = new URLSearchParams(searchParams);
@@ -117,131 +129,52 @@ export default function XdrInvestigationWorkspacePage(
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const loadInvestigation = useCallback(async () => {
-    if (!caseId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      let data = null;
-      try {
-        const res = await api.get(`/v2/cases/${encodeURIComponent(caseId)}/investigation?limit=500&profile=${profile}`);
-        data = res.data;
-      } catch {
-        // Fallback to incident endpoint if v2 case fails
-        try {
-          const resInc = await api.get(`/incidents/${encodeURIComponent(caseId)}`);
-          const inc = resInc.data;
-          data = {
-            case_id: inc.id || caseId,
-            header: {
-              verdict_band: inc.verdict_stage2?.label || inc.verdict || "benign",
-              device_score: inc.device_score ?? inc.verdict_stage2?.risk_score ?? 0,
-              incident_score: inc.incident_score ?? inc.verdict_stage2?.risk_score ?? 0,
-              confidence: inc.confidence ?? inc.verdict_stage2?.confidence ?? 0,
-              event_count: inc.evidence_count || (Array.isArray(inc.evidence) ? inc.evidence.length : 0),
-              process_count: inc.process_count || 0,
-              chain_count: inc.chain_count || 0,
-            },
-            ikg: {
-              stats: {
-                nodes: inc.ikg_nodes || (Array.isArray(inc.nodes) ? inc.nodes.length : 0),
-                edges: inc.ikg_edges || (Array.isArray(inc.edges) ? inc.edges.length : 0),
-              },
-              nodes: inc.nodes || [],
-              edges: inc.edges || [],
-            },
-            story: {
-              narrative: inc.attack_story?.narrative || inc.description || "No causal narrative available for this incident.",
-              steps: inc.attack_story?.steps || [],
-            },
-            explainability: {
-              positive: {
-                reasons: inc.explainability?.positive?.reasons || [],
-              },
-              negative_patterns: inc.explainability?.negative_patterns || [],
-            },
-            engine_version: inc.engine_version || { verdict: "3.1b" },
-            patient_zero: inc.patient_zero || inc.host || null,
-            root_process: inc.root_process || null,
-            target_identity: inc.target_identity || inc.user || null,
-            c2_endpoints: inc.c2_endpoints || null,
-            containment: inc.containment || inc.recommendations || null,
-            security_state: inc.security_state || null,
-            mitre_techniques: inc.mitre_techniques || inc.techniques || [],
-          };
-        } catch (inner) {
-          throw new Error("Investigation could not be loaded from either case engine or incident registry.");
-        }
-      }
-      setInv(data);
-    } catch (err) {
-      setError(err?.message || "Failed to load investigation workspace.");
-    } finally {
-      setLoading(false);
-    }
+  const clear = useCallback(() => {
+    setInv(null); setTrajectoryData(null); setProcessTreeData(null);
+    setCaseArtifacts([]); setSecurityStateData(null);
+    setExplainOpen(false); setNegativeExplanations({});
+    setTrajectoryLoading(false); setProcessTreeLoading(false);
+    setArtifactsLoading(false); setSecurityStateLoading(false);
+    setSecondaryStates({});
+  }, []);
 
-    // Parallel dynamic sub-fetches for Tabs 2, 3, 6
-    setTrajectoryLoading(true);
-    api.get(`/v2/cases/${encodeURIComponent(caseId)}/trajectory/device?limit=500`)
-      .then((res) => {
-        setTrajectoryData(res.data);
-      })
-      .catch(() => {
-        // P0-2C · PIVOT DEFECT REMOVED. This fallback called
-        // `/edr/device-trajectory?device=<CASE ID>` — a case id is never
-        // an endpoint identifier, so the request could only ever return
-        // an empty canvas that read as "this case has no activity".
-        // There is no endpoint identity in scope here to substitute, and
-        // inventing one would be worse, so the tab now reports the
-        // absence instead of querying an unsupported identifier.
-        setTrajectoryData(null);
-      })
-      .finally(() => setTrajectoryLoading(false));
-
-    setProcessTreeLoading(true);
-    api.get(`/edr/process-tree?incident_id=${encodeURIComponent(caseId)}`)
-      .then((res) => {
-        setProcessTreeData(res.data);
-      })
-      .catch(() => setProcessTreeData(null))
-      .finally(() => setProcessTreeLoading(false));
-
-    setArtifactsLoading(true);
-    api.get(`/v2/cases/${encodeURIComponent(caseId)}/artifacts?limit=500`)
-      .then((res) => {
-        setCaseArtifacts(res.data?.artifacts || []);
-      })
-      .catch(() => setCaseArtifacts([]))
-      .finally(() => setArtifactsLoading(false));
-
-    // B7 Option A · this named the literal `default`, so the panel read a
-    // tenancy the operator had not selected. The tenant is now the operator's
-    // ACTIVE selection and there is no fallback: with nothing selected the
-    // panel reports the absence rather than querying a tenant it invented.
-    const tenantId = activeTenant();
-    if (!tenantId) {
-      setSecurityStateData(null);
-      setSecurityStateLoading(false);
-    } else {
-      setSecurityStateLoading(true);
-      api.get(`/v2/security-state/${encodeURIComponent(caseId)}`
-              + `?tenant_id=${encodeURIComponent(tenantId)}`)
-        .then((res) => {
-          const states = res.data?.states || [];
-          setSecurityStateData(states[0] || res.data);
-        })
-        .catch(() => setSecurityStateData(null))
-        .finally(() => setSecurityStateLoading(false));
-    }
-  }, [caseId, profile]);
+  const loadInvestigation = useCallback(() => {
+    currentLoad.current?.cancel();
+    clear(); setLoading(true); setError(null); setPrimaryState("loading");
+    currentLoad.current = startInvestigationLoad({ api, caseId, profile, tenantId,
+      onInvalidate: () => { clear(); setLoading(false); setPrimaryState("unavailable"); setError("Investigation unavailable: customer or session context changed."); },
+      onPrimary: (state, data) => {
+        setLoading(false); setPrimaryState(state); setInv(data); setLoadedContext(contextKey);
+        setError(state === "ready" ? null : state === "denied" ? "Investigation access denied." : state === "empty" ? "No investigation records returned." : state === "unavailable" ? "Investigation unavailable." : "Investigation could not be loaded.");
+      },
+      onSecondary: (key, state, data) => {
+        setSecondaryStates((prev) => ({ ...prev, [key]: state }));
+        if (key === "trajectory") { setTrajectoryLoading(state === "loading"); setTrajectoryData(data); }
+        if (key === "process") { setProcessTreeLoading(state === "loading"); setProcessTreeData(data); }
+        if (key === "artifacts") { setArtifactsLoading(state === "loading"); setCaseArtifacts(data?.artifacts || []); }
+        if (key === "security") { setSecurityStateLoading(state === "loading"); setSecurityStateData(data?.states?.[0] || data); }
+      },
+    });
+  }, [caseId, profile, tenantId, clear, contextKey]);
 
   useEffect(() => {
-    loadInvestigation();
+    if (privacy.epoch !== mountedEpoch.current && ["session", "denied"].includes(privacy.reason)) {
+      currentLoad.current?.cancel(); clear(); setLoading(false); setLoadedContext(contextKey);
+      setPrimaryState(privacy.reason === "denied" ? "denied" : "unavailable");
+      setError(privacy.reason === "denied" ? "Investigation access denied." : "Investigation unavailable: session changed.");
+    } else loadInvestigation();
+    return () => currentLoad.current?.cancel();
   }, [loadInvestigation]);
 
+  const secondaryNotice = (key) => {
+    const state = secondaryStates[key] || "unavailable";
+    return ["denied", "unavailable", "error"].includes(state)
+      ? <div role="status" data-testid={`investigation-${key}-${state}`}>{state === "denied" ? "Access denied" : state === "error" ? "Evidence could not be loaded" : "Evidence unavailable"}</div>
+      : null;
+  };
+
   const h = inv?.header || {};
-  const band = String(h.verdict_band || "benign").toLowerCase();
-  const c = BAND_COLORS[band] || BAND_COLORS.suspicious;
+  const band = String(h.verdict_band || "unavailable").toLowerCase();
 
   const laneBreakdown = useMemo(() => {
     const counts = { process: 0, network: 0, file: 0, registry: 0, system: 0 };
@@ -349,13 +282,13 @@ export default function XdrInvestigationWorkspacePage(
         <div style={embedded
               ? { padding: 0 }
               : { flex: 1, padding: "20px 24px", overflowY: "auto" }}>
-          {loading ? (
+          {loading || loadedContext !== contextKey ? (
             <div style={{ padding: 60, textAlign: "center", color: "var(--nx-muted)" }}>
               <RefreshCw size={24} className="spin" style={{ margin: "0 auto 12px" }} />
-              Reconstructing causal attack graph from IKG...
+              Loading investigation evidence...
             </div>
           ) : error ? (
-            <div style={{ padding: 40, textAlign: "center", color: "var(--nx-critical)" }}>
+            <div role="status" data-testid={`investigation-primary-${primaryState}`} style={{ padding: 40, textAlign: "center", color: "var(--nx-critical)" }}>
               <ShieldAlert size={24} style={{ margin: "0 auto 8px" }} />
               {error}
             </div>
@@ -511,7 +444,7 @@ export default function XdrInvestigationWorkspacePage(
                             <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--nx-text)" }}>
                               <l.icon size={12} color={l.color} /> {l.lane}
                             </span>
-                            <b style={{ fontFamily: "var(--mono, monospace)", color: l.color }}>{l.count}</b>
+                            <b style={{ fontFamily: "var(--mono, monospace)", color: l.color }}>{["ready", "empty"].includes(secondaryStates.trajectory) ? l.count : "—"}</b>
                           </div>
                         ))}
                       </div>
@@ -521,7 +454,7 @@ export default function XdrInvestigationWorkspacePage(
                       <div style={{ fontSize: 11, fontWeight: 700, color: "var(--nx-muted)", textTransform: "uppercase" }}>
                         Timeline Sequence (Sorted by Timestamp)
                       </div>
-                      {trajectoryLoading ? (
+                      {secondaryNotice("trajectory") || (trajectoryLoading ? (
                         <div style={{ padding: 40, textAlign: "center", color: "var(--nx-muted)" }}>
                           <RefreshCw size={18} className="spin" style={{ margin: "0 auto 8px" }} />
                           Loading device trajectory events...
@@ -548,7 +481,7 @@ export default function XdrInvestigationWorkspacePage(
                           <div style={{ fontWeight: 700, fontSize: 13, color: "var(--nx-text)" }}>NO MATCHING TRAJECTORY EVIDENCE</div>
                           <div style={{ fontSize: 11.5, marginTop: 4 }}>No chronological device telemetry frames recorded for this case.</div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -558,7 +491,7 @@ export default function XdrInvestigationWorkspacePage(
               {show("process") && (
                 <div data-testid="tab-process-content" style={{ background: "var(--nx-surf-canvas)", borderRadius: 6, border: "1px solid var(--nx-bd-quiet)", padding: 20 }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px" }}>Process Execution Hierarchy</h3>
-                  {processTreeLoading ? (
+                  {secondaryNotice("process") || (processTreeLoading ? (
                     <div style={{ padding: 40, textAlign: "center", color: "var(--nx-muted)" }}>
                       <RefreshCw size={18} className="spin" style={{ margin: "0 auto 8px" }} />
                       Building process ancestry tree...
@@ -581,7 +514,7 @@ export default function XdrInvestigationWorkspacePage(
                       <div style={{ fontWeight: 700, fontSize: 13, color: "var(--nx-text)" }}>NO PROCESS ANCESTRY RECORDED</div>
                       <div style={{ fontSize: 11.5, marginTop: 4 }}>No process hierarchy or parent-child execution telemetry recorded for this incident.</div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 
@@ -596,11 +529,11 @@ export default function XdrInvestigationWorkspacePage(
                       </p>
                     </div>
                     <span style={{ fontSize: 11, color: "var(--nx-benign)", fontFamily: "var(--mono, monospace)" }}>
-                      {inv?.ikg?.stats?.nodes || inv?.ikg?.nodes?.length || 0} Nodes · {inv?.ikg?.stats?.edges || inv?.ikg?.edges?.length || 0} Edges
+                      {inv?.ikg?.stats?.nodes ?? inv?.ikg?.nodes?.length ?? "Unavailable"} Nodes · {inv?.ikg?.stats?.edges ?? inv?.ikg?.edges?.length ?? "Unavailable"} Edges
                     </span>
                   </div>
 
-                  {(inv?.ikg?.nodes && inv.ikg.nodes.length > 0) ? (
+                  {!Array.isArray(inv?.ikg?.nodes) ? <div role="status">Evidence graph unavailable</div> : (inv.ikg.nodes.length > 0) ? (
                     <div style={{ background: "var(--nx-surf-primary)", borderRadius: 4, border: "1px solid var(--nx-bd-quiet)", padding: 16 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nx-benign)", textTransform: "uppercase", marginBottom: 12 }}>
                         Active Knowledge Graph Entities ({inv.ikg.nodes.length})
@@ -633,7 +566,7 @@ export default function XdrInvestigationWorkspacePage(
                     State transitions are validated against triggers and recorded in the cryptographically sealed ledger.
                   </p>
 
-                  {securityStateLoading ? (
+                  {secondaryNotice("security") || (securityStateLoading ? (
                     <div style={{ padding: 40, textAlign: "center", color: "var(--nx-muted)" }}>
                       <RefreshCw size={18} className="spin" style={{ margin: "0 auto 8px" }} />
                       Loading authoritative security state from causal ledger...
@@ -678,7 +611,7 @@ export default function XdrInvestigationWorkspacePage(
                         No formal Security State FSM evaluation or causal state transition has been cryptographically sealed for this incident.
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 
@@ -690,7 +623,7 @@ export default function XdrInvestigationWorkspacePage(
                     Intermediate payload retention up to 64KB per decoding stage with SHA-256 verification.
                   </p>
 
-                  {artifactsLoading ? (
+                  {secondaryNotice("artifacts") || (artifactsLoading ? (
                     <div style={{ padding: 40, textAlign: "center", color: "var(--nx-muted)" }}>
                       <RefreshCw size={18} className="spin" style={{ margin: "0 auto 8px" }} />
                       Loading extracted artifacts...
@@ -734,7 +667,7 @@ export default function XdrInvestigationWorkspacePage(
                           ? <NxState value={r.stop_reason || r.stop} />
                           : <span className="nx-absent">—</span>) },
                     ]} />
-                  )}
+                  ))}
                 </div>
               )}
 
@@ -746,22 +679,7 @@ export default function XdrInvestigationWorkspacePage(
                     The verdict is computed deterministically from canonical evidence and evaluated against explainability patterns.
                   </p>
                   <div style={{ background: "var(--nx-surf-primary)", borderRadius: 4, padding: 16, border: "1px solid var(--nx-bd-quiet)", fontSize: 12.5 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ color: "var(--nx-muted)" }}>Deterministic Verdict:</span>
-                      <b style={{ color: c.fg }}>{band.toUpperCase()}</b>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ color: "var(--nx-muted)" }}>Risk Score:</span>
-                      <span style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-critical)" }}>
-                        {h.incident_score ?? h.device_score != null ? `${h.incident_score ?? h.device_score} / 100` : "Not recorded"}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ color: "var(--nx-muted)" }}>Confidence Rating:</span>
-                      <span style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-info)" }}>
-                        {h.confidence != null ? `${h.confidence}%` : "Not recorded"}
-                      </span>
-                    </div>
+                    <InvestigationVerdictSummary header={h} />
                     {authoritativeWeights.hasWeights ? (
                       <>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -783,7 +701,7 @@ export default function XdrInvestigationWorkspacePage(
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                         <span style={{ color: "var(--nx-muted)" }}>Contributing Evidence Signals:</span>
                         <span style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-benign)" }}>
-                          {(inv?.explainability?.positive?.reasons || []).length || h.event_count || 0} signals observed
+                          {Array.isArray(inv?.explainability?.positive?.reasons) ? inv.explainability.positive.reasons.length : h.event_count ?? "Unavailable"} signals observed
                         </span>
                       </div>
                     )}
@@ -887,7 +805,7 @@ export default function XdrInvestigationWorkspacePage(
             {explainOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
 
-          {explainOpen && (
+          {explainOpen && loadedContext === contextKey && !error && (
             <div style={{ padding: "12px 24px 20px", borderTop: "1px solid var(--nx-surf-primary)", fontSize: 12 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
                 <button
@@ -946,4 +864,25 @@ export default function XdrInvestigationWorkspacePage(
       </div>
     </Wrapper>
   );
+}
+
+export function InvestigationVerdictSummary({ header: h = {} }) {
+  return <>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ color: "var(--nx-muted)" }}>Deterministic Verdict:</span>
+                      <b style={{ color: h.verdict_band ? (BAND_COLORS[String(h.verdict_band).toLowerCase()]?.fg || "var(--nx-muted)") : "var(--nx-muted)" }}>{String(h.verdict_band || "unavailable").toUpperCase()}</b>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ color: "var(--nx-muted)" }}>Risk Score:</span>
+                      <span style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-critical)" }}>
+                        {(h.incident_score ?? h.device_score) != null ? `${h.incident_score ?? h.device_score} / 100` : "Unavailable"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ color: "var(--nx-muted)" }}>Confidence Rating:</span>
+                      <span style={{ fontFamily: "var(--mono, monospace)", color: "var(--nx-info)" }}>
+                        {h.confidence != null ? `${h.confidence}%` : "Unavailable"}
+                      </span>
+                    </div>
+  </>;
 }
