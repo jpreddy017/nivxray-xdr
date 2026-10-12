@@ -40,3 +40,12 @@ describe("Automatic Command Intelligence", () => {
     expect(html).toContain("not a decoded script");
   });
 });
+
+it("renders typed behavioral evidence with exact source offsets", () => {
+  const behaviors=[{kind:"download_and_evaluate",basis:"correlated_syntax",explanation:"Retrieval expression supplied to evaluation; execution not established.",match:"IEX (Invoke-WebRequest)",evidence_id:"sha256:observed",start:0,end:23,execution_proven:false}];
+  const html=renderToStaticMarkup(<CommandResult result={{...report,behaviors}}/>);
+  expect(html).toContain("download and evaluate");
+  expect(html).toContain("correlated syntax");
+  expect(html).toContain("characters 0–23");
+  expect(html).toContain("sha256:observed");
+});

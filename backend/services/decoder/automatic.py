@@ -19,8 +19,9 @@ from .base.compression import inflate_bounded
 from .base.encoding import _DECODERS
 from .types import Capability, CapabilityKind, DecodedLayer, Provenance, now_iso
 from . import cmd, powershell
+from .powershell_constants import reconstruct, unresolved as constants_unresolved
 
-VERSION = "1.0.1-auto"
+VERSION = "1.1.0-auto"
 MAX_INPUT = 16384
 MAX_OUTPUT = 131072
 MAX_TOTAL = 1048576
@@ -168,7 +169,7 @@ def transitions(node):
         return
     text = value
     stripped = text.strip()
-    is_cmd = bool(re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text)) or any(p['stage'].startswith('cmd.') for p in node.path)
+    is_cmd = bool(re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text)) or (any(p['stage'].startswith('cmd.') for p in node.path) and not any(p['stage']=='extract.encodedcommand' for p in node.path))
     # Whole-value encodings. Never turn a 32/40/64-hex digest into a payload.
     if len(stripped) >= 8 and _B64.fullmatch(stripped):
         url = '-' in stripped or '_' in stripped
@@ -222,8 +223,15 @@ def transitions(node):
             if folded and readable(folded.output):
                 yield name, folded.output, {}, (), '', False, False
     if not is_cmd:
+        constant = reconstruct(text)
+        if constant and constant[1]:
+            yield 'powershell.constant_ast', constant[0], {'edits':[{'start':e['start'],'end':e['end'],'replacement_sha256':digest(e['replacement']),'operations':e['operations']} for e in constant[1]]}, (), '', False, False
         for out, args, name in static_folds(text):
             yield name, out, args, (), '', False, False
+    from .cmd_constants import reconstruct as reconstruct_cmd
+    cmd_constant = reconstruct_cmd(text)
+    if cmd_constant:
+        yield 'cmd.delayed_literal', cmd_constant[0], cmd_constant[1], (), '', False, False
     # Strict CMD wrapper and caret support; do not guess wildcard executables.
     if re.match(r'(?i)^\s*cmd(?:\.exe)?\s+/(?:c|k)\s+', text) and not any(s in text for s in ('%', '!', '\n', '\r', '^^')) and not re.search(r'\^(?![A-Za-z0-9])', text):
         out, peeled, _ = cmd._peel_cmd_wrapper(text)
@@ -245,7 +253,6 @@ def annotations(evidence):
     from command_analyzer import extract_iocs
     iocs, behaviors = [], []
     seen = set()
-    rules = [(r'(?i)\b(?:IEX|Invoke-Expression)\b', 'An expression-evaluation token is present; its runtime use is not established.'), (r'(?i)\b(?:DownloadString|Invoke-WebRequest|curl|wget)\b', 'A network-retrieval token is present; network contact is not established.'), (r'(?i)\bStart-Process\b', 'A process-launch token is present; launch is not established.'), (r'(?i)\b(?:Write-Output|Write-Host|echo)\b', 'An output/display command token is present; execution is not established.')]
     for text in evidence:
         ref = 'sha256:'+digest(text)
         found = extract_iocs(text)
@@ -269,10 +276,8 @@ def annotations(evidence):
                 if key not in seen and len(iocs) < 256:
                     seen.add(key)
                     iocs.append({'type': typ, 'value': value, 'evidence_id': ref})
-        for pattern, explanation in rules:
-            m = re.search(pattern, text)
-            if m and len(behaviors) < 64:
-                behaviors.append({'explanation': explanation, 'evidence_id': ref, 'match': m.group(), 'start': m.start(), 'end': m.end()})
+        from .command_behaviors import findings
+        behaviors.extend(findings(text,ref)[:max(0,64-len(behaviors))])
     return iocs, behaviors
 
 
@@ -326,10 +331,12 @@ def analyze(text: str):
         reasons = list(n.reasons)
         if isinstance(n.value, bytes):
             reasons.append('Binary output: no supported text encoding/compression; encryption cannot be inferred or decrypted without a key')
-        elif _DYNAMIC.search(n.value):
+        elif _DYNAMIC.search(n.value) and constants_unresolved(n.value):
             reasons.append('Runtime-dependent or unsupported expression remains; static evaluation stopped')
         if n.path[-1]['stage'].startswith('extract.'):
             reasons.append('Extracted payload could not be decoded')
+        if any(p['stage'].startswith('extract.') and (p['stage'] != 'extract.encodedcommand' or not standalone_encodedcommand(p['input']['value'])) for p in n.path):
+            reasons.append('Surrounding script remains separate evidence; embedded recovery does not resolve its wrapper')
         score = (30 if not n.speculative else 0) + (30 if isinstance(n.value, str) and readable(n.value) else 0) + (10 if isinstance(n.value, str) and _SCRIPT.search(n.value) else 0) - len(reasons)*10 - len(n.path)*.1
         candidates.append({'id': 'sha256:'+digest(n.value), 'payload': wire(n.value), 'layers': n.path, 'recipe': [{'op': p['stage'], 'args': p['args'], 'input_sha256': p['input_sha256'], 'output_sha256': p['output_sha256']} for p in n.path], 'score': round(score, 2), 'confidence': 'LOW' if reasons or n.speculative else 'HIGH', 'unresolved': reasons, 'embedded': n.embedded, 'speculative': n.speculative})
     candidates.sort(key=lambda c: (-c['score'], c['id'], str(c['recipe'])))
@@ -337,7 +344,10 @@ def analyze(text: str):
         warnings.append('Result limit reached; additional candidates omitted')
     candidates = candidates[:MAX_RESULTS]
     best = candidates[0] if candidates else None
-    plausible = [c for c in candidates if c['payload']['format'] == 'text' and not c['speculative'] and not c['unresolved']]
+    plausible = [c for c in candidates if c['payload']['format'] == 'text' and not c['speculative'] and not [r for r in c['unresolved'] if not r.startswith('Surrounding script remains separate evidence')]]
+    whole = [c for c in plausible if not c['embedded'] and not c['unresolved']]
+    if whole:
+        plausible = whole
     alternatives = len({c['id'] for c in plausible}) > 1
     original_dynamic = bool(_DYNAMIC.search(text))
     # An extracted child does not prove that its surrounding script was recovered.
