@@ -20,7 +20,8 @@ import { Plus, RefreshCcw, Play, Square, Power, PowerOff, PlayCircle,
                  ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import { refusalText } from "@/lib/refusal";
-import { activeTenant, setActiveTenant } from "@/lib/tenant";
+import CustomerContextInput from "./CustomerContextInput";
+import { activeTenant } from "@/lib/tenant";
 import AdminHero from "@/xdr/admin/AdminHero";
 import PipelineStrip from "@/xdr/admin/PipelineStrip";
 
@@ -123,12 +124,7 @@ export default function CollectorsBody() {
                               fontSize: 10.5, color: "var(--faint)",
                               fontFamily: "var(--mono)" }}>
             TENANT
-            <input value={tenant} data-testid="col-tenant-context"
-                       onChange={(e) => {
-                         const next = e.target.value.trim();
-                         setTenant(next);
-                         setActiveTenant(next || null);
-                       }}
+            <CustomerContextInput onApplied={setTenant} data-testid="col-tenant-context"
                        placeholder="authoritative tenant"
                        style={{ width: 150, padding: "3px 6px", fontSize: 11,
                                        border: "1px solid var(--border)", borderRadius: 3,

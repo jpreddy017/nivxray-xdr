@@ -44,6 +44,54 @@ function VerdictBadge({ band }) {
   );
 }
 
+export async function readInvestigationCases() {
+  let casesList = [];
+  try {
+    const resV2 = await api.get("/v2/cases");
+    const raw = resV2?.data?.cases || resV2?.data || [];
+    if (Array.isArray(raw)) casesList = raw;
+  } catch (error) {
+    if ([401, 403].includes(error?.response?.status) || error?.code === "ERR_CANCELED") throw error;
+  }
+
+  if (casesList.length === 0) {
+    try {
+      const resInc = await api.get("/incidents?limit=500");
+      const incs = resInc?.data?.incidents || resInc?.data || [];
+      if (Array.isArray(incs)) {
+        casesList = incs.map((inc) => {
+          // Honest coercion: verdict may be a string, an object with
+          // .label, or absent. Never "[object Object]", never invented.
+          let bandRaw = inc.verdict_stage2?.label ?? inc.verdict;
+          if (bandRaw && typeof bandRaw === "object") {
+            bandRaw = bandRaw.label ?? bandRaw.verdict ?? null;
+          }
+          return {
+            id: inc.id || inc.case_id,
+            case_id: inc.id || inc.case_id,
+            title: inc.name || inc.title || `Investigation ${inc.id}`,
+            verdict_band: (typeof bandRaw === "string" && bandRaw)
+              ? bandRaw : null,
+            device_score: inc.device_score ?? null,
+            incident_score: inc.incident_score
+              ?? inc.verdict?.risk_score ?? null,
+            event_count: inc.evidence_count ?? inc.event_count ?? null,
+            process_count: inc.process_count ?? null,
+            ikg_nodes: inc.ikg_nodes ?? null,
+            ikg_edges: inc.ikg_edges ?? null,
+            customer: inc.customer ?? null,
+            updated_at: inc.updated_at || inc.created_at || null,
+            source: "incidents",
+          };
+        });
+      }
+    } catch (error) {
+      if ([401, 403].includes(error?.response?.status) || error?.code === "ERR_CANCELED") throw error;
+    }
+  }
+  return casesList;
+}
+
 export default function XdrInvestigationsListPage() {
   const navigate = useNavigate();
   const [cases, setCases] = useState([]);
@@ -53,51 +101,14 @@ export default function XdrInvestigationsListPage() {
   const [selectedBand, setSelectedBand] = useState("all");
 
   const loadCases = useCallback(async () => {
+    setCases([]);
     setLoading(true);
     setError(null);
     try {
-      let casesList = [];
-      try {
-        const resV2 = await api.get("/v2/cases");
-        const raw = resV2?.data?.cases || resV2?.data || [];
-        if (Array.isArray(raw)) casesList = raw;
-      } catch { /* fall through to the incident registry */ }
-
-      if (casesList.length === 0) {
-        try {
-          const resInc = await api.get("/incidents?limit=500");
-          const incs = resInc?.data?.incidents || resInc?.data || [];
-          if (Array.isArray(incs)) {
-            casesList = incs.map((inc) => {
-              // Honest coercion: verdict may be a string, an object with
-              // .label, or absent. Never "[object Object]", never invented.
-              let bandRaw = inc.verdict_stage2?.label ?? inc.verdict;
-              if (bandRaw && typeof bandRaw === "object") {
-                bandRaw = bandRaw.label ?? bandRaw.verdict ?? null;
-              }
-              return {
-                id: inc.id || inc.case_id,
-                case_id: inc.id || inc.case_id,
-                title: inc.name || inc.title || `Investigation ${inc.id}`,
-                verdict_band: (typeof bandRaw === "string" && bandRaw)
-                  ? bandRaw : null,
-                device_score: inc.device_score ?? null,
-                incident_score: inc.incident_score
-                  ?? inc.verdict?.risk_score ?? null,
-                event_count: inc.evidence_count ?? inc.event_count ?? null,
-                process_count: inc.process_count ?? null,
-                ikg_nodes: inc.ikg_nodes ?? null,
-                ikg_edges: inc.ikg_edges ?? null,
-                customer: inc.customer ?? null,
-                updated_at: inc.updated_at || inc.created_at || null,
-                source: "incidents",
-              };
-            });
-          }
-        } catch { /* both authorities silent — reported below */ }
-      }
+      const casesList = await readInvestigationCases();
       setCases(casesList);
     } catch (err) {
+      setCases([]);
       setError(apiErrorText(err, "Failed to load investigations."));
     } finally { setLoading(false); }
   }, []);

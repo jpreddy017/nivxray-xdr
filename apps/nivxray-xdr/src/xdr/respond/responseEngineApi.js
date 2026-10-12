@@ -7,6 +7,7 @@
  * surfaces `RESPONSE_ENGINE_NOT_DEPLOYED` — never a fake success.
  */
 import axios from "axios";
+import { secureRequests } from "@/lib/secureRequests";
 
 const BASE = import.meta.env.VITE_XDR_RESPONSE_URL || "";
 
@@ -14,6 +15,8 @@ const client = BASE
   ? axios.create({ baseURL: `${BASE.replace(/\/+$/, "")}/api/respond`,
                      timeout: 15000 })
   : null;
+
+if (client) secureRequests(client);
 
 function notDeployed() {
   const err = new Error("response_engine_not_deployed");

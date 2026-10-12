@@ -140,6 +140,7 @@ export function setActiveTenant(tenantId) {
   // A principal the server bound to one customer cannot re-point itself,
   // and a sealed authority cannot be talked into a customer at all.
   if (sealed || (serverTenant && !serverSwitchable)) return;
+  const before = activeTenant();
   try {
     if (tenantId && String(tenantId).trim()) {
       window.localStorage.setItem(STORAGE_KEY, String(tenantId).trim());
@@ -148,5 +149,10 @@ export function setActiveTenant(tenantId) {
     }
   } catch {
     /* ignore */
+  }
+  if (before !== activeTenant()) {
+    if (typeof window.dispatchEvent === "function") {
+      window.dispatchEvent(new CustomEvent(TENANT_BOUND_EVENT, { detail: activeTenant() }));
+    }
   }
 }

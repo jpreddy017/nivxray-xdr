@@ -1,14 +1,13 @@
+import { secureFetchJson } from "@/lib/secureRequests";
 // Read-only client for /api/e3/trajectory/* (E3 contract preview). POST /approvals only records a request.
 const BASE = `${process.env.REACT_APP_BACKEND_URL || ""}/api/e3/trajectory`;
 
 async function call(path, { params, body, signal } = {}) {
   const qs = params ? `?${new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ""))}` : "";
-  const res = await fetch(`${BASE}${path}${qs}`, body
+  return secureFetchJson(`${BASE}${path}${qs}`, body
     ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal }
     : { signal });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.detail || `HTTP ${res.status}`), { status: res.status });
-  return data;
+
 }
 
 export const e3 = {

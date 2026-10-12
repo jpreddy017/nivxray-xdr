@@ -6,13 +6,15 @@
  * data-testid and internal navigate() call in the moved source stays
  * byte-identical.  Vite `base: "/xdr/"` handles asset URL prefixing.
  */
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useSyncExternalStore } from "react";
 import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { HOME_PATH } from "@/productScope";
 import ProductScopeGuard from "@/components/ProductScopeGuard";
 
 import { useAuth } from "@/lib/auth";
-import { useAccess } from "@/xdr/access/AccessProvider";
+import RequirePermission, { PermissionNotice } from "@/xdr/access/RequirePermission";
+import { routePermissions, consolePermissions } from "@/xdr/access/routePermissions";
+import { securitySnapshot, subscribeSecurity } from "@/lib/securityState";
 import LoginPage from "@/pages/LoginPage";
 
 const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
@@ -116,53 +118,25 @@ const EdrDevicePage     = lazy(() => import("@/nivxforge/device/EdrDevicePage"))
 const EdrNotImplementedPage =
   lazy(() => import("@/nivxforge/pages/EdrNotImplementedPage"));
 
-function Protected({ children }) {
+export function Protected({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const security = useSyncExternalStore(subscribeSecurity, securitySnapshot, securitySnapshot);
   if (loading) return null;
-  if (!user) {
+  if (!user || security.reason === "expired") {
     // Preserve the requested URL so login can bounce back.
     const returnTo = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
   }
-  return children;
-}
-
-/**
- * Route authorization (owner directive §24).
- *
- * Hiding a rail item is UX; this is the route layer. The BACKEND remains the
- * security boundary — every admin API already answers 403 — but an analyst
- * who types an admin URL should not get to enumerate the administration
- * surface tree. Three-valued `canAny`: `false` denies, `true`/`null` allows
- * (a transient authorization read must never lock an authorized operator out
- * of their own console).
- */
-function RequirePermission({ anyOf, label, children }) {
-  const access = useAccess();
-  if (access.loading) return null;
-  if (access.canAny(anyOf) !== false) return children;
-  return (
-    <XdrShellGuardShell>
-      <div className="nx-page" data-testid="route-not-authorized">
-        <div className="nx-empty nx-empty--noicon" role="alert">
-          <div className="nx-empty__title">
-            You are not authorized for {label}
-          </div>
-          <div className="nx-empty__hint">
-            Your effective permissions do not include any of{" "}
-            <code>{(anyOf || []).join(", ")}</code>.
-            {access.basis
-              ? ` Authorization basis: ${access.basis}.`
-              : ""}{" "}
-            This is an authorization decision, not a missing feature and not an
-            empty dataset — the server enforces the same answer on every API
-            call behind this page.
-          </div>
-        </div>
-      </div>
-    </XdrShellGuardShell>
-  );
+  if (security.reason === "denied" && security.deniedPath === location.pathname) {
+    return <PermissionNotice state="denied" />;
+  }
+  return <RequirePermission key={`${security.epoch}:${location.pathname}`}
+    anyOf={consolePermissions(location.pathname)} label={location.pathname}>
+    <RequirePermission anyOf={routePermissions(location.pathname)} label={location.pathname}>
+      {children}
+    </RequirePermission>
+  </RequirePermission>;
 }
 
 /** Compatibility redirect that PRESERVES the query string — a deep link

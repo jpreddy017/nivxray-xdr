@@ -12,6 +12,7 @@
  * the honest `COLLECTOR_RUNTIME_NOT_DEPLOYED` state.
  */
 import axios from "axios";
+import { secureRequests } from "@/lib/secureRequests";
 
 import { activeTenant } from "@/lib/tenant";
 
@@ -53,6 +54,7 @@ const client = COLLECTOR_BASE
 // session exists no header is sent and the server answers ACCESS_DENIED /
 // unauthenticated, which is the honest outcome.
 if (client) {
+  secureRequests(client);
   client.interceptors.request.use((config) => {
     if (config.headers.Authorization == null) {
       const token = localStorage.getItem("nvx_token");

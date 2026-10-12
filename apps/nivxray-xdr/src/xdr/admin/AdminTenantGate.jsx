@@ -10,9 +10,13 @@
  * never defaults to one, and grants nothing — the server still resolves
  * and authorizes the effective scope on every request.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Building2, Lock } from "lucide-react";
 import api from "@/lib/api";
+import { invalidateSecurity } from "@/lib/securityState";
+import { applyCustomerSelection } from "@/lib/customerSelection";
+import { createRequestFence } from "@/lib/requestFence";
+import { selectScope } from "@/lib/scopeApi";
 import { activeTenant, setActiveTenant } from "@/lib/tenant";
 import { refusalText } from "@/lib/refusal";
 
@@ -20,6 +24,8 @@ export default function AdminTenantGate({ label = "this surface", children }) {
   const [tenant, setTenant] = useState(() => activeTenant() || "");
   const [scope, setScope] = useState(null);
   const [err, setErr] = useState(null);
+  const pending = useRef(createRequestFence());
+  useEffect(() => () => pending.current.cancel(), []);
 
   useEffect(() => {
     (async () => {
@@ -33,7 +39,7 @@ export default function AdminTenantGate({ label = "this surface", children }) {
         const only = offer.length === 1 ? offer[0].customer : null;
         if (!activeTenant() && only) {
           setActiveTenant(only);
-          setTenant(only);
+          setTenant(activeTenant() || "");
         }
       } catch (e) {
         setErr(refusalText(e, "authorized scope unavailable"));
@@ -41,9 +47,22 @@ export default function AdminTenantGate({ label = "this surface", children }) {
     })();
   }, []);
 
-  const choose = (v) => {
-    setActiveTenant(v || null);
-    setTenant(v || "");
+  const choose = async (v) => {
+    const ticket = pending.current.begin();
+    if (!v) { setActiveTenant(null); setTenant(activeTenant() || ""); return; }
+    try {
+      const resolved = await selectScope({ kind: "tenant", tenantId: v });
+      if (!pending.current.current(ticket)) return;
+      if (!resolved?.authorized || !resolved.tenant_ids?.includes(v)) {
+        invalidateSecurity("denied", window.location.pathname);
+        setErr("Customer scope was not authorized");
+        return;
+      }
+      setErr(null);
+      setTenant(applyCustomerSelection(resolved, v));
+    } catch (error) {
+      if (pending.current.current(ticket)) setErr(refusalText(error));
+    }
   };
 
   // B8-SCOPE-1 · AUTHORITY, not evidence. `scope.tenants` is the incident

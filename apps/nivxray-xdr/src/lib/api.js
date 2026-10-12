@@ -8,6 +8,7 @@
  * with the original app during development.
  */
 import axios from "axios";
+import { secureRequests } from "./secureRequests";
 
 import { TENANT_HEADER, activeTenant } from "@/lib/tenant";
 
@@ -44,19 +45,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-api.interceptors.response.use(
-  (r) => r,
-  (err) => {
-    if (err?.response?.status === 401) {
-      // 401 = session expired.  Clear token and bounce to login.
-      localStorage.removeItem("nvx_token");
-      localStorage.removeItem("nvx_email");
-      if (!window.location.pathname.endsWith("/login")) {
-        window.location.href = "/login";
-      }
-    }
-    return Promise.reject(err);
-  },
-);
+secureRequests(api);
 
 export default api;
