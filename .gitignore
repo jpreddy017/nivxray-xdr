@@ -179,3 +179,6 @@ frontend/node_modules/.cache/default-development/13.pack
 # file paths). The state dir lives under /app only because that is the
 # persistent path in this environment.
 agents/nivxforge-linux/.state/
+
+# Isolated local product proof outputs (never deployment artifacts).
+.build/
