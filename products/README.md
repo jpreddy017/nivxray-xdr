@@ -81,3 +81,13 @@ Workspace frozen installation stalled during dependency resolution and was stopp
 5. Complete RC2 security and authenticated browser gates before any release. Migration, deployment relinking, merge and production promotion require owner approval.
 
 No production database, DNS, secret, account, authentication authority or security HOLD was changed.
+
+## PR #10 Workspace lockfile repair
+
+GitHub Actions run `38205940818`, Workspace job `114669334393`, failed with `Your lockfile needs to be updated, but yarn was run with --frozen-lockfile`. Ownership, XDR and EDR jobs passed. Workspace tests and build were skipped in that run.
+
+The existing Workspace manifest declared 17 direct dependency selectors absent from its lockfile: `@xyflow/react`, `dagre`, `konva`, `react-konva`, seven Storybook packages plus `storybook`, Node/React/React DOM types, `json-schema-to-typescript`, and TypeScript. Matching entries and their missing dependency closure were recovered from the repository's archived Workspace lockfile, then reconciled with Yarn 1.22.22. The existing manifest, resolution overrides, CI assertions, runtime source and deployment configuration are unchanged. This is not a wholesale restoration of the archived lockfile.
+
+Fresh validation: Workspace installation passed; a clean dependency directory installed successfully with `--frozen-lockfile --non-interactive --offline` using the verified package cache. Its 25 existing Node helper tests and 14 Jest viewport tests passed. XDR's 119 tests/build, EDR's 15 console boundary tests/build and the three ownership-runner tests passed again. The earlier blocked build above describes the original organizational baseline.
+
+The full Workspace build now reaches compilation but fails on existing `react-hooks/exhaustive-deps` warnings because `CI=true` treats warnings as errors. Affected existing files are `OutputView.jsx`, `StructuredEvidenceTab.jsx`, `investigation/FindRelatedDrawer.jsx`, `hooks/useIdlePersist.js`, and `v2/pages/{EvidenceCard,EvidenceGraphTab,InvestigationWorkspace}.jsx`. None were modified. No lint checks, warnings or assertions were disabled. This separate source-quality gate requires a focused repair before PR #10 can pass all checks or be merged. Authenticated browser acceptance and all existing release/security HOLDs remain unchanged.
