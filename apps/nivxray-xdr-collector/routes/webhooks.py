@@ -7,7 +7,7 @@ POST /api/xdr/webhooks/{secret_id}
   - Signature verification: X-Hub-Signature-256 (or override) using
     the connector's `credentials.hmac_secret`.  Failed signature →
     HTTP 401 with reason.
-  - Replay guard: optional X-Timestamp seconds-since-epoch header
+  - Replay guard: mandatory signed X-Timestamp seconds-since-epoch header
     (5-minute window).
 """
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Any, Dict
 
 from fastapi         import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from framework.webhook import WebhookConnector
 
@@ -28,11 +29,12 @@ def _find_webhook(request: Request, secret_id: str) -> WebhookConnector | None:
     """Lookup a live WebhookConnector instance by its `secret_id`
     configuration.  We deliberately search the runtime instance table
     (not the store) so a disabled record doesn't accept traffic."""
-    for inst in request.app.state.instances.values():
-        if isinstance(inst, WebhookConnector) \
-             and (inst.config.get("secret_id") == secret_id):
-            return inst
-    return None
+    matches = [inst for inst in request.app.state.instances.values()
+               if isinstance(inst, WebhookConnector)
+               and inst.config.get("secret_id") == secret_id]
+    # The URL carries no tenant. Ambiguous routing must never select whichever
+    # tenant's connector happened to be inserted first.
+    return matches[0] if len(matches) == 1 else None
 
 
 @router.post("/webhooks/{secret_id}")
@@ -44,11 +46,11 @@ async def inbound_webhook(secret_id: str, request: Request):
 
     body = await request.body()
     headers = {k: v for k, v in request.headers.items()}
-    check = conn.verify(body, headers)
+    check = await run_in_threadpool(conn.verify, body, headers)
     if not check.get("ok"):
         conn.metrics.events_rejected += 1
         conn.metrics.last_error = check.get("reason")
-        return JSONResponse(status_code=401,
+        return JSONResponse(status_code=503 if check.get("reason") == "replay_store_unavailable" else 401,
                                 content={"error": "signature_verification_failed",
                                             "detail": check})
 

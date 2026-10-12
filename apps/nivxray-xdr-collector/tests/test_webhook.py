@@ -7,11 +7,20 @@ import time
 import pytest
 
 from framework.webhook import WebhookConnector
+from framework import webhook
+from tests.test_webhook_security import AtomicRedis, store, NOW
 
 
-def _sig(secret: str, body: bytes, algo="sha256", prefix="sha256=") -> str:
+@pytest.fixture(autouse=True)
+def shared_replay_fixture(monkeypatch):
+    server = AtomicRedis()
+    monkeypatch.setattr(webhook.time, "time", lambda: NOW)
+    monkeypatch.setattr(webhook, "replay_store", lambda: store(server))
+
+
+def _sig(secret: str, body: bytes, algo="sha256", prefix="sha256=", timestamp=str(NOW)) -> str:
     hasher = hashlib.sha256 if algo == "sha256" else hashlib.sha1
-    return prefix + hmac.new(secret.encode(), body, hasher).hexdigest()
+    return prefix + hmac.new(secret.encode(), timestamp.encode()+b"."+body, hasher).hexdigest()
 
 
 def _make(secret="s3cr3t", extra=None):
@@ -31,7 +40,7 @@ def _make(secret="s3cr3t", extra=None):
 def test_verify_accepts_valid_signature():
     conn = _make()
     body = json.dumps({"events": [{"id": "e1"}]}).encode()
-    ok = conn.verify(body, {"X-Hub-Signature-256": _sig("s3cr3t", body)})
+    ok = conn.verify(body, {"X-Hub-Signature-256": _sig("s3cr3t", body), "X-Timestamp": str(NOW)})
     assert ok["ok"] is True
     assert ok["authenticated"] is True
 
@@ -39,7 +48,7 @@ def test_verify_accepts_valid_signature():
 def test_verify_rejects_bad_signature():
     conn = _make()
     body = json.dumps({"events": []}).encode()
-    out = conn.verify(body, {"X-Hub-Signature-256": "sha256=deadbeef"})
+    out = conn.verify(body, {"X-Hub-Signature-256": "sha256=deadbeef", "X-Timestamp": str(NOW)})
     assert out["ok"] is False
     assert out["reason"] == "signature_mismatch"
 
@@ -51,23 +60,23 @@ def test_verify_rejects_missing_header():
     assert out["reason"] == "missing_signature_header"
 
 
-def test_verify_no_secret_accepts_but_flags_unauthenticated():
+def test_verify_no_secret_fails_closed():
     conn = WebhookConnector(tenant_id="acme",
                                  config={"secret_id": "wh-open"},
                                  identity="wh-open-1")
     out = conn.verify(b"{}", {})
-    assert out["ok"] is True
-    assert out.get("authenticated") is False
+    assert out["ok"] is False
+    assert out["reason"] == "hmac_secret_not_configured"
 
 
 def test_verify_replay_window():
     conn = _make()
     body = b'{"events":[]}'
     old_ts = str(int(time.time()) - 10_000)  # way outside 5-min window
-    out = conn.verify(body, {"X-Hub-Signature-256": _sig("s3cr3t", body),
+    out = conn.verify(body, {"X-Hub-Signature-256": _sig("s3cr3t", body, timestamp=old_ts),
                                  "X-Timestamp": old_ts})
     assert out["ok"] is False
-    assert out["reason"] == "replay_window_exceeded"
+    assert out["reason"] == "expired_timestamp"
 
 
 def test_envelopes_from_records_path():

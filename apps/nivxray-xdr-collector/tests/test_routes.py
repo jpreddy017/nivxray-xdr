@@ -85,11 +85,16 @@ async def test_source_types_catalogue_lists_all_three_transports():
 
 
 @pytest.mark.asyncio
-async def test_connector_crud_and_webhook_delivery():
+async def test_connector_crud_and_webhook_delivery(monkeypatch):
+    from framework import webhook
+    from tests.test_webhook_security import AtomicRedis, store, signed, NOW, SECRET
+    server = AtomicRedis()
+    monkeypatch.setattr(webhook.time, "time", lambda: NOW)
+    monkeypatch.setattr(webhook, "replay_store", lambda: store(server))
     async with _lifespan_client() as c:
         # 1) create webhook connector
         body = {"source_type": "webhook", "label": "Test Webhook",
-                  "config":  {"secret_id": "wh-t1",
+                  "config":  {"secret_id": "wh-t1", "credentials": {"hmac_secret": SECRET},
                               "event_id_path": "id",
                               "records_path":  "events"}}
         r = await c.post("/api/xdr/connectors", json=body,
@@ -101,13 +106,13 @@ async def test_connector_crud_and_webhook_delivery():
         r = await c.get("/api/xdr/connectors", headers={"X-Tenant-Id": "acme"})
         assert any(x["id"] == cid for x in r.json()["connectors"])
 
-        # 3) deliver webhook (no HMAC configured → accepted unauthenticated)
-        r = await c.post("/api/xdr/webhooks/wh-t1",
-                              json={"events": [{"id": "abc"}, {"id": "def"}]})
+        # 3) deliver the exact bytes authenticated by timestamp-bound HMAC.
+        raw_body = b'{"events":[{"id":"abc"},{"id":"def"}]}'
+        r = await c.post("/api/xdr/webhooks/wh-t1", content=raw_body, headers=signed(raw_body))
         assert r.status_code == 200, r.text
         j = r.json()
         assert j["accepted"] == 2
-        assert j["authenticated"] is False
+        assert j["authenticated"] is True
 
         # 4) telemetry-health reflects the instance
         r = await c.get("/api/xdr/telemetry-health")

@@ -6,7 +6,7 @@ Config:
   "label":       "Defender graph webhook",
   "secret_id":   "wh-abc123",              # path segment, tenant-mapped
   "credentials": {
-     "hmac_secret": "…"                    # optional; verifies X-Signature
+     "hmac_secret": "…"                    # required; verifies timestamp-bound HMAC
   },
   "signature": {
      "header":   "X-Hub-Signature-256",    # default
@@ -23,14 +23,17 @@ Route: POST /api/xdr/webhooks/{secret_id}
 
 Security guarantees:
   • constant-time HMAC comparison
-  • timestamp replay window enforced when X-Timestamp header sent
-  • 401 / 403 on failure — never 500 for a bad signature
+  • mandatory timestamp window and shared atomic replay claim
+  • 401 on authentication failure; 503 when replay protection is unavailable
 """
 from __future__ import annotations
 
 import hashlib
 import hmac
 import time
+import json
+import math
+from framework.webhook_replay import replay_store, ReplayStoreUnavailable
 from typing import Any, Dict, List, Optional
 
 from framework.base    import Connector, Envelope, Health, Capability
@@ -73,43 +76,67 @@ class WebhookConnector(Connector):
     def verify(self, body: bytes, headers: Dict[str, str]) -> Dict[str, Any]:
         """Return {ok, reason?} — never raises on failure."""
         sig_cfg = self.config.get("signature") or {}
-        secret  = (self.config.get("credentials") or {}).get("hmac_secret")
-        if not secret:
-            # No secret configured → accept but flag as unauthenticated.
-            return {"ok": True, "authenticated": False,
-                     "reason": "no_hmac_secret_configured"}
-
+        secret = (self.config.get("credentials") or {}).get("hmac_secret")
+        if not isinstance(secret, str) or not secret:
+            return {"ok": False, "reason": "hmac_secret_not_configured"}
+        if not isinstance(sig_cfg, dict):
+            return {"ok": False, "reason": "invalid_signature_configuration"}
         header_name = sig_cfg.get("header", "X-Hub-Signature-256")
-        algo        = (sig_cfg.get("algo") or "sha256").lower()
-        prefix      = sig_cfg.get("prefix", "sha256=")
-
-        provided = headers.get(header_name) or headers.get(header_name.lower())
-        if not provided:
-            return {"ok": False, "reason": "missing_signature_header",
-                     "header": header_name}
-
+        algo = sig_cfg.get("algo", "sha256")
+        prefix = sig_cfg.get("prefix", "sha256=")
+        if not all(isinstance(v, str) for v in (header_name, algo, prefix)):
+            return {"ok": False, "reason": "invalid_signature_configuration"}
+        algo = algo.lower()
         if algo not in ("sha256", "sha1"):
-            return {"ok": False, "reason": f"unsupported_algo:{algo}"}
-
-        hasher = hashlib.sha256 if algo == "sha256" else hashlib.sha1
-        expected = hmac.new(secret.encode("utf-8"), body, hasher).hexdigest()
-        expected_full = f"{prefix}{expected}"
-
-        if not hmac.compare_digest(provided, expected_full) and \
-             not hmac.compare_digest(provided, expected):
+            return {"ok": False, "reason": "unsupported_signature_algorithm"}
+        lowered = {key.lower(): value for key, value in headers.items()}
+        provided = lowered.get(header_name.lower())
+        if not isinstance(provided, str) or not provided:
+            return {"ok": False, "reason": "missing_signature_header"}
+        ts = lowered.get("x-timestamp")
+        if not isinstance(ts, str) or not ts:
+            return {"ok": False, "reason": "missing_timestamp_header"}
+        try:
+            if len(ts) > 64:
+                raise ValueError()
+            timestamp = float(ts)
+            timestamp_bytes = ts.encode("ascii")
+            if not math.isfinite(timestamp):
+                raise ValueError()
+        except (ValueError, OverflowError, UnicodeError):
+            return {"ok": False, "reason": "malformed_timestamp"}
+        now = time.time()
+        if timestamp < now - REPLAY_WINDOW_SECONDS:
+            return {"ok": False, "reason": "expired_timestamp"}
+        if timestamp > now + REPLAY_WINDOW_SECONDS:
+            return {"ok": False, "reason": "future_timestamp"}
+        normalized = provided[len(prefix):] if prefix and provided.startswith(prefix) else provided
+        try:
+            # Prefix and hexadecimal case are representations, not identities.
+            supplied_digest = bytes.fromhex(normalized)
+            expected_size = 32 if algo == "sha256" else 20
+            if len(normalized) != expected_size * 2 or len(supplied_digest) != expected_size:
+                raise ValueError()
+        except (ValueError, TypeError):
             return {"ok": False, "reason": "signature_mismatch"}
-
-        # optional replay guard
-        ts = headers.get("X-Timestamp") or headers.get("x-timestamp")
-        if ts:
-            try:
-                delta = abs(time.time() - float(ts))
-                if delta > REPLAY_WINDOW_SECONDS:
-                    return {"ok": False, "reason": "replay_window_exceeded",
-                             "delta_seconds": delta}
-            except ValueError:
-                return {"ok": False, "reason": "malformed_timestamp"}
-
+        signed_payload = timestamp_bytes + b"." + body
+        hasher = hashlib.sha256 if algo == "sha256" else hashlib.sha1
+        expected = hmac.new(secret.encode("utf-8"), signed_payload, hasher).digest()
+        if not hmac.compare_digest(supplied_digest, expected):
+            return {"ok": False, "reason": "signature_mismatch"}
+        secret_id = self.config.get("secret_id")
+        if not self.tenant_id or not isinstance(secret_id, str) or not secret_id:
+            return {"ok": False, "reason": "webhook_identity_not_configured"}
+        scope = json.dumps([self.tenant_id, secret_id], separators=(",", ":")).encode()
+        key = "nivxray:webhook:replay:v1:" + hashlib.sha256(scope + b"\0" + signed_payload).hexdigest()
+        try:
+            # A timestamp accepted 300 seconds in the future remains valid
+            # for another 300 seconds. Cover the entire possible window.
+            claimed = replay_store().claim(key, 2 * REPLAY_WINDOW_SECONDS + 1)
+        except ReplayStoreUnavailable:
+            return {"ok": False, "reason": "replay_store_unavailable"}
+        if not claimed:
+            return {"ok": False, "reason": "replayed_request"}
         return {"ok": True, "authenticated": True}
 
     # ── event conversion ─────────────────────────────────────
