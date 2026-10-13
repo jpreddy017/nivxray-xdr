@@ -177,7 +177,7 @@ def test_flat_catalogue_contract_remains_available(boundary):
     client, _, cases, _ = boundary
     response = client.get("/api/mitre/catalogue")
     assert response.status_code == 200
-    assert response.json()["version"] == "19.2"
+    assert response.json()["version"] == "16.1"  # Pinned RC2 catalogue; no version upgrade in this repair.
     assert cases.queries == []
 
 
