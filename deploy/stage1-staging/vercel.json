@@ -1,0 +1,15 @@
+{
+  "framework": null,
+  "installCommand": "npx --yes yarn@1.22.22 install --frozen-lockfile --non-interactive",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "dist",
+  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}],
+  "headers": [{
+    "source": "/(.*)",
+    "headers": [
+      {"key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://stage1-api.invalid wss://stage1-api.invalid; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"},
+      {"key": "Referrer-Policy", "value": "no-referrer"},
+      {"key": "X-Content-Type-Options", "value": "nosniff"}
+    ]
+  }]
+}
