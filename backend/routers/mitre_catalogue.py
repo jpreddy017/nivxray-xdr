@@ -3,7 +3,7 @@ NivXRay MITRE ATT&CK Catalogue routes.
 
 Serves the versioned ATT&CK Enterprise catalogue (203 techniques
 + 453 sub-techniques for v16.1) and the honest coverage
-projection built by scanning every incident's canonical evidence.
+projection built from authorized tenants' canonical incident evidence.
 
 Contract — endpoints:
     GET /api/mitre/catalogue           — flat catalogue, all rows
@@ -25,12 +25,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from deps import get_current_user, db
 from services.mitre_catalogue import (
     get_catalogue, resolve_coverage,
 )
+from services.dashboard_lenses import resolve_tenant_scope
+from services.session_context import _authorized_universe
 
 
 router = APIRouter()
@@ -92,8 +94,8 @@ def _iter_technique_ids(inc: dict[str, Any]):
                 yield from _resolve(e.get(f))
 
 
-async def _build_observations() -> tuple[dict[str, int], dict[str, list[str]]]:
-    """Sum observations across every workspace_cases incident.
+async def _build_observations(tenant_ids: list[str]) -> tuple[dict[str, int], dict[str, list[str]]]:
+    """Sum observations only across server-authorized tenant records.
 
     Every distinct (incident, technique_id) pair counts once — a
     single incident that emits `T1059.001` fifteen times still
@@ -108,8 +110,11 @@ async def _build_observations() -> tuple[dict[str, int], dict[str, list[str]]]:
     """
     counts: dict[str, int] = {}
     incidents_by_tech: dict[str, list[str]] = {}
+    if not tenant_ids:
+        return counts, incidents_by_tech
     async for inc in db["workspace_cases"].find(
-        {}, {"mitre": 1, "evidence": 1, "verdict_stage2": 1, "id": 1},
+        {"tenant_id": {"$in": tenant_ids}},
+        {"mitre": 1, "evidence": 1, "verdict_stage2": 1, "id": 1},
     ):
         seen: set[str] = set()
         for ext in _iter_technique_ids(inc):
@@ -138,10 +143,34 @@ async def get_catalogue_flat(user=Depends(get_current_user)):
 
 
 @router.get("/mitre/catalogue/coverage")
-async def get_catalogue_coverage(user = Depends(get_current_user)):
+async def get_catalogue_coverage(request: Request, user = Depends(get_current_user)):
     """Full ATT&CK Enterprise coverage: parent + sub-techniques,
     joined with real incident observations."""
-    counts, incidents_by_tech = await _build_observations()
+    # The dependency resolves the bearer subject back to the stored user.
+    # Neither JWT/client tenant fields nor a role confer tenant authority.
+    scope = resolve_tenant_scope((user or {}).get("email"))
+    if not scope.get("authorized"):
+        raise HTTPException(403, detail="ATTACK_SCOPE_DENIED")
+    tenant_ids = _authorized_universe(scope)
+
+    # GET has no body contract. Do not silently accept body scope claims.
+    if await request.body():
+        raise HTTPException(400, detail="ATTACK_SCOPE_BODY_NOT_SUPPORTED")
+    claims = [v.strip() for v in request.headers.getlist("x-tenant-id")]
+    for key in ("tenant_id", "tenant", "customer"):
+        claims.extend(v.strip() for v in request.query_params.getlist(key))
+    if (any(not v for v in claims) or len(set(claims)) > 1
+            or any(v not in tenant_ids for v in claims)):
+        raise HTTPException(403, detail="ATTACK_SCOPE_DENIED")
+    # Only existing all-authorized / single-tenant views are supported;
+    # arbitrary group/platform claims cannot broaden the verified scope.
+    if any(v != "all_authorized" for v in request.query_params.getlist("scope")):
+        raise HTTPException(403, detail="ATTACK_SCOPE_DENIED")
+    if claims:
+        tenant_ids = [claims[0]]
+    if not tenant_ids:
+        raise HTTPException(403, detail="ATTACK_SCOPE_DENIED")
+    counts, incidents_by_tech = await _build_observations(tenant_ids)
     projection = resolve_coverage(counts)
     # Attach the incident ids that observed each technique — this
     # is what powers the right-side "Incidents observed" panel
