@@ -1,0 +1,8 @@
+{
+  "repository": "jpreddy017/nivxray-xdr",
+  "commit": "ff66afe36efff3c0396b6e92ebaf21cae05d649a",
+  "tree": "c2cdaf83a3ec7824f937ecc50bfd634637f0d632",
+  "frontend": "apps/nivxray-xdr",
+  "backend": "backend",
+  "status": "HOLD: provisioning, deployment and production release require approval"
+}
