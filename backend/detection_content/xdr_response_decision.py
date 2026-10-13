@@ -30,12 +30,12 @@ from .xdr_capability_service import (
 )
 
 
-async def _resolve_capability_overrides(db) -> dict[str, dict]:
+async def _resolve_capability_overrides(db, *, tenant_id: str | None = None) -> dict[str, dict]:
     """Round 24 · Pre-resolve every adapter-served action to a live
     capability state so `synthesize` stays sync + deterministic."""
     out: dict[str, dict] = {}
     for aid in _ADAPTER_ACTIONS:
-        out[aid] = await _resolve_cap(db, aid)
+        out[aid] = await _resolve_cap(db, aid, tenant_id=tenant_id)
     return out
 
 
@@ -46,13 +46,13 @@ DECISION_VERSION       = "1.0.0"
 
 # ── Response Context Builder ────────────────────────────────────
 
-async def build_response_context(db, incident_id: str) -> dict:
+async def build_response_context(db, incident_id: str, *, tenant_id: str | None = None) -> dict:
     """
     Pure projector: gather everything an evidence-first decision needs.
     Never fabricates missing inputs.  Missing pieces stay `null`.
     """
     inc = await db["workspace_cases"].find_one(
-        {"id": incident_id}, {"_id": 0})
+        {"id": incident_id, **({"tenant_id":tenant_id} if tenant_id else {})}, {"_id": 0})
     if not inc:
         return {"state": "MISSING",
                     "reason": f"incident {incident_id} not found"}
@@ -62,19 +62,19 @@ async def build_response_context(db, incident_id: str) -> dict:
     canonical = None
     if canonical_id:
         canonical = await db["xdr_canonical_evidence"].find_one(
-            {"event_id": canonical_id}, {"_id": 0})
+            {"event_id": canonical_id, **({"tenant_id":tenant_id} if tenant_id else {})}, {"_id": 0})
 
     ice_matches: list[dict] = []
     for mid in (prov.get("ice_matches") or []):
         m = await db["xdr_correlation_matches"].find_one(
-            {"match_id": mid}, {"_id": 0})
+            {"match_id": mid, **({"tenant_id":tenant_id} if tenant_id else {})}, {"_id": 0})
         if m:
             ice_matches.append(m)
 
     # Previous response executions on this incident.
     previous: list[dict] = []
     async for r in db["xdr_response_executions"].find(
-        {"incident_id": incident_id}, {"_id": 0}
+        {"incident_id": incident_id, **({"tenant_id":tenant_id} if tenant_id else {})}, {"_id": 0}
     ):
         previous.append(r)
 
@@ -156,7 +156,7 @@ async def build_response_context(db, incident_id: str) -> dict:
         # UNAVAILABLE / FAILED / NOT_SUPPORTED).  Missing entries
         # fall through to the static action-registry default (which
         # is False for every EDR action — honest state).
-        "capability_overrides": await _resolve_capability_overrides(db),
+        "capability_overrides": await _resolve_capability_overrides(db, tenant_id=tenant_id),
         "honesty_note":
             "Response Context is a projection of persisted evidence. "
             "Missing pieces stay null — no fabrication.",

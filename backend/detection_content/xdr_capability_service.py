@@ -46,7 +46,7 @@ _ACTION_TO_CAPABILITY: dict[str, str] = {
 }
 
 
-async def resolve_capability(db, action_id: str) -> dict:
+async def resolve_capability(db, action_id: str, *, tenant_id: str | None = None) -> dict:
     """Return the deterministic capability answer for one action_id.
 
     Shape:
@@ -67,7 +67,7 @@ async def resolve_capability(db, action_id: str) -> dict:
                                     "(handled by NivXRay internals)"}
 
     async for integ in db[COLLECTION].find(
-        {"active": True, "connected": True}, {"_id": 0}
+        {"active": True, "connected": True, **({"tenant_id":tenant_id} if tenant_id is not None else {})}, {"_id": 0}
     ):
         matrix = integ.get("capability_matrix") or []
         for entry in matrix:

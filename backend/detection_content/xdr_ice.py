@@ -145,7 +145,7 @@ def _signal_from_canonical(canonical: dict, iue: dict) -> dict:
     }
 
 
-async def correlate(db, canonical: dict, iue: dict, trace_id: str) -> dict:
+async def correlate(db, canonical: dict, iue: dict, trace_id: str, *, tenant_id: str | None = None) -> dict:
     """
     Round 11 · XDR ICE entry point.
 
@@ -157,13 +157,18 @@ async def correlate(db, canonical: dict, iue: dict, trace_id: str) -> dict:
 
     Returns a summary dict.  Persists match documents when applicable.
     """
+    if not tenant_id or canonical.get("tenant_id") != tenant_id:
+        return {"engine_id":ICE_ENGINE_ID, "engine_version":ICE_ENGINE_VERSION,
+                "state":"BLOCKED_SCOPE", "rules_evaluated":0, "matches":[],
+                "reason":"Canonical evidence must match the authenticated pipeline tenant"}
+    scope = {"$or":[{"tenant_id":tenant_id}, {"tenant_id":"*"}]}
     signal = _signal_from_canonical(canonical, iue)
 
     # Only ENABLED single-signal (EVENT_MATCH) rules are safe to
     # evaluate here.  Multi-signal windows live in the stateful
     # engine and are not re-implemented (§4 · no duplication).
     enabled_count = await db[CORRELATION_RULES_COLLECTION].count_documents(
-        {"enabled": True}
+        {"enabled": True, **scope}
     )
     if enabled_count == 0:
         return {
@@ -181,7 +186,7 @@ async def correlate(db, canonical: dict, iue: dict, trace_id: str) -> dict:
     matches: list[dict] = []
     rules_evaluated = 0
     async for rule in db[CORRELATION_RULES_COLLECTION].find(
-        {"enabled": True,
+        {"enabled": True, **scope,
           "operators.type": "EVENT_MATCH"},
         {"_id": 0}
     ):
@@ -192,6 +197,7 @@ async def correlate(db, canonical: dict, iue: dict, trace_id: str) -> dict:
             match_id = f"cm_{uuid.uuid4().hex[:20]}"
             match_doc = {
                 "match_id":         match_id,
+                "tenant_id":        tenant_id,
                 "rule_id":          rule.get("rule_id") or rule.get("id"),
                 "rule_name":        rule.get("name"),
                 "signal_id":        signal["signal_id"],

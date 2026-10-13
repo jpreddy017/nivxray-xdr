@@ -469,7 +469,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
             engine_id=iue["engine_id"])
 
     # ── Round 11 · ICE (correlation) ────────────────────────────
-    ice = await ice_correlate(db, canonical, iue, trace_id)
+    ice = await ice_correlate(db, canonical, iue, trace_id, tenant_id=canonical.get("tenant_id") or tenant_id)
     _s("correlation", "EXECUTED",
             state=ice["state"],
             rules_evaluated=ice["rules_evaluated"],
@@ -586,7 +586,9 @@ async def process_event_through_pipeline(db, raw_event: dict,
         # A fabric fault must not erase the fact that the incident WAS
         # materialised — record it as a FAILED stage and continue.
         try:
-            response = await response_orchestrate(db, incident["incident_id"])
+            response = await response_orchestrate(db, incident["incident_id"],
+                tenant_id=canonical.get("tenant_id") or tenant_id,
+                principal_id="system", dry_run=True)
             decision  = (response.get("decision") or {})
             execution = (response.get("execution") or {})
             _s("response", "EXECUTED",

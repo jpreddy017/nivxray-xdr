@@ -42,7 +42,12 @@ async def orchestrate(db, incident_id: str, *,
     """
     from .xdr_closed_loop import _evidence_state_hash
 
-    context = await build_response_context(db, incident_id)
+    if not tenant_id:
+        return {"engine_id":FABRIC_ENGINE_ID, "state":"BLOCKED", "reason":"Tenant required"}
+    inc = await db["workspace_cases"].find_one({"id":incident_id, "tenant_id":tenant_id}, {"_id":0})
+    if inc is None:
+        return {"engine_id":FABRIC_ENGINE_ID, "state":"BLOCKED", "reason":"Incident unavailable in tenant"}
+    context = await build_response_context(db, incident_id, tenant_id=tenant_id)
     if context.get("state") != "READY":
         return {
             "engine_id":     FABRIC_ENGINE_ID,
@@ -56,7 +61,7 @@ async def orchestrate(db, incident_id: str, *,
     # Load observations for context (Round 14 · §14).
     all_obs: list[dict] = []
     async for o in db["xdr_intelligence_observations"].find(
-        {"incident_id": incident_id}, {"_id": 0}
+        {"incident_id": incident_id, "tenant_id":tenant_id}, {"_id": 0}
     ):
         all_obs.append(o)
     if all_obs:
@@ -65,10 +70,9 @@ async def orchestrate(db, incident_id: str, *,
               "indicator": o.get("indicator")} for o in all_obs]
 
     # Evidence-state hash for loop protection.
-    inc = await db["workspace_cases"].find_one({"id": incident_id}, {"_id": 0})
     executions: list[dict] = []
     async for e in db["xdr_response_executions"].find(
-        {"incident_id": incident_id}, {"_id": 0}
+        {"incident_id": incident_id, "tenant_id":tenant_id}, {"_id": 0}
     ):
         executions.append(e)
     evidence_hash = _evidence_state_hash(inc or {}, all_obs, executions)
