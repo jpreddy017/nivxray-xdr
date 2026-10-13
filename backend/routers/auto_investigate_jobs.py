@@ -16,15 +16,16 @@ import logging
 import os
 from typing import Any
 
-import jwt
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.websockets import WebSocketState
 
-from deps import JWT_ALG, JWT_SECRET, db, get_current_user
+from deps import get_current_user
+from fastapi.security import HTTPAuthorizationCredentials
+from services.analysis_scope import resolve_analysis_owner
 
 from v2.jobs import pubsub, store
-from v2.jobs.pipeline import run_investigation_with_progress
+from v2.jobs.pipeline import run_investigation_with_progress, MAX_INCIDENT_BYTES
 
 log = logging.getLogger("nivx.routers.auto_investigate_jobs")
 
@@ -33,13 +34,22 @@ router = APIRouter(prefix="/v2/auto-investigate", tags=["auto-investigate-jobs"]
 
 # ── Request models ─────────────────────────────────────────────────
 class JobIn(BaseModel):
-    incident_text: str = Field(..., description="Raw pasted incident text")
+    model_config = ConfigDict(extra="forbid")
+    incident_text: str = Field(..., min_length=1, max_length=MAX_INCIDENT_BYTES, description="Raw pasted incident text")
     focus: str | None = Field(None,
                               description="Optional analyst focus keyword")
 
 
+    @field_validator("incident_text")
+    @classmethod
+    def bounded_incident(cls, value):
+        if len(value.encode("utf-8", errors="strict")) > MAX_INCIDENT_BYTES:
+            raise ValueError("Incident exceeds existing byte limit")
+        return value
+
+
 # ── Worker ────────────────────────────────────────────────────────
-async def _run_worker(job_id: str, incident_text: str, focus: str | None) -> None:
+async def _run_worker(job_id: str, incident_text: str, focus: str | None, tenant_id: str) -> None:
     """Background worker. Publishes progress events to pubsub AND
     persists progress + statuses in Mongo so late joiners can catch up."""
     async def on_progress(event: dict) -> None:
@@ -66,7 +76,7 @@ async def _run_worker(job_id: str, incident_text: str, focus: str | None) -> Non
 
     try:
         result = await run_investigation_with_progress(
-            incident_text, focus=focus, on_progress=on_progress, job_id=job_id,
+            incident_text, focus=focus, on_progress=on_progress, job_id=job_id, tenant_id=tenant_id,
         )
         await store.mark_complete(job_id, result)
         await pubsub.publish(job_id, {"type": "result", "result": result})
@@ -84,20 +94,22 @@ async def _run_worker(job_id: str, incident_text: str, focus: str | None) -> Non
 
 # ── HTTP endpoints ────────────────────────────────────────────────
 @router.post("/jobs")
-async def create_job(body: JobIn, user=Depends(get_current_user)):
+async def create_job(body: JobIn, request: Request, user=Depends(get_current_user)):
     if os.environ.get("AUTO_INVESTIGATE_V1", "on").lower() in ("off", "0", "false"):
         raise HTTPException(status_code=503, detail="AUTO_INVESTIGATE_V1 disabled")
     if not body.incident_text or not body.incident_text.strip():
         raise HTTPException(status_code=400, detail="incident_text must be non-empty")
+    owner = resolve_analysis_owner(request, user)
     job = await store.create_job(
         incident_text=body.incident_text,
         focus=body.focus,
-        user_email=user.get("email", "anonymous"),
+        user_email=owner.principal_email,
+        tenant_id=owner.tenant_id,
     )
     job_id = job["job_id"]
     # Spawn the worker but do NOT await it — the HTTP request returns
     # immediately so the browser is never held open.
-    asyncio.create_task(_run_worker(job_id, body.incident_text, body.focus))
+    asyncio.create_task(_run_worker(job_id, body.incident_text, body.focus, owner.tenant_id))
     return {
         "ok": True,
         "job_id": job_id,
@@ -108,8 +120,9 @@ async def create_job(body: JobIn, user=Depends(get_current_user)):
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str, user=Depends(get_current_user)):
-    doc = await store.get_job(job_id)
+async def get_job(job_id: str, request: Request, user=Depends(get_current_user)):
+    owner = resolve_analysis_owner(request, user)
+    doc = await store.get_job(job_id, tenant_id=owner.tenant_id, user_email=owner.principal_email)
     if not doc:
         raise HTTPException(status_code=404, detail="job not found")
     # Never leak the raw incident text back to the caller — it's already
@@ -128,32 +141,59 @@ async def get_job(job_id: str, user=Depends(get_current_user)):
 
 
 # ── WebSocket ─────────────────────────────────────────────────────
-def _authorize_ws(token: str | None) -> dict[str, Any] | None:
+async def _authorize_ws(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-        email = payload.get("sub")
-        if not email:
-            return None
-        return {"email": email}
-    except jwt.PyJWTError:
+        return await get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            raise
         return None
+    except Exception as exc:
+        raise HTTPException(503, detail="ANALYSIS_AUTHORITY_UNAVAILABLE") from exc
 
 
 @router.websocket("/jobs/{job_id}/ws")
 async def job_stream_ws(websocket: WebSocket, job_id: str):
     token = websocket.query_params.get("token")
-    identity = _authorize_ws(token)
+    try:
+        identity = await _authorize_ws(token)
+    except HTTPException:
+        await websocket.close(code=4503)
+        return
     if identity is None:
         # 4401 = custom "unauthorized" close code
         await websocket.close(code=4401)
         return
 
-    doc = await store.get_job(job_id)
+    try:
+        owner = resolve_analysis_owner(websocket, identity)
+        doc = await store.get_job(job_id, tenant_id=owner.tenant_id, user_email=owner.principal_email)
+    except HTTPException as exc:
+        await websocket.close(code=4503 if exc.status_code == 503 else 4403)
+        return
     if not doc:
         await websocket.close(code=4404)
         return
+
+    async def send_owned(event):
+        # Long-lived streams must not outlive token or stored tenant grants.
+        try:
+            fresh = await _authorize_ws(token)
+            code = 4401 if fresh is None else None
+        except HTTPException:
+            fresh, code = None, 4503
+        if fresh is not None:
+            try:
+                if resolve_analysis_owner(websocket, fresh) != owner:
+                    code = 4403
+            except HTTPException as exc:
+                code = 4503 if exc.status_code == 503 else 4403
+        if code is not None:
+            await websocket.close(code=code)
+            raise WebSocketDisconnect(code=code)
+        await websocket.send_json(event)
 
     await websocket.accept()
     q = await pubsub.subscribe(job_id)
@@ -166,20 +206,20 @@ async def job_stream_ws(websocket: WebSocket, job_id: str):
             # Replay persisted progress steps so the UI still gets the
             # full timeline for a completed job.
             for step in doc.get("progress", {}).get("steps", []):
-                await websocket.send_json({
+                await send_owned({
                     "type": "progress",
                     "stage": step.get("stage", ""),
                     "percent": step.get("percent", 0),
                     "message": step.get("message", ""),
                 })
             for st in doc.get("decode_statuses", []):
-                await websocket.send_json({"type": "command", **st})
+                await send_owned({"type": "command", **st})
             if doc.get("result") is not None:
-                await websocket.send_json({"type": "result", "result": doc["result"]})
-            await websocket.send_json({"type": "done", "status": doc["status"]})
+                await send_owned({"type": "result", "result": doc["result"]})
+            await send_owned({"type": "done", "status": doc["status"]})
         finally:
             await pubsub.unsubscribe(job_id, q)
-            if websocket.client_state == WebSocketState.CONNECTED:
+            if websocket.client_state == WebSocketState.CONNECTED and websocket.application_state == WebSocketState.CONNECTED:
                 await websocket.close(code=1000)
             return
 
@@ -190,7 +230,7 @@ async def job_stream_ws(websocket: WebSocket, job_id: str):
             event = await q.get()
             if websocket.client_state != WebSocketState.CONNECTED:
                 break
-            await websocket.send_json(event)
+            await send_owned(event)
             if event.get("type") == "done":
                 break
     except WebSocketDisconnect:
@@ -199,7 +239,7 @@ async def job_stream_ws(websocket: WebSocket, job_id: str):
         log.warning("ws stream error job=%s: %s", job_id, e)
     finally:
         await pubsub.unsubscribe(job_id, q)
-        if websocket.client_state == WebSocketState.CONNECTED:
+        if websocket.client_state == WebSocketState.CONNECTED and websocket.application_state == WebSocketState.CONNECTED:
             try:
                 await websocket.close(code=1000)
             except Exception:

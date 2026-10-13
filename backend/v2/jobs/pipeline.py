@@ -30,6 +30,7 @@ from v2.decoded_artifacts import (
     get_artifact as _artifact_get,
     upsert_artifact as _artifact_upsert,
     sha256_of as _sha256_of,
+    PIPELINE_VERSION,
 )
 from v2.enrichment.strings_extractor import enrich_report as _enrich_report
 from v2.semantic.ps_semantic import analyze as _ps_semantic_analyze
@@ -69,7 +70,7 @@ async def _emit(cb: ProgressCB | None, event: dict) -> None:
         log.warning("progress callback failed: %s", e)
 
 
-async def _decode_with_cache(cmd: dict, job_id: str | None):
+async def _decode_with_cache(cmd: dict, job_id: str | None, *, tenant_id: str | None = None):
     """Try the Decoded Artifact Store first. On hit, reconstruct the
     AnalystReport from the cached dict and skip the decoder entirely.
     On miss, run the deterministic decoder and persist the result.
@@ -83,32 +84,8 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     """
     cmdline = cmd.get("command_line") or ""
     sha = _sha256_of(cmdline)
-    # Feb-2026 · Pipeline version tag. Bump this whenever a decoder /
-    # archetype change should invalidate previously cached artifacts.
-    PIPELINE_VERSION = "v9-ps-semantic-intelligence"
-    cached = await _artifact_get(sha)
-    # Cache-invalidation guard. Any artifact cached BEFORE the archetype
-    # bridge shipped has `layers == 0` for inputs the archetypes can now
-    # decode. Force a fresh run whenever a cached report either
-    # (a) predates the current pipeline version or (b) recovered zero
-    # layers — the deterministic engine has probably been upgraded since
-    # then and deserves another shot.
-    if cached and cached.get("report"):
-        _rep = cached["report"] or {}
-        _layers = len(_rep.get("trace") or [])
-        _cached_version = cached.get("pipeline_version") or ""
-        if _layers == 0 or _cached_version != PIPELINE_VERSION:
-            log.info("cache invalidated sha=%s layers=%s ver=%s → re-running",
-                     sha, _layers, _cached_version)
-            # DELETE the stale doc so the upcoming upsert writes a fresh
-            # report — the default upsert path only bumps provenance
-            # when a doc already exists.
-            try:
-                from deps import db as _db
-                await _db["v2_decoded_payloads"].delete_one({"_id": sha})
-            except Exception as e:  # noqa: BLE001
-                log.warning("stale cache delete failed sha=%s: %s", sha, e)
-            cached = None
+    # No authenticated owner means no cache; never consult legacy global rows.
+    cached = await _artifact_get(sha, tenant_id=tenant_id, pipeline_version=PIPELINE_VERSION, command_binary=cmd.get("binary") or "") if tenant_id else None
     if cached and cached.get("report"):
         try:
             report = AnalystReport(**cached["report"])
@@ -122,6 +99,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
                 report_dict=cached["report"],
                 job_id=job_id,
                 pipeline_version=PIPELINE_VERSION,
+                tenant_id=tenant_id,
             )
             status = {
                 "binary": cmd.get("binary"),
@@ -177,7 +155,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     status["sha256"] = sha
     if archetype_layers:
         status["archetype_id"] = archetype_layers[-1]["decoder"]
-    if report is not None:
+    if report is not None and tenant_id:
         try:
             report_dict = report.model_dump()
             # Bake archetype layers into the persisted report.trace so a
@@ -191,6 +169,7 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
                 report_dict=report_dict,
                 job_id=job_id,
                 pipeline_version=PIPELINE_VERSION,
+                tenant_id=tenant_id,
             )
         except Exception as e:  # noqa: BLE001
             log.warning("artifact upsert failed sha=%s: %s", sha, e)
@@ -338,6 +317,7 @@ async def run_investigation_with_progress(
     focus: str | None = None,
     on_progress: ProgressCB | None = None,
     job_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> dict:
     """Run the deterministic investigation pipeline, emitting events at
     every meaningful boundary. Returns the FinalIncidentSummary payload
@@ -390,7 +370,7 @@ async def run_investigation_with_progress(
             "message": (f"Decoding command {idx + 1}/{len(commands)}: "
                         f"{cmd.get('binary')}"),
         })
-        report, status, was_hit, archetype_layers = await _decode_with_cache(cmd, job_id)
+        report, status, was_hit, archetype_layers = await _decode_with_cache(cmd, job_id, tenant_id=tenant_id)
         decode_statuses.append(status)
         if was_hit:
             cache_hits += 1

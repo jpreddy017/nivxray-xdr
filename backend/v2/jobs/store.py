@@ -38,7 +38,9 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def create_job(*, incident_text: str, focus: str | None, user_email: str) -> dict:
+async def create_job(*, incident_text: str, focus: str | None, user_email: str, tenant_id: str) -> dict:
+    if not tenant_id or not user_email:
+        raise ValueError("Authenticated job owner and tenant required")
     job_id = f"aij-{uuid.uuid4().hex[:16]}"
     doc = {
         "_id": job_id,
@@ -47,6 +49,7 @@ async def create_job(*, incident_text: str, focus: str | None, user_email: str) 
         "created_at": _now(),
         "updated_at": _now(),
         "created_by": user_email,
+        "tenant_id": tenant_id,
         "incident_bytes": len(incident_text.encode("utf-8", errors="ignore")),
         "focus": focus,
         "progress": {
@@ -64,8 +67,10 @@ async def create_job(*, incident_text: str, focus: str | None, user_email: str) 
     return doc
 
 
-async def get_job(job_id: str) -> dict | None:
-    return await db[COLL].find_one({"_id": job_id})
+async def get_job(job_id: str, *, tenant_id: str, user_email: str) -> dict | None:
+    if not tenant_id or not user_email:
+        raise ValueError("Authenticated job owner and tenant required")
+    return await db[COLL].find_one({"_id": job_id, "tenant_id": tenant_id, "created_by": user_email})
 
 
 async def set_progress(job_id: str, *, stage: str, percent: int, message: str) -> None:
