@@ -8177,3 +8177,40 @@ ignored or substituted. Production remains **NO-GO**.
 All isolated services stopped; platform preview services untouched. No push,
 merge, deployment, production access, real containment or purchase. All
 remaining HOLDs preserved, none waived.
+
+## 2026-10-16 — Stage 2A: baseline verification & staging readiness (assessment only)
+
+Nothing deployed, provisioned, pushed or started. Baseline commit and tree left
+byte-identical; the deliverable was written outside the source tree.
+
+- **A** Baseline **verified**: bundle SHA-256 `36515e1d…80e757` (23,502,285
+  bytes) matches, `git bundle verify` reports a complete history, commit
+  `1dc4e358…` and tree `19955236…` match, working tree clean, `fsck` clean, no
+  alternates. No substitute baseline used. All ten E3 HOLDs confirmed open.
+  Tracked runtime state flagged: `apps/nivxray-xdr-response/data/executions.db`
+  and `apps/nivxray-xdr-collector/.state/connectors.json`. No real secret files
+  are tracked.
+- **B** A hardened isolated staging stack **already exists** at
+  `deploy/stage1-staging/` — internal-only network, digest-pinned images,
+  read-only backend with `cap_drop: ALL`, resource caps, `prepare.py` refusing
+  production hostnames and `preflight.py` forcing `0600` secrets outside the
+  repo. **Redis is not used anywhere and must not be provisioned.** Gaps: the
+  response engine and collector are absent from staging compose, the response
+  Dockerfile is unhardened (root, no healthcheck, bakes its runtime DB), the
+  frontend has no compose service, and `source.json` still pins the Stage 1
+  commit `ff66afe3…`, which does not exist in the sanitized history — hence
+  `test_package.py` 8 passed / 2 errors.
+- **C** Security isolation **BLOCKED here**: no container runtime at all
+  (`docker`/`podman`/`nerdctl` absent) and `CAP_NET_ADMIN`/`CAP_NET_RAW`/
+  `CAP_SYS_ADMIN` absent. Exact target-host requirements documented. No
+  application-level guard substituted; no privileged host change attempted.
+- **D** Blueprint produced: dependency map, ~5 vCPU / 4.5 GB / 40 GB footprint,
+  full environment-variable inventory by name with no values, database and
+  network isolation requirements, 10-step deployment sequence, rollback, and
+  10 acceptance entry criteria.
+- **E** `memory/STAGE_2A_STAGING_READINESS.md` (also in
+  `/app/rocket-evidence/e3/`). Recommendation: **CONDITIONAL GO for Stage 2B on
+  a provisioned target host, NO-GO in this environment**, with five hard
+  blockers B1–B5. Production remains NO-GO.
+
+Stopped after Stage 2A as instructed.
