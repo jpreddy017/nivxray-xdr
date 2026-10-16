@@ -8214,3 +8214,47 @@ byte-identical; the deliverable was written outside the source tree.
   blockers B1–B5. Production remains NO-GO.
 
 Stopped after Stage 2A as instructed.
+
+## 2026-10-16 — Stage 2B Part 1: staging package repair (no deployment)
+
+Branch `engineering/e3-stage2b-package`, two commits on top of the verified E3
+baseline. Nothing built, started, pushed or deployed. Production remains NO-GO.
+
+- **Source pin repaired without weakening admission.** `prepare.verify_source()`
+  requires the packaging candidate to contain no application changes, so the
+  work was split: commit 1 `b30497f8` / tree `d3429be0` carries the reviewed
+  application hardening and is the pinned source; commit 2 `a1e1be57` / tree
+  `c6947a87` is packaging-only (9 files, all under `deploy/stage1-staging/`).
+  `source.json` additionally records the E3 acceptance commit/tree, and
+  verification now performs three checks including that the pin **descends
+  from** the verified baseline — strictly stronger than before.
+- **Response engine integrated and hardened.** New compose service on the
+  internal network only: non-root 10001, `read_only`, `cap_drop: ALL`,
+  `no-new-privileges`, 512 MB / 0.5 CPU / 64 pids, `init`, `restart: "no"`,
+  healthcheck, state on a `response-state` volume. Dockerfile rewritten
+  multi-stage with a read-only app tree and `data/`+`tests/` removed —
+  previously it ran as root and would have baked real execution records into a
+  layer. Simulation only: `XDR_RESPOND_ENV=production` makes the dev bypass
+  unreachable, and every outbound gateway is blank so the forwarder stays
+  `not_wired`.
+- **Runtime-state hygiene.** `apps/nivxray-xdr-response/data/executions.db` and
+  `apps/nivxray-xdr-collector/.state/connectors.json` untracked and ignored;
+  `.dockerignore` added for both apps. Initialization is unchanged (schema is
+  `CREATE ... IF NOT EXISTS`; a missing connector file means no connectors).
+- **Frontend** keeps its existing static hosting model; the prepared context now
+  emits `.env.staging` pinning the build to the isolated staging API origin.
+- **Preflight** admits `RESPONSE_IMAGE` by digest and validates the service
+  credential: real secret, never reused for a cryptographic purpose, identical
+  on both sides.
+- **Tests:** packaging **16/16** (was 8 passed / 2 errors), new runtime-state
+  hygiene 10/10, boundaries 122/0, response 39/0, tenant 104/0, response-engine
+  own suite 39/0. Export reproducible at 2,131 files with byte-identical
+  manifests.
+- Bundle `/app/rocket-evidence/e3/nivxray-e3-stage2b-part1.bundle`
+  (23,511,981 bytes, SHA-256 `58d52d5c…e7a019`) verified in a fresh clone with
+  zero tracked `.db`/`.sqlite` files.
+- Report: `memory/STAGE_2B_PART1_PACKAGE_REPAIR.md`. Stage 2A blockers **B2,
+  B3, B5 closed**; **B1 and B4 remain open and environmental** (no container
+  runtime, no `CAP_NET_ADMIN`). **No kernel-enforced egress acceptance claimed.**
+
+Stopped after Part 1 as instructed.
