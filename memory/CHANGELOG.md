@@ -8298,3 +8298,25 @@ Production remains NO-GO. **No successful Docker acceptance is claimed.**
   **BLOCKED** on a Docker-capable host, including the decisive egress test.
 
 Stopped after producing the host acceptance package as instructed.
+
+## 2026-06 · Stage 2B Part 3 — backend build blocker repair and transfer
+
+- Root cause: `requirements.txt` pinned `emergentintegrations==0.2.0`, absent
+  from PyPI; resolution silently depended on the Emergent pod's
+  `pip.conf extra-index-url`. Reproduced with `PIP_CONFIG_FILE=/dev/null`.
+- Repair: hash-pinned optional tier in `backend/requirements-integrations.txt`
+  (declared index, `--no-deps`, every transitive dep already pinned);
+  `deps._chat_module()` converts a missing wheel into an explicit 503 instead
+  of a 500; `NIVXRAY_INTEGRATIONS=included|excluded` build posture, labelled
+  and then proven by interrogating the image.
+- Tests: 798 backend (0 failures, 6 skipped) + 38 packaging/script tests.
+  Full 218-pin closure proven to resolve from PyPI alone; tampered digest
+  refused. `docker build` NOT executed — no Docker in this environment.
+- Candidate: app `593b3e9f` / tree `54d6e4c2`; packaging `cd2b8b92` / tree
+  `15a13aa6`. Bundle SHA-256 `98e4adba…fdfa`, 23,532,611 bytes.
+- Published via the token-gated route (token rotated); content reviewed across
+  all 5,666 blobs — no credentials; one empty 0-row SQLite file disclosed in
+  ancestor commits.
+- Reports: `memory/STAGE_2B_PART3_BUILD_REPAIR.md`,
+  `memory/STAGE_2B_PART3_TRANSFER.md`. Release status NO-GO; phases 3–13 and
+  egress denial remain BLOCKED pending independent Hetzner verification.
