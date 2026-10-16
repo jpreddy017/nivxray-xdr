@@ -8258,3 +8258,43 @@ baseline. Nothing built, started, pushed or deployed. Production remains NO-GO.
   runtime, no `CAP_NET_ADMIN`). **No kernel-enforced egress acceptance claimed.**
 
 Stopped after Part 1 as instructed.
+
+## 2026-10-16 — Stage 2B Part 2: isolated host acceptance package (no host, no deploy)
+
+Branch `engineering/e3-stage2b-package`. Nothing provisioned, built or started.
+Production remains NO-GO. **No successful Docker acceptance is claimed.**
+
+- Baseline re-verified: Part 1 bundle SHA-256 `58d52d5c…e7a019` matches, HEAD
+  descends from E3 `1dc4e358…`, `prepare.py --verify-only` passes, tree clean.
+- **New acceptance package** under `deploy/stage1-staging/acceptance/`:
+  `host_acceptance.sh` with 13 fail-closed phases (prereq, provenance, build,
+  digests, preflight, up, health, egress, internal, trace, response, evidence,
+  down) and `egress_denied.sh`, a kernel-enforced negative test that probes raw
+  sockets, `/proc/net/route` and `getaddrinfo` inside backend, response and
+  mongodb so **no application-level guard can influence the result**,
+  corroborated by `docker network inspect {{.Internal}}`.
+- `test_acceptance_scripts.py`: 17 static checks runnable without Docker —
+  bash syntax, embedded Python compiles, fail-closed preambles, no production
+  references, **no `--privileged`/`--cap-add`/host networking/`sudo`**, secrets
+  required outside the clone at 0600, no literal secret values, provenance not
+  skippable, digests mandatory.
+- Containers are granted **no** extra capabilities; isolation comes from
+  Docker-managed `internal: true` plus host-enforced controls.
+- One minimal reproducibility fix (pinned commit `1516fe71` / tree `ab9127d8`):
+  `tools/rocket_e2e/acceptance_trace.py` now reads `ROCKET_XDR_ORIGIN` and
+  inserts the backend path conditionally, so the trace can run from inside the
+  private network where MongoDB is unpublished. Re-verified **25/25**.
+- Packaging HEAD `1efa6dc8` / tree `b0fe6fa3`; `diff(pin, HEAD)` is six files,
+  all under `deploy/stage1-staging/` — packaging-only admission intact.
+- Tests: `deploy/stage1-staging` suite **33 passed / 0 failed / 0 skipped**
+  (16 packaging + 17 script admission); acceptance trace 25/25.
+- Bundle `/app/rocket-evidence/e3/nivxray-e3-stage2b-part2.bundle`
+  (23,523,587 bytes, SHA-256 `704d0561…f799f0`) verified in a fresh clone,
+  10 commits, no alternates, exec bits intact.
+- Collector integration assessed as **not required** for authenticated
+  ingestion acceptance (ingest authority runs through
+  `/api/xdr/ingest/telemetry` with a machine principal); recorded as deferred.
+- Report: `memory/STAGE_2B_PART2_HOST_ACCEPTANCE.md`. Eleven checks remain
+  **BLOCKED** on a Docker-capable host, including the decisive egress test.
+
+Stopped after producing the host acceptance package as instructed.
