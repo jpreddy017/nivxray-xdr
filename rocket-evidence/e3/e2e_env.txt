@@ -1,0 +1,6 @@
+DB=rocket_e2e_07053616b320
+JWT_SECRET=synthetic-e3-jwt-fa4fd355f9b8429ea917fc71
+ADMIN_EMAIL=admin@rocket-synthetic-e3.dev
+ADMIN_PASSWORD=Synthetic-E3-Acceptance-9f2c71
+ADMIN_EMAIL=admin@rocket-synthetic-e3.dev
+ADMIN_PASSWORD=Synthetic-E3-Acceptance-9f2c71

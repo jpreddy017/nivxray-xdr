@@ -1,0 +1,84 @@
+{
+  "provisioned": {
+    "tenants": [
+      "rocket-synthetic-a",
+      "rocket-synthetic-b"
+    ],
+    "analysts": [
+      "analyst-a@rocket-synthetic-e3.dev",
+      "analyst-b@rocket-synthetic-e3.dev"
+    ],
+    "incidents": [
+      "inc_rocket_a",
+      "inc_rocket_b"
+    ]
+  },
+  "checks": [
+    {
+      "check": "synthetic_analysts_authenticate",
+      "result": "PASS",
+      "detail": "both tenant-bound analysts issued tokens"
+    },
+    {
+      "check": "analyst_a_sees_only_own_tenant_incidents",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "ids": [
+          "inc_rocket_a"
+        ]
+      }
+    },
+    {
+      "check": "analyst_a_scope_is_server_resolved",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "tenants": [
+          "rocket-synthetic-a"
+        ],
+        "basis": "SINGLE_AUTHORIZED_TENANT"
+      }
+    },
+    {
+      "check": "analyst_b_sees_only_own_tenant_incidents",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "ids": [
+          "inc_rocket_b"
+        ]
+      }
+    },
+    {
+      "check": "analyst_b_scope_is_server_resolved",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "tenants": [
+          "rocket-synthetic-b"
+        ],
+        "basis": "SINGLE_AUTHORIZED_TENANT"
+      }
+    },
+    {
+      "check": "no_response_action_is_dispatchable_without_an_engine",
+      "result": "PASS",
+      "detail": {
+        "status": 503,
+        "facts": {
+          "dispatched": false,
+          "executing": false,
+          "executed": false,
+          "verified": false
+        }
+      }
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "full_e2e": "BLOCKED",
+    "blocked_reason": "external egress is not kernel-denied in this pod; correlation/evidence-timeline/approved-response and browser acceptance not executed"
+  }
+}

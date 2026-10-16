@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="5" skipped="0" tests="72" time="128.074" timestamp="2026-10-16T11:59:47.704824+00:00" hostname="agent-env-630704a1-621f-478b-9b86-a321772d01bf"><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk1_cross_tenant_principal_without_tenant_fails_closed" time="3.479" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk1_principal_with_no_tenant_scope_fails_closed" time="0.007"><failure message="assert 'ACCESS_DENIED' in '{&quot;detail&quot;:{&quot;code&quot;:&quot;TENANT_NOT_RESOLVED&quot;,&quot;reason&quot;:&quot;principal holds no tenant scope; no tenant can be established, so the request fails closed&quot;,&quot;basis&quot;:&quot;NOT_AUTHORIZED&quot;,&quot;requested_tenant&quot;:null,&quot;fail_closed&quot;:true,&quot;risk&quot;:&quot;T-RISK-1&quot;}}'&#10; +  where '{&quot;detail&quot;:{&quot;code&quot;:&quot;TENANT_NOT_RESOLVED&quot;,&quot;reason&quot;:&quot;principal holds no tenant scope; no tenant can be established, so the request fails closed&quot;,&quot;basis&quot;:&quot;NOT_AUTHORIZED&quot;,&quot;requested_tenant&quot;:null,&quot;fail_closed&quot;:true,&quot;risk&quot;:&quot;T-RISK-1&quot;}}' = &lt;Response [403 Forbidden]&gt;.text">def test_trisk1_principal_with_no_tenant_scope_fails_closed():
+        r = client.get("/api/xdr/rbac/users", headers=_auth(U_NOTENANT))
+        # `require_permission` denies first (no tenant scope at all) — either
+        # way the outcome is a denial, never tenant "default".
+        assert r.status_code == 403, r.text
+&gt;       assert "ACCESS_DENIED" in r.text
+E       assert 'ACCESS_DENIED' in '{"detail":{"code":"TENANT_NOT_RESOLVED","reason":"principal holds no tenant scope; no tenant can be established, so the request fails closed","basis":"NOT_AUTHORIZED","requested_tenant":null,"fail_closed":true,"risk":"T-RISK-1"}}'
+E        +  where '{"detail":{"code":"TENANT_NOT_RESOLVED","reason":"principal holds no tenant scope; no tenant can be established, so the request fails closed","basis":"NOT_AUTHORIZED","requested_tenant":null,"fail_closed":true,"risk":"T-RISK-1"}}' = &lt;Response [403 Forbidden]&gt;.text
+
+tests/test_a05_tenant_scope_contract.py:204: AssertionError</failure></testcase><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk1_requested_tenant_outside_scope_is_denied" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk1_unit_no_default_tenant_anywhere" time="0.003" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk1_denial_is_audited" time="0.009" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk2_no_verified_principal_is_not_the_platform_admin" time="0.001" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk2_client_claimed_identity_is_not_an_identity" time="0.001" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk2_forged_admin_header_cannot_impersonate" time="0.001" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk2_missing_principal_and_tenant_together_fail_closed" time="0.001" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_trisk2_absence_of_identity_never_increases_privilege" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_single_tenant_analyst_without_header_still_works" time="0.017" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_single_tenant_analyst_with_own_tenant_header_still_works" time="0.035" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_cross_tenant_admin_with_explicit_tenant_still_works" time="0.008"><failure message="AssertionError: {&quot;detail&quot;:{&quot;code&quot;:&quot;ACCESS_DENIED&quot;,&quot;permission&quot;:&quot;users.read&quot;,&quot;reason&quot;:&quot;user-not-provisioned&quot;}}&#10;assert 403 == 200&#10; +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code">def test_cross_tenant_admin_with_explicit_tenant_still_works():
+        r = client.get("/api/xdr/rbac/users", headers=_auth(U_ADMIN, T_ACME))
+&gt;       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":{"code":"ACCESS_DENIED","permission":"users.read","reason":"user-not-provisioned"}}
+E       assert 403 == 200
+E        +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code
+
+tests/test_a05_tenant_scope_contract.py:321: AssertionError</failure></testcase><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c1_authorized_scope_is_server_resolved" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c1_publishes_exactly_the_six_authoritative_bases" time="0.011" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c1_requires_authentication" time="0.002" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_explicit_authorized_tenant_resolves" time="0.008" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_unauthorized_tenant_request_never_returns_that_tenants_scope" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_effective_scope_is_an_intersection_for_multi_tenant_analyst" time="0.012" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_cross_tenant_role_reports_real_customers_not_a_tenant_table" time="0.035" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_single_authorized_tenant_basis" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c2_not_authorized_principal_is_denied" time="0.006" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_group_membership_never_grants_tenant_authorization" time="0.010" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_group_with_no_authorized_member_is_denied_and_explained" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_tenant_groups_are_declared_deferred_and_never_fabricated" time="0.013" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_incident_inherited_tenant_is_locked" time="0.008" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_incident_bound_scope_cannot_be_pivoted_client_side" time="0.046" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_incident_outside_scope_is_not_a_tenant_pivot" time="0.008" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_incident_resource_authorization_is_independent_of_scope_request" time="0.009" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_permission_matrix_api_not_ui[soc_only]" time="0.019" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_permission_matrix_api_not_ui[admin_only]" time="0.019" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_permission_matrix_api_not_ui[both]" time="0.059" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_permission_matrix_api_not_ui[neither]" time="0.018" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_endpoint_reports_the_same_authority[soc_only]" time="0.009" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_endpoint_reports_the_same_authority[admin_only]" time="0.007" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_endpoint_reports_the_same_authority[both]" time="0.009" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_endpoint_reports_the_same_authority[neither]" time="0.044" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_claim_grants_nothing" time="0.038" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_neither_console_is_granted_by_a_wildcard" time="0.000" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_console_permissions_are_independent_of_each_other" time="0.011" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_platform_admin_break_glass_is_declared_not_inferred" time="0.000" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[tenant_id]" time="0.008" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[customer_id]" time="0.037" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[scope]" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[scope_type]" time="0.003" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[tenant_group]" time="0.003" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[incident_id]" time="0.006" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[resource_id]" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[console]" time="0.003" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[role]" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_body[permission]" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[tenant_id]" time="0.006"><failure message="AssertionError: {&quot;detail&quot;:{&quot;code&quot;:&quot;SCOPE_SELECTOR_CONFLICT&quot;,&quot;fail_closed&quot;:true}}&#10;assert 403 == 200&#10; +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code">field = 'tenant_id'
+
+    @pytest.mark.parametrize("field", _MANIPULATED)
+    def test_client_cannot_manipulate_authority_via_query_or_header(field):
+        r = client.post(f"/api/xdr/scope/select?{field}={T_CONTOSO}",
+                        json={"kind": "all_authorized"},
+                        headers={**_auth(U_ACME), field: T_CONTOSO})
+&gt;       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":{"code":"SCOPE_SELECTOR_CONFLICT","fail_closed":true}}
+E       assert 403 == 200
+E        +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code
+
+tests/test_a05_tenant_scope_contract.py:606: AssertionError</failure></testcase><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[customer_id]" time="0.005"><failure message="AssertionError: {&quot;detail&quot;:{&quot;code&quot;:&quot;SCOPE_SELECTOR_CONFLICT&quot;,&quot;fail_closed&quot;:true}}&#10;assert 403 == 200&#10; +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code">field = 'customer_id'
+
+    @pytest.mark.parametrize("field", _MANIPULATED)
+    def test_client_cannot_manipulate_authority_via_query_or_header(field):
+        r = client.post(f"/api/xdr/scope/select?{field}={T_CONTOSO}",
+                        json={"kind": "all_authorized"},
+                        headers={**_auth(U_ACME), field: T_CONTOSO})
+&gt;       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":{"code":"SCOPE_SELECTOR_CONFLICT","fail_closed":true}}
+E       assert 403 == 200
+E        +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code
+
+tests/test_a05_tenant_scope_contract.py:606: AssertionError</failure></testcase><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[scope]" time="0.006" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[scope_type]" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[tenant_group]" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[incident_id]" time="0.006" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[resource_id]" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[console]" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[role]" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cannot_manipulate_authority_via_query_or_header[permission]" time="0.006" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_client_cached_effective_access_object_is_not_authority" time="0.009"><failure message="assert 422 == 403&#10; +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code">def test_client_cached_effective_access_object_is_not_authority():
+        """Replaying a previously-returned EffectiveScope for another tenant
+        does not make it effective."""
+        good = _select(U_MULTI, {"kind": "tenant",
+                                 "tenant_id": T_CONTOSO}).json()["data"]
+        assert good["tenant_ids"] == [T_CONTOSO]
+        replay = client.post("/api/xdr/scope/select",
+                             json={**good, "kind": "tenant",
+                                   "tenant_id": T_CONTOSO},
+                             headers=_auth(U_ACME))
+&gt;       assert replay.status_code == 403
+E       assert 422 == 403
+E        +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code
+
+tests/test_a05_tenant_scope_contract.py:620: AssertionError</failure></testcase><testcase classname="tests.test_a05_tenant_scope_contract" name="test_forged_role_and_permission_claims_are_ignored" time="0.011" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_machine_principal_acts_only_in_its_bound_tenant" time="0.047" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_machine_principal_cannot_name_another_tenant" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_machine_principal_without_tenant_header_is_denied" time="0.004" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_machine_principal_has_no_console" time="0.000" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_c4_cross_tenant_rows_carry_tenant_provenance" time="0.032" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_response_authority_states_are_unchanged" time="0.001" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_cross_tenant_response_request_cannot_target_another_tenant" time="0.005" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_no_router_reintroduces_the_default_tenant_fallback" time="0.009" /><testcase classname="tests.test_a05_tenant_scope_contract" name="test_the_guard_is_not_vacuous" time="120.014"><error message="failed on teardown with &quot;Failed: Timeout &gt;120.0s&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        if rb._db() is None:
+            pytest.skip("MONGO_URL not configured")
+        from deps import sync_collection
+        users = sync_collection("users")
+        cases = sync_collection("workspace_cases")
+    
+        def _user(email, role, tenant_id=None, tenant_ids=None,
+                  authority_scope=None):
+            doc = {"email": email, "role": role}
+            if tenant_id:
+                doc["tenant_id"] = tenant_id
+            if tenant_ids:
+                doc["tenant_ids"] = tenant_ids
+            if authority_scope:
+                doc["authority_scope"] = authority_scope
+            users.update_one({"email": email}, {"$set": doc}, upsert=True)
+    
+        # P0-FIX-6B-2 · this fixture's `U_ADMIN` is the suite's CROSS-TENANT
+        # principal (see the T-RISK-1 / C2 / C4 assertions). Role `admin` no
+        # longer carries tenant breadth, so the FIXTURE now states the intent it
+        # always had: an explicitly designated PLATFORM principal. No product
+        # authority is weakened and no live account is granted anything.
+        _user(U_ADMIN, "admin", authority_scope="PLATFORM")
+        _user(U_ACME, "analyst", T_ACME)
+        _user(U_CONTOSO, "analyst", T_CONTOSO)
+        _user(U_MULTI, "analyst", None, [T_ACME, T_CONTOSO])
+        _user(U_NOTENANT, "analyst")
+        for e in (U_SOC, U_ADM, U_BOTH, U_NEITHER):
+            _user(e, "analyst", T_ACME)
+    
+        # P0-FIX-6B-2 · a PLATFORM principal's authorized universe is the
+        # AUTHORITATIVE REGISTRY (Fix 5A/6B-2), not the case corpus, so this
+        # suite's two customers must exist in the registry to be reported. Their
+        # ids are preserved byte-for-byte via legacy adoption.
+        from services import tenant_registry as _reg
+        _org = (_reg._orgs().find_one({"slug": f"a05-org-{SUF}"})
+                or _reg.create_organization(slug=f"a05-org-{SUF}",
+                                            display_name=f"A0.5 fixture {SUF}",
+                                            kind="CUSTOMER",
+                                            created_by="test-suite"))
+        for _ten in (T_ACME, T_CONTOSO):
+            _reg.adopt_legacy(tenant_id=_ten, organization_id=_org["id"],
+                              slug=_ten, display_name=_ten,
+                              created_by="test-suite")
+    
+        for iid, ten in ((INC_ACME, T_ACME), (INC_CONTOSO, T_CONTOSO)):
+            cases.update_one({"id": iid}, {"$set": {
+                "id": iid, "doc_type": "xdr_incident", "tenant_id": ten,
+                "title": f"A0.5 fixture {ten}", "incident_state": "new"}},
+                upsert=True)
+    
+        # RBAC provisioning in the ACME tenant: `users.read` for the plain
+        # analyst, and one role per console-permission combination.
+        for c in (rb._c_users, rb._c_roles, rb._c_assignments):
+            if c() is None:
+                pytest.skip("RBAC store unavailable")
+    
+        def _role(name, perms):
+            rid = f"role_a05_{name}_{SUF}"
+            rb._c_roles().update_one({"id": rid}, {"$set": {
+                "id": rid, "name": f"a05_{name}_{SUF}",
+                "display_name": name, "type": "CUSTOM",
+                "permissions": perms, "enabled": True}}, upsert=True)
+            return rid
+    
+        r_reader = _role("reader", ["users.read"])
+        r_soc = _role("soc", ["users.read", "console.soc.access"])
+        r_adm = _role("adm", ["users.read", "console.admin.access"])
+        r_both = _role("both", ["users.read", "console.soc.access",
+                                "console.admin.access"])
+        r_wild = _role("wild", ["*.*"])
+    
+        def _provision(email, tenant, role_ids):
+            uid = f"usr_a05_{hashlib.sha1(email.encode()).hexdigest()[:16]}"
+            rb._c_users().update_one({"id": uid}, {"$set": {
+                "id": uid, "tenant_id": tenant, "email": email,
+                "display_name": email, "enabled": True}}, upsert=True)
+            for r in role_ids:
+                rb._c_assignments().update_one(
+                    {"tenant_id": tenant, "user_id": uid, "role_id": r},
+                    {"$set": {"id": f"asg_{uuid.uuid4().hex[:16]}",
+                              "tenant_id": tenant, "user_id": uid,
+                              "role_id": r, "scope": {}}}, upsert=True)
+            return uid
+    
+        _provision(U_ACME, T_ACME, [r_reader])
+        _provision(U_CONTOSO, T_CONTOSO, [r_reader])
+        _provision(U_SOC, T_ACME, [r_soc])
+        _provision(U_ADM, T_ACME, [r_adm])
+        _provision(U_BOTH, T_ACME, [r_both])
+        _provision(U_NEITHER, T_ACME, [r_wild])   # `*.*` must NOT grant consoles
+    
+&gt;       with client:
+
+tests/test_a05_tenant_scope_contract.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/root/.venv/lib/python3.11/site-packages/starlette/testclient.py:750: in __exit__
+    self.exit_stack.close()
+/usr/local/lib/python3.11/contextlib.py:609: in close
+    self.__exit__(None, None, None)
+/usr/local/lib/python3.11/contextlib.py:601: in __exit__
+    raise exc_details[1]
+/usr/local/lib/python3.11/contextlib.py:586: in __exit__
+    if cb(*exc_details):
+       ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/contextlib.py:144: in __exit__
+    next(self.gen)
+/root/.venv/lib/python3.11/site-packages/anyio/from_thread.py:560: in start_blocking_portal
+    thread.join()
+/usr/local/lib/python3.11/threading.py:1119: in join
+    self._wait_for_tstate_lock()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Thread(asyncio-portal-f8b56012a150, stopped daemon 273457664094624)&gt;
+block = True, timeout = -1
+
+    def _wait_for_tstate_lock(self, block=True, timeout=-1):
+        # Issue #18808: wait for the thread state to be gone.
+        # At the end of the thread's life, after all knowledge of the thread
+        # is removed from C data structures, C code releases our _tstate_lock.
+        # This method passes its arguments to _tstate_lock.acquire().
+        # If the lock is acquired, the C code is done, and self._stop() is
+        # called.  That sets ._is_stopped to True, and ._tstate_lock to None.
+        lock = self._tstate_lock
+        if lock is None:
+            # already determined that the C code is done
+            assert self._is_stopped
+            return
+    
+        try:
+&gt;           if lock.acquire(block, timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: Timeout &gt;120.0s
+
+/usr/local/lib/python3.11/threading.py:1139: Failed</error></testcase></testsuite></testsuites>

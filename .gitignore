@@ -190,3 +190,6 @@ agents/nivxforge-windows/nivxforge_build.py
 # committing them makes every working tree dirty and tells us nothing.
 apps/nivxray-xdr-response/data/*.db-wal
 apps/nivxray-xdr-response/data/*.db-shm
+rocket-e2e/db/journal/WiredTigerPreplog.0000000002
+rocket-e2e/db/journal/WiredTigerLog.0000000001
+rocket-e2e/db/journal/WiredTigerPreplog.0000000001

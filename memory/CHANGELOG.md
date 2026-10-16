@@ -8085,3 +8085,47 @@ policy authority (no duplicate authorities, no waterfall).
 - All 20 new EDR routes registered in
   `routers/edr_tenancy.ROUTE_CLASSIFICATION` (75 EDR routes, 0
   unclassified).
+
+## 2026-10-16 — E3 clean stabilization sprint (P0–P5)
+
+Isolated workspace `/app/rocket-p0/src`, branch `engineering/e3-stabilization`.
+No push, merge, deployment, production access or real response execution.
+Disposition remains **NO-GO for release or production**.
+
+- **P0** Verified the Work sanitized bundle independently: SHA-256
+  `8cf3f8ad…006239`, 23,462,740 bytes, commit `b1240bba…`, tree `38a96a2f…`,
+  complete history, no alternates, `fsck` clean, snapshot self-check PASS.
+  All 129 sanitized files are tests/scripts/workflows — no production source
+  was altered by sanitization.
+- **P1** Root-caused the "36 RC4.x failures" class: 102 hardcoded
+  `sys.path.insert(0, "/app/...")` sites made spawned decoder workers import a
+  foreign checkout (`ModuleNotFoundError: services.decoder.isolated`, child
+  `exitcode=1`, not a memory kill). Replaced with `NIVXRAY_REPO_ROOT`-relative
+  resolution. Resolved the Snappy pin (`python-snappy==0.7.3`, already pinned).
+  Optimized `services/decoder/base/xor_brute.py` with equivalent
+  `bytes.translate` tables — bit-exact over 256 differential cracks — taking the
+  RC3.0 benchmark from FAIL (652 ms) to **PASS (391 ms)** with thresholds,
+  resource limits, key space and tie-breaking unchanged.
+- **P2** Executed original A0.5 for the first time (72 tests): 66 pass,
+  5 failures, all cases where current behaviour is **stricter** than the
+  original assertions — owner contract decision required, nothing weakened.
+  Found and fixed a hermeticity gap where isolated runs reached
+  `api.anthropic.com` (`NIVX_AI_ENABLED` does not gate L3).
+- **P3** The backend sent **no** `Authorization` header to the response engine.
+  It now presents `RESPONSE_ENGINE_SERVICE_CREDENTIAL`, fails closed at 503 when
+  unset, never delegates the analyst bearer, and grants no analyst authority.
+  Proven against the real engine: 401 / 401 / 422 with **zero** execution records.
+- **P4** Started isolated MongoDB 7.0.43 on 127.0.0.1:37017 (the `EPERM` that
+  blocked Work does not apply here) and added `NIVX_EDR_WORKERS_DISABLED=1`,
+  clearing the RUNBOOK startup blocker. Real authenticated partial trace **6/6**:
+  cross-tenant read isolation on a real database, no dispatchable response.
+- **P5** Full gate sweep **769 tests, 0 failures** (decoder 147, command 372,
+  tenant 104, boundaries 107, response 39) plus benchmark PASS and guards 9/9.
+  Not executed: frontend Vitest/build, browser acceptance, correlation evidence
+  linkage, evidence timeline, approved response roundtrip, Mongo concurrency.
+  Host is **ARM64 / CPython 3.11.17**, not target-host proof.
+
+Evidence: `/app/rocket-evidence/e3/`, report `memory/E3_STABILIZATION_2026-10-16.md`.
+Handoff bundle: `/app/rocket-evidence/e3/nivxray-e3-stabilization.bundle`
+(23,485,460 bytes, SHA-256 `466f78fe…2adc88`, commit `e6d7efb9…`, tree `8f5d1621…`).
+All inherited HOLDs preserved; FULL_E2E stays BLOCKED on kernel-enforced egress denial.
