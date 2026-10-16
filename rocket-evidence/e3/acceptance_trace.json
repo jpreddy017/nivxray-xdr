@@ -1,0 +1,291 @@
+{
+  "stages": [
+    {
+      "stage": "auth",
+      "check": "synthetic_principals_authenticate",
+      "result": "PASS",
+      "detail": {
+        "analysts": 2,
+        "machine_principals": 1
+      }
+    },
+    {
+      "stage": "ingestion",
+      "check": "authenticated_collector_ingest_accepted",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "accepted": 0,
+        "routing_blocked": 0,
+        "reasoning_status": "REASONED",
+        "blocker": null,
+        "selected_dsm_id": "microsoft-sysmon",
+        "incident_created": true,
+        "incident_id": "inc_45ca1c1640c04f9fb9f1"
+      }
+    },
+    {
+      "stage": "normalization",
+      "check": "canonical_event_is_queryable",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "rows": 5,
+        "first": "{\"event_id\": \"sysmon-1-365f185d2b8d4bcba026d21a4100036b\", \"time\": \"2026-10-16 09:00:00.000\", \"time_basis\": \"ACTIVITY_TIME\", \"time_source\": \"sysmon:EventData.UtcTime\", \"time_substituted\": false, \"host\": \"ROCKET-SYNTH-01\", \"os_family\": null, \"channel\": null, \"so"
+      }
+    },
+    {
+      "stage": "detection",
+      "check": "ingested_event_promoted_a_real_incident",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "incident_id": "inc_45ca1c1640c04f9fb9f1"
+      }
+    },
+    {
+      "stage": "detection",
+      "check": "detection_plane_reports_state",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"ok\": true, \"data\": {\"active_version\": {\"id\": \"det_v_46664d7c6d534370\", \"source\": \"MITRE ATT&CK\", \"outcome\": \"COMPLETE\", \"stages\": {\"DISCOVERED\": {\"status\": \"OK\", \"targets\": [\"file:///app/rocket-p0/src/backend/fixtures/detection/attack_snapshot.json\"]}, \"DOWN"
+      }
+    },
+    {
+      "stage": "correlation",
+      "check": "tenant_scoped_rules_readable",
+      "result": "PASS",
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "stage": "correlation",
+      "check": "tenant_scoped_matches_readable",
+      "result": "PASS",
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "stage": "incident",
+      "check": "incident_queue_projects_own_tenant",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "ids": [
+          "inc_45ca1c1640c04f9fb9f1",
+          "inc_0da76da32a2e43568ad7",
+          "inc_da0d34b224bf40de937c",
+          "inc_0a0003bf378644c6a1e9",
+          "inc_81be9f9150e041d09ab9",
+          "inc_rocket_a"
+        ]
+      }
+    },
+    {
+      "stage": "investigation",
+      "check": "investigation_view_resolves",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"incident_id\": \"inc_rocket_a\", \"state\": \"WAITING_FOR_EVIDENCE\", \"state_history\": [], \"activity\": [], \"executions\": [], \"findings\": [], \"counts\": {\"planned\": 0, \"executed\": 0, \"skipped\": 0, \"findings\": 0}, \"honesty_note\""
+      }
+    },
+    {
+      "stage": "evidence_timeline",
+      "check": "canonical_evidence_resolves",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"incident_id\": \"inc_rocket_a\", \"tenant_scope\": \"INCIDENT_RESOLVED\", \"rows\": [], \"legacy_unbridged_observations\": [], \"counts\": {\"BRIDGED\": 0, \"REFERENCED_RECORD_ABSENT\": 0, \"LEGACY_UNBRIDGED\": 0}, \"contract\": \"canonical"
+      }
+    },
+    {
+      "stage": "reporting",
+      "check": "incident_report_resolves",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"incident_id\": \"inc_rocket_a\", \"tenant_id\": \"rocket-synthetic-a\", \"generated_at\": \"2026-10-16T12:59:58.298094+00:00\", \"header\": {\"title\": \"synthetic incident rocket-synthetic-a\", \"priority\": null, \"state\": \"new\", \"verdi"
+      }
+    },
+    {
+      "stage": "tenant_isolation",
+      "check": "analyst_b_denied_tenant_a_incident",
+      "result": "PASS",
+      "detail": {
+        "status": 404
+      }
+    },
+    {
+      "stage": "tenant_isolation",
+      "check": "cross_tenant_ingest_refused",
+      "result": "PASS",
+      "detail": {
+        "status": 403,
+        "code": "TENANT_ISOLATION_VIOLATION"
+      }
+    },
+    {
+      "stage": "tenant_isolation",
+      "check": "foreign_tenant_header_refused",
+      "result": "PASS",
+      "detail": {
+        "status": 403
+      }
+    },
+    {
+      "stage": "audit",
+      "check": "tenant_audit_log_readable",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"ok\": true, \"data\": {\"events\": [{\"id\": \"aud_df569fb3c67448798753\", \"tenant_id\": \"rocket-synthetic-a\", \"principal_id\": \"ingest-a@rocket-synthetic-e3.dev\", \"principal_kind\": \"user\", \"action\": \"COLLECTOR_STATE_CHANGED\", \"r"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "engine_reachable_through_service_credential",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "state": "REAL_RUNTIME_VERIFIED"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "action_catalogue_requires_admitted_backend",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "actions": 18
+      }
+    },
+    {
+      "stage": "response",
+      "check": "authorized_execute_is_admitted_and_held_for_approval",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "execution_id": "exec_13b397227fca4c9f",
+        "state": "WAITING_APPROVAL",
+        "body": "{\"execution_id\": \"exec_13b397227fca4c9f\", \"state\": \"WAITING_APPROVAL\", \"status\": \"waiting_approval\", \"action_id\": \"network.block_ip\", \"invoker\": {\"kind\": \"analyst\", \"id\": \"analyst-a@rocket-synthetic-e3.dev\", \"context\": {\"product\": \"NIVXRAY_XDR\"}}, \"tenant_id\": \"rocket-synthetic-a\", \"parameters\": {\"ip\": \"203.0.113.10\"},"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "foreign_tenant_selector_is_refused_not_substituted",
+      "result": "PASS",
+      "detail": {
+        "status": 403,
+        "detail": "{\"error\": \"response_selector_conflict\", \"conflicting_field\": \"tenant_id\", \"fail_closed\": true, \"response_lifecycle\": {\"lifecycle\": \"rejected\", \"facts\": {\"dispatched\": false, \"executing\": false, \"executed\": false, \"verified\": false}}, \"honesty_note\": \"the reque"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "forged_invoker_identity_is_refused",
+      "result": "PASS",
+      "detail": {
+        "status": 403,
+        "detail": "{\"error\": \"response_selector_conflict\", \"conflicting_field\": \"invoker.id\", \"fail_closed\": true, \"response_lifecycle\": {\"lifecycle\": \"rejected\", \"facts\": {\"dispatched\": false, \"executing\": false, \"exec"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "pending_approval_queue_readable",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "body": "{\"count\": 1, \"rows\": [{\"execution_id\": \"exec_13b397227fca4c9f\", \"state\": \"WAITING_APPROVAL\", \"status\": \"waiting_approval\", \"action_id\": \"network.block_ip\", \"invoker\": {\"kind\": \"analyst\", \"id\": \"analyst-a@rocket-synthetic-e3.dev\", \"context\":"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "approved_simulated_response_roundtrip",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "state": "SUCCEEDED",
+        "body": "{\"execution_id\": \"exec_13b397227fca4c9f\", \"state\": \"SUCCEEDED\", \"status\": \"succeeded\", \"action_id\": \"network.block_ip\", \"invoker\": {\"kind\": \"analyst\", \"id\": \"analyst-a@rocket-synthetic-e3.dev\", \"context\": {\"product\": \"NIVXRAY_XDR\"}}, \"tenant_id\": \"rocket-synthetic-a\", \"parameters\": {\"ip\": \"203.0.113.10\"}, \"canonical_ta"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "real_dispatch_action_never_executes",
+      "result": "PASS",
+      "detail": {
+        "status": 200,
+        "state": "WAITING_APPROVAL",
+        "body": "{\"execution_id\": \"exec_9d3531825d0b4926\", \"state\": \"WAITING_APPROVAL\", \"status\": \"waiting_approval\", \"action_id\": \"endpoint.isolate\", \"invoker\": {\"kind\": \"analyst\", \"id\": \"analyst-a@rocket-synthetic-e3.dev\", \"context\": {\"product\": \"NIVXRAY_XDR\"}}, \"tenant_id\":"
+      }
+    },
+    {
+      "stage": "response",
+      "check": "only_the_simulated_action_completed",
+      "result": "PASS",
+      "detail": {
+        "simulated": {
+          "id": "exec_13b397227fca4c9f",
+          "action": "network.block_ip",
+          "state": "SUCCEEDED",
+          "http": 200
+        },
+        "real_dispatch": {
+          "id": "exec_9d3531825d0b4926",
+          "action": "endpoint.isolate",
+          "state": "WAITING_APPROVAL",
+          "http": 200
+        }
+      }
+    },
+    {
+      "stage": "response",
+      "check": "no_evidence_was_forwarded_to_any_gateway",
+      "result": "PASS",
+      "detail": {
+        "engine_status": 200,
+        "forwarder": {
+          "configured": false,
+          "state": "not_wired",
+          "forwarded": 0,
+          "failed": 0,
+          "last_error": null,
+          "last_forwarded_at": null
+        },
+        "execution_states": {
+          "WAITING_APPROVAL": 1,
+          "SUCCEEDED": 1
+        }
+      }
+    }
+  ],
+  "provisioned": {
+    "tenants": [
+      "rocket-synthetic-a",
+      "rocket-synthetic-b"
+    ],
+    "analysts": [
+      "analyst-a@rocket-synthetic-e3.dev",
+      "analyst-b@rocket-synthetic-e3.dev"
+    ],
+    "machine_ingest_principal": "ingest-a@rocket-synthetic-e3.dev",
+    "collector": "rocket-synthetic-collector",
+    "authorized_sources": [
+      "microsoft-sysmon"
+    ],
+    "seed_incidents": [
+      "inc_rocket_a",
+      "inc_rocket_b"
+    ]
+  },
+  "summary": {
+    "passed": 25,
+    "failed": 0,
+    "blocked": 0,
+    "full_e2e": "BLOCKED",
+    "full_e2e_reason": "kernel-enforced egress denial is not available in this environment (CAP_NET_ADMIN/CAP_SYS_ADMIN absent; unshare/netns/nft all EPERM), so no acceptance-grade isolation claim is made. Python-level guards are not accepted as a substitute.",
+    "real_response_execution": "DISABLED"
+  }
+}

@@ -1,0 +1,23 @@
+E3 FINAL ACCEPTANCE — egress isolation capability probe (2026-10-16T13:07:18Z)
+host: aarch64 6.12.94+
+
+CapEff/CapBnd:
+CapEff:	00000000a80405fb
+CapBnd:	00000000a80405fb
+
+CAP_NET_ADMIN: ABSENT (bit 12 clear in 0xa80405fb)
+CAP_NET_RAW:   ABSENT (bit 13 clear)
+CAP_SYS_ADMIN: ABSENT (bit 21 clear)
+
+unshare -n           -> unshare: unshare failed: Operation not permitted
+ip netns add e3ns    -> mount --make-shared /run/netns failed: Operation not permitted
+ip link add dummy0   -> RTNETLINK answers: Operation not permitted
+nft add table        -> Error: Could not process rule: Operation not permitted
+
+external egress still reachable (so NOT denied):
+  https://api.anthropic.com -> HTTP 405
+  DNS example.com -> 104.20.23.154   example.com
+
+VERDICT: kernel-enforced egress denial CANNOT be established in this
+environment. Python-level socket guards are explicitly NOT accepted as a
+substitute. FULL_E2E = BLOCKED.

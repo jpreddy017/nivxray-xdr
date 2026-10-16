@@ -24,7 +24,7 @@
       "--junitxml=/app/rocket-evidence/e3/decoder.xml"
     ],
     "exit": 0,
-    "seconds": 19.823
+    "seconds": 21.468
   },
   {
     "gate": "command",
@@ -52,7 +52,7 @@
       "--junitxml=/app/rocket-evidence/e3/command.xml"
     ],
     "exit": 0,
-    "seconds": 28.747
+    "seconds": 31.601
   },
   {
     "gate": "tenant",
@@ -71,7 +71,7 @@
       "--junitxml=/app/rocket-evidence/e3/tenant.xml"
     ],
     "exit": 0,
-    "seconds": 1.872
+    "seconds": 2.171
   },
   {
     "gate": "boundaries",
@@ -90,10 +90,11 @@
       "tests/test_attack_posture_normalizer.py",
       "tests/test_phase2_1_security_state_boundary.py",
       "tests/test_rocket_response_admission.py",
+      "tests/test_rocket_response_authority_resolution.py",
       "--junitxml=/app/rocket-evidence/e3/boundaries.xml"
     ],
     "exit": 0,
-    "seconds": 3.624
+    "seconds": 4.13
   },
   {
     "gate": "response",
@@ -110,6 +111,24 @@
       "--junitxml=/app/rocket-evidence/e3/response.xml"
     ],
     "exit": 0,
-    "seconds": 1.017
+    "seconds": 1.118
+  },
+  {
+    "gate": "frontend",
+    "command": [
+      "/app/rocket-p0/src/apps/nivxray-xdr/node_modules/.bin/vitest",
+      "run"
+    ],
+    "exit": 0,
+    "seconds": 8.376
+  },
+  {
+    "gate": "build",
+    "command": [
+      "/app/rocket-p0/src/apps/nivxray-xdr/node_modules/.bin/vite",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 8.604
   }
 ]

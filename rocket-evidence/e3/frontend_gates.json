@@ -1,0 +1,20 @@
+[
+  {
+    "gate": "frontend",
+    "command": [
+      "/app/rocket-p0/src/apps/nivxray-xdr/node_modules/.bin/vitest",
+      "run"
+    ],
+    "exit": 0,
+    "seconds": 8.289
+  },
+  {
+    "gate": "build",
+    "command": [
+      "/app/rocket-p0/src/apps/nivxray-xdr/node_modules/.bin/vite",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 8.194
+  }
+]

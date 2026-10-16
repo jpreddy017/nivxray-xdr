@@ -8129,3 +8129,51 @@ Evidence: `/app/rocket-evidence/e3/`, report `memory/E3_STABILIZATION_2026-10-16
 Handoff bundle: `/app/rocket-evidence/e3/nivxray-e3-stabilization.bundle`
 (23,485,460 bytes, SHA-256 `466f78fe…2adc88`, commit `e6d7efb9…`, tree `8f5d1621…`).
 All inherited HOLDs preserved; FULL_E2E stays BLOCKED on kernel-enforced egress denial.
+
+## 2026-10-16 — E3 final acceptance gates A–G
+
+Owner-approved security contracts implemented as written: administrative access
+requires an active, provisioned principal with explicit tenant authorization;
+foreign tenant/scope selectors are rejected explicitly and audited, never
+ignored or substituted. Production remains **NO-GO**.
+
+- **A** Original A0.5 closed: **74 tests, 0 failures, 0 errors, 0 skipped**
+  (was 72/5/1). Every previously failing outcome accounted for; five legacy
+  assertions inverted or widened only where they contradicted the approved
+  contracts, each documented in the test body, plus two new tests so the
+  stricter rule is proven not to remove legitimate capability and the "and
+  audited" half of the selector contract is actually exercised. The
+  `test_the_guard_is_not_vacuous` error was a 90 s timeout on a ~200 s test,
+  not a defect.
+- **B** Frontend on this exact tree: **Vitest 420/420**, **Vite build PASS**.
+  No genuine failures, so nothing was changed.
+- **C** Kernel-enforced egress isolation **impossible here and not bypassed**:
+  CAP_NET_ADMIN / CAP_NET_RAW / CAP_SYS_ADMIN absent; `unshare -n`,
+  `ip netns add`, `ip link add`, `nft add table` all EPERM; external egress
+  demonstrably reachable. Reported as **FULL_E2E BLOCKED** per instruction.
+- **D** Complete authenticated XDR trace **25/25** on a disposable stack:
+  real Sysmon ingestion → normalization (`ACTIVITY_TIME`, no substituted
+  clock) → detection promoting a real incident → correlation → incident →
+  investigation → evidence timeline → reporting → tenant isolation → audit →
+  approved simulated response.
+- **E** Approved **simulated** response roundtrip proven
+  (`WAITING_APPROVAL` → approve → `SUCCEEDED` on a `STUB_NO_SIDE_EFFECT`
+  action) while the destructive `REAL_PRODUCT_API` action stayed
+  `WAITING_APPROVAL` and never executed; nothing forwarded to any gateway.
+  **Two product defects found and fixed:** the response boundary never
+  consulted the granular RBAC store (email passed where an id was required,
+  so granular restrictions were never subtracted), and the execute route
+  silently substituted the session tenant/invoker instead of refusing a
+  conflicting selector. Five regression tests added to the boundaries gate.
+- **F** Backend gates **774 passed / 0 failed / 6 skipped** (decoder 147,
+  command 372, tenant 104, boundaries 112, response 39), RC3.0 benchmark PASS
+  at 473 ms under the unchanged 500 ms ceiling, guards 9/9.
+- **G** Final commit `1dc4e35809c4b30bda15d0ed25db06c6feb50e24`, tree
+  `1995523652e25ff86de3cec19741199e55bec55f`. Bundle
+  `/app/rocket-evidence/e3/nivxray-e3-final-acceptance.bundle`
+  (23,502,285 bytes, SHA-256 `36515e1d…80e757`) verified in a fresh clone.
+  Report: `memory/E3_FINAL_ACCEPTANCE_2026-10-16.md`.
+
+All isolated services stopped; platform preview services untouched. No push,
+merge, deployment, production access, real containment or purchase. All
+remaining HOLDs preserved, none waived.
