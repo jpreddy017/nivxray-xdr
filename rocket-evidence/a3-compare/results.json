@@ -1,0 +1,25 @@
+[
+  {
+    "gate": "security",
+    "command": [
+      "/root/.venv/bin/python",
+      "/app/rocket-p0/a3/tools/security-harness/run.py",
+      "--junitxml",
+      "/app/rocket-evidence/a3-compare/security.xml",
+      "--suite",
+      "tests/test_xdr_webhooks.py",
+      "--suite",
+      "tests/test_collector_api_key_auth.py",
+      "--suite",
+      "tests/test_d11_ingest_provenance.py",
+      "--suite",
+      "tests/test_p0prod1_secret_policy.py",
+      "--suite",
+      "tests/test_v2_isolation.py",
+      "--suite",
+      "tests/test_phase2_1_tenant_isolation.py"
+    ],
+    "exit": 1,
+    "seconds": 287.623
+  }
+]
