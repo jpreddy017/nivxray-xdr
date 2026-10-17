@@ -1,0 +1,11 @@
+[
+  {
+    "gate": "build",
+    "command": [
+      "/app/rocket-p0/f1/apps/nivxray-xdr/node_modules/.bin/vite",
+      "build"
+    ],
+    "exit": 0,
+    "seconds": 7.553
+  }
+]

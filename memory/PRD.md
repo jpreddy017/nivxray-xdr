@@ -6269,3 +6269,65 @@ secret. Missing artefacts are owner-dispatch only: workflow run id,
 SHA256SUMS.txt, in-binary refusal verdict, Gate 4 result.
 
 KUSHU remains OFF. No remediation started.
+
+---
+
+# 2026-06 · AUTONOMOUS ENGINEERING RECOVERY MILESTONE (F1 / S1 / F2 / F3 / F4)
+
+Branch `engineering/f1-v2-dependency`, worktree `/app/rocket-p0/f1`.
+Entry A3 `62a2c658` → head **`d5bceb8` / tree `22e59d7bc32c46baff846c989d7409f53d2e9ba1`**.
+Full detail: `/app/memory/A0/ENGINEERING_REGISTER.md`,
+`/app/memory/A0/F1_LEGACY_V2_DEPENDENCY_REPAIR.md`.
+Evidence: `/app/rocket-evidence/f1-final/`.
+
+## Delivered
+
+* **F1 — legacy `v2` namespace retired.** The "delete v2 and RC5 keeps
+  running" contract was false: four routers imported it unconditionally and
+  were mounted unconditionally. The tree (197 files / 33,740 lines of live
+  capability) was promoted to the first-class `backend/nivx_engine` package;
+  260 import sites rewritten; the engine router mount is now unconditional
+  (fail fast instead of silently un-mounting); the isolation gate now asserts
+  no `backend/v2` and no `v2.*` import anywhere, source or tests.
+* **S1 — tenant authority stopped being a deployment flag.** The collector,
+  XDR ingest and RBAC planes resolved tenancy through the flag-gated
+  `tenant_registry.authoritative()`; with `NIVX_TENANT_REGISTRY_ENFORCE`
+  unset (the default) five collector reads answered **200 with no tenant
+  resolved**. All three now use `authoritative_required()`, and
+  `authorize_tenant` runs AUTHORISATION before the registry so a refusal
+  cannot confirm another customer's tenant exists.
+* **F2 — refusal-code contract resolved** in favour of the non-enumerating
+  implementation, with a test asserting the unheld-registered and
+  unregistered refusals are byte-identical. 16 tier-2 failures → 0.
+* **F3 — installation paths.** New `backend/paths.py` (`BACKEND_DIR`,
+  `NIVX_BACKEND_DIR` override); 15 runtime modules off `/app/backend`;
+  `routers/benchmark.py` no longer mutates `sys.path` at import; the collector
+  landing uses a scoped meta-path finder; guard test over 1284 runtime sources.
+* **F4 — first-principal bootstrap.** `scripts/bootstrap_tenant_admin.py`:
+  CLI not endpoint, ticketed via `NIVX_TENANT_BOOTSTRAP_TICKET`, audited as
+  `TENANT_FIRST_PRINCIPAL_PROVISIONED`, idempotent, single-tenant,
+  `platform_admin` refused, `--dry-run`.
+
+## Verified (final commit)
+
+916 backend+security tests 0 failures 0 errors 7 skipped (security gate
+**118, 0 fail** — green for the first time, was 108 with 1 failure);
+frontend 420 passed; vite build OK; tier-2 104 passed, 9 skipped.
+
+## Backlog (priority order)
+
+* **P0** Kernel-enforced egress denial — BLOCKED on the isolated Hetzner host.
+* **P0** `emergentintegrations 0.2.0` unsigned / single-vendor CDN (A0-11).
+* **P1** ~563 of 601 backend test files still outside the release gates (A0-14).
+* **P1** `POST /api/benchmark/refresh` is public and re-runs the whole corpus
+  plus a network feed refresh — unauthenticated compute amplification; the
+  workspace frontend calls it unauthenticated, so gating it is an owner call.
+* **P1** 316 `/app/backend` literals remain in test files (data paths).
+* **P2** Priority 4 — independent XDR / EDR / NivXMachines via versioned
+  tenant-scoped contracts (discovery only, nothing implemented).
+* **P2** Priority 5 — provider-independent deployment (ARM64, portable
+  backup/restore, rollback rehearsal). Not started.
+
+**RELEASE STATUS: NO-GO.** Staging pin untouched and still verifying; this
+candidate changes 255 backend files inside the build context, so merging needs
+an owner-approved re-pin and a fresh bundle — not performed.
