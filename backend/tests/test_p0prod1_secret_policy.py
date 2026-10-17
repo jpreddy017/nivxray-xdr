@@ -14,6 +14,12 @@ import pytest
 
 from security import secret_policy as sp
 
+#: The backend tree under test. Previously hardcoded to "/app/backend",
+#: which is the deployed application root inside the image but an
+#: unrelated checkout when the suite runs from a repository clone — the
+#: suite then audited a tree that was not the one under test.
+BACKEND = pathlib.Path(__file__).resolve().parents[1]
+
 _FAKE = "unit-test-instance-seed-not-a-real-secret-0000"
 
 
@@ -27,7 +33,7 @@ def clean_env(monkeypatch):
 
 # ── no repository constant may be a key ─────────────────────────────────
 def test_no_repository_constant_can_become_a_production_key():
-    root = pathlib.Path("/app/backend")
+    root = BACKEND
     banned = ("xdr-audit-master-do-not-use-in-prod",
               "xdr-secrets-master-do-not-use-in-prod",
               "nivxray-default-instance")
@@ -46,8 +52,7 @@ def test_no_repository_constant_can_become_a_production_key():
 
 
 def test_the_policy_module_itself_holds_no_key_material():
-    text = pathlib.Path(
-        "/app/backend/security/secret_policy.py").read_text()
+    text = (BACKEND / "security/secret_policy.py").read_text()
     assert "do-not-use" in text, "the placeholder DETECTOR must exist"
     # the detector list is the only place such strings may appear, and it
     # is used to REJECT values, never to supply them
@@ -220,8 +225,7 @@ def test_the_provenance_report_carries_no_key_material(clean_env):
 def test_key_rotation_is_never_reported_as_tampering():
     """The four states exist, and rotation maps to its own state."""
     import routers.xdr_audit_log as al
-    src = pathlib.Path(
-        "/app/backend/routers/xdr_audit_log.py").read_text()
+    src = (BACKEND / "routers/xdr_audit_log.py").read_text()
     for state in ("VERIFIED", "SIGNED_UNDER_DIFFERENT_KEY_ID",
                   "UNVERIFIABLE_NO_KEY_ID_RECORDED", "chain_broken"):
         assert state in src
@@ -262,7 +266,11 @@ def test_a_legacy_ciphertext_is_reported_not_guessed(monkeypatch):
 
 # ── .env hygiene ────────────────────────────────────────────────────────
 def test_the_application_env_holds_no_deploy_or_test_credential():
-    text = pathlib.Path("/app/backend/.env").read_text()
+    env_file = BACKEND / ".env"
+    if not env_file.is_file():
+        pytest.skip("no application .env in this checkout; run inside the "
+                    "deployed application root to audit runtime config")
+    text = env_file.read_text()
     names = [line.split("=", 1)[0].strip() for line in text.splitlines()
              if "=" in line and not line.strip().startswith("#")]
     for name in sp.FORBIDDEN_IN_PRODUCTION + sp.INERT_IN_PRODUCTION:
@@ -274,7 +282,7 @@ def test_the_application_env_holds_no_deploy_or_test_credential():
 
 
 def test_no_test_file_substitutes_a_default_live_credential():
-    root = pathlib.Path("/app/backend/tests")
+    root = BACKEND / "tests"
     this_file = pathlib.Path(__file__).resolve()
     offenders = [str(p) for p in root.rglob("*.py")
                  if p.resolve() != this_file
@@ -299,7 +307,7 @@ def test_the_live_analyst_credential_is_never_read_from_the_memory_file():
     environment. (An unrelated pre-existing suite reads the ADMIN
     password from the memo; that is reported, not changed here.)"""
     this_file = pathlib.Path(__file__).resolve()
-    for path in pathlib.Path("/app/backend").rglob("*.py"):
+    for path in BACKEND.rglob("*.py"):
         if path.resolve() == this_file:
             continue
         text = path.read_text(errors="ignore")

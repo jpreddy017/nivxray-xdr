@@ -54,6 +54,72 @@ def register_tenants(*tenant_ids: str, label: str = "test-suite") -> None:
                         display_name=tid, created_by=label)
 
 
+def authorize_tenants(email: str, *tenant_ids: str) -> None:
+    """Grant a principal explicit authorization for suite tenants.
+
+    `register_tenants()` makes a tenant exist; it does not make anyone
+    authorized for it. `authorize_requested_tenant()` resolves WHERE a
+    principal may act from exactly two server-side facts —
+    `authority_scope == "PLATFORM"` or the explicit `tenant_ids[]` grant
+    list — so the seeded administrator, which is created with neither,
+    is correctly refused with TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL.
+
+    This writes the narrower of the two facts: an explicit grant list, the
+    same server-side state an operator's provisioning action produces. It
+    deliberately does NOT set PLATFORM scope, which is an owner designation
+    and would hand the suite cross-tenant breadth it has no need for.
+    Registry validation and RBAC still run downstream, unchanged.
+    """
+    import deps
+
+    deps.sync_collection("users").update_one(
+        {"email": email},
+        {"$addToSet": {"tenant_ids": {"$each": list(tenant_ids)}}},
+    )
+
+
+def provision_rbac_principal(tenant_id: str, email: str,
+                             role_name: str = "platform_admin") -> None:
+    """Provision the tenant-scoped RBAC record the API itself cannot bootstrap.
+
+    `POST /api/xdr/rbac/users` is gated by `users.create`, which resolves
+    through `check_access()` against the per-tenant `xdr_users` collection —
+    so creating the FIRST principal in a tenant requires a principal that
+    already exists in it. `deps.seed_admin()` writes only the authentication
+    record in `users`, never the RBAC record, so an administrator in a fresh
+    suite tenant is correctly refused with `user-not-provisioned`.
+
+    This writes exactly the two documents `create_user()` writes — the
+    `xdr_users` row and one role assignment — and nothing else. The server's
+    permission resolution, tenant authorization, audit chain and scope checks
+    all run unchanged afterwards; this supplies state, never a bypass.
+    """
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    import routers.xdr_rbac as rb
+
+    users, assignments = rb._c_users(), rb._c_assignments()
+    if users is None or assignments is None:
+        raise AssertionError(
+            "RBAC store unavailable; provisioning would silently do nothing")
+    if users.find_one({"tenant_id": tenant_id, "email": email}):
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    uid = f"usr_{_uuid.uuid4().hex[:20]}"
+    users.insert_one({"id": uid, "tenant_id": tenant_id, "email": email,
+                      "display_name": email, "groups": [], "enabled": True,
+                      "created_at": now, "updated_at": now,
+                      "last_login": None, "created_by": "test-suite"})
+    role = rb._BUILTIN_ROLE_BY_NAME.get(role_name) or rb._role_by_id(role_name)
+    if role is None:
+        raise AssertionError(f"unknown role for provisioning: {role_name}")
+    assignments.insert_one({"id": f"asg_{_uuid.uuid4().hex[:20]}",
+                            "tenant_id": tenant_id, "user_id": uid,
+                            "role_id": role["id"], "scope": {},
+                            "created_at": now, "created_by": "test-suite"})
+
+
 def hdrs(token: str, tenant: str | None = None, **extra: str) -> dict:
     """Authorization + the tenant the caller is REQUESTING (not claiming)."""
     h = {"Authorization": f"Bearer {token}"}
