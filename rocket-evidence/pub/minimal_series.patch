@@ -1,0 +1,926 @@
+diff --git a/backend/routers/telemetry.py b/backend/routers/telemetry.py
+index 036d87fd..e5f404d2 100644
+--- a/backend/routers/telemetry.py
++++ b/backend/routers/telemetry.py
+@@ -30,9 +30,14 @@ window in Mongo so ops can grep for slow analysts / bad hardware.
+ """
+ from __future__ import annotations
+ 
+-from datetime import datetime, timezone
++import base64
++import decimal
++import uuid
++from collections.abc import Mapping
++from datetime import date, datetime, time, timezone
+ from typing   import Any, Dict, List, Optional
+ 
++from bson     import Decimal128, ObjectId
+ from fastapi   import APIRouter
+ from pydantic  import BaseModel, Field
+ 
+@@ -42,6 +47,57 @@ from deps import db
+ router = APIRouter(prefix="/telemetry", tags=["telemetry"])
+ 
+ 
++def _json_safe(value: Any) -> Any:
++    """Recursively coerce a stored telemetry value into a JSON-encodable one.
++
++    A document is legal in Mongo and fatal at the response boundary: this
++    endpoint returns what it read, and the previous code normalised only the
++    top-level `_id` and `recorded_at`. Any other BSON value — an `ObjectId`
++    nested in a sub-document, a `Decimal128`, non-UTF-8 `Binary` — reached
++    FastAPI's serializer and became an unauthenticated HTTP 500 (N-3).
++
++    Conversion rules, deliberately explicit and lossless:
++
++      * JSON-native (`str`, `int`, `float`, `bool`, `None`) — returned as-is,
++        type preserved. No numeric value is reformatted.
++      * `ObjectId`           → its 24-character hex string.
++      * `Decimal128`/`Decimal` → `str` of the exact decimal. NOT `float`:
++        that would silently lose precision on a value the client stored.
++      * `bytes`/`Binary`     → base64 (ASCII). NOT a UTF-8 decode: binary is
++        not text, and guessing raises `UnicodeDecodeError` on the first
++        non-UTF-8 byte.
++      * `datetime`/`date`/`time` → ISO-8601, unchanged from before.
++      * `UUID`               → canonical string form.
++      * mappings and sequences → walked recursively; key insertion order and
++        element order are preserved, so the response stays deterministic.
++      * anything else (`Regex`, `Code`, `Timestamp`, `MinKey`, `DBRef`, …)
++        → `str`, so a type nobody anticipated degrades to a readable value
++        instead of a 500.
++
++    Nothing is dropped, renamed or swallowed: every key present in the stored
++    document is present in the output, and no exception is suppressed.
++    """
++    if value is None or isinstance(value, (bool, int, float, str)):
++        return value
++    if isinstance(value, ObjectId):
++        return str(value)
++    if isinstance(value, Decimal128):
++        return str(value.to_decimal())
++    if isinstance(value, decimal.Decimal):
++        return str(value)
++    if isinstance(value, (bytes, bytearray)):
++        return base64.b64encode(bytes(value)).decode("ascii")
++    if isinstance(value, (datetime, date, time)):
++        return value.isoformat()
++    if isinstance(value, uuid.UUID):
++        return str(value)
++    if isinstance(value, Mapping):
++        return {str(k): _json_safe(v) for k, v in value.items()}
++    if isinstance(value, (list, tuple)):
++        return [_json_safe(v) for v in value]
++    return str(value)
++
++
+ class FrontendTelemetry(BaseModel):
+     case_id:        Optional[str] = None
+     session_id:     Optional[str] = None
+@@ -99,9 +155,7 @@ async def recent_frontend_telemetry(limit: int = 50) -> Dict[str, Any]:
+     docs: List[Dict[str, Any]] = await db.frontend_telemetry.find(
+         {}, sort=[("recorded_at", -1)]
+     ).limit(limit).to_list(length=limit)
+-    for d in docs:
+-        d["_id"] = str(d.get("_id"))
+-        rec = d.get("recorded_at")
+-        if hasattr(rec, "isoformat"):
+-            d["recorded_at"] = rec.isoformat()
+-    return {"count": len(docs), "records": docs}
++    # Same records, same order, same field names — only BSON values that the
++    # response serializer cannot encode are coerced. See `_json_safe`.
++    records = [_json_safe(d) for d in docs]
++    return {"count": len(records), "records": records}
+diff --git a/backend/tests/_verified_session.py b/backend/tests/_verified_session.py
+index ab159915..d56609b1 100644
+--- a/backend/tests/_verified_session.py
++++ b/backend/tests/_verified_session.py
+@@ -54,6 +54,72 @@ def register_tenants(*tenant_ids: str, label: str = "test-suite") -> None:
+                         display_name=tid, created_by=label)
+ 
+ 
++def authorize_tenants(email: str, *tenant_ids: str) -> None:
++    """Grant a principal explicit authorization for suite tenants.
++
++    `register_tenants()` makes a tenant exist; it does not make anyone
++    authorized for it. `authorize_requested_tenant()` resolves WHERE a
++    principal may act from exactly two server-side facts —
++    `authority_scope == "PLATFORM"` or the explicit `tenant_ids[]` grant
++    list — so the seeded administrator, which is created with neither,
++    is correctly refused with TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL.
++
++    This writes the narrower of the two facts: an explicit grant list, the
++    same server-side state an operator's provisioning action produces. It
++    deliberately does NOT set PLATFORM scope, which is an owner designation
++    and would hand the suite cross-tenant breadth it has no need for.
++    Registry validation and RBAC still run downstream, unchanged.
++    """
++    import deps
++
++    deps.sync_collection("users").update_one(
++        {"email": email},
++        {"$addToSet": {"tenant_ids": {"$each": list(tenant_ids)}}},
++    )
++
++
++def provision_rbac_principal(tenant_id: str, email: str,
++                             role_name: str = "platform_admin") -> None:
++    """Provision the tenant-scoped RBAC record the API itself cannot bootstrap.
++
++    `POST /api/xdr/rbac/users` is gated by `users.create`, which resolves
++    through `check_access()` against the per-tenant `xdr_users` collection —
++    so creating the FIRST principal in a tenant requires a principal that
++    already exists in it. `deps.seed_admin()` writes only the authentication
++    record in `users`, never the RBAC record, so an administrator in a fresh
++    suite tenant is correctly refused with `user-not-provisioned`.
++
++    This writes exactly the two documents `create_user()` writes — the
++    `xdr_users` row and one role assignment — and nothing else. The server's
++    permission resolution, tenant authorization, audit chain and scope checks
++    all run unchanged afterwards; this supplies state, never a bypass.
++    """
++    import uuid as _uuid
++    from datetime import datetime, timezone
++
++    import routers.xdr_rbac as rb
++
++    users, assignments = rb._c_users(), rb._c_assignments()
++    if users is None or assignments is None:
++        raise AssertionError(
++            "RBAC store unavailable; provisioning would silently do nothing")
++    if users.find_one({"tenant_id": tenant_id, "email": email}):
++        return
++    now = datetime.now(timezone.utc).isoformat()
++    uid = f"usr_{_uuid.uuid4().hex[:20]}"
++    users.insert_one({"id": uid, "tenant_id": tenant_id, "email": email,
++                      "display_name": email, "groups": [], "enabled": True,
++                      "created_at": now, "updated_at": now,
++                      "last_login": None, "created_by": "test-suite"})
++    role = rb._BUILTIN_ROLE_BY_NAME.get(role_name) or rb._role_by_id(role_name)
++    if role is None:
++        raise AssertionError(f"unknown role for provisioning: {role_name}")
++    assignments.insert_one({"id": f"asg_{_uuid.uuid4().hex[:20]}",
++                            "tenant_id": tenant_id, "user_id": uid,
++                            "role_id": role["id"], "scope": {},
++                            "created_at": now, "created_by": "test-suite"})
++
++
+ def hdrs(token: str, tenant: str | None = None, **extra: str) -> dict:
+     """Authorization + the tenant the caller is REQUESTING (not claiming)."""
+     h = {"Authorization": f"Bearer {token}"}
+diff --git a/backend/tests/test_collector_api_key_auth.py b/backend/tests/test_collector_api_key_auth.py
+index 17cd4ef3..e7b64d3e 100644
+--- a/backend/tests/test_collector_api_key_auth.py
++++ b/backend/tests/test_collector_api_key_auth.py
+@@ -73,6 +73,15 @@ def _cleanup():
+ @pytest.fixture(scope="module")
+ def client():
+     with TestClient(app) as c:
++        # The JWT admin path below names a tenant; naming one never
++        # authorizes it, so the suite tenants must exist and the seeded
++        # administrator must hold an explicit grant for them.
++        from tests._verified_session import (authorize_tenants,
++                                             provision_rbac_principal,
++                                             register_tenants)
++        register_tenants(TENANT, OTHER_TENANT, label="keyauth")
++        authorize_tenants(os.environ["ADMIN_EMAIL"], TENANT)
++        provision_rbac_principal(TENANT, os.environ["ADMIN_EMAIL"])
+         yield c
+ 
+ 
+diff --git a/backend/tests/test_n3a_telemetry_bson_serialization.py b/backend/tests/test_n3a_telemetry_bson_serialization.py
+new file mode 100644
+index 00000000..121da6d9
+--- /dev/null
++++ b/backend/tests/test_n3a_telemetry_bson_serialization.py
+@@ -0,0 +1,223 @@
++"""N-3A · `GET /api/telemetry/frontend/recent` survives real BSON.
++
++The N-3 investigation reproduced an unauthenticated HTTP 500 on this endpoint:
++a single stored document carrying a nested `ObjectId` or a `Decimal128` turned
++a 200 into a 500, and removing the document restored the 200. The handler
++returned raw Mongo documents to FastAPI's serializer, normalising only the
++top-level `_id` and `recorded_at`.
++
++These tests are that reproduction, inverted: each one inserts the document
++that used to be fatal and asserts a valid JSON 200 whose values are the
++documented conversion of the stored value — not merely "no 500", which a
++`try/except` returning an empty list would also satisfy.
++
++Scope is this endpoint only. The other two N-3 endpoints are untouched, and
++so is every authentication and tenant control: this route takes no credential
++today and this suite does not change that — it asserts serialization, not
++authorization. Whether the route should be open at all is N-2.
++"""
++from __future__ import annotations
++
++import base64
++import os
++import uuid
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++os.environ.setdefault("NIVX_L3_DISABLE", "1")
++from fastapi.testclient import TestClient
++
++from bson import Binary, Code, Decimal128, MinKey, ObjectId, Regex
++from bson.timestamp import Timestamp
++
++import deps
++from routers.telemetry import _json_safe
++from server import app
++
++PATH = "/api/telemetry/frontend/recent"
++
++client = TestClient(app)
++
++
++def _coll():
++    return deps.sync_collection("frontend_telemetry")
++
++
++@pytest.fixture(scope="module", autouse=True)
++def _module_client():
++    """One lifespan-managed client, and the collection left as we found it.
++
++    `frontend_telemetry` is a bounded rolling diagnostic window, but it is not
++    this suite's to discard: the existing rows are snapshotted and reinserted
++    on teardown so running the suite against a populated database destroys
++    nothing.
++    """
++    global client
++    with TestClient(app) as c:
++        client = c
++        saved = list(_coll().find({}))
++        _coll().delete_many({})
++        try:
++            yield
++        finally:
++            _coll().delete_many({})
++            if saved:
++                _coll().insert_many(saved)
++
++
++@pytest.fixture(autouse=True)
++def _blank_collection():
++    _coll().delete_many({})
++    yield
++    _coll().delete_many({})
++
++
++def _insert(**fields) -> dict:
++    """Store one telemetry record, returning the document as written."""
++    doc = {"session_id": "ses_n3a", "recorded_at": datetime.now(timezone.utc)}
++    doc.update(fields)
++    _coll().insert_one(doc)
++    return doc
++
++
++def _records() -> list[dict]:
++    r = client.get(PATH)
++    assert r.status_code == 200, f"{r.status_code}: {r.text[:300]}"
++    body = r.json()                       # must be parseable JSON, not a 500
++    assert set(body) == {"count", "records"}
++    assert body["count"] == len(body["records"])
++    return body["records"]
++
++
++# ── the previously fatal documents ───────────────────────────────────
++def test_nested_objectid_no_longer_returns_500():
++    oid = ObjectId()
++    _insert(case_ref={"oid": oid}, trail=[{"oid": oid}])
++    rec = _records()[0]
++    assert rec["case_ref"]["oid"] == str(oid)
++    assert rec["trail"][0]["oid"] == str(oid)
++    assert len(str(oid)) == 24
++
++
++def test_decimal128_is_exact_and_never_a_lossy_float():
++    exact = "0.1000000000000000000000000001"      # unrepresentable as float
++    _insert(total_ms=Decimal128(exact))
++    value = _records()[0]["total_ms"]
++    assert value == exact
++    assert isinstance(value, str)                  # not float(exact)
++
++
++def test_invalid_utf8_binary_is_base64_not_a_decode_attempt():
++    raw = b"\xde\xad\xbe\xef"                      # 0xbe is not valid UTF-8
++    _insert(blob=Binary(raw))
++    value = _records()[0]["blob"]
++    assert value == base64.b64encode(raw).decode("ascii") == "3q2+7w=="
++    assert base64.b64decode(value) == raw          # lossless
++
++
++def test_utf8_decodable_binary_is_also_base64_not_text():
++    raw = b"abc"
++    _insert(blob=Binary(raw))
++    # Previously the serializer rendered this as "abc" by guessing UTF-8.
++    # Binary is not text; one rule for all bytes keeps the output predictable.
++    assert _records()[0]["blob"] == base64.b64encode(raw).decode("ascii")
++
++
++# ── the behaviour that must not change ───────────────────────────────
++def test_ordinary_record_is_unchanged():
++    now = datetime.now(timezone.utc)
++    _coll().insert_one({"session_id": "ses_plain", "backend_ms": 3107.82,
++                        "renders": 3, "notes": "", "recorded_at": now})
++    rec = _records()[0]
++    assert rec["session_id"] == "ses_plain"
++    assert rec["backend_ms"] == 3107.82 and isinstance(rec["backend_ms"], float)
++    assert rec["renders"] == 3 and isinstance(rec["renders"], int)
++    assert rec["notes"] == ""
++    # Compared against the value as Mongo returns it, not against `now`:
++    # BSON datetimes come back millisecond-truncated and naive.
++    stored = _coll().find_one({"session_id": "ses_plain"})["recorded_at"]
++    assert rec["recorded_at"] == stored.isoformat()
++
++
++def test_json_native_values_keep_their_types():
++    _insert(flag=True, missing=None, count=0, ratio=0.5, label="x")
++    rec = _records()[0]
++    assert rec["flag"] is True
++    assert rec["missing"] is None
++    assert rec["count"] == 0 and isinstance(rec["count"], int)
++    assert rec["ratio"] == 0.5 and isinstance(rec["ratio"], float)
++    assert rec["label"] == "x"
++
++
++def test_nested_dicts_and_arrays_are_walked_and_order_preserved():
++    oid = ObjectId()
++    _insert(stages=[{"name": "layout", "ms": 212},
++                    {"name": "paint", "ms": 41, "ref": oid}],
++            nested={"a": {"b": {"c": [1, 2, {"d": oid}]}}})
++    rec = _records()[0]
++    assert [s["name"] for s in rec["stages"]] == ["layout", "paint"]
++    assert rec["stages"][1]["ref"] == str(oid)
++    assert rec["nested"]["a"]["b"]["c"][:2] == [1, 2]
++    assert rec["nested"]["a"]["b"]["c"][2]["d"] == str(oid)
++
++
++def test_no_field_is_added_dropped_or_renamed():
++    doc = _insert(case_ref={"oid": ObjectId()}, blob=Binary(b"\xff\xfe"),
++                  total_ms=Decimal128("1.5"))
++    rec = _records()[0]
++    # `_id` is the stored key, returned as a string exactly as before. No new
++    # key appears, and nothing the document carried disappears.
++    assert set(rec) == set(doc) | {"_id"}
++    assert rec["_id"] == str(doc["_id"])
++    assert all(k in rec for k in doc)
++
++
++def test_response_is_deterministic():
++    _insert(case_ref={"oid": ObjectId()}, total_ms=Decimal128("2.25"),
++            blob=Binary(b"\x00\xff"))
++    first, second = client.get(PATH), client.get(PATH)
++    assert first.status_code == second.status_code == 200
++    assert first.text == second.text                 # byte-identical
++
++
++def test_limit_and_ordering_are_unchanged():
++    base = datetime.now(timezone.utc)
++    for i in range(4):
++        _coll().insert_one({"session_id": f"ses_{i}", "ref": ObjectId(),
++                            "recorded_at": base - timedelta(minutes=i)})
++    r = client.get(PATH, params={"limit": 2})
++    assert r.status_code == 200
++    body = r.json()
++    assert body["count"] == 2                        # limit honoured
++    assert [x["session_id"] for x in body["records"]] == ["ses_0", "ses_1"]
++
++
++def test_empty_collection():
++    assert _coll().count_documents({}) == 0
++    r = client.get(PATH)
++    assert r.status_code == 200
++    assert r.json() == {"count": 0, "records": []}
++
++
++# ── the helper itself, for types no fixture can conveniently store ───
++def test_unanticipated_bson_types_degrade_to_strings_not_500s():
++    for value in (Regex("^x"), Code("function(){}"), Timestamp(1, 1), MinKey()):
++        assert isinstance(_json_safe({"v": value})["v"], str)
++
++
++def test_uuid_and_bare_bytes():
++    u = uuid.uuid4()
++    assert _json_safe(u) == str(u)
++    assert _json_safe(b"\x01\x02") == base64.b64encode(b"\x01\x02").decode()
++
++
++def test_helper_suppresses_nothing():
++    """A value that cannot be converted must raise, not vanish."""
++
++    class Explodes:
++        def __str__(self):
++            raise RuntimeError("deliberate")
++
++    with pytest.raises(RuntimeError):
++        _json_safe({"v": Explodes()})
+diff --git a/backend/tests/test_p0prod1_secret_policy.py b/backend/tests/test_p0prod1_secret_policy.py
+index 60c277b1..99a280ed 100644
+--- a/backend/tests/test_p0prod1_secret_policy.py
++++ b/backend/tests/test_p0prod1_secret_policy.py
+@@ -14,6 +14,12 @@ import pytest
+ 
+ from security import secret_policy as sp
+ 
++#: The backend tree under test. Previously hardcoded to "/app/backend",
++#: which is the deployed application root inside the image but an
++#: unrelated checkout when the suite runs from a repository clone — the
++#: suite then audited a tree that was not the one under test.
++BACKEND = pathlib.Path(__file__).resolve().parents[1]
++
+ _FAKE = "unit-test-instance-seed-not-a-real-secret-0000"
+ 
+ 
+@@ -27,7 +33,7 @@ def clean_env(monkeypatch):
+ 
+ # ── no repository constant may be a key ─────────────────────────────────
+ def test_no_repository_constant_can_become_a_production_key():
+-    root = pathlib.Path("/app/backend")
++    root = BACKEND
+     banned = ("xdr-audit-master-do-not-use-in-prod",
+               "xdr-secrets-master-do-not-use-in-prod",
+               "nivxray-default-instance")
+@@ -46,8 +52,7 @@ def test_no_repository_constant_can_become_a_production_key():
+ 
+ 
+ def test_the_policy_module_itself_holds_no_key_material():
+-    text = pathlib.Path(
+-        "/app/backend/security/secret_policy.py").read_text()
++    text = (BACKEND / "security/secret_policy.py").read_text()
+     assert "do-not-use" in text, "the placeholder DETECTOR must exist"
+     # the detector list is the only place such strings may appear, and it
+     # is used to REJECT values, never to supply them
+@@ -220,8 +225,7 @@ def test_the_provenance_report_carries_no_key_material(clean_env):
+ def test_key_rotation_is_never_reported_as_tampering():
+     """The four states exist, and rotation maps to its own state."""
+     import routers.xdr_audit_log as al
+-    src = pathlib.Path(
+-        "/app/backend/routers/xdr_audit_log.py").read_text()
++    src = (BACKEND / "routers/xdr_audit_log.py").read_text()
+     for state in ("VERIFIED", "SIGNED_UNDER_DIFFERENT_KEY_ID",
+                   "UNVERIFIABLE_NO_KEY_ID_RECORDED", "chain_broken"):
+         assert state in src
+@@ -262,7 +266,11 @@ def test_a_legacy_ciphertext_is_reported_not_guessed(monkeypatch):
+ 
+ # ── .env hygiene ────────────────────────────────────────────────────────
+ def test_the_application_env_holds_no_deploy_or_test_credential():
+-    text = pathlib.Path("/app/backend/.env").read_text()
++    env_file = BACKEND / ".env"
++    if not env_file.is_file():
++        pytest.skip("no application .env in this checkout; run inside the "
++                    "deployed application root to audit runtime config")
++    text = env_file.read_text()
+     names = [line.split("=", 1)[0].strip() for line in text.splitlines()
+              if "=" in line and not line.strip().startswith("#")]
+     for name in sp.FORBIDDEN_IN_PRODUCTION + sp.INERT_IN_PRODUCTION:
+@@ -274,7 +282,7 @@ def test_the_application_env_holds_no_deploy_or_test_credential():
+ 
+ 
+ def test_no_test_file_substitutes_a_default_live_credential():
+-    root = pathlib.Path("/app/backend/tests")
++    root = BACKEND / "tests"
+     this_file = pathlib.Path(__file__).resolve()
+     offenders = [str(p) for p in root.rglob("*.py")
+                  if p.resolve() != this_file
+@@ -299,7 +307,7 @@ def test_the_live_analyst_credential_is_never_read_from_the_memory_file():
+     environment. (An unrelated pre-existing suite reads the ADMIN
+     password from the memo; that is reported, not changed here.)"""
+     this_file = pathlib.Path(__file__).resolve()
+-    for path in pathlib.Path("/app/backend").rglob("*.py"):
++    for path in BACKEND.rglob("*.py"):
+         if path.resolve() == this_file:
+             continue
+         text = path.read_text(errors="ignore")
+diff --git a/backend/tests/test_xdr_webhooks.py b/backend/tests/test_xdr_webhooks.py
+index 7f117da6..d37aed1b 100644
+--- a/backend/tests/test_xdr_webhooks.py
++++ b/backend/tests/test_xdr_webhooks.py
+@@ -29,7 +29,9 @@ from routers import xdr_rbac as rb
+ from routers import xdr_webhooks as wh
+ from server import app
+ 
+-from tests._verified_session import admin_token, hdrs, register_tenants
++from tests._verified_session import (admin_token, authorize_tenants, hdrs,
++                                     provision_rbac_principal,
++                                     register_tenants)
+ 
+ #: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
+ #: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
+@@ -60,12 +62,18 @@ def _seed():
+         client = c
+         _TOKEN.append(admin_token(c))
+         register_tenants(TEN, label="webhooks")
++        # Existing a tenant is not being authorized for it.
++        authorize_tenants(os.environ["ADMIN_EMAIL"], TEN)
+         for coll in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
+                      rb._c_assignments):
+             if coll() is not None:
+                 coll().delete_many({"tenant_id": TEN})
+         if al._get_coll() is not None:
+             al._get_coll().delete_many({"tenant_id": TEN})
++        # AFTER the purge, or it would be deleted: being authorized for a
++        # tenant is not being provisioned in it, and the RBAC API cannot
++        # create the first principal in a tenant it has no principal in.
++        provision_rbac_principal(TEN, os.environ["ADMIN_EMAIL"])
+         client.post("/api/xdr/rbac/users", headers=_hdrs(),
+                     json={"email": ADMIN,
+                           "initial_roles": ["platform_admin"]})
+@@ -223,6 +231,11 @@ def test_tenant_isolation():
+     _skip_if_no_mongo()
+     other = f"wh-other-{uuid.uuid4().hex[:8]}"
+     register_tenants(other, label="webhooks-other")
++    # Authorize and provision the principal IN the second tenant, otherwise
++    # the request stops at authorization and the assertion below proves
++    # nothing about data isolation — which is what this test is for.
++    authorize_tenants(os.environ["ADMIN_EMAIL"], other)
++    provision_rbac_principal(other, os.environ["ADMIN_EMAIL"])
+     client.post("/api/xdr/rbac/users", headers=_hdrs(ten=other),
+                     json={"email": "o@x", "initial_roles": ["platform_admin"]})
+     r_other = client.get("/api/xdr/webhooks",
+diff --git a/tools/security-harness/README.md b/tools/security-harness/README.md
+new file mode 100644
+index 00000000..aa08b7ea
+--- /dev/null
++++ b/tools/security-harness/README.md
+@@ -0,0 +1,66 @@
++# Security-suite test harness
++
++**Test-only.** Nothing here runs in production, ships in an image, or is
++imported by application code.
++
++## Why it exists
++
++Several security suites were unrunnable outside a fully provisioned pod — not
++because the controls were missing, but because the suites need preconditions
++nothing supplied: a database, a signed-audit key, an admin credential, and for
++the live-HTTP suites a reachable backend with provisioned principals. The
++effect was that the controls those suites exist to prove were never exercised
++by any release gate.
++
++## What it supplies, and nothing more
++
++- an ephemeral `mongod` on a free port with a throwaway dbpath,
++- per-run generated secrets (`JWT_SECRET`, `XDR_AUDIT_MASTER_SECRET`,
++  `XDR_SECRETS_MASTER_SECRET`, `XDR_ROOT_KEY`, `EDR_AUTH_PEPPER`, admin and
++  analyst passwords) — random every run, so a suite that passed because a key
++  was guessable fails here,
++- `NIVXRAY_REPO_ROOT`, because `routers/benchmark.py` inserts
++  `$NIVXRAY_REPO_ROOT/backend` and `.../backend/tests` into `sys.path` at
++  application import time and defaults that root to `/app`. Without it a suite
++  run from a checkout imports its helpers from the **deployed** tree and
++  silently audits the wrong source,
++- for `--tier 2`, a backend on a free port plus the principals those suites
++  expect to already exist.
++
++## What it must never do
++
++- weaken, skip or relax a control,
++- grant a permission a suite needs to be refused,
++- use a credential this repository knows,
++- report a skipped test as a pass.
++
++`SecretPolicyError` refusing an unkeyed or repository-known value is the
++control **working**. It is never something to configure around.
++
++## Usage
++
++```bash
++python3 tools/security-harness/run.py --tier 1          # in-process suites
++python3 tools/security-harness/run.py --tier 2          # live-HTTP suites
++python3 tools/security-harness/run.py --suite tests/test_xdr_webhooks.py
++python3 tools/security-harness/run.py --tier 1 --junitxml evidence/tier1.xml
++```
++
++First start on a blank database costs about four minutes of index
++initialisation before any test runs. That is the application's startup cost,
++not the harness's.
++
++## Provisioning, and why each step is legitimate
++
++`--tier 2` creates one organization, one tenant, and two principals:
++
++| Step | Why it is not a bypass |
++|---|---|
++| register organization + tenant | the registry fails closed on an unregistered tenant; an operator registers it |
++| `authorize_tenants(admin, tenant)` | an explicit grant, the narrower of the two facts `authorize_requested_tenant()` accepts. **Not** `authority_scope = PLATFORM` |
++| `provision_rbac_principal(tenant, admin, "platform_admin")` | the RBAC API is gated by `users.create`, which needs a principal already provisioned in that tenant, so the first one cannot be created through the API |
++| analyst with role `read_only` | `read_only` holds no `collectors.*` permission, so the refusal the suite asserts is a real authorization decision, not an absent account |
++
++Registry validation, RBAC resolution, tenant authorization, scope checks and
++the audit chain all run unchanged afterwards. The harness supplies state; the
++server still makes every decision.
+diff --git a/tools/security-harness/run.py b/tools/security-harness/run.py
+new file mode 100755
+index 00000000..f6e98f07
+--- /dev/null
++++ b/tools/security-harness/run.py
+@@ -0,0 +1,307 @@
++#!/usr/bin/env python3
++"""Security-suite test harness · TEST-ONLY, no production role.
++
++Several security suites were unrunnable outside a fully provisioned pod, not
++because the controls were absent but because the suites need preconditions
++nothing supplied: a database, a signed-audit key, an admin credential and —
++for the live-HTTP suites — a reachable backend. The result was that the
++controls those suites exist to prove were never exercised by any gate.
++
++This harness supplies exactly those preconditions and nothing else:
++
++  * an ephemeral mongod on a free port with a throwaway dbpath,
++  * independently generated, process-local secrets,
++  * optionally a backend on a free port for the suites that speak HTTP,
++  * a `NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_*` contract filled with the same
++    generated values the tests expect to find in the environment.
++
++It deliberately does NOT: weaken a control, pre-authorize a principal,
++disable tenant isolation, or set any value this repository knows. Every
++secret is random per run, so a suite that passes because a key was guessable
++would fail here.
++
++    python3 tools/security-harness/run.py --tier 1
++    python3 tools/security-harness/run.py --tier 2
++    python3 tools/security-harness/run.py --suite tests/test_xdr_webhooks.py
++"""
++from __future__ import annotations
++
++import argparse
++import os
++import secrets
++import shutil
++import signal
++import socket
++import subprocess
++import sys
++import tempfile
++import time
++import urllib.error
++import urllib.request
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++BACKEND = ROOT / "backend"
++
++#: In-process suites: TestClient plus a database.
++TIER1 = [
++    "tests/test_xdr_webhooks.py",
++    "tests/test_collector_api_key_auth.py",
++    "tests/test_d11_ingest_provenance.py",
++    "tests/test_p0prod1_secret_policy.py",
++    "tests/test_v2_isolation.py",
++    "tests/test_phase2_1_tenant_isolation.py",
++]
++
++#: Live-HTTP suites: these drive a running server over REACT_APP_BACKEND_URL.
++TIER2 = [
++    "tests/test_collector_plane_auth.py",
++    "tests/test_edr_route_tenant_authority.py",
++]
++
++#: Credential slots the suites read from the environment. Names only — the
++#: values are generated per run and never leave this process tree.
++CREDENTIAL_SLOTS = ("001", "003", "004", "005", "006", "009", "010", "011")
++
++
++def _free_port() -> int:
++    with socket.socket() as s:
++        s.bind(("127.0.0.1", 0))
++        return s.getsockname()[1]
++
++
++def _secret() -> str:
++    return secrets.token_urlsafe(48)
++
++
++def build_env(mongo_url: str, db_name: str) -> dict:
++    env = dict(os.environ)
++    admin_password = _secret()
++    env.update({
++        "MONGO_URL": mongo_url,
++        "DB_NAME": db_name,
++        # `routers/benchmark.py` inserts `$NIVXRAY_REPO_ROOT/backend` and
++        # `.../backend/tests` into sys.path at application import time and
++        # defaults that root to "/app". Without this, a suite run from a
++        # checkout imports its helpers from the DEPLOYED tree and silently
++        # audits the wrong source. Reported as an application-side blocker.
++        "NIVXRAY_REPO_ROOT": str(ROOT),
++        "JWT_SECRET": _secret(),
++        "XDR_ROOT_KEY": _secret(),
++        "XDR_AUDIT_MASTER_SECRET": _secret(),
++        "XDR_SECRETS_MASTER_SECRET": _secret(),
++        "EDR_AUTH_PEPPER": _secret(),
++        "ADMIN_EMAIL": "admin@nivxray.com",
++        "ADMIN_PASSWORD": admin_password,
++        # Non-empty so config validation passes; the harness performs no LLM
++        # call and the integration tier may be absent entirely.
++        "EMERGENT_LLM_KEY": "harness-no-llm-call",
++        "NIVX_EDR_WORKERS_DISABLED": "1",
++        "HARNESS_TENANT": f"harness-ten-{secrets.token_hex(4)}",
++        "HARNESS_ANALYST_EMAIL": "analyst@default.com",
++    })
++    for slot in CREDENTIAL_SLOTS:
++        env[f"NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_{slot}"] = admin_password
++    # Slot 011 is the unprivileged analyst, not the administrator. Keeping it
++    # distinct means a suite cannot pass by confusing the two identities.
++    env["NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_011"] = _secret()
++    env.pop("PYTEST_ADDOPTS", None)
++    return env
++
++
++class Mongo:
++    """A disposable mongod. Nothing it stores survives the run."""
++
++    def __init__(self) -> None:
++        self.port = _free_port()
++        self.dbpath = Path(tempfile.mkdtemp(prefix="nivx-harness-mongo-"))
++        self.proc: subprocess.Popen | None = None
++
++    @property
++    def url(self) -> str:
++        return f"mongodb://127.0.0.1:{self.port}"
++
++    def start(self) -> None:
++        if not shutil.which("mongod"):
++            raise SystemExit("mongod is not installed; the harness cannot "
++                             "fabricate a database")
++        self.proc = subprocess.Popen(
++            ["mongod", "--dbpath", str(self.dbpath), "--port", str(self.port),
++             "--bind_ip", "127.0.0.1", "--quiet"],
++            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
++        deadline = time.time() + 60
++        while time.time() < deadline:
++            with socket.socket() as s:
++                if s.connect_ex(("127.0.0.1", self.port)) == 0:
++                    return
++            if self.proc.poll() is not None:
++                raise SystemExit("mongod exited during startup")
++            time.sleep(0.4)
++        raise SystemExit("mongod did not become reachable")
++
++    def stop(self) -> None:
++        if self.proc and self.proc.poll() is None:
++            self.proc.send_signal(signal.SIGTERM)
++            try:
++                self.proc.wait(timeout=30)
++            except subprocess.TimeoutExpired:
++                self.proc.kill()
++        shutil.rmtree(self.dbpath, ignore_errors=True)
++
++
++class Backend:
++    """A backend on a free port, for the suites that speak HTTP."""
++
++    def __init__(self, env: dict) -> None:
++        self.port = _free_port()
++        self.env = dict(env)
++        self.log = Path(tempfile.mkstemp(prefix="nivx-harness-backend-",
++                                         suffix=".log")[1])
++        self.proc: subprocess.Popen | None = None
++
++    @property
++    def origin(self) -> str:
++        return f"http://127.0.0.1:{self.port}"
++
++    def start(self) -> None:
++        handle = self.log.open("wb")
++        self.proc = subprocess.Popen(
++            [sys.executable, "-m", "uvicorn", "server:app",
++             "--host", "127.0.0.1", "--port", str(self.port), "--workers", "1"],
++            cwd=str(BACKEND), env=self.env, stdout=handle, stderr=handle)
++        deadline = time.time() + 180
++        while time.time() < deadline:
++            if self.proc.poll() is not None:
++                raise SystemExit(f"backend exited during startup; see {self.log}")
++            try:
++                with urllib.request.urlopen(f"{self.origin}/api/health",
++                                            timeout=5) as r:
++                    if r.status == 200:
++                        return
++            except (urllib.error.URLError, OSError):
++                time.sleep(1)
++        raise SystemExit(f"backend did not become healthy; see {self.log}")
++
++    def stop(self) -> None:
++        if self.proc and self.proc.poll() is None:
++            self.proc.send_signal(signal.SIGTERM)
++            try:
++                self.proc.wait(timeout=30)
++            except subprocess.TimeoutExpired:
++                self.proc.kill()
++
++
++PROVISION = r'''
++import os, sys, uuid
++sys.path.insert(0, os.getcwd())
++from services import tenant_registry as tr
++import deps
++from tests._verified_session import authorize_tenants, provision_rbac_principal
++
++TENANT = os.environ["HARNESS_TENANT"]
++ADMIN = os.environ["ADMIN_EMAIL"]
++ANALYST = os.environ["HARNESS_ANALYST_EMAIL"]
++ANALYST_PW = os.environ["NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_011"]
++
++org = tr.create_organization(slug=f"harness-{uuid.uuid4().hex[:6]}",
++                             display_name="harness suite", kind="CUSTOMER",
++                             created_by="harness")
++tr.adopt_legacy(tenant_id=TENANT, organization_id=org["id"], slug=TENANT,
++                display_name=TENANT, created_by="harness")
++
++# The administrator: authorized for the tenant and provisioned in it.
++#
++# Deliberately an EXPLICIT GRANT, not `authority_scope == "PLATFORM"`. Both
++# were tried. PLATFORM breadth makes `GET /api/xdr/tenants` fail with
++# TENANT_REQUIRED ("a platform-scoped principal must name the customer"),
++# which breaks the suite's own registry discovery and produced 67 failures.
++# A single explicit grant resolves through SINGLE_AUTHORIZED_TENANT and
++# leaves only one assertion family failing — an expected rejection whose
++# CODE differs from the suite's expectation. See the A1 report; that is an
++# application-contract question for the owner, not something to tune here.
++authorize_tenants(ADMIN, TENANT)
++provision_rbac_principal(TENANT, ADMIN, "platform_admin")
++
++# An authenticated principal that is deliberately NOT authorized for the
++# collector plane. `read_only` holds no `collectors.*` permission, so the
++# refusal the suite asserts is a real authorization decision rather than a
++# missing account.
++users = deps.sync_collection("users")
++users.delete_many({"email": ANALYST})
++users.insert_one({"email": ANALYST, "password": deps.hash_password(ANALYST_PW),
++                  "role": "analyst", "tenant_ids": [TENANT], "enabled": True})
++provision_rbac_principal(TENANT, ANALYST, "read_only")
++print(f"[harness] provisioned tenant={TENANT} admin={ADMIN} analyst={ANALYST}")
++'''
++
++
++def provision(env: dict) -> None:
++    """Create the principals the live-HTTP suites expect to already exist.
++
++    These suites were written against a long-lived preview database and log
++    in as specific principals. On a blank database every login fails with
++    401, which looks like 62 security failures and is really an absent
++    environment. This creates the same server-side state an operator's
++    provisioning step creates — and nothing else: no permission is widened,
++    and the unprivileged principal is given a role that genuinely lacks
++    collector authority so its refusal is a real decision.
++    """
++    proc = subprocess.run([sys.executable, "-c", PROVISION],
++                          cwd=str(BACKEND), env=env,
++                          capture_output=True, text=True)
++    sys.stdout.write(proc.stdout)
++    if proc.returncode != 0:
++        sys.stderr.write(proc.stderr[-4000:])
++        raise SystemExit("provisioning failed; refusing to report suite "
++                         "results from an unprovisioned environment")
++
++
++def run(suites: list[str], env: dict, junit: Path | None) -> int:
++    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:randomly", *suites]
++    if junit:
++        junit.parent.mkdir(parents=True, exist_ok=True)
++        cmd.append(f"--junitxml={junit}")
++    print(f"[harness] {' '.join(cmd)}", flush=True)
++    return subprocess.call(cmd, cwd=str(BACKEND), env=env)
++
++
++def main() -> int:
++    ap = argparse.ArgumentParser(description=__doc__)
++    ap.add_argument("--tier", choices=["1", "2"],
++                    help="1 = in-process suites, 2 = live-HTTP suites")
++    ap.add_argument("--suite", action="append", default=[],
++                    help="explicit suite path, relative to backend/")
++    ap.add_argument("--junitxml", type=Path)
++    args = ap.parse_args()
++
++    if args.suite:
++        suites, need_backend = args.suite, args.tier == "2"
++    elif args.tier == "1":
++        suites, need_backend = TIER1, False
++    elif args.tier == "2":
++        suites, need_backend = TIER2, True
++    else:
++        ap.error("supply --tier or --suite")
++
++    mongo = Mongo()
++    backend: Backend | None = None
++    try:
++        mongo.start()
++        env = build_env(mongo.url, f"nivx_harness_{secrets.token_hex(6)}")
++        print(f"[harness] mongod on {mongo.url}", flush=True)
++        if need_backend:
++            backend = Backend(env)
++            backend.start()
++            env["REACT_APP_BACKEND_URL"] = backend.origin
++            print(f"[harness] backend on {backend.origin}", flush=True)
++            provision(env)
++        return run(suites, env, args.junitxml)
++    finally:
++        if backend:
++            backend.stop()
++        mongo.stop()
++        print("[harness] torn down", flush=True)
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

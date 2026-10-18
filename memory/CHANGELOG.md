@@ -8378,3 +8378,36 @@ Stopped after producing the host acceptance package as instructed.
   still carry the defect (N-3B/N-3C, owner call); this suite is in no gate yet.
 - Report `memory/A0/N3A_TELEMETRY_BSON_REPAIR.md`; evidence
   `/app/rocket-evidence/n3a/`. RELEASE STATUS: NO-GO.
+
+## 2026-06 · GitHub publication assessment for N-3A (READ-ONLY, nothing pushed)
+
+- Closest published baseline: `origin/engineering/stage1-staging-package`
+  `ce8732ba` (tree `aff5f8e1`, 2026-10-13) — newest of 40 refs, superset of
+  `stage1-command-readiness`, closest backend tree (993 differing files vs
+  1,663 for `main`).
+- Histories confirmed unrelated: no merge-base; the remote rejects our
+  baselines by SHA. Local repo is a 25-commit chain rooted at the unpublished
+  sanitized snapshot `b1240bba`.
+- Net A3→N-3A transfer surface: 350 files — 110 already identical upstream,
+  225 new, **15 diverged** (the whole conflict set). Published side is
+  +71/−714 lines there; the one substantive published-only block is the
+  `NIVX_TENANT_REGISTRY_ENFORCE` flag our `80eb83c4` deliberately retired.
+- Per-commit cherry-pick trials onto the published tip: A1 both commits 0
+  conflicts, **N-3A 0 conflicts** (telemetry.py blob `036d87fd` identical
+  upstream), A3/F1/N-1/N-5 2–11 each, mostly ordering artefacts; the real
+  blocker is `tools/rocket-validation/run.py`, which exists only in the
+  unpublished snapshot.
+- Trial series (A1 + A1 docs + N-3A) on the published base: clean, 8 files,
+  +762/−16, and `14 passed in 17.63s` — the fix verifies on published code.
+- Secret scan of both candidate transfers: zero hits (keys, PATs, JWTs, env
+  files, credential URIs). Generated artefacts: one audit-evidence ledger
+  record in the net diff; `phase2_batch2_perf.json` and the binary
+  `xdr_state/outbox.db` appear only in intermediate commits and net out.
+- Recommendation for owner approval: **S1 minimal** — new branch
+  `publish/n3a-telemetry-bson` from `ce8732ba` with the two A1 harness commits
+  plus `38e294c6`, PR against `stage1-staging-package` (the requested base
+  `engineering/n5-ci-gate` is unpublished). F1/N-1/N-5 stay local pending a
+  separate decision; S1 does not foreclose the full stack.
+- Push/PR still blocked on write credentials (empty credential store, no
+  GH_TOKEN, no `gh`). Report `memory/A0/PUBLICATION_ASSESSMENT_N3A.md`,
+  evidence `/app/rocket-evidence/pub/`. RELEASE STATUS: NO-GO.
