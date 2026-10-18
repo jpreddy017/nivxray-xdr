@@ -30,9 +30,14 @@ window in Mongo so ops can grep for slow analysts / bad hardware.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import base64
+import decimal
+import uuid
+from collections.abc import Mapping
+from datetime import date, datetime, time, timezone
 from typing   import Any, Dict, List, Optional
 
+from bson     import Decimal128, ObjectId
 from fastapi   import APIRouter
 from pydantic  import BaseModel, Field
 
@@ -40,6 +45,57 @@ from deps import db
 
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
+
+
+def _json_safe(value: Any) -> Any:
+    """Recursively coerce a stored telemetry value into a JSON-encodable one.
+
+    A document is legal in Mongo and fatal at the response boundary: this
+    endpoint returns what it read, and the previous code normalised only the
+    top-level `_id` and `recorded_at`. Any other BSON value — an `ObjectId`
+    nested in a sub-document, a `Decimal128`, non-UTF-8 `Binary` — reached
+    FastAPI's serializer and became an unauthenticated HTTP 500 (N-3).
+
+    Conversion rules, deliberately explicit and lossless:
+
+      * JSON-native (`str`, `int`, `float`, `bool`, `None`) — returned as-is,
+        type preserved. No numeric value is reformatted.
+      * `ObjectId`           → its 24-character hex string.
+      * `Decimal128`/`Decimal` → `str` of the exact decimal. NOT `float`:
+        that would silently lose precision on a value the client stored.
+      * `bytes`/`Binary`     → base64 (ASCII). NOT a UTF-8 decode: binary is
+        not text, and guessing raises `UnicodeDecodeError` on the first
+        non-UTF-8 byte.
+      * `datetime`/`date`/`time` → ISO-8601, unchanged from before.
+      * `UUID`               → canonical string form.
+      * mappings and sequences → walked recursively; key insertion order and
+        element order are preserved, so the response stays deterministic.
+      * anything else (`Regex`, `Code`, `Timestamp`, `MinKey`, `DBRef`, …)
+        → `str`, so a type nobody anticipated degrades to a readable value
+        instead of a 500.
+
+    Nothing is dropped, renamed or swallowed: every key present in the stored
+    document is present in the output, and no exception is suppressed.
+    """
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, Decimal128):
+        return str(value.to_decimal())
+    if isinstance(value, decimal.Decimal):
+        return str(value)
+    if isinstance(value, (bytes, bytearray)):
+        return base64.b64encode(bytes(value)).decode("ascii")
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return str(value)
 
 
 class FrontendTelemetry(BaseModel):
@@ -99,9 +155,7 @@ async def recent_frontend_telemetry(limit: int = 50) -> Dict[str, Any]:
     docs: List[Dict[str, Any]] = await db.frontend_telemetry.find(
         {}, sort=[("recorded_at", -1)]
     ).limit(limit).to_list(length=limit)
-    for d in docs:
-        d["_id"] = str(d.get("_id"))
-        rec = d.get("recorded_at")
-        if hasattr(rec, "isoformat"):
-            d["recorded_at"] = rec.isoformat()
-    return {"count": len(docs), "records": docs}
+    # Same records, same order, same field names — only BSON values that the
+    # response serializer cannot encode are coerced. See `_json_safe`.
+    records = [_json_safe(d) for d in docs]
+    return {"count": len(records), "records": records}
