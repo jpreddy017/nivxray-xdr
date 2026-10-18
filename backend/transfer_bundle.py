@@ -16,6 +16,8 @@ BUNDLES = {
     "n3a-s1-package": Path("/app/SECURE_EXPORT/n3a-s1-publication-package.tar.gz"),
     # EDR access-loop repair · publication candidates A and B.
     "edr-access-loop": Path("/app/SECURE_EXPORT/edr-access-loop-package.tar.gz"),
+    # Windows re-enrolment recovery · source + CI only, NO artifact.
+    "win-reenrol": Path("/app/SECURE_EXPORT/win-reenrol-recovery-package.tar.gz"),
 }
 
 

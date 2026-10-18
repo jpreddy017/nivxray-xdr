@@ -8545,3 +8545,35 @@ Stopped after producing the host acceptance package as instructed.
   ACTIVE credentials.
 - Evidence: `tests/edr/test_p0_windows_reenrol_staging_race.py` 18 passed on
   the local tree. No deployment, token, restart or production access.
+
+## 2026-06 · Windows re-enrolment recovery — source + CI prepared, NO artifact
+
+- Engineering: `engineering/win-reenrol-recovery` `fafceed35505` (parent
+  `eac0192b`) adds `backend/tests/edr/test_p0_win_reenrol_recovery.py` — 7
+  behavioural tests: REVOKED endpoint + fresh single-use token → same
+  endpoint_id/tenant, ENROLLED+ACTIVE, sensor_state healed, event_count 822,757
+  and all delivery timestamps preserved value-for-value, new credential while
+  the revoked one stays REVOKED, replay still refused, plus hardware-identity
+  stability including `a_missing_processor_id_mints_a_DIFFERENT_endpoint`.
+  7 passed; security gate 126/0/0/1 exit 0.
+- Publication: `publish/win-reenrol-recovery` `c845ff0bffdd6a68fc2839dc1c9c2e938db768b2`
+  / tree `fe8becc227844f7135e1509b7b5286e27f9b7e27` on published base
+  `d065fd67`, 0 conflicts, 9 files +4686/−115 — the repaired
+  `nivxforge_setup.py` (stop-and-prove, image-release probe, rollback,
+  `--token-stdin` only), `nivxforge_journal.py`, content-acquisition and
+  delivery-counters modules, `build_windows_installer.ps1`, sensor
+  0.2.0→0.3.0, the Windows CI workflow, and both Windows test suites.
+  25 passed on the publication candidate itself.
+- Sanitised for the public repo: customer tenant id, endpoint id, hostname and
+  processor id replaced with synthetic fixtures in the two test files, and the
+  CI verdict field renamed to `TARGET_ENDPOINT_TOUCHED`. Literals only;
+  engineering copies keep the real values. `DEFAULT_BACKEND` kept (already
+  public in docs/).
+- **NO WINDOWS ARTIFACT EXISTS.** PyInstaller cannot cross-compile a PE here
+  and there is no push credential, so the workflow has never run: no run id,
+  no artifact SHA256. The re-enrolment procedure in the package is explicitly
+  gated on that build.
+- Package `/app/SECURE_EXPORT/win-reenrol-recovery-package.tar.gz` sha256
+  `263e549261b66f19e35ac932d38afcd9926733803da73b432c746f9c16fbc9af`
+  (210,867 B), served at `/api/transfer/win-reenrol`. Patch-derived tree
+  verified `fe8becc2…`. RELEASE STATUS: NO-GO for re-enrolment.

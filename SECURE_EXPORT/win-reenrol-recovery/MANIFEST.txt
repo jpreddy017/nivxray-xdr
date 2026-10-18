@@ -1,0 +1,111 @@
+NIVXFORGE EDR — WINDOWS RE-ENROLMENT RECOVERY · PUBLICATION MANIFEST
+====================================================================
+
+NO WINDOWS ARTIFACT IS INCLUDED OR CLAIMED. This package contains source and
+CI only. The installer must be built ON WINDOWS by the published workflow; a
+PE cannot be cross-compiled from this Linux pod and no SHA256 exists yet.
+
+PUBLISHED BASELINE
+  repository           jpreddy017/nivxray-xdr
+  base branch          publish/n3a-telemetry-bson   (pushed; PR #16 untouched)
+  base commit          d065fd674eca239c6a62af8322bb394d3bc45a53
+  base tree            5cef61aa71dc36ebb7398810c6432cc60dc5daab
+
+PUBLICATION CANDIDATE
+  branch               publish/win-reenrol-recovery
+  commit               c845ff0bffdd6a68fc2839dc1c9c2e938db768b2
+  tree                 fe8becc227844f7135e1509b7b5286e27f9b7e27
+  cherry-pick          0 conflicts
+  patch-derived tree   fe8becc227844f7135e1509b7b5286e27f9b7e27  (MATCH)
+
+ENGINEERING SOURCE
+  branch               engineering/win-reenrol-recovery
+  commit               fafceed35505…   (adds the behavioural recovery suite)
+  parent               eac0192b6f81be84165b55d302b0ac201d5762ef  (EDR access loop)
+
+CHANGED FILES — 9, +4686 / -115
+  A  .github/workflows/windows-sensor-installer.yml                      builds ON WINDOWS; proves provenance, self-SHA256, unknown-flag refusal, real SCM lifecycle, Gate 4 re-enrol race
+  A  agents/nivxforge-windows/nivxforge_setup.py                         the repaired installer (stop-and-prove, image-release probe, rollback, --token-stdin only)
+  A  agents/nivxforge-windows/nivxforge_journal.py                       frozen-journal selftest the CI gate requires
+  A  agents/nivxforge-windows/nivxforge_content_acquisition.py
+  A  agents/nivxforge-windows/nivxforge_delivery_counters.py
+  A  agents/nivxforge-windows/build/build_windows_installer.ps1          stamps commit / run id / artifact SHA256
+  M  agents/nivxforge-windows/nivxforge_sensor.py                        0.2.0-windows -> 0.3.0-windows
+  A  backend/tests/edr/test_p0_windows_reenrol_staging_race.py           18 tests (existing, carried)
+  A  backend/tests/edr/test_p0_win_reenrol_recovery.py                   7 tests (new)
+
+  Nothing else. No backend source change, no dependency change, no workflow
+  other than the Windows one, no production configuration.
+
+SANITISED FOR PUBLICATION
+  The two Windows test files and one CI verdict field carried the real
+  laptop's identifiers. This repository is public, so the published copies use
+  synthetic fixtures; the engineering copies keep the real ones.
+    ten_e759b7288598bd882e3dcac49d -> ten_0000000000synthetic0000
+    ep_1989031c8c1d0085812f        -> ep_0000synthetic00000
+    DESKTOP-A9HGFJJ                -> DESKTOP-SYNTH01
+    BFEBFBFF000906EA               -> BFEBFBFF00SYNTH1
+    DESKTOP_A9HGFJJ_TOUCHED = 'NO' -> TARGET_ENDPOINT_TOUCHED = 'NO'
+  Literals only; asserted behaviour is identical and the published copies pass
+  unchanged (25 passed, below). `DEFAULT_BACKEND = "https://nivxray.nivxforge.com"`
+  is deliberately kept: it is the product's public endpoint and is already
+  published in docs/README.md and docs/OPERATIONS.md.
+
+TEST EVIDENCE
+  on the PUBLICATION candidate (published base + this commit)
+    tests/edr/test_p0_win_reenrol_recovery.py            7 passed
+    tests/edr/test_p0_windows_reenrol_staging_race.py   18 passed
+                                                        25 passed in 1.90s
+  on the ENGINEERING branch
+    tests/edr/test_p0_win_reenrol_recovery.py            7 passed in 1.69s
+    gate: security                      126 tests, 0 failures, 0 errors, 1 skipped, exit 0
+
+  What the 7 new tests assert, behaviourally, against a real database:
+    revoked_endpoint_recovers_identity_state_and_history
+      same endpoint_id, same tenant, exactly one endpoint document;
+      ENROLLED + ACTIVE, sensor_state healed off REVOKED, revoked_at cleared;
+      event_count 822,757, last_telemetry_at, last_heartbeat_at,
+      report_interval_seconds, cadence_basis, lifecycle_reported,
+      outbox_queue_depth all preserved value-for-value;
+      a NEW credential_id, with the revoked one still REVOKED
+    the_recovery_token_is_still_single_use      replay refused, no 2nd credential
+    the_revoked_credential_stays_unusable_after_recovery
+    the_same_processor_id_always_mints_the_same_endpoint
+    a_missing_processor_id_mints_a_DIFFERENT_endpoint      the fallback risk
+    the_same_machine_in_another_tenant_is_another_endpoint
+    an_endpoint_id_is_never_accepted_from_the_agent
+
+  Pre-existing guards relied on, not re-proved here:
+    staging race suite:  running_service_is_stopped_and_proved_before_staging,
+      delayed_scm_stop_is_waited_for_not_assumed, stop_timeout_fails_closed_and
+      _replaces_nothing, locked_executable_refuses_and_replaces_nothing,
+      staging_failure_restores_a_previously_running_service,
+      enrolment_failure_restores_the_service_and_spends_no_token,
+      rollback_does_not_start_a_service_the_operator_had_stopped,
+      the_live_desktop_failure_is_reproduced_and_rolled_back
+    token interface:     `--token-stdin` present, `--token` ABSENT from the
+      parser (asserted by name); unknown flags refused
+
+STATE PRESERVATION (verified by source, unchanged by this candidate)
+  state root  C:\ProgramData\NivXForge\sensor   identity.json, outbox.jsonl,
+              outbox.offset, channels.json
+  install dir C:\Program Files\NivXForge        binary + service host
+  `install` never deletes state; only `uninstall --purge` does. A failure
+  before the enrolment step consumes no token. Residual: identity.json is
+  written with a non-atomic write_text().
+
+SCAN — zero hits
+  private keys, AWS ids, GitHub PATs, OpenAI keys, JWTs, credential-bearing
+  Mongo URIs, quoted credential assignments, agent secret prefixes
+  (nvx_enr_/nvx_cred_/nvx_ses_), pod paths, .env files, binaries.
+  Customer identifiers after sanitisation: 0.
+
+VERIFY
+  sha256sum -c SHA256SUMS
+  git bundle verify win-reenrol-recovery.bundle          # requires d065fd67…
+  git clone https://github.com/jpreddy017/nivxray-xdr.git && cd nivxray-xdr
+  git fetch ../win-reenrol-recovery.bundle \
+    'refs/heads/publish/win-reenrol-recovery:refs/heads/publish/win-reenrol-recovery'
+  git switch publish/win-reenrol-recovery
+  git rev-parse HEAD^{tree}      # fe8becc227844f7135e1509b7b5286e27f9b7e27
+  git diff --stat d065fd67..HEAD # 9 files changed, 4686 insertions(+), 115 deletions(-)
