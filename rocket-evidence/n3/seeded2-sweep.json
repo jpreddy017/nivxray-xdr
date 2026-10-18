@@ -1,0 +1,1813 @@
+{
+  "summary": {
+    "root": "/app/rocket-p0/n3",
+    "seeded": true,
+    "healthy": true,
+    "probed": 354,
+    "buckets": {
+      "200": 75,
+      "403": 271,
+      "404": 5,
+      "401": 3
+    },
+    "non_2xx_401_403": [
+      {
+        "path": "/api/audit/iue-architecture.pdf",
+        "status": 404,
+        "body": "{\"detail\":{\"error\":\"iue_pdf_missing\"}}"
+      },
+      {
+        "path": "/api/audit/iue-convergence-design.pdf",
+        "status": 404,
+        "body": "{\"detail\":{\"error\":\"design_pdf_missing\"}}"
+      },
+      {
+        "path": "/api/audit/partial-pending-skipped-dead.pdf",
+        "status": 404,
+        "body": "{\"detail\":{\"error\":\"partial_pdf_missing\"}}"
+      },
+      {
+        "path": "/api/audit/workspace-360.pdf",
+        "status": 404,
+        "body": "{\"detail\":{\"error\":\"audit_pdf_missing\"}}"
+      },
+      {
+        "path": "/api/deck/nivxray-aide-fixed.pptx",
+        "status": 404,
+        "body": "{\"detail\":\"Fixed deck not built yet\"}"
+      }
+    ]
+  },
+  "results": [
+    {
+      "path": "/api/",
+      "status": 200,
+      "body": "{\"service\":\"NivXRay\",\"status\":\"ok\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/architecture/audit",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/architecture/audit/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/binding/report",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/canonical-evidence/count",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/collector-runtime/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/contracts",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/contracts/report",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/dsm/registry",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/engines/control-plane",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/engines/control-plane/dependencies",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/engines/list",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/engines/report",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/frameworks",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/harness/engines",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/osint-cache/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/report",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/response-strategies",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/response/actions",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/content-supply-chain/samples",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/data-sources/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/detection/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/finetune/dataset",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/finetune/dataset.jsonl",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/finetune/dataset/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/finetune/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/ioc/composition",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/llm-telemetry",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/lolbas/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/models",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/models/catalog",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/osint/services",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/resource-protection",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/samples",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/samples/dashboard",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/taxii/config",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/taxii/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/admin/users",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/ai/budget",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/ai/toggle",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/artifacts/capabilities",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/audit/iue-architecture.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 IUE / Workspace / Input Architecture 360\u00b0 READ-ONLY AUDIT\n\n**Type**: READ-ONLY architecture discovery. No code, UI, IUE, routing, MITRE, verdict, adapters, or environment modified.\n**Date**: 2026-02-15 \u00b7 Session-20 (owner-authorised \u00b7 post-Task-2).\n**Method**: Every claim is grounded in a file path + line number + function/class. Anything not verifiable from code is tagged `NOT VER"
+    },
+    {
+      "path": "/api/audit/iue-architecture.pdf",
+      "status": 404,
+      "body": "{\"detail\":{\"error\":\"iue_pdf_missing\"}}"
+    },
+    {
+      "path": "/api/audit/iue-convergence-design.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 Single-IUE Convergence \u2014 Design-Only Blueprint\n\n**Type**: DESIGN ONLY. No code, adapter, IUE, router, MITRE, verdict, canonical-evidence, or Workspace change is proposed or performed.\n**Date**: 2026-02-15 \u00b7 Session-20 (post ADR-0013 audit ratification).\n**Anchor**: ADR-0013 \u00b7 IUE 360\u00b0 READ-ONLY Audit \u2014 CONFIRMED.\n**Owner constraint**: IUE decides **WHAT and WHY**. Router decide"
+    },
+    {
+      "path": "/api/audit/iue-convergence-design.pdf",
+      "status": 404,
+      "body": "{\"detail\":{\"error\":\"design_pdf_missing\"}}"
+    },
+    {
+      "path": "/api/audit/partial-pending-skipped-dead.md",
+      "status": 200,
+      "body": "# NivXRay \u2014 Partial \u00b7 Pending \u00b7 Skipped \u00b7 Dead Inventory\n\n**Type**: READ-ONLY discovery follow-up to ADR-0012 (Workspace 360\u00b0 Audit).\n**Date**: 2026-02-15 \u00b7 Session-20.\n**Scope**: Enumerate every task/component that is (a) partially executed, (b) explicitly pending, (c) skipped/deferred, or (d) dead / dead-ish code. Every row carries a file path or ADR citation. No code is modified.\n\nLegend"
+    },
+    {
+      "path": "/api/audit/partial-pending-skipped-dead.pdf",
+      "status": 404,
+      "body": "{\"detail\":{\"error\":\"partial_pdf_missing\"}}"
+    },
+    {
+      "path": "/api/audit/workspace-360.md",
+      "status": 200,
+      "body": "# NivXRay Workspace \u2014 360\u00b0 Current-State Architecture & Functionality Audit\n\n**Type**: READ-ONLY discovery.\n**Date**: 2026-02-15 (Session-20).\n**Scope**: Reverse-engineer the Workspace as it exists in the current repository. No code, UI, memory or architecture is modified. Where documentation, ADRs, PRDs, or comments disagree with implementation, the disagreement is called out explicitly.\n**Met"
+    },
+    {
+      "path": "/api/audit/workspace-360.pdf",
+      "status": 404,
+      "body": "{\"detail\":{\"error\":\"audit_pdf_missing\"}}"
+    },
+    {
+      "path": "/api/auth/me",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/batch/evaluate/nxgec",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/batch/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/batch/test/example",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/behaviors/registry",
+      "status": 200,
+      "body": "{\"schema_version\":\"1.0\",\"count\":44,\"behaviors\":[{\"id\":\"archive_extraction\",\"canonical_name\":\"Archive Extraction\",\"description\":\"Archive extraction of an obfuscated payload.\",\"introduced_in\":\"P0.3\",\"deprecated_in\":\"\",\"lifecycle\":\"stable\",\"visibility\":\"public\",\"producers\":[\"services.ida.behaviors.classify_command\",\"services.uaie.behavior_extractor.extract_behaviors\"],\"consumers\":[\"services.ida.proje"
+    },
+    {
+      "path": "/api/benchmark/cache/stats",
+      "status": 200,
+      "body": "{\"hits\":0,\"misses\":0,\"hit_rate\":0.0,\"warm\":false,\"age_s\":null,\"key\":null}"
+    },
+    {
+      "path": "/api/benchmark/multilayer",
+      "status": 200,
+      "body": "{\"error\":\"report not generated yet\",\"path\":\"/app/rocket-p0/n3/backend/tests/reports/multilayer_battery.json\"}"
+    },
+    {
+      "path": "/api/benchmark/real-world",
+      "status": 200,
+      "body": "{\"corpus_size\":120,\"generated_at\":\"2026-09-26T12:44:44.100423+00:00\",\"gate\":{\"ok\":true,\"failures\":[],\"thresholds\":{\"min_mitre_hit_rate\":0.75,\"max_undecoded_rate\":0.1,\"min_ioc_recall\":0.7}},\"metrics\":{\"mitre_hit_rate\":0.975,\"undecoded_rate\":0.0167,\"ioc_recall\":0.3267,\"marker_hit_rate\":0.0833,\"avg_layers\":5.6,\"avg_latency_ms\":3394},\"per_family\":{\"Emotet\":{\"total\":2,\"mitre_hits\":2,\"undecoded\":0},\"Qak"
+    },
+    {
+      "path": "/api/benchmark/real-world/download",
+      "status": 200,
+      "body": "{\"count\":120,\"corpus\":[{\"id\":\"rws_001_emotet\",\"family\":\"Emotet\",\"source\":\"TrendMicro \u00b7 Emotet PS Downloader (2024)\",\"stack_id\":\"stack_b64x3_gz_rev_url\",\"layers\":[\"b64\",\"b64\",\"b64\",\"gzip_b64\",\"reverse\",\"url\"],\"min_layers\":6,\"raw_input\":\"%3D%3DAAAEADeCFBW%2F%2F3msQho4KtdX56Es3zcens9j2P7PLTYYRTt6cBMYOS3NtbAj6X9mrWDRaonm3V%2FXn538FKK54WJ5ao0%2Bhz2c8hBb6yzd8XxyIoJXH7Jownky%2B4yWY%2FOibE6q6Rr0UBPP2hwfy"
+    },
+    {
+      "path": "/api/cases",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/corpus/validate/example",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/corrections",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/corrections/analytics",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/corrections/pending",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/correlations",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/deck/360-architecture.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 360\u00b0 Architecture \u2014 Current + Target\n\n**Status:** v1.0 \u00b7 evidence-backed \u00b7 zero-hallucination\n**Date:** 2026-02-13\n**Verified against:** live `/app/backend`, `/app/frontend`, `/app/memory/adr/`, live API on `preview.emergentagent.com`\n\n---\n\n## Reading rules\n- `A` = TODAY (implemented + reproducible)\n- `B` = TARGET (declared in `PRD.md` / ADRs)\n- `C` = MARKET VISION (long-term)\n- "
+    },
+    {
+      "path": "/api/deck/360-evidence.md",
+      "status": 200,
+      "body": "> **SUPERSEDED_BY:** `docs/nivxray-xdr/08_VALIDATION/REQUIREMENTS_TRACEABILITY_MATRIX.md` (P-1 documentation reconciliation, 2026-09-07T18:00Z). Retained for provenance; do not edit.\n\n# NivXRay \u00b7 360\u00b0 Evidence Matrix \u2014 Flat Citation Table\n\n**Purpose:** every capability claim in the audit maps to at least one row here. Zero-hallucination lookup.\n**Method:** `grep`, `find`, `wc -l`, live `curl`,"
+    },
+    {
+      "path": "/api/deck/360-posture.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 360\u00b0 Product \u00b7 Technology \u00b7 Market \u00b7 Investor Posture Audit\n\n**Status:** v1.0 \u00b7 read-only audit \u00b7 zero hallucination\n**Date:** 2026-02-13\n**Container:** `agent-env-630704a1-621f-478b-9b86-a321772d01bf`\n**Executed against:** `/app` (1448-commit NivXRay codebase \u00b7 all 122+ memory docs \u00b7 all 88 ADRs)\n**Method:** static inspection (grep/find/wc) \u00b7 live curl on preview backend \u00b7 "
+    },
+    {
+      "path": "/api/deck/due-diligence.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 Investor Technical Due-Diligence\n**Document status:** v0.1 seed \u00b7 **SUPERSEDED by 360\u00b0 audit trio (2026-02-13)**\n**Zero-hallucination rule:** every capability claim MUST cite a file path.\n\n> **Superseded \u2014 read this first:** The full 40-section evidence-backed audit landed on 2026-02-13.\n> - **Primary:** [`/app/memory/NivXRay_360_Product_Market_Posture.md`](./NivXRay_360_Product_M"
+    },
+    {
+      "path": "/api/deck/investor-v1-3.pptx",
+      "status": 200,
+      "body": "PK\u0003\u0004\u0014\u0000\u0000\u0000\b\u0000\u000f\ufffd\u0011]\ufffd\ufffd\ufffd$\u0002\u0000\u0000A\u0015\u0000\u0000\u0013\u0000\u0000\u0000[Content_Types].xml\u0358Ks\ufffd0\u0010\ufffd\ufffd\ufffd\u0014\f\u0017\u000e\u001d[N\ufffd\ufffd\ufffd1\u03a1\ufffdS\u001f\ufffdI\ufffd\u0001\u0014X\u001b\ufffdB\ufffdhe\ufffd\ufffd\ufffd]\ufffdc<n\u001c\ufffd\u0010\u0015.\ufffd\b\ufffd\ufffd\ufffd\ufffdjae\ufffd7\ufffdRF\u000b\ufffd(\ufffdJ\ufffd\ufffd\ufffd(\ufffd@e:\u0017j\ufffd&\ufffd\ufffd\u000e\ufffd\ufffd\b\u001dW9\ufffdZA\ufffd\ufffd\u0000\ufffd\ufffd\u025b\ufffd\ufffd\ufffd\u0000F\ufffd0\ufffd\u000b\ufffd\ufffdG\ufffd0+\ufffd\ufffd8\ufffd\u0006\u0014\ufffdL\ufffd-\ufffd\ufffd\ufffd\ufffd1\u00f3?|\u0006\ufffd|4\ufffd`\ufffdV\u000e\ufffd\u001b\ufffd*F<\u0019\u007f\ufffd)\ufffdK\u0017}Y\ufffd\ufffd\u001a$~\u0010*\ufffd>\ufffd\ufffd*\ufffd4\ufffd\ufffdH\ufffdqG\ufffdl\ufffd\ufffd\u0003\ufffd\ufffd\ufffdNE\u0006\ufffd\ufffd\ufffd%\ufffd\f\ufffd\u0005\ufffd\ufffd6/%M\u0005\ufffd\ufffdw\ufffd\u001c\ufffd\u0018\ufffd\ufffdI\ufffd\ufffd\u0006f\u0007\ufffd\ufffd\ufffd\ufffd\ub167},H\ufffd#\u0764bH\ufffd\ufffd\r\u0016\ufffd\ufffd[28\ufffd\ufffd\ufffd\ufffdl\ufffd\u000b\ufffdd\ufffd\u001c\u000b\u0000G\ufffd\ufffd\ufffdcR\u0004q\\i\ufffd\ufffd\ufffd\ufffd\u014a\u001c\ufffd[n\ufffd\u000f^\ufffd\u0015#\ufffd[\ufffd\r2\ufffd\u001f>\u001f\ufffd\ufffd\u0017*\ufffd\u001c\ud9c6\udc50`\ufffd\ufffd]z\ufffd\ufffd\u03b4\u0005\u007f\ufffd\ufffdvT\ufffd'*\u001a\ufffdXV\ufffd\u001c\ufffd\ufffdY\ufffd[\ufffd-\u007f\ufffd\u00a4\ufffd\ufffd\u0003\ufffd\ufffd\ufffd\ufffdo\ufffd\ufffd\ufffd"
+    },
+    {
+      "path": "/api/deck/master-positioning.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 Strategic Master Positioning Document\n\n**Status:** v1.3 \u00b7 **LOCKED** \u00b7 permanent NivXRay positioning\n**Date:** 2026-02-13 (v1.0 initial \u00b7 v1.1 platform-vision \u00b7 v1.2 moat refinement \u00b7 **v1.3 deterministic-first, AI-optional lock**)\n\n## \ud83d\udd12 Permanent Positioning Rule (v1.3 \u00b7 LOCKED \u00b7 owner-authored)\n\n**Core positioning statement (never rewritten \u00b7 never abbreviated \u00b7 never AI"
+    },
+    {
+      "path": "/api/deck/nivxray-aide-fixed.pptx",
+      "status": 404,
+      "body": "{\"detail\":\"Fixed deck not built yet\"}"
+    },
+    {
+      "path": "/api/deck/nivxray-pitch.pptx",
+      "status": 200,
+      "body": "PK\u0003\u0004\u0014\u0000\u0000\u0000\b\u0000\t\ufffd\f]\u001c\ufffdN\ufffd\u0015\u0002\u0000\u0000&\u0018\u0000\u0000\u0013\u0000\u0000\u0000[Content_Types].xml\u0358\ufffdn\ufffd0\u0010\ufffd\ufffd}\nA\u0017\u001d\u0002\ufffd\ufffd\ufffd&ia9\ufffd.\ufffd.\u0001\ufffd<\u0000#\ufffdm6\ufffd@\ufffdn\ufffd\ufffd\u001d\ufffd\u000b\ufffd\u0109\ufffd&\u0004y\ufffdArf\ufffd\ufffd\ufffd0\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\u0002\ufffdeJ\ufffd\ufffdi9,2\ufffd\ufffdj\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdE\ufffdYGeK\ufffd\ufffdP\u0017K\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdf\ufffd\ufffdf\ufffd,m\ufffd\u03dc\u04df\t\ufffd\ufffd\f\u0004\ufffd\ufffd\ufffd qe\ufffd\ufffd\ufffd\u000e\ufffdfJ4m\ufffd\ufffd\u0014H5\u001c\ufffd\ufffdFI\u0007\ufffd\r\\W#\u001f\ufffd\ufffd\u0084\u03b9\u02fe=\ufffdt\u000f\ufffd\ufffd1\ufffdg_Vq\ufffdT\ufffdS\ufffd9k\ufffd\ufffde\ufffd\ufffd\ufffd#\ufffd\ufffd\ufffdLX\u0003\ufffdj\ufffd\u0002SJm\ufffd\ufffd\u007f\u001f.8\u000e\u0019\ufffd2\ufffd\ufffd\u001cn\ufffd\ufffdd\ufffd\ufffd\u001f\r\ufffdG\ufffdLt\ufffd\ufffd\ufffd\ufffd\u001c-\ufffd\ufffdt\ufffd\ufffd3\fp\ubdf7\ufffd\u1558\ufffd\ufffd\ufffd\u0019\ufffd\ufffd\u0004\u0003\ufffdQ\ufffdV\ufffd\u0017X\ufffd\ufffd\u0187nX\u000b\ufffd\u00155\ufffd\u0017\u0015\u0018E\ufffd\ufffd\ufffd\ufffd\u0496`|\ufffdr\ufffd\u00cf\u0000:\ufffd\u0016\u0681\u0192`\u001c\ufffd-\ufffd\u068d2\ufffd/\ufffd9\ufffd.\ufffdHE\ufffd\u001d\ufffd\u0793^\ufffd\ufffd\ufffd}\ufffd\u01ad\u000b\u001fC\ufffd\ufffd\u000b\u0001\ufffd\ufffd-(\ufffd\ufffd`,\ufffd\ufffd\u001ft\ufffd\ufffd\ufffd\ufffd"
+    },
+    {
+      "path": "/api/deck/prompt",
+      "status": 200,
+      "body": "\nNIVXRAY \u00b7 NAIDE \u2014 Regeneration prompt for Claude / ChatGPT\n==========================================================\n\nYou are a senior security-product presales architect. Produce a 22-slide\npitch deck for NivXRay (NAIDE \u2014 Autonomous Investigation & Deterministic\nEngine), a deterministic SOC-analyst engine that turns any pasted evidence\n(URL, PowerShell blob, EDR CSV, Sysmon XML, defanged I"
+    },
+    {
+      "path": "/api/decode/feedback",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/decode/feedback/admin/all",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/decode/registry/inventory",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/die/dkp/patterns",
+      "status": 200,
+      "body": "{\"count\":20,\"patterns\":[{\"id\":\"dkp.shadow_copy_removal\",\"name\":\"Shadow Copy Removal\",\"intent\":\"Destroy recovery snapshots \u2014 precursor to ransomware\",\"signatures\":[{\"kind\":\"regex\",\"weight\":2,\"pattern\":\"(?i)vssadmin(?:\\\\.exe)?\\\\s+delete\\\\s+shadows\",\"against\":null,\"flag\":null,\"id\":null,\"binary\":null,\"language\":null,\"of\":null},{\"kind\":\"regex\",\"weight\":1.5,\"pattern\":\"(?i)wbadmin\\\\s+delete\\\\s+catalog\""
+    },
+    {
+      "path": "/api/die/lolbas",
+      "status": 200,
+      "body": "{\"count\":41,\"entries\":[{\"binary\":\"at.exe\",\"category\":\"scheduler-utility\",\"trust\":\"admin\",\"mitre\":[\"T1053.002\"],\"notes\":\"Legacy scheduler \u2014 persistence / lateral.\",\"provenance\":{\"source\":\"builtin-seed\",\"sourced_at\":\"2026-09-02\",\"registry_version\":\"0.2.0-gate2a\"}},{\"binary\":\"bcdedit.exe\",\"category\":\"boot-utility\",\"trust\":\"admin\",\"mitre\":[\"T1490\"],\"notes\":\"Boot configuration tampering \u2014 ransomwar"
+    },
+    {
+      "path": "/api/docs/adr-004",
+      "status": 200,
+      "body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>ADR-004 \u00b7 Canonical Implementation Ledger</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; line-height: 1.55; font-size: 13.5px;\n    max-width: 1000px; margi"
+    },
+    {
+      "path": "/api/docs/adr-004.html",
+      "status": 200,
+      "body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>ADR-004 \u00b7 Canonical Implementation Ledger</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; line-height: 1.55; font-size: 13.5px;\n    max-width: 1000px; margi"
+    },
+    {
+      "path": "/api/docs/adr-004.md",
+      "status": 200,
+      "body": "# ADR-004 \u00b7 NivXRay Canonical Implementation Ledger\n\n- **Status**: **ACCEPTED WITH AMENDMENTS** (owner sign-off 2026-08-09)\n- **Date**: 2026-08-09\n- **Supersedes**: Original 360\u00b0 audit `2026-02-09` (rejected \u2014 see `CURRENT_STATE_AUDIT_RECONCILIATION.md`)\n- **Author**: E1 (evidence-driven, no code changes in this ADR)\n- **Applies to**: git HEAD `52007cbd`\n- **Amendments applied**: A1 (freeze sc"
+    },
+    {
+      "path": "/api/docs/audit-reconciliation",
+      "status": 200,
+      "body": "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 Audit Reconciliation Against Current HEAD</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; background: #ffffff;\n    line-height: 1.55; font-size: "
+    },
+    {
+      "path": "/api/docs/audit-reconciliation.html",
+      "status": 200,
+      "body": "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 Audit Reconciliation Against Current HEAD</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; background: #ffffff;\n    line-height: 1.55; font-size: "
+    },
+    {
+      "path": "/api/docs/audit-reconciliation.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 Audit Reconciliation Against Current HEAD\n_Date: 2026-08-09 \u00b7 Author: E1 (evidence-only re-verification \u00b7 no code changes)_\n\n> **Purpose**: The 360\u00b0 audit dated `2026-02-09` was written by an\n> agent that only inspected `services/` and `routers/`, and mis-labelled\n> its own header with a February date. The owner correctly identified\n> that this contradicted substantial known work i"
+    },
+    {
+      "path": "/api/docs/automation/coverage",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/business",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/cheatsheet-bundle",
+      "status": 200,
+      "body": "PK\u0003\u0004\u0014\u0000\u0000\u0000\b\u0000\ufffdbR]]\ufffd\ufffd\u06c4\u0005\u0000\u0000\ufffd\b\u0000\u0000(\u0000\u0000\u0000features/auto_investigate-cheatsheet.pdf\ufffdVY\ufffd\ufffdF\u0014~\ufffdW\ufffd\ud2b6\ufffd\"\u0002.\ufffd\ufffd\u2bb8\ufffd\u0582\ufffd\b\ufffd\ufffd\b\ufffd2\ufffd\ufffdC\ufffd@\ufffd\ufffd\ufffd\u0594\ufffd3c\ufffds2\ufffdx(\ufffdR\u07fd\ufffd\ufffdUeE\u0006|=E>\u0441\u021f\u007f\ufffd\ufffd\u0017\u0018\ufffd\ufffd\ufffdx]e\u0003\u001a\u0402\ufffd\ufffdA\r \u000f\ufffd\u066a\u007f\ufffd\ufffd\u0007\ufffd\ufffd\tZ\ufffd\ufffd;*\ufffd\u0002$ \ufffd\ufffd\ufffd\u0007\n\ufffd\u0000^'\u0001\ufffd\ufffd\u0011\ufffd\ufffd\u0014H_\ufffd\u0002\ufffdb\u0000Z\ufffd\u0141\ufffds\ufffd(.\ufffd\ufffd\b\noB\ufffd\u0013\ufffd\fU\u0001x\ufffdRm\u0370\ufffd\u0000\ufffd\u0019V\ufffdr\ufffd\ufffd\nA9Bp\ufffd\ufffdE\u007f\ufffd}9!a\ufffd\ufffd\ufffdm@\u0016\ufffdu\u0017*\ufffd\u07e1R\u0015\ufffd\ufffd\ufffdO<\ufffd\u007f\u01a3\ufffd\ufffdU\ufffd\t\ufffd\ufffd\u0002\ufffd\ufffdD\u000fj\ufffdR\ufffd?\u0003\t\ufffd\u0004`H\n\ufffdY\n,\u0001>P\ufffd\u000b\ufffd\ufffd\ufffdo\u0004o\ufffd\ufffd\ufffd\ufffd\ufffd%c\ufffdf\u00198\ufffd*B\u000f\u0001\ufffd\ufffd6\ufffdc\ufffd\u0019U\ufffd:*[Xy\u001f\ufffd\ufffdc\u000b,QZ\b\ufffd\ufffdP\ufffd\ufffdt|\ufffd(\ufffd\u0015\ufffd\u000f\ufffd\ufffd\u0005\f\ufffd\ufffd]\u0001\ufffd\ufffd\u0002.\ufffd\ufffd\ufffd!\ufffd\ufffd\u000b\u0005\ufffdz\ufffdv\ufffd&z\u0003\ufffd*"
+    },
+    {
+      "path": "/api/docs/current-state-audit",
+      "status": 200,
+      "body": "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 360\u00b0 Current-State Audit</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; background: #ffffff;\n    line-height: 1.55; font-size: 13.5px;\n    max-"
+    },
+    {
+      "path": "/api/docs/current-state-audit.html",
+      "status": 200,
+      "body": "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 360\u00b0 Current-State Audit</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; background: #ffffff;\n    line-height: 1.55; font-size: 13.5px;\n    max-"
+    },
+    {
+      "path": "/api/docs/current-state-audit.md",
+      "status": 200,
+      "body": "# NivXRay \u2014 360\u00b0 Current-State Audit\n_Date: 2026-02-09 \u00b7 Author: E1 (via factual repo inspection \u00b7 no code changes)_\n\n> **Rules followed**: files/paths/tests cited as evidence. `IMPLEMENTED / PARTIAL / STUB / DOC-ONLY` distinguished. Demo/seed behaviour separated from production. Where uncertain \u2192 marked `UNKNOWN`.\n\n---\n\n## Repository shape (raw baseline)\n\n| Surface | Count | Evidence |\n|--"
+    },
+    {
+      "path": "/api/docs/explain/feedback/recent",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/explain/feedback/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/export/docx",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/export/html",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/export/pdf",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/features",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/guide",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/p0-p1-baseline",
+      "status": 200,
+      "body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 P0/P1 Bug Baseline</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; line-height: 1.55; font-size: 13.5px;\n    max-width: 1000px; margin: 40px auto;"
+    },
+    {
+      "path": "/api/docs/p0-p1-baseline.html",
+      "status": 200,
+      "body": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>NivXRay \u00b7 P0/P1 Bug Baseline</title>\n<style>\n  @page { size: A4; margin: 22mm 18mm; }\n  html,body { margin:0; padding:0; }\n  body {\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif;\n    color: #0f172a; line-height: 1.55; font-size: 13.5px;\n    max-width: 1000px; margin: 40px auto;"
+    },
+    {
+      "path": "/api/docs/p0-p1-baseline.md",
+      "status": 200,
+      "body": "# NivXRay \u00b7 P0/P1 Bug Baseline (Pre-Migration)\n_Date: 2026-08-09 \u00b7 Author: E1 \u00b7 Applies to: git HEAD `52007cbd`_\n\n> **Purpose**: ADR-004 Amendment A1 requires a known-good behavioral baseline BEFORE Verdict Engine migration begins. This document captures every P0/P1 defect currently observable on HEAD, so post-migration parity tests can distinguish `preserved / fixed / introduced` outcomes.\n\n> "
+    },
+    {
+      "path": "/api/docs/rag/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/related",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/search",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/docs/workflows",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/documents",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/agent/commands",
+      "status": 401,
+      "body": "{\"detail\":{\"code\":\"SENSOR_UNAUTHENTICATED\",\"reason\":\"no bearer session token was presented\",\"presented\":\"\u2298 NONE PRESENTED\",\"security_signal_recorded\":true,\"honesty_note\":\"This payload was REFUSED at the trust boundary. It is retained as a security signal and is NOT endpoint evidence \u2014 it will never enter the EDR evidence, detection or response pipelines.\"}}"
+    },
+    {
+      "path": "/api/edr/agent/policy",
+      "status": 401,
+      "body": "{\"detail\":{\"code\":\"SENSOR_UNAUTHENTICATED\",\"reason\":\"no bearer session token was presented\",\"presented\":\"\u2298 NONE PRESENTED\",\"security_signal_recorded\":true,\"honesty_note\":\"This payload was REFUSED at the trust boundary. It is retained as a security signal and is NOT endpoint evidence \u2014 it will never enter the EDR evidence, detection or response pipelines.\"}}"
+    },
+    {
+      "path": "/api/edr/agent/whoami",
+      "status": 401,
+      "body": "{\"detail\":{\"code\":\"SENSOR_UNAUTHENTICATED\",\"reason\":\"no bearer session token was presented\",\"presented\":\"\u2298 NONE PRESENTED\",\"security_signal_recorded\":true,\"honesty_note\":\"This payload was REFUSED at the trust boundary. It is retained as a security signal and is NOT endpoint evidence \u2014 it will never enter the EDR evidence, detection or response pipelines.\"}}"
+    },
+    {
+      "path": "/api/edr/audit",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/audit/facets",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/campaign-story",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/connector/deployments",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/connector/releases",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/context",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/detections",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/device-trajectory",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/endpoint-commands",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/endpoint-detections",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/endpoints",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/enrollment/acquisition-integrity",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/enrollment/endpoints",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/enrollment/rejections",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/enrollment/tokens",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/events",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/events/facets",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/exclusions",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/exclusions/enforcement-proof",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/exclusions/sets",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/exclusions/taxonomy",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/file-trajectory",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/findings",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/findings/evaluation-state",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/findings/taxonomy",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/fleet-spread-index",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/groups",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/observation-narrative",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/onboarding/computers",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/onboarding/packages",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/policies",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/policies/audit",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/policies/deployment",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/process-tree",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/response/actions",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/response/isolation-policy",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/saved-views",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/telemetry/freshness",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/capabilities",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/capabilities/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/contracts",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/detection-rule-bindings",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/filter-taxonomy",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/raw-events/replay-candidates",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/raw-events/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/edr/wave0/sensors",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/enrichment/classify",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/enrichment/config",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/examples",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}"
+    },
+    {
+      "path": "/api/health/deep",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"checks\":{\"mongo\":\"ok\",\"llm_key\":\"ok\",\"disk\":\"ok (255463 MB free)\"}}"
+    },
+    {
+      "path": "/api/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/history/export/bundle",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/history/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/incidents",
+      "status": 200,
+      "body": "{\"incidents\":[],\"count\":0,\"lens\":null,\"applied_filters\":{},\"scope\":{\"authorized\":false},\"invariant\":\"queue == projection \u00b7 never engine\"}"
+    },
+    {
+      "path": "/api/incidents/provenance/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/intelligence/health",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"intelligence_policy.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/intelligence/policy/global",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"intelligence_policy.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/internal/admin/migrations",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/investigation",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/investigation/coverage/consumer_matrix",
+      "status": 200,
+      "body": "{\"schema_version\":\"1.0\",\"consumers\":[\"ssot_projector\",\"provenance_endpoint\",\"graph_api\",\"recommendation_engine\",\"workspace_ui\",\"llm_summary\"],\"matrix\":[{\"behavior_type\":\"archive_extraction\",\"ssot_projector\":true,\"provenance_endpoint\":true,\"graph_api\":true,\"recommendation_engine\":true,\"workspace_ui\":false,\"llm_summary\":false},{\"behavior_type\":\"bitsadmin_transfer\",\"ssot_projector\":true,\"provenance_e"
+    },
+    {
+      "path": "/api/investigation/coverage/health",
+      "status": 200,
+      "body": "{\"schema_version\":\"1.0\",\"kpis\":{\"evidence_to_behavior\":{\"current\":100.0,\"baseline\":100.0,\"delta\":0.0,\"target\":95.0,\"meets_target\":true},\"behavior_to_projection\":{\"current\":100.0,\"baseline\":100.0,\"delta\":0.0,\"target\":95.0,\"meets_target\":true},\"projection_to_recommendation\":{\"current\":100.0,\"baseline\":100.0,\"delta\":0.0,\"target\":70.0,\"meets_target\":true},\"reachable_behaviors\":{\"current\":74.0,\"baselin"
+    },
+    {
+      "path": "/api/investigation/coverage/rule_efficiency",
+      "status": 200,
+      "body": "{\"schema_version\":\"1.0\",\"generated_at\":\"2026-08-08T17:15:03Z\",\"corpus_size\":34,\"summary\":{\"total\":28,\"fired\":21,\"shadowed\":1,\"suppressed\":4,\"dormant\":2,\"efficiency_pct\":75.0},\"per_rule\":[{\"rule_id\":\"inv.analyze_ps_chain\",\"group\":\"investigate\",\"mitre\":[\"T1059.001\"],\"triggered\":true,\"fired\":4,\"suppressed\":false,\"shadowed_by\":[],\"status\":\"fired\"},{\"rule_id\":\"inv.investigate_download\",\"group\":\"investi"
+    },
+    {
+      "path": "/api/investigation/coverage/summary",
+      "status": 200,
+      "body": "{\"schema_version\":\"1.0\",\"generated_at\":\"2026-08-08T17:15:03Z\",\"corpus_size\":34,\"coverage\":{\"evidence_to_behavior\":{\"current\":100.0,\"previous\":100.0,\"delta\":0.0,\"target\":95.0,\"meets_target\":true},\"behavior_to_projection\":{\"current\":100.0,\"previous\":100.0,\"delta\":0.0,\"target\":95.0,\"meets_target\":true},\"projection_to_recommendation\":{\"current\":100.0,\"previous\":100.0,\"delta\":0.0,\"target\":70.0,\"meets_t"
+    },
+    {
+      "path": "/api/investigations",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/investigations/recent",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/investigator/capabilities",
+      "status": 200,
+      "body": "{\"count\":12,\"availability\":{\"cap-full\":12},\"capabilities\":[{\"id\":\"historical_correlation\",\"name\":\"Historical Correlation\",\"version\":\"1.0.0\",\"engine\":\"nivxray::investigator::historical_correlation\",\"category\":\"history\",\"investigation_question\":\"Have the entities in this incident been seen previously in the environment or in other incidents?\",\"evidence_requirements\":[\"canonical.network.*.ip OR incid"
+    },
+    {
+      "path": "/api/ioc/health",
+      "status": 200,
+      "body": "{\"providers\":[{\"provider\":\"virustotal\",\"state\":\"pending\",\"env\":\"VT_API_KEY\",\"detail\":\"missing env: VT_API_KEY\"},{\"provider\":\"abuseipdb\",\"state\":\"pending\",\"env\":\"ABUSEIPDB_API_KEY\",\"detail\":\"missing env: ABUSEIPDB_API_KEY\"},{\"provider\":\"urlscan\",\"state\":\"pending\",\"env\":\"URLSCAN_API_KEY\",\"detail\":\"missing env: URLSCAN_API_KEY\"},{\"provider\":\"hybrid-analysis\",\"state\":\"pending\",\"env\":\"HYBRID_ANALYSIS_A"
+    },
+    {
+      "path": "/api/iue/lane-a/status",
+      "status": 200,
+      "body": "{\"enabled\":false,\"flag\":\"off\",\"caps\":{\"max_raw_bytes\":10485760,\"max_record_count\":200000,\"max_record_bytes\":262144}}"
+    },
+    {
+      "path": "/api/iue/lane-c/status",
+      "status": 200,
+      "body": "{\"enabled\":false,\"flag\":\"off\",\"caps\":{\"max_raw_bytes\":10485760,\"max_record_count\":200000,\"max_record_bytes\":262144}}"
+    },
+    {
+      "path": "/api/kb/entries",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/kb/search",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/kb/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/lab/challenge",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/lab/leaderboard",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/lab/me",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/lab/public/challenge",
+      "status": 200,
+      "body": "{\"challenge_id\":\"nivxray_real_Fail_1\",\"title\":\"Real payload \u00b7 Fail_1 \u00b7 KHEX/XHEX family multi-layer\",\"volume\":\"nivxray-real-fail_1\",\"category\":null,\"input\":\"powershell.exe -e ZDN4XGQzeFw3NnhcZDR4XDk3eFw1NXhcMzV4XGE1eFw0M3hcNjV4XGQ2eFxjNHhcYzZ4XGE0eFw4NXhcOTV4XDMzeFw4N3hcNzV4XDk1eFw0N3hcZTR4XDU1eFxlNHhcYzZ4XDU1eFxhNnhcZDR4XGM2eFwxNHhcNjV4XDQ1eFw2NHhcMjV4XDY1eFxlNHhcOTd4XDU1eFwzNHhcZDR4XDk3eFw1NXh"
+    },
+    {
+      "path": "/api/learner/approved",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learner/clusters",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learner/feedback-source",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learner/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learner/inbox",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learner/proposals",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learning/corrections/recent",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learning/corrections/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/learning/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/metrics",
+      "status": 200,
+      "body": "# HELP nivxray_http_requests_total Total HTTP requests processed by the NivXRay API.\n# TYPE nivxray_http_requests_total counter\nnivxray_http_requests_total{method=\"GET\",route=\"/api/health\",status=\"200\"} 2.0\nnivxray_http_requests_total{method=\"GET\",route=\"/api/openapi.json\",status=\"200\"} 1.0\nnivxray_http_requests_total{method=\"GET\",route=\"/api/\",status=\"200\"} 1.0\nnivxray_http_requests_total{method="
+    },
+    {
+      "path": "/api/mitre/catalogue",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/mitre/catalogue/coverage",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/mitre/heatmap",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/moe/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/narration/providers",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/nivxforge/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"package\":\"nivxforge\",\"phase\":0,\"mount\":\"read-only-preview\"}"
+    },
+    {
+      "path": "/api/nivxforge/preview/adrs",
+      "status": 200,
+      "body": "{\"adrs\":[{\"id\":\"0001\",\"slug\":\"0001-command-obfuscation-deobfuscation-coverage\",\"title\":\"ADR 0001 \u2014 Command-Line Obfuscation Deobfuscation Coverage\",\"status\":\"Accepted\",\"date\":\"2026-02-28\"},{\"id\":\"0004\",\"slug\":\"0004-mitre-attribution-accuracy-powershell-xor\",\"title\":\"ADR 0004 \u2014 MITRE Attribution Accuracy for PowerShell XOR\",\"status\":\"Accepted\",\"date\":\"2026-02-28\"},{\"id\":\"0005\",\"slug\":\"0005-a4.2"
+    },
+    {
+      "path": "/api/nivxforge/preview/diagnostics",
+      "status": 200,
+      "body": "{\"diagnostics\":[{\"filename\":\"DIAGNOSTIC_RC4_SHELLCODE_2026-02-28.md\",\"bytes\":7134}],\"count\":1}"
+    },
+    {
+      "path": "/api/nivxforge/preview/evidence-inventory",
+      "status": 200,
+      "body": "{\"markdown\":\"# Evidence Inventory Report \u2014 2026-02-28\\n\\n_Read-only historical evidence pass. **Nothing has been written to\\n`REAL_WORLD_LOG.md`, `PRODUCT_CHARTER.md \u00a74.5` scorecard, `CIO`, or any\\ngovernance document.** This report is a proposal for your review.\\nOnly after you approve does any of this get promoted._\\n\\n---\\n\\n## 0 \u00b7 Executive summary\\n\\n- **Merged corpus size:** 1,612 rows ("
+    },
+    {
+      "path": "/api/nivxforge/preview/framework-status",
+      "status": 200,
+      "body": "{\"families_with_detectors\":[],\"families_with_handlers\":[],\"total_handlers\":0,\"note\":\"ADR-0001 ships framework only. Handlers require future ADRs.\"}"
+    },
+    {
+      "path": "/api/nivxforge/preview/governance",
+      "status": 200,
+      "body": "{\"documents\":{\"charter\":{\"filename\":\"PRODUCT_CHARTER.md\",\"exists\":true,\"bytes\":19419},\"north_star\":{\"filename\":\"NORTH_STAR.md\",\"exists\":true,\"bytes\":8162},\"roadmap\":{\"filename\":\"IMPLEMENTATION_ROADMAP.md\",\"exists\":true,\"bytes\":8945},\"phase0\":{\"filename\":\"PHASE0_COMPLETION.md\",\"exists\":true,\"bytes\":10979},\"decisions\":{\"filename\":\"DECISION_LOG.md\",\"exists\":true,\"bytes\":4744},\"real_world\":{\"filename\""
+    },
+    {
+      "path": "/api/nivxforge/preview/platform-health",
+      "status": 200,
+      "body": "{\"governance\":{\"charter_exists\":true,\"north_star_exists\":true,\"roadmap_exists\":true},\"adrs\":{\"accepted\":4,\"proposed\":0,\"other\":83,\"total\":87},\"framework\":{\"version\":\"0.1.0-phase0\",\"families_with_detectors\":0,\"registered_handlers\":0},\"evidence\":{\"soc_cases_logged\":21,\"diagnostic_reports\":1,\"evidence_inventories\":1},\"regression\":{\"status\":\"PASS\",\"verified_at\":\"2026-07-29T10:44:00Z\",\"tests_passed\":49"
+    },
+    {
+      "path": "/api/nivxforge/preview/real-world-log",
+      "status": 200,
+      "body": "{\"markdown\":\"# NivXRay \u2014 Real-World Usage Log\\n\\n_Started 2026-02-28. Purpose: let real SOC cases (not guesses) prioritize v1.6.0._\\n\\n**Status:** Feature development frozen at v1.6.0 Phase 1a. This log is the sole input for unfreezing.\\n\\n> ### \ud83d\udd12 CORPUS v1 \u00b7 FROZEN 2026-02-28\\n>\\n> Cases **0001, 0003\u20130022** (20 total) constitute the immutable v1 baseline for\\n> NivXForge. Historical expec"
+    },
+    {
+      "path": "/api/observation/wave1-report",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/operations",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/platform/metrics",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/platform/timeseries",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/entities/kinds",
+      "status": 200,
+      "body": "{\"kinds\":[\"ipv4\",\"windows_build\",\"software_version\",\"generic_dotted_quad\",\"unknown\"]}"
+    },
+    {
+      "path": "/api/rc5/evidence-graph/metrics",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/golden/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/golden/latest",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/golden/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/shadow/gate",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/shadow/report/cumulative",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/shadow/report/daily",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/shadow/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/rc5/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/regression/corpus/entries",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/regression/gate",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/regression/history",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/regression/latest",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/response/actions",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/schemas/latest/cio.schema.json",
+      "status": 200,
+      "body": "{\"$defs\":{\"CIOSource\":{\"additionalProperties\":false,\"description\":\"Where the investigation was initiated from.\",\"properties\":{\"surface\":{\"default\":\"api\",\"description\":\"'lab' | 'workspace' | 'api' | 'cli' | ...\",\"title\":\"Surface\",\"type\":\"string\"},\"endpoint\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Endpoint\"},\"correlation_id\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\""
+    },
+    {
+      "path": "/api/schemas/v1/cio.schema.json",
+      "status": 200,
+      "body": "{\"$defs\":{\"CIOSource\":{\"additionalProperties\":false,\"description\":\"Where the investigation was initiated from.\",\"properties\":{\"surface\":{\"default\":\"api\",\"description\":\"'lab' | 'workspace' | 'api' | 'cli' | ...\",\"title\":\"Surface\",\"type\":\"string\"},\"endpoint\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\"default\":null,\"title\":\"Endpoint\"},\"correlation_id\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}],\""
+    },
+    {
+      "path": "/api/system/llm-providers",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/telemetry/adapters",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/telemetry/frontend/recent",
+      "status": 200,
+      "body": "{\"count\":50,\"records\":[{\"_id\":\"6a8d6ce56b8a486bfff31524\",\"session_id\":\"ses_df774d1ebf35\",\"backend_ms\":3107.82,\"paint_ms\":501.0,\"behaviors_count\":0,\"tactics_count\":0,\"notes\":\"\",\"recorded_at\":\"2026-08-25T10:22:29.658000\"},{\"_id\":\"6a8d6ce56b8a486bfff31523\",\"session_id\":\"ses_df774d1ebf35\",\"backend_ms\":3107.82,\"paint_ms\":500.0,\"behaviors_count\":0,\"tactics_count\":0,\"notes\":\"\",\"recorded_at\":\"2026-08-25T1"
+    },
+    {
+      "path": "/api/telemetry/pollers/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/telemetry/runner/health",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/telemetry/runner/recent",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/config",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/feeds/status",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/iocs",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/rss/feeds",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/rss/pending",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/rss/trending",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/sources",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-intel/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/threat-model/example",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/timeline/events",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/timeline/recent",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/archetypes",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/confusion",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/confusion/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/dataset",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/schema",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/training/stats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/uaie/catalog",
+      "status": 200,
+      "body": "{\"schema_version\":1,\"count\":4,\"capabilities\":{\"analyzer.magic_byte_retyper\":{\"contract_registered\":true,\"id\":\"analyzer.magic_byte_retyper\",\"version\":\"1.1\",\"category\":\"analyzer\",\"requires\":[\"*\"],\"optional_requires\":[],\"produces\":[\"bzip2_bytes\",\"elf_bytes\",\"gzip_bytes\",\"pdf_bytes\",\"pe_bytes\",\"wasm_bytes\",\"xz_bytes\",\"zip_bytes\",\"zlib_bytes\"],\"consumes\":[],\"improves\":[\"analysis_confidence\"],\"determini"
+    },
+    {
+      "path": "/api/uaie/catalog.dot",
+      "status": 200,
+      "body": "digraph nvx_capability_catalog {\n  rankdir=LR;\n  node [shape=box, style=\"rounded,filled\", fillcolor=\"#0f172a\", fontcolor=\"#e2e8f0\", color=\"#334155\", fontname=\"JetBrains Mono\"];\n  edge [color=\"#67e8f9\", fontcolor=\"#94a3b8\", fontname=\"JetBrains Mono\", fontsize=10];\n  bgcolor=\"#020617\";\n  \"analyzer.magic_byte_retyper\" [label=\"analyzer.magic_byte_retyper\\n[analyzer]\"];\n  \"extractor.binary_configuratio"
+    },
+    {
+      "path": "/api/v2/cases",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/decoded-artifacts",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/decoded-artifacts/stats/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/ikb",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/ingestion/formats",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/ingestion/golden",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/plugins",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/security-state/streaming/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"incidents.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/v2/validation/datasets",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/validation/run",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/v2/verdict/profiles",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/verdict/stage2/status",
+      "status": 200,
+      "body": "{\"enabled\":true,\"flag\":\"on\",\"engine\":\"stage2.v1\",\"vocabulary\":{\"labels\":[\"malicious\",\"suspicious\",\"benign\",\"unknown\"],\"confidence\":[\"high\",\"medium\",\"low\",\"insufficient\"]}}"
+    },
+    {
+      "path": "/api/xdr/api-keys",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"api_keys.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/audit-log",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"audit.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/audit-log/verify/chain",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"audit.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/collectors",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/connectors",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/data-sources",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/landing",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/outbox",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/outbox/health",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/source-types",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collector/telemetry-health",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collectors",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collectors/catalog",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collectors/protocols/catalog",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/collectors/sources/catalog",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/correlation/matches",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"correlation.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/correlation/rules",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"correlation.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/correlation/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"correlation.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/cve/assets",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/cve/exposures",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/cve/list",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/cve/software",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/cve/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/dashboard/tiles",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:42.974854+00:00\",\"user_email\":null,\"invariant\":\"Dashboard tiles are pure projections of live incident data \u00b7 no cached counters \u00b7 no fabricated numbers \u00b7 tile count == queue count for the same lens.\",\"groups\":[{\"id\":\"triage\",\"label\":\"TRIAGE\",\"tiles\":[{\"id\":\"critical\",\"label\":\"Critical\",\"description\":\"Open P1 incidents.\",\"tone\":\"red\",\"count\":0,\"count_source\":\"em"
+    },
+    {
+      "path": "/api/xdr/data-sources",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/data-sources/kinds/catalog",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/detection/inventory",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/detection/policy",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/detection/rules",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/detection/sources/catalog",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/detection/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/detection/versions",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/events/facets",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"evidence.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/events/search",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"evidence.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/ingest/routing/catalog",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/ingest/routing/deliveries",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/ingest/routing/retained-raw",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/ingest/routing/summary",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/lolbas/coverage",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"lolbas.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/lolbas/entries",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"lolbas.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/lolbas/primitives",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"lolbas.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/lolbas/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"lolbas.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/lolbas/versions",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"lolbas.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/mss/analyst-workload",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:42.996456+00:00\",\"source\":\"workspace_cases.aggregate.incident_assignee\",\"count\":0,\"rows\":[]}"
+    },
+    {
+      "path": "/api/xdr/mss/auto-investigation",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:42.999349+00:00\",\"source\":\"unavailable\",\"reason\":\"Phase 4 \u00b7 engine-execution ledger not yet online\",\"status\":null,\"engines\":[]}"
+    },
+    {
+      "path": "/api/xdr/mss/customer-operations",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.001662+00:00\",\"source\":\"workspace_cases.aggregate.tenant_id\",\"count\":0,\"rows\":[]}"
+    },
+    {
+      "path": "/api/xdr/mss/detection-overview",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.005237+00:00\",\"source\":\"workspace_cases.aggregate.evidence\",\"detection_sources\":[],\"top_techniques\":[]}"
+    },
+    {
+      "path": "/api/xdr/mss/kpis",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.006588+00:00\",\"groups\":[{\"id\":\"triage\",\"label\":\"TRIAGE\",\"tiles\":[{\"id\":\"critical\",\"label\":\"Critical\",\"description\":\"Open P1 incidents.\",\"tone\":\"red\",\"count\":0,\"count_source\":\"empty\",\"lens_href\":\"/xdr/incidents?lens=critical\"},{\"id\":\"high_priority\",\"label\":\"High Priority\",\"description\":\"Open P1 + P2 incidents.\",\"tone\":\"amber\",\"count\":0,\"count_source\":\"empty\",\"le"
+    },
+    {
+      "path": "/api/xdr/mss/recent-activity",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.008214+00:00\",\"source\":\"workspace_cases.incident_state_history\",\"count\":0,\"events\":[]}"
+    },
+    {
+      "path": "/api/xdr/mss/soc-queue",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.009319+00:00\",\"rows\":[],\"count\":0,\"source\":\"empty\"}"
+    },
+    {
+      "path": "/api/xdr/mss/state-distribution",
+      "status": 200,
+      "body": "{\"generated_at\":\"2026-10-18T12:21:43.010620+00:00\",\"total\":0,\"source\":\"workspace_cases.live\",\"states\":{\"new\":0,\"in_progress\":0,\"on_hold\":0,\"resolved\":0,\"closed\":0},\"priorities\":{\"P1\":0,\"P2\":0,\"P3\":0,\"P4\":0,\"P5\":0,\"unset\":0}}"
+    },
+    {
+      "path": "/api/xdr/organizations",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"tenants.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rbac/groups",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"groups.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rbac/me/effective",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/rbac/permissions",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"permissions.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rbac/roles",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"roles.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rbac/session-context",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/rbac/users",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"users.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/respond/actions",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/respond/health",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/respond/pending-approvals",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/rule-studio/lanes",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rule-studio/lanes/schemas",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rule-studio/rules",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/rule-studio/status",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"detections.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/saved-views",
+      "status": 200,
+      "body": "{\"views\":[],\"count\":0,\"owner\":null}"
+    },
+    {
+      "path": "/api/xdr/scenarios",
+      "status": 200,
+      "body": "{\"version\":\"1.0-full-100\",\"count\":100,\"total\":100,\"categories\":[\"cloud\",\"credential\",\"dns\",\"insider\",\"malware\",\"phishing\",\"powershell\",\"ransomware\",\"vpn\",\"web\"],\"scenarios\":[{\"scenario_id\":\"S-001\",\"scenario_number\":1,\"category\":\"phishing\",\"name\":\"Spoofed Microsoft 365 Password Reset\",\"threat\":\"Secure email gateway flags a message impersonating the identity team and linking to a look-alike sign-in "
+    },
+    {
+      "path": "/api/xdr/scope/authorized",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/scope/console",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/search",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/search/capabilities",
+      "status": 403,
+      "body": "{\"detail\":\"Not authenticated\"}"
+    },
+    {
+      "path": "/api/xdr/secrets",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"secrets.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/spread",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/spread/policy",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/spread/signals",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"collectors.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/tenants",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"tenants.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/vendor/_catalog",
+      "status": 200,
+      "body": "{\"vendors\":[{\"vendor_key\":\"cortex\",\"display_name\":\"Palo Alto Cortex XDR\",\"lifecycle\":\"PRODUCTION\",\"credential_schema\":[{\"key\":\"base_url\",\"label\":\"Cortex FQDN\",\"kind\":\"text\",\"required\":true,\"placeholder\":\"https://api-yourorg.xdr.us.paloaltonetworks.com\"},{\"key\":\"api_key_id\",\"label\":\"API Key ID\",\"kind\":\"text\",\"required\":true,\"placeholder\":\"42\"},{\"key\":\"api_key\",\"label\":\"API Key\",\"kind\":\"secret\",\"req"
+    },
+    {
+      "path": "/api/xdr/vendor/cortex/actions",
+      "status": 200,
+      "body": "{\"actions\":[],\"count\":0}"
+    },
+    {
+      "path": "/api/xdr/vendor/cortex/connections",
+      "status": 200,
+      "body": "{\"connections\":[{\"integration_id\":\"cortex-e3bce1a2e7f7\",\"vendor\":\"palo_alto_cortex_xdr\",\"label\":\"Mock Cortex\",\"tenant_id\":\"preview\",\"base_url\":\"http://127.0.0.1:8765\",\"api_key_id\":\"42\",\"tenant\":\"preview\",\"advanced_api\":true,\"connected\":false,\"connect_detail\":\"GET /public_api/v1/healthcheck/ \u00b7 HTTP 200\",\"capability_matrix\":[{\"action_id\":\"ENDPOINT_ISOLATE\",\"capability_id\":\"edr.isolate_endpoint\",\"st"
+    },
+    {
+      "path": "/api/xdr/webhooks",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"webhooks.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/channels",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/collectors",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/configuration",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/coverage",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/devices",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    },
+    {
+      "path": "/api/xdr/windows/overview",
+      "status": 403,
+      "body": "{\"detail\":{\"code\":\"ACCESS_DENIED\",\"permission\":\"data_sources.read\",\"reason\":\"unauthenticated\"}}"
+    }
+  ]
+}

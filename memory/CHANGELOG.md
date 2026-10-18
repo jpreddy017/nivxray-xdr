@@ -8349,3 +8349,32 @@ Stopped after producing the host acceptance package as instructed.
   authorised gating step. No global encoder change.
 - Report `memory/A0/N3_HTTP500_INVESTIGATION.md`; evidence
   `/app/rocket-evidence/n3/`. RELEASE STATUS: NO-GO.
+
+## 2026-06 · N-3A — telemetry BSON serialization repair
+
+- Branch `engineering/n3a-telemetry-bson`, commit `38e294c6` / tree `a7ff378c`,
+  parent `1158afcc` (`engineering/n5-ci-gate`). Worktree clean. F1/N-1/N-5
+  untouched — one commit on top of their head.
+- Fix: `backend/routers/telemetry.py` (+61/−7) — endpoint-scoped `_json_safe()`
+  coerces stored BSON recursively before `GET /api/telemetry/frontend/recent`
+  serialises. Rules: ObjectId→hex, Decimal128/Decimal→exact str (never float),
+  bytes/Binary→base64 (never a UTF-8 guess), datetime→ISO-8601, UUID→str,
+  mappings/lists walked with order preserved, unanticipated BSON→str.
+  No global encoder, no change to the other two N-3 endpoints, no auth or
+  tenant change, nothing dropped and no exception suppressed.
+- Tests: new `backend/tests/test_n3a_telemetry_bson_serialization.py`,
+  14 passed. Same suite on the unfixed parent: 8 failed / 3 passed (the 3
+  passing store no BSON), with 500s logged on the route.
+- Mandatory security gate: 126 tests, 0 failures, 0 errors, 1 pre-existing
+  skip, exit 0 — identical to the accepted N-5 baseline.
+- Behaviour on real data: 354-GET sweep on both trees with the preview rows
+  genuinely restored — identical status buckets (200×75, 403×271, 401×3,
+  404×5, 500×0) and a byte-identical telemetry body over 50 real records.
+- Corrected an N-3 evidence defect: the first "seeded" sweep restored nothing
+  (`--nsFrom 'src.*'` matched no namespace, exit 0). `sweep.py` now aborts when
+  a restore lands zero documents; `A0/N3_HTTP500_INVESTIGATION.md` annotated.
+  Conclusion there unchanged (0 × 500 on populated data).
+- Residual: the route stays unauthenticated (N-2); the two sibling endpoints
+  still carry the defect (N-3B/N-3C, owner call); this suite is in no gate yet.
+- Report `memory/A0/N3A_TELEMETRY_BSON_REPAIR.md`; evidence
+  `/app/rocket-evidence/n3a/`. RELEASE STATUS: NO-GO.

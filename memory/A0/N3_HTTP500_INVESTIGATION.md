@@ -48,7 +48,16 @@ with no credential. Nothing writes to any pre-existing database.
 | run | DB state | probed | 200 | 403 | 401 | 404 | **500** |
 |---|---|---|---|---|---|---|---|
 | `empty-sweep.json` | empty | 354 | 75 | 271 | 3 | 5 | **0** |
-| `seeded-sweep.json` | the preview rows for all three collections, restored into the disposable DB | 354 | 75 | 271 | 3 | 5 | **0** |
+| `seeded-sweep.json` | *intended* populated — see correction | 354 | 75 | 271 | 3 | 5 | **0** |
+| `seeded2-sweep.json` | populated: 74 `frontend_telemetry` + 6 `xdr_integrations` rows restored (`xdr_response_actions` is empty at source) | 354 | 75 | 271 | 3 | 5 | **0** |
+
+> **Correction (N-3A).** The first "seeded" run restored **nothing**:
+> `mongorestore --nsFrom 'src.*'` matched no namespace and still exited 0, so
+> that row is a second empty-database run, not a populated one. Found while
+> re-using the probe for N-3A. `sweep.py` now maps the namespace correctly
+> **and aborts if the restore lands zero documents**, and `seeded2-sweep.json`
+> is the genuine populated measurement. The conclusion is unchanged — 0 × 500
+> either way — but the earlier row did not support it.
 
 The five 404s are the known un-shipped artefacts (4 audit PDFs + the fixed
 deck). The live preview also answers 200 on all three paths today.

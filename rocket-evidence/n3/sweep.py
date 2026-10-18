@@ -64,10 +64,19 @@ while time.time() < deadline:
 
 db_name = f"nivx_n3_{secrets.token_hex(4)}"
 if SEED:
+    # The dump directory is named after its SOURCE database; mapping from the
+    # wrong namespace restores nothing while still exiting 0.
     r = subprocess.run(["mongorestore", "--port", str(mongo_port),
-                        "--nsFrom", "src.*", "--nsTo", f"{db_name}.*",
-                        "--quiet", str(SEED)], capture_output=True, text=True)
-    print(f"[seed] mongorestore rc={r.returncode} {r.stderr[-400:]}")
+                        "--db", db_name, str(SEED)],
+                       capture_output=True, text=True)
+    print(f"[seed] mongorestore rc={r.returncode} {r.stderr[-600:]}")
+    from pymongo import MongoClient
+    _c = MongoClient(f"mongodb://127.0.0.1:{mongo_port}")[db_name]
+    counts = {n: _c[n].count_documents({}) for n in _c.list_collection_names()}
+    print(f"[seed] restored: {counts}")
+    if not sum(counts.values()):
+        raise SystemExit("seed restored nothing; refusing to report a "
+                         "'populated' sweep that is actually empty")
 
 env = dict(os.environ)
 env.update({
