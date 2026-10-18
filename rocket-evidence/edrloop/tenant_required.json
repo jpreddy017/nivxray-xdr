@@ -1,0 +1,15 @@
+{
+  "request": "GET /api/edr/telemetry/freshness",
+  "sent_tenant_header": null,
+  "status": 403,
+  "body": {
+    "detail": {
+      "code": "TENANT_REQUIRED",
+      "reason": "principal is authorized for several tenants and named none; there is no default tenant",
+      "basis": "MULTIPLE_AUTHORIZED_TENANTS",
+      "requested_tenant": null,
+      "fail_closed": true,
+      "authority": "server"
+    }
+  }
+}

@@ -8441,3 +8441,36 @@ Stopped after producing the host acceptance package as instructed.
 - Validated worktrees untouched (`n3a` `38e294c6`, `n5gate` `1158afc`, `n5`,
   `n1gate`, `n1`, `f1`, `src`). Frozen staging package untouched.
   RELEASE STATUS: NO-GO.
+
+## 2026-06 · EDR access authorization loop — diagnosed and repaired
+
+- Branch `engineering/edr-access-loop` from `engineering/n3a-telemetry-bson`
+  (`38e294c6`); commit `eac0192b`, tree `4a484f20`, worktree clean.
+- Failing request (captured verbatim, `/app/rocket-evidence/edrloop/tenant_required.json`):
+  `GET /api/edr/telemetry/freshness` with a valid session and no
+  `X-Tenant-Id` → **403** `{"code":"TENANT_REQUIRED","basis":
+  "MULTIPLE_AUTHORIZED_TENANTS","fail_closed":true}`.
+  `GET /api/edr/wave0/capabilities` (PRODUCT_METADATA) → 200.
+- Root cause is frontend, not backend. `/edr` maps to NO page capability
+  (`consolePermissions`/`routePermissions` both `undefined`), so no guard can
+  deny it; the denial came from `lib/secureRequests.js`, where ANY 403 latched
+  `invalidateSecurity("denied", path)`. `Protected` then renders
+  PermissionNotice for that path — which also hides the customer picker, so the
+  action that resolves it is unreachable, and "Recheck access" restarts the
+  cycle. The epoch bump additionally aborted the customer-independent reads,
+  leaving the capability cards stuck at "Reading registry…".
+- Repair (2 files, +57/−4): classify the refusal by the server's own code —
+  TENANT_REQUIRED/TENANT_NOT_RESOLVED latch nothing and abort nothing; every
+  other 403 (including unstructured) still latches, fail closed; 401 unchanged;
+  AccessProvider publishes `loading` while a reload is pending instead of a
+  frame of "unavailable". No default tenant, no hardcoded admin, no relaxed
+  authorization — the backend refusal is preserved and surfaced in place.
+- Tests: new `edrAccessLoop.test.jsx` (14) + `test_edr_tenant_required_is_not_
+  permission_denial.py` (5). Frontend suite 434 passed / 26 files (incl.
+  pre-existing securityState 13 and RouteSafety 13). Gates: security
+  126/0/0/1, tenant 136/0/0/0 — both identical to the accepted baselines.
+- Deployment relationship: the Vercel preview builds `publish/n3a-telemetry-bson`;
+  `secureRequests.js`, `AccessProvider.jsx` and `routePermissions.js` are
+  byte-identical on `ce8732ba`, that branch and the local head, so the defect
+  predates N-3A and the fix is portable to all three. NOT pushed or deployed.
+  RELEASE STATUS: NO-GO.
