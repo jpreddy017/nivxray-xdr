@@ -1,0 +1,69 @@
+{
+  "root": "/app/rocket-p0/n3",
+  "healthy": true,
+  "cases": [
+    {
+      "case": "telemetry\u00b7nested-objectid",
+      "collection": "frontend_telemetry",
+      "path": "/api/telemetry/frontend/recent",
+      "status_before": 200,
+      "status_with_doc": 500,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"detail\":\"Unable to serialize unknown type: <class 'bson.objectid.ObjectId'>\",\"request_id\":\"nvx-2b018cd2ff13\"}"
+    },
+    {
+      "case": "telemetry\u00b7binary",
+      "collection": "frontend_telemetry",
+      "path": "/api/telemetry/frontend/recent",
+      "status_before": 200,
+      "status_with_doc": 200,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"count\":1,\"records\":[{\"_id\":\"6ad432d38f07470d2111aa14\",\"session_id\":\"ses_probe2\",\"recorded_at\":\"2026-10-18T02:45:39.305000\",\"blob\":\"\\u0000\\u0001\\u0002\"}]}"
+    },
+    {
+      "case": "telemetry\u00b7decimal128",
+      "collection": "frontend_telemetry",
+      "path": "/api/telemetry/frontend/recent",
+      "status_before": 200,
+      "status_with_doc": 500,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"detail\":\"Unable to serialize unknown type: <class 'bson.decimal128.Decimal128'>\",\"request_id\":\"nvx-004549134611\"}"
+    },
+    {
+      "case": "cortex-actions\u00b7nested-objectid",
+      "collection": "xdr_response_actions",
+      "path": "/api/xdr/vendor/cortex/actions",
+      "status_before": 200,
+      "status_with_doc": 500,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"detail\":\"[TypeError(\\\"'ObjectId' object is not iterable\\\"), TypeError('vars() argument must have __dict__ attribute')]\",\"request_id\":\"nvx-cb5aead30de9\"}"
+    },
+    {
+      "case": "cortex-actions\u00b7datetime-in-result",
+      "collection": "xdr_response_actions",
+      "path": "/api/xdr/vendor/cortex/actions",
+      "status_before": 200,
+      "status_with_doc": 200,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"actions\":[{\"action_id\":\"probe-a2\",\"completed_at\":\"2026-10-18T02:45:39.305151+00:00\",\"result\":{\"vendor_seen_at\":\"2026-10-18T02:45:39.305000\"}}],\"count\":1}"
+    },
+    {
+      "case": "vendor-connections\u00b7nested-objectid",
+      "collection": "xdr_integrations",
+      "path": "/api/xdr/vendor/cortex/connections",
+      "status_before": 200,
+      "status_with_doc": 500,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"detail\":\"[TypeError(\\\"'ObjectId' object is not iterable\\\"), TypeError('vars() argument must have __dict__ attribute')]\",\"request_id\":\"nvx-cd7a102764d4\"}"
+    },
+    {
+      "case": "vendor-connections\u00b7binary-credential",
+      "collection": "xdr_integrations",
+      "path": "/api/xdr/vendor/cortex/connections",
+      "status_before": 200,
+      "status_with_doc": 500,
+      "status_after_removal": 200,
+      "body_with_doc": "{\"detail\":\"'utf-8' codec can't decode byte 0xbe in position 2: invalid start byte\",\"request_id\":\"nvx-841291098e0f\"}"
+    }
+  ]
+}

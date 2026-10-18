@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"3c27e9c6a0c74f69b2c5cf769d52ab01","collectionName":"xdr_integrations","type":"collection"}

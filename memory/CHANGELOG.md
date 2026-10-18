@@ -8320,3 +8320,32 @@ Stopped after producing the host acceptance package as instructed.
 - Reports: `memory/STAGE_2B_PART3_BUILD_REPAIR.md`,
   `memory/STAGE_2B_PART3_TRANSFER.md`. Release status NO-GO; phases 3–13 and
   egress denial remain BLOCKED pending independent Hetzner verification.
+
+## 2026-06 · N-3 — unauthenticated HTTP 500 root-cause investigation (READ-ONLY)
+
+- Branch `engineering/n3-http500-investigation` from `engineering/n5-ci-gate`
+  `1158afcc` (tree `d7ce3457`). **No application code changed**; worktree clean
+  at the baseline tree.
+- Endpoints identified: `GET /api/telemetry/frontend/recent`,
+  `GET /api/xdr/vendor/cortex/actions`, `GET /api/xdr/vendor/cortex/connections`
+  — the last served by `xdr_vendor_wizard.vendor_list` (parameterised route
+  mounted first), not `xdr_cortex_wizard.cortex_list`.
+- 354-GET unauthenticated sweep on the candidate: 0 × 500 both on an empty
+  database and with the preview rows restored. The F1-era 500 bodies are NOT
+  reproducible from current data; `xdr_response_actions` is empty and no
+  non-JSON BSON value remains in the three collections.
+- Defect reproduced deterministically instead: one inserted document per
+  endpoint (nested `ObjectId`, `Decimal128`, non-UTF-8 `Binary`) turns each
+  200 into a 500, and removing it restores 200.
+- Root cause (all three, single cause): raw Mongo documents returned to the
+  response encoder with no BSON→JSON normalisation. Classification:
+  **application logic** — not authentication, not configuration, not an
+  unavailable dependency (database-down yields 504 from `request_hardening`,
+  tested and recorded).
+- Aggravating: the exception text reaches the anonymous caller; the three paths
+  have zero test coverage. Open surface itself remains N-2.
+- Recommendation (not implemented): recursive BSON coercion at the three
+  handlers, a regression test mirroring the reproduction, then a separate
+  authorised gating step. No global encoder change.
+- Report `memory/A0/N3_HTTP500_INVESTIGATION.md`; evidence
+  `/app/rocket-evidence/n3/`. RELEASE STATUS: NO-GO.

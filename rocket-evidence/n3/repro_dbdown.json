@@ -1,0 +1,70 @@
+{
+  "root": "/app/rocket-p0/n3",
+  "healthy": true,
+  "phases": {
+    "database_up": [
+      {
+        "path": "/api/health",
+        "status": 200
+      },
+      {
+        "path": "/api/incidents",
+        "status": 200
+      },
+      {
+        "path": "/api/behaviors/registry",
+        "status": 200
+      },
+      {
+        "path": "/api/telemetry/frontend/recent",
+        "status": 200
+      },
+      {
+        "path": "/api/xdr/vendor/cortex/actions",
+        "status": 200
+      },
+      {
+        "path": "/api/xdr/vendor/cortex/connections",
+        "status": 200
+      }
+    ],
+    "database_down": [
+      {
+        "path": "/api/health",
+        "status": 200,
+        "seconds": 0.0,
+        "body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}"
+      },
+      {
+        "path": "/api/incidents",
+        "status": 200,
+        "seconds": 0.0,
+        "body": "{\"incidents\":[],\"count\":0,\"lens\":null,\"applied_filters\":{},\"scope\":{\"authorized\":false},\"invariant\":\"queue == projection \u00b7 never engine\"}"
+      },
+      {
+        "path": "/api/behaviors/registry",
+        "status": 200,
+        "seconds": 0.0,
+        "body": "{\"schema_version\":\"1.0\",\"count\":44,\"behaviors\":[{\"id\":\"archive_extraction\",\"canonical_name\":\"Archive Extraction\",\"description\":\"Archive extraction of an obfuscated payload.\",\"introduced_in\":\"P0.3\",\"deprecated_in\":\"\",\"lifecycle\":\"stable\",\"visibility\":"
+      },
+      {
+        "path": "/api/telemetry/frontend/recent",
+        "status": 504,
+        "seconds": 30.0,
+        "body": "{\"detail\":\"Server timeout after 30s. For AI narratives on chains with many stages, try fewer stages or use TROUBLESHOOT (offline, no LLM).\",\"request_id\":\"nvx-b9edc2e01f1d\",\"timeout_seconds\":30,\"path\":\"/api/telemetry/frontend/recent\"}"
+      },
+      {
+        "path": "/api/xdr/vendor/cortex/actions",
+        "status": 504,
+        "seconds": 30.0,
+        "body": "{\"detail\":\"Server timeout after 30s. For AI narratives on chains with many stages, try fewer stages or use TROUBLESHOOT (offline, no LLM).\",\"request_id\":\"nvx-a0b23f4ce15d\",\"timeout_seconds\":30,\"path\":\"/api/xdr/vendor/cortex/actions\"}"
+      },
+      {
+        "path": "/api/xdr/vendor/cortex/connections",
+        "status": 504,
+        "seconds": 30.0,
+        "body": "{\"detail\":\"Server timeout after 30s. For AI narratives on chains with many stages, try fewer stages or use TROUBLESHOOT (offline, no LLM).\",\"request_id\":\"nvx-6766f9d1b615\",\"timeout_seconds\":30,\"path\":\"/api/xdr/vendor/cortex/connections\"}"
+      }
+    ]
+  }
+}

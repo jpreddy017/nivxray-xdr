@@ -1,0 +1,28 @@
+route=/api/telemetry/frontend/recent status=500 latency_ms=4.392
+    File "/app/rocket-p0/n3/backend/observability/__init__.py", line 169, in dispatch
+    File "/app/rocket-p0/n3/backend/services/decoder/http_boundary.py", line 28, in __call__
+    pydantic_core._pydantic_core.PydanticSerializationError: Unable to serialize unknown type: <class 'bson.objectid.ObjectId'>
+
+route=/api/telemetry/frontend/recent status=500 latency_ms=1.277
+    File "/app/rocket-p0/n3/backend/observability/__init__.py", line 169, in dispatch
+    File "/app/rocket-p0/n3/backend/services/decoder/http_boundary.py", line 28, in __call__
+    pydantic_core._pydantic_core.PydanticSerializationError: Unable to serialize unknown type: <class 'bson.decimal128.Decimal128'>
+
+route=/api/xdr/vendor/cortex/actions status=500 latency_ms=1.568
+    TypeError: 'ObjectId' object is not iterable
+    TypeError: vars() argument must have __dict__ attribute
+    File "/app/rocket-p0/n3/backend/observability/__init__.py", line 169, in dispatch
+    File "/app/rocket-p0/n3/backend/services/decoder/http_boundary.py", line 28, in __call__
+    ValueError: [TypeError("'ObjectId' object is not iterable"), TypeError('vars() argument must have __dict__ attribute')]
+
+route=/api/xdr/vendor/{vendor_key}/connections status=500 latency_ms=2.186
+    TypeError: 'ObjectId' object is not iterable
+    TypeError: vars() argument must have __dict__ attribute
+    File "/app/rocket-p0/n3/backend/observability/__init__.py", line 169, in dispatch
+    File "/app/rocket-p0/n3/backend/services/decoder/http_boundary.py", line 28, in __call__
+    ValueError: [TypeError("'ObjectId' object is not iterable"), TypeError('vars() argument must have __dict__ attribute')]
+
+route=/api/xdr/vendor/{vendor_key}/connections status=500 latency_ms=2.396
+    File "/app/rocket-p0/n3/backend/observability/__init__.py", line 169, in dispatch
+    File "/app/rocket-p0/n3/backend/services/decoder/http_boundary.py", line 28, in __call__
+    UnicodeDecodeError: 'utf-8' codec can't decode byte 0xbe in position 2: invalid start byte

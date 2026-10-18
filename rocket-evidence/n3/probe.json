@@ -1,0 +1,31 @@
+{
+  "root": "/app/rocket-p0/n3",
+  "healthy": true,
+  "results": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "body": "{\"status\":\"ok\",\"service\":\"nivxray-api\"}"
+    },
+    {
+      "path": "/api/incidents",
+      "status": 200,
+      "body": "{\"incidents\":[],\"count\":0,\"lens\":null,\"applied_filters\":{},\"scope\":{\"authorized\":false},\"invariant\":\"queue == projection \u00b7 never engine\"}"
+    },
+    {
+      "path": "/api/telemetry/frontend/recent",
+      "status": 200,
+      "body": "{\"count\":0,\"records\":[]}"
+    },
+    {
+      "path": "/api/xdr/vendor/cortex/actions",
+      "status": 200,
+      "body": "{\"actions\":[],\"count\":0}"
+    },
+    {
+      "path": "/api/xdr/vendor/cortex/connections",
+      "status": 200,
+      "body": "{\"connections\":[],\"count\":0}"
+    }
+  ]
+}
