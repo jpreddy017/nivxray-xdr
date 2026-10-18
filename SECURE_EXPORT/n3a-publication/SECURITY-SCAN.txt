@@ -1,0 +1,73 @@
+NIVXRAY XDR — S1 PUBLICATION PACKAGE · SECURITY SCAN
+====================================================
+
+Scope scanned: every added line of all three commits, the combined 8-file
+patch, and the full object inventory of n3a-s1.bundle.
+
+PATTERNS SEARCHED — ALL ZERO HITS
+  private key blocks            -----BEGIN … PRIVATE KEY-----      0
+  AWS access key ids            AKIA[0-9A-Z]{16}                   0
+  GitHub tokens                 gh[pousr]_…                        0
+  Slack tokens                  xox[abprs]-…                       0
+  OpenAI-style keys             sk-[A-Za-z0-9]{20,}                0
+  JWTs                          eyJ….….                            0
+  credential-bearing Mongo URIs mongodb://user:pass@…               0
+  SSH public keys               ssh-rsa / ssh-ed25519 AAAA          0
+  quoted credential assignments (password|secret|api_key|token)=".." 0
+  long hex blobs (>=40 chars)                                      0
+  .env files of any kind                                           0
+
+GENERATED / BINARY CONTENT — NONE
+  No *.db, *.sqlite, *.pdf, *.pptx, image, archive or wheel.
+  No backend/xdr_state/, no backend/tests/reports/, no node_modules/, no dist/.
+  `git diff --numstat` reports a line count for all 8 files, i.e. git
+  classifies none of them as binary.
+
+HISTORICAL GIT OBJECTS — NONE
+  n3a-s1.bundle is thin. It declares ce8732ba9c7d0deb1d02825855bfe644550be07b
+  as a prerequisite and contains exactly:
+      3 commits, 5 trees, 8 blobs
+  Paths carried:
+      backend/
+      backend/routers/                 backend/routers/telemetry.py
+      backend/tests/                   backend/tests/_verified_session.py
+                                       backend/tests/test_collector_api_key_auth.py
+                                       backend/tests/test_n3a_telemetry_bson_serialization.py
+                                       backend/tests/test_p0prod1_secret_policy.py
+                                       backend/tests/test_xdr_webhooks.py
+      tools/security-harness/          tools/security-harness/README.md
+                                       tools/security-harness/run.py
+  No ancestor commit, no unrelated blob, no deleted-but-reachable object from
+  the local engineering history is transported.
+
+UNRELATED WORKSPACE FILES — NONE
+  Nothing from /app (the Emergent preview workspace) is included: no memory/,
+  no rocket-evidence/, no test_reports/, no uploads/, no .emergent/.
+  Nothing from F1, N-1, N-5 or the CI gate wiring is included.
+
+DISCLOSED BY DESIGN — reviewed and accepted, not secrets
+  * Environment-variable NAMES appear in tools/security-harness/run.py:
+      ADMIN_EMAIL ADMIN_PASSWORD DB_NAME EDR_AUTH_PEPPER EMERGENT_LLM_KEY
+      HARNESS_ANALYST_EMAIL HARNESS_TENANT JWT_SECRET MONGO_URL
+      NIVXRAY_REPO_ROOT NIVX_EDR_WORKERS_DISABLED XDR_AUDIT_MASTER_SECRET
+      XDR_ROOT_KEY XDR_SECRETS_MASTER_SECRET
+    Names only. Every corresponding VALUE is generated per run with
+    secrets.token_urlsafe(48) inside the harness process tree. A suite that
+    passed because a key was guessable would fail under this harness.
+  * The literal string "harness-no-llm-call" (2 occurrences) is a deliberate
+    non-key placeholder: config validation requires EMERGENT_LLM_KEY to be
+    non-empty and the harness performs no LLM call.
+  * The word "password" appears 14 times — all in identifier names
+    (hash_password, admin_password, ADMIN_PASSWORD) and prose. No value.
+  * backend/tests/test_p0prod1_secret_policy.py is the secret-policy test
+    itself; its added lines describe prohibited patterns, they do not contain
+    credentials.
+
+TREE INTEGRITY — VERIFIED TWICE, INDEPENDENTLY
+  bundle route  : scratch repo containing only base ce8732ba + bundle
+                  -> commit d065fd674eca239c6a62af8322bb394d3bc45a53
+                  -> tree   5cef61aa71dc36ebb7398810c6432cc60dc5daab
+  patch route   : git read-tree ce8732ba, then git apply --cached of the three
+                  patches, then git write-tree
+                  -> tree   5cef61aa71dc36ebb7398810c6432cc60dc5daab
+  Both match the accepted candidate tree exactly.

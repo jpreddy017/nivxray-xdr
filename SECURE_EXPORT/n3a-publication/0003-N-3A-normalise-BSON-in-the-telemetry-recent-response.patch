@@ -1,0 +1,347 @@
+From d065fd674eca239c6a62af8322bb394d3bc45a53 Mon Sep 17 00:00:00 2001
+From: Emergent E3 <e3@nivxray.local>
+Date: Sun, 18 Oct 2026 12:15:56 +0000
+Subject: [PATCH 3/3] N-3A: normalise BSON in the telemetry recent response
+
+GET /api/telemetry/frontend/recent returned raw Mongo documents to the
+response serializer, normalising only the top-level _id and recorded_at. A
+single stored nested ObjectId, Decimal128 or non-UTF-8 Binary therefore
+became an unauthenticated 500 (N-3).
+
+_json_safe() coerces recursively with explicit, lossless rules: ObjectId to
+hex, Decimal128/Decimal to an exact string (never float), bytes to base64
+(never a UTF-8 guess), datetimes to ISO-8601, unanticipated BSON types to
+str. JSON-native values, field names, key order, limit and ordering are
+unchanged; nothing is dropped and no exception is suppressed.
+
+Endpoint-scoped: no global encoder, no change to the other two N-3 routes,
+no authentication or tenant change. The route remains unauthenticated (N-2).
+
+(cherry picked from commit 38e294c614456406c0198163d896afb03f8575f9)
+---
+ backend/routers/telemetry.py                  |  68 +++++-
+ .../test_n3a_telemetry_bson_serialization.py  | 223 ++++++++++++++++++
+ 2 files changed, 284 insertions(+), 7 deletions(-)
+ create mode 100644 backend/tests/test_n3a_telemetry_bson_serialization.py
+
+diff --git a/backend/routers/telemetry.py b/backend/routers/telemetry.py
+index 036d87fd..e5f404d2 100644
+--- a/backend/routers/telemetry.py
++++ b/backend/routers/telemetry.py
+@@ -30,9 +30,14 @@ window in Mongo so ops can grep for slow analysts / bad hardware.
+ """
+ from __future__ import annotations
+ 
+-from datetime import datetime, timezone
++import base64
++import decimal
++import uuid
++from collections.abc import Mapping
++from datetime import date, datetime, time, timezone
+ from typing   import Any, Dict, List, Optional
+ 
++from bson     import Decimal128, ObjectId
+ from fastapi   import APIRouter
+ from pydantic  import BaseModel, Field
+ 
+@@ -42,6 +47,57 @@ from deps import db
+ router = APIRouter(prefix="/telemetry", tags=["telemetry"])
+ 
+ 
++def _json_safe(value: Any) -> Any:
++    """Recursively coerce a stored telemetry value into a JSON-encodable one.
++
++    A document is legal in Mongo and fatal at the response boundary: this
++    endpoint returns what it read, and the previous code normalised only the
++    top-level `_id` and `recorded_at`. Any other BSON value — an `ObjectId`
++    nested in a sub-document, a `Decimal128`, non-UTF-8 `Binary` — reached
++    FastAPI's serializer and became an unauthenticated HTTP 500 (N-3).
++
++    Conversion rules, deliberately explicit and lossless:
++
++      * JSON-native (`str`, `int`, `float`, `bool`, `None`) — returned as-is,
++        type preserved. No numeric value is reformatted.
++      * `ObjectId`           → its 24-character hex string.
++      * `Decimal128`/`Decimal` → `str` of the exact decimal. NOT `float`:
++        that would silently lose precision on a value the client stored.
++      * `bytes`/`Binary`     → base64 (ASCII). NOT a UTF-8 decode: binary is
++        not text, and guessing raises `UnicodeDecodeError` on the first
++        non-UTF-8 byte.
++      * `datetime`/`date`/`time` → ISO-8601, unchanged from before.
++      * `UUID`               → canonical string form.
++      * mappings and sequences → walked recursively; key insertion order and
++        element order are preserved, so the response stays deterministic.
++      * anything else (`Regex`, `Code`, `Timestamp`, `MinKey`, `DBRef`, …)
++        → `str`, so a type nobody anticipated degrades to a readable value
++        instead of a 500.
++
++    Nothing is dropped, renamed or swallowed: every key present in the stored
++    document is present in the output, and no exception is suppressed.
++    """
++    if value is None or isinstance(value, (bool, int, float, str)):
++        return value
++    if isinstance(value, ObjectId):
++        return str(value)
++    if isinstance(value, Decimal128):
++        return str(value.to_decimal())
++    if isinstance(value, decimal.Decimal):
++        return str(value)
++    if isinstance(value, (bytes, bytearray)):
++        return base64.b64encode(bytes(value)).decode("ascii")
++    if isinstance(value, (datetime, date, time)):
++        return value.isoformat()
++    if isinstance(value, uuid.UUID):
++        return str(value)
++    if isinstance(value, Mapping):
++        return {str(k): _json_safe(v) for k, v in value.items()}
++    if isinstance(value, (list, tuple)):
++        return [_json_safe(v) for v in value]
++    return str(value)
++
++
+ class FrontendTelemetry(BaseModel):
+     case_id:        Optional[str] = None
+     session_id:     Optional[str] = None
+@@ -99,9 +155,7 @@ async def recent_frontend_telemetry(limit: int = 50) -> Dict[str, Any]:
+     docs: List[Dict[str, Any]] = await db.frontend_telemetry.find(
+         {}, sort=[("recorded_at", -1)]
+     ).limit(limit).to_list(length=limit)
+-    for d in docs:
+-        d["_id"] = str(d.get("_id"))
+-        rec = d.get("recorded_at")
+-        if hasattr(rec, "isoformat"):
+-            d["recorded_at"] = rec.isoformat()
+-    return {"count": len(docs), "records": docs}
++    # Same records, same order, same field names — only BSON values that the
++    # response serializer cannot encode are coerced. See `_json_safe`.
++    records = [_json_safe(d) for d in docs]
++    return {"count": len(records), "records": records}
+diff --git a/backend/tests/test_n3a_telemetry_bson_serialization.py b/backend/tests/test_n3a_telemetry_bson_serialization.py
+new file mode 100644
+index 00000000..121da6d9
+--- /dev/null
++++ b/backend/tests/test_n3a_telemetry_bson_serialization.py
+@@ -0,0 +1,223 @@
++"""N-3A · `GET /api/telemetry/frontend/recent` survives real BSON.
++
++The N-3 investigation reproduced an unauthenticated HTTP 500 on this endpoint:
++a single stored document carrying a nested `ObjectId` or a `Decimal128` turned
++a 200 into a 500, and removing the document restored the 200. The handler
++returned raw Mongo documents to FastAPI's serializer, normalising only the
++top-level `_id` and `recorded_at`.
++
++These tests are that reproduction, inverted: each one inserts the document
++that used to be fatal and asserts a valid JSON 200 whose values are the
++documented conversion of the stored value — not merely "no 500", which a
++`try/except` returning an empty list would also satisfy.
++
++Scope is this endpoint only. The other two N-3 endpoints are untouched, and
++so is every authentication and tenant control: this route takes no credential
++today and this suite does not change that — it asserts serialization, not
++authorization. Whether the route should be open at all is N-2.
++"""
++from __future__ import annotations
++
++import base64
++import os
++import uuid
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++os.environ.setdefault("NIVX_L3_DISABLE", "1")
++from fastapi.testclient import TestClient
++
++from bson import Binary, Code, Decimal128, MinKey, ObjectId, Regex
++from bson.timestamp import Timestamp
++
++import deps
++from routers.telemetry import _json_safe
++from server import app
++
++PATH = "/api/telemetry/frontend/recent"
++
++client = TestClient(app)
++
++
++def _coll():
++    return deps.sync_collection("frontend_telemetry")
++
++
++@pytest.fixture(scope="module", autouse=True)
++def _module_client():
++    """One lifespan-managed client, and the collection left as we found it.
++
++    `frontend_telemetry` is a bounded rolling diagnostic window, but it is not
++    this suite's to discard: the existing rows are snapshotted and reinserted
++    on teardown so running the suite against a populated database destroys
++    nothing.
++    """
++    global client
++    with TestClient(app) as c:
++        client = c
++        saved = list(_coll().find({}))
++        _coll().delete_many({})
++        try:
++            yield
++        finally:
++            _coll().delete_many({})
++            if saved:
++                _coll().insert_many(saved)
++
++
++@pytest.fixture(autouse=True)
++def _blank_collection():
++    _coll().delete_many({})
++    yield
++    _coll().delete_many({})
++
++
++def _insert(**fields) -> dict:
++    """Store one telemetry record, returning the document as written."""
++    doc = {"session_id": "ses_n3a", "recorded_at": datetime.now(timezone.utc)}
++    doc.update(fields)
++    _coll().insert_one(doc)
++    return doc
++
++
++def _records() -> list[dict]:
++    r = client.get(PATH)
++    assert r.status_code == 200, f"{r.status_code}: {r.text[:300]}"
++    body = r.json()                       # must be parseable JSON, not a 500
++    assert set(body) == {"count", "records"}
++    assert body["count"] == len(body["records"])
++    return body["records"]
++
++
++# ── the previously fatal documents ───────────────────────────────────
++def test_nested_objectid_no_longer_returns_500():
++    oid = ObjectId()
++    _insert(case_ref={"oid": oid}, trail=[{"oid": oid}])
++    rec = _records()[0]
++    assert rec["case_ref"]["oid"] == str(oid)
++    assert rec["trail"][0]["oid"] == str(oid)
++    assert len(str(oid)) == 24
++
++
++def test_decimal128_is_exact_and_never_a_lossy_float():
++    exact = "0.1000000000000000000000000001"      # unrepresentable as float
++    _insert(total_ms=Decimal128(exact))
++    value = _records()[0]["total_ms"]
++    assert value == exact
++    assert isinstance(value, str)                  # not float(exact)
++
++
++def test_invalid_utf8_binary_is_base64_not_a_decode_attempt():
++    raw = b"\xde\xad\xbe\xef"                      # 0xbe is not valid UTF-8
++    _insert(blob=Binary(raw))
++    value = _records()[0]["blob"]
++    assert value == base64.b64encode(raw).decode("ascii") == "3q2+7w=="
++    assert base64.b64decode(value) == raw          # lossless
++
++
++def test_utf8_decodable_binary_is_also_base64_not_text():
++    raw = b"abc"
++    _insert(blob=Binary(raw))
++    # Previously the serializer rendered this as "abc" by guessing UTF-8.
++    # Binary is not text; one rule for all bytes keeps the output predictable.
++    assert _records()[0]["blob"] == base64.b64encode(raw).decode("ascii")
++
++
++# ── the behaviour that must not change ───────────────────────────────
++def test_ordinary_record_is_unchanged():
++    now = datetime.now(timezone.utc)
++    _coll().insert_one({"session_id": "ses_plain", "backend_ms": 3107.82,
++                        "renders": 3, "notes": "", "recorded_at": now})
++    rec = _records()[0]
++    assert rec["session_id"] == "ses_plain"
++    assert rec["backend_ms"] == 3107.82 and isinstance(rec["backend_ms"], float)
++    assert rec["renders"] == 3 and isinstance(rec["renders"], int)
++    assert rec["notes"] == ""
++    # Compared against the value as Mongo returns it, not against `now`:
++    # BSON datetimes come back millisecond-truncated and naive.
++    stored = _coll().find_one({"session_id": "ses_plain"})["recorded_at"]
++    assert rec["recorded_at"] == stored.isoformat()
++
++
++def test_json_native_values_keep_their_types():
++    _insert(flag=True, missing=None, count=0, ratio=0.5, label="x")
++    rec = _records()[0]
++    assert rec["flag"] is True
++    assert rec["missing"] is None
++    assert rec["count"] == 0 and isinstance(rec["count"], int)
++    assert rec["ratio"] == 0.5 and isinstance(rec["ratio"], float)
++    assert rec["label"] == "x"
++
++
++def test_nested_dicts_and_arrays_are_walked_and_order_preserved():
++    oid = ObjectId()
++    _insert(stages=[{"name": "layout", "ms": 212},
++                    {"name": "paint", "ms": 41, "ref": oid}],
++            nested={"a": {"b": {"c": [1, 2, {"d": oid}]}}})
++    rec = _records()[0]
++    assert [s["name"] for s in rec["stages"]] == ["layout", "paint"]
++    assert rec["stages"][1]["ref"] == str(oid)
++    assert rec["nested"]["a"]["b"]["c"][:2] == [1, 2]
++    assert rec["nested"]["a"]["b"]["c"][2]["d"] == str(oid)
++
++
++def test_no_field_is_added_dropped_or_renamed():
++    doc = _insert(case_ref={"oid": ObjectId()}, blob=Binary(b"\xff\xfe"),
++                  total_ms=Decimal128("1.5"))
++    rec = _records()[0]
++    # `_id` is the stored key, returned as a string exactly as before. No new
++    # key appears, and nothing the document carried disappears.
++    assert set(rec) == set(doc) | {"_id"}
++    assert rec["_id"] == str(doc["_id"])
++    assert all(k in rec for k in doc)
++
++
++def test_response_is_deterministic():
++    _insert(case_ref={"oid": ObjectId()}, total_ms=Decimal128("2.25"),
++            blob=Binary(b"\x00\xff"))
++    first, second = client.get(PATH), client.get(PATH)
++    assert first.status_code == second.status_code == 200
++    assert first.text == second.text                 # byte-identical
++
++
++def test_limit_and_ordering_are_unchanged():
++    base = datetime.now(timezone.utc)
++    for i in range(4):
++        _coll().insert_one({"session_id": f"ses_{i}", "ref": ObjectId(),
++                            "recorded_at": base - timedelta(minutes=i)})
++    r = client.get(PATH, params={"limit": 2})
++    assert r.status_code == 200
++    body = r.json()
++    assert body["count"] == 2                        # limit honoured
++    assert [x["session_id"] for x in body["records"]] == ["ses_0", "ses_1"]
++
++
++def test_empty_collection():
++    assert _coll().count_documents({}) == 0
++    r = client.get(PATH)
++    assert r.status_code == 200
++    assert r.json() == {"count": 0, "records": []}
++
++
++# ── the helper itself, for types no fixture can conveniently store ───
++def test_unanticipated_bson_types_degrade_to_strings_not_500s():
++    for value in (Regex("^x"), Code("function(){}"), Timestamp(1, 1), MinKey()):
++        assert isinstance(_json_safe({"v": value})["v"], str)
++
++
++def test_uuid_and_bare_bytes():
++    u = uuid.uuid4()
++    assert _json_safe(u) == str(u)
++    assert _json_safe(b"\x01\x02") == base64.b64encode(b"\x01\x02").decode()
++
++
++def test_helper_suppresses_nothing():
++    """A value that cannot be converted must raise, not vanish."""
++
++    class Explodes:
++        def __str__(self):
++            raise RuntimeError("deliberate")
++
++    with pytest.raises(RuntimeError):
++        _json_safe({"v": Explodes()})

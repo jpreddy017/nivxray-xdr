@@ -1,0 +1,51 @@
+NIVXRAY XDR — S1 PUBLICATION PACKAGE · MANIFEST
+==============================================================
+
+GIT PROVENANCE
+  repository          jpreddy017/nivxray-xdr
+  base commit         ce8732ba9c7d0deb1d02825855bfe644550be07b
+                      engineering/stage1-staging-package (published, unmodified)
+  base tree           aff5f8e1dd267367e9e1b90461f6050c72c655e5
+  candidate branch    publish/n3a-telemetry-bson
+  candidate commit    d065fd674eca239c6a62af8322bb394d3bc45a53
+  candidate tree      5cef61aa71dc36ebb7398810c6432cc60dc5daab
+
+COMMITS (3, in order, each carrying its cherry-pick provenance line)
+6542d4da6b0833d2464118b65f79f6a2fec9bbe6  A1: make the security suites runnable without weakening them
+  bf493eaf94d35d15dd14a3354f2afd99ea35a0c1  A1: harness documentation
+  d065fd674eca239c6a62af8322bb394d3bc45a53  N-3A: normalise BSON in the telemetry recent response
+
+SOURCE PROVENANCE OF EACH COMMIT (validated local engineering branches)
+  6542d4da <- 0ee630f5  A1  engineering/a1-security-harness
+  bf493eaf <- 3db07b18  A1  engineering/a1-security-harness
+  d065fd67 <- 38e294c6  N-3A engineering/n3a-telemetry-bson (tree a7ff378c)
+
+CHANGED FILES (8; M=modified A=added)
+  st path                                                     git blob sha1                            sha256 of file content                                           bytes
+  M  backend/routers/telemetry.py                             e5f404d231c001d2db7e11ae119b20b2d2e6c45b 696a456828c48c853877ba419810f90b21385a3e0b747b3e0527704f191396bf 7027
+  M  backend/tests/_verified_session.py                       d56609b194e4e4f7cf2dd5d5c61401ca26e76c96 741b5dcb1307133f6d5049fb1b187739ed73eaf65e441eec04e2aa62e64e7314 6973
+  M  backend/tests/test_collector_api_key_auth.py             e7b64d3e6d92306ff9acfee41af41f4cd321c596 5bba31d2c8f0dbe4fd1c36639d9a1fedf82b013e41c0a4c8d1f57f5e765928c3 10747
+  A  backend/tests/test_n3a_telemetry_bson_serialization.py   121da6d996c8a870d87600fc4ebe9b4076da1c3c 5d4b54687b1c511f090a881c0778d1f932d2ca48e1fbf0893b5c25b074834ed3 8291
+  M  backend/tests/test_p0prod1_secret_policy.py              99a280ed79ff6cf03e97e594ec59dceaa3ddd84e e19545a4d2a9494d5493133cd7f34e9794ffe63626de44f681b160ba045d5573 14585
+  M  backend/tests/test_xdr_webhooks.py                       d37aed1bfb62f1b7958450572807e1f069ab325c dcfce4b3e9e1201e395900f7a4ff5cfed6952c3c2668b740e0017de1c001e4de 11310
+  A  tools/security-harness/README.md                         aa08b7eaaa1e669cfee56b2e78ac4a6e98c40061 aac4b06c7d174d3bf86ca504c78ddb2ff9d747944971724025a653e90990f96d 3190
+  A  tools/security-harness/run.py                            f6e98f0776ae4e0abefcdd54c59d987ecd8493ce 8fe442e77b08dda502aa0d7a22844f14694b29f32592cf065beea4548fe17e68 12170
+
+DIFF SUMMARY   8 files changed, 762 insertions(+), 16 deletions(-)
+  production code touched: backend/routers/telemetry.py only
+  everything else is tests (5) and the test harness (2)
+
+PACKAGE ARTEFACTS (sha256)
+  0001-A1-make-the-security-suites-runnable-without-weakeni.patch 1162fcb23877d50765cde98ff228ecbfcac7816fa6e47406fa58661e0fda6bc5  25432
+  0002-A1-harness-documentation.patch                        c7b965f7e0658074a46f15919171182fcdf97157a79bf2c0a584546f04c22cdc  3873
+  0003-N-3A-normalise-BSON-in-the-telemetry-recent-response.patch f5c727cf1f5218b30267805d17e8dd22fd9572fcedb716009f1f1a5e40f1e6d8  14201
+  n3a-s1.bundle                                              fc5f3bf29804a1d94a17bbb0ecb79ceaa440f0e2af62a1e63592bec82a9a4462  16231
+  s1-combined-8-files.patch                                  7d950726b27c016d196b0d06645d3621e5e40d047cd5242c35e3a217cab8b986  40346
+
+BUNDLE OBJECT INVENTORY — 3 commits, 5 trees, 8 blobs, nothing else.
+  The bundle is THIN: it declares base commit ce8732ba9c7d as a
+  prerequisite and therefore carries no historical git objects.
+
+Both delivery routes were verified to reproduce the exact tree:
+  git bundle  -> 5cef61aa71dc36ebb7398810c6432cc60dc5daab
+  git am/apply-> 5cef61aa71dc36ebb7398810c6432cc60dc5daab

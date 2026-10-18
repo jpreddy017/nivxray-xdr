@@ -8411,3 +8411,33 @@ Stopped after producing the host acceptance package as instructed.
 - Push/PR still blocked on write credentials (empty credential store, no
   GH_TOKEN, no `gh`). Report `memory/A0/PUBLICATION_ASSESSMENT_N3A.md`,
   evidence `/app/rocket-evidence/pub/`. RELEASE STATUS: NO-GO.
+
+## 2026-06 · S1 publication package prepared (portable, nothing pushed)
+
+- Candidate built from the exact published base `ce8732ba` (fetched read-only
+  from GitHub into `/app/rocket-p0/src` as remote `github`):
+  branch `publish/n3a-telemetry-bson`, commit `d065fd67`, tree **`5cef61aa`** —
+  bit-identical to the assessed S1 trial tree.
+- Diff is exactly the approved 8 files, +762/−16; the only production file is
+  `backend/routers/telemetry.py`. Tests on the final candidate: 14 passed in
+  11.63s via the bundled harness.
+- Package `/app/SECURE_EXPORT/n3a-publication/` (132 KB) +
+  `n3a-s1-publication-package.tar.gz` (47,579 B, sha256 b90a7d49…a6fb):
+  thin `n3a-s1.bundle` (3 commits / 5 trees / 8 blobs, prerequisite
+  `ce8732ba`, so no historical objects), three `git am` patches with
+  cherry-pick provenance, the combined 8-file patch, `MANIFEST.txt`
+  (base/candidate/tree SHAs + per-file git-blob and sha256 hashes),
+  `SECURITY-SCAN.txt`, `VERIFY.md`, `SHA256SUMS`.
+- Tree integrity verified twice independently: bundle route into a scratch repo
+  containing only the base, and `read-tree`+`apply --cached` of the patches —
+  both yield `5cef61aa`.
+- Scans: zero hits for keys, PATs, JWTs, credential URIs, `.env`, binaries or
+  generated databases. Disclosed by design and documented: env-var NAMES in the
+  harness (values generated per run) and the `harness-no-llm-call` placeholder.
+- Save to Github cannot publish this branch: support confirmed it pushes the
+  /app workspace as one project, with no nested-repository support and no PR
+  creation. Owner pushes from `/app/rocket-p0/src` with their own credentials,
+  or applies the package in a clean clone.
+- Validated worktrees untouched (`n3a` `38e294c6`, `n5gate` `1158afc`, `n5`,
+  `n1gate`, `n1`, `f1`, `src`). Frozen staging package untouched.
+  RELEASE STATUS: NO-GO.
