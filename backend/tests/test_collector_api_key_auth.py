@@ -73,6 +73,15 @@ def _cleanup():
 @pytest.fixture(scope="module")
 def client():
     with TestClient(app) as c:
+        # The JWT admin path below names a tenant; naming one never
+        # authorizes it, so the suite tenants must exist and the seeded
+        # administrator must hold an explicit grant for them.
+        from tests._verified_session import (authorize_tenants,
+                                             provision_rbac_principal,
+                                             register_tenants)
+        register_tenants(TENANT, OTHER_TENANT, label="keyauth")
+        authorize_tenants(os.environ["ADMIN_EMAIL"], TENANT)
+        provision_rbac_principal(TENANT, os.environ["ADMIN_EMAIL"])
         yield c
 
 

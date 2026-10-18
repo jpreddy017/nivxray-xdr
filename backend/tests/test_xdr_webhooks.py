@@ -29,7 +29,9 @@ from routers import xdr_rbac as rb
 from routers import xdr_webhooks as wh
 from server import app
 
-from tests._verified_session import admin_token, hdrs, register_tenants
+from tests._verified_session import (admin_token, authorize_tenants, hdrs,
+                                     provision_rbac_principal,
+                                     register_tenants)
 
 #: MODERNIZED 2026-06 — this suite now authenticates. `X-Principal-Id` and
 #: the bootstrap bypass were deleted from the platform (P0-SEC); the suite
@@ -60,12 +62,18 @@ def _seed():
         client = c
         _TOKEN.append(admin_token(c))
         register_tenants(TEN, label="webhooks")
+        # Existing a tenant is not being authorized for it.
+        authorize_tenants(os.environ["ADMIN_EMAIL"], TEN)
         for coll in (wh._c_hooks, wh._c_deliveries, rb._c_users, rb._c_roles,
                      rb._c_assignments):
             if coll() is not None:
                 coll().delete_many({"tenant_id": TEN})
         if al._get_coll() is not None:
             al._get_coll().delete_many({"tenant_id": TEN})
+        # AFTER the purge, or it would be deleted: being authorized for a
+        # tenant is not being provisioned in it, and the RBAC API cannot
+        # create the first principal in a tenant it has no principal in.
+        provision_rbac_principal(TEN, os.environ["ADMIN_EMAIL"])
         client.post("/api/xdr/rbac/users", headers=_hdrs(),
                     json={"email": ADMIN,
                           "initial_roles": ["platform_admin"]})
@@ -223,6 +231,11 @@ def test_tenant_isolation():
     _skip_if_no_mongo()
     other = f"wh-other-{uuid.uuid4().hex[:8]}"
     register_tenants(other, label="webhooks-other")
+    # Authorize and provision the principal IN the second tenant, otherwise
+    # the request stops at authorization and the assertion below proves
+    # nothing about data isolation — which is what this test is for.
+    authorize_tenants(os.environ["ADMIN_EMAIL"], other)
+    provision_rbac_principal(other, os.environ["ADMIN_EMAIL"])
     client.post("/api/xdr/rbac/users", headers=_hdrs(ten=other),
                     json={"email": "o@x", "initial_roles": ["platform_admin"]})
     r_other = client.get("/api/xdr/webhooks",
