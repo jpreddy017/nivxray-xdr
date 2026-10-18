@@ -77,8 +77,14 @@ export function AccessProvider({ children }) {
     const refresh = () => {
       ++generation.current;
       const reason = securitySnapshot().reason;
-      setState({ loading: false, available: false, error: reason, data: null });
-      if (localStorage.getItem("nvx_token") && !["expired", "denied"].includes(reason)) load();
+      // While a reload is about to run the answer is UNRESOLVED, not "denied":
+      // publishing `loading: false` first makes every guard render its refusal
+      // for a frame before the contract has even been asked.
+      const willLoad = !!localStorage.getItem("nvx_token")
+        && !["expired", "denied"].includes(reason);
+      setState({ loading: willLoad, available: false,
+                 error: willLoad ? null : reason, data: null });
+      if (willLoad) load();
     };
     refresh();
     const unsubscribe = subscribeSecurity(refresh);
