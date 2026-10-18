@@ -1,0 +1,91 @@
+NIVXFORGE EDR · "RECHECK ACCESS" PERMANENT REPAIR
+=================================================
+Frontend only. No authorization logic, policy, route permission or API
+contract is touched. NOT related to, and NOT mixed with, the Windows
+Gate 4 branch.
+
+WHY THIS EXISTS
+---------------
+PR #17 fixed the CAUSE of the /edr loop: a 403 TENANT_REQUIRED ("pick a
+customer") was being reinterpreted as "you are forbidden". This change
+fixes the two properties that made that loop UNRECOVERABLE rather than
+merely wrong, so a DIFFERENT refusal code can never reproduce it.
+
+1 . THE LATCH IS IDEMPOTENT
+    invalidateSecurity("denied", path) bumped the epoch on every call.
+    Re-latching an ALREADY-latched denial for the SAME path therefore
+    remounted the surface, which re-ran the read that had just been
+    refused, which latched again - a render/request storm in which
+    "Recheck access" appears to do nothing at all.
+    The identical latch is now a no-op. Nothing is denied less: the
+    first latch still stands, a denial for a DIFFERENT path still
+    latches, and scope/session/expired/permission still invalidate.
+
+2 . THE REFUSAL KEEPS ITS SHELL
+    A latched route denial replaced the entire console with one sentence
+    and one button. The customer pill, the product navigation and
+    sign-out went with the page, so the ONE action that can change the
+    server's answer - selecting a customer - was unreachable, and the
+    button could only re-run the request that had just been refused.
+    An /edr refusal now renders INSIDE NivXForgeConsole. The page body
+    is still NOT loaded, the server is still the authority, and nothing
+    is granted: the operator simply keeps the controls.
+
+CHUNKING
+--------
+EdrAccessNotice stays a lazy /edr chunk. Importing NivXForgeConsole from
+the router put the EDR console in the XDR ENTRY chunk (+10.2 kB gzip,
+measured). Entry chunk is unchanged at 86.39 kB gzip; the notice is its
+own 0.38 kB chunk. The Suspense fallback is the refusal ITSELF, so there
+is no blank frame on the exact screen whose blankness is the defect.
+
+ALSO
+----
+data-testid added to both recovery controls (route-recheck-access,
+route-retry-authorization). Neither existed, so neither was drivable by
+a test or by the testing agent.
+
+PROVENANCE
+----------
+prerequisite (PR #17 head) f70a3814  EDR access loop (console)
+base                       d065fd67  (published; PR #16)
+commit                     94e447d57934602afcfefae42f5c3a0e2693ea21
+tree                       1511e4174a07af882e460f391d694eb65ecedcb4
+branch                     publish/edr-access-loop-frontend (fast-forward)
+                           publish/edr-denial-recoverable (same commit)
+files changed              5  (+201 / -3)
+engineering commit         aafa3d01
+
+FILES
+-----
+M apps/nivxray-xdr/src/App.jsx
+M apps/nivxray-xdr/src/lib/securityState.js
+M apps/nivxray-xdr/src/xdr/access/RequirePermission.jsx
+A apps/nivxray-xdr/src/nivxforge/EdrAccessNotice.jsx
+A apps/nivxray-xdr/src/lib/__tests__/edrDenialIsRecoverable.test.jsx
+
+TEST EVIDENCE
+-------------
+145 frontend tests pass on this branch (7 new), 441 on the full
+engineering tree. `vite build` clean. The backend companion test for
+this lineage requires a live verified-session credential
+(NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_010) and cannot run here; it is
+untouched by this frontend-only change and no credential was issued.
+
+WHAT THIS DOES NOT DO
+---------------------
+It does not make PR #18's preview work. That preview was cut from PR
+#16's base and carries NO EDR access repair; the fix belongs on PR #17's
+lineage, which is where this commit sits. Do not merge PR #17 into PR
+#18 to make a preview green.
+
+APPLY
+-----
+  git fetch ./edr-denial-recoverable.bundle \
+      publish/edr-denial-recoverable:publish/edr-denial-recoverable
+  # or
+  git am 0001-edr-denial-recoverable.patch        # on f70a3814
+
+HOLDS PRESERVED
+---------------
+No merge, no deployment, no production change, no credential issued.

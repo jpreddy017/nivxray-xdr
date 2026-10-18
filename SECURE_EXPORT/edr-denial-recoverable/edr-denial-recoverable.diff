@@ -1,0 +1,256 @@
+diff --git a/apps/nivxray-xdr/src/App.jsx b/apps/nivxray-xdr/src/App.jsx
+index d7dd31f3..e0b5a264 100644
+--- a/apps/nivxray-xdr/src/App.jsx
++++ b/apps/nivxray-xdr/src/App.jsx
+@@ -17,6 +17,13 @@ import { routePermissions, consolePermissions } from "@/xdr/access/routePermissi
+ import { securitySnapshot, subscribeSecurity } from "@/lib/securityState";
+ import LoginPage from "@/pages/LoginPage";
+ 
++// A refusal on an EDR route renders INSIDE the EDR plane, so the customer
++// selector and the product navigation survive it. Lazy, like every other
++// /edr surface: the EDR console must not enter the XDR entry chunk (+10 kB
++// gzip when it does). The Suspense fallback is the refusal ITSELF, so the
++// operator never sees a blank frame while the plane loads.
++const EdrAccessNotice = lazy(() => import("@/nivxforge/EdrAccessNotice"));
++
+ const XdrDashboardPage        = lazy(() => import("@/xdr/pages/XdrDashboardPage"));
+ // B2-NAV · `/xdr/control-center` is the canonical landing. The previous
+ // card-heavy MSS Dashboard stays reachable at `/xdr/mss-dashboard/_legacy`
+@@ -128,7 +135,17 @@ export function Protected({ children }) {
+     return <Navigate to={`/login?returnTo=${returnTo}`} replace />;
+   }
+   if (security.reason === "denied" && security.deniedPath === location.pathname) {
+-    return <PermissionNotice state="denied" />;
++    // THE REFUSAL KEEPS ITS SHELL. Replacing the whole console with a bare
++    // sentence is what made a refusal unrecoverable: the customer pill and the
++    // navigation went with it, so the action that changes the server's answer
++    // was unreachable. The page body is still NOT loaded.
++    const notice = <PermissionNotice state="denied" />;
++    if (!location.pathname.startsWith("/edr")) return notice;
++    return (
++      <Suspense fallback={<div data-testid="edr-access-notice-pending">{notice}</div>}>
++        <EdrAccessNotice>{notice}</EdrAccessNotice>
++      </Suspense>
++    );
+   }
+   return <RequirePermission key={`${security.epoch}:${location.pathname}`}
+     anyOf={consolePermissions(location.pathname)} label={location.pathname}>
+diff --git a/apps/nivxray-xdr/src/lib/__tests__/edrDenialIsRecoverable.test.jsx b/apps/nivxray-xdr/src/lib/__tests__/edrDenialIsRecoverable.test.jsx
+new file mode 100644
+index 00000000..21f3ac65
+--- /dev/null
++++ b/apps/nivxray-xdr/src/lib/__tests__/edrDenialIsRecoverable.test.jsx
+@@ -0,0 +1,145 @@
++/**
++ * EDR access · a refusal must be RECOVERABLE, not a dead end.
++ *
++ * The TENANT_REQUIRED misclassification was the cause of the `/edr` loop; this
++ * suite pins the two properties that made the loop unrecoverable rather than
++ * merely wrong, so a DIFFERENT refusal code can never reproduce it:
++ *
++ *   1. re-latching the SAME denial for the SAME path is idempotent. It used to
++ *      bump the epoch, remount the surface, re-run the refused read and latch
++ *      again — a render/request storm with "Recheck access" apparently doing
++ *      nothing;
++ *   2. a latched denial keeps the EDR plane around it, so the customer pill,
++ *      the product navigation and sign-out stay reachable. A bare sentence and
++ *      one button leaves the operator with no action that can change the
++ *      server's answer.
++ *
++ * Nothing is granted here: the refusal is still rendered, the page body is
++ * still not loaded, and every genuine denial still latches.
++ */
++import React from "react";
++import { renderToStaticMarkup } from "react-dom/server";
++import { StaticRouter } from "react-router-dom/server";
++import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
++
++import { invalidateSecurity, securitySnapshot } from "../securityState";
++import { Protected } from "@/App";
++import EdrAccessNotice from "@/nivxforge/EdrAccessNotice";
++import { PermissionNotice } from "@/xdr/access/RequirePermission";
++
++const access = vi.hoisted(() => ({ loading: false, answer: true }));
++vi.mock("@/xdr/access/AccessProvider", () => ({
++  useAccess: () => ({ loading: access.loading,
++                      canAny: () => access.answer, refresh: vi.fn() }),
++  AccessProvider: ({ children }) => children,
++}));
++vi.mock("@/lib/auth", () => ({
++  useAuth: () => ({ user: { email: "operator@synthetic" }, loading: false }),
++}));
++vi.mock("@/nivxforge/NivXForgeConsole", () => ({
++  default: ({ activeTab, children }) => (
++    <div data-testid="edr-console-shell" data-active-tab={activeTab}>
++      <div data-testid="edr-customer-pill">customer picker</div>
++      {children}
++    </div>),
++}));
++
++let loaded;
++function Dashboard() { loaded(); return <div>EDR dashboard</div>; }
++const render = (path) => renderToStaticMarkup(
++  <StaticRouter location={path}><Protected><Dashboard /></Protected></StaticRouter>);
++
++beforeEach(() => {
++  const values = new Map([["nvx_token", "synthetic-session"]]);
++  const storage = { getItem: (k) => values.get(k) || null,
++                    setItem: (k, v) => values.set(k, v),
++                    removeItem: (k) => values.delete(k) };
++  globalThis.window = Object.assign(new EventTarget(),
++    { localStorage: storage, location: { pathname: "/edr" } });
++  globalThis.localStorage = storage;
++  loaded = vi.fn();
++  access.loading = false;
++  access.answer = true;
++  invalidateSecurity("scope");
++});
++afterEach(() => {
++  invalidateSecurity("scope");
++  delete globalThis.window;
++  delete globalThis.localStorage;
++});
++
++describe("the denial latch is idempotent", () => {
++  it("re-latching the same path does not bump the epoch or notify again", () => {
++    invalidateSecurity("denied", "/edr");
++    const latched = securitySnapshot().epoch;
++    const seen = vi.fn();
++    invalidateSecurity("denied", "/edr");
++    invalidateSecurity("denied", "/edr");
++    expect(securitySnapshot().epoch).toBe(latched);
++    expect(securitySnapshot().reason).toBe("denied");
++    expect(securitySnapshot().deniedPath).toBe("/edr");
++    expect(seen).not.toHaveBeenCalled();
++  });
++
++  it("a denial for a DIFFERENT path still latches", () => {
++    invalidateSecurity("denied", "/edr");
++    const latched = securitySnapshot().epoch;
++    invalidateSecurity("denied", "/edr/computers");
++    expect(securitySnapshot().epoch).toBeGreaterThan(latched);
++    expect(securitySnapshot().deniedPath).toBe("/edr/computers");
++  });
++
++  it("every other reason still invalidates while a denial is latched", () => {
++    invalidateSecurity("denied", "/edr");
++    for (const reason of ["permission", "scope", "session", "expired"]) {
++      const before = securitySnapshot().epoch;
++      invalidateSecurity(reason);
++      expect(securitySnapshot().epoch).toBeGreaterThan(before);
++      expect(securitySnapshot().reason).toBe(reason);
++    }
++  });
++
++  it("a denial latches again after it has been cleared", () => {
++    invalidateSecurity("denied", "/edr");
++    invalidateSecurity("permission");
++    const cleared = securitySnapshot().epoch;
++    invalidateSecurity("denied", "/edr");
++    expect(securitySnapshot().epoch).toBeGreaterThan(cleared);
++    expect(securitySnapshot().reason).toBe("denied");
++  });
++});
++
++describe("a refusal keeps the controls that can resolve it", () => {
++  it("an /edr denial is routed into the EDR plane, refusal visible meanwhile", () => {
++    invalidateSecurity("denied", "/edr");
++    const html = render("/edr");
++    // the plane is a lazy chunk: the refusal is on screen while it loads
++    expect(html).toContain("edr-access-notice-pending");
++    expect(html).toContain("route-denied");
++    expect(html).toContain("route-recheck-access");
++    // the page body is STILL not loaded
++    expect(html).not.toContain("EDR dashboard");
++    expect(loaded).not.toHaveBeenCalled();
++  });
++
++  it("the plane renders the refusal with the console and the picker around it", () => {
++    const html = renderToStaticMarkup(
++      <StaticRouter location="/edr/computers">
++        <EdrAccessNotice><PermissionNotice state="denied" /></EdrAccessNotice>
++      </StaticRouter>);
++    expect(html).toContain("edr-console-shell");
++    expect(html).toContain("edr-customer-pill");
++    expect(html).toContain("route-denied");
++    // and it opens on the refused destination, not a different one
++    expect(html).toContain('data-active-tab="computers"');
++  });
++
++  it("an XDR denial is unchanged — no EDR plane is mounted", () => {
++    invalidateSecurity("denied", "/xdr/incidents");
++    const html = render("/xdr/incidents");
++    expect(html).toContain("route-denied");
++    expect(html).not.toContain("edr-access-notice-pending");
++    expect(html).not.toContain("edr-console-shell");
++    expect(loaded).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/nivxray-xdr/src/lib/securityState.js b/apps/nivxray-xdr/src/lib/securityState.js
+index 544f75ab..2247cb77 100644
+--- a/apps/nivxray-xdr/src/lib/securityState.js
++++ b/apps/nivxray-xdr/src/lib/securityState.js
+@@ -5,6 +5,15 @@ const pending = new Set();
+ export const securitySnapshot = () => snapshot;
+ export const subscribeSecurity = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+ export function invalidateSecurity(reason = "scope", deniedPath = null) {
++  // A DENIAL ALREADY LATCHED FOR THE SAME PATH IS NOT NEWS. Re-latching it
++  // bumped the epoch, which remounted the surface, which re-ran the read that
++  // was refused, which latched again — the "Recheck access" loop, and a
++  // request storm behind it. The latch is presentation state only, so making
++  // the identical latch idempotent denies nothing less: the FIRST one still
++  // stands, a denial for a DIFFERENT path still latches, and any other reason
++  // (scope, session, expired, permission) still invalidates.
++  if (reason === "denied" && snapshot.reason === "denied"
++      && snapshot.deniedPath === deniedPath) return;
+   snapshot = { epoch: snapshot.epoch + 1, reason, deniedPath };
+   for (const cancel of [...pending]) cancel();
+   for (const listener of [...listeners]) listener();
+diff --git a/apps/nivxray-xdr/src/nivxforge/EdrAccessNotice.jsx b/apps/nivxray-xdr/src/nivxforge/EdrAccessNotice.jsx
+new file mode 100644
+index 00000000..83b2d80b
+--- /dev/null
++++ b/apps/nivxray-xdr/src/nivxforge/EdrAccessNotice.jsx
+@@ -0,0 +1,27 @@
++import React from "react";
++import { useLocation } from "react-router-dom";
++import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
++
++/**
++ * A page refusal inside the EDR plane, with the PLANE STILL AROUND IT.
++ *
++ * A latched route denial used to replace the whole console with a bare
++ * sentence and one button. That is what made the `/edr` loop unrecoverable
++ * rather than merely wrong: the customer pill, the product navigation and
++ * sign-out all disappeared with the page, so the one action that could
++ * change the server's answer — selecting a customer — was unreachable, and
++ * "Recheck access" could only re-run the request that had just been refused.
++ *
++ * Nothing here grants anything. The refusal is rendered verbatim, the page
++ * body stays unloaded, and the backend remains the authority; the operator
++ * simply keeps the controls that can resolve it.
++ */
++export default function EdrAccessNotice({ children }) {
++  const { pathname } = useLocation();
++  const activeTab = pathname.split("/")[2] || "overview";
++  return (
++    <NivXForgeConsole activeTab={activeTab}>
++      <div data-testid="edr-access-notice">{children}</div>
++    </NivXForgeConsole>
++  );
++}
+diff --git a/apps/nivxray-xdr/src/xdr/access/RequirePermission.jsx b/apps/nivxray-xdr/src/xdr/access/RequirePermission.jsx
+index 7f2d778b..f8b625f5 100644
+--- a/apps/nivxray-xdr/src/xdr/access/RequirePermission.jsx
++++ b/apps/nivxray-xdr/src/xdr/access/RequirePermission.jsx
+@@ -9,8 +9,8 @@ export function PermissionNotice({ state, label = "this page", retryable = true
+     {state === "loading" ? "Checking authorization …"
+       : state === "denied" ? `You are not authorized for ${label}`
+       : "Authorization unavailable. This page has not loaded sensitive data."}
+-    {state === "unavailable" && retryable && <button onClick={() => access.refresh()}>Retry authorization</button>}
+-    {state === "denied" && <button onClick={() => invalidateSecurity("permission")}>Recheck access</button>}
++    {state === "unavailable" && retryable && <button data-testid="route-retry-authorization" onClick={() => access.refresh()}>Retry authorization</button>}
++    {state === "denied" && <button data-testid="route-recheck-access" onClick={() => invalidateSecurity("permission")}>Recheck access</button>}
+   </div>;
+ }
+ export default function RequirePermission({ anyOf, label, children }) {

@@ -6331,3 +6331,63 @@ frontend 420 passed; vite build OK; tier-2 104 passed, 9 skipped.
 **RELEASE STATUS: NO-GO.** Staging pin untouched and still verifying; this
 candidate changes 255 backend files inside the build context, so merging needs
 an owner-approved re-pin and a fresh bundle — not performed.
+
+---
+
+## 2026-06 · Windows Gate 4 payload-context repair + EDR refusal permanence
+
+**Two independent workstreams, deliberately NOT mixed.**
+
+### 1 · Windows Gate 4 (run 39141512250 / PR #18, commit c845ff0b)
+CI verified PASS: installer build, artifact contract, Gate 0, service-host
+unpacking, real Windows SCM lifecycle. FAIL: Gate 4, with
+`this build carries no Windows service host payload` printed AFTER
+`GATE4 PRECONDITION: RUNNING`.
+
+Root cause: `_stage_service_host()` checked the onedir payload (`sys._MEIPASS`,
+present only inside the frozen exe) BEFORE the RUNNING guard, and `gate4_race.py`
+imported the SOURCE module. The live-service protection was never exercised.
+
+Fixes (no assertion weakened, no gate skipped):
+* `_stage_service_host()` answers "is something RUNNING here?" first; both
+  refusals kept verbatim.
+* Gate 4 drives every staging assertion through the BUILT ARTIFACT
+  (`stage-host`); a payload-less artifact now FAILS the gate. New proof:
+  image byte-identical (sha256) after the refusal, service still RUNNING,
+  and `GATE4 STAGE-AFTER-STOP` once the stop + image release are proved.
+* 4 Linux regressions lock both halves; two hardcoded `/app` test paths now
+  resolve from the test file (a contract test was reading another checkout).
+
+Commits: engineering `05b152ac` (tree `db715ace`) ·
+publication `63d7d104` (tree `fe47f040`, on `c845ff0b`,
+branches `publish/win-reenrol-recovery` fast-forwarded and
+`publish/gate4-payload-context`). 29 + 123 tests pass.
+Package: `/app/SECURE_EXPORT/gate4-payload-context-package.tar.gz`
+sha256 `4f5d002fc8789730cc3f3b9aa1d2538d44c4c190e714ad50ea15bb3904e3b723`.
+
+**Still NO-GO.** PyInstaller cannot cross-compile a Windows PE on Linux, so
+Gate 4 is UNVERIFIED until the owner re-runs the workflow. NO artifact claimed.
+
+### 2 · EDR "Recheck access" — permanence (on PR #17's lineage, NOT PR #18)
+PR #17 fixed the cause (TENANT_REQUIRED is a selection condition). This fixes
+what made the loop unrecoverable:
+* the denial latch is now idempotent for the same path (it used to bump the
+  epoch → remount → re-run the refused read → latch again);
+* an `/edr` refusal renders INSIDE `NivXForgeConsole`, so the customer pill,
+  navigation and sign-out survive it. Page body still not loaded.
+* `EdrAccessNotice` stays a lazy chunk (a static import cost +10.2 kB gzip in
+  the XDR entry chunk); `data-testid` added to both recovery buttons.
+
+Commits: engineering `aafa3d01` · publication `94e447d5` (tree `1511e417`,
+on `f70a3814`, branches `publish/edr-access-loop-frontend` fast-forwarded and
+`publish/edr-denial-recoverable`). 145 branch / 441 tree frontend tests pass.
+Package: `/app/SECURE_EXPORT/edr-denial-recoverable-package.tar.gz`
+sha256 `984a03a15b3079283c51ce616c1a3cc200d8662ac387c2cdde6808403510b9ba`.
+Backend companion test needs a live verified-session credential — not run,
+no credential issued.
+
+### Next (owner-gated)
+1. Push `publish/win-reenrol-recovery` → re-run the Windows workflow → read
+   the Gate 4 verdict. Only then is an artifact worth hashing.
+2. Push `publish/edr-access-loop-frontend` → PR #17 preview.
+3. Nothing merged, deployed, enrolled or restarted. All HOLDs stand.

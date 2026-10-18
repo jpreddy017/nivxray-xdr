@@ -18,6 +18,10 @@ BUNDLES = {
     "edr-access-loop": Path("/app/SECURE_EXPORT/edr-access-loop-package.tar.gz"),
     # Windows re-enrolment recovery · source + CI only, NO artifact.
     "win-reenrol": Path("/app/SECURE_EXPORT/win-reenrol-recovery-package.tar.gz"),
+    # Gate 4 payload-context repair · source + CI only, NO artifact.
+    "gate4": Path("/app/SECURE_EXPORT/gate4-payload-context-package.tar.gz"),
+    # EDR "Recheck access" permanent repair · frontend only, on PR #17.
+    "edr-denial": Path("/app/SECURE_EXPORT/edr-denial-recoverable-package.tar.gz"),
 }
 
 

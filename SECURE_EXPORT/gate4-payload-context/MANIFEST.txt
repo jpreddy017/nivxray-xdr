@@ -1,0 +1,103 @@
+NIVXFORGE WINDOWS · GATE 4 PAYLOAD-CONTEXT REPAIR
+=================================================
+STATUS: SOURCE + CI ONLY. NO WINDOWS ARTIFACT IS INCLUDED OR CLAIMED.
+Windows re-enrolment of the live endpoint remains NO-GO.
+
+WHAT FAILED
+-----------
+Workflow run 39141512250 (NivXForge Windows Installer (V1) #23) on
+commit c845ff0bffdd6a68fc2839dc1c9c2e938db768b2:
+
+  PASS  Build installer / Verify artifact contract
+  PASS  Gate 0 · frozen journal selftest (+ machine-readable verdict)
+  PASS  Gate 1 · service host unpacks from the installer
+  PASS  Gate 2 · SCM command line is recognised
+  PASS  Gate 3 · real Windows SCM lifecycle
+  FAIL  Gate 4 · Re-enrol against a RUNNING service · stop race + rollback
+
+        GATE4 PRECONDITION: RUNNING
+        SystemExit: this build carries no Windows service host payload.
+                    Refusing to create a service with no valid image.
+
+ROOT CAUSE (test/packaging context, NOT the rollback)
+-----------------------------------------------------
+The onedir service host is carried INSIDE the one-file artifact and is
+located through sys._MEIPASS, which exists only in a PyInstaller
+process. gate4_race.py imported the CHECKED-IN SOURCE MODULE under a
+plain interpreter, so _service_payload_dir() returned None.
+_stage_service_host() checked the payload BEFORE the RUNNING guard, so
+the payload refusal fired first, the live-service protection was never
+exercised, and the end-to-end section was never reached.
+
+THE REPAIR (two causes, two fixes, nothing weakened)
+----------------------------------------------------
+1. agents/nivxforge-windows/nivxforge_setup.py
+   _stage_service_host() answers "is something RUNNING here?" BEFORE
+   "does this build carry a payload?". Both refusals are fail-closed and
+   replace nothing; only the first is about the HOST. Both messages are
+   kept verbatim.
+
+2. .github/workflows/windows-sensor-installer.yml
+   Gate 4 never asks the source module to stage. Every staging
+   assertion runs the BUILT ARTIFACT (`stage-host`), and an artifact
+   WITHOUT a payload now FAILS the gate explicitly instead of
+   satisfying it. Added proof that could not be expressed before:
+     · the service image is byte-identical (sha256) after the refusal
+     · the service is still RUNNING after the refusal
+     · the artifact CAN stage once - and only once - the stop and the
+       image release are proved (GATE4 STAGE-AFTER-STOP)
+   Every pre-existing GATE4 verdict is retained.
+
+3. backend/tests/edr/test_p0_windows_reenrol_staging_race.py
+   Four Linux regressions lock both halves:
+     · a payload-less build facing a RUNNING service raises the RUNNING
+       refusal and replaces nothing
+     · it is still named as the wrong build once nothing is running
+     · Gate 4 must drive stage-host through dist/ and must not call
+       _stage_service_host() from the source module
+     · Gate 4 must keep the byte-identical-image and still-RUNNING
+       assertions and every GATE4 verdict string
+
+NOT INCLUDED, DELIBERATELY: the EDR frontend access-loop repair (PR #17)
+is a separate change and is NOT mixed into this patch.
+
+PROVENANCE
+----------
+prerequisite (PR #18 head) c845ff0bffdd6a68fc2839dc1c9c2e938db768b2
+commit                     63d7d1043af1c599a5c818953e759f738aa91d80
+tree                       fe47f040d009b1f7ee39f6513301168f339f5ef6
+branch                     publish/win-reenrol-recovery (fast-forward)
+                           publish/gate4-payload-context (same commit)
+files changed              3   (+132 / -18)
+engineering commit         05b152ac  (full tree, real fixtures)
+
+TEST EVIDENCE (Linux)
+---------------------
+29 passed   staging race (29 incl. 4 new) + revoked-endpoint recovery,
+            run against THIS tree
+123 passed  with the Gate 0 CI contract, enrolment-secret stdin,
+            journal durability and pre-canary suites (engineering tree)
+workflow YAML parses; the extracted gate4_race.py compiles
+
+WINDOWS CI LIMITATION
+---------------------
+PyInstaller cannot cross-compile a Windows PE from Linux, so Gate 4
+CANNOT be executed here. Its verdict is UNVERIFIED until the owner
+re-runs windows-sensor-installer.yml on this commit. Treat an uploaded
+artifact as evidence of nothing until the Gate 4 step is green.
+
+APPLY
+-----
+  git fetch ./gate4-payload-context.bundle \
+      publish/gate4-payload-context:publish/gate4-payload-context
+  # or
+  git am 0001-gate4-payload-context.patch     # on c845ff0b
+
+Then push publish/win-reenrol-recovery so PR #18 re-runs the SAME
+workflow. Do not merge: PR #18 stays draft.
+
+HOLDS PRESERVED
+---------------
+No merge, no deployment, no production change, no enrolment token
+issued, no credential created, no queue touched, no service restarted.
+TARGET_ENDPOINT_TOUCHED = NO.
