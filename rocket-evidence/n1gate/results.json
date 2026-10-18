@@ -1,0 +1,31 @@
+[
+  {
+    "gate": "security",
+    "command": [
+      "/root/.venv/bin/python",
+      "/app/rocket-p0/n1gate/tools/security-harness/run.py",
+      "--junitxml",
+      "/app/rocket-evidence/n1gate/security.xml",
+      "--suite",
+      "tests/test_xdr_webhooks.py",
+      "--suite",
+      "tests/test_collector_api_key_auth.py",
+      "--suite",
+      "tests/test_d11_ingest_provenance.py",
+      "--suite",
+      "tests/test_p0prod1_secret_policy.py",
+      "--suite",
+      "tests/test_v2_isolation.py",
+      "--suite",
+      "tests/test_phase2_1_tenant_isolation.py",
+      "--suite",
+      "tests/test_f4_tenant_bootstrap.py",
+      "--suite",
+      "tests/test_f3_installation_paths.py",
+      "--suite",
+      "tests/test_n1_retirement_provenance_identity.py"
+    ],
+    "exit": 0,
+    "seconds": 296.838
+  }
+]
