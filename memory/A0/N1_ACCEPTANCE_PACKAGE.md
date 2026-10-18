@@ -1,0 +1,228 @@
+# N-1 ACCEPTANCE PACKAGE — audit provenance repair
+
+**Branch** `engineering/n1-audit-provenance` · worktree `/app/rocket-p0/n1`
+**Commit** `e2c96f2e8e04d22a7f5b7ec15001fa9ee2c9ee08`
+**Tree** `342ca56599ae50a69fdbcf470e8e6933388eff63`
+**Parent (verified baseline)** `d5bceb80e471ddb66a0f6119bb4e976e87afcfd3`,
+tree `22e59d7bc32c46baff846c989d7409f53d2e9ba1`, clean worktree,
+acceptance report `/app/memory/A0/F1_ACCEPTANCE_PACKAGE.md` (17,913 bytes)
+— all four identifiers matched before work started.
+
+**ASSESSMENT: PASS.** Evidence: `/app/rocket-evidence/n1/`.
+
+---
+
+## 1 · Root cause and reproduction
+
+`write_retirement_record` filed every record under `_slug(legacy)` — the
+**legacy module path** — while the record body carried a stable
+`capability_id` that was never used for identity. Record identity was
+therefore a mutable source path.
+
+Sequence:
+
+1. `b1240bb` (sanitized baseline) ships
+   `v2.investigation.rte.transformations.ps_byte_array_xor_loop.json`,
+   `retired_at` **2026-09-26T12:37:19+00:00**.
+2. F1 promotes the namespace and rewrites the `legacy` string in the Slice-6
+   emitter table (`tests/test_slice6_retirement_records.py:34`) — correct in
+   itself, it *is* a module reference.
+3. `test_slice6_retirement_records_are_emitted` writes into the tracked ledger
+   when it runs. New `legacy` → new filename → a record was **created**, not
+   updated. `7c2bb3c` committed it with `retired_at` **2026-10-17T17:01:19**,
+   the regeneration time.
+4. `list_retirement_records()` then returned two records for one capability.
+   `test_slice6_ps_byte_array_xor_loop_retirement_is_recorded` takes `hit[0]`,
+   and filename order puts `nivx_engine…` before `v2…` — so which record was
+   authoritative **silently flipped**, to the one with the wrong date.
+
+**Duplicate, not a second retirement — verified, not assumed.** Both records
+carry the same `capability_id`, `replacement`, `retired_in`, all four
+equivalence gates and byte-identical notes. Both name the *same physical
+file*: `nivx_engine/investigation/rte/transformations/ps_byte_array_xor_loop.py`
+is the renamed `v2/...` path and **still exists** — the record was written
+ahead of a deletion that is still pending in the Slice-6 execution phase. One
+capability, one retirement decision, one code object, two records.
+
+Second-order defect found while tracing: `retired_at` was refreshed on *every*
+write, so the tracked artefact was nondeterministic. Observed directly — the
+F1 worktree went dirty on that file during Gate B comparison, because F1 still
+has the old writer. Restored with `git checkout --`; F1's commit and tree are
+untouched and the worktree is clean again.
+
+**Reproduction** — `backend/tests/test_n1_retirement_provenance_identity.py`,
+8 tests driving a temporary ledger directory (the real audit trail is never
+written to), plus one that inspects the shipped ledger. Against `d5bceb8`:
+
+```
+6 failed, 2 passed   exit 1
+FAILED test_a_renamed_module_does_not_create_a_second_record
+FAILED test_the_original_retirement_time_and_identifier_survive_a_rename
+FAILED test_the_renamed_path_is_still_resolvable
+FAILED test_aliases_accumulate_and_are_never_dropped
+FAILED test_reviewer_updates_still_apply
+FAILED test_the_real_ledger_has_one_record_per_capability
+  AssertionError: duplicate provenance identities in the ledger:
+  {'ps.byte_array_xor_loop': ['nivx_engine.investigation.rte.transformations…',
+                              'v2.investigation.rte.transformations…']}
+```
+
+**Scope of impact:** audit/evidence provenance only. `retirement_ledger` is
+imported by exactly two files, both tests
+(`grep -rln retirement_ledger backend --include=*.py`) — **no runtime module,
+router or service reads it**, so there is no runtime or security behaviour
+change. Severity **P2**, origin **introduced by F1 `7c2bb3c`** on top of a
+**pre-existing P2 design defect** (identity keyed on a mutable path), which
+had been latent since the ledger was written.
+
+---
+
+## 2 · Changed files
+
+| File | Change | Why |
+|---|---|---|
+| `backend/services/uaie/retirement_ledger.py` | identity resolution: writes resolve by `capability_id`; a different `legacy` for a known capability becomes an additive `legacy_aliases` entry on the **existing** file; `legacy` and `retired_at` are never overwritten; new `find_retirement_record()`; `_read()` helper | the fix, in identity resolution rather than in the data |
+| `backend/services/uaie/retirement/v2.…ps_byte_array_xor_loop.json` | **+1 key** (`legacy_aliases`) | records the renamed path on the authoritative record |
+| `backend/services/uaie/retirement/nivx_engine.…ps_byte_array_xor_loop.json` | deleted | the generated duplicate `7c2bb3c` created; git history retains it |
+| `backend/tests/test_n1_retirement_provenance_identity.py` | new, 8 tests | reproduction + regression guard |
+| `backend/tests/reports/phase2_batch2_perf.json` | untracked (file left on disk) | machine/run-specific perf baseline swept in by `git add -A`; regenerated by its own suite and **untracked on A3**, so this restores the intended state |
+| `.gitignore` | `backend/tests/reports/` | stops the same artefact returning |
+
+No other file touched. Nothing under `deploy/` (`git diff --name-only
+d5bceb8 HEAD -- deploy/` → 0). Authentication, tenant enforcement, EDR
+response, N-2…N-5: untouched.
+
+Lint on the changed module: **16 → 11 findings** (the precise
+`(OSError, json.JSONDecodeError)` replaced a pre-existing blind `except`);
+no new finding classes introduced.
+
+---
+
+## 3 · Provenance identity — before and after
+
+**Before (`d5bceb8`)** — two files, one capability:
+
+| file | legacy | capability_id | retired_at |
+|---|---|---|---|
+| `nivx_engine.….json` | `nivx_engine.investigation.rte.transformations.ps_byte_array_xor_loop` | `ps.byte_array_xor_loop` | 2026-10-17T17:01:19+00:00 |
+| `v2.….json` | `v2.investigation.rte.transformations.ps_byte_array_xor_loop` | `ps.byte_array_xor_loop` | 2026-09-26T12:37:19+00:00 |
+
+**After (`e2c96f2`)** — one file, one capability, both paths resolvable:
+
+```json
+  "legacy": "v2.investigation.rte.transformations.ps_byte_array_xor_loop",
+  "capability_id": "ps.byte_array_xor_loop",
+  "retired_at": "2026-09-26T12:37:19+00:00",
+  "legacy_aliases": [
+    "nivx_engine.investigation.rte.transformations.ps_byte_array_xor_loop"
+  ]
+```
+
+`find_retirement_record(legacy=…)` resolves from **either** path;
+`find_retirement_record(capability_id=…)` resolves from the capability.
+
+---
+
+## 4 · Historical evidence intact
+
+Field-by-field comparison of the surviving record against `d5bceb8`:
+
+```
+fields removed : NONE
+fields changed : NONE
+fields added   : {'legacy_aliases': ['nivx_engine.investigation.rte.transformations.ps_byte_array_xor_loop']}
+legacy         : v2.investigation.rte.transformations.ps_byte_array_xor_loop   (unchanged)
+retired_at     : 2026-09-26T12:37:19+00:00                                     (unchanged: True)
+```
+
+Nothing was deleted, overwritten or rewritten: the 2026-09-26 retirement fact,
+its original identifier, replacement, phase, four equivalence gates and notes
+are byte-preserved. The only mutation is an **added** key. The published
+record shape is extended, not changed — `legacy_aliases` is optional and
+absent until a rename occurs, so records that never moved stay byte-identical
+and every documented consumer key still reads.
+
+**Determinism:** the emitter was re-run after committing and the worktree
+stayed clean (`git status --porcelain` → 0), and hashing the record across two
+consecutive runs gives the same digest. The ledger can no longer show up as a
+spurious diff in a candidate.
+
+---
+
+## 5 · Validation
+
+**Gate A — focused** (`pytest … -p no:randomly`, exit code captured):
+
+```
+tests/test_n1_retirement_provenance_identity.py
+tests/test_slice6_retirement_records.py
+tests/test_perf_baseline_ci_gate.py        12 passed      exit 0
+```
+Both legacy and renamed references verified; the perf gate still **passes**
+(the baseline file remains on disk, only untracked).
+
+**Gate B — audit / evidence / provenance integration**, 11 suites, run on
+**both** `e2c96f2` and the accepted `d5bceb8`:
+
+| | N-1 | F1 (accepted) |
+|---|---|---|
+| result | **11 failed, 102 passed**, exit 1 | **11 failed, 102 passed**, exit 1 |
+
+Failing-set diff: **empty in both directions — zero new regressions.** The 11
+are pre-existing and ungated:
+
+* `test_xdr_audit_log.py` ×5 — fixture provisioning: the test principal is not
+  authorized for the tenant it names, so the strict contract refuses
+  (`TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL`, `fail_closed: true`). Same N-5 class.
+  **Verified pre-existing on A3 as well** (5 failed there), so not an F1 or
+  N-1 effect.
+* `test_uaie_baseline_gates.py` ×6 — `R26 L·behavior/graph regression` against
+  frozen expectation files. Pre-existing, unrelated to the ledger. Recorded,
+  not fixed.
+
+**Gate C — security regression**, against the accepted F1 evidence:
+
+| gate | F1 (accepted) t/fail/err/skip | N-1 | delta |
+|---|---|---|---|
+| security (mandatory) | 118 / 0 / 0 / 1 | 118 / 0 / 0 / 1 | same |
+| boundaries (evidence integrity) | 136 / 0 / 0 / 0 | 136 / 0 / 0 / 0 | same |
+| tenant (isolation) | 104 / 0 / 0 / 0 | 104 / 0 / 0 / 0 | same |
+
+All three exit 0.
+
+**Gate D — baseline comparison:** gates identical to F1; Gate B failing sets
+identical; **new regressions versus F1: 0**.
+
+Broader suites (decoder, command, response, frontend, build) were **not**
+re-run, on evidence rather than assumption: `retirement_ledger` has exactly
+two importers, both tests, and neither is a member of any gate list in
+`tools/rocket-validation/run.py` or `tools/security-harness/run.py`. No gated
+suite can reach the changed code.
+
+---
+
+## 6 · Remaining risk
+
+* **The N-1 guard is not enforced in CI.** Neither `test_slice6_retirement_records.py`
+  nor the new `test_n1_retirement_provenance_identity.py` belongs to any gate,
+  so a future rename could re-duplicate without failing a release. One line in
+  `tools/rocket-validation/run.py` fixes it — **not done**, because gate
+  coverage is explicitly reserved to you. *Recommended.*
+* **The Slice-6 emitter still writes into the tracked ledger when tests run.**
+  Now harmless (idempotent and byte-stable) but structurally a test with a
+  side effect on git-tracked evidence. Left alone as out of N-1 scope.
+* **The retirement it records is still pending execution** —
+  `ps_byte_array_xor_loop.py` has not been deleted. Unchanged by this task.
+* **Pre-existing, recorded, not fixed:** `test_xdr_audit_log` ×5 (P2, fixture,
+  pre-existing on A3), `test_uaie_baseline_gates` ×6 (P2, pre-existing),
+  N-2…N-5 untouched.
+* No security control was changed; every HOLD stands. Staging pin untouched —
+  `prepare.py --verify-only` from `/app/rocket-p0/src` still reports
+  `Pinned source verified`.
+
+**Worktree:** `/app/rocket-p0/n1` clean (`git status --porcelain` → 0 lines),
+including after re-running the emitter. `engineering/f1-v2-dependency` remains
+at `d5bceb8` / tree `22e59d7b…`, clean.
+
+**RELEASE STATUS: NO-GO** (unchanged). Not merged, not deployed, not re-pinned.
+Stopping here for owner review.

@@ -1,0 +1,11 @@
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[02_powershell/001_encoded_command]
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[03_commandline/001_multi_stage]
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[09_shellcode/001_cobalt_strike_loader]
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[10_network/001_ipconfig_only]
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[11_user_reported/000_placeholder]
+FAILED tests/test_uaie_baseline_gates.py::TestUAIEBaselineCompatibility::test_current_matches_expected[11_user_reported/001_sophos_cobaltstrike]
+FAILED tests/test_xdr_audit_log.py::test_chain_tamper_detection
+FAILED tests/test_xdr_audit_log.py::test_chain_valid
+FAILED tests/test_xdr_audit_log.py::test_emit_and_readback
+FAILED tests/test_xdr_audit_log.py::test_filters
+FAILED tests/test_xdr_audit_log.py::test_tenant_isolation

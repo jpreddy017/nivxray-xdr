@@ -1,0 +1,21 @@
+[
+  {
+    "gate": "tenant",
+    "command": [
+      "/root/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-n",
+      "0",
+      "--timeout=45",
+      "tests/test_rocket_tenant_authority.py",
+      "tests/test_rbac_selected_customer.py",
+      "tests/test_xdr_rc1_integration.py",
+      "tests/test_xdr_rc1_p1_scope_authority.py",
+      "--junitxml=/app/rocket-evidence/n1/gates/tenant.xml"
+    ],
+    "exit": 0,
+    "seconds": 2.383
+  }
+]
