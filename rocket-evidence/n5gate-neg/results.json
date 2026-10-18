@@ -1,0 +1,23 @@
+[
+  {
+    "gate": "tenant",
+    "command": [
+      "/root/.venv/bin/python",
+      "/app/rocket-p0/n5gate/tools/security-harness/run.py",
+      "--junitxml",
+      "/app/rocket-evidence/n5gate-neg/tenant.xml",
+      "--suite",
+      "tests/test_rocket_tenant_authority.py",
+      "--suite",
+      "tests/test_rbac_selected_customer.py",
+      "--suite",
+      "tests/test_xdr_rc1_integration.py",
+      "--suite",
+      "tests/test_xdr_rc1_p1_scope_authority.py",
+      "--suite",
+      "tests/test_b4b5_tenant_registry_authority.py"
+    ],
+    "exit": 1,
+    "seconds": 17.982
+  }
+]
