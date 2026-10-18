@@ -1,0 +1,71 @@
+NIVXFORGE EDR — ACCESS LOOP · PUBLICATION MANIFEST
+==============================================================
+
+PUBLISHED BASELINE
+  repository            jpreddy017/nivxray-xdr
+  base branch           publish/n3a-telemetry-bson (pushed, PR #16 — NOT modified)
+  base commit           d065fd674eca239c6a62af8322bb394d3bc45a53
+  base tree             5cef61aa71dc36ebb7398810c6432cc60dc5daab
+
+CANDIDATES
+  A  publish/edr-access-loop-frontend  f70a3814f218e51591be5411bab536f6ef9f5e82
+     tree                              bc685e92c7ba4e23b91bd50770205d06bdb31e7c   3 files  +249/-4
+  B  publish/edr-access-loop           05e8a41386476350b508b2cc6558e9b209adcf4f
+     tree                              65a4da24d4d25d339e0074facd04acbb698122e8   4 files  +364/-4
+  local review candidate               eac0192b6f81be84165b55d302b0ac201d5762ef
+     tree                              4a484f2077838f197b6eecc1adf9695fd38d7ec9
+  cherry-pick onto the published base: 0 conflicts for both candidates
+
+CHANGED FILES (st: M modified, A added)
+  cand st path                                                                 git blob                                 sha256                                                           bytes
+  A    A  apps/nivxray-xdr/src/lib/__tests__/edrAccessLoop.test.jsx            5c47ee45cdb155b9a7f4a65e630f34dbd21b80fe 21a40d7165fa22237e1ab47fca0afa43c48bcc494d8370eb8c5d677c5d5f5a85 8291
+  A    M  apps/nivxray-xdr/src/lib/secureRequests.js                           addb4db4d23b1547b4bb32e1cc5aefb3ef9bcd67 17086ec461821c8b26eec1ace13a87e1f03d9b8692a1a1d226091ac531365c18 5268
+  A    M  apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx                   0aec317fe4c9bc1a3b5d5688b2992ae5c5f983ab 56224b1c46dd172b131989bd16c1cb95963996f35fdb2114166ef175b0ca60df 5365
+  B    A  apps/nivxray-xdr/src/lib/__tests__/edrAccessLoop.test.jsx            5c47ee45cdb155b9a7f4a65e630f34dbd21b80fe 21a40d7165fa22237e1ab47fca0afa43c48bcc494d8370eb8c5d677c5d5f5a85 8291
+  B    M  apps/nivxray-xdr/src/lib/secureRequests.js                           addb4db4d23b1547b4bb32e1cc5aefb3ef9bcd67 17086ec461821c8b26eec1ace13a87e1f03d9b8692a1a1d226091ac531365c18 5268
+  B    M  apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx                   0aec317fe4c9bc1a3b5d5688b2992ae5c5f983ab 56224b1c46dd172b131989bd16c1cb95963996f35fdb2114166ef175b0ca60df 5365
+  B    A  backend/tests/test_edr_tenant_required_is_not_permission_denial.py   c25aaadb60b1f309d574a7d4099a221c38490207 8a5a9731fdd0518c6ede8428b8a445c599adb93df4552b0e88814f0d4922cc6d 4484
+
+CLASSIFICATION (asserted by test, not by prose)
+  selection, no latch, no abort : TENANT_REQUIRED, TENANT_NOT_RESOLVED  (only these two)
+  page denial, fail closed      : ACCESS_DENIED, TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL,
+                                  TENANT_NOT_FOUND, TENANT_NOT_ACTIVE, unknown code,
+                                  string detail, no structured body
+  session ended, unchanged      : 401 -> token+email cleared, tenant authority sealed
+
+TEST RESULTS
+  local candidate eac0192b
+    console suite                 26 files, 434 passed (incl. edrAccessLoop 14,
+                                  securityState 13, RouteSafety 13)
+    backend focused suite          5 passed  (harness, ephemeral mongod)
+    gate: security               126 tests, 0 failures, 0 errors, 1 skipped
+    gate: tenant                 136 tests, 0 failures, 0 errors, 0 skipped
+  candidate A on the published base
+    console suite                 11 files, 138 passed
+    targeted access suites        45 passed (edrAccessLoop 14 + securityState 13
+                                  + RouteSafety 13 + Rc1CrossFeature 5)
+  candidate B on the published base
+    backend focused suite          4 passed, 1 FAILED — see BASELINE DEPENDENCY
+
+BASELINE DEPENDENCY (the reason A is recommended)
+  On this baseline routers/edr_tenancy.edr_tenant() calls
+  tenant_registry.authoritative(), which substitutes the literal tenant
+  "default" when no X-Tenant-Id is sent unless NIVX_TENANT_REGISTRY_ENFORCE
+  is on. Measured on the published base, same request, same session:
+    ENFORCE off -> 403 TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL, requested_tenant "default"
+    ENFORCE on  -> 403 TENANT_REQUIRED (no basis field)
+    local fixed -> 403 TENANT_REQUIRED, basis MULTIPLE_AUTHORIZED_TENANTS
+  The console fix keys on `code`, so it resolves the loop in both
+  TENANT_REQUIRED variants and deliberately does NOT treat
+  TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL as a selection condition.
+
+SCAN — zero hits
+  private keys, AWS ids, GitHub PATs, OpenAI keys, JWTs, credential-bearing
+  Mongo URIs, quoted credential assignments, 40+ char hex blobs, .env files,
+  binaries, generated databases. No dependency or configuration change.
+
+TREE REPRODUCED FROM THE PATCHES ALONE
+  read-tree d065fd67 + apply --cached + write-tree
+    console-3-files.patch -> bc685e92c7ba4e23b91bd50770205d06bdb31e7c  MATCH
+    full-4-files.patch    -> 65a4da24d4d25d339e0074facd04acbb698122e8  MATCH
+

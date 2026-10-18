@@ -1,0 +1,12 @@
+{
+  "request": "GET /api/edr/telemetry/freshness",
+  "sent_tenant_header": null,
+  "status": 403,
+  "body": {
+    "detail": {
+      "code": "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
+      "reason": "a request may name a tenant but never authorise one; this principal does not hold the named tenant",
+      "requested_tenant": "default"
+    }
+  }
+}

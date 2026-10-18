@@ -1,0 +1,418 @@
+diff --git a/apps/nivxray-xdr/src/lib/__tests__/edrAccessLoop.test.jsx b/apps/nivxray-xdr/src/lib/__tests__/edrAccessLoop.test.jsx
+new file mode 100644
+index 00000000..5c47ee45
+--- /dev/null
++++ b/apps/nivxray-xdr/src/lib/__tests__/edrAccessLoop.test.jsx
+@@ -0,0 +1,192 @@
++/**
++ * EDR access loop · "pick a customer" is not "you are forbidden".
++ *
++ * `/edr` alternated between the dashboard and "You are not authorized for this
++ * page". The route itself maps to no page capability — `consolePermissions()`
++ * and `routePermissions()` both return `undefined` for `/edr`, so nothing in
++ * the guard can deny it. The denial came from the transport: ANY 403 latched
++ * `invalidateSecurity("denied", path)`, and with no customer selected the
++ * first tenant-scoped read answers 403 TENANT_REQUIRED. "Recheck access"
++ * cleared the latch, the page mounted, the read fired again, and the latch
++ * came back.
++ *
++ * These tests fix the distinction in place, and the ones asserting that a real
++ * refusal still latches are as important as the ones asserting the loop is
++ * gone.
++ */
++import React from "react";
++import axios from "axios";
++import { renderToStaticMarkup } from "react-dom/server";
++import { StaticRouter } from "react-router-dom/server";
++import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
++
++import { secureRequests, secureFetchJson, isTenantSelectionRefusal,
++         refusalCode } from "../secureRequests";
++import { invalidateSecurity, securitySnapshot } from "../securityState";
++import { Protected } from "@/App";
++
++const access = vi.hoisted(() => ({ loading: false, answer: true }));
++vi.mock("@/xdr/access/AccessProvider", () => ({
++  useAccess: () => ({ loading: access.loading,
++                      canAny: () => access.answer, refresh: vi.fn() }),
++  AccessProvider: ({ children }) => children,
++}));
++vi.mock("@/lib/auth", () => ({
++  useAuth: () => ({ user: { email: "operator@synthetic" }, loading: false }),
++}));
++vi.mock("@/xdr/XdrShell", () => ({ default: ({ children }) => children }));
++vi.mock("@/nivxforge/NivXForgeConsole", () => ({
++  default: ({ children }) => children,
++}));
++
++let loaded;
++function Dashboard() { loaded(); return <div>EDR dashboard</div>; }
++const render = (path) => renderToStaticMarkup(
++  <StaticRouter location={path}><Protected><Dashboard /></Protected></StaticRouter>);
++
++/** The server's own refusal shapes (see backend session_context.ScopeDenied). */
++const TENANT_REQUIRED = { code: "TENANT_REQUIRED", basis: "MULTIPLE_AUTHORIZED_TENANTS",
++  reason: "principal is authorized for several tenants and named none; there is no default tenant",
++  requested_tenant: null, fail_closed: true };
++const TENANT_NOT_RESOLVED = { code: "TENANT_NOT_RESOLVED", basis: "NOT_AUTHORIZED",
++  reason: "principal holds no tenant scope", fail_closed: true };
++const UNHELD = { code: "TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL",
++  reason: "this principal does not hold the named tenant" };
++const ACCESS_DENIED = { code: "ACCESS_DENIED", reason: "principal not authorized" };
++
++const refuse = (status, detail) => axios.create({
++  adapter: async (config) => {
++    throw Object.assign(new Error("synthetic refusal"),
++      { config, response: { status, data: detail === undefined ? {} : { detail } } });
++  },
++});
++
++beforeEach(() => {
++  const values = new Map([["nvx_token", "synthetic-session"]]);
++  const storage = { getItem: (k) => values.get(k) || null,
++                    setItem: (k, v) => values.set(k, v),
++                    removeItem: (k) => values.delete(k) };
++  globalThis.window = Object.assign(new EventTarget(),
++    { localStorage: storage, location: { pathname: "/edr" } });
++  globalThis.localStorage = storage;
++  loaded = vi.fn();
++  access.loading = false;
++  access.answer = true;
++  invalidateSecurity("scope");
++});
++afterEach(() => {
++  invalidateSecurity("scope");
++  vi.unstubAllGlobals();
++  delete globalThis.window;
++  delete globalThis.localStorage;
++});
++
++describe("transport classification", () => {
++  it.each([
++    ["TENANT_REQUIRED", TENANT_REQUIRED],
++    ["TENANT_NOT_RESOLVED", TENANT_NOT_RESOLVED],
++  ])("%s does not latch a page denial and does not bump the epoch", async (_n, detail) => {
++    const before = securitySnapshot();
++    const client = refuse(403, detail);
++    secureRequests(client);
++    await expect(client.get("/edr/telemetry/freshness")).rejects.toThrow("synthetic refusal");
++    expect(securitySnapshot().epoch).toBe(before.epoch);
++    expect(securitySnapshot().reason).toBe(before.reason);
++    expect(securitySnapshot().deniedPath).toBeNull();
++  });
++
++  it.each([
++    ["ACCESS_DENIED", ACCESS_DENIED],
++    ["TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL", UNHELD],
++    ["an unstructured refusal", undefined],
++    ["a string detail", "Forbidden"],
++  ])("%s still latches the denial (fail closed)", async (_n, detail) => {
++    const before = securitySnapshot().epoch;
++    const client = refuse(403, detail);
++    secureRequests(client);
++    await expect(client.get("/edr/endpoints")).rejects.toThrow("synthetic refusal");
++    expect(securitySnapshot().epoch).toBeGreaterThan(before);
++    expect(securitySnapshot().reason).toBe("denied");
++    expect(securitySnapshot().deniedPath).toBe("/edr");
++  });
++
++  it("401 still ends the session and clears the token", async () => {
++    const client = refuse(401, { code: "TOKEN_EXPIRED" });
++    secureRequests(client);
++    await expect(client.get("/edr/endpoints")).rejects.toThrow("synthetic refusal");
++    expect(securitySnapshot().reason).toBe("expired");
++    expect(localStorage.getItem("nvx_token")).toBeNull();
++  });
++
++  it("a customer-independent read in flight survives a tenant-selection refusal", async () => {
++    let capabilitiesConfig;
++    const client = axios.create({
++      adapter: async (config) => {
++        if (config.url.includes("capabilities")) {
++          capabilitiesConfig = config;
++          return { data: { capabilities: [] }, status: 200, config };
++        }
++        throw Object.assign(new Error("synthetic refusal"),
++          { config, response: { status: 403, data: { detail: TENANT_REQUIRED } } });
++      },
++    });
++    secureRequests(client);
++    const capabilities = client.get("/edr/wave0/capabilities");
++    await expect(client.get("/edr/telemetry/freshness")).rejects.toThrow("synthetic refusal");
++    await expect(capabilities).resolves.toMatchObject({ status: 200 });
++    expect(capabilitiesConfig.signal.aborted).toBe(false);
++  });
++
++  it("secureFetchJson classifies the same way", async () => {
++    vi.stubGlobal("fetch", async () => ({
++      ok: false, status: 403, json: async () => ({ detail: TENANT_REQUIRED }) }));
++    const before = securitySnapshot().epoch;
++    await expect(secureFetchJson("/api/edr/telemetry/freshness")).rejects.toThrow();
++    expect(securitySnapshot().epoch).toBe(before);
++    expect(securitySnapshot().reason).not.toBe("denied");
++  });
++
++  it("the classifier reads the server's code, never prose", () => {
++    expect(refusalCode(TENANT_REQUIRED)).toBe("TENANT_REQUIRED");
++    expect(refusalCode("Forbidden")).toBeNull();
++    expect(refusalCode(undefined)).toBeNull();
++    expect(isTenantSelectionRefusal(TENANT_REQUIRED)).toBe(true);
++    expect(isTenantSelectionRefusal(UNHELD)).toBe(false);
++    expect(isTenantSelectionRefusal({ reason: "tenant required" })).toBe(false);
++  });
++});
++
++describe("the /edr route itself", () => {
++  it("renders the dashboard when no customer is selected instead of looping", async () => {
++    const client = refuse(403, TENANT_REQUIRED);
++    secureRequests(client);
++    await expect(client.get("/edr/telemetry/freshness")).rejects.toThrow();
++    const html = render("/edr");
++    expect(html).toContain("EDR dashboard");
++    expect(html).not.toContain("route-denied");
++    expect(loaded).toHaveBeenCalledOnce();
++  });
++
++  it("a genuine refusal on this path still refuses the page", async () => {
++    const client = refuse(403, ACCESS_DENIED);
++    secureRequests(client);
++    await expect(client.get("/edr/endpoints")).rejects.toThrow();
++    const html = render("/edr");
++    expect(html).toContain("route-denied");
++    expect(loaded).not.toHaveBeenCalled();
++  });
++
++  it("unresolved authorization shows loading, never the dashboard", () => {
++    access.loading = true;
++    const html = render("/xdr/incidents");
++    expect(html).toContain("route-loading");
++    expect(html).not.toContain("EDR dashboard");
++    expect(loaded).not.toHaveBeenCalled();
++  });
++
++  it("a denial latched for another path does not block this one", async () => {
++    invalidateSecurity("denied", "/edr/computers");
++    const html = render("/edr");
++    expect(html).toContain("EDR dashboard");
++  });
++});
+diff --git a/apps/nivxray-xdr/src/lib/secureRequests.js b/apps/nivxray-xdr/src/lib/secureRequests.js
+index 230a796b..addb4db4 100644
+--- a/apps/nivxray-xdr/src/lib/secureRequests.js
++++ b/apps/nivxray-xdr/src/lib/secureRequests.js
+@@ -2,6 +2,46 @@ import axios from "axios";
+ import { invalidateSecurity, securitySnapshot, trackRequest } from "./securityState";
+ import { sealTenantAuthority } from "./tenant";
+ 
++/**
++ * Server refusal codes that mean "this request named no customer, or named
++ * one that cannot be established" — a SELECTION condition, not a verdict on
++ * what this principal may do.
++ *
++ * `services/session_context.authorize_requested_tenant()` is explicit about
++ * the difference: with several authorised customers and none named it raises
++ * TENANT_REQUIRED ("there is no default tenant"), and with no tenant scope at
++ * all it raises TENANT_NOT_RESOLVED. Neither says the page is forbidden.
++ *
++ * Treating them as a page denial is what produced the `/edr` loop: the
++ * dashboard mounted, its first tenant-scoped read came back 403
++ * TENANT_REQUIRED because no customer was selected, the whole route was
++ * latched "denied" — which also hides the customer picker, so the one action
++ * that would resolve it was unreachable — and "Recheck access" merely
++ * restarted the cycle.
++ *
++ * Authorisation is untouched: the server refused the data and still does.
++ * The console simply stops reinterpreting "pick a customer" as "forbidden",
++ * and the caller renders the server's own code and reason in place.
++ */
++const TENANT_SELECTION_CODES = new Set([
++  "TENANT_REQUIRED",
++  "TENANT_NOT_RESOLVED",
++]);
++
++/** The server's machine-readable refusal code, when it sent one. */
++export function refusalCode(detail) {
++  if (detail && typeof detail === "object" && !Array.isArray(detail)) {
++    const code = detail.code || detail.error;
++    return code ? String(code) : null;
++  }
++  return null;
++}
++
++/** Is this 403 a missing/unresolvable customer selection rather than a denial? */
++export function isTenantSelectionRefusal(detail) {
++  return TENANT_SELECTION_CODES.has(refusalCode(detail));
++}
++
+ /** Abort reads on scope/session change and fence late responses from old contexts. */
+ export function secureRequests(client) {
+   client.interceptors.request.use((config) => {
+@@ -39,9 +79,14 @@ export function secureRequests(client) {
+       localStorage.removeItem("nvx_email");
+       sealTenantAuthority();
+       invalidateSecurity("expired");
+-    } else if (status === 403) {
++    } else if (status === 403
++               && !isTenantSelectionRefusal(error.response?.data?.detail)) {
+       invalidateSecurity("denied", context?.path || globalThis.window?.location?.pathname || "");
+     }
++    // A tenant-selection refusal deliberately invalidates NOTHING: it is not a
++    // denial, and bumping the epoch here would also abort every in-flight read
++    // on the page — including the customer-independent ones — leaving the
++    // console stuck mid-load with no way to recover.
+     return Promise.reject(error);
+   });
+ }
+@@ -64,7 +109,9 @@ export async function secureFetchJson(url, options = {}) {
+       if (response.status === 401) {
+         localStorage.removeItem("nvx_token"); localStorage.removeItem("nvx_email");
+         sealTenantAuthority(); invalidateSecurity("expired");
+-      } else if (response.status === 403) invalidateSecurity("denied", context.path);
++      } else if (response.status === 403 && !isTenantSelectionRefusal(data.detail)) {
++        invalidateSecurity("denied", context.path);
++      }
+       throw Object.assign(new Error(data.detail || `HTTP ${response.status}`), { status: response.status });
+     }
+     return data;
+diff --git a/apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx b/apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx
+index c5ceffc3..0aec317f 100644
+--- a/apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx
++++ b/apps/nivxray-xdr/src/xdr/access/AccessProvider.jsx
+@@ -77,8 +77,14 @@ export function AccessProvider({ children }) {
+     const refresh = () => {
+       ++generation.current;
+       const reason = securitySnapshot().reason;
+-      setState({ loading: false, available: false, error: reason, data: null });
+-      if (localStorage.getItem("nvx_token") && !["expired", "denied"].includes(reason)) load();
++      // While a reload is about to run the answer is UNRESOLVED, not "denied":
++      // publishing `loading: false` first makes every guard render its refusal
++      // for a frame before the contract has even been asked.
++      const willLoad = !!localStorage.getItem("nvx_token")
++        && !["expired", "denied"].includes(reason);
++      setState({ loading: willLoad, available: false,
++                 error: willLoad ? null : reason, data: null });
++      if (willLoad) load();
+     };
+     refresh();
+     const unsubscribe = subscribeSecurity(refresh);
+diff --git a/backend/tests/test_edr_tenant_required_is_not_permission_denial.py b/backend/tests/test_edr_tenant_required_is_not_permission_denial.py
+new file mode 100644
+index 00000000..c25aaadb
+--- /dev/null
++++ b/backend/tests/test_edr_tenant_required_is_not_permission_denial.py
+@@ -0,0 +1,115 @@
++"""EDR access loop · the server's own words for "no customer selected".
++
++The `/edr` console looped between the dashboard and "You are not authorized
++for this page". The console was treating EVERY 403 as a page-permission
++denial, including the one the server returns when a principal authorised for
++several customers has named none.
++
++This suite pins the server side of that distinction, because the fix in the
++console depends on it and must not drift from it:
++
++  * a TENANT_SCOPED read with no `X-Tenant-Id` is refused 403 TENANT_REQUIRED
++    — a *selection* condition, recoverable by choosing a customer;
++  * naming a customer the principal does not hold is refused 403 with a
++    different, non-disclosing code — a genuine authorisation refusal;
++  * a PRODUCT_METADATA read needs no customer and answers 200;
++  * naming an authorised customer answers the read.
++
++No authorisation behaviour is changed or asserted-away here: every refusal
++above is correct and stays. Only the console's interpretation of them changes.
++"""
++from __future__ import annotations
++
++import os
++import uuid
++
++import pytest
++from fastapi.testclient import TestClient
++
++from _verified_session import (admin_token, authorize_tenants, hdrs,
++                               provision_rbac_principal, register_tenants)
++from server import app
++
++FRESHNESS = "/api/edr/telemetry/freshness"      # TENANT_SCOPED
++CAPABILITIES = "/api/edr/wave0/capabilities"    # PRODUCT_METADATA
++
++SUFFIX = uuid.uuid4().hex[:8]
++TENANT_A = f"edrloop-a-{SUFFIX}"
++TENANT_B = f"edrloop-b-{SUFFIX}"
++UNHELD = f"edrloop-unheld-{SUFFIX}"
++
++
++@pytest.fixture(scope="module")
++def client():
++    with TestClient(app) as c:
++        yield c
++
++
++@pytest.fixture(scope="module")
++def operator(client):
++    """A principal authorised for TWO customers and holding none by default.
++
++    This is the exact shape the console renders as "SELECT CUSTOMER": the
++    server can prove which customers are permitted and deliberately refuses
++    to pick one.
++    """
++    register_tenants(TENANT_A, TENANT_B, UNHELD, label="edr-access-loop")
++    email = os.environ["ADMIN_EMAIL"]
++    authorize_tenants(email, TENANT_A, TENANT_B)
++    for tenant in (TENANT_A, TENANT_B):
++        provision_rbac_principal(tenant, email)
++    return {"token": admin_token(client), "email": email}
++
++
++def _record(name, response):
++    """Keep the refusal verbatim; a report that paraphrases a 403 is a guess."""
++    out = os.environ.get("EDR_LOOP_EVIDENCE_DIR")
++    if out:
++        import json as _json
++        import pathlib as _pathlib
++        path = _pathlib.Path(out) / f"{name}.json"
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_text(_json.dumps(
++            {"request": f"GET {response.request.url.path}",
++             "sent_tenant_header": response.request.headers.get("X-Tenant-Id"),
++             "status": response.status_code, "body": response.json()}, indent=2))
++
++
++def _detail(response):
++    body = response.json().get("detail")
++    return body if isinstance(body, dict) else {"raw": body}
++
++
++def test_no_customer_selected_is_tenant_required_not_access_denied(client, operator):
++    r = client.get(FRESHNESS, headers=hdrs(operator["token"]))
++    assert r.status_code == 403
++    detail = _detail(r)
++    _record("tenant_required", r)
++    assert detail.get("code") == "TENANT_REQUIRED", detail
++    # The server names the condition as a MISSING SELECTION, and says so in a
++    # machine-readable field — which is what lets the console tell this apart
++    # from a permission denial without guessing from prose.
++    assert detail.get("basis") in {"MULTIPLE_AUTHORIZED_TENANTS",
++                                   "CROSS_TENANT_ROLE_NO_SINGLE_CUSTOMER"}, detail
++    assert detail.get("code") != "ACCESS_DENIED"
++
++
++def test_product_metadata_needs_no_customer(client, operator):
++    r = client.get(CAPABILITIES, headers=hdrs(operator["token"]))
++    assert r.status_code == 200, r.text
++    assert "capabilities" in r.json()
++
++
++def test_naming_an_authorized_customer_resolves_the_read(client, operator):
++    r = client.get(FRESHNESS, headers=hdrs(operator["token"], tenant=TENANT_A))
++    assert r.status_code == 200, r.text
++
++
++def test_naming_an_unheld_customer_is_still_refused(client, operator):
++    r = client.get(FRESHNESS, headers=hdrs(operator["token"], tenant=UNHELD))
++    assert r.status_code == 403
++    assert _detail(r).get("code") != "TENANT_REQUIRED"
++
++
++def test_missing_session_is_still_401(client):
++    assert client.get(FRESHNESS).status_code in (401, 403)

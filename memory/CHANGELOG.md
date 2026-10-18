@@ -8474,3 +8474,39 @@ Stopped after producing the host acceptance package as instructed.
   byte-identical on `ce8732ba`, that branch and the local head, so the defect
   predates N-3A and the fix is portable to all three. NOT pushed or deployed.
   RELEASE STATUS: NO-GO.
+
+## 2026-06 · EDR access loop — publication prepared (nothing pushed, PR #16 untouched)
+
+- Scope verified: 4 files, +364/−4 — `lib/secureRequests.js` (+51/−7),
+  `xdr/access/AccessProvider.jsx` (+9/−2), new `lib/__tests__/edrAccessLoop.test.jsx`
+  (192), new `backend/tests/test_edr_tenant_required_is_not_permission_denial.py` (115).
+- Classification re-verified: ONLY `TENANT_REQUIRED` and `TENANT_NOT_RESOLVED`
+  are selection conditions. `ACCESS_DENIED`, `TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL`,
+  `TENANT_NOT_FOUND`, `TENANT_NOT_ACTIVE`, unknown codes, string details and
+  bodyless 403s still latch the denial; 401 unchanged. Asserted per branch.
+- Ancestry: the local branch cannot be pushed (sanitized history, no merge-base).
+  GitHub now has `publish/n3a-telemetry-bson` @ `d065fd67` — exactly the SHA we
+  prepared — so that is the publication baseline. Cherry-pick: 0 conflicts.
+- Candidates (both on `d065fd67`, PR #16 untouched):
+  * **A, recommended** `publish/edr-access-loop-frontend` `f70a3814` /
+    tree `bc685e92` — console only, 3 files, +249/−4.
+  * B `publish/edr-access-loop` `05e8a413` / tree `65a4da24` — 4 files, +364/−4.
+- **Finding that decided A over B**: on the published baseline
+  `edr_tenancy.edr_tenant()` still calls `tenant_registry.authoritative()`,
+  which substitutes the literal tenant `"default"` when no `X-Tenant-Id` is
+  sent unless `NIVX_TENANT_REGISTRY_ENFORCE` is on. Measured, same request:
+  ENFORCE off → `403 TENANT_NOT_AUTHORIZED_FOR_PRINCIPAL` (requested_tenant
+  `"default"`); ENFORCE on → `403 TENANT_REQUIRED`; local fixed backend →
+  `403 TENANT_REQUIRED` + basis. B's backend test therefore fails on its own
+  base (4 passed, 1 failed) and is withheld until the backend tenant-authority
+  fix is published. The console fix keys on `code`, so it resolves the loop in
+  both TENANT_REQUIRED variants and does not relax the denial codes.
+- Tests: local candidate 434 console / 5 backend / gates security 126-0-0-1 and
+  tenant 136-0-0-0. Candidate A on the published base: 138 console passed
+  (11 files), 45 in the targeted access suites.
+- Transfer package `/app/SECURE_EXPORT/edr-access-loop-package.tar.gz`
+  sha256 `c26902ef4622faeb203bf27b1c990f2dffb3099106af4ff840d09acb22a362d9`
+  (23,940 B) — two thin bundles, patches, MANIFEST, VERIFY, SHA256SUMS; both
+  trees reproduced from the patches alone. Secret/binary scan: zero hits.
+  Served via the existing token-gated `/api/transfer/edr-access-loop`.
+  RELEASE STATUS: NO-GO.

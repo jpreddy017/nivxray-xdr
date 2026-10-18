@@ -1,0 +1,11 @@
+{
+  "request": "GET /api/edr/telemetry/freshness",
+  "sent_tenant_header": null,
+  "status": 403,
+  "body": {
+    "detail": {
+      "code": "TENANT_REQUIRED",
+      "reason": "no tenant named for edr.control_plane: the authoritative tenant must be presented explicitly; there is no default tenant"
+    }
+  }
+}
