@@ -381,17 +381,26 @@ def _stage_service_host() -> Path:
     STOPPING THE SERVICE IS THE CALLER'S JOB. It used to be done here,
     with a bare `sc.exe stop` and no wait, which raced the dying process
     and left the endpoint stopped when the copy then failed.
+
+    THE LIVE-SERVICE GUARD IS CHECKED FIRST, before this build is asked
+    whether it even carries a payload. Both refusals are fail-closed and
+    replace nothing, but the order decides WHICH TRUE THING the operator
+    is told, and only the first one is about the HOST: "something is
+    running here" outranks "this exe is the wrong build". The reverse
+    order also made the guard unprovable outside a frozen build -- a
+    source-module caller got the payload refusal and the live-service
+    protection was never exercised.
     """
+    if _service_state() == "RUNNING":
+        raise SystemExit(
+            f"refusing to overwrite the image of a RUNNING {SERVICE_NAME}. "
+            "Stop it first; nothing was replaced.")
     payload = _service_payload_dir()
     if payload is None:
         raise SystemExit(
             "this build carries no Windows service host payload. Refusing "
             "to create a service with no valid image. Use an installer "
             "produced by the windows-sensor-installer workflow.")
-    if _service_state() == "RUNNING":
-        raise SystemExit(
-            f"refusing to overwrite the image of a RUNNING {SERVICE_NAME}. "
-            "Stop it first; nothing was replaced.")
     _replace_tree(payload, SERVICE_DIR)
     if not SERVICE_EXE.exists():
         raise SystemExit(f"service host staging failed: {SERVICE_EXE} "

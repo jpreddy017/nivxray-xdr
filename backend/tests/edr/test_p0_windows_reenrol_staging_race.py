@@ -36,8 +36,10 @@ from pathlib import Path
 
 import pytest
 
-AGENT_DIR = Path("/app/agents/nivxforge-windows")
+AGENT_DIR = Path(__file__).resolve().parents[3] / "agents/nivxforge-windows"
 SETUP = AGENT_DIR / "nivxforge_setup.py"
+WORKFLOW = (Path(__file__).resolve().parents[3]
+            / ".github/workflows/windows-sensor-installer.yml")
 
 _PROD = "https://nivxray.nivxforge.com"
 _TENANT = "ten_0000000000synthetic0000"
@@ -409,3 +411,67 @@ def test_self_digest_is_a_sha256_of_the_running_artifact(mod):
     assert len(digest) == 64
     assert digest == digest.upper()
     int(digest, 16)
+
+
+# ── 7 · GATE 4 PAYLOAD CONTEXT ────────────────────────────────────
+# CI FINDING (run 39141512250, commit c845ff0): Gate 4 called
+# _stage_service_host() through the CHECKED-IN SOURCE MODULE, which has no
+# sys._MEIPASS and therefore no onedir payload, so it died with
+#
+#   SystemExit: this build carries no Windows service host payload.
+#
+# BEFORE the live-service protection it exists to prove. Two things are
+# locked here: the RUNNING guard is answered FIRST, whatever build is
+# asking, and the gate drives staging through the BUILT ARTIFACT.
+def test_a_payloadless_build_still_refuses_to_touch_a_running_service(
+        mod, scm, monkeypatch):
+    """The host's state outranks this build's packaging."""
+    scm(FakeScm(state="RUNNING"))
+    monkeypatch.setattr(mod, "_service_payload_dir", lambda: None)
+    before = mod.SERVICE_EXE.read_bytes()
+    with pytest.raises(SystemExit) as err:
+        mod._stage_service_host()
+    message = str(err.value)
+    assert "refusing to overwrite the image of a RUNNING" in message
+    assert "carries no Windows service host payload" not in message
+    assert mod.SERVICE_EXE.read_bytes() == before
+
+
+def test_a_payloadless_build_is_still_named_once_nothing_is_running(
+        mod, scm, monkeypatch):
+    """Reordering must not HIDE the wrong-build diagnosis."""
+    scm(FakeScm(state="STOPPED"))
+    monkeypatch.setattr(mod, "_service_payload_dir", lambda: None)
+    with pytest.raises(SystemExit) as err:
+        mod._stage_service_host()
+    assert "carries no Windows service host payload" in str(err.value)
+
+
+def _gate4_step() -> str:
+    text = WORKFLOW.read_text()
+    start = text.index("Re-enrol against a RUNNING service")
+    end = text.index("Remove the CI service if the gate failed", start)
+    return text[start:end]
+
+
+def test_gate4_drives_staging_through_the_built_artifact(mod):
+    """A source-module stage call can only re-raise the CI failure."""
+    step = _gate4_step()
+    assert "_stage_service_host()" not in step
+    assert "dist\\nivxforgeedrsetup.exe" in step.lower()
+    assert '"stage-host"' in step
+    # a payload-less artifact must FAIL the gate, never silently satisfy it
+    assert "no Windows service host payload" in step
+    # the protections the gate exists for are all still asserted
+    for needle in ("GATE4 RUNNING-GUARD", "GATE4 STOP-AND-PROVE",
+                   "GATE4 STAGE-AFTER-STOP", "GATE4 RESTORE-IDEMPOTENT",
+                   "GATE 4 RE-ENROL ROLLBACK"):
+        assert needle in step, needle
+
+
+def test_gate4_still_proves_the_image_is_untouched_and_the_service_alive(
+        mod):
+    step = _gate4_step()
+    assert "image_digest() == before" in step
+    assert 'staged over a RUNNING service' in step
+    assert 'assert s._service_state() == "RUNNING"' in step
