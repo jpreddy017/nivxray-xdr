@@ -8510,3 +8510,38 @@ Stopped after producing the host acceptance package as instructed.
   trees reproduced from the patches alone. Secret/binary scan: zero hits.
   Served via the existing token-gated `/api/transfer/edr-access-loop`.
   RELEASE STATUS: NO-GO.
+
+## 2026-06 · Windows re-enrolment verification for DESKTOP-A9HGFJJ (read-only)
+
+- **DECISION: UNSAFE with the installed executable.** Build provenance places
+  setup 1.0.0 + sensor 0.2.0-windows in published commits 2026-09-27..09-30
+  (`8471748c`..`28e73314`), BEFORE `4b6a08b7` (2026-10-01) which fixed the
+  re-enrol staging race. The installed binary therefore carries the defect its
+  own HOLD note describes: "A failed re-enrolment blinded a healthy endpoint."
+- Traced in the installed-era source (`28e73314:agents/nivxforge-windows/
+  nivxforge_setup.py`): `install()` issues async `sc.exe stop` then copies the
+  image immediately (PermissionError race), `_stage_service_host()` overwrites
+  a RUNNING service, and there is NO rollback — a failure after step 1 leaves
+  `NivXForgeSensor` STOPPED and never reaches `sc create`/`sc start`.
+  Secret interface is `--token` on argv (token exposure); the fixed tree is
+  `--token-stdin` only.
+- State preservation VERIFIED: state root `C:\ProgramData\NivXForge\sensor`
+  (identity.json, outbox.jsonl, outbox.offset, channels.json) is separate from
+  `C:\Program Files\NivXForge`; `install` never deletes it and only
+  `uninstall --purge` does. A pre-enrolment failure consumes no token.
+  Residual: `identity.json` is written non-atomically (`write_text`).
+- Backend re-enrolment of a REVOKED endpoint is SUPPORTED and preserves
+  identity: `EndpointIdentity.mint()` derives `ep_…` deterministically from
+  (tenant, hardware id), `store.enroll` upserts on (tenant_id, endpoint_id),
+  partitions delivery facts into `$setOnInsert` and heals
+  `sensor_state REVOKED`. Present on the published tip and locally; absent on
+  `origin/main`. The production build at nivxray.nivxforge.com is UNVERIFIED.
+- Gaps requiring work before any re-enrolment: (1) the fixed agent sources and
+  `.github/workflows/windows-sensor-installer.yml` are absent from the
+  published tip, so no fixed artifact can be built from GitHub today;
+  (2) no behavioural test proves REVOKED→re-enrol keeps endpoint_id and
+  preserves delivery facts (`test_reenrolment_never_resets_the_delivery_record`
+  only inspects source text); (3) `store.enroll` does not revoke previously
+  ACTIVE credentials.
+- Evidence: `tests/edr/test_p0_windows_reenrol_staging_race.py` 18 passed on
+  the local tree. No deployment, token, restart or production access.
