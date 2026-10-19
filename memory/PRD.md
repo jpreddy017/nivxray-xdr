@@ -6391,3 +6391,99 @@ no credential issued.
    the Gate 4 verdict. Only then is an artifact worth hashing.
 2. Push `publish/edr-access-loop-frontend` → PR #17 preview.
 3. Nothing merged, deployed, enrolled or restarted. All HOLDs stand.
+
+---
+
+## 2026-06 · Windows sensor recovery · live backend compatibility assessment
+
+Live API fingerprinted READ-ONLY: `/api/health` 200, `/api/openapi.json` 200
+(873 paths, 315 schemas) — **byte-identical** to the local tree's generated
+schema (0 path diffs, 0 schema diffs), and the enrolment sources are identical
+between that tree and PR #18's candidate. No enrolment probe was sent: a
+rejected enrolment WRITES a rejection + audit row to production
+(`routers/edr_enrollment.py:257`). No `/api/version` route exists, so there is
+no deployed-commit attestation — stated as blocker B2.
+
+**PASS** for the recovery requirements, proved by re-executing the
+live-equivalent code against a real DB (`compatibility_proof.py`): same
+`endpoint_id` (minted server-side, `sha256(tenant ␟ hw ␟ processor_id)[:20]`),
+one endpoint document, ENROLLED/ACTIVE, `sensor_state` healed off REVOKED,
+`event_count` 157,226 and every delivery field preserved, new credential while
+the old stays REVOKED, replay and cross-tenant still refused.
+
+**FAIL** on one point, found by that proof: `store.enroll` `$set` the whole
+`EndpointRecord`, so re-enrolment CLEARED `group_id`/`policy_id` and their
+provenance, and the route then placed the computer in the DEFAULT group and
+policy. Fix prepared (insert-only placement partition + effective-placement
+return): engineering `e81f77dd`, publication `faa8046b` (tree `63911f21`) on
+`63d7d104`; 6 new tests, 2 of which fail against the current tree; 48 / 172
+passed in the wider selections. **NOT deployed.**
+
+Handoff: `/app/SECURE_EXPORT/win-recovery-handoff-package.tar.gz`
+sha256 `9d33ea4556014d374e574d36b0ecb9cf423c3f01e5b3832ddd95d67720a34bb1`
+(gated procedure, proof script, patch, bundle).
+
+**Decision: HOLD.** Blockers: B1 Gate 4's verdict on the run that built the
+0.3.0 artifact is unknown here; B2 no deployed-commit attestation; B3 the
+placement defect is live; B4 processor-id fallback silently mints a second
+endpoint — procedure §2.2 is the only guard. Nothing deployed, merged,
+enrolled, tokenised or restarted.
+
+---
+
+## 2026-06 · B3 published (ready to push) · B2 CLOSED by deployment metadata
+
+### B2 — the serving revision, established authoritatively
+Deployer, read-only (no deploy): run
+`4067c54d-e252-4243-a214-27a9f17715bc`, image
+`sha256:9ee9b9a21f79d0f2e1cde5dcc5d2bf4de6063a2f05a5cb3195d59f0b7db1a5f2`
+(arm64/ECR), published **2026-10-15T01:39:25Z**, pods 2/2 ready, 0 restarts.
+
+**My earlier inference was wrong and is retracted:** I had read the workspace
+deploy markers as "last deployed 2026-10-03/04, none since". That build is
+superseded by the 10-15 one (across an amd64/GCP → arm64/ECR migration).
+Also retracted: "the N-3A BSON repair is live" — the live 200 is explained by
+the workspace's own `telemetry.py` (unchanged since 2026-08-07), which
+stringifies the top-level `_id`. Nested/recursive normalisation is unproven.
+
+**Code identity, not contract parity:** serving `store.py` 633 lines
+`sha256 73698aba979d9f99c23933345cddb48914193ab7419bb5adb01fd1c64fbc4e24`
+and `edr_onboarding.py` 623 lines `sha256 ad23d07b0992…` — both byte-identical
+to the local pre-fix files the behavioural proof ran against. `group_id` is
+CONFIRMED ABSENT from the serving `store.py`.
+Residual: the git commit is **unverifiable** (`.git` stripped from the source
+archive, no embedded build metadata, build logs past retention).
+
+### NEW BLOCKER B5 — production Mongo binding
+Serving pods bind db **`greeting-app-5782-test_database`** (103 collections,
+incl. `edr_endpoints`, `edr_enrollment_tokens`, `edr_agent_credentials`).
+A customer recovery must not be authorised until the owner confirms that
+`-test_database` is the intended production store. Identity only; no
+documents read.
+
+### B3 — fix published (not pushed: no write credential here)
+`publish/reenrol-placement-preserved` tip `f1aacf1d` (tree `ee882e98`) on
+`63d7d104`: `faa8046b` (the fix) + `f1aacf1d` (a CI gate, because thin
+publish/* branches had NO backend CI — RC4.x/RC5 only trigger for PRs to
+main/feature/*). 4 files, +382/−2. Draft PR to base
+`publish/win-reenrol-recovery`. Engineering: `e81f77dd` → `fd149b89`.
+Tests: 6 new (2 fail against the unfixed tree) · 48 with the Windows suites ·
+172 across enrolment/onboarding/placement/policy/freshness. Collection
+errors: 10 of 2,319 collected, all the same missing live-session credential;
+the gate's last step fails on any error that is NOT that.
+Package `/app/SECURE_EXPORT/b3-placement-publication-package.tar.gz`
+sha256 `92d2a225bc7c160e60e786da0aacaf685de89bef849fe5bd2061c24fc0b3d42f`.
+
+### Promotion plan (PROMOTION_PLAN.md, owner-gated)
+0 decide promote-first vs recover-then-reassign · 0b answer B5 ·
+1 QUARANTINE `transfer_bundle.py` + its 2 `server.py` lines (a deploy today
+would publish `/api/transfer/{name}` to production) · 2 cherry-pick the one
+functional commit · 3 pre-deploy gate (48 passed + `/api/transfer` absent) ·
+4 owner deploy, record run id · 5 read-only verify `873 315 False` ·
+6 add `GET /api/deployment/revision` so B2 never needs this again.
+
+**Decision: HOLD.** Open: B1 (owner has since confirmed Gate 4 PASS on run
+39144147851), B3 published but not pushed/deployed, B5 new.
+Correction to an earlier manifest: the engineering commit for
+`publish/edr-denial-recoverable` is `e4031475`, not `aafa3d01` as stated in
+that package's MANIFEST (the publication commit `94e447d5` is unaffected).

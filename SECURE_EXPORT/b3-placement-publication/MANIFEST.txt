@@ -1,0 +1,134 @@
+NIVXFORGE EDR · B3 PUBLICATION · GROUP/POLICY PRESERVATION ON RE-ENROLMENT
+==========================================================================
+PREPARED FOR PUBLICATION. NOT PUSHED (no write credential in this
+environment — /root/.git-credentials is EMPTY; anonymous read works, push
+does not). NOT MERGED. NOT DEPLOYED. No production data touched, no
+enrolment token generated, no Windows service changed.
+
+WHAT TO PUSH
+------------
+  branch  publish/reenrol-placement-preserved
+  tip     f1aacf1dbf9354f6efbd787b017aa0102061ab85   tree ee882e98
+          ├─ faa8046b  Re-enrolment must not move a computer out of its group
+          └─ f1aacf1d  CI: give the enrolment recovery contract a gate of its own
+  parent  63d7d104  (= publish/win-reenrol-recovery, PR #18 head, already on
+                     GitHub — verified by ls-remote)
+  diff    4 files, +382 / -2
+
+  DRAFT PR
+    base : publish/win-reenrol-recovery      <- keeps the diff to 4 files
+    head : publish/reenrol-placement-preserved
+    draft: YES
+    title: EDR: a re-enrolment must not move a computer out of its group
+  If an independent base is preferred, the same two commits rebase cleanly
+  onto publish/n3a-telemetry-bson (d065fd67) — the files do not overlap with
+  the Gate 4 change.
+
+THE DEFECT (measured, not read)
+-------------------------------
+EndpointRecord carries group_id, policy_id, placement_basis, placement_at,
+deployment_id, policy_source, policy_assigned_at and policy_assigned_by and
+defaults them all to None. store.enroll `$set` the whole record, so every
+re-enrolment CLEARED them — and the enrolment route then saw an endpoint
+with no group and assigned the DEFAULT group and policy. A recovered
+computer silently left the group an administrator chose, and a stricter
+policy was replaced by the default one.
+
+Driving the live-equivalent code through REVOKED -> fresh token -> ACTIVE:
+  group_preserved  : FALSE
+  policy_preserved : FALSE
+Everything else was already safe: same endpoint_id, one endpoint document,
+ENROLLED/ACTIVE, sensor_state healed off REVOKED, event_count 157,226 and
+every delivery field intact, new credential, old credential still REVOKED.
+
+THE FIX
+-------
+1. backend/edr_plane/enrollment/store.py (+13)
+   Placement and policy provenance join the delivery record in the
+   INSERT-ONLY partition. A new endpoint is still placed at enrolment (the
+   fields are inserted empty and the route's guarded update matches); an
+   existing one keeps what it was given (the guard no longer matches).
+2. backend/routers/edr_onboarding.py (+20/-2)
+   assign_default_placement / assign_deployment_placement now return the
+   EFFECTIVE placement instead of the INTENDED one. Both were already
+   guarded on "has no group yet", so on a re-enrolment they returned a group
+   the endpoint was not in — which the enrolment response reported to the
+   agent as its placement.
+No contract changes: the OpenAPI document is unaffected.
+
+WHAT THE TESTS ASSERT (backend/tests/edr/test_p0_reenrol_placement_preserved.py)
+--------------------------------------------------------------------------------
+  endpoint identity continuity   same endpoint_id, exactly ONE endpoint
+                                 document for the tenant
+  event history                  event_count preserved through recovery
+  group + policy                 every one of the 8 placement/provenance
+                                 fields preserved value-for-value
+  assignment provenance          placement_basis, placement_at,
+                                 deployment_id, policy_source,
+                                 policy_assigned_at, policy_assigned_by
+  the route's guard, both sides  a NEW endpoint is placeable (modified=1);
+                                 a RE-ENROLLED one is not (matched=0)
+  partition completeness         set(EndpointRecord.model_fields) ==
+                                 refreshed | insert-only, so a field added
+                                 later must be classified deliberately
+  tenant isolation               a foreign tenant presenting the same token
+                                 is refused ENROLLMENT_TOKEN_INVALID
+  single use                     replay refused after a successful recovery
+  revoked credential             stays REVOKED and unusable
+  rollback                       a refused recovery leaves the endpoint
+                                 document BYTE-FOR-BYTE unchanged and still
+                                 REVOKED/REVOKED
+
+CI EVIDENCE
+-----------
+Local (this tree, real MongoDB, `-p no:randomly`):
+  test_p0_reenrol_placement_preserved.py                6 passed
+  + win_reenrol_recovery + windows staging race        35 passed
+  + Gate 0 CI contract                                 48 passed
+  enrolment/onboarding/placement/policy/freshness     172 passed
+  against the UNFIXED tree the new suite gives          2 FAILED  <- the
+    (test_recovery_keeps_the_group_policy_and_their_provenance,
+     test_a_re_enrolment_is_not_re_placeable_by_that_same_guard)   proof
+
+Added gate (.github/workflows/edr-enrolment-recovery-gate.yml): a thin
+publish/* branch had NO backend CI at all — RC4.x and RC5 trigger only for
+PRs targeting main and feature/*. The new workflow runs the three suites
+above against a mongo:6 service on push to this branch and on any PR
+touching the enrolment store, identity contract, enrolment/onboarding
+routes or those suites. GitHub Actions has not run it yet: that happens on
+push, and this environment cannot push.
+
+UNRESOLVED COLLECTION ERRORS — NAMED, NOT HIDDEN
+------------------------------------------------
+`pytest tests/edr --collect-only` collects 2,319 tests with 10 COLLECTION
+ERRORS. All 10 are the same pre-existing cause: the file reads a live
+verified-session credential from the environment at import time and raises
+KeyError when it is absent (NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003 and
+_010). No credential was issued, so these cannot run here:
+
+  test_dt2_3_graph_read.py                 test_p0_f10_live_api.py
+  test_iter107_p0_3_freshness_review.py    test_p0_f6_response_ui_backend.py
+  test_iteration_82_activation.py          test_p0_f7_live_api.py
+  test_p0_a2_adversarial_live.py           test_p0a_response_authority_live.py
+  test_wave0_api_smoke.py                  test_p0c_durable_findings_live.py
+
+They touch none of the files in this change. The final CI step asserts that
+EVERY collection error is that known credential gap and FAILS on any other,
+so the gap stays bounded and a new breakage cannot hide inside it
+(verified locally: 10 errors, 10 explained, exit 0).
+
+FILES
+-----
+  0001-Re-enrolment-must-not-move-a-computer-out-of-its-gro.patch
+  0002-CI-give-the-enrolment-recovery-contract-a-gate-of-it.patch
+  reenrol-placement-preserved.diff      the net change
+  reenrol-placement-preserved.bundle    thin bundle, prerequisite 63d7d104
+  PROMOTION_PLAN.md                     the smallest controlled promotion
+  SHA256SUMS
+
+APPLY
+-----
+  git fetch ./reenrol-placement-preserved.bundle \
+      publish/reenrol-placement-preserved:publish/reenrol-placement-preserved
+  git push origin publish/reenrol-placement-preserved
+  # then open the draft PR described above

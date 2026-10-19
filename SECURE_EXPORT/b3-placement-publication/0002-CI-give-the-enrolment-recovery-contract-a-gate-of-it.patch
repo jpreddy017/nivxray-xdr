@@ -1,0 +1,162 @@
+From f1aacf1dbf9354f6efbd787b017aa0102061ab85 Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <emergent-agent-e1@nivxray>
+Date: Mon, 19 Oct 2026 18:10:11 +0000
+Subject: [PATCH 2/2] CI: give the enrolment recovery contract a gate of its
+ own
+
+A thin publish/* review branch had NO backend CI: RC4.x and RC5 trigger
+only for pull requests targeting main and feature/*, so this fix would have
+reached review with local test output as its only evidence.
+
+This gate runs the revoked-endpoint recovery contract, the placement and
+policy preservation contract and the Windows installer refusals against a
+real MongoDB service, on push to this branch and on any pull request
+touching the enrolment store, the identity contract, the enrolment or
+onboarding routes, or those suites.
+
+The last step is the honest one: much of tests/edr needs a live
+verified-session credential CI does not hold, and those files fail at
+COLLECTION, which reads like a passing suite. The gate collects the whole
+directory and FAILS if any collection error is anything other than that
+missing credential, so the known gap stays bounded and a new breakage
+cannot hide inside it. Verified locally: 2319 collected, 10 collection
+errors, 10 explained, exit 0.
+
+No assertion is weakened and no test is skipped.
+---
+ .../workflows/edr-enrolment-recovery-gate.yml | 123 ++++++++++++++++++
+ 1 file changed, 123 insertions(+)
+ create mode 100644 .github/workflows/edr-enrolment-recovery-gate.yml
+
+diff --git a/.github/workflows/edr-enrolment-recovery-gate.yml b/.github/workflows/edr-enrolment-recovery-gate.yml
+new file mode 100644
+index 00000000..d60c9821
+--- /dev/null
++++ b/.github/workflows/edr-enrolment-recovery-gate.yml
+@@ -0,0 +1,123 @@
++name: EDR Enrolment Recovery Gate
++
++# What this gate exists to stop: a re-enrolment that silently costs the
++# endpoint something it already had. The delivery record was reset once
++# (P0-3) and fleet placement was reset again (this change), both by the same
++# mechanism — `$set` of a whole model whose fields default to None. These
++# suites assert the behaviour against a REAL database, not by reading the
++# source, so the next regression of that shape fails here instead of on a
++# customer's computer.
++#
++# Deliberately narrow: it runs the enrolment recovery suites and nothing
++# else. The existing RC4.x / RC5 gates only trigger for PRs targeting
++# main and feature/*, so a thin publish/* review branch had NO backend CI
++# at all — which is why this file exists.
++
++on:
++  push:
++    branches:
++      - publish/reenrol-placement-preserved
++      - engineering/reenrol-placement-preserved
++  pull_request:
++    paths:
++      - 'backend/edr_plane/enrollment/**'
++      - 'backend/edr_plane/contracts/identity.py'
++      - 'backend/routers/edr_enrollment.py'
++      - 'backend/routers/edr_onboarding.py'
++      - 'backend/tests/edr/test_p0_reenrol_placement_preserved.py'
++      - 'backend/tests/edr/test_p0_win_reenrol_recovery.py'
++      - '.github/workflows/edr-enrolment-recovery-gate.yml'
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++concurrency:
++  group: edr-enrolment-recovery-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  enrolment-recovery:
++    runs-on: ubuntu-latest
++    timeout-minutes: 20
++
++    services:
++      mongo:
++        image: mongo:6
++        ports: ["27017:27017"]
++
++    env:
++      MONGO_URL: mongodb://localhost:27017
++      DB_NAME: nivxray_ci_enrolment
++      ADMIN_EMAIL: "admin@nivxray.com"
++      ADMIN_PASSWORD: "ci-only-not-a-real-secret"
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++        with:
++          persist-credentials: false
++
++      - name: Set up Python 3.11
++        uses: actions/setup-python@v5
++        with:
++          python-version: '3.11'
++          cache: 'pip'
++
++      - name: Install minimal deps (no LLM stack needed for these gates)
++        working-directory: backend
++        run: |
++          python -m pip install --upgrade pip
++          grep -Ev "^(emergentintegrations|litellm)([=<>~ ]|$| @ )" \
++            requirements.txt > requirements-ci.txt
++          pip install -r requirements-ci.txt \
++            --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
++
++      # ── the recovery contract ───────────────────────────────────────
++      - name: Gate · a REVOKED endpoint recovers without losing its past
++        working-directory: backend
++        run: >-
++          python -m pytest -p no:randomly -n 0 -q --no-header
++          tests/edr/test_p0_win_reenrol_recovery.py
++
++      - name: Gate · a recovery keeps the group, the policy and its provenance
++        working-directory: backend
++        run: >-
++          python -m pytest -p no:randomly -n 0 -q --no-header
++          tests/edr/test_p0_reenrol_placement_preserved.py
++
++      - name: Gate · the Windows installer still refuses what it refuses
++        working-directory: backend
++        run: >-
++          python -m pytest -p no:randomly -n 0 -q --no-header
++          tests/edr/test_p0_windows_reenrol_staging_race.py
++          tests/edr/test_b5_gap1_windows_gate0_ci_contract.py
++
++      # ── the honest part: collection errors are BOUNDED, not hidden ──
++      # Much of tests/edr requires a live verified-session credential that
++      # CI does not hold. Those files fail at COLLECTION, which is easy to
++      # mistake for a passing suite. This step collects the whole directory
++      # and fails if a single collection error is anything other than that
++      # missing credential — so the known gap stays known and nothing new
++      # can hide inside it.
++      - name: Gate · every collection error is the known credential gap
++        working-directory: backend
++        run: |
++          set -o pipefail
++          COLUMNS=200 python -m pytest tests/edr --collect-only -q -p no:randomly \
++            -n 0 --continue-on-collection-errors 2>&1 | tee /tmp/collect.txt || true
++          python - <<'PY'
++          import sys
++          lines = open('/tmp/collect.txt').read().splitlines()
++          errors = sorted({l.strip() for l in lines if l.startswith('ERROR ')})
++          known = [l for l in errors if 'NIVXRAY_EXPORT_REQUIRED' in l or 'NIVXRAY_EX' in l]
++          unexplained = [l for l in errors if l not in known]
++          print(f"collection errors: {len(errors)}")
++          print(f"explained by the missing live-session credential: {len(known)}")
++          for line in unexplained:
++              print(f"UNEXPLAINED: {line}")
++          sys.exit(1 if unexplained else 0)
++          PY
++
++      - name: Verdict
++        run: 'echo "EDR ENROLMENT RECOVERY GATE: PASS"'
+-- 
+2.39.5
+

@@ -1,0 +1,152 @@
+NIVXFORGE EDR · WINDOWS SENSOR RECOVERY HANDOFF
+===============================================
+ASSESSMENT ONLY. Nothing was deployed, merged, enrolled or restarted, no
+enrolment token was generated, and no production document was read or
+written. Awaiting owner authorization.
+
+LIVE BACKEND COMPATIBILITY: PASS for identity, credential and history.
+                            FAIL for fleet placement (fix prepared, §3).
+
+1 · HOW THE DEPLOYMENT WAS IDENTIFIED (no production mutation)
+--------------------------------------------------------------
+The live API was fingerprinted through its own published contract:
+
+  GET https://nivxray.nivxforge.com/api/health      200 {"status":"ok",...}
+  GET https://nivxray.nivxforge.com/api/openapi.json 200  777,359 bytes
+      NivXRay API 1.0.0-rc · OpenAPI 3.1.0 · 873 paths · 315 schemas
+
+Compared field-by-field against the local tree's generated schema:
+
+  paths differing   : 0      (873 shared; the only local extra is the
+                              pod-local /api/transfer/{name} helper)
+  schemas differing : 0      (315 / 315 byte-identical when normalised)
+
+FastAPI derives that document from the live route table, the live Pydantic
+models AND the live docstrings, so an enrolment handler of a different
+vintage would show up as a schema or description difference. There is none.
+
+The enrolment-path sources are identical between that local tree and the
+PR #18 candidate (`diff -q`): edr_plane/enrollment/store.py,
+routers/edr_enrollment.py, edr_plane/contracts/identity.py,
+edr_plane/enrollment/identity.py, routers/edr_onboarding.py,
+routers/edr_tenancy.py.
+
+LIMIT OF THIS EVIDENCE, STATED PLAINLY: an OpenAPI document fingerprints
+contracts and docstrings, not function bodies. It is not a deployed-commit
+attestation. A `/api/version` or `/api/build-info` route returning the
+build commit would make this a one-request check; neither exists (both 404).
+
+WHY NO LIVE ENROLMENT PROBE WAS SENT: a REJECTED enrolment is not read-only.
+routers/edr_enrollment.py:257 writes a rejection record and an audit event
+to the production database on failure. Probing would have modified
+production data, so the contract fingerprint plus a local behavioural
+re-execution was used instead.
+
+2 · BEHAVIOURAL PROOF (local harness database, throwaway tenant)
+-----------------------------------------------------------------
+`compatibility_proof.py` drives the live-equivalent enrolment code through
+the endpoint's exact state: enrolled -> delivered -> operator-revoked ->
+fresh single-use token. Identifiers are synthetic; the delivery counts are
+the owner's verified ones.
+
+  identity   stable_across_extra_attributes true   (hw id wins)
+             stable_across_hostname_change  true
+             tenant_scoped                  true
+             hardware_beats_guid            true   (different id!)
+             shape                          ep_ + 20 hex
+  before     enrollment/credential/sensor = REVOKED/REVOKED/REVOKED
+             event_count 157,226
+  recovery   same_endpoint_id               true
+             endpoint_documents             1      (no duplicate)
+             enrollment_state               ENROLLED
+             credential_state               ACTIVE
+             sensor_state                   REPORTING   (healed off REVOKED)
+             event_count                    157,226     preserved
+             every_delivery_field_preserved true
+             new_credential_id              true
+             delivery_history_preserved     true
+             group_preserved                FALSE  <-- defect
+             policy_preserved               FALSE  <-- defect
+  refusals   old credential                 REVOKED (stays unusable)
+             token replay                   ENROLLMENT_TOKEN_INVALID
+             cross tenant                   ENROLLMENT_TOKEN_INVALID
+  fallback   a machine-guid enrolment mints a DIFFERENT endpoint and the
+             fleet then holds 2 documents; the original history survives
+             but the queue delivers into the new one
+
+3 · THE ONE DEFECT, AND THE FIX
+--------------------------------
+EndpointRecord carries group_id, policy_id, placement_basis, placement_at,
+deployment_id, policy_source, policy_assigned_at, policy_assigned_by and
+defaults them to None; store.enroll `$set` the whole record, so a
+re-enrolment CLEARED them. The enrolment route then saw an endpoint with no
+group and assigned the DEFAULT group and policy - silently moving a
+recovered computer out of its administrator-chosen group, and replacing a
+possibly stricter policy with the default one. The route's own comment
+claimed the opposite: its guard was right, but the clearing write happened
+one layer below it.
+
+Fix: placement and policy provenance join the delivery record in the
+insert-only partition (a new endpoint is still placed at enrolment; an
+existing one keeps what it was given), and the placement helpers return the
+EFFECTIVE placement rather than the intended one.
+
+  branch   publish/reenrol-placement-preserved
+  commit   faa8046b761f47c31b535254505e9ca9e1733df2
+  tree     63911f212814cce3b70d7e6ac416a96b51cae819
+  base     63d7d104  (PR #18 head)
+  files    backend/edr_plane/enrollment/store.py            (+13)
+           backend/routers/edr_onboarding.py                (+20/-2)
+           backend/tests/edr/test_p0_reenrol_placement_preserved.py (+228)
+  engineering commit e81f77dd (tree 452c9da7)
+
+  tests    6 passed (new) · 2 of them FAIL against the current tree, which
+           is how the defect was confirmed
+           35 passed with the Windows recovery + staging-race suites
+           48 passed adding the Gate 0 CI contract
+           172 passed across the enrolment / onboarding / placement /
+           policy / telemetry-freshness selection
+           18 collection errors in that selection are PRE-EXISTING: they
+           require a live verified-session credential, which was not issued
+
+NOT DEPLOYED. The recovery does not depend on it - identity, credential and
+history are safe either way. Without it, the computer must be re-assigned to
+its group and policy in the console afterwards (procedure §4.4).
+
+4 · RECOVERY PROCEDURE
+----------------------
+RECOVERY_PROCEDURE.md, gated on two questions in its §0:
+  G1 the artifact's own workflow run reported GATE 4 ... PASS
+  G2 the placement reset is accepted, or the §3 fix is deployed first
+
+It covers: artifact provenance check, the read-only processor-id and
+identity recomputation (the one failure mode that silently mints a second
+endpoint), the exact `install --re-enrol --token-stdin` invocation with the
+token supplied only through standard input, post-recovery verification
+against the recorded counts, and a rollback table per failure point.
+
+5 · OPEN BLOCKERS
+-----------------
+B1  Gate 4's verdict on the run that built the 0.3.0 artifact is UNKNOWN to
+    this assessment. Run #23 (39141512250) FAILED Gate 4 on c845ff0b;
+    63d7d104 is the repair, but its Windows CI result was not available
+    here. An installer whose Gate 4 did not run is an untested installer.
+B2  No deployed-commit attestation exists (/api/version and /api/build-info
+    both 404). Compatibility rests on the contract fingerprint in §1.
+B3  Placement defect in §3 is live and unfixed in production.
+B4  Processor-id fallback: if WMI cannot read ProcessorId at enrolment time,
+    the sensor enrols on machine_guid and the platform mints a DIFFERENT
+    endpoint. Nothing detects this before the token is spent. Procedure §2.2
+    is the only guard.
+
+FILES
+-----
+RECOVERY_PROCEDURE.md                      the gated procedure
+compatibility_proof.py                     the §2 proof (synthetic ids)
+0001-reenrol-placement-preserved.patch     git am on 63d7d104
+reenrol-placement-preserved.diff           same change as a plain diff
+reenrol-placement-preserved.bundle         thin bundle, prereq 63d7d104
+SHA256SUMS
+
+HOLDS PRESERVED: no merge, no deployment, no production database
+modification, no enrolment token generated, no Windows service change.

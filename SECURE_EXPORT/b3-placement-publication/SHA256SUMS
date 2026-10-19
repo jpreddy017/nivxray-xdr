@@ -1,0 +1,6 @@
+567d9fd0a008664bd9e73776f2dc39f1bac4e48a0243c2ed6adf45f1f368ecf5  0001-Re-enrolment-must-not-move-a-computer-out-of-its-gro.patch
+fbcd871200b57c78eaa2ddba2f908d92a3c8d2f8e2495b37880eb794799945d3  0002-CI-give-the-enrolment-recovery-contract-a-gate-of-it.patch
+23762095934dbccf111222409958a094c751b9bc8defad369f12999248e41020  reenrol-placement-preserved.diff
+65ee2b9859e10357ef504ebf9d70f29bce686021f2e445de51ae1aecbb34afcb  reenrol-placement-preserved.bundle
+7d233664e4a46a9cfc613f8612e63de850b012353d7bce3ba5f5e1a28b459f75  MANIFEST.txt
+5684cbf9bea2f13458ff6a43dd7a82a2e1d8489d1131b3b150f61c2e887e31eb  PROMOTION_PLAN.md

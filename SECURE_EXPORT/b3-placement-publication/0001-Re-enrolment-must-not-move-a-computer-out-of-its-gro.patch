@@ -1,0 +1,352 @@
+From faa8046b761f47c31b535254505e9ca9e1733df2 Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <emergent-agent-e1@nivxray>
+Date: Mon, 19 Oct 2026 17:57:10 +0000
+Subject: [PATCH 1/2] Re-enrolment must not move a computer out of its group
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Found while proving the LIVE backend compatible for a Windows endpoint
+recovery, by driving the deployed enrolment code against a real database
+instead of reading it: the DELIVERY record survives a re-enrolment (P0-3),
+but FLEET PLACEMENT did not.
+
+EndpointRecord carries group_id, policy_id, placement_basis, placement_at,
+deployment_id, policy_source, policy_assigned_at and policy_assigned_by and
+defaults them all to None. store.enroll $set the whole record, so every
+re-enrolment CLEARED the placement — and the enrolment route then saw an
+endpoint with no group and gave it the DEFAULT group and policy. A
+reinstalled or recovered computer silently left the group an administrator
+chose, and a stricter policy was replaced by the default one. The route's
+own comment claimed the opposite; its guard was correct, but the write it
+guarded against had already happened one layer down.
+
+Measured: group_preserved=false, policy_preserved=false on a REVOKED ->
+fresh token -> ACTIVE recovery.
+
+Placement is an ADMINISTRATOR DECISION, not an enrolment fact, so it joins
+the delivery record in the insert-only partition: a new endpoint is still
+placed at enrolment, an existing one keeps what it was given. The two
+placement helpers now return the EFFECTIVE placement rather than the
+intended one, which on a re-enrolment named a group the endpoint was not in.
+
+6 new tests cover identity continuity, placement and policy provenance, the
+route's guard from both sides, an exhaustive partition check on
+EndpointRecord so a future field must be classified deliberately, tenant
+isolation, token single-use, the revoked credential and that a refused
+recovery changes nothing. Two FAIL against the unfixed tree. 35 passed with
+the Windows recovery and staging-race suites. No production data was read or
+written. NOT deployed, NOT merged.
+---
+ backend/edr_plane/enrollment/store.py         |  13 +
+ backend/routers/edr_onboarding.py             |  20 +-
+ .../test_p0_reenrol_placement_preserved.py    | 228 ++++++++++++++++++
+ 3 files changed, 259 insertions(+), 2 deletions(-)
+ create mode 100644 backend/tests/edr/test_p0_reenrol_placement_preserved.py
+
+diff --git a/backend/edr_plane/enrollment/store.py b/backend/edr_plane/enrollment/store.py
+index 0435476a..46b89ce4 100644
+--- a/backend/edr_plane/enrollment/store.py
++++ b/backend/edr_plane/enrollment/store.py
+@@ -302,6 +302,19 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
+                  "last_heartbeat_at", "report_interval_seconds",
+                  "cadence_basis", "lifecycle_reported",
+                  "outbox_queue_depth")}
++    # SAME DEFECT, SECOND PARTITION. Placement and policy assignment are
++    # ADMINISTRATOR DECISIONS, not enrolment facts, and `EndpointRecord`
++    # defaults them to None — so `$set`ting the whole record cleared the
++    # group, the policy and their provenance on every re-enrolment. The
++    # caller then saw `group_id: None` and placed the computer in the
++    # DEFAULT group, silently moving a reinstalled machine out of the group
++    # and policy an administrator chose for it, which can mean a weaker
++    # policy. Insert-only, exactly like the delivery record: a new endpoint
++    # is still placed at enrolment, an existing one keeps what it was given.
++    delivery.update({k: fields.pop(k) for k in
++                     ("group_id", "policy_id", "placement_basis",
++                      "placement_at", "deployment_id", "policy_source",
++                      "policy_assigned_at", "policy_assigned_by")})
+     await db[ENDPOINTS].update_one(
+         {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
+         {"$set": fields, "$setOnInsert": delivery}, upsert=True)
+diff --git a/backend/routers/edr_onboarding.py b/backend/routers/edr_onboarding.py
+index 7e309cfa..b836a679 100644
+--- a/backend/routers/edr_onboarding.py
++++ b/backend/routers/edr_onboarding.py
+@@ -264,6 +264,22 @@ async def ensure_default_placement(tenant_id: str) -> dict[str, str]:
+     return {"group_id": DEFAULT_GROUP["id"], "policy_id": DEFAULT_POLICY["id"]}
+ 
+ 
++async def _effective_placement(tenant_id: str, endpoint_id: str,
++                               intended: dict) -> dict:
++    """What the endpoint is ACTUALLY in, not what we just tried to give it.
++
++    Both assignments are guarded on "has no group yet", so a re-enrolling
++    computer keeps the group an administrator chose. Returning the INTENDED
++    placement then told the caller — and the enrolment response — that the
++    computer had moved into the default group when it had not.
++    """
++    row = await _db[store.ENDPOINTS].find_one(
++        {"tenant_id": tenant_id, "endpoint_id": endpoint_id},
++        {"_id": 0, "group_id": 1, "policy_id": 1}) or {}
++    return ({"group_id": row["group_id"], "policy_id": row.get("policy_id")}
++            if row.get("group_id") else intended)
++
++
+ async def assign_default_placement(tenant_id: str, endpoint_id: str) -> dict:
+     """Assigned at enrolment, and only if the endpoint has no placement yet."""
+     placement = await ensure_default_placement(tenant_id)
+@@ -273,7 +289,7 @@ async def assign_default_placement(tenant_id: str, endpoint_id: str) -> dict:
+         {"$set": {**placement,
+                   "placement_basis": "DEFAULT_AT_ENROLMENT",
+                   "placement_at": _now().isoformat()}})
+-    return placement
++    return await _effective_placement(tenant_id, endpoint_id, placement)
+ 
+ 
+ async def assign_deployment_placement(tenant_id: str, endpoint_id: str,
+@@ -298,7 +314,7 @@ async def assign_deployment_placement(tenant_id: str, endpoint_id: str,
+                   "placement_basis": "CONNECTOR_DEPLOYMENT",
+                   "deployment_id": deployment_id,
+                   "placement_at": _now().isoformat()}})
+-    return placement
++    return await _effective_placement(tenant_id, endpoint_id, placement)
+ 
+ 
+ # ── Computers ─────────────────────────────────────────────────────
+diff --git a/backend/tests/edr/test_p0_reenrol_placement_preserved.py b/backend/tests/edr/test_p0_reenrol_placement_preserved.py
+new file mode 100644
+index 00000000..89f9bebf
+--- /dev/null
++++ b/backend/tests/edr/test_p0_reenrol_placement_preserved.py
+@@ -0,0 +1,228 @@
++"""Re-enrolment must not move a computer out of the group an administrator chose.
++
++Found while proving the LIVE backend compatible for the DESKTOP recovery: the
++delivery record survives a re-enrolment (P0-3), but FLEET PLACEMENT did not.
++`EndpointRecord` carries `group_id`, `policy_id` and their provenance and
++defaults them to None, and `store.enroll` `$set` the whole record — so every
++re-enrolment cleared the placement, and the enrolment route then saw an
++endpoint with no group and assigned it the DEFAULT group and policy. A
++reinstalled computer silently left its group, and a stricter policy was
++replaced by the default one. That is a security regression disguised as a
++housekeeping write.
++
++Placement is an ADMINISTRATOR DECISION, not an enrolment fact, so it now lives
++in the same insert-only partition as the delivery record. A brand new endpoint
++is still placed at enrolment; an existing one keeps what it was given.
++
++Nothing here weakens a refusal: the revoked credential stays unusable, the
++spent token stays spent, tenant isolation is asserted alongside, and a failed
++enrolment still changes nothing.
++"""
++from __future__ import annotations
++
++import os
++import uuid
++
++import pytest
++from motor.motor_asyncio import AsyncIOMotorClient
++
++from edr_plane.contracts.identity import EndpointIdentity
++from edr_plane.enrollment import rejection, store
++from edr_plane.enrollment.identity import (CredentialState, EndpointRecord,
++                                           EnrollmentState, SensorState)
++from edr_plane.enrollment.store import EnrollmentError
++
++PROCESSOR_ID = "BFEBFBFF000906EA"
++MACHINE_GUID = "7b1f0a2c-5d44-4f0e-9b2a-1c3d5e7f9a0b"
++
++#: What an administrator chose, and what a recovery may not undo.
++PLACEMENT = {
++    "group_id": "grp_servers_strict",
++    "policy_id": "pol_strict_block",
++    "placement_basis": "CONNECTOR_DEPLOYMENT",
++    "placement_at": "2026-02-02T09:00:00+00:00",
++    "deployment_id": "dep_synthetic",
++    "policy_source": "ENDPOINT_OVERRIDE",
++    "policy_assigned_at": "2026-03-03T10:30:00+00:00",
++    "policy_assigned_by": "admin@synthetic",
++}
++
++HISTORY = {"event_count": 157_226,
++           "last_telemetry_at": "2026-06-11T07:14:22+00:00"}
++
++
++class _Scope:
++    """One throwaway tenant on the harness database; nothing shared, nothing left."""
++
++    async def __aenter__(self):
++        self.client = AsyncIOMotorClient(os.environ["MONGO_URL"])
++        self.db = self.client[os.environ["DB_NAME"]]
++        await store.ensure_indexes(self.db)
++        await rejection.ensure_indexes(self.db)
++        self.tenant = f"placement-{uuid.uuid4().hex[:8]}"
++        return self.db, self.tenant
++
++    async def __aexit__(self, *exc):
++        for collection in (store.ENDPOINTS, store.CREDENTIALS, store.TOKENS,
++                           store.SESSIONS):
++            await self.db[collection].delete_many({"tenant_id": self.tenant})
++        self.client.close()
++
++
++async def _token(db, tenant):
++    tok = await store.mint_enrollment_token(db, tenant_id=tenant,
++                                            issued_by="owner@test")
++    return tok["enrollment_token"]
++
++
++async def _placed_endpoint(db, tenant: str) -> str:
++    """An endpoint in the exact state of the laptop: enrolled, having
++    delivered, placed by an administrator, then revoked."""
++    endpoint_id = EndpointIdentity.mint(tenant_id=tenant,
++                                        processor_id=PROCESSOR_ID)
++    await store.enroll(db, tenant_id=tenant, presented_token=await _token(db, tenant),
++                       endpoint_id=endpoint_id, hostname="DESKTOP-SYNTH01",
++                       platform="WINDOWS", sensor_version="0.2.0-windows")
++    await db[store.ENDPOINTS].update_one(
++        {"tenant_id": tenant, "endpoint_id": endpoint_id},
++        {"$set": {**PLACEMENT, **HISTORY}})
++    await store.revoke_endpoint(db, tenant_id=tenant, endpoint_id=endpoint_id,
++                                revoked_by="owner@test",
++                                reason="credential compromised")
++    return endpoint_id
++
++
++@pytest.mark.asyncio
++async def test_recovery_keeps_the_group_policy_and_their_provenance():
++    async with _Scope() as (db, tenant):
++        endpoint_id = await _placed_endpoint(db, tenant)
++
++        result = await store.enroll(
++            db, tenant_id=tenant, presented_token=await _token(db, tenant),
++            endpoint_id=endpoint_id, hostname="DESKTOP-SYNTH01",
++            platform="WINDOWS", sensor_version="0.3.0-windows")
++
++        assert result["endpoint_id"] == endpoint_id
++        row = await db[store.ENDPOINTS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})
++        for field, value in PLACEMENT.items():
++            assert row[field] == value, field
++        # and the recovery still did its job
++        assert row["enrollment_state"] == EnrollmentState.ENROLLED.value
++        assert row["credential_state"] == CredentialState.ACTIVE.value
++        assert row["event_count"] == HISTORY["event_count"]
++        assert await db[store.ENDPOINTS].count_documents(
++            {"tenant_id": tenant}) == 1
++
++
++@pytest.mark.asyncio
++async def test_a_brand_new_endpoint_is_still_placeable_at_enrolment():
++    """Insert-only must not mean never: a first enrolment leaves the fields
++    empty so the enrolment route can place the computer."""
++    async with _Scope() as (db, tenant):
++        endpoint_id = EndpointIdentity.mint(tenant_id=tenant,
++                                            processor_id=PROCESSOR_ID)
++        await store.enroll(db, tenant_id=tenant,
++                           presented_token=await _token(db, tenant),
++                           endpoint_id=endpoint_id, hostname="DESKTOP-SYNTH01",
++                           platform="WINDOWS", sensor_version="0.3.0-windows")
++        row = await db[store.ENDPOINTS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})
++        assert row["group_id"] is None
++        assert row["policy_id"] is None
++        # the guarded assignment the route performs must match this document
++        placed = await db[store.ENDPOINTS].update_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id,
++             "$or": [{"group_id": None}, {"group_id": {"$exists": False}}]},
++            {"$set": {"group_id": "grp_default", "policy_id": "pol_default"}})
++        assert placed.modified_count == 1
++
++
++@pytest.mark.asyncio
++async def test_a_re_enrolment_is_not_re_placeable_by_that_same_guard():
++    """The other half: once placed, the route's guard must NOT match."""
++    async with _Scope() as (db, tenant):
++        endpoint_id = await _placed_endpoint(db, tenant)
++        await store.enroll(db, tenant_id=tenant,
++                           presented_token=await _token(db, tenant),
++                           endpoint_id=endpoint_id, hostname="DESKTOP-SYNTH01",
++                           platform="WINDOWS", sensor_version="0.3.0-windows")
++        moved = await db[store.ENDPOINTS].update_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id,
++             "$or": [{"group_id": None}, {"group_id": {"$exists": False}}]},
++            {"$set": {"group_id": "grp_default", "policy_id": "pol_default"}})
++        assert moved.matched_count == 0
++        row = await db[store.ENDPOINTS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id},
++            {"_id": 0, "group_id": 1, "policy_id": 1})
++        assert row["group_id"] == PLACEMENT["group_id"]
++        assert row["policy_id"] == PLACEMENT["policy_id"]
++
++
++@pytest.mark.asyncio
++async def test_the_insert_only_partition_covers_every_placement_field():
++    """A field added to EndpointRecord later must be classified deliberately.
++
++    Enrolment identity/credential facts are refreshed; delivery and placement
++    facts are insert-only. Anything else is an unreviewed addition.
++    """
++    refreshed = {"tenant_id", "endpoint_id", "device_iid", "credential_id",
++                 "enrollment_state", "credential_state", "hostname",
++                 "platform", "sensor_version", "enrolled_at", "revoked_at",
++                 "last_seen"}
++    insert_only = {"sensor_state", "last_telemetry_at", "event_count",
++                   "last_heartbeat_at", "report_interval_seconds",
++                   "cadence_basis", "lifecycle_reported", "outbox_queue_depth",
++                   "group_id", "policy_id", "placement_basis", "placement_at",
++                   "deployment_id", "policy_source", "policy_assigned_at",
++                   "policy_assigned_by"}
++    assert set(EndpointRecord.model_fields) == refreshed | insert_only
++
++
++@pytest.mark.asyncio
++async def test_recovery_still_refuses_what_it_always_refused():
++    """Tenant isolation, token single use, and the revoked credential."""
++    async with _Scope() as (db, tenant):
++        endpoint_id = await _placed_endpoint(db, tenant)
++        revoked = await db[store.CREDENTIALS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id},
++            {"_id": 0, "credential_id": 1, "status": 1})
++        token = await _token(db, tenant)
++
++        with pytest.raises(EnrollmentError) as foreign:
++            await store.enroll(db, tenant_id=f"{tenant}-foreign",
++                               presented_token=token, endpoint_id=endpoint_id)
++        assert foreign.value.code == "ENROLLMENT_TOKEN_INVALID"
++
++        await store.enroll(db, tenant_id=tenant, presented_token=token,
++                           endpoint_id=endpoint_id, platform="WINDOWS",
++                           sensor_version="0.3.0-windows")
++        with pytest.raises(EnrollmentError) as replay:
++            await store.enroll(db, tenant_id=tenant, presented_token=token,
++                               endpoint_id=endpoint_id)
++        assert replay.value.code == "ENROLLMENT_TOKEN_INVALID"
++
++        still = await db[store.CREDENTIALS].find_one(
++            {"tenant_id": tenant, "credential_id": revoked["credential_id"]},
++            {"_id": 0, "status": 1})
++        assert still["status"] == CredentialState.REVOKED.value
++
++
++@pytest.mark.asyncio
++async def test_a_refused_recovery_changes_nothing_at_all():
++    """Rollback: an invalid token must leave the endpoint exactly as it was."""
++    async with _Scope() as (db, tenant):
++        endpoint_id = await _placed_endpoint(db, tenant)
++        before = await db[store.ENDPOINTS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})
++
++        with pytest.raises(EnrollmentError):
++            await store.enroll(db, tenant_id=tenant,
++                               presented_token="enr_not_a_real_token",
++                               endpoint_id=endpoint_id)
++
++        after = await db[store.ENDPOINTS].find_one(
++            {"tenant_id": tenant, "endpoint_id": endpoint_id}, {"_id": 0})
++        assert after == before
++        assert after["enrollment_state"] == EnrollmentState.REVOKED.value
++        assert after["sensor_state"] == SensorState.REVOKED.value
+-- 
+2.39.5
+

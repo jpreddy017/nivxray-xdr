@@ -22,6 +22,10 @@ BUNDLES = {
     "gate4": Path("/app/SECURE_EXPORT/gate4-payload-context-package.tar.gz"),
     # EDR "Recheck access" permanent repair · frontend only, on PR #17.
     "edr-denial": Path("/app/SECURE_EXPORT/edr-denial-recoverable-package.tar.gz"),
+    # Windows recovery handoff · procedure + placement fix, NO artifact.
+    "win-recovery": Path("/app/SECURE_EXPORT/win-recovery-handoff-package.tar.gz"),
+    # B3 publication · placement fix + its CI gate, ready to push.
+    "b3": Path("/app/SECURE_EXPORT/b3-placement-publication-package.tar.gz"),
 }
 
 
