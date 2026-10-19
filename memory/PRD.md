@@ -6696,3 +6696,62 @@ Package (HOLD banners removed, A1/A2 corrected, `B4_RESOLVED.md` added):
 `win-recovery-handoff-package.tar.gz`
 sha256 `e0fdef2fc92d746d90ca7c2a6928f95320c36a7028b4433bd9444012cd366565`
 (SHA256SUMS verified after download). **Recovery: GO on owner authorization.**
+
+---
+
+## 2026-10-19 · SCOPE CHANGE · clean dev enrolment replaces preservation
+
+Owner declared historical telemetry, the 1.99 GB outbox and the 1.72 M queue
+entries **disposable test data**. New objective: validate WMIC/identity
+stability, reset obsolete EDR test data without affecting shared XDR, enrol
+fresh, and demonstrate live telemetry in the console. **Prepared only — no
+destructive action taken.**
+
+### Collection ownership — derived from code, not from the `edr_` prefix
+A script classified every `edr_*` collection literal by which modules
+reference it. **EDR-only** (safe to clear, tenant-scoped): endpoints,
+agent_credentials, agent_sessions, enrollment_tokens, processing_queue,
+rejected_telemetry, acquisition_gaps, acquisition_integrity,
+delivery_counters, findings, finding_evaluations, compromise_events,
+endpoint_address_observations, response_commands, policy_endpoint_state,
+endpoint_exclusion_enforcement. **Kept by default:** policies, groups,
+policy_versions, exclusions, exclusion_sets, isolation_policy,
+tenant_boundary, connector_deployments, saved_views, enrollment_audit,
+policy_audit.
+
+**The one real coupling: `edr_raw_events`** — 18 referencing files including
+`routers/xdr_search.py`, `services/evidence_bridge.py`,
+`services/incident_provenance.py`, `v2/ingestion/telemetry_bridge.py`.
+`xdr_canonical_evidence` / `v2_shadow_observations` point at it via
+`raw_ref = {collection, raw_id}`. Clearing raw events leaves those pointers
+unresolvable — XDR keeps working, but a case built on this telemetry shows
+evidence it cannot load. Made decision **D4**; the script never writes any
+`xdr_*` / `v2_*` / `canonical` / `tenants` / `users` collection.
+
+### Deliverables (prepared, nothing executed)
+* `DEV_RESET_AND_FRESH_ENROLMENT.md` — phases 0-6: decisions (D1-D5),
+  WMIC/identity validation run **twice including after a reboot** (WMIC is a
+  removable FoD and the sensor has no CIM fallback), Atlas snapshot,
+  `uninstall --purge` locally BEFORE the backend reset, dry-run → armed
+  reset, fresh `install --token-stdin` (**no `--re-enrol`** — state purged),
+  then a live-telemetry demonstration on the three collected channels
+  (`Security`, `System`, `Microsoft-Windows-Sysmon/Operational`) with
+  concrete event generators and per-check expectations. Acceptance list and
+  S1-S6 stop conditions. Irreversibility stated: the snapshot is the only
+  rollback.
+* `edr_dev_reset.mongosh.js` — **dry run by default**; refuses to delete
+  unless `CONFIRM="DELETE-EDR-DEV-DATA"` AND a snapshot id is recorded. No
+  `dropDatabase`, no collection drops (indexes/validators survive), every
+  filter tenant-scoped, prints before/after counts, a verification pass that
+  must read 0, and the XDR `raw_ref` blast radius. **Validated for real:**
+  `node --check` passes and it ran green in dry-run mode against the local
+  MongoDB, enumerating all collections and both XDR reference counts.
+
+Identity is still preserved — `ep_1989031c8c1d0085812f` is re-minted
+deterministically from `sha256(ProcessorId)[:24]`, and proving that is part
+of the exercise.
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `0197e3af81d2de09d65caab80551ae44c881e0d531e59d08f4792f8bddb50794`
+(11 files, SHA256SUMS verified after download; script re-checked post-pack).
+**Awaiting approval of D1-D5 before any destructive step.**

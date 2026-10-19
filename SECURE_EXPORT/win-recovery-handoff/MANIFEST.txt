@@ -162,8 +162,27 @@ B5 CLOSED within the deployment. DB_NAME is EXPLICITLY the verbatim string
            behind MONGO_URL, to confirm no other database holds edr_endpoints
            with more data. Not retrievable from inside the deployment.
 
+2026-10-19 LATER · SCOPE CHANGED BY THE OWNER
+---------------------------------------------
+Historical telemetry, the 1.99 GB outbox and the 1.72 M queue entries are
+now declared DISPOSABLE test data. The preservation workflow
+(RECOVERY_PROCEDURE.md / EXECUTION_CHECKLIST.md) is superseded for execution
+by DEV_RESET_AND_FRESH_ENROLMENT.md, which is a clean development enrolment:
+validate WMIC/identity, snapshot, purge local state, reset EDR-owned
+collections tenant-scoped, enrol fresh, then demonstrate live telemetry.
+Identity is still preserved - ep_1989031c8c1d0085812f is re-minted
+deterministically, and proving that is part of the exercise.
+The two older documents remain valid for the identity arithmetic (A1/A2) and
+the per-failure rollback table, which the new plan references rather than
+duplicates.
+
 FILES
 -----
+DEV_RESET_AND_FRESH_ENROLMENT.md           THE PLAN TO APPROVE: phases 0-6,
+                                           acceptance, stop conditions
+edr_dev_reset.mongosh.js                   dry-run-by-default reset script;
+                                           refuses to delete without an Atlas
+                                           snapshot id and an explicit CONFIRM
 B4_RESOLVED.md                             B4 was reopened by an error in
                                            my own pre-flight snippet and is
                                            resolved; read it before using A2
