@@ -6487,3 +6487,60 @@ functional commit · 3 pre-deploy gate (48 passed + `/api/transfer` absent) ·
 Correction to an earlier manifest: the engineering commit for
 `publish/edr-denial-recoverable` is `e4031475`, not `aafa3d01` as stated in
 that package's MANIFEST (the publication commit `94e447d5` is unaffected).
+
+---
+
+## 2026-06 · B5 database-authority assessment · B3 integrity re-verified
+
+### B5 — evidence gathered (read-only, no production write, no document read)
+1. **Binding composition.** Preview binds `test_database` (`backend/.env`
+   DB_NAME). Production binds `greeting-app-5782-test_database` — the prefix
+   is the app slug from the preview hostname, i.e. the platform namespacing
+   the SAME env token per app. The suffix is a template default never
+   renamed, not a chosen test store.
+2. **Preview ≠ production, proved empirically.**
+   `/api/telemetry/frontend/recent` returns DIFFERENT data on each:
+   production 15 records 2026-08-07 → 2026-09-24; preview 25 records
+   2026-08-09 → 2026-08-25. Corroborates the pre-existing finding in
+   `memory/STEP1_DEPLOYMENT_OWNERSHIP.md` (same login payload → 200 preview /
+   401 production).
+3. **One store, no split.** Every production path resolves
+   `os.environ["DB_NAME"]` (deps.py:193-194/219-225, services/
+   ingest_idempotency.py:88, machine_rate_limit.py:26,
+   raw_forensic_retention.py:72, canonical/ssot/store.py:84). Enrolment and
+   agent telemetry share `deps.db` (`routers/edr_enrollment.py:25`;
+   `@agent.post("/telemetry")` in that same router). Collections:
+   edr_endpoints / edr_agent_credentials / edr_enrollment_tokens /
+   edr_agent_sessions.
+4. **No rival Emergent DB in the repo.** The only other DB_NAME values are
+   `deploy/docker-compose.yml` `${DB_NAME:-nivxray}` and
+   `deploy/stage1-staging/compose.yml` `nivxray_stage1_staging` — both belong
+   to the SELF-HOSTED Stage-1 path, which has never served
+   nivxray.nivxforge.com.
+5. **Not closed:** cluster inventory (does any other DB hold edr_endpoints?),
+   collection counts, binding history across runs, and a single existence
+   check for `ep_1989031c8c1d0085812f` in that DB. Requested from the
+   deployer (read-only, counts/fields only); queued, not yet returned.
+
+**Verdict: INDETERMINATE** — structurally the authoritative store and
+definitely not the preview/test store, but the one empirical fact that
+settles it (the endpoint and its 157,226 events residing in that database)
+is pending.
+
+### B3 — integrity re-verified, and a self-caught CI defect
+Self-review found the new gate naming
+`tests/edr/test_b5_gap1_windows_gate0_ci_contract.py`, which exists only on
+the full engineering tree: on the thin publication branch CI would have
+failed with "file or directory not found". The step now runs it when present
+and REPORTS its absence. Commits amended (never pushed):
+
+  publication `publish/reenrol-placement-preserved` tip **68e2f0a5**
+              (tree a3bb18f6) on 63d7d104 — supersedes f1aacf1d
+  engineering **24139032** (fix e81f77dd)
+  re-verified: 35 passed on the publication branch, 35 on the engineering
+  tree with the Gate 0 suite included; publication branch collects 572 tests
+  with ZERO collection errors (credential-gated files are not on it).
+  Package sha256 8c5ee8af43b9ba0b8a0b055f9021ae28c78ba05157cb65405d8a37bf02d943d4
+
+**Still not pushed:** `/root/.git-credentials` is empty; push needs the
+owner's *Save to Github*. CI has therefore never run on GitHub.

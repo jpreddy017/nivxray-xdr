@@ -8,9 +8,15 @@ enrolment token generated, no Windows service changed.
 WHAT TO PUSH
 ------------
   branch  publish/reenrol-placement-preserved
-  tip     f1aacf1dbf9354f6efbd787b017aa0102061ab85   tree ee882e98
+  tip     68e2f0a55773f01b88fe249b04a7966ca567ddbe   tree a3bb18f6
           ├─ faa8046b  Re-enrolment must not move a computer out of its group
-          └─ f1aacf1d  CI: give the enrolment recovery contract a gate of its own
+          └─ 68e2f0a5  CI: give the enrolment recovery contract a gate of its own
+  NOTE    the CI commit was AMENDED after a self-review caught the gate
+          naming tests/edr/test_b5_gap1_windows_gate0_ci_contract.py, which
+          exists only on the full engineering tree — on this thin branch the
+          gate would have failed with "file or directory not found". It is
+          now run when present and its absence is REPORTED. Previously
+          circulated tip f1aacf1d is SUPERSEDED and was never pushed.
   parent  63d7d104  (= publish/win-reenrol-recovery, PR #18 head, already on
                      GitHub — verified by ls-remote)
   diff    4 files, +382 / -2
@@ -84,7 +90,8 @@ CI EVIDENCE
 Local (this tree, real MongoDB, `-p no:randomly`):
   test_p0_reenrol_placement_preserved.py                6 passed
   + win_reenrol_recovery + windows staging race        35 passed
-  + Gate 0 CI contract                                 48 passed
+    (re-verified on THIS branch after the amend)       35 passed
+  + Gate 0 CI contract (engineering tree only)         48 passed
   enrolment/onboarding/placement/policy/freshness     172 passed
   against the UNFIXED tree the new suite gives          2 FAILED  <- the
     (test_recovery_keeps_the_group_policy_and_their_provenance,
@@ -100,8 +107,10 @@ push, and this environment cannot push.
 
 UNRESOLVED COLLECTION ERRORS — NAMED, NOT HIDDEN
 ------------------------------------------------
-`pytest tests/edr --collect-only` collects 2,319 tests with 10 COLLECTION
-ERRORS. All 10 are the same pre-existing cause: the file reads a live
+On the full engineering tree, `pytest tests/edr --collect-only` collects
+2,319 tests with 10 COLLECTION ERRORS. On this thin publication branch the
+same command collects 572 tests with ZERO collection errors, because the
+credential-gated files are not part of the thin branch. All 10 are the same pre-existing cause: the file reads a live
 verified-session credential from the environment at import time and raises
 KeyError when it is absent (NIVXRAY_EXPORT_REQUIRED_CREDENTIAL_003 and
 _010). No credential was issued, so these cannot run here:
