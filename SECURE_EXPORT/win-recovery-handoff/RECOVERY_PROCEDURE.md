@@ -1,8 +1,10 @@
 # NivXForge EDR · Windows Sensor Recovery · DESKTOP endpoint
 
-**Status: cleared to execute on owner authorization** (revised 2026-10-19).
-All three gates in §0 are closed; §2 is still mandatory and still read-only.
-The only step that changes anything is §3.2.
+**Status: ON HOLD — DO NOT EXECUTE (B4 reopened 2026-10-19).**
+The recorded endpoint id is NOT reproducible from the laptop's ProcessorId
+under the platform's live mint function: tenant + `BFEBFBFF000806C1` yields
+`ep_814199c05cfa49595311`, not `ep_1989031c8c1d0085812f`. §2.2 is the gate
+that catches this and it currently FAILS. See `B4_REOPENED.md`.
 
 The purpose of this document is to restore telemetry **without** minting a
 second endpoint, erasing the delivery record, or discarding the local queue.

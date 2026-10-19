@@ -6590,3 +6590,60 @@ sha256 `8c5ee8af43b9ba0b8a0b055f9021ae28c78ba05157cb65405d8a37bf02d943d4`
 **Recovery: GO on owner authorization**, conditional on (1) minting exactly
 one enrolment token at execution time and (2) the read-only §2.2 processor-id
 and identity recomputation on the laptop immediately before §3.2.
+
+---
+
+## 2026-10-19 · B4 REOPENED — RECOVERY HALTED (was GO, now HOLD)
+
+While verifying that the PowerShell identity-recompute snippet in the new
+execution checklist reproduces the platform's arithmetic, it did — and the
+answer contradicts the accepted baseline:
+
+```
+EndpointIdentity.mint(tenant_id="ten_e759b7288598bd882e3dcac49d",
+                      processor_id="BFEBFBFF000806C1")
+  -> ep_814199c05cfa49595311          (verified twice: by hand and via the
+                                       platform function itself)
+recorded                                ep_1989031c8c1d0085812f  (157,226 events)
+MATCH: NO
+```
+
+Exhausted and all NO: processor-id case/whitespace variants (`\r`, `\n`,
+`\r\n`, leading/trailing spaces), hostname `DESKTOP-A9HGFJJ` variants, all
+four kind tokens (hw/guid/iid/host), digest truncation 16/20/24/32, reversed
+part order, separators `\x1f` `|` `:` `-` and empty. `identity.py` has ONE
+commit in its history (2026-09-06), three weeks before this endpoint enrolled
+(2026-09-27), so no older formula explains it.
+
+**Inference (to be confirmed):** the recorded identity is `machine_guid`- or
+`device_iid`-derived, i.e. `processor_id` was unreadable at the original
+enrolment. Since the 0.3.0 sensor sends processor_id AND machine_guid
+(`nivxforge_sensor.py:487-492`) and the platform prefers `hw`, running the
+prepared PHASE C today would spend the token, mint
+`ep_814199c05cfa49595311`, take `edr_endpoints` 2 → 3, and drain the 1.99 GB
+backlog into an endpoint holding none of the 157,226 events. That is failure
+mode R4, caused by the procedure rather than caught by it.
+
+**I previously accepted B4 as closed from the owner's baseline without
+checking the arithmetic. That was my error; it is now checked.**
+
+Unaffected: B1, B2, B5 (store + endpoint presence), B3 (prepared, still not a
+prerequisite).
+
+**Resolution path (read-only):** (1) read `HKLM:\SOFTWARE\Microsoft\
+Cryptography\MachineGuid` on the laptop and recompute with the `guid` kind;
+(2) a deployer query (QUEUED) for both endpoint ids in the tenant, whether
+either is `ep_814199c05cfa49595311`, whether `device_iid` is populated, any
+enrolment-audit record of the attributes used, and whether
+`edr_raw_events.endpoint_ref` ever carried a third identity.
+
+If guid-derived, the stock installer cannot preserve the identity. Smallest
+correct fix: an agent-side preflight that computes candidate ids locally
+(the mint needs no secret) and sends only the attribute set reproducing the
+RECORDED endpoint_id, refusing otherwise — a source change plus a new Windows
+build and CI run. NOT started.
+
+Package (now carries `B4_REOPENED.md` and HOLD banners on both the procedure
+and the checklist):
+`win-recovery-handoff-package.tar.gz`
+sha256 `d88dc8b88592594d55a7d5e775dfa787fc66e2d35e43f182bdd44d020d9fad4c`
