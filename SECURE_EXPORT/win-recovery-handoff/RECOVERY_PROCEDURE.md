@@ -1,21 +1,27 @@
 # NivXForge EDR · Windows Sensor Recovery · DESKTOP endpoint
 
-**Status: HOLD.** Do not run section 3 until the two gates in section 0 are
-answered. Everything below is read-only until section 3 step 5.
+**Status: cleared to execute on owner authorization** (revised 2026-10-19).
+All three gates in §0 are closed; §2 is still mandatory and still read-only.
+The only step that changes anything is §3.2.
 
 The purpose of this document is to restore telemetry **without** minting a
 second endpoint, erasing the delivery record, or discarding the local queue.
 
 ---
 
-## 0 · Gates that must be answered BEFORE anything is run
+## 0 · Gates — all three now CLOSED
 
 | # | Gate | Why it blocks |
 |---|------|---------------|
-| G1 | The workflow run that produced your `0.3.0-windows` artifact from commit `63d7d104` reported **`GATE 4 RE-ENROL ROLLBACK: PASS`** | That gate is the only proof that *this* build stops the service, proves it stopped, proves the image released, and restores a previously-running service on failure. Run #23 (`39141512250`) FAILED it on `c845ff0b`; `63d7d104` is the repair. An artifact whose Gate 4 did not run is an untested installer. |
-| G2 | The group and policy reset is accepted, or the backend fix is deployed first | `store.enroll` on the live backend CLEARS `group_id`, `policy_id` and their provenance, and the enrolment route then places the computer in the **DEFAULT** group and policy. Identity, history and queue are safe; the administrator's placement is not. Fix prepared, NOT deployed (§5). |
+| G1 | **CLOSED** — Windows CI run `39144147851` reported Gate 4 PASS | That gate is the only proof that *this* build stops the service, proves it stopped, proves the image released, and restores a previously-running service on failure |
+| G2 | **CLOSED, and it was a non-issue for this computer** | The endpoint's placement IS the tenant default, and the tenant has exactly one group and one policy, so the clear-and-reassign on the serving build restores identical values. See §4.4 and §5 |
+| G3 | **CLOSED** — the serving store is the authority | `DB_NAME` is explicitly `greeting-app-5782-test_database` on all 5 deployment runs (2026-10-03 → 2026-10-15), it holds 1,877,149 raw events, and `ep_1989031c8c1d0085812f` lives there with `event_count` 157,226 and all three states REVOKED. The `test` token is cosmetic. **Never "rename DB_NAME to drop the suffix"** — that points the pods at an empty database and strands everything |
 
-If G2 is accepted as-is, add the remediation step in §4.4.
+Residual (does NOT block, cannot be answered from inside the deployment):
+an Atlas `listDatabases` on the cluster behind `MONGO_URL`, to confirm no
+other database holds `edr_endpoints` with more data. Re-enrolment writes to
+the same store that already holds this endpoint's history, so it cannot land
+elsewhere.
 
 ---
 
@@ -85,6 +91,9 @@ C:\"Program Files"\NivXForge\NivXForgeEDRSetup.exe status
 
 Record `endpoint_id`, `tenant_id`, `queue_depth` and
 `legacy_outbox_remaining`. These are the numbers §4 compares against.
+`endpoint_id` must read `ep_1989031c8c1d0085812f` and `tenant_id`
+`ten_e759b7288598bd882e3dcac49d` — the values confirmed present in the
+serving store.
 
 **2.4 · The state directory is intact and backed up**
 
@@ -155,22 +164,44 @@ not two. `event_count` must start at **the recorded historical count** and
 grow — a count that restarts near zero means the delivery record was reset
 and you should stop and report.
 
+Exact expected post-conditions in the serving store
+(`greeting-app-5782-test_database`, counts taken 2026-10-19 before recovery):
+
+| Collection | Before | After a correct recovery |
+|---|---|---|
+| `edr_endpoints` | **2** | **2** — a third row means a second identity was minted (§6) |
+| `edr_agent_credentials` | 2 (this endpoint: 1, REVOKED) | 3 (this endpoint: 2 — the old one still REVOKED, one ACTIVE) |
+| `edr_enrollment_tokens` | 0 | 1, spent |
+| `edr_endpoints.event_count` for `ep_1989…` | 157,226 | **157,226 and rising** |
+| `group_id` / `policy_id` | `grp_default_windows` / `pol_default_detect_only` | unchanged in value (see §5) |
+
 **4.3 · Credentials**: the previous credential remains `REVOKED`, the new one
 is `ACTIVE`, and the enrolment token shows as spent.
 
-**4.4 · If G2 was accepted as-is**: re-assign the computer to its correct
-group and policy in the console, and confirm the policy actually applied.
-Until the §5 fix is deployed, every future re-enrolment repeats this.
+**4.4 · Group and policy**: this endpoint's placement IS the tenant default
+(`grp_default_windows` / `pol_default_detect_only`, `DEFAULT_AT_ENROLMENT`),
+and the tenant holds exactly one group and one policy. On the serving build
+the recovery clears the placement and the enrolment route immediately
+re-assigns the default — the **same values**. So for THIS computer there is
+nothing to re-assign by hand; only `placement_at` changes. Confirm the two
+ids still read as above after the recovery.
 
-## 5 · The backend fix (prepared, NOT deployed)
+## 5 · The backend fix (prepared, NOT deployed — and NOT required here)
 
-`publish/reenrol-placement-preserved` · commit
-`faa8046b761f47c31b535254505e9ca9e1733df2` on PR #18's head `63d7d104`.
+`publish/reenrol-placement-preserved` · tip
+`68e2f0a55773f01b88fe249b04a7966ca567ddbe` on PR #18's head `63d7d104`.
 
 Placement and policy provenance join the delivery record in the insert-only
 partition, and the two placement helpers return the **effective** placement
-instead of the intended one. 6 targeted tests; two of them fail against the
-current tree, which is how the defect was confirmed. No deployment performed.
+instead of the intended one. 6 targeted tests; two fail against the serving
+tree, which is how the defect was confirmed.
+
+**It is not a prerequisite for this recovery.** This endpoint sits in the
+tenant default group and policy, and the tenant has exactly one of each, so
+the clear-and-reassign on the serving build writes back identical values.
+The fix matters for any computer an administrator has placed deliberately —
+none exist in this tenant today. Deploy it on its own schedule, not under
+recovery pressure.
 
 ## 6 · Failure and rollback
 

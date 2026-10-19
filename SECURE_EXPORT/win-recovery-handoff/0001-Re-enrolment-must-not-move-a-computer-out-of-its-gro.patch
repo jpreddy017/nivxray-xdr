@@ -1,7 +1,7 @@
 From faa8046b761f47c31b535254505e9ca9e1733df2 Mon Sep 17 00:00:00 2001
 From: emergent-agent-e1 <emergent-agent-e1@nivxray>
 Date: Mon, 19 Oct 2026 17:57:10 +0000
-Subject: [PATCH] Re-enrolment must not move a computer out of its group
+Subject: [PATCH 1/2] Re-enrolment must not move a computer out of its group
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

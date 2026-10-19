@@ -6544,3 +6544,49 @@ and REPORTS its absence. Commits amended (never pushed):
 
 **Still not pushed:** `/root/.git-credentials` is empty; push needs the
 owner's *Save to Github*. CI has therefore never run on GitHub.
+
+### B5 CLOSED (2026-10-19) · deployer binding audit returned
+DB_NAME is set **EXPLICITLY** to the verbatim string
+`greeting-app-5782-test_database` (secret equals-check TRUE for the full
+string, FALSE for `test_database`); the code reads `os.environ["DB_NAME"]`
+directly — **my earlier "platform composes <slug>-<DB_NAME> at runtime" claim
+was wrong in mechanism** (the prefix was baked into the stored secret at seed
+time). The conclusion stands: the `test` token is cosmetic, inherited from
+the preview default.
+
+Same binding on **all 5 runs** 2026-10-03 → 2026-10-15; never differed.
+Store holds real history: `edr_raw_events` 1,877,149, `edr_processing_queue`
+1,718,750, `edr_rejected_telemetry` 25,992 — with a tiny fleet:
+`edr_endpoints` 2, `edr_agent_credentials` 2, `edr_enrollment_tokens` 0,
+`edr_policies` 1, `edr_groups` 1, `tenants` 1, `users` 1.
+
+**Target endpoint is in this store:** `ep_1989031c8c1d0085812f`, tenant
+`ten_e759…`, enrollment/credential/sensor all REVOKED, `event_count`
+**157,226**, `last_telemetry_at` 2026-10-01T02:22:52Z, `enrolled_at`
+2026-09-27T04:07:47Z, `group_id` `grp_default_windows`, `policy_id`
+`pol_default_detect_only`, `placement_basis` DEFAULT_AT_ENROLMENT; 1
+credential, REVOKED.
+
+**Consequence for B3:** that placement IS the tenant default
+(`DEFAULT_GROUP`/`DEFAULT_POLICY` in edr_onboarding.py:47-52) and the tenant
+has exactly one group and one policy, so on the serving build the
+clear-and-reassign writes back identical values. **B3 is therefore NOT a
+prerequisite for this recovery** — it remains a correctness fix for
+deliberately placed computers (none exist in this tenant).
+
+NEVER rename DB_NAME to drop the suffix: pods would bind a new empty DB.
+RESIDUAL (non-blocking, owner-only): Atlas `listDatabases` on the cluster
+behind MONGO_URL to rule out another DB holding `edr_endpoints`.
+
+### Packages refreshed
+`win-recovery-handoff-package.tar.gz`
+sha256 `41e5a36d8ce8a6468c17e8541915a0ea9cd9368487ed8c4ff6a8cf2e1a244804`
+(procedure revised: gates closed, exact post-condition table — endpoints stay
+**2**, credentials 2→3, tokens 0→1 spent, event_count 157,226 and rising).
+`b3-placement-publication-package.tar.gz`
+sha256 `8c5ee8af43b9ba0b8a0b055f9021ae28c78ba05157cb65405d8a37bf02d943d4`
+(tip **68e2f0a5**, supersedes f1aacf1d).
+
+**Recovery: GO on owner authorization**, conditional on (1) minting exactly
+one enrolment token at execution time and (2) the read-only §2.2 processor-id
+and identity recomputation on the laptop immediately before §3.2.

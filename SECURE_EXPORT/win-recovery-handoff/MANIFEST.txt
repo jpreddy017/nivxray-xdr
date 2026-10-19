@@ -125,19 +125,36 @@ endpoint), the exact `install --re-enrol --token-stdin` invocation with the
 token supplied only through standard input, post-recovery verification
 against the recorded counts, and a rollback table per failure point.
 
-5 · OPEN BLOCKERS
------------------
-B1  Gate 4's verdict on the run that built the 0.3.0 artifact is UNKNOWN to
-    this assessment. Run #23 (39141512250) FAILED Gate 4 on c845ff0b;
-    63d7d104 is the repair, but its Windows CI result was not available
-    here. An installer whose Gate 4 did not run is an untested installer.
-B2  No deployed-commit attestation exists (/api/version and /api/build-info
-    both 404). Compatibility rests on the contract fingerprint in §1.
-B3  Placement defect in §3 is live and unfixed in production.
-B4  Processor-id fallback: if WMI cannot read ProcessorId at enrolment time,
-    the sensor enrols on machine_guid and the platform mints a DIFFERENT
-    endpoint. Nothing detects this before the token is spent. Procedure §2.2
-    is the only guard.
+5 · BLOCKER STATUS (revised 2026-10-19)
+---------------------------------------
+B1 CLOSED  Windows CI run 39144147851 reported Gate 4 PASS.
+B2 CLOSED  Serving run 4067c54d-e252-4243-a214-27a9f17715bc, image
+           sha256:9ee9b9a2... (arm64/ECR), published 2026-10-15T01:39:25Z.
+           Serving store.py sha256 73698aba... and edr_onboarding.py
+           sha256 ad23d07b... are byte-identical to the tested copies;
+           'group_id' confirmed absent from the serving store.py. The git
+           commit itself remains UNVERIFIABLE (.git stripped from the source
+           archive, no embedded build metadata, build logs past retention).
+B3 PREPARED, NOT PUSHED, NOT DEPLOYED — and NOT required for this recovery
+           (this endpoint holds the tenant DEFAULT placement, and the tenant
+           has exactly one group and one policy, so the serving build's
+           clear-and-reassign writes back identical values).
+B4 CLOSED  ProcessorId BFEBFBFF000806C1 reproduces ep_1989031c8c1d0085812f.
+B5 CLOSED within the deployment. DB_NAME is EXPLICITLY the verbatim string
+           greeting-app-5782-test_database (not composed at runtime from a
+           slug), identical on all 5 runs 2026-10-03 -> 2026-10-15. The store
+           holds 1,877,149 raw events and the target endpoint itself:
+           ep_1989031c8c1d0085812f, tenant ten_e759...,
+           enrollment/credential/sensor all REVOKED, event_count 157,226,
+           last_telemetry_at 2026-10-01T02:22:52Z, enrolled_at 2026-09-27,
+           group grp_default_windows, policy pol_default_detect_only,
+           1 credential (REVOKED). The 'test' token is cosmetic, inherited
+           from the preview DB_NAME at seed time.
+           DO NOT rename DB_NAME to remove the suffix: that points the pods
+           at a brand-new empty database and strands all of the above.
+           RESIDUAL (does not block): an Atlas listDatabases on the cluster
+           behind MONGO_URL, to confirm no other database holds edr_endpoints
+           with more data. Not retrievable from inside the deployment.
 
 FILES
 -----
