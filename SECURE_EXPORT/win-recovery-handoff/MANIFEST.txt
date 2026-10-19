@@ -198,3 +198,37 @@ SHA256SUMS
 
 HOLDS PRESERVED: no merge, no deployment, no production database
 modification, no enrolment token generated, no Windows service change.
+
+UPDATE 2026-10-19 · D1-D5 APPROVED, EXECUTION STILL UNAUTHORISED
+----------------------------------------------------------------
+edr_d4_impact_report.mongosh.js            RUN THIS FIRST. Strictly READ ONLY
+                                           - no delete/update/insert/drop verb
+                                           anywhere. Prints the production
+                                           delete-candidate counts, the D4
+                                           blast radius, the EDR-ONLY / MIXED /
+                                           unrelated incident split, the
+                                           DISCOVERED dependent collections and
+                                           the data+index bytes at stake
+edr_d4_impact_report.compact.js            the same report, minified, for
+                                           pasting into a DB-manager console
+edr_dev_reset.mongosh.js                   REVISED for D4: now retires the
+                                           dependent XDR artefacts in the same
+                                           leaf-to-root pass, so no reference
+                                           is left dangling. MIXED incidents
+                                           are listed and never deleted. Still
+                                           dry-run by default; refuses to arm
+                                           without a real snapshot id, and
+                                           refuses to run at all if D2/D3
+                                           retention is switched off
+DEV_RESET_AND_FRESH_ENROLMENT.md           updated: D1-D5 as approved, the
+                                           deterministic D4 join, phase 2a
+                                           (impact report), rehearsal evidence,
+                                           and what could NOT be obtained from
+                                           the pod (production counts, Atlas
+                                           snapshot id)
+
+Rehearsed on a scratch copy of this schema: planned 4,350 / deleted 4,350,
+verification 0 in every in-scope collection, 0 dangling dependents, config and
+audit retained, seeded MIXED and unrelated incidents untouched. The scratch
+database was dropped afterwards; no production data was read or written.
+

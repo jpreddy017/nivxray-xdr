@@ -6755,3 +6755,71 @@ Package `win-recovery-handoff-package.tar.gz`
 sha256 `0197e3af81d2de09d65caab80551ae44c881e0d531e59d08f4792f8bddb50794`
 (11 files, SHA256SUMS verified after download; script re-checked post-pack).
 **Awaiting approval of D1-D5 before any destructive step.**
+
+## 2026-10-19 · D1-D5 APPROVED · scope, counts and executable sequence prepared
+
+Owner approved the DIRECTION only: D1 tenant-wide cleanup, D2 retain EDR
+configuration/groups/policies/tenant settings, D3 retain enrolment and policy
+audit, D4 **no broken XDR evidence references** (retire the dependent obsolete
+development artefacts in the same pass, preserve unrelated XDR), D5 record the
+real Atlas snapshot id first. Stated priority: cut test-data storage and
+processing cost, then fresh Windows enrolment and live ingestion. Execution is
+still **unauthorised** — nothing destructive has been run.
+
+### Correction that changed the whole D4 scope
+The earlier note said EDR-derived XDR evidence is found through
+`raw_ref = {raw_id, collection}`. **Wrong for the persisted rows.** The EDR
+bridge stamps `raw_ref` on the canonical dict
+(`edr_plane/canonical_bridge.py:560`), but the document actually written by
+`detection_content/xdr_pipeline.py:421` is re-derived from the sensor payload
+and carries no pointer: `raw_ref.raw_id` exists on **0** documents, while
+344,566 rows carry `provenance.source_kind="sensor"` +
+`trust_state="AUTHENTICATED"`. A `raw_ref`-based scope would have deleted
+nothing and orphaned everything. The authoritative, deterministic join is now:
+
+* `xdr_canonical_evidence` — `provenance.collector_id` /
+  `additional_fields.endpoint_id` / `host.host_id` ∈ the tenant's EDR endpoints
+* `v2_shadow_observations` — `collector_id` / `connector_id` ∈ endpoints, or
+  `event.raw.raw_evidence_ref.collection = "edr_raw_events"`
+* `workspace_cases` — `endpoint_campaign.endpoint_id` or
+  `xdr_pipeline.source_provenance.collector_id` ∈ endpoints
+* dependents — `<collection>.incident_id` ∈ the EDR-ONLY incident ids
+
+MIXED guard: an incident citing any non-EDR canonical evidence is listed and
+**never** deleted. Unrelated incidents are not considered.
+
+### Deliverables (prepared, nothing executed)
+* `edr_d4_impact_report.mongosh.js` (+ `.compact.js`) — strictly READ ONLY;
+  grep-proven to contain no delete/update/insert/drop/createIndex verb. Prints
+  delete candidates per collection, the D4 blast radius, the EDR-ONLY / MIXED /
+  unrelated incident split, the **discovered** dependent collections (it probes
+  every `xdr_*`/`v2_*` collection rather than assuming names) and data+index
+  bytes. Rehearsed against the local store: 253 EDR-ONLY incidents, dependents
+  surfaced in `xdr_investigation_activity`, `xdr_investigations`,
+  `xdr_investigation_findings`, `xdr_iue_understanding`,
+  `xdr_framework_mappings`, `xdr_response_timeline`,
+  `xdr_intelligence_overlays`, `xdr_intelligence_overlay_audit`.
+* `edr_dev_reset.mongosh.js` — revised for D4. Leaf→root deletion order, so an
+  interrupted run never leaves a dangling reference. Dry run by default;
+  refuses to arm without `CONFIRM="DELETE-EDR-DEV-DATA"` + a real snapshot id;
+  refuses to run at all if D2/D3 retention is switched off. No `dropDatabase`,
+  no collection drops. **Rehearsed armed on a scratch copy of the schema:**
+  planned 4,350 / deleted 4,350, verification 0 everywhere in scope, 0 dangling
+  dependents, config+audit retained, seeded MIXED and unrelated incidents
+  untouched; scratch DB dropped afterwards.
+* `DEV_RESET_AND_FRESH_ENROLMENT.md` — phases 0-6 with phase 2a (the impact
+  report) added, acceptance list and S1-S6 stop conditions.
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `0275efe907e79e6b0ad5b1cd9e4e3e3c2c83aea40cea9f92416be40e41fc7ef3`
+(13 files + SHA256SUMS, download verified HTTP 200 with a matching hash).
+
+### Blocked, by design
+* **Production counts** — this pod reaches only its local MongoDB; the
+  deployer confirmed `DB_NAME = greeting-app-5782-test_database`, serving run
+  `4067c54d-e252-4243-a214-27a9f17715bc`, digest `sha256:9ee9b9a2…`, but
+  declined to execute the script (no tool runs arbitrary scripts). The owner
+  must run phase 2a via Deployment Panel → Database or Atlas.
+* **Snapshot id (D5)** — no tool here can see Atlas backup state and an id must
+  never be inferred.
+
