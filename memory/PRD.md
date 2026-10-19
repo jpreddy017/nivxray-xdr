@@ -6647,3 +6647,52 @@ Package (now carries `B4_REOPENED.md` and HOLD banners on both the procedure
 and the checklist):
 `win-recovery-handoff-package.tar.gz`
 sha256 `d88dc8b88592594d55a7d5e775dfa787fc66e2d35e43f182bdd44d020d9fad4c`
+
+### 2026-10-19 (same day, later) · B4 RE-CLOSED — my halt was my own bug
+The HOLD above is **withdrawn**. The arithmetic was right; the INPUT was
+wrong. `nivxforge_sensor._machine_facts()` does not send the raw ProcessorId:
+
+```
+processor_id = sha256(ProcessorId)[:24]            if non-empty else None
+```
+
+So the real chain is two hashes deep and it reconciles exactly:
+
+```
+raw ProcessorId   BFEBFBFF000806C1
+sensor sends      166b4c9c1060a787586b119a      = sha256(raw)[:24]
+platform mints    sha256(tenant 0x1f hw 0x1f that)[:20]
+               -> ep_1989031c8c1d0085812f        == recorded   MATCH
+```
+
+Verified by hand and by calling `EndpointIdentity.mint()` itself.
+`ep_814199c05cfa49595311` is an artefact of my mis-stated formula and has
+never existed (the deployer confirmed `edr_raw_events` holds exactly two
+`endpoint_ref` values: `ep_1989031c8c1d0085812f`=157,199 and
+`ep_a67be48d5b4e01d4d9e8`=1,719,950). **Withdrawn with it:** the
+machine_guid-derived claim, the proposed agent preflight + new Windows build,
+and the deployer's suggested production data re-attribution (which would have
+been a write for a problem that does not exist).
+
+**Lesson recorded:** three independent true facts (device_iid null, hostname
+doesn't reproduce, raw ProcessorId doesn't reproduce) made a false conclusion
+look like elimination. Only re-reading the agent's own code caught it — no
+amount of further database querying would have.
+
+**New risk found while fixing it (real, open):** the sensor reads the
+processor id ONLY via `wmic cpu get ProcessorId /value` with **no CIM
+fallback**. WMIC is a removable Feature-on-Demand on recent Windows 11, so if
+a servicing update removed it since 2026-09-27 the sensor would silently fall
+back to `machine_guid` and mint a different endpoint — while
+`Get-CimInstance` still answers. Checklist step A1 now tests the SENSOR's
+reader (`wmic`), keeps CIM as a cross-check only, and offers
+`NivXForgeSensor.exe capabilities` (prints `processor_id` directly) when the
+host accepts it. R1 now stops on "wmic absent".
+
+Also noted, pre-existing and unexplained: `edr_endpoints.event_count` 157,226
+vs `edr_raw_events` 157,199 rows for this endpoint — 27 fewer. Non-blocking.
+
+Package (HOLD banners removed, A1/A2 corrected, `B4_RESOLVED.md` added):
+`win-recovery-handoff-package.tar.gz`
+sha256 `e0fdef2fc92d746d90ca7c2a6928f95320c36a7028b4433bd9444012cd366565`
+(SHA256SUMS verified after download). **Recovery: GO on owner authorization.**

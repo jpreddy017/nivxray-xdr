@@ -139,9 +139,13 @@ B3 PREPARED, NOT PUSHED, NOT DEPLOYED — and NOT required for this recovery
            (this endpoint holds the tenant DEFAULT placement, and the tenant
            has exactly one group and one policy, so the serving build's
            clear-and-reassign writes back identical values).
-B4 REOPENED  ProcessorId BFEBFBFF000806C1 does NOT reproduce
-           ep_1989031c8c1d0085812f under the platform's live mint
-           (it yields ep_814199c05cfa49595311). BLOCKING. See B4_REOPENED.md.
+B4 CLOSED  ProcessorId BFEBFBFF000806C1 reproduces ep_1989031c8c1d0085812f
+           through the real two-hash chain: the sensor sends
+           sha256(ProcessorId)[:24] = 166b4c9c1060a787586b119a, and the
+           platform mints sha256(tenant 0x1f hw 0x1f that)[:20]. Verified
+           against EndpointIdentity.mint() itself. Hashing the RAW
+           ProcessorId gives ep_814199c05cfa49595311, which is the error I
+           briefly reported as a blocker - see B4_RESOLVED.md.
 B5 CLOSED within the deployment. DB_NAME is EXPLICITLY the verbatim string
            greeting-app-5782-test_database (not composed at runtime from a
            slug), identical on all 5 runs 2026-10-03 -> 2026-10-15. The store
@@ -158,16 +162,11 @@ B5 CLOSED within the deployment. DB_NAME is EXPLICITLY the verbatim string
            behind MONGO_URL, to confirm no other database holds edr_endpoints
            with more data. Not retrievable from inside the deployment.
 
-!!! B4 REOPENED 2026-10-19 — DO NOT EXECUTE THE ENROLMENT !!!
-tenant + ProcessorId BFEBFBFF000806C1 mints ep_814199c05cfa49595311, NOT the
-recorded ep_1989031c8c1d0085812f. The recorded identity is almost certainly
-machine_guid-derived, so the stock 0.3.0 installer would mint a NEW endpoint,
-spend the token and drain the 1.99 GB backlog into it. See B4_REOPENED.md.
-
 FILES
 -----
-B4_REOPENED.md                             the blocking finding, the
-                                           arithmetic, and how to resolve it
+B4_RESOLVED.md                             B4 was reopened by an error in
+                                           my own pre-flight snippet and is
+                                           resolved; read it before using A2
 EXECUTION_CHECKLIST.md                     the running order: phases A-F,
                                            exact commands, expected results
                                            and the R1-R8 stop conditions

@@ -1,10 +1,10 @@
 # NivXForge EDR · Windows Sensor Recovery · DESKTOP endpoint
 
-**Status: ON HOLD — DO NOT EXECUTE (B4 reopened 2026-10-19).**
-The recorded endpoint id is NOT reproducible from the laptop's ProcessorId
-under the platform's live mint function: tenant + `BFEBFBFF000806C1` yields
-`ep_814199c05cfa49595311`, not `ep_1989031c8c1d0085812f`. §2.2 is the gate
-that catches this and it currently FAILS. See `B4_REOPENED.md`.
+**Status: cleared to execute on owner authorization** (revised 2026-10-19).
+All gates in §0 are closed. §2 is mandatory and read-only; the only step that
+changes anything is §3.2. Use the §2.2 recomputation in
+`EXECUTION_CHECKLIST.md` — it hashes the ProcessorId first, as the sensor
+does. See `B4_RESOLVED.md` for why that detail matters.
 
 The purpose of this document is to restore telemetry **without** minting a
 second endpoint, erasing the delivery record, or discarding the local queue.
@@ -69,17 +69,11 @@ platform mints a *different* `endpoint_id`, and the 1.99 GB queue delivers
 into a brand-new computer while the original keeps its history and goes
 silent. Nothing detects this before the token is spent.
 
-Recompute the identity from that value and compare it to the recorded
-endpoint id — same arithmetic the platform uses, no secret involved:
-
-```powershell
-$t = "<tenant_id>"; $p = (Get-CimInstance Win32_Processor).ProcessorId
-$b = [Text.Encoding]::UTF8.GetBytes("$t`u{1F}hw`u{1F}$p")
-$h = [BitConverter]::ToString(
-       [Security.Cryptography.SHA256]::Create().ComputeHash($b)
-     ).Replace("-","").ToLower()
-"ep_" + $h.Substring(0,20)
-```
+Then recompute the identity and compare it to the recorded endpoint id. The
+chain is TWO hashes deep — the sensor sends `sha256(ProcessorId)[:24]`, not
+the raw value, and the platform mints from that. Use step **A2 of
+`EXECUTION_CHECKLIST.md`**, which does both halves in order and states the
+expected intermediate (`166b4c9c1060a787586b119a`).
 
 It must equal the original endpoint id **exactly**. If it does not, stop and
 report — do not enrol.

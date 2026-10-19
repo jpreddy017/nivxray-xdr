@@ -3,29 +3,10 @@
 Companion to `RECOVERY_PROCEDURE.md`. That document explains *why*; this one
 is the running order. **Nothing here has been executed.**
 
-> ## !!! DO NOT EXECUTE — B4 REOPENED 2026-10-19 !!!
->
-> The platform's own mint function, applied to tenant
-> `ten_e759b7288598bd882e3dcac49d` and ProcessorId `BFEBFBFF000806C1`,
-> yields **`ep_814199c05cfa49595311`** — NOT `ep_1989031c8c1d0085812f`.
-> No case, whitespace, hostname or kind variant reproduces the recorded id,
-> and the mint function has not changed since 2026-09-06, three weeks before
-> this endpoint enrolled. The recorded identity was therefore almost
-> certainly minted from `machine_guid` or `device_iid`, i.e. `processor_id`
-> was absent at original enrolment.
->
-> Running PHASE C today would send `processor_id`, the platform would prefer
-> it (hw > guid), and a **NEW** endpoint would be minted: the token spent,
-> the fleet split to 3, and the 1.99 GB backlog delivered into an identity
-> holding none of the 157,226 events.
->
-> **Step A2 below is the gate that catches this, and it currently FAILS.**
-> Resolve B4 first — see `B4_REOPENED.md`.
-
-Hard rules for the whole run: never `uninstall --purge`; never delete or
-truncate `outbox.jsonl`, `outbox.offset` or the journal; never put the token
-on a command line; never point `--backend` at the frontend host; never rename
-or switch `DB_NAME`.
+**Status: cleared to execute on owner authorization.** All gates closed;
+B4 was briefly reopened by an error in step A2 of this file and is resolved —
+see `B4_RESOLVED.md`. PHASES A, B, D, E and F change nothing; the only step
+that does is C1.
 
 ---
 
@@ -53,26 +34,78 @@ is compared to them, not to memory.
 
 ## PHASE A · read-only, on the laptop, immediately before enrolment
 
-**A1 · ProcessorId** (elevated PowerShell)
+**A1 · ProcessorId — read it the way the SENSOR reads it** (elevated
+PowerShell)
+
 ```powershell
-(Get-CimInstance Win32_Processor).ProcessorId
+wmic cpu get ProcessorId /value
 ```
-Expect `BFEBFBFF000806C1`. **STOP** on empty output or any other value.
+
+Expect `ProcessorId=BFEBFBFF000806C1`.
+
+**This command, not `Get-CimInstance`, is the one that matters.**
+`_machine_facts()` obtains the processor id only through
+`wmic cpu get ProcessorId /value` and has **no CIM fallback**: if `wmic` is
+missing or disabled, the sensor sees no processor id, falls back to
+`machine_guid`, and the platform mints a DIFFERENT endpoint. WMIC is
+deprecated and is a removable Feature-on-Demand on recent Windows 11, so a
+servicing update since the original enrolment (2026-09-27) is a live
+possibility. `Get-CimInstance` would still answer happily while the sensor
+got nothing — which is why it is only a cross-check:
+
+```powershell
+(Get-CimInstance Win32_Processor).ProcessorId      # cross-check only
+```
+
+**STOP** if `wmic` reports "not recognized", returns empty, or disagrees with
+the CIM value. In that case the recovery must not run until WMIC is restored
+(`DISM /Online /Add-Capability /CapabilityName:WMIC~~~~`) or the sensor is
+given a CIM fallback — a source change, a new build and a CI run.
+
+Optional, if this build's service host accepts it, the authoritative answer
+in one step — it prints exactly what the sensor would send:
+
+```powershell
+& "C:\Program Files\NivXForge\service\NivXForgeSensor.exe" capabilities
+```
+`processor_id` must read `166b4c9c1060a787586b119a`. If the host refuses the
+argument (it is primarily an SCM entry point), fall back to A1 + A2.
 
 **A2 · Recompute the identity the platform will mint**
+
+The chain is **two hashes deep**, and both must be reproduced in order. The
+sensor does not send the raw ProcessorId: `_machine_facts()` sends
+`sha256(ProcessorId)[:24]`, and the platform mints from THAT.
+
 ```powershell
 $t = "ten_e759b7288598bd882e3dcac49d"
-$p = (Get-CimInstance Win32_Processor).ProcessorId
-$b = [Text.Encoding]::UTF8.GetBytes("$t`u{1F}hw`u{1F}$p")
-$h = [BitConverter]::ToString(
-       [Security.Cryptography.SHA256]::Create().ComputeHash($b)
-     ).Replace("-","").ToLower()
-"ep_" + $h.Substring(0,20)
+$raw = (Get-CimInstance Win32_Processor).ProcessorId
+$sha = [Security.Cryptography.SHA256]::Create()
+
+# 1 . what the sensor sends: sha256(raw ProcessorId), first 24 hex
+$sent = ([BitConverter]::ToString(
+           $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($raw))
+         ).Replace("-","").ToLower()).Substring(0,24)
+"sensor sends : $sent"          # expect 166b4c9c1060a787586b119a
+
+# 2 . what the platform mints from it
+$sep = [char]0x1F          # unit separator; `u{1F} is PS7-only, this is not
+$b = [Text.Encoding]::UTF8.GetBytes($t + $sep + "hw" + $sep + $sent)
+$id = "ep_" + ([BitConverter]::ToString($sha.ComputeHash($b)
+       ).Replace("-","").ToLower()).Substring(0,20)
+"endpoint_id  : $id"            # expect ep_1989031c8c1d0085812f
 ```
-Expect **exactly** `ep_1989031c8c1d0085812f`.
+
+Expect **exactly** `166b4c9c1060a787586b119a` then
+`ep_1989031c8c1d0085812f`.
 **STOP on any difference.** This is the only guard before the token is spent:
-a fallback to `machine_guid` mints a *different* endpoint and the 1.99 GB
-backlog delivers into a brand-new computer while the original goes silent.
+if the ProcessorId cannot be read, the sensor falls back to `machine_guid`,
+the platform mints a *different* endpoint, and the 1.99 GB backlog delivers
+into a brand-new computer while the original goes silent.
+
+Hashing the RAW ProcessorId instead of its digest yields
+`ep_814199c05cfa49595311` — a value that has never existed in this tenant. If
+you see it, you have reproduced my error, not a real identity.
 
 **A3 · Artifact provenance**
 ```powershell
@@ -209,7 +242,7 @@ before or shortly after the recovery; it is not a reason to delay.
 
 | id | Trigger | State at that moment | Action |
 |---|---|---|---|
-| R1 | A1/A2 mismatch or empty ProcessorId | nothing touched, no token spent | **Do not enrol.** Report the computed value |
+| R1 | A1/A2 mismatch, empty ProcessorId, or `wmic` absent | nothing touched, no token spent | **Do not enrol.** Report the exact `wmic` output and both computed values |
 | R2 | A3 artifact mismatch / `UNOFFICIAL_BUILD` | nothing touched | Obtain the artifact from run 39144147851 and re-verify |
 | R3 | C1 fails **before** `3 . ENROLMENT` | no token spent, no identity written, `ROLLBACK` restored the prior service state | Fix the cause, re-run C1. Nothing lost |
 | R3b | C1 fails **at** enrolment (bad/expired/spent token) | token may be spent; `identity.json` untouched (written only after a successful response); service restored | Mint a **new** token, re-run C1. Never re-present a token |
