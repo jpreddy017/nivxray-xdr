@@ -7177,3 +7177,12 @@ Artefacts: `/app/screenshots/t1b/side_by_side_final.png`, `diff_overlay_final.pn
 - P0: Task 2 — File Trajectory (not started, awaiting owner).
 - P1: Device Trajectory premium pass; bounded dev-telemetry retention policy after ingestion.
 - P2: fleet-placement fix publish.
+
+
+### Task 1C · release-candidate hardening (June 2026)
+- Fit-to-selection: clicking a node now pans so the node AND its immediate children stay fully in frame (left/top edge wins; label capsules included in the frame box). Verified via bounding-box assertions for powershell.exe + rundll32.exe + netsh.exe.
+- Counts invariance: Malicious/Unknown legend, "N processes", ghost-parent line and alert cards are computed from the EVIDENCE set (`nodes`), not the expanded subset, so collapse/expand no longer changes any count. Verified 10 -> 7 -> 10 visible nodes with identical counters.
+- PRD history restored (full prior document retained; Task 1/1B/1C appended). Screenshot evidence untracked from the publication scope via `.gitignore`.
+- Release validation: frontend `vitest` 251 passed / 14 files; `yarn build` OK (5.36s); backend 215 passed (graph fixtures, process tree, A05 tenant scope contract, collector plane auth, B8 scope authority).
+- Known console-level items (NOT graph defects, unchanged): EDR console defaults to LIGHT theme (`nx.theme` persists once an analyst picks Dark); sidebar collapse persistence is gated behind the `E3_DT_V3` flag; the console `.sidebar` does not follow the dark attribute.
+- Publication: repo has NO git remote in this pod, so GitHub push requires the owner's "Save to Github" action. Production baseline for edr.nivxforge.com requested read-only from the deploy pipeline; not yet returned at time of writing.
