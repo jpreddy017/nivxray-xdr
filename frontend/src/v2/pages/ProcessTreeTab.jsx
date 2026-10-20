@@ -49,7 +49,7 @@ export default function ProcessTreeTab({ inv, endpointId = null, windowHours = 2
     if (mode !== "graph" || !pivot) return;
     let cancelled = false;
     setGraphError(null);
-    api.get(`/edr/process-tree`, { params: { endpoint_id: pivot, hours: windowHours } })
+    api.get(`/edr/process-tree`, { params: { endpoint_id: pivot, window_hours: windowHours } })
       .then((r) => { if (!cancelled) setGraph(r.data); })
       .catch((e) => { if (!cancelled) setGraphError(e?.response?.data?.detail || e.message); });
     return () => { cancelled = true; };

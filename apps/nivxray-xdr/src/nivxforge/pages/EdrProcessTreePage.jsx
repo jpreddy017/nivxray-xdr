@@ -22,6 +22,7 @@ import { EndpointNotResolved,
          notResolved } from "@/nivxforge/components/EndpointNotResolved";
 import { TelemetryFreshnessBanner }
   from "@/nivxforge/components/TelemetryFreshness";
+import ProcessGraphCanvas from "@/nivxforge/components/ProcessGraphCanvas";
 
 function useTree(incidentId, endpointId, hours) {
   const pivot = endpointId || incidentId;
@@ -121,6 +122,12 @@ export default function EdrProcessTreePage() {
   const hours = Math.max(1, parseInt(params.get("hours") || "24", 10) || 24);
   const { loading, error, tree } = useTree(ctx.incident_id, endpointId, hours);
   const pivot = endpointId || ctx.incident_id;
+  const view = params.get("view") === "list" ? "list" : "graph";
+  const setView = (v) => {
+    const next = new URLSearchParams(params);
+    next.set("view", v);
+    setParams(next, { replace: true });
+  };
   const setHours = (h) => {
     const next = new URLSearchParams(params);
     next.set("hours", String(h));
@@ -202,13 +209,36 @@ export default function EdrProcessTreePage() {
           }}>
             SSOT · <span style={{ color: "var(--cyan)" }}>{tree.source}</span>
           </div>
-          <div className="panel" style={{ padding: "12px 8px" }}
-               data-testid="edr-processtree-panel">
-            {flattenTree(tree.roots, byId).map((row) => (
-              <TreeRow key={row.node.entity_id || row.node.process_iid}
-                       row={row} ctx={ctx} />
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 6,
+                        marginBottom: 10 }}
+               data-testid="edr-processtree-view-switch">
+            <span style={{ fontSize: 10, letterSpacing: ".3px", fontWeight: 800,
+                           textTransform: "uppercase", color: "var(--faint)" }}>
+              View
+            </span>
+            <button className={`btn${view === "graph" ? " mint" : ""}`}
+                    style={{ padding: "3px 9px", fontSize: 10.5 }}
+                    data-testid="edr-processtree-view-graph"
+                    data-active={view === "graph"}
+                    onClick={() => setView("graph")}>Graph</button>
+            <button className={`btn${view === "list" ? " mint" : ""}`}
+                    style={{ padding: "3px 9px", fontSize: 10.5 }}
+                    data-testid="edr-processtree-view-list"
+                    data-active={view === "list"}
+                    onClick={() => setView("list")}>Lineage list</button>
           </div>
+          {view === "graph" ? (
+            <ProcessGraphCanvas nodes={tree.nodes || []} roots={tree.roots || []}
+                                meta={{ window_hours: tree.window_hours }} />
+          ) : (
+            <div className="panel" style={{ padding: "12px 8px" }}
+                 data-testid="edr-processtree-panel">
+              {flattenTree(tree.roots, byId).map((row) => (
+                <TreeRow key={row.node.entity_id || row.node.process_iid}
+                         row={row} ctx={ctx} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </NivXForgeConsole>
