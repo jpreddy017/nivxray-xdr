@@ -26,6 +26,10 @@ BUNDLES = {
     "win-recovery": Path("/app/SECURE_EXPORT/win-recovery-handoff-package.tar.gz"),
     # B3 publication · placement fix + its CI gate, ready to push.
     "b3": Path("/app/SECURE_EXPORT/b3-placement-publication-package.tar.gz"),
+    # The cleanup script itself, as a single downloadable file (dry-run by
+    # default; CONFIRM and BACKUP are empty).
+    "edr-reset-script": Path(
+        "/app/SECURE_EXPORT/win-recovery-handoff/edr_dev_reset.mongosh.js"),
     # Pre-deletion mongodump archive · created on demand under /tmp (only
     # ~1.3 GB free on /app, 64 GB on the overlay). Download it before
     # anything is armed; this pod is ephemeral.
