@@ -6823,3 +6823,66 @@ sha256 `0275efe907e79e6b0ad5b1cd9e4e3e3c2c83aea40cea9f92416be40e41fc7ef3`
 * **Snapshot id (D5)** — no tool here can see Atlas backup state and an id must
   never be inferred.
 
+
+## 2026-10-19 (later) · FINAL CLEANUP SCOPE · production counts obtained
+
+### Production inventory (read-only) — the access blocker was solved, not reported
+First deployer attempt failed: "no tool executes arbitrary scripts". Re-issued
+as plain `count`/`find`/`distinct` calls — which is what its `mongo_query`
+supports — and it returned the full inventory against
+`greeting-app-5782-test_database`, run `4067c54d-e252-4243-a214-27a9f17715bc`.
+Saved at `/app/deployer-agent-docs/RCA_4067c54d-…MD` and copied into the
+package as `production_count_inventory.md`.
+Residual blocker: `collStats`/`dbStats` are not exposed to that tooling, so
+byte sizes are unavailable remotely; document counts stand in, and the dry run
+prints bytes when run with DB access.
+
+Endpoints: `ep_1989031c8c1d0085812f` (DESKTOP-A9HGFJJ, REVOKED, 157,226) and
+**`ep_a67be48d5b4e01d4d9e8` (KUSHU, still ENROLLED, 34,488)** — tenant-wide
+deletes KUSHU too; flagged to the owner.
+
+Delete scope: EDR subtotal **3,926,018** (raw 1,877,149 · queue 1,718,750 ·
+finding_evaluations 301,539 · rejected 25,750 · gaps 2,786 · the rest ≤29) plus
+D4 `xdr_canonical_evidence` 149,161 and `v2_shadow_observations` 149,174 ⇒
+**≈ 4,224,353 documents**.
+Retain: policies 1, groups 1, policy_versions 1, enrolment_audit 14,
+policy_audit 4,426; 5 non-EDR evidence rows, 4 unmatched observations, 9
+other-tenant observations, all 48 `workspace_cases`.
+
+**The D4 cascade is empty**: `workspace_cases` has 0 `xdr_incident` docs for
+this tenant, so no EDR-derived incidents, no MIXED/UNKNOWN, no dependents. The
+classification machinery is retained because it *proves* that rather than
+assuming it.
+
+### The three D4 safety checks, finalised and rehearsed
+1. Tenant-scoped dependent selectors — this tenant or unstamped only; a
+   foreign-tenant dependent **aborts the armed run** (S2, rehearsed: refusal
+   fired, nothing deleted).
+2. UNKNOWN evidence — an incident citing an unresolvable canonical event is
+   preserved, not deleted.
+3. MIXED preservation **with entanglement propagation** — a dependent citing
+   both a deletable and a preserved incident promotes that incident to
+   preserved, to a fixpoint. The rehearsal exposed the bug this fixes: the
+   first armed run left **1 dangling dependent**; after propagation, 0.
+Plus **evidence pinning** (the other direction): canonical events cited by
+preserved incidents, and every raw event still referenced by a surviving row
+(`provenance.trace_id`, `event.raw.raw_evidence_ref.raw_id`), are pinned out of
+all sweeps — verified in the scratch rehearsal (non-EDR evidence pinned its raw
+row; pinned rows survived; verification 0 dangling).
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `624573c385eb5f70f12c41bd3d49f01ff45732febdfc6cee7be1fa134bd971f3`
+(14 files + SHA256SUMS, download verified).
+
+### Still blocked on the owner
+* **Atlas snapshot id (D5)** — not visible to any tool here; must not be
+  inferred. The script refuses to arm without it.
+* **Scope approval** for the figures above, including the KUSHU question.
+* **Fleet-placement fix publication** — the branch
+  `publish/reenrol-placement-preserved` (tip `68e2f0a5`, base `63d7d104`) is
+  ready; pushing requires the owner's "Save to Github", then a draft PR into
+  `publish/win-reenrol-recovery`. Kept separate from the reset.
+* **Bounded dev-telemetry retention** — to be implemented *after* successful
+  fresh ingestion, so the backlog cannot rebuild (1.7M queue rows is what
+  prompted it).
+

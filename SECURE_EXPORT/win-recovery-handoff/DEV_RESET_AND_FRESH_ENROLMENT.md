@@ -60,6 +60,93 @@ deleted** — it is listed by id for a human decision. Only incidents whose ever
 cited evidence row is EDR-derived (or already absent) are retired. Unrelated
 incidents are not even considered.
 
+## FINAL DELETION SCOPE · production counts, 2026-10-19
+
+Source: read-only count inventory against the serving database
+`greeting-app-5782-test_database`, run
+`4067c54d-e252-4243-a214-27a9f17715bc`
+(`/app/deployer-agent-docs/RCA_4067c54d-e252-4243-a214-27a9f17715bc.MD`).
+`count` / `find` / `distinct` only — no write, no deploy.
+
+### Endpoints in scope (D1 is tenant-wide, so BOTH go)
+
+| endpoint | host | state | event_count |
+|---|---|---|---|
+| `ep_1989031c8c1d0085812f` | DESKTOP-A9HGFJJ | REVOKED | 157,226 |
+| `ep_a67be48d5b4e01d4d9e8` | KUSHU | **ENROLLED** | 34,488 |
+
+**KUSHU is still enrolled.** Tenant-wide means it is deleted too and
+disappears from the console until it re-enrols. If that is not intended, say
+so and the scope narrows to `endpoint` before anything runs.
+
+### To delete
+
+| collection | documents |
+|---|---|
+| `edr_raw_events` | 1,877,149 *(less pinned, see below)* |
+| `edr_processing_queue` | 1,718,750 |
+| `edr_finding_evaluations` | 301,539 |
+| `edr_rejected_telemetry` | 25,750 |
+| `edr_acquisition_gaps` | 2,786 |
+| `edr_endpoint_address_observations` | 29 |
+| `edr_delivery_counters` | 6 |
+| `edr_acquisition_integrity` | 3 |
+| `edr_policy_endpoint_state` | 2 |
+| `edr_endpoints` | 2 |
+| `edr_agent_credentials` | 2 |
+| `edr_findings`, `edr_response_commands`, `edr_endpoint_exclusion_enforcement`, `edr_agent_sessions`, `edr_enrollment_tokens` | 0 |
+| **EDR subtotal** | **3,926,018** |
+| `xdr_canonical_evidence` (D4, EDR-derived) | 149,161 |
+| `v2_shadow_observations` (D4, EDR-derived) | 149,174 |
+| **TOTAL** | **≈ 4,224,353** |
+
+Absent collections: `edr_compromise_events`, `edr_isolation_policy`,
+`edr_tenant_boundary`, `edr_connector_deployments`.
+
+### To retain
+
+`edr_policies` 1 · `edr_groups` 1 · `edr_policy_versions` 1 ·
+`edr_enrollment_audit` 14 · `edr_policy_audit` 4,426 · `edr_saved_views` 0
+(D2/D3), plus:
+
+* **5** `xdr_canonical_evidence` rows the EDR selectors do not claim
+  (149,166 tenant − 149,161 EDR-attributed) — the tenant's own non-EDR evidence
+* **4** `v2_shadow_observations` not matched by the EDR reference selectors
+* **9** `v2_shadow_observations` belonging to **other tenants** (149,187 total −
+  149,178 tenant) — out of scope by the tenant filter, never touched
+* all **48** `workspace_cases` documents
+
+### The D4 cascade is empty — and that is a finding, not an assumption
+
+`workspace_cases` holds **0** `xdr_incident` documents for this tenant
+(E1 = 0), so there are no EDR-derived incidents, no MIXED cases, no UNKNOWN
+cases and **no dependents to delete**. The eight dependent collections are
+untouched. The classification machinery stays armed anyway, because it is what
+proves the cascade is empty rather than merely assumed — and because the same
+script will be correct once incidents do exist.
+
+### The three D4 safety checks, as implemented
+
+1. **Tenant-scoped dependents.** A dependent is deleted only when it carries
+   *this* tenant's id or no tenant stamp at all. One carrying another tenant's
+   id **aborts the armed run** (S2).
+2. **UNKNOWN evidence.** An incident citing a canonical event that does not
+   resolve is **preserved**, never deleted. Absent is not "mine to delete".
+3. **MIXED preservation, with entanglement propagation.** An incident citing
+   any non-EDR evidence is preserved. And if a dependent cites *both* a
+   deletable and a preserved incident, preserving that dependent would leave a
+   live reference to a deleted incident — so the deletable incident is
+   **promoted to preserved** instead, repeated to a fixpoint. The rehearsal
+   caught exactly this: before propagation the verification reported 1 dangling
+   dependent; after it, 0.
+
+Plus **evidence pinning**, the other direction of the same rule: canonical
+events cited by preserved incidents, and every raw event still referenced by a
+surviving row (`provenance.trace_id`,
+`event.raw.raw_evidence_ref.raw_id`), are pinned out of all sweeps. This is why
+`edr_raw_events` is "1,877,149 less pinned" — the exact pin count prints in the
+dry run.
+
 ## PHASE 1 · identity and WMIC stability (read-only, on the laptop)
 
 The sensor reads the processor id **only** through
@@ -281,14 +368,14 @@ this document that deletes local evidence.
 
 ## WHAT COULD NOT BE OBTAINED FROM HERE
 
-* **Production counts.** This pod reaches only its local MongoDB. The
-  deployment tooling confirmed the binding — `DB_NAME =
-  greeting-app-5782-test_database`, serving run
-  `4067c54d-e252-4243-a214-27a9f17715bc`, image digest `sha256:9ee9b9a2…` —
-  but declined to execute the report script (no tool runs arbitrary scripts,
-  and a destructive-scope enumeration is outside its read-only debug remit).
-  Phase 2a must be run by the owner through the Deployment Panel → Database
-  manager or the Atlas console.
-* **The snapshot id (D5).** No tool here can see Atlas backup state, and an
-  id must never be inferred. Take the snapshot in the Atlas console and paste
-  the real id into `SNAPSHOT`.
+* **Production counts — now OBTAINED.** The first attempt failed because the
+  deployment tooling cannot execute arbitrary scripts. Re-expressed as plain
+  `count` / `find` / `distinct` calls, it returned the full inventory, recorded
+  above and in
+  `/app/deployer-agent-docs/RCA_4067c54d-e252-4243-a214-27a9f17715bc.MD`.
+  Remaining gap: **`collStats` / `dbStats` are not exposed to that tooling**,
+  so byte sizes are unavailable from here — document counts stand in for them.
+  The dry run prints the byte figures when it is run with database access.
+* **The snapshot id (D5).** No tool here can see Atlas backup state and an id
+  must never be inferred. Take the snapshot in the Atlas console and paste the
+  real id into `SNAPSHOT`; the script refuses to arm without it.

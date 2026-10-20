@@ -2,24 +2,31 @@
 //
 //   mongosh "<MONGO_URL>" --file edr_dev_reset.mongosh.js
 //
-// Owner decisions implemented by this script (2026-10-19):
+// Owner decisions implemented here (approved 2026-10-19):
 //   D1  tenant-wide cleanup of obsolete development EDR telemetry+enrolment
 //   D2  RETAIN EDR configuration, groups, policies, tenant settings
 //   D3  RETAIN enrolment and policy audit
 //   D4  leave NO broken XDR evidence references: the XDR artefacts DERIVED
 //       from this EDR telemetry are retired in the same pass, and nothing
-//       else is. Any incident that also cites non-EDR evidence is
-//       classified MIXED and is NEVER deleted — it is listed for a human.
-//   D5  a real snapshot identifier must be recorded below or the script
-//       refuses to delete anything.
+//       else is
+//   D5  a real Atlas snapshot id must be recorded below or nothing deletes
+//
+// THE THREE D4 SAFETY CHECKS
+//   1. tenant-scoped dependent selectors — a dependent is only deleted when
+//      it is stamped with THIS tenant or carries no tenant stamp at all. A
+//      dependent carrying another tenant's id aborts the run (S2).
+//   2. UNKNOWN evidence — an incident citing a canonical event that does not
+//      resolve is PRESERVED, not deleted. Absent is not "mine to delete".
+//   3. MIXED preservation — an incident citing any non-EDR evidence is
+//      preserved, and any dependent that ALSO references a preserved
+//      incident is excluded from deletion.
 //
 // GUARANTEES
 //   * dry run unless CONFIRM and SNAPSHOT are both set
 //   * no dropDatabase, no collection drop -> indexes and validators survive
 //   * every filter is tenant-scoped
-//   * deletion order is leaf -> root, so no intermediate state has a
-//     dangling reference even if the run is interrupted
-//   * MIXED incidents, unrelated tenants and non-EDR evidence are never
+//   * leaf -> root order, so an interrupted run never leaves a dangling ref
+//   * preserved incidents, other tenants and non-EDR evidence are never
 //     written
 
 // ─────────────────────────── configuration ───────────────────────────
@@ -34,19 +41,20 @@ const KEEP_CONFIG = true;   // D2
 const KEEP_AUDIT  = true;   // D3
 const CASCADE_XDR = true;   // D4
 
-// D4 · artefacts that hang off an incident. Filled from the production
-// impact report (section 4), which DISCOVERS them rather than assuming
-// them. Each entry is [collection, field].
+// D4 · artefacts that hang off an incident. Filled from section 5 of the
+// impact report, which DISCOVERS them rather than assuming them.
 const DEPENDENTS = [
-  ["xdr_investigation_activity",    "incident_id"],
-  ["xdr_investigations",            "incident_id"],
-  ["xdr_investigation_findings",    "incident_id"],
-  ["xdr_iue_understanding",         "incident_id"],
-  ["xdr_framework_mappings",        "incident_id"],
-  ["xdr_response_timeline",         "incident_id"],
-  ["xdr_intelligence_overlays",     "incident_id"],
+  ["xdr_investigation_activity",     "incident_id"],
+  ["xdr_investigations",             "incident_id"],
+  ["xdr_investigation_findings",     "incident_id"],
+  ["xdr_iue_understanding",          "incident_id"],
+  ["xdr_framework_mappings",         "incident_id"],
+  ["xdr_response_timeline",          "incident_id"],
+  ["xdr_intelligence_overlays",      "incident_id"],
   ["xdr_intelligence_overlay_audit", "incident_id"],
 ];
+const REF_FIELDS = ["incident_id", "case_id", "id", "parent_incident_id",
+                    "promoted_incident_id", "incident_ids"];
 
 // ───────────────────── collection classification ─────────────────────
 const EDR_TELEMETRY = [
@@ -79,27 +87,22 @@ print(`db ${DB_NAME}   tenant ${TENANT}`);
 print(`D1 tenant-wide · D2 keep config ${KEEP_CONFIG} · D3 keep audit ` +
       `${KEEP_AUDIT} · D4 cascade ${CASCADE_XDR}`);
 
-// ── the tenant's EDR endpoints define every EDR-derived selector below
 const EP = has("edr_endpoints")
   ? t.edr_endpoints.find({ tenant_id: TENANT }, { endpoint_id: 1 })
       .toArray().map((e) => e.endpoint_id).filter(Boolean)
   : [];
 print(`\nEDR endpoints in tenant: ${EP.length} ${JSON.stringify(EP)}`);
 
-const evidenceFilter = {
-  tenant_id: TENANT,
-  $or: [{ "provenance.collector_id": { $in: EP } },
-        { "additional_fields.endpoint_id": { $in: EP } },
-        { "host.host_id": { $in: EP } }],
-};
-const obsFilter = {
-  tenant_id: TENANT,
-  $or: [{ collector_id: { $in: EP } }, { connector_id: { $in: EP } },
-        { "event.raw.raw_evidence_ref.collection": RAW }],
-};
+const EV_OR = [{ "provenance.collector_id": { $in: EP } },
+               { "additional_fields.endpoint_id": { $in: EP } },
+               { "host.host_id": { $in: EP } }];
+const OBS_OR = [{ collector_id: { $in: EP } }, { connector_id: { $in: EP } },
+                { "event.raw.raw_evidence_ref.collection": RAW }];
+const evidenceFilterBase = { tenant_id: TENANT, $or: EV_OR };
+const obsFilterBase = { tenant_id: TENANT, $or: OBS_OR };
 
-// ── D4 classification · EDR-ONLY vs MIXED incidents
-const edrOnly = [], mixedInc = [];
+// ───── D4 · classify incidents: EDR-ONLY / MIXED / UNKNOWN / unrelated ─────
+const edrOnly = [], mixedInc = [], unknownInc = [];
 if (CASCADE_XDR && has("workspace_cases") && EP.length) {
   const incs = t.workspace_cases.find(
     { tenant_id: TENANT, doc_type: "xdr_incident" },
@@ -108,27 +111,137 @@ if (CASCADE_XDR && has("workspace_cases") && EP.length) {
       "xdr_pipeline.source_provenance.collector_id": 1,
       "endpoint_campaign.endpoint_id": 1,
       "endpoint_campaign.detections.canonical_event_id": 1 }).toArray();
-  for (const i of incs) {
-    const prov = ((i.xdr_pipeline || {}).source_provenance) || {};
-    const camp = i.endpoint_campaign || {};
+  for (const inc of incs) {
+    const prov = ((inc.xdr_pipeline || {}).source_provenance) || {};
+    const camp = inc.endpoint_campaign || {};
     if (!(EP.includes(camp.endpoint_id) || EP.includes(prov.collector_id)))
-      continue;                                   // unrelated · preserved
-    const cids = [(i.xdr_pipeline || {}).canonical_event_id]
+      continue;                                    // unrelated · preserved
+    const cids = [(inc.xdr_pipeline || {}).canonical_event_id]
       .concat((camp.detections || []).map((d) => d && d.canonical_event_id))
       .filter(Boolean);
-    let foreign = 0;
+    let foreign = 0, unknown = 0;
     for (const cid of cids) {
-      const row = t.xdr_canonical_evidence.findOne({ event_id: cid },
-        { "provenance.collector_id": 1, "additional_fields.endpoint_id": 1 });
-      if (!row) continue;
+      const row = t.xdr_canonical_evidence.findOne(
+        { tenant_id: TENANT, event_id: cid },
+        { "provenance.collector_id": 1, "additional_fields.endpoint_id": 1,
+          "host.host_id": 1 });
+      if (!row) { unknown++; continue; }            // safety check 2
       const cc = (row.provenance || {}).collector_id;
       const ee = (row.additional_fields || {}).endpoint_id;
-      if (!EP.includes(cc) && !EP.includes(ee)) foreign++;
+      const hh = (row.host || {}).host_id;
+      if (!EP.includes(cc) && !EP.includes(ee) && !EP.includes(hh)) foreign++;
     }
-    (foreign === 0 ? edrOnly : mixedInc).push(i);
+    inc._cited = cids.length; inc._foreign = foreign; inc._unknown = unknown;
+    if (foreign > 0) mixedInc.push(inc);            // safety check 3
+    else if (unknown > 0) unknownInc.push(inc);
+    else edrOnly.push(inc);
   }
 }
-const INC_IDS = edrOnly.map((i) => i.id).filter(Boolean);
+let DEL_IDS  = edrOnly.map((i) => i.id).filter(Boolean);
+const KEEP_IDS = mixedInc.concat(unknownInc).map((i) => i.id).filter(Boolean);
+
+// Safety check 3, part two · ENTANGLEMENT PROPAGATION.
+// If a dependent cites both an EDR-ONLY incident and a preserved one,
+// preserving that dependent would leave a live reference to a deleted
+// incident — the exact broken reference D4 forbids. So the entanglement
+// propagates: the EDR-ONLY incident is promoted to PRESERVED instead.
+// Repeated to a fixpoint, because each promotion can entangle more.
+const entangled = [];
+if (CASCADE_XDR && DEL_IDS.length && KEEP_IDS.length) {
+  const proj = {};
+  for (const g of REF_FIELDS) proj[g] = 1;
+  for (let pass = 0; pass < 10; pass++) {
+    const promote = new Set();
+    for (const [c, f] of DEPENDENTS) {
+      if (!has(c)) continue;
+      const docs = t[c].find(
+        { [f]: { $in: DEL_IDS },
+          $or: REF_FIELDS.map((g) => ({ [g]: { $in: KEEP_IDS } })) },
+        proj).toArray();
+      for (const d of docs) {
+        const v = d[f];
+        if (DEL_IDS.includes(v)) promote.add(v);
+      }
+    }
+    if (!promote.size) break;
+    for (const id of promote) {
+      entangled.push(id);
+      KEEP_IDS.push(id);
+      DEL_IDS = DEL_IDS.filter((x) => x !== id);
+    }
+  }
+}
+
+// Safety check 1+3 · a dependent is in scope only when it is stamped with
+// THIS tenant (or unstamped) AND references no preserved incident.
+function depFilter(field) {
+  const f = {
+    [field]: { $in: DEL_IDS },
+    $and: [{ $or: [{ tenant_id: TENANT }, { tenant_id: { $exists: false } }] }],
+  };
+  if (KEEP_IDS.length) {
+    f.$and.push({ $nor: REF_FIELDS.map((g) => ({ [g]: { $in: KEEP_IDS } })) });
+  }
+  return f;
+}
+function foreignTenantCount(c, field) {
+  return has(c) ? t[c].countDocuments(
+    { [field]: { $in: DEL_IDS }, tenant_id: { $exists: true, $ne: TENANT } }) : 0;
+}
+
+// ───────── EVIDENCE PINNING · the other direction of D4 ─────────
+// A preserved incident (MIXED, UNKNOWN or ENTANGLED) still cites canonical
+// events, and those events still cite their raw rows. Deleting them would
+// break the preserved incident instead of the deleted one. So the evidence
+// cited by preserved incidents — and the raw events behind it — are PINNED
+// out of every sweep below.
+const KEEP_CEV = [];
+if (CASCADE_XDR && KEEP_IDS.length && has("workspace_cases")) {
+  for (const inc of t.workspace_cases.find(
+        { tenant_id: TENANT, id: { $in: KEEP_IDS } },
+        { "xdr_pipeline.canonical_event_id": 1,
+          "endpoint_campaign.detections.canonical_event_id": 1 }).toArray()) {
+    const camp = inc.endpoint_campaign || {};
+    for (const cid of [(inc.xdr_pipeline || {}).canonical_event_id]
+          .concat((camp.detections || []).map((d) => d && d.canonical_event_id))
+          .filter(Boolean))
+      if (!KEEP_CEV.includes(cid)) KEEP_CEV.push(cid);
+  }
+}
+// Raw events are pinned if ANY surviving tenant row still points at them —
+// evidence cited by a preserved incident, and also evidence or observations
+// that the EDR selectors do not claim at all (the tenant's own non-EDR rows).
+// Measured, not assumed: production has 5 such evidence rows and 4 such
+// observations, and if they cite a raw event it must survive.
+const KEEP_RAW = [];
+if (CASCADE_XDR) {
+  const survivingEvidence = {
+    tenant_id: TENANT,
+    $or: [{ event_id: { $in: KEEP_CEV } }, { $nor: [{ $or: EV_OR }] }],
+  };
+  const survivingObs = {
+    tenant_id: TENANT,
+    $or: [{ canonical_event_id: { $in: KEEP_CEV } }, { $nor: [{ $or: OBS_OR }] }],
+  };
+  if (has("xdr_canonical_evidence"))
+    for (const r of t.xdr_canonical_evidence.distinct("provenance.trace_id",
+          survivingEvidence))
+      if (r && !KEEP_RAW.includes(r)) KEEP_RAW.push(r);
+  if (has("v2_shadow_observations"))
+    for (const r of t.v2_shadow_observations.distinct(
+          "event.raw.raw_evidence_ref.raw_id", survivingObs))
+      if (r && !KEEP_RAW.includes(r)) KEEP_RAW.push(r);
+}
+
+const evidenceFilter = KEEP_CEV.length
+  ? { $and: [evidenceFilterBase, { event_id: { $nin: KEEP_CEV } }] }
+  : evidenceFilterBase;
+const obsFilter = KEEP_CEV.length
+  ? { $and: [obsFilterBase, { canonical_event_id: { $nin: KEEP_CEV } }] }
+  : obsFilterBase;
+const rawFilter = KEEP_RAW.length
+  ? { tenant_id: TENANT, raw_id: { $nin: KEEP_RAW } }
+  : { tenant_id: TENANT };
 
 // ───────────────────────── plan / dry run ────────────────────────────
 function count(c, f) { return has(c) ? t[c].countDocuments(f) : 0; }
@@ -139,26 +252,45 @@ function line(c, f, note) {
   return k;
 }
 
-let planned = 0;
+let planned = 0, foreignTenant = 0, excluded = 0;
 print("\n── A · XDR artefacts derived from this EDR telemetry (D4)");
 if (CASCADE_XDR) {
-  for (const [c, f] of DEPENDENTS)
-    planned += line(`${c}`, { [f]: { $in: INC_IDS } }, `by ${f}`);
-  planned += line("workspace_cases", { tenant_id: TENANT, id: { $in: INC_IDS } },
+  for (const [c, f] of DEPENDENTS) {
+    if (!has(c)) { print(`   ${pad(c)} (absent)`); continue; }
+    const inScope = DEL_IDS.length ? t[c].countDocuments(depFilter(f)) : 0;
+    const naive = DEL_IDS.length ? t[c].countDocuments({ [f]: { $in: DEL_IDS } }) : 0;
+    const wrong = DEL_IDS.length ? foreignTenantCount(c, f) : 0;
+    foreignTenant += wrong; excluded += (naive - inScope);
+    planned += inScope;
+    print(`   ${pad(c + " ." + f)} ${n(inScope)}   referencing ${n(naive)}` +
+          `   excluded ${n(naive - inScope)}   foreign-tenant ${n(wrong)}`);
+  }
+  planned += line("workspace_cases", { tenant_id: TENANT, id: { $in: DEL_IDS } },
                   "EDR-ONLY incidents");
   planned += line("v2_shadow_observations", obsFilter);
   planned += line("xdr_canonical_evidence", evidenceFilter);
-  print(`   ${pad("MIXED incidents · NOT TOUCHED")} ${n(mixedInc.length)}`);
+  print(`\n   ${pad("PRESERVED · MIXED incidents")} ${n(mixedInc.length)}`);
   for (const i of mixedInc.slice(0, 30))
-    print(`      MIXED  ${i.id}  #${i.incident_number || "-"}  ` +
-          `${String(i.title || "").slice(0, 55)}`);
+    print(`      MIXED    ${i.id}  #${i.incident_number || "-"}  ` +
+          `foreign ${i._foreign}/${i._cited}  ${String(i.title || "").slice(0, 40)}`);
+  print(`   ${pad("PRESERVED · UNKNOWN evidence")} ${n(unknownInc.length)}`);
+  for (const i of unknownInc.slice(0, 30))
+    print(`      UNKNOWN  ${i.id}  #${i.incident_number || "-"}  ` +
+          `unresolved ${i._unknown}/${i._cited}  ${String(i.title || "").slice(0, 38)}`);
+  print(`   ${pad("PRESERVED · entangled with a preserved")} ${n(entangled.length)}`);
+  for (const id of entangled.slice(0, 30)) print(`      ENTANGLED ${id}`);
+  print(`   ${pad("PINNED · evidence cited by preserved")} ${n(KEEP_CEV.length)}`);
+  print(`   ${pad("PINNED · raw events behind that evidence")} ${n(KEEP_RAW.length)}`);
+  print(`   ${pad("dependents excluded by the guards")} ${n(excluded)}`);
+  print(`   ${pad("dependents with a FOREIGN tenant (S2)")} ${n(foreignTenant)}`);
 } else {
-  print("   cascade disabled — XDR references to removed EDR evidence WOULD");
-  print("   be left unresolvable. Not the approved D4 behaviour.");
+  print("   cascade disabled — references to removed EDR evidence WOULD be");
+  print("   left unresolvable. Not the approved D4 behaviour.");
 }
 
 print("\n── B · EDR telemetry and derived state");
-for (const c of [RAW].concat(EDR_TELEMETRY))
+planned += line(RAW, rawFilter, KEEP_RAW.length ? `${KEEP_RAW.length} raw pinned` : "");
+for (const c of EDR_TELEMETRY)
   planned += line(c, { tenant_id: TENANT });
 
 print("\n── C · EDR identity (recreated by the fresh enrolment)");
@@ -183,10 +315,13 @@ if (!KEEP_CONFIG || !KEEP_AUDIT) {
   print("\nREFUSING: D2/D3 require configuration and audit to be retained.");
   quit(1);
 }
+if (foreignTenant > 0) {
+  print("\nREFUSING (S2): a dependent of an EDR-ONLY incident carries another");
+  print("tenant's id. Resolve that before any deletion.");
+  quit(1);
+}
 
 // ───────────────────────────── execution ─────────────────────────────
-// Leaf -> root. An interrupted run therefore leaves a smaller consistent
-// graph, never a dangling reference.
 print(`\n=== EXECUTING · snapshot ${SNAPSHOT} ===`);
 let removed = 0;
 function wipe(c, f, label) {
@@ -198,40 +333,51 @@ function wipe(c, f, label) {
   print(`   ${pad(label || c)} expected ${n(before)}  deleted ${n(res.deletedCount)}`);
 }
 
-if (CASCADE_XDR && INC_IDS.length) {
-  for (const [c, f] of DEPENDENTS) wipe(c, { [f]: { $in: INC_IDS } });
-  wipe("workspace_cases", { tenant_id: TENANT, id: { $in: INC_IDS } },
+if (CASCADE_XDR && DEL_IDS.length) {
+  for (const [c, f] of DEPENDENTS) wipe(c, depFilter(f), c + " ." + f);
+  wipe("workspace_cases", { tenant_id: TENANT, id: { $in: DEL_IDS } },
        "workspace_cases (EDR-ONLY incidents)");
 }
 if (CASCADE_XDR) {
   wipe("v2_shadow_observations", obsFilter);
   wipe("xdr_canonical_evidence", evidenceFilter);
 }
-for (const c of [RAW].concat(EDR_TELEMETRY)) wipe(c, { tenant_id: TENANT });
+wipe(RAW, rawFilter);
+for (const c of EDR_TELEMETRY) wipe(c, { tenant_id: TENANT });
 for (const c of EDR_IDENTITY) wipe(c, { tenant_id: TENANT });
 
 print(`\ntotal deleted: ${removed}`);
 
 // ──────────────────────────── verification ───────────────────────────
 print("\n── post-reset verification · must all read 0");
-for (const c of [RAW].concat(EDR_TELEMETRY, EDR_IDENTITY))
+print(`   ${pad(RAW + " (unpinned)")} ${n(count(RAW, rawFilter))}`);
+for (const c of EDR_TELEMETRY.concat(EDR_IDENTITY))
   print(`   ${pad(c)} ${n(count(c, { tenant_id: TENANT }))}`);
+if (KEEP_RAW.length)
+  print(`   ${pad(RAW + " pinned, EXPECTED non-zero")} ` +
+        `${n(count(RAW, { tenant_id: TENANT, raw_id: { $in: KEEP_RAW } }))}` +
+        ` of ${KEEP_RAW.length}`);
 if (CASCADE_XDR) {
   print(`   ${pad("xdr_canonical_evidence (EDR-derived)")} ` +
         `${n(count("xdr_canonical_evidence", evidenceFilter))}`);
   print(`   ${pad("v2_shadow_observations (EDR-derived)")} ` +
         `${n(count("v2_shadow_observations", obsFilter))}`);
   print(`   ${pad("workspace_cases (EDR-ONLY incidents)")} ` +
-        `${n(count("workspace_cases", { id: { $in: INC_IDS } }))}`);
+        `${n(count("workspace_cases", { id: { $in: DEL_IDS } }))}`);
   let dangling = 0;
-  for (const [c, f] of DEPENDENTS) dangling += count(c, { [f]: { $in: INC_IDS } });
+  for (const [c, f] of DEPENDENTS) dangling += count(c, { [f]: { $in: DEL_IDS } });
   print(`   ${pad("dangling dependents (must be 0)")} ${n(dangling)}`);
 }
 
-print("\n── retained · must be NON-zero");
+print("\n── retained · must be NON-zero / unchanged");
 for (const c of EDR_CONFIG.concat(EDR_AUDIT))
   print(`   ${pad(c)} ${n(count(c, { tenant_id: TENANT }))}`);
-print(`   ${pad("MIXED incidents still present")} ${n(mixedInc.length)}`);
+print(`   ${pad("preserved incidents still present")} ` +
+      `${n(count("workspace_cases", { id: { $in: KEEP_IDS } }))} of ${KEEP_IDS.length}`);
+if (KEEP_CEV.length)
+  print(`   ${pad("pinned evidence still present")} ` +
+        `${n(count("xdr_canonical_evidence", { tenant_id: TENANT, event_id: { $in: KEEP_CEV } }))}` +
+        ` of ${KEEP_CEV.length}`);
 print(`   ${pad("workspace_cases · all tenants")} ${n(count("workspace_cases", {}))}`);
 print(`   ${pad("xdr_canonical_evidence · all tenants")} ` +
       `${n(count("xdr_canonical_evidence", {}))}`);
