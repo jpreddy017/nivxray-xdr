@@ -7141,3 +7141,15 @@ Preservation checks — all pass:
 Stopped at the first completed dry-run report per the stop condition. Nothing
 deleted, purged, enrolled, minted or restarted.
 
+
+
+### Task 1D/1E · launch-path fixes + EDR-only release candidate (June 2026)
+Integration-boundary defects found and fixed (all browser-verified in the pod):
+- `/edr/process-tree` opened from the sidebar carried neither incident nor device and dead-ended; it now lists the authorised devices the server already returns (`/edr/onboarding/computers`), ranked by observed telemetry.
+- Computers → device pane gained a **Process Tree** pivot carrying `endpoint_id` + window.
+- The window control is now rendered in the empty/unresolved states (the copy told analysts to "widen the window above" while the control only existed inside the graph overlay in graph view).
+- Real-evidence scale guards: render cap 400 nodes (notice shown), event-row cap 200, roots ranked by detections then branch size, default selection must be an OBSERVED process, initial framing frames the leading branch, and a **Lineage** navigator re-roots the capped layout so any of the top 50 lineages can be reached.
+- Dev-server fix: the pod's inotify limit (12,288) crashed Vite with ENOSPC; `vite.config.js` dev `server.watch` now uses polling + ignores heavy dirs. No effect on the production build.
+
+Release candidate: branch **`release/edr-process-graph`**, commit **`ce2f5615`**, cut from `integration/e3-dt` and containing ONLY: ProcessGraphCanvas.jsx, EdrProcessTreePage.jsx, EdrComputersPage.jsx, vite.config.js (dev watch), and the backend fixtures. Dev seed script, the unused `frontend/` v2 port, PRD and docs are deliberately excluded. Validation on that branch: `yarn build` ✓ 4.96s, vitest **251 passed / 14 files**, backend **204 passed**.
+Known-unreadable from the pod (owner must confirm in the Vercel dashboard): project `nivxray-edr-production` production branch, Root Directory, build command and env vars; and which deployment currently serves edr.nivxforge.com.
