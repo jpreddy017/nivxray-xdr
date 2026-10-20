@@ -266,6 +266,28 @@ export default function ProcessGraphCanvas({
   const node = selected ? placed.find((p) => p._id === selected) : null;
   const kids = node ? descendants(node, byId) : [];
 
+  // Keep the selected process and its immediate children in frame — the
+  // reference always shows the focused branch, never a clipped node.
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el || !node) return;
+    const w = el.clientWidth, h = el.clientHeight;
+    const children = (node.child_ids || [])
+      .map((id) => placed.find((p) => p._id === id)).filter(Boolean);
+    const xs = [node._cx, ...children.map((c) => c._cx)];
+    const ys = [node._cy, ...children.map((c) => c._cy)];
+    const minX = Math.min(...xs) - R - 120, maxX = Math.max(...xs) + R + 150;  // label capsules overhang both sides
+    const minY = Math.min(...ys) - R - 24, maxY = Math.max(...ys) + R + 56;
+    setPan((cur) => {
+      let { x, y } = cur;
+      if (maxX * zoom + x > w) x = w - maxX * zoom - 16;
+      if (minX * zoom + x < 0) x = -minX * zoom + 16;   // left edge wins
+      if (maxY * zoom + y > h) y = h - maxY * zoom - 16;
+      if (minY * zoom + y < 0) y = -minY * zoom + 16;   // top edge wins
+      return (x === cur.x && y === cur.y) ? cur : { x, y };
+    });
+  }, [selected, placed, zoom, node]);
+
   const pick = (id) => {
     setSelected(id);
     setOpenTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -308,8 +330,10 @@ export default function ProcessGraphCanvas({
     );
   }
 
-  const malicious = placed.filter((p) => (p.detections || []).length).length;
-  const unknown = placed.filter((p) => p.observed === false).length;
+  // Counts describe the EVIDENCE, never the currently expanded subset — a
+  // collapsed branch is a view state, not a change in what was observed.
+  const malicious = nodes.filter((n) => (n.detections || []).length).length;
+  const unknown = nodes.filter((n) => n.observed === false).length;
 
   return (
     <div data-testid="edr-processgraph"
@@ -338,7 +362,7 @@ export default function ProcessGraphCanvas({
                       fontFamily: "ui-monospace, Menlo, monospace" }}>
           endpoint_id: "{endpointId || "—"}"
           <div style={{ color: C.faint, marginTop: 4 }}>
-            {meta.window_hours || 24}h · {placed.length} processes
+            {meta.window_hours || 24}h · {nodes.length} processes
             {counts ? ` · ${counts.observed} observed · ${counts.roots} root(s)` : ""}
           </div>
           {counts && counts.ghost_parents > 0 && (
