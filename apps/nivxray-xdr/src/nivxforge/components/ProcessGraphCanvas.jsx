@@ -64,6 +64,8 @@ function ringOf(node) {
   return { arcs: [C.blue, C.purple, C.magenta, C.grey], kind: "observed" };
 }
 
+const RENDER_CAP = 400;
+
 function layout(nodes, roots, collapsed = new Set()) {
   const key = (n) => n.process_iid || n.entity_id;
   const byId = new Map(nodes.map((n) => [key(n), n]));
@@ -97,6 +99,8 @@ function layout(nodes, roots, collapsed = new Set()) {
     if (parent && byId.has(parent)) continue;
     walk(id, 0);
   }
+  const truncated = Math.max(0, placed.length - RENDER_CAP);
+  if (truncated) placed.length = RENDER_CAP;
   const pos = new Map(placed.map((p) => [p._id, p]));
   const links = [];
   for (const p of placed) {
@@ -106,7 +110,7 @@ function layout(nodes, roots, collapsed = new Set()) {
     links.push({ id: `${pid}->${p._id}`, from, to: p,
                  proven: from.observed !== false && p.observed !== false });
   }
-  return { placed, links };
+  return { placed, links, truncated };
 }
 
 /** All descendant process creations of a node, newest-first — the right
@@ -212,7 +216,7 @@ export default function ProcessGraphCanvas({
   onShowList = null, hours = 24, onHours = null, counts = null,
 }) {
   const [collapsed, setCollapsed] = useState(() => new Set());
-  const { placed, links } = useMemo(
+  const { placed, links, truncated } = useMemo(
     () => layout(nodes, roots, collapsed), [nodes, roots, collapsed]);
   const byId = useMemo(
     () => new Map(nodes.map((n) => [n.process_iid || n.entity_id, n])), [nodes]);
@@ -257,7 +261,9 @@ export default function ProcessGraphCanvas({
 
   useEffect(() => {
     if (!selected && placed.length) {
-      const first = placed.find((p) => (p.detections || []).length) || placed[0];
+      const first = placed.find((p) => (p.detections || []).length)
+                 || placed.find((p) => p.observed !== false)
+                 || placed[0];
       setSelected(first._id);
       setOpenTabs([first._id]);
     }
@@ -365,6 +371,12 @@ export default function ProcessGraphCanvas({
             {meta.window_hours || 24}h · {nodes.length} processes
             {counts ? ` · ${counts.observed} observed · ${counts.roots} root(s)` : ""}
           </div>
+          {truncated > 0 && (
+            <div style={{ color: "#E0B84A", marginTop: 4 }}
+                 data-testid="edr-processgraph-truncated">
+              showing {RENDER_CAP} of {nodes.length} processes — narrow the
+              window or launch from a detection to focus the branch
+            </div>)}
           {counts && counts.ghost_parents > 0 && (
             <div style={{ color: "#E0B84A", marginTop: 4 }}
                  data-testid="edr-processgraph-ghost-count">

@@ -11,7 +11,7 @@
  *     line is present on the entity)
  */
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, GitBranch, ChevronRight, Terminal, Radar } from "lucide-react";
 
 import { useSearchParams } from "react-router-dom";
@@ -23,6 +23,73 @@ import { EndpointNotResolved,
 import { TelemetryFreshnessBanner }
   from "@/nivxforge/components/TelemetryFreshness";
 import ProcessGraphCanvas from "@/nivxforge/components/ProcessGraphCanvas";
+import { getComputers } from "@/nivxforge/onboardingApi";
+
+/** The page used to dead-end here: opened from the sidebar it carries neither
+ *  an incident nor a device, so it told the analyst to come back through a
+ *  launcher and offered no way to do so. The authorised computers the server
+ *  already returns for this principal ARE the supported device pivots, so the
+ *  empty state now lists them. No new API, no scope widening. */
+function NoPivot({ hours }) {
+  const nav = useNavigate();
+  const [state, setState] = useState({ loading: true, rows: [], error: null });
+  useEffect(() => {
+    let live = true;
+    getComputers(24)
+      .then((d) => { if (live) setState({ loading: false, error: null,
+                                          rows: d?.computers || d?.rows || [] }); })
+      .catch((e) => { if (live) setState({ loading: false, rows: [],
+        error: e?.response?.data?.detail || e?.message || "Unavailable" }); });
+    return () => { live = false; };
+  }, []);
+
+  return (
+    <div className="panel" style={{ padding: 16 }}
+         data-testid="edr-processtree-noctx">
+      <div style={{ fontSize: 12.5, marginBottom: 10 }}>
+        Process Tree is scoped to an incident or a device. Open it from an
+        incident's <b>NivXRay EDR</b> launcher, or pick one of the devices you
+        are authorised for:
+      </div>
+      {state.loading && (
+        <div className="x-empty" data-testid="edr-processtree-pivots-loading">
+          <Loader2 size={13} className="spin" style={{ verticalAlign: "middle", marginRight: 6 }} />
+          Loading authorised devices …
+        </div>)}
+      {!state.loading && state.error && (
+        <div className="x-empty" style={{ color: "var(--red)" }}
+             data-testid="edr-processtree-pivots-error">{String(state.error)}</div>)}
+      {!state.loading && !state.error && state.rows.length === 0 && (
+        <div className="x-empty" data-testid="edr-processtree-pivots-empty">
+          No devices are visible to this principal in the bound customer —
+          select a customer in the console header, or enrol a device.
+        </div>)}
+      {!state.loading && !state.error && state.rows.length > 0 && (
+        <div style={{ fontSize: 10.5, color: "var(--faint)", margin: "0 0 8px" }}
+             data-testid="edr-processtree-pivots-basis">
+          {state.rows.length} authorised device(s) · ordered by observed
+          telemetry · a device with no events cannot render a lineage
+        </div>)}
+      {!state.loading && [...state.rows]
+        .sort((a, b) => (b.telemetry?.event_count ?? 0) - (a.telemetry?.event_count ?? 0))
+        .slice(0, 25)
+        .map((r) => (
+        <button key={r.endpoint_id} className="btn"
+                data-testid={`edr-processtree-pivot-${r.endpoint_id}`}
+                style={{ display: "block", width: "100%", textAlign: "left",
+                         marginBottom: 6, padding: "9px 12px",
+                         opacity: (r.telemetry?.event_count ?? 0) ? 1 : 0.55 }}
+                onClick={() => nav(`/edr/process-tree?endpoint_id=${encodeURIComponent(r.endpoint_id)}&hours=${hours}`)}>
+          <b>{r.hostname || r.endpoint_id}</b>
+          <span className="mono" style={{ marginLeft: 10, fontSize: 10.5,
+                                          color: "var(--faint)" }}>
+            {r.endpoint_id} · {r.status || "STATE UNKNOWN"} ·{" "}
+            {(r.telemetry?.event_count ?? 0).toLocaleString()} events
+          </span>
+        </button>))}
+    </div>
+  );
+}
 
 function useTree(incidentId, endpointId, hours) {
   const pivot = endpointId || incidentId;
@@ -156,19 +223,17 @@ export default function EdrProcessTreePage() {
             + "process relationships). No parallel correlation engine."}
       </div>)}
 
-      {endpointId && view === "list" && (
+      {/* the empty/unresolved states tell the analyst to "widen the window
+          above", so the control must be present there even in graph view —
+          in graph view it otherwise lives inside the graph overlay. */}
+      {endpointId && (view === "list" || !tree || tree.reason !== "ok") && (
         <>
           <TelemetryFreshnessBanner endpoint={endpointId} />
           <WindowControl hours={hours} onChange={setHours}
                          window={tree?.window} />
         </>)}
 
-      {!pivot && (
-        <div className="x-empty" data-testid="edr-processtree-noctx">
-          Process Tree is scoped to an incident.
-          Open this page from an incident's <b>NivXRay EDR</b> launcher.
-        </div>
-      )}
+      {!pivot && <NoPivot hours={hours} />}
       {pivot && loading && (
         <div className="x-empty" data-testid="edr-processtree-loading">
           <Loader2 size={13} className="spin" style={{ verticalAlign: "middle", marginRight: 6 }} />
