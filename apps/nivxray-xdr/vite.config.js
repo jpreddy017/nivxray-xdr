@@ -80,6 +80,18 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       host: "0.0.0.0",
       allowedHosts: true,
+      // dev-only: this monorepo exceeds the container's inotify watch limit,
+      // which crashed the dev server with ENOSPC. Build output is unaffected.
+      watch: {
+        usePolling: true,
+        interval: 1500,
+        ignored: [
+          "**/node_modules/**", "**/dist/**", "**/.git/**",
+          "**/memory/**", "**/screenshots/**", "**/artifacts/**",
+          "**/SECURE_EXPORT/**", "**/deck_assets/**", "**/benchmarks/**",
+          "**/test_reports/**", "**/rocket-evidence/**",
+        ],
+      },
     },
     preview: {
       port: 3100,
