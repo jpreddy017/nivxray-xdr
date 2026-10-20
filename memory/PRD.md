@@ -7099,3 +7099,45 @@ lingers.
 Package sha256 `12b2ecca5a17fe6baabf639cce5b5cbc9d15d83c77f67221310bf0c0a0fafff3`.
 Still HOLD. Nothing deleted, purged, enrolled, minted or restarted.
 
+
+## 2026-10-20 · DEPLOYED (Publish 100 · b450458) · PRODUCTION DRY RUN DONE
+
+`POST /api/edr/maintenance/dev-reset` with `{"mode":"dry"}` returned HTTP 200 in
+27.0 s against `greeting-app-5782-test_database`, tenant
+`ten_e759b7288598bd882e3dcac49d`. `armed=false`, `note: DRY RUN — nothing was
+changed.` Health `/api/` 200 on the new revision. The workspace `.env` token
+carried through, so authentication worked without an owner-set secret.
+
+**PLANNED TOTAL 4,224,955 vs expected 4,224,353 ⇒ +602 drift**, fully
+attributed:
+| collection | inventory | dry run | Δ |
+|---|---|---|---|
+| xdr_canonical_evidence | 149,161 | 149,273 | +112 |
+| v2_shadow_observations | 149,174 | 149,288 | +114 |
+| edr_rejected_telemetry | 25,750 | 26,014 | +264 |
+| edr_finding_evaluations | 301,539 | 301,651 | +112 |
+| edr_raw_events / edr_processing_queue | 1,877,149 / 1,718,750 | unchanged | 0 |
+Reading: KUSHU is still ENROLLED and posting (hence +264 rejections, which
+create no raw events), and the pipeline keeps deriving evidence/observations
+from the existing queue. Raw and queue are static. **Counts will keep moving
+until the sensors stop**, which is why the armed run recounts at execution time.
+
+Preservation checks — all pass:
+* retained: policies 1, groups 1, policy_versions 1, enrolment_audit 14,
+  policy_audit 4,426 (exclusions/isolation/boundary/connectors/saved_views are 0
+  and absent, as before)
+* `workspace_cases`: 0 planned, all 48 preserved; classification empty
+  (edr_only 0, mixed 0, unknown 0, entangled 0) — cascade empty by measurement
+* other tenants: `edr_rejected_telemetry` 26,256 all vs 26,014 tenant ⇒ 242
+  preserved; `v2_shadow_observations` 149,301 all vs 149,293 tenant ⇒ 8
+  preserved; `xdr_canonical_evidence` is wholly this tenant (149,278 = 149,278)
+* dependents + evidence-keyed stages: every collection absent or 0
+* guards: keep_config/keep_audit/cascade true, foreign_tenant_dependents 0
+* pinned raw = the 5 `live_*` ids (XDR-ingest namespace, not present in
+  `edr_raw_events`), pinned canonical events 0
+* NOTE: `edr_finding_evaluations` other-tenant delta is now 0 (was 10 at
+  inventory) — not investigated, outside the authorised scope.
+
+Stopped at the first completed dry-run report per the stop condition. Nothing
+deleted, purged, enrolled, minted or restarted.
+
