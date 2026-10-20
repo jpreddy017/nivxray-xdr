@@ -3,9 +3,11 @@
  * The primary DFIR view. Every node click updates the global
  * SelectionContext so every other tab focuses on the same process.
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { T } from "../theme";
 import { useSelection } from "./SelectionContext";
+import api from "../../lib/api";
+import ProcessGraphCanvas from "../../components/ProcessGraphCanvas";
 
 const BAND_TONES = {
   benign: "#4ADE80", informational: "#7DB1D6", low: "#D4C069",
@@ -34,8 +36,24 @@ function flattenTree(roots) {
 }
 
 
-export default function ProcessTreeTab({ inv }) {
+export default function ProcessTreeTab({ inv, endpointId = null, windowHours = 24 }) {
   const { selection, setSelection } = useSelection();
+  const pivot = endpointId || inv?.header?.endpoint_id || null;
+  // The evidence graph is the default WHEN there is an endpoint to pivot
+  // on. Without one there is nothing honest to draw, so the IKG list stays.
+  const [mode, setMode] = useState(pivot ? "graph" : "list");
+  const [graph, setGraph] = useState(null);
+  const [graphError, setGraphError] = useState(null);
+
+  useEffect(() => {
+    if (mode !== "graph" || !pivot) return;
+    let cancelled = false;
+    setGraphError(null);
+    api.get(`/edr/process-tree`, { params: { endpoint_id: pivot, hours: windowHours } })
+      .then((r) => { if (!cancelled) setGraph(r.data); })
+      .catch((e) => { if (!cancelled) setGraphError(e?.response?.data?.detail || e.message); });
+    return () => { cancelled = true; };
+  }, [mode, pivot, windowHours]);
 
   const rows = useMemo(() => {
     const nodes = inv?.ikg?.nodes || [];
@@ -106,9 +124,57 @@ export default function ProcessTreeTab({ inv }) {
     });
   };
 
+  const modeSwitch = pivot ? (
+    <div className="mb-4 inline-flex rounded-lg border border-white/10 bg-[#0B0F17] p-0.5">
+      {[["graph", "Evidence graph"], ["list", "IKG ancestry"]].map(([key, label]) => (
+        <button key={key} data-testid={`process-tree-mode-${key}`}
+                onClick={() => setMode(key)}
+                className="rounded-md px-3 py-1.5 text-[11px] font-semibold tracking-wide transition-colors"
+                style={{ background: mode === key ? "#141B26" : "transparent",
+                         color: mode === key ? T.ink : T.inkMute }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  if (mode === "graph" && pivot) {
+    return (
+      <div data-testid="process-tree-tab" className="mx-auto max-w-[1400px] px-6 py-8">
+        <div className="mb-4">
+          <div className="mb-1 text-[10px] font-bold tracking-[2px]" style={{ color: T.inkMute }}>
+            PROCESS GRAPH
+          </div>
+          <div className="text-[22px] font-bold" style={{ color: T.ink }}>
+            Parent → Child lineage from sensor evidence
+          </div>
+          <div className="mt-1 text-[12px]" style={{ color: T.inkDim }}>
+            Linked by canonical process identity, never by pid alone. A parent that was
+            referenced but never observed stays a dashed, unproven edge.
+          </div>
+        </div>
+        {modeSwitch}
+        {graphError ? (
+          <div data-testid="process-graph-error"
+               className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-200">
+            Process evidence could not be loaded: {String(graphError)}
+          </div>
+        ) : !graph ? (
+          <div data-testid="process-graph-loading"
+               className="rounded-xl border border-white/10 bg-[#0B0F17] p-10 text-center text-sm text-slate-500">
+            Reading process evidence…
+          </div>
+        ) : (
+          <ProcessGraphCanvas nodes={graph.nodes || []} roots={graph.roots || []} meta={graph} />
+        )}
+      </div>
+    );
+  }
+
   if (rows.length === 0) {
     return <div className="p-12 text-[11px]" style={{ color: T.inkFaint }}
                 data-testid="proctree-empty">
+      {modeSwitch}
       No processes observed on this device.
     </div>;
   }
@@ -126,6 +192,7 @@ export default function ProcessTreeTab({ inv }) {
           Click any process to focus every other view on it.
         </div>
       </div>
+      {modeSwitch}
 
       <div className="rounded-md p-3"
            style={{ background: T.paper2, border: `1px solid ${T.line}` }}>

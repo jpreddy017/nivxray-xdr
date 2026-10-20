@@ -457,7 +457,8 @@ function InvestigationWorkspaceInner() {
       },
     },
     { key: "process",     label: "Process Tree",      testid: "tab-process",
-      render: () => <ProcessTreeTab inv={inv} />,
+      render: () => <ProcessTreeTab inv={inv}
+                                    endpointId={searchParams.get("endpoint_id")} />,
     },
     { key: "story",       label: "Attack Story",      testid: "tab-story",
       render: () => <AttackStoryTab inv={inv} />,
