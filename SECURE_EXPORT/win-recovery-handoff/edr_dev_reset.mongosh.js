@@ -243,6 +243,23 @@ const rawFilter = KEEP_RAW.length
   ? { tenant_id: TENANT, raw_id: { $nin: KEEP_RAW } }
   : { tenant_id: TENANT };
 
+// Artefacts keyed on the EVIDENCE rather than on an incident. These were
+// found by probing which collections actually carry a sensor reference —
+// trace_id = raw_id, evidence_ref, collector_id — not by guessing at names.
+// Without them, deleting canonical evidence would strand live references.
+const EVIDENCE_KEYED = [
+  ["xdr_detection_matches",
+   { tenant_id: TENANT, source: "sensor",
+     canonical_event_id: { $nin: KEEP_CEV } }],
+  ["xdr_spread_sightings",
+   { tenant_id: TENANT, collector_id: { $in: EP },
+     canonical_event_id: { $nin: KEEP_CEV } }],
+  ["xdr_correlation_matches",
+   { $and: [{ tenant_id: TENANT },
+            { trace_id: { $regex: "^raw_[0-9a-f]{24}$" } },
+            { trace_id: { $nin: KEEP_RAW } }] }],
+];
+
 // ───────────────────────── plan / dry run ────────────────────────────
 function count(c, f) { return has(c) ? t[c].countDocuments(f) : 0; }
 function line(c, f, note) {
@@ -267,6 +284,7 @@ if (CASCADE_XDR) {
   }
   planned += line("workspace_cases", { tenant_id: TENANT, id: { $in: DEL_IDS } },
                   "EDR-ONLY incidents");
+  for (const [c, f] of EVIDENCE_KEYED) planned += line(c, f, "evidence-keyed");
   planned += line("v2_shadow_observations", obsFilter);
   planned += line("xdr_canonical_evidence", evidenceFilter);
   print(`\n   ${pad("PRESERVED · MIXED incidents")} ${n(mixedInc.length)}`);
@@ -328,9 +346,21 @@ function wipe(c, f, label) {
   if (!has(c)) return;
   const before = t[c].countDocuments(f);
   if (!before) { print(`   ${pad(label || c)} ${n(0)}  (nothing to do)`); return; }
-  const res = t[c].deleteMany(f);
-  removed += res.deletedCount;
-  print(`   ${pad(label || c)} expected ${n(before)}  deleted ${n(res.deletedCount)}`);
+  let gone = 0;
+  if (before > 200000) {
+    // Chunked, so a multi-million-row sweep cannot hit a client timeout and
+    // can be resumed by simply re-running: each chunk is committed.
+    while (true) {
+      const ids = t[c].find(f, { _id: 1 }).limit(50000).toArray().map((d) => d._id);
+      if (!ids.length) break;
+      gone += t[c].deleteMany({ _id: { $in: ids } }).deletedCount;
+      print(`      ${pad(label || c)} ${n(gone)} / ${before}`);
+    }
+  } else {
+    gone = t[c].deleteMany(f).deletedCount;
+  }
+  removed += gone;
+  print(`   ${pad(label || c)} expected ${n(before)}  deleted ${n(gone)}`);
 }
 
 if (CASCADE_XDR && DEL_IDS.length) {
@@ -339,6 +369,7 @@ if (CASCADE_XDR && DEL_IDS.length) {
        "workspace_cases (EDR-ONLY incidents)");
 }
 if (CASCADE_XDR) {
+  for (const [c, f] of EVIDENCE_KEYED) wipe(c, f, c + " (evidence-keyed)");
   wipe("v2_shadow_observations", obsFilter);
   wipe("xdr_canonical_evidence", evidenceFilter);
 }
@@ -367,6 +398,8 @@ if (CASCADE_XDR) {
   let dangling = 0;
   for (const [c, f] of DEPENDENTS) dangling += count(c, { [f]: { $in: DEL_IDS } });
   print(`   ${pad("dangling dependents (must be 0)")} ${n(dangling)}`);
+  for (const [c, f] of EVIDENCE_KEYED)
+    print(`   ${pad(c + " (evidence-keyed)")} ${n(count(c, f))}`);
 }
 
 print("\n── retained · must be NON-zero / unchanged");

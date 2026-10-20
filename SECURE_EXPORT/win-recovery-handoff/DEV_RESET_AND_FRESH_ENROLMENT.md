@@ -147,6 +147,73 @@ surviving row (`provenance.trace_id`,
 `edr_raw_events` is "1,877,149 less pinned" — the exact pin count prints in the
 dry run.
 
+## PREREQUISITE VERIFICATION · second read-only pass, 2026-10-20
+
+### Exact deletion counts after evidence pinning
+
+`KEEP_RAW` resolves to **0 existing rows**, so the raw sweep is the full
+**1,877,149**. The five surviving `xdr_canonical_evidence` rows cite trace ids
+shaped `live_3eee147edfa74fa5`, `live_5b8470579b8145c4`,
+`live_6267f80b081d4ae2`, `live_bfded2f28d7247d7`, `live_fd512680a4ed4117`.
+
+**Those are not EDR raw ids and never were.** `live_<16hex>` is minted by
+`routers/xdr_ingest.py:564` — the direct XDR ingest API — whereas
+`edr_raw_events.raw_id` is `raw_<24hex>` (`edr_plane/raw_events.py:143`). So
+these five rows belong to the XDR ingest path, not to the sensor, and deleting
+EDR telemetry cannot orphan them. The inventory flagged them as "already
+dangling"; that reading is wrong, and no repair is required. They are
+preserved, and they are *why* the evidence selector is provenance-based rather
+than tenant-wide.
+
+The four unmatched `v2_shadow_observations` carry no `raw_id` at all, so they
+contribute nothing to the pin set and are likewise preserved.
+
+| final scope | documents |
+|---|---|
+| EDR telemetry + identity | **3,926,018** |
+| `xdr_canonical_evidence` (D4) | 149,161 |
+| `v2_shadow_observations` (D4) | 149,174 |
+| **TOTAL** | **4,224,353** |
+
+### Zero unintended XDR dependencies
+
+* `xdr_detection_matches` — **does not exist** in this database
+* `xdr_spread_sightings` — **does not exist**
+* `xdr_correlation_matches` — exists, **globally empty** (0 of 0)
+* `xdr_ingest_dedupe` — exists, **globally empty** (0 of 0)
+
+The evidence-keyed stage is therefore a no-op here. It stays in the script
+because those collections exist in other environments and will exist here once
+detection content runs — and because a no-op that *proves* it is a no-op is
+worth more than an assumption.
+
+### Tenant isolation
+
+* **0** unstamped documents across all 16 EDR collections — a tenant-scoped
+  delete leaves nothing behind
+* `edr_raw_events` with a different tenant: **0**; `edr_endpoints` distinct
+  `tenant_id`: exactly one value
+* `workspace_cases`: 0 incidents, 0 documents of *any* `doc_type` for this
+  tenant, and **0** incidents about these endpoints under any other tenant —
+  so MIXED, UNKNOWN and the whole dependent cascade are empty **by
+  measurement**
+* **Correction to the inventory's summary:** two EDR collections are *not*
+  single-tenant. `edr_rejected_telemetry` holds 25,992 overall against 25,750
+  for this tenant, and `edr_finding_evaluations` 301,549 against 301,539 —
+  so **242 + 10 = 252 documents belong to another tenant and are preserved by
+  the tenant filter.** That is the filter doing its job, and it is the reason
+  no sweep here is written as a bare collection wipe.
+
+### Execution note · 1.8M rows
+
+There is no `raw_id`-prefixed index (`events_keyset` is
+`{ingest_time, raw_id, tenant_id}`), so a bare `raw_id` filter collection-scans.
+Because `KEEP_RAW` is empty, the script uses the plain tenant filter and the
+tenant index. Sweeps above 200,000 documents run in committed 50,000-row
+chunks with progress printed, so a multi-million-row delete cannot hit a client
+timeout and a re-run simply resumes. Rehearsed on a scratch collection: 450
+rows cleared in three chunks, 0 remaining.
+
 ## PHASE 1 · identity and WMIC stability (read-only, on the laptop)
 
 The sensor reads the processor id **only** through
@@ -244,15 +311,20 @@ consistent graph and never a dangling reference:
 
 1. dependents of the EDR-ONLY incidents (`DEPENDENTS`, by `incident_id`)
 2. the EDR-ONLY incidents themselves (`workspace_cases`)
-3. `v2_shadow_observations` — EDR-derived only
-4. `xdr_canonical_evidence` — EDR-derived only
-5. EDR telemetry: `edr_raw_events`, `edr_processing_queue`,
-   `edr_rejected_telemetry`, `edr_acquisition_gaps`,
+3. evidence-keyed artefacts — `xdr_detection_matches` (`source:"sensor"`),
+   `xdr_spread_sightings` (`collector_id ∈ EP`) and `xdr_correlation_matches`
+   (`trace_id` matching a raw id), each excluding anything pinned. These key
+   on the evidence rather than on an incident, so an incident-only cascade
+   would have stranded them.
+4. `v2_shadow_observations` — EDR-derived only
+5. `xdr_canonical_evidence` — EDR-derived only
+6. EDR telemetry: `edr_raw_events` (minus pinned raw ids),
+   `edr_processing_queue`, `edr_rejected_telemetry`, `edr_acquisition_gaps`,
    `edr_acquisition_integrity`, `edr_delivery_counters`, `edr_findings`,
    `edr_finding_evaluations`, `edr_compromise_events`,
    `edr_endpoint_address_observations`, `edr_response_commands`,
    `edr_policy_endpoint_state`, `edr_endpoint_exclusion_enforcement`
-6. EDR identity: `edr_endpoints`, `edr_agent_credentials`,
+7. EDR identity: `edr_endpoints`, `edr_agent_credentials`,
    `edr_agent_sessions`, `edr_enrollment_tokens`
 
 Guarantees:

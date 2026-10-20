@@ -147,6 +147,24 @@ if (has("v2_shadow_observations") && EP.length) {
   print(`   ${pad("v2_shadow_observations · all tenants")} ${n(o.countDocuments({}))}`);
 }
 
+// ───── 3b · artefacts keyed on the evidence, not on an incident ─────
+// Discovered by probing which collections carry a sensor reference
+// (trace_id = raw_id, evidence_ref, collector_id). Left behind, these would
+// be live references to deleted canonical evidence.
+print("\n── 3b · evidence-keyed artefacts (EDR-derived)");
+const EVIDENCE_KEYED_PROBE = [
+  ["xdr_detection_matches", { tenant_id: TENANT, source: "sensor" }],
+  ["xdr_spread_sightings", { tenant_id: TENANT, collector_id: { $in: EP } }],
+  ["xdr_correlation_matches",
+   { tenant_id: TENANT, trace_id: { $regex: "^raw_[0-9a-f]{24}$" } }],
+];
+for (const [c, f] of EVIDENCE_KEYED_PROBE) {
+  if (!has(c)) { print(`   ${pad(c)} (absent)`); continue; }
+  print(`   ${pad(c)} in-scope ${n(t[c].countDocuments(f))}` +
+        `   tenant ${n(t[c].countDocuments({ tenant_id: TENANT }))}` +
+        `   all tenants ${n(t[c].countDocuments({}))}`);
+}
+
 // ───────── 4 · incident classification · EDR-ONLY / MIXED / UNKNOWN ─────────
 const edrOnly = [], mixedInc = [], unknownInc = [];
 let otherInc = 0, citedResolved = 0, citedMissing = 0;

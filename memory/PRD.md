@@ -6886,3 +6886,63 @@ sha256 `624573c385eb5f70f12c41bd3d49f01ff45732febdfc6cee7be1fa134bd971f3`
   fresh ingestion, so the backlog cannot rebuild (1.7M queue rows is what
   prompted it).
 
+
+## 2026-10-20 · SCOPE APPROVED (incl. KUSHU) · prerequisites verified · HOLD stands
+
+Owner approved tenant-wide cleanup including `ep_a67be48d5b4e01d4d9e8` (KUSHU)
+as SCOPE ONLY. Execution remains unauthorised. Nothing deleted, purged,
+enrolled, minted or restarted.
+
+### Second read-only production pass (deployer, count/find/distinct only)
+Recorded in `/app/deployer-agent-docs/RCA_4067c54d-…MD`, copied into the
+package as `production_prerequisite_verification.md`.
+
+* **Pinning:** `KEEP_RAW` = 5 trace ids from the surviving evidence, but they
+  resolve to **0 rows** in `edr_raw_events`, so the raw sweep is the full
+  **1,877,149**. The five ids are `live_<16hex>` — minted by
+  `routers/xdr_ingest.py:564`, the direct XDR ingest path — while EDR raw ids
+  are `raw_<24hex>` (`edr_plane/raw_events.py:143`). **The inventory's
+  "evidence already dangles" reading is wrong**: those rows never pointed at
+  `edr_raw_events`, so no repair is needed and deleting EDR telemetry cannot
+  orphan them. The 4 unmatched observations carry no `raw_id` at all.
+* **Final scope: 4,224,353 documents** — EDR 3,926,018 + `xdr_canonical_evidence`
+  149,161 + `v2_shadow_observations` 149,174.
+* **Zero unintended XDR dependencies:** `xdr_detection_matches` and
+  `xdr_spread_sightings` do not exist in this DB; `xdr_correlation_matches`
+  and `xdr_ingest_dedupe` exist but are globally empty. The evidence-keyed
+  stage is a no-op here and is kept because it proves that.
+* **Isolation:** 0 unstamped documents in all 16 EDR collections; 0 raw events
+  under another tenant; `edr_endpoints` has exactly one tenant;
+  `workspace_cases` holds 0 documents of any type for this tenant and 0
+  incidents about these endpoints under any other tenant ⇒ MIXED/UNKNOWN/
+  dependents empty **by measurement**.
+  **Correction to the inventory summary:** `edr_rejected_telemetry` (25,992 vs
+  25,750) and `edr_finding_evaluations` (301,549 vs 301,539) are NOT
+  single-tenant — **252 other-tenant documents** are preserved by the tenant
+  filter.
+
+### Script changes this round
+* Evidence-keyed cascade stage added (`xdr_detection_matches` by
+  `source:"sensor"`, `xdr_spread_sightings` by `collector_id ∈ EP`,
+  `xdr_correlation_matches` by `trace_id` raw shape), each excluding pinned
+  ids. Found by probing which collections carry a sensor reference — an
+  incident-only cascade would have stranded them.
+* Chunked deletion for sweeps > 200,000 rows (committed 50,000-row chunks,
+  progress printed, re-run resumes). Rehearsed: 450 rows in 3 chunks, 0 left.
+  Needed because there is no `raw_id`-prefix index (`events_keyset` is
+  `{ingest_time, raw_id, tenant_id}`), so a bare `raw_id` filter collscans.
+* Rehearsal of the full guard set on scratch: foreign-tenant dependent aborted
+  the armed run; MIXED/UNKNOWN/entangled preserved; pinned evidence and its raw
+  row survived; other tenants untouched; verification 0 dangling.
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `beb542d456416acc315cf856c099cceee3d8f72c5656ee098702b0e1f0dd5b35`
+(15 files + SHA256SUMS, download verified HTTP 200, hash matched).
+
+### Remaining prerequisites (both owner-side)
+1. **Atlas snapshot id** — invisible to every tool here; must not be inferred.
+2. **The production dry run itself** — no route from this pod or from the
+   deployment tooling executes a script; the owner runs
+   `mongosh --file edr_dev_reset.mongosh.js` (dry by default) in the DB manager
+   or Atlas shell and returns the output for confirmation before arming.
+
