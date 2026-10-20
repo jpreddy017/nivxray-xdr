@@ -7186,3 +7186,12 @@ Artefacts: `/app/screenshots/t1b/side_by_side_final.png`, `diff_overlay_final.pn
 - Release validation: frontend `vitest` 251 passed / 14 files; `yarn build` OK (5.36s); backend 215 passed (graph fixtures, process tree, A05 tenant scope contract, collector plane auth, B8 scope authority).
 - Known console-level items (NOT graph defects, unchanged): EDR console defaults to LIGHT theme (`nx.theme` persists once an analyst picks Dark); sidebar collapse persistence is gated behind the `E3_DT_V3` flag; the console `.sidebar` does not follow the dark attribute.
 - Publication: repo has NO git remote in this pod, so GitHub push requires the owner's "Save to Github" action. Production baseline for edr.nivxforge.com requested read-only from the deploy pipeline; not yet returned at time of writing.
+
+### Task 1C · verified production baseline (read-only deploy-pipeline report, June 2026)
+- Emergent deployment `greeting-app-5782`: active run **b450458a**, image `sha256:70015d27…`, last successful deploy 2026-10-20T03:27:41Z, frontend_type=cloudflare, tier_3, arm64.
+- DOMAIN MISMATCH (owner decision needed): the only custom domain on this deployment is **nivxray.nivxforge.com**. **edr.nivxforge.com is NOT attached here** and cannot be inspected from it; a VERCEL_TOKEN exists in the env, so a separate Vercel project may front the EDR domain.
+- Backend compatibility CONFIRMED: `GET /api/edr/process-tree` and `GET /api/edr/endpoint-detections` exist in production and return 403 (auth-gated), not 404 — the Task 1 frontend needs no backend change.
+- Production DB_NAME = `greeting-app-5782-test_database` (103 collections) — name still says "test_database"; flagged for release readiness.
+- Frontend env: `REACT_APP_BACKEND_URL` present (platform system key); `REACT_APP_NIVXRAY_API_URL` ABSENT (code falls back to REACT_APP_BACKEND_URL — compatible).
+- Rollback = re-promote an earlier successful image from the Emergent panel; last known-good = run b450458a, prior target 4067c54d (`sha256:9ee9b9a…`, 2026-10-15T01:39:25Z). Git branch/SHA are NOT recoverable from the pipeline (.git excluded at pull_source) — track live versions by run_id/image digest.
+- Full RCA: /app/deployer-agent-docs/RCA_b450458a-83f4-4b73-bae4-1a1cd51b8c2c.MD
