@@ -462,3 +462,53 @@ this document that deletes local evidence.
 * **The production dry run.** No route from this pod or from the deployment
   tooling executes a script; the owner runs it with external `mongosh` using
   the connection string from Manage Publishes → Database.
+
+## BACKEND EXECUTION PATH · when neither laptop nor pod can reach Atlas
+
+Both the owner's PowerShell and the preview pod are outside the cluster's
+Network Access List, while the deployed backend already holds a working
+connection. So the same logic now also exists as a temporary, token-gated route
+inside the backend:
+
+```
+POST /api/edr/maintenance/dev-reset      routers/edr_maintenance.py
+Header: X-Maintenance-Token: <EDR_MAINTENANCE_TOKEN>
+Body:   {"mode":"dry"}                   # default, writes nothing
+        {"mode":"execute","confirm":"DELETE-EDR-DEV-DATA","backup":"<waiver>"}
+```
+
+**It is not a public destructive API.** The route **404s unless
+`EDR_MAINTENANCE_TOKEN` is set in the environment**, every call must present
+that token, `execute` additionally requires the confirm string *and* a
+non-empty backup reference (the owner's waiver counts and is echoed into the
+response so the decision is auditable), and deleting the env var disables the
+route again. Verified: no token ⇒ 403, wrong token ⇒ 403, `execute` without
+confirm ⇒ 400.
+
+**It is a port, not a redesign.** Same selectors, same EDR-ONLY / MIXED /
+UNKNOWN classification, same entanglement propagation, same evidence pinning,
+same leaf→root order, same D2/D3 retention and S2 abort, same 50,000-row
+chunking above 200,000.
+
+Parity was measured, not assumed. Identical fixtures were read by both the
+mongosh script and the route:
+
+| | mongosh | backend route |
+|---|---|---|
+| planned deletions | 5 | 5 |
+| MIXED / UNKNOWN / entangled | 1 / 1 / 1 | 1 / 1 / 1 |
+| pinned canonical events | 3 | 3 |
+| pinned raw events | 2 | 2 |
+| per-collection counts | dm 1, corr 1, raw 1, queue 1, endpoints 1 | identical |
+| retained | policies 1, groups 1, audit 1 | identical |
+
+Two owner actions are required before the production dry run, because the route
+only exists in this workspace:
+
+1. Add the secret **`EDR_MAINTENANCE_TOKEN`** (any long random value) in the
+   deployment's environment settings.
+2. Authorise a **deploy** — code only. Deploying changes no data and runs no
+   reset; it merely ships the route so a dry run becomes possible at all.
+
+After the work completes, remove the secret and redeploy: the route then 404s
+and no destructive path remains.

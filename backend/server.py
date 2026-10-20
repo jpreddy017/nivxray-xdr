@@ -696,6 +696,10 @@ api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
 from routers.edr_onboarding import router as edr_onboarding_router
 api.include_router(edr_onboarding_router)
+# Temporary, token-gated development reset. 404s unless
+# EDR_MAINTENANCE_TOKEN is set in the environment.
+from routers.edr_maintenance import router as edr_maintenance_router
+api.include_router(edr_maintenance_router)
 # GATE 5 · policy authority + GATE 7 exclusions + GATE 11 events explorer
 # + connector productization (Management -> Downloads).
 from routers.edr_policies import (agent as edr_policy_agent,

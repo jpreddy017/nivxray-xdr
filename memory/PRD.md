@@ -7060,3 +7060,42 @@ Package sha256 `586bccbb9db862a51f7cba768076afe3972f29d5153ad7754966947061273142
 No backup exists yet, no dry run has run ⇒ **NO-GO**. Nothing deleted, purged,
 enrolled, minted or restarted.
 
+
+## 2026-10-20 · BACKEND EXECUTION PATH built (port, not redesign) · awaiting deploy auth
+
+Laptop + preview pod are both off the Atlas allowlist; the deployed backend is
+not. So the reset logic now also exists inside the backend:
+
+`POST /api/edr/maintenance/dev-reset` · `backend/routers/edr_maintenance.py`
+(registered in `server.py` next to `edr_onboarding_router`).
+
+Safety model (all verified locally):
+* route **404s unless `EDR_MAINTENANCE_TOKEN` is set** — deleting the env var
+  disables it
+* `X-Maintenance-Token` required ⇒ no token 403, wrong token 403
+* `mode="dry"` default, writes nothing; `mode="execute"` needs
+  `confirm="DELETE-EDR-DEV-DATA"` **and** a non-empty backup reference (owner's
+  waiver string qualifies and is echoed into the response) ⇒ execute without
+  confirm 400
+* S2 abort (foreign-tenant dependent) returns 409 instead of deleting
+
+**Parity measured against the mongosh script on identical fixtures** (tenant
+`ten_parity` seeded into the dev DB, then removed): planned 5 = 5, MIXED 1 = 1,
+UNKNOWN 1 = 1, entangled 1 = 1, pinned cev 3 = 3, pinned raw 2 = 2, identical
+per-collection counts and identical retained counts. Same selectors, same
+leaf→root order, same chunking (50k above 200k).
+
+Local `.env` gained `EDR_MAINTENANCE_TOKEN` (dev value). Production needs the
+secret added by the owner.
+
+### Blocking on the owner (two actions, then the dry run can finally run)
+1. Add secret `EDR_MAINTENANCE_TOKEN` in the deployment environment.
+2. Authorise a **code-only deploy** — it changes no data and runs no reset; it
+   only ships the route. Without it there is no path to the production DB at
+   all.
+After completion: remove the secret and redeploy so no destructive path
+lingers.
+
+Package sha256 `12b2ecca5a17fe6baabf639cce5b5cbc9d15d83c77f67221310bf0c0a0fafff3`.
+Still HOLD. Nothing deleted, purged, enrolled, minted or restarted.
+
