@@ -9,7 +9,9 @@
 //   D4  leave NO broken XDR evidence references: the XDR artefacts DERIVED
 //       from this EDR telemetry are retired in the same pass, and nothing
 //       else is
-//   D5  a real Atlas snapshot id must be recorded below or nothing deletes
+//   D5  a verified restorable BACKUP reference must be recorded below or
+//       nothing deletes. Emergent-managed Atlas offers no user-facing
+//       snapshot, so this is the mongodump artefact + its sha256.
 //
 // THE THREE D4 SAFETY CHECKS
 //   1. tenant-scoped dependent selectors — a dependent is only deleted when
@@ -35,7 +37,11 @@ const TENANT  = "ten_e759b7288598bd882e3dcac49d";
 const RAW     = "edr_raw_events";
 
 const CONFIRM  = "";   // set to "DELETE-EDR-DEV-DATA" to arm            (D5)
-const SNAPSHOT = "";   // real Atlas snapshot id, recorded beforehand    (D5)
+const BACKUP   = "";   // verified backup reference, e.g.                (D5)
+                       // "edr-predelete-20261020.archive.gz sha256:…"
+                       // There is NO user-facing Atlas snapshot on an
+                       // Emergent-managed cluster — this is the mongodump
+                       // archive you took and verified yourself.
 
 const KEEP_CONFIG = true;   // D2
 const KEEP_AUDIT  = true;   // D3
@@ -80,7 +86,7 @@ const t = db.getSiblingDB(DB_NAME);
 const has = (c) => t.getCollectionNames().includes(c);
 const n = (x) => String(x).padStart(10);
 const pad = (s) => String(s).padEnd(42);
-const armed = CONFIRM === "DELETE-EDR-DEV-DATA" && SNAPSHOT.length > 0;
+const armed = CONFIRM === "DELETE-EDR-DEV-DATA" && BACKUP.length > 0;
 
 print(`\n=== NivXForge EDR dev reset · ${armed ? "ARMED" : "DRY RUN"} ===`);
 print(`db ${DB_NAME}   tenant ${TENANT}`);
@@ -325,8 +331,8 @@ print(`\nplanned deletions: ${planned}`);
 
 if (!armed) {
   print("\nDRY RUN — nothing was changed.");
-  print("To execute: record a REAL Atlas snapshot id in SNAPSHOT and set");
-  print('CONFIRM = "DELETE-EDR-DEV-DATA", then re-run.');
+  print("To execute: take and VERIFY a mongodump archive, record it in");
+  print('BACKUP, set CONFIRM = "DELETE-EDR-DEV-DATA", then re-run.');
   quit(0);
 }
 if (!KEEP_CONFIG || !KEEP_AUDIT) {
@@ -340,7 +346,7 @@ if (foreignTenant > 0) {
 }
 
 // ───────────────────────────── execution ─────────────────────────────
-print(`\n=== EXECUTING · snapshot ${SNAPSHOT} ===`);
+print(`\n=== EXECUTING · backup ${BACKUP} ===`);
 let removed = 0;
 function wipe(c, f, label) {
   if (!has(c)) return;

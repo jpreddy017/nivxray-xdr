@@ -16,7 +16,7 @@ read-only; phases 3 and 4 are irreversible.
 | D2 | EDR configuration, groups, policies, tenant settings | **RETAIN** | `KEEP_CONFIG = true` |
 | D3 | Enrolment and policy audit | **RETAIN** | `KEEP_AUDIT = true` |
 | D4 | XDR artefacts built on this telemetry | **No broken references.** Retire the dependent *obsolete development* evidence in the same pass; preserve unrelated XDR | `CASCADE_XDR = true` + the MIXED guard below |
-| D5 | Snapshot | **Real Atlas snapshot id recorded first** | `SNAPSHOT` must be non-empty or the script refuses |
+| D5 | Backup | **Verified restorable backup recorded first.** There is no user-facing Atlas snapshot on an Emergent-managed cluster — see `BACKUP_AND_ACCESS.md` | `BACKUP` must be non-empty or the script refuses |
 
 Priority stated by the owner: eliminate unnecessary test-data storage and
 processing cost first, then fresh Windows enrolment and live ingestion.
@@ -244,9 +244,12 @@ either hash not matching. Restore with
 
 ## PHASE 2 · backups (read-only, both sides)
 
-1. **Atlas snapshot** of the serving cluster — Atlas console → cluster →
-   Backup. Record the snapshot id and timestamp; the script refuses to arm
-   without the id. This is the only rollback for phase 4.
+1. **Database backup — `mongodump`, not an Atlas snapshot.** The cluster is
+   Emergent-managed, so no snapshot id exists for you to quote; the supported
+   mechanism is a dump you take and verify. Full commands, verification and the
+   restore path are in **`BACKUP_AND_ACCESS.md`**. Record the archive filename
+   and sha256 in `BACKUP`; the script refuses to arm without it. This archive
+   is the only rollback — platform rollback reverts code, never data.
 2. Keep `C:\NivXForge-Recovery-Backup` as it is. Do not overwrite it.
 3. Export the endpoint document before it is deleted (console or
    `GET /api/edr/onboarding/computers/ep_1989031c8c1d0085812f`), so the
@@ -303,7 +306,7 @@ mongosh "<MONGO_URL>" --file edr_dev_reset.mongosh.js        # DRY RUN first
 ```
 
 The dry run prints the full plan and exits without writing. Review it against
-D1-D4, then set `SNAPSHOT` to the phase-2 snapshot id and
+D1-D4, then set `BACKUP` to the phase-2 archive + hash and
 `CONFIRM = "DELETE-EDR-DEV-DATA"` and re-run.
 
 Deletion order is **leaf → root**, so an interrupted run leaves a smaller
@@ -415,8 +418,8 @@ acknowledged; `legacy_outbox_remaining` stays 0 (purged).
 
 ## ACCEPTANCE
 
-All of: phase 1 passed twice (including after a reboot) · snapshot id
-recorded · impact report reviewed and `DEPENDENTS` confirmed against it ·
+All of: phase 1 passed twice (including after a reboot) · verified backup
+archive recorded · impact report reviewed and `DEPENDENTS` confirmed against it ·
 local state directory gone and recreated clean · armed run's verification
 reading 0 with **0 dangling dependents** and non-zero retained config/audit ·
 `endpoint_id` unchanged · `event_count` rising from 0 · raw events attributed
@@ -429,13 +432,13 @@ still loads its own pages after the reset.
 |---|---|---|
 | S1 | Phase 1 fails at any point, including the post-reboot run | Do not reset, do not enrol. Restore WMIC first |
 | S2 | The impact report shows MIXED incidents, or dependents in collections not in `DEPENDENTS` | Stop. Extend the list or exclude the incident deliberately; nothing has been written |
-| S3 | Armed run's verification does not read 0, or dangling dependents are non-zero | Stop. Do not enrol into a half-cleared store; restore the snapshot |
+| S3 | Armed run's verification does not read 0, or dangling dependents are non-zero | Stop. Do not enrol into a half-cleared store; restore the archive |
 | S4 | Enrolment prints a different `endpoint_id` | Stop the service. The identity source changed between phase 1 and phase 5 — re-run phase 1 and report before any further enrolment |
 | S5 | Rejections appear in phase 6 | Stop the service to end the loop; report the rejection codes. Do not mint another token |
-| S6 | XDR pages break after the reset (not merely empty) | Restore the snapshot. Empty is expected; broken is a defect worth a fix, not a workaround |
+| S6 | XDR pages break after the reset (not merely empty) | Restore the archive. Empty is expected; broken is a defect worth a fix, not a workaround |
 
 Irreversibility: phases 3 and 4 cannot be undone from inside the application.
-The phase-2 snapshot is the only rollback, and `--purge` is the only command in
+The phase-2 archive is the only rollback, and `--purge` is the only command in
 this document that deletes local evidence.
 
 ## WHAT COULD NOT BE OBTAINED FROM HERE
@@ -448,6 +451,14 @@ this document that deletes local evidence.
   Remaining gap: **`collStats` / `dbStats` are not exposed to that tooling**,
   so byte sizes are unavailable from here — document counts stand in for them.
   The dry run prints the byte figures when it is run with database access.
-* **The snapshot id (D5).** No tool here can see Atlas backup state and an id
-  must never be inferred. Take the snapshot in the Atlas console and paste the
-  real id into `SNAPSHOT`; the script refuses to arm without it.
+* **The backup (D5) — reshaped after checking the hosting.** The database is
+  Atlas, but the Atlas project is **Emergent-managed**, so there is no console,
+  no Backup tab and no snapshot id you could ever have given me. The deployer
+  tooling independently reports **no backup, snapshot, restore or PITR
+  capability** of any kind, and that `MONGO_URL` is a platform-managed system
+  key **regenerated on every deploy** — so copy it fresh, and re-copy it if a
+  deploy happens mid-work. The supported substitute is a verified `mongodump`
+  archive: see `BACKUP_AND_ACCESS.md`.
+* **The production dry run.** No route from this pod or from the deployment
+  tooling executes a script; the owner runs it with external `mongosh` using
+  the connection string from Manage Publishes → Database.

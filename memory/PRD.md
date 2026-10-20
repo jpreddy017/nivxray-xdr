@@ -6946,3 +6946,48 @@ sha256 `beb542d456416acc315cf856c099cceee3d8f72c5656ee098702b0e1f0dd5b35`
    `mongosh --file edr_dev_reset.mongosh.js` (dry by default) in the DB manager
    or Atlas shell and returns the output for confirmation before arming.
 
+
+## 2026-10-20 (later) · HOSTING + BACKUP CHECK · D5 reshaped, HOLD stands
+
+**The Atlas snapshot id never existed to be given.** Checked rather than
+assumed:
+
+* Platform KB: production Mongo for a deployed Emergent app **is Atlas, but the
+  project/cluster is Emergent-managed**, shared by default. No automated
+  snapshot, no PITR, no user-facing restore. Connection string via
+  **Manage Publishes → Database**; Database Manager at `mongoview.emergent.host`
+  (its edit mode applies immediately, no undo). Export links live 4 days.
+  Managed restores go through `support@emergent.sh`. Platform rollback reverts
+  code/container only — never data.
+* Deployer (read-only, this deployment): `MONGO_URL` is a **platform-managed
+  system key regenerated on every deploy**; its value is never returned to
+  tooling, so scheme/host suffix are UNVERIFIED from that side rather than
+  confirmed. **No backup/snapshot/restore/PITR capability** visible or
+  operable; shared-vs-dedicated topology not exposed.
+
+### Consequences implemented
+* `edr_dev_reset.mongosh.js`: `SNAPSHOT` → **`BACKUP`**, now expecting a
+  verified `mongodump` archive + sha256. Still refuses to arm while empty.
+* New `BACKUP_AND_ACCESS.md`: where the DB lives, the two backup routes
+  (Database Manager "Dump DB"/"Export all", or scoped `mongodump --nsInclude`
+  over `edr_*` + `xdr_canonical_evidence` + `v2_shadow_observations`),
+  mandatory verification (`ls -l`, `sha256sum`, `mongorestore --dryRun`, and
+  the per-collection `done dumping` counts cross-checked against 1,877,149 /
+  1,718,750), the exact restore command (no `--drop`), how to run the dry run
+  via external `mongosh`, the IP-allowlist caveat
+  (`https://app.emergent.sh/ip-addresses`), and the note to re-copy
+  `MONGO_URL` after any deploy.
+* `DEV_RESET_AND_FRESH_ENROLMENT.md`: D5 row, phase 2, acceptance and stop
+  conditions S3/S6 now reference the verified archive instead of a snapshot.
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `bb27eecd344a45170cc3ca40209b4c46fe4e47fc69b19faa449ed01142d2b584`
+(16 files + SHA256SUMS, download verified HTTP 200, hash matched).
+
+### Prerequisites outstanding (owner-side, both unblocked now)
+1. Take + verify the `mongodump` archive; send filename, sha256 and the
+   `done dumping` counts.
+2. Run the dry run with external `mongosh` and send the output.
+Execution stays on HOLD until both land. Nothing deleted, purged, enrolled,
+minted or restarted.
+
