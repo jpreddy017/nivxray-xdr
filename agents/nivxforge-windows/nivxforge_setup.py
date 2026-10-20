@@ -583,6 +583,42 @@ def _service_log(message: str) -> None:
         pass                                    # logging must never kill it
 
 
+#: Bounded drain-mode policy. Kept module-level and pure so it is testable
+#: without a Windows service, an SCM or a sensor.
+DRAIN_MIN_BACKLOG = 500        # below this the normal cadence is fine
+DRAIN_MAX_CONSECUTIVE = 20     # then take a full interval regardless
+DRAIN_WAIT_SECONDS = 5         # floor between back-to-back drain cycles
+
+
+def _drain_wait(report, interval: int, drain_cycles: int) -> tuple[float, int]:
+    """Return (seconds to wait, next drain counter).
+
+    Drain mode engages ONLY when all of these hold:
+      · the cycle reported a real backlog above `DRAIN_MIN_BACKLOG`;
+      · the backend was reachable;
+      · delivery actually accepted something this cycle (proven progress);
+      · fewer than `DRAIN_MAX_CONSECUTIVE` drain cycles have run back to
+        back, after which one full interval is always taken.
+    Anything else returns the normal cadence, so a stuck queue, an
+    unreachable backend or an empty journal can never spin the CPU or
+    hammer the platform.
+    """
+    normal = float(max(5, interval))
+    if not isinstance(report, dict):
+        return normal, 0
+    backlog = int(report.get("delivery_backlog") or 0)
+    sent = int(report.get("sent") or 0)
+    if report.get("backend_unreachable"):
+        return normal, 0
+    if backlog < DRAIN_MIN_BACKLOG or sent <= 0:
+        return normal, 0
+    if drain_cycles + 1 >= DRAIN_MAX_CONSECUTIVE:
+        # Deliberate breather: hand the endpoint and the backend a full
+        # interval before resuming, even if the backlog persists.
+        return normal, 0
+    return float(DRAIN_WAIT_SECONDS), drain_cycles + 1
+
+
 def _service_class(api: str, interval: int):
     """Built lazily so the CLI works on a host without pywin32.
 
@@ -650,11 +686,23 @@ def _service_class(api: str, interval: int):
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
         def SvcDoRun(self):                      # noqa: N802
+            # ── bounded drain mode ────────────────────────────────────
+            # Normally the service waits a full interval between cycles.
+            # While a backlog exists that wait is dead time the endpoint
+            # cannot afford, so consecutive cycles may follow quickly —
+            # but only while delivery is PROVING progress, only for a
+            # bounded number of cycles, and never against an unreachable
+            # backend. Everything else falls back to the normal cadence,
+            # so this can never become a hot loop or a backend hammer.
+            drain_cycles = 0
             while True:
+                wait_seconds = max(5, self.interval)
                 try:
                     # ONE cycle per iteration so a stop request is honoured
                     # promptly; the sensor owns collection and delivery.
-                    sensor.run(self.api, self.interval, once=True)
+                    report = sensor.run(self.api, self.interval, once=True)
+                    wait_seconds, drain_cycles = _drain_wait(
+                        report, self.interval, drain_cycles)
                 except (Exception, SystemExit) as ex:   # noqa: BLE001
                     # A cycle failure (not enrolled yet, backend
                     # unreachable, a channel unreadable) must NOT stop the
@@ -666,9 +714,11 @@ def _service_class(api: str, interval: int):
                     _service_log(f"cycle failed — retrying: {detail}")
                     _event_log("error",
                                f"{SERVICE_NAME} cycle failed: {detail}")
+                    drain_cycles = 0
+                    wait_seconds = max(5, self.interval)
                 if win32event.WaitForSingleObject(
                         self.stop_event,
-                        max(5, self.interval) * 1000) == win32event.WAIT_OBJECT_0:
+                        int(wait_seconds * 1000)) == win32event.WAIT_OBJECT_0:
                     _service_log("stop event signalled — leaving run loop")
                     break
 
