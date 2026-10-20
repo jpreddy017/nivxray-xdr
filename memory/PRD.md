@@ -7026,3 +7026,37 @@ sha256 `61ee701cd083ee5fe2bb70add45da9a3d856225c2c435205c180078dcb3b5fc2`
 
 Still on HOLD. Nothing deleted, purged, enrolled, minted or restarted.
 
+
+## 2026-10-20 · Connection attempt BLOCKED by Atlas allowlist · still HOLD
+
+Owner supplied the live `mongodb+srv://` string from Manage Publishes →
+Database. Attempt from this pod failed:
+`MongoServerSelectionError: Server selection timed out after 30000 ms … ensure
+that your Network Access List allows connections from your IP.`
+
+Diagnosed, not guessed:
+* SRV resolves — `_mongodb._tcp.customer-apps.1fntml.mongodb.net` returns all
+  three shard hosts on 27017 ⇒ not DNS, not a malformed URI.
+* TCP 27017 times out to shard-00-00 and -00-01 (`TimeoutError`) ⇒ dropped
+  packets = IP allowlist, not refusal or bad credentials.
+* **This pod's egress IP: `35.193.209.116`** — not on the cluster's Network
+  Access List. The preview pod is a different network from the deployed app,
+  which is why the app connects and this pod cannot.
+* Credentials were never transmitted (no server reached), so their validity is
+  untested either way.
+
+**Secret hygiene:** string stored `0600`, used once, securely deleted. A second
+exposure was found and removed — the Linux dev sensor's `outbox.jsonl` had
+captured the `mongosh` command line *including the password* via process
+telemetry; that record is scrubbed (match count now 0). The credential should
+be treated as exposed in chat and rotated; it also rotates on the next deploy.
+
+Path forward (owner's choice, per his instruction not to wait on support):
+Route B — run the four commands from his own machine; or have support add
+`35.193.209.116` to the allowlist and I run `edr_backup_and_dryrun.sh` here.
+
+Package sha256 `586bccbb9db862a51f7cba768076afe3972f29d5153ad7754966947061273142`
+(17 files + SHA256SUMS; `BACKUP_AND_ACCESS.md` §6 records this failure).
+No backup exists yet, no dry run has run ⇒ **NO-GO**. Nothing deleted, purged,
+enrolled, minted or restarted.
+

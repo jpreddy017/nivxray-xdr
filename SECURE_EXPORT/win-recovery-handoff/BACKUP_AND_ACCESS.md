@@ -188,3 +188,39 @@ full dry-run output. I reconcile it against 4,224,353 and return GO/NO-GO.
 
 Nothing in either route deletes, purges, enrols or restarts anything. The last
 command is dry by default — it prints the plan and exits without writing.
+
+## 6 · Connection attempt from this pod · BLOCKED by the Atlas allowlist
+
+Attempted 2026-10-20 with the connection string from Manage Publishes →
+Database. Exact failure:
+
+```
+MongoServerSelectionError: Server selection timed out after 30000 ms.
+It looks like this is a MongoDB Atlas cluster. Please ensure that your
+Network Access List allows connections from your IP.
+```
+
+Diagnosed rather than guessed:
+
+* **DNS/SRV resolves correctly** — `_mongodb._tcp.customer-apps.1fntml.mongodb.net`
+  returns all three shard hosts on 27017. So this is not DNS and not a
+  malformed URI.
+* **TCP 27017 times out** to `customer-apps-shard-00-00` and `-00-01`
+  (`TimeoutError: timed out`), which is a silently dropped packet — the
+  signature of an IP allowlist, not of a refused connection or bad credentials.
+* **This pod's egress IP is `35.193.209.116`.** It is not on the cluster's
+  Network Access List.
+* The credentials were never transmitted, because no server was ever reached,
+  so nothing about their validity was tested either way.
+
+Two ways forward: run the four commands from your own machine (section 5,
+Route B), or have Emergent support add `35.193.209.116` to the Network Access
+List and I run it here. The preview pod is a different network from the
+deployed app, which is why the app itself connects fine while this pod cannot.
+
+**Secret hygiene:** the string was written to a `0600` file, used once, and
+securely deleted. One further exposure was found and removed: the Linux dev
+sensor's local `outbox.jsonl` had captured the `mongosh` command line verbatim,
+including the password, via process telemetry. That line is scrubbed
+(`grep -c` now returns 0). Treat the string as exposed in chat regardless and
+rotate it — it is regenerated on the next deploy in any case.
