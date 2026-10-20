@@ -11,6 +11,9 @@ React + FastAPI + MongoDB EDR/XDR platform: endpoint telemetry ingestion, canoni
 - `ProcessTreeTab.jsx` is the primary surface with a mode switch: "Evidence graph" (endpoint pivot, read-only `/api/edr/process-tree`) and the pre-existing IKG ancestry list (preserved untouched). `ProcessTreeView.jsx` / `ProcessTreeMini.jsx` unchanged.
 - Deterministic fixtures `backend/tests/edr/test_task1_process_graph_fixtures.py` (5 tests): confirmed lineage, missing parent → ghost/unknown (never invented), PID reuse → separate identities, incomplete telemetry, empty window. `20 passed` with existing `tests/test_process_tree.py`.
 
+### Correction (June 2026) — the EDR console is the real surface
+The served preview frontend is `/app/apps/nivxray-xdr` (supervisor `directory=`), NOT `/app/frontend`. The NivXForge EDR Process Tree lives at route `/edr/process-tree` → `src/nivxforge/pages/EdrProcessTreePage.jsx`. The graph renderer was therefore ported to `src/nivxforge/components/ProcessGraphCanvas.jsx` (no Tailwind in that app — inline styles) and wired behind a Graph / Lineage-list view switch; the pre-existing list rows are untouched. Local seed: `backend/scripts/seed_task1_graph_demo.py` (device `dev_e3graph01`, host E3-GRAPH-LAB, tenant default). Verified in browser at `/edr/process-tree?endpoint_id=dev_e3graph01&hours=24`. Commit `3a3258f8`.
+
 ### Known gap (reported, not fixed)
 - Local dev DB cannot render the graph end-to-end: `v2_shadow_observations` process events carry no tenant/collector linkage to `edr_endpoints`, so every endpoint pivot returns `ENDPOINT_NOT_RESOLVED`. UI screenshots therefore not captured locally; needs a resolvable seeded endpoint or live sensor telemetry.
 
