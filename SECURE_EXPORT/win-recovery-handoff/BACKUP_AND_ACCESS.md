@@ -46,33 +46,41 @@ button**. The supported, verifiable backup is a dump you take and keep:
 database, or **"Export all"** per collection. Download links are valid for
 **4 days**, so download immediately and keep the file somewhere durable.
 
-**Option B — `mongodump` (preferred: scoped, hashable, restorable)**
+**Option B — `mongodump` (preferred: hashable, restore-tested)**
 
 ```bash
 MONGO_URL='<paste from Manage Publishes → Database>'
 DB=greeting-app-5782-test_database
 
-mongodump --uri="$MONGO_URL" --gzip \
-  --archive=edr-predelete-$(date +%Y%m%d).archive.gz \
-  --nsInclude="$DB.edr_*" \
-  --nsInclude="$DB.xdr_canonical_evidence" \
-  --nsInclude="$DB.v2_shadow_observations"
+mongodump --uri="$MONGO_URL" --db="$DB" --gzip \
+  --archive=edr-predelete-$(date +%Y%m%d).archive.gz
 ```
 
-That covers every collection this cleanup touches, including the retained
-configuration and audit, and excludes the rest of the database.
+**Note: `mongodump` has no `--nsInclude`** — that option belongs to
+`mongorestore`. An earlier draft of this document used it and the command
+failed with `unknown option 'nsInclude'`; it was fixed by running it, not by
+reading about it. The dump is therefore whole-database, which is the stronger
+backup anyway: every collection this cleanup touches, plus everything it does
+not.
 
 **Verify it before trusting it** — an unverified dump is not a backup:
 
 ```bash
-ls -l edr-predelete-*.archive.gz
+ls -l  edr-predelete-*.archive.gz
 sha256sum edr-predelete-*.archive.gz
-mongorestore --archive=edr-predelete-*.archive.gz --gzip --dryRun -v | tail -20
+mongorestore --uri="$MONGO_URL" --gzip --archive=edr-predelete-*.archive.gz \
+  --dryRun --nsInclude="$DB.*"
 ```
 
-`mongodump` prints `done dumping <ns> (N documents)` per collection — check
-`edr_raw_events` reads **1,877,149** and `edr_processing_queue` **1,718,750**
-against the inventory before you rely on the file.
+The dry run must end with `dry run completed`. `mongodump` also prints
+`done dumping <ns> (N documents)` per collection — check `edr_raw_events` reads
+**1,877,149** and `edr_processing_queue` **1,718,750** against the inventory
+before you rely on the file.
+
+Rehearsed end to end against a database with the same schema: 361,757 raw
+events dumped to a 235 MB gzip archive, sha256 computed, `mongorestore
+--dryRun` reported `dry run completed` with 0 failures. Expect roughly
+**1.5-3 GB** for production's 1.88M raw events plus the 1.7M queue.
 
 Then record the filename and hash in the script:
 
@@ -94,11 +102,26 @@ mongorestore --uri="$MONGO_URL" --gzip \
   --nsInclude="$DB.v2_shadow_observations"
 ```
 
-No `--drop`: the documents were deleted, so they restore into the existing
-collections and the indexes stay as they are. Platform **rollback reverts code
-and container only — never database state**, so this archive is the only
-rollback that exists. For a cluster-level problem the route is
+Here `--nsInclude` *is* valid, and it keeps the restore to the collections the
+cleanup touched. No `--drop`: the documents were deleted, so they restore into
+the existing collections and the indexes stay as they are. Platform **rollback
+reverts code and container only — never database state**, so this archive is
+the only rollback that exists. For a cluster-level problem the route is
 `support@emergent.sh`; they perform any managed restore, not you.
+
+## 2a · One command for all of it
+
+`edr_backup_and_dryrun.sh` in this package does steps 1-5 in order: ping, dump,
+size + sha256, `mongorestore --dryRun`, the per-collection counts, then the
+reset script in its default dry-run mode. It contains no delete and never arms
+anything.
+
+```bash
+MONGO_URL='<paste>' ./edr_backup_and_dryrun.sh
+```
+
+It stops with a distinct message if the connection fails, so a network block is
+never mistaken for a credential problem.
 
 ## 3 · How to run the read-only dry run
 
@@ -135,14 +158,33 @@ the armed script and it continues.
 
 ## 5 · Exact steps needed from you
 
-1. `Manage Publishes → Database` → copy the production `MONGO_URL`.
-2. Take the dump (Option B above), then verify size, sha256, `--dryRun` and the
-   per-collection document counts.
-3. Send me the archive filename + sha256, and the `done dumping` lines for
-   `edr_raw_events` and `edr_processing_queue`.
-4. Run `mongosh "$MONGO_URL" --file edr_dev_reset.mongosh.js` and send me the
-   dry-run output. It writes nothing.
-5. I confirm the dry run matches the approved scope, hand you the armed file,
-   and we proceed through purge → reset → enrolment → telemetry acceptance.
+This pod already has `mongodump`, `mongorestore` and `mongosh` installed and
+64 GB free, and the whole sequence is rehearsed. **The only thing missing is
+the connection string:** the deployment tooling never returns secret values,
+and `MONGO_URL` is not present anywhere in this pod — only the local preview
+database is. So either:
 
-Nothing in steps 1-4 deletes, purges, enrols or restarts anything.
+**Route A — you paste `MONGO_URL` to me.** I run `edr_backup_and_dryrun.sh`,
+publish the archive at `/api/transfer/edr-predelete?token=…`, and hold until
+you confirm you have downloaded it. The string is a credential, it will appear
+in the chat, and it rotates on the next deploy regardless.
+
+**Route B — you run it.** Four commands on your own machine:
+
+```bash
+MONGO_URL='<paste from Manage Publishes → Database>'
+DB=greeting-app-5782-test_database
+
+mongodump --uri="$MONGO_URL" --db="$DB" --gzip --archive=edr-predelete.archive.gz
+sha256sum edr-predelete.archive.gz && ls -l edr-predelete.archive.gz
+mongorestore --uri="$MONGO_URL" --gzip --archive=edr-predelete.archive.gz \
+  --dryRun --nsInclude="$DB.*"
+mongosh "$MONGO_URL" --file edr_dev_reset.mongosh.js
+```
+
+Send me: the sha256 and size, the `dry run completed` line, the
+`done dumping` counts for `edr_raw_events` and `edr_processing_queue`, and the
+full dry-run output. I reconcile it against 4,224,353 and return GO/NO-GO.
+
+Nothing in either route deletes, purges, enrols or restarts anything. The last
+command is dry by default — it prints the plan and exits without writing.

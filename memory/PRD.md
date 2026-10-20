@@ -6991,3 +6991,38 @@ sha256 `bb27eecd344a45170cc3ca40209b4c46fe4e47fc69b19faa449ed01142d2b584`
 Execution stays on HOLD until both land. Nothing deleted, purged, enrolled,
 minted or restarted.
 
+
+## 2026-10-20 · BACKUP + DRY RUN authorised · blocked only on MONGO_URL
+
+Owner authorised backup + read-only validation (no deletion/purge/enrolment).
+
+**Capability check:** this pod HAS `mongodump` 100.19.1, `mongorestore`,
+`mongosh` 2.13.0 and 64 GB free on the overlay (`/app` has only 1.3 GB, so all
+artefacts go to `/tmp`). **What it does not have is the production connection
+string** — the deployer tooling never returns secret values, and a filesystem
+search found no `mongodb+srv` string anywhere outside pymongo's own library
+files. So I cannot "use the authorized deployment connection": the owner must
+paste `MONGO_URL` (Manage Publishes → Database) or run the commands himself.
+
+**Built and rehearsed end to end against the local database:**
+* `edr_backup_and_dryrun.sh` — ping → dump → size+sha256 →
+  `mongorestore --dryRun` → per-collection counts → reset script in dry-run
+  mode. No delete verb; never arms.
+* **Real-execution finding:** `mongodump` (100.19.1) has **no `--nsInclude`** —
+  the first run failed with `unknown option 'nsInclude'`. That option belongs
+  to `mongorestore`. The dump is now whole-database, which is the stronger
+  backup; `--nsInclude` is kept only on the restore side. The earlier
+  BACKUP_AND_ACCESS.md draft carried the wrong command and has been corrected.
+* Rehearsal result: 361,757 raw events → 235 MB gzip archive, sha256 computed,
+  `mongorestore --dryRun` ⇒ `dry run completed`, 0 failures. Production's 1.88M
+  raw + 1.7M queue should land ≈1.5-3 GB.
+* Download route added for the archive: `GET /api/transfer/edr-predelete?token=…`
+  → `/tmp/edr-predelete.archive.gz` (currently 404, nothing created yet).
+  `transfer_bundle.py` gained exactly one dict entry.
+
+Package `win-recovery-handoff-package.tar.gz`
+sha256 `61ee701cd083ee5fe2bb70add45da9a3d856225c2c435205c180078dcb3b5fc2`
+(17 files + SHA256SUMS, download verified HTTP 200, hash matched).
+
+Still on HOLD. Nothing deleted, purged, enrolled, minted or restarted.
+
