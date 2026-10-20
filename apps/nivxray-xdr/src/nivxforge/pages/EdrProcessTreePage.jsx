@@ -143,7 +143,9 @@ export default function EdrProcessTreePage() {
 
   return (
     <NivXForgeConsole activeTab="process-tree">
-      <h1 className="page-h1" data-testid="edr-processtree-heading">Process Tree</h1>
+      {view === "list" && (
+      <h1 className="page-h1" data-testid="edr-processtree-heading">Process Tree</h1>)}
+      {view === "list" && (
       <div className="page-sub">
         {endpointId
           ? "Real ancestry from NivXRay EDR sensor evidence. Links are "
@@ -152,9 +154,9 @@ export default function EdrProcessTreePage() {
             + "absent process."
           : "Reuses the canonical Activity Inventory (parent → child "
             + "process relationships). No parallel correlation engine."}
-      </div>
+      </div>)}
 
-      {endpointId && (
+      {endpointId && view === "list" && (
         <>
           <TelemetryFreshnessBanner endpoint={endpointId} />
           <WindowControl hours={hours} onChange={setHours}
@@ -190,7 +192,7 @@ export default function EdrProcessTreePage() {
       {pivot && !loading && !error && tree
         && tree.reason === "ok" && (
         <>
-          {tree.counts && (
+          {view === "list" && tree.counts && (
             <div style={{ marginBottom: 8, fontSize: 10.5,
                           color: "var(--faint)" }}
                  data-testid="edr-processtree-counts">
@@ -203,14 +205,15 @@ export default function EdrProcessTreePage() {
                   observed — a visibility gap, not an absent process)
                 </span>)}
             </div>)}
+          {view === "list" && (
           <div style={{
             marginBottom: 10, fontSize: 10.5, letterSpacing: ".3px",
             color: "var(--faint)", textTransform: "uppercase", fontWeight: 800,
           }}>
             SSOT · <span style={{ color: "var(--cyan)" }}>{tree.source}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6,
-                        marginBottom: 10 }}
+          </div>)}
+          <div style={{ display: view === "list" ? "flex" : "none",
+                        alignItems: "center", gap: 6, marginBottom: 10 }}
                data-testid="edr-processtree-view-switch">
             <span style={{ fontSize: 10, letterSpacing: ".3px", fontWeight: 800,
                            textTransform: "uppercase", color: "var(--faint)" }}>
@@ -229,7 +232,13 @@ export default function EdrProcessTreePage() {
           </div>
           {view === "graph" ? (
             <ProcessGraphCanvas nodes={tree.nodes || []} roots={tree.roots || []}
-                                meta={{ window_hours: tree.window_hours }} />
+                                endpointId={endpointId}
+                                hostname={tree.identity?.hostname || null}
+                                onShowList={() => setView("list")}
+                                hours={hours} onHours={setHours}
+                                counts={tree.counts}
+                                meta={{ window_hours: tree.window_hours,
+                                        source: tree.source }} />
           ) : (
             <div className="panel" style={{ padding: "12px 8px" }}
                  data-testid="edr-processtree-panel">
