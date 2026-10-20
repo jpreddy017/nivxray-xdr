@@ -59,6 +59,12 @@ FAULT_FILENAME = "journal_fault.json"
 ACQUIRED = "ACQUIRED"              # durable, not yet offered to transport
 QUEUED = "QUEUED"                  # selected for a delivery attempt
 BACKEND_ACCEPTED = "BACKEND_ACCEPTED"   # platform returned an accept
+# The platform rejected THIS event explicitly and repeatedly. The row is
+# retained and reported; it is simply no longer offered to transport, so a
+# single unacceptable event cannot hold the whole queue behind it. Reclaim
+# never touches this state, so quarantined evidence survives until a human
+# decides otherwise.
+REFUSED_UNACCEPTABLE = "REFUSED_UNACCEPTABLE"
 #: Reclamation is a DELETE of BACKEND_ACCEPTED rows. There is deliberately
 #: no RECLAIMABLE row state: a state that means "safe to delete" invites a
 #: future reader to delete something merely because it was sent.
@@ -74,6 +80,7 @@ JOURNAL_PRESSURE = "JOURNAL_PRESSURE"
 JOURNAL_CRITICAL = "JOURNAL_CRITICAL"
 JOURNAL_CORRUPT = "JOURNAL_CORRUPT"
 DELIVERY_BACKLOG = "DELIVERY_BACKLOG"
+DELIVERY_QUARANTINE = "DELIVERY_QUARANTINE"
 BACKEND_UNREACHABLE = "BACKEND_UNREACHABLE"
 CHANNEL_UNAVAILABLE = "CHANNEL_UNAVAILABLE"
 #: Emitted ONLY when the oldest record surviving in the source channel is
@@ -167,6 +174,10 @@ def limits() -> dict:
     """Bounded-capacity policy. No finite journal can promise infinity, so
     the thresholds are explicit and configurable rather than implied."""
     return {
+        # A refusal is only permanent after this many EXPLICIT, event-
+        # specific rejections of the same row.
+        "max_delivery_attempts": max(
+            1, _int_env("NIVX_SENSOR_MAX_DELIVERY_ATTEMPTS", 5)),
         "max_bytes": _int_env("NIVX_SENSOR_JOURNAL_MAX_BYTES",
                               512 * 1024 * 1024),
         "warn_pct": min(99, _int_env("NIVX_SENSOR_JOURNAL_WARN_PCT", 70)),
@@ -411,6 +422,23 @@ class Journal:
             " last_error=NULL WHERE journal_sequence=?",
             [(BACKEND_ACCEPTED, now, now, int(s)) for s in sequences])
 
+    def quarantine(self, sequence: int, error: str) -> None:
+        """Terminal, RETAINED, reported. Never called for a transport or
+        auth failure — only for an explicit per-event rejection that has
+        already been retried `max_delivery_attempts` times."""
+        now = _now()
+        self._db.execute(
+            "UPDATE evidence SET state=?, attempts=attempts+1,"
+            " last_error=?, updated_at=? WHERE journal_sequence=?",
+            (REFUSED_UNACCEPTABLE, str(error)[:300], now, int(sequence)))
+        self.bump("delivery_quarantined")
+
+    def quarantined(self) -> int:
+        row = self._db.execute(
+            "SELECT COUNT(*) AS n FROM evidence WHERE state=?",
+            (REFUSED_UNACCEPTABLE,)).fetchone()
+        return int(row["n"])
+
     def mark_attempt_failed(self, sequence: int, error: str) -> None:
         now = _now()
         self._db.execute(
@@ -646,6 +674,9 @@ class Journal:
             states.append(BACKEND_UNREACHABLE)
         if depth:
             states.append(DELIVERY_BACKLOG)
+        quarantined = self.quarantined()
+        if quarantined:
+            states.append(DELIVERY_QUARANTINE)
         if self.gap_count():
             states.append(ACQUISITION_GAP)
         if caught_up and not all(caught_up.values()):
@@ -668,6 +699,7 @@ class Journal:
             "cursors": self.cursors(),
             "evidence_by_state": self.counts_by_state(),
             "delivery_queue_depth": depth,
+            "delivery_quarantined": quarantined,
             "acquisition_gap_count": self.gap_count(),
             "last_acquisition_gap": self.last_gap(),
             "acquisition_lag_records": lag,

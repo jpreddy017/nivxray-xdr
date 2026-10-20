@@ -1001,7 +1001,33 @@ def _drain(api: str, ident: dict, session: dict, interval: int | None = None,
 #: Set once if the backend does not offer the batch route, so an upgraded
 #: sensor talking to an older backend degrades to the single-event path
 #: instead of failing. There is no third path.
-BATCH_SUPPORT = {"available": True, "reason": None}
+BATCH_SUPPORT = {"available": True, "reason": None, "retry_at": None}
+
+
+def batch_reprobe_seconds() -> float:
+    """How long a 404/405 suppresses batching before it is re-probed.
+
+    The previous behaviour latched batching off for the entire service
+    lifetime, so one transient 404 during a backend deploy permanently
+    demoted the endpoint to one request per event until a human restarted
+    the service. Suppression must expire."""
+    return float(max(30, _i_env("NIVX_SENSOR_BATCH_REPROBE_SECONDS", 900)))
+
+
+def batch_available() -> bool:
+    if BATCH_SUPPORT["available"]:
+        return True
+    retry_at = BATCH_SUPPORT.get("retry_at")
+    if retry_at is not None and time.monotonic() >= retry_at:
+        BATCH_SUPPORT.update(available=True, reason=None, retry_at=None)
+        print("[journal] re-probing batch delivery after cool-down")
+        return True
+    return False
+
+
+def batch_unavailable(reason: str) -> None:
+    BATCH_SUPPORT.update(available=False, reason=reason,
+                         retry_at=time.monotonic() + batch_reprobe_seconds())
 
 
 def _deliver_batch(api: str, ident: dict, session: dict, journal,
@@ -1022,25 +1048,42 @@ def _deliver_batch(api: str, ident: dict, session: dict, journal,
     out = _post(api, "/api/edr/agent/telemetry/batch", body,
                 bearer=session["token"])
     accepted, refused = [], []
+    limit = nvx_journal.limits()["max_delivery_attempts"]
     for result in out.get("results") or []:
         index = result.get("index")
         if not isinstance(index, int) or not 0 <= index < len(rows):
             continue
-        sequence = int(rows[index]["journal_sequence"])
+        row = rows[index]
+        sequence = int(row["journal_sequence"])
         if result.get("accepted"):
             accepted.append(sequence)
-        else:
-            refused.append((sequence, str(result.get("detail")
-                                          or result.get("error"))[:200]))
+            continue
+        # An EXPLICIT, event-specific rejection: the platform named this
+        # index and refused it. Only such a refusal can ever become
+        # permanent — a transport error never reaches here.
+        detail = str(result.get("detail") or result.get("error"))[:200]
+        attempts = int(row["attempts"] if "attempts" in row.keys() else 0) + 1
+        refused.append((sequence, detail, attempts >= limit))
     if accepted:
         journal.mark_accepted(accepted)
         journal.bump("backend_accepted", len(accepted))
         COUNTERS.bump("sensor_sent", len(accepted))
-    for sequence, detail in refused:
-        journal.mark_attempt_failed(sequence, detail)
+    quarantined = 0
+    for sequence, detail, permanent in refused:
+        if permanent:
+            # Retained and reported, never deleted — it simply stops
+            # blocking every newer event behind it.
+            journal.quarantine(sequence, detail)
+            quarantined += 1
+            print(f"[journal] sequence {sequence} quarantined after "
+                  f"{limit} explicit rejections: {detail[:120]}")
+        else:
+            journal.mark_attempt_failed(sequence, detail)
         journal.bump("delivery_failures")
         COUNTERS.bump("sensor_failed")
-    return {"sent": len(accepted), "failed": len(refused)}
+    return {"sent": len(accepted), "failed": len(refused),
+            "quarantined": quarantined,
+            "refused_sequences": [seq for seq, _d, _p in refused]}
 
 
 def _drain_journal(api: str, ident: dict, session: dict, journal,
@@ -1057,11 +1100,17 @@ def _drain_journal(api: str, ident: dict, session: dict, journal,
     deadline = time.monotonic() + (budget_seconds
                                    if budget_seconds is not None else 30.0)
     size = batch if batch is not None else delivery_batch_size()
-    sent = failed = 0
+    sent = failed = quarantined = 0
+    # One explicit rejection per row per cycle: a refusing head is never
+    # re-offered inside the same budget, so `attempts` counts CYCLES of
+    # rejection and the platform is not hammered with the same event.
+    refused_here: set[int] = set()
     unreachable = False
     while time.monotonic() < deadline and not unreachable:
         rows = journal.next_undelivered(limit=max(1, size))
         if not rows:
+            break
+        if int(rows[0]["journal_sequence"]) in refused_here:
             break
         if not session.get("token"):
             try:
@@ -1069,19 +1118,29 @@ def _drain_journal(api: str, ident: dict, session: dict, journal,
             except (RuntimeError, urllib.error.URLError, OSError) as ex:
                 print(f"[journal] session unavailable: {str(ex)[:140]}")
                 return {"sent": sent, "failed": failed,
+                        "quarantined": quarantined,
                         "backend_unreachable": True,
                         "batch_size": size,
-                        "budget_exhausted": False}
-        if size > 1 and BATCH_SUPPORT["available"]:
+                        "budget_exhausted": False,
+                        "backlog": journal.depth()}
+        if size > 1 and batch_available():
             try:
                 out = _deliver_batch(api, ident, session, journal, rows,
                                      interval)
+                refused_here.update(out.get("refused_sequences") or ())
                 sent += out["sent"]
                 failed += out["failed"]
+                quarantined += out.get("quarantined", 0)
                 if out["sent"] == 0:
-                    # Nothing was accepted. Stop rather than spin: the
-                    # evidence is still owned and will be retried.
-                    unreachable = True
+                    if out.get("quarantined", 0) == 0:
+                        # Transport worked but the head made no progress
+                        # at all: nothing accepted, nothing quarantined.
+                        unreachable = True
+                    # Either way, do not re-offer the same head inside
+                    # this budget — one explicit rejection per cycle is
+                    # what makes the attempt count meaningful, and it is
+                    # what stops a refusing head from being hammered.
+                    break
                 continue
             except (RuntimeError, urllib.error.URLError, OSError) as ex:
                 message = str(ex)
@@ -1089,12 +1148,11 @@ def _drain_journal(api: str, ident: dict, session: dict, journal,
                     session["token"] = None
                     continue
                 if message.startswith(("404", "405")):
-                    BATCH_SUPPORT.update(
-                        available=False,
-                        reason="backend does not offer "
-                               "/api/edr/agent/telemetry/batch")
-                    print("[journal] batch route unavailable; falling back "
-                          "to single-event delivery")
+                    batch_unavailable("backend did not offer "
+                                      "/api/edr/agent/telemetry/batch")
+                    print(f"[journal] batch route unavailable; single-event "
+                          f"delivery for the next "
+                          f"{int(batch_reprobe_seconds())}s")
                     continue
                 if message.startswith("413") and size > 1:
                     size = max(1, size // 2)
@@ -1141,9 +1199,10 @@ def _drain_journal(api: str, ident: dict, session: dict, journal,
                 print(f"[journal] evidence retained at sequence {sequence}: "
                       f"{message[:140]}")
                 break
-    return {"sent": sent, "failed": failed,
+    return {"sent": sent, "failed": failed, "quarantined": quarantined,
             "backend_unreachable": unreachable, "batch_size": size,
-            "budget_exhausted": time.monotonic() >= deadline}
+            "budget_exhausted": time.monotonic() >= deadline,
+            "backlog": journal.depth()}
 
 
 def _report_integrity(api: str, ident: dict, session: dict, journal,
@@ -1292,6 +1351,9 @@ def _cycle(api: str, ident: dict, session: dict, journal,
             "legacy_outbox_remaining": _legacy_remaining(),
             "journal_reclaimed": reclaimed["reclaimed"],
             "delivery_batch_size": delivered["batch_size"],
+            "delivery_quarantined": delivered.get("quarantined", 0),
+            "delivery_backlog": delivered.get("backlog", depth),
+            "backend_unreachable": delivered["backend_unreachable"],
             "integrity_report": integrity,
             "queue_depth": depth,
             "health": health["states"],
