@@ -7218,3 +7218,40 @@ prerequisite `1c398858`.
 STATUS: **READY FOR INDEPENDENT RE-REVIEW**, rollout **HOLD** — no Windows
 runner has executed any gate, no installer artifact exists. Frozen R5
 `a14c6693`/`4007dbe3` and successor `1c398858`/`9af61c7b` verified unchanged.
+
+## 2026-06 · G2 · P0-1 transaction reliability — `bc8147be`
+Branch `engineering/p0-1-transaction-reliability`, worktree `/tmp/p01`, parent
+`8a2c3e91` (G3 FAIL). Bounded to P0-1; **no P0-2 change**.
+
+Three independently demonstrated defects, root-caused in the sensor itself:
+- **D1** `SvcStop()` reports STOP_PENDING with `waitHint=20000` ONCE, never
+  advances CheckPoint, then finishes the current cycle before STOPPED. The
+  per-CheckPoint hint bound therefore aborted a HEALTHY stop at t=20 against a
+  75-90 s budget. Fix: `wait_for_state()` makes the total deadline the sole
+  authority; CheckPoint/WaitHint are diagnostic only; breaches classified
+  `STALLED_NO_PROGRESS` / `PENDING_AT_DEADLINE` / `FINAL_NOT_TARGET`; absolute
+  `TRANSITION_CEILING` 600 s.
+- **D2** `operation_outcome` received the raw observation, so PENDING was
+  written `RESOLVED_BY_OBSERVATION`. Fix: only STOPPED/RUNNING are FINAL;
+  settlement needs two agreeing final observations separated by
+  `OBSERVATION_SETTLE_SECONDS` (a delivered control may still be landing).
+- **D3** `process_alive` returned False on OpenProcess/GetExitCodeProcess
+  FAILURE — a denied query read as confirmed termination, the one fail-OPEN
+  path. Fix: `query_process()` → `(token, OK|GONE|UNKNOWN)`, only error 87 means
+  "no such pid"; `worker_state()` tri-state; token = process creation time so a
+  reused PID is GONE, not the worker; a pid without a token is UNKNOWN.
+
+Changed 6 files, +659/-91. Tests **349 pass** (331 baseline + 57-row matrix
+preserved; 18 new). Before: the same 18 were **17 FAILED / 1 passed** on
+`8a2c3e91`. Journal selftest PASS.
+
+Native `SlowStopRecoverable` now CREATES (interval 90 s) and MEASURES the slow
+stop via sampled `sc.exe queryex` CSV, failing unless STOP_PENDING >20 s with
+CHECKPOINT stagnant. 7 new failing controls. **29 NOT RUN.**
+
+Bundle `NIVXFORGE_P0_1_TRANSACTION_RELIABILITY.bundle`, SHA-256
+`59d3254e3414eccecb28299724a39a77d5d2bcfe48256942effc8fc2a831afcf`, 23,200 B,
+prerequisite `8a2c3e91`.
+
+STATUS: **READY FOR INDEPENDENT G3 RE-REVIEW** (P0-1 only). Rollout HOLD.
+P0-2 remains at G3 FAIL: policy unsigned, one CI-rebuilt predecessor entry.
