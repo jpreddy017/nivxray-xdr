@@ -7141,3 +7141,39 @@ Preservation checks — all pass:
 Stopped at the first completed dry-run report per the stop condition. Nothing
 deleted, purged, enrolled, minted or restarted.
 
+
+
+## 2026-06 · P0 Windows installer upgrade repair — R5 `a14c6693`
+Branch `fix/p0-installer-upgrade` (worktree `/app/.worktrees/upg`), on top of
+R4 `9c5a09bb`. Full detail: `/app/memory/P0_INSTALLER_UPGRADE_REPAIR.md`.
+
+Reproduced P0: the installer accepted an INCOMPLETE Windows service
+configuration snapshot and could later report a rollback it had not performed.
+`_service_exists()` was two-state, so an UNREADABLE service (access denied 5,
+RPC 1722, marked-for-delete 1072) was indistinguishable from an ABSENT one
+(1060) and could be deleted as debris; and `sc.exe qc`'s exit code was
+discarded, so a failed query became an empty configuration whose fields were
+filled from defaults while the drift check skipped every field the snapshot did
+not hold — `ROLLBACK STATUS: COMPLETE` over a service that was never read.
+
+Repair: tri-state `_service_lookup()`, exit-code-aware `_service_qc()`, a
+verdict-carrying `_capture_service_config()` validating 12 required fields plus
+enum restorability, image path, run state and qc-reported identity, a fatal
+`_require_service_snapshot()` PREFLIGHT before any mutation, and a
+`_verify_restored_config()` read-back proving 6 fields identical to the
+snapshot before rollback may report COMPLETE.
+
+Changed exactly 3 files: `agents/nivxforge-windows/nivxforge_setup.py`,
+`backend/tests/edr/test_p0_installer_upgrade_repair.py`,
+`.github/workflows/windows-sensor-installer.yml`.
+
+Tests: 65 pass on R5 (was 49); 16 of them FAIL on R4. Full `backend/tests/edr`
+shows the same 6 pre-existing failures and 24 collection errors on R4 and R5.
+Journal selftest PASS.
+
+Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R5.bundle`, SHA-256
+`c2011ac9fc5ccc290faff7a0ac8a13ebdf72329fcb4249f29ca2a95f1a069dd5`, 62,075 B.
+
+STATUS: **HOLD**. No Windows runner has executed Gates 5/6 for R3, R4 or R5 and
+no R5 installer artifact has been built. Linux simulation is not Windows-native
+proof. No push, deploy or KUSHU action taken.
