@@ -7177,3 +7177,44 @@ Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R5.bundle`, SHA-256
 STATUS: **HOLD**. No Windows runner has executed Gates 5/6 for R3, R4 or R5 and
 no R5 installer artifact has been built. Linux simulation is not Windows-native
 proof. No push, deploy or KUSHU action taken.
+
+## 2026-06 · Successor P0 blocker repair — `8a2c3e91`
+Branch `engineering/successor-p0-blocker-repair`, worktree `/app/.worktrees/p0fix`,
+parent = reviewed successor `1c398858` (which is parented on frozen R5 `a14c6693`).
+Detail: `/app/memory/P0_INSTALLER_UPGRADE_REPAIR.md`.
+
+Bounded to the two P0 findings from the E3 independent successor review.
+
+P0-1 · a slow but successful stop was terminal. A fixed 25 s transition ceiling
+wrote the operation record UNCERTAIN on breach; `recovery_safe()` refused on any
+non-FINISHED record and nothing ever wrote, pruned or reset those records, so one
+slow stop permanently locked every install and every `recover-transaction`, with
+no supported command and a SYSTEM-only DACL over the evidence. Repair: budget
+derived from the service's own cadence `clamp(interval+45, 60, 600)`; the SCM
+CheckPoint/WaitHint progress contract honoured inside it; unsettled records
+settled by PROOF once the requesting worker pid is gone and the SCM is readable
+(`RESOLVED_BY_OBSERVATION`); UNCERTAIN preserved for a live worker or an
+UNREADABLE SCM; new elevated `resolve-operation --id --expect-state` that CHECKS
+the operator's claim against the live SCM; records append-only, never deleted.
+
+P0-2 · the installer could not upgrade the existing estate. One pinned
+predecessor manifest meant exactly one replaceable build. Repair:
+`predecessor-policy.json` (schema 1) carries a LIST of authenticated
+predecessors inside the artifact, each pinning a full path/size/SHA-256 set with
+an id equal to that set's digest; the installed payload must equal one entry
+exactly, so modified or unknown binaries are still refused; refusal is
+`UNSUPPORTED_PREDECESSOR` naming the observed identity and the supported list,
+before any mutation.
+
+Changed 9 files, +656/-33. Tests: **331 pass** (310 baseline preserved incl. the
+57-row matrix; 21 new); **16 of the new tests FAIL on `1c398858`**. Journal
+selftest PASS. Two native scenarios PREPARED and NOT RUN: `SlowStopRecoverable`,
+`UnsupportedPredecessor`.
+
+Bundle `NIVXFORGE_SUCCESSOR_P0_BLOCKER_REPAIR.bundle`, SHA-256
+`b03ad47a43a98ab66a2fb3f15fa764298cf4f856152faf0357e93faaa575e569`, 21,343 B,
+prerequisite `1c398858`.
+
+STATUS: **READY FOR INDEPENDENT RE-REVIEW**, rollout **HOLD** — no Windows
+runner has executed any gate, no installer artifact exists. Frozen R5
+`a14c6693`/`4007dbe3` and successor `1c398858`/`9af61c7b` verified unchanged.
