@@ -7255,3 +7255,55 @@ prerequisite `8a2c3e91`.
 
 STATUS: **READY FOR INDEPENDENT G3 RE-REVIEW** (P0-1 only). Rollout HOLD.
 P0-2 remains at G3 FAIL: policy unsigned, one CI-rebuilt predecessor entry.
+
+---
+
+## 2026-06 · G1 RECOVERY CONTRACT DESIGN CORRECTION (design only, no code)
+
+Gate G1 against failed candidate `bc8147be` (tree `3333fd37…`, confirmed).
+Read-only; zero source edits, zero commits, no branch. R5 `a14c6693`/`4007dbe3`,
+successor `1c398858`/`9af61c7b`, repair `8a2c3e91`/`1159965481…` all unchanged.
+
+Full artifact: `memory/NIVXFORGE_G1_RECOVERY_CONTRACT_DESIGN.md`.
+
+Central ruling: a deadline BOUNDS a wait, it never DIAGNOSES one. The candidate
+tried to decide whether a slow service is healthy or hung; nothing available to
+the installer can decide that (the sensor never advances CheckPoint). Every
+breach is therefore UNKNOWN with a named, re-runnable exit.
+
+Code-grounded defects found in `bc8147be`:
+- D1-a `stop_budget` derives from `--interval`, which CANNOT affect stop latency
+  (the inter-cycle wait is an interruptible `WaitForSingleObject(stop_event)`);
+  the real bound is the uninterruptible `sensor.run` cycle (wevtutil 60 s,
+  2×30 s POST attempts, wmic 20 s), which can exceed the computed budget.
+- D1-b the worker's `observe` still hard-waits a FIXED 20 s for PENDING, so the
+  same healthy 30 s stop the mutation path now accepts makes recovery emit
+  MANUAL_RECOVERY. The constant D1 deleted survives on the observation path.
+- D1-c `communicate(timeout=budget+10)` does not cover worker setup + ack fsync,
+  so a stop that consumes its budget is killed mid-ack → false UNCERTAIN.
+- D1-d `recovery_safe` has no total bound and holds the mutex.
+- D2-a 0.75 s repetition asserted as proof; D2-b the installer's OWN failure
+  actions `[[1,60000]]*3` arm a 60 s restart that a "stable" STOPPED cannot see;
+  D2-c APPLIED and NOT-APPLIED both written `RESOLVED_BY_OBSERVATION` and never
+  retried; D2-d `stop` requires `pid == 0`; D2-e `set_path` not attributable.
+- **D3 BLOCKER** `worker_state` returns UNKNOWN for a tokenless record BEFORE
+  querying the pid, and `resolve_operation` requires GONE → the documented
+  operator remedy is UNREACHABLE for every pre-G2 record. Permanent install
+  dead end. Assessed as the correct basis for the G3 FAIL.
+- D4 identity failure (`status != OK`) still DISPATCHES with `worker_token=None`,
+  manufacturing new unrecoverable legacy-shaped records; `process_alive` shim
+  now reports every live process as dead.
+
+Designed: 5 nested budgets (IDENTITY/TRANSITION/WORKER/OPERATION/TRANSACTION)
+with static containment; one declared stop-latency constant; P1–P5 proof
+contract (gone · final · quiescent-and-no-armed-deferred-effect · attributable ·
+integral); four settlement outcomes (APPLIED / NOT_APPLIED / INDETERMINATE /
+UNCERTAIN); legacy escapes L1 (err 87 conclusive, query before token) and L2
+(pre-boot conclusive) plus an L3 manual procedure with checked live-pid
+evidence; dispatch ordering S1–S8 with `NEVER_DISPATCHED` and `dispatched_at`;
+`resolve-operation` narrowed to ATTRIBUTION ONLY. 22-row failure matrix,
+14 positive + 14 negative acceptance cases, Linux-vs-native split, 9-item
+minimal scope, 6 counterexamples (C1–C6) and 6 assumptions (A1–A6).
+
+STATUS: **DESIGN READY FOR INDEPENDENT G1 REVIEW**. No implementation, no G2
+continuation. Native Windows NOT RUN. Rollout HOLD. P0-2 untouched.
