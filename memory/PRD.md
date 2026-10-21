@@ -7324,3 +7324,27 @@ repair 8a2c3e91 → candidate bc8147be. All HTTP-verified byte-exact.
 this workspace** (repo-wide + memory/docs search). Not reconstructed; the owner
 must supply it. Zero source changes; candidate tree re-verified 3333fd3773…;
 HOLDs preserved; native Windows NOT RUN.
+
+### 2026-06 · G1 CORRECTED DESIGN v2 (design only, no code)
+Independent G1 review obtained and verified (`f15c25d7…`, 26,110 B, 294 lines)
+after refusing to design from a summary. Produced
+`memory/NIVXFORGE_G1_RECOVERY_CONTRACT_DESIGN_V2.md` (53,905 B, 721 lines,
+sha256 `1e06ab38b31eae0539267db5748fcc05549abb84f4cc32575269549656dc13e3`),
+published byte-exact at the preview root. v1 (`889be3ce…`) superseded.
+Structural fix: **H (historical application) / C (current state) / R (permission
+to proceed) are separated, and R alone gates mutation** — this dissolves the
+repair deadlock, the P4-vs-NOT_APPLIED contradiction and the legacy dead end.
+Deferred effects: both v1 options withdrawn; replaced by a **SERVICE_DISABLED
+start barrier** per documented ChangeServiceConfig2 remarks ("a queued restart
+action cannot be canceled … the service must be explicitly disabled"), with WAL
+before-image capture, restoration-first recovery, lease and a protection-gap
+alarm. Stop finality now rests on a **retained, signalled process handle**, not
+on pid==0 or two samples (QueryServiceStatusEx is documented as last-reported).
+D4: **write-ahead DISPATCH_INTENT before the pipe write**; schema-1 records are
+never NEVER_DISPATCHED. Confirmed in source that `Store.amend()` writes identity
+into `history` only while `worker_state()` reads top level → returns GONE →
+**fail-open for every authentic record**; fixed by one versioned writer/reader
+contract plus a history-only fallback. 28-row failure matrix, 18+16+10 tests,
+Linux-vs-native matrix, 9-step G2 scope, owner decisions D-1…D-5.
+STATUS: G1 CORRECTED DESIGN READY FOR INDEPENDENT REVIEW. G2 NOT AUTHORIZED.
+Native Windows NOT RUN. HOLDs preserved. Zero source changes.
