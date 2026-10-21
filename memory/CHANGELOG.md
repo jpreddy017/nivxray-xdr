@@ -8577,3 +8577,45 @@ Stopped after producing the host acceptance package as instructed.
   `263e549261b66f19e35ac932d38afcd9926733803da73b432c746f9c16fbc9af`
   (210,867 B), served at `/api/transfer/win-reenrol`. Patch-derived tree
   verified `fe8becc2…`. RELEASE STATUS: NO-GO for re-enrolment.
+
+## 2026-06 · P0 Windows installer UPGRADE repair (branch `fix/p0-installer-upgrade`)
+- Base: `de477bbf` (Candidate B) on production `e534002b`. Candidate commit
+  **`f6077d5b26e11abc5329b7d0a1002cea7899c8fb`**, 4 files, +1143 −58.
+- RCA (KUSHU `Permission denied ...\_internal\win32\servicemanager.pyd` with the
+  service STOPPED, correct ACLs, no findable handle, reboot-persistent): the
+  installer overwrote the LIVE image file-by-file
+  (`copytree(dirs_exist_ok=True)`); the pywin32 `servicemanager` message DLL is
+  registered as the service's `EventMessageFile`, so the Event Log service /
+  Event Viewer keeps it MAPPED — not a handle our stop can release.
+- Repair: content-addressed `versions/<fingerprint>/` side-by-side staging,
+  file-by-file validation before activation, SCM re-point, rollback to the
+  previous COMPLETE image on failed create/start, polite pruning that never
+  force-unlocks, staging sweep + SCM-authoritative active resolution.
+- New explicit `telemetry-baseline` command (all configured channels or abort;
+  forward-only cursors; `--discard-queued-evidence` required to abandon a
+  backlog) + `Journal.rebaseline_cursor` / `discard_undelivered`.
+- Tests: new `backend/tests/edr/test_p0_installer_upgrade_repair.py` (20) —
+  71 passed with F1–F4 + pre-canary + integrity contract; journal selftest PASS.
+  Two new fail-closed Windows CI gates (mapped-image lock, staging contract)
+  are authored but UNEXECUTED — no push credential in this environment.
+- Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE.bundle` sha256
+  `a5afb7f45598d050a73c3e5e722672b7ef87712c85dd418a379b72625e9d98ed`.
+  RELEASE STATUS: **HOLD** pending Windows CI + owner-attended canary.
+
+### 2026-06 · Review blockers closed on `fix/p0-installer-upgrade` → `9f83e073`
+- **B1 stopped-service rollback**: `_capture_service_config()` /
+  `_restore_service_config()` snapshot and restore TYPE, START_TYPE (incl.
+  delayed-auto), ERROR_CONTROL, binPath+args, account, display name; a DELETED
+  entry is re-created, a re-pointed one configured back, debris removed where
+  no service existed; idempotent; a STOPPED service is restored and left
+  STOPPED. 29 tests in the suite, 196 passed across installer+delivery suites.
+- **B2 native validation**: Windows gate now LoadLibrary()s a real `.pyd` from
+  the live image (mapped-image semantics proven: writes refused, reads allowed),
+  then drives the production path — stop → stage+validate → activate → assert
+  new binPath, unchanged locked hash, legacy path never written — and injects a
+  post-config-change activation failure for prior RUNNING *and* STOPPED, twice,
+  to prove rollback and idempotence. **UNEXECUTED: no Windows runner has run it.**
+- In-repo suite relabelled SIMULATION (fake `_sc`, injected PermissionError).
+- Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R2.bundle` sha256
+  `8a52fa15dd54a5c1d66984400322086a347581741579c601c82539025fbc4af9`.
+  RELEASE STATUS: **HOLD** until a Windows runner executes gates 5 and 6.
