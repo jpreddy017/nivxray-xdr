@@ -8640,3 +8640,21 @@ Stopped after producing the host acceptance package as instructed.
 - Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R3.bundle` sha256
   `e7ea12ab41a3e9a9db5475f789874a27b32b4d941b83a1643f32d7aaba400dec`.
   RELEASE STATUS: **HOLD**.
+
+### 2026-06 · R4 final P0 correction → `9c5a09bbf3f0ddead25dbefed8d9febfa51a59b7`
+- **P0-1 binPath quoting**: `sc.exe create/config` now run via `_sc_argv()`
+  (argument list, `list2cmdline` escaping); `_bin_value()` returns the value
+  unescaped so a captured BINARY_PATH_NAME is restored byte-identically.
+  R3 nested quotes and Windows read the image as `C:\Program`.
+- **P0-2 activation**: only `MATCH` is accepted; UNVERIFIED/MISMATCH refuse the
+  activation and leave `active.json` uncommitted.
+- **P0-3 rollback**: a RUNNING restoration must PROVE the live executable is the
+  original; the stopped case must have no live process; otherwise failure is
+  reported and `ROLLBACK STATUS: COMPLETE` is never printed.
+- Tests 49 (10 new, all verified failing on R3); 216 passed across installer +
+  delivery suites; journal selftest PASS. Gates 5/6 extended with the SCM
+  BINARY_PATH_NAME round trip (Python + `sc.exe qc`) and live-image asserts at
+  every activation/restoration stage. **Windows CI STILL UNEXECUTED.**
+- Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R4.bundle` sha256
+  `f2722816002b788b8fa8314fc28c7fc294ec78c63de1964e5f62703bc6a5d013`.
+  RELEASE STATUS: **HOLD**.
