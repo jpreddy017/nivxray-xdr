@@ -8619,3 +8619,24 @@ Stopped after producing the host acceptance package as instructed.
 - Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R2.bundle` sha256
   `8a52fa15dd54a5c1d66984400322086a347581741579c601c82539025fbc4af9`.
   RELEASE STATUS: **HOLD** until a Windows runner executes gates 5 and 6.
+
+### 2026-06 · R3 post-activation rollback repair → `04873da3511d2b571229d57a089d77135e11045a`
+- Defect (found by independent review of R2): activation could succeed and the
+  `active.json` commit then fail; rollback restored the old configuration but
+  `sc config` does not touch a running process, so the NEW image kept running
+  while the installer reported a successful rollback (and, for a previously
+  STOPPED service, reported it stopped).
+- Fix: rollback is ordered by the CURRENT SCM state — stop and prove STOPPED
+  first, restore configuration, then restore the run state; RUNNING is verified
+  against the ACTUAL live executable (`_service_pid` → `Win32_Process` →
+  `_verify_running_image`); every unprovable step returns failure and `install`
+  prints `ROLLBACK STATUS: COMPLETE|FAILED`. `_install_service` refuses to
+  record a mismatched live image. `_write_active` is atomic (temp + rename).
+- Tests 39 (10 new); verified to FAIL against R2 and pass on R3; 206 passed
+  across installer + delivery suites; journal selftest PASS.
+- Windows gate 5 gains stage 6: activate → read live image from the OS →
+  inject commit failure → prove rollback for prior RUNNING and STOPPED.
+  **STILL UNEXECUTED on a Windows runner.**
+- Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R3.bundle` sha256
+  `e7ea12ab41a3e9a9db5475f789874a27b32b4d941b83a1643f32d7aaba400dec`.
+  RELEASE STATUS: **HOLD**.
