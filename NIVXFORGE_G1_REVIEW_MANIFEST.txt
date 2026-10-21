@@ -1,0 +1,91 @@
+NIVXFORGE EDR — G1 REVIEW HANDOFF — CHECKSUM MANIFEST
+=====================================================
+Export only. No implementation, no source change, no commit, no build, no
+Windows execution, no deployment. All HOLDs preserved.
+
+Base URL: https://greeting-app-5782.preview.emergentagent.com/
+
+NOTE ON THE SNAPSHOT FILENAME: download the .tgz name. The identical file is
+also present as .tar.gz, but the edge serves that name with transparent gzip
+decoding, so its bytes and SHA-256 will NOT match. The .tgz URL is byte-exact
+and verified (155396 B, sha256 b13e1f3e...6bcde6ac, 33 entries).
+
+FILE                                             BYTES    SHA-256
+----------------------------------------------------------------------------
+NIVXFORGE_G1_RECOVERY_CONTRACT_DESIGN.md          34183
+  889be3cef19fd131b9caba79c72b544ec178859e6c880ebd98799634f8970911
+NIVXFORGE_G1_REVIEW_SOURCE_SNAPSHOT.tgz          155396
+  b13e1f3e70d9e2fa8fc8b76d773d0c7cf1cfca974dadc9b10d861c1c6bcde6ac
+NIVXFORGE_P0_1_TRANSACTION_RELIABILITY.bundle     23200
+  59d3254e3414eccecb28299724a39a77d5d2bcfe48256942effc8fc2a831afcf
+NIVXFORGE_SUCCESSOR_P0_BLOCKER_REPAIR.bundle      21343
+  b03ad47a43a98ab66a2fb3f15fa764298cf4f856152faf0357e93faaa575e569
+NIVXFORGE_SUCCESSOR_TRANSACTION_RECOVERY.bundle   58998
+  d4055c79102ce47a69683aaedba1ea0b36a5a92effde72f91ce86588084cab0b
+NIVXFORGE_P0_INSTALLER_UPGRADE_R5.bundle          62075
+  c2011ac9fc5ccc290faff7a0ac8a13ebdf72329fcb4249f29ca2a95f1a069dd5
+NIVXFORGE_G1_REVIEW_MANIFEST.txt                  (this file)
+
+BUNDLE CHAIN — apply strictly in this order
+----------------------------------------------------------------------------
+Public base: e534002bed6049a8d26688a9e9ff22e6cf28460b
+  ("Merge pull request #4 from jpreddy017/test/gate4-frozen-proof", already in
+   jpreddy017/nivxray-xdr; no bundle supplied for it)
+
+1 NIVXFORGE_P0_INSTALLER_UPGRADE_R5.bundle
+    requires e534002bed6049a8d26688a9e9ff22e6cf28460b
+    provides a14c6693a7013ea7ef86b6fc8d698bae28e87491  refs/heads/fix/p0-installer-upgrade
+            (frozen R5, tree 4007dbe3feb9a3e0680dce474cbb379f6c4b6c14)
+2 NIVXFORGE_SUCCESSOR_TRANSACTION_RECOVERY.bundle
+    requires a14c6693a7013ea7ef86b6fc8d698bae28e87491
+    provides 1c39885867b2571c9af6b8756f010f2e18f43a65
+            refs/heads/engineering/windows-installer-transaction-recovery
+            (reviewed successor, tree 9af61c7b0add7558e7f683855dd89135b3b01950)
+3 NIVXFORGE_SUCCESSOR_P0_BLOCKER_REPAIR.bundle
+    requires 1c39885867b2571c9af6b8756f010f2e18f43a65
+    provides 8a2c3e91c24224f0361da13eae9264699d26be8b
+            refs/heads/engineering/successor-p0-blocker-repair
+            (previous repair, tree 1159965481e658ce1bad1353a197626ad9e132e3)
+4 NIVXFORGE_P0_1_TRANSACTION_RELIABILITY.bundle
+    requires 8a2c3e91c24224f0361da13eae9264699d26be8b
+    provides bc8147be15af46e87a95612322e7d17f3859f587
+            refs/heads/engineering/p0-1-transaction-reliability
+            (CURRENT FAILED CANDIDATE, tree 3333fd37737588e3c1be2f632d572d5e2631bb0a)
+
+Verification procedure
+  git clone https://github.com/jpreddy017/nivxray-xdr.git nivxray-xdr
+  cd nivxray-xdr && git cat-file -e e534002bed6049a8d26688a9e9ff22e6cf28460b^{commit}
+  for b in R5 SUCCESSOR_TRANSACTION_RECOVERY SUCCESSOR_P0_BLOCKER_REPAIR P0_1; do
+      git bundle verify <bundle>; git fetch <bundle> '+refs/heads/*:refs/heads/*'; done
+  git rev-parse bc8147be15af46e87a95612322e7d17f3859f587^{tree}
+      must print 3333fd37737588e3c1be2f632d572d5e2631bb0a
+
+APPROVED G0–G6 PRODUCT ENGINEERING CYCLE ASSESSMENT
+----------------------------------------------------------------------------
+NOT PRESENT in this workspace. A full search of the tracked repository at
+bc8147be and of /app/memory and /app/docs returns no document containing
+"Product Engineering Cycle" or a G0–G6 gate definition. The gate names used in
+the engineering reports (G1, G2, G3, G4) were supplied by the requester in task
+instructions and are not backed by any document held here.
+
+It has NOT been reconstructed, paraphrased or invented. The independent
+reviewer must obtain the authoritative governance document from the product
+owner.
+
+Related but DIFFERENT documents that do exist here, offered only so the
+reviewer can confirm they are not the assessment: memory/GOVERNANCE.md,
+memory/GOVERNANCE_RULES.md, memory/MASTER_GATE.md, memory/MATURITY_ASSESSMENT_
+2026-09-02.md, memory/production-gates/. None defines G0-G6. None is exported
+here, as none was requested.
+
+STATE AT EXPORT
+----------------------------------------------------------------------------
+Design status      DESIGN READY FOR INDEPENDENT G1 REVIEW
+Candidate status   bc8147be — independent G3 result FAIL
+Native Windows     NOT RUN (all scenarios)
+Release / rollout  HOLD
+P0-2               unchanged, remains at G3 FAIL
+Source revisions   R5, successor, repair and candidate trees re-verified
+                   unchanged at export time; working trees show 0 modifications
+Reviewer conflict  the exporting agent authored bc8147be and the G1 design and
+                   may not review either

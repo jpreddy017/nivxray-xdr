@@ -7307,3 +7307,20 @@ minimal scope, 6 counterexamples (C1–C6) and 6 assumptions (A1–A6).
 
 STATUS: **DESIGN READY FOR INDEPENDENT G1 REVIEW**. No implementation, no G2
 continuation. Native Windows NOT RUN. Rollout HOLD. P0-2 untouched.
+
+### 2026-06 · G1 REVIEW HANDOFF EXPORT (export only, no code)
+Published for the blocked independent G1 reviewer at
+https://greeting-app-5782.preview.emergentagent.com/ (served from
+apps/nivxray-xdr/public): design doc `NIVXFORGE_G1_RECOVERY_CONTRACT_DESIGN.md`
+(34,183 B, 889be3ce…), read-only source snapshot
+`NIVXFORGE_G1_REVIEW_SOURCE_SNAPSHOT.tgz` (155,396 B, b13e1f3e…, 21 source
+files at bc8147be + SHA256SUMS + export provenance; use the .tgz name — the
+.tar.gz name is gzip-decoded by the edge), manifest
+`NIVXFORGE_G1_REVIEW_MANIFEST.txt` (7598986b…), and the complete 4-link bundle
+chain e534002b → R5 a14c6693 → successor 1c398858 (new bundle,
+NIVXFORGE_SUCCESSOR_TRANSACTION_RECOVERY.bundle, 58,998 B, d4055c79…) →
+repair 8a2c3e91 → candidate bc8147be. All HTTP-verified byte-exact.
+**The approved G0–G6 Product Engineering Cycle Assessment does NOT exist in
+this workspace** (repo-wide + memory/docs search). Not reconstructed; the owner
+must supply it. Zero source changes; candidate tree re-verified 3333fd3773…;
+HOLDs preserved; native Windows NOT RUN.
