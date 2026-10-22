@@ -7698,3 +7698,61 @@ memory/ evidence JWTs, six live-suite admin passwords) REMAIN FLAGGED FOR
 ROTATION/REVOCATION AND EXPOSURE ASSESSMENT - not addressed by this commit.
 STATUS: G2 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build, Windows
 execution, deployment, merge or rollout. No self-approval. HOLDs preserved.
+
+## 2026-06 · M1 G3-B3 AUTHZ RESULT CORRECTION (branch engineering/m1-g3-integrated)
+COMMIT `388bb3d637a076f36d78fc9d1e218c878b082b9b` tree
+`df8eb48b5719b01c936c8dec3442aeba7763a59f` parent `a4e544f4` agent subtree
+`db21f422561f14fb4dcec91b70925f2b5291c500`; 2 files changed, +453/-28.
+DEFECT (independently demonstrated): `_authz_access_check()` collapsed the two
+AuthzAccessCheck outputs into `bool(ok) and int(error[0]) == 0`, so a
+SUCCESSFUL evaluation reporting the documented per-result ERROR_ACCESS_DENIED
+became UNKNOWN. A correctly restrictive descriptor was therefore unevaluable:
+every dangerous-right probe read "indeterminate", service_security_verdict was
+never safe and load_config always refused, so a legitimate LocalSystem service
+could never validate its configuration or start. The mirror error was latent in
+the same expression: ERROR_SUCCESS with a ZERO granted mask produced
+AccessStatus=FALSE and was reported as a VERIFIED DENIAL from a reply the code
+did not understand. Separately, AuthzAccessCheck.argtypes[0] (Flags) was
+declared c_longlong; Flags is a DWORD.
+CORRECTION: new pure `authz_access_verdict()` - GRANTED (ok + ERROR_SUCCESS +
+every requested right in the mask), VERIFIED DENIAL (ok + ERROR_ACCESS_DENIED +
+no requested right), UNKNOWN for a failed call, any other reply code, a
+non-int/negative/bool code or mask, an empty or still-generic desired mask, and
+every code-vs-mask contradiction. `_authz_access_check()` reduced to descriptor
+conversion + LocalFree on EVERY path + the contract function (no `return False`
+of its own; unconvertible descriptor invokes and frees nothing). New
+`_authz_invoke()` holds the native call and returns raw (ok, Error[0],
+GrantedAccessMask[0]); Flags now wintypes.DWORD, widths/layouts/lifetimes
+preserved. UNCHANGED: access_check_verdict and the whole installer-time
+AccessCheck path (G3-01 still holds), the dangerous-ACE walk,
+REQUIRED_CONTEXT_SIDS completeness (`unprobed` still refuses), the
+per-principal combination rule, the LocalSystem proof at the service
+entrypoint, every G1 contract and every HOLD.
+AUDIT: load_config and m1_service_run traced step by step (only step 7 of
+load_config changes behaviour, which is what makes steps 8-10 reachable);
+related interpretation sites checked - `_authz_contexts` (RM failure None,
+unresolved SID -> unprobed), `_service_access_context` (refuses non-LocalSystem),
+`service_lookup` (only WinError 1060 reads ABSENT). No other site collapses a
+Windows error code into a verdict.
+TESTS ACTUALLY RUN: M1 suite **373 passed** (+43); B1 subset 19, B2 subset 35,
+B3 subset 53; installer group **736 passed, 2 skipped**; transaction/upgrade/
+reenrolment **286 passed, 2 skipped**. NEGATIVE CONTROL: defective reading and
+c_longlong Flags reintroduced => **7 failed, 366 passed**, then restored =>
+373 passed. The new tests drive the REAL `_authz_access_check`/`access_check`
+with only the two native edges controlled, plus `_authz_invoke` itself against
+a fake authz module. Windows-native NOT RUN (no real Authz/AccessCheck/SCM/
+ACL/token/filesystem/process call, no build, no execution); wintypes.DWORD is
+8 bytes on 64-bit Linux vs 4 on Windows, so portable structure layouts are NOT
+the Windows layouts.
+EXPORT (sanitized, self-contained, verified in a fresh clone and again after
+download: bundle verify complete history, fsck exit 0, subtree db21f422 match,
+18/18 blob+sha256, credential scan clean, 373 passed):
+NIVXFORGE_M1_G3_B3_AUTHZ_SNAPSHOT.bundle (175,182 B,
+`43b8daa62b0673a5197de5d06b991be45729aa380f683f93ae29a7070b5288ba`),
+NIVXFORGE_M1_G3_B3_AUTHZ_PROVENANCE.md (7,573 B, `05379d84...`),
+memory/NIVXFORGE_M1_G3_B3_AUTHZ_HANDOFF.md (15,971 B, `e4fc65a8...`).
+OUTSTANDING: the credentials in the candidate tree (.tok bearer JWT, two
+memory/ evidence JWTs, six live-suite admin passwords) REMAIN FLAGGED FOR
+ROTATION/REVOCATION AND EXPOSURE ASSESSMENT - not addressed by this commit.
+STATUS: G2 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build, Windows
+execution, deployment, merge, rollout or self-approval. HOLDs preserved.
