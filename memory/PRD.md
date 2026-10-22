@@ -8135,3 +8135,63 @@ publication; no HOLD removed. Everything in V3 section 8 is UNIMPLEMENTED;
 M1 full-suite baseline UNMEASURED, Actions history UNKNOWN, G4 NOT RUN,
 transaction engine unreviewed. STOP AT G1 V3 - independent Codex verification
 and owner approval required before G2.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — P0-1 WINDOWS EXECUTION-PATH VERIFICATION (READ-ONLY)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_P0_1_WINDOWS_EXECUTION_PATHS.md
+SHA-256: 099a6338bb9e1efd96fe9b3f11fc0f1130cf1a2fb6e9b1db8f4c9ff4e2c4d503
+SIZE: 27,928 bytes. NOT published (publication not authorized this round).
+Inspected trunk f971c765 and M1 388bb3d6 source for the seven required
+operations. /app HEAD windows subtree == f971c765 subtree (54fe56bd...).
+
+HEADLINE FINDINGS (F-1..F-10)
+F-1 THIRD INSTALL PATH, production-advertised and never reconciled:
+Install-NivXForgeSensor.ps1 installs via a SYSTEM SCHEDULED TASK and calls
+nivxforge_sensor.py enrol directly, bypassing setup.py, attempt markers,
+ownership and every M1 contract. Byte-identical in both lineages (blob
+61e08b43) and it is the DEFAULT windows-x64 connector entrypoint in
+edr_onboarding.py:71-89 (EXE is CI_BUILD_REQUIRED, i.e. not built).
+F-2 ONE NAME, THREE MECHANISMS: scheduled task, trunk SCM service and M1
+service adapter are all "NivXForgeSensor". setup.exe uninstall never removes
+the task; -Uninstall never removes the service - either can report success
+while the other keeps delivering as SYSTEM.
+F-3 M1 LINEAGE ALREADY LOST TWO CAPABILITIES: install --re-enrol raises
+"transaction recovery never re-enrolls an endpoint" (setup.py:1148) and
+uninstall/purge raises "unavailable in transaction validation builds" (1213).
+F-4 ATTRIBUTION IS BY SESSION ON EVERY SENDER; the LEGACY OUTBOX HAS NO
+IDENTITY COLUMNS AT ALL, so per-row attribution does not exist there.
+F-5 --discard-queued-evidence deletes journal rows but leaves outbox.jsonl /
+outbox.offset deliverable.
+F-6 EVERY Windows installer test EXCEPT test_m1_clean_install.py hard-codes
+AGENT_DIR = Path("/app/agents/nivxforge-windows") -> an "isolated M1 worktree"
+run is UNSOUND for them and silently grades trunk. This CORRECTS G1 V3 section
+3.1/3.3 (G-M gate) and the parents[3] claim.
+F-7 test_s1_2_c2_clean_install_atomicity.py DOES NOT EXIST at 388bb3d6.
+F-8 ONE async worker, M1 only: --transaction-scm-worker spawned via Popen in a
+KILL_ON_JOB_CLOSE job with pid+creation-time token recorded before release.
+Zero threads/asyncio/atexit/signal/Timer in either lineage.
+F-9 Real-Windows CI Gate 4 proves only a FAILING re-enrol (empty stdin, must
+exit non-zero). No successful-re-enrol gate exists on either lineage.
+F-10 Transport retries once (attempts=2); only m1-install passes attempts=1
+with a marker, so the production install, the sensor CLI and the PS1 path can
+double-send an enrolment with no marker.
+
+MEASURED THIS PASS (portable pytest over git archive exports, /tmp, no CI):
+- test_m1_clean_install + test_installer_transaction +
+  test_p0_installer_upgrade_repair at 388bb3d6 => 636 passed in 25.41s
+  (first M1 figure beyond the recorded 373; relative paths = genuine M1).
+- test_windows_installer_v1 + reenrol_staging_race from the M1 export =>
+  53 passed BUT they read /app, so that is TRUNK evidence, not M1.
+
+ALSO CORRECTS V3: M1 ownership file is "m1-ownership.json" (hyphen);
+trunk DOES have a positive re-enrol orchestration test
+(reenrol_staging_race.py:335) but it monkeypatches sensor.enrol, so
+publication-level re-enrol remains uncovered.
+
+LIMITATIONS: Actions run history UNKNOWN; no Windows host (G4 NOT RUN); no
+built artifact (dist/ absent, payload-manifest/_MEIPASS unverified); backend
+behaviour read from source only, no request and no DB access; ARM64/x86
+NOT_BUILT; transaction upgrade logic mapped structurally and still unreviewed.
+STATUS: read-only. git status --porcelain agents backend apps .github docs = 0.
+No fixes designed. Stop after reporting.
