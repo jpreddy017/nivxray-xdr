@@ -1,0 +1,2443 @@
+diff --git a/agents/nivxforge-windows/build/build_windows_installer.ps1 b/agents/nivxforge-windows/build/build_windows_installer.ps1
+index 9ca517be..ee92eea5 100644
+--- a/agents/nivxforge-windows/build/build_windows_installer.ps1
++++ b/agents/nivxforge-windows/build/build_windows_installer.ps1
+@@ -37,6 +37,8 @@ if ($env:OS -ne 'Windows_NT') {
+ }
+ foreach ($required in @('nivxforge_setup.py', 'nivxforge_sensor.py',
+                         'nivxforge_transaction.py', 'nivxforge_scm_worker.py',
++                        'nivxforge_journal.py',
++                        'nivxforge_m1.py',
+                         'nivxforge_exclusions.py',
+                         'nivxforge_delivery_counters.py',
+                         'nivxforge_content_acquisition.py')) {
+@@ -82,6 +84,7 @@ $PyiCommon = @(
+   '--hidden-import', 'win32api',
+   '--hidden-import', 'ntsecuritycon',
+   '--hidden-import', 'nivxforge_sensor',
++  '--hidden-import', 'nivxforge_m1',
+   '--hidden-import', 'nivxforge_exclusions',
+   '--hidden-import', 'nivxforge_delivery_counters',
+   '--hidden-import', 'nivxforge_content_acquisition',
+diff --git a/agents/nivxforge-windows/nivxforge_m1.py b/agents/nivxforge-windows/nivxforge_m1.py
+new file mode 100644
+index 00000000..7a4d2e94
+--- /dev/null
++++ b/agents/nivxforge-windows/nivxforge_m1.py
+@@ -0,0 +1,1098 @@
++#!/usr/bin/env python3
++"""NivXForge M1 clean installer — isolated from the enterprise engine.
++
++M1 installs ONE sensor onto ONE freshly imaged, exclusively administered
++Windows 11 test VM. It is deliberately NOT an upgrade path: it creates, it
++verifies, and it refuses. It never settles an enterprise transaction, never
++replaces a predecessor and never adopts a resource it cannot prove it owns.
++
++Scope contract: NIVXFORGE_M1_SCOPE_V3.md + AMENDMENT_A2_R4.
++This module MUST NOT import nivxforge_transaction or nivxforge_scm_worker,
++directly or transitively, and must not reference the enterprise service
++entrypoints. `backend/tests/edr/test_m1_clean_install.py` asserts both
++statically and from a fresh interpreter.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import sys
++import time
++from pathlib import Path, PurePosixPath, PureWindowsPath
++from urllib.parse import urlparse
++
++M1_VERSION = "1.0.0-m1"
++SERVICE_NAME = "NivXForgeSensor"
++LEGACY_TASK_NAME = "NivXForgeSensor"
++OWNERSHIP_FILENAME = "m1-ownership.json"
++CONFIG_FILENAME = "m1-config.json"
++CONFIG_META_FILENAME = "m1-config.meta.json"
++WORKER_FLAG = "--transaction-scm-worker"
++
++# ── R1 ownership states ────────────────────────────────────────────
++CREATE_INTENDED = "CREATE_INTENDED"
++CREATE_CONFIRMED = "CREATE_CONFIRMED"
++CREATE_OUTCOME_UNKNOWN = "CREATE_OUTCOME_UNKNOWN"
++ACTIVATION_VERIFIED = "ACTIVATION_VERIFIED"
++#: Only a CONFIRMED resource may ever be stopped, deleted or uninstalled.
++OWNED_STATES = (CREATE_CONFIRMED, ACTIVATION_VERIFIED)
++#: Any of these outstanding blocks a fresh install: the host is not clean and
++#: the outcome of the earlier attempt is not known.
++BLOCKING_STATES = (CREATE_INTENDED, CREATE_OUTCOME_UNKNOWN)
++
++# ── R4/A2 service rights ───────────────────────────────────────────
++SERVICE_CHANGE_CONFIG = 0x0002
++SERVICE_START = 0x0010
++SERVICE_STOP = 0x0020
++SERVICE_PAUSE_CONTINUE = 0x0040
++SERVICE_USER_DEFINED_CONTROL = 0x0100
++SERVICE_QUERY_CONFIG = 0x0001
++SERVICE_QUERY_STATUS = 0x0004
++SERVICE_ENUMERATE_DEPENDENTS = 0x0008
++SERVICE_INTERROGATE = 0x0080
++DELETE = 0x00010000
++READ_CONTROL = 0x00020000
++WRITE_DAC = 0x00040000
++WRITE_OWNER = 0x00080000
++STANDARD_RIGHTS_READ = READ_CONTROL
++STANDARD_RIGHTS_WRITE = READ_CONTROL
++STANDARD_RIGHTS_EXECUTE = READ_CONTROL
++SERVICE_ALL_ACCESS = 0xF01FF
++GENERIC_READ = 0x80000000
++GENERIC_WRITE = 0x40000000
++GENERIC_EXECUTE = 0x20000000
++GENERIC_ALL = 0x10000000
++
++#: The service GENERIC_MAPPING. ACE masks are resolved through this BEFORE
++#: any comparison: AccessCheck does not map generic bits carried in an ACE.
++GENERIC_MAPPING = {
++    GENERIC_READ: (STANDARD_RIGHTS_READ | SERVICE_QUERY_CONFIG
++                   | SERVICE_QUERY_STATUS | SERVICE_INTERROGATE
++                   | SERVICE_ENUMERATE_DEPENDENTS),
++    GENERIC_WRITE: STANDARD_RIGHTS_WRITE | SERVICE_CHANGE_CONFIG,
++    GENERIC_EXECUTE: (STANDARD_RIGHTS_EXECUTE | SERVICE_START | SERVICE_STOP
++                      | SERVICE_PAUSE_CONTINUE
++                      | SERVICE_USER_DEFINED_CONTROL),
++    GENERIC_ALL: SERVICE_ALL_ACCESS,
++}
++DANGEROUS_RIGHTS = {
++    "SERVICE_CHANGE_CONFIG": SERVICE_CHANGE_CONFIG,
++    "SERVICE_START": SERVICE_START,
++    "SERVICE_STOP": SERVICE_STOP,
++    "SERVICE_PAUSE_CONTINUE": SERVICE_PAUSE_CONTINUE,
++    "SERVICE_USER_DEFINED_CONTROL": SERVICE_USER_DEFINED_CONTROL,
++    "DELETE": DELETE,
++    "WRITE_DAC": WRITE_DAC,
++    "WRITE_OWNER": WRITE_OWNER,
++}
++SID_LOCAL_SYSTEM = "S-1-5-18"
++SID_ADMINISTRATORS = "S-1-5-32-544"
++#: The ONLY trustees that may hold a dangerous right, compared by SID.
++APPROVED_TRUSTEES = (SID_LOCAL_SYSTEM, SID_ADMINISTRATORS)
++#: Logon-session and well-known group SIDs an ACL walk for one account would
++#: not reflect; the token-aware context must carry them explicitly.
++REQUIRED_CONTEXT_SIDS = ("S-1-5-11", "S-1-5-4", "S-1-1-0", "S-1-5-32-545")
++ACCESS_ALLOWED_ACE_TYPE = 0
++ACCESS_DENIED_ACE_TYPE = 1
++
++_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL",
++                   *(f"COM{d}" for d in range(1, 10)),
++                   *(f"LPT{d}" for d in range(1, 10))}
++_SID_RE = re.compile(r"^S-1-\d+(-\d+)+$")
++
++
++class M1Error(RuntimeError):
++    """A refusal. Carries a stable code so tests assert behaviour, not text."""
++
++    def __init__(self, code: str, message: str):
++        super().__init__(f"{code}: {message}")
++        self.code = code
++
++
++def _digest_bytes(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def file_digest(path: Path) -> str:
++    sha = hashlib.sha256()
++    with open(path, "rb") as handle:
++        for chunk in iter(lambda: handle.read(1 << 20), b""):
++            sha.update(chunk)
++    return sha.hexdigest()
++
++
++def canonical_record(record: dict) -> bytes:
++    return json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
++
++
++# ── B1 · M1-local payload validation ───────────────────────────────
++def _reject_component(part: str) -> str | None:
++    if part in ("", ".", ".."):
++        return "traversal or empty component"
++    if ":" in part:
++        return "alternate data stream or drive qualifier"
++    if part != part.rstrip(". "):
++        return "trailing dot or space"
++    if part.split(".")[0].upper() in _RESERVED_NAMES:
++        return "reserved device name"
++    return None
++
++
++def payload_members(manifest: dict) -> list[str]:
++    return sorted(manifest)
++
++
++def m1_payload_check(bundle_root, dest_root, manifest: dict, host) -> dict:
++    """Validate a frozen payload against its manifest. No engine imports.
++
++    Checks canonical member names, the EXACT expected file set (no missing
++    and no unexpected member), per-file size and SHA-256, and refuses any
++    reparse point in the destination ancestry.
++    """
++    bundle_root = Path(bundle_root)
++    dest_root = Path(dest_root)
++    for part in dest_root.parts[1:]:
++        problem = _reject_component(part)
++        if problem:
++            raise M1Error("PAYLOAD_PATH_UNSAFE",
++                          f"destination component {part!r}: {problem}")
++    for ancestor in host.path_ancestry(dest_root):
++        if host.is_reparse_point(ancestor):
++            raise M1Error("PAYLOAD_PATH_UNSAFE",
++                          f"reparse point in destination ancestry: {ancestor}")
++    for member in manifest:
++        if PureWindowsPath(member).is_absolute() or member.startswith("/"):
++            raise M1Error("PAYLOAD_PATH_UNSAFE", f"absolute member {member!r}")
++        for part in PurePosixPath(member.replace("\\", "/")).parts:
++            problem = _reject_component(part)
++            if problem:
++                raise M1Error("PAYLOAD_PATH_UNSAFE",
++                              f"member {member!r} component {part!r}: {problem}")
++    present = sorted(
++        str(p.relative_to(bundle_root)).replace("\\", "/")
++        for p in bundle_root.rglob("*") if p.is_file())
++    expected = payload_members(manifest)
++    missing = [m for m in expected if m not in present]
++    unexpected = [m for m in present if m not in manifest]
++    if missing:
++        raise M1Error("PAYLOAD_INCOMPLETE", f"missing members: {missing}")
++    if unexpected:
++        raise M1Error("PAYLOAD_UNEXPECTED_FILE",
++                      f"unexpected members: {unexpected}")
++    for member, want in manifest.items():
++        source = bundle_root / member
++        size = source.stat().st_size
++        if size != want["size"]:
++            raise M1Error("PAYLOAD_SIZE_MISMATCH",
++                          f"{member}: {size} != {want['size']}")
++        got = file_digest(source)
++        if got != want["sha256"]:
++            raise M1Error("PAYLOAD_DIGEST_MISMATCH",
++                          f"{member}: {got} != {want['sha256']}")
++    return {"members": len(expected), "root": str(dest_root)}
++
++
++# ── B6/R6 · protected non-production configuration ─────────────────
++class M1Config:
++    __slots__ = ("origin", "tenant_id", "state_dir", "install_dir",
++                 "service_exe", "service_args", "certificate_policy",
++                 "config_path", "config_digest", "metadata", "interval")
++
++    def __init__(self, raw: dict, path: Path, digest: str, metadata: dict):
++        self.config_path = path
++        self.config_digest = digest
++        self.metadata = metadata
++        self.origin = raw["origin"]
++        self.tenant_id = raw["tenant_id"]
++        self.state_dir = Path(raw["state_dir"])
++        self.install_dir = Path(raw["install_dir"])
++        self.service_exe = raw["service_exe"]
++        self.service_args = list(raw["service_args"])
++        self.certificate_policy = raw["certificate_policy"]
++        self.interval = int(raw.get("interval", 30))
++
++    def as_record(self) -> dict:
++        return {"origin": self.origin, "tenant_id": self.tenant_id,
++                "state_dir": str(self.state_dir),
++                "install_dir": str(self.install_dir),
++                "config_digest": self.config_digest}
++
++
++_REQUIRED_CONFIG_KEYS = ("origin", "tenant_id", "state_dir", "install_dir",
++                         "service_exe", "service_args", "certificate_policy")
++
++
++def load_config(path, host) -> M1Config:
++    """Load, protect-verify and validate the pre-provisioned M1 configuration.
++
++    Trust comes from the DACL and the ancestry, verified by readback. The
++    digest only detects accidental drift and is never presented as
++    protection against a privileged attacker.
++    """
++    path = Path(path)
++    if not host.is_file(path):
++        raise M1Error("CONFIG_ABSENT", f"no M1 configuration at {path}")
++    for ancestor in host.path_ancestry(path):
++        if host.is_reparse_point(ancestor):
++            raise M1Error("CONFIG_ANCESTRY_UNSAFE",
++                          f"reparse point in config ancestry: {ancestor}")
++        verdict = host.directory_security(ancestor)
++        if verdict is None:
++            raise M1Error("CONFIG_ACL_UNKNOWN",
++                          f"cannot read security of {ancestor}")
++        if verdict.get("nonadmin_writable"):
++            raise M1Error("CONFIG_ANCESTRY_UNSAFE",
++                          f"{ancestor} is writable by a non-administrator")
++    file_acl = host.file_security(path)
++    if file_acl is None:
++        raise M1Error("CONFIG_ACL_UNKNOWN", f"cannot read security of {path}")
++    if file_acl.get("nonadmin_writable"):
++        raise M1Error("CONFIG_ACL_UNSAFE",
++                      f"{path} is writable by a non-administrator")
++    body = host.read_bytes(path)
++    digest = _digest_bytes(body)
++    try:
++        raw = json.loads(body)
++    except ValueError as ex:
++        raise M1Error("CONFIG_MALFORMED", f"{path}: {ex}") from None
++    missing = [k for k in _REQUIRED_CONFIG_KEYS if not raw.get(k)]
++    if missing:
++        raise M1Error("CONFIG_INCOMPLETE", f"missing keys: {missing}")
++    parsed = urlparse(raw["origin"])
++    if parsed.scheme != "https":
++        raise M1Error("CONFIG_ORIGIN_NOT_HTTPS",
++                      f"origin {raw['origin']!r} is not https")
++    if not parsed.netloc:
++        raise M1Error("CONFIG_ORIGIN_INVALID", f"origin {raw['origin']!r}")
++    if raw["certificate_policy"] != "windows-default":
++        raise M1Error("CONFIG_CERT_POLICY",
++                      "only 'windows-default' certificate verification is "
++                      "approved for M1; verification is never disabled")
++    meta_path = path.with_name(CONFIG_META_FILENAME)
++    metadata: dict = {}
++    if host.is_file(meta_path):
++        meta_acl = host.file_security(meta_path)
++        if meta_acl is None or meta_acl.get("nonadmin_writable"):
++            raise M1Error("CONFIG_ACL_UNSAFE",
++                          f"{meta_path} is unreadable or unprotected")
++        metadata = json.loads(host.read_bytes(meta_path))
++        if metadata.get("config_digest") not in (None, digest):
++            raise M1Error("CONFIG_DIGEST_DRIFT",
++                          "configuration does not match its recorded digest")
++    return M1Config(raw, path, digest, metadata)
++
++
++# ── R1/B3 · ownership record ───────────────────────────────────────
++class Ownership:
++    """Durable, digest-enveloped record of resources THIS attempt created.
++
++    It lives in the administrator pre-provisioned configuration root, so a
++    record exists before the first installer-created directory and no root
++    ever has to be adopted on trust.
++    """
++
++    def __init__(self, path, host):
++        self.path = Path(path)
++        self.host = host
++
++    def exists(self) -> bool:
++        return self.host.is_file(self.path)
++
++    def create(self, install_id: str, config: M1Config) -> dict:
++        record = {"schema": 1, "install_id": install_id,
++                  "created_at": self.host.now_utc(),
++                  "config": config.as_record(), "resources": {},
++                  "history": []}
++        self.host.write_new_file(self.path, self._envelope(record))
++        return record
++
++    def read(self) -> dict:
++        body = self.host.read_bytes(self.path)
++        try:
++            record = json.loads(body)
++        except ValueError:
++            raise M1Error("OWNERSHIP_TORN",
++                          f"{self.path} is unparseable; refusing") from None
++        envelope = record.pop("envelope", None)
++        if envelope != _digest_bytes(canonical_record(record)):
++            raise M1Error("OWNERSHIP_TORN",
++                          f"{self.path} failed its integrity envelope")
++        return record
++
++    def _envelope(self, record: dict) -> bytes:
++        body = dict(record)
++        body.pop("envelope", None)
++        body["envelope"] = _digest_bytes(canonical_record(body))
++        return json.dumps(body, indent=2, sort_keys=True).encode()
++
++    def save(self, record: dict) -> None:
++        #: Replacement of ALREADY OWNED metadata, deliberately a different
++        #: operation from the no-overwrite creation above.
++        self.host.replace_file(self.path, self._envelope(record))
++
++    def mark(self, record: dict, resource: str, state: str,
++             evidence: dict | None = None) -> dict:
++        entry = {"resource": resource, "state": state,
++                 "at": self.host.now_utc(), "evidence": evidence or {}}
++        record["resources"][resource] = entry
++        record["history"].append(entry)
++        self.save(record)
++        return record
++
++    def blocking(self, record: dict) -> list[str]:
++        return sorted(name for name, entry in record["resources"].items()
++                      if entry["state"] in BLOCKING_STATES)
++
++    def owns(self, record: dict, resource: str) -> bool:
++        entry = record["resources"].get(resource)
++        return bool(entry and entry["state"] in OWNED_STATES)
++
++
++# ── M1-03 · fail-closed clean-host verification ────────────────────
++PROBE_ABSENT, PROBE_PRESENT, PROBE_UNKNOWN = "ABSENT", "PRESENT", "UNKNOWN"
++
++
++def clean_host_report(config: M1Config, host) -> dict:
++    """Tri-state probes. PRESENT or UNKNOWN both refuse; UNKNOWN is never
++    read as ABSENT, and a non-Windows host answers UNKNOWN for every
++    Windows-only probe."""
++    probes: dict[str, dict] = {}
++
++    def record(name, state, detail=""):
++        probes[name] = {"state": state, "detail": detail}
++
++    state, detail = host.service_lookup(SERVICE_NAME)
++    record("service", state, detail)
++    record("scheduled_task", *host.scheduled_task_lookup(LEGACY_TASK_NAME))
++    workers = host.worker_processes()
++    if workers is None:
++        record("live_worker", PROBE_UNKNOWN, "process enumeration unavailable")
++    else:
++        record("live_worker", PROBE_PRESENT if workers else PROBE_ABSENT,
++               ",".join(str(p) for p in workers))
++    for name, path in (("install_dir", config.install_dir),
++                       ("state_dir", config.state_dir)):
++        if host.path_exists(path) is None:
++            record(name, PROBE_UNKNOWN, f"{path} is not inspectable")
++        else:
++            record(name, PROBE_PRESENT if host.path_exists(path)
++                   else PROBE_ABSENT, str(path))
++    identity = config.state_dir / "identity.json"
++    record("prior_identity",
++           PROBE_PRESENT if host.path_exists(identity) else PROBE_ABSENT,
++           str(identity))
++    staging = config.install_dir / "operations"
++    record("enterprise_records",
++           PROBE_PRESENT if host.path_exists(staging) else PROBE_ABSENT,
++           str(staging))
++    unsafe = []
++    for target in (config.install_dir, config.state_dir):
++        for ancestor in host.path_ancestry(target):
++            if host.is_reparse_point(ancestor):
++                unsafe.append(f"reparse:{ancestor}")
++                continue
++            security = host.directory_security(ancestor)
++            if security is None:
++                unsafe.append(f"unreadable:{ancestor}")
++            elif security.get("nonadmin_writable"):
++                unsafe.append(f"nonadmin_writable:{ancestor}")
++    record("path_ancestry",
++           PROBE_PRESENT if unsafe else PROBE_ABSENT, ";".join(unsafe))
++    refusals = [name for name, probe in probes.items()
++                if probe["state"] != PROBE_ABSENT]
++    return {"probes": probes, "refusals": sorted(refusals),
++            "clean": not refusals}
++
++
++# ── R4 + A2 · service security verdict ─────────────────────────────
++def map_generic(mask: int) -> int:
++    """Resolve generic bits through the service GENERIC_MAPPING."""
++    resolved = mask & 0x0FFFFFFF
++    for generic, specific in GENERIC_MAPPING.items():
++        if mask & generic:
++            resolved |= specific
++    return resolved
++
++
++def _rights_in(mask: int) -> list[str]:
++    return sorted(name for name, bit in DANGEROUS_RIGHTS.items() if mask & bit)
++
++
++def ace_inspection(descriptor: dict) -> list[str]:
++    """A2 check 1 — exhaustive inspection of every access-allow ACE.
++
++    A dangerous right may be allowed ONLY to LocalSystem or Administrators,
++    compared by SID. Nesting cannot hide a grant: the ACE is rejected on its
++    trustee. Anything not fully understood refuses.
++    """
++    problems: list[str] = []
++    if descriptor.get("dacl_present") is False or descriptor.get("dacl") is None:
++        return ["NULL DACL grants all access to everyone"]
++    if descriptor.get("malformed"):
++        return ["malformed or truncated ACL"]
++    owner = descriptor.get("owner")
++    if owner not in APPROVED_TRUSTEES:
++        problems.append(f"owner {owner!r} is not SYSTEM or Administrators")
++    if not descriptor.get("protected", False):
++        problems.append("DACL is not protected against inheritance")
++    granted: dict[str, int] = {}
++    for ace in descriptor["dacl"]:
++        ace_type = ace.get("type")
++        trustee = ace.get("sid")
++        if ace_type not in (ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE):
++            problems.append(f"unsupported ACE type {ace_type!r}")
++            continue
++        if not isinstance(trustee, str) or not _SID_RE.match(trustee):
++            problems.append(f"unparseable trustee {trustee!r}")
++            continue
++        mask = ace.get("mask")
++        if not isinstance(mask, int) or mask < 0:
++            problems.append(f"unresolvable mask {mask!r} for {trustee}")
++            continue
++        if ace_type == ACCESS_DENIED_ACE_TYPE:
++            #: Recorded, never used to justify a dangerous allow: canonical
++            #: ordering is not guaranteed on a descriptor read back from the
++            #: SCM, so the descriptor is refused and rewritten instead.
++            continue
++        resolved = map_generic(mask)
++        if trustee in APPROVED_TRUSTEES:
++            granted[trustee] = granted.get(trustee, 0) | resolved
++            continue
++        dangerous = _rights_in(resolved)
++        if dangerous:
++            problems.append(f"{trustee} is allowed {','.join(dangerous)}")
++    for required in APPROVED_TRUSTEES:
++        if granted.get(required, 0) & SERVICE_ALL_ACCESS != SERVICE_ALL_ACCESS:
++            problems.append(f"{required} lacks SERVICE_ALL_ACCESS")
++    return problems
++
++
++def token_access_verdict(descriptor: dict, host) -> list[str]:
++    """A1/A2 check 2 — token-aware effective access for a non-administrator.
++
++    Each dangerous right is probed INDIVIDUALLY; a bulk SERVICE_ALL_ACCESS
++    query can report denied while single rights are granted.
++    """
++    problems: list[str] = []
++    if descriptor.get("owner") is None or descriptor.get("group") is None:
++        return ["descriptor lacks owner or group; AccessCheck would fail "
++                "with ERROR_INVALID_SECURITY_DESCR (1338)"]
++    context = host.access_context()
++    if context is None:
++        return ["no token or Authz context could be built"]
++    missing = [sid for sid in REQUIRED_CONTEXT_SIDS
++               if sid not in context.get("sids", ())]
++    if missing:
++        return [f"access context is incomplete, missing {missing}"]
++    for name, bit in DANGEROUS_RIGHTS.items():
++        granted = host.access_check(descriptor, context, bit,
++                                    GENERIC_MAPPING)
++        if granted is None:
++            problems.append(f"access evaluation for {name} was indeterminate")
++        elif granted:
++            problems.append(f"non-administrator context is granted {name}")
++    return problems
++
++
++def service_security_verdict(descriptor: dict, host) -> dict:
++    """Both checks must pass; either failing or unevaluable refuses."""
++    problems = ace_inspection(descriptor) + token_access_verdict(descriptor, host)
++    return {"safe": not problems, "problems": problems}
++
++
++def m1_service_descriptor() -> dict:
++    """The descriptor M1 applies: SYSTEM and Administrators only."""
++    return {"owner": SID_ADMINISTRATORS, "group": SID_ADMINISTRATORS,
++            "protected": True, "dacl_present": True,
++            "dacl": [{"type": ACCESS_ALLOWED_ACE_TYPE, "sid": SID_LOCAL_SYSTEM,
++                      "mask": SERVICE_ALL_ACCESS},
++                     {"type": ACCESS_ALLOWED_ACE_TYPE,
++                      "sid": SID_ADMINISTRATORS, "mask": SERVICE_ALL_ACCESS},
++                     {"type": ACCESS_ALLOWED_ACE_TYPE, "sid": "S-1-5-32-545",
++                      "mask": (SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS
++                               | SERVICE_INTERROGATE
++                               | SERVICE_ENUMERATE_DEPENDENTS
++                               | READ_CONTROL)}]}
++
++
++# ── install ────────────────────────────────────────────────────────
++def _bin_path(config: M1Config) -> str:
++    exe = config.service_exe
++    quoted = f'"{exe}"' if " " in exe else exe
++    return " ".join([quoted, *config.service_args])
++
++
++def m1_install(config_path, host, *, enroll=None, bundle_root=None,
++               manifest=None, install_id=None) -> dict:
++    """Clean-only installation. Every step is gated, recorded and refusable."""
++    config = load_config(config_path, host)
++    root = Path(config_path).parent
++    ownership = Ownership(root / OWNERSHIP_FILENAME, host)
++    if not host.is_dir(root):
++        raise M1Error("BOOTSTRAP_ROOT_ABSENT",
++                      f"the pre-provisioned M1 root {root} does not exist; "
++                      "the installer never creates it")
++    install_id = install_id or os.urandom(8).hex()
++    if ownership.exists():
++        record = ownership.read()
++        blocking = ownership.blocking(record)
++        if blocking:
++            raise M1Error("PRIOR_ATTEMPT_UNRESOLVED",
++                          "a previous attempt left resources in an "
++                          f"unconfirmed state: {blocking}. Nothing will be "
++                          "adopted or deleted automatically; operator "
++                          "investigation is required.")
++        raise M1Error("ALREADY_INSTALLED",
++                      f"{ownership.path} records install "
++                      f"{record['install_id']}; M1 is clean-install only")
++    with host.exclusive_lock() as lock:
++        if lock is None:
++            raise M1Error("CONCURRENT_INSTALLER",
++                          "another M1 installer owns this host")
++        report = clean_host_report(config, host)
++        if not report["clean"]:
++            raise M1Error("HOST_NOT_CLEAN",
++                          f"refusing: {report['refusals']}")
++        record = ownership.create(install_id, config)
++        for name, path in (("install_dir", config.install_dir),
++                           ("state_dir", config.state_dir)):
++            ownership.mark(record, name, CREATE_INTENDED, {"path": str(path)})
++            try:
++                host.create_directory_protected(path)
++            except M1Error:
++                ownership.mark(record, name, CREATE_OUTCOME_UNKNOWN,
++                               {"path": str(path)})
++                raise
++            security = host.directory_security(path)
++            if security is None or security.get("nonadmin_writable"):
++                ownership.mark(record, name, CREATE_OUTCOME_UNKNOWN,
++                               {"path": str(path)})
++                raise M1Error("DIR_ACL_UNVERIFIED",
++                              f"cannot verify the security of {path}")
++            ownership.mark(record, name, CREATE_CONFIRMED,
++                           {"path": str(path), "security": security})
++        if bundle_root is not None and manifest is not None:
++            m1_payload_check(bundle_root, config.install_dir, manifest, host)
++            host.copy_payload(bundle_root, config.install_dir, manifest)
++            ownership.mark(record, "payload", CREATE_CONFIRMED,
++                           {"members": len(manifest)})
++        # ── enrollment (marker before the request; single attempt) ──
++        ownership.mark(record, "enrollment", CREATE_INTENDED,
++                       {"origin": config.origin})
++        if enroll is None:
++            raise M1Error("ENROLLMENT_NOT_SUPPLIED",
++                          "no enrollment callable was provided")
++        try:
++            identity = enroll(config)
++        except Exception as ex:                              # noqa: BLE001
++            ownership.mark(record, "enrollment", CREATE_OUTCOME_UNKNOWN,
++                           {"error": type(ex).__name__})
++            raise
++        ownership.mark(record, "enrollment", CREATE_CONFIRMED,
++                       {"endpoint_id": identity.get("endpoint_id")})
++        # ── service: create-only ──
++        state, detail = host.service_lookup(SERVICE_NAME)
++        if state != PROBE_ABSENT:
++            raise M1Error("SERVICE_NOT_ABSENT",
++                          f"service state {state} ({detail}); M1 never "
++                          "stops, deletes or replaces a service")
++        ownership.mark(record, "service", CREATE_INTENDED,
++                       {"name": SERVICE_NAME})
++        try:
++            host.service_create(SERVICE_NAME, _bin_path(config))
++        except M1Error:
++            ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
++                           {"name": SERVICE_NAME})
++            raise
++        qc = host.service_qc(SERVICE_NAME)
++        if qc is None:
++            ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
++                           {"name": SERVICE_NAME})
++            raise M1Error("SERVICE_UNVERIFIABLE",
++                          "the created service cannot be read back")
++        if qc.get("bin_path") != _bin_path(config):
++            ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
++                           {"bin_path": qc.get("bin_path")})
++            raise M1Error("SERVICE_IDENTITY_MISMATCH",
++                          "the registered binPath is not the approved one")
++        ownership.mark(record, "service", CREATE_CONFIRMED,
++                       {"name": SERVICE_NAME, "bin_path": qc.get("bin_path"),
++                        "account": qc.get("account"),
++                        "start_type": qc.get("start_type"),
++                        "install_id": install_id})
++        # ── security BEFORE activation ──
++        host.service_set_security(SERVICE_NAME, m1_service_descriptor())
++        descriptor = host.service_security(SERVICE_NAME)
++        if descriptor is None:
++            raise M1Error("SERVICE_SD_UNREADABLE",
++                          "the service security descriptor cannot be read "
++                          "back; the service will not be started")
++        verdict = service_security_verdict(descriptor, host)
++        if not verdict["safe"]:
++            raise M1Error("SERVICE_SD_UNSAFE",
++                          "refusing to start the service: "
++                          f"{verdict['problems']}")
++        host.service_start(SERVICE_NAME)
++        image = host.verify_running_image(SERVICE_NAME, config.service_exe)
++        if image != "MATCH":
++            raise M1Error("SERVICE_IMAGE_UNVERIFIED",
++                          f"running image verdict {image}")
++        ownership.mark(record, "service", ACTIVATION_VERIFIED,
++                       {**record["resources"]["service"]["evidence"],
++                        "image": image,
++                        "config_digest": config.config_digest})
++        return {"install_id": install_id, "service": SERVICE_NAME,
++                "endpoint_id": identity.get("endpoint_id"),
++                "state": ACTIVATION_VERIFIED,
++                "security": verdict, "host_report": report}
++
++
++# ── uninstall ──────────────────────────────────────────────────────
++def m1_uninstall(config_path, host) -> dict:
++    """Ownership-bound, fail-closed. Identity and evidence are preserved."""
++    config = load_config(config_path, host)
++    ownership = Ownership(Path(config_path).parent / OWNERSHIP_FILENAME, host)
++    if not ownership.exists():
++        raise M1Error("NOT_OWNED",
++                      "no M1 ownership record; refusing to touch anything")
++    record = ownership.read()
++    if not ownership.owns(record, "service"):
++        raise M1Error("NOT_OWNED",
++                      "the service is not recorded as confirmed-owned by "
++                      "this M1 installation")
++    evidence = record["resources"]["service"]["evidence"]
++    qc = host.service_qc(SERVICE_NAME)
++    if qc is None:
++        raise M1Error("SERVICE_UNVERIFIABLE",
++                      "the service cannot be read back; refusing to stop or "
++                      "delete anything")
++    if qc.get("bin_path") != evidence.get("bin_path"):
++        raise M1Error("SERVICE_IDENTITY_MISMATCH",
++                      "the installed service is not the one M1 created")
++    stopped = host.service_stop(SERVICE_NAME)
++    if stopped != "STOPPED":
++        raise M1Error("SERVICE_STOP_UNCERTAIN",
++                      f"stop outcome {stopped}; refusing to delete. Operator "
++                      "action required.")
++    exited = host.process_exited(qc.get("pid"))
++    if exited is not True:
++        raise M1Error("PROCESS_EXIT_UNPROVEN",
++                      "the service process has not been proven to have "
++                      "exited; the payload will not be removed")
++    removal = host.service_delete(SERVICE_NAME)
++    after, detail = host.service_lookup(SERVICE_NAME)
++    if after == PROBE_PRESENT and removal == "PENDING_DELETION":
++        ownership.mark(record, "service", CREATE_CONFIRMED,
++                       {**evidence, "removal": "PENDING_DELETION"})
++        return {"service": "PENDING_DELETION", "detail": detail,
++                "evidence_preserved": True}
++    if after != PROBE_ABSENT:
++        raise M1Error("SERVICE_REMOVAL_UNVERIFIED",
++                      f"post-removal service state {after} ({detail})")
++    record["resources"].pop("service", None)
++    record["history"].append({"resource": "service", "state": "REMOVED",
++                              "at": host.now_utc(), "evidence": evidence})
++    ownership.save(record)
++    #: D-M1-3: identity, journal, cursors, queued evidence and the audit
++    #: record are PRESERVED. Nothing under the state directory is removed.
++    return {"service": "REMOVED", "state_dir_preserved": str(config.state_dir),
++            "evidence_preserved": True}
++
++
++# ── enrollment reconciliation ──────────────────────────────────────
++def m1_reconcile_enrollment(config_path, host, *, session_probe,
++                            operator_confirmed: bool = False) -> dict:
++    """R3 — an identity that exists while its attempt marker is still open.
++
++    Neither re-enrollment nor silent adoption. Closing the marker requires
++    BOTH an explicit operator confirmation and a successful authenticated
++    session probe, which is a machine check that the credential is live.
++    """
++    config = load_config(config_path, host)
++    marker = host.read_attempt_marker(config.state_dir)
++    identity = host.read_identity(config.state_dir)
++    if marker is None:
++        return {"state": "NO_ATTEMPT_MARKER", "identity": bool(identity)}
++    if marker.get("outcome") != "OPEN":
++        return {"state": marker.get("outcome"), "identity": bool(identity)}
++    if not identity:
++        raise M1Error("ENROLLMENT_OUTCOME_UNKNOWN",
++                      "an enrollment attempt is open and no identity was "
++                      "published; automatic re-enrollment is blocked. "
++                      "Backend reconciliation is required for attempt "
++                      f"{marker.get('attempt_id')}")
++    if not operator_confirmed:
++        raise M1Error("ENROLLMENT_UNCONFIRMED_IDENTITY_PRESENT",
++                      "an identity exists while its attempt marker is open; "
++                      "it will not be adopted without explicit operator "
++                      "confirmation and a successful session probe")
++    probe = session_probe(config, identity)
++    if not probe.get("ok"):
++        raise M1Error("ENROLLMENT_RECONCILE_REFUSED",
++                      f"session probe failed: {probe.get('detail')}")
++    host.close_attempt_marker(config.state_dir,
++                              "ENROLLMENT_CONFIRMED_BY_RECONCILE",
++                              {"endpoint_id": identity.get("endpoint_id"),
++                               "probe": probe.get("detail")})
++    return {"state": "ENROLLMENT_CONFIRMED_BY_RECONCILE",
++            "endpoint_id": identity.get("endpoint_id")}
++
++
++# ── M1 service adapter · never calls the enterprise service entrypoint ─
++def m1_service_run(argv: list[str]) -> None:
++    """Host the EXISTING sensor collection loop under the SCM for M1.
++
++    Order is load-bearing: the protected configuration is verified BEFORE
++    the state directory is bound, before any log is opened in it, before any
++    credential is read and before any socket exists.
++    """
++    if os.name != "nt":
++        raise M1Error("NOT_WINDOWS",
++                      "the M1 service adapter runs only on Windows")
++    config_path = _argv_value(argv, "--m1-config")
++    if not config_path:
++        raise M1Error("CONFIG_ABSENT", "--m1-config is required")
++    host = WindowsHost()
++    config = load_config(config_path, host)             # before anything else
++    state_dir = _argv_value(argv, "--state-dir") or str(config.state_dir)
++    if Path(state_dir) != config.state_dir:
++        raise M1Error("CONFIG_STATE_DIR_MISMATCH",
++                      "the service was given a state directory the approved "
++                      "configuration does not name")
++    import nivxforge_sensor as sensor                    # existing loop
++    import servicemanager
++    import win32event
++    import win32service
++    import win32serviceutil
++
++    sensor.use_state_dir(config.state_dir)
++
++    class M1SensorService(win32serviceutil.ServiceFramework):
++        _svc_name_ = SERVICE_NAME
++        _svc_display_name_ = "NivXForge Sensor (M1)"
++
++        def __init__(self, args):
++            win32serviceutil.ServiceFramework.__init__(self, args)
++            self.stop_event = win32event.CreateEvent(None, 0, 0, None)
++
++        def SvcStop(self):
++            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
++            win32event.SetEvent(self.stop_event)
++
++        def SvcDoRun(self):
++            while True:
++                sensor.run(config.origin, config.interval, once=True)
++                if win32event.WaitForSingleObject(
++                        self.stop_event,
++                        max(5, config.interval) * 1000) == win32event.WAIT_OBJECT_0:
++                    break
++
++    servicemanager.Initialize()
++    servicemanager.PrepareToHostSingle(M1SensorService)
++    servicemanager.StartServiceCtrlDispatcher()
++
++
++def _argv_value(argv: list[str], flag: str) -> str | None:
++    for index, value in enumerate(argv):
++        if value == flag and index + 1 < len(argv):
++            return argv[index + 1]
++        if value.startswith(flag + "="):
++            return value.split("=", 1)[1]
++    return None
++
++
++# ── the OS surface ─────────────────────────────────────────────────
++class WindowsHost:
++    """Real Win32 surface. Constructed only on Windows; every method that
++    cannot answer authoritatively returns None so the caller fails closed."""
++
++    def __init__(self) -> None:
++        if os.name != "nt":
++            raise M1Error("NOT_WINDOWS", "WindowsHost requires Windows")
++        import ctypes
++        self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
++
++    # -- time / paths ------------------------------------------------
++    def now_utc(self) -> str:
++        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
++
++    def path_ancestry(self, path) -> list[Path]:
++        path = Path(path)
++        return list(reversed([path, *path.parents]))[1:]
++
++    def is_reparse_point(self, path) -> bool:
++        import ctypes
++        attributes = self._k32.GetFileAttributesW(str(path))
++        if attributes == 0xFFFFFFFF:
++            return False
++        return bool(attributes & 0x400)
++
++    def path_exists(self, path) -> bool:
++        return Path(path).exists()
++
++    def is_file(self, path) -> bool:
++        return Path(path).is_file()
++
++    def is_dir(self, path) -> bool:
++        return Path(path).is_dir()
++
++    def read_bytes(self, path) -> bytes:
++        return Path(path).read_bytes()
++
++    def write_new_file(self, path, data: bytes) -> None:
++        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
++        try:
++            handle = os.open(path, flags, 0o600)
++        except FileExistsError:
++            raise M1Error("ALREADY_EXISTS", f"{path} already exists") from None
++        try:
++            if os.write(handle, data) != len(data):
++                raise M1Error("SHORT_WRITE", f"{path}")
++            os.fsync(handle)
++        finally:
++            os.close(handle)
++
++    def replace_file(self, path, data: bytes) -> None:
++        temporary = Path(f"{path}.tmp-{os.urandom(6).hex()}")
++        self.write_new_file(temporary, data)
++        os.replace(temporary, path)
++
++    def copy_payload(self, bundle_root, dest_root, manifest) -> None:
++        import shutil
++        for member in manifest:
++            source = Path(bundle_root) / member
++            target = Path(dest_root) / member
++            target.parent.mkdir(parents=True, exist_ok=True)
++            shutil.copy2(source, target)
++
++    def create_directory_protected(self, path) -> None:
++        """CreateDirectoryW with a protected SD applied AT CREATION."""
++        import ctypes
++        security = self._protected_security_attributes()
++        if not self._k32.CreateDirectoryW(str(path), ctypes.byref(security)):
++            error = ctypes.get_last_error()
++            if error == 183:                      # ERROR_ALREADY_EXISTS
++                raise M1Error("ALREADY_EXISTS",
++                              f"{path} already exists; M1 never installs "
++                              "into an existing directory")
++            raise M1Error("DIR_CREATE_FAILED", f"{path}: WinError {error}")
++
++    def _protected_security_attributes(self):
++        import ctypes
++        import ctypes.wintypes as wintypes
++        import win32security
++
++        class SECURITY_ATTRIBUTES(ctypes.Structure):
++            _fields_ = [("nLength", wintypes.DWORD),
++                        ("lpSecurityDescriptor", ctypes.c_void_p),
++                        ("bInheritHandle", wintypes.BOOL)]
++
++        descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
++            "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)", win32security.SDDL_REVISION_1)
++        raw = bytes(descriptor)
++        buffer = ctypes.create_string_buffer(raw, len(raw))
++        attributes = SECURITY_ATTRIBUTES()
++        attributes.nLength = ctypes.sizeof(SECURITY_ATTRIBUTES)
++        attributes.lpSecurityDescriptor = ctypes.cast(buffer, ctypes.c_void_p)
++        attributes.bInheritHandle = False
++        attributes._buffer = buffer                 # keep the SD alive
++        return attributes
++
++    def directory_security(self, path):
++        return self._security(path)
++
++    def file_security(self, path):
++        return self._security(path)
++
++    def _security(self, path):
++        """None means UNKNOWN, and every caller treats UNKNOWN as unsafe."""
++        try:
++            import ntsecuritycon
++            import win32security
++        except ImportError:
++            return None
++        try:
++            descriptor = win32security.GetNamedSecurityInfo(
++                str(path), win32security.SE_FILE_OBJECT,
++                win32security.OWNER_SECURITY_INFORMATION
++                | win32security.GROUP_SECURITY_INFORMATION
++                | win32security.DACL_SECURITY_INFORMATION)
++            dacl = descriptor.GetSecurityDescriptorDacl()
++        except Exception:                                    # noqa: BLE001
++            return None
++        if dacl is None:
++            return {"nonadmin_writable": True, "reason": "NULL DACL"}
++        write_mask = (ntsecuritycon.FILE_GENERIC_WRITE
++                      | ntsecuritycon.FILE_ADD_FILE
++                      | ntsecuritycon.WRITE_DAC | ntsecuritycon.WRITE_OWNER)
++        nonadmin = False
++        for index in range(dacl.GetAceCount()):
++            (ace_type, _flags), mask, sid = dacl.GetAce(index)[0:3] if len(
++                dacl.GetAce(index)) > 2 else (dacl.GetAce(index)[0], 0, None)
++            if ace_type != ACCESS_ALLOWED_ACE_TYPE or sid is None:
++                continue
++            text = win32security.ConvertSidToStringSid(sid)
++            if text in APPROVED_TRUSTEES or text.endswith("-512"):
++                continue
++            if mask & write_mask:
++                nonadmin = True
++        return {"nonadmin_writable": nonadmin}
++
++    # -- SCM ---------------------------------------------------------
++    def _sc(self, *args) -> tuple[int, str]:
++        import subprocess
++        try:
++            done = subprocess.run(["sc.exe", *args], capture_output=True,
++                                  text=True, timeout=60)
++        except (OSError, subprocess.SubprocessError) as ex:
++            return -1, f"{type(ex).__name__}: {ex}"
++        return done.returncode, (done.stdout or "") + (done.stderr or "")
++
++    def service_lookup(self, name) -> tuple[str, str]:
++        code, output = self._sc("query", name)
++        if code == 0:
++            return PROBE_PRESENT, output.strip()[:200]
++        if code == 1060 or "1060" in output:
++            return PROBE_ABSENT, "ERROR_SERVICE_DOES_NOT_EXIST"
++        return PROBE_UNKNOWN, f"sc query rc={code} {output.strip()[:200]}"
++
++    def scheduled_task_lookup(self, name) -> tuple[str, str]:
++        import subprocess
++        try:
++            done = subprocess.run(["schtasks.exe", "/query", "/tn", name],
++                                  capture_output=True, text=True, timeout=60)
++        except (OSError, subprocess.SubprocessError) as ex:
++            return PROBE_UNKNOWN, type(ex).__name__
++        if done.returncode == 0:
++            return PROBE_PRESENT, name
++        if "cannot find" in (done.stdout + done.stderr).lower():
++            return PROBE_ABSENT, name
++        return PROBE_UNKNOWN, f"rc={done.returncode}"
++
++    def worker_processes(self):
++        """None means the enumeration failed, which is UNKNOWN, not absent."""
++        import subprocess
++        try:
++            done = subprocess.run(
++                ["wmic", "process", "where",
++                 "name like '%NivXForge%'", "get", "ProcessId,CommandLine"],
++                capture_output=True, text=True, timeout=60)
++        except (OSError, subprocess.SubprocessError):
++            return None
++        if done.returncode != 0:
++            return None
++        found = []
++        for line in done.stdout.splitlines():
++            if WORKER_FLAG in line or "--service-run" in line:
++                found.append(line.strip()[:120])
++        return found
++
++    def service_create(self, name, bin_path) -> None:
++        code, output = self._sc("create", name, f"binPath= {bin_path}",
++                                "start= auto", "obj= LocalSystem")
++        if code != 0:
++            raise M1Error("SERVICE_CREATE_FAILED",
++                          f"sc create rc={code}: {output.strip()[:200]}")
++
++    def service_qc(self, name):
++        code, output = self._sc("qc", name)
++        if code != 0:
++            return None
++        parsed: dict = {"raw": output}
++        for line in output.splitlines():
++            if ":" not in line:
++                continue
++            key, _, value = line.partition(":")
++            key = key.strip().upper()
++            if key == "BINARY_PATH_NAME":
++                parsed["bin_path"] = value.strip()
++            elif key == "SERVICE_START_NAME":
++                parsed["account"] = value.strip()
++            elif key == "START_TYPE":
++                parsed["start_type"] = value.strip()
++        status, _ = self._sc("queryex", name)
++        return parsed
++
++    def service_set_security(self, name, descriptor) -> None:
++        raise M1Error("NOT_IMPLEMENTED_NATIVE",
++                      "service security application is a native obligation "
++                      "and is not exercised off Windows")
++
++    def service_security(self, name):
++        return None
++
++    def service_start(self, name) -> None:
++        code, output = self._sc("start", name)
++        if code != 0:
++            raise M1Error("SERVICE_START_FAILED",
++                          f"sc start rc={code}: {output.strip()[:200]}")
++
++    def service_stop(self, name) -> str:
++        code, output = self._sc("stop", name)
++        if code != 0:
++            return f"UNCERTAIN rc={code}"
++        return "STOPPED"
++
++    def service_delete(self, name) -> str:
++        code, output = self._sc("delete", name)
++        if "1072" in output:
++            return "PENDING_DELETION"
++        return "DELETED" if code == 0 else f"UNCERTAIN rc={code}"
++
++    def process_exited(self, pid):
++        return None
++
++    def verify_running_image(self, name, expected):
++        return None
++
++    def access_context(self):
++        return None
++
++    def access_check(self, descriptor, context, right, mapping):
++        return None
++
++    # -- identity / marker (delegated to the sensor) ------------------
++    def read_identity(self, state_dir):
++        path = Path(state_dir) / "identity.json"
++        if not path.is_file():
++            return None
++        try:
++            return json.loads(path.read_text())
++        except ValueError:
++            return None
++
++    def read_attempt_marker(self, state_dir):
++        import nivxforge_sensor as sensor
++        return sensor.read_attempt_marker(Path(state_dir))
++
++    def close_attempt_marker(self, state_dir, outcome, evidence):
++        import nivxforge_sensor as sensor
++        return sensor.close_attempt_marker(outcome, evidence,
++                                           state_dir=Path(state_dir))
++
++    def exclusive_lock(self):
++        return _NamedMutex()
++
++
++class _NamedMutex:
++    """Exclusive M1 ownership, distinct from the enterprise installer mutex.
++    An ABANDONED mutex is not a free lock: the caller refuses."""
++
++    NAME = "Global\\NivXForgeM1Install"
++
++    def __enter__(self):
++        import ctypes
++        self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
++        self._handle = self._k32.CreateMutexW(None, True, self.NAME)
++        error = ctypes.get_last_error()
++        if not self._handle or error == 183:        # ERROR_ALREADY_EXISTS
++            return None
++        return self
++
++    def __exit__(self, *exc):
++        if getattr(self, "_handle", None):
++            self._k32.ReleaseMutex(self._handle)
++            self._k32.CloseHandle(self._handle)
++        return False
+diff --git a/agents/nivxforge-windows/nivxforge_sensor.py b/agents/nivxforge-windows/nivxforge_sensor.py
+index 1ab744f3..53a45ded 100644
+--- a/agents/nivxforge-windows/nivxforge_sensor.py
++++ b/agents/nivxforge-windows/nivxforge_sensor.py
+@@ -284,10 +284,14 @@ class _Transport:
+         self._conn, self._origin = None, None
+ 
+     def request(self, api: str, path: str, method: str,
+-                body: bytes | None, headers: dict) -> tuple[int, bytes]:
++                body: bytes | None, headers: dict,
++                attempts: int = 2) -> tuple[int, bytes]:
++        """`attempts` defaults to 2 — the reconnect-once behaviour every
++        telemetry caller relies on. M1 enrolment, and only M1 enrolment,
++        passes 1: a one-time token must never be replayed blindly."""
+         parsed = urllib.parse.urlparse(api)
+         target = (parsed.path.rstrip("/") + path) or path
+-        for attempt in (1, 2):
++        for attempt in range(1, max(1, attempts) + 1):
+             conn = self._connect(api)
+             try:
+                 conn.request(method, target, body=body, headers=headers)
+@@ -301,7 +305,7 @@ class _Transport:
+                 # the FIRST write. That is normal, and it must not look
+                 # like a backend outage: reconnect once, then report.
+                 self.close()
+-                if attempt == 2:
++                if attempt >= max(1, attempts):
+                     raise OSError(f"transport: {type(ex).__name__}: {ex}"
+                                   ) from None
+         raise OSError("transport: unreachable")
+@@ -311,14 +315,15 @@ TRANSPORT = _Transport()
+ 
+ 
+ def _request(api: str, path: str, method: str, body: dict | None,
+-             bearer: str | None) -> dict:
++             bearer: str | None, attempts: int = 2) -> dict:
+     data = json.dumps(body).encode() if body is not None else None
+     headers = {"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
+                "Accept": "application/json",
+                **({"Content-Type": "application/json"} if data else {}),
+                **({"Content-Length": str(len(data))} if data else {}),
+                **({"Authorization": f"Bearer {bearer}"} if bearer else {})}
+-    status, payload = TRANSPORT.request(api, path, method, data, headers)
++    status, payload = TRANSPORT.request(api, path, method, data, headers,
++                                        attempts=attempts)
+     if status >= 400:
+         raise RuntimeError(f"{status} {payload.decode(errors='replace')[:400]}")
+     try:
+@@ -327,8 +332,9 @@ def _request(api: str, path: str, method: str, body: dict | None,
+         return {}
+ 
+ 
+-def _post(api: str, path: str, body: dict, bearer: str | None = None) -> dict:
+-    return _request(api, path, "POST", body, bearer)
++def _post(api: str, path: str, body: dict, bearer: str | None = None,
++          attempts: int = 2) -> dict:
++    return _request(api, path, "POST", body, bearer, attempts=attempts)
+ 
+ 
+ # ── durable identity ──────────────────────────────────────────────
+@@ -470,7 +476,141 @@ def read_enrolment_secret(stream=None) -> str:
+     return secret
+ 
+ 
+-def enrol(api: str, tenant: str, token: str) -> dict:
++ATTEMPT_FILENAME = "enrollment_attempt.json"
++#: Fields the enrolment response is ACTUALLY implemented to return. The
++#: tenant is operator-supplied and is NEVER returned, so it is not validated
++#: as a response field; tenant binding is proven later by `_open_session`.
++_REQUIRED_ENROLMENT_FIELDS = ("endpoint_id", "credential_id",
++                              "agent_credential")
++
++
++def attempt_marker_path(state_dir=None) -> Path:
++    return Path(state_dir or STATE_DIR) / ATTEMPT_FILENAME
++
++
++def validate_enrolment_response(res: dict) -> dict:
++    """Validate every field BEFORE anything is published."""
++    if not isinstance(res, dict):
++        raise SystemExit("enrolment response was not an object")
++    checked = {}
++    for field in _REQUIRED_ENROLMENT_FIELDS:
++        value = res.get(field)
++        if not isinstance(value, str) or not value.strip():
++            raise SystemExit(f"enrolment response field {field!r} is missing, "
++                             "empty or not a string; nothing was published")
++        checked[field] = value
++    return checked
++
++
++def _rename_no_replace(source: Path, target: Path) -> None:
++    """Atomic publication that FAILS if the destination exists or appears.
++
++    Windows: MoveFileExW WITHOUT MOVEFILE_REPLACE_EXISTING, with
++    MOVEFILE_WRITE_THROUGH. POSIX: os.link, which is equally no-overwrite.
++    """
++    if os.name == "nt":
++        import ctypes
++        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
++        if not kernel32.MoveFileExW(str(source), str(target), 0x8):
++            error = ctypes.get_last_error()
++            raise SystemExit(f"refusing to publish {target}: WinError {error}"
++                             + (" (destination already exists)"
++                                if error in (80, 183) else ""))
++        return
++    try:
++        os.link(source, target)
++    except FileExistsError:
++        raise SystemExit(f"refusing to publish {target}: it already "
++                         "exists") from None
++    os.unlink(source)
++
++
++def publish_identity(record: dict, path=None) -> Path:
++    """INITIAL, no-overwrite, durable identity publication.
++
++    Durability limits, stated rather than implied: the flush covers a
++    process crash and is best effort under power loss; with volatile disk
++    caches power-loss durability is NOT guaranteed, and Windows exposes no
++    POSIX directory fsync, so none is claimed.
++    """
++    final = Path(path) if path is not None else IDENTITY_FILE
++    final.parent.mkdir(parents=True, exist_ok=True)
++    if final.exists():
++        raise SystemExit(f"refusing to publish identity: {final} already "
++                         "exists; replacement is a separate, ownership-gated "
++                         "operation")
++    data = json.dumps(record, indent=2).encode()
++    temporary = final.with_name(final.name + ".new-" + os.urandom(6).hex())
++    handle = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
++    try:
++        if os.write(handle, data) != len(data):
++            raise SystemExit("short write publishing the endpoint identity")
++        os.fsync(handle)
++    finally:
++        os.close(handle)
++    _rename_no_replace(temporary, final)
++    published = json.loads(final.read_text())
++    if published != record:
++        raise SystemExit("identity readback does not match what was published")
++    try:
++        os.chmod(final, 0o600)
++    except OSError:
++        pass                     # on Windows the installer applies the ACL
++    return final
++
++
++def open_attempt_marker(api: str, tenant: str, facts: dict,
++                        state_dir=None) -> Path:
++    """Written BEFORE the enrolment request leaves this process. Carries no
++    token: only non-secret diagnostics."""
++    path = attempt_marker_path(state_dir)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    marker = {
++        "attempt_id": os.urandom(8).hex(), "outcome": "OPEN",
++        "started_at": _now(), "tenant_id": tenant,
++        "origin": urllib.parse.urlparse(api).netloc,
++        "facts_digest": hashlib.sha256("|".join([
++            facts.get("processor_id") or "", facts.get("machine_guid") or "",
++            facts.get("hostname") or ""]).encode()).hexdigest(),
++        "sensor_version": SENSOR_VERSION}
++    data = json.dumps(marker, indent=2).encode()
++    handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
++    try:
++        os.write(handle, data)
++        os.fsync(handle)
++    finally:
++        os.close(handle)
++    return path
++
++
++def read_attempt_marker(state_dir=None):
++    path = attempt_marker_path(state_dir)
++    if not path.is_file():
++        return None
++    try:
++        return json.loads(path.read_text())
++    except ValueError:
++        return {"outcome": "TORN", "attempt_id": None}
++
++
++def close_attempt_marker(outcome: str, evidence: dict, state_dir=None) -> dict:
++    marker = read_attempt_marker(state_dir)
++    if marker is None:
++        raise SystemExit("no enrolment attempt marker to close")
++    if marker.get("outcome") != "OPEN":
++        raise SystemExit(f"attempt marker is already {marker.get('outcome')}")
++    marker["outcome"] = outcome
++    marker["closed_at"] = _now()
++    marker["evidence"] = evidence
++    path = attempt_marker_path(state_dir)
++    temporary = path.with_name(path.name + ".upd-" + os.urandom(6).hex())
++    temporary.write_text(json.dumps(marker, indent=2))
++    os.replace(temporary, path)              # owned metadata: replace is ok
++    return marker
++
++
++def enrol(api: str, tenant: str, token: str, *, single_attempt: bool = False,
++          attempt_marker: bool = False) -> dict:
+     # Defence in depth: prove at RUNTIME that the secret this process is
+     # about to use is not also sitting on its own command line.
+     refuse_secret_on_command_line(list(sys.argv))
+@@ -483,13 +623,24 @@ def enrol(api: str, tenant: str, token: str) -> dict:
+                  "unattributed observation is not an endpoint.")
+     failure: str | None = None
+     res: dict = {}
++    if attempt_marker:
++        existing = read_attempt_marker()
++        if existing is not None and existing.get("outcome") == "OPEN":
++            raise SystemExit(
++                "an earlier enrolment attempt "
++                f"({existing.get('attempt_id')}) is still OPEN. Automatic "
++                "re-enrolment is blocked: the request may have been accepted "
++                "by the backend. Reconcile it before retrying.")
++        STATE_DIR.mkdir(parents=True, exist_ok=True)
++        open_attempt_marker(api, tenant, facts)
+     try:
+         res = _post(api, "/api/edr/agent/enroll", {
+             "tenant_id": tenant, "enrollment_token": token,
+             "sensor_version": SENSOR_VERSION,
+             "processor_id": facts["processor_id"],
+             "machine_guid": facts["machine_guid"],
+-            "hostname": facts["hostname"], "platform": facts["platform"]})
++            "hostname": facts["hostname"], "platform": facts["platform"]},
++            attempts=1 if single_attempt else 2)
+     except Exception as ex:                                  # noqa: BLE001
+         # A rejected enrolment must not publish the secret: a backend
+         # validation error can echo the request body straight back.
+@@ -500,18 +651,24 @@ def enrol(api: str, tenant: str, token: str) -> dict:
+         # only suppresses the DISPLAY of the chain: the original exception
+         # would still be reachable as `__context__`, carrying the
+         # unredacted value with it.
++        #
++        # An open attempt marker is deliberately LEFT OPEN here: the request
++        # may have been accepted before the response was lost, so the
++        # outcome is unknown and re-enrolment must stay blocked.
+         raise SystemExit(failure)
+     STATE_DIR.mkdir(parents=True, exist_ok=True)
+-    IDENTITY_FILE.write_text(json.dumps({
+-        "tenant_id": tenant, "endpoint_id": res["endpoint_id"],
+-        "credential_id": res["credential_id"],
+-        "agent_credential": res["agent_credential"],
++    checked = validate_enrolment_response(res)
++    publish_identity({
++        "tenant_id": tenant, "endpoint_id": checked["endpoint_id"],
++        "credential_id": checked["credential_id"],
++        "agent_credential": checked["agent_credential"],
+         "os_version": facts["os_version"],
+-        "enrolled_at": _now(), "capabilities": CAPABILITIES}, indent=2))
+-    try:
+-        os.chmod(IDENTITY_FILE, 0o600)
+-    except OSError:
+-        pass                     # on Windows the installer applies the ACL
++        "enrolled_at": _now(), "capabilities": CAPABILITIES})
++    if attempt_marker:
++        # Success is marked ONLY after publication AND readback succeeded.
++        close_attempt_marker("ENROLLMENT_CONFIRMED",
++                             {"endpoint_id": checked["endpoint_id"],
++                              "credential_id": checked["credential_id"]})
+     print(f"enrolled endpoint_id={res['endpoint_id']}")
+     print(f"credential stored at {IDENTITY_FILE} (administrators/SYSTEM only)")
+     print(f"sensor_state={res.get('sensor_state')}  (nothing collected yet)")
+diff --git a/agents/nivxforge-windows/nivxforge_setup.py b/agents/nivxforge-windows/nivxforge_setup.py
+index 84e9a867..a5e80c78 100644
+--- a/agents/nivxforge-windows/nivxforge_setup.py
++++ b/agents/nivxforge-windows/nivxforge_setup.py
+@@ -1594,6 +1594,8 @@ def build_parser() -> argparse.ArgumentParser:
+         description="NivXForge EDR sensor installer for Windows")
+     ap.add_argument("--service-run", action="store_true",
+                     help=argparse.SUPPRESS)
++    ap.add_argument("--m1-service-run", action="store_true",
++                    help=argparse.SUPPRESS)
+     sub = ap.add_subparsers(dest="cmd")
+     i = sub.add_parser("install", help="install, enrol and start the service")
+     i.add_argument("--backend", default=DEFAULT_BACKEND)
+@@ -1606,6 +1608,23 @@ def build_parser() -> argparse.ArgumentParser:
+     u = sub.add_parser("uninstall", help="stop and remove the service")
+     u.add_argument("--purge", action="store_true")
+     sub.add_parser("status", help="local enrolment and queue state")
++    m1i = sub.add_parser("m1-install",
++                         help="M1 CLEAN install on an isolated test VM "
++                              "(no upgrade, no transaction engine)")
++    m1i.add_argument("--m1-config", required=True,
++                     help="path to the pre-provisioned, protected M1 "
++                          "configuration")
++    m1u = sub.add_parser("m1-uninstall",
++                         help="ownership-bound M1 uninstall (preserves "
++                              "identity, journal, cursors and evidence)")
++    m1u.add_argument("--m1-config", required=True)
++    m1r = sub.add_parser("m1-reconcile-enrollment",
++                         help="resolve an M1 enrolment attempt whose outcome "
++                              "is unknown")
++    m1r.add_argument("--m1-config", required=True)
++    m1r.add_argument("--operator-confirmed", action="store_true",
++                     help="the operator has verified backend-side that this "
++                          "endpoint has exactly one identity")
+     sub.add_parser("version", help="installer and sensor versions")
+     sub.add_parser("recover-transaction", help="reconcile durable installer intent")
+     r = sub.add_parser("resolve-operation",
+@@ -1654,7 +1673,9 @@ _IS_WINDOWS = os.name == "nt"
+ #: on an endpoint with no Python installed.
+ _REQUIRED_BUNDLED = ("nivxforge_transaction", "nivxforge_scm_worker",
+                      "nivxforge_sensor", "nivxforge_journal", "sqlite3",
+-                     "_sqlite3")
++                     "_sqlite3", "nivxforge_m1", "nivxforge_exclusions",
++                     "nivxforge_delivery_counters",
++                     "nivxforge_content_acquisition")
+ _SELFTEST_EVENT = {
+     "observed_at": "selftest", "kind": "WINDOWS_EVENT_LOG",
+     "winlog": {"channel": "SelfTest", "record_id": 1, "event_id": "1",
+@@ -1960,6 +1981,37 @@ def _gate0_verdicts(checks: dict) -> dict:
+     }
+ 
+ 
++def m1_dispatch(args) -> None:
++    """Additive M1 entrypoint. Imported lazily so the enterprise commands
++    carry no new import cost and so the M1 module stays independently
++    testable."""
++    import nivxforge_m1 as m1
++    host = m1.WindowsHost()
++    if args.cmd == "m1-install":
++        def enroll(config):
++            token = sensor.read_enrolment_secret()
++            sensor.use_state_dir(config.state_dir)
++            return sensor.enrol(config.origin, config.tenant_id, token,
++                                single_attempt=True, attempt_marker=True)
++
++        print(json.dumps(m1.m1_install(args.m1_config, host, enroll=enroll),
++                         indent=2))
++    elif args.cmd == "m1-uninstall":
++        print(json.dumps(m1.m1_uninstall(args.m1_config, host), indent=2))
++    else:
++        def session_probe(config, identity):
++            try:
++                sensor.use_state_dir(config.state_dir)
++                token = sensor._open_session(config.origin, identity)
++                return {"ok": bool(token), "detail": "session opened"}
++            except Exception as ex:                          # noqa: BLE001
++                return {"ok": False, "detail": type(ex).__name__}
++
++        print(json.dumps(m1.m1_reconcile_enrollment(
++            args.m1_config, host, session_probe=session_probe,
++            operator_confirmed=args.operator_confirmed), indent=2))
++
++
+ def main(argv: list[str] | None = None) -> None:
+     raw = list(sys.argv[1:] if argv is None else argv)
+     # SERVICE DISPATCH FIRST. The SCM invokes this binary as
+@@ -1972,6 +2024,12 @@ def main(argv: list[str] | None = None) -> None:
+         from nivxforge_scm_worker import entry
+         entry()
+         return
++    if "--m1-service-run" in raw:
++        # The M1 service adapter. It deliberately does NOT call
++        # `_run_as_service`, which is production-oriented and unchanged.
++        import nivxforge_m1 as m1
++        m1.m1_service_run(raw)
++        return
+     if SERVICE_FLAG in raw:
+         _run_as_service(raw)
+         return
+@@ -1992,6 +2050,12 @@ def main(argv: list[str] | None = None) -> None:
+             "to continue, because an ignored flag makes a wrong installer "
+             "version look like a credential failure. Check "
+             "`NivXForgeEDRSetup.exe version` and `install --help`.")
++    if args.cmd in ("m1-install", "m1-uninstall", "m1-reconcile-enrollment"):
++        # The M1 clean-install path. It NEVER reaches the enterprise
++        # transaction/recovery engine, and the enterprise commands below are
++        # unchanged by its presence.
++        m1_dispatch(args)
++        return
+     if args.cmd == "install":
+         install(args.backend, args.tenant, args.token_stdin, args.interval,
+                 args.re_enrol)
+diff --git a/backend/tests/edr/test_m1_clean_install.py b/backend/tests/edr/test_m1_clean_install.py
+new file mode 100644
+index 00000000..eb530592
+--- /dev/null
++++ b/backend/tests/edr/test_m1_clean_install.py
+@@ -0,0 +1,937 @@
++"""M1 clean installer — portable regressions, negative controls and races.
++
++PORTABLE EVIDENCE ONLY. These tests exercise OUR logic: ordering, refusal
++paths, record states, mask resolution and trustee rules. They do NOT and
++cannot establish that Windows behaves as documented. Every Win32 behaviour
++(`CreateDirectoryW` + SD, `MoveFileEx` without REPLACE_EXISTING, AccessCheck,
++service SD application, pending deletion, process-exit evidence) remains a
++native obligation listed in the G4 checklist.
++
++The FakeHost below simulates the OS surface. It never answers a security
++question with a hardcoded "safe": every verdict the tests assert comes from
++the real implementation in `nivxforge_m1.py` reading simulated state.
++"""
++from __future__ import annotations
++
++import json
++import os
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++
++AGENT_DIR = (Path(__file__).resolve().parents[3]
++             / "agents" / "nivxforge-windows")
++sys.path.insert(0, str(AGENT_DIR))
++
++import nivxforge_m1 as m1                                   # noqa: E402
++import nivxforge_sensor as sensor                           # noqa: E402
++
++FORBIDDEN_MODULES = ("nivxforge_transaction", "nivxforge_scm_worker")
++
++
++# ── the simulated OS surface ───────────────────────────────────────
++class FakeHost:
++    def __init__(self, root: Path):
++        self.root = root
++        self.service: dict | None = None
++        self.service_state = m1.PROBE_ABSENT
++        self.service_detail = "ERROR_SERVICE_DOES_NOT_EXIST"
++        self.descriptor: dict | None = None
++        self.started = False
++        self.deleted = False
++        self.stop_result = "STOPPED"
++        self.delete_result = "DELETED"
++        self.exit_proof: bool | None = True
++        self.image_verdict = "MATCH"
++        self.task = (m1.PROBE_ABSENT, "")
++        self.workers: list | None = []
++        self.unsafe_dirs: set[str] = set()
++        self.unreadable_dirs: set[str] = set()
++        self.reparse: set[str] = set()
++        self.lock_taken = False
++        self.calls: list[str] = []
++        self.context = {"sids": list(m1.REQUIRED_CONTEXT_SIDS)}
++        self.granted: dict[int, bool | None] = {}
++        self.create_raises: dict[str, str] = {}
++        self.crash_after: str | None = None
++
++    # time / paths
++    def now_utc(self):
++        return "2026-06-01T00:00:00Z"
++
++    def path_ancestry(self, path):
++        path = Path(path)
++        return list(reversed([path, *path.parents]))[1:]
++
++    def is_reparse_point(self, path):
++        return str(path) in self.reparse
++
++    def path_exists(self, path):
++        return Path(path).exists()
++
++    def is_file(self, path):
++        return Path(path).is_file()
++
++    def is_dir(self, path):
++        return Path(path).is_dir()
++
++    def read_bytes(self, path):
++        return Path(path).read_bytes()
++
++    def write_new_file(self, path, data):
++        try:
++            handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
++        except FileExistsError:
++            raise m1.M1Error("ALREADY_EXISTS", str(path)) from None
++        try:
++            os.write(handle, data)
++        finally:
++            os.close(handle)
++
++    def replace_file(self, path, data):
++        temporary = Path(f"{path}.tmp")
++        temporary.write_bytes(data)
++        os.replace(temporary, path)
++
++    def copy_payload(self, bundle_root, dest_root, manifest):
++        for member in manifest:
++            target = Path(dest_root) / member
++            target.parent.mkdir(parents=True, exist_ok=True)
++            target.write_bytes((Path(bundle_root) / member).read_bytes())
++
++    def create_directory_protected(self, path):
++        self.calls.append(f"mkdir:{path}")
++        if str(path) in self.create_raises:
++            raise m1.M1Error(self.create_raises[str(path)], str(path))
++        try:
++            os.mkdir(path)
++        except FileExistsError:
++            raise m1.M1Error("ALREADY_EXISTS", str(path)) from None
++        if self.crash_after == f"mkdir:{path}":
++            raise KeyboardInterrupt("injected crash")
++
++    def directory_security(self, path):
++        if str(path) in self.unreadable_dirs:
++            return None
++        return {"nonadmin_writable": str(path) in self.unsafe_dirs}
++
++    def file_security(self, path):
++        return self.directory_security(path)
++
++    # SCM
++    def service_lookup(self, name):
++        return self.service_state, self.service_detail
++
++    def scheduled_task_lookup(self, name):
++        return self.task
++
++    def worker_processes(self):
++        return self.workers
++
++    def service_create(self, name, bin_path):
++        self.calls.append(f"create:{name}")
++        self.service = {"bin_path": bin_path, "account": "LocalSystem",
++                        "start_type": "AUTO_START", "pid": 4242}
++        self.service_state = m1.PROBE_PRESENT
++        if self.crash_after == f"create:{name}":
++            raise KeyboardInterrupt("injected crash")
++
++    def service_qc(self, name):
++        return self.service
++
++    def service_set_security(self, name, descriptor):
++        self.calls.append("set_sd")
++        if self.descriptor is None:
++            self.descriptor = descriptor
++
++    def service_security(self, name):
++        return self.descriptor
++
++    def service_start(self, name):
++        self.calls.append("start")
++        self.started = True
++
++    def service_stop(self, name):
++        self.calls.append("stop")
++        return self.stop_result
++
++    def service_delete(self, name):
++        self.calls.append("delete")
++        if self.delete_result == "DELETED":
++            self.service_state = m1.PROBE_ABSENT
++            self.deleted = True
++        return self.delete_result
++
++    def process_exited(self, pid):
++        return self.exit_proof
++
++    def verify_running_image(self, name, expected):
++        return self.image_verdict
++
++    # security evaluation
++    def access_context(self):
++        return self.context
++
++    def access_check(self, descriptor, context, right, mapping):
++        """Simulated effective access: resolve every allow ACE whose trustee
++        is in the supplied context and report whether `right` is granted."""
++        if right in self.granted:
++            return self.granted[right]
++        if descriptor.get("dacl") is None:
++            return True                       # NULL DACL grants everything
++        effective = 0
++        for ace in descriptor["dacl"]:
++            if ace.get("type") != m1.ACCESS_ALLOWED_ACE_TYPE:
++                continue
++            if ace.get("sid") in context.get("sids", ()):
++                mask = ace.get("mask")
++                if isinstance(mask, int):
++                    effective |= m1.map_generic(mask)
++        return bool(effective & right)
++
++    def exclusive_lock(self):
++        return _FakeLock(self)
++
++    def read_identity(self, state_dir):
++        path = Path(state_dir) / "identity.json"
++        return json.loads(path.read_text()) if path.is_file() else None
++
++    def read_attempt_marker(self, state_dir):
++        return sensor.read_attempt_marker(Path(state_dir))
++
++    def close_attempt_marker(self, state_dir, outcome, evidence):
++        return sensor.close_attempt_marker(outcome, evidence,
++                                           state_dir=Path(state_dir))
++
++
++class _FakeLock:
++    def __init__(self, host):
++        self.host = host
++
++    def __enter__(self):
++        if self.host.lock_taken:
++            return None
++        self.host.lock_taken = True
++        return self
++
++    def __exit__(self, *exc):
++        self.host.lock_taken = False
++        return False
++
++
++# ── fixtures ───────────────────────────────────────────────────────
++@pytest.fixture()
++def lab(tmp_path, monkeypatch):
++    root = tmp_path / "m1root"
++    (root / "config").mkdir(parents=True)
++    config_path = root / "config" / m1.CONFIG_FILENAME
++    config = {"origin": "https://m1-lab.example.net",
++              "tenant_id": "ten_m1lab", "interval": 30,
++              "state_dir": str(tmp_path / "state"),
++              "install_dir": str(tmp_path / "install"),
++              "service_exe": r"C:\Program Files\NivXForge\NivXForgeEDRSetup.exe",
++              "service_args": ["--m1-service-run", "--m1-config",
++                               str(config_path)],
++              "certificate_policy": "windows-default"}
++    config_path.write_text(json.dumps(config))
++    host = FakeHost(root)
++    monkeypatch.setattr(sensor, "STATE_DIR", tmp_path / "state")
++    monkeypatch.setattr(sensor, "IDENTITY_FILE",
++                        tmp_path / "state" / "identity.json")
++    return {"root": root, "config_path": config_path, "host": host,
++            "state": tmp_path / "state", "install": tmp_path / "install"}
++
++
++def _enroll(lab, endpoint="ep_1"):
++    def enroll(config):
++        (lab["state"]).mkdir(parents=True, exist_ok=True)
++        sensor.publish_identity({"endpoint_id": endpoint,
++                                 "credential_id": "cred_1",
++                                 "agent_credential": "secret",
++                                 "tenant_id": config.tenant_id},
++                                path=lab["state"] / "identity.json")
++        return {"endpoint_id": endpoint}
++    return enroll
++
++
++def install(lab, **kw):
++    return m1.m1_install(lab["config_path"], lab["host"],
++                         enroll=kw.pop("enroll", _enroll(lab)), **kw)
++
++
++# ── 1 · enterprise isolation (B1) ──────────────────────────────────
++def test_m1_module_does_not_reference_the_enterprise_engine():
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    import ast
++    tree = ast.parse(source)
++    imported = set()
++    for node in ast.walk(tree):
++        if isinstance(node, ast.Import):
++            imported.update(alias.name for alias in node.names)
++        elif isinstance(node, ast.ImportFrom) and node.module:
++            imported.add(node.module)
++    assert not (imported & set(FORBIDDEN_MODULES))
++    for symbol in ("Engine(", "WindowsBackend", ".reconcile(",
++                   "resolve_operation(", "_create_service",
++                   "_install_service", "_stop_service_and_wait",
++                   "_validate_staged", "_run_as_service", "_service_args",
++                   "DEFAULT_BACKEND", "GetEffectiveRightsFromAcl"):
++        assert symbol not in source, f"{symbol} must not appear in the M1 path"
++
++
++def test_a_fresh_process_running_m1_never_loads_the_engine(lab):
++    """A cached module defeats an import hook, so this runs in a NEW
++    interpreter and inspects sys.modules at exit."""
++    script = f'''
++import json, sys
++sys.path.insert(0, {str(AGENT_DIR)!r})
++sys.path.insert(0, {str(Path(__file__).parent)!r})
++import nivxforge_m1 as m1
++from test_m1_clean_install import FakeHost
++host = FakeHost({str(lab["root"])!r})
++try:
++    m1.m1_install({str(lab["config_path"])!r}, host, enroll=lambda c: {{}})
++except BaseException as ex:
++    pass
++print(json.dumps([n for n in sys.modules if "nivxforge" in n]))
++'''
++    done = subprocess.run([sys.executable, "-c", script], capture_output=True,
++                          text=True, timeout=120)
++    assert done.returncode == 0, done.stderr
++    loaded = json.loads(done.stdout.strip().splitlines()[-1])
++    assert not set(loaded) & set(FORBIDDEN_MODULES), loaded
++
++
++def test_defective_variant_control_is_detected(tmp_path):
++    """Negative control: a variant that imports the engine MUST be caught by
++    the same static rule that passes for the real module."""
++    bad = tmp_path / "nivxforge_m1_defective.py"
++    bad.write_text("from nivxforge_transaction import Engine\n")
++    import ast
++    tree = ast.parse(bad.read_text())
++    modules = {node.module for node in ast.walk(tree)
++               if isinstance(node, ast.ImportFrom) and node.module}
++    assert modules & set(FORBIDDEN_MODULES)
++
++
++def test_enterprise_commands_are_preserved():
++    source = (AGENT_DIR / "nivxforge_setup.py").read_text()
++    for marker in ('if args.cmd == "install":', "def _run_as_service(",
++                   "def recover_transaction(", "def resolve_operation(",
++                   "def _create_service(", "def _install_service("):
++        assert marker in source
++    assert "m1.m1_service_run(raw)" in source
++    assert source.count("_run_as_service(raw)") == 1
++
++
++# ── 2 · clean-host refusal (M1-03) ─────────────────────────────────
++@pytest.mark.parametrize("mutate,expect", [
++    (lambda h, l: setattr(h, "service_state", m1.PROBE_PRESENT), "service"),
++    (lambda h, l: setattr(h, "service_state", m1.PROBE_UNKNOWN), "service"),
++    (lambda h, l: setattr(h, "task", (m1.PROBE_PRESENT, "x")),
++     "scheduled_task"),
++    (lambda h, l: setattr(h, "workers", None), "live_worker"),
++    (lambda h, l: setattr(h, "workers", ["pid 9"]), "live_worker"),
++    (lambda h, l: l["install"].mkdir(parents=True), "install_dir"),
++    (lambda h, l: l["state"].mkdir(parents=True), "state_dir"),
++])
++def test_existing_or_unknown_host_state_refuses(lab, mutate, expect):
++    mutate(lab["host"], lab)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "HOST_NOT_CLEAN"
++    assert expect in str(caught.value)
++    assert not lab["host"].started
++
++
++def test_unsafe_ancestry_and_reparse_points_refuse(lab):
++    lab["host"].reparse.add(str(lab["install"].parent))
++    with pytest.raises(m1.M1Error):
++        install(lab)
++    assert "create:" not in "".join(lab["host"].calls)
++
++
++def test_unreadable_directory_security_is_not_absent(lab):
++    lab["host"].unreadable_dirs.add(str(lab["install"]))
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "HOST_NOT_CLEAN"
++
++
++def test_concurrent_installer_cannot_mutate(lab):
++    lab["host"].lock_taken = True
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "CONCURRENT_INSTALLER"
++    assert lab["host"].calls == []
++
++
++# ── 3 · ownership and interruption (R1/B3) ─────────────────────────
++def test_successful_install_reaches_activation_verified(lab):
++    result = install(lab)
++    assert result["state"] == m1.ACTIVATION_VERIFIED
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          lab["host"]).read()
++    assert record["resources"]["service"]["state"] == m1.ACTIVATION_VERIFIED
++    assert lab["host"].calls.index("set_sd") < lab["host"].calls.index("start")
++
++
++def test_crash_between_create_and_confirm_blocks_the_next_attempt(lab):
++    lab["host"].crash_after = f"create:{m1.SERVICE_NAME}"
++    with pytest.raises(KeyboardInterrupt):
++        install(lab)
++    ownership = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                             lab["host"])
++    record = ownership.read()
++    assert record["resources"]["service"]["state"] == m1.CREATE_INTENDED
++    assert ownership.blocking(record) == ["service"]
++    fresh = FakeHost(lab["root"])
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_install(lab["config_path"], fresh, enroll=_enroll(lab))
++    assert caught.value.code == "PRIOR_ATTEMPT_UNRESOLVED"
++    assert fresh.calls == []                      # nothing adopted or deleted
++
++
++def test_intent_alone_never_authorises_uninstall(lab):
++    lab["host"].crash_after = f"create:{m1.SERVICE_NAME}"
++    with pytest.raises(KeyboardInterrupt):
++        install(lab)
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "NOT_OWNED"
++    assert "delete" not in lab["host"].calls
++
++
++def test_a_torn_ownership_record_refuses(lab):
++    install(lab)
++    path = lab["root"] / "config" / m1.OWNERSHIP_FILENAME
++    path.write_text(path.read_text()[:-20])
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "OWNERSHIP_TORN"
++
++
++def test_directory_create_already_exists_is_a_refusal(lab):
++    lab["install"].mkdir(parents=True)
++    lab["host"].unsafe_dirs = set()
++    report = m1.clean_host_report(
++        m1.load_config(lab["config_path"], lab["host"]), lab["host"])
++    assert "install_dir" in report["refusals"]
++
++
++# ── 4 · configuration trust (B6/R6) ────────────────────────────────
++@pytest.mark.parametrize("key,value,code", [
++    ("origin", "http://m1-lab.example.net", "CONFIG_ORIGIN_NOT_HTTPS"),
++    ("origin", "", "CONFIG_INCOMPLETE"),
++    ("tenant_id", "", "CONFIG_INCOMPLETE"),
++    ("state_dir", "", "CONFIG_INCOMPLETE"),
++    ("certificate_policy", "insecure-skip-verify", "CONFIG_CERT_POLICY"),
++])
++def test_invalid_configuration_refuses_before_any_network(lab, key, value,
++                                                          code):
++    raw = json.loads(lab["config_path"].read_text())
++    raw[key] = value
++    lab["config_path"].write_text(json.dumps(raw))
++
++    def enroll(config):
++        raise AssertionError("enrolment must not be reached")
++
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab, enroll=enroll)
++    assert caught.value.code == code
++
++
++def test_user_writable_configuration_refuses(lab):
++    lab["host"].unsafe_dirs.add(str(lab["config_path"].parent))
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "CONFIG_ANCESTRY_UNSAFE"
++
++
++def test_no_production_backend_appears_in_the_m1_path(lab):
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    assert "nivxray.nivxforge.com" not in source
++    result = install(lab)
++    assert result["install_id"]
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          lab["host"]).read()
++    assert record["config"]["origin"] == "https://m1-lab.example.net"
++
++
++def test_missing_configuration_refuses(lab):
++    lab["config_path"].unlink()
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "CONFIG_ABSENT"
++
++
++# ── 5 · payload validation (B1) ────────────────────────────────────
++def _bundle(tmp_path):
++    root = tmp_path / "bundle"
++    (root / "sub").mkdir(parents=True)
++    (root / "a.py").write_bytes(b"alpha")
++    (root / "sub" / "b.py").write_bytes(b"beta")
++    manifest = {
++        "a.py": {"size": 5, "sha256": m1.file_digest(root / "a.py")},
++        "sub/b.py": {"size": 4, "sha256": m1.file_digest(root / "sub" / "b.py")},
++    }
++    return root, manifest
++
++
++def test_payload_check_accepts_the_exact_set(tmp_path, lab):
++    root, manifest = _bundle(tmp_path)
++    assert m1.m1_payload_check(root, lab["install"], manifest,
++                               lab["host"])["members"] == 2
++
++
++@pytest.mark.parametrize("break_it,code", [
++    (lambda r, m: m.pop("a.py"), "PAYLOAD_UNEXPECTED_FILE"),
++    (lambda r, m: (r / "a.py").unlink(), "PAYLOAD_INCOMPLETE"),
++    (lambda r, m: (r / "a.py").write_bytes(b"alphaX"), "PAYLOAD_SIZE_MISMATCH"),
++    (lambda r, m: m.__setitem__("a.py", {"size": 5, "sha256": "0" * 64}),
++     "PAYLOAD_DIGEST_MISMATCH"),
++    (lambda r, m: m.__setitem__("../escape.py", {"size": 1, "sha256": ""}),
++     "PAYLOAD_PATH_UNSAFE"),
++    (lambda r, m: m.__setitem__("CON.py", {"size": 1, "sha256": ""}),
++     "PAYLOAD_PATH_UNSAFE"),
++    (lambda r, m: m.__setitem__("x:stream", {"size": 1, "sha256": ""}),
++     "PAYLOAD_PATH_UNSAFE"),
++])
++def test_payload_check_rejects(tmp_path, lab, break_it, code):
++    root, manifest = _bundle(tmp_path)
++    break_it(root, manifest)
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_payload_check(root, lab["install"], manifest, lab["host"])
++    assert caught.value.code == code
++
++
++# ── 6 · identity publication (R2/B4) ───────────────────────────────
++def test_identity_publication_refuses_an_existing_destination(tmp_path):
++    target = tmp_path / "identity.json"
++    target.write_text("{}")
++    with pytest.raises(SystemExit) as caught:
++        sensor.publish_identity({"endpoint_id": "x"}, path=target)
++    assert "already" in str(caught.value)
++    assert target.read_text() == "{}"
++
++
++def test_identity_publication_is_atomic_and_verified(tmp_path):
++    target = tmp_path / "identity.json"
++    record = {"endpoint_id": "ep", "agent_credential": "c"}
++    sensor.publish_identity(record, path=target)
++    assert json.loads(target.read_text()) == record
++    assert not list(tmp_path.glob("identity.json.new-*"))
++
++
++def test_a_destination_appearing_concurrently_refuses(tmp_path, monkeypatch):
++    """Race injection: the destination appears between CREATE_NEW and the
++    rename, which is exactly what the no-replace rename must catch."""
++    target = tmp_path / "identity.json"
++    original = sensor._rename_no_replace
++
++    def racing(source, destination):
++        destination.write_text("{}")          # a competitor wins the race
++        return original(source, destination)
++
++    monkeypatch.setattr(sensor, "_rename_no_replace", racing)
++    with pytest.raises(SystemExit):
++        sensor.publish_identity({"endpoint_id": "ep"}, path=target)
++    assert target.read_text() == "{}"
++
++
++def test_interrupted_publication_leaves_no_partial_identity(tmp_path,
++                                                            monkeypatch):
++    target = tmp_path / "identity.json"
++
++    def boom(source, destination):
++        raise KeyboardInterrupt("power cut")
++
++    monkeypatch.setattr(sensor, "_rename_no_replace", boom)
++    with pytest.raises(KeyboardInterrupt):
++        sensor.publish_identity({"endpoint_id": "ep"}, path=target)
++    assert not target.exists()
++
++
++@pytest.mark.parametrize("response", [
++    {}, {"endpoint_id": "e"}, {"endpoint_id": "e", "credential_id": "c"},
++    {"endpoint_id": "e", "credential_id": "c", "agent_credential": ""},
++    {"endpoint_id": "e", "credential_id": "c", "agent_credential": 7},
++])
++def test_malformed_enrolment_responses_publish_nothing(response):
++    with pytest.raises(SystemExit):
++        sensor.validate_enrolment_response(response)
++
++
++def test_the_response_contract_does_not_require_a_returned_tenant():
++    assert "tenant_id" not in sensor._REQUIRED_ENROLMENT_FIELDS
++
++
++# ── 7 · enrollment lifecycle (R3/B5) ───────────────────────────────
++def _transport(monkeypatch, behaviour):
++    calls = {"n": 0}
++
++    class Fake:
++        def request(self, api, path, method, body, headers, attempts=2):
++            for attempt in range(1, max(1, attempts) + 1):
++                calls["n"] += 1
++                result = behaviour(calls["n"])
++                if isinstance(result, Exception):
++                    if attempt >= max(1, attempts):
++                        raise OSError("transport: lost")
++                    continue
++                return result
++            raise OSError("transport: unreachable")
++
++    monkeypatch.setattr(sensor, "TRANSPORT", Fake())
++    return calls
++
++
++def test_lost_response_after_acceptance_sends_exactly_one_request(
++        tmp_path, monkeypatch):
++    monkeypatch.setattr(sensor, "STATE_DIR", tmp_path)
++    monkeypatch.setattr(sensor, "IDENTITY_FILE", tmp_path / "identity.json")
++    monkeypatch.setattr(sensor, "_machine_facts", lambda: {
++        "processor_id": "cpu", "machine_guid": "guid", "hostname": "h",
++        "platform": "WINDOWS", "os_version": "11"})
++    calls = _transport(monkeypatch, lambda n: OSError("dropped"))
++    with pytest.raises(SystemExit):
++        sensor.enrol("https://lab.example.net", "ten_x", "secret",
++                     single_attempt=True, attempt_marker=True)
++    assert calls["n"] == 1, "a consumed enrolment token must never be replayed"
++    marker = sensor.read_attempt_marker(tmp_path)
++    assert marker["outcome"] == "OPEN"
++    assert not (tmp_path / "identity.json").exists()
++    assert "secret" not in json.dumps(marker)
++
++
++def test_an_open_marker_blocks_automatic_reenrolment(tmp_path, monkeypatch):
++    monkeypatch.setattr(sensor, "STATE_DIR", tmp_path)
++    monkeypatch.setattr(sensor, "IDENTITY_FILE", tmp_path / "identity.json")
++    monkeypatch.setattr(sensor, "_machine_facts", lambda: {
++        "processor_id": "cpu", "machine_guid": "guid", "hostname": "h",
++        "platform": "WINDOWS", "os_version": "11"})
++    sensor.open_attempt_marker("https://lab.example.net", "ten_x",
++                               {"processor_id": "cpu"}, state_dir=tmp_path)
++    calls = _transport(monkeypatch, lambda n: (200, b"{}"))
++    with pytest.raises(SystemExit) as caught:
++        sensor.enrol("https://lab.example.net", "ten_x", "secret",
++                     single_attempt=True, attempt_marker=True)
++    assert "OPEN" in str(caught.value)
++    assert calls["n"] == 0
++
++
++def test_identity_present_with_open_marker_is_neither_adopted_nor_replayed(
++        lab):
++    lab["state"].mkdir(parents=True)
++    sensor.open_attempt_marker("https://m1-lab.example.net", "ten_m1lab",
++                               {"processor_id": "cpu"},
++                               state_dir=lab["state"])
++    sensor.publish_identity({"endpoint_id": "ep_9"},
++                            path=lab["state"] / "identity.json")
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_reconcile_enrollment(lab["config_path"], lab["host"],
++                                   session_probe=lambda c, i: {"ok": True})
++    assert caught.value.code == "ENROLLMENT_UNCONFIRMED_IDENTITY_PRESENT"
++
++
++def test_reconcile_requires_a_successful_session_probe(lab):
++    lab["state"].mkdir(parents=True)
++    sensor.open_attempt_marker("https://m1-lab.example.net", "ten_m1lab",
++                               {"processor_id": "cpu"},
++                               state_dir=lab["state"])
++    sensor.publish_identity({"endpoint_id": "ep_9"},
++                            path=lab["state"] / "identity.json")
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_reconcile_enrollment(
++            lab["config_path"], lab["host"], operator_confirmed=True,
++            session_probe=lambda c, i: {"ok": False, "detail": "401"})
++    assert caught.value.code == "ENROLLMENT_RECONCILE_REFUSED"
++    out = m1.m1_reconcile_enrollment(
++        lab["config_path"], lab["host"], operator_confirmed=True,
++        session_probe=lambda c, i: {"ok": True, "detail": "session"})
++    assert out["state"] == "ENROLLMENT_CONFIRMED_BY_RECONCILE"
++
++
++def test_open_marker_with_no_identity_is_unknown_not_reenrollable(lab):
++    lab["state"].mkdir(parents=True)
++    sensor.open_attempt_marker("https://m1-lab.example.net", "ten_m1lab",
++                               {"processor_id": "cpu"},
++                               state_dir=lab["state"])
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_reconcile_enrollment(lab["config_path"], lab["host"],
++                                   session_probe=lambda c, i: {"ok": True})
++    assert caught.value.code == "ENROLLMENT_OUTCOME_UNKNOWN"
++
++
++def test_telemetry_retry_behaviour_is_unchanged(monkeypatch):
++    calls = _transport(monkeypatch, lambda n: OSError("reset") if n == 1
++                       else (200, b"{}"))
++    assert sensor._post("https://lab.example.net", "/api/x", {"a": 1}) == {}
++    assert calls["n"] == 2, "delivery must still reconnect once"
++
++
++# ── 8 · service security (R4 + Amendment A2) ───────────────────────
++def _descriptor(extra_aces=(), **overrides):
++    descriptor = m1.m1_service_descriptor()
++    descriptor["dacl"] = list(descriptor["dacl"]) + list(extra_aces)
++    descriptor.update(overrides)
++    return descriptor
++
++
++def test_the_approved_descriptor_passes_both_checks(lab):
++    verdict = m1.service_security_verdict(_descriptor(), lab["host"])
++    assert verdict["safe"], verdict["problems"]
++
++
++DANGEROUS_CASES = [
++    ("S-1-5-11", m1.SERVICE_START),              # Authenticated Users
++    ("S-1-5-11", m1.SERVICE_CHANGE_CONFIG),
++    ("S-1-5-11", m1.GENERIC_ALL),
++    ("S-1-5-4", m1.SERVICE_START),               # INTERACTIVE
++    ("S-1-5-4", m1.SERVICE_CHANGE_CONFIG),
++    ("S-1-5-4", m1.GENERIC_ALL),
++    ("S-1-1-0", m1.GENERIC_WRITE),               # Everyone
++    ("S-1-5-32-545", m1.GENERIC_EXECUTE),        # Users
++    ("S-1-5-11", m1.WRITE_DAC),
++    ("S-1-5-21-1-2-3-1001", m1.SERVICE_START),   # unrelated individual user
++    ("S-1-5-21-1-2-3-1001", m1.GENERIC_ALL),
++    ("S-1-5-32-551", m1.SERVICE_CHANGE_CONFIG),  # non-member group
++    ("S-1-5-32-551", m1.GENERIC_EXECUTE),
++    ("S-1-5-21-1-2-3-2001", m1.GENERIC_ALL),     # nested group
++    ("S-1-5-21-1-2-3-2001", m1.WRITE_DAC),
++    ("S-1-5-80-1-2-3-4-5", m1.SERVICE_CHANGE_CONFIG),   # service SID
++]
++
++
++@pytest.mark.parametrize("sid,mask", DANGEROUS_CASES)
++def test_dangerous_rights_for_any_other_trustee_prevent_activation(lab, sid,
++                                                                   mask):
++    descriptor = _descriptor([{"type": m1.ACCESS_ALLOWED_ACE_TYPE,
++                               "sid": sid, "mask": mask}])
++    verdict = m1.service_security_verdict(descriptor, lab["host"])
++    assert not verdict["safe"]
++    lab["host"].descriptor = descriptor
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNSAFE"
++    assert not lab["host"].started, "the service must never be started"
++
++
++@pytest.mark.parametrize("descriptor,fragment", [
++    (_descriptor(owner="S-1-5-21-1-2-3-1001"), "owner"),
++    (_descriptor(dacl=None, dacl_present=False), "NULL DACL"),
++    (_descriptor([{"type": 9, "sid": "S-1-5-11", "mask": 1}]), "ACE type"),
++    (_descriptor([{"type": 0, "sid": "not-a-sid", "mask": 1}]), "trustee"),
++    (_descriptor([{"type": 0, "sid": "S-1-5-11", "mask": "all"}]), "mask"),
++    (_descriptor(protected=False), "protected"),
++    (_descriptor(malformed=True), "malformed"),
++    (_descriptor(group=None), "owner or group"),
++])
++def test_anything_not_fully_understood_refuses(lab, descriptor, fragment):
++    verdict = m1.service_security_verdict(descriptor, lab["host"])
++    assert not verdict["safe"]
++    assert any(fragment in problem for problem in verdict["problems"]), verdict
++
++
++def test_a_deny_ace_never_justifies_a_dangerous_allow(lab):
++    descriptor = _descriptor([
++        {"type": m1.ACCESS_DENIED_ACE_TYPE, "sid": "S-1-5-11",
++         "mask": m1.SERVICE_START},
++        {"type": m1.ACCESS_ALLOWED_ACE_TYPE, "sid": "S-1-5-11",
++         "mask": m1.SERVICE_START}])
++    assert not m1.service_security_verdict(descriptor, lab["host"])["safe"]
++
++
++def test_an_incomplete_access_context_refuses(lab):
++    lab["host"].context = {"sids": ["S-1-5-21-1-2-3-1001"]}
++    verdict = m1.service_security_verdict(_descriptor(), lab["host"])
++    assert not verdict["safe"]
++    assert any("incomplete" in p for p in verdict["problems"])
++
++
++def test_an_absent_access_context_refuses(lab):
++    lab["host"].context = None
++    assert not m1.service_security_verdict(_descriptor(), lab["host"])["safe"]
++
++
++def test_an_indeterminate_access_evaluation_refuses(lab):
++    lab["host"].granted = {m1.SERVICE_START: None}
++    verdict = m1.service_security_verdict(_descriptor(), lab["host"])
++    assert not verdict["safe"]
++    assert any("indeterminate" in p for p in verdict["problems"])
++
++
++def test_each_dangerous_right_is_probed_individually(lab):
++    seen = []
++    host = lab["host"]
++    original = host.access_check
++
++    def recording(descriptor, context, right, mapping):
++        seen.append(right)
++        return original(descriptor, context, right, mapping)
++
++    host.access_check = recording
++    m1.service_security_verdict(_descriptor(), host)
++    assert sorted(seen) == sorted(m1.DANGEROUS_RIGHTS.values())
++    assert m1.SERVICE_ALL_ACCESS not in seen
++
++
++def test_generic_rights_are_mapped_before_comparison():
++    assert m1.map_generic(m1.GENERIC_ALL) & m1.SERVICE_CHANGE_CONFIG
++    assert m1.map_generic(m1.GENERIC_WRITE) & m1.SERVICE_CHANGE_CONFIG
++    assert m1.map_generic(m1.GENERIC_EXECUTE) & m1.SERVICE_START
++    assert not m1.map_generic(m1.GENERIC_READ) & m1.SERVICE_START
++
++
++def test_an_acl_walk_for_one_account_would_miss_a_grant_to_another(lab):
++    """The narrow, documented limitation retained by Amendment A2: a
++    single-trustee query reflects only the trustee supplied. No acceptance
++    decision depends on this; the acceptance criterion is that the real
++    mechanism REJECTS the case, which the test above asserts."""
++    descriptor = _descriptor([{"type": m1.ACCESS_ALLOWED_ACE_TYPE,
++                               "sid": "S-1-5-21-1-2-3-1001",
++                               "mask": m1.SERVICE_START}])
++    single_trustee = lab["host"].access_check(
++        descriptor, {"sids": ["S-1-5-21-1-2-3-9999"]}, m1.SERVICE_START,
++        m1.GENERIC_MAPPING)
++    assert single_trustee is False            # not reflected for that trustee
++    assert not m1.ace_inspection(descriptor) == []   # but ACE inspection sees it
++
++
++def test_security_is_applied_and_verified_before_startup(lab):
++    install(lab)
++    calls = lab["host"].calls
++    assert calls.index("set_sd") < calls.index("start")
++
++
++def test_an_unreadable_descriptor_prevents_startup(lab, monkeypatch):
++    monkeypatch.setattr(lab["host"], "service_security", lambda name: None)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNREADABLE"
++    assert not lab["host"].started
++
++
++# ── 9 · service creation is create-only (M1-02) ────────────────────
++def test_m1_never_stops_or_deletes_during_installation(lab):
++    install(lab)
++    assert "stop" not in lab["host"].calls
++    assert "delete" not in lab["host"].calls
++
++
++def test_a_present_service_is_never_replaced(lab):
++    lab["host"].service_state = m1.PROBE_PRESENT
++    with pytest.raises(m1.M1Error):
++        install(lab)
++    assert lab["host"].calls == []
++
++
++def test_a_mismatched_binpath_is_not_claimed_as_success(lab, monkeypatch):
++    original = lab["host"].service_create
++
++    def wrong(name, bin_path):
++        original(name, bin_path)
++        lab["host"].service["bin_path"] = "C:\\evil.exe"
++
++    monkeypatch.setattr(lab["host"], "service_create", wrong)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_IDENTITY_MISMATCH"
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          lab["host"]).read()
++    assert record["resources"]["service"]["state"] == m1.CREATE_OUTCOME_UNKNOWN
++    assert not lab["host"].started
++
++
++# ── 10 · uninstall (M1-07) ─────────────────────────────────────────
++def test_uninstall_removes_only_the_owned_service_and_keeps_evidence(lab):
++    install(lab)
++    (lab["state"] / "journal.sqlite3").write_text("evidence")
++    out = m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert out["service"] == "REMOVED"
++    assert (lab["state"] / "identity.json").exists()
++    assert (lab["state"] / "journal.sqlite3").exists()
++
++
++def test_uninstall_refuses_without_an_ownership_record(lab):
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "NOT_OWNED"
++    assert "stop" not in lab["host"].calls
++
++
++def test_uninstall_refuses_a_foreign_service_with_the_same_name(lab):
++    install(lab)
++    lab["host"].service["bin_path"] = "C:\\other\\thing.exe"
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "SERVICE_IDENTITY_MISMATCH"
++    assert "delete" not in lab["host"].calls
++
++
++def test_uncertain_stop_prevents_deletion(lab):
++    install(lab)
++    lab["host"].stop_result = "UNCERTAIN rc=1053"
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "SERVICE_STOP_UNCERTAIN"
++    assert "delete" not in lab["host"].calls
++
++
++@pytest.mark.parametrize("proof", [None, False])
++def test_unproven_process_exit_prevents_removal(lab, proof):
++    install(lab)
++    lab["host"].exit_proof = proof
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "PROCESS_EXIT_UNPROVEN"
++    assert "delete" not in lab["host"].calls
++
++
++def test_pending_deletion_is_reported_not_claimed_complete(lab):
++    install(lab)
++    lab["host"].delete_result = "PENDING_DELETION"
++    out = m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert out["service"] == "PENDING_DELETION"
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          lab["host"]).read()
++    assert record["resources"]["service"]["state"] == m1.CREATE_CONFIRMED
++
++
++# ── 11 · packaging completeness (M1-08) ────────────────────────────
++def test_packaging_declares_every_required_module():
++    setup = (AGENT_DIR / "nivxforge_setup.py").read_text()
++    build = (AGENT_DIR / "build" / "build_windows_installer.ps1").read_text()
++    for module in ("nivxforge_journal", "nivxforge_m1", "nivxforge_sensor",
++                   "nivxforge_exclusions", "nivxforge_delivery_counters",
++                   "nivxforge_content_acquisition", "sqlite3", "_sqlite3"):
++        assert module in setup, f"{module} missing from _REQUIRED_BUNDLED"
++    for source in ("nivxforge_journal.py", "nivxforge_m1.py",
++                   "nivxforge_sensor.py", "nivxforge_setup.py"):
++        assert source in build, f"{source} missing from the required sources"
++    for hidden in ("'nivxforge_journal'", "'nivxforge_m1'", "'sqlite3'"):
++        assert hidden in build, f"{hidden} missing from --hidden-import"
++
++
++def test_a_missing_journal_dependency_fails_packaging_validation():
++    """Negative control for the required-source gate."""
++    build = (AGENT_DIR / "build" / "build_windows_installer.ps1").read_text()
++    required_block = build.split("foreach ($required in @(")[1].split("))")[0]
++    assert "nivxforge_journal.py" in required_block
++    assert "throw \"missing source file: $required\"" in build
++
++
++# ── 12 · evidence preservation ─────────────────────────────────────
++def test_m1_never_deletes_state_or_evidence(lab):
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    for destructive in ("shutil.rmtree", "os.remove", "unlink("):
++        assert destructive not in source, destructive
++
++
++def test_sensor_collection_loop_is_untouched():
++    source = (AGENT_DIR / "nivxforge_sensor.py").read_text()
++    assert "def run(" in source
++    assert "def status(" in source
++    assert "def _machine_facts(" in source

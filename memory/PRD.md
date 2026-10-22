@@ -7481,3 +7481,31 @@ grants to an unrelated account or a non-member group) and no acceptance decision
 depends on it.
 STATUS: M1 G1 R4 AMENDMENT A2 READY FOR VERIFICATION. G2 NOT AUTHORIZED.
 Zero source changes. Native Windows NOT RUN. HOLDs preserved.
+
+### 2026-06 · M1 G2 IMPLEMENTED (code, portable tests executed)
+Branch `engineering/m1-clean-installer`, commit
+`0fd09b3a1f9eacfab12e41ef7c6d971a98ecdcae`, tree
+`c9dc8ab9062d16e370a79e497e78d954dc4ec1b8`, parent `bc8147be` (tree
+`3333fd3773…` verified first). 5 files, +2278/-19:
+NEW `agents/nivxforge-windows/nivxforge_m1.py` (1098) and
+`backend/tests/edr/test_m1_clean_install.py` (937); `nivxforge_sensor.py`
++193/-19 (publish_identity no-overwrite, validate_enrolment_response,
+attempt marker, opt-in single_attempt; telemetry retry unchanged);
+`nivxforge_setup.py` +66 (additive subparsers, m1_dispatch,
+`--m1-service-run`, _REQUIRED_BUNDLED->10 modules); build ps1 +3
+(nivxforge_journal.py + nivxforge_m1.py required + hidden imports).
+TESTS ACTUALLY RUN: M1 suite **99 passed**; windows installer v1/stage4/SCM/
+secret-stdin/delivery **146 passed**; p0prod2 + w1 **38 passed**; enterprise
+transaction suite **349 passed**; import smoke shows no engine module in
+sys.modules. Portable only - Windows-native NOT RUN.
+Known limitations: WindowsHost service-SD/access-check/process-exit/image
+methods return None or raise NOT_IMPLEMENTED_NATIVE (fail closed, deliberately
+not faked); `_security()` ACE unpacking provisional; mslex still undeclared;
+enrol() now refuses an existing identity file (enterprise calls it only when
+absent - setup.py:1168 - and 533 tests confirm no regression).
+Artifacts: NIVXFORGE_M1_G2_CLEAN_INSTALLER.bundle (28,690 B,
+`c5e9e7c2beefcd5899dd0d12519f64b5419989b79fc71410e7e6c7be2aeac0a9`),
+NIVXFORGE_M1_G2_SOURCE_DIFF.patch (109,165 B, `6e4b19bc…`), handoff
+`NIVXFORGE_M1_G2_IMPLEMENTATION_HANDOFF.md` (13,900 B, `c706500a…`).
+STATUS: M1 G2 IMPLEMENTED - READY FOR INDEPENDENT G3 REVIEW. No build, signing,
+Windows execution, enrollment, deployment, push or merge. HOLDs preserved.
