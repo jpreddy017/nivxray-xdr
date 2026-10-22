@@ -7605,3 +7605,37 @@ NEXT MILESTONE after G3 approval: native G4 validation on a real Windows VM,
 then one enrolled endpoint delivering real telemetry.
 STATUS: G3-01 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build,
 Windows execution, deployment, push, merge or release. No self-approval.
+
+### 2026-06 · M1 G3 ARTIFACT TRANSFER (unblock Codex source verification)
+No implementation change. Authoritative worktree verified clean at commit
+`601eaa4625984b062be01848004744a5ba6d2603`, tree
+`9d07cb6c4285a30142d915761ef5a9324840921b`, parent `4b3b6a2c`.
+WHY THE INCREMENTAL BUNDLES COULD NOT BE IMPORTED: the prerequisite chain is
+601eaa46 -> 4b3b6a2c -> 0fd09b3a -> bc8147be -> 8a2c3e91 -> ... i.e. all 2,476
+commits (119 MiB pack). No prefix of that chain can be supplied.
+SECRET AUDIT (tree + all 2,476 commits): exactly one env file ever committed
+(`apps/nivxray-xdr/.env.development`); no private key, certificate or keystore
+ever committed. BUT the candidate tree ITSELF contains credential material:
+`.tok` (bearer JWT) at repo root, `memory/evidence/17_production_smoke.txt`,
+`memory/P0_PREVIEW_VS_PRODUCTION_INCIDENTS_DIAGNOSIS.md`, and six
+`backend/tests/edr/test_*` live suites with hardcoded admin passwords.
+=> A full-history bundle and a full-tree snapshot are both UNSAFE to export.
+DELIVERED: sanitized self-contained snapshot bundle (single root commit, no
+prerequisites) containing the full cumulative M1 working set - all 15 files of
+`agents/nivxforge-windows/` (implementation, installer entrypoint, sensor,
+journal, transaction engine, SCM worker, local deps, build scripts, sysmon)
+plus `backend/tests/edr/test_m1_clean_install.py`, `conftest.py`, `__init__.py`.
+PROVENANCE: `agents/nivxforge-windows` reproduces the candidate's TREE OBJECT
+`51d6b3838b0b08c7a232d8cc3c31eb8b8eb5e4e8` exactly (and `build/` =
+`342244773daeff440bf421f2b97e427df516ae77`); all 18 files reproduce the
+candidate's blob SHA-1 and an independent SHA-256 (PROVENANCE_BLOBS.txt).
+STATED LIMITATION: a snapshot CANNOT prove commit identity 601eaa46.
+VERIFIED in a fresh isolated clone with no access to the source object store:
+`git fsck --full --strict` exit 0, no missing objects, subtree hashes match,
+18/18 blob+sha256 match, all sources parse, no credential pattern present, and
+the reconstructed suite runs **275 passed**. The DOWNLOADED artifact was
+re-cloned end to end and re-verified.
+Artifacts: NIVXFORGE_M1_G3_SOURCE_SNAPSHOT.bundle (159,292 B,
+`d5fff66c5e91118d70f18a1b220391cf1d22ccac4fcd5c0b0c69ed43fae397a0`),
+NIVXFORGE_M1_G3_SNAPSHOT_PROVENANCE.md (7,914 B, `bfc943ee…`).
+HOLDs unchanged. No commits to protected branches, no deployment, no rollout.
