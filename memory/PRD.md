@@ -8315,3 +8315,65 @@ RESIDUAL RISKS: repair path for existing task installs still unpublished
 DELIBERATELY, since completing it would re-enable a deprecated mechanism.
 STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
 removed. Independent review + explicit authorization required before any hunk.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — P0-3 G1 CORRECTION A1 (READ-ONLY DESIGN + EVIDENCE)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_P0_3_G1_A1.md
+SHA-256: 2e9c3d9c9cff4ac1c624bb279c3109f887eca10a4184e937eb137a03ab3faa05
+SIZE: 18,975 bytes. Served (HTTP 200).
+SOURCE REVIEW PACKAGE: NIVXFORGE_EDR_P0_3_G1_A1_SOURCE.tar (UNCOMPRESSED on
+purpose - the host decompresses gzip members, which would break digest
+verification). SHA-256 209aa25058ed714b95a702843b61871e1127edd4fba6941b2abf1d01904408b1,
+286,720 bytes, 15 blobs + PROVENANCE.json, from commit
+f971c7659de291d416cb1b7e1a57964af585f0d9 tree 506cf2d6046d5612e32f9674d12dd9e9c572b5c0.
+Served bytes re-downloaded and re-hashed = published digest.
+
+C1 - ADD DEVICE PATH TRACED. Chain: EdrAddDevicePage mint() ->
+onboardingApi.js:46-51 -> POST /api/edr/enrollment/tokens {label, ttl_seconds}
+-> edr_enrollment.py:95-108 (get_current_user + edr_tenant, TENANT_SCOPED at
+edr_tenancy.py:90) -> store.mint_enrollment_token (store.py:109-143).
+IT IS GENERIC: no package_id/release_id/OS in MintTokenBody (extra="forbid"),
+so NO eligibility check exists and none can act there. The P0-3 deployment
+refusal therefore guards Downloads ONLY - Add Device never calls
+/connector/deployments. REAL BYPASS CONFIRMED but it is an INSTRUCTION
+PUBLICATION defect, not a token defect: GET /onboarding/packages still
+publishes silent_install (the full PowerShell invocation) for the ineligible
+package and the only proposed control was a client-side `disabled` prop.
+MINIMUM GUARD (hunk 1a, inside a file already in scope): in _describe
+(edr_onboarding.py:154-199), when new_endpoint_eligible is False set
+silent_install = None + install_instruction_withheld_reason. Backend-side, `is
+False` guarded, no token/policy/route change; the UI fallback already exists
+(EdrAddDevicePage.jsx:52-57 prints "INSTALL INSTRUCTION NOT PUBLISHED").
+GENERIC OPS THAT MUST REMAIN: POST/GET/revoke tokens, endpoint rotate/revoke,
+/connector/deployments for ELIGIBLE releases, the whole /api/edr/agent/* plane.
+CORRECTION TO P0-3: "no existing assertion breaks" is now FALSE - exactly one
+assertion is RE-TARGETED (test_edr_onboarding_v1.py:127-130 moves from
+windows-x64 to windows-x64-exe, contract preserved, subject moved). W1
+test:120-129 verified still passing (filters on truthy silent_install, EXE
+package satisfies it).
+
+C2 - TESTS STRENGTHENED: T-3a/T-3b reject BOTH ineligible Windows release ids;
+T-4a spy at edr_connector.enrollment_store.mint_enrollment_token asserts ZERO
+calls; T-4b no persisted token (spy removed, tenant-scoped count delta); T-4c no
+deployment record (DEPLOYMENTS = edr_connector_deployments, insert at :224);
+T-4d no TOKEN_CREATED audit event; T-4e eligible Linux still succeeds (+1/+1);
+T-4f tenant authorization still enforced for BOTH refused and successful
+releases. Isolation: per-run uuid-suffixed tenant/org/user (W1 idiom) + scoped
+counts; note that edr_connector binds `from deps import db as _db` AT IMPORT
+(:32) so a真 separate DB needs DB_NAME before import - stated, not required.
+
+C3 - FILE SCOPE SEPARATED: PRODUCTION = the same five files (the §1.3 guard
+lands inside file 1, so nothing new enters scope). TESTS (outside the count):
+NEW backend/tests/edr/test_p0_3_onboarding_eligibility.py, NEW
+backend/tests/edr/test_p0_3_deployment_refusal.py, NEW
+apps/.../__tests__/edrDownloadsEligibility.test.jsx, NEW
+apps/.../__tests__/edrAddDeviceEligibility.test.jsx, MODIFIED
+test_edr_onboarding_v1.py (one re-targeted assertion), UNCHANGED W1 and
+tenant-authority tests.
+REDACTION DISCLOSURE: none applied; one secret-shape match is
+test_edr_route_tenant_authority.py:79 TENANT_ARCHIVED (a tenant identifier, not
+a credential), retained for byte-verifiability. Explicitly stated: the extract
+proves 15 blobs at f971c765 and NOTHING about ancestry/history/signatures.
+STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
+removed. Stops at independent Codex re-review handoff.
