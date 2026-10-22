@@ -7807,3 +7807,52 @@ NIVXFORGE_M1_G4_RUNBOOK.md (17,966 B, `142edc48...`).
 BOUNDARIES HELD: no production endpoint/tenant/credential, no unrelated code
 change, no merge, deployment, signing, rollout or HOLD removal, no G4 success
 inferred from G3.
+
+## 2026-06 · EDR CAPABILITY INVENTORY & M2 INTAKE (READ-ONLY ASSESSMENT, no code changed)
+Deliverable: memory/NIVXFORGE_EDR_CAPABILITY_INVENTORY.md (45,739 B,
+`d8e4e154b58456e968a3c94dfbc1f5a89092ea90d9e9dde886fadbc152ac4eff`), published
+at /NIVXFORGE_EDR_CAPABILITY_INVENTORY.md.
+BASELINE: main is STALE (7f280b66, 2026-07-19); trunk of record is
+fix/p0-sensor-delivery f971c765 (2,226 ahead of main). M1 (388bb3d6) and the
+G4 prep (b8020771) are NOT ancestors of the trunk - they split at ae340563
+(2026-10-04). nivxforge_m1.py / nivxforge_transaction.py / nivxforge_scm_worker.py
+exist ONLY on the M1 line; backend/routers/edr_maintenance.py ONLY on the trunk;
+nivxforge_sensor.py and nivxforge_setup.py have TWO DIVERGENT HEADS. This
+unreconciled divergence is the programme's largest structural risk (P0-2).
+EVIDENCE RUN: trunk EDR suite 2,392 passed / 16 failed / 3 skipped (12 are
+order-dependent - pass in isolation; 4 are a real harness DB-binding defect in
+test_p0_f13_5_detection_handoff.py). M1 suite 373 passed. 971 live routes, 97
+under /api/edr. Mongo (read-only): 357,832 raw events, 362,854 canonical
+observations (356,803 from adapter nivxforge-linux-sensor/1.0.0), 23,031 with
+parent_iid, 592 endpoints (578 linux / 10 windows), 1,183 findings + 142,253
+evaluation rows, 266 response commands with 5 VERIFIED and 75
+CAPABILITY_UNAVAILABLE, 0 behaviour-shadow detections, 0 process entities.
+KEY FINDINGS: investigation/identity/tenancy/evidence-integrity are 75-81%
+mature; detection content, prevention and WINDOWS RESPONSE are 0-42%. Windows
+canonicalisation admits only 9 (family,EventID) pairs. The Windows sensor has
+NO response executor at all (isolation+kill exist on Linux only, via nftables,
+with independent post-hoc proof). process_identity.py (GUID-preferred identity,
+parent resolution, pid_reuse_report) is written and tested but imported by NO
+router/service/bridge. Three parallel Device Trajectory UIs. The Linux agent
+still takes --token on the ARGV that Windows refuses, and has no package or
+systemd unit. file_trajectory is complete but reports
+content_digests_available:false because no sensor emits file content hashes.
+.github/workflows/windows-sensor-installer.yml ALREADY builds the real PE and
+runs a real Windows SCM lifecycle gate on windows-latest with no secrets - M1
+has never been through it because M1 is not on the trunk (run history UNKNOWN:
+no GitHub API access).
+VERDICT ON M2: Process Intelligence / Device Trajectory should NOT be the next
+priority - it is largely BUILT. Recommended order: P0 (G4 via windows-latest CI;
+M1<->trunk reconciliation; Linux stdin-only token; Linux packaging; fix the 16
+test failures) -> P1 (expand Windows canonicalisation 9->~25 pairs + deploy
+Sysmon; WIRE process_identity into the tree/trajectory; collapse 3 trajectory
+UIs to 1; emit real file hashes; grow rule content 5->25-40) -> P2 (Windows
+response executor, reboot-surviving isolation, response approvals, groups/version
+policy, tamper protection, osquery live query) -> P3 (quarantine, forensics,
+NGAV, ransomware rollback, exploit mitigation, eBPF/ETW-TI).
+LIMITATIONS DISCLOSED: no isolated clone (260 MB free), no GitHub API, no
+authenticated live-API probing, single-endpoint corpus (98% of telemetry from
+one container), Windows runtime evidence absent (G4 NOT RUN).
+BOUNDARIES: read-only - no commit/push/merge/branch mutation, no tracked file
+edited, no DB write, no deployment, no installer or response action run, no
+credential read, M1 untouched, no HOLD removed.
