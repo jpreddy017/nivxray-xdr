@@ -7457,3 +7457,27 @@ API failure) + positive + a META-CONTROL requiring a GetEffectiveRightsFromAcl
 evaluator to FAIL N-R4-1..8.
 STATUS: M1 G1 R4 CORRECTION READY FOR VERIFICATION. G2 NOT AUTHORIZED.
 Zero source changes. Native Windows NOT RUN. HOLDs preserved.
+
+### 2026-06 · M1 V3 AMENDMENT A2 — R4, two defects (scope only)
+`memory/NIVXFORGE_M1_SCOPE_V3_AMENDMENT_A2_R4.md` (8,138 B, 143 lines, sha256
+`b24c781af091f14b9cf1222bbca067ca1530d818912673d6e545b3afe028955a`), published
+byte-exact; supersedes A1 (`332d6b65…`). R1/R2/R3/R5/R6 + Part II not reopened.
+(1) One standard-user AccessCheck is insufficient -> acceptance now needs TWO
+mandatory checks: exhaustive DACL ACE enumeration (GetSecurityDescriptorDacl +
+GetAce, MapGenericMask first, dangerous set allowed ONLY to S-1-5-18 and
+S-1-5-32-544 compared BY SID, refuse on NULL DACL / unknown or callback ACE type
+/ unresolvable mask / unparseable SID / malformed ACL, deny ACEs never justify a
+dangerous allow because canonical order is not guaranteed) PLUS the retained
+token-aware AccessCheck/AuthzAccessCheck. Both must pass; anything unevaluable
+refuses. Nesting cannot hide a grant because the ACE is rejected on its trustee.
+Added N-R4-14..24: unrelated individual user, non-member group, indirect
+user->GroupA->GroupB membership, service/virtual account SID, NULL DACL, unknown
+ACE type, deny-before-allow, malformed ACL.
+(2) Meta-control corrected: WITHDREW the claim that GetEffectiveRightsFromAcl
+must report all N-R4-1..8 as safe (it does accumulate rights for a queried GROUP
+trustee). New criterion = every unsafe case N-R4-1..24 is rejected. A narrow,
+documentation-backed limitation demo is retained (single-trustee query misses
+grants to an unrelated account or a non-member group) and no acceptance decision
+depends on it.
+STATUS: M1 G1 R4 AMENDMENT A2 READY FOR VERIFICATION. G2 NOT AUTHORIZED.
+Zero source changes. Native Windows NOT RUN. HOLDs preserved.
