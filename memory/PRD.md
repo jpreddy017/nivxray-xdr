@@ -7401,3 +7401,35 @@ Owner defaults D-M1-1…D-M1-4 incorporated; D-M1-5: Codex assessment, Work FAIL
 review and G0-G6 governance still UNAVAILABLE — no conformance asserted.
 STATUS: M1 G1 SCOPE V2 READY FOR INDEPENDENT VERIFICATION. G2 NOT AUTHORIZED.
 Zero source changes. Native Windows NOT RUN. HOLDs preserved.
+
+### 2026-06 · M1 SCOPE V3 — residual G1 blockers R1-R6 (scope only)
+`memory/NIVXFORGE_M1_SCOPE_V3.md` (19,314 B, 308 lines, sha256
+`d10a3c04f9a187f313b7a11528fdd2fc0e51eb8b903adcf557e5cbdbc1653b70`), published
+byte-exact; supersedes V2 (`6ec7a7f9…`). B1-B6 retained except where narrowed.
+R1 bootstrap circularity fixed: ownership record lives in the ADMIN-PRE-PROVISIONED
+config root (installer verifies, never creates); installer-created roots use
+CreateDirectoryW + protected SD at creation, ERROR_ALREADY_EXISTS(183) = refusal;
+4th state ACTIVATION_VERIFIED added.
+R2 MOVEFILE_REPLACE_EXISTING withdrawn for initial publication -> CreateFileW
+CREATE_NEW temp + flush + MoveFileExW(WRITE_THROUGH) **without** REPLACE_EXISTING
+so a concurrently appearing destination fails 183; replacement of owned metadata
+is a separate, ownership-gated operation; power-loss limits retained.
+R3 success only after publication+verification; new class
+ENROLLMENT_UNCONFIRMED_IDENTITY_PRESENT resolved only by operator reconcile plus
+a machine-checked /api/edr/agent/session probe; marker/single-attempt are M1-only
+call paths with enterprise compatibility tests; no server tenant-enforcement claim.
+R4 shared ancestors validated never modified; service SD via Set/QueryServiceObject
+Security before activation, forbidden non-admin rights enumerated, **generic masks
+mapped via MapGenericMask** and verdict from effective rights, uncertain => never
+started (stays CREATE_CONFIRMED).
+R5 M1 adapter must NOT call _run_as_service(); `--m1-service-run` hosts a minimal
+M1 service class driving the unmodified sensor.run() loop; setup.py edits limited
+to subparsers + dispatch branches.
+R6 standard Windows trust only, custom CA bundle deferred, never disable
+verification; recorded that HTTPSConnection uses CPython's default verifying
+context (sensor.py:266), http.client follows no redirects, CPython does not use
+CryptoAPI auto-root-update, and HTTPConnection fallback makes the https
+allow-list the downgrade control.
+D-M1-5: G0-G6 governance still UNAVAILABLE - verification gap explicitly retained.
+STATUS: M1 G1 V3 READY FOR INDEPENDENT VERIFICATION. G2 NOT AUTHORIZED.
+Zero source changes. Native Windows NOT RUN. HOLDs preserved.
