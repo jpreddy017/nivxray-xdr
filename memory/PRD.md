@@ -8040,3 +8040,98 @@ STATUS: design decisions RESOLVED; every behaviour listed in V2 section 8 is
 UNIMPLEMENTED and UNVERIFIED (retire-identity, the composed failure handler,
 uninstall hardening, the CI guards and all named tests). G4 NOT RUN, Actions
 history UNKNOWN, transaction engine still unreviewed. No HOLD removed.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — G1 V3 FINAL MATERIAL CORRECTION (READ-ONLY DESIGN)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_P0_RECONCILIATION_G1_V3.md
+SHA-256: 8aeb3e3039e4088d7b568c45ab9db3486c169220ce91aa15093cbd62fa40788e
+SIZE: 48,737 bytes. NOT published (publication not authorized).
+Supersedes V2 (d0cf63aa...) in the sections named; G1 base doc (e5fafcbc...)
+stands elsewhere. Corrects Codex's independent G1 V2 FAIL.
+BASELINES RE-VERIFIED: trunk f971c765 | M1 388bb3d6 | ancestor ae340563 |
+frozen subtree db21f422... | trunk subtree 54fe56bd...
+
+FOUR DEFECTS CORRECTED
+D-1 RE-ENROLMENT NOW ACTUALLY FUNCTIONS. EndpointIdentity.mint() is
+DETERMINISTIC (contracts/identity.py:22-28,96-110) so the same machine in the
+same tenant re-enrols to the SAME endpoint_id, and store.enroll() upserts while
+preserving delivery history (store.py:292-307). Three modes: R (console
+rotate_credential + --credential-stdin; revokes old cred and kills sessions,
+no overlap), N-same (token re-enrol, identical endpoint_id), N-change (true
+identity transition, requires --allow-identity-change). Mode is DISCOVERED from
+the authenticated endpoint_id, never asserted. Ownership of an existing TRUNK
+install is PROVED (elevation, protected-DACL verdict with UNKNOWN refusing,
+mint-equality, binPath inside INSTALL_DIR, no OPEN attempt marker) and recorded
+in a NON-AUTHORITATIVE reenrolment_attestation.json - never an M1 ownership
+record; Ownership.owns() stays false and m1_uninstall still refuses NOT_OWNED
+(NC-19). update_credential_in_place() preserves M1's no-overwrite invariant BY
+SCOPE (file must exist; endpoint_id/tenant_id byte-identical; refuses
+IDENTITY_REBINDING_REFUSED). RE-1..RE-12 incl. the previously absent POSITIVE
+re-enrolment tests.
+D-2 DURABLE IDENTITY TRANSITION. identity_transition.json (O_EXCL+fsync,
+digest envelope, torn => TRANSITION_RECORD_TORN). Phases T0 PREPARE (named
+mutex, PID-before-stop + proven exit, no OPEN marker, WAL checkpoint) / T1
+FENCE / T2 ENROL->identity.pending.json via publish_identity(path=) / T3
+ARCHIVE old via _rename_no_replace / T4 PROMOTE / T5 SETTLE. Enrol-before-
+archive shrinks the uncollecting window to ONE rename. Recovery table keyed on
+observable facts only; the archive is NEVER auto-restored. Probe taxonomy:
+LIVE / DEAD / UNKNOWN-refuses (transport failure is never evidence about a
+credential).
+ATTRIBUTION FENCE (the sharpest finding): journal rows DO carry endpoint_id/
+tenant_id (journal.py:106-107, _row 387-394) but delivery posts only payload +
+bearer (sensor.py:1332-1340) and the backend attributes from the session
+(edr_enrollment.py:480-490) - so WITHOUT a fence every pre-change queued row is
+SILENTLY RE-ATTRIBUTED. F-1..F-6: fence at max sequence, deliver only under the
+matching endpoint_id+tenant_id, drain-first default, otherwise marked
+ORPHANED_BY_IDENTITY_TRANSITION and RETAINED (never delivered, never deleted),
+cross-tenant may never drain.
+D-3 PHASE-1 TEST COHERENCE. The V2 contradiction is proved by measurement:
+trunk setup.py has ZERO of recover_transaction/resolve_operation/_create_service/
+m1.m1_service_run/_M1_REQUIRED_WIN32/VERSIONS_DIR/ACTIVE_FILE/_sc_argv/
+_running_image, and the trunk build script has ZERO nivxforge_m1 references, so
+M1's entrypoint-coupled tests FAIL or ERROR (the whole upgrade file errors at
+fixture setup); AGENT_DIR is hard-coded parents[3] with no env override. FOUR
+GATES, each with source/target/baseline/expected: G-S byte-identical import
+(static), G-T trunk runtime regression, G-M isolated M1 verification in an
+EPHEMERAL DETACHED WORKTREE at 388bb3d6 (tests unmodified), G-C composed
+acceptance in Phase 2. Deferral register .phase1-deferred consumed via
+--deselect; no skip/xfail/marker edits (git diff of M1 test files stays empty);
+must reach EMPTY before Phase 2 completes. A deferral is NEVER reported as PASS.
+D-4 CLEANUP PRECEDENCE LADDER 0-7: engine MANUAL_RECOVERY/UNSETTLED > running
+or UNKNOWN worker > PENDING_DELETION / non-ERROR_SERVICE_DOES_NOT_EXIST >
+unsettled SCM record > staging not proven created by this attempt (KEEP) >
+ownership ambiguity (NOT_OWNED) > identity/journal/state NEVER removed > only
+then remove this attempt's staging and verify. R-1 never delete by path match
+(trunk adopts via mkdir(exist_ok=True) then rmtree(ignore_errors=True)); R-2
+ignore_errors prohibited in destructive paths; R-3 UNKNOWN behaves as PRESENT.
+Purge re-gated with a printed destruction inventory. All five atomicity
+guarantees retained with owner+test; retirement remains WITHDRAWN.
+P-5 PROVENANCE: exact 15-file frozen manifest with blob hashes (4 identical to
+trunk, 4 trunk-absent, 4 divergent + build script); per-file blob assertion
+replaces the subtree hash on an integration branch; integration_commit is
+separated from source_commit (an integration build may NEVER claim 388bb3d6);
+per-test baseline schema for trunk (2,392/16/3, each failure triaged) and M1
+(still UNMEASURED = Gate A-pre).
+
+ACCURACY CORRECTIONS TO V2: trunk setup.py DOES have argparse (8) and a
+__main__ guard - the true fact is that nivxforge_m1/transaction/scm_worker have
+zero of each; _active_service_exe() exists only on M1, so the legacy refusal
+arrives in PHASE 2, not Phase 1.
+
+NEW RISKS: RISK-14 store.enroll() leaves the SUPERSEDED credential ACTIVE with
+its sessions alive (unlike rotate_credential/revoke_endpoint) - agent-side
+mitigation is prefer Mode R + a printed and recorded OPEN revocation
+obligation; backend repair recommended P1, out of scope. RISK-15 orphaned
+fenced rows have no attributed export path (accepted, bounded).
+
+OWNER DECISIONS REQUESTED: Mode R as advertised default; RISK-14 priority;
+fenced-row retain-and-report; resolve-identity-transition as an explicit
+operator command; G-M ephemeral worktree acceptable in CI.
+
+STATUS: design only. Tracked code unchanged (git status --porcelain agents
+backend apps/nivxray-xdr/src .github docs => 0). No commit/merge/CI/deploy/
+publication; no HOLD removed. Everything in V3 section 8 is UNIMPLEMENTED;
+M1 full-suite baseline UNMEASURED, Actions history UNKNOWN, G4 NOT RUN,
+transaction engine unreviewed. STOP AT G1 V3 - independent Codex verification
+and owner approval required before G2.
