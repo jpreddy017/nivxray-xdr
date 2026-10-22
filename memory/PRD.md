@@ -7433,3 +7433,27 @@ allow-list the downgrade control.
 D-M1-5: G0-G6 governance still UNAVAILABLE - verification gap explicitly retained.
 STATUS: M1 G1 V3 READY FOR INDEPENDENT VERIFICATION. G2 NOT AUTHORIZED.
 Zero source changes. Native Windows NOT RUN. HOLDs preserved.
+
+### 2026-06 · M1 V3 AMENDMENT A1 — R4 only (scope only)
+`memory/NIVXFORGE_M1_SCOPE_V3_AMENDMENT_A1_R4.md` (8,861 B, 159 lines, sha256
+`332d6b65466d1efa60df541677e30b5c74250cd4017b9ea8361c495ef0a08fcb`), published
+byte-exact. Amends ONLY §R4 of V3 (`d10a3c04…`); R1/R2/R3/R5/R6 and Part II
+accepted and unchanged.
+`GetEffectiveRightsFromAcl` removed as an authoritative mechanism (single-trustee
+ACL walk cannot reflect Authenticated Users S-1-5-11 / INTERACTIVE S-1-5-4) and
+excluded from the M1 path by static assertion. Replaced by token-aware
+`AccessCheck` on a `DuplicateTokenEx(SecurityImpersonation)` logon token, or an
+`AuthzAccessCheck` context explicitly populated via `AuthzAddSidsToContext`
+(S-1-5-11, S-1-5-4, S-1-1-0, S-1-5-32-545) since InitializeContextFromSid does
+not synthesise logon SIDs. Descriptor must be queried with OWNER|GROUP|DACL
+(AccessCheck else fails 1338). Owner must be Administrators/LocalSystem (implicit
+WRITE_DAC). ACE masks resolved through MapGenericMask with the service
+GENERIC_MAPPING in BOTH directions (AccessCheck does not map ACE-side generic
+bits). Eight dangerous rights probed INDIVIDUALLY, never as bulk ALL_ACCESS.
+Fail-closed list; service stays CREATE_CONFIRMED and is never started. 13 negative
+tests (AU/INTERACTIVE x START/CHANGE_CONFIG/GENERIC_ALL, Everyone GENERIC_WRITE,
+Users GENERIC_EXECUTE, WRITE_DAC, bad owner, ownerless SD, incomplete context,
+API failure) + positive + a META-CONTROL requiring a GetEffectiveRightsFromAcl
+evaluator to FAIL N-R4-1..8.
+STATUS: M1 G1 R4 CORRECTION READY FOR VERIFICATION. G2 NOT AUTHORIZED.
+Zero source changes. Native Windows NOT RUN. HOLDs preserved.
