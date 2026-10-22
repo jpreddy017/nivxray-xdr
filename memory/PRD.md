@@ -7920,3 +7920,63 @@ precedes the 10-04 split, BOTH lineages inherit it. Not fixed (G0/G1 boundary).
 UNCHANGED-STATE PROVEN: git status for agents/backend/apps/.github/docs = 0
 entries; refs digest cf3c3972... unchanged before and after; no merge/cherry-pick/
 rebase/reset/fetch/branch switch, no CI trigger, no DB write, no credential read.
+
+## 2026-06 · INDEPENDENT G1 REVIEW OF THE P0 RECONCILIATION DESIGN (READ-ONLY)
+Deliverable: memory/NIVXFORGE_EDR_G1_INDEPENDENT_REVIEW.md, published at
+/NIVXFORGE_EDR_G1_INDEPENDENT_REVIEW.md. **VERDICT: G1 BLOCKED** (not FAIL -
+structure is sound; three material findings must be corrected first).
+M-1 MATERIAL: the "compatible superset" claim for nivxforge_sensor.py is FALSE
+at the call site. M1's enrol() calls publish_identity() UNCONDITIONALLY, which
+REFUSES when identity.json exists (_rename_no_replace / MoveFileExW without
+MOVEFILE_REPLACE_EXISTING), while the trunk's enrol() OVERWRITES. Trunk
+setup.py:573/594 routes --re-enrol into enrol() with the identity file present,
+so Phase 1 would break `install --re-enrol` and make _validate_identity's own
+advice ("Re-run with --re-enrol") unreachable. CI gate 6 runs --re-enrol with
+EMPTY stdin, so it never reaches publish_identity -> the regression is LATENT
+AND UNTESTED. Sensor row must be reclassified LOW -> HIGH-until-corrected.
+Journal superset claim UPHELD unconditionally (47+/0-, all 8 journal entry
+points unchanged).
+M-2 MATERIAL: the trunk workflow's push trigger has NO branches: filter, so
+Phase 1 (which touches agents/nivxforge-windows/**) WOULD auto-run gates 5/6,
+creating/starting a real service against the PRODUCTION origin. M1's
+branches-ignore covers only the transaction branch. CI-inertness is a
+PRECONDITION, not an observation.
+M-3 CLEARED: nivxforge_m1/transaction/scm_worker have ZERO __main__ guards and
+ZERO argparse; trunk setup.py has no m1_dispatch -> frozen M1 modules are
+unreachable as entry points. Condition: M1's build script hidden-imports them
+and generates payload-manifest.json, so Phase 1 would ship unreachable code -
+take the trunk build script in Phase 1 or declare it.
+M-4 MATERIAL: RISK-2's premise is FALSE. nivxforge_transaction.py has ZERO
+enrolment/identity code (grep -ci enrol = 0). Of the 5 trunk atomicity
+invariants: #5 (honest operator message) is UNSATISFIABLE by the engine (M1's
+install() failure path is bare SystemExit); #3 and #4 only hold after the
+OPERATOR runs recover-transaction/resolve_operation; #2 holds for an unrelated
+reason (M1 refuses uninstall entirely); #1 holds only by omission. Retirement
+is a CAPABILITY REDUCTION needing an owner decision, not a test re-target.
+M-5 MATERIAL: M1's lineage REFUSES --re-enrol ("transaction recovery never
+re-enrolls an endpoint") and REFUSES uninstall/purge. Two working trunk
+capabilities are silently lost; those rows are INCOMPATIBLE - DESIGN DECISION
+REQUIRED, not COMPOSE BOTH.
+M-6 CLEARED (better than claimed): _active_service_exe() resolves SCM binPath ->
+active.json -> legacy SERVICE_EXE, and the engine refuses an unpinned
+predecessor with UNSUPPORTED_PREDECESSOR stating nothing was mutated. Old
+layout is IDENTIFIED AND REFUSED, never auto-migrated - no enterprise upgrade
+approval implied. Must be locked in as a negative control.
+M-7: CI claims upheld (no secrets., no pull_request trigger, contents:read,
+cleanup step present); corrections - lab origin MANDATORY not advisory, and the
+gate must assert the frozen subtree db21f422 in addition to build_commit. Noted
+asymmetry: M1 load_config applies NO production-origin deny-list while
+enterprise install() does.
+M-8: tenant isolation, response authorization and the verification state
+machine are UNTOUCHED by both lineages (edr.py / response.py / edr_response.py
+diff = 0). Added backend/transfer_bundle.py to the register (token in a QUERY
+STRING).
+M-9 MATERIAL: the acceptance plan can still hide regressions - isolating the DB
+makes the 12 order-dependent failures vanish indistinguishably from a fix, and
+NO full-suite baseline was ever measured on the M1 lineage. Requires a per-test
+expected-failure manifest at f971c765 that may only SHRINK.
+PHASE 1 AUTHORIZABLE INDEPENDENTLY OF PHASE 2 - but ONLY after C-1 (resolve the
+enrol post-condition + add a positive re-enrol test), C-2 (CI inertness in the
+same commit) and C-3 (mandatory lab origin + subtree assertion). PHASE 2 is NOT
+authorizable: M-4 and M-5 are owner decisions. Corrections C-1..C-9 listed in
+the review. All HOLDs reaffirmed; none removed; no source modified.
