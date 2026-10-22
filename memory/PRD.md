@@ -7509,3 +7509,63 @@ NIVXFORGE_M1_G2_SOURCE_DIFF.patch (109,165 B, `6e4b19bc…`), handoff
 `NIVXFORGE_M1_G2_IMPLEMENTATION_HANDOFF.md` (13,900 B, `c706500a…`).
 STATUS: M1 G2 IMPLEMENTED - READY FOR INDEPENDENT G3 REVIEW. No build, signing,
 Windows execution, enrollment, deployment, push or merge. HOLDs preserved.
+
+### 2026-06 · M1 G3 FAIL -> G2 CORRECTIVE IMPLEMENTED (five defects repaired)
+Independent G3 review FAILED the G2 candidate on five material defects.
+Corrective branch `engineering/m1-g3-corrective`, commit
+`4b3b6a2c7c7fc2f339bd2725c28d942f6693d575`, tree
+`c9fae8dd5abd526fc53306717e9ae449a658a9ad`, parent
+`0fd09b3a1f9eacfab12e41ef7c6d971a98ecdcae` (tree `c9dc8ab9…` verified before
+any edit). The G2 commit was NOT mutated. 4 files, +1770/-149:
+`nivxforge_m1.py` (+1103), `nivxforge_setup.py` (+37),
+`build/build_windows_installer.ps1` (+1), `test_m1_clean_install.py` (+778).
+Untouched: transaction engine, SCM worker, journal, sensor, P0-2 policy,
+backend, frontend.
+
+CLOSURES.
+P0-1 native security: SetServiceObjectSecurity/QueryServiceObjectSecurity with
+readback; restricted non-administrator impersonation token
+(DuplicateTokenEx -> CreateRestrictedToken, deny-only/disabled SIDs excluded);
+per-right win32security.AccessCheck; generic bits resolved in every ACE before
+the SD reaches the OS; owner/group/service-SID/deny/unknown-ACE handling;
+pointer-sized HANDLE declarations. UNKNOWN always refuses.
+P0-2 ordering: service CREATED DISABLED -> read back (binPath, start type,
+account) -> SD applied and verified while disabled -> binary verified ->
+DEMAND_START + re-verify binPath and SD -> start + wait for RUNNING -> image
+verified -> only then AUTO_START. Interruption or reboot before authorisation
+leaves a service the SCM will not launch.
+P1-3 payload: `m1_payload_source()` wires _MEIPASS + payload-manifest.json into
+m1_dispatch; PAYLOAD_NOT_SUPPLIED; the service image must be a manifest member
+inside install_dir, hash-verified on disk and again against the RUNNING image;
+case-ambiguous members refused. Nothing unverified is ever registered.
+P1-4 filesystem: exhaustive allow-ACE walk with the FILE generic mapping plus
+token-aware per-right AccessCheck, three roles (ancestor/file/owned), owner
+control, inherit-only handling, protected-DACL required for owned objects.
+P1-5 process: exit proven against the identity captured BEFORE the stop
+(creation timestamp defeats PID reuse); running image bound to the pid the SCM
+reports; re-read for association stability; unknown is never success.
+
+AUDIT FINDINGS ALSO REPAIRED (all were guaranteed-refusal on a supported host):
+wmic absent from current Windows 11; localised schtasks/sc.exe text parsing;
+ctypes HANDLE truncation; objects created by an elevated admin are owned by the
+creating USER account (fixed with O:BAG:BA at creation and an explicit
+protected SD on each copied payload member); undeclared win32con; service_start
+not waiting for RUNNING.
+OPEN (prerequisites, not code defects): `m1-install` must run from an elevated
+INTERACTIVE console session (a SYSTEM token lacks INTERACTIVE and Users, so the
+required context is incomplete and the install refuses); the configuration root
+must be provisioned owned by Administrators with a protected DACL.
+
+TESTS ACTUALLY RUN (portable, Linux, pywin32 absent): M1 suite **187 passed**;
+windows installer v1/stage4/SCM/secret-stdin/delivery/gate0 **159 passed**;
+installer transaction + upgrade repair + reenrol race **281 passed**;
+p0prod2 + a2 enrollment **54 passed**. Negative control: reintroducing
+`start_type=SERVICE_AUTO_START` at creation produces **46 failed, 135 passed**.
+Windows-native verification NOT RUN.
+Artifacts: NIVXFORGE_M1_G3_CORRECTIVE.bundle (24,756 B,
+`0657a5784bc1f57d5272a1d92c6fc18ecee6089177a46de5e3b23460e9bc4691`),
+NIVXFORGE_M1_G3_SOURCE_DIFF.patch (108,159 B, `930e29aa…`), handoff
+`NIVXFORGE_M1_G3_CORRECTIVE_HANDOFF.md` (22,012 B, `04326baf…`).
+STATUS: M1 G2 CORRECTED - READY FOR INDEPENDENT G3 RE-REVIEW. No build,
+signing, Windows execution, enrollment, deployment, push, merge or release.
+No self-approval. Security/release/rollout HOLDs preserved.

@@ -1,0 +1,2251 @@
+diff --git a/agents/nivxforge-windows/build/build_windows_installer.ps1 b/agents/nivxforge-windows/build/build_windows_installer.ps1
+index ee92eea5..6235038f 100644
+--- a/agents/nivxforge-windows/build/build_windows_installer.ps1
++++ b/agents/nivxforge-windows/build/build_windows_installer.ps1
+@@ -80,6 +80,7 @@ $PyiCommon = @(
+   '--hidden-import', 'nivxforge_transaction',
+   '--hidden-import', 'nivxforge_scm_worker',
+   '--hidden-import', 'win32security',
++  '--hidden-import', 'win32con',
+   '--hidden-import', 'win32job',
+   '--hidden-import', 'win32api',
+   '--hidden-import', 'ntsecuritycon',
+diff --git a/agents/nivxforge-windows/nivxforge_m1.py b/agents/nivxforge-windows/nivxforge_m1.py
+index 7a4d2e94..8fb5fe29 100644
+--- a/agents/nivxforge-windows/nivxforge_m1.py
++++ b/agents/nivxforge-windows/nivxforge_m1.py
+@@ -96,6 +96,94 @@ APPROVED_TRUSTEES = (SID_LOCAL_SYSTEM, SID_ADMINISTRATORS)
+ REQUIRED_CONTEXT_SIDS = ("S-1-5-11", "S-1-5-4", "S-1-1-0", "S-1-5-32-545")
+ ACCESS_ALLOWED_ACE_TYPE = 0
+ ACCESS_DENIED_ACE_TYPE = 1
++#: An inherit-only ACE does not apply to the object that carries it. It is
++#: still load-bearing for CHILDREN, which is why every directory M1 creates
++#: carries a PROTECTED descriptor applied at creation and is re-verified in
++#: `owned` role afterwards, instead of being trusted to inherit safely.
++INHERIT_ONLY_ACE = 0x08
++SE_DACL_PRESENT = 0x0004
++SE_DACL_PROTECTED = 0x1000
++
++# ── P1-4 · filesystem rights, mapping and trustee policy ───────────
++FILE_READ_DATA = 0x0001
++FILE_WRITE_DATA = 0x0002                      # for a directory: add file
++FILE_APPEND_DATA = 0x0004                     # for a directory: add subdir
++FILE_READ_EA = 0x0008
++FILE_WRITE_EA = 0x0010
++FILE_EXECUTE = 0x0020                         # for a directory: traverse
++FILE_DELETE_CHILD = 0x0040
++FILE_READ_ATTRIBUTES = 0x0080
++FILE_WRITE_ATTRIBUTES = 0x0100
++SYNCHRONIZE = 0x00100000
++FILE_GENERIC_READ = (READ_CONTROL | FILE_READ_DATA | FILE_READ_ATTRIBUTES
++                     | FILE_READ_EA | SYNCHRONIZE)
++FILE_GENERIC_WRITE = (READ_CONTROL | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES
++                      | FILE_WRITE_EA | FILE_APPEND_DATA | SYNCHRONIZE)
++FILE_GENERIC_EXECUTE = (READ_CONTROL | FILE_READ_ATTRIBUTES | FILE_EXECUTE
++                        | SYNCHRONIZE)
++FILE_ALL_ACCESS = 0x1F01FF
++FILE_GENERIC_MAPPING = {
++    GENERIC_READ: FILE_GENERIC_READ,
++    GENERIC_WRITE: FILE_GENERIC_WRITE,
++    GENERIC_EXECUTE: FILE_GENERIC_EXECUTE,
++    GENERIC_ALL: FILE_ALL_ACCESS,
++}
++#: Rights by which a non-administrator could REPLACE, REDIRECT or RE-PERMISSION
++#: an existing child of this directory. Applied to every ancestor of a
++#: protected path.
++DANGEROUS_ANCESTOR_RIGHTS = {
++    "FILE_WRITE_DATA": FILE_WRITE_DATA,
++    "FILE_DELETE_CHILD": FILE_DELETE_CHILD,
++    "DELETE": DELETE,
++    "WRITE_DAC": WRITE_DAC,
++    "WRITE_OWNER": WRITE_OWNER,
++}
++#: Everything above PLUS creation inside the object itself. Applied to the
++#: directories and files M1 owns.
++#:
++#: FILE_APPEND_DATA is deliberately NOT dangerous on an ANCESTOR: the default
++#: Windows `C:\` DACL grants Authenticated Users "create folders / append
++#: data" on that folder only, which permits creating a NEW subdirectory but
++#: not replacing an existing one. Treating it as dangerous there would refuse
++#: every default Windows 11 host while protecting nothing, because M1's own
++#: directory creation is CREATE_NEW and refuses an existing directory. On an
++#: OWNED object it IS dangerous, because content could be planted inside it.
++DANGEROUS_OWNED_RIGHTS = {**DANGEROUS_ANCESTOR_RIGHTS,
++                          "FILE_APPEND_DATA": FILE_APPEND_DATA,
++                          "FILE_WRITE_EA": FILE_WRITE_EA,
++                          "FILE_WRITE_ATTRIBUTES": FILE_WRITE_ATTRIBUTES}
++#: TrustedInstaller owns much of a default Windows installation; it is a
++#: protected OS principal, not a user-controllable trustee.
++SID_TRUSTED_INSTALLER = ("S-1-5-80-956008885-3418522649-1831038044"
++                         "-1853292631-2271478464")
++APPROVED_PATH_OWNERS = (SID_LOCAL_SYSTEM, SID_ADMINISTRATORS,
++                        SID_TRUSTED_INSTALLER)
++#: Applied AT CREATION, with an EXPLICIT owner and group. Without `O:BA` the
++#: object is owned by its creator — the administrator's user account on a
++#: default host — and an owner holds WRITE_DAC implicitly, which the owned-role
++#: verdict refuses. `P` blocks the inherited "Modify for Authenticated Users on
++#: subfolders and files" that `C:\` grants by default.
++_PROTECTED_DIR_SDDL = "O:BAG:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
++_PROTECTED_FILE_SDDL = "O:BAG:BAD:PAI(A;;FA;;;SY)(A;;FA;;;BA)"
++#: ancestor — a path M1 does not own and must only prove cannot be hijacked.
++#: file     — a file whose CONTENT must not be attacker-controllable.
++#: owned    — a directory M1 created, which must additionally be PROTECTED
++#:            against inheritance, because `C:\` grants Authenticated Users
++#:            Modify on "subfolders and files only" by default.
++ROLE_ANCESTOR = "ancestor"
++ROLE_FILE = "file"
++ROLE_OWNED = "owned"
++_RIGHTS_FOR_ROLE = {ROLE_ANCESTOR: DANGEROUS_ANCESTOR_RIGHTS,
++                    ROLE_FILE: DANGEROUS_OWNED_RIGHTS,
++                    ROLE_OWNED: DANGEROUS_OWNED_RIGHTS}
++
++# ── P0-2 · service start types ─────────────────────────────────────
++SERVICE_DISABLED = 4
++SERVICE_DEMAND_START = 3
++SERVICE_AUTO_START = 2
++#: SCM state codes used for the running/stopped verdicts.
++SERVICE_RUNNING = 4
++SERVICE_STOPPED = 1
+ 
+ _RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL",
+                    *(f"COM{d}" for d in range(1, 10)),
+@@ -407,17 +495,24 @@ def clean_host_report(config: M1Config, host) -> dict:
+ 
+ 
+ # ── R4 + A2 · service security verdict ─────────────────────────────
+-def map_generic(mask: int) -> int:
+-    """Resolve generic bits through the service GENERIC_MAPPING."""
++def map_generic(mask: int, mapping: dict | None = None) -> int:
++    """Resolve generic bits through an object-type GENERIC_MAPPING.
++
++    AccessCheck does not map generic bits carried INSIDE an ACE, so every
++    mask is resolved here before any comparison and before the descriptor is
++    handed to the OS.
++    """
++    mapping = GENERIC_MAPPING if mapping is None else mapping
+     resolved = mask & 0x0FFFFFFF
+-    for generic, specific in GENERIC_MAPPING.items():
++    for generic, specific in mapping.items():
+         if mask & generic:
+             resolved |= specific
+     return resolved
+ 
+ 
+-def _rights_in(mask: int) -> list[str]:
+-    return sorted(name for name, bit in DANGEROUS_RIGHTS.items() if mask & bit)
++def _rights_in(mask: int, table: dict | None = None) -> list[str]:
++    table = DANGEROUS_RIGHTS if table is None else table
++    return sorted(name for name, bit in table.items() if mask & bit)
+ 
+ 
+ def ace_inspection(descriptor: dict) -> list[str]:
+@@ -517,6 +612,179 @@ def m1_service_descriptor() -> dict:
+                                | READ_CONTROL)}]}
+ 
+ 
++# ── P1-4 · filesystem security verdict ─────────────────────────────
++def filesystem_ace_inspection(descriptor: dict, role: str) -> list[str]:
++    """Exhaustive allow-ACE inspection for a path, by the same rules as the
++    service descriptor: FILE generic mapping, SID comparison, owner control,
++    and refusal of anything not fully understood.
++
++    `role` selects the dangerous-right table. ACE ORDERING is deliberately not
++    relied upon: a deny ACE is never credited as cancelling a dangerous allow,
++    because canonical order is not guaranteed on a descriptor read back from
++    the filesystem. The allow ACE alone is disqualifying.
++    """
++    if descriptor.get("malformed"):
++        return ["malformed or truncated ACL"]
++    if not descriptor.get("dacl_present", True) or descriptor.get("dacl") is None:
++        return ["NULL DACL grants all access to everyone"]
++    problems: list[str] = []
++    owner = descriptor.get("owner")
++    if owner not in APPROVED_PATH_OWNERS:
++        problems.append(f"owner {owner!r} is not SYSTEM, Administrators or "
++                        "TrustedInstaller, and an owner holds WRITE_DAC "
++                        "implicitly")
++    if role == ROLE_OWNED and not descriptor.get("protected", False):
++        problems.append("DACL is not protected against inheritance")
++    table = _RIGHTS_FOR_ROLE.get(role)
++    if table is None:
++        return [f"unknown evaluation role {role!r}"]
++    for ace in descriptor["dacl"]:
++        ace_type = ace.get("type")
++        trustee = ace.get("sid")
++        flags = ace.get("flags", 0)
++        if ace_type not in (ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE):
++            problems.append(f"unsupported ACE type {ace_type!r}")
++            continue
++        if not isinstance(trustee, str) or not _SID_RE.match(trustee):
++            problems.append(f"unparseable trustee {trustee!r}")
++            continue
++        mask = ace.get("mask")
++        if not isinstance(mask, int) or mask < 0:
++            problems.append(f"unresolvable mask {mask!r} for {trustee}")
++            continue
++        if not isinstance(flags, int) or flags < 0:
++            problems.append(f"unparseable ACE flags {flags!r} for {trustee}")
++            continue
++        if ace_type == ACCESS_DENIED_ACE_TYPE:
++            continue
++        if flags & INHERIT_ONLY_ACE:
++            #: Does not apply to THIS object. It would apply to children, and
++            #: that is exactly why an owned directory must also be PROTECTED.
++            continue
++        if trustee in APPROVED_TRUSTEES:
++            continue
++        dangerous = _rights_in(map_generic(mask, FILE_GENERIC_MAPPING), table)
++        if dangerous:
++            problems.append(f"{trustee} is allowed {','.join(dangerous)}")
++    return problems
++
++
++def filesystem_token_verdict(descriptor: dict, role: str, host) -> list[str]:
++    """Token-aware effective access for the same path, probed one right at a
++    time against a genuinely non-administrator context."""
++    if descriptor.get("owner") is None or descriptor.get("group") is None:
++        return ["descriptor lacks owner or group; AccessCheck would fail "
++                "with ERROR_INVALID_SECURITY_DESCR (1338)"]
++    context = host.access_context()
++    if context is None:
++        return ["no token or Authz context could be built"]
++    missing = [sid for sid in REQUIRED_CONTEXT_SIDS
++               if sid not in context.get("sids", ())]
++    if missing:
++        return [f"access context is incomplete, missing {missing}"]
++    table = _RIGHTS_FOR_ROLE.get(role)
++    if table is None:
++        return [f"unknown evaluation role {role!r}"]
++    problems: list[str] = []
++    for name, bit in table.items():
++        granted = host.access_check(descriptor, context, bit,
++                                    FILE_GENERIC_MAPPING)
++        if granted is None:
++            problems.append(f"access evaluation for {name} was indeterminate")
++        elif granted:
++            problems.append(f"non-administrator context is granted {name}")
++    return problems
++
++
++def path_security_verdict(descriptor, role: str, host) -> dict | None:
++    """None means UNKNOWN. Every caller treats UNKNOWN as unsafe.
++
++    `nonadmin_writable` is true for ANY problem, including an unevaluable
++    one, so the existing fail-closed call sites need no new vocabulary.
++    """
++    if descriptor is None:
++        return None
++    problems = (filesystem_ace_inspection(descriptor, role)
++                + filesystem_token_verdict(descriptor, role, host))
++    return {"nonadmin_writable": bool(problems), "problems": problems,
++            "role": role, "owner": descriptor.get("owner")}
++
++
++def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
++    """Pure normalisation of a Windows descriptor into the verdict dict.
++
++    Separated from the Win32 read so the decoding rules — what counts as
++    malformed, how an unknown ACE layout is recorded, how a NULL DACL is
++    distinguished from an empty one — are verifiable off Windows.
++    """
++    parsed = {"owner": sid_text(owner), "group": sid_text(group),
++              "protected": bool(control & SE_DACL_PROTECTED),
++              "dacl_present": bool(control & SE_DACL_PRESENT)}
++    if dacl is None or not parsed["dacl_present"]:
++        parsed["dacl"] = None
++        return parsed
++    aces: list[dict] = []
++    try:
++        for index in range(dacl.GetAceCount()):
++            entry = dacl.GetAce(index)
++            ace_type, flags = int(entry[0][0]), int(entry[0][1])
++            if ace_type not in (ACCESS_ALLOWED_ACE_TYPE,
++                                ACCESS_DENIED_ACE_TYPE):
++                #: Object and callback ACEs carry a different layout. The TYPE
++                #: is recorded so the inspection refuses; the remaining fields
++                #: are never guessed.
++                aces.append({"type": ace_type, "flags": flags,
++                             "mask": None, "sid": None})
++                continue
++            sid = sid_text(entry[2])
++            if sid is None:
++                return {**parsed, "malformed": True, "dacl": aces}
++            aces.append({"type": ace_type, "flags": flags,
++                         "mask": int(entry[1]), "sid": sid})
++    except Exception:                                        # noqa: BLE001
++        return {**parsed, "malformed": True, "dacl": aces}
++    parsed["dacl"] = aces
++    return parsed
++
++
++# ── P1-5 · pure process-exit and image comparison rules ────────────
++def exit_verdict(before, now):
++    """True / False / None, PID-reuse aware. None is UNKNOWN.
++
++    `before` is the identity captured BEFORE the stop. A different creation
++    timestamp means the number was reused and our process is gone; an equal
++    one means it is still alive. An unknown either side is never an exit.
++    """
++    if before is None:
++        return None
++    if before == "ABSENT":
++        return True
++    if now is None:
++        return None
++    if now == "ABSENT":
++        return True
++    if not isinstance(before, dict) or not isinstance(now, dict):
++        return None
++    if before.get("created") is None or now.get("created") is None:
++        return None
++    return now["created"] != before["created"]
++
++
++def image_path_matches(actual, expected) -> bool:
++    """Windows paths are case-insensitive and may differ in separators.
++
++    PureWindowsPath, not os.path: the comparison must follow WINDOWS rules
++    even when this logic is exercised on another platform, and `os.path.normcase`
++    is the identity function off Windows. `..` is deliberately NOT resolved —
++    QueryFullProcessImageNameW returns a canonical path, so a traversal in
++    either operand is treated as a mismatch.
++    """
++    if not actual or not expected:
++        return False
++    return (str(PureWindowsPath(str(actual))).rstrip("\\").lower()
++            == str(PureWindowsPath(str(expected))).rstrip("\\").lower())
++
++
+ # ── install ────────────────────────────────────────────────────────
+ def _bin_path(config: M1Config) -> str:
+     exe = config.service_exe
+@@ -524,6 +792,66 @@ def _bin_path(config: M1Config) -> str:
+     return " ".join([quoted, *config.service_args])
+ 
+ 
++# ── P1-3 · trusted payload provenance for the service image ────────
++def resolve_service_binary(config: M1Config, manifest: dict) -> str:
++    """The service image MUST be a member of the verified payload.
++
++    Comparison is case-insensitive because the filesystem is: two manifest
++    members differing only in case are AMBIGUOUS, not a match.
++    """
++    exe = PureWindowsPath(config.service_exe)
++    install_dir = PureWindowsPath(str(config.install_dir))
++    try:
++        member = exe.relative_to(install_dir)
++    except ValueError:
++        raise M1Error("SERVICE_EXE_OUTSIDE_PAYLOAD",
++                      f"the approved service image {config.service_exe!r} is "
++                      f"not inside the install directory {install_dir}; M1 "
++                      "never registers a binary it did not place and "
++                      "verify") from None
++    key = str(member).replace("\\", "/").lower()
++    matches = [name for name in manifest
++               if name.replace("\\", "/").lower() == key]
++    if not matches:
++        raise M1Error("SERVICE_EXE_NOT_IN_MANIFEST",
++                      f"{key!r} has no manifest entry; the payload does not "
++                      "attest the binary the service would run")
++    if len(matches) > 1:
++        raise M1Error("SERVICE_EXE_AMBIGUOUS",
++                      f"{matches} differ only by case and the filesystem "
++                      "cannot distinguish them")
++    return matches[0]
++
++
++def verify_installed_binary(config: M1Config, manifest: dict, host) -> dict:
++    """Prove the ON-DISK service image is the attested one, after the copy.
++
++    This is what stops an existing unverified binary from being executed: the
++    registration and the activation both depend on this digest, and the same
++    digest is compared again against the RUNNING image.
++    """
++    member = resolve_service_binary(config, manifest)
++    want = manifest[member]
++    target = Path(config.install_dir) / member
++    if not host.is_file(target):
++        raise M1Error("SERVICE_EXE_MISSING",
++                      f"{target} is absent after payload delivery")
++    acl = host.file_security(target, role=ROLE_FILE)
++    if acl is None or acl.get("nonadmin_writable"):
++        raise M1Error("SERVICE_EXE_UNPROTECTED",
++                      f"the security of {target} is unsafe or unreadable: "
++                      f"{None if acl is None else acl.get('problems')}")
++    try:
++        got = file_digest(target)
++    except OSError as ex:
++        raise M1Error("SERVICE_EXE_UNVERIFIABLE",
++                      f"{target} cannot be read for hashing: {ex}") from None
++    if got != want["sha256"]:
++        raise M1Error("SERVICE_EXE_DIGEST_MISMATCH",
++                      f"{target}: {got} != {want['sha256']}")
++    return {"member": member, "sha256": got, "path": str(target)}
++
++
+ def m1_install(config_path, host, *, enroll=None, bundle_root=None,
+                manifest=None, install_id=None) -> dict:
+     """Clean-only installation. Every step is gated, recorded and refusable."""
+@@ -565,19 +893,26 @@ def m1_install(config_path, host, *, enroll=None, bundle_root=None,
+                 ownership.mark(record, name, CREATE_OUTCOME_UNKNOWN,
+                                {"path": str(path)})
+                 raise
+-            security = host.directory_security(path)
++            security = host.directory_security(path, role=ROLE_OWNED)
+             if security is None or security.get("nonadmin_writable"):
+                 ownership.mark(record, name, CREATE_OUTCOME_UNKNOWN,
+                                {"path": str(path)})
+                 raise M1Error("DIR_ACL_UNVERIFIED",
+-                              f"cannot verify the security of {path}")
++                              f"cannot verify the security of {path}: "
++                              f"{None if security is None else security.get('problems')}")
+             ownership.mark(record, name, CREATE_CONFIRMED,
+                            {"path": str(path), "security": security})
+-        if bundle_root is not None and manifest is not None:
+-            m1_payload_check(bundle_root, config.install_dir, manifest, host)
+-            host.copy_payload(bundle_root, config.install_dir, manifest)
+-            ownership.mark(record, "payload", CREATE_CONFIRMED,
+-                           {"members": len(manifest)})
++        # ── P1-3 · trusted payload delivery, then binary provenance ──
++        if bundle_root is None or manifest is None:
++            raise M1Error("PAYLOAD_NOT_SUPPLIED",
++                          "no attested payload was supplied; M1 never "
++                          "registers a service against a binary it has not "
++                          "delivered and hash-verified")
++        m1_payload_check(bundle_root, config.install_dir, manifest, host)
++        host.copy_payload(bundle_root, config.install_dir, manifest)
++        binary = verify_installed_binary(config, manifest, host)
++        ownership.mark(record, "payload", CREATE_CONFIRMED,
++                       {"members": len(manifest), "service_image": binary})
+         # ── enrollment (marker before the request; single attempt) ──
+         ownership.mark(record, "enrollment", CREATE_INTENDED,
+                        {"origin": config.origin})
+@@ -592,7 +927,7 @@ def m1_install(config_path, host, *, enroll=None, bundle_root=None,
+             raise
+         ownership.mark(record, "enrollment", CREATE_CONFIRMED,
+                        {"endpoint_id": identity.get("endpoint_id")})
+-        # ── service: create-only ──
++        # ── service: create-only, and created DISABLED (P0-2) ──
+         state, detail = host.service_lookup(SERVICE_NAME)
+         if state != PROBE_ABSENT:
+             raise M1Error("SERVICE_NOT_ABSENT",
+@@ -601,7 +936,12 @@ def m1_install(config_path, host, *, enroll=None, bundle_root=None,
+         ownership.mark(record, "service", CREATE_INTENDED,
+                        {"name": SERVICE_NAME})
+         try:
+-            host.service_create(SERVICE_NAME, _bin_path(config))
++            #: A service created DISABLED cannot be launched by the SCM, by a
++            #: reboot or by an unprivileged `sc start`, so an interruption
++            #: anywhere between here and the explicit authorization below
++            #: leaves a registration that CANNOT run.
++            host.service_create(SERVICE_NAME, _bin_path(config),
++                                start_type=SERVICE_DISABLED)
+         except M1Error:
+             ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
+                            {"name": SERVICE_NAME})
+@@ -612,40 +952,76 @@ def m1_install(config_path, host, *, enroll=None, bundle_root=None,
+                            {"name": SERVICE_NAME})
+             raise M1Error("SERVICE_UNVERIFIABLE",
+                           "the created service cannot be read back")
+-        if qc.get("bin_path") != _bin_path(config):
+-            ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
+-                           {"bin_path": qc.get("bin_path")})
+-            raise M1Error("SERVICE_IDENTITY_MISMATCH",
+-                          "the registered binPath is not the approved one")
++        for field, expected, code in (
++                ("bin_path", _bin_path(config), "SERVICE_IDENTITY_MISMATCH"),
++                ("start_type_code", SERVICE_DISABLED, "SERVICE_NOT_DISABLED"),
++                ("account", "LocalSystem", "SERVICE_ACCOUNT_MISMATCH")):
++            if qc.get(field) != expected:
++                ownership.mark(record, "service", CREATE_OUTCOME_UNKNOWN,
++                               {field: qc.get(field)})
++                raise M1Error(code,
++                              f"the registered {field} is {qc.get(field)!r}, "
++                              f"not the approved {expected!r}")
+         ownership.mark(record, "service", CREATE_CONFIRMED,
+                        {"name": SERVICE_NAME, "bin_path": qc.get("bin_path"),
+                         "account": qc.get("account"),
+                         "start_type": qc.get("start_type"),
++                        "created_disabled": True,
++                        "service_image": binary,
+                         "install_id": install_id})
+-        # ── security BEFORE activation ──
++        # ── security applied and INDEPENDENTLY verified while DISABLED ──
+         host.service_set_security(SERVICE_NAME, m1_service_descriptor())
+         descriptor = host.service_security(SERVICE_NAME)
+         if descriptor is None:
+             raise M1Error("SERVICE_SD_UNREADABLE",
+                           "the service security descriptor cannot be read "
+-                          "back; the service will not be started")
++                          "back; the service stays disabled")
+         verdict = service_security_verdict(descriptor, host)
+         if not verdict["safe"]:
+             raise M1Error("SERVICE_SD_UNSAFE",
+-                          "refusing to start the service: "
++                          "refusing to authorize the service: "
+                           f"{verdict['problems']}")
++        # ── authorization: DEMAND first, so a crash before the image is
++        #    verified still cannot produce an auto-starting service ──
++        host.service_set_start_type(SERVICE_NAME, SERVICE_DEMAND_START)
++        qc = host.service_qc(SERVICE_NAME)
++        if qc is None or qc.get("start_type_code") != SERVICE_DEMAND_START:
++            raise M1Error("SERVICE_AUTHORIZATION_UNVERIFIED",
++                          "the start type could not be read back as demand")
++        if qc.get("bin_path") != _bin_path(config):
++            raise M1Error("SERVICE_IDENTITY_MISMATCH",
++                          "the binPath changed while the service was being "
++                          "authorized")
++        after = host.service_security(SERVICE_NAME)
++        if after is None or not service_security_verdict(after, host)["safe"]:
++            raise M1Error("SERVICE_SD_UNSAFE",
++                          "the security descriptor no longer verifies after "
++                          "the start type was changed")
+         host.service_start(SERVICE_NAME)
+-        image = host.verify_running_image(SERVICE_NAME, config.service_exe)
+-        if image != "MATCH":
++        image = host.verify_running_image(SERVICE_NAME, config.service_exe,
++                                          expected_sha256=binary["sha256"])
++        if image is None or image.get("verdict") != "MATCH":
+             raise M1Error("SERVICE_IMAGE_UNVERIFIED",
+-                          f"running image verdict {image}")
++                          f"running image verdict "
++                          f"{None if image is None else image.get('verdict')}"
++                          f"; detail {None if image is None else image.get('detail')}")
++        #: Only a service whose descriptor, binary and RUNNING image have all
++        #: been verified is ever made auto-start.
++        host.service_set_start_type(SERVICE_NAME, SERVICE_AUTO_START)
++        qc = host.service_qc(SERVICE_NAME)
++        if qc is None or qc.get("start_type_code") != SERVICE_AUTO_START:
++            raise M1Error("SERVICE_AUTOSTART_UNVERIFIED",
++                          "the service is running but its start type could "
++                          "not be read back as auto")
+         ownership.mark(record, "service", ACTIVATION_VERIFIED,
+                        {**record["resources"]["service"]["evidence"],
+                         "image": image,
++                        "start_type": qc.get("start_type"),
+                         "config_digest": config.config_digest})
+         return {"install_id": install_id, "service": SERVICE_NAME,
+                 "endpoint_id": identity.get("endpoint_id"),
+-                "state": ACTIVATION_VERIFIED,
++                "state": ACTIVATION_VERIFIED, "image": image,
++                "service_image": binary,
+                 "security": verdict, "host_report": report}
+ 
+ 
+@@ -671,12 +1047,20 @@ def m1_uninstall(config_path, host) -> dict:
+     if qc.get("bin_path") != evidence.get("bin_path"):
+         raise M1Error("SERVICE_IDENTITY_MISMATCH",
+                       "the installed service is not the one M1 created")
++    #: P1-5 — the process is identified BEFORE the stop, so the exit proof
++    #: cannot be satisfied by a DIFFERENT process that later reuses the PID.
++    pid = qc.get("pid") or 0
++    before = host.process_identity(pid) if pid else "ABSENT"
++    if before is None:
++        raise M1Error("PROCESS_IDENTITY_UNKNOWN",
++                      f"the identity of service process {pid} cannot be "
++                      "established; refusing to stop or delete anything")
+     stopped = host.service_stop(SERVICE_NAME)
+     if stopped != "STOPPED":
+         raise M1Error("SERVICE_STOP_UNCERTAIN",
+                       f"stop outcome {stopped}; refusing to delete. Operator "
+                       "action required.")
+-    exited = host.process_exited(qc.get("pid"))
++    exited = True if before == "ABSENT" else host.process_exited(pid, before)
+     if exited is not True:
+         raise M1Error("PROCESS_EXIT_UNPROVEN",
+                       "the service process has not been proven to have "
+@@ -812,7 +1196,25 @@ class WindowsHost:
+         if os.name != "nt":
+             raise M1Error("NOT_WINDOWS", "WindowsHost requires Windows")
+         import ctypes
++        import ctypes.wintypes as wintypes
+         self._k32 = ctypes.WinDLL("kernel32", use_last_error=True)
++        #: A HANDLE is pointer-sized. Without these declarations ctypes
++        #: truncates it to a C int on 64-bit Windows, which silently breaks
++        #: every handle-based proof below.
++        self._k32.OpenProcess.restype = wintypes.HANDLE
++        self._k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL,
++                                          wintypes.DWORD]
++        self._k32.CloseHandle.argtypes = [wintypes.HANDLE]
++        self._k32.CreateMutexW.restype = wintypes.HANDLE
++        self._k32.GetProcessTimes.argtypes = [
++            wintypes.HANDLE, ctypes.POINTER(wintypes.FILETIME),
++            ctypes.POINTER(wintypes.FILETIME),
++            ctypes.POINTER(wintypes.FILETIME),
++            ctypes.POINTER(wintypes.FILETIME)]
++        self._k32.QueryFullProcessImageNameW.argtypes = [
++            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
++            ctypes.POINTER(wintypes.DWORD)]
++        self._k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+ 
+     # -- time / paths ------------------------------------------------
+     def now_utc(self) -> str:
+@@ -866,6 +1268,31 @@ class WindowsHost:
+             target = Path(dest_root) / member
+             target.parent.mkdir(parents=True, exist_ok=True)
+             shutil.copy2(source, target)
++            #: A copied file is owned by its CREATOR, which on a default
++            #: Windows 11 host is the administrator's USER account, not the
++            #: Administrators group ("default owner for objects created by
++            #: members of the Administrators group" is "object creator").
++            #: An owner holds WRITE_DAC implicitly, so the service image is
++            #: given an explicit, protected, administrator-only descriptor.
++            self._apply_protected_sd(target)
++
++    def _apply_protected_sd(self, path) -> None:
++        import win32security
++        descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
++            _PROTECTED_FILE_SDDL, win32security.SDDL_REVISION_1)
++        try:
++            win32security.SetNamedSecurityInfo(
++                str(path), win32security.SE_FILE_OBJECT,
++                win32security.OWNER_SECURITY_INFORMATION
++                | win32security.GROUP_SECURITY_INFORMATION
++                | win32security.DACL_SECURITY_INFORMATION
++                | win32security.PROTECTED_DACL_SECURITY_INFORMATION,
++                descriptor.GetSecurityDescriptorOwner(),
++                descriptor.GetSecurityDescriptorGroup(),
++                descriptor.GetSecurityDescriptorDacl(), None)
++        except Exception as ex:                              # noqa: BLE001
++            raise M1Error("FILE_SD_APPLY_FAILED",
++                          f"{path}: {ex}") from None
+ 
+     def create_directory_protected(self, path) -> None:
+         """CreateDirectoryW with a protected SD applied AT CREATION."""
+@@ -890,7 +1317,7 @@ class WindowsHost:
+                         ("bInheritHandle", wintypes.BOOL)]
+ 
+         descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+-            "D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)", win32security.SDDL_REVISION_1)
++            _PROTECTED_DIR_SDDL, win32security.SDDL_REVISION_1)
+         raw = bytes(descriptor)
+         buffer = ctypes.create_string_buffer(raw, len(raw))
+         attributes = SECURITY_ATTRIBUTES()
+@@ -900,16 +1327,19 @@ class WindowsHost:
+         attributes._buffer = buffer                 # keep the SD alive
+         return attributes
+ 
+-    def directory_security(self, path):
+-        return self._security(path)
++    # -- P1-4 · filesystem security ----------------------------------
++    def directory_security(self, path, role=ROLE_ANCESTOR):
++        return path_security_verdict(self._read_path_descriptor(path),
++                                     role, self)
+ 
+-    def file_security(self, path):
+-        return self._security(path)
++    def file_security(self, path, role=ROLE_FILE):
++        return path_security_verdict(self._read_path_descriptor(path),
++                                     role, self)
+ 
+-    def _security(self, path):
+-        """None means UNKNOWN, and every caller treats UNKNOWN as unsafe."""
++    def _read_path_descriptor(self, path):
++        """Parse a real filesystem descriptor. None means UNKNOWN, and every
++        caller treats UNKNOWN as unsafe."""
+         try:
+-            import ntsecuritycon
+             import win32security
+         except ImportError:
+             return None
+@@ -919,139 +1349,550 @@ class WindowsHost:
+                 win32security.OWNER_SECURITY_INFORMATION
+                 | win32security.GROUP_SECURITY_INFORMATION
+                 | win32security.DACL_SECURITY_INFORMATION)
++        except Exception:                                    # noqa: BLE001
++            return None
++        return self._parse_descriptor(descriptor)
++
++    def _parse_descriptor(self, descriptor):
++        """Normalise a PySECURITY_DESCRIPTOR into the dict the pure verdict
++        functions consume. Anything that cannot be decoded is reported as
++        malformed rather than guessed, which refuses."""
++        import win32security
++        try:
++            control, _revision = descriptor.GetSecurityDescriptorControl()
++            owner = descriptor.GetSecurityDescriptorOwner()
++            group = descriptor.GetSecurityDescriptorGroup()
+             dacl = descriptor.GetSecurityDescriptorDacl()
+         except Exception:                                    # noqa: BLE001
++            return {"malformed": True}
++
++        def text(sid):
++            try:
++                return win32security.ConvertSidToStringSid(sid) if sid else None
++            except Exception:                                # noqa: BLE001
++                return None
++
++        return normalise_descriptor(control, owner, group, dacl, text)
++
++    def _descriptor_to_sd(self, descriptor, mapping):
++        """Rebuild a real SD with every generic bit RESOLVED, because neither
++        AccessCheck nor the SCM maps generic bits carried inside an ACE.
++
++        Deny ACEs are emitted first so the ACL we hand to the OS is in
++        canonical order; inherit-only ACEs are omitted because they do not
++        apply to the object being evaluated."""
++        import win32security
++        if descriptor.get("malformed") or descriptor.get("dacl") is None:
+             return None
+-        if dacl is None:
+-            return {"nonadmin_writable": True, "reason": "NULL DACL"}
+-        write_mask = (ntsecuritycon.FILE_GENERIC_WRITE
+-                      | ntsecuritycon.FILE_ADD_FILE
+-                      | ntsecuritycon.WRITE_DAC | ntsecuritycon.WRITE_OWNER)
+-        nonadmin = False
+-        for index in range(dacl.GetAceCount()):
+-            (ace_type, _flags), mask, sid = dacl.GetAce(index)[0:3] if len(
+-                dacl.GetAce(index)) > 2 else (dacl.GetAce(index)[0], 0, None)
+-            if ace_type != ACCESS_ALLOWED_ACE_TYPE or sid is None:
+-                continue
+-            text = win32security.ConvertSidToStringSid(sid)
+-            if text in APPROVED_TRUSTEES or text.endswith("-512"):
++        if descriptor.get("owner") is None or descriptor.get("group") is None:
++            return None
++        acl = win32security.ACL()
++        ordered = sorted(descriptor["dacl"],
++                         key=lambda ace: ace.get("type") != ACCESS_DENIED_ACE_TYPE)
++        for ace in ordered:
++            if ace.get("type") not in (ACCESS_ALLOWED_ACE_TYPE,
++                                       ACCESS_DENIED_ACE_TYPE):
++                return None
++            if not isinstance(ace.get("mask"), int):
++                return None
++            flags = ace.get("flags", 0)
++            if not isinstance(flags, int):
++                return None
++            if flags & INHERIT_ONLY_ACE:
+                 continue
+-            if mask & write_mask:
+-                nonadmin = True
+-        return {"nonadmin_writable": nonadmin}
+-
+-    # -- SCM ---------------------------------------------------------
+-    def _sc(self, *args) -> tuple[int, str]:
+-        import subprocess
++            try:
++                sid = win32security.ConvertStringSidToSid(ace["sid"])
++            except Exception:                                # noqa: BLE001
++                return None
++            mask = map_generic(ace["mask"], mapping)
++            if ace["type"] == ACCESS_ALLOWED_ACE_TYPE:
++                acl.AddAccessAllowedAce(win32security.ACL_REVISION, mask, sid)
++            else:
++                acl.AddAccessDeniedAce(win32security.ACL_REVISION, mask, sid)
++        security = win32security.SECURITY_DESCRIPTOR()
++        security.SetSecurityDescriptorDacl(1, acl, 0)
++        security.SetSecurityDescriptorOwner(
++            win32security.ConvertStringSidToSid(descriptor["owner"]), 0)
++        security.SetSecurityDescriptorGroup(
++            win32security.ConvertStringSidToSid(descriptor["group"]), 0)
++        if descriptor.get("protected"):
++            security.SetSecurityDescriptorControl(SE_DACL_PROTECTED,
++                                                  SE_DACL_PROTECTED)
++        return security
++
++    # -- SCM (structured; sc.exe text output is locale-dependent) -----
++    def _service_handle(self, name, access):
++        """(handle, manager, winerror). A winerror is never read as ABSENT
++        unless it is literally ERROR_SERVICE_DOES_NOT_EXIST."""
++        import win32service
+         try:
+-            done = subprocess.run(["sc.exe", *args], capture_output=True,
+-                                  text=True, timeout=60)
+-        except (OSError, subprocess.SubprocessError) as ex:
+-            return -1, f"{type(ex).__name__}: {ex}"
+-        return done.returncode, (done.stdout or "") + (done.stderr or "")
++            manager = win32service.OpenSCManager(
++                None, None, win32service.SC_MANAGER_CONNECT)
++        except Exception as ex:                              # noqa: BLE001
++            return None, None, getattr(ex, "winerror", -1)
++        try:
++            handle = win32service.OpenService(manager, name, access)
++        except Exception as ex:                              # noqa: BLE001
++            win32service.CloseServiceHandle(manager)
++            return None, None, getattr(ex, "winerror", -1)
++        return handle, manager, 0
++
++    @staticmethod
++    def _close(handle, manager):
++        import win32service
++        for item in (handle, manager):
++            if item is not None:
++                try:
++                    win32service.CloseServiceHandle(item)
++                except Exception:                            # noqa: BLE001
++                    pass
+ 
+     def service_lookup(self, name) -> tuple[str, str]:
+-        code, output = self._sc("query", name)
+-        if code == 0:
+-            return PROBE_PRESENT, output.strip()[:200]
+-        if code == 1060 or "1060" in output:
+-            return PROBE_ABSENT, "ERROR_SERVICE_DOES_NOT_EXIST"
+-        return PROBE_UNKNOWN, f"sc query rc={code} {output.strip()[:200]}"
++        import win32service
++        handle, manager, error = self._service_handle(
++            name, win32service.SERVICE_QUERY_STATUS)
++        if handle is None:
++            if error == 1060:
++                return PROBE_ABSENT, "ERROR_SERVICE_DOES_NOT_EXIST"
++            return PROBE_UNKNOWN, f"OpenService WinError {error}"
++        try:
++            status = win32service.QueryServiceStatusEx(handle)
++            return PROBE_PRESENT, f"state={status.get('CurrentState')}"
++        except Exception as ex:                              # noqa: BLE001
++            return PROBE_UNKNOWN, f"QueryServiceStatusEx: {ex}"
++        finally:
++            self._close(handle, manager)
+ 
+     def scheduled_task_lookup(self, name) -> tuple[str, str]:
+-        import subprocess
++        """A scheduled task IS a file under System32\\Tasks, so this probe is
++        locale-independent. `schtasks.exe` reports "cannot find" in the
++        system language, and a text match would answer UNKNOWN on every
++        non-English Windows, refusing a legitimate install."""
++        tasks = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "Tasks"
+         try:
+-            done = subprocess.run(["schtasks.exe", "/query", "/tn", name],
+-                                  capture_output=True, text=True, timeout=60)
+-        except (OSError, subprocess.SubprocessError) as ex:
+-            return PROBE_UNKNOWN, type(ex).__name__
+-        if done.returncode == 0:
+-            return PROBE_PRESENT, name
+-        if "cannot find" in (done.stdout + done.stderr).lower():
+-            return PROBE_ABSENT, name
+-        return PROBE_UNKNOWN, f"rc={done.returncode}"
++            if not tasks.is_dir():
++                return PROBE_UNKNOWN, f"{tasks} is not readable"
++            return (PROBE_PRESENT if (tasks / name).exists()
++                    else PROBE_ABSENT), str(tasks / name)
++        except OSError as ex:
++            return PROBE_UNKNOWN, f"{type(ex).__name__}: {ex}"
+ 
+     def worker_processes(self):
+-        """None means the enumeration failed, which is UNKNOWN, not absent."""
+-        import subprocess
+-        try:
+-            done = subprocess.run(
+-                ["wmic", "process", "where",
+-                 "name like '%NivXForge%'", "get", "ProcessId,CommandLine"],
+-                capture_output=True, text=True, timeout=60)
+-        except (OSError, subprocess.SubprocessError):
+-            return None
+-        if done.returncode != 0:
++        """None means the enumeration failed, which is UNKNOWN, not absent.
++
++        Toolhelp, not `wmic`: wmic is deprecated and is absent from current
++        Windows 11 images, where a wmic-based probe answers UNKNOWN forever
++        and refuses every install.
++        """
++        import ctypes
++        import ctypes.wintypes as wintypes
++
++        class PROCESSENTRY32W(ctypes.Structure):
++            _fields_ = [("dwSize", wintypes.DWORD),
++                        ("cntUsage", wintypes.DWORD),
++                        ("th32ProcessID", wintypes.DWORD),
++                        ("th32DefaultHeapID", ctypes.POINTER(ctypes.c_ulong)),
++                        ("th32ModuleID", wintypes.DWORD),
++                        ("cntThreads", wintypes.DWORD),
++                        ("th32ParentProcessID", wintypes.DWORD),
++                        ("pcPriClassBase", ctypes.c_long),
++                        ("dwFlags", wintypes.DWORD),
++                        ("szExeFile", ctypes.c_wchar * 260)]
++
++        snapshot = self._k32.CreateToolhelp32Snapshot(0x00000002, 0)
++        if not snapshot or snapshot == wintypes.HANDLE(-1).value:
+             return None
++        entry = PROCESSENTRY32W()
++        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+         found = []
+-        for line in done.stdout.splitlines():
+-            if WORKER_FLAG in line or "--service-run" in line:
+-                found.append(line.strip()[:120])
++        try:
++            if not self._k32.Process32FirstW(snapshot, ctypes.byref(entry)):
++                return None
++            while True:
++                if "nivxforge" in entry.szExeFile.lower():
++                    found.append(f"{entry.szExeFile}:{entry.th32ProcessID}")
++                if not self._k32.Process32NextW(snapshot, ctypes.byref(entry)):
++                    break
++        finally:
++            self._k32.CloseHandle(snapshot)
+         return found
+ 
+-    def service_create(self, name, bin_path) -> None:
+-        code, output = self._sc("create", name, f"binPath= {bin_path}",
+-                                "start= auto", "obj= LocalSystem")
+-        if code != 0:
++    def service_create(self, name, bin_path, *,
++                       start_type=SERVICE_DISABLED) -> None:
++        """Create-only, and DISABLED by default (P0-2)."""
++        import win32service
++        try:
++            manager = win32service.OpenSCManager(
++                None, None, win32service.SC_MANAGER_CREATE_SERVICE)
++        except Exception as ex:                              # noqa: BLE001
++            raise M1Error("SERVICE_CREATE_FAILED",
++                          f"OpenSCManager: {ex}") from None
++        try:
++            handle = win32service.CreateService(
++                manager, name, "NivXForge Sensor (M1)",
++                win32service.SERVICE_ALL_ACCESS,
++                win32service.SERVICE_WIN32_OWN_PROCESS,
++                start_type, win32service.SERVICE_ERROR_NORMAL,
++                bin_path, None, 0, None, None, None)
++        except Exception as ex:                              # noqa: BLE001
+             raise M1Error("SERVICE_CREATE_FAILED",
+-                          f"sc create rc={code}: {output.strip()[:200]}")
++                          f"CreateService({name}): {ex}") from None
++        finally:
++            self._close(None, manager)
++        self._close(handle, None)
+ 
+     def service_qc(self, name):
+-        code, output = self._sc("qc", name)
+-        if code != 0:
++        """Structured configuration AND live status. None means UNKNOWN."""
++        import win32service
++        handle, manager, _error = self._service_handle(
++            name, win32service.SERVICE_QUERY_CONFIG
++            | win32service.SERVICE_QUERY_STATUS)
++        if handle is None:
+             return None
+-        parsed: dict = {"raw": output}
+-        for line in output.splitlines():
+-            if ":" not in line:
+-                continue
+-            key, _, value = line.partition(":")
+-            key = key.strip().upper()
+-            if key == "BINARY_PATH_NAME":
+-                parsed["bin_path"] = value.strip()
+-            elif key == "SERVICE_START_NAME":
+-                parsed["account"] = value.strip()
+-            elif key == "START_TYPE":
+-                parsed["start_type"] = value.strip()
+-        status, _ = self._sc("queryex", name)
+-        return parsed
++        try:
++            config = win32service.QueryServiceConfig(handle)
++            status = win32service.QueryServiceStatusEx(handle)
++        except Exception:                                    # noqa: BLE001
++            return None
++        finally:
++            self._close(handle, manager)
++        start_code = int(config[1])
++        return {"bin_path": config[3], "account": config[7],
++                "service_type": int(config[0]),
++                "start_type_code": start_code,
++                "start_type": {SERVICE_AUTO_START: "AUTO_START",
++                               SERVICE_DEMAND_START: "DEMAND_START",
++                               SERVICE_DISABLED: "DISABLED"}.get(
++                                   start_code, str(start_code)),
++                "state": int(status.get("CurrentState", 0)),
++                "pid": int(status.get("ProcessId", 0) or 0)}
++
++    def service_set_start_type(self, name, start_type) -> None:
++        import win32service
++        handle, manager, error = self._service_handle(
++            name, win32service.SERVICE_CHANGE_CONFIG)
++        if handle is None:
++            raise M1Error("SERVICE_CONFIG_FAILED",
++                          f"OpenService for change-config: WinError {error}")
++        try:
++            win32service.ChangeServiceConfig(
++                handle, win32service.SERVICE_NO_CHANGE, start_type,
++                win32service.SERVICE_NO_CHANGE, None, None, 0, None,
++                None, None, None)
++        except Exception as ex:                              # noqa: BLE001
++            raise M1Error("SERVICE_CONFIG_FAILED",
++                          f"ChangeServiceConfig({start_type}): {ex}") from None
++        finally:
++            self._close(handle, manager)
+ 
+     def service_set_security(self, name, descriptor) -> None:
+-        raise M1Error("NOT_IMPLEMENTED_NATIVE",
+-                      "service security application is a native obligation "
+-                      "and is not exercised off Windows")
++        """P0-1 — apply the restrictive descriptor to the service object."""
++        import win32security
++        import win32service
++        security = self._descriptor_to_sd(descriptor, GENERIC_MAPPING)
++        if security is None:
++            raise M1Error("SERVICE_SD_UNBUILDABLE",
++                          "the approved descriptor could not be rendered as "
++                          "a security descriptor")
++        handle, manager, error = self._service_handle(
++            name, win32service.SERVICE_ALL_ACCESS)
++        if handle is None:
++            raise M1Error("SERVICE_SD_APPLY_FAILED",
++                          f"OpenService for WRITE_DAC: WinError {error}")
++        try:
++            win32service.SetServiceObjectSecurity(
++                handle,
++                win32security.OWNER_SECURITY_INFORMATION
++                | win32security.GROUP_SECURITY_INFORMATION
++                | win32security.DACL_SECURITY_INFORMATION
++                | win32security.PROTECTED_DACL_SECURITY_INFORMATION,
++                security)
++        except Exception as ex:                              # noqa: BLE001
++            raise M1Error("SERVICE_SD_APPLY_FAILED",
++                          f"SetServiceObjectSecurity: {ex}") from None
++        finally:
++            self._close(handle, manager)
+ 
+     def service_security(self, name):
+-        return None
++        """P0-1 — read the descriptor BACK from the SCM. None is UNKNOWN."""
++        import win32security
++        import win32service
++        handle, manager, _error = self._service_handle(
++            name, win32service.SERVICE_QUERY_CONFIG | READ_CONTROL)
++        if handle is None:
++            return None
++        try:
++            security = win32service.QueryServiceObjectSecurity(
++                handle,
++                win32security.OWNER_SECURITY_INFORMATION
++                | win32security.GROUP_SECURITY_INFORMATION
++                | win32security.DACL_SECURITY_INFORMATION)
++        except Exception:                                    # noqa: BLE001
++            return None
++        finally:
++            self._close(handle, manager)
++        return self._parse_descriptor(security)
+ 
+     def service_start(self, name) -> None:
+-        code, output = self._sc("start", name)
+-        if code != 0:
++        """Start and WAIT for the SCM to report RUNNING. A start request that
++        is merely accepted is not a running service."""
++        import win32service
++        handle, manager, error = self._service_handle(
++            name, win32service.SERVICE_START | win32service.SERVICE_QUERY_STATUS)
++        if handle is None:
++            raise M1Error("SERVICE_START_FAILED",
++                          f"OpenService for start: WinError {error}")
++        try:
++            win32service.StartService(handle, None)
++        except Exception as ex:                              # noqa: BLE001
++            self._close(handle, manager)
+             raise M1Error("SERVICE_START_FAILED",
+-                          f"sc start rc={code}: {output.strip()[:200]}")
++                          f"StartService: {ex}") from None
++        try:
++            deadline = time.monotonic() + 60
++            while time.monotonic() < deadline:
++                status = win32service.QueryServiceStatusEx(handle)
++                state = int(status.get("CurrentState", 0))
++                if state == SERVICE_RUNNING:
++                    return
++                if state == SERVICE_STOPPED:
++                    raise M1Error(
++                        "SERVICE_START_FAILED",
++                        "the service stopped immediately; exit code "
++                        f"{status.get('Win32ExitCode')}/"
++                        f"{status.get('ServiceSpecificExitCode')}")
++                time.sleep(1)
++            raise M1Error("SERVICE_START_TIMEOUT",
++                          "the service did not reach RUNNING within 60s")
++        finally:
++            self._close(handle, manager)
+ 
+     def service_stop(self, name) -> str:
+-        code, output = self._sc("stop", name)
+-        if code != 0:
+-            return f"UNCERTAIN rc={code}"
+-        return "STOPPED"
++        """'STOPPED' only when the SCM says so. Anything else is UNCERTAIN."""
++        import win32service
++        handle, manager, error = self._service_handle(
++            name, win32service.SERVICE_STOP | win32service.SERVICE_QUERY_STATUS)
++        if handle is None:
++            return f"UNCERTAIN OpenService WinError {error}"
++        try:
++            try:
++                win32service.ControlService(
++                    handle, win32service.SERVICE_CONTROL_STOP)
++            except Exception as ex:                          # noqa: BLE001
++                if getattr(ex, "winerror", 0) != 1062:       # NOT_ACTIVE
++                    return f"UNCERTAIN ControlService {ex}"
++            deadline = time.monotonic() + 60
++            while time.monotonic() < deadline:
++                state = int(win32service.QueryServiceStatusEx(handle).get(
++                    "CurrentState", 0))
++                if state == SERVICE_STOPPED:
++                    return "STOPPED"
++                time.sleep(1)
++            return "UNCERTAIN stop did not complete within 60s"
++        except Exception as ex:                              # noqa: BLE001
++            return f"UNCERTAIN {type(ex).__name__}: {ex}"
++        finally:
++            self._close(handle, manager)
+ 
+     def service_delete(self, name) -> str:
+-        code, output = self._sc("delete", name)
+-        if "1072" in output:
+-            return "PENDING_DELETION"
+-        return "DELETED" if code == 0 else f"UNCERTAIN rc={code}"
++        import win32service
++        handle, manager, error = self._service_handle(name, DELETE)
++        if handle is None:
++            return f"UNCERTAIN OpenService WinError {error}"
++        try:
++            win32service.DeleteService(handle)
++            return "DELETED"
++        except Exception as ex:                              # noqa: BLE001
++            if getattr(ex, "winerror", 0) == 1072:
++                return "PENDING_DELETION"
++            return f"UNCERTAIN DeleteService {ex}"
++        finally:
++            self._close(handle, manager)
+ 
+-    def process_exited(self, pid):
+-        return None
++    # -- P1-5 · process and image evidence ---------------------------
++    def process_identity(self, pid):
++        """{'pid','created','image'} | 'ABSENT' | None (UNKNOWN).
+ 
+-    def verify_running_image(self, name, expected):
+-        return None
++        The creation timestamp is what defeats PID REUSE: a later process
++        that inherits the number has a different one."""
++        import ctypes
++        import ctypes.wintypes as wintypes
++        if not pid:
++            return "ABSENT"
++        access = 0x1000 | 0x00100000      # QUERY_LIMITED_INFORMATION|SYNCHRONIZE
++        handle = self._k32.OpenProcess(access, False, int(pid))
++        if not handle:
++            error = ctypes.get_last_error()
++            if error == 87:               # ERROR_INVALID_PARAMETER: no such pid
++                return "ABSENT"
++            return None                   # e.g. 5 ACCESS_DENIED: UNKNOWN
++        try:
++            created = wintypes.FILETIME()
++            exited = wintypes.FILETIME()
++            kernel = wintypes.FILETIME()
++            user = wintypes.FILETIME()
++            if not self._k32.GetProcessTimes(
++                    handle, ctypes.byref(created), ctypes.byref(exited),
++                    ctypes.byref(kernel), ctypes.byref(user)):
++                return None
++            size = wintypes.DWORD(32768)
++            buffer = ctypes.create_unicode_buffer(size.value)
++            if not self._k32.QueryFullProcessImageNameW(
++                    handle, 0, buffer, ctypes.byref(size)):
++                return None
++            return {"pid": int(pid),
++                    "created": (created.dwHighDateTime << 32)
++                    | created.dwLowDateTime,
++                    "image": buffer.value}
++        finally:
++            self._k32.CloseHandle(handle)
++
++    def process_exited(self, pid, before=None):
++        """True ONLY on authoritative evidence; None means UNKNOWN."""
++        if not pid:
++            return True if before in (None, "ABSENT") else None
++        if before is None or before == "ABSENT":
++            #: Without a pre-stop identity a live PID cannot be told apart
++            #: from a reused one, so nothing can be asserted.
++            return None
++        return exit_verdict(before, self.process_identity(pid))
+ 
++    def verify_running_image(self, name, expected, *, expected_sha256=None):
++        """The SCM itself reports which PID belongs to THIS service, so the
++        association is authoritative rather than inferred from a name."""
++        qc = self.service_qc(name)
++        if qc is None:
++            return None
++        if qc.get("state") != SERVICE_RUNNING:
++            return {"verdict": "NOT_RUNNING",
++                    "detail": f"SCM state {qc.get('state')}"}
++        pid = qc.get("pid") or 0
++        if not pid:
++            return {"verdict": "NO_PROCESS",
++                    "detail": "the SCM reports a running service with no "
++                              "process id"}
++        identity = self.process_identity(pid)
++        if not isinstance(identity, dict):
++            return None
++        if not image_path_matches(identity["image"], expected):
++            return {"verdict": "IMAGE_MISMATCH", "detail": identity["image"]}
++        if expected_sha256 is not None:
++            try:
++                digest = file_digest(Path(identity["image"]))
++            except OSError:
++                return None
++            if digest != expected_sha256:
++                return {"verdict": "DIGEST_MISMATCH", "detail": digest}
++        #: Re-read AFTER the inspection. If the PID or the process behind it
++        #: changed meanwhile, the association just proven is stale.
++        again = self.service_qc(name)
++        if (again is None or again.get("pid") != pid
++                or again.get("state") != SERVICE_RUNNING):
++            return {"verdict": "ASSOCIATION_UNSTABLE",
++                    "detail": f"pid {None if again is None else again.get('pid')}"}
++        after = self.process_identity(pid)
++        if (not isinstance(after, dict)
++                or after.get("created") != identity.get("created")):
++            return {"verdict": "ASSOCIATION_UNSTABLE",
++                    "detail": "the process behind the pid changed during "
++                              "verification"}
++        return {"verdict": "MATCH", "pid": pid, "image": identity["image"],
++                "created": identity["created"], "sha256": expected_sha256}
++
++    # -- P0-1 · token-aware effective access -------------------------
+     def access_context(self):
+-        return None
++        """A genuinely NON-ADMINISTRATOR impersonation token, plus the SIDs it
++        actually carries.
++
++        `CreateRestrictedToken` converts the administrative groups to
++        deny-only, which is the same filtering Windows applies to an
++        unelevated logon. Deny-only and disabled SIDs are excluded from the
++        reported context, so the probe cannot be satisfied by a SID that
++        cannot grant anything.
++
++        The SIDs the token lacks are NOT substituted. If the required
++        context is incomplete the caller refuses, which is why `m1-install`
++        must be run from an elevated INTERACTIVE session rather than as
++        LocalSystem: a SYSTEM token carries neither INTERACTIVE nor Users.
++        """
++        try:
++            import ntsecuritycon
++            import win32api
++            import win32con
++            import win32security
++        except ImportError:
++            return None
++        try:
++            process = win32security.OpenProcessToken(
++                win32api.GetCurrentProcess(),
++                win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY)
++            impersonation = win32security.DuplicateTokenEx(
++                process, win32security.SecurityImpersonation,
++                win32con.TOKEN_QUERY | win32con.TOKEN_DUPLICATE
++                | win32con.TOKEN_IMPERSONATE,
++                win32security.TokenImpersonation)
++            disable = [(win32security.ConvertStringSidToSid(sid), 0)
++                       for sid in (SID_ADMINISTRATORS, "S-1-5-32-549",
++                                   "S-1-5-32-551", "S-1-5-32-550")]
++            token = win32security.CreateRestrictedToken(
++                impersonation,
++                getattr(win32security, "DISABLE_MAX_PRIVILEGE", 0x1),
++                disable, [], [])
++        except Exception:                                    # noqa: BLE001
++            return None
++        deny_only = getattr(win32security, "SE_GROUP_USE_FOR_DENY_ONLY",
++                            0x00000010)
++        enabled = getattr(ntsecuritycon, "SE_GROUP_ENABLED", 0x00000004)
++        sids: list[str] = []
++        try:
++            #: Reading TokenGroups REQUIRES TOKEN_QUERY on this very handle,
++            #: so a later ERROR_ACCESS_DENIED from AccessCheck cannot be
++            #: explained away as a missing TOKEN_QUERY.
++            for sid, attributes in win32security.GetTokenInformation(
++                    token, win32security.TokenGroups):
++                if attributes & deny_only or not attributes & enabled:
++                    continue
++                sids.append(win32security.ConvertSidToStringSid(sid))
++            user = win32security.GetTokenInformation(
++                token, win32security.TokenUser)[0]
++            sids.append(win32security.ConvertSidToStringSid(user))
++        except Exception:                                    # noqa: BLE001
++            return None
++        return {"token": token, "sids": sorted(set(sids)),
++                "source": "restricted-impersonation-token"}
+ 
+     def access_check(self, descriptor, context, right, mapping):
+-        return None
++        """True / False / None. None is INDETERMINATE and refuses."""
++        try:
++            import win32security
++        except ImportError:
++            return None
++        token = (context or {}).get("token")
++        if token is None:
++            return None
++        security = self._descriptor_to_sd(descriptor, mapping)
++        if security is None:
++            return None
++        wanted = map_generic(right, mapping)
++        try:
++            granted, status = win32security.AccessCheck(
++                security, token, wanted, self._mapping_tuple(mapping))
++        except win32security.error as ex:
++            #: AccessCheck signals a DENIAL through AccessStatus while the
++            #: call itself succeeds. A raised ERROR_ACCESS_DENIED is the one
++            #: denial convention some builds use; every other failure is
++            #: UNKNOWN, never "denied".
++            return False if getattr(ex, "winerror", 0) == 5 else None
++        except Exception:                                    # noqa: BLE001
++            return None
++        if not status:
++            return False
++        return bool(int(granted) & wanted)
++
++    @staticmethod
++    def _mapping_tuple(mapping):
++        return (mapping[GENERIC_READ], mapping[GENERIC_WRITE],
++                mapping[GENERIC_EXECUTE], mapping[GENERIC_ALL])
+ 
+     # -- identity / marker (delegated to the sensor) ------------------
+     def read_identity(self, state_dir):
+diff --git a/agents/nivxforge-windows/nivxforge_setup.py b/agents/nivxforge-windows/nivxforge_setup.py
+index a5e80c78..7b2c38d6 100644
+--- a/agents/nivxforge-windows/nivxforge_setup.py
++++ b/agents/nivxforge-windows/nivxforge_setup.py
+@@ -1676,6 +1676,13 @@ _REQUIRED_BUNDLED = ("nivxforge_transaction", "nivxforge_scm_worker",
+                      "_sqlite3", "nivxforge_m1", "nivxforge_exclusions",
+                      "nivxforge_delivery_counters",
+                      "nivxforge_content_acquisition")
++#: pywin32 modules the M1 service-security and effective-access evaluation
++#: needs. They are declared to the BUILD (--hidden-import) rather than to the
++#: cross-platform provenance gate above, which must stay importable off
++#: Windows; a missing one is caught by the frozen smoke run in the G4
++#: checklist, where pywin32 is actually present.
++_M1_REQUIRED_WIN32 = ("win32security", "win32con", "win32api", "win32service",
++                      "ntsecuritycon")
+ _SELFTEST_EVENT = {
+     "observed_at": "selftest", "kind": "WINDOWS_EVENT_LOG",
+     "winlog": {"channel": "SelfTest", "record_id": 1, "event_id": "1",
+@@ -1981,6 +1988,31 @@ def _gate0_verdicts(checks: dict) -> dict:
+     }
+ 
+ 
++def m1_payload_source() -> tuple[Path, dict]:
++    """P1-3 — the attested payload that ships INSIDE this installer.
++
++    Refuses an unpinned build: without the embedded manifest there is
++    nothing to verify the service image against, and M1 must never register
++    a service that points at an unverified binary.
++    """
++    bundle = getattr(sys, "_MEIPASS", None)
++    payload = _service_payload_dir()
++    if bundle is None or payload is None:
++        raise SystemExit(
++            "refusing an unpinned installer: the M1 clean install requires "
++            "the embedded Windows service payload. Run the signed frozen "
++            "build, not a loose script.")
++    manifest_path = Path(bundle) / "payload-manifest.json"
++    if not manifest_path.is_file():
++        raise SystemExit(
++            "refusing an unpinned installer: embedded payload manifest "
++            f"required at {manifest_path}")
++    manifest = json.loads(manifest_path.read_text())
++    if not isinstance(manifest, dict) or not manifest:
++        raise SystemExit("the embedded payload manifest is empty or malformed")
++    return payload, manifest
++
++
+ def m1_dispatch(args) -> None:
+     """Additive M1 entrypoint. Imported lazily so the enterprise commands
+     carry no new import cost and so the M1 module stays independently
+@@ -1994,7 +2026,10 @@ def m1_dispatch(args) -> None:
+             return sensor.enrol(config.origin, config.tenant_id, token,
+                                 single_attempt=True, attempt_marker=True)
+ 
+-        print(json.dumps(m1.m1_install(args.m1_config, host, enroll=enroll),
++        bundle_root, manifest = m1_payload_source()
++        print(json.dumps(m1.m1_install(args.m1_config, host, enroll=enroll,
++                                       bundle_root=bundle_root,
++                                       manifest=manifest),
+                          indent=2))
+     elif args.cmd == "m1-uninstall":
+         print(json.dumps(m1.m1_uninstall(args.m1_config, host), indent=2))
+diff --git a/backend/tests/edr/test_m1_clean_install.py b/backend/tests/edr/test_m1_clean_install.py
+index eb530592..5db820f7 100644
+--- a/backend/tests/edr/test_m1_clean_install.py
++++ b/backend/tests/edr/test_m1_clean_install.py
+@@ -45,6 +45,11 @@ class FakeHost:
+         self.delete_result = "DELETED"
+         self.exit_proof: bool | None = True
+         self.image_verdict = "MATCH"
++        self.process: dict | str | None = "DEFAULT"
++        self.running_digest: str | None = None
++        self.config_calls: list[int] = []
++        self.sd_applied_while: list[int] = []
++        self.start_type_at_start: int | None = None
+         self.task = (m1.PROBE_ABSENT, "")
+         self.workers: list | None = []
+         self.unsafe_dirs: set[str] = set()
+@@ -112,13 +117,26 @@ class FakeHost:
+         if self.crash_after == f"mkdir:{path}":
+             raise KeyboardInterrupt("injected crash")
+ 
+-    def directory_security(self, path):
++    def _path_descriptor(self, path):
++        """A simulated FILESYSTEM descriptor. The verdict itself is produced
++        by the real implementation, not by this fake."""
+         if str(path) in self.unreadable_dirs:
+             return None
+-        return {"nonadmin_writable": str(path) in self.unsafe_dirs}
+-
+-    def file_security(self, path):
+-        return self.directory_security(path)
++        dacl = [{"type": m1.ACCESS_ALLOWED_ACE_TYPE, "flags": 0,
++                 "sid": m1.SID_LOCAL_SYSTEM, "mask": m1.FILE_ALL_ACCESS},
++                {"type": m1.ACCESS_ALLOWED_ACE_TYPE, "flags": 0,
++                 "sid": m1.SID_ADMINISTRATORS, "mask": m1.FILE_ALL_ACCESS}]
++        if str(path) in self.unsafe_dirs:
++            dacl.append({"type": m1.ACCESS_ALLOWED_ACE_TYPE, "flags": 0,
++                         "sid": "S-1-5-11", "mask": m1.FILE_GENERIC_WRITE})
++        return {"owner": m1.SID_ADMINISTRATORS, "group": m1.SID_ADMINISTRATORS,
++                "protected": True, "dacl_present": True, "dacl": dacl}
++
++    def directory_security(self, path, role=m1.ROLE_ANCESTOR):
++        return m1.path_security_verdict(self._path_descriptor(path), role, self)
++
++    def file_security(self, path, role=m1.ROLE_FILE):
++        return m1.path_security_verdict(self._path_descriptor(path), role, self)
+ 
+     # SCM
+     def service_lookup(self, name):
+@@ -130,10 +148,14 @@ class FakeHost:
+     def worker_processes(self):
+         return self.workers
+ 
+-    def service_create(self, name, bin_path):
++    def service_create(self, name, bin_path, *,
++                       start_type=m1.SERVICE_DISABLED):
+         self.calls.append(f"create:{name}")
+         self.service = {"bin_path": bin_path, "account": "LocalSystem",
+-                        "start_type": "AUTO_START", "pid": 4242}
++                        "start_type_code": start_type,
++                        "start_type": {4: "DISABLED", 3: "DEMAND_START",
++                                       2: "AUTO_START"}.get(start_type),
++                        "state": m1.SERVICE_STOPPED, "pid": 0}
+         self.service_state = m1.PROBE_PRESENT
+         if self.crash_after == f"create:{name}":
+             raise KeyboardInterrupt("injected crash")
+@@ -141,8 +163,18 @@ class FakeHost:
+     def service_qc(self, name):
+         return self.service
+ 
++    def service_set_start_type(self, name, start_type):
++        self.calls.append(f"config:{start_type}")
++        self.config_calls.append(start_type)
++        if self.crash_after == f"config:{start_type}":
++            raise KeyboardInterrupt("injected crash")
++        self.service["start_type_code"] = start_type
++        self.service["start_type"] = {4: "DISABLED", 3: "DEMAND_START",
++                                      2: "AUTO_START"}[start_type]
++
+     def service_set_security(self, name, descriptor):
+         self.calls.append("set_sd")
++        self.sd_applied_while.append(self.service["start_type_code"])
+         if self.descriptor is None:
+             self.descriptor = descriptor
+ 
+@@ -151,7 +183,13 @@ class FakeHost:
+ 
+     def service_start(self, name):
+         self.calls.append("start")
++        self.start_type_at_start = self.service["start_type_code"]
++        if self.service["start_type_code"] == m1.SERVICE_DISABLED:
++            raise m1.M1Error("SERVICE_START_FAILED",
++                             "ERROR_SERVICE_DISABLED (1058)")
+         self.started = True
++        self.service["state"] = m1.SERVICE_RUNNING
++        self.service["pid"] = 4242
+ 
+     def service_stop(self, name):
+         self.calls.append("stop")
+@@ -164,11 +202,26 @@ class FakeHost:
+             self.deleted = True
+         return self.delete_result
+ 
+-    def process_exited(self, pid):
++    def process_identity(self, pid):
++        if self.process != "DEFAULT":
++            return self.process
++        if not pid:
++            return "ABSENT"
++        return {"pid": pid, "created": 13_000_000, "image": "svc.exe"}
++
++    def process_exited(self, pid, before=None):
++        self.calls.append(f"exit_proof:{pid}:{before is not None}")
+         return self.exit_proof
+ 
+-    def verify_running_image(self, name, expected):
+-        return self.image_verdict
++    def verify_running_image(self, name, expected, *, expected_sha256=None):
++        self.calls.append("verify_image")
++        if self.image_verdict is None:
++            return None
++        if (self.running_digest is not None
++                and self.running_digest != expected_sha256):
++            return {"verdict": "DIGEST_MISMATCH", "detail": self.running_digest}
++        return {"verdict": self.image_verdict, "pid": 4242,
++                "image": str(expected), "sha256": expected_sha256}
+ 
+     # security evaluation
+     def access_context(self):
+@@ -176,7 +229,9 @@ class FakeHost:
+ 
+     def access_check(self, descriptor, context, right, mapping):
+         """Simulated effective access: resolve every allow ACE whose trustee
+-        is in the supplied context and report whether `right` is granted."""
++        is in the supplied context and report whether `right` is granted.
++        Inherit-only ACEs are skipped, exactly as the real descriptor builder
++        skips them, because they do not apply to this object."""
+         if right in self.granted:
+             return self.granted[right]
+         if descriptor.get("dacl") is None:
+@@ -185,10 +240,14 @@ class FakeHost:
+         for ace in descriptor["dacl"]:
+             if ace.get("type") != m1.ACCESS_ALLOWED_ACE_TYPE:
+                 continue
++            if not isinstance(ace.get("flags", 0), int):
++                continue
++            if ace.get("flags", 0) & m1.INHERIT_ONLY_ACE:
++                continue
+             if ace.get("sid") in context.get("sids", ()):
+                 mask = ace.get("mask")
+                 if isinstance(mask, int):
+-                    effective |= m1.map_generic(mask)
++                    effective |= m1.map_generic(mask, mapping)
+         return bool(effective & right)
+ 
+     def exclusive_lock(self):
+@@ -227,11 +286,27 @@ def lab(tmp_path, monkeypatch):
+     root = tmp_path / "m1root"
+     (root / "config").mkdir(parents=True)
+     config_path = root / "config" / m1.CONFIG_FILENAME
++    install_dir = tmp_path / "install"
++    #: P1-3 — the service image is a MEMBER of the attested payload, inside
++    #: the install directory M1 creates. Nothing else can be registered.
++    payload = tmp_path / "payload"
++    (payload / "lib").mkdir(parents=True)
++    (payload / "NivXForgeEDRSetup.exe").write_bytes(b"MZ-m1-service-image")
++    (payload / "lib" / "nivxforge_journal.py").write_bytes(b"journal")
++    manifest = {
++        "NivXForgeEDRSetup.exe": {
++            "size": 19,
++            "sha256": m1.file_digest(payload / "NivXForgeEDRSetup.exe")},
++        "lib/nivxforge_journal.py": {
++            "size": 7,
++            "sha256": m1.file_digest(payload / "lib" / "nivxforge_journal.py")},
++    }
++    service_exe = str(install_dir / "NivXForgeEDRSetup.exe")
+     config = {"origin": "https://m1-lab.example.net",
+               "tenant_id": "ten_m1lab", "interval": 30,
+               "state_dir": str(tmp_path / "state"),
+-              "install_dir": str(tmp_path / "install"),
+-              "service_exe": r"C:\Program Files\NivXForge\NivXForgeEDRSetup.exe",
++              "install_dir": str(install_dir),
++              "service_exe": service_exe,
+               "service_args": ["--m1-service-run", "--m1-config",
+                                str(config_path)],
+               "certificate_policy": "windows-default"}
+@@ -241,7 +316,9 @@ def lab(tmp_path, monkeypatch):
+     monkeypatch.setattr(sensor, "IDENTITY_FILE",
+                         tmp_path / "state" / "identity.json")
+     return {"root": root, "config_path": config_path, "host": host,
+-            "state": tmp_path / "state", "install": tmp_path / "install"}
++            "state": tmp_path / "state", "install": install_dir,
++            "payload": payload, "manifest": manifest,
++            "service_exe": service_exe}
+ 
+ 
+ def _enroll(lab, endpoint="ep_1"):
+@@ -257,6 +334,8 @@ def _enroll(lab, endpoint="ep_1"):
+ 
+ 
+ def install(lab, **kw):
++    kw.setdefault("bundle_root", lab["payload"])
++    kw.setdefault("manifest", lab["manifest"])
+     return m1.m1_install(lab["config_path"], lab["host"],
+                          enroll=kw.pop("enroll", _enroll(lab)), **kw)
+ 
+@@ -831,8 +910,8 @@ def test_a_present_service_is_never_replaced(lab):
+ def test_a_mismatched_binpath_is_not_claimed_as_success(lab, monkeypatch):
+     original = lab["host"].service_create
+ 
+-    def wrong(name, bin_path):
+-        original(name, bin_path)
++    def wrong(name, bin_path, *, start_type=m1.SERVICE_DISABLED):
++        original(name, bin_path, start_type=start_type)
+         lab["host"].service["bin_path"] = "C:\\evil.exe"
+ 
+     monkeypatch.setattr(lab["host"], "service_create", wrong)
+@@ -915,6 +994,22 @@ def test_packaging_declares_every_required_module():
+         assert hidden in build, f"{hidden} missing from --hidden-import"
+ 
+ 
++def test_packaging_declares_the_win32_modules_m1_security_needs():
++    """P0-1 added pywin32 dependencies. A missing hidden import is silent
++    until the endpoint tries to evaluate a descriptor."""
++    setup = (AGENT_DIR / "nivxforge_setup.py").read_text()
++    build = (AGENT_DIR / "build" / "build_windows_installer.ps1").read_text()
++    declared = setup.split("_M1_REQUIRED_WIN32 = (")[1].split(")")[0]
++    for module in ("win32security", "win32con", "win32api", "win32service",
++                   "ntsecuritycon"):
++        assert module in declared, f"{module} is not declared"
++        assert f"'{module}'" in build, f"{module} missing from --hidden-import"
++    #: and they must NOT be in the cross-platform provenance gate, which has
++    #: to stay importable off Windows.
++    gate = setup.split("_REQUIRED_BUNDLED = (")[1].split(")")[0]
++    assert "win32" not in gate
++
++
+ def test_a_missing_journal_dependency_fails_packaging_validation():
+     """Negative control for the required-source gate."""
+     build = (AGENT_DIR / "build" / "build_windows_installer.ps1").read_text()
+@@ -935,3 +1030,652 @@ def test_sensor_collection_loop_is_untouched():
+     assert "def run(" in source
+     assert "def status(" in source
+     assert "def _machine_facts(" in source
++
++
++# ══ G3 corrective regressions ══════════════════════════════════════
++# The five defects the independent G3 review rejected. Each has at least one
++# test that FAILS against the previous implementation.
++
++SECURITY_CRITICAL = {
++    "service_set_security": "SetServiceObjectSecurity",
++    "service_security": "QueryServiceObjectSecurity",
++    "access_context": "CreateRestrictedToken",
++    "access_check": "AccessCheck",
++    "process_identity": "QueryFullProcessImageNameW",
++    "verify_running_image": "QueryServiceStatusEx",
++}
++
++
++# ── 13 · P0-1 · the native methods are implemented ─────────────────
++def test_no_security_critical_host_method_is_a_stub():
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    assert "NOT_IMPLEMENTED_NATIVE" not in source, (
++        "a security-critical host method is still a declared stub")
++    import ast
++    tree = ast.parse(source)
++    host = next(node for node in ast.walk(tree)
++                if isinstance(node, ast.ClassDef) and node.name == "WindowsHost")
++    bodies = {node.name: ast.get_source_segment(source, node)
++              for node in host.body if isinstance(node, ast.FunctionDef)}
++    for name, api in SECURITY_CRITICAL.items():
++        assert name in bodies, f"{name} is missing from WindowsHost"
++        body = bodies[name]
++        assert api in body or api in source, f"{name} does not call {api}"
++        assert "return None\n" != body.strip().splitlines()[-1].strip() + "\n" \
++            or len(body.strip().splitlines()) > 3, f"{name} is a bare stub"
++
++
++def test_process_and_service_handles_are_pointer_sized():
++    """A HANDLE truncated to a C int on 64-bit Windows silently invalidates
++    every handle-based proof."""
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    for binding in ("self._k32.OpenProcess.restype = wintypes.HANDLE",
++                    "self._k32.CloseHandle.argtypes = [wintypes.HANDLE]",
++                    "self._k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE"):
++        assert binding in source, binding
++
++
++class _FakeAcl:
++    def __init__(self, aces):
++        self._aces = aces
++
++    def GetAceCount(self):
++        return len(self._aces)
++
++    def GetAce(self, index):
++        return self._aces[index]
++
++
++def _sid_text(sid):
++    return None if sid is None else str(sid)
++
++
++def test_descriptor_normalisation_decodes_a_standard_acl():
++    acl = _FakeAcl([((0, 0), m1.SERVICE_ALL_ACCESS, "S-1-5-18"),
++                    ((1, 8), 4, "S-1-5-11")])
++    parsed = m1.normalise_descriptor(
++        m1.SE_DACL_PRESENT | m1.SE_DACL_PROTECTED, "S-1-5-32-544",
++        "S-1-5-32-544", acl, _sid_text)
++    assert parsed["protected"] and parsed["dacl_present"]
++    assert parsed["dacl"][0] == {"type": 0, "flags": 0,
++                                 "mask": m1.SERVICE_ALL_ACCESS,
++                                 "sid": "S-1-5-18"}
++    assert parsed["dacl"][1]["flags"] & m1.INHERIT_ONLY_ACE
++
++
++def test_a_null_dacl_is_distinguished_from_an_empty_one():
++    null = m1.normalise_descriptor(m1.SE_DACL_PRESENT, "S-1-5-18", "S-1-5-18",
++                                   None, _sid_text)
++    assert null["dacl"] is None
++    empty = m1.normalise_descriptor(m1.SE_DACL_PRESENT, "S-1-5-18", "S-1-5-18",
++                                    _FakeAcl([]), _sid_text)
++    assert empty["dacl"] == []
++
++
++def test_an_unreadable_ace_is_malformed_not_skipped():
++    class _Exploding(_FakeAcl):
++        def GetAce(self, index):
++            raise OSError("truncated")
++
++    parsed = m1.normalise_descriptor(m1.SE_DACL_PRESENT, "S-1-5-18",
++                                     "S-1-5-18", _Exploding([1]), _sid_text)
++    assert parsed["malformed"] is True
++    assert m1.ace_inspection(parsed) == ["malformed or truncated ACL"]
++
++
++def test_an_unknown_ace_layout_is_recorded_and_refuses():
++    acl = _FakeAcl([((5, 0), None, None)])          # object ACE layout
++    parsed = m1.normalise_descriptor(m1.SE_DACL_PRESENT, "S-1-5-32-544",
++                                     "S-1-5-32-544", acl, _sid_text)
++    assert parsed["dacl"][0]["mask"] is None
++    assert any("ACE type" in problem
++               for problem in m1.ace_inspection(parsed))
++
++
++def test_an_unresolvable_sid_is_malformed():
++    acl = _FakeAcl([((0, 0), 1, None)])
++    parsed = m1.normalise_descriptor(m1.SE_DACL_PRESENT, "S-1-5-18",
++                                     "S-1-5-18", acl, _sid_text)
++    assert parsed["malformed"] is True
++
++
++# ── 14 · P0-2 · activation ordering ────────────────────────────────
++def test_the_service_is_created_disabled_and_secured_while_disabled(lab):
++    install(lab)
++    host = lab["host"]
++    assert host.sd_applied_while == [m1.SERVICE_DISABLED], (
++        "the descriptor must be applied while the service cannot run")
++    assert host.start_type_at_start == m1.SERVICE_DEMAND_START
++    assert host.config_calls == [m1.SERVICE_DEMAND_START, m1.SERVICE_AUTO_START]
++
++
++def test_activation_order_is_create_secure_authorise_start_verify(lab):
++    install(lab)
++    calls = lab["host"].calls
++    order = [calls.index(step) for step in
++             (f"create:{m1.SERVICE_NAME}", "set_sd",
++              f"config:{m1.SERVICE_DEMAND_START}", "start", "verify_image",
++              f"config:{m1.SERVICE_AUTO_START}")]
++    assert order == sorted(order), calls
++
++
++def test_a_crash_before_authorisation_cannot_leave_a_startable_service(lab):
++    lab["host"].crash_after = f"create:{m1.SERVICE_NAME}"
++    with pytest.raises(KeyboardInterrupt):
++        install(lab)
++    host = lab["host"]
++    assert host.service["start_type_code"] == m1.SERVICE_DISABLED
++    assert not host.started
++    #: A reboot cannot start it either: the SCM refuses a disabled service.
++    with pytest.raises(m1.M1Error) as caught:
++        host.service_start(m1.SERVICE_NAME)
++    assert caught.value.code == "SERVICE_START_FAILED"
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          host).read()
++    assert record["resources"]["service"]["state"] == m1.CREATE_INTENDED
++
++
++def test_an_unsafe_descriptor_leaves_the_service_disabled(lab):
++    lab["host"].descriptor = _descriptor(
++        [{"type": m1.ACCESS_ALLOWED_ACE_TYPE, "sid": "S-1-5-11",
++          "mask": m1.SERVICE_START}])
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNSAFE"
++    assert lab["host"].service["start_type_code"] == m1.SERVICE_DISABLED
++    assert lab["host"].config_calls == []
++    assert not lab["host"].started
++
++
++def test_an_unreadable_descriptor_leaves_the_service_disabled(lab, monkeypatch):
++    monkeypatch.setattr(lab["host"], "service_security", lambda name: None)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNREADABLE"
++    assert lab["host"].service["start_type_code"] == m1.SERVICE_DISABLED
++
++
++@pytest.mark.parametrize("start_type,code", [
++    (m1.SERVICE_AUTO_START, "SERVICE_NOT_DISABLED"),
++    (m1.SERVICE_DEMAND_START, "SERVICE_NOT_DISABLED"),
++])
++def test_a_service_not_created_disabled_is_refused(lab, monkeypatch,
++                                                   start_type, code):
++    original = lab["host"].service_create
++
++    def enabled(name, bin_path, **_ignored):
++        #: The caller's requested start type is DISCARDED, simulating a host
++        #: that registers the service enabled regardless of what was asked.
++        original(name, bin_path, start_type=start_type)
++
++    monkeypatch.setattr(lab["host"], "service_create", enabled)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == code
++    assert "set_sd" not in lab["host"].calls
++
++
++def test_a_wrong_service_account_is_refused(lab, monkeypatch):
++    original = lab["host"].service_create
++
++    def wrong(name, bin_path, *, start_type=m1.SERVICE_DISABLED):
++        original(name, bin_path, start_type=start_type)
++        lab["host"].service["account"] = r".\LocalAdmin"
++
++    monkeypatch.setattr(lab["host"], "service_create", wrong)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_ACCOUNT_MISMATCH"
++    assert not lab["host"].started
++
++
++def test_autostart_is_only_granted_after_the_image_verifies(lab):
++    lab["host"].image_verdict = "IMAGE_MISMATCH"
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_IMAGE_UNVERIFIED"
++    assert lab["host"].config_calls == [m1.SERVICE_DEMAND_START]
++    assert lab["host"].service["start_type_code"] == m1.SERVICE_DEMAND_START
++
++
++def test_an_unknown_image_verdict_is_not_a_success(lab):
++    lab["host"].image_verdict = None
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_IMAGE_UNVERIFIED"
++    assert m1.SERVICE_AUTO_START not in lab["host"].config_calls
++
++
++def test_a_binpath_changed_during_authorisation_is_caught(lab, monkeypatch):
++    original = lab["host"].service_set_start_type
++
++    def tamper(name, start_type):
++        original(name, start_type)
++        lab["host"].service["bin_path"] = "C:\\evil.exe"
++
++    monkeypatch.setattr(lab["host"], "service_set_start_type", tamper)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_IDENTITY_MISMATCH"
++    assert not lab["host"].started
++
++
++def test_a_descriptor_that_changes_after_authorisation_refuses(lab,
++                                                               monkeypatch):
++    calls = {"n": 0}
++    approved = m1.m1_service_descriptor()
++
++    def shifting(name):
++        calls["n"] += 1
++        if calls["n"] == 1:
++            return approved
++        return _descriptor([{"type": m1.ACCESS_ALLOWED_ACE_TYPE,
++                             "sid": "S-1-5-11", "mask": m1.GENERIC_ALL}])
++
++    monkeypatch.setattr(lab["host"], "service_security", shifting)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNSAFE"
++    assert not lab["host"].started
++
++
++# ── 15 · P1-3 · trusted payload delivery ───────────────────────────
++def test_installation_without_an_attested_payload_refuses(lab):
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_install(lab["config_path"], lab["host"], enroll=_enroll(lab))
++    assert caught.value.code == "PAYLOAD_NOT_SUPPLIED"
++    assert lab["host"].calls.count(f"create:{m1.SERVICE_NAME}") == 0
++
++
++def test_the_installer_entrypoint_supplies_the_attested_payload():
++    setup = (AGENT_DIR / "nivxforge_setup.py").read_text()
++    assert "def m1_payload_source()" in setup
++    dispatch = setup.split("def m1_dispatch(")[1].split("\ndef ")[0]
++    assert "bundle_root=bundle_root" in dispatch
++    assert "manifest=manifest" in dispatch
++    source = setup.split("def m1_payload_source()")[1].split("\ndef ")[0]
++    assert "payload-manifest.json" in source
++    assert "refusing an unpinned installer" in source
++
++
++def test_a_service_image_outside_the_payload_refuses(lab):
++    raw = json.loads(lab["config_path"].read_text())
++    raw["service_exe"] = r"C:\Windows\System32\cmd.exe"
++    lab["config_path"].write_text(json.dumps(raw))
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_EXE_OUTSIDE_PAYLOAD"
++    assert f"create:{m1.SERVICE_NAME}" not in lab["host"].calls
++
++
++def test_a_service_image_absent_from_the_manifest_refuses(lab):
++    manifest = dict(lab["manifest"])
++    manifest.pop("NivXForgeEDRSetup.exe")
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab, manifest=manifest)
++    #: The payload check catches the unexpected file first; either refusal is
++    #: correct, and neither registers a service.
++    assert caught.value.code in ("PAYLOAD_UNEXPECTED_FILE",
++                                 "SERVICE_EXE_NOT_IN_MANIFEST")
++    assert f"create:{m1.SERVICE_NAME}" not in lab["host"].calls
++
++
++def test_a_case_variant_duplicate_member_is_ambiguous(lab):
++    config = m1.load_config(lab["config_path"], lab["host"])
++    manifest = {"NivXForgeEDRSetup.exe": {"size": 1, "sha256": "a"},
++                "nivxforgeedrsetup.exe": {"size": 1, "sha256": "b"}}
++    with pytest.raises(m1.M1Error) as caught:
++        m1.resolve_service_binary(config, manifest)
++    assert caught.value.code == "SERVICE_EXE_AMBIGUOUS"
++
++
++def test_a_tampered_service_image_is_never_registered(lab, monkeypatch):
++    def tampering(bundle_root, dest_root, manifest):
++        for member in manifest:
++            target = Path(dest_root) / member
++            target.parent.mkdir(parents=True, exist_ok=True)
++            target.write_bytes(b"planted")
++
++    monkeypatch.setattr(lab["host"], "copy_payload", tampering)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_EXE_DIGEST_MISMATCH"
++    assert f"create:{m1.SERVICE_NAME}" not in lab["host"].calls
++
++
++def test_a_missing_service_image_is_never_registered(lab, monkeypatch):
++    monkeypatch.setattr(lab["host"], "copy_payload",
++                        lambda bundle_root, dest_root, manifest: None)
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_EXE_MISSING"
++    assert f"create:{m1.SERVICE_NAME}" not in lab["host"].calls
++
++
++def test_an_unprotected_service_image_is_never_registered(lab):
++    lab["host"].unsafe_dirs.add(str(Path(lab["service_exe"])))
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_EXE_UNPROTECTED"
++    assert f"create:{m1.SERVICE_NAME}" not in lab["host"].calls
++
++
++def test_an_unreadable_service_image_acl_is_never_registered(lab):
++    lab["host"].unreadable_dirs.add(str(Path(lab["service_exe"])))
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_EXE_UNPROTECTED"
++
++
++def test_the_running_image_digest_is_compared_to_the_attested_one(lab):
++    lab["host"].running_digest = "0" * 64
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_IMAGE_UNVERIFIED"
++    assert "DIGEST_MISMATCH" in str(caught.value)
++    assert m1.SERVICE_AUTO_START not in lab["host"].config_calls
++
++
++def test_a_successful_install_records_the_attested_image(lab):
++    result = install(lab)
++    digest = m1.file_digest(lab["payload"] / "NivXForgeEDRSetup.exe")
++    assert result["service_image"]["sha256"] == digest
++    record = m1.Ownership(lab["root"] / "config" / m1.OWNERSHIP_FILENAME,
++                          lab["host"]).read()
++    assert (record["resources"]["service"]["evidence"]["service_image"]
++            ["sha256"] == digest)
++
++
++# ── 16 · P1-4 · filesystem security validation ─────────────────────
++def _path_sd(aces=(), **overrides):
++    descriptor = {"owner": m1.SID_ADMINISTRATORS,
++                  "group": m1.SID_ADMINISTRATORS, "protected": True,
++                  "dacl_present": True,
++                  "dacl": [{"type": 0, "flags": 0, "sid": m1.SID_LOCAL_SYSTEM,
++                            "mask": m1.FILE_ALL_ACCESS},
++                           {"type": 0, "flags": 0, "sid": m1.SID_ADMINISTRATORS,
++                            "mask": m1.FILE_ALL_ACCESS}, *aces]}
++    descriptor.update(overrides)
++    return descriptor
++
++
++@pytest.mark.parametrize("role", [m1.ROLE_ANCESTOR, m1.ROLE_FILE,
++                                  m1.ROLE_OWNED])
++def test_a_protected_admin_only_path_is_safe_in_every_role(lab, role):
++    verdict = m1.path_security_verdict(_path_sd(), role, lab["host"])
++    assert verdict["nonadmin_writable"] is False, verdict["problems"]
++
++
++DANGEROUS_PATH_CASES = [
++    ("S-1-5-11", m1.FILE_WRITE_DATA),
++    ("S-1-5-11", m1.GENERIC_ALL),
++    ("S-1-5-11", m1.GENERIC_WRITE),
++    ("S-1-1-0", m1.FILE_DELETE_CHILD),
++    ("S-1-5-32-545", m1.DELETE),
++    ("S-1-5-32-545", m1.WRITE_DAC),
++    ("S-1-5-4", m1.WRITE_OWNER),
++    ("S-1-5-21-1-2-3-1001", m1.FILE_WRITE_DATA),
++    ("S-1-5-21-1-2-3-2001", m1.GENERIC_ALL),
++    ("S-1-5-80-1-2-3-4-5", m1.FILE_WRITE_DATA),
++]
++
++
++@pytest.mark.parametrize("sid,mask", DANGEROUS_PATH_CASES)
++def test_a_dangerous_path_right_for_any_other_trustee_refuses(lab, sid, mask):
++    descriptor = _path_sd([{"type": 0, "flags": 0, "sid": sid, "mask": mask}])
++    for role in (m1.ROLE_ANCESTOR, m1.ROLE_OWNED):
++        verdict = m1.path_security_verdict(descriptor, role, lab["host"])
++        assert verdict["nonadmin_writable"] is True, (role, verdict)
++
++
++@pytest.mark.parametrize("descriptor,fragment", [
++    (_path_sd(owner="S-1-5-21-1-2-3-1001"), "owner"),
++    (_path_sd(dacl=None, dacl_present=False), "NULL DACL"),
++    (_path_sd(malformed=True), "malformed"),
++    (_path_sd([{"type": 9, "flags": 0, "sid": "S-1-5-11", "mask": 1}]),
++     "ACE type"),
++    (_path_sd([{"type": 0, "flags": 0, "sid": "nope", "mask": 1}]), "trustee"),
++    (_path_sd([{"type": 0, "flags": 0, "sid": "S-1-5-11", "mask": "all"}]),
++     "mask"),
++    (_path_sd([{"type": 0, "flags": "inherit", "sid": "S-1-5-11", "mask": 1}]),
++     "flags"),
++])
++def test_an_unparseable_path_descriptor_refuses(lab, descriptor, fragment):
++    verdict = m1.path_security_verdict(descriptor, m1.ROLE_OWNED, lab["host"])
++    assert verdict["nonadmin_writable"] is True
++    assert any(fragment in problem for problem in verdict["problems"]), verdict
++
++
++def test_an_owned_directory_must_be_protected_against_inheritance(lab):
++    descriptor = _path_sd(protected=False)
++    owned = m1.path_security_verdict(descriptor, m1.ROLE_OWNED, lab["host"])
++    assert owned["nonadmin_writable"] is True
++    assert any("protected" in problem for problem in owned["problems"])
++    #: An ancestor M1 does not own is not required to be protected.
++    ancestor = m1.path_security_verdict(descriptor, m1.ROLE_ANCESTOR,
++                                        lab["host"])
++    assert ancestor["nonadmin_writable"] is False, ancestor["problems"]
++
++
++def test_an_inherit_only_ace_does_not_condemn_the_object_itself(lab):
++    """`C:\\` carries an inherit-only Modify ACE for Authenticated Users. It
++    does not apply to `C:\\`, which is why the ancestry check passes while
++    every directory M1 creates must still be PROTECTED."""
++    inherited = {"type": 0, "flags": m1.INHERIT_ONLY_ACE, "sid": "S-1-5-11",
++                 "mask": m1.FILE_ALL_ACCESS}
++    verdict = m1.path_security_verdict(_path_sd([inherited]),
++                                       m1.ROLE_ANCESTOR, lab["host"])
++    assert verdict["nonadmin_writable"] is False, verdict["problems"]
++    applied = dict(inherited, flags=0)
++    assert m1.path_security_verdict(_path_sd([applied]), m1.ROLE_ANCESTOR,
++                                    lab["host"])["nonadmin_writable"] is True
++
++
++def test_append_data_is_dangerous_on_an_owned_path_only(lab):
++    """The documented asymmetry: the default `C:\\` DACL grants Authenticated
++    Users create-folders on that folder only, which cannot replace an existing
++    child. Inside a directory M1 owns, planting content IS dangerous."""
++    ace = [{"type": 0, "flags": 0, "sid": "S-1-5-11",
++            "mask": m1.FILE_APPEND_DATA}]
++    assert m1.path_security_verdict(_path_sd(ace), m1.ROLE_ANCESTOR,
++                                    lab["host"])["nonadmin_writable"] is False
++    assert m1.path_security_verdict(_path_sd(ace), m1.ROLE_OWNED,
++                                    lab["host"])["nonadmin_writable"] is True
++
++
++def test_a_deny_ace_never_justifies_a_dangerous_path_allow(lab):
++    descriptor = _path_sd([
++        {"type": 1, "flags": 0, "sid": "S-1-5-11", "mask": m1.FILE_WRITE_DATA},
++        {"type": 0, "flags": 0, "sid": "S-1-5-11", "mask": m1.FILE_WRITE_DATA}])
++    assert m1.path_security_verdict(descriptor, m1.ROLE_ANCESTOR,
++                                    lab["host"])["nonadmin_writable"] is True
++
++
++def test_file_generic_rights_are_mapped_before_comparison():
++    assert m1.map_generic(m1.GENERIC_ALL, m1.FILE_GENERIC_MAPPING) \
++        & m1.FILE_WRITE_DATA
++    assert m1.map_generic(m1.GENERIC_WRITE, m1.FILE_GENERIC_MAPPING) \
++        & m1.FILE_WRITE_DATA
++    assert not m1.map_generic(m1.GENERIC_READ, m1.FILE_GENERIC_MAPPING) \
++        & m1.FILE_WRITE_DATA
++    #: and the SERVICE mapping must not be used for a file: its GENERIC_WRITE
++    #: carries no right to create inside a directory.
++    assert not m1.map_generic(m1.GENERIC_WRITE) & m1.FILE_APPEND_DATA
++
++
++def test_an_unknown_evaluation_role_refuses(lab):
++    verdict = m1.path_security_verdict(_path_sd(), "whatever", lab["host"])
++    assert verdict["nonadmin_writable"] is True
++    assert any("role" in problem for problem in verdict["problems"])
++
++
++def test_every_dangerous_path_right_is_probed_individually(lab):
++    seen = []
++    original = lab["host"].access_check
++
++    def recording(descriptor, context, right, mapping):
++        assert mapping is m1.FILE_GENERIC_MAPPING
++        seen.append(right)
++        return original(descriptor, context, right, mapping)
++
++    lab["host"].access_check = recording
++    m1.path_security_verdict(_path_sd(), m1.ROLE_OWNED, lab["host"])
++    assert sorted(seen) == sorted(m1.DANGEROUS_OWNED_RIGHTS.values())
++
++
++def test_an_indeterminate_path_evaluation_refuses(lab):
++    lab["host"].granted = {m1.FILE_WRITE_DATA: None}
++    verdict = m1.path_security_verdict(_path_sd(), m1.ROLE_OWNED, lab["host"])
++    assert verdict["nonadmin_writable"] is True
++    assert any("indeterminate" in problem for problem in verdict["problems"])
++
++
++def test_an_incomplete_context_refuses_a_path(lab):
++    lab["host"].context = {"sids": ["S-1-5-21-1-2-3-1001"]}
++    verdict = m1.path_security_verdict(_path_sd(), m1.ROLE_OWNED, lab["host"])
++    assert any("incomplete" in problem for problem in verdict["problems"])
++
++
++def test_a_token_grant_invisible_to_the_ace_walk_still_refuses(lab):
++    """The two mechanisms are complementary: a descriptor the ACE inspection
++    finds clean is still refused when the token says the right is granted."""
++    lab["host"].granted = {m1.FILE_WRITE_DATA: True}
++    descriptor = _path_sd()
++    assert m1.filesystem_ace_inspection(descriptor, m1.ROLE_OWNED) == []
++    verdict = m1.path_security_verdict(descriptor, m1.ROLE_OWNED, lab["host"])
++    assert verdict["nonadmin_writable"] is True
++
++
++def test_the_installed_directories_are_verified_in_the_owned_role(lab):
++    seen = {}
++    original = lab["host"].directory_security
++
++    def recording(path, role=m1.ROLE_ANCESTOR):
++        seen[str(path)] = role
++        return original(path, role)
++
++    lab["host"].directory_security = recording
++    install(lab)
++    assert seen[str(lab["install"])] == m1.ROLE_OWNED
++    assert seen[str(lab["state"])] == m1.ROLE_OWNED
++
++
++def test_the_locale_dependent_and_removed_tools_are_gone():
++    """Audit findings: `wmic` is absent from current Windows 11 images, and a
++    `schtasks` text match answers UNKNOWN on every non-English Windows. Both
++    would refuse every install on a supported host."""
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    host = source.split("class WindowsHost")[1]
++    assert "subprocess" not in host, (
++        "no host probe may depend on a child process whose output is "
++        "localised or whose executable may be absent")
++    assert "CreateToolhelp32Snapshot" in host
++    assert "System32" in host and "Tasks" in host
++
++
++# ── 17 · P1-5 · process and image evidence ─────────────────────────
++@pytest.mark.parametrize("before,now,expected", [
++    ({"created": 1}, {"created": 1}, False),       # still the same process
++    ({"created": 1}, {"created": 2}, True),        # the pid was REUSED
++    ({"created": 1}, "ABSENT", True),              # authoritatively gone
++    ({"created": 1}, None, None),                  # unknown is never an exit
++    (None, {"created": 1}, None),
++    (None, "ABSENT", None),
++    ("ABSENT", None, True),
++    ({"created": None}, {"created": None}, None),
++    ({"created": 1}, 17, None),
++])
++def test_the_exit_verdict_is_pid_reuse_aware(before, now, expected):
++    assert m1.exit_verdict(before, now) is expected
++
++
++def test_the_exit_proof_is_bound_to_the_pre_stop_identity(lab):
++    install(lab)
++    m1.m1_uninstall(lab["config_path"], lab["host"])
++    proofs = [call for call in lab["host"].calls
++              if call.startswith("exit_proof:")]
++    assert proofs == ["exit_proof:4242:True"], (
++        "the exit proof must be given the identity captured before the stop")
++    assert lab["host"].calls.index("stop") < lab["host"].calls.index(proofs[0])
++
++
++def test_an_unknown_process_identity_prevents_the_stop(lab):
++    install(lab)
++    lab["host"].process = None
++    with pytest.raises(m1.M1Error) as caught:
++        m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert caught.value.code == "PROCESS_IDENTITY_UNKNOWN"
++    assert "stop" not in lab["host"].calls
++    assert "delete" not in lab["host"].calls
++
++
++def test_an_already_absent_process_does_not_block_removal(lab):
++    install(lab)
++    lab["host"].service["pid"] = 0
++    out = m1.m1_uninstall(lab["config_path"], lab["host"])
++    assert out["service"] == "REMOVED"
++
++
++@pytest.mark.parametrize("actual,expected,match", [
++    (r"C:\NivXForge\svc.exe", r"C:\NivXForge\svc.exe", True),
++    (r"c:\nivxforge\SVC.EXE", r"C:\NivXForge\svc.exe", True),
++    (r"C:\NivXForge\..\evil\svc.exe", r"C:\NivXForge\svc.exe", False),
++    (r"C:\NivXForge\svc.exe", r"C:\NivXForge\svc2.exe", False),
++    (None, r"C:\NivXForge\svc.exe", False),
++    (r"C:\NivXForge\svc.exe", None, False),
++])
++def test_image_paths_are_compared_the_way_windows_compares_them(actual,
++                                                                expected,
++                                                                match):
++    assert m1.image_path_matches(actual, expected) is match
++
++
++def test_the_running_image_is_verified_before_autostart_is_granted(lab):
++    install(lab)
++    calls = lab["host"].calls
++    assert calls.index("verify_image") < calls.index(
++        f"config:{m1.SERVICE_AUTO_START}")
++
++
++def test_the_image_verdict_is_structured_evidence_not_a_bare_string(lab):
++    result = install(lab)
++    assert result["image"]["verdict"] == "MATCH"
++    assert result["image"]["pid"] == 4242
++    assert result["image"]["sha256"] == m1.file_digest(
++        lab["payload"] / "NivXForgeEDRSetup.exe")
++
++
++# ── 18 · audit · objects M1 creates carry an explicit owner ────────
++def test_created_objects_carry_an_explicit_administrators_owner():
++    """A directory or file created without `O:BA` is owned by the creating
++    administrator's USER account, and an owner holds WRITE_DAC implicitly,
++    which the owned-role verdict refuses. Without this the install could not
++    complete on any default Windows 11 host."""
++    assert m1._PROTECTED_DIR_SDDL.startswith("O:BAG:BA")
++    assert m1._PROTECTED_FILE_SDDL.startswith("O:BAG:BA")
++    for sddl in (m1._PROTECTED_DIR_SDDL, m1._PROTECTED_FILE_SDDL):
++        assert "D:PAI(" in sddl, "the DACL must be PROTECTED"
++        assert "FA;;;SY" in sddl and "FA;;;BA" in sddl
++        assert ";;;AU" not in sddl and ";;;WD" not in sddl
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    assert "_PROTECTED_DIR_SDDL, win32security.SDDL_REVISION_1" in source
++    copy = source.split("def copy_payload")[1].split("\n    def ")[0]
++    assert "_apply_protected_sd(target)" in copy
++
++
++def test_a_creator_owned_path_is_refused(lab):
++    """The exact shape of the blocker: owner is the local administrator's
++    user account rather than the Administrators group."""
++    descriptor = _path_sd(owner="S-1-5-21-1-2-3-500")
++    verdict = m1.path_security_verdict(descriptor, m1.ROLE_OWNED, lab["host"])
++    assert verdict["nonadmin_writable"] is True
++    assert any("WRITE_DAC implicitly" in problem
++               for problem in verdict["problems"])
++
++
++@pytest.mark.parametrize("owner", [m1.SID_LOCAL_SYSTEM, m1.SID_ADMINISTRATORS,
++                                   m1.SID_TRUSTED_INSTALLER])
++def test_the_approved_owners_are_accepted(lab, owner):
++    verdict = m1.path_security_verdict(_path_sd(owner=owner), m1.ROLE_OWNED,
++                                       lab["host"])
++    assert verdict["nonadmin_writable"] is False, verdict["problems"]
