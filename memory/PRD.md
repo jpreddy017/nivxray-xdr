@@ -7348,3 +7348,56 @@ contract plus a history-only fallback. 28-row failure matrix, 18+16+10 tests,
 Linux-vs-native matrix, 9-step G2 scope, owner decisions D-1…D-5.
 STATUS: G1 CORRECTED DESIGN READY FOR INDEPENDENT REVIEW. G2 NOT AUTHORIZED.
 Native Windows NOT RUN. HOLDs preserved. Zero source changes.
+
+### 2026-06 · M1 CORRECTED SCOPE ADDENDUM — Phase A (scope only, no code)
+`memory/NIVXFORGE_M1_CORRECTED_SCOPE_ADDENDUM.md` (18,232 B, 286 lines,
+sha256 `425012677c6975f86a80bc47c768d9ec97fe1645fd7f8e641415aa1d52a9f515`),
+published at the preview root. Snapshot `b13e1f3e…` verified (22/22 file
+checksums) and read before proposing changes; tree `3333fd3773…` re-verified.
+Each of M1-01…M1-10 mapped to exact source change / invariant / test /
+preserved component / native obligation, grounded in cited lines:
+`_create_service` stop+delete (setup.py:1061), `_service_exists` collapsing
+UNREADABLE→False (220), non-atomic `IDENTITY_FILE.write_text` + no-op chmod
+(sensor.py:473), `_Transport.request` 2-attempt retry replaying the one-time
+enrollment token (286), `DEFAULT_BACKEND` production fallback in both the
+parser (1599) and `_service_args` (1541), disabled `uninstall()` (1213), and
+the build script's required-source list omitting `nivxforge_journal.py`
+(build_windows_installer.ps1:38-42). Plan: new isolated `nivxforge_m1.py` +
+`m1-install`/`m1-uninstall` subcommands, tripwire/AST isolation tests,
+tri-state clean-host contract, atomic `publish_identity()`,
+ENROLLMENT_OUTCOME_UNKNOWN, explicit M1 config with digest binding,
+ownership-bound uninstall, completed packaging sets. Owner decisions
+D-M1-1…D-M1-5. MISSING INPUTS REQUESTED: Codex M1 assessment, independent
+Work M1 SCOPE FAIL report, G0-G6 governance.
+STATUS: M1 CORRECTED SCOPE READY FOR INDEPENDENT REVIEW. G2 NOT AUTHORIZED.
+Zero source changes. Native Windows NOT RUN. HOLDs preserved.
+
+### 2026-06 · M1 SCOPE V2 — six G1 SCOPE FAIL blockers corrected (scope only)
+`memory/NIVXFORGE_M1_SCOPE_V2.md` (18,977 B, 293 lines, sha256
+`6ec7a7f9fce698ad3813576bda1f53a22516a9172774a47894494a7896b36c39`), published
+byte-exact at the preview root; supersedes v1 (`42501267…`).
+B1 `_validate_staged` dropped (it imports the engine, setup.py:836) → M1-local
+`m1_payload_check` (exact set, sizes, digests, traversal/ADS/reserved-name,
+reparse ancestry); isolation proven by static closure scan + **fresh-process
+sys.modules assertion** + defective-variant control, not meta_path alone.
+B2 six-item allowed-change inventory incl. an M1 service dispatch adapter;
+config validated BEFORE state-dir logging/credential/socket, inverting
+`_run_as_service` order; no DEFAULT_BACKEND in the M1 path.
+B3 three statuses CREATE_INTENDED / CREATE_CONFIRMED / CREATE_OUTCOME_UNKNOWN;
+intent authorises nothing; O_EXCL + create-only SCM; abandoned mutex = UNKNOWN;
+exclusive-admin disposable-VM trust boundary, no malicious-admin immunity.
+B4 POSIX directory-sync withdrawn → CreateFileW(CREATE_NEW) + checked write +
+FlushFileBuffers + MoveFileEx(REPLACE|WRITE_THROUGH) + DACL read-back; crash vs
+power-loss durability limits stated; shared `publish_identity()` with
+enterprise compatibility regressions.
+B5 protected attempt marker written BEFORE the POST; one attempt; **withdrew
+the invented returned tenant_id** — real contract is endpoint_id /
+credential_id / agent_credential (sensor.py:506) with tenant binding via
+/api/edr/agent/session (521); telemetry retry untouched.
+B6 trust from DACL + ancestry read-back, not the digest; service object DACL
+verified; no redirects, no TLS bypass, no production fallback; local-admin
+compromise explicitly out of scope.
+Owner defaults D-M1-1…D-M1-4 incorporated; D-M1-5: Codex assessment, Work FAIL
+review and G0-G6 governance still UNAVAILABLE — no conformance asserted.
+STATUS: M1 G1 SCOPE V2 READY FOR INDEPENDENT VERIFICATION. G2 NOT AUTHORIZED.
+Zero source changes. Native Windows NOT RUN. HOLDs preserved.
