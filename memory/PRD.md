@@ -7639,3 +7639,62 @@ Artifacts: NIVXFORGE_M1_G3_SOURCE_SNAPSHOT.bundle (159,292 B,
 `d5fff66c5e91118d70f18a1b220391cf1d22ccac4fcd5c0b0c69ed43fae397a0`),
 NIVXFORGE_M1_G3_SNAPSHOT_PROVENANCE.md (7,914 B, `bfc943ee…`).
 HOLDs unchanged. No commits to protected branches, no deployment, no rollout.
+
+### 2026-06 · M1 G3 INTEGRATED CORRECTION (Codex B1/B2/B3)
+Branch `engineering/m1-g3-integrated`, commit
+`a4e544f45772a90686d478a19a7ce80201616506`, tree
+`68f9f0a92515e2b6ee5fefe373912757aa9b8d5b`, parent `601eaa46` (tree `9d07cb6c`
+verified clean before editing). Windows agent subtree
+`9c7dc0f588e684ef893eb3a1ab04a36e7d152712`. 3 files, +1004/-73. No frozen
+candidate mutated.
+B1 SELF-DETECTION: `worker_processes` matched "nivxforge" in the image name, so
+the RUNNING INSTALLER (NivXForgeEDRSetup.exe) counted itself and every install
+refused; the installer is also PyInstaller ONEFILE, so its bootloader parent
+matched too. Now: own identity via GetCurrentProcessId+GetProcessTimes+
+QueryFullProcessImageNameW; exclusion requires pid AND created AND image to
+agree (defeats PID reuse); verified parent bootloader excluded only if it is
+our parent, our image and started before us; unverifiable match REPORTED;
+unknown self identity => UNKNOWN => refuse.
+B2 FRESH DESTINATION + PATH ATTRS: GetFileAttributesW had no restype, so the
+0xFFFFFFFF sentinel arrived as -1, the equality test missed and
+-1 & FILE_ATTRIBUTE_REPARSE_POINT is truthy => EVERY absent/inaccessible path
+was reported as a reparse point; the destination was also walked as a security
+ancestor so its expected absence read as unreadable. Now: `classify_attributes`
++ `path_state` (ABSENT/DIRECTORY/FILE/REPARSE/UNKNOWN) from a DWORD plus the
+error code (FILE_NOT_FOUND/PATH_NOT_FOUND = absent; ACCESS_DENIED, INVALID_NAME,
+BAD_NETPATH, NOT_READY, other = UNKNOWN); `ancestry_report` accepts a verified
+absent leaf, names `parent_absent` (CreateDirectoryW does not build parents),
+refuses unreadable/ambiguous/file-where-dir/reparse; drive root now in the
+chain; destination ancestry re-classified at time of use (TOCTOU).
+B3 LOCALSYSTEM vs INTERACTIVE ADMIN: the service runs as LocalSystem, whose
+token lacks S-1-5-4 and S-1-5-32-545, so a probe filtered from the caller's own
+token was permanently incomplete and the service could NEVER verify its config
+or start. G1 CONFLICT ASSESSED: accepted R4 A2 allows "token-aware AccessCheck
+OR correctly populated AuthzAccessCheck", so the conflict was with an
+IMPLEMENTATION ASSUMPTION, not the contract - NO G1 REQUIREMENT WEAKENED, no
+amendment requested. Now: AUTH_INSTALLER (CreateRestrictedToken from the
+elevated interactive caller) vs AUTH_SERVICE (AuthzInitializeContextFromSid per
+required non-admin SID + AuthzAccessCheck), declared by the entrypoint;
+`m1_service_run` PROVES TokenUser == S-1-5-18 before load_config
+(SERVICE_NOT_LOCAL_SYSTEM / SERVICE_IDENTITY_UNKNOWN); no membership
+manufactured; unresolved principals reported `unprobed` and still required;
+dangerous-trustee ACE walk identical under both contexts.
+AUDIT: 25-step production trace with caller identity per boundary; AST checks
+confirm no host method is referenced but missing and no FakeHost gap; HOST_NOT_
+CLEAN now reports per-probe detail.
+TESTS ACTUALLY RUN: M1 suite **330 passed** (+55); windows installer group
+**159 passed**; transaction+enrolment group **306 passed**. NEGATIVE CONTROL:
+all three defects reintroduced => **98 failed, 232 passed** (B1 7, B2 9, B3 2).
+Windows-native NOT RUN.
+EXPORT (self-contained, no Git prerequisites, verified in a fresh isolated
+clone: fsck exit 0, subtree hashes match, 18/18 blob+sha256, 330 passed; the
+DOWNLOADED artifact re-cloned and re-verified):
+NIVXFORGE_M1_G3_INTEGRATED_SNAPSHOT.bundle (170,347 B,
+`f1d11fa9f9a298616519c675359f000ff61895471f3fd0a419c687e8d2dba38b`),
+NIVXFORGE_M1_G3_INTEGRATED_PROVENANCE.md (7,970 B, `c4476276…`),
+NIVXFORGE_M1_G3_INTEGRATED_HANDOFF.md (21,526 B, `5b7105b6…`).
+OUTSTANDING: the credentials found in the candidate tree (.tok bearer JWT, two
+memory/ evidence JWTs, six live-suite admin passwords) REMAIN FLAGGED FOR
+ROTATION/REVOCATION AND EXPOSURE ASSESSMENT - not addressed by this commit.
+STATUS: G2 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build, Windows
+execution, deployment, merge or rollout. No self-approval. HOLDs preserved.
