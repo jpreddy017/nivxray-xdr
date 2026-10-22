@@ -8195,3 +8195,67 @@ behaviour read from source only, no request and no DB access; ARM64/x86
 NOT_BUILT; transaction upgrade logic mapped structurally and still unreviewed.
 STATUS: read-only. git status --porcelain agents backend apps .github docs = 0.
 No fixes designed. Stop after reporting.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — P0-2 WINDOWS INSTALLER OWNERSHIP DECISION (READ-ONLY)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_P0_2_INSTALLER_OWNERSHIP_DECISION.md
+SHA-256: 7ce67cd9193a58104c12896a97f57d6d48abf8a0d667ee0e711296adaa75cf3d
+SIZE: 20,768 bytes. Served (untracked static copy) at
+/NIVXFORGE_EDR_P0_2_INSTALLER_OWNERSHIP_DECISION.md - HTTP 200.
+
+EXPOSURE VERIFIED
+- Onboarding packages route serves ONLY the declared list (edr_onboarding.py
+  136-139); windows-x64 declares 2 files. Connector release
+  nvf-connector-windows-0.2.0-x64 declares 3 (catalog.py:90-94).
+- THE ADVERTISED PATH IS NOT INSTALLABLE AS PUBLISHED: the PS1 copies FOUR .py
+  siblings under ErrorActionPreference Stop (PS1:145-151); onboarding can
+  deliver 2, the connector 3. A fresh install throws at the first missing
+  Copy-Item and prints "nothing was enrolled or started".
+- NivXForgeEDRSetup.exe: dist/ absent in BOTH revisions -> 409
+  PACKAGE_NOT_AVAILABLE; and download_artifact returns PlainTextResponse with
+  utf-8 decode, so THE ROUTE CANNOT SERVE A PE EVEN ONCE BUILT.
+- M1 clean installer has NO distribution surface at all (not in PACKAGES, not
+  in RELEASES) and needs a pre-provisioned protected --m1-config root.
+
+RECOMMENDATION (one): adopt the M1 CLEAN-INSTALL CONTRACT delivered by the
+TRUNK SCM ENTRYPOINT as the single official mechanism for new endpoints,
+advertised only after G4 passes on real Windows AND signing exists AND a
+binary-capable download transport exists. Until then the honest console state
+for new Windows endpoints is "no production-ready mechanism is published".
+
+PROPOSED STATUSES: PS1 scheduled task = DEPRECATED, EXISTING ENDPOINTS ONLY
+(not blocked - blocking strands the fleet it installed); trunk SCM installer =
+INTERNAL VALIDATION ONLY (the future host); M1 = FUTURE STANDARD / internal
+validation until G4; enterprise transaction engine = BLOCKED pending review.
+
+KEY SECURITY DELTA: the PS1 bakes a PATH-resolved python.exe into a SYSTEM
+/RL HIGHEST task (PS1:72-78,181-183) - a user-writable interpreter would run as
+SYSTEM every boot; no payload provenance, no service SD, no --state-dir (risk
+of a SECOND, un-ACL'd state dir holding the credential).
+
+WITHDRAWAL IMPACT: existing task installs unaffected (catalog listing is not an
+endpoint); telemetry, identity, rotation/revocation unchanged; the real cost is
+REPAIR of existing task installs has no supported published path - hence
+deprecated, not blocked.
+
+DETECTION WITHOUT TOUCHING THE ENDPOINT: no telemetry field answers this and
+HeartbeatBody is extra="forbid" (edr_enrollment.py:383-407), so a new sensor
+field would be 422-rejected. D-1 System channel 7045/7036 positively identifies
+SCM from ALREADY-COLLECTED evidence; D-2 Sysmon EID 1 (python.exe ... run)
+identifies the task where Sysmon exists; D-3 operator read-only probes
+(sc query / schtasks /Query / file presence) are definitive incl. BOTH.
+TaskScheduler/Operational is NOT in CHANNELS. Classifier must report
+SCM_ONLY / TASK_ONLY / BOTH / UNKNOWN and never collapse UNKNOWN.
+
+SMALLEST CATALOG CHANGE (specified, NOT implemented): _describe() spreads every
+package key except directory, so adding new_endpoint_eligible: False +
+eligibility_reason to PACKAGES["windows-x64"] reaches the API with no route or
+schema change (Option A, honest but ineffective alone); + one UI gate on
+EdrDownloadsPage.jsx:178 / Add-Device (Option B). Recommended A+B. Explicitly
+excluded: deleting the package, flipping download_available, touching
+instructions/catalog.RELEASES/_artifact_path, publishing the EXE.
+
+SEVEN OWNER DECISIONS listed in section 8 of the deliverable.
+STATUS: read-only. git status --porcelain agents backend apps .github docs = 0.
+No catalog change implemented. Stop after assessment.
