@@ -7980,3 +7980,63 @@ enrol post-condition + add a positive re-enrol test), C-2 (CI inertness in the
 same commit) and C-3 (mandatory lab origin + subtree assertion). PHASE 2 is NOT
 authorizable: M-4 and M-5 are owner decisions. Corrections C-1..C-9 listed in
 the review. All HOLDs reaffirmed; none removed; no source modified.
+
+## 2026-06 · G1 V2 RECONCILIATION DESIGN AMENDMENT (READ-ONLY, no code)
+Deliverable: memory/NIVXFORGE_EDR_P0_RECONCILIATION_G1_V2.md (24,971 B,
+`d0cf63aa995ec6c8f0f28ed6b9997a10d384bd9d7896a64f1f1eb0e70be4bce2`), published
+at /NIVXFORGE_EDR_P0_RECONCILIATION_G1_V2.md. Supersedes V1 in the named
+sections; corrects C-1..C-9 from the BLOCKED independent review. Codex review +
+owner approval still mandatory before G2.
+OWNER DECISIONS BOUND INTO CONTRACTS:
+(1) RE-ENROLMENT PRESERVED as a separate ownership-gated operation modelled on
+M1's already-reviewed m1_reconcile_enrollment: new `retire-identity
+--operator-confirmed --reason`, requiring elevation + explicit confirmation +
+Ownership.owns + a machine check of the CURRENT identity (live probe or definite
+rejection; INDETERMINATE REFUSES). The old identity is ARCHIVED by no-overwrite
+rename to identity.<endpoint_id>.<utc>.retired.json, an IDENTITY_RETIRED history
+entry is written, then ordinary publish_identity() runs onto a genuinely absent
+destination - so enrol()'s no-overwrite guarantee is NEVER weakened. Journal,
+cursors and outbox untouched. Crash-between-archive-and-publish leaves a
+documented recoverable state; the archive is NEVER auto-restored. install
+--re-enrol is retained as a DIRECTIVE alias so _validate_identity's printed
+advice stays truthful. Tests RE-1..RE-7 incl. RE-4, the successful re-enrolment
+that NO test on either lineage covers today.
+(2) ENTERPRISE UNINSTALL PRESERVED and distinguishable from m1-uninstall
+(different commands, layouts, authority). M1's blanket refusal is withdrawn for
+the composed installer; the trunk's uninstall is STRENGTHENED to M1's standard
+(ownership validation, pre-stop PID identification, proven exit,
+ERROR_SERVICE_DOES_NOT_EXIST, honest PENDING_DELETION) because today it does
+sc delete + rmtree(ignore_errors=True) with no proof. --purge retained but
+re-gated behind --operator-confirmed. Tests UN-1..UN-4.
+(3) ATOMICITY SAFEGUARDS RETAINED - retirement WITHDRAWN. The engine is the
+mechanism, the installer stays the guarantor: _remove_partial_staging +
+automatic Engine.reconcile() on failure (invariant 3), _remove_partial_service
+raised to require_observation proof (4), _abort_incomplete_clean_install keeps
+the required strings THIS ENDPOINT IS NOT COLLECTING / NO second enrolment token
+/ PRESERVED (5), and the failure handler has NO state-directory write path at
+all (1, 2). test_s1_2_c2_clean_install_atomicity.py is RE-TARGETED, not
+weakened, and must pass BEFORE any safeguard is touched; if it cannot pass, the
+safeguards stay and composition STOPS.
+(4) NO IMPLICIT MIGRATION - legacy layout stays identified
+(_active_service_exe: SCM binPath -> active.json -> legacy) and refused
+(UNSUPPORTED_PREDECESSOR, nothing mutated), locked by NC-14..NC-16.
+PHASE 1 PRECONDITIONS: P1-PRE-1 the FIRST commit contains ONLY the workflow
+branches guard and touches nothing under agents/ (the trunk push trigger has no
+branches: filter); mandatory lab-only origin for every service-starting gate
+(no code change - _assert_backend is a deny-list) enforced by NC-18/CI-GATE-0;
+build_commit AND frozen-subtree/per-file blob assertions; Phase 1 keeps the
+TRUNK build script so no unreachable M1 code ships; M1's sensor blob may land
+ONLY in the same commit as the C-1 adapter.
+GATES: A0 inertness, A-pre (trunk per-test expected-failure manifest + the
+M1 FULL-SUITE BASELINE, which is still UNMEASURED), A1 trunk sensor/journal
+suites vs M1 blobs, A2 RE tests, B M1 suites, C atomicity, D uninstall, E full
+suite with the expected-failure set allowed only to SHRINK (never substitute;
+an unexplained disappearance FAILS), F all NC-1..NC-18 still failing.
+RISK-13 ADDED: transfer_bundle.py serves bundles on
+GET /api/transfer/{name}?token=... - fail-closed with compare_digest but the
+token rides in a QUERY STRING (access logs/proxy telemetry); remediation out of
+scope.
+STATUS: design decisions RESOLVED; every behaviour listed in V2 section 8 is
+UNIMPLEMENTED and UNVERIFIED (retire-identity, the composed failure handler,
+uninstall hardening, the CI guards and all named tests). G4 NOT RUN, Actions
+history UNKNOWN, transaction engine still unreviewed. No HOLD removed.
