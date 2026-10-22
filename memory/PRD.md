@@ -8259,3 +8259,59 @@ instructions/catalog.RELEASES/_artifact_path, publishing the EXE.
 SEVEN OWNER DECISIONS listed in section 8 of the deliverable.
 STATUS: read-only. git status --porcelain agents backend apps .github docs = 0.
 No catalog change implemented. Stop after assessment.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — P0-3 WINDOWS ONBOARDING SAFETY CORRECTION (DESIGN)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_P0_3_ONBOARDING_SAFETY_CORRECTION.md
+SHA-256: 5671f190ea298e836460eb949d1097f10aefc6ef511b775cb3a1260dbee24f79
+SIZE: 11,219 bytes. Served at /NIVXFORGE_EDR_P0_3_ONBOARDING_SAFETY_CORRECTION.md
+(HTTP 200). READ-ONLY DESIGN - NOT IMPLEMENTED.
+
+SHAPE-SETTING FINDING: Downloads and Add Device read DIFFERENT authorities -
+Downloads -> GET /edr/connector/releases (catalog.py RELEASES), Add Device ->
+GET /edr/onboarding/packages (edr_onboarding.py PACKAGES). Both spread unknown
+keys through (edr_onboarding.py:180, catalog.py:233), so the eligibility field
+needs NO route or schema change. BUT "Deploy this version" calls POST
+/edr/connector/deployments which MINTS AN ENROLMENT TOKEN
+(edr_connector.py:184) and gates only on ARTIFACT_PUBLISHED (:159) - which the
+PS1 release passes - so a UI-only gate would be cosmetic and API-bypassable.
+
+MINIMUM CHANGE SET (5 hunks: 3 data, 1 four-line refusal, 2 UI gates)
+1 edr_onboarding.py PACKAGES["windows-x64"] += new_endpoint_eligible: False +
+  eligibility_reason (data only, after :80)
+2 catalog.py RELEASES nvf-connector-windows-0.2.0-x64 (:59) and 0.1.0-x64
+  (:129) += the same two keys (data only)
+3 edr_connector.py create_deployment: 409 NEW_ENDPOINT_NOT_ELIGIBLE after the
+  PUBLISHED check (:159-165) and BEFORE mint_enrollment_token (:184); guarded
+  with `is False` so releases without the key are untouched
+4 EdrDownloadsPage.jsx:178 hide "Deploy this version", show the reason; LEAVE
+  the per-file download buttons at :164 intact
+5 EdrAddDevicePage.jsx:81 auto-select skips ineligible; download/enrol/install
+  steps and the mint button (:294) require eligibility; "nothing published"
+  banner when no Windows package is eligible
+NOT CHANGED: download_available, available, artifact_state, artifact allow-
+lists, download routes, instructions/silent_install, agent routes,
+windows-x64-exe, tenancy, anything under agents/.
+
+TRUTHFUL MESSAGE derived CLIENT-SIDE (no new backend field) when no eligible
+Windows package exists. Reason string states: deprecated for new endpoints,
+retained for endpoints it already installed, publishes 2 of 4 required modules
+(3 of 4 on the connector surface) so a fresh install cannot complete, NOT
+REPAIR-READY, and no production-ready Windows installer is published.
+
+NO EXISTING ASSERTION BREAKS: test_edr_onboarding_v1.py:110-113 asserts
+available/AVAILABLE which are preserved; tenant-authority POST /deployments
+uses the LINUX release so hunk 3 cannot fire; W-series asserts instruction
+content only. NEW TESTS T-1..T-9 incl. T-4 "a refused deployment mints no
+token" (TOKENS count unchanged) and T-5 other OS unaffected.
+OTHER OS SAFE: PACKAGES holds only the four windows ids; Linux lives only in
+RELEASES and gains no key.
+ROLLBACK: revert 5 hunks; no schema, no migration, no residue - the only data
+effect is PREVENTING a token mint.
+RESIDUAL RISKS: repair path for existing task installs still unpublished
+(accepted, stated as "not repair-ready"); task endpoints still uncounted
+(P0-2 section 6 census is separate); the incomplete file set stays incomplete
+DELIBERATELY, since completing it would re-enable a deprecated mechanism.
+STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
+removed. Independent review + explicit authorization required before any hunk.
