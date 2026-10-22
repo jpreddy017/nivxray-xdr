@@ -7856,3 +7856,67 @@ one container), Windows runtime evidence absent (G4 NOT RUN).
 BOUNDARIES: read-only - no commit/push/merge/branch mutation, no tracked file
 edited, no DB write, no deployment, no installer or response action run, no
 credential read, M1 untouched, no HOLD removed.
+
+## 2026-06 · P0 SOURCE RECONCILIATION & WINDOWS CI READINESS — G0/G1 (READ-ONLY, no code changed)
+Deliverable: memory/NIVXFORGE_EDR_P0_RECONCILIATION_G1.md (42,959 B,
+`e5fafcbc530da4c9525f041e453fd9d444b6f552c026dc73f579edb41630ca6f`), published
+at /NIVXFORGE_EDR_P0_RECONCILIATION_G1.md. G1 PASS NOT claimed; owner approval
+required before any G2.
+BASELINE VERIFIED: merge-base f971c765<->388bb3d6 = ae34056315cde90873386bb56edfcd5bd5cd19b9
+(tree 7b3eefe9, 2026-10-04) CONFIRMED. Trunk branch head has MOVED to 17f99d36
+(only memory/ docs; f971c765 remains the code baseline). M1 388bb3d6 / tree
+df8eb48b / subtree db21f422 and snapshot 53a965ff CONFIRMED;
+b8020771:agents/nivxforge-windows == db21f422 CONFIRMED. Capability inventory
+sha256 d8e4e154... CONFIRMED. Divergence: 71 trunk commits vs 18 M1 commits.
+CORE FINDING (corrects the prior framing): the conflict surface is FOUR files,
+and behaviourally only TWO. nivxforge_journal.py: M1 is a STRICT superset
+(47+/0-). nivxforge_sensor.py: M1 is a COMPATIBLE superset (175+/18-) - M1
+already carries the trunk's BATCH_SUPPORT delivery repair, and the 18 deletions
+are signature extensions whose DEFAULTS reproduce trunk behaviour
+(_Transport.request attempts=2; only M1 enrolment passes 1).
+test_b5_gap1_pre_canary_acceptance.py and test_p0_sensor_delivery_repair.py are
+BYTE-IDENTICAL on both sides. Genuine divergence = nivxforge_setup.py +
+.github/workflows/windows-sensor-installer.yml only.
+SETUP.PY: trunk-only = _remove_partial_service/_remove_partial_staging/
+_abort_incomplete_clean_install (+337-line test_s1_2_c2_clean_install_atomicity.py);
+M1 replaced install() with the durable transaction Engine and changed the LAYOUT
+(sensor\service\ -> sensor\versions\<id>\) and the SIGNATURE
+(_install_service(api, interval) -> (api, interval, exe)). Drain-mode policy is
+present on BOTH.
+CORRECTION: backend/routers/edr_maintenance.py is NOT a management feature - it
+is a temporary token-gated DEV DATA RESET route (404 unless EDR_MAINTENANCE_TOKEN
+set, dry by default, needs confirm + backup ref). Zero coupling to M1. Flagged
+as a standing risk (RISK-5).
+RECOMMENDED STRATEGY (Option D, two-phase, NOT executed): Phase 1 FREEZE-IMPORT
+additive-only from the current trunk head (M1-only files byte-identical + M1's
+journal/sensor superset blobs; setup.py and the workflow UNTOUCHED), gated on
+the trunk's own sensor/journal suites passing unchanged; Phase 2 COMPOSE the
+installer + workflow, retiring the trunk atomicity helpers ONLY after
+test_s1_2_c2_clean_install_atomicity.py's five assertions pass against the
+transaction engine.
+CI VERIFIED FROM SOURCE: windows-sensor-installer.yml claims all TRUE (PE check,
+frozen CLI, credential-argument refusals, provenance, real SCM lifecycle,
+re-enrol stop-race). NO `secrets.` reference, NO pull_request trigger,
+permissions contents:read -> no fork-PR trust risk. RUN HISTORY UNKNOWN (no
+Actions access). New facts: the push path filter agents/nivxforge-windows/**
+would auto-trigger on an integration branch (M1 already uses branches-ignore);
+and the SCM gate starts a real service against the PRODUCTION origin
+nivxray.nivxforge.com unauthenticated - mitigable with a lab FQDN because
+_assert_backend is a DENY-list, no code change needed (RISK-4). M1's own
+windows-installer-transaction-build.yml is workflow_dispatch-only and is the
+right vehicle shape for native M1 testing without merging.
+G4 SPLIT: native-CI testable = build/PE/CLI/provenance/journal selftest/SCM
+lifecycle/ACL readback/sdshow/disabled-first ordering/GetFileAttributesW/self-
+identification/LocalSystem Authz. VM-only = elevated INTERACTIVE admin context,
+reboot continuity, Defender/SmartScreen. Test-tenant-only = enrolment,
+telemetry, Device Trajectory. Not safely testable = fleet scale, production
+origin.
+TRUNK FAILURES INDEPENDENTLY ASSESSED: 12 in test_34h_a_migration_control.py are
+HARNESS (pass in isolation, shared-Mongo pollution). 4 in
+test_p0_f13_5_detection_handoff.py are MIXED contract drift - they fail in
+ISOLATION too: trajectory_focus gained a direct _db["edr_endpoints"] read in
+a8ccdb36 (2026-10-03) while the test dates from 2026-09-07; because 10-03
+precedes the 10-04 split, BOTH lineages inherit it. Not fixed (G0/G1 boundary).
+UNCHANGED-STATE PROVEN: git status for agents/backend/apps/.github/docs = 0
+entries; refs digest cf3c3972... unchanged before and after; no merge/cherry-pick/
+rebase/reset/fetch/branch switch, no CI trigger, no DB write, no credential read.
