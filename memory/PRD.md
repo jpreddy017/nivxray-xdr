@@ -7756,3 +7756,54 @@ memory/ evidence JWTs, six live-suite admin passwords) REMAIN FLAGGED FOR
 ROTATION/REVOCATION AND EXPOSURE ASSESSMENT - not addressed by this commit.
 STATUS: G2 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build, Windows
 execution, deployment, merge, rollout or self-approval. HOLDs preserved.
+
+## 2026-06 · M1 G4 EXECUTION PREPARATION (branch engineering/m1-g4-preparation)
+COMMIT `b8020771abc1a14afba87092f71268b4380977f8` tree
+`7c329ce20f5e94626ad8ca3fbcfd6b574c759292` parent `388bb3d6` (G3 PASSED).
+3 NEW files, +736, NO change to any reviewed implementation file: they live in
+`agents/nivxforge-g4/`, deliberately OUTSIDE the reviewed Windows subtree, so
+`HEAD:agents/nivxforge-windows` still equals
+`db21f422561f14fb4dcec91b70925f2b5291c500` on the preparation commit.
+SOURCE IDENTITY PROVEN BEFORE ANY PREP WORK: candidate `388bb3d6` subtree ==
+reviewed snapshot `53a965ff` subtree == `db21f422...`; all 18 snapshot blobs
+byte-identical to the candidate commit's blobs; worktree clean; VERIFY.sh
+passes (fsck 0, credential scan clean, 373 passed).
+FILES: `M1_G4_RUNBOOK.md` (source-identity gate, Win11 VM prerequisites, build
+commands via the EXISTING build_windows_installer.ps1, isolated LAB tenant,
+the 7 acceptance steps with exact commands/observables, 6 refusal paths,
+PASS/FAIL/NOT RUN table, blockers, stop conditions);
+`New-M1LabConfig.ps1` (creates ONLY the protected dirs the installer must
+FIND - C:\ProgramData\NivXForge, ...\m1, ...\m1\m1-config.json, C:\Program
+Files\NivXForge - because an absent INTERMEDIATE is refused; refuses if
+install_dir/state_dir already exist; writes NO secret);
+`Collect-M1Evidence.ps1` (captures sc qc/query/sdshow/qfailure, filesystem and
+ancestry ACLs, registered vs RUNNING image hashes, m1-ownership.json, identity
+without the credential, outbox, System+Application event logs, then hashes).
+SOURCE READ AND REUSED, NOT REBUILT: build_windows_installer.ps1 (onedir
+service host inside the onefile installer; error-1053 avoidance; credential
+scan; build-info.json), nivxforge_setup.py m1_dispatch/m1_payload_source,
+m1_install gated order, load_config contract, m1_service_run LocalSystem
+proof, clean_host_report probes, sensor enrol/stdin-only token and the
+3 event channels.
+TEST TENANT: `ten_3f7f772b353a6bbbb0ac8bc564` (slug g1-acceptance-clean, kind
+LAB, ACTIVE, XDR+EDR, 0 endpoints, 0 raw events) - isolated, no production
+tenant or credential, no DB write made.
+G4 STATUS: **NOT RUN**. No authorized Windows 11 host and no PowerShell
+interpreter exist on this pod, so NOTHING was built or executed: no PE, no
+install, no SCM/ACL/Authz/AccessCheck call, no enrolment, no telemetry, no
+reboot, no uninstall. The two PowerShell scripts are UNEXECUTED source.
+BLOCKERS: (1) no authorized Windows host; (2) no recorded operator credential
+for the test backend, so the <=24h enrolment token cannot be minted here;
+(3) artifact is UNSIGNED_INTERNAL_VALIDATION_BUILD - SmartScreen/Defender may
+quarantine; (4) Sysmon absent by default so 1 of 3 channels reports
+unavailable; (5) the repository credentials still pending rotation.
+EXPORT (sanitized, self-contained, verified in a fresh clone and again after
+download: bundle complete history, fsck 0, subtree db21f422 match, 21/21
+blob+sha256, credential scan clean, 373 passed):
+NIVXFORGE_M1_G4_PREPARATION_SNAPSHOT.bundle (188,832 B,
+`abd6f3d69ce3e86c0e6a6568113c248b05926bd32b051afb4117eda60eace0e1`),
+NIVXFORGE_M1_G4_PREPARATION_PROVENANCE.md (8,050 B, `21804de0...`),
+NIVXFORGE_M1_G4_RUNBOOK.md (17,966 B, `142edc48...`).
+BOUNDARIES HELD: no production endpoint/tenant/credential, no unrelated code
+change, no merge, deployment, signing, rollout or HOLD removal, no G4 success
+inferred from G3.
