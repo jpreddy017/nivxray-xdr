@@ -1,0 +1,463 @@
+diff --git a/agents/nivxforge-windows/nivxforge_m1.py b/agents/nivxforge-windows/nivxforge_m1.py
+index 8fb5fe29..2d6a6732 100644
+--- a/agents/nivxforge-windows/nivxforge_m1.py
++++ b/agents/nivxforge-windows/nivxforge_m1.py
+@@ -747,7 +747,84 @@ def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
+     return parsed
+ 
+ 
++# ── G3-01 · the AccessCheck contract, read correctly ───────────────
++def descriptor_to_sddl(descriptor: dict, mapping: dict) -> str | None:
++    """Render a parsed descriptor as SDDL, with every generic bit RESOLVED.
++
++    SDDL, because the only dependable way to obtain a VALID SELF-RELATIVE
++    security descriptor for `AccessCheck` is
++    `ConvertStringSecurityDescriptorToSecurityDescriptorW`: a hand-assembled
++    absolute descriptor is not valid input to the API and is a documented
++    source of ERROR_INVALID_SECURITY_DESCR.
++
++    Deny ACEs are emitted first so the ACL is in canonical order. Inherit-only
++    ACEs are omitted because they do not apply to the object being evaluated.
++    None means the descriptor cannot be rendered, which the caller reads as
++    UNKNOWN.
++    """
++    if descriptor.get("malformed") or descriptor.get("dacl") is None:
++        return None
++    owner, group = descriptor.get("owner"), descriptor.get("group")
++    for sid in (owner, group):
++        if not isinstance(sid, str) or not _SID_RE.match(sid):
++            return None
++    entries: list[str] = []
++    ordered = sorted(descriptor["dacl"],
++                     key=lambda ace: ace.get("type") != ACCESS_DENIED_ACE_TYPE)
++    for ace in ordered:
++        ace_type = ace.get("type")
++        if ace_type not in (ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE):
++            return None
++        trustee, mask, flags = ace.get("sid"), ace.get("mask"), ace.get("flags", 0)
++        if not isinstance(trustee, str) or not _SID_RE.match(trustee):
++            return None
++        if not isinstance(mask, int) or mask < 0:
++            return None
++        if not isinstance(flags, int) or flags < 0:
++            return None
++        if flags & INHERIT_ONLY_ACE:
++            continue
++        letter = "A" if ace_type == ACCESS_ALLOWED_ACE_TYPE else "D"
++        entries.append(f"({letter};;0x{map_generic(mask, mapping):08x};;;"
++                       f"{trustee})")
++    protected = "P" if descriptor.get("protected") else ""
++    return f"O:{owner}G:{group}D:{protected}" + "".join(entries)
++
++
++def access_check_verdict(ok: bool, status, granted, wanted: int):
++    """The three-way reading of the native AccessCheck contract.
++
++    True  — the API SUCCEEDED and reported AccessStatus=TRUE with the
++            requested rights in GrantedAccess.
++    False — the API SUCCEEDED and reported AccessStatus=FALSE. This is the
++            ONLY verified denial.
++    None  — UNKNOWN. The API failed, or returned a result we do not
++            understand. A failure is NEVER a denial: the documented cause of
++            ERROR_ACCESS_DENIED from AccessCheck itself is a ClientToken
++            without TOKEN_QUERY, which says nothing whatsoever about the
++            descriptor being evaluated. Reading it as "denied" would report a
++            restrictive descriptor on the strength of a broken call.
++    """
++    if ok is not True:
++        return None
++    if not isinstance(status, int) or not isinstance(granted, int):
++        return None
++    if not isinstance(wanted, int):
++        return None
++    if wanted <= 0 or wanted & 0xF0000000:
++        #: A desired mask that is empty, or that still carries generic bits
++        #: the API refuses to map, is not a question we can ask.
++        return None
++    if not status:
++        #: Denied. The API sets GrantedAccess to zero in this case; a
++        #: non-zero mask alongside a FALSE status is a result we do not
++        #: understand, so it is UNKNOWN rather than a denial.
++        return False if granted == 0 else None
++    return True if granted & wanted == wanted else None
++
++
+ # ── P1-5 · pure process-exit and image comparison rules ────────────
++
+ def exit_verdict(before, now):
+     """True / False / None, PID-reuse aware. None is UNKNOWN.
+ 
+@@ -1215,6 +1292,8 @@ class WindowsHost:
+             wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+             ctypes.POINTER(wintypes.DWORD)]
+         self._k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
++        self._k32.LocalFree.restype = wintypes.HANDLE
++        self._k32.LocalFree.argtypes = [wintypes.HANDLE]
+ 
+     # -- time / paths ------------------------------------------------
+     def now_utc(self) -> str:
+@@ -1845,9 +1924,10 @@ class WindowsHost:
+         enabled = getattr(ntsecuritycon, "SE_GROUP_ENABLED", 0x00000004)
+         sids: list[str] = []
+         try:
+-            #: Reading TokenGroups REQUIRES TOKEN_QUERY on this very handle,
+-            #: so a later ERROR_ACCESS_DENIED from AccessCheck cannot be
+-            #: explained away as a missing TOKEN_QUERY.
++            #: TOKEN_QUERY is requested above and is required by AccessCheck.
++            #: Note that a failure of AccessCheck is treated as UNKNOWN
++            #: regardless of its error code, so a missing-TOKEN_QUERY failure
++            #: can never masquerade as a verified denial.
+             for sid, attributes in win32security.GetTokenInformation(
+                     token, win32security.TokenGroups):
+                 if attributes & deny_only or not attributes & enabled:
+@@ -1862,32 +1942,78 @@ class WindowsHost:
+                 "source": "restricted-impersonation-token"}
+ 
+     def access_check(self, descriptor, context, right, mapping):
+-        """True / False / None. None is INDETERMINATE and refuses."""
+-        try:
+-            import win32security
+-        except ImportError:
+-            return None
++        """True / False / None, per `access_check_verdict`.
++
++        pywin32 does NOT wrap AccessCheck — it exposes MapGenericMask but not
++        the check itself — so the call is made through advapi32 directly. A
++        `win32security.AccessCheck` call would have raised AttributeError and
++        been swallowed as UNKNOWN on every real host, leaving the token-aware
++        mechanism permanently indeterminate.
++        """
+         token = (context or {}).get("token")
+         if token is None:
+             return None
+-        security = self._descriptor_to_sd(descriptor, mapping)
+-        if security is None:
++        sddl = descriptor_to_sddl(descriptor, mapping)
++        if sddl is None:
+             return None
+-        wanted = map_generic(right, mapping)
+         try:
+-            granted, status = win32security.AccessCheck(
+-                security, token, wanted, self._mapping_tuple(mapping))
+-        except win32security.error as ex:
+-            #: AccessCheck signals a DENIAL through AccessStatus while the
+-            #: call itself succeeds. A raised ERROR_ACCESS_DENIED is the one
+-            #: denial convention some builds use; every other failure is
+-            #: UNKNOWN, never "denied".
+-            return False if getattr(ex, "winerror", 0) == 5 else None
++            wanted = map_generic(right, mapping)
++            return self._access_check_native(sddl, token, wanted, mapping)
+         except Exception:                                    # noqa: BLE001
++            #: Any failure here is UNKNOWN. It is never a denial.
+             return None
+-        if not status:
+-            return False
+-        return bool(int(granted) & wanted)
++
++    def _access_check_native(self, sddl, token, wanted, mapping):
++        import ctypes
++        import ctypes.wintypes as wintypes
++
++        class PRIVILEGE_SET(ctypes.Structure):
++            #: The buffer is NOT optional in practice: AccessCheck fails with
++            #: ERROR_INSUFFICIENT_BUFFER (122) without a real 20-byte one.
++            _fields_ = [("PrivilegeCount", wintypes.DWORD),
++                        ("Control", wintypes.DWORD),
++                        ("Privilege", ctypes.c_byte * 12)]
++
++        class GENERIC_MAPPING(ctypes.Structure):
++            _fields_ = [("GenericRead", wintypes.DWORD),
++                        ("GenericWrite", wintypes.DWORD),
++                        ("GenericExecute", wintypes.DWORD),
++                        ("GenericAll", wintypes.DWORD)]
++
++        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
++        convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
++        convert.restype = wintypes.BOOL
++        convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
++                            ctypes.POINTER(ctypes.c_void_p),
++                            ctypes.POINTER(wintypes.DWORD)]
++        advapi.AccessCheck.restype = wintypes.BOOL
++        advapi.AccessCheck.argtypes = [
++            ctypes.c_void_p, wintypes.HANDLE, wintypes.DWORD,
++            ctypes.POINTER(GENERIC_MAPPING), ctypes.POINTER(PRIVILEGE_SET),
++            ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(wintypes.DWORD),
++            ctypes.POINTER(wintypes.BOOL)]
++        security = ctypes.c_void_p()
++        if not convert(sddl, 1, ctypes.byref(security), None):
++            return None                      # could not build the descriptor
++        try:
++            privileges = PRIVILEGE_SET()
++            privileges.PrivilegeCount = 0
++            length = wintypes.DWORD(ctypes.sizeof(PRIVILEGE_SET))
++            granted = wintypes.DWORD(0)
++            status = wintypes.BOOL(0)
++            generic = GENERIC_MAPPING(*self._mapping_tuple(mapping))
++            ok = advapi.AccessCheck(
++                security, wintypes.HANDLE(int(token)), wintypes.DWORD(wanted),
++                ctypes.byref(generic), ctypes.byref(privileges),
++                ctypes.byref(length), ctypes.byref(granted),
++                ctypes.byref(status))
++            #: The BOOL return reports whether the CALL succeeded; the verdict
++            #: is AccessStatus. The two are read separately and a failure is
++            #: never converted into a denial.
++            return access_check_verdict(bool(ok), int(status.value),
++                                        int(granted.value), wanted)
++        finally:
++            self._k32.LocalFree(security)
+ 
+     @staticmethod
+     def _mapping_tuple(mapping):
+diff --git a/backend/tests/edr/test_m1_clean_install.py b/backend/tests/edr/test_m1_clean_install.py
+index 5db820f7..eb1cd8d1 100644
+--- a/backend/tests/edr/test_m1_clean_install.py
++++ b/backend/tests/edr/test_m1_clean_install.py
+@@ -59,6 +59,10 @@ class FakeHost:
+         self.calls: list[str] = []
+         self.context = {"sids": list(m1.REQUIRED_CONTEXT_SIDS)}
+         self.granted: dict[int, bool | None] = {}
++        #: Separate, because a service right and a file right can be the same
++        #: BIT (SERVICE_CHANGE_CONFIG and FILE_WRITE_DATA are both 0x2); the
++        #: real host distinguishes them by the GENERIC_MAPPING in use.
++        self.granted_path: dict[int, bool | None] = {}
+         self.create_raises: dict[str, str] = {}
+         self.crash_after: str | None = None
+ 
+@@ -232,8 +236,10 @@ class FakeHost:
+         is in the supplied context and report whether `right` is granted.
+         Inherit-only ACEs are skipped, exactly as the real descriptor builder
+         skips them, because they do not apply to this object."""
+-        if right in self.granted:
+-            return self.granted[right]
++        overrides = (self.granted_path if mapping is m1.FILE_GENERIC_MAPPING
++                     else self.granted)
++        if right in overrides:
++            return overrides[right]
+         if descriptor.get("dacl") is None:
+             return True                       # NULL DACL grants everything
+         effective = 0
+@@ -1524,7 +1530,7 @@ def test_every_dangerous_path_right_is_probed_individually(lab):
+ 
+ 
+ def test_an_indeterminate_path_evaluation_refuses(lab):
+-    lab["host"].granted = {m1.FILE_WRITE_DATA: None}
++    lab["host"].granted_path = {m1.FILE_WRITE_DATA: None}
+     verdict = m1.path_security_verdict(_path_sd(), m1.ROLE_OWNED, lab["host"])
+     assert verdict["nonadmin_writable"] is True
+     assert any("indeterminate" in problem for problem in verdict["problems"])
+@@ -1539,7 +1545,7 @@ def test_an_incomplete_context_refuses_a_path(lab):
+ def test_a_token_grant_invisible_to_the_ace_walk_still_refuses(lab):
+     """The two mechanisms are complementary: a descriptor the ACE inspection
+     finds clean is still refused when the token says the right is granted."""
+-    lab["host"].granted = {m1.FILE_WRITE_DATA: True}
++    lab["host"].granted_path = {m1.FILE_WRITE_DATA: True}
+     descriptor = _path_sd()
+     assert m1.filesystem_ace_inspection(descriptor, m1.ROLE_OWNED) == []
+     verdict = m1.path_security_verdict(descriptor, m1.ROLE_OWNED, lab["host"])
+@@ -1679,3 +1685,206 @@ def test_the_approved_owners_are_accepted(lab, owner):
+     verdict = m1.path_security_verdict(_path_sd(owner=owner), m1.ROLE_OWNED,
+                                        lab["host"])
+     assert verdict["nonadmin_writable"] is False, verdict["problems"]
++
++
++# ══ G3-01 · the AccessCheck contract ═══════════════════════════════
++# The reviewer's finding: a raised native error with WinError 5 was read as a
++# VERIFIED access denial. The documented cause of ERROR_ACCESS_DENIED from
++# AccessCheck itself is a ClientToken without TOKEN_QUERY, which says nothing
++# about the descriptor. Reading it as "denied" reports a restrictive
++# descriptor on the strength of a broken call.
++
++ALL_WINERRORS = [0, 5, 6, 87, 122, 1008, 1338, 1346, -1, 2147942405]
++
++
++@pytest.mark.parametrize("winerror", ALL_WINERRORS)
++@pytest.mark.parametrize("status,granted", [(0, 0), (1, 0xFFFFFFFF), (1, 0),
++                                            (0, 0xFFFFFFFF), (None, None)])
++def test_an_api_failure_is_never_a_verified_denial(winerror, status, granted):
++    """ok=False is UNKNOWN for every error code and every residual output.
++    `False` must be unreachable when the call itself did not succeed."""
++    verdict = m1.access_check_verdict(False, status, granted,
++                                      m1.SERVICE_START)
++    assert verdict is None, (winerror, status, granted, verdict)
++    assert verdict is not False
++
++
++@pytest.mark.parametrize("ok", [False, 0, None, "", "True"])
++def test_only_a_literal_true_counts_as_a_successful_call(ok):
++    assert m1.access_check_verdict(ok, 1, m1.SERVICE_START,
++                                   m1.SERVICE_START) is None
++
++
++ACCESS_CONTRACT = [
++    # ok,   status, granted,              wanted,              expected
++    (True,  1,      m1.SERVICE_START,     m1.SERVICE_START,    True),
++    (True,  1,      m1.SERVICE_ALL_ACCESS, m1.SERVICE_START,   True),
++    (True,  0,      0,                    m1.SERVICE_START,    False),
++    (True,  1,      0,                    m1.SERVICE_START,    None),
++    (True,  1,      m1.SERVICE_STOP,      m1.SERVICE_START,    None),
++    (True,  0,      m1.SERVICE_START,     m1.SERVICE_START,    None),
++    (True,  None,   0,                    m1.SERVICE_START,    None),
++    (True,  1,      None,                 m1.SERVICE_START,    None),
++    (True,  "yes",  0,                    m1.SERVICE_START,    None),
++    (True,  1,      m1.SERVICE_START,     0,                   None),
++    (True,  1,      m1.SERVICE_START,     -4,                  None),
++    (True,  1,      0xFFFFFFFF,           m1.GENERIC_ALL,      None),
++    (False, 1,      m1.SERVICE_ALL_ACCESS, m1.SERVICE_START,   None),
++]
++
++
++@pytest.mark.parametrize("ok,status,granted,wanted,expected", ACCESS_CONTRACT)
++def test_the_access_check_contract_is_read_correctly(ok, status, granted,
++                                                     wanted, expected):
++    assert m1.access_check_verdict(ok, status, granted, wanted) is expected
++
++
++def test_a_denial_is_only_reported_on_a_successful_call_with_status_false():
++    """The single shape that means DENIED: the API succeeded, AccessStatus is
++    FALSE and GrantedAccess is zero, as the API documents."""
++    denials = [(ok, status, granted)
++               for ok in (True, False, None, 0)
++               for status in (0, 1, None)
++               for granted in (0, 1, None)
++               if m1.access_check_verdict(ok, status, granted,
++                                          m1.SERVICE_START) is False]
++    assert denials == [(True, 0, 0)]
++
++
++def test_a_grant_requires_every_requested_right():
++    for right in m1.DANGEROUS_RIGHTS.values():
++        assert m1.access_check_verdict(True, 1, right, right) is True
++        assert m1.access_check_verdict(True, 1, right & ~right, right) is None
++
++
++def test_the_winerror_five_denial_branch_is_gone():
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    assert "win32security.AccessCheck(" not in source, (
++        "pywin32 does not wrap AccessCheck; the call would raise "
++        "AttributeError and be swallowed as UNKNOWN on every real host")
++    assert 'winerror", 0) == 5' not in source
++    import ast
++    tree = ast.parse(source)
++    host = next(node for node in ast.walk(tree)
++                if isinstance(node, ast.ClassDef) and node.name == "WindowsHost")
++    body = next(ast.get_source_segment(source, node) for node in host.body
++                if isinstance(node, ast.FunctionDef)
++                and node.name == "access_check")
++    assert "return False" not in body, (
++        "the native wrapper must not decide a denial itself; only "
++        "access_check_verdict may, and only from a successful call")
++    native = next(ast.get_source_segment(source, node) for node in host.body
++                  if isinstance(node, ast.FunctionDef)
++                  and node.name == "_access_check_native")
++    assert "advapi32" in native and "AccessCheck" in native
++    assert "PRIVILEGE_SET" in native and "LocalFree" in native
++    assert "access_check_verdict(bool(ok)" in native
++
++
++# ── the self-relative descriptor handed to the API ─────────────────
++def test_the_descriptor_is_rendered_with_generics_resolved_and_deny_first():
++    descriptor = _descriptor([
++        {"type": m1.ACCESS_ALLOWED_ACE_TYPE, "sid": "S-1-5-11",
++         "mask": m1.GENERIC_EXECUTE},
++        {"type": m1.ACCESS_DENIED_ACE_TYPE, "sid": "S-1-1-0",
++         "mask": m1.SERVICE_STOP}])
++    sddl = m1.descriptor_to_sddl(descriptor, m1.GENERIC_MAPPING)
++    assert sddl.startswith(f"O:{m1.SID_ADMINISTRATORS}"
++                           f"G:{m1.SID_ADMINISTRATORS}D:P")
++    assert sddl.index("(D;") < sddl.index("(A;"), "deny ACEs must come first"
++    assert "0x" in sddl and "GENERIC" not in sddl
++    resolved = m1.map_generic(m1.GENERIC_EXECUTE, m1.GENERIC_MAPPING)
++    assert f"(A;;0x{resolved:08x};;;S-1-5-11)" in sddl
++
++
++def test_the_rendered_descriptor_uses_the_object_type_mapping():
++    descriptor = _path_sd([{"type": 0, "flags": 0, "sid": "S-1-5-11",
++                            "mask": m1.GENERIC_WRITE}])
++    as_file = m1.descriptor_to_sddl(descriptor, m1.FILE_GENERIC_MAPPING)
++    as_service = m1.descriptor_to_sddl(descriptor, m1.GENERIC_MAPPING)
++    assert as_file != as_service
++    assert f"0x{m1.FILE_GENERIC_WRITE:08x}" in as_file
++
++
++def test_an_inherit_only_ace_is_not_handed_to_the_api():
++    descriptor = _path_sd([{"type": 0, "flags": m1.INHERIT_ONLY_ACE,
++                            "sid": "S-1-5-11", "mask": m1.FILE_ALL_ACCESS}])
++    assert "S-1-5-11" not in m1.descriptor_to_sddl(descriptor,
++                                                   m1.FILE_GENERIC_MAPPING)
++
++
++@pytest.mark.parametrize("descriptor", [
++    _path_sd(malformed=True),
++    _path_sd(dacl=None),
++    _path_sd(owner=None),
++    _path_sd(group=None),
++    _path_sd(owner="not-a-sid"),
++    _path_sd([{"type": 9, "flags": 0, "sid": "S-1-5-11", "mask": 1}]),
++    _path_sd([{"type": 0, "flags": 0, "sid": "nope", "mask": 1}]),
++    _path_sd([{"type": 0, "flags": 0, "sid": "S-1-5-11", "mask": "all"}]),
++    _path_sd([{"type": 0, "flags": None, "sid": "S-1-5-11", "mask": 1}]),
++    _path_sd([{"type": 0, "flags": 0, "sid": "S-1-5-11", "mask": -1}]),
++])
++def test_an_unrenderable_descriptor_yields_no_api_call(descriptor):
++    """None means the question was never asked, which the caller reads as
++    UNKNOWN. It is never an answer."""
++    assert m1.descriptor_to_sddl(descriptor, m1.FILE_GENERIC_MAPPING) is None
++
++
++def test_both_renderings_of_a_descriptor_follow_the_same_rules():
++    """`descriptor_to_sddl` feeds AccessCheck and `_descriptor_to_sd` feeds
++    SetServiceObjectSecurity. They must not drift apart."""
++    source = (AGENT_DIR / "nivxforge_m1.py").read_text()
++    import ast
++    tree = ast.parse(source)
++    sddl = next(ast.get_source_segment(source, node) for node in ast.walk(tree)
++                if isinstance(node, ast.FunctionDef)
++                and node.name == "descriptor_to_sddl")
++    builder = next(ast.get_source_segment(source, node)
++                   for node in ast.walk(tree)
++                   if isinstance(node, ast.FunctionDef)
++                   and node.name == "_descriptor_to_sd")
++    for rule in ('ACCESS_DENIED_ACE_TYPE', 'INHERIT_ONLY_ACE',
++                 'map_generic(', 'mapping'):
++        assert rule in sddl and rule in builder, rule
++
++
++# ── how UNKNOWN reaches a refusal ──────────────────────────────────
++def test_an_indeterminate_service_check_leaves_the_service_disabled(lab):
++    """UNKNOWN -> token_access_verdict problem -> verdict unsafe ->
++    SERVICE_SD_UNSAFE -> the service is never authorised or started."""
++    lab["host"].granted = {m1.SERVICE_CHANGE_CONFIG: None}
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code == "SERVICE_SD_UNSAFE"
++    assert "indeterminate" in str(caught.value)
++    assert lab["host"].service["start_type_code"] == m1.SERVICE_DISABLED
++    assert lab["host"].config_calls == []
++    assert not lab["host"].started
++
++
++def test_an_indeterminate_path_check_refuses_before_anything_is_created(lab):
++    """The same UNKNOWN during the configuration ancestry walk refuses before
++    the installer creates, enrols or registers anything."""
++    lab["host"].granted_path = {m1.FILE_WRITE_DATA: None}
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code in ("CONFIG_ANCESTRY_UNSAFE", "CONFIG_ACL_UNSAFE")
++    assert lab["host"].calls == []
++    assert not lab["install"].exists()
++    assert not (lab["root"] / "config" / m1.OWNERSHIP_FILENAME).exists()
++
++
++def test_an_absent_token_is_indeterminate_not_a_denial(lab):
++    """A host that cannot build a context answers UNKNOWN for every right, so
++    the refusal lands at the FIRST gate that needs one — the configuration
++    ancestry — and nothing is created, enrolled or registered."""
++    lab["host"].context = None
++    verdict = m1.service_security_verdict(_descriptor(), lab["host"])
++    assert not verdict["safe"]
++    assert any("no token" in problem for problem in verdict["problems"])
++    with pytest.raises(m1.M1Error) as caught:
++        install(lab)
++    assert caught.value.code in ("CONFIG_ANCESTRY_UNSAFE", "CONFIG_ACL_UNSAFE")
++    assert lab["host"].calls == []
++    assert not lab["host"].started

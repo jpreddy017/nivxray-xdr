@@ -7569,3 +7569,39 @@ NIVXFORGE_M1_G3_SOURCE_DIFF.patch (108,159 B, `930e29aa…`), handoff
 STATUS: M1 G2 CORRECTED - READY FOR INDEPENDENT G3 RE-REVIEW. No build,
 signing, Windows execution, enrollment, deployment, push, merge or release.
 No self-approval. Security/release/rollout HOLDs preserved.
+
+### 2026-06 · M1 G3-01 CORRECTION (AccessCheck contract)
+Branch `engineering/m1-g3-corrective`, commit
+`601eaa4625984b062be01848004744a5ba6d2603`, tree
+`9d07cb6c4285a30142d915761ef5a9324840921b`, parent `4b3b6a2c` (tree
+`c9fae8dd…` verified before edit). 2 files, +361/-26.
+DEFECT: a raised win32security.error with WinError 5 was read as a VERIFIED
+denial. API CONTRACT VERIFIED FIRST against win32/src/win32security.i: pywin32
+exports MapGenericMask but DOES NOT WRAP AccessCheck at all, so the call would
+have raised AttributeError on every real host, been swallowed as UNKNOWN, and
+refused every install; the WinError-5 branch was unreachable dead code on a
+false premise.
+FIX: `access_check_verdict()` (pure) reads the native contract three ways -
+BOOL return FALSE is UNKNOWN for every error code; AccessStatus TRUE with the
+requested rights in GrantedAccess is GRANTED; AccessStatus FALSE with
+GrantedAccess zero is the ONLY verified DENIAL; any contradiction is UNKNOWN.
+`_access_check_native()` calls advapi32 with full argtypes, a real 20-byte
+PRIVILEGE_SET and LocalFree. `descriptor_to_sddl()` (pure) renders a VALID
+SELF-RELATIVE descriptor with generics resolved, deny ACEs first and
+inherit-only omitted. `_descriptor_to_sd` (apply path) unchanged; a test
+asserts both renderings follow the same rules.
+PROPAGATION: UNKNOWN -> "indeterminate" problem -> verdict unsafe ->
+SERVICE_SD_UNSAFE with the service still DISABLED and never started, or
+CONFIG_ANCESTRY_UNSAFE before anything is created. Both asserted end to end.
+TESTS ACTUALLY RUN: M1 suite **275 passed** (+88); windows installer group
+**159 passed**; transaction group **281 passed**; enrollment group
+**54 passed**. Negative control (returning False instead of None when the call
+did not succeed): **57 failed, 218 passed**. Windows-native NOT RUN.
+Artifacts: NIVXFORGE_M1_G3_01_ACCESSCHECK.bundle (38,792 B,
+`f25a7d97e1f1113acd3f17fecc2a3d76e7e8c60966ed5fb4acb7301bcd8b969a`),
+NIVXFORGE_M1_G3_01_CORRECTION.patch (23,504 B, `8a36daa7…`), handoff
+`NIVXFORGE_M1_G3_01_CORRECTION_HANDOFF.md` (9,539 B, `483aa770…`).
+NEXT MILESTONE after G3 approval: native G4 validation on a real Windows VM,
+then one enrolled endpoint delivering real telemetry.
+STATUS: G3-01 CORRECTED - READY FOR INDEPENDENT G3 VERIFICATION. No build,
+Windows execution, deployment, push, merge or release. No self-approval.
