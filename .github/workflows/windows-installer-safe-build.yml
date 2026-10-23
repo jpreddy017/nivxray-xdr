@@ -28,7 +28,7 @@ jobs:
           python-version: '3.11.9'
       - name: Portable source and preflight tests
         run: |
-          python -m pip install --disable-pip-version-check 'pytest==8.3.3'
+          python -m pip install --disable-pip-version-check 'pytest==8.3.3' 'pytest-xdist==3.6.1' 'requests==2.32.3'
           python -m py_compile agents/nivxforge-windows/nivxforge_setup.py
           python -m pytest backend/tests/edr/test_windows_installer_preflight.py -q
 
