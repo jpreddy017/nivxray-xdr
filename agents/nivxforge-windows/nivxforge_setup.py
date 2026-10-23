@@ -532,6 +532,24 @@ def _validate_identity() -> dict:
     return ident
 
 
+def _preflight_install_enrolment(tenant: str | None, token_stdin: bool,
+                                 re_enrol: bool) -> None:
+    """Reject known enrolment problems BEFORE any service or file mutation.
+
+    Validate only local state and arguments here. In particular, do not
+    consume an enrolment token or change existing endpoint credentials.
+    The transaction/re-enrol safety boundary is unchanged by this check.
+    """
+    if sensor.IDENTITY_FILE.exists() and not re_enrol:
+        _validate_identity()
+        return
+    _assert_tenant(tenant or "")
+    if not token_stdin:
+        raise SystemExit("--token-stdin is required to enrol. The "
+                         "installer carries no credential by design, and "
+                         + sensor.STDIN_ONLY_NOTICE)
+
+
 def install(api: str, tenant: str | None, token_stdin: bool,
             interval: int, re_enrol: bool) -> None:
     # Pure argument validation FIRST: it has no side effects, so it is safe
@@ -539,6 +557,10 @@ def install(api: str, tenant: str | None, token_stdin: bool,
     # deterministic on any host (including an already-elevated CI runner).
     # Nothing is written until _assert_admin() has passed.
     api = _assert_backend(api)
+    # Keep validation ahead of elevation and *all* service/file mutations.
+    # Otherwise a malformed identity or missing token can stop a previously
+    # healthy endpoint before the installer notices the invalid request.
+    _preflight_install_enrolment(tenant, token_stdin, re_enrol)
     _assert_admin()
     # The one fact that makes rollback possible: was this endpoint
     # collecting BEFORE we touched anything? Read it before the first
