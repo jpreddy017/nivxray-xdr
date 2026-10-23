@@ -8465,3 +8465,34 @@ hunting query contract > onboarding correction (P0-3/A1 pending re-review).
 STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
 removed. NEXT STEP IS A DECISION: approve A-G1 (CI-F1 first, alone) and/or
 authorize G0 scoping for B-1a.
+
+================================================================================
+2026-06 · M1 G3-APPROVED SOURCE — SANITIZED SOURCE-ONLY IMPORT BRANCH
+================================================================================
+BRANCH (local): source/m1-g3-approved-388bb3d6
+COMMIT: b6164152dd7e13ca0cbd74d3739a9cf55251cec8  (ORPHAN - no parents)
+ROOT TREE: fff6ed41a52365482012bc92d2fbdcefe549a954
+SUBTREE agents/nivxforge-windows = db21f422561f14fb4dcec91b70925f2b5291c500
+ (byte-identical to 388bb3d6; git diff vs the approved subtree = 0 lines)
+CONTENT: 15 reviewed files + README.md + M1_SOURCE_MANIFEST.json (17 paths, no
+ unexpected path). Manifest SHA-256
+ 31b377d171cd8056efeb7bff33ab3da500441e737c53d7dc8612820d9034c7de, served at
+ /NIVXFORGE_M1_SOURCE_MANIFEST.json (HTTP 200).
+VERIFICATION RE-RUN AGAINST THE BRANCH: 15/15 files match both git_blob and
+ sha256 and size; subtree hash matches; no path outside the subtree except the
+ two provenance files.
+SECRET SCAN (nvx_/nvxenr_/nvxses_/nvxcrd_/JWT/AWS/PEM/password-assign/bearer/
+ ten_/db-conn-string): NO SECRET-SHAPED CONTENT. One disclosed NON-SECRET match:
+ the public production hostname constant at nivxforge_setup.py:59 and
+ build/build_windows_installer.ps1:211 - RETAINED UNMODIFIED because changing it
+ would alter approved source and break hash verification.
+HISTORY: none carried (orphan), so no contaminated ancestry.
+HOW IT WAS BUILT (HEAD/worktree/index untouched): GIT_INDEX_FILE temp index +
+ git read-tree --prefix + hash-object + write-tree + commit-tree + update-ref.
+ git status --porcelain agents backend apps .github docs = 0; HEAD still
+ fix/p0-sensor-delivery.
+NOT DONE / CANNOT: no git remote is configured in this environment, so the
+ branch is LOCAL ONLY and was NOT pushed. Pushing to GitHub must be done by the
+ user via the "Save to Github" feature. No installer built or run, nothing
+ deployed, no approved byte modified, no HOLD removed. G4 remains NOT RUN -
+ publishing source is not acceptance.
