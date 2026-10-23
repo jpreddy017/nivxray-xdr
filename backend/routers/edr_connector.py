@@ -162,6 +162,12 @@ async def create_deployment(body: CreateDeploymentBody, request: Request,
             "reason": release["artifact_state_reason"],
             "note": ("deployment context is only generated around a "
                      "published artifact; nothing is fabricated")})
+    # Refuse deprecated releases before any enrollment token is minted.
+    # Tenant authorization above must still execute for every request.
+    if release.get("new_endpoint_eligible") is False:
+        raise HTTPException(409, detail={
+            "code": "NEW_ENDPOINT_NOT_ELIGIBLE",
+            "reason": release.get("eligibility_reason") or "New deployments disabled"})
     group = await _db[policy_store.GROUPS].find_one(
         {"tenant_id": tenant, "id": body.group_id}, {"_id": 0})
     if group is None:

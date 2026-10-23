@@ -57,6 +57,8 @@ _V1_CAPABILITIES: Dict[str, bool] = {
 RELEASES: List[Dict[str, Any]] = [
     {
         "release_id": "nvf-connector-windows-0.2.0-x64",
+        "new_endpoint_eligible": False,
+        "eligibility_reason": "Legacy Windows PowerShell package is incomplete; new deployments are disabled.",
         "product": "NivXForge Windows Connector",
         "connector_version": "0.2.0",
         "os": "WINDOWS",
@@ -127,6 +129,8 @@ RELEASES: List[Dict[str, Any]] = [
     },
     {
         "release_id": "nvf-connector-windows-0.1.0-x64",
+        "new_endpoint_eligible": False,
+        "eligibility_reason": "Legacy Windows PowerShell package is incomplete; new deployments are disabled.",
         "product": "NivXForge Windows Connector",
         "connector_version": "0.1.0",
         "os": "WINDOWS",

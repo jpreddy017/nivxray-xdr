@@ -1,0 +1,30 @@
+name: NivXForge P0-3 onboarding safety (isolated no network)
+
+on:
+  pull_request:
+    branches:
+      - fix/p0-sensor-delivery
+    paths:
+      - 'backend/routers/edr_onboarding.py'
+      - 'backend/edr_plane/connector/catalog.py'
+      - 'backend/routers/edr_connector.py'
+      - 'backend/tests/edr/test_p0_3_*.py'
+      - '.github/workflows/p03-onboarding-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  no-token-mint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+      - name: Validate source syntax and P0-3 regression contracts
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest==8.3.3' 'pytest-xdist==3.6.1' 'requests==2.32.3'
+          python -m py_compile backend/routers/edr_onboarding.py backend/edr_plane/connector/catalog.py backend/routers/edr_connector.py
+          python -m pytest backend/tests/edr/test_p0_3_onboarding_contract.py backend/tests/edr/test_p0_3_deployment_guard.py -q

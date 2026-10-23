@@ -78,7 +78,7 @@ export default function EdrAddDevicePage() {
       .then((d) => {
         if (!live) return;
         setPackages(d);
-        const first = (d.packages || []).find((p) => p.available);
+        const first = (d.packages || []).find((p) => p.available && p.new_endpoint_eligible !== false);
         if (first) setPkgId(first.id);
       })
       .catch((e) => live && setErr(apiErrorText(e, "packages unavailable")));
@@ -201,15 +201,22 @@ export default function EdrAddDevicePage() {
             <div className="section-title" style={{ marginBottom: 8 }}>
               1 · Platform
             </div>
+            {!(packages.packages || []).some((p) =>
+              p.available && p.new_endpoint_eligible !== false) ? (
+              <div className="basis" data-testid="edr-add-no-new-windows-installer">
+                No production-ready Windows installer is currently published.
+                Legacy packages remain downloadable for existing endpoints only.
+              </div>
+            ) : null}
             {(packages.packages || []).map((p) => (
               <label key={p.id}
                      style={{ display: "flex", gap: 9, alignItems: "flex-start",
-                              padding: "7px 0", cursor: p.available
+                              padding: "7px 0", cursor: p.available && p.new_endpoint_eligible !== false
                                 ? "pointer" : "not-allowed",
-                              opacity: p.available ? 1 : .6,
+                              opacity: p.available && p.new_endpoint_eligible !== false ? 1 : .6,
                               borderBottom: "1px solid var(--border-sf)" }}
                      data-testid={`edr-add-pkg-${p.id}`}>
-                <input type="radio" name="pkg" disabled={!p.available}
+                <input type="radio" name="pkg" disabled={!p.available || p.new_endpoint_eligible === false}
                        checked={pkgId === p.id}
                        onChange={() => setPkgId(p.id)}
                        style={{ marginTop: 3, accentColor: "var(--mint)" }} />
@@ -225,10 +232,10 @@ export default function EdrAddDevicePage() {
                       ? <span className="chip mint">v{p.sensor_version}</span>
                       : null}
                   </span>
-                  {!p.available ? (
+                  {!p.available || p.new_endpoint_eligible === false ? (
                     <span className="basis"
                           style={{ display: "block", marginTop: 6 }}>
-                      {p.state_reason}
+                      {p.new_endpoint_eligible === false ? p.eligibility_reason : p.state_reason}
                     </span>
                   ) : null}
                 </span>
@@ -291,7 +298,7 @@ export default function EdrAddDevicePage() {
             </div>
             {!token ? (
               <>
-                <button className="btn mint" disabled={!pkg?.available || minting || !tenant}
+                <button className="btn mint" disabled={!pkg?.available || pkg?.new_endpoint_eligible === false || minting || !tenant}
                         onClick={mint} data-testid="edr-add-mint">
                   {minting ? <Loader2 size={11} className="spin" />
                     : <KeyRound size={11} />}

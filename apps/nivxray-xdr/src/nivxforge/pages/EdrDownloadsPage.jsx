@@ -175,11 +175,16 @@ function Release({ release, selected, onSelect }) {
               No download is offered: {release.artifact_state_reason}
             </span>
           )}
-        {release.download_available ? (
+        {release.download_available && release.new_endpoint_eligible !== false ? (
           <button className="btn mint" onClick={() => onSelect(release)}
                   data-testid={`edr-release-deploy-${release.release_id}`}>
             <PackageCheck size={11} /> Deploy this version
           </button>
+        ) : null}
+        {release.new_endpoint_eligible === false ? (
+          <span className="basis" data-testid={`edr-release-ineligible-${release.release_id}`}>
+            New deployment disabled: {release.eligibility_reason}
+          </span>
         ) : null}
       </div>
     </div>
