@@ -284,10 +284,14 @@ class _Transport:
         self._conn, self._origin = None, None
 
     def request(self, api: str, path: str, method: str,
-                body: bytes | None, headers: dict) -> tuple[int, bytes]:
+                body: bytes | None, headers: dict,
+                attempts: int = 2) -> tuple[int, bytes]:
+        """`attempts` defaults to 2 — the reconnect-once behaviour every
+        telemetry caller relies on. M1 enrolment, and only M1 enrolment,
+        passes 1: a one-time token must never be replayed blindly."""
         parsed = urllib.parse.urlparse(api)
         target = (parsed.path.rstrip("/") + path) or path
-        for attempt in (1, 2):
+        for attempt in range(1, max(1, attempts) + 1):
             conn = self._connect(api)
             try:
                 conn.request(method, target, body=body, headers=headers)
@@ -301,7 +305,7 @@ class _Transport:
                 # the FIRST write. That is normal, and it must not look
                 # like a backend outage: reconnect once, then report.
                 self.close()
-                if attempt == 2:
+                if attempt >= max(1, attempts):
                     raise OSError(f"transport: {type(ex).__name__}: {ex}"
                                   ) from None
         raise OSError("transport: unreachable")
@@ -311,14 +315,15 @@ TRANSPORT = _Transport()
 
 
 def _request(api: str, path: str, method: str, body: dict | None,
-             bearer: str | None) -> dict:
+             bearer: str | None, attempts: int = 2) -> dict:
     data = json.dumps(body).encode() if body is not None else None
     headers = {"User-Agent": f"NivXForge-EDR-Sensor/{SENSOR_VERSION}",
                "Accept": "application/json",
                **({"Content-Type": "application/json"} if data else {}),
                **({"Content-Length": str(len(data))} if data else {}),
                **({"Authorization": f"Bearer {bearer}"} if bearer else {})}
-    status, payload = TRANSPORT.request(api, path, method, data, headers)
+    status, payload = TRANSPORT.request(api, path, method, data, headers,
+                                        attempts=attempts)
     if status >= 400:
         raise RuntimeError(f"{status} {payload.decode(errors='replace')[:400]}")
     try:
@@ -327,8 +332,9 @@ def _request(api: str, path: str, method: str, body: dict | None,
         return {}
 
 
-def _post(api: str, path: str, body: dict, bearer: str | None = None) -> dict:
-    return _request(api, path, "POST", body, bearer)
+def _post(api: str, path: str, body: dict, bearer: str | None = None,
+          attempts: int = 2) -> dict:
+    return _request(api, path, "POST", body, bearer, attempts=attempts)
 
 
 # ── durable identity ──────────────────────────────────────────────
@@ -470,7 +476,141 @@ def read_enrolment_secret(stream=None) -> str:
     return secret
 
 
-def enrol(api: str, tenant: str, token: str) -> dict:
+ATTEMPT_FILENAME = "enrollment_attempt.json"
+#: Fields the enrolment response is ACTUALLY implemented to return. The
+#: tenant is operator-supplied and is NEVER returned, so it is not validated
+#: as a response field; tenant binding is proven later by `_open_session`.
+_REQUIRED_ENROLMENT_FIELDS = ("endpoint_id", "credential_id",
+                              "agent_credential")
+
+
+def attempt_marker_path(state_dir=None) -> Path:
+    return Path(state_dir or STATE_DIR) / ATTEMPT_FILENAME
+
+
+def validate_enrolment_response(res: dict) -> dict:
+    """Validate every field BEFORE anything is published."""
+    if not isinstance(res, dict):
+        raise SystemExit("enrolment response was not an object")
+    checked = {}
+    for field in _REQUIRED_ENROLMENT_FIELDS:
+        value = res.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise SystemExit(f"enrolment response field {field!r} is missing, "
+                             "empty or not a string; nothing was published")
+        checked[field] = value
+    return checked
+
+
+def _rename_no_replace(source: Path, target: Path) -> None:
+    """Atomic publication that FAILS if the destination exists or appears.
+
+    Windows: MoveFileExW WITHOUT MOVEFILE_REPLACE_EXISTING, with
+    MOVEFILE_WRITE_THROUGH. POSIX: os.link, which is equally no-overwrite.
+    """
+    if os.name == "nt":
+        import ctypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        if not kernel32.MoveFileExW(str(source), str(target), 0x8):
+            error = ctypes.get_last_error()
+            raise SystemExit(f"refusing to publish {target}: WinError {error}"
+                             + (" (destination already exists)"
+                                if error in (80, 183) else ""))
+        return
+    try:
+        os.link(source, target)
+    except FileExistsError:
+        raise SystemExit(f"refusing to publish {target}: it already "
+                         "exists") from None
+    os.unlink(source)
+
+
+def publish_identity(record: dict, path=None) -> Path:
+    """INITIAL, no-overwrite, durable identity publication.
+
+    Durability limits, stated rather than implied: the flush covers a
+    process crash and is best effort under power loss; with volatile disk
+    caches power-loss durability is NOT guaranteed, and Windows exposes no
+    POSIX directory fsync, so none is claimed.
+    """
+    final = Path(path) if path is not None else IDENTITY_FILE
+    final.parent.mkdir(parents=True, exist_ok=True)
+    if final.exists():
+        raise SystemExit(f"refusing to publish identity: {final} already "
+                         "exists; replacement is a separate, ownership-gated "
+                         "operation")
+    data = json.dumps(record, indent=2).encode()
+    temporary = final.with_name(final.name + ".new-" + os.urandom(6).hex())
+    handle = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        if os.write(handle, data) != len(data):
+            raise SystemExit("short write publishing the endpoint identity")
+        os.fsync(handle)
+    finally:
+        os.close(handle)
+    _rename_no_replace(temporary, final)
+    published = json.loads(final.read_text())
+    if published != record:
+        raise SystemExit("identity readback does not match what was published")
+    try:
+        os.chmod(final, 0o600)
+    except OSError:
+        pass                     # on Windows the installer applies the ACL
+    return final
+
+
+def open_attempt_marker(api: str, tenant: str, facts: dict,
+                        state_dir=None) -> Path:
+    """Written BEFORE the enrolment request leaves this process. Carries no
+    token: only non-secret diagnostics."""
+    path = attempt_marker_path(state_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    marker = {
+        "attempt_id": os.urandom(8).hex(), "outcome": "OPEN",
+        "started_at": _now(), "tenant_id": tenant,
+        "origin": urllib.parse.urlparse(api).netloc,
+        "facts_digest": hashlib.sha256("|".join([
+            facts.get("processor_id") or "", facts.get("machine_guid") or "",
+            facts.get("hostname") or ""]).encode()).hexdigest(),
+        "sensor_version": SENSOR_VERSION}
+    data = json.dumps(marker, indent=2).encode()
+    handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        os.write(handle, data)
+        os.fsync(handle)
+    finally:
+        os.close(handle)
+    return path
+
+
+def read_attempt_marker(state_dir=None):
+    path = attempt_marker_path(state_dir)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except ValueError:
+        return {"outcome": "TORN", "attempt_id": None}
+
+
+def close_attempt_marker(outcome: str, evidence: dict, state_dir=None) -> dict:
+    marker = read_attempt_marker(state_dir)
+    if marker is None:
+        raise SystemExit("no enrolment attempt marker to close")
+    if marker.get("outcome") != "OPEN":
+        raise SystemExit(f"attempt marker is already {marker.get('outcome')}")
+    marker["outcome"] = outcome
+    marker["closed_at"] = _now()
+    marker["evidence"] = evidence
+    path = attempt_marker_path(state_dir)
+    temporary = path.with_name(path.name + ".upd-" + os.urandom(6).hex())
+    temporary.write_text(json.dumps(marker, indent=2))
+    os.replace(temporary, path)              # owned metadata: replace is ok
+    return marker
+
+
+def enrol(api: str, tenant: str, token: str, *, single_attempt: bool = False,
+          attempt_marker: bool = False) -> dict:
     # Defence in depth: prove at RUNTIME that the secret this process is
     # about to use is not also sitting on its own command line.
     refuse_secret_on_command_line(list(sys.argv))
@@ -483,13 +623,24 @@ def enrol(api: str, tenant: str, token: str) -> dict:
                  "unattributed observation is not an endpoint.")
     failure: str | None = None
     res: dict = {}
+    if attempt_marker:
+        existing = read_attempt_marker()
+        if existing is not None and existing.get("outcome") == "OPEN":
+            raise SystemExit(
+                "an earlier enrolment attempt "
+                f"({existing.get('attempt_id')}) is still OPEN. Automatic "
+                "re-enrolment is blocked: the request may have been accepted "
+                "by the backend. Reconcile it before retrying.")
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        open_attempt_marker(api, tenant, facts)
     try:
         res = _post(api, "/api/edr/agent/enroll", {
             "tenant_id": tenant, "enrollment_token": token,
             "sensor_version": SENSOR_VERSION,
             "processor_id": facts["processor_id"],
             "machine_guid": facts["machine_guid"],
-            "hostname": facts["hostname"], "platform": facts["platform"]})
+            "hostname": facts["hostname"], "platform": facts["platform"]},
+            attempts=1 if single_attempt else 2)
     except Exception as ex:                                  # noqa: BLE001
         # A rejected enrolment must not publish the secret: a backend
         # validation error can echo the request body straight back.
@@ -500,18 +651,24 @@ def enrol(api: str, tenant: str, token: str) -> dict:
         # only suppresses the DISPLAY of the chain: the original exception
         # would still be reachable as `__context__`, carrying the
         # unredacted value with it.
+        #
+        # An open attempt marker is deliberately LEFT OPEN here: the request
+        # may have been accepted before the response was lost, so the
+        # outcome is unknown and re-enrolment must stay blocked.
         raise SystemExit(failure)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    IDENTITY_FILE.write_text(json.dumps({
-        "tenant_id": tenant, "endpoint_id": res["endpoint_id"],
-        "credential_id": res["credential_id"],
-        "agent_credential": res["agent_credential"],
+    checked = validate_enrolment_response(res)
+    publish_identity({
+        "tenant_id": tenant, "endpoint_id": checked["endpoint_id"],
+        "credential_id": checked["credential_id"],
+        "agent_credential": checked["agent_credential"],
         "os_version": facts["os_version"],
-        "enrolled_at": _now(), "capabilities": CAPABILITIES}, indent=2))
-    try:
-        os.chmod(IDENTITY_FILE, 0o600)
-    except OSError:
-        pass                     # on Windows the installer applies the ACL
+        "enrolled_at": _now(), "capabilities": CAPABILITIES})
+    if attempt_marker:
+        # Success is marked ONLY after publication AND readback succeeded.
+        close_attempt_marker("ENROLLMENT_CONFIRMED",
+                             {"endpoint_id": checked["endpoint_id"],
+                              "credential_id": checked["credential_id"]})
     print(f"enrolled endpoint_id={res['endpoint_id']}")
     print(f"credential stored at {IDENTITY_FILE} (administrators/SYSTEM only)")
     print(f"sensor_state={res.get('sensor_state')}  (nothing collected yet)")

@@ -404,6 +404,53 @@ class Journal:
             " ON CONFLICT(channel) DO NOTHING",
             (channel, int(record_id), 1 if continuity else 0, _now()))
 
+    def rebaseline_cursor(self, channel: str, record_id: int) -> int:
+        """Move a channel's collection baseline FORWARD to a known tail.
+
+        Separate from `seed_cursor` on purpose: seeding is a one-time
+        migration that must not disturb an existing cursor, while
+        re-baselining is an EXPLICIT operator decision after a journal has
+        been discarded. It only ever moves forward — a backward move would
+        make acquisition re-read, and therefore re-deliver, history the
+        owner has already decided not to keep. Evidence rows are not
+        touched here: this changes WHERE COLLECTION RESUMES, nothing else.
+        """
+        current = self.cursor(channel)
+        if int(record_id) < current:
+            raise ValueError(
+                f"refusing to move the {channel} cursor BACKWARD from "
+                f"{current} to {record_id}: that would replay history.")
+        self._db.execute(
+            "INSERT INTO cursors(channel, committed_record_id,"
+            " continuity_established, updated_at) VALUES(?,?,1,?)"
+            " ON CONFLICT(channel) DO UPDATE SET"
+            " committed_record_id=excluded.committed_record_id,"
+            " continuity_established=1, updated_at=excluded.updated_at",
+            (channel, int(record_id), _now()))
+        self._db.commit()
+        return current
+
+    def discard_undelivered(self) -> int:
+        """Abandon every retained row. EXPLICIT operator decision only.
+
+        Nothing in the sensor calls this. It exists so that "the owner has
+        decided this backlog will not be collected" is a deliberate,
+        counted, printed act with its own command, instead of something an
+        installer or a reclaim pass could ever do on its own. Cursors are
+        untouched here; the caller sets the new baseline separately.
+        """
+        self._db.execute("BEGIN IMMEDIATE")
+        try:
+            deleted = self._db.execute(
+                "DELETE FROM evidence WHERE state IN (?,?,?)",
+                (ACQUIRED, QUEUED, REFUSED_UNACCEPTABLE)).rowcount
+            self._db.commit()
+        except sqlite3.Error:
+            self._db.rollback()
+            raise
+        self._pressure_cache = None
+        return int(deleted)
+
     # ── delivery ──────────────────────────────────────────────────
     def next_undelivered(self, limit: int = 50) -> list[sqlite3.Row]:
         """Strict journal order. Ordering is part of the evidence."""

@@ -1,0 +1,136 @@
+{
+  "package": "NIVXFORGE M1 WINDOWS SOURCE \u2014 G3-APPROVED, SANITIZED SOURCE-ONLY IMPORT",
+  "import_kind": "ORPHAN COMMIT \u00b7 no parents \u00b7 no inherited history",
+  "source_commit": "388bb3d637a076f36d78fc9d1e218c878b082b9b",
+  "source_commit_tree": "df8eb48b5719b01c936c8dec3442aeba7763a59f",
+  "source_subtree": "db21f422561f14fb4dcec91b70925f2b5291c500",
+  "source_commit_subject": "M1 G3-B3 AuthzAccessCheck result correction: a per-result ERROR_ACCESS_DENIED is a verified denial",
+  "source_commit_parent": "a4e544f45772a90686d478a19a7ce80201616506",
+  "generated_at_utc": "2026-10-23T14:22:55.636587+00:00",
+  "file_count": 15,
+  "files": [
+    {
+      "path": "agents/nivxforge-windows/Install-NivXForgeSensor.ps1",
+      "sha256": "6b272dd39d329a814b45384faa4b52e0c268b347159638afeda83d2c672b8345",
+      "git_blob": "61e08b43540e94d46abda3e004b9eddd85f0b25c",
+      "size_bytes": 9139
+    },
+    {
+      "path": "agents/nivxforge-windows/build/Invoke-TransactionAcceptance.ps1",
+      "sha256": "7b80405a20e2abfb02f1fa30099071704bf843abdb6223b9cc1b7bc90155555d",
+      "git_blob": "716caca2fb77317ea9c96baf168d5c36ae15cfda",
+      "size_bytes": 20616
+    },
+    {
+      "path": "agents/nivxforge-windows/build/build_windows_installer.ps1",
+      "sha256": "8ed10ac6ab7e86031222ec1db963a74f7abfe370e01f7d75d264ec05a3f2b4a2",
+      "git_blob": "6235038f19616923dfca74b40034439ddfe779e6",
+      "size_bytes": 9852
+    },
+    {
+      "path": "agents/nivxforge-windows/build/run_transaction_tests.py",
+      "sha256": "4ece31414b7bdda75f1b5371b4c10f22d49bc9bfc98ecc08cb4a99097467dcfa",
+      "git_blob": "cdc103035035ac47efd27c0dafee5cfcca3a1df3",
+      "size_bytes": 1187
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_content_acquisition.py",
+      "sha256": "3943a657bed746196ead09fddc26ab2352f986bc4b8faa0bfa193ab172389501",
+      "git_blob": "43e68937d8d58c52368af5a03d284ce9e0e605f4",
+      "size_bytes": 12721
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_delivery_counters.py",
+      "sha256": "c531e44f4dad9d949d67abb0358671b382314d3f78c33461ee0ca402b02a1771",
+      "git_blob": "61f2a443253bd909354ab6237f228478ef6bec84",
+      "size_bytes": 4095
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_exclusions.py",
+      "sha256": "da63bd1a7093fb1d297998137b9ff6de09c5c99a8a70c0a0318884e95e4ae6e8",
+      "git_blob": "85c6ed28eed9537f3af33984d59d6142a9edb0e7",
+      "size_bytes": 13310
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_journal.py",
+      "sha256": "5e46d96af7f42654760da2b30c8694941a2d0ef1c6b30ec1b11c3f1a84abf561",
+      "git_blob": "bbaaaed05ef5d95120157aa2996c8313402ea154",
+      "size_bytes": 36390
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_m1.py",
+      "sha256": "3c390a993a0d2ec5ae0795feda738b68bf3d8ba51d6d6e0255dd84f8f5258a0f",
+      "git_blob": "27e83b07f5b5282489d5d40122fbce8f0721eb54",
+      "size_bytes": 120559
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_scm_worker.py",
+      "sha256": "a5569ac60c9e6f9ee21462cae7ac696f22635e1a9ff918695210839aab476521",
+      "git_blob": "30cb041490ade0fc5a0646335699e42c8122ae49",
+      "size_bytes": 18285
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_sensor.py",
+      "sha256": "c83e68d5d9ac96c397a27fad31876552604ae53844090bec5714c0a414212e6e",
+      "git_blob": "53a45dede74bc9ea8a224cb710f3dd0a6b6f6b53",
+      "size_bytes": 69630
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_setup.py",
+      "sha256": "7a1fbb07466d1f1014c622140149cb0984c34b41b94aed23da11a3a5aab574cc",
+      "git_blob": "a906a7c5c17e909a84cd42c427a7237496cca7fd",
+      "size_bytes": 99467
+    },
+    {
+      "path": "agents/nivxforge-windows/nivxforge_transaction.py",
+      "sha256": "e40a56a96599e6ec201b209a5cc6070450fd71b4b9e54f9dfb6389633ec6e4f8",
+      "git_blob": "bf5c0e9db12eb97c19a39afd68b4780cb0ea20db",
+      "size_bytes": 47211
+    },
+    {
+      "path": "agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml",
+      "sha256": "60f585860cfbea3d62888b6ccb90c15f28a49d91832d4fc4526ebeeaa316c67c",
+      "git_blob": "1806ef69569f17d388abe45a172af235f23ff60c",
+      "size_bytes": 1810
+    },
+    {
+      "path": "agents/nivxforge-windows/sysmon/nivx-b5gap1-canary-sysmon.xml.b64",
+      "sha256": "1dba47bd81fde205b6cda52be4ee298c3b506a36b4e0aa6fb75d70e742d4a457",
+      "git_blob": "afe84234362ea5cddefde822d0711dd2a221eab0",
+      "size_bytes": 2448
+    }
+  ],
+  "modifications": "NONE. Every byte is the committed blob from 388bb3d6. No reformatting, no redaction, no truncation.",
+  "exclusions": [
+    "No commit history: the import is an orphan commit, so no contaminated or unrelated ancestry is carried.",
+    "No .env, credential store, key material, CI secret, token or build artifact is present (none exist in this subtree).",
+    "No __pycache__ or .pyc: the approved subtree contains none.",
+    "No file outside agents/nivxforge-windows/ is included."
+  ],
+  "secret_scan": {
+    "patterns": [
+      "nvx_ credential",
+      "nvxenr_ token",
+      "nvxses_ session",
+      "nvxcrd_ device credential",
+      "JWT",
+      "AWS key",
+      "PEM private key",
+      "password/secret/api_key assignment",
+      "bearer literal",
+      "ten_ tenant id",
+      "database connection string"
+    ],
+    "result": "NO SECRET-SHAPED CONTENT FOUND",
+    "disclosed_non_secret": "nivxforge_setup.py:59 DEFAULT_BACKEND and build/build_windows_installer.ps1:211 default_backend contain the PUBLIC production hostname https://nivxray.nivxforge.com. It is a hostname constant, not a credential. It is RETAINED UNMODIFIED: altering it would change approved M1 source and break hash verification."
+  },
+  "verification": [
+    "git rev-parse <branch>:<path> must equal files[].git_blob",
+    "git rev-parse <branch>:agents/nivxforge-windows must equal source_subtree (db21f422561f14fb4dcec91b70925f2b5291c500)",
+    "sha256sum of each checked-out file must equal files[].sha256"
+  ],
+  "limits": [
+    "This import proves BYTE IDENTITY of 15 blobs and the subtree hash. It proves nothing about upstream ancestry, authorship or signatures.",
+    "G3 approval applies to these reviewed source bytes. G4 native Windows acceptance is NOT RUN. Publishing source is not acceptance."
+  ]
+}

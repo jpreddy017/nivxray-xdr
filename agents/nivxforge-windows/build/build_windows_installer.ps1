@@ -20,6 +20,8 @@ param(
   [string]$PythonExe = 'python',
   [string]$OutDir    = (Join-Path $PSScriptRoot '..\dist'),
   [string]$Commit    = $env:GITHUB_SHA,
+  [string]$PreviousPayloadManifest,
+  [string]$PredecessorPolicy,
   [switch]$SkipInstallDeps
 )
 
@@ -34,6 +36,9 @@ if ($env:OS -ne 'Windows_NT') {
   throw 'This build MUST run on Windows. A Linux host cannot produce a Windows PE.'
 }
 foreach ($required in @('nivxforge_setup.py', 'nivxforge_sensor.py',
+                        'nivxforge_transaction.py', 'nivxforge_scm_worker.py',
+                        'nivxforge_journal.py',
+                        'nivxforge_m1.py',
                         'nivxforge_exclusions.py',
                         'nivxforge_delivery_counters.py',
                         'nivxforge_content_acquisition.py')) {
@@ -72,7 +77,15 @@ Write-Host ('  provenance commit ' + $BuildCommit + ' run ' + $BuildRunId)
 $PyiCommon = @(
   '--paths', $SensorDir,
   '--hidden-import', 'nivxforge_build',
+  '--hidden-import', 'nivxforge_transaction',
+  '--hidden-import', 'nivxforge_scm_worker',
+  '--hidden-import', 'win32security',
+  '--hidden-import', 'win32con',
+  '--hidden-import', 'win32job',
+  '--hidden-import', 'win32api',
+  '--hidden-import', 'ntsecuritycon',
   '--hidden-import', 'nivxforge_sensor',
+  '--hidden-import', 'nivxforge_m1',
   '--hidden-import', 'nivxforge_exclusions',
   '--hidden-import', 'nivxforge_delivery_counters',
   '--hidden-import', 'nivxforge_content_acquisition',
@@ -103,6 +116,32 @@ $SvcHostExe = Join-Path $SvcHostDir 'NivXForgeSensor.exe'
 if (-not (Test-Path $SvcHostExe)) { throw 'service host exe was not produced' }
 Write-Host ('  service host (onedir): ' + $SvcHostExe)
 
+# Pin every payload byte outside the payload tree (avoid a self-hashing manifest).
+$PayloadManifest = Join-Path $WorkDir 'payload-manifest.json'
+@'
+import json, sys
+from pathlib import Path
+from nivxforge_transaction import inventory
+Path(sys.argv[2]).write_text(json.dumps(inventory(sys.argv[1]), sort_keys=True))
+'@ | Set-Content (Join-Path $WorkDir 'manifest.py') -Encoding ascii
+$env:PYTHONPATH = $SensorDir
+& $PythonExe (Join-Path $WorkDir 'manifest.py') $SvcHostDir $PayloadManifest
+if ($LASTEXITCODE -ne 0) { throw 'payload manifest generation failed' }
+$PreviousData = @()
+if ($PreviousPayloadManifest) {
+  $PinnedPrevious = Join-Path $WorkDir 'previous-payload-manifest.json'
+  Copy-Item -LiteralPath $PreviousPayloadManifest -Destination $PinnedPrevious -Force
+  $PreviousData = @('--add-data', ($PinnedPrevious + ';.'))
+}
+# The predecessor POLICY: every build this artifact is authenticated to
+# replace, each entry pinning a complete path/size/SHA-256 set. It travels
+# inside the one-file artifact, so its provenance is the artifact's own.
+if ($PredecessorPolicy) {
+  $PinnedPolicy = Join-Path $WorkDir 'predecessor-policy.json'
+  Copy-Item -LiteralPath $PredecessorPolicy -Destination $PinnedPolicy -Force
+  $PreviousData += @('--add-data', ($PinnedPolicy + ';.'))
+}
+
 # --- 2b. the INSTALLER: onefile, carrying the service host ------------
 # `--paths $SensorDir` lets the frozen entry import the EXISTING sensor and
 # the Gate 7 exclusion evaluator unchanged — one implementation, not two.
@@ -113,6 +152,8 @@ Write-Host ('  service host (onedir): ' + $SvcHostExe)
   --workpath $WorkDir `
   --specpath $WorkDir `
   --add-data ($SvcHostDir + ';service') `
+  --add-data ($PayloadManifest + ';.') `
+  @PreviousData `
   @PyiCommon `
   $Entry
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed' }
