@@ -102,4 +102,11 @@ def test_install_calls_preflight_before_admin_and_mutations():
     assert "_preflight_install_enrolment" in call_order
     assert "_assert_admin" in call_order
     assert call_order.index("_preflight_install_enrolment") < call_order.index("_assert_admin")
-    assert call_order.index("_assert_admin") < call_order.index("print")
+    # The first mutating service/file operations live inside the install try block.
+    first_try = next(i for i, node in enumerate(install.body) if isinstance(node, ast.Try))
+    admin_index = next(i for i, node in enumerate(install.body)
+                       if isinstance(node, ast.Expr)
+                       and isinstance(node.value, ast.Call)
+                       and isinstance(node.value.func, ast.Name)
+                       and node.value.func.id == "_assert_admin")
+    assert admin_index < first_try
