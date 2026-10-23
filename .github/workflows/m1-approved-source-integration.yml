@@ -1,0 +1,92 @@
+name: NivXForge approved M1 native Windows build (no service execution)
+
+# Permanent, read-only build CI: frozen reviewed source is already in GitHub.
+# This workflow has no source import, push access, secrets or service-mutating jobs.
+on:
+  pull_request:
+    branches:
+      - engineering/windows-installer-preflight-20261023
+    paths:
+      - 'agents/nivxforge-windows/**'
+      - 'M1_SOURCE_MANIFEST.json'
+      - '.github/workflows/m1-approved-source-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-build-no-service:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'engineering/m1-approved-one-installer-20261023' }}
+    runs-on: windows-2022
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: engineering/m1-approved-one-installer-20261023
+          # Read-only token; avoid checkout@v4 credential-cleanup bug in repo with an orphan submodule.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Verify frozen M1 source before native build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $subtree = (git rev-parse HEAD:agents/nivxforge-windows).Trim()
+          if ($subtree -ne 'db21f422561f14fb4dcec91b70925f2b5291c500') {
+            throw "Refusing build: source tree mismatch $subtree"
+          }
+          python -m py_compile agents/nivxforge-windows/nivxforge_m1.py agents/nivxforge-windows/nivxforge_setup.py
+          Write-Host "FROZEN SOURCE: VERIFIED"
+      - name: Build approved-source Windows EXE without SCM interaction
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "M1 Windows build failed" }
+      - name: Verify EXE and M1 dispatch without installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = "agents/nivxforge-windows/dist"
+          $exe = Join-Path $dist "NivXForgeEDRSetup.exe"
+          if (-not (Test-Path $exe)) { throw "EXE missing" }
+          $raw = [System.IO.File]::ReadAllBytes($exe)
+          if ($raw.Length -lt 2 -or $raw[0] -ne 0x4D -or $raw[1] -ne 0x5A) { throw "Not Windows PE" }
+          $version = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch 'sensor_version') { throw "Version contract failed" }
+          $m1Help = (& $exe m1-install --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $m1Help -notmatch 'm1-config') { throw "M1 dispatch not packed" }
+          $uninstallHelp = (& $exe m1-uninstall --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $uninstallHelp -notmatch 'm1-config') { throw "M1 uninstall dispatch missing" }
+          Get-Content (Join-Path $dist "SHA256SUMS.txt")
+          Write-Host "M1 SOURCE/EXE/PARSER: PASS (NO INSTALLATION)"
+      - name: Validate durable evidence journal in frozen EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe"
+          $root = Join-Path $env:RUNNER_TEMP "m1-journal-gate0"
+          $primary = Join-Path $env:RUNNER_TEMP "m1-journal-primary.json"
+          $restart = Join-Path $env:RUNNER_TEMP "m1-journal-restart.json"
+          & $exe journal-selftest --dir $root --json-out $primary
+          if ($LASTEXITCODE -ne 0) { throw "M1 journal primary FAILED" }
+          & $exe journal-selftest --dir $root --restart-check --json-out $restart
+          if ($LASTEXITCODE -ne 0) { throw "M1 journal restart FAILED" }
+          $a = Get-Content $primary -Raw | ConvertFrom-Json
+          $b = Get-Content $restart -Raw | ConvertFrom-Json
+          if ($a.result -ne 'PASS' -or $b.result -ne 'PASS') { throw "M1 journal contract FAIL" }
+          Write-Host "M1 FROZEN NTFS WAL / RESTART: PASS (NO SCM)"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: NivXForge-M1-G3-APPROVED-SOURCE-INTERNAL-UNSIGNED
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
+            M1_SOURCE_MANIFEST.json
