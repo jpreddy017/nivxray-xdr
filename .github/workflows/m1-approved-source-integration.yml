@@ -1,0 +1,165 @@
+name: NivXForge approved M1 source import and Windows EXE build
+
+on:
+  pull_request:
+    branches:
+      - engineering/windows-installer-preflight-20261023
+    paths:
+      - '.github/workflows/m1-approved-source-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  import-approved-source:
+    # The only job that can write. Downloaded bytes must match the exact
+    # owner-supplied SHA and the frozen, independently reviewed Git tree.
+    if: ${{ github.repository == 'jpreddy017/nivxray-xdr' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'engineering/m1-approved-one-installer-20261023' && github.event.pull_request.base.ref == 'engineering/windows-installer-preflight-20261023' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: engineering/m1-approved-one-installer-20261023
+          fetch-depth: 1
+      - name: Download and cryptographically verify owner-approved ZIP
+        shell: bash
+        env:
+          SOURCE_URL: https://greeting-app-5782.preview.emergentagent.com/NIVXFORGE_M1_G3_SOURCE_388bb3d6.zip
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 --fail --location --retry 2 \
+            --silent --show-error --output "${RUNNER_TEMP}/M1-source.zip" "$SOURCE_URL"
+          python - <<'PY'
+          import hashlib, json, os, pathlib, zipfile
+          p = pathlib.Path(os.environ['RUNNER_TEMP']) / 'M1-source.zip'
+          expected_zip = '246b78290616b5c87bd568951832f84047f96936da7b6de4de48a2440d59d75a'
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == expected_zip, 'ZIP hash mismatch'
+          with zipfile.ZipFile(p) as z:
+              m = json.loads(z.read('M1_SOURCE_MANIFEST.json'))
+              assert m['source_subtree'] == 'db21f422561f14fb4dcec91b70925f2b5291c500'
+              assert m['source_commit'] == '388bb3d637a076f36d78fc9d1e218c878b082b9b'
+              assert m['file_count'] == 15 and len(m['files']) == 15
+              listed = {f['path'] for f in m['files']}
+              assert len(listed) == 15
+              for f in m['files']:
+                  name = f['path']
+                  assert name.startswith('agents/nivxforge-windows/')
+                  assert '..' not in pathlib.PurePosixPath(name).parts
+                  raw = z.read(name)
+                  assert len(raw) == f['size_bytes'], name
+                  assert hashlib.sha256(raw).hexdigest() == f['sha256'], name
+                  assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == f['git_blob'], name
+              listed_archive = {e.filename for e in z.infolist() if not e.is_dir()}
+              assert listed_archive == listed | {'M1_SOURCE_MANIFEST.json', 'README.md'}
+              assert all(not (((e.external_attr >> 16) & 0o170000) == 0o120000) for e in z.infolist())
+              print('M1 owner ZIP verified: exact SHA-256, 15/15 SHA-256, 15/15 Git blob IDs')
+          PY
+      - name: Import exact approved source files only and assert entire subtree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, pathlib, zipfile
+          p = pathlib.Path(os.environ['RUNNER_TEMP']) / 'M1-source.zip'
+          with zipfile.ZipFile(p) as z:
+              m = json.loads(z.read('M1_SOURCE_MANIFEST.json'))
+              import subprocess
+              subprocess.run(['git','rm','-rf','--quiet','--','agents/nivxforge-windows'],check=True)
+              for f in m['files']:
+                  output = pathlib.Path(f['path'])
+                  output.parent.mkdir(parents=True,exist_ok=True)
+                  output.write_bytes(z.read(f['path']))
+              pathlib.Path('M1_SOURCE_MANIFEST.json').write_bytes(z.read('M1_SOURCE_MANIFEST.json'))
+          PY
+          git add -- agents/nivxforge-windows M1_SOURCE_MANIFEST.json
+          tree="$(git write-tree)"
+          actual="$(git rev-parse "${tree}:agents/nivxforge-windows")"
+          test "$actual" = 'db21f422561f14fb4dcec91b70925f2b5291c500'
+          echo "APPROVED M1 SOURCE TREE VERIFIED: $actual"
+          if git diff --cached --quiet; then
+            echo "Already imported; exact tree is unchanged."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "feat(windows): import exact frozen M1 G3-approved sensor and installer source"
+            git push origin HEAD:refs/heads/engineering/m1-approved-one-installer-20261023
+          fi
+
+  native-build-no-service:
+    needs: import-approved-source
+    runs-on: windows-2022
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: engineering/m1-approved-one-installer-20261023
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Verify frozen M1 source before native build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $subtree = (git rev-parse HEAD:agents/nivxforge-windows).Trim()
+          if ($subtree -ne 'db21f422561f14fb4dcec91b70925f2b5291c500') {
+            throw "Refusing build: source tree mismatch $subtree"
+          }
+          python -m py_compile agents/nivxforge-windows/nivxforge_m1.py agents/nivxforge-windows/nivxforge_setup.py
+          Write-Host "FROZEN SOURCE: VERIFIED"
+      - name: Build approved-source Windows EXE without SCM interaction
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "M1 Windows build failed" }
+      - name: Verify EXE and M1 dispatch without installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = "agents/nivxforge-windows/dist"
+          $exe = Join-Path $dist "NivXForgeEDRSetup.exe"
+          if (-not (Test-Path $exe)) { throw "EXE missing" }
+          $raw = [System.IO.File]::ReadAllBytes($exe)
+          if ($raw.Length -lt 2 -or $raw[0] -ne 0x4D -or $raw[1] -ne 0x5A) { throw "Not Windows PE" }
+          $version = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch 'sensor_version') { throw "Version contract failed" }
+          $m1Help = (& $exe m1-install --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $m1Help -notmatch 'm1-config') { throw "M1 dispatch not packed" }
+          $uninstallHelp = (& $exe m1-uninstall --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $uninstallHelp -notmatch 'm1-config') { throw "M1 uninstall dispatch missing" }
+          Get-Content (Join-Path $dist "SHA256SUMS.txt")
+          Write-Host "M1 SOURCE/EXE/PARSER: PASS (NO INSTALLATION)"
+      - name: Validate durable evidence journal in frozen EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe"
+          $root = Join-Path $env:RUNNER_TEMP "m1-journal-gate0"
+          $primary = Join-Path $env:RUNNER_TEMP "m1-journal-primary.json"
+          $restart = Join-Path $env:RUNNER_TEMP "m1-journal-restart.json"
+          & $exe journal-selftest --dir $root --json-out $primary
+          if ($LASTEXITCODE -ne 0) { throw "M1 journal primary FAILED" }
+          & $exe journal-selftest --dir $root --restart-check --json-out $restart
+          if ($LASTEXITCODE -ne 0) { throw "M1 journal restart FAILED" }
+          $a = Get-Content $primary -Raw | ConvertFrom-Json
+          $b = Get-Content $restart -Raw | ConvertFrom-Json
+          if ($a.result -ne 'PASS' -or $b.result -ne 'PASS') { throw "M1 journal contract FAIL" }
+          Write-Host "M1 FROZEN NTFS WAL / RESTART: PASS (NO SCM)"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: NivXForge-M1-G3-APPROVED-SOURCE-INTERNAL-UNSIGNED
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
+            M1_SOURCE_MANIFEST.json
