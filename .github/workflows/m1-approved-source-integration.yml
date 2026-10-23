@@ -1,95 +1,22 @@
-name: NivXForge approved M1 source import and Windows EXE build
+name: NivXForge approved M1 native Windows build (no service execution)
 
+# Permanent, read-only build CI: frozen reviewed source is already in GitHub.
+# This workflow has no source import, push access, secrets or service-mutating jobs.
 on:
   pull_request:
     branches:
       - engineering/windows-installer-preflight-20261023
     paths:
+      - 'agents/nivxforge-windows/**'
+      - 'M1_SOURCE_MANIFEST.json'
       - '.github/workflows/m1-approved-source-integration.yml'
 
 permissions:
   contents: read
 
 jobs:
-  import-approved-source:
-    # The only job that can write. Downloaded bytes must match the exact
-    # owner-supplied SHA and the frozen, independently reviewed Git tree.
-    if: ${{ github.repository == 'jpreddy017/nivxray-xdr' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'engineering/m1-approved-one-installer-20261023' && github.event.pull_request.base.ref == 'engineering/windows-installer-preflight-20261023' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: engineering/m1-approved-one-installer-20261023
-          fetch-depth: 1
-      - name: Download and cryptographically verify owner-approved ZIP
-        shell: bash
-        env:
-          SOURCE_URL: https://greeting-app-5782.preview.emergentagent.com/NIVXFORGE_M1_G3_SOURCE_388bb3d6.zip
-        run: |
-          set -euo pipefail
-          curl --proto '=https' --tlsv1.2 --fail --location --retry 2 \
-            --silent --show-error --output "${RUNNER_TEMP}/M1-source.zip" "$SOURCE_URL"
-          python - <<'PY'
-          import hashlib, json, os, pathlib, zipfile
-          p = pathlib.Path(os.environ['RUNNER_TEMP']) / 'M1-source.zip'
-          expected_zip = '246b78290616b5c87bd568951832f84047f96936da7b6de4de48a2440d59d75a'
-          assert hashlib.sha256(p.read_bytes()).hexdigest() == expected_zip, 'ZIP hash mismatch'
-          with zipfile.ZipFile(p) as z:
-              m = json.loads(z.read('M1_SOURCE_MANIFEST.json'))
-              assert m['source_subtree'] == 'db21f422561f14fb4dcec91b70925f2b5291c500'
-              assert m['source_commit'] == '388bb3d637a076f36d78fc9d1e218c878b082b9b'
-              assert m['file_count'] == 15 and len(m['files']) == 15
-              listed = {f['path'] for f in m['files']}
-              assert len(listed) == 15
-              for f in m['files']:
-                  name = f['path']
-                  assert name.startswith('agents/nivxforge-windows/')
-                  assert '..' not in pathlib.PurePosixPath(name).parts
-                  raw = z.read(name)
-                  assert len(raw) == f['size_bytes'], name
-                  assert hashlib.sha256(raw).hexdigest() == f['sha256'], name
-                  assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == f['git_blob'], name
-              listed_archive = {e.filename for e in z.infolist() if not e.is_dir()}
-              assert listed_archive == listed | {'M1_SOURCE_MANIFEST.json', 'README.md'}
-              assert all(not (((e.external_attr >> 16) & 0o170000) == 0o120000) for e in z.infolist())
-              print('M1 owner ZIP verified: exact SHA-256, 15/15 SHA-256, 15/15 Git blob IDs')
-          PY
-      - name: Import exact approved source files only and assert entire subtree
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json, os, pathlib, zipfile
-          p = pathlib.Path(os.environ['RUNNER_TEMP']) / 'M1-source.zip'
-          with zipfile.ZipFile(p) as z:
-              m = json.loads(z.read('M1_SOURCE_MANIFEST.json'))
-              import subprocess
-              subprocess.run(['git','rm','-rf','--quiet','--','agents/nivxforge-windows'],check=True)
-              for f in m['files']:
-                  output = pathlib.Path(f['path'])
-                  output.parent.mkdir(parents=True,exist_ok=True)
-                  output.write_bytes(z.read(f['path']))
-              pathlib.Path('M1_SOURCE_MANIFEST.json').write_bytes(z.read('M1_SOURCE_MANIFEST.json'))
-          PY
-          git add -- agents/nivxforge-windows M1_SOURCE_MANIFEST.json
-          tree="$(git write-tree)"
-          actual="$(git rev-parse "${tree}:agents/nivxforge-windows")"
-          test "$actual" = 'db21f422561f14fb4dcec91b70925f2b5291c500'
-          echo "APPROVED M1 SOURCE TREE VERIFIED: $actual"
-          if git diff --cached --quiet; then
-            echo "Already imported; exact tree is unchanged."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "feat(windows): import exact frozen M1 G3-approved sensor and installer source"
-            git push origin HEAD:refs/heads/engineering/m1-approved-one-installer-20261023
-          fi
-
   native-build-no-service:
-    needs: import-approved-source
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'engineering/m1-approved-one-installer-20261023' }}
     runs-on: windows-2022
     timeout-minutes: 50
     permissions:
@@ -117,7 +44,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit $env:GITHUB_SHA
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit (git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0) { throw "M1 Windows build failed" }
       - name: Verify EXE and M1 dispatch without installation
         shell: pwsh
