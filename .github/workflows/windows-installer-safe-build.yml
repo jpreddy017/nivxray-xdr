@@ -1,0 +1,97 @@
+name: NivXForge Windows internal build (NO service installation)
+
+# This workflow produces an INTERNAL VALIDATION artifact from the PR source.
+# It does NOT claim M1-G3 provenance, service acceptance, or release readiness.
+# Do not place any production credential into this job.
+on:
+  pull_request:
+    branches:
+      - fix/p0-sensor-delivery
+      - engineering/windows-ci-manual-guard-20261023
+    paths:
+      - 'agents/nivxforge-windows/**'
+      - 'backend/tests/edr/test_windows_installer_preflight.py'
+      - '.github/workflows/windows-installer-safe-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+      - name: Portable source and preflight tests
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest==8.3.3' 'pytest-xdist==3.6.1' 'requests==2.32.3'
+          python -m py_compile agents/nivxforge-windows/nivxforge_setup.py
+          python -m pytest backend/tests/edr/test_windows_installer_preflight.py -q
+
+  windows-build-only:
+    needs: preflight
+    runs-on: windows-2022
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Build Windows EXE (NO install, no SCM)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
+      - name: Inspect artifact only (no service execution)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = "agents/nivxforge-windows/dist"
+          $exe = Join-Path $dist "NivXForgeEDRSetup.exe"
+          if (-not (Test-Path $exe)) { throw "Windows EXE missing" }
+          $b = [System.IO.File]::ReadAllBytes($exe)
+          if ($b.Length -lt 2 -or $b[0] -ne 0x4D -or $b[1] -ne 0x5A) {
+            throw "Not a PE executable"
+          }
+          $version = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch 'sensor_version') {
+            throw "version self-description failed"
+          }
+          Write-Host $version
+          Get-Content (Join-Path $dist "SHA256SUMS.txt")
+          Write-Host "INTERNAL BUILD ONLY. Native SCM, G4 and M1 review NOT executed."
+      - name: Native evidence journal WAL and restart checks (no SCM)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe"
+          $root = Join-Path $env:RUNNER_TEMP "nivx-journal-gate0"
+          $primary = Join-Path $env:RUNNER_TEMP "nvx-journal-primary.json"
+          $restart = Join-Path $env:RUNNER_TEMP "nvx-journal-restart.json"
+          & $exe journal-selftest --dir $root --json-out $primary
+          if ($LASTEXITCODE -ne 0) { throw "Native WAL primary validation failed" }
+          & $exe journal-selftest --dir $root --restart-check --json-out $restart
+          if ($LASTEXITCODE -ne 0) { throw "Native WAL restart validation failed" }
+          $a = Get-Content $primary -Raw | ConvertFrom-Json
+          $b = Get-Content $restart -Raw | ConvertFrom-Json
+          if ($a.result -ne "PASS" -or $b.result -ne "PASS") { throw "Native journal verdict failure" }
+          Write-Host "WINDOWS JOURNAL: PASS (primary and frozen-process restart)"
+          Write-Host "NO SCM service created. No network test performed."
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: NivXForgeEDRSetup-TRUNK-INTERNAL-NOT-M1-G4
+          retention-days: 7
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
+          if-no-files-found: error
