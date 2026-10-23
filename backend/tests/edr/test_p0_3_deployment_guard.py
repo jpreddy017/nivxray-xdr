@@ -63,7 +63,7 @@ def _route_for(release_id, *, authorize=True):
         "_db": NoDB(),
         "enrollment_store": SimpleNamespace(mint_enrollment_token=mint),
     }
-    exec(compile(module, str(SOURCE), "exec"), ctx)
+    exec(compile(ast.fix_missing_locations(module), str(SOURCE), "exec"), ctx)
     body = SimpleNamespace(release_id=release_id, group_id="g1")
     return ctx["create_deployment"], body, calls
 
