@@ -8377,3 +8377,91 @@ a credential), retained for byte-verifiability. Explicitly stated: the extract
 proves 15 blobs at f971c765 and NOTHING about ancestry/history/signatures.
 STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
 removed. Stops at independent Codex re-review handoff.
+
+================================================================================
+2026-06 · NIVXFORGE EDR — EXECUTION DIRECTIVE · FIRST HANDOFF (VERIFICATION)
+================================================================================
+DELIVERABLE: memory/NIVXFORGE_EDR_EXECUTION_FIRST_HANDOFF.md
+SHA-256: b9a984c2f890caba06ca11eae66cfafa459d361349c14aee8207a641803912b4
+SIZE: 20,534 bytes. Served (HTTP 200).
+
+TRACK A
+A.1 M1 SOURCE IDENTITY = PASS. commit 388bb3d6..., tree df8eb48b, parent
+a4e544f4, subtree db21f422, reachable from engineering/m1-g3-integrated and
+engineering/m1-g4-preparation; 15-blob manifest already published in the A1
+provenance file. Subtree composition: 4 identical to trunk, 4 trunk-absent, 4
+divergent + build script.
+A.2 CI = FAIL (3 controls required).
+ PASS: zero secrets.* and permissions contents:read; cleanup step is
+ if: always() sc stop/delete (:743-750); pyinstaller==6.11.1 + pywin32==308
+ pinned; nivxforge_build.py git-ignored (.gitignore:187); negative probes are
+ real assertions with required non-zero exits (:63-112).
+ CI-F1 push trigger has NO branches filter (:12-18) while Gates 3-4 create and
+ START a real service (:403,:531) -> guard commit must land FIRST and touch
+ nothing under agents/.
+ CI-F2 service-starting gates use the PRODUCTION hostname
+ _install_service("https://nivxray.nivxforge.com",30) at :417,:548,:632 -> use a
+ lab FQDN; NO code change needed since _assert_backend is a deny-list
+ (setup.py:83-104).
+ CI-F3 no source-provenance assertion: checkout takes the pushed ref and the
+ build stamps GITHUB_SHA; nothing asserts the subtree equals the G3 blobs ->
+ assert the PER-FILE manifest before the build.
+ PRODUCTION-CONTACT ASSESSMENT (precise): an unenrolled running service does NOT
+ reach production - _cycle -> _sync_policy -> _open_session dereferences
+ ident["tenant_id"] (sensor.py:521-525) and raises KeyError, which the
+ except (RuntimeError,URLError,OSError) does not catch, so NO SOCKET OPENS. That
+ is an ACCIDENT, not a control: the production origin is in the binPath and one
+ identity away from live posting. Gate 4 refuses on empty stdin pre-network.
+ SOURCE CONTAMINATION: build script writes nivxforge_build.py INTO the frozen
+ subtree (:69) and never removes it -> blob verification must run BEFORE the
+ build; permitted post-build additions are nivxforge_build.py, dist/, build/work/.
+A.3 BUILD = PARTIAL. Pinned tooling PASS; python-version '3.11' floating FAIL;
+pip without --require-hashes FAIL; PyInstaller not byte-deterministic (NOT
+ACHIEVABLE as built) -> the build is REPEATABLE, NOT BIT-REPRODUCIBLE, and
+provenance must ride on the per-file manifest + artifact hashes. Signing
+BLOCKED. payload-manifest.json exists on the M1 script only.
+A.4/A.5 Gates A-G1..A-G5 all BLOCKED pending approval; G4 NOT RUN; Actions run
+history UNKNOWN; no artifact exists (dist/ absent, route cannot serve a PE).
+
+TRACK B
+MEASURED THIS PASS: 97 passed (phase0 windows canonical bridge + dt2.0
+trajectory contract + c1 canonical identity, 0.98s); 41 passed (p0a response
+authority + p0 f10 isolation, 1.69s). Portable only, no native evidence.
+INVENTORY: Windows collection/journal/delivery IMPLEMENTED; LINUX SENSOR
+PARTIAL AND ASYMMETRIC - no nivxforge_journal.py at all, delivery is
+outbox.jsonl + offset single-row POSTs (linux sensor :52-53,:527-569);
+canonicalization IMPLEMENTED BUT COVERAGE-LIMITED; CES/CEM, detections,
+Device Trajectory, process tree, response (HOLD-gated), enrolment/identity and
+tenant authority IMPLEMENTED; hunting PARTIAL (payload regex aggregation, no
+dedicated suite); onboarding BLOCKED (P0-2/P0-3); transaction engine and
+identity migration BLOCKED.
+B.3 CANDIDATE RE-SHAPED AFTER GAP VERIFICATION: Windows canonicalization
+ALREADY EXISTS (windows_eventlog.py, 980 ln, explicit no-fabrication contract).
+THE REAL GAP IS COVERAGE ALIGNMENT between two existing maps:
+ SUPPORTED (ingest gate) = 9 pairs: sysmon 1,3,5,11,12,13,22 + winsec 4624,4688
+ SYSMON_KIND + WINSEC_KIND (downstream) = 26 + 18 = 44
+ KNOWN DOWNSTREAM BUT REFUSED AT INGEST = 35 classes: sysmon
+ 2,4,6,7,8,9,10,14,15,17,18,19,20,21,23,24,25,26,255 and winsec
+ 1102,4625,4634,4672,4689,4697,4698,4700,4720,4732,4738,4776,5140,5145,5156,7045
+ ADMITTED-BUT-UNKNOWN-DOWNSTREAM = NONE (gate is strictly narrower; a deficit,
+ not a divergence). The sensor COLLECTS all of them (whole-channel wevtutil), so
+ they are collected, journalled, delivered, refused, and visible only as
+ UNSUPPORTED trajectory states (trajectory/contract.py:136,343).
+ SECOND FINDING: CHANNEL_FAMILY knows only sysmon/operational + security
+ (:339-342) and _provider_family only Sysmon + Security-Auditing (:144-151),
+ while the sensor also collects SYSTEM - so 7045 is refused EARLIER, at family
+ resolution. WINSEC_KIND already contains 7045, so admitting it is a FAMILY
+ DECISION, not a map entry.
+ MODULE B-1a (recommended first, no new schema/lane): winsec 4625, 4634, 4689 +
+ sysmon 2,14,15,23,26. One review caveat: NOT_SUPPORTED[AUTHENTICATION]
+ declares authentication.session_end unavailable (:124), so admitting 4634
+ FILLS A SELF-DECLARED GAP = a contract change inside the existing module.
+ MODULE B-1b (later, needs canonical contract review): 7045/4697 service,
+ 4698/4700 task, sysmon 7,8,10,17,18,19-21, 1102, System-channel family.
+ G0 SCOPING IS NOT COMPLETE and B-1a IS NOT AUTHORIZED by this handoff.
+B.4 BACKLOG: B-1b > Linux journal parity (reuse nivxforge_journal.py, do not
+write a second durability mechanism) > 4 detection-handoff isolation failures >
+hunting query contract > onboarding correction (P0-3/A1 pending re-review).
+STATUS: git status --porcelain agents backend apps .github docs = 0. No HOLD
+removed. NEXT STEP IS A DECISION: approve A-G1 (CI-F1 first, alone) and/or
+authorize G0 scoping for B-1a.
