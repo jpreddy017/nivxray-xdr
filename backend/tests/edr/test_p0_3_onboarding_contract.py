@@ -56,7 +56,7 @@ def _describe_fn():
            "_SECRET_SHAPES": (),
            "datetime": __import__("datetime").datetime,
            "timezone": __import__("datetime").timezone}
-    exec(compile(module, str(ONBOARD), "exec"), ctx)
+    exec(compile(ast.fix_missing_locations(module), str(ONBOARD), "exec"), ctx)
     return ctx["_describe"]
 
 
