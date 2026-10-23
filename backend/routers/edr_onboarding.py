@@ -77,6 +77,8 @@ PACKAGES = {
         "directory": "nivxforge-windows",
         "files": ["Install-NivXForgeSensor.ps1", "nivxforge_sensor.py"],
         "entrypoint": "Install-NivXForgeSensor.ps1",
+        "new_endpoint_eligible": False,
+        "eligibility_reason": "Legacy PowerShell package is incomplete and not approved for new Windows installations.",
         "release_status": "PREVIEW",
         "signing_status": "UNSIGNED",
         "supported_windows": ["Windows 10 21H2+", "Windows 11",
@@ -178,6 +180,12 @@ def _describe(package: dict) -> dict[str, Any]:
     available = bool(files) and not missing and credential_free
     return {
         **{k: v for k, v in package.items() if k != "directory"},
+        # Hide new-install instructions at the API, not merely in the UI.
+        "silent_install": (None if package.get("new_endpoint_eligible") is False
+                           else package.get("silent_install")),
+        "install_instruction_withheld_reason": (
+            package.get("eligibility_reason")
+            if package.get("new_endpoint_eligible") is False else None),
         "sensor_version": _sensor_version(package["directory"]),
         "files": files,
         "missing_files": missing,
