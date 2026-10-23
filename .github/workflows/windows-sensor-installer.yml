@@ -11,10 +11,6 @@ name: NivXForge Windows Installer (V1)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'agents/nivxforge-windows/**'
-      - '.github/workflows/windows-sensor-installer.yml'
 
 permissions:
   contents: read
@@ -376,7 +372,7 @@ jobs:
         run: |
           $exe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
           $out = (& $exe --service-run `
-                    --backend https://nivxray.nivxforge.com `
+                    --backend https://lab.invalid `
                     --interval 30 2>&1 | Out-String)
           $global:LASTEXITCODE = 0
           Write-Host $out
@@ -401,6 +397,8 @@ jobs:
       # so this also proves a failing sensor cycle does not kill the
       # service instead of being retried.
       - name: Real Windows SCM lifecycle (artifact acceptance gate)
+        # Disabled until a separate, independently approved native-test workflow exists.
+        if: ${{ false }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -414,7 +412,7 @@ jobs:
           import nivxforge_setup as s
           assert s.SERVICE_EXE.exists(), s.SERVICE_EXE
           print("INSTALLER_STATE_DIR=%s" % s.sensor.STATE_DIR)
-          s._install_service("https://nivxray.nivxforge.com", 30)
+          s._install_service("https://lab.invalid", 30)
           print("PRODUCTION service creation path completed")
           '@ | Out-File -FilePath scm_smoke.py -Encoding ascii
           $smoke = (python scm_smoke.py 2>&1 | Out-String)
@@ -529,6 +527,8 @@ jobs:
       # AFTER stopping the service and BEFORE restarting it — leaving a
       # healthy endpoint dark. No enrolment token is used or needed here.
       - name: Re-enrol against a RUNNING service · stop race + rollback
+        # Blocked enterprise transaction behavior must not run in build CI.
+        if: ${{ false }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -545,7 +545,7 @@ jobs:
           import sys
           sys.path.insert(0, r"agents/nivxforge-windows")
           import nivxforge_setup as s
-          s._install_service("https://nivxray.nivxforge.com", 30)
+          s._install_service("https://lab.invalid", 30)
           assert s._wait_for_service_state("RUNNING", 90), s._service_state()
           print("GATE4 PRECONDITION: RUNNING")
           '@ | Out-File -FilePath gate4_precondition.py -Encoding ascii
@@ -629,7 +629,7 @@ jobs:
           $run = @{
             FilePath               = $exe
             ArgumentList           = @('install', '--re-enrol',
-                                       '--backend', 'https://nivxray.nivxforge.com',
+                                       '--backend', 'https://lab.invalid',
                                        '--tenant', 'ten_ci_gate4_not_a_real_tenant',
                                        '--token-stdin')
             RedirectStandardInput  = $empty
@@ -741,7 +741,8 @@ jobs:
           exit 0
 
       - name: Remove the CI service if the gate failed
-        if: always()
+        # No service-starting operations are enabled in this build workflow.
+        if: ${{ false }}
         shell: pwsh
         run: |
           & sc.exe stop NivXForgeSensor 2>&1 | Out-Null
