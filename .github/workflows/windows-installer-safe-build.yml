@@ -68,6 +68,23 @@ jobs:
           Write-Host $version
           Get-Content (Join-Path $dist "SHA256SUMS.txt")
           Write-Host "INTERNAL BUILD ONLY. Native SCM, G4 and M1 review NOT executed."
+      - name: Native evidence journal WAL and restart checks (no SCM)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe"
+          $root = Join-Path $env:RUNNER_TEMP "nivx-journal-gate0"
+          $primary = Join-Path $env:RUNNER_TEMP "nvx-journal-primary.json"
+          $restart = Join-Path $env:RUNNER_TEMP "nvx-journal-restart.json"
+          & $exe journal-selftest --dir $root --json-out $primary
+          if ($LASTEXITCODE -ne 0) { throw "Native WAL primary validation failed" }
+          & $exe journal-selftest --dir $root --restart-check --json-out $restart
+          if ($LASTEXITCODE -ne 0) { throw "Native WAL restart validation failed" }
+          $a = Get-Content $primary -Raw | ConvertFrom-Json
+          $b = Get-Content $restart -Raw | ConvertFrom-Json
+          if ($a.result -ne "PASS" -or $b.result -ne "PASS") { throw "Native journal verdict failure" }
+          Write-Host "WINDOWS JOURNAL: PASS (primary and frozen-process restart)"
+          Write-Host "NO SCM service created. No network test performed."
       - uses: actions/upload-artifact@v4
         if: success()
         with:
