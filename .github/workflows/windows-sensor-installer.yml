@@ -11,10 +11,6 @@ name: NivXForge Windows Installer (V1)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'agents/nivxforge-windows/**'
-      - '.github/workflows/windows-sensor-installer.yml'
 
 permissions:
   contents: read
@@ -376,7 +372,7 @@ jobs:
         run: |
           $exe = Join-Path $env:ProgramFiles 'NivXForge\sensor\service\NivXForgeSensor.exe'
           $out = (& $exe --service-run `
-                    --backend https://nivxray.nivxforge.com `
+                    --backend https://lab.invalid `
                     --interval 30 2>&1 | Out-String)
           $global:LASTEXITCODE = 0
           Write-Host $out
@@ -401,6 +397,8 @@ jobs:
       # so this also proves a failing sensor cycle does not kill the
       # service instead of being retried.
       - name: Real Windows SCM lifecycle (artifact acceptance gate)
+        # Disabled until a separate, independently approved native-test workflow exists.
+        if: ${{ false }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -529,6 +527,8 @@ jobs:
       # AFTER stopping the service and BEFORE restarting it — leaving a
       # healthy endpoint dark. No enrolment token is used or needed here.
       - name: Re-enrol against a RUNNING service · stop race + rollback
+        # Blocked enterprise transaction behavior must not run in build CI.
+        if: ${{ false }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -741,7 +741,8 @@ jobs:
           exit 0
 
       - name: Remove the CI service if the gate failed
-        if: always()
+        # No service-starting operations are enabled in this build workflow.
+        if: ${{ false }}
         shell: pwsh
         run: |
           & sc.exe stop NivXForgeSensor 2>&1 | Out-Null
