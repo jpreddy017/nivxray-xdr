@@ -8521,3 +8521,25 @@ Correction (branch `engineering/m1-g4-acl-ancestor-fix`, commits `fbbf3e77`,
 Portable: 408 M1 tests pass, 936 pass across the windows/installer selection.
 NATIVE: NOT RUN — no Windows runner in this environment. G4 stays on HOLD
 pending native reproduction + independent verification of the candidate.
+
+### G4-A1 candidate delivery (2026-10-28)
+
+Branch `engineering/m1-g4-acl-ancestor-fix`, tip `7b150027e945ec5b520659d89e333e4fc128d298`,
+tree `030c7dad`, base `b8020771`. NOT pushed — this workspace has no git remote;
+pushing is the "Save to Github" platform action.
+
+Artifacts (served, hashes verified after download):
+- `NIVXFORGE_M1_G4A1_CANDIDATE.patch` — `d057e0e3…43fc64`, 48,900 B, 3 commits,
+  applies onto the frozen base with `git am --3way` to tree `030c7dad`
+- `NIVXFORGE_M1_G4A1_CANDIDATE_MANIFEST.md` — `a68e7a44…390998`
+- `NIVXFORGE_M1_G4A1_M1PY_VS_FROZEN.diff.txt` — `a750e712…76d8a5`
+
+Added since the first candidate: chain-level regressions through
+`ancestry_report` (reparse at any level, unreadable, absent intermediate,
+hijackable OS ancestor), bootstrap-root OWNED-role cases, and
+`.github/workflows/m1-g4-candidate-verification.yml` — NEW file,
+`workflow_dispatch` only, pytest + read-only native ACL probe, asserts no
+service and no install directory afterwards. Frozen
+`windows-sensor-installer.yml` blob `7b21d6de…` unchanged.
+
+Portable: 426 M1 tests pass (51 new). NATIVE: still NOT RUN. G4 stays HOLD.
