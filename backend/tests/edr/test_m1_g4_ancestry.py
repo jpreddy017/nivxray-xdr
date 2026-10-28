@@ -216,3 +216,28 @@ def test_native_windows_ancestor_security_read_only():
         assert report is not None, "ACL UNKNOWN for {}".format(path)
         assert not report["nonadmin_writable"], (
             "Ancestor rejected {}: {}".format(path, report))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows ACLs required")
+def test_native_windows_programfiles_ancestor_read_only():
+    """G4-A2: probe stock Program Files as an ancestor, never modify ACLs.
+
+    The prior G4-A1 Windows CI covered C:\\ and C:\\ProgramData only.
+    Report separately whether an observed refusal came from allow-ACE
+    inspection or token-aware AccessCheck; both must still fail closed.
+    """
+    host = WindowsHost()
+    program_files = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+    descriptor = host._read_path_descriptor(program_files)
+    report = host.directory_security(program_files, role=ROLE_ANCESTOR)
+    if report is None or report.get("nonadmin_writable"):
+        ace = (filesystem_ace_inspection(descriptor, ROLE_ANCESTOR)
+               if descriptor is not None else ["descriptor unreadable"])
+        effective = (filesystem_token_verdict(descriptor, ROLE_ANCESTOR, host)
+                     if descriptor is not None else ["descriptor unreadable"])
+        pytest.fail(
+            "G4-A2 read-only Program Files ancestor refusal: "
+            f"path={program_files} report={report!r} "
+            f"ace_problems={ace!r} effective_problems={effective!r}",
+            pytrace=False,
+        )
