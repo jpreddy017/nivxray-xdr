@@ -8543,3 +8543,27 @@ service and no install directory afterwards. Frozen
 `windows-sensor-installer.yml` blob `7b21d6de…` unchanged.
 
 Portable: 426 M1 tests pass (51 new). NATIVE: still NOT RUN. G4 stays HOLD.
+
+### EDR web release prep — read-only analysis (2026-10-28)
+
+Baseline `e534002bed6049a8d26688a9e9ff22e6cf28460b` (present locally).
+`phase2/edr-production` and `publish/edr-access-loop-frontend` do NOT exist in
+this clone and cannot be fetched (no git remote).
+
+GO shortlist for `release/edr-web-20261028` — source commit `ce2f5615`
+(on `release/edr-process-graph`; identical blobs on `feature/process-graph-falcon`):
+- `apps/nivxray-xdr/src/nivxforge/components/ProcessGraphCanvas.jsx` (new, blob 82ac33c7)
+- `apps/nivxray-xdr/src/nivxforge/pages/EdrProcessTreePage.jsx` (blob 8d489a87)
+- `apps/nivxray-xdr/src/nivxforge/pages/EdrComputersPage.jsx` (+Process Tree button)
+Path-limited diff applies cleanly onto the baseline (`git apply --check` exit 0).
+No backend change needed: `/api/edr/process-tree` (incident_id|endpoint_id|hours)
+and `/api/edr/endpoint-detections` exist at baseline and are TENANT_SCOPED;
+`getEndpointProcessTree` already exported from baseline `edrApi.js`.
+
+EXCLUDE:
+- `vite.config.js` watch block — dev-only ENOSPC workaround, no prod effect
+- `safety/dt2-1-19of19` — **behind** the baseline on Device Trajectory; taking
+  it would delete ~4,800 lines of newer baseline work (RelationshipCanvas,
+  dt2/graphModel, compromise, fileType, dt2_3* suites). REGRESSION TRAP.
+- whole-branch merge of `release/edr-process-graph` (1,445 files: screenshots,
+  rocket-p0 submodule pointers, committed SQLite state DBs)
