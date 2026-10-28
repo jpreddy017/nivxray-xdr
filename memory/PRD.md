@@ -8591,3 +8591,28 @@ marker without an identity — closure is an explicit operator decision.
 Token hygiene: look-alike-free token requested. Server generator untouched;
 minted and revoked 55 candidates to SELECT one without `l I 0 O o`.
 Live token `tok_b53253fe42b94d43` (exp 17:54:33Z) — all others REVOKED.
+
+### G4-A2 TLS blocker — root cause (2026-10-28)
+
+Served chain is COMPLETE and VALID (disproves the incomplete-chain hypothesis):
+leaf `CN=preview.emergentagent.com` (SAN `preview.emergentagent.com`,
+`*.preview.emergentagent.com`; valid 2026-10-05 → 2027-01-03) → `GTS WE1`
+(sha256 1dfc1605…) → `GTS Root R4` (sha256 76b27b80…). openssl verify
+return code 0. AIA present: http://i.pki.goog/we1.crt.
+
+Root cause is CLIENT-SIDE trust materialisation. `nivxforge_sensor.py:272`
+uses `http.client.HTTPSConnection(netloc, timeout=30)` with no `context=`,
+so OpenSSL reads a snapshot of the Windows ROOT store and does NOT follow AIA
+nor trigger Windows' Automatic Root Certificates Update. SChannel
+(`Invoke-WebRequest`) does both — hence the PowerShell health check passed on
+the same host. If `GTS Root R4` is not materialised in the principal's merged
+root view, Python fails with "unable to get local issuer certificate".
+
+Backend state at the time: tok_25b4c02434994874 ACTIVE, `used_at` null; 1
+endpoint (synthetic ep_3062b873… from 12:24), 1 credential; NO enrollment.
+Also found TWO `ENROLLMENT_REJECTED` / `ENROLLMENT_TOKEN_INVALID` events
+(16:38:59Z and 17:17:18Z) from candidate `ep_024ce6515803f7165a11` — both
+reached the backend, so TLS worked for those attempts and failed only later.
+Recommended correction: materialise the root for the principal that runs the
+installer (VM trust-store provisioning), NOT a chain change and NOT a
+verification weakening.
