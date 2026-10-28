@@ -1,0 +1,44 @@
+name: G4 isolated backend preflight (no deployment)
+on:
+  push:
+    branches: [engineering/g4-isolated-backend-staging-20261028]
+    paths:
+      - deploy/g4-edr-staging/**
+      - .github/workflows/g4-edr-staging-preflight.yml
+  pull_request:
+    paths:
+      - deploy/g4-edr-staging/**
+      - .github/workflows/g4-edr-staging-preflight.yml
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-staging-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify original frozen M1 source tree unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD:agents/nivxforge-windows)"
+          expected="db21f422561f14fb4dcec91b70925f2b5291c500"
+          test "$actual" = "$expected" || { echo 'BLOCKED: frozen source subtree differs'; exit 1; }
+      - name: Syntax and 17 offline isolation checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile deploy/g4-edr-staging/entrypoint.py deploy/g4-edr-staging/smoke.py
+          python3 -m unittest discover -s deploy/g4-edr-staging -p test_g4.py -v
+      - name: Ensure no production deployment commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -E 'vercel[[:space:]]+--prod|railway[[:space:]]+up|docker[[:space:]]+compose[[:space:]]+up' \
+            deploy/g4-edr-staging --include='*.py' --include='Dockerfile'
+          echo 'PASS: static deployment package checks (not live G4 acceptance)'
