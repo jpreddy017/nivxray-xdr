@@ -1,0 +1,73 @@
+name: NivXForge G4-A1 isolated Windows ACL candidate
+
+on:
+  pull_request:
+    branches:
+      - engineering/m1-approved-one-installer-20261023
+    paths:
+      - 'agents/nivxforge-windows/nivxforge_m1.py'
+      - 'backend/tests/edr/test_m1_g4_ancestry.py'
+      - '.github/workflows/m1-g4-ancestry-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  portable-acl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+      - name: Portable ACL security contract
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest==8.3.3'
+          python -m py_compile agents/nivxforge-windows/nivxforge_m1.py
+          python -m pytest backend/tests/edr/test_m1_g4_ancestry.py -q
+
+  windows-acl-and-candidate:
+    needs: portable-acl
+    runs-on: windows-2022
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Native ACL probe (read only; no system ACL changes)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check 'pytest==8.3.3' 'pywin32==308'
+          if ($LASTEXITCODE -ne 0) { throw 'Dependencies failed' }
+          python -m pytest backend/tests/edr/test_m1_g4_ancestry.py -q -rs
+          if ($LASTEXITCODE -ne 0) { throw 'Native ACL tests failed' }
+      - name: Build internal unsigned candidate (no install or enrollment)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate build failed' }
+          $exe = 'agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe'
+          if (-not (Test-Path $exe)) { throw 'Installer absent' }
+          $info = Get-Content 'agents/nivxforge-windows/dist/build-info.json' -Raw | ConvertFrom-Json
+          if ($info.commit -ne $env:GITHUB_SHA) { throw 'Commit provenance mismatch' }
+          $digest = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($info.sha256 -ne $digest) { throw 'Artifact digest mismatch' }
+          & $exe version
+          if ($LASTEXITCODE -ne 0) { throw 'Version check failed' }
+          Write-Host "G4-A1 candidate SHA256: $digest"
+          Write-Host "INTERNAL ONLY; no service, network, token or installation used."
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: NivXForge-G4-A1-ACL-CANDIDATE-UNSIGNED-NOT-APPROVED
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
