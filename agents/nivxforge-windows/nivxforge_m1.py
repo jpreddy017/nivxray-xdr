@@ -774,8 +774,13 @@ def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
             sid = sid_text(entry[2])
             if sid is None:
                 return {**parsed, "malformed": True, "dacl": aces}
+            #: GetAce returns a Windows ACCESS_MASK DWORD, but pywin32 can
+            #: expose its high-bit GENERIC_* flags as a signed Python int.
+            #: Preserve the exact 32-bit bit-pattern before inspection and
+            #: AccessCheck/SDDL rendering. A real unsafe allow ACE still
+            #: refuses; only its representation changes here.
             aces.append({"type": ace_type, "flags": flags,
-                         "mask": int(entry[1]), "sid": sid})
+                         "mask": int(entry[1]) & 0xFFFFFFFF, "sid": sid})
     except Exception:                                        # noqa: BLE001
         return {**parsed, "malformed": True, "dacl": aces}
     parsed["dacl"] = aces

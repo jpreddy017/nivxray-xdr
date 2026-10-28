@@ -24,6 +24,7 @@ from nivxforge_m1 import (  # noqa: E402
     ROLE_OWNED, SID_LOCAL_SYSTEM, SID_TRUSTED_INSTALLER, WindowsHost,
     WRITE_DAC, WRITE_OWNER, DELETE, filesystem_ace_inspection,
     filesystem_token_verdict, load_config, map_generic, path_security_verdict,
+    normalise_descriptor, descriptor_to_sddl, SE_DACL_PRESENT, SE_DACL_PROTECTED,
 )
 
 USERS = "S-1-5-32-545"
@@ -124,6 +125,33 @@ def test_null_dacl_and_unsupported_ace_fail_closed():
     assert verdict(desc)["nonadmin_writable"]
     assert verdict(descriptor({"type": 5, "sid": USERS,
                                "mask": None, "flags": 0}))["nonadmin_writable"]
+
+
+
+class SignedAceDacl:
+    """pywin32 GetAce can return a signed int for a Windows DWORD mask."""
+    def __init__(self, flags):
+        self.flags = flags
+
+    def GetAceCount(self):
+        return 1
+
+    def GetAce(self, index):
+        assert index == 0
+        # 0xE0010000 as a signed 32-bit integer, as observed on native C:\.
+        return ((ACCESS_ALLOWED_ACE_TYPE, self.flags), -536805376, AUTH)
+
+
+@pytest.mark.parametrize("flags,unsafe", [
+    (INHERIT_ONLY_ACE, False), (0, True)])
+def test_windows_signed_generic_mask_is_parsed_without_losing_rights(flags, unsafe):
+    desc = normalise_descriptor(
+        SE_DACL_PRESENT | SE_DACL_PROTECTED,
+        SID_LOCAL_SYSTEM, SID_LOCAL_SYSTEM, SignedAceDacl(flags), lambda sid: sid)
+    assert desc["dacl"][0]["mask"] == 0xE0010000
+    assert desc.get("malformed") is not True
+    assert descriptor_to_sddl(desc, FILE_GENERIC_MAPPING) is not None
+    assert verdict(desc)["nonadmin_writable"] is unsafe
 
 
 class ConfigHost:
