@@ -18,10 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-          submodules: false
+      - name: Fetch only G4 staging files without traversing legacy gitlinks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git -c protocol.version=2 fetch --no-tags --depth=1 --no-recurse-submodules \
+            origin "+$GITHUB_REF:refs/remotes/ci"
+          git sparse-checkout init --cone
+          git sparse-checkout set deploy/g4-edr-staging
+          git checkout --detach refs/remotes/ci
       - name: Verify original frozen M1 source tree unchanged
         shell: bash
         run: |
