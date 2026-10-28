@@ -128,30 +128,30 @@ FILE_GENERIC_MAPPING = {
     GENERIC_EXECUTE: FILE_GENERIC_EXECUTE,
     GENERIC_ALL: FILE_ALL_ACCESS,
 }
-#: Rights by which a non-administrator could REPLACE, REDIRECT or RE-PERMISSION
-#: an existing child of this directory. Applied to every ancestor of a
-#: protected path.
+#: Rights on an existing ANCESTOR that let a non-admin delete, redirect or
+#: re-permission an existing protected child. FILE_WRITE_DATA /
+#: FILE_APPEND_DATA are ADD_FILE / ADD_SUBDIRECTORY on a directory; these
+#: permit new siblings but not replacement of the existing protected M1 root.
+#: load_config explicitly checks that root in ROLE_OWNED before reading.
 DANGEROUS_ANCESTOR_RIGHTS = {
-    "FILE_WRITE_DATA": FILE_WRITE_DATA,
     "FILE_DELETE_CHILD": FILE_DELETE_CHILD,
     "DELETE": DELETE,
     "WRITE_DAC": WRITE_DAC,
     "WRITE_OWNER": WRITE_OWNER,
 }
-#: Everything above PLUS creation inside the object itself. Applied to the
-#: directories and files M1 owns.
-#:
-#: FILE_APPEND_DATA is deliberately NOT dangerous on an ANCESTOR: the default
-#: Windows `C:\` DACL grants Authenticated Users "create folders / append
-#: data" on that folder only, which permits creating a NEW subdirectory but
-#: not replacing an existing one. Treating it as dangerous there would refuse
-#: every default Windows 11 host while protecting nothing, because M1's own
-#: directory creation is CREATE_NEW and refuses an existing directory. On an
-#: OWNED object it IS dangerous, because content could be planted inside it.
-DANGEROUS_OWNED_RIGHTS = {**DANGEROUS_ANCESTOR_RIGHTS,
-                          "FILE_APPEND_DATA": FILE_APPEND_DATA,
-                          "FILE_WRITE_EA": FILE_WRITE_EA,
-                          "FILE_WRITE_ATTRIBUTES": FILE_WRITE_ATTRIBUTES}
+#: The protected bootstrap root, M1-owned directories, and config files
+#: must reject ALL non-admin content/creation/permission mutations.
+#: Deliberately independent of the weaker ancestor-rights policy.
+DANGEROUS_OWNED_RIGHTS = {
+    "FILE_WRITE_DATA": FILE_WRITE_DATA,
+    "FILE_APPEND_DATA": FILE_APPEND_DATA,
+    "FILE_WRITE_EA": FILE_WRITE_EA,
+    "FILE_WRITE_ATTRIBUTES": FILE_WRITE_ATTRIBUTES,
+    "FILE_DELETE_CHILD": FILE_DELETE_CHILD,
+    "DELETE": DELETE,
+    "WRITE_DAC": WRITE_DAC,
+    "WRITE_OWNER": WRITE_OWNER,
+}
 #: TrustedInstaller owns much of a default Windows installation; it is a
 #: protected OS principal, not a user-controllable trustee.
 SID_TRUSTED_INSTALLER = ("S-1-5-80-956008885-3418522649-1831038044"
@@ -367,6 +367,14 @@ def load_config(path, host) -> M1Config:
     if ancestry["problems"]:
         raise M1Error("CONFIG_ANCESTRY_UNSAFE",
                       f"configuration ancestry: {ancestry['problems']}")
+    #: The bootstrap directory holds the durable M1 ownership journal and
+    #: configuration. Reject a writable or indeterminate root explicitly;
+    #: ancestors may permit creation of new siblings on stock Windows.
+    #: Check before reading bytes or performing any enrollment side effect.
+    root_acl = host.directory_security(path.parent, role=ROLE_OWNED)
+    if root_acl is None or root_acl.get("nonadmin_writable"):
+        raise M1Error("CONFIG_ROOT_UNSAFE",
+                      f"bootstrap root {path.parent} is not provably protected")
     file_acl = host.file_security(path)
     if file_acl is None:
         raise M1Error("CONFIG_ACL_UNKNOWN", f"cannot read security of {path}")
@@ -766,8 +774,13 @@ def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
             sid = sid_text(entry[2])
             if sid is None:
                 return {**parsed, "malformed": True, "dacl": aces}
+            #: GetAce returns a Windows ACCESS_MASK DWORD, but pywin32 can
+            #: expose its high-bit GENERIC_* flags as a signed Python int.
+            #: Preserve the exact 32-bit bit-pattern before inspection and
+            #: AccessCheck/SDDL rendering. A real unsafe allow ACE still
+            #: refuses; only its representation changes here.
             aces.append({"type": ace_type, "flags": flags,
-                         "mask": int(entry[1]), "sid": sid})
+                         "mask": int(entry[1]) & 0xFFFFFFFF, "sid": sid})
     except Exception:                                        # noqa: BLE001
         return {**parsed, "malformed": True, "dacl": aces}
     parsed["dacl"] = aces
