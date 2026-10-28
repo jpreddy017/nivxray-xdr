@@ -46,7 +46,7 @@ function Count({ value, basis }) {
   );
 }
 
-function ContextPane({ row, onClose }) {
+function ContextPane({ row, onClose, win = 24 }) {
   const nav = useNavigate();
   return (
     <aside className="ctx-pane" data-testid="edr-computer-pane">
@@ -164,6 +164,10 @@ function ContextPane({ row, onClose }) {
         <button className="btn" data-testid="edr-pane-open-trajectory"
                 onClick={() => nav(`/edr/computers/${encodeURIComponent(row.endpoint_id)}/trajectory`)}>
           Trajectory
+        </button>
+        <button className="btn" data-testid="edr-pane-open-process-tree"
+                onClick={() => nav(`/edr/process-tree?endpoint_id=${encodeURIComponent(row.endpoint_id)}&hours=${win}`)}>
+          Process Tree
         </button>
         <button className="btn" data-testid="edr-pane-open-commands"
                 onClick={() => nav(`/edr/computers/${encodeURIComponent(row.endpoint_id)}/commands`)}>
@@ -353,7 +357,7 @@ export default function EdrComputersPage() {
             </div>
           ) : null}
         </div>
-        {sel ? <ContextPane row={sel} onClose={() => setSel(null)} /> : null}
+        {sel ? <ContextPane row={sel} win={win} onClose={() => setSel(null)} /> : null}
       </div>
     </NivXForgeConsole>
   );
