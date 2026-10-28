@@ -696,7 +696,14 @@ def filesystem_ace_inspection(descriptor: dict, role: str) -> list[str]:
             #: Does not apply to THIS object. It would apply to children, and
             #: that is exactly why an owned directory must also be PROTECTED.
             continue
-        if trustee in APPROVED_TRUSTEES:
+        #: TrustedInstaller is Windows' protected OS servicing principal,
+        #: already accepted as an ANCESTOR owner. The stock C:\\Program Files
+        #: DACL gives it Full Control; that does not grant non-admin Users any
+        #: dangerous right. Trust it ONLY on existing ancestors. The M1
+        #: bootstrap root and every M1-owned directory/file must retain the
+        #: stricter SYSTEM/Administrators-only trustee rule.
+        if trustee in APPROVED_TRUSTEES or (role == ROLE_ANCESTOR
+                                            and trustee == SID_TRUSTED_INSTALLER):
             continue
         dangerous = _rights_in(map_generic(mask, FILE_GENERIC_MAPPING), table)
         if dangerous:
