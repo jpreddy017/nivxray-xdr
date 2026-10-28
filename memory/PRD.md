@@ -8496,3 +8496,28 @@ NOT DONE / CANNOT: no git remote is configured in this environment, so the
  user via the "Save to Github" feature. No installer built or run, nothing
  deployed, no approved byte modified, no HOLD removed. G4 remains NOT RUN -
  publishing source is not acceptance.
+
+## G4-A1 · ancestor ACL compatibility defect (2026-10-28)
+
+Native G4 install on a clean Windows 11 VM refused before enrollment:
+`CONFIG_ANCESTRY_UNSAFE: nonadmin_writable:C:\; nonadmin_writable:C:\ProgramData`.
+
+Root cause: `DANGEROUS_ANCESTOR_RIGHTS` listed `FILE_WRITE_DATA`, which on a
+DIRECTORY is `FILE_ADD_FILE`. Default Windows grants it to `BUILTIN\Users` on
+`C:\ProgramData` (`(CI)(WD,AD,WEA,WA)`) and on `C:\`, so every stock host was
+refused. Add-file/add-subdirectory cannot rename, delete, redirect or
+re-permission an existing protected child.
+
+Correction (branch `engineering/m1-g4-acl-ancestor-fix`, commits `fbbf3e77`,
+`fd8bff69`; NOT pushed, frozen approved blob `27e83b07` untouched):
+- ancestor role refuses DELETE, FILE_DELETE_CHILD, WRITE_DAC, WRITE_OWNER only
+- owned/file roles keep every creation right dangerous (unchanged behaviour)
+- `load_config` verifies the M1 bootstrap root in OWNED role →
+  new refusal code `CONFIG_ROOT_UNSAFE`
+- new suite `backend/tests/edr/test_m1_g4_ancestor_acl.py` (33 tests) over
+  default Windows 11 descriptors and maliciously writable ancestors
+- read-only native probe `agents/nivxforge-g4/Probe-M1Ancestry.ps1`
+
+Portable: 408 M1 tests pass, 936 pass across the windows/installer selection.
+NATIVE: NOT RUN — no Windows runner in this environment. G4 stays on HOLD
+pending native reproduction + independent verification of the candidate.
