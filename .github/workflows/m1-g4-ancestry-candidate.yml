@@ -1,4 +1,4 @@
-name: NivXForge G4-A1 isolated Windows ACL candidate
+name: NivXForge G4-A2 isolated Windows ACL candidate
 
 on:
   pull_request:
@@ -59,12 +59,12 @@ jobs:
           if ($info.sha256 -ne $digest) { throw 'Artifact digest mismatch' }
           & $exe version
           if ($LASTEXITCODE -ne 0) { throw 'Version check failed' }
-          Write-Host "G4-A1 candidate SHA256: $digest"
+          Write-Host "G4-A2 candidate SHA256: $digest"
           Write-Host "INTERNAL ONLY; no service, network, token or installation used."
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: NivXForge-G4-A1-ACL-CANDIDATE-UNSIGNED-NOT-APPROVED
+          name: NivXForge-G4-A2-TRUSTEDINSTALLER-CANDIDATE-UNSIGNED-NOT-APPROVED
           retention-days: 7
           if-no-files-found: error
           path: |
