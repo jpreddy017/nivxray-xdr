@@ -19,7 +19,7 @@ from nivxforge_m1 import (  # noqa: E402
     ACCESS_ALLOWED_ACE_TYPE, DANGEROUS_ANCESTOR_RIGHTS,
     DANGEROUS_OWNED_RIGHTS, FILE_APPEND_DATA, FILE_DELETE_CHILD,
     FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA,
-    FILE_GENERIC_MAPPING, GENERIC_ALL, INHERIT_ONLY_ACE, M1Error,
+    FILE_GENERIC_MAPPING, FILE_ALL_ACCESS, GENERIC_ALL, INHERIT_ONLY_ACE, M1Error,
     PATH_DIRECTORY, PATH_FILE, REQUIRED_CONTEXT_SIDS, ROLE_ANCESTOR,
     ROLE_OWNED, SID_LOCAL_SYSTEM, SID_TRUSTED_INSTALLER, WindowsHost,
     WRITE_DAC, WRITE_OWNER, DELETE, filesystem_ace_inspection,
@@ -83,6 +83,48 @@ def test_programdata_default_ancestor_is_safe_but_unsafe_when_owned():
     assert filesystem_token_verdict(desc, ROLE_ANCESTOR, FakeEffectiveAccess()) == []
     assert verdict(desc)["nonadmin_writable"] is False
     assert verdict(desc, ROLE_OWNED)["nonadmin_writable"] is True
+
+
+
+
+def test_programfiles_trustedinstaller_full_access_is_ancestor_only():
+    """Stock Program Files grants TI Full Control and Users only RX.
+
+    The trust exception must never leak to the stricter owned-root role.
+    CREATOR OWNER's inherit-only Full Control is not effective on this root.
+    """
+    desc = descriptor(
+        allow(FILE_ALL_ACCESS, sid=SID_TRUSTED_INSTALLER),
+        allow(GENERIC_ALL, sid=SID_TRUSTED_INSTALLER,
+              flags=INHERIT_ONLY_ACE),
+        allow(GENERIC_ALL, sid="S-1-3-0", flags=INHERIT_ONLY_ACE),
+        allow(0x001200A9, sid=USERS),
+        owner=SID_TRUSTED_INSTALLER,
+    )
+    assert filesystem_ace_inspection(desc, ROLE_ANCESTOR) == []
+    assert filesystem_token_verdict(desc, ROLE_ANCESTOR,
+                                    FakeEffectiveAccess()) == []
+    assert not verdict(desc)["nonadmin_writable"]
+    assert verdict(desc, ROLE_OWNED)["nonadmin_writable"]
+
+
+def test_untrusted_windows_service_sid_still_refused_as_ancestor():
+    desc = descriptor(allow(GENERIC_ALL, sid="S-1-5-80-1-2-3-4-5"),
+                      owner=SID_TRUSTED_INSTALLER)
+    result = verdict(desc, ROLE_ANCESTOR)
+    assert result["nonadmin_writable"]
+    assert "is allowed" in str(result["problems"])
+
+
+@pytest.mark.parametrize("mask", [
+    FILE_DELETE_CHILD, DELETE, WRITE_DAC, WRITE_OWNER, GENERIC_ALL])
+def test_programfiles_users_dangerous_grants_remain_refused(mask):
+    desc = descriptor(
+        allow(FILE_ALL_ACCESS, sid=SID_TRUSTED_INSTALLER),
+        allow(mask, sid=USERS),
+        owner=SID_TRUSTED_INSTALLER,
+    )
+    assert verdict(desc, ROLE_ANCESTOR)["nonadmin_writable"]
 
 
 def test_drive_root_inherit_only_modify_is_not_effective_on_root():
