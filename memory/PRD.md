@@ -8567,3 +8567,27 @@ EXCLUDE:
   dt2/graphModel, compromise, fileType, dt2_3* suites). REGRESSION TRAP.
 - whole-branch merge of `release/edr-process-graph` (1,445 files: screenshots,
   rocket-p0 submodule pointers, committed SQLite state DBs)
+
+### G4-A2 failed install — backend reconciliation (2026-10-28)
+
+Operator reported host state: enrollment CREATE_INTENDED, attempt marker OPEN,
+identity absent, service absent. Backend verdict: **enrollment NOT accepted**.
+- `edr_enrollment_audit` 16:38:59Z: `ENROLLMENT_REJECTED`,
+  `reason_code=ENROLLMENT_TOKEN_INVALID`, source_ip 10.208.133.66,
+  candidate endpoint `ep_024ce6515803f7165a11`, secret fingerprint
+  `f425013844f6dd62` — does NOT match issued token `tok_cecf0529`
+  (sha256 862c4566…) ⇒ a MISTYPED secret, consistent with the l/I ambiguity.
+- `tok_cecf052960b74451`: never used (`used_at` null); now REVOKED.
+- Zero rows for `ep_024ce65…` in edr_endpoints, edr_agent_credentials,
+  edr_agent_sessions, edr_policy_endpoint_state, address observations, raw
+  events. Only tenant endpoint remains the 12:24 synthetic `ep_3062b873…`.
+
+Source facts: `CREATE_INTENDED` ∈ `BLOCKING_STATES`, so `m1_install` rerun
+refuses with `PRIOR_ATTEMPT_UNRESOLVED`; `m1_reconcile_enrollment` with an
+OPEN marker and no identity refuses with `ENROLLMENT_OUTCOME_UNKNOWN`
+("backend reconciliation is required"). M1 has NO automated path to close a
+marker without an identity — closure is an explicit operator decision.
+
+Token hygiene: look-alike-free token requested. Server generator untouched;
+minted and revoked 55 candidates to SELECT one without `l I 0 O o`.
+Live token `tok_b53253fe42b94d43` (exp 17:54:33Z) — all others REVOKED.
