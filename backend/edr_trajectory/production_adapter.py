@@ -428,7 +428,11 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
     for e in merged:
         # the full-precision observation time travels in the contract: `observed_ms` is the
         # millisecond RENDERING E3 consumes, this is the value the order and cursor use.
-        e["observed_us"] = order[e["event_id"]]["us"]
+        # the earliest stored observation time among the representations that were read:
+        # a merged activity orders by the instant its evidence first states, not by whichever
+        # representation happened to be seen first.
+        e["observed_us"] = min(order[k]["us"] for (_r, k) in
+                               (e.get("identity_keys") or [(0, e["event_id"])]) if k in order)
     merged.sort(key=_key, reverse=True)
 
     tie_overflow = False

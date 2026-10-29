@@ -10,7 +10,8 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol
 
 from .contracts import event, iso, parse_instant, require_tenant
-from .identity import dedupe, fallback_event_id, process_key
+from .identity import (dedupe, fallback_event_id, identity_keys,
+                       process_key)
 
 STORE_SHADOW = "v2_shadow_observations"
 STORE_CANONICAL = "xdr_canonical_evidence"
@@ -150,7 +151,12 @@ def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
         detection=af.get("detection"), sources=[STORE_CANONICAL],
         provenance={"store": STORE_CANONICAL, "ref": doc.get("event_id"), "label": af.get("data_label"),
                     "raw_ref": _raw_ref_canonical(doc)})
-    ev["event_id"] = af.get("activity_identity") or fallback_event_id(tenant, device, ev)
+    # The canonical event id is the identity the authenticated ingest boundary assigned to this
+    # delivery; the shadow observation carries the SAME value as `canonical_event_id`. Both
+    # stated identities travel so one activity collapses to one row across stores.
+    ev["identity_keys"] = identity_keys(doc.get("event_id"), af.get("activity_identity"))
+    ev["event_id"] = ev["identity_keys"][0][1] if ev["identity_keys"] \
+        else fallback_event_id(tenant, device, ev)
     return ev
 
 
@@ -182,7 +188,9 @@ def from_shadow(doc: dict[str, Any]) -> dict[str, Any]:
                     # derived: the observation id identifies the observation, not the delivery,
                     # and substituting it would break the raw join.
                     "raw_ref": _raw_ref_shadow(doc)})
-    ev["event_id"] = doc.get("activity_identity") or fallback_event_id(tenant, device, ev)
+    ev["identity_keys"] = identity_keys(doc.get("canonical_event_id"), doc.get("activity_identity"))
+    ev["event_id"] = ev["identity_keys"][0][1] if ev["identity_keys"] \
+        else fallback_event_id(tenant, device, ev)
     return ev
 
 

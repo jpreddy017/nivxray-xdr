@@ -84,7 +84,8 @@ def reported(v: Any) -> Any:
 def event(**kw: Any) -> dict[str, Any]:
     """Build a normalized event with every contract key present (absent = None, never guessed)."""
     base: dict[str, Any] = {
-        "schema": EVENT_SCHEMA, "event_id": None, "tenant_id": None, "device_id": None,
+        "schema": EVENT_SCHEMA, "event_id": None, "identity_keys": [],
+        "tenant_id": None, "device_id": None,
         "kind": "OTHER", "observed_ms": None, "ingested_ms": None, "severity": "NONE",
         "process": {}, "parent": {}, "creator": {}, "file": {}, "network": {},
         "authentication": {}, "detection": None,
