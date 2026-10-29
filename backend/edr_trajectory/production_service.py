@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import iso
+from .contracts import AUTH_KINDS, iso, reported as _reported
 from .lineage import build_graph, lanes
 from .paging import PAGE_DEFAULT
 from .production_adapter import STORES, page_device_evidence, resolve_evidence
@@ -29,6 +29,7 @@ FAMILIES = {
     "NETWORK": ("NETWORK_CONNECT",),
     "DNS": ("DNS_QUERY",),
     "REGISTRY": ("REGISTRY_SET",),
+    "AUTHENTICATION": AUTH_KINDS,
     "DETECTION": ("DETECTION",),
 }
 
@@ -54,6 +55,7 @@ def activity_details(ev: dict[str, Any]) -> dict[str, Any]:
     when the truth is "we never collected it".
     """
     p, par, f, n = ev.get("process") or {}, ev.get("parent") or {}, ev.get("file") or {}, ev.get("network") or {}
+    au = ev.get("authentication") or {}
 
     def v(x):
         return x if x not in (None, "", [], {}) else NOT_COLLECTED
@@ -79,6 +81,19 @@ def activity_details(ev: dict[str, Any]) -> dict[str, Any]:
         "network": {"dest_ip": v(n.get("dest_ip")), "dest_port": v(n.get("dest_port")),
                     "protocol": v(n.get("protocol")), "src_ip": v(n.get("src_ip")),
                     "dns_query": v(n.get("query"))} if n else NOT_COLLECTED,
+        # Authentication evidence as the source stated it. `-` is how Windows writes "not
+        # reported on this record", so it is carried through as NOT_COLLECTED rather than as
+        # an address or an account.
+        "authentication": {"outcome": v(au.get("outcome")), "logon_type": v(au.get("logon_type")),
+                           "logon_type_name": v(au.get("logon_type_name")),
+                           "target_user": v(au.get("target_user")), "target_domain": v(au.get("target_domain")),
+                           "target_sid": v(au.get("target_sid")), "subject_user": v(au.get("subject_user")),
+                           "logon_process": v(au.get("logon_process")),
+                           "authentication_package": v(au.get("authentication_package")),
+                           "source_address": v(_reported(au.get("source_ip"))),
+                           "workstation_name": v(_reported(au.get("workstation_name"))),
+                           "failure_reason": v(au.get("failure_reason")),
+                           "basis": v(au.get("logon_type_basis"))} if au else NOT_COLLECTED,
         "detection": ev.get("detection") or {
             "state": "NO_DETECTION_ON_THIS_OBSERVATION",
             "meaning": "no detection engine has claimed this observation. That is not a "
