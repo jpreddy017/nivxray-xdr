@@ -8711,3 +8711,34 @@ Separate, real, NOT render bugs: `ppid: null` /
 from sensor 0.3.0 (do not fabricate); projection lag 414 observations vs 21.8k
 raw (10,713 queue PENDING); `lane_axis.lanes[].lane_group` is null for all 40
 lanes while `group_counts` reports PROCESS 52 / AUTHENTICATION 7.
+
+### P0 DT authentication rendering repair (2026-10-29)
+
+Branch `fix/dt-v3-auth-rendering`, commit `6c3a5d88b94181468e9985d6e4c54ef27379229d`
+(NOT pushed, NOT merged, production HOLD pending G3).
+
+UI-only, 5 files, +342/-5:
+- `trajectory_v3/amp/labels.js` (`b432e030…`) — KIND for all five backend
+  `_AUTH_KINDS`; labels Signed In / Sign-In Failed / Signed Out; 3 activity
+  filters; 3 legend entries; deliberately NOT `system:true`
+- `amp/Glyphs.jsx` (`9d009ab6…`) — auth / auth_failed / auth_off glyphs
+- `amp/model.js` (`7cb81fac…`) — `targetOf()` auth row PER ACCOUNT from
+  `user` or `auth::<account>` lane; `accountOf()`; Identity exempt from
+  file-type filters
+- `amp/fields.js` (`b23662a4…`) — Authentication section in Activity Details
+- `amp/__tests__/auth.rendering.test.js` (`f9093afd…`) — 29 tests
+
+Tests: 29 new pass; full suite 280/280 (15 files). Verified live in preview:
+Filters panel lists Signed In / Sign-In Failed / Signed Out (all checked,
+`v3-filter-logon|logon_failed|logoff` present), Legend shows the three glyphs,
+Fit to evidence reframes the rendered observations.
+
+ACCEPTANCE NOT YET MET END-TO-END — separate BACKEND defect, reported not fixed:
+the page consumes `d.v3` (`e3.dt.v3_presentation.v1`), which emits
+`event_type: "other"` for 188/200 events. Cause:
+`backend/edr_trajectory/v3_presentation.py:126` reads `ev.get("kind")`, which
+`xdr_canonical_evidence` documents DO NOT carry — their class is
+`event_type: "logon_success"` plus a populated `authentication` object — so it
+defaults to `OTHER`→"other". `EVENT_TYPE` (lines 47-60) also has no
+authentication family at all. Until that projection is corrected, no label map
+can match and the 345 logons keep drawing as generic markers.
