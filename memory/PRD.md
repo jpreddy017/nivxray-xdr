@@ -8979,3 +8979,53 @@ TESTS: `tests/edr_trajectory` **584 passed, 9 skipped** (9 skips need an HTTP pr
 files pass 56/56 alone).
 Corrected (not weakened) expectations: `test_findings_join_is_by_exact_reference_never_by_time`
 cites the resolved presentation identity; proven-reference cases now supply delivery proof.
+
+## 2026-06 · G3 UNIFIED CLEAN PASS (successor `d2f8b742`)
+
+Branch `reviewer/g3-clean-pass` in `jpreddy017/nivxforge-g3-reviewer-handoff`; parent
+`84488ae9`, tree `69a99f6d`. 11 files, +888/−86. Nothing merged, nothing deployed, product repo
+`nivxray-xdr` untouched. Production HOLD.
+
+B1 — MIXED-REFERENCE FINDING LOSS (reproduced, then fixed). `apply_findings()` stopped reading
+references once anything matched (`if not matched` on the locator and alias passes), so a
+canonical-cited finding and an alias-cited finding on the SAME delivery collapsed to one:
+`attached=1, detections=['R_CEV']` at page sizes 1/2/20/50 in both orders, the CRITICAL
+alias-cited finding gone with its severity and ATT&CK. Now every reference is read every time and
+each finding is admitted on its own proof → `attached=2`, compat slot = the CRITICAL one,
+ATT&CK = union, conflicting-proof finding still refused, identical at all page sizes/orders.
+
+B1 follow-on found by the matrix: a finding citing a NOT_PROVEN_UNIQUE reference while PROVING
+this delivery (`features.source_canonical_event_id`) was refused — a real detection lost to the
+writer's caution. Unified rule: any weak reference (refused / unstated / UNIQUE_* / alias) only
+LOCATES; the finding's own delivery proof elects. The 144-case oracle was corrected accordingly
+(it had been inconsistent: alias-cited attached, observation-cited did not, on identical proof).
+
+Also fixed: a detection CARRIED on the evidence document was discarded when an E1 finding
+associated (latent — 0 such documents in the store today); the page's `detections_all`, which the
+IOC panel and "related compromise events" count read, listed one per ROW instead of one per
+ASSOCIATION; Activity Details rendered only the compat slot, so a doubly-detected activity read
+as singly detected. Refusals unchanged: another endpoint, another delivery, an unproven reference
+with no proof of its own; no page-local or order-dependent verdict.
+
+B4 — TEST ENVIRONMENT, genuine setup defects fixed, zero assertions weakened:
+* 9 skips (`test_deeplink_http`) asked the STRIPPED E3 preview router for fixtures → rewritten
+  against the production routes over real HTTP, cases discovered from the window: **15 executed**.
+* 4 failures (`test_p0_f13_5_detection_handoff`) never bound `deps.db` → bound per test with the
+  previous binding restored (a module-wide Motor client dies on the next event loop).
+* `test_gate17_v3_route` crashed on a fresh clone because gitignored `.env` is absent — which is
+  what it asserts; absence now reads as absence.
+* The `g41` lock flake did not recur in any run (56/56 alone, clean in the full pool).
+
+RESULTS (re-run from a FRESH CLONE of the pushed branch): `tests/edr_trajectory` **665 passed,
+0 skipped, 0 xfail**; `tests/edr` + `tests/edr_behavior` **2453 passed, 1 failed, 3 skipped**;
+frontend **290 passed (17 files)**, byte-identical source (md5 match vs the clone).
+
+REMAINING, declared not hidden:
+* `test_34h_a_migration_control::test_report_mode_changes_nothing...` fails on the shared preview
+  DB only: it carries legacy `pvw_sd_*` indexes with keys IDENTICAL to the target
+  `sd_canonical_*` specs. Proven environment-state: **19/19 pass on a clean database**.
+* 2 skips are live suites that refuse to run without `TEST_ANALYST_NIVXLIVE_PASSWORD` (production
+  slot only; the preview value was requested and the user skipped). 1 skip is corpus-conditional.
+* P0-1's root cause is still upstream: no unique index / upsert-by-`observation_id` in ingestion.
+  The join fails closed around it; closing it properly is an ingestion decision.
+* No G4 Windows validation against this successor. Independent G3 verification pending.
