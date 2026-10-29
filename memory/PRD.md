@@ -8947,3 +8947,35 @@ PRE-EXISTING, unchanged on parent and successor: 4 `deps.db` harness failures in
 `tests/edr/test_p0_f13_5_detection_handoff.py`; 9 trajectory skips need an HTTP preview backend.
 ENVIRONMENT: `/data/db` volume hit 100% and mongod crash-looped mid-run; freed ~1 GB of rotated
 supervisor/mongo logs to restore it. No product data touched.
+
+## 2026-10-29 · G3 KNOWN-RISK CLOSURE (successor `84488ae9`)
+
+Branch `reviewer/g3-known-risk-closure` pushed; parent `b800ce0b`, tree `4ebff37c…`.
+7 files, +572/−92. Nothing merged or deployed. **Zero xfail/skip markers in the suite.**
+
+P0-1 (UNIQUE_* contradiction, was a strict xfail): uniqueness is DERIVED (scoped key digest in
+`v2/ingestion/canonical.py::observation_identity`) but NOT ENFORCED — `insert_one`, no unique
+index on `observation_id` (17 declared indexes, none covers it), fresh `event_id` per canonical
+pass ⇒ a replayed source record leaves two deliveries carrying the same vouched-for reference.
+Decision: FAIL CLOSED — a source reference LOCATES, never elects; attachment needs an electing
+identity (canonical delivery id, or resolved presentation identity) or the finding's own matching
+delivery proof + endpoint context. Evidence retained, association reported unresolved.
+Production impact measured as ZERO: 1,216/1,222 findings cite `cev_…`, none cites a bare
+source reference.
+
+P0-2: `by_ref.setdefault` kept only the first finding (3 refs in the store are multi-cited).
+Now all authorized findings attach; `e3_detection` keeps its shape and carries the most severe;
+`e3_detections` carries all; replays collapse on `finding_id` else a digest; ATT&CK = union of
+associated findings only.
+
+P0-3: the only other attach path is `e1_shape_preview → artifacts_overlay` (bare observation_id).
+Router mount stripped in `server.py`, no import of `edr_trajectory.api`, `/api/e3/trajectory*`
+returns 404 live ⇒ cannot affect production. Left unchanged (no second matching authority).
+
+TESTS: `tests/edr_trajectory` **584 passed, 9 skipped** (9 skips need an HTTP preview backend);
+21 of those use GENUINE Mongo cursor paging; frontend **285 passed**; `tests/edr` filtered pool
+839–840 passed with the SAME 5 pre-existing failures on parent and successor (4 `deps.db` in
+`test_p0_f13_5_detection_handoff.py`, 1 rotating flaky `g41` lock test under `-n 2`; both g41
+files pass 56/56 alone).
+Corrected (not weakened) expectations: `test_findings_join_is_by_exact_reference_never_by_time`
+cites the resolved presentation identity; proven-reference cases now supply delivery proof.
