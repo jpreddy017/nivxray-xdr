@@ -8828,3 +8828,48 @@ the suite — not a test failure.
 
 STATUS: candidate, production deployment HOLD under G0–G6, awaiting independent G3.
 DT2-vs-V3 visual comparison remains OPEN for the UI/UX acceptance gate.
+
+## 2026-10-29 · P0 CANONICAL ACTIVITY IDENTITY (candidate, HOLD for G3)
+
+Branch `fix/dt-v3-auth-contract-backend` · commit `f9fd38e5d46804ed05d9bb952916d63234d3477f`
+(parent `0fb1ea41` = auth contract repair; `6c3a5d88` frontend repair verified as ancestor;
+0 git remotes — nothing pushed or merged).
+
+ROOT CAUSE: the two stores state the SAME activity differently to §d. The shadow observation
+carries the writer's `activity_identity` (`act_…`); the canonical record on the real sensor path
+carries NONE (0 of 752 on the G4 VM), so §d fell back to a CONTENT hash — and that hash can
+never match its twin because the stores name the same machine differently
+(canonical `provenance.collector_id = ep_024ce6515803f7165a11`, shadow
+`event.device_iid = dev_f3f6fbf801f1`). Every activity therefore rendered twice.
+
+IDENTITY CONTRACT (measured, not assumed): `xdr_canonical_evidence.event_id` ==
+`v2_shadow_observations.canonical_event_id`, assigned by the authenticated ingest boundary,
+1:1 per raw delivery — 752 ∩ 752 = 752, no nulls, no collisions, max 1 canonical doc per raw id.
+A row now carries the identities it STATES as ranked keys (0 = activity identity, 1 = canonical
+event id, 2 = content fallback), is matched on ANY key inside its OWN tenant, and renders under
+the highest-ranked key so `act_…` (held by behavior evidence and deep links) does not move.
+Nothing is matched on timestamp, PID or account.
+
+CHANGED: `edr_trajectory/identity.py` (ranked keys + tenant-scoped group matching),
+`providers.py` (both adapters emit `identity_keys`), `production_adapter.py` (merged activity
+orders by the earliest stored observation time among the representations read),
+`contracts.py` (`identity_keys` on the event contract),
+`tests/edr_trajectory/test_activity_identity.py` (24 new), `test_sd_raw_reference.py` (key list).
+
+REAL VM RECONCILIATION (ep_024ce6515803f7165a11, read 2026-10-29 07:56Z):
+752 shadow docs = 752 canonical docs = 752 V3 rows = 661 logon_success + 91 process_create =
+the top-level projection's own counts. Before: 1,431 rows. Zero store ids absent from screen,
+zero screen ids absent from the store. All 752 rows carry BOTH evidence stores. Deep link
+`e3_YWN0…` resolves twice identically to `act_141fee3e56723b78933fabbe` / `obs_e85f005fa072`.
+(An earlier read in the same session showed 749/749/749 — the VM delivered 3 more logons
+between reads; nothing was lost.)
+
+TESTS: `tests/edr_trajectory` 441 passed / 9 skipped; `tests/edr` all passed in batches
+(118 live + 269 + 262 + 358 + 610); frontend `yarn test` 280 passed.
+ENVIRONMENT LIMIT: `tests/edr/test_34h_a_migration_control.py` (19 tests) passes standalone and
+in its own batch but fails 12/19 only inside a 55-module pooled run that the container also
+OOM-kills; it imports no trajectory module. Run the suite in batches.
+
+REMAINING RISK: on a merged row the shadow representation wins the rendered endpoint id
+(`dev_…`) and PID format, because STORES = (shadow, canonical) — deterministic, and it is why
+V3 reconciles with the top-level projection, which also reads the shadow store.
