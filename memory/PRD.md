@@ -8771,3 +8771,60 @@ REMOVED/ABSORBED: RelationshipCanvas.jsx (578 LOC dedicated relationship view),
 dt2/density.js + repeatCache.js (dense-repeat collapsing), dt2/fileType.js
 (richer type intel), dt2/graphModel.js. INCOMPLETE: authentication kinds
 (6c3a5d88 pending) and the backend v3 kind projection.
+
+## 2026-10-29 · P0 DT V3 BACKEND CONTRACT REPAIR (candidate, HOLD for G3)
+
+Branch `fix/dt-v3-auth-contract-backend` · commit `0fb1ea41fd5b86c742a4a0b35d11fc4132f8b963`
+(parent = `6c3a5d88`, the local frontend auth-rendering repair — still local-only).
+
+ROOT CAUSE (confirmed, not inferred): §d `providers._kind()` classified an activity
+family from `additional_fields.activity_type` + `operation` ONLY. The Windows sensor
+path writes `activity_type: "AUTHENTICATION"` with `operation: null` on canonical
+evidence and writes NO `event.activity` / `event.op` at all on the shadow
+observation. The outcome lives solely in the source's class token
+(`xdr_canonical_evidence.event_type` / `v2_shadow_observations.event.kind`) — the same
+vocabulary `edr_plane.trajectory_window._AUTH_KINDS` already classifies from. Result:
+every sign-in AND every shadow-sourced process/file/network record reached V3 as
+`OTHER` and drew as an unnamed generic row.
+
+CHANGED (4 source files, 2 test files):
+- `backend/edr_trajectory/providers.py` — class-token classification (`_CLASS_FAMILY`,
+  `_AUTH_FAMILY`); activity_type/operation still wins where populated; authentication
+  block carried from canonical `authentication` and shadow `event.raw.authentication`.
+- `backend/edr_trajectory/contracts.py` — `AUTH_KINDS`, `authentication` contract key,
+  `reported()` (Windows `-` = absence, never a value).
+- `backend/edr_trajectory/v3_presentation.py` — AUTH_* → `logon_success` /
+  `logon_failure` / `logon` / `logoff` / `credential_validation` (the labels.js KIND
+  tokens of 6c3a5d88); account, `lane_id`, stated logon detail under `e3_doc.raw`.
+- `backend/edr_trajectory/production_service.py` — AUTHENTICATION as a first-class
+  family + authentication section in `activity_details`.
+- tests: `tests/edr_trajectory/test_v3_authentication_contract.py` (16, new),
+  `test_sd_raw_reference.py` (contract key list).
+
+EVIDENCE (retained G4 endpoint `ep_024ce6515803f7165a11`, 752 canonical + 752 shadow):
+before → `other` 188 / `process_create` 12 / `logon_success` 0 (first page of 200);
+after → `logon_success` 200 / `other` 0; full paging 1,431 rows: `logon_success` 1,249,
+`process_create` 182, `other` 0. Shadow-sourced rows reconcile EXACTLY with the
+top-level projection (658 `logon_success`, 91 `process_create`). Preview UI verified:
+per-account identity rows (SYSTEM, NivXLabAdmin, DWM-2/3/4, UMFD-2/3/4), auth glyphs,
+process lifelines, populated Activity panel.
+
+REMAINING DISCREPANCIES (reported, NOT fixed — out of this scope):
+- D1 cross-store duplication: canonical evidence carries no
+  `additional_fields.activity_identity` (0 of 752), so `fallback_event_id` never equals
+  the shadow's `act_…` and dedupe cannot collapse the twin. 1,431 presentation rows for
+  749 real activities; suppression is partial (116) so the twin counts are uneven
+  (591 canonical vs 658 shadow logons). Pre-existing, independent of classification.
+- D2 `logoff` / `credential_validation` are covered by tests but absent from retained G4
+  evidence (`not_supported: authentication.session_end`), so unproven on real data.
+- D3 `source_address` / `workstation_name` were `-` on every retained record → rendered
+  as explicit absence.
+- D4 auth rows sit on PID lanes (`PID_ONLY_NOT_AUTHORITATIVE`); lineage untouched.
+
+TESTS: `tests/edr_trajectory` 415 passed / 9 skipped; `tests/edr` all passed in batches
+(197 + 278 + 175 + 171 + 118 live); frontend `yarn test` 280 passed (incl. 29
+auth.rendering). Wide single-process runs are killed by container memory near the end of
+the suite — not a test failure.
+
+STATUS: candidate, production deployment HOLD under G0–G6, awaiting independent G3.
+DT2-vs-V3 visual comparison remains OPEN for the UI/UX acceptance gate.
