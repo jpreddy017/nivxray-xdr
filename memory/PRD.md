@@ -8742,3 +8742,32 @@ the page consumes `d.v3` (`e3.dt.v3_presentation.v1`), which emits
 defaults to `OTHER`→"other". `EVENT_TYPE` (lines 47-60) also has no
 authentication family at all. Until that projection is corrected, no label map
 can match and the 345 logons keep drawing as generic markers.
+
+### Production DT renderer verification (2026-10-29, read-only)
+
+ACTIVE RENDERER = V3 (`trajectory_v3/amp`), proven from served artifacts, not git.
+Deployed `DeviceTrajectoryEntry-B_yEEkR0.js` (1,837 B) tail:
+`const i=lazy(()=>import("./DeviceTrajectoryPage-8OXPVSQ7.js")); V(e)=>Suspense(i)`
+— no flag test, no legacy branch; `EdrDeviceTrajectoryPage-CzzjrW84.js` is only a
+static side-effect/preload import. Effective VITE_E3_DT_V3 = "1".
+V3 chunk 130,949 B contains v3-grid / v3-legend / v3-filter- / "Fit to evidence";
+contains NO "Signed In" / "auth::" ⇒ commit 6c3a5d88 NOT deployed.
+Assets: index-Btpjue2F.js, NivXForgeConsole-DQ_zGYiy.js, index-DZjNrF_q.css,
+etag ecc64260…, last-modified 2026-10-29T04:25:11Z, Vercel, must-revalidate.
+build-info: nivxray-edr / api_origin https://nivxray.nivxforge.com / phase 2 /
+built_at 2026-10-28T16:15:44Z. Deployment commit SHA: NOT EMITTED → UNVERIFIED.
+UNVERIFIED: authenticated production DT screenshot — admin@nivxray.com with the
+preview password is rejected by production (redirect to /edr/login); no
+production credential available and none guessed.
+
+6c3a5d88: LOCAL ONLY (branch fix/dt-v3-auth-rendering, 0 git remotes, absent
+from main and release/edr-process-graph), not pushed, not merged, not deployed.
+
+DT2 (legacy, 3,141 LOC sampled) vs V3 (1,324 LOC sampled): V3 preserves
+navigator+scrubber, lifelines (row.instances + v3-expand), parent-child lineage,
+Activity + Activity Details, Fit to Evidence, zoom (column width), search,
+filters, dispositions, glyphs, file-type (EXT/TYPE_DESC), pivots, ATT&CK/IOC.
+REMOVED/ABSORBED: RelationshipCanvas.jsx (578 LOC dedicated relationship view),
+dt2/density.js + repeatCache.js (dense-repeat collapsing), dt2/fileType.js
+(richer type intel), dt2/graphModel.js. INCOMPLETE: authentication kinds
+(6c3a5d88 pending) and the backend v3 kind projection.
