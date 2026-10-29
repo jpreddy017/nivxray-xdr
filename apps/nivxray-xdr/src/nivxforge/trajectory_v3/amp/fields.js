@@ -1,4 +1,5 @@
 import { enforcementLabel } from "./labels.js";
+import { accountOf } from "./model.js";
 // Activity Details artifact sections (AMP-class). Pure: (item, ctx) -> sections. Evidence-only; absent fields carry a reason.
 export const R = {
   FHASH: "not collected by sensor (S-3: Sysmon ID11 file events carry no hash)",
@@ -74,8 +75,25 @@ export function buildSections(it, ctx) {
     for (const h of dp?.history || []) ds.add(`Change ${h.at}`, `${h.from || "∅"} → ${h.to} · ${h.source}${h.note ? ` · ${h.note}` : ""}`, { wrap: true });
     out.push(ds);
   }
-  const p = Sec("process", "Process"), pr = raw(procItem || it);
-  p.add("Process name", isExec ? it.target?.label : it.actor?.label, { reason: R.SRC, search: true });
+  if (["auth", "auth_failed", "auth_off"].includes(g)) {
+    //: Authentication details come only from what the sensor and the server
+    //: actually reported for THIS observation. Absent fields carry a reason;
+    //: none of them are filled in from a neighbouring event.
+    const w = raw(it).winlog || {}, a = Sec("auth", "Authentication");
+    a.add("Account", accountOf(e), { reason: R.SRC, search: true });
+    a.add("Outcome", it.kind.label, {});
+    a.add("Logon type", w.logon_type ?? raw(it).logon_type, { reason: R.SRC });
+    a.add("Logon process", it.actor?.label || e.process, { reason: R.SRC, search: true });
+    a.add("Process image", e.image || it.actorImage, { reason: R.SRC, wrap: true });
+    a.add("PID", e.pid, { reason: R.SRC });
+    a.add("Source host / address", w.source_address ?? e.network, { reason: R.SRC });
+    a.add("Event time (UTC)", e.timestamp, {});
+    a.add("Identity lane", e.lane_id, { reason: R.SRC });
+    a.add("Observation", e.observation_id, { reason: R.SRC, copy: true });
+    out.push(a);
+  }
+
+  const p = Sec("process", "Process"), pr = raw(procItem || it);  p.add("Process name", isExec ? it.target?.label : it.actor?.label, { reason: R.SRC, search: true });
   p.add("PID", isExec ? e.pid : e.pid, { reason: R.SRC }).add("Process instance", procIid, { reason: R.SRC, copy: true });
   p.add("Start time", procItem ? (raw(procItem).process_start_time || procItem.ev.timestamp) : null, { reason: R.WIN });
   p.add("End time", null, { reason: R.END });

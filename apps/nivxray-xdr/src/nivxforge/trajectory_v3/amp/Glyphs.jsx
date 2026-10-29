@@ -19,6 +19,13 @@ const INNER = {
   reg: <path d="M-3,-3 h2.6 v2.6 h-2.6 z M0.4,-3 h2.6 v2.6 h-2.6 z M-3,0.4 h2.6 v2.6 h-2.6 z M0.4,0.4 h2.6 v2.6 h-2.6 z" stroke={C.text} strokeWidth={0.9} fill="none" />,
   modify: <path d="M-3,3 L-2.4,0.8 L1.8,-3.4 L3.4,-1.8 L-0.8,2.4 Z" stroke={C.text} strokeWidth={1} fill="none" />,
   delete: <path d="M-3.2,0 H3.2" stroke={C.text} strokeWidth={1.8} />,
+  // Authentication: a head-and-shoulders mark, so a sign-in is legible as an
+  // identity event rather than the generic "other" dot.
+  auth: <g fill="none" stroke={C.text} strokeWidth={1.2}><circle cy={-1.8} r={1.5} /><path d="M-3,3.4 A3,3 0 0,1 3,3.4" /></g>,
+  auth_failed: <g fill="none" strokeWidth={1.2}><g stroke={C.text}><circle cy={-1.8} r={1.5} /><path d="M-3,3.4 A3,3 0 0,1 3,3.4" /></g>
+    <path data-testid="v3-glyph-auth-failed" d="M-3.6,3.6 L3.6,-3.6" stroke={C.red} strokeWidth={1.5} /></g>,
+  auth_off: <g fill="none" stroke={C.text} strokeWidth={1.2}><circle cy={-1.8} r={1.5} /><path d="M-3,3.4 A3,3 0 0,1 3,3.4" />
+    <path d="M1.6,-3.2 H4.2 M3,-4.4 L4.3,-3.2 L3,-2" /></g>,
   other: <circle r={1.8} fill={C.text} />,
 };
 

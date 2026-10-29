@@ -31,6 +31,18 @@ const DISP = { hexagon: "d_malicious", circle: "d_benign", square: "d_unknown" }
 
 const kindOf = (e) => KIND[e.event_type] || { verb: e.event_type, glyph: "other", label: e.event_type, filter: "other" };
 
+//: The account an authentication event belongs to. `user` is the sensor's own
+//: field; `auth::<account>` is the server's lane identity for the same event.
+//: Both are reported evidence. Nothing is inferred when neither is present.
+export function accountOf(e) {
+  const u = e.user && String(e.user).trim();
+  if (u && u !== "-") return u;
+  const lane = String(e.lane_id || "");
+  if (lane.startsWith("auth::")) { const a = lane.slice(6).trim(); if (a) return a; }
+  const label = e.lane_label && String(e.lane_label).trim();
+  return label || null;
+}
+
 function targetOf(e, pf) {
   const t = e.event_type, k = KIND[t]?.glyph;
   const fileRow = (p, sha) => ({ key: `file:${String(p || sha || e.event_iid).toLowerCase()}`, label: p ? base(p) : short(sha), path: p,
@@ -41,6 +53,15 @@ function targetOf(e, pf) {
   if (k === "net") return { key: `net:${e.file || e.network}`, label: e.file || e.network, type: "Network", section: "Files & Network" };
   if (k === "dns") return { key: `dns:${e.entity || e.network || e.file}`, label: e.file || e.lane_label || e.entity || "dns", type: "DNS", section: "Files & Network" };
   if (k === "usb") return { key: `usb:${e.device_serial || e.device_product || e.event_iid}`, label: e.device_product || "External device", type: "USB", section: "Files & Network" };
+  //: Authentication gets a row PER REPORTED ACCOUNT. The account comes from
+  //: the sensor's own `user`, or from the server's lane identity
+  //: (`auth::<account>`) when the event carries none — never from a guess, and
+  //: never merged into one shared row.
+  if (["auth", "auth_failed", "auth_off"].includes(k)) {
+    const who = accountOf(e);
+    return { key: `auth:${String(who || e.event_iid).toLowerCase()}`, label: who || "account not reported by sensor",
+      type: "Identity", section: "System" };
+  }
   if (KIND[t]?.system) return { key: `sys:${t}`, label: KIND[t].label, type: "System", section: "System" };
   if (k === "reg") return { key: `reg:${e.file}`, label: String(e.file || "").split("\\").slice(-2).join("\\"), path: e.file, type: "Registry", section: "Files & Network" };
   return null;
@@ -89,7 +110,7 @@ export function buildModel(events, lanes, platform) {
     };
     if (isExec) mark(target, targetIid); else mark(actor, actorIid);
     const causal = !actor ? "UNRESOLVED" : !isExec ? "PROVEN" : (e.parent_process_guid || e.parent_process_iid) ? "PROVEN" : "CORRELATED";
-    const ftype = tgt && !["Network", "DNS", "Registry", "USB", "System"].includes(tgt.type) ? tgt.type : null;
+    const ftype = tgt && !["Network", "DNS", "Registry", "USB", "System", "Identity"].includes(tgt.type) ? tgt.type : null;
     items.push({ col, ev, kind: kindOf(e), actor, target, actorIid, targetIid, causal, shape: dispositionShape(e), actorImage, ftype,
       flags: { warn: !!e.e3_detection, cmd: !!e.command_line, audit: e.audit_only === true } });
     col += 1;

@@ -8,6 +8,12 @@ export const EVENT_LABEL = {
   usb: "Device Connected / Device Disconnected", usb_connect: "Device Connected", usb_disconnect: "Device Disconnected",
   policy: "Policy Updated", sensor_update: "Sensor Updated", reboot: "Rebooted", uninstall: "Uninstalled",
   isolation: "Isolated / Isolation Released", isolated: "Isolated", isolation_released: "Isolation Released",
+  // Authentication, past tense like every other label here. The backend has
+  // carried these kinds since the Windows Security bridge landed
+  // (`_AUTH_KINDS` in backend/edr_plane/trajectory_window.py), but this map
+  // did not, so `kindOf()` fell back to glyph "other" and every logon drew as
+  // an unlabelled square.
+  logon: "Signed In", logon_failed: "Sign-In Failed", logoff: "Signed Out", credentials: "Credentials Validated",
   approval: "Approval Requested", match: "Detected (behavioral MATCH)", defs: "Definitions Updated", scan_sched: "Scan Scheduled",
   compromise: "Compromise Detected", snapshot: "Snapshot Taken", hunt: "Threat-Hunting Incident Opened", telemetry: "Sensor Service Status Reported",
 };
@@ -24,6 +30,15 @@ export const KIND = {
   dns_query: { verb: "Queried", glyph: "dns", label: EVENT_LABEL.dns, filter: "dns" },
   registry_value_set: { verb: "Set", glyph: "reg", label: EVENT_LABEL.registry, filter: "registry" },
   usb_connect: { verb: "Connected", glyph: "usb", label: EVENT_LABEL.usb_connect, filter: "usb" },
+  //: Authentication. NOT `system: true`: the system branch collapses a kind
+  //: onto one shared `sys:<kind>` row, which would merge every account on the
+  //: device into one indistinguishable line. `targetOf()` gives these their
+  //: own row per reported account instead.
+  logon_success: { verb: "Signed in", glyph: "auth", label: EVENT_LABEL.logon, filter: "logon" },
+  logon: { verb: "Signed in", glyph: "auth", label: EVENT_LABEL.logon, filter: "logon" },
+  logon_failure: { verb: "Failed to sign in", glyph: "auth_failed", label: EVENT_LABEL.logon_failed, filter: "logon_failed" },
+  logoff: { verb: "Signed out", glyph: "auth_off", label: EVENT_LABEL.logoff, filter: "logoff" },
+  credential_validation: { verb: "Validated credentials", glyph: "auth", label: EVENT_LABEL.credentials, filter: "logon" },
   usb_disconnect: { verb: "Disconnected", glyph: "usb", label: EVENT_LABEL.usb_disconnect, filter: "usb" },
   policy_update: { verb: "Policy updated", glyph: "other", label: EVENT_LABEL.policy, filter: "policy", system: true },
   sensor_update: { verb: "Sensor updated", glyph: "other", label: EVENT_LABEL.sensor_update, filter: "sensor_update", system: true },
@@ -35,14 +50,16 @@ export const KIND = {
 
 const L = (k, nc) => (nc ? [k, EVENT_LABEL[k], 1] : [k, EVENT_LABEL[k]]);
 export const ACTIVITY_FILTERS = [L("create"), L("copy", 1), L("move"), L("execute"), L("exec_blocked", 1), L("open", 1), L("network"),
-  L("exploit", 1), L("restore", 1), L("scan_det", 1), L("usb", 1), L("dns"), L("registry"), L("modify"), L("delete"), L("match"), L("approval", 1)];
+  L("exploit", 1), L("restore", 1), L("scan_det", 1), L("usb", 1), L("dns"), L("registry"), L("modify"), L("delete"), L("match"), L("approval", 1),
+  L("logon"), L("logon_failed"), L("logoff")];
 export const SYSTEM_FILTERS = [L("compromise", 1), L("reboot", 1), L("scan", 1), L("defs", 1), L("policy", 1), L("sensor_update", 1),
   L("scan_sched", 1), L("uninstall", 1), L("isolation", 1), L("snapshot", 1), L("hunt", 1), L("telemetry", 1)];
 const NC = " (not collected)";
 export const LEGEND = [["create", EVENT_LABEL.create], ["copy", EVENT_LABEL.copy], ["move", EVENT_LABEL.move], ["exec", EVENT_LABEL.execute],
   ["exec_blocked", EVENT_LABEL.exec_blocked + NC], ["open", EVENT_LABEL.open + NC], ["net", EVENT_LABEL.network], ["exploit", EVENT_LABEL.exploit + NC],
   ["restore", EVENT_LABEL.restore + NC], ["scan", EVENT_LABEL.scan_det + NC], ["usb", EVENT_LABEL.usb + NC], ["dns", EVENT_LABEL.dns],
-  ["reg", EVENT_LABEL.registry], ["modify", EVENT_LABEL.modify], ["delete", EVENT_LABEL.delete]];
+  ["reg", EVENT_LABEL.registry], ["modify", EVENT_LABEL.modify], ["delete", EVENT_LABEL.delete],
+  ["auth", EVENT_LABEL.logon], ["auth_failed", EVENT_LABEL.logon_failed], ["auth_off", EVENT_LABEL.logoff]];
 
 // Enforcement outcome label. The reason comes ONLY from enforcement evidence (`reason`); never invented.
 export function enforcementLabel(en) {
