@@ -8873,3 +8873,44 @@ OOM-kills; it imports no trajectory module. Run the suite in batches.
 REMAINING RISK: on a merged row the shadow representation wins the rendered endpoint id
 (`dev_…`) and PID format, because STORES = (shadow, canonical) — deterministic, and it is why
 V3 reconciles with the top-level projection, which also reads the shadow store.
+
+## 2026-10-29 · G3 P0 FINDING-ASSOCIATION REPAIR (successor candidate, HOLD)
+
+Reviewed candidate reconstructed from the private handoff repo
+`jpreddy017/nivxforge-g3-reviewer-handoff` (access via GITHUB_TOKEN; the stored value carries
+surrounding quotes and must be stripped before use). Bundle import verified: commit
+`7b04672990854a3338aa325c16f2d882d8051b9f`, tree `f0e76cacc1d20ff91a099593ade7a026812dcd85`,
+base `21d28ae3` fetched from the public `jpreddy017/nivxray-xdr`; package MANIFEST 275/275 OK.
+Working checkout: `/tmp/review` (branch `codex/dt-identity-g3-correction`), disposable
+`DB_NAME=g3_review_disposable`. NOTE: this Codex lineage is NOT our local lineage
+(`f9fd38e5` ≠ `1ef2c96f`); our /app tree was not modified.
+
+SUCCESSOR COMMIT: `ae7c1033370fe120e477feb1967fc5d3fb8ae4c8` (tree `826e8bd9…`), parent
+`7b046729`. Files: `backend/edr_trajectory/v3_presentation.py`,
+`backend/tests/edr_trajectory/test_finding_association_identity.py` (11 new tests).
+NOT pushed, NOT merged, NOT deployed.
+
+DEFECT (reproduced on the frozen candidate first): `apply_findings()` decided reference
+uniqueness from the current page (`owners[key] == {index}`). Two distinct canonical deliveries
+sharing one `NOT_PROVEN_UNIQUE` observation reference → `joined=0` when read together,
+`joined=1` when either row was read alone.
+
+FIX: join keys derived from the row alone — authenticated canonical delivery id, presentation
+identity when it is not a reused activity alias, and source references the writer vouches for
+(`UNIQUE_BY_SOURCE_RECORD_IDENTITY` / `UNIQUE_BY_RAW_EVIDENCE_IDENTITY`, plus the canonical
+store's own reference). `NOT_PROVEN_UNIQUE` refused → `UNPROVEN_OBSERVATION_REFERENCE`.
+Pre-contract evidence stating nothing still joins, marked `UNVERIFIED_OBSERVATION_REFERENCE`.
+Alias rule unchanged.
+
+EVIDENCE for the three-way grading: in this environment no retained observation is marked
+NOT_PROVEN_UNIQUE — 104,247 `UNIQUE_BY_RAW_EVIDENCE_IDENTITY` + 5,205
+`UNIQUE_BY_SOURCE_RECORD_IDENTITY`; the G4 lab endpoint is 760/760 source-record proven; the
+remaining ~256k rows pre-date the field.
+
+TESTS (in /tmp/review): `tests/edr_trajectory` 498 baseline → **509 passed, 9 skipped**;
+new file 11/11; `tests/edr -k "contributor or observation or g41 or trajectory or detection or
+compromise"` 485 passed, 3 skipped, **4 pre-existing failures** in
+`test_p0_f13_5_detection_handoff.py` (`deps.db accessed before init_database()` — identical with
+the change stashed, harness binding, not trajectory code); `tests/edr -k "gap1 or stress or
+installer"` 269 passed; frontend vitest **285 passed (16 files)**; package probe
+`verify_corrected_reproduction.py` 5/5 PASS.
