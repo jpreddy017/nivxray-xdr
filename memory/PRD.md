@@ -8642,3 +8642,27 @@ in the console switcher. No code, data or sensor change.
 Secondary (NOT a visibility bug): processing queue DONE 11,084 /
 PENDING 10,713 / PROCESSING 1, and canonical/observation collections are 0 for
 this tenant, so `detections_24h` reads 0 until the queue drains.
+
+### G4-A2 customer-access check (2026-10-29)
+
+`edr.nivxforge.com` (PRODUCTION) and the preview backend are SEPARATE
+deployments with SEPARATE databases and SEPARATE tenant registries. Proof,
+against the preview DB `test_database`:
+- production's only picker entry `ten_e759b7288598bd882e3dcac49d`
+  (Internal Validation) → **ABSENT** in preview
+- production's computers `ep_a67be48d5b4e01d4d9e8` (KUSHU) and
+  `ep_1989031c8c1d0085812f` (DESKTOP-A9HGFJJ) → **ABSENT** in preview
+- `ten_548fb414…` (g4-windows-lab) and `ep_024ce6515803f7165a11`
+  (NIVX-G4-WIN11) → **PRESENT** in preview only
+
+Not an RBAC denial. `CustomerPicker` renders
+`session-context.authorized_customers`
+(`backend/services/session_context.py:72`), which for a PLATFORM principal is
+"every currently authoritative ACTIVE tenant" **of that deployment's
+registry**. Production's registry holds one such tenant, so the dropdown
+holds one entry. Nothing is withheld; the G4 lab customer does not exist there.
+
+Correction: view the endpoint in the PREVIEW EDR console (the backend the
+sensor enrolled into), customer `g4-windows-lab`. Making it appear in
+production would need the customer created in the production registry AND the
+sensor re-enrolled against a production origin — both prohibited / HOLD.
