@@ -8914,3 +8914,36 @@ compromise"` 485 passed, 3 skipped, **4 pre-existing failures** in
 the change stashed, harness binding, not trajectory code); `tests/edr -k "gap1 or stress or
 installer"` 269 passed; frontend vitest **285 passed (16 files)**; package probe
 `verify_corrected_reproduction.py` 5/5 PASS.
+
+## 2026-10-29 · G3 RE-REVIEW FIX #2 — association proof (successor `b800ce0b`)
+
+Branch `reviewer/g3-p0-association-proof` pushed to the handoff repo; parent `ae7c1033`
+(G3 FAIL), tree `6cba221f…`. Nothing merged or deployed.
+
+G3 FAIL cause: a MISSING `observation_identity_state` was still accepted as association proof, so
+two deliveries sharing one pre-contract reference both received a detection naming only one.
+
+Instead of patching the reported variant, the whole surface was enumerated. THREE unsound paths
+closed, all inside `apply_findings()`:
+1. missing-state reference = locator only; attaches solely when the finding names this canonical
+   delivery AND the endpoint context matches, else no detection, no ATT&CK, evidence retained.
+2. presentation identity accepted only under VERIFIED_DELIVERY_IDENTITY / IMMUTABLE_SOURCE_IDENTITY
+   (never CONFLICT or UNRESOLVED, where the id is a content digest).
+3. a finding naming another delivery or another endpoint is refused on EVERY path.
+
+Tests: `tests/edr_trajectory` **547 passed, 9 skipped, 1 xfailed**; frontend 285 passed.
+`test_finding_association_matrix.py` checks 144 combinations against a rule-derived ORACLE in 12
+page shapes. `test_v3_presentation.py::test_findings_join_is_by_exact_reference_never_by_time`
+fixture now stamps UNIQUE_BY_SOURCE_RECORD_IDENTITY (disclosed).
+
+KNOWN, REPORTED, NOT FIXABLE at this layer (strict xfail in the matrix): two deliveries both
+claiming UNIQUE_* for one shared reference with a finding that names no delivery — needs an
+upstream writer or unique-index guarantee.
+ALSO FOUND, OUT OF SCOPE: `artifacts_overlay.enrich()` joins raw/enforcement enrichment on a bare
+`observation_id` (same class) — reachable only from `e1_shape_preview`, not the production route;
+`by_ref.setdefault` keeps only the FIRST finding citing a reference, so a second finding on the
+same evidence is silently invisible.
+PRE-EXISTING, unchanged on parent and successor: 4 `deps.db` harness failures in
+`tests/edr/test_p0_f13_5_detection_handoff.py`; 9 trajectory skips need an HTTP preview backend.
+ENVIRONMENT: `/data/db` volume hit 100% and mongod crash-looped mid-run; freed ~1 GB of rotated
+supervisor/mongo logs to restore it. No product data touched.
