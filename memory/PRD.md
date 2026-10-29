@@ -8666,3 +8666,48 @@ Correction: view the endpoint in the PREVIEW EDR console (the backend the
 sensor enrolled into), customer `g4-windows-lab`. Making it appear in
 production would need the customer created in the production registry AND the
 sensor re-enrolled against a production origin — both prohibited / HOLD.
+
+### Device Trajectory "empty squares" — RCA (2026-10-29)
+
+NOT a flag, deployment or renderer regression. The approved V3 AMP page IS the
+active renderer in BOTH consoles:
+- production `edr.nivxforge.com`: deployed `DeviceTrajectoryEntry-B_yEEkR0.js`
+  is DCE-reduced to `Suspense(DeviceTrajectoryPage-8OXPVSQ7.js)` — no flag
+  check remains, legacy branch eliminated ⇒ VITE_E3_DT_V3 was TRUE at build
+  (`build-info.json` built_at 2026-10-28T16:15:44Z, api_origin
+  https://nivxray.nivxforge.com)
+- preview: supervisor runs `yarn dev` ⇒ mode=development ⇒
+  `.env.development VITE_E3_DT_V3=1`
+- LATENT RISK: `scripts/vercel-build.sh` never exports the flag and there is no
+  `.env.production`; the stale local `dist/` (2026-10-20) compiled
+  `A={}, B=(A?.VITE_E3_DT_V3)==="1"` ⇒ false ⇒ legacy. Production currently
+  depends on a Vercel project env var that is not in the repo.
+
+ROOT CAUSE — canonical-kind contract drift, UI side:
+Backend treats authentication as first class (`_AUTH_KINDS` in
+`backend/edr_plane/trajectory_window.py:72` and `trajectory/contract.py:26`,
+`lane_group: AUTHENTICATION`). The V3 label map
+`src/nivxforge/trajectory_v3/amp/labels.js` (commit 49d63f5d) has NO
+`logon_success` / `logon_failure` / `logoff` entry, so `model.js:32 kindOf()`
+falls back to `{glyph:"other", label:event_type, filter:"other"}` and
+`model.js targetOf()` returns **null** (no branch, no `system:true`) ⇒ no row,
+no label. Outer shape = square (disposition UNKNOWN_NOT_ASSESSED), inner glyph
+`other` = 1.8px dot ⇒ literally an empty square.
+Scale: window = 345 `logon_success` + 69 `process_create` (83% unlabelled).
+
+Data IS present and unrendered: logon events carry
+`display_label: "winlogon.exe · logon success"`, `user`, `process`, `image`,
+`pid`, `lane_id: auth::UMFD-1`, `lane_group: AUTHENTICATION`.
+
+Minimum correction (UI only, no redesign, no data change):
+1. `labels.js` — add `logon_success`/`logon_failure`/`logoff` to `KIND` with
+   `system: true` so the existing `targetOf` system branch yields a real row.
+2. `labels.js` — matching `SYSTEM_FILTERS` entries for legend/filter parity.
+3. Optionally name authentication rows by `user` (`auth::<user>` already in
+   `lane_id`) instead of a single `sys:` row.
+
+Separate, real, NOT render bugs: `ppid: null` /
+`parent_state: PARENT_NOT_REPORTED_BY_SENSOR` ⇒ lineage genuinely unavailable
+from sensor 0.3.0 (do not fabricate); projection lag 414 observations vs 21.8k
+raw (10,713 queue PENDING); `lane_axis.lanes[].lane_group` is null for all 40
+lanes while `group_counts` reports PROCESS 52 / AUTHENTICATION 7.
