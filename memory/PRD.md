@@ -8616,3 +8616,29 @@ reached the backend, so TLS worked for those attempts and failed only later.
 Recommended correction: materialise the root for the principal that runs the
 installer (VM trust-store provisioning), NOT a chain change and NOT a
 verification weakening.
+
+### G4-A2 endpoint visibility — root cause (2026-10-29)
+
+NATIVE G4-A2 SUCCEEDED: `ep_024ce6515803f7165a11` / `NIVX-G4-WIN11`,
+sensor 0.3.0-windows, enrolled 03:22:52Z, SCM service live, telemetry flowing.
+
+Not a data problem — a CONSOLE TENANT SCOPE problem.
+- Registry: present, `sensor_state=REPORTING`, heartbeat + telemetry 03:47:52Z,
+  group `grp_default_windows`, policy `pol_default_detect_only`.
+- Persisted, not merely acked: 21,791 `edr_raw_events` with
+  `endpoint_ref=ep_024ce65…` (field is `endpoint_ref`/`source`, NOT
+  `endpoint_id`), all HEALTHY / AUTHENTICATED, `durable_queue_v1`.
+- `GET /api/edr/onboarding/computers` with `X-Tenant-Id: ten_548fb414…`
+  returns the row as **CONNECTED** ("authenticated telemetry received 20s ago").
+  Without the header → 403 `TENANT_REQUIRED`.
+- Console sends `X-Tenant-Id` from `activeTenant()` → localStorage
+  `nvx_tenant` (`apps/nivxray-xdr/src/lib/tenant.js:127`). The VM is in
+  `g4-windows-lab` (LAB); the console was scoped to an INTERNAL_VALIDATION
+  customer. Same origin, same DB `test_database`, different tenant.
+
+Correction: select customer `g4-windows-lab` / `ten_548fb414b0d7dd2f729d03b454`
+in the console switcher. No code, data or sensor change.
+
+Secondary (NOT a visibility bug): processing queue DONE 11,084 /
+PENDING 10,713 / PROCESSING 1, and canonical/observation collections are 0 for
+this tenant, so `detections_24h` reads 0 until the queue drains.
