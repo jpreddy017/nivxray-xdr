@@ -9064,3 +9064,9 @@ process-creation path is Security-channel **4688**, which lands with NO `process
 command line and it is **Sysmon EID 1** (`notepad.exe g4-readiness.txt`, SOURCE_PROCESS_GUID);
 Sysmon has produced just 3 events. Until Sysmon EID 1 collection is confirmed on NIVX-G4-WIN11,
 neither rule can fire and G4 step 5 cannot execute.
+
+## 2026-06 · G4 M1 sensor compatibility verification (read-only)
+- Authoritative M1 source is NOT in /app. It exists only as sanitized snapshot bundles at /app/NIVXFORGE_M1_G3_*.bundle (branch engineering/m1-g3-integrated, candidate commit 388bb3d6, tree df8eb48b; subtree agents/nivxforge-windows = db21f422). Files: agents/nivxforge-windows/nivxforge_m1.py + nivxforge_setup.py (m1-install / m1-uninstall / m1-reconcile-enrollment / --m1-service-run).
+- Verified M1 contract: m1-config.json (origin https + windows-default certs, tenant_id, state_dir, install_dir, service_exe, service_args, certificate_policy), clean-host-only install, enrollment token via stdin, POST /api/edr/enrollment/tokens then /api/edr/agent/enroll.
+- SHA-256 9AF2F96B... of the installed service exe CANNOT be bound to source from this environment (no artifact, unsigned PyInstaller onefile build). Verify on VM against m1-ownership.json service_image.sha256.
+- No changes made to preview, production, VM, sensor, credentials or source.
