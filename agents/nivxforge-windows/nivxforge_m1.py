@@ -570,7 +570,7 @@ def ace_inspection(descriptor: dict) -> list[str]:
             problems.append(f"unparseable trustee {trustee!r}")
             continue
         mask = ace.get("mask")
-        if not isinstance(mask, int) or mask < 0:
+        if type(mask) is not int or not 0 <= mask <= 0xFFFFFFFF:
             problems.append(f"unresolvable mask {mask!r} for {trustee}")
             continue
         if ace_type == ACCESS_DENIED_ACE_TYPE:
@@ -676,7 +676,7 @@ def filesystem_ace_inspection(descriptor: dict, role: str) -> list[str]:
             problems.append(f"unparseable trustee {trustee!r}")
             continue
         mask = ace.get("mask")
-        if not isinstance(mask, int) or mask < 0:
+        if type(mask) is not int or not 0 <= mask <= 0xFFFFFFFF:
             problems.append(f"unresolvable mask {mask!r} for {trustee}")
             continue
         if not isinstance(flags, int) or flags < 0:
@@ -737,6 +737,23 @@ def path_security_verdict(descriptor, role: str, host) -> dict | None:
             "role": role, "owner": descriptor.get("owner")}
 
 
+
+def normalise_access_mask(raw) -> int | None:
+    """Interpret pywin32's signed LONG ACE mask as a 32-bit Windows DWORD.
+
+    GetAce() can surface bit-31 masks as negative Python integers. Reject
+    other types (including bool) and values outside a genuine 32-bit range;
+    never transform an invalid mask into a safe one.
+    """
+    if type(raw) is not int:
+        return None
+    if -(1 << 31) <= raw < 0:
+        return raw & 0xFFFFFFFF
+    if 0 <= raw <= 0xFFFFFFFF:
+        return raw
+    return None
+
+
 def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
     """Pure normalisation of a Windows descriptor into the verdict dict.
 
@@ -766,8 +783,11 @@ def normalise_descriptor(control: int, owner, group, dacl, sid_text) -> dict:
             sid = sid_text(entry[2])
             if sid is None:
                 return {**parsed, "malformed": True, "dacl": aces}
+            mask = normalise_access_mask(entry[1])
+            if mask is None:
+                return {**parsed, "malformed": True, "dacl": aces}
             aces.append({"type": ace_type, "flags": flags,
-                         "mask": int(entry[1]), "sid": sid})
+                         "mask": mask, "sid": sid})
     except Exception:                                        # noqa: BLE001
         return {**parsed, "malformed": True, "dacl": aces}
     parsed["dacl"] = aces
@@ -805,7 +825,7 @@ def descriptor_to_sddl(descriptor: dict, mapping: dict) -> str | None:
         trustee, mask, flags = ace.get("sid"), ace.get("mask"), ace.get("flags", 0)
         if not isinstance(trustee, str) or not _SID_RE.match(trustee):
             return None
-        if not isinstance(mask, int) or mask < 0:
+        if type(mask) is not int or not 0 <= mask <= 0xFFFFFFFF:
             return None
         if not isinstance(flags, int) or flags < 0:
             return None
