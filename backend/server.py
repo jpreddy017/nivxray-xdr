@@ -776,6 +776,16 @@ if os.environ.get("ARCH_DOCS_SHARE") == "1":
     if _arch_dir.is_dir():
         app.mount("/api/_arch", _ArchStatic(directory=str(_arch_dir)), name="arch-docs")
 
+    # TEMPORARY · owner-requested one-time retrieval of preservation archives.
+    # Capability path (unguessable segment); remove this mount after download.
+    _pv_dir = _ArchPath("/var/backups/nivx-preservation")
+    if _pv_dir.is_dir():
+        app.mount(
+            "/api/_pv/ff603ec885f6068365d62548",
+            _ArchStatic(directory=str(_pv_dir)),
+            name="preservation-artifacts",
+        )
+
 # E3 preview router mount STRIPPED for production integration (brief §b).
 # `/api/e3/trajectory/*` was the ONLY runtime entry point into the E3 preview
 # plumbing (api.py, e1_shape_preview, kushu_import, fixtures, prodshape,

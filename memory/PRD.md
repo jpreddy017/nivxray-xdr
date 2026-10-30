@@ -9147,3 +9147,12 @@ neither rule can fire and G4 step 5 cannot execute.
 - NOT in bundle (unreachable): 3 dangling commits (2 stash WIPs + orphan 2f940c8b) + 6 blobs -> need a separate tar of .git if wanted.
 - Destination volume / overlay: 237GB free; /app untouched (still 90% full).
 - Open risk R1: bundle is single-copy on the same pod volume as the source — copy off-pod next.
+
+## 2026-10-30 · T2 off-pod preservation readiness — PASS (1 HIGH security finding)
+- Artifacts in /var/backups/nivx-preservation (outside /app; overlay 235GB free):
+  * ROCKET-P0-SRC_UNIQUE_HISTORY_2026-10-30.bundle 124,634,440 B sha256 9ae11e502c9596ea603e21cabce8f9d22c812317a683e21f6168e7cee1d1e0a4 (re-verified OK)
+  * ROCKET-P0-SRC_GIT_DIR_FULL_2026-10-30.tar.gz 153,416,720 B sha256 e16ba1e1b15ebac2ba5b5340d422729818e82ec257c4b1661090ed89c1b8debd (1247 members, gzip OK)
+- Tar restore-tested: HEAD cd2b8b92d, 27/27 refs, fsck clean, ALL NINE unreachable objects resolvable (3 commits + 6 blobs, all were loose). Reflogs + ORIG_HEAD also preserved (a bundle cannot carry these).
+- HIGH FINDING: .tok at repo root has 22 historical blob versions, 163 B each, single line, 160 alnum chars, credential-shaped. Reachable from refs -> present in BOTH archives. Rotate the value; filter (git filter-repo --invert-paths --path .tok) before any history migration into nivxforge-edr; NEVER rewrite the original. No .env, no private keys, no AKIA/PEM matches; .git/config has no embedded credentials. Values never read or printed.
+- Download: flag-gated capability URL /api/_pv/ff603ec885f6068365d62548/ (ARCH_DOCS_SHARE=1, preview only). End-to-end proof: bundle downloaded through the URL re-hashed byte-identical. REMOVE the mount + flag after the user confirms download.
+- Source unchanged: refs diff identical, HEAD same, worktree clean, loose 787 / in-pack 35,992 / 140.45 MiB identical, garbage 0, no gc/prune/repack. Nothing pushed. No XDR/Workspace source copied.
