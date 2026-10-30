@@ -1,0 +1,113 @@
+name: M1 G4 signed-mask isolated regression
+on:
+  push:
+    branches:
+      - engineering/m1-g4-signed-mask-fix-chatgpt-20261030
+    paths:
+      - agents/nivxforge-windows/nivxforge_m1.py
+      - backend/tests/edr/test_m1_signed_ace_mask.py
+      - .github/workflows/m1-g4-signed-mask-regression.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: signed ACE mask regression only
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest and required repository plugin
+        run: python -m pip install 'pytest==8.3.3' 'pytest-xdist==3.6.1' 'requests==2.32.3'
+      - name: Run M1 signed-mask regressions
+        run: python -m pytest backend/tests/edr/test_m1_signed_ace_mask.py -q
+
+  windows-package-smoke:
+    name: Build corrected internal Windows installer (no install)
+    needs: regression
+    runs-on: windows-2022
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    steps:
+      - name: Preserve Git source bytes on Windows
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.safecrlf true
+          Write-Host 'Windows Git checkout configured to preserve tracked source bytes (no CRLF rewrite)'
+      - name: Checkout exact tested candidate
+        uses: actions/checkout@v4
+      - name: Python 3.11 Windows x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Verify unchanged M1 source manifest entries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import hashlib, json, pathlib
+          obj = json.loads(pathlib.Path("M1_SOURCE_MANIFEST.json").read_text())
+          items = obj["files"]
+          changed = "agents/nivxforge-windows/nivxforge_m1.py"
+          assert sum(row["path"] == changed for row in items) == 1
+          for row in items:
+              if row["path"] == changed:
+                  continue
+              got = hashlib.sha256(pathlib.Path(row["path"]).read_bytes()).hexdigest()
+              if got.lower() != row["sha256"].lower():
+                  raise SystemExit("Unapproved M1 source drift: " + row["path"])
+          print("M1 source drift gate: PASS (14/14 unchanged; single approved candidate file excluded)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "M1 unchanged-source verification failed" }
+          python -m py_compile agents/nivxforge-windows/nivxforge_m1.py agents/nivxforge-windows/nivxforge_setup.py
+          if ($LASTEXITCODE -ne 0) { throw "Python compile failed" }
+      - name: Build Windows installer (NO service operations)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./agents/nivxforge-windows/build/build_windows_installer.ps1 -PythonExe python -Commit $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "Windows build failed" }
+      - name: Verify exact candidate EXE without installing
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = 'agents/nivxforge-windows/dist'
+          $exe = Join-Path $dist 'NivXForgeEDRSetup.exe'
+          if (-not (Test-Path $exe)) { throw 'No Windows installer produced' }
+          $bytes = [IO.File]::ReadAllBytes($exe)
+          if ($bytes.Length -lt 2 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw 'Invalid PE' }
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          $info = Get-Content (Join-Path $dist 'build-info.json') -Raw | ConvertFrom-Json
+          if ($info.sha256 -ne $hash -or $info.commit -ne $env:GITHUB_SHA) {
+            throw 'Build provenance or artifact hash mismatch'
+          }
+          $out = (& $exe version 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $out -notmatch 'sensor_version') { throw 'Frozen CLI version check failed' }
+          $help = (& $exe m1-install --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $help -notmatch 'm1-config') { throw 'M1 clean-install dispatch absent' }
+          $help = (& $exe m1-uninstall --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $help -notmatch 'm1-config') { throw 'M1 uninstall dispatch absent' }
+          Write-Host "G4 INTERNAL CANDIDATE PACKAGED: SHA256=$hash ; commit=$env:GITHUB_SHA"
+          Write-Host 'NO INSTALLATION, NO SCM MUTATION, NO ENROLLMENT, NO PRODUCTION RELEASE'
+      - name: Upload internal unsigned candidate
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NivXForge-M1-G4-SIGNED-ACE-MASK-UNREVIEWED-INTERNAL-UNSIGNED
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            agents/nivxforge-windows/dist/NivXForgeEDRSetup.exe
+            agents/nivxforge-windows/dist/SHA256SUMS.txt
+            agents/nivxforge-windows/dist/build-info.json
+            M1_SOURCE_MANIFEST.json
