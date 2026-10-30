@@ -9126,3 +9126,13 @@ neither rule can fire and G4 step 5 cannot execute.
 - Preservation vs restore-test separated: source well preserved (bundles, VERIFY.sh 373 tests, subtree db21f422), NO restore test performed for any asset; data preservation unproven.
 - First safe copy proposed: v2.ingestion.canonical + telemetry_bridge + case_engine.schema with 18 tests; 7 prerequisites, 8 acceptance tests, independent G0-G6 approval.
 - Gaps G1-G4 (prod backups, data inventory, deployed revision, secret custody) remain UNKNOWN. Step 3 cannot be certified. HOLD.
+
+## 2026-10-30 · EDR-P0-02A recovery readiness audit (READ ONLY) — BLOCKED
+- Deliverable: /app/EDR-P0-02A_RECOVERY_READINESS.md
+- Manifest validated: 191/191 modules present at 5040c08c; manifest blob == HEAD tree blob == git hash-object of worktree; 0 mismatches (task 1 PASS).
+- NEW CRITICAL FINDING: rocket-p0/src/.git is a SEPARATE clone (158MB, pack 140.45MiB, 27 refs, 15 engineering branches) whose commits exist NOWHERE else — /app git: not a valid object; GitHub: 422 while control SHA 35d47cc9 returns 200. Untracked, on a volume 90% full (1.1GB free). Protect via git bundle to overlay (test T1).
+- Installer EXEs CONFIRMED absent: no NivXForgeSetup/Sensor exe, no payload-manifest.json, no m1-ownership.json; the only 64-hex in installer docs (099a6338...) is a DOCUMENT hash, not an exe; VM-reported 9AF2F96B has no corroborating record.
+- Secret custody upgraded to [BU]: platform register has 60 app + 13 system keys, live/test slots, rotation timestamps for 9 sensitive keys; recovery = re-issue (no value export). VERCEL_TOKEN registered but EMPTY in this env (length 0) so Vercel ledger re-verification still blocked.
+- Production backups: UNKNOWN, no owner identified, no dumps. Deployed backend revision: UNKNOWN. Prod DB identity: UNKNOWN. ZERO assets have a verified restore.
+- Plan: T1 bundle unique history (free), T2 M1 restore-to-build, T3 candidate clone, T4 synthetic DB restore drill (needs DB authorization), T5 secret re-issue drill, T6 read m1-ownership.json on VM, T7 authorized prod backup policy read. Storage: /app 90% full, use overlay (238GB free).
+- Directive step 3 CANNOT be certified. HOLD.
