@@ -9115,3 +9115,14 @@ neither rule can fire and G4 step 5 cannot execute.
 - E3 preview plumbing (platform_seed, e1_shape_preview, artifacts_overlay, e3_* collections) is runtime-unreachable (mount stripped) = test-only.
 - Preservation: preserved = 13 bundles (VERIFY.sh, subtree db21f422), reviewer repo d2f8b742, 56 branches, evidence corpora (63MB/118MB/2.4MB/5.6MB), 172 tests. NOT preserved = production backup arrangements, prod data inventory, prod revision, .env values custody, built installer EXEs, G4 VM state, rocket-p0 origin.
 - Production revision / Mongo identity / ownership / backups remain UNKNOWN and are documented with the exact read needed. HOLD continues.
+
+## 2026-10-30 · EDR-P0-01 dependency preservation + copy manifest (READ ONLY) — PARTIAL
+- Deliverable: /app/EDR-P0-01_DEPENDENCY_PRESERVATION_MANIFEST.md (492 lines incl. Appendix A = all 191 modules with blob hashes @5040c08c).
+- Closure reconciled: 191/191 present in HEAD, backend worktree CLEAN -> blob hashes are both committed object and on-disk bytes. 105 of 191 modules have referencing tests; 86 have none.
+- Classes: A=160 copy as-is, B=12 copy with tests, C=3 replace (deps, xdr_rbac, xdr_audit_log) + new EDR ASGI entrypoint, D=4 interface only (xdr_pipeline, xdr_threat_family, library.registry, rule_store_binding), E=1 excluded (routers/edr_maintenance.py), F=2 verify (canonical/engine __init__), G=9 drop out when D is cut.
+- xdr_pipeline coupling reduced to FOUR symbols: process_event_through_pipeline, evaluate_detection, RUNTIME_DETECTION_RULES, binding_report -> proposed detection port; originals untouched.
+- telemetry_bridge chain documented line-exact (canonical_bridge.py:511 -> telemetry_bridge.py:369/373/375, observation_doc:324, observation_identity canonical.py:357, link_observations_to_incident:379) with schema/identity/no-fabrication/index/error/ordering contracts + 18 tests that must travel with it.
+- edr_maintenance facts: ONE endpoint POST /edr/maintenance/dev-reset, hardcoded TENANT ten_e759b7288598bd882e3dcac49d, EDR_MAINTENANCE_TOKEN fail-closed (404 if unset), wipes 13 non-EDR collections. Nine requirements listed; M9 scoped endpoint removal DOES NOT EXIST today.
+- Preservation vs restore-test separated: source well preserved (bundles, VERIFY.sh 373 tests, subtree db21f422), NO restore test performed for any asset; data preservation unproven.
+- First safe copy proposed: v2.ingestion.canonical + telemetry_bridge + case_engine.schema with 18 tests; 7 prerequisites, 8 acceptance tests, independent G0-G6 approval.
+- Gaps G1-G4 (prod backups, data inventory, deployed revision, secret custody) remain UNKNOWN. Step 3 cannot be certified. HOLD.
