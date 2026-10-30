@@ -9098,3 +9098,9 @@ neither rule can fire and G4 step 5 cannot execute.
 - Sequence: map full direct+transitive chain -> inventory modules/engines/config/schema/tests/workers/data -> preserve originals + verified recovery backup -> COPY into EDR boundary (originals untouched) -> adapt copies to EDR auth/DB/config/runtime -> prove equivalence (fixtures, contracts, provenance, regression) -> isolated e2e incl. native endpoint + failure simulation -> independent G0-G6 sign-off -> reversible cutover ONE dependency at a time -> keep legacy until rollback period ends.
 - Prohibitions: no break-first-repair-later; no touching other products dependencies; no partial engine copies; no new XDR/Workspace runtime deps; no bulk DB/telemetry cloning; no premature legacy removal; a green build is not equivalence.
 - Standing: HOLD. Step 1 incomplete (backend revision UNKNOWN, prod Mongo identity/DB_NAME UNKNOWN, canonical//engine//security_state/ untraced, flags unverified, collection ownership = A0-03).
+
+## 2026-10-30 · Complete architecture pack delivered (docs only)
+- /app/docs/architecture/edr-pack/ — 00_INDEX, 01_SYSTEM_ARCHITECTURE, 02_FLOWCHARTS, 03_BACKEND_SKELETON, 04_FRONTEND_UIUX, 05_DATA_MODEL, 06_TOOLS_AND_ENGINES, 07_TARGET_INDEPENDENT_EDR, 08_EVIDENCE_AND_UNKNOWNS (+ copies of A0-01, A0-02 and the isolation directive).
+- Zip: /app/docs/architecture/NIVXFORGE_EDR_ARCHITECTURE_PACK_2026-10-30.zip (48 KB, 13 files, ~1,479 lines). Mermaid diagrams render in GitHub/VS Code.
+- Download route: VS Code (Code button) -> right-click file -> Download; or Save to GitHub (paid plan).
+- Documentation only: no code, config, branch, DB or deployment change. Separation remains on HOLD.
