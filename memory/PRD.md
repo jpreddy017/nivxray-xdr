@@ -9029,3 +9029,38 @@ REMAINING, declared not hidden:
 * P0-1's root cause is still upstream: no unique index / upsert-by-`observation_id` in ingestion.
   The join fails closed around it; closing it properly is an ingestion decision.
 * No G4 Windows validation against this successor. Independent G3 verification pending.
+
+## 2026-10-30 · G4 ISOLATED LAB PREPARED (candidate d2f8b742, G3 PASS per Codex)
+
+LAB BACKEND (new supervisor program `g4lab`, preview/production untouched):
+* code `/root/audit/backend` detached at `d2f8b742`; DB `nivx_g4_lab`; port `127.0.0.1:8101`
+* secrets inherited from `/app/backend/.env` via wrapper; none copied into a new file
+* `/root/g4lab/run_lab_backend.sh`, `/etc/supervisor/conf.d/g4lab.conf`, `seed_lab_identity.py`
+* supervisor: backend(8001)+frontend(3000) RUNNING throughout; g4lab RUNNING
+
+BACKEND IDENTITY VERIFIED over HTTP from the lab, two findings on one delivery:
+  joined=1 findings_attached=2 basis=EXACT_EVIDENCE_REFERENCE_MATCH
+  e3_detections=[DET-EX-001 HIGH, DET-PS-005 MEDIUM]  compat=DET-EX-001 HIGH
+  e3_attack={T1027,T1059.001,T1547.001}  detections_all=2  state=ASSOCIATED_BY_CANONICAL_DELIVERY_PROOF
+NEGATIVE CONTROL: same request on preview(8001) → `e3_detections` absent from every row.
+
+LAB IDENTITY: tenant `ten_548fb414b0d7dd2f729d03b454` ("G4 Windows Acceptance Lab", kind=LAB,
+ACTIVE) + org `org_d8cc3cae3e6b16f0f4ac4c3065` + endpoint `ep_024ce6515803f7165a11`
+(NIVX-G4-WIN11, sensor 0.3.0-windows) mirrored read-only into the lab DB; 883 observations and
+882 canonical rows copied. No re-enrolment, no installer rebuild.
+CORRECTION: the PRD's old pair ten_e759b72…/ep_1989031c… does not exist in this database.
+
+SENSOR IS LIVE: last_heartbeat_at within 20s, lifecycle CONNECTED, event_count 1587→1590 in 2 min.
+(The earlier "10.3h stale" reading came from `last_seen`, not the heartbeat fields.)
+
+TWO-RULE TRIGGER PREPARED (not executed): `/root/g4lab/Invoke-NivxG4TwoRuleProbe.ps1` —
+one `reg.exe add …CurrentVersion\Run /d "powershell.exe -enc <benign b64>"` process creation
+satisfies DET-EX-001 (HIGH) and DET-PS-005 (MEDIUM) together. HKCU only, payload decodes to
+`Write-Output NIVX`, never executed, `-Cleanup` removes it.
+
+BLOCKER — COMMAND-LINE TELEMETRY: both rules are command-line predicates, but this host's
+process-creation path is Security-channel **4688**, which lands with NO `process.command_line`
+(103 events, `field_provenance` = pid + executable_path only). Only **1** canonical row carries a
+command line and it is **Sysmon EID 1** (`notepad.exe g4-readiness.txt`, SOURCE_PROCESS_GUID);
+Sysmon has produced just 3 events. Until Sysmon EID 1 collection is confirmed on NIVX-G4-WIN11,
+neither rule can fire and G4 step 5 cannot execute.
