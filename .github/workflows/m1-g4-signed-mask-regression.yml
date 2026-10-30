@@ -37,6 +37,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Preserve Git source bytes on Windows
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.safecrlf true
+          Write-Host 'Windows Git checkout configured to preserve tracked source bytes (no CRLF rewrite)'
       - name: Checkout exact tested candidate
         uses: actions/checkout@v4
       - name: Python 3.11 Windows x64
