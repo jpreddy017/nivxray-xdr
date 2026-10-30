@@ -9136,3 +9136,14 @@ neither rule can fire and G4 step 5 cannot execute.
 - Production backups: UNKNOWN, no owner identified, no dumps. Deployed backend revision: UNKNOWN. Prod DB identity: UNKNOWN. ZERO assets have a verified restore.
 - Plan: T1 bundle unique history (free), T2 M1 restore-to-build, T3 candidate clone, T4 synthetic DB restore drill (needs DB authorization), T5 secret re-issue drill, T6 read m1-ownership.json on VM, T7 authorized prod backup policy read. Storage: /app 90% full, use overlay (238GB free).
 - Directive step 3 CANNOT be certified. HOLD.
+
+## 2026-10-30 · T1 unique Git history preservation — PASS
+- Bundle: /var/backups/nivx-preservation/ROCKET-P0-SRC_UNIQUE_HISTORY_2026-10-30.bundle (118.9 MiB)
+- SHA-256: 9ae11e502c9596ea603e21cabce8f9d22c812317a683e21f6168e7cee1d1e0a4 (sidecar .sha256 + .refs.txt written)
+- Created with: git bundle create --branches --tags --remotes (27/27 refs incl. 3 refs/remotes and tag preserve-pre-alignment-2026-09-05)
+- git bundle verify: "The bundle records a complete history"; restore-tested by bare clone (23 heads + 1 tag, 31,387 objects, fsck clean), clone then removed.
+- Unique commit cd2b8b92d785bee2f88432d3202367bbd51508c0 verified present in bundle and in restored clone; still absent from /app git and upstream GitHub (422 vs control 200).
+- Source UNCHANGED: ref list diff identical, HEAD same, worktree clean, loose 787 / in-pack 35,992 / 140.45 MiB identical, garbage 0. Nothing pushed to github.com/nivxforgeedr/nivxforge-edr.
+- NOT in bundle (unreachable): 3 dangling commits (2 stash WIPs + orphan 2f940c8b) + 6 blobs -> need a separate tar of .git if wanted.
+- Destination volume / overlay: 237GB free; /app untouched (still 90% full).
+- Open risk R1: bundle is single-copy on the same pod volume as the source — copy off-pod next.
