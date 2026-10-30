@@ -764,6 +764,18 @@ except Exception as _v2_exc:                             # pragma: no cover
 
 app.include_router(api)
 
+# TEMPORARY · owner-requested read-only download of the architecture pack.
+# Inert unless ARCH_DOCS_SHARE=1 is set, so production stays unaffected.
+# Serves documentation files only. Remove once the download is confirmed.
+if os.environ.get("ARCH_DOCS_SHARE") == "1":
+    from pathlib import Path as _ArchPath
+
+    from fastapi.staticfiles import StaticFiles as _ArchStatic
+
+    _arch_dir = _ArchPath(__file__).resolve().parent.parent / "docs" / "architecture"
+    if _arch_dir.is_dir():
+        app.mount("/api/_arch", _ArchStatic(directory=str(_arch_dir)), name="arch-docs")
+
 # E3 preview router mount STRIPPED for production integration (brief §b).
 # `/api/e3/trajectory/*` was the ONLY runtime entry point into the E3 preview
 # plumbing (api.py, e1_shape_preview, kushu_import, fixtures, prodshape,
