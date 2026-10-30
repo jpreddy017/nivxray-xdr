@@ -9092,3 +9092,9 @@ neither rule can fire and G4 step 5 cannot execute.
 - Coupling: 154 of 1512 backend modules are EDR; outbound deps = deps.py, v2.ingestion.*, detection_content.*, services.session_context/dashboard_lenses/mitre_catalogue, routers.xdr_rbac/xdr_audit_log, security.secret_policy. REVERSE coupling: detection_content.telemetry.nivxforge_sensor_dsm + xdr_pipeline import edr_plane; 8 XDR UI files import src/nivxforge; edrApi.js calls 4 /xdr/* endpoints.
 - Hazards recorded: backend/nivxforge/ is the NivXRay analysis engine, NOT the EDR product; rocket-p0/ 1.2GB untracked copy; 13,845 tracked paths -> 7,821 unique blobs.
 - No mutations of any kind (no merges, branch/PR changes, installs, builds, deploys, DB access).
+
+## 2026-10-30 · BINDING DIRECTIVE recorded — dependency-first, copy-first EDR isolation
+- /app/memory/EDR_ISOLATION_DIRECTIVE.md is NON-OVERRIDABLE and governs every future EDR extraction, engine migration, DB separation, service replacement and repo restructuring.
+- Sequence: map full direct+transitive chain -> inventory modules/engines/config/schema/tests/workers/data -> preserve originals + verified recovery backup -> COPY into EDR boundary (originals untouched) -> adapt copies to EDR auth/DB/config/runtime -> prove equivalence (fixtures, contracts, provenance, regression) -> isolated e2e incl. native endpoint + failure simulation -> independent G0-G6 sign-off -> reversible cutover ONE dependency at a time -> keep legacy until rollback period ends.
+- Prohibitions: no break-first-repair-later; no touching other products dependencies; no partial engine copies; no new XDR/Workspace runtime deps; no bulk DB/telemetry cloning; no premature legacy removal; a green build is not equivalence.
+- Standing: HOLD. Step 1 incomplete (backend revision UNKNOWN, prod Mongo identity/DB_NAME UNKNOWN, canonical//engine//security_state/ untraced, flags unverified, collection ownership = A0-03).
