@@ -9076,3 +9076,11 @@ neither rule can fire and G4 step 5 cannot execute.
 - BLOCKER: an agent cannot create a second Emergent project from inside this job (486146a0). Deploying from here publishes THIS workspace to THIS production app (on HOLD), and /app does not contain d2f8b742 (candidate lives only in private repo jpreddy017/nivxforge-g3-reviewer-handoff, branch reviewer/g3-clean-pass).
 - Required user action: create a new Emergent project, connect GitHub (OAuth/PAT), create a NEW job importing that branch (import is only possible at job creation; branch tip is imported, not an arbitrary commit), then publish there.
 - Nothing deployed, no code/routing/secret/VM changes made. Preview and production untouched.
+
+## 2026-10-30 · EDR-A0-01 production topology evidence (READ ONLY)
+- Deliverable: /app/EDR-A0-01_PRODUCTION_TOPOLOGY_EVIDENCE.md — verdict PARTIAL.
+- Verified live: edr.nivxforge.com (Vercel SPA, asset index-Btpjue2F.js) bakes ONE API origin https://nivxray.nivxforge.com; that origin is Emergent-hosted FastAPI behind Cloudflare (service nivxray-api, 875 OpenAPI paths, 86 EDR, 199 XDR) with EDR plane mounted fail-closed (401 SENSOR_UNAUTHENTICATED).
+- NEW finding: Workspace (workspace.nivxmachines.com) bundle also targets the same API origin -> EDR+XDR+Workspace share one backend runtime; isolation exists only at the static frontend edge.
+- UNKNOWN: backend deployment id/revision/SHA; production MongoDB host identity and DB_NAME. Missing permissions: read-only Vercel token, production platform/runtime read, production DB metadata, authenticated read-only prod session.
+- OpenAPI from prod/preview/local checkout is byte-identical (md5 a8c5abe0...), which does NOT identify the deployed revision (candidate d2f8b742 changes no schema).
+- No changes: no git ops, no deploys, no DB access, no DNS/env edits, no VM/sensor action.
