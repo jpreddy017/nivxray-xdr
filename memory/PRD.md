@@ -9104,3 +9104,14 @@ neither rule can fire and G4 step 5 cannot execute.
 - Zip: /app/docs/architecture/NIVXFORGE_EDR_ARCHITECTURE_PACK_2026-10-30.zip (48 KB, 13 files, ~1,479 lines). Mermaid diagrams render in GitHub/VS Code.
 - Download route: VS Code (Code button) -> right-click file -> Download; or Save to GitHub (paid plan).
 - Documentation only: no code, config, branch, DB or deployment change. Separation remains on HOLD.
+
+## 2026-10-30 · EDR-A0-03 data ownership + dependency MRI (READ ONLY) — PARTIAL
+- Deliverable: /app/EDR-A0-03_DATA_OWNERSHIP_MRI.md (no DB access at all; source-level AST + literal analysis).
+- 117 authoritative collections; 39 EDR-exclusive; 13 cross-product. Single authoritative writer confirmed per EDR family in the live path.
+- KEY: live EDR write into shared evidence is a LIBRARY CALL — canonical_bridge.py:511 -> v2/ingestion/telemetry_bridge.py:375 insert_one(v2_shadow_observations); EDR code does not insert directly.
+- KEY: ALL EDR writes into XDR/Workspace collections come from ONE module, routers/edr_maintenance.py (13 collections, tenant-wide reset) — never copy as-is, never use for scoped cleanup.
+- KEY: the 165 untraced modules resolved — canonical/ 1 of 41 reachable, engine/ 1 of 43 (package init, via edr_behavior), security_state/ 0 of 61. 162 are NOT EDR dependencies. EDR chain = 191 modules (161 EDR + 30 non-EDR).
+- Worker closure = 29 modules; reaches services.investigator.* and services.iue.* ONLY via detection_content.xdr_pipeline — cut that edge before copying the worker (removes 9 shared modules).
+- E3 preview plumbing (platform_seed, e1_shape_preview, artifacts_overlay, e3_* collections) is runtime-unreachable (mount stripped) = test-only.
+- Preservation: preserved = 13 bundles (VERIFY.sh, subtree db21f422), reviewer repo d2f8b742, 56 branches, evidence corpora (63MB/118MB/2.4MB/5.6MB), 172 tests. NOT preserved = production backup arrangements, prod data inventory, prod revision, .env values custody, built installer EXEs, G4 VM state, rocket-p0 origin.
+- Production revision / Mongo identity / ownership / backups remain UNKNOWN and are documented with the exact read needed. HOLD continues.
