@@ -9070,3 +9070,9 @@ neither rule can fire and G4 step 5 cannot execute.
 - Verified M1 contract: m1-config.json (origin https + windows-default certs, tenant_id, state_dir, install_dir, service_exe, service_args, certificate_policy), clean-host-only install, enrollment token via stdin, POST /api/edr/enrollment/tokens then /api/edr/agent/enroll.
 - SHA-256 9AF2F96B... of the installed service exe CANNOT be bound to source from this environment (no artifact, unsigned PyInstaller onefile build). Verify on VM against m1-ownership.json service_image.sha256.
 - No changes made to preview, production, VM, sensor, credentials or source.
+
+## 2026-06 · G4 isolated backend deployment — STOPPED (blocker)
+- Task: create a separate Emergent G4 project/app running frozen candidate d2f8b742 with its own HTTPS URL, DB and non-prod secrets.
+- BLOCKER: an agent cannot create a second Emergent project from inside this job (486146a0). Deploying from here publishes THIS workspace to THIS production app (on HOLD), and /app does not contain d2f8b742 (candidate lives only in private repo jpreddy017/nivxforge-g3-reviewer-handoff, branch reviewer/g3-clean-pass).
+- Required user action: create a new Emergent project, connect GitHub (OAuth/PAT), create a NEW job importing that branch (import is only possible at job creation; branch tip is imported, not an arbitrary commit), then publish there.
+- Nothing deployed, no code/routing/secret/VM changes made. Preview and production untouched.
