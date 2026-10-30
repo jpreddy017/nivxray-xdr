@@ -9084,3 +9084,11 @@ neither rule can fire and G4 step 5 cannot execute.
 - UNKNOWN: backend deployment id/revision/SHA; production MongoDB host identity and DB_NAME. Missing permissions: read-only Vercel token, production platform/runtime read, production DB metadata, authenticated read-only prod session.
 - OpenAPI from prod/preview/local checkout is byte-identical (md5 a8c5abe0...), which does NOT identify the deployed revision (candidate d2f8b742 changes no schema).
 - No changes: no git ops, no deploys, no DB access, no DNS/env edits, no VM/sensor action.
+
+## 2026-10-30 · EDR-A0-02 source ownership MRI (READ ONLY)
+- Deliverable: /app/EDR-A0-02_SOURCE_OWNERSHIP_MRI.md — verdict PARTIAL.
+- Inspected: /app HEAD 5040c08c (fix/dt-v3-auth-contract-backend); jpreddy017/nivxray-xdr 56 branches / 23 open PRs (main 752a00ff, phase2/edr-production 35d47cc9, release/xdr-b8-selector-candidate e2f15a25); reviewer repo reviewer/g3-clean-pass tip == d2f8b742 (full monorepo tree, importable, carries a .tok blob).
+- New evidence: deployed build-info.json on edr/xdr hosts (scope edr/xdr, api_origin nivxray.nivxforge.com, built_at 2026-10-28 / 2026-09-30); no commit SHA in artifact.
+- Coupling: 154 of 1512 backend modules are EDR; outbound deps = deps.py, v2.ingestion.*, detection_content.*, services.session_context/dashboard_lenses/mitre_catalogue, routers.xdr_rbac/xdr_audit_log, security.secret_policy. REVERSE coupling: detection_content.telemetry.nivxforge_sensor_dsm + xdr_pipeline import edr_plane; 8 XDR UI files import src/nivxforge; edrApi.js calls 4 /xdr/* endpoints.
+- Hazards recorded: backend/nivxforge/ is the NivXRay analysis engine, NOT the EDR product; rocket-p0/ 1.2GB untracked copy; 13,845 tracked paths -> 7,821 unique blobs.
+- No mutations of any kind (no merges, branch/PR changes, installs, builds, deploys, DB access).
