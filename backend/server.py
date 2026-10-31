@@ -54,6 +54,7 @@ import sample_library as sl
 
 from deps import client, db, seed_admin, validate_config, init_database
 from routers.auth import router as auth_router
+from transfer_bundle import transfer_router
 from routers.iue_lane_a import router as iue_lane_a_router
 from routers.iue_lane_b import router as iue_lane_b_router
 from routers.iue_lane_c import router as iue_lane_c_router
@@ -260,6 +261,7 @@ async def health_deep():
 
 # Wire routers under /api
 api.include_router(auth_router)
+api.include_router(transfer_router)
 api.include_router(iue_lane_a_router)
 api.include_router(iue_lane_b_router)
 api.include_router(iue_lane_c_router)
@@ -694,6 +696,10 @@ api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
 from routers.edr_onboarding import router as edr_onboarding_router
 api.include_router(edr_onboarding_router)
+# Temporary, token-gated development reset. 404s unless
+# EDR_MAINTENANCE_TOKEN is set in the environment.
+from routers.edr_maintenance import router as edr_maintenance_router
+api.include_router(edr_maintenance_router)
 # GATE 5 · policy authority + GATE 7 exclusions + GATE 11 events explorer
 # + connector productization (Management -> Downloads).
 from routers.edr_policies import (agent as edr_policy_agent,
@@ -757,6 +763,28 @@ except Exception as _v2_exc:                             # pragma: no cover
     )
 
 app.include_router(api)
+
+# TEMPORARY · owner-requested read-only download of the architecture pack.
+# Inert unless ARCH_DOCS_SHARE=1 is set, so production stays unaffected.
+# Serves documentation files only. Remove once the download is confirmed.
+if os.environ.get("ARCH_DOCS_SHARE") == "1":
+    from pathlib import Path as _ArchPath
+
+    from fastapi.staticfiles import StaticFiles as _ArchStatic
+
+    _arch_dir = _ArchPath(__file__).resolve().parent.parent / "docs" / "architecture"
+    if _arch_dir.is_dir():
+        app.mount("/api/_arch", _ArchStatic(directory=str(_arch_dir)), name="arch-docs")
+
+    # TEMPORARY · owner-requested one-time retrieval of preservation archives.
+    # Capability path (unguessable segment); remove this mount after download.
+    _pv_dir = _ArchPath("/app/_preservation")
+    if _pv_dir.is_dir():
+        app.mount(
+            "/api/_pv/ff603ec885f6068365d62548",
+            _ArchStatic(directory=str(_pv_dir)),
+            name="preservation-artifacts",
+        )
 
 # E3 preview router mount STRIPPED for production integration (brief §b).
 # `/api/e3/trajectory/*` was the ONLY runtime entry point into the E3 preview
