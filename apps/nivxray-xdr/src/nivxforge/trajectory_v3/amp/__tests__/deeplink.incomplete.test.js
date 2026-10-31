@@ -100,6 +100,44 @@ describe("the resolved and absent outcomes keep their own meaning", () => {
   });
 });
 
+describe("only an explicit completed absence may become NOT_FOUND", () => {
+  const cases = [
+    ["FOCUS_AUTHORITY_UNAVAILABLE", { state: "FOCUS_AUTHORITY_UNAVAILABLE", reason: "RuntimeError" }],
+    ["the superseded incomplete state name", { state: "OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE" }],
+    ["an unresolvable endpoint", { state: "ENDPOINT_NOT_RESOLVED" }],
+    ["no identifier supplied", { state: "NO_IDENTIFIER_SUPPLIED" }],
+    ["a state this build has never seen", { state: "SOMETHING_NEW" }],
+    ["an empty body", {}],
+    ["no body at all", null],
+    ["undefined", undefined],
+    ["absent but self-declared incomplete", { state: "OBSERVATION_NOT_RESOLVED", lookup_complete: false }],
+    ["absent with a capped search block", { state: "OBSERVATION_NOT_RESOLVED", search: { state: "PAGE_BUDGET_REACHED_8" } }],
+    ["absent with a legacy capped cursor_state", { state: "OBSERVATION_NOT_RESOLVED", search: { cursor_state: "PAGE_BUDGET_REACHED_2" } }],
+    ["absent with an unreadable store", { state: "OBSERVATION_NOT_RESOLVED", search: { state: "EXHAUSTED_SEARCH_COMPLETED", stores_unavailable: ["xdr_canonical_evidence"] } }],
+    ["absent from a scoped search only", { state: "OBSERVATION_NOT_RESOLVED", scope: { applied: true } }],
+  ];
+
+  cases.forEach(([name, body]) => {
+    test(`${name} is INCOMPLETE, never NOT_FOUND`, () => {
+      const d = deepLinkFromFocus(body, { id: ID });
+      expect(d.state).toBe("INCOMPLETE");
+      expect(d.state).not.toBe("NOT_FOUND");
+      expect(d.select).toBeNull();
+      expect(d.note).toBeTruthy();
+    });
+  });
+
+  test("a completed, unscoped, fully-read zero-match search IS not found", () => {
+    const d = deepLinkFromFocus({
+      state: "OBSERVATION_NOT_RESOLVED",
+      lookup_complete: true,
+      search: { state: "EXHAUSTED_SEARCH_COMPLETED", stores_unavailable: [], scope: { applied: false } },
+    }, { id: ID });
+    expect(d.state).toBe("NOT_FOUND");
+    expect(d.select).toBeNull();
+  });
+});
+
 describe("selection is an exact identity match or nothing", () => {
   const items = [{ ev: { event_iid: "a#1" } }, { ev: { event_iid: "b#2" } }];
 

@@ -87,5 +87,11 @@ export default defineConfig(({ mode }) => {
       host: "0.0.0.0",
       allowedHosts: true,
     },
+    // Per-file environment: pure-logic suites stay in Node (fast, no DOM), and the few suites
+    // that MOUNT a component opt in with `// @vitest-environment jsdom`.
+    test: {
+      globals: false,
+      environment: "node",
+    },
   };
 });

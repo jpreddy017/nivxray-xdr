@@ -46,9 +46,10 @@ def doc(seconds: int, *, activity: str | None = None, canonical: str | None = No
 
 
 def resolve(db, event_id, *, tenant=T, stores=SHADOW, max_pages=pa.FOCUS_PAGE_BUDGET,
-            refs=(DEV,)):
+            refs=(DEV,), time_start=None, time_end=None):
     return asyncio.run(pa.resolve_evidence(db, tenant_id=tenant, refs=list(refs),
                                            event_id=event_id, max_pages=max_pages,
+                                           time_start=time_start, time_end=time_end,
                                            stores=stores))
 
 
@@ -258,6 +259,72 @@ def test_malformed_identifiers_match_nothing_and_are_never_repaired(bad):
     got = resolve(db, bad) if bad else resolve(db, None)
     assert got["event"] is None
     assert got["state"] in (pa.FOCUS_SEARCH_INCOMPLETE, "FOCUS_NOT_RESOLVED")
+
+
+# ── G. scoped lookup — a window is not retained history ───────────────────────
+
+def test_a_scoped_search_resolves_an_exact_identity_inside_the_window():
+    """The versioned encoding names ONE identity group, so a scoped hit is still a hit."""
+    db = FakeDB(shadow=[doc(2, activity="target"), doc(1)])
+    got = resolve(db, encode_identity((0, "target")),
+                  time_start="2026-06-01T00:00:01+00:00", time_end="2026-06-01T00:00:03+00:00")
+    assert got["state"] == "FOCUS_RESOLVED"
+    assert got["scope"]["applied"] is True
+
+
+def test_a_scoped_search_never_resolves_a_legacy_id_off_one_match():
+    """The window was searched completely; a second match can still sit outside it."""
+    db = FakeDB(shadow=[doc(2, activity="same"), doc(1)])
+    got = resolve(db, "same",
+                  time_start="2026-06-01T00:00:01+00:00", time_end="2026-06-01T00:00:03+00:00")
+    assert got["state"] == pa.FOCUS_SEARCH_INCOMPLETE
+    assert got["event"] is None
+    assert got["reason"] == "SCOPED_SEARCH_CANNOT_PROVE_A_LEGACY_IDENTITY_UNIQUE"
+    assert got["search"]["scope"]["applied"] is True
+    assert len(got["partial_matches"]) == 1
+
+
+def test_a_scoped_search_that_finds_nothing_is_not_an_absence():
+    db = FakeDB(shadow=[doc(2, activity="elsewhere"), doc(1)])
+    got = resolve(db, "elsewhere",
+                  time_start="2026-07-01T00:00:00+00:00", time_end="2026-07-01T01:00:00+00:00")
+    assert got["state"] == pa.FOCUS_SEARCH_INCOMPLETE
+    assert got["state"] != "FOCUS_NOT_RESOLVED"
+    assert got["reason"] == "SCOPED_SEARCH_FOUND_NOTHING_IN_THE_REQUESTED_WINDOW"
+    assert "not an absence" in got["meaning"]
+
+
+def test_a_scoped_search_still_proves_ambiguity_when_both_rows_are_inside_it():
+    db = FakeDB(shadow=[doc(9, activity="dup"), doc(8, activity="act_8", canonical="dup")])
+    got = resolve(db, "dup",
+                  time_start="2026-06-01T00:00:07+00:00", time_end="2026-06-01T00:00:10+00:00")
+    assert got["state"] == "FOCUS_AMBIGUOUS"
+    assert len(got["candidates"]) == 2
+    assert got["scope"]["applied"] is True
+
+
+@pytest.mark.parametrize("ts,te,reason", [
+    ("not-a-time", None, "SEARCH_SCOPE_NOT_UNDERSTOOD"),
+    (None, "nonsense", "SEARCH_SCOPE_NOT_UNDERSTOOD"),
+    ("2026-06-02T00:00:00+00:00", "2026-06-01T00:00:00+00:00", "SEARCH_SCOPE_IS_EMPTY"),
+])
+def test_an_unreadable_or_empty_scope_runs_no_search_at_all(ts, te, reason):
+    """A dropped bound would tell the caller a narrowed search ran when it did not."""
+    db = FakeDB(shadow=[doc(2, activity="target"), doc(1)])
+    got = asyncio.run(pa.resolve_evidence(db, tenant_id=T, refs=[DEV], stores=SHADOW,
+                                          event_id=encode_identity((0, "target")),
+                                          time_start=ts, time_end=te))
+    assert got["state"] == pa.FOCUS_SEARCH_INCOMPLETE
+    assert got["reason"] == reason
+    assert got["event"] is None
+    assert got["scope"]["applied"] is False
+
+
+def test_the_scope_is_reported_on_every_outcome_including_unscoped_ones():
+    db = FakeDB(shadow=[doc(2, activity="target"), doc(1)])
+    got = resolve(db, encode_identity((0, "target")))
+    assert got["scope"]["applied"] is False
+    assert "unscoped" in got["scope"]["basis"]
 
 
 # ── F. the state survives the service and presentation layers ─────────────────

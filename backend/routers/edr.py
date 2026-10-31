@@ -1213,6 +1213,22 @@ def _identity_with_display_hostname(descriptor: Dict[str, Any],
             "observed_hostname": descriptor.get("hostname")}
 
 
+def _focus_candidates(rows: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Name every offered candidate in the V3 PRESENTATION identity space as well as §d's.
+
+    The UI navigates by `event_iid` and `decode_iid` deliberately rejects anything outside the
+    V3 namespace — a §d `event_id` included. A candidate offered without `event_iid` is a button
+    that cannot resolve, so the presentation identity is added here rather than guessed there.
+    """
+    from edr_trajectory import v3_presentation as _e3v3
+    out: List[Dict[str, Any]] = []
+    for r in rows or []:
+        eid = r.get("event_id")
+        out.append({**r, "event_iid": _e3v3.encode_iid(eid) if eid else None})
+    return out
+
+
+
 def _focus_endpoint_block(endpoint_id: str, descriptor: Dict[str, Any],
                           ep: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """The `endpoint` block every /trajectory/focus branch returns.
@@ -1756,6 +1772,8 @@ async def trajectory_focus(endpoint_id: str,
                            observation_id: Optional[str] = None,
                            detection_id: Optional[str] = None,
                            incident_id: Optional[str] = None,
+                           time_start: Optional[str] = None,
+                           time_end: Optional[str] = None,
                            user=Depends(get_current_user),
                            tenant_id: str = Depends(edr_tenant)
                            ) -> Dict[str, Any]:
@@ -1797,11 +1815,13 @@ async def trajectory_focus(endpoint_id: str,
             deep = await e3pa.resolve_evidence(
                 _db, tenant_id=str(identity.get("tenant_id") or tenant_id), refs=res.refs,
                 event_id=v3_event_id,
+                time_start=time_start, time_end=time_end,
                 match=((lambda ev: (ev.get("provenance") or {}).get("ref") == observation_id)
                        if (observation_id and not v3_event_id) else None))
         except Exception as ex:                        # noqa: BLE001
             return {"engine_id": "nivxray::edr_trajectory::v3_focus",
                     "state": "FOCUS_AUTHORITY_UNAVAILABLE", "focus": None,
+                    "lookup_complete": False,
                     "reason": type(ex).__name__,
                     "meaning": ("the deep-link resolver could not read evidence. This is NOT a "
                                 "statement that the requested observation does not exist.")}
@@ -1822,8 +1842,13 @@ async def trajectory_focus(endpoint_id: str,
                     "requested": {"event_iid": event_iid, "observation_id": observation_id},
                     "reason": deep.get("reason"),
                     "search": search,
-                    "candidates": deep.get("candidates"),
-                    "partial_matches": deep.get("partial_matches"),
+                    "scope": deep.get("scope"),
+                    # §8 · a candidate the UI can ACT ON must be named in the identity space the
+                    # UI navigates by. `event_id` is the §d evidence identity and `decode_iid`
+                    # does not accept it, so a candidate offered without `event_iid` would be a
+                    # button that cannot resolve.
+                    "candidates": _focus_candidates(deep.get("candidates")),
+                    "partial_matches": _focus_candidates(deep.get("partial_matches")),
                     "retry": deep.get("retry"),
                     "observations_searched": deep.get("scanned"),
                     "missing_link": (deep.get("meaning") if (incomplete or ambiguous) else

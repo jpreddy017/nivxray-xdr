@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
 import { AttackPanel } from "./AttackStrip";
+import { DeepLinkBanner } from "./DeepLinkBanner";
 import { hasTechnique } from "./attack";
 import { deepLinkFromError, deepLinkFromFocus, LOOKUP_AMBIGUOUS, LOOKUP_INCOMPLETE,
          selectedFor } from "./deeplink";
@@ -73,6 +74,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
   const [focusRetry, setFocusRetry] = useState(0);
+  const [focusScope, setFocusScope] = useState(null);
   const [dbg, setDbg] = useState(false);
   const [legend, setLegend] = useState(false);
   const [netSum, setNetSum] = useState(false);
@@ -202,7 +204,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
     if (deep?.id === wanted && deep.scope === url && deep.state !== "LOCATING") return;
     const ac = new AbortController(); let active = true;
     setDeep({ state: "LOCATING", id: wanted, scope: url });
-    api.get(`${url}/focus`, { params: { event_iid: wanted }, signal: ac.signal }).then(({ data: f }) => {
+    // A SCOPED lookup is the supported narrowing action. The bounds only ever narrow the
+    // search: tenant and endpoint are fixed server-side, and the server reports the scope back
+    // so a window-complete search is never presented as a search of retained history.
+    const params = { event_iid: wanted, ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
+    api.get(`${url}/focus`, { params, signal: ac.signal }).then(({ data: f }) => {
       if (!active) return;
       // An UNFINISHED lookup keeps its own state: it is never rendered as "not found", and no
       // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
@@ -211,7 +217,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
       if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1 }, true);
     }).catch(() => { if (active) setDeep(deepLinkFromError(wanted, { scope: url, attempt: focusRetry })); });
     return () => { active = false; ac.abort(); };
-  }, [data, wanted, model, url, focusRetry]); // eslint-disable-line
+  }, [data, wanted, model, url, focusRetry, focusScope]); // eslint-disable-line
 
   // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
@@ -315,38 +321,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
-        {deep && !["FOCUSED"].includes(deep.state) && (
-          ["INCOMPLETE", "AMBIGUOUS"].includes(deep.state) ? (
-            <div role="status" data-testid="v3-deeplink-state" data-deeplink-state={deep.state}
-              style={{ fontSize: 13, color: C.text, marginBottom: 8, padding: "8px 12px", border: `1px solid ${C.amber}`, borderRadius: 8 }}>
-              <strong data-testid="v3-deeplink-headline">{deep.state === "AMBIGUOUS" ? "Identifier is ambiguous" : "Lookup incomplete"}</strong>
-              <div data-testid="v3-deeplink-note" style={{ color: C.muted, marginTop: 4 }}>
-                {deep.state === "AMBIGUOUS"
-                  ? (deep.note || `Observation ${deep.id} was exported by an older build and names more than one observation. Choose the intended one — nothing is selected automatically.`)
-                  : (deep.note || `The search for observation ${deep.id} did not finish, so it is neither found nor shown to be absent. Nothing is selected in its place.`)}
-                {deep.searched ? ` (${deep.searched} observations compared)` : ""}
-              </div>
-              {deep.state === "AMBIGUOUS" && deep.candidates?.length > 0 && (
-                <ul data-testid="v3-deeplink-candidates" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                  {deep.candidates.map((c) => (
-                    <li key={c.event_id}>
-                      <button className="v3-link" data-testid={`v3-deeplink-candidate-${c.event_id}`} style={{ fontSize: 13 }}
-                        onClick={() => { setDeep(null); upd({ event: c.event_iid || c.event_id }); }}>{c.event_id}</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
-                {deep.retryable !== false && <button className="v3-btn" data-testid="v3-deeplink-retry" onClick={() => { setDeep(null); setFocusRetry((v) => v + 1); }}>Retry lookup</button>}
-                <button className="v3-btn" data-testid="v3-deeplink-narrow" onClick={() => { setDeep(null); upd({ event: null }); say("Deep link cleared. Narrow the time range, then open the link again to search a smaller span."); }}>Narrow the search</button>
-              </div>
-            </div>
-          ) : (
-            <div data-testid="v3-deeplink-state" data-deeplink-state={deep.state} style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-              {deep.state === "NOT_FOUND" ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`)
-                : deep.state === "OUTSIDE_PAGE" ? "Observation located in retained evidence. Its time range is selected; load older events if it is outside the loaded page." : `Locating observation ${deep.id} in history…`}
-              {deep.state === "OUTSIDE_PAGE" && older.cursor && <button className="v3-link" disabled={loading} onClick={loadOlder}>Load older events</button>}</div>
-          ))}
+        <DeepLinkBanner deep={deep} olderCursor={older.cursor} loading={loading} scopedNow={!!focusScope}
+          onRetry={() => { setDeep(null); setFocusRetry((v) => v + 1); }}
+          onNarrow={() => { setDeep(null); setFocusScope({ t0, t1 }); setFocusRetry((v) => v + 1); }}
+          onWiden={() => { setDeep(null); setFocusScope(null); setFocusRetry((v) => v + 1); }}
+          onCandidate={(c) => { setDeep(null); setFocusScope(null); upd({ event: c.event_iid }); }}
+          onLoadOlder={loadOlder} />
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
