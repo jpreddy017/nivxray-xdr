@@ -1,0 +1,28 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('node:assert/strict');
+const React=require('react'),{create,act}=require('react-test-renderer');
+const {transformSync}=require('esbuild');
+const requests=[]; let viewCalls=0;
+const params=new URLSearchParams('view=saved-1');
+const api={listEvents:p=>new Promise((resolve,reject)=>requests.push({p,resolve,reject})),listSavedViews:async()=>({views:[]}),getEventFacets:async()=>({total_events:0}),getSavedView:async()=>{viewCalls++;return {filters:{endpoint_id:'vm-1'},sort:'desc',time:{mode:'RELATIVE',hours:168}};}};
+const shell=({children})=>React.createElement('section',null,children);
+const primitives=new Proxy({}, {get:(_,key)=>key==='OpsTable'?p=>React.createElement('table',{'data-testid':p.testid},JSON.stringify(p.rows)):shell});
+const code=transformSync(fs.readFileSync(path.join(__dirname,'../apps/nivxray-xdr/src/nivxforge/pages/EdrEventsPage.jsx'),'utf8'),{loader:'jsx',format:'cjs'}).code;
+const mod={exports:{}};
+vm.runInNewContext(`(function(require,module,exports){${code}})`)(id=>id==='react'?React:id==='react-router-dom'?{useSearchParams:()=>[params,()=>{}]}:id.includes('managementApi')?api:id.includes('OpsPrimitives')?primitives:id.includes('apiError')?{apiErrorText:e=>e.message}:id==='lucide-react'?new Proxy({},{get:()=>()=>null}):id.endsWith('.css')?{}:{default:shell,__esModule:true},mod,mod.exports);
+(async()=>{
+let tree; await act(async()=>{tree=create(React.createElement(mod.exports.default));});
+assert.equal(viewCalls,1,'saved URL must resolve its filters');
+assert.equal(requests.at(-1).p.endpoint_id,'vm-1');
+assert.equal(requests.at(-1).p.hours,168);
+assert.equal(tree.root.findAllByProps({'data-testid':'edr-events-empty-tenant'}).length,0,'loading must not claim no reporting');
+const latest=requests.at(-1);
+await act(async()=>latest.resolve({events:[{raw_id:'new'}],next_cursor:null}));
+await act(async()=>requests[0].resolve({events:[{raw_id:'stale'}],next_cursor:'old-cursor'}));
+const table=tree.root.findByType('table');
+assert.match(table.children.join(''),/new/);assert.doesNotMatch(table.children.join(''),/stale/);
+assert.equal(tree.root.findAllByProps({'data-testid':'edr-events-load-more'}).length,0);
+await act(async()=>tree.root.findByProps({'data-testid':'edr-events-refresh'}).props.onClick());
+await act(async()=>requests.at(-1).reject(new Error('unavailable')));
+assert.equal(tree.root.findAllByProps({'data-testid':'edr-events-empty-tenant'}).length,0,'failure is not no evidence');
+act(()=>tree.unmount());console.log('PASS: saved-link resolution, scoped filters, stale response/cursor refusal, no false empty state during loading or failure');
+})().catch(e=>{console.error(e);process.exitCode=1;});

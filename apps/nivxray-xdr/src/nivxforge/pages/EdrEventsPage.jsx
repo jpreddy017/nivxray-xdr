@@ -7,7 +7,7 @@
  * so an activity class with no events is shown as not observed rather
  * than silently missing.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Bookmark, ChevronDown, Link2, RefreshCw, Search, Trash2, X }
   from "lucide-react";
@@ -202,7 +202,7 @@ function SavedViews({ views, activeId, onOpen, onSave, onDelete, onClear }) {
 export default function EdrEventsPage() {
   const [search, setSearch] = useSearchParams();
   const [views, setViews] = useState([]);
-  const [activeView, setActiveView] = useState(search.get("view") || null);
+  const [activeView, setActiveView] = useState(null);
   const [hours, setHours] = useState(24);
   const [activity, setActivity] = useState("");
   const [detection, setDetection] = useState("");
@@ -228,19 +228,31 @@ export default function EdrEventsPage() {
     return p;
   }, [hours, activity, detection, endpoint, term, sort]);
 
+  const requestGeneration = useRef(0);
   const load = useCallback((append = false, cur = null) => {
+    const generation = ++requestGeneration.current;
+    if (!append) { setPages([]); setCursor(null); setSelected(null); }
     setLoading(true); setErr(null);
     listEvents(cur ? { ...params, cursor: cur } : params)
       .then((d) => {
+        if (generation !== requestGeneration.current) return;
         setMeta(d);
         setCursor(d.next_cursor);
         setPages((prev) => (append ? [...prev, ...d.events] : d.events));
       })
-      .catch((e) => setErr(apiErrorText(e, "events unavailable")))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (generation === requestGeneration.current)
+          setErr(apiErrorText(e, "events unavailable"));
+      })
+      .finally(() => {
+        if (generation === requestGeneration.current) setLoading(false);
+      });
   }, [params]);
 
-  useEffect(() => { load(false, null); }, [load]);
+  useEffect(() => {
+    load(false, null);
+    return () => { requestGeneration.current += 1; };
+  }, [load]);
 
   const loadViews = useCallback(() => {
     listSavedViews("events").then((d) => setViews(d.views || []))
@@ -450,13 +462,11 @@ export default function EdrEventsPage() {
       {err ? <Refusal title="Events unavailable" body={err}
                       testid="edr-events-refusal" /> : null}
 
-          {!facets?.total_events && !pages.length ? (
+          {!loading && !err && facets?.total_events === 0 && !pages.length ? (
             <div className="basis" data-testid="edr-events-empty-tenant"
                  style={{ marginBottom: 8 }}>
-              THIS CUSTOMER DELIVERED NO EVENTS IN THIS WINDOW.
-              {" "}{facets?.endpoints?.length
-                ? "Computers are enrolled but none reported inside this window."
-                : "No computer has reported into this customer at all."}
+              No events were returned for this customer in the selected window.
+              This does not establish enrollment status or earlier reporting.
               {" "}Check the CUSTOMER selector in the header if you expected an
               existing estate: evidence recorded for one customer is never
               readable from another.
