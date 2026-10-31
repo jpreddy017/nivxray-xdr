@@ -20,7 +20,14 @@ assert.equal(tree.root.findByProps({'data-testid':'v3-loaded-count'}).children.j
 await act(async()=>tree.root.findByProps({'data-testid':'v3-retry-read'}).props.onClick());
 assert.equal(calls.length,2);assert.equal(calls[0].options.signal.aborted,true);
 assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,0);
-await act(async()=>calls[1].resolve({data:{events:[],matched_in_window:0,computer:{hostname:'test'}}}));
+await act(async()=>calls[1].resolve({data:{v3:{state:'E3_PRODUCTION_CONTRACT_UNAVAILABLE',events:[],e3_preview:{data_label:'REAL PRODUCTION EVIDENCE'}}}}));
+assert.equal(tree.root.findByProps({'data-testid':'v3-loaded-count'}).children.join(''),'Evidence unavailable');
+assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,1);
+await act(async()=>tree.root.findByProps({'data-testid':'v3-retry-read'}).props.onClick());
+await act(async()=>calls[2].resolve({data:{v3:{state:'V3_CONTRACT_UNAVAILABLE',events:[]}}}));
+assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,1);
+await act(async()=>tree.root.findByProps({'data-testid':'v3-retry-read'}).props.onClick());
+await act(async()=>calls[3].resolve({data:{events:[],matched_in_window:0,computer:{hostname:'test'}}}));
 assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,0);
 assert.doesNotMatch(JSON.stringify(tree.toJSON()),/Evidence unavailable|Loading evidence/);
 act(()=>tree.unmount());console.log('PASS: timeout remains visible, unknown is not empty evidence, retry performs fresh request, success clears error');
