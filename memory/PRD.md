@@ -60,6 +60,8 @@ output `dist`, SPA rewrite, host redirect edr.nivxforge.com → /edr. Repo-root
 | Frontend unit suite | 16 files / 286 tests passed |
 | EDR node tool harnesses | 8/8 pass (focus-state harness repaired to load the real DeepLinkBanner) |
 | Backend, deterministic vs baseline | RC 2900 passed / 7 failed · baseline 2768 passed / 18 failed · 18 fixed · 0 common |
+| Backend, actual payload at 18ccb5cc | 2930 passed / 8 failed — 7 iteration_82 + 1 Mongo socket flake (`test_platform_seed::test_mac_is_labelled_fixture_only`, passes alone) |
+| Route inventory of the payload | 881 routes; only maintenance surface is the new purge route. dev_reset, transfer_bundle, `_arch`/`_pv` mounts all absent |
 | Deployment readiness scan | PASS, no findings |
 | Purge route contract | 7/7 pass |
 | Gate 16 + Gate 17 + purge | 25 passed |
@@ -73,6 +75,12 @@ overrode `DB_NAME` mid-session, the exact leak PR #28 removed. Test-fixture
 conflict, no product impact.
 
 ### Blockers before promotion
+0. **The purge route would be LIVE in production.** `EDR_MAINTENANCE_TOKEN` has a
+   live slot, so after the backend deploy the route answers (403 without the
+   header, 200 with it). Owner asked for it to stay disabled. Remedy, not yet
+   applied because it changes the candidate SHA: require a second explicit
+   `EDR_PURGE_ENABLED=1` in `_guard`, or clear the production
+   `EDR_MAINTENANCE_TOKEN` before deploying.
 1. **Backend first.** The RC changes `backend/edr_trajectory/*`,
    `backend/routers/edr.py`, `backend/v2/*`. A Vercel promotion ships frontend
    only. The production API revision is unverified — frontend-only release
