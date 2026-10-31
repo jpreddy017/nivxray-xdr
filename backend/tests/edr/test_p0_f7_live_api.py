@@ -220,7 +220,7 @@ async def test_provenance_chain_resolves(story, live_config):
 
 # --- Point 4: Response honesty ---------------------------------------------
 @pytest.mark.asyncio
-async def test_response_honesty(story):
+async def test_response_honesty(story, live_config):
     client = AsyncIOMotorClient(live_config["MONGO_URL"])
     db = client[live_config["DB_NAME"]]
     try:
