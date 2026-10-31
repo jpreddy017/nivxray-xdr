@@ -9264,3 +9264,19 @@ Failure **names** compared: zero new names; 11 of 12 migration failures fixed. (
 **Verdict: ACCEPT** — correct, in-scope, regression-free, 11/12. Not full integration proof (one environment, one Mongo, one suite shape). Recommended separate bounded follow-ups: scope the two `override=True` imports, and/or run the preview index experiment's `drop`.
 
 Backlog unchanged: 2 gate16 frontend-drift failures (`NivXForgeConsole.jsx`, `EdrTrajectoryResolver.jsx` older than release head) remain separate; production rollout HOLD.
+
+## 2026-10-31 · Verification of PR #28 at `345ac842`
+
+**Tested commit `345ac8425a35937c5a6dd91fdcc6aa7264486491`** (branch head; 4 commits ahead of `afb1304c`: `56a69f66` → `dba5324e` → `905ae289` → `345ac842`). Net change vs `afb1304c` is 4 test files, no production code. Complete checkout rebuilt in `/tmp/val` (backend + tools + docs + apps + frontend); all four candidate blobs hash-verified against the commit (`9c988dcb`, `782ebe2d`, `374b8296`, `b6d8e884`). Local Mongo only.
+
+**Check 1 — DB_NAME survives collection: PASS.** Both dotenv modules collected in the same pytest process as the migration reproducer (47 tests, 3 modules, `-n 0`). `DB_NAME` before `'nivxray_ci_local'` → after `'nivxray_ci_local'` **UNCHANGED**; `MONGO_URL` unchanged. Negative control with the `afb1304c` versions of the same two modules: **MUTATED** `nivxray_ci_local → test_database`. The check detects the defect and the fix removes it. `edr.test_34h_a_migration_control.sync = None` after collection confirms deferred creation.
+
+**Check 2 — migration reproducer in that same process: PASS.** `test_report_mode_changes_nothing_and_names_the_exact_specs` — 1 passed, 46 deselected. Report mode only; no apply-mode test was run.
+
+**Check 3 — Gate 16: PASS, 9/9**, including both previously failing checks `test_every_sanctioned_pivot_is_visibly_labelled` and `test_the_edr_trajectory_resolver_redirects_inside_edr`, plus the new `test_removed_cross_product_header_controls_stay_removed`.
+
+**Correction to the previous review.** I classified the 2 Gate 16 failures as "workspace drift — `/app` frontend older than the release head". That was wrong: `apps/nivxray-xdr/src/nivxforge/trajectoryTarget.mjs` exists in the workspace, and the *test* was stale — it still required the removed `nvf-open-in-xdr` header control and a literal `/edr/device-trajectory` string instead of the `trajectoryDestination()` helper. `345ac842` also replaces the hardcoded `Path("/app/apps/...")` with a repo-relative path.
+
+**Defect found by inspection, NOT fixed, outside the requested run scope:** `backend/tests/edr/test_p0_f7_live_api.py:223` — `async def test_response_honesty(story)` does not request `live_config`, but lines 224–225 use `live_config["MONGO_URL"]` / `["DB_NAME"]` (AST-verified: signature args `['story']`, 2 references in body). At runtime that resolves to the module-level fixture *function object*, raising `TypeError: 'function' object is not subscriptable`. Sibling tests were updated correctly. Not exercised by the focused checks because the live-API suite was out of scope.
+
+**Shared state untouched:** index sets on `xdr_canonical_evidence` identical before and after — `nivxray_ci_local` `sd_canonical_*`, `test_database` `pvw_sd_*` (the leftover preview experiment indexes remain; `scripts/sd_preview_index_experiment.py drop` still un-run). No production access, no release merge, no branch write, no frontend change.
