@@ -1,0 +1,27 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('node:assert/strict');
+const React=require('react'),{create,act}=require('react-test-renderer'),{transformSync}=require('esbuild');
+const calls=[],params=new URLSearchParams();
+const api={get:(url,options)=>new Promise((resolve,reject)=>calls.push({url,options,resolve,reject}))};
+const empty=()=>null;
+const model={items:[],rows:[],ncol:0,total:0};
+const mocks={react:React,'react-router-dom':{useSearchParams:()=>[params,()=>{}]},'@/lib/api':{default:api,__esModule:true},'./model':{buildModel:()=>model,DEFAULT_ON:[],presentKinds:()=>new Set(),passes:()=>true,matches:()=>true},'./theme':{C:{},CSS:'',DAY:86400000},'../../EdrSidebar':{readCollapsed:()=>false,setCollapsedGlobal:()=>{}},'./attack':{hasTechnique:()=>false}};
+const source=fs.readFileSync(path.join(__dirname,'../apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/TrajectoryPage.jsx'),'utf8');
+const code=transformSync(source,{loader:'jsx',format:'cjs'}).code,mod={exports:{}};
+const fallback=new Proxy({__esModule:true,default:empty},{get:(o,k)=>k in o?o[k]:empty});
+vm.runInNewContext(`(function(require,module,exports){${code}})`,{URLSearchParams,AbortController,performance,sessionStorage:{getItem:()=>null},ResizeObserver:class{observe(){} disconnect(){}},window:{innerHeight:1000,addEventListener(){},removeEventListener(){}},setTimeout})(id=>mocks[id]||fallback,mod,mod.exports);
+(async()=>{
+let tree; await act(async()=>{tree=create(React.createElement(mod.exports.default,{device:'ep-test'}));});
+assert.equal(calls.length,1);
+assert.equal(tree.root.findByProps({'data-testid':'v3-loaded-count'}).children.join(''),'Loading evidence…');
+await act(async()=>calls[0].reject(Object.assign(new Error('timeout'),{code:'ECONNABORTED'})));
+assert.equal(tree.root.findByProps({'data-testid':'v3-read-error'}).props.role,'alert');
+assert.match(JSON.stringify(tree.toJSON()),/does not mean the endpoint had no activity/);
+assert.equal(tree.root.findByProps({'data-testid':'v3-loaded-count'}).children.join(''),'Evidence unavailable');
+await act(async()=>tree.root.findByProps({'data-testid':'v3-retry-read'}).props.onClick());
+assert.equal(calls.length,2);assert.equal(calls[0].options.signal.aborted,true);
+assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,0);
+await act(async()=>calls[1].resolve({data:{events:[],matched_in_window:0,computer:{hostname:'test'}}}));
+assert.equal(tree.root.findAllByProps({'data-testid':'v3-read-error'}).length,0);
+assert.doesNotMatch(JSON.stringify(tree.toJSON()),/Evidence unavailable|Loading evidence/);
+act(()=>tree.unmount());console.log('PASS: timeout remains visible, unknown is not empty evidence, retry performs fresh request, success clears error');
+})().catch(e=>{console.error(e);process.exitCode=1;});
