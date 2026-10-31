@@ -1,0 +1,4 @@
+PASS: all 17 sidebar destinations or unavailable reasons
+PASS: unique device resolution, ambiguity refusal, no identity fallback, context-preserving redirect
+PASS: 12 enabled tab clicks, five disabled capabilities, active-tab indication
+PASS: computer renderer parity, device scope, single shell, legacy scope, device change, top-tab behavior

@@ -1,0 +1,1012 @@
+[
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/EdrSidebar.jsx",
+    "sha": "dde630d8482a3f03736ebcc6510e8139a2ffff2d",
+    "imports": [
+      "react",
+      "./trajectory_amp/flags"
+    ],
+    "references": []
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/device/CommandIntelligence.jsx",
+    "sha": "fe3220c3a4f71cd35ddc2faae1c08843a2a13b4c",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/onboardingApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 18,
+        "text": "import React, { useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 211,
+        "text": "  useEffect(() => {"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/device/DeviceOverview.jsx",
+    "sha": "9b849993a38d931526d53b4c3b53c72ff77dcaeb",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "@/nivxforge/components/LinkedXdrIncidents",
+      "@/nivxforge/onboardingApi",
+      "@/nivxforge/edrApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 10,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 26,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 154,
+        "text": "                    onClick={() => nav("
+      },
+      {
+        "line": 159,
+        "text": "                    onClick={() => nav("
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/device/EdrDevicePage.jsx",
+    "sha": "7b9d93060ab0b5c8eefcd2e71976669dbe8d0b17",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/trajectory_amp/DeviceTrajectoryEntry",
+      "@/nivxforge/pages/EdrNotImplementedPage",
+      "@/nivxforge/onboardingApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "./DeviceOverview",
+      "./CommandIntelligence",
+      "\n         + ",
+      "\n         + "
+    ],
+    "references": [
+      {
+        "line": 10,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 17,
+        "text": "import { NotImplementedBody } from \"@/nivxforge/pages/EdrNotImplementedPage\";"
+      },
+      {
+        "line": 70,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 89,
+        "text": "                    onClick={() => nav(\"/edr/computers\")}>"
+      },
+      {
+        "line": 122,
+        "text": "                    onClick={() => nav("
+      },
+      {
+        "line": 140,
+        "text": "        <NotImplementedBody heading={current.ni[0]} body={current.ni[1]}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/edrApi.js",
+    "sha": "05cc0b81edd1a372ff0e63d0660ce7cef35ad7bc",
+    "imports": [
+      "@/lib/api"
+    ],
+    "references": [
+      {
+        "line": 8,
+        "text": "  const { data } = await api.get(\"/edr/detections\","
+      },
+      {
+        "line": 19,
+        "text": "  const { data } = await api.get(\"/edr/endpoint-detections\","
+      },
+      {
+        "line": 26,
+        "text": "  const { data } = await api.get(\"/edr/process-tree\","
+      },
+      {
+        "line": 36,
+        "text": "  const { data } = await api.get(\"/edr/process-tree\","
+      },
+      {
+        "line": 47,
+        "text": "  const { data } = await api.get(\"/edr/telemetry/freshness\","
+      },
+      {
+        "line": 54,
+        "text": "  const { data } = await api.get(\"/edr/endpoints\");"
+      },
+      {
+        "line": 62,
+        "text": "  const { data } = await api.get(\"/edr/device-trajectory\", { params });"
+      },
+      {
+        "line": 68,
+        "text": "  const { data } = await api.get(\"/edr/file-trajectory\","
+      },
+      {
+        "line": 74,
+        "text": "  const { data } = await api.get(\"/edr/fleet-spread-index\");"
+      },
+      {
+        "line": 88,
+        "text": "  const { data } = await api.get(\"/edr/wave0/capabilities\");"
+      },
+      {
+        "line": 104,
+        "text": "  const { data } = await api.get(\"/edr/response/actions\", { params });"
+      },
+      {
+        "line": 109,
+        "text": "  const { data } = await api.get(\"/edr/response/isolation-policy\");"
+      },
+      {
+        "line": 114,
+        "text": "  const { data } = await api.get(\"/xdr/respond/actions\");"
+      },
+      {
+        "line": 119,
+        "text": "  const { data } = await api.get(\"/xdr/respond/health\");"
+      },
+      {
+        "line": 124,
+        "text": "  const { data } = await api.get(\"/xdr/respond/pending-approvals\");"
+      },
+      {
+        "line": 130,
+        "text": "  const { data } = await api.get(\"/edr/observation-narrative\","
+      },
+      {
+        "line": 148,
+        "text": "  const res = await api.get("
+      },
+      {
+        "line": 155,
+        "text": "  const { data } = await api.get(\"/v2/decoded-artifacts/stats/summary\");"
+      },
+      {
+        "line": 171,
+        "text": "  const { data } = await api.get(\"/edr/context\", { params });"
+      },
+      {
+        "line": 177,
+        "text": "  const { data } = await api.get(\"/xdr/rbac/session-context\");"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/managementApi.js",
+    "sha": "d95477765778a8b3cb04672f9383d60017852d8f",
+    "imports": [
+      "@/lib/api"
+    ],
+    "references": [
+      {
+        "line": 13,
+        "text": "  const { data } = await api.get(\"/edr/events\", { params });"
+      },
+      {
+        "line": 18,
+        "text": "  const { data } = await api.get(\"/edr/events/facets\", { params: { hours } });"
+      },
+      {
+        "line": 23,
+        "text": "  const { data } = await api.get(`/edr/events/${encodeURIComponent(rawId)}`);"
+      },
+      {
+        "line": 29,
+        "text": "  const { data } = await api.get(\"/edr/policies\");"
+      },
+      {
+        "line": 34,
+        "text": "  const { data } = await api.get(`/edr/policies/${encodeURIComponent(policyId)}`);"
+      },
+      {
+        "line": 39,
+        "text": "  const { data } = await api.post(\"/edr/policies\", body);"
+      },
+      {
+        "line": 44,
+        "text": "  const { data } = await api.post("
+      },
+      {
+        "line": 50,
+        "text": "  const { data } = await api.post("
+      },
+      {
+        "line": 56,
+        "text": "  const { data } = await api.get(\"/edr/policies/deployment\","
+      },
+      {
+        "line": 62,
+        "text": "  const { data } = await api.get(\"/edr/policies/audit\", { params: { limit } });"
+      },
+      {
+        "line": 67,
+        "text": "  const { data } = await api.get(\"/edr/groups\");"
+      },
+      {
+        "line": 72,
+        "text": "  const { data } = await api.post(\"/edr/groups\", body);"
+      },
+      {
+        "line": 78,
+        "text": "  const { data } = await api.get(\"/edr/exclusions/taxonomy\");"
+      },
+      {
+        "line": 83,
+        "text": "  const { data } = await api.get(\"/edr/exclusions/sets\");"
+      },
+      {
+        "line": 88,
+        "text": "  const { data } = await api.post(\"/edr/exclusions/sets\", body);"
+      },
+      {
+        "line": 93,
+        "text": "  const { data } = await api.get(\"/edr/exclusions\","
+      },
+      {
+        "line": 99,
+        "text": "  const { data } = await api.post(\"/edr/exclusions\", body);"
+      },
+      {
+        "line": 104,
+        "text": "  const { data } = await api.post("
+      },
+      {
+        "line": 110,
+        "text": "  const { data } = await api.post("
+      },
+      {
+        "line": 116,
+        "text": "  const { data } = await api.get(\"/edr/exclusions/enforcement-proof\","
+      },
+      {
+        "line": 123,
+        "text": "  const { data } = await api.get(\"/edr/connector/releases\");"
+      },
+      {
+        "line": 128,
+        "text": "  const { data } = await api.post(\"/edr/connector/deployments\", body);"
+      },
+      {
+        "line": 133,
+        "text": "  const { data } = await api.get(\"/edr/connector/deployments\");"
+      },
+      {
+        "line": 139,
+        "text": "  const res = await api.get("
+      },
+      {
+        "line": 155,
+        "text": "  const { data } = await api.get(\"/edr/audit\", { params });"
+      },
+      {
+        "line": 160,
+        "text": "  const { data } = await api.get(\"/edr/audit/facets\", { params: { days } });"
+      },
+      {
+        "line": 166,
+        "text": "  const { data } = await api.get(\"/edr/saved-views\","
+      },
+      {
+        "line": 172,
+        "text": "  const { data } = await api.get(`/edr/saved-views/${encodeURIComponent(viewId)}`);"
+      },
+      {
+        "line": 177,
+        "text": "  const { data } = await api.post(\"/edr/saved-views\", body);"
+      },
+      {
+        "line": 182,
+        "text": "  const { data } = await api.delete(`/edr/saved-views/${encodeURIComponent(viewId)}`);"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/onboardingApi.js",
+    "sha": "eb14bbdc189fc58d9e7ee94adcb3069c8f8774b5",
+    "imports": [
+      "@/lib/api"
+    ],
+    "references": [
+      {
+        "line": 11,
+        "text": "  const { data } = await api.get(\"/edr/onboarding/packages\");"
+      },
+      {
+        "line": 16,
+        "text": "  const { data } = await api.get(\"/edr/onboarding/computers\", {"
+      },
+      {
+        "line": 23,
+        "text": "  const { data } = await api.get("
+      },
+      {
+        "line": 32,
+        "text": "  const { data } = await api.get(\"/edr/endpoint-commands\", {"
+      },
+      {
+        "line": 47,
+        "text": "  const { data } = await api.post(\"/edr/enrollment/tokens\", {"
+      },
+      {
+        "line": 55,
+        "text": "  const res = await api.get("
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrAddDevicePage.jsx",
+    "sha": "f6ba5d89005cbdc779b0176fd785a7da89d25377",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/lib/api",
+      "@/lib/tenant",
+      "@/nivxforge/onboardingApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 18,
+        "text": "import React, { useCallback, useEffect, useMemo, useRef, useState } from \"react\";"
+      },
+      {
+        "line": 75,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 111,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 167,
+        "text": "                  onClick={() => nav(\"/edr/computers\")}>Back to Computers</button>"
+      },
+      {
+        "line": 412,
+        "text": "                            onClick={() => nav("
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrAuditPage.jsx",
+    "sha": "0d40a5a2486ed62cf2bba0ac4fc807c3b5430245",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/managementApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 12,
+        "text": "import React, { useCallback, useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 59,
+        "text": "  useEffect(() => { load(false, null); }, [load]);"
+      },
+      {
+        "line": 60,
+        "text": "  useEffect(() => {"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrCampaignStoryPage.jsx",
+    "sha": "875e0b60e6fe6c6fdc2ad7be5d16d7163cb9dd0a",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/lib/api"
+    ],
+    "references": [
+      {
+        "line": 16,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 230,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 233,
+        "text": "    api.get(\"/edr/campaign-story\", { params: { incident_id: incidentId } })"
+      },
+      {
+        "line": 377,
+        "text": "              <Link to={s.pivots.process_tree} data-testid=\"story-pivot-tree\""
+      },
+      {
+        "line": 383,
+        "text": "              <Link to={`/edr/trajectory?device=`"
+      },
+      {
+        "line": 391,
+        "text": "              <Link to={`/edr/detections?endpoint_id=`"
+      },
+      {
+        "line": 399,
+        "text": "              <Link to={s.pivots.incident} data-testid=\"story-pivot-incident\""
+      },
+      {
+        "line": 401,
+        "text": "              <Link to={s.pivots.response_verification}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrComputersPage.jsx",
+    "sha": "edd798476e2291be658774c901089642d0bd007a",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/onboardingApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 13,
+        "text": "import React, { useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 161,
+        "text": "                onClick={() => nav(`/edr/computers/${encodeURIComponent(row.endpoint_id)}`)}>"
+      },
+      {
+        "line": 165,
+        "text": "                onClick={() => nav(`/edr/computers/${encodeURIComponent(row.endpoint_id)}/trajectory`)}>"
+      },
+      {
+        "line": 169,
+        "text": "                onClick={() => nav(`/edr/process-tree?endpoint_id=${encodeURIComponent(row.endpoint_id)}&hours=${win}`)}>"
+      },
+      {
+        "line": 173,
+        "text": "                onClick={() => nav(`/edr/computers/${encodeURIComponent(row.endpoint_id)}/commands`)}>"
+      },
+      {
+        "line": 191,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 282,
+        "text": "                  onClick={() => nav(\"/edr/computers/add\")}>"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrDetectionsPage.jsx",
+    "sha": "dcfea1f479786f170a7808b3926ecc916f00d158",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/edrApi",
+      "@/nivxforge/components/EndpointNotResolved"
+    ],
+    "references": [
+      {
+        "line": 9,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 43,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 129,
+        "text": "                      to={`/edr/device-trajectory?device=`"
+      },
+      {
+        "line": 165,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 286,
+        "text": "                          to={trajLink(r)}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrDownloadsPage.jsx",
+    "sha": "5996e63ed6ecf68381327c65980c5eae57aca1ea",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/managementApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 15,
+        "text": "import React, { useCallback, useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 346,
+        "text": "  useEffect(load, [load]);"
+      },
+      {
+        "line": 371,
+        "text": "                  onClick={() => nav(\"/edr/computers\")}>"
+      },
+      {
+        "line": 375,
+        "text": "                  onClick={() => nav(\"/edr/policies\")}>"
+      },
+      {
+        "line": 379,
+        "text": "                  onClick={() => nav(\"/edr/computers/add\")}>"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrEventsPage.jsx",
+    "sha": "5ba6f4b277891787d8a4c13af3c93bd108ddb430",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/managementApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 10,
+        "text": "import React, { useCallback, useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 39,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 243,
+        "text": "  useEffect(() => { load(false, null); }, [load]);"
+      },
+      {
+        "line": 249,
+        "text": "  useEffect(loadViews, [loadViews]);"
+      },
+      {
+        "line": 279,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 320,
+        "text": "  useEffect(() => {"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrExclusionsPage.jsx",
+    "sha": "2b36f4e1b01b18f51ce4d912a9e0cd43bb654c8c",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/managementApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 12,
+        "text": "import React, { useCallback, useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 275,
+        "text": "  useEffect(load, [load]);"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrNotImplementedPage.jsx",
+    "sha": "2c5b8d1ce0ead79f41b6fd2cbb0b91bef00068e3",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole"
+    ],
+    "references": [
+      {
+        "line": 13,
+        "text": "export function NotImplementedBody({ heading, body, why, testid }) {"
+      },
+      {
+        "line": 25,
+        "text": "export default function EdrNotImplementedPage({ navKey, heading, body, why }) {"
+      },
+      {
+        "line": 40,
+        "text": "      <NotImplementedBody heading={heading} body={body} why={why}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrOverviewPage.jsx",
+    "sha": "6b661d95bc04320e7674591960d201e3c3d20779",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/edrApi",
+      "@/nivxforge/components/TelemetryFreshness"
+    ],
+    "references": [
+      {
+        "line": 16,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 70,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 198,
+        "text": "          to={to}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrPoliciesPage.jsx",
+    "sha": "07a411609da330284eb53bc77aacd35b52ef2457",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/managementApi",
+      "@/nivxforge/components/OpsPrimitives",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 11,
+        "text": "import React, { useCallback, useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 166,
+        "text": "  useEffect(load, [load]);"
+      },
+      {
+        "line": 351,
+        "text": "  useEffect(load, [load]);"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrProcessTreePage.jsx",
+    "sha": "8d489a87406d3662d96b3297a9a73ecdb5a2f8c4",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "react-router-dom",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/edrApi",
+      "@/nivxforge/components/EndpointNotResolved",
+      "@/nivxforge/components/TelemetryFreshness",
+      "@/nivxforge/components/ProcessGraphCanvas",
+      "@/nivxforge/onboardingApi"
+    ],
+    "references": [
+      {
+        "line": 13,
+        "text": "import React, { useEffect, useState, useMemo } from \"react\";"
+      },
+      {
+        "line": 36,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 82,
+        "text": "                onClick={() => nav(`/edr/process-tree?endpoint_id=${encodeURIComponent(r.endpoint_id)}&hours=${hours}`)}>"
+      },
+      {
+        "line": 99,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 400,
+        "text": "          to={trajLink}"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrReservedPages.jsx",
+    "sha": "2332b571c4cf9ae403f8e45dde3d2da678ecefb5",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole"
+    ],
+    "references": []
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrResponsePage.jsx",
+    "sha": "ad4157f8a079c306b0dbd000540ce0570810a2d3",
+    "imports": [
+      "react",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/components/EndpointNotResolved",
+      "@/nivxforge/edrApi"
+    ],
+    "references": [
+      {
+        "line": 23,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 77,
+        "text": "  useEffect(load, [load]);"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/pages/EdrTrajectoryResolver.jsx",
+    "sha": "e04c49210655a37d1c073aff887c16b4e0ab49ad",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/nivxforge/NivXForgeConsole",
+      "@/nivxforge/edrApi",
+      "@/xdr/nx/apiError"
+    ],
+    "references": [
+      {
+        "line": 29,
+        "text": "import React, { useEffect, useState } from \"react\";"
+      },
+      {
+        "line": 46,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 94,
+        "text": "    return <Navigate replace to={`/edr/device-trajectory?${qs.toString()}`} />;"
+      },
+      {
+        "line": 140,
+        "text": "            <Link to=\"/edr/computers\" className=\"btn primary\""
+      },
+      {
+        "line": 146,
+        "text": "              <Link to={`/edr/detections?incident_id=${encodeURIComponent(incidentId)}`} className=\"btn\""
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/App.jsx",
+    "sha": "d2567342c1373a9c12c739349f2333221c247051",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "@/productScope",
+      "@/components/ProductScopeGuard",
+      "@/lib/auth",
+      "@/xdr/access/AccessProvider",
+      "@/pages/LoginPage"
+    ],
+    "references": [
+      {
+        "line": 6,
+        "text": " * data-testid and internal navigate() call in the moved source stays"
+      },
+      {
+        "line": 79,
+        "text": "const XdrNotImplementedPage       = lazy(() => import(\"@/xdr/pages/XdrNotImplementedPage\"));"
+      },
+      {
+        "line": 116,
+        "text": "const EdrNotImplementedPage ="
+      },
+      {
+        "line": 117,
+        "text": "  lazy(() => import(\"@/nivxforge/pages/EdrNotImplementedPage\"));"
+      },
+      {
+        "line": 131,
+        "text": "    return <Navigate to={`${loginPath}?returnTo=${returnTo}`} replace />;"
+      },
+      {
+        "line": 177,
+        "text": "  return <Navigate to={`${to}${search || \"\"}`} replace />;"
+      },
+      {
+        "line": 196,
+        "text": "  return <Navigate to={`/xdr/incidents/${encodeURIComponent(caseId)}?tab=${tab}`}"
+      },
+      {
+        "line": 225,
+        "text": "        <Route path=\"/\" element={<Navigate to={HOME_PATH} replace />} />"
+      },
+      {
+        "line": 245,
+        "text": "        <Route path=\"/xdr/activities\"      element={<Navigate to=\"/xdr/hunting\" replace />} />"
+      },
+      {
+        "line": 246,
+        "text": "        <Route path=\"/xdr\"                 element={<Navigate to=\"/xdr/control-center\" replace />} />"
+      },
+      {
+        "line": 247,
+        "text": "        <Route path=\"/xdr/dashboard\"       element={<Navigate to=\"/xdr/control-center\" replace />} />"
+      },
+      {
+        "line": 250,
+        "text": "        <Route path=\"/xdr/mss-dashboard\"   element={<Navigate to=\"/xdr/control-center\" replace />} />"
+      },
+      {
+        "line": 258,
+        "text": "        <Route path=\"/xdr/client-management\" element={<Navigate to=\"/xdr/clients\" replace />} />"
+      },
+      {
+        "line": 260,
+        "text": "        <Route path=\"/xdr/incidents/_table\" element={<Navigate to=\"/xdr/incidents\" replace />} />"
+      },
+      {
+        "line": 289,
+        "text": "        <Route path=\"/xdr/search\"          element={<KeepQuery to=\"/xdr/hunting\" />} />"
+      },
+      {
+        "line": 304,
+        "text": "        <Route path=\"/xdr/endpoints\"       element={<Navigate to=\"/xdr/assets\" replace />} />"
+      },
+      {
+        "line": 311,
+        "text": "        <Route path=\"/xdr/assets/identity\"     element={<Protected><XdrNotImplementedPage node=\"assets-identity\" /></Protected>} />"
+      },
+      {
+        "line": 312,
+        "text": "        <Route path=\"/xdr/assets/network\"      element={<Protected><XdrNotImplementedPage node=\"assets-network\" /></Protected>} />"
+      },
+      {
+        "line": 313,
+        "text": "        <Route path=\"/xdr/assets/attack-paths\" element={<Protected><XdrNotImplementedPage node=\"attack-paths\" /></Protected>} />"
+      },
+      {
+        "line": 314,
+        "text": "        <Route path=\"/xdr/assets/critical\"     element={<Protected><XdrNotImplementedPage node=\"critical-assets\" /></Protected>} />"
+      },
+      {
+        "line": 345,
+        "text": "        <Route path=\"/xdr/cve\"                  element={<Navigate to=\"/xdr/exposure\" replace />} />"
+      },
+      {
+        "line": 347,
+        "text": "        <Route path=\"/xdr/detect/studio\"        element={<Navigate to=\"/xdr/rule-studio\" replace />} />"
+      },
+      {
+        "line": 348,
+        "text": "        <Route path=\"/kb\"                       element={<Navigate to=\"/xdr/kb\" replace />} />"
+      },
+      {
+        "line": 349,
+        "text": "        <Route path=\"/docs\"                     element={<Navigate to=\"/xdr/docs\" replace />} />"
+      },
+      {
+        "line": 360,
+        "text": "               element={<Navigate to=\"/xdr/admin/detection-registry\" replace />} />"
+      },
+      {
+        "line": 394,
+        "text": "        <Route path=\"/edr/management\"    element={<Navigate to=\"/edr/management/downloads\" replace />} />"
+      },
+      {
+        "line": 411,
+        "text": "            `Navigate to=\"/xdr\"`, which meant an unknown path on the EDR"
+      },
+      {
+        "line": 414,
+        "text": "        <Route path=\"*\" element={<Navigate to={HOME_PATH} replace />} />"
+      }
+    ]
+  },
+  {
+    "path": "apps/nivxray-xdr/src/nivxforge/NivXForgeConsole.jsx",
+    "sha": "a330977f2bb4436f8eb825992ed82a6ede8cf056",
+    "imports": [
+      "react",
+      "react-router-dom",
+      "lucide-react",
+      "@/components/brand/NivxrayBrand",
+      "./EdrSidebar",
+      "@/components/WorkspaceLaunch",
+      "@/productOrigins",
+      "@/xdr/components/XdrContextBar",
+      "@/lib/auth",
+      "@/productScope",
+      "./edrApi",
+      "./components/CustomerAuthorityUnavailable",
+      "./components/CustomerContext",
+      "./components/CustomerPicker",
+      "./tenantContext",
+      "@/lib/tenant"
+    ],
+    "references": [
+      {
+        "line": 16,
+        "text": "import React, { useCallback, useEffect, useMemo, useState } from \"react\";"
+      },
+      {
+        "line": 123,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 151,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 210,
+        "text": "        to={inv?.href || `/xdr/incidents/${encodeURIComponent(ctx.incident_id)}`}"
+      },
+      {
+        "line": 281,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 310,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 324,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 330,
+        "text": "  useEffect(() => {"
+      },
+      {
+        "line": 373,
+        "text": "        <Link to=\"/edr\" className=\"brand\" data-testid=\"nvf-product-brand\" data-collapsed={collapsed ? \"1\" : \"0\"}>"
+      },
+      {
+        "line": 411,
+        "text": "                    navigate(path);"
+      },
+      {
+        "line": 435,
+        "text": "          <EdrSidebar nav={NAV} active={active} collapsed={collapsed} onGo={(to) => navigate(propagate(to))}"
+      }
+    ]
+  }
+]

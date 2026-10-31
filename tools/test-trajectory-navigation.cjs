@@ -65,6 +65,9 @@ function load(name) {
     global.__route = { endpointId: 'endpoint-B', tab: 'trajectory' };
     await act(async () => view.update(React.createElement(components.workspace)));
     assert.equal(view.root.findByType('v3-canvas').props.device, 'endpoint-B', 'device change resets renderer state');
+    global.__route = { endpointId: 'endpoint-B', tab: 'nonexistent' };
+    await act(async () => view.update(React.createElement(components.workspace)));
+    assert.equal(view.root.findAllByProps({ 'data-testid': 'edr-device-unknown-tab' }).length, 1);
     await act(async () => view.unmount());
     await act(async () => { view = create(React.createElement(components.entry)); });
     assert.equal(view.root.findByType('v3-canvas').props.device, 'other-device', 'top tab retains query selection');

@@ -76,7 +76,7 @@ export default function EdrDevicePage() {
     return () => { live = false; };
   }, [endpointId]);
 
-  const current = TABS.find((t) => t.key === active) || TABS[0];
+  const current = TABS.find((t) => t.key === active);
 
   return (
     <NivXForgeConsole activeTab="computers">
@@ -136,7 +136,12 @@ export default function EdrDevicePage() {
         ? <DeviceTrajectoryEntry key={endpointId} embedded device={endpointId} /> : null}
       {headReady && active === "commands"
         ? <CommandIntelligence endpointId={endpointId} /> : null}
-      {headReady && current.ni ? (
+      {headReady && !current ? (
+        <div className="x-empty" data-testid="edr-device-unknown-tab">
+          This device view does not exist. Choose a device tab above.
+        </div>
+      ) : null}
+      {headReady && current?.ni ? (
         <NotImplementedBody heading={current.ni[0]} body={current.ni[1]}
                             why={current.ni[2]}
                             testid={`edr-device-ni-${current.key}`} />
