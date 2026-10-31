@@ -92,7 +92,7 @@ function HourStrip({ day0, view, now, dets, onView, onJump, hours, T, selMs }) {
   const pick = (h, e) => {
     const t0 = day0 + h * H;
     if (e.shiftKey) onView({ t0: Math.min(view.t0, t0), t1: Math.min(Math.max(view.t1, t0 + H), now) });
-    else onView({ t0, t1: Math.min(t0 + H, now) });
+    else onView({ t0: t0 - H / 2, t1: Math.min(t0 + H / 2, now) });
   };
   const isToday = now >= day0 && now < day0 + DAY;
   return (
