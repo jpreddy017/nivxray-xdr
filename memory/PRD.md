@@ -9280,3 +9280,17 @@ Backlog unchanged: 2 gate16 frontend-drift failures (`NivXForgeConsole.jsx`, `Ed
 **Defect found by inspection, NOT fixed, outside the requested run scope:** `backend/tests/edr/test_p0_f7_live_api.py:223` — `async def test_response_honesty(story)` does not request `live_config`, but lines 224–225 use `live_config["MONGO_URL"]` / `["DB_NAME"]` (AST-verified: signature args `['story']`, 2 references in body). At runtime that resolves to the module-level fixture *function object*, raising `TypeError: 'function' object is not subscriptable`. Sibling tests were updated correctly. Not exercised by the focused checks because the live-API suite was out of scope.
 
 **Shared state untouched:** index sets on `xdr_canonical_evidence` identical before and after — `nivxray_ci_local` `sd_canonical_*`, `test_database` `pvw_sd_*` (the leftover preview experiment indexes remain; `scripts/sd_preview_index_experiment.py drop` still un-run). No production access, no release merge, no branch write, no frontend change.
+
+## 2026-10-31 · PR #28 live check at `bc6afd33` — PASS, marked ready for review
+
+**Tested commit `bc6afd33bc6f94c63c5cdb12ee96610451fee8b3`** (parent exactly `345ac842`; one file, `backend/tests/edr/test_p0_f7_live_api.py`, +1 −1 — `async def test_response_honesty(story, live_config)`). Blob `53a58343` applied and hash-verified in the complete checkout.
+
+**`test_response_honesty` → PASS** (1 passed in 4.83 s, `-n 0`, nothing else collected or run).
+- Preview API: `https://greeting-app-5782.preview.emergentagent.com` — identical to `frontend/.env`.
+- Preview database: `test_database` on local Mongo — the matching pair for that API.
+- `live_config` supplied all four required keys, so no `pytest.fail` skip path was taken.
+- Substantive, not vacuous: asserts responses exist, each `command_id` resolves in `edr_response_commands`, states agree, `link_strength` ends `NOT_INCIDENT_KEYED`, any `success_claimed` carries a verification probe, `CAPABILITY_UNAVAILABLE`/`VERIFICATION_FAILED` never claim success, and at least one VERIFIED `KILL_PROCESS` exists. Read-only apart from the login token.
+
+**PR #28 marked ready for review** (`isDraft: false`, `MERGEABLE`, `mergeable_state: clean`). Base `reconciliation/edr-identity-repair-2026-10-31`, head `bc6afd33`, 5 commits, 4 files, +79 −41 — **test files only, no production code**. Merging it is a test-only merge into the reconciliation branch, not a release merge. I did not merge it.
+
+Production Device Trajectory rollout remains a separate step and remains on HOLD.
