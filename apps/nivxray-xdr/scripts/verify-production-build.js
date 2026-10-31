@@ -34,8 +34,19 @@ const OTHER = SCOPE === "xdr" ? "edr" : "xdr";
  *  evidence that the product split has leaked. */
 const CROSS_OK = process.env.NIVX_CROSS_PRODUCT_ORIGINS === "1";
 
-const EXPECTED_API =
-  process.env.XDR_GUARD_EXPECTED_API || "https://nivxray.nivxforge.com";
+if (!["0", "1"].includes(process.env.NIVX_EDR_INTEGRATION_PREVIEW || "0")) {
+  console.error("NIVX_EDR_INTEGRATION_PREVIEW must be 0 or 1.");
+  process.exit(1);
+}
+const INTEGRATION = process.env.NIVX_EDR_INTEGRATION_PREVIEW === "1";
+if (INTEGRATION && (process.env.VERCEL_ENV !== "preview" || SCOPE !== "edr" ||
+    process.env.VERCEL_GIT_COMMIT_REF !== "validation/edr-preview-backend-2026-10-31" || CROSS_OK)) {
+  console.error("Integration build requires the designated EDR preview branch, preview target and no cross-product origins.");
+  process.exit(1);
+}
+const EXPECTED_API = INTEGRATION
+  ? "https://greeting-app-5782.preview.emergentagent.com"
+  : process.env.XDR_GUARD_EXPECTED_API || "https://nivxray.nivxforge.com";
 
 // Origins that legitimately appear in the bundle (docs links, CDNs, schemas).
 const ALLOWED_HOSTS = new Set([
@@ -130,7 +141,8 @@ let previewHits = 0;
 for (const f of files) {
   const body = readFileSync(f, "utf8");
   for (const pat of PREVIEW_PATTERNS) {
-    const n = body.split(pat).length - 1;
+    const checked = INTEGRATION ? body.split(EXPECTED_API).join("") : body;
+    const n = checked.split(pat).length - 1;
     if (n) {
       previewHits += n;
       failures.push(`preview origin "${pat}" appears ${n}x in ${f.replace(dist, "dist")}`);
@@ -236,3 +248,4 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`\n${SCOPE.toUpperCase()} PRODUCTION BUILD GUARD · PASSED\n`);
+
