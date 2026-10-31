@@ -23,9 +23,6 @@ import {
 
 import { NivxrayMark } from "@/components/brand/NivxrayBrand";
 import EdrSidebar, { readCollapsed, setCollapsedGlobal } from "./EdrSidebar";
-import WorkspaceLaunch from "@/components/WorkspaceLaunch";
-import { isCrossOrigin, productHref,
-         productMode } from "@/productOrigins";
 import XdrContextBar from "@/xdr/components/XdrContextBar";
 import { useAuth } from "@/lib/auth";
 // Product identity comes from the shared BRANDS table, never a literal: the
@@ -391,34 +388,6 @@ export default function NivXForgeConsole({ activeTab, children }) {
               basis={gate === GATE_FAILED
                 ? "AUTHORITY_UNAVAILABLE"
                 : sess?.active_customer?.basis} />}
-        {/* EDR → XDR product pivot. Resolved through `productOrigins` so
-            it becomes an absolute cross-origin URL the moment XDR gets
-            its own hostname, and stays an in-app route while both
-            products share one deployment. Context travels in the query
-            contract, which is why it survives the split. */}
-        <button className="btn ghost" data-testid="nvf-open-in-xdr"
-                data-pivot-mode={productMode("xdr")}
-                data-pivot-href={productHref("xdr", params.get("incident_id")
-                  ? `/xdr/incidents/${params.get("incident_id")}`
-                  : "/xdr")}
-                onClick={() => {
-                  const path = params.get("incident_id")
-                    ? `/xdr/incidents/${params.get("incident_id")}`
-                    : "/xdr";
-                  if (isCrossOrigin("xdr")) {
-                    window.location.assign(productHref("xdr", path));
-                  } else {
-                    navigate(path);
-                  }
-                }}
-                title={isCrossOrigin("xdr")
-                  ? `Investigate in NivXRay XDR (${productHref("xdr", "/xdr")})`
-                  : "Investigate in NivXRay XDR"}>
-          Investigate in NivXRay XDR ↗
-        </button>
-        {/* EDR → Workspace hand-off. A SEPARATE frontend at its own
-            origin, so it opens in a new tab and is never routed to. */}
-        <WorkspaceLaunch testid="nvf-open-workspace" />
         <button className="btn ghost" data-testid="nvf-theme-toggle"
                 onClick={toggleTheme} title="Light / dark">
           {theme === "dark" ? "Light" : "Dark"}
