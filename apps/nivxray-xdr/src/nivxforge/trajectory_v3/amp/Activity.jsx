@@ -24,7 +24,7 @@ export function ActivityList({ items, sel, onSelect, hidden, height, onCtx, onOl
     if (!b || idx < 0 || hidden) return;
     const y = idx * ACT_H;
     if (y < b.scrollTop || y > b.scrollTop + b.clientHeight - ACT_H) b.scrollTop = Math.max(0, y - b.clientHeight / 2);
-  }, [idx, hidden]);
+  }, [sel?.ev.event_iid, hidden]); // A prepended page changes idx, not the user's selection.
   const r0 = Math.max(0, Math.floor(st / ACT_H) - 5), r1 = r0 + Math.ceil(height / ACT_H) + 10;
   return (
     <div data-testid="v3-activity" ref={ref} className="v3-scroll" onScroll={(e) => {

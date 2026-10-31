@@ -49,13 +49,16 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
   const W = Math.max(model.ncol * colW + 360, vp.vw), H = lines.length * ROW_H, x = (c) => c * colW + colW / 2;
   const sync = () => { const b = box.current; if (b) setVp({ sl: b.scrollLeft, st: b.scrollTop, vw: b.clientWidth - LABEL_W, vh: b.clientHeight - HDR_H }); };
   const previous = useRef({ model, lines });
+  const pageAnchorRestored = useRef(false);
   useLayoutEffect(() => {
     const b = box.current, old = previous.current;
+    pageAnchorRestored.current = false;
     previous.current = { model, lines };
     if (!b || old.model === model || !old.model.items.length) return;
     const anchor = old.model.items.find((it) => it.col * colW >= b.scrollLeft) || old.model.items[old.model.items.length - 1];
     const next = model.items.find((it) => it.ev.event_iid === anchor.ev.event_iid);
     if (!next) return;
+    pageAnchorRestored.current = model.items.length > old.model.items.length;
     b.scrollLeft += (next.col - anchor.col) * colW;
     const rowIndex = Math.floor(b.scrollTop / ROW_H), key = old.lines[rowIndex]?.key;
     const nextRow = lines.findIndex((l) => l.key === key);
@@ -74,7 +77,7 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
   useEffect(() => {
     // Filtered/search view: bring the matched columns into view (AMP search shows the matched events, not empty space).
     const b = box.current;
-    if (!b || sel || firstCol == null || items.length === model.items.length) return;
+    if (!b || sel || pageAnchorRestored.current || firstCol == null || items.length === model.items.length) return;
     if (firstCol * colW < b.scrollLeft || lastCol * colW > b.scrollLeft + vp.vw) b.scrollLeft = Math.max(0, firstCol * colW - 60);
   }, [firstCol, lastCol, items.length]); // eslint-disable-line
 
@@ -143,7 +146,8 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
   }
   return (
     <div data-testid="v3-grid" data-colw={colW.toFixed(2)} ref={box} className="v3-scroll" onScroll={sync} onWheel={(e) => {
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.currentTarget.scrollLeft <= 80 && (e.deltaX < 0 || (e.shiftKey && e.deltaY < 0))) onOlder?.();
+      const inHeader = e.clientY - e.currentTarget.getBoundingClientRect().top < HDR_H;
+      if (!e.defaultPrevented && !inHeader && !e.ctrlKey && !e.metaKey && !e.altKey && e.currentTarget.scrollLeft <= 80 && (e.deltaX < 0 || (e.shiftKey && e.deltaY < 0))) onOlder?.();
     }} onMouseDown={down}
       style={{ overflow: "auto", height, position: "relative", background: C.page, userSelect: "none" }}>
       <div style={{ width: LABEL_W + W, height: HDR_H + H, position: "relative" }}>

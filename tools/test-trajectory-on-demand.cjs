@@ -11,7 +11,7 @@ function load(name){
 const Grid=load('Grid.jsx').default,Activity=load('Activity.jsx').ActivityList;
 const item=(id,col)=>({col,ev:{event_iid:id,timestamp_instant_ms:1700000000000+col*1000},kind:{glyph:'other'},shape:'square',target:null});
 const model=items=>({items,rows:[],ticks:[],ncol:items.length,total:items.length});
-function box(){return {scrollLeft:0,scrollTop:0,clientWidth:800,clientHeight:400,style:{},addEventListener(){},removeEventListener(){}};}
+function box(){return {scrollLeft:0,scrollTop:0,clientWidth:800,clientHeight:400,style:{},getBoundingClientRect:()=>({top:0}),addEventListener(){},removeEventListener(){}};}
 let count=0,b=box(),tree;
 const before=[item('a',0),item('b',1),item('c',2)];
 const after=[item('older',0),item('a',1),item('b',2),item('c',3)];
@@ -28,6 +28,8 @@ act(()=>grid.props.onWheel({currentTarget:b,deltaX:-10,deltaY:0}));
 assert.equal(count,1);
 act(()=>grid.props.onWheel({currentTarget:b,deltaX:-10,deltaY:0,ctrlKey:true}));
 assert.equal(count,1,'zoom must not load history');
+act(()=>grid.props.onWheel({currentTarget:b,deltaX:-10,deltaY:0,clientY:10}));
+assert.equal(count,1,'header wheel zoom must not load history');
 b.scrollLeft=200;
 act(()=>grid.props.onWheel({currentTarget:b,deltaX:-10,deltaY:0}));
 assert.equal(count,1,'away from older edge must not fetch');
@@ -42,6 +44,23 @@ act(()=>tree.root.findByProps({'data-testid':'v3-activity'}).props.onWheel({curr
 assert.equal(count,1);
 act(()=>tree.root.findByProps({'data-testid':'v3-activity'}).props.onWheel({currentTarget:b,deltaY:1}));
 assert.equal(count,1);
+act(()=>tree.unmount());
+// Prepending must not override an analyst who scrolled away from selection.
+b=box();
+const many=Array.from({length:30},(_,i)=>item(`e${i}`,i));
+act(()=>{tree=create(React.createElement(Activity,{...ap(many),sel:many[29]}),{createNodeMock:()=>b});});
+b.scrollTop=40;
+const more=[item('extra',0),...many.map(it=>({...it,col:it.col+1}))];
+act(()=>tree.update(React.createElement(Activity,{...ap(more),sel:more[30]})));
+assert.equal(b.scrollTop,80,'prepend must not recenter an unchanged selection');
+act(()=>tree.unmount());
+// Existing search auto-follow must not undo the pagination anchor.
+b=box();
+act(()=>{tree=create(React.createElement(Grid,{...gp(many),items:many.slice(10)}),{createNodeMock:()=>b});});
+b.scrollLeft=240;
+const tenMore=[...Array.from({length:10},(_,i)=>item(`old${i}`,i)),...many.map(it=>({...it,col:it.col+10}))];
+act(()=>tree.update(React.createElement(Grid,{...gp(tenMore),items:tenMore.slice(20)})));
+assert.equal(b.scrollLeft,440,'filtered pagination must preserve the viewport anchor');
 act(()=>tree.unmount());
 // Actual model rebuild: a parent delivered on an older page resolves the child
 // by process instance identity; overlapping delivery does not duplicate events.

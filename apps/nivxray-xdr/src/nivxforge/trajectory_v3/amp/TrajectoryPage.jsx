@@ -70,6 +70,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [approval, setApproval] = useState(null);
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
+  const [focusRetry, setFocusRetry] = useState(0);
   const [dbg, setDbg] = useState(false);
   const [legend, setLegend] = useState(false);
   const [netSum, setNetSum] = useState(false);
@@ -196,14 +197,22 @@ export default function TrajectoryPage({ device, onLegacy }) {
       if (deep?.id !== wanted || deep.state !== "FOCUSED") { setDeep({ state: "FOCUSED", id: wanted }); setDetails(true); returnTo.current = true; }
       return;
     }
-    if (deep?.id === wanted) return;
-    setDeep({ state: "LOCATING", id: wanted });
-    api.get(`${url}/focus`, { params: { event_iid: wanted } }).then(({ data: f }) => {
-      if (f.state !== "FOCUS_RESOLVED") { setDeep({ state: "NOT_FOUND", id: wanted, note: f.missing_link || f.reason }); return; }
-      setDeep({ state: "FOCUSING", id: wanted });
+    if (deep?.id === wanted && deep.scope === url && deep.state !== "LOCATING") return;
+    const ac = new AbortController(); let active = true;
+    setDeep({ state: "LOCATING", id: wanted, scope: url });
+    api.get(`${url}/focus`, { params: { event_iid: wanted }, signal: ac.signal }).then(({ data: f }) => {
+      if (!active) return;
+      if (f.state !== "FOCUS_RESOLVED") {
+        const incomplete = /UNAVAILABLE|INCOMPLETE/.test(f.state || "");
+        setDeep({ state: incomplete ? "UNAVAILABLE" : "NOT_FOUND", id: wanted, scope: url,
+          note: incomplete ? "The observation could not be located because the evidence read failed or the search was incomplete. This does not establish that it is absent." : f.missing_link || f.reason }); return;
+      }
+      if (!f.focus?.window || !Number.isFinite(Date.parse(f.focus.window.time_start)) || !Number.isFinite(Date.parse(f.focus.window.time_end))) throw new Error("Focus window unavailable");
+      setDeep({ state: "OUTSIDE_PAGE", id: wanted, scope: url });
       upd({ t0: Date.parse(f.focus.window.time_start), t1: Date.parse(f.focus.window.time_end) }, true);
-    }).catch(() => setDeep({ state: "NOT_FOUND", id: wanted }));
-  }, [data, wanted, model]); // eslint-disable-line
+    }).catch(() => { if (active) setDeep({ state: "UNAVAILABLE", id: wanted, scope: url, note: "The observation lookup failed. Retry to locate it; absence has not been established." }); });
+    return () => { active = false; ac.abort(); };
+  }, [data, wanted, model, url, focusRetry]); // eslint-disable-line
 
   // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
@@ -302,7 +311,10 @@ export default function TrajectoryPage({ device, onLegacy }) {
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
         {deep && !["FOCUSED"].includes(deep.state) && <div data-testid="v3-deeplink-state" style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-          {deep.state === "NOT_FOUND" ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`) : `Locating observation ${deep.id} in history…`}</div>}
+          {["NOT_FOUND", "UNAVAILABLE"].includes(deep.state) ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`)
+            : deep.state === "OUTSIDE_PAGE" ? "Observation located in retained evidence. Its time range is selected; load older events if it is outside the loaded page." : `Locating observation ${deep.id} in history…`}
+          {deep.state === "UNAVAILABLE" && <button className="v3-link" data-testid="v3-focus-retry" onClick={() => { setDeep(null); setFocusRetry((v) => v + 1); }}>Retry observation lookup</button>}
+          {deep.state === "OUTSIDE_PAGE" && older.cursor && <button className="v3-link" disabled={loading} onClick={loadOlder}>Load older events</button>}</div>}
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
