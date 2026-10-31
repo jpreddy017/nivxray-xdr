@@ -1,0 +1,1616 @@
+"""Endpoint-scoped WINDOWED Device Trajectory projection.
+
+    edr_raw_events → canonical evidence (v2_shadow_observations)
+                   → this projection → viewport
+
+It is a read/projection layer and creates no store of its own.
+
+Two axes, and the backend owns both mappings:
+
+  * TIME  — `time_start` / `time_end`, paged with an opaque cursor of
+    (timestamp, event_iid) so a page boundary can never duplicate or
+    skip an event.
+  * LANE  — `lane_start` / `lane_end` are indices into a DETERMINISTIC
+    lane catalogue: processes first by lineage depth, then files, then
+    network. Lane identity is a stable key (`process_iid`, file path,
+    remote peer), never a severity rank.
+
+THE LANE AXIS IS ENDPOINT-WIDE, NOT WINDOW-WIDE.  It is built from the
+endpoint's whole observed history and the time window is applied only to
+events.  The earlier build derived the catalogue from the time-filtered
+documents, so lane 300 meant a different row in every window and deep
+lane slices came back empty as soon as the viewport narrowed — the
+analyst scrolled into rows that the request had renumbered out of
+existence. An axis that renumbers under a scrolling analyst shows the
+wrong row's evidence, so it is now invariant to the viewport and carries
+`lane_axis_version` for the client to detect real catalogue growth.
+
+Dispositions and `detected_by` are derived from persisted evidence only.
+Nothing is ever called CLEAN: absence of a detection is not a verdict,
+so unassessed activity is reported as UNKNOWN_NOT_ASSESSED.
+"""
+from __future__ import annotations
+
+import asyncio
+import base64
+import hashlib
+import json
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+from services.edr.endpoint_query import endpoint_predicate
+from deps import sync_collection
+from edr_plane.instant import instant_ms
+from edr_plane import compromise_store
+
+ENGINE_ID = "nivxray::edr_plane::trajectory_window"
+COLLECTION = "v2_shadow_observations"
+#: The authoritative detection record. A detection is NOT stored on the
+#: observation; the XDR detection fabric writes it as a derivation onto
+#: the immutable raw event. This projection joins the two so the
+#: observation an analyst is looking at carries the detection that was
+#: actually made about it.
+RAW_COLLECTION = "edr_raw_events"
+GROUPS = ("PROCESS", "FILE", "NETWORK", "REGISTRY", "DNS", "AUTHENTICATION")
+MAX_LIMIT = 4000
+
+#: Canonical kinds → lane group. Anything unrecognised goes to PROCESS
+#: only if it carries process evidence; otherwise it is OTHER and is
+#: reported as such rather than being drawn on a lane it does not belong
+#: to.
+_FILE_KINDS = {"file_create", "file_write", "file_delete", "file_modify",
+               "file_rename", "image_load", "file"}
+_NET_KINDS = {"network_connect", "network",
+              "network_accept", "network_listen", "http_request"}
+#: Phase 0 · Windows evidence classes that are NOT process, file or
+#: network. A registry write is not a file write and a DNS query is not a
+#: TCP connection: filing them on a borrowed lane would make an analyst
+#: read the wrong evidence.
+_REGISTRY_KINDS = {"registry_create", "registry_value_set",
+                   "registry_delete", "registry_rename", "registry"}
+_DNS_KINDS = {"dns_query", "dns"}
+_AUTH_KINDS = {"logon_success", "logon_failure", "logon", "logoff",
+               "credential_validation"}
+
+DISPOSITION_MALICIOUS = "MALICIOUS"
+DISPOSITION_SUSPICIOUS = "SUSPICIOUS"
+DISPOSITION_UNKNOWN = "UNKNOWN_NOT_ASSESSED"
+#: A rule DID fire on this observation but the authoritative record
+#: carries no verdict. It is assessed, so it must never read as
+#: "unknown · not assessed"; it is also not graded, so it must not be
+#: promoted to MALICIOUS.
+DISPOSITION_DETECTED = "DETECTED_RULE_MATCHED"
+
+_MALICIOUS_LABELS = {"malicious", "high", "critical", "compromise"}
+_SUSPICIOUS_LABELS = {"medium", "suspicious", "anomalous"}
+_VERDICT_RANK = {"MALICIOUS": 3, "CRITICAL": 3, "HIGH": 3,
+                 "SUSPICIOUS": 2, "MEDIUM": 2, "ANOMALOUS": 2}
+DETECTION_OUTCOME = "DETECTION_MATCHED"
+
+# Short-lived projection cache. A pan issues many overlapping windows
+# over the SAME endpoint history; re-reading and re-projecting it per
+# request is the difference between a fluid trajectory and a request
+# that times out. Bounded and TTL'd, keyed by endpoint identity, and
+# holding only derived values — it can never become a second store of
+# record.
+_SCAN_TTL_S = 90.0
+_SCAN_MAX = 6
+#: First-paint budget. Bounded by DOCUMENTS, not by time, so an endpoint
+#: that was quiet for a week still paints its most recent real activity
+#: instead of an empty screen.
+BOUNDED_DOCS = 4000
+#: keys whose COMPLETE projection is already being built
+_warming: set = set()
+_proj_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+
+
+def _cursor_encode(ts: str, iid: str, ms: Optional[int] = None) -> str:
+    return base64.urlsafe_b64encode(
+        json.dumps({"ts": ts, "iid": iid, "ms": ms}).encode()).decode()
+
+
+def _cursor_decode(cur: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not cur:
+        return None
+    try:
+        d = json.loads(base64.urlsafe_b64decode(cur.encode()).decode())
+        ms = d.get("ms")
+        return {"ts": str(d["ts"]), "iid": str(d["iid"]),
+                "ms": int(ms) if isinstance(ms, (int, float))
+                else instant_ms(d["ts"])}
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _chrono(ms: Optional[int], iid: Any) -> Tuple[int, int, str]:
+    """The ONE chronological ordering key: parsed instant, then identity.
+
+    Rows whose timestamp cannot be parsed sort last and are never given a
+    time. Used for sorting, paging and cursor comparison alike, so a page
+    boundary cannot duplicate or skip a row because two observations wrote
+    the same instant in different representations.
+    """
+    return ((1, 0, str(iid)) if ms is None else (0, int(ms), str(iid)))
+
+
+def _row_ms(r: Dict[str, Any]) -> Optional[int]:
+    """The row's instant. `_project` carries it; a row built elsewhere is
+    parsed here so there is only ever ONE definition of a row's instant."""
+    if "timestamp_instant_ms" in r:
+        return r["timestamp_instant_ms"]
+    return instant_ms(r.get("timestamp"))
+
+
+def _row_chrono(r: Dict[str, Any]) -> Tuple[int, int, str]:
+    return _chrono(_row_ms(r), r.get("event_iid"))
+
+
+def _ev(doc: Dict[str, Any]) -> Dict[str, Any]:
+    e = doc.get("event")
+    return e if isinstance(e, dict) else {}
+
+
+def _raw(ev: Dict[str, Any]) -> Dict[str, Any]:
+    r = ev.get("raw")
+    return r if isinstance(r, dict) else {}
+
+
+def _prov(ev: Dict[str, Any]) -> Dict[str, Any]:
+    p = ev.get("provenance")
+    return p if isinstance(p, dict) else {}
+
+
+def _ts(doc: Dict[str, Any], ev: Dict[str, Any]) -> Optional[str]:
+    return ev.get("ts") or doc.get("captured_at")
+
+
+def _group_and_key(ev: Dict[str, Any]) -> Tuple[str, str, str]:
+    """(group, lane_id, label) from evidence only. No substitution: a
+    network-only observation is NOT given a process lane."""
+    kind = str(ev.get("kind") or "").lower()
+    proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
+    raw = _raw(ev)
+    if kind in _FILE_KINDS:
+        path = raw.get("target") or raw.get("file") or raw.get("path")
+        if path:
+            return "FILE", f"file::{path}", str(path)
+    if kind in _REGISTRY_KINDS:
+        key = raw.get("registry_key") or raw.get("target")
+        if key:
+            return "REGISTRY", f"reg::{key}", str(key)
+    if kind in _DNS_KINDS:
+        query = raw.get("dns_query") or raw.get("target")
+        if query:
+            return "DNS", f"dns::{query}", str(query)
+    if kind in _AUTH_KINDS:
+        who = raw.get("user") or raw.get("sid") or raw.get("target")
+        if who:
+            return "AUTHENTICATION", f"auth::{who}", str(who)
+    if kind in _NET_KINDS:
+        peer = (raw.get("remote_ip") or raw.get("destination")
+                or raw.get("entity") or raw.get("dns_query"))
+        if peer:
+            return "NETWORK", f"net::{peer}", str(peer)
+    iid = proc.get("iid") or ev.get("process_iid")
+    if iid:
+        return "PROCESS", f"proc::{iid}", str(proc.get("name") or iid)
+    return "OTHER", "other::unattributed", "unattributed observation"
+
+
+def _identity_key(ident: Dict[str, Any]) -> str:
+    # The customer is part of the projection identity: two customers may
+    # enrol the same hostname, and a cache keyed on the name alone would
+    # hand one customer the other's projection.
+    return (f"{ident.get('tenant_id') or 'NO_TENANT'}|"
+            f"{ident.get('device_iid') or ''}|{ident.get('hostname') or ''}")
+
+
+def _rules_of(deriv: Dict[str, Any]) -> List[str]:
+    """Rule ids exactly as the detection fabric recorded them."""
+    reason = str(deriv.get("reason") or "")
+    return sorted({r.strip() for r in reason.replace("rules:", "").split(",")
+                   if r.strip()})
+
+
+def _merge_attribution(cur: Optional[Dict[str, Any]],
+                       deriv: Dict[str, Any], raw: Dict[str, Any],
+                       ) -> Dict[str, Any]:
+    """Deterministic merge of every DETECTION_MATCHED derivation that
+    names the same canonical event.
+
+    Multiple rules on one observation are a union, sorted; the verdict is
+    the most severe recorded (a critical finding is not diluted by a
+    milder one); `detected_at` is the FIRST time the detection was made.
+    """
+    rules = _rules_of(deriv)
+    verdict = str(deriv.get("verdict_version") or "").upper() or None
+    engines = [e for e in [deriv.get("detection_content_version")] if e]
+    incidents = [str(i) for i in (deriv.get("evidence_ids") or [])
+                 if str(i).startswith("inc_")]
+    at = deriv.get("derived_at")
+    if cur is None:
+        cur = {"state": "DETECTED",
+               "outcome": DETECTION_OUTCOME,
+               "rule_ids": [], "engines": [], "verdict": None,
+               "detected_at": None, "incident_ids": [],
+               "raw_event_id": raw.get("raw_id"),
+               "canonical_event_id": deriv.get("event_id"),
+               "replay_generation": deriv.get("replay_generation"),
+               "tenant_id": raw.get("tenant_id"),
+               "trust_state": raw.get("trust_state"),
+               "basis": (f"{RAW_COLLECTION}.derivations[] outcome="
+                         f"{DETECTION_OUTCOME}, joined to this observation "
+                         f"on raw_id == ingest_job_id and event_id == "
+                         f"canonical_event_id"),
+               "detection_id": None,
+               "detection_id_basis": None}
+    cur["rule_ids"] = sorted(set(cur["rule_ids"]) | set(rules))
+    cur["engines"] = sorted(set(cur["engines"]) | set(engines))
+    cur["incident_ids"] = sorted(set(cur["incident_ids"]) | set(incidents))
+    if verdict and (_VERDICT_RANK.get(verdict, 1)
+                    > _VERDICT_RANK.get(cur["verdict"] or "", 0)):
+        cur["verdict"] = verdict
+    if at and (cur["detected_at"] is None or str(at) < str(cur["detected_at"])):
+        cur["detected_at"] = at
+    # The product's detection reference elsewhere (the XDR case surface
+    # and the trajectory focus resolver) is `<case>::rule::<RULE>`. It is
+    # COMPOSED from these two persisted ids, and says so, rather than
+    # being presented as a stored field.
+    if cur["incident_ids"] and cur["rule_ids"]:
+        cur["detection_id"] = (f"{cur['incident_ids'][0]}::rule::"
+                               f"{cur['rule_ids'][0]}")
+        cur["detection_id_basis"] = ("composed from the authoritative "
+                                     "incident id + rule id; no detection "
+                                     "id is stored on the record")
+    return cur
+
+
+async def _detection_attribution(db, docs: List[Dict[str, Any]],
+                                 tenant_id: Any = None,
+                                 ) -> Dict[str, Dict[str, Any]]:
+    """`raw_event_id`/`canonical_event_id` → authoritative detection.
+
+    Read-only join; it creates no detection store and invents nothing. An
+    observation with no matching derivation gets no attribution, which is
+    a real answer: no rule has been evaluated against it or none matched.
+
+    The lookup is keyed by the authenticated connector of the OBSERVATIONS
+    the caller is already authorised to see, and a derivation is accepted
+    only when the raw event's tenant matches the observation's tenant, so
+    attribution can never cross a customer boundary.
+    """
+    refs = {str(d.get("collector_id") or d.get("connector_id"))
+            for d in docs if d.get("collector_id") or d.get("connector_id")}
+    tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
+    if not refs:
+        return {}
+    query = {**endpoint_predicate(sorted(refs), RAW_COLLECTION,
+                                  tenant_id=tenant_id or sorted(tenants)),
+             "derivations.outcome": DETECTION_OUTCOME}
+    fields = {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
+              "derivations": 1}
+    raws = [r async for r in db[RAW_COLLECTION].find(query, fields)]
+    return _attribution_from_raws(raws, tenants)
+
+
+def _attribution_from_raws(raws: List[Dict[str, Any]],
+                           tenants: set) -> Dict[str, Dict[str, Any]]:
+    """Pure join, shared by the async request path and the threaded warm
+    path so one authority answers both."""
+    out: Dict[str, Dict[str, Any]] = {}
+    for raw in raws:
+        if tenants and str(raw.get("tenant_id")) not in tenants:
+            continue
+        for deriv in (raw.get("derivations") or []):
+            if deriv.get("outcome") != DETECTION_OUTCOME:
+                continue
+            key = str(raw.get("raw_id"))
+            merged = _merge_attribution(out.get(key), deriv, raw)
+            out[key] = merged
+            cev = deriv.get("event_id")
+            if cev:
+                out[str(cev)] = merged
+    return out
+
+
+EVAL_COLLECTION = "edr_finding_evaluations"
+
+ASSESSED = "ASSESSED_BY_DETECTION_FABRIC"
+EVALUATED_NO_DETECTION = "EVALUATED_NO_DETECTION"
+NOT_EVALUATED = "NOT_EVALUATED"
+SUPPRESSED = "EVALUATION_SUPPRESSED_BY_EXCLUSION"
+EVAL_FAILED = "EVALUATION_FAILED"
+
+_EVAL_MEANING = {
+    ASSESSED: ("a detection rule matched this observation and the "
+               "authoritative record says which rule and which engine"),
+    EVALUATED_NO_DETECTION: (
+        "this observation WAS evaluated by the stated rule set and "
+        "nothing matched. This is NOT a statement that the activity was "
+        "benign, and it says nothing about engines that do not exist yet"),
+    NOT_EVALUATED: ("no detection engine has evaluated this observation "
+                    "yet. The evidence exists and is replayable — this is "
+                    "a detection gap, not an absence of activity"),
+    SUPPRESSED: ("an approved exclusion told the platform not to judge "
+                 "this evidence; it is neither clean nor unexamined"),
+    EVAL_FAILED: ("evaluation was attempted and failed. The verdict for "
+                  "this evidence is UNKNOWN, not clean"),
+}
+
+
+def _assessment_state(attribution: Optional[Dict[str, Any]],
+                      evaluation: Optional[Dict[str, Any]]) -> str:
+    if attribution:
+        return ASSESSED
+    state = str((evaluation or {}).get("state") or "")
+    if state == "FINDINGS_PRESENT":
+        return ASSESSED
+    if state == "EVALUATED_NO_FINDING":
+        return EVALUATED_NO_DETECTION
+    if state == SUPPRESSED:
+        return SUPPRESSED
+    if state == EVAL_FAILED:
+        return EVAL_FAILED
+    return NOT_EVALUATED
+
+
+def _canonical_refs(docs: List[Dict[str, Any]]) -> List[str]:
+    return sorted({str(d["canonical_event_id"]) for d in docs
+                   if d.get("canonical_event_id")})
+
+
+def _evaluations_from_rows(rows: List[Dict[str, Any]]
+                           ) -> Dict[str, Dict[str, Any]]:
+    """`canonical_event_id` -> the evaluation ledger entry.
+
+    This is the answer to "was this evidence ever looked at?", which is a
+    DIFFERENT question from "did anything match". Without it a surface
+    cannot tell `EVALUATED_NO_FINDING` apart from silence, and silence
+    reads as benign. The ledger is the only source; nothing is inferred
+    from the absence of a detection.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        ref = str(r.get("evidence_ref") or "")
+        if not ref:
+            continue
+        cur = out.get(ref)
+        # FINDINGS_PRESENT outranks a no-finding row from another
+        # analyzer: one analyzer finding something is the stronger fact.
+        if cur and cur.get("state") == "FINDINGS_PRESENT":
+            continue
+        out[ref] = {
+            "state": r.get("state"),
+            "reason": r.get("reason"),
+            "analyzer_id": r.get("analyzer_id"),
+            "analyzer_version": r.get("analyzer_version"),
+            "evaluated_at": r.get("recorded_at"),
+            "attempts": r.get("evaluation_attempts"),
+            "finding_ids": r.get("finding_ids") or [],
+        }
+    return out
+
+
+_EVAL_FIELDS = {"_id": 0, "evidence_ref": 1, "state": 1, "reason": 1,
+                "analyzer_id": 1, "analyzer_version": 1, "recorded_at": 1,
+                "evaluation_attempts": 1, "finding_ids": 1}
+
+FINDING_COLLECTION = "edr_findings"
+_FINDING_FIELDS = {"_id": 0, "finding_id": 1, "evidence_refs": 1,
+                   "rule_id": 1, "rule_name": 1, "rule_version": 1,
+                   "severity": 1, "confidence": 1, "attck": 1,
+                   "attck_basis": 1, "detection_source": 1,
+                   "analyzer_id": 1, "analyzer_version": 1,
+                   "evaluation_time": 1, "state": 1}
+
+
+def _findings_by_evidence(rows: List[Dict[str, Any]]
+                          ) -> Dict[str, List[Dict[str, Any]]]:
+    """`canonical_event_id` -> the findings emitted against it.
+
+    A finding carries the PRODUCING RULE's own declared severity and
+    ATT&CK. That is the only ATT&CK a trajectory may show: a technique
+    the matched rule declared, never one inferred from a process name.
+    """
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for f in rows:
+        if f.get("state") == "SUPPRESSED":
+            continue
+        for ref in (f.get("evidence_refs") or []):
+            out.setdefault(str(ref), []).append({
+                "finding_id": f.get("finding_id"),
+                "rule_id": f.get("rule_id"),
+                "rule_name": f.get("rule_name"),
+                "rule_version": f.get("rule_version"),
+                "severity": f.get("severity"),
+                "confidence": f.get("confidence"),
+                "attck": list(f.get("attck") or []),
+                "attck_basis": f.get("attck_basis"),
+                "detection_source": f.get("detection_source"),
+                "engine": f.get("analyzer_id"),
+                "engine_version": f.get("analyzer_version"),
+                "evaluated_at": f.get("evaluation_time"),
+            })
+    return out
+
+
+def _attach_findings(evals: Dict[str, Dict[str, Any]],
+                     findings: Dict[str, List[Dict[str, Any]]]
+                     ) -> Dict[str, Dict[str, Any]]:
+    for ref, fs in findings.items():
+        rec = evals.setdefault(ref, {"state": "FINDINGS_PRESENT"})
+        rec["findings"] = fs
+    return evals
+
+
+async def _evaluations(db, docs: List[Dict[str, Any]],
+                       tenant_id: Any = None) -> Dict[str, Dict[str, Any]]:
+    refs = _canonical_refs(docs)
+    if not refs or not tenant_id:
+        return {}
+    rows = [r async for r in db[EVAL_COLLECTION].find(
+        {"tenant_id": tenant_id, "evidence_ref": {"$in": refs}},
+        _EVAL_FIELDS)]
+    fnd = [f async for f in db[FINDING_COLLECTION].find(
+        {"tenant_id": tenant_id, "evidence_refs": {"$in": refs}},
+        _FINDING_FIELDS)]
+    return _attach_findings(_evaluations_from_rows(rows),
+                            _findings_by_evidence(fnd))
+
+
+def _evaluations_sync(docs: List[Dict[str, Any]],
+                      tenant_id: Any = None) -> Dict[str, Dict[str, Any]]:
+    refs = _canonical_refs(docs)
+    if not refs or not tenant_id:
+        return {}
+    evals = _evaluations_from_rows(list(
+        sync_collection(EVAL_COLLECTION).find(
+            {"tenant_id": tenant_id, "evidence_ref": {"$in": refs}},
+            _EVAL_FIELDS)))
+    fnd = list(sync_collection(FINDING_COLLECTION).find(
+        {"tenant_id": tenant_id, "evidence_refs": {"$in": refs}},
+        _FINDING_FIELDS))
+    return _attach_findings(evals, _findings_by_evidence(fnd))
+
+
+def _attribution_sync(docs: List[Dict[str, Any]], tenant_id: Any = None,
+                      ) -> Dict[str, Dict[str, Any]]:
+    refs = {str(d.get("collector_id") or d.get("connector_id"))
+            for d in docs if d.get("collector_id") or d.get("connector_id")}
+    tenants = {str(d.get("tenant_id")) for d in docs if d.get("tenant_id")}
+    if not refs:
+        return {}
+    raws = list(sync_collection(RAW_COLLECTION).find(
+        {**endpoint_predicate(sorted(refs), RAW_COLLECTION,
+                              tenant_id=tenant_id or sorted(tenants)),
+         "derivations.outcome": DETECTION_OUTCOME},
+        {"_id": 0, "raw_id": 1, "tenant_id": 1, "trust_state": 1,
+         "derivations": 1}))
+    return _attribution_from_raws(raws, tenants)
+
+
+def _project_all_sync(ref_set: List[str],
+                      tenant_id: Any = None) -> Dict[str, Any]:
+    """The COMPLETE projection, built entirely OFF the event loop.
+
+    Cooperative `await` points are not enough here: `build_lane_catalogue`
+    and the 200k-row sort are monolithic CPU phases, so while they ran the
+    loop belonged to them and an unrelated request measured 18 s. This
+    runs in a worker thread against the sync client; the loop stays free.
+    """
+    docs = list(sync_collection(COLLECTION).find(
+        endpoint_predicate(ref_set, COLLECTION, tenant_id=tenant_id),
+        {"_id": 0}))
+    attribution = _attribution_sync(docs, tenant_id)
+    evaluations = _evaluations_sync(docs, tenant_id)
+    cat = build_lane_catalogue(docs, attribution)
+    rows: List[Dict[str, Any]] = []
+    for doc in docs:
+        _, lane_id, _ = _group_and_key(_ev(doc))
+        lane = cat["by_id"].get(lane_id)
+        if lane:
+            rows.append(_project(doc, lane,
+                                 _attr_of(doc, _ev(doc), attribution),
+                                 evaluations.get(
+                                     str(doc.get("canonical_event_id")))))
+    rows.sort(key=_row_chrono)
+    return _with_derived({"cat": cat, "rows": rows, "bounded": False,
+                          "docs_read": len(docs)})
+
+
+def _with_derived(out: Dict[str, Any]) -> Dict[str, Any]:
+    """GATE 10 · aggregates that are a property of the PROJECTION.
+
+    `_type_counts`, `_activity` and the observed extent used to be
+    recomputed on EVERY read — three more full passes over 208k rows,
+    plus a lane scan, which is where the remaining ~0.6-1.4 s of a
+    cache-HIT read was spent. They are computed once, with the
+    projection, and travel with it in the cache. The values are
+    identical; a filtered or history-pinned read still computes its own,
+    because a filter legitimately changes the population.
+
+    Both projection builders (`_projected` and the off-loop
+    `_project_all_sync`) go through here, so the two paths can never
+    again disagree about what a cached projection carries.
+    """
+    rows = out["rows"]
+    #: the observed extent is an extent in TIME, so it is taken over parsed
+    #: instants and reported as the source wrote it.
+    dated = [(_row_ms(r), r["timestamp"]) for r in rows
+             if r.get("timestamp") and _row_ms(r) is not None]
+    by_lane: Dict[int, List[Dict[str, Any]]] = {}
+    for r in rows:
+        by_lane.setdefault(r["lane_index"], []).append(r)
+    out["by_lane"] = by_lane
+    out["observed_start"] = min(dated)[1] if dated else None
+    out["observed_end"] = max(dated)[1] if dated else None
+    out["timestamp_unparseable"] = sum(
+        1 for r in rows if _row_ms(r) is None)
+    out["type_counts"] = _type_counts(rows)
+    out["activity_unfiltered"] = _activity(rows, None)
+    return out
+
+
+def _attr_of(doc: Dict[str, Any], ev: Dict[str, Any],
+             attribution: Optional[Dict[str, Dict[str, Any]]],
+             ) -> Optional[Dict[str, Any]]:
+    if not attribution:
+        return None
+    for key in (_prov(ev).get("ingest_job_id"), doc.get("ingest_job_id"),
+                doc.get("canonical_event_id")):
+        if key and str(key) in attribution:
+            return attribution[str(key)]
+    return None
+
+
+async def _projected(db, *, ident: Dict[str, Any],
+                     refs: Optional[List[str]] = None,
+                     docs_limit: Optional[int] = None) -> Dict[str, Any]:
+    """The endpoint's whole observed history, projected once.
+
+    Deliberately NOT time filtered: the lane axis is invariant to the
+    viewport, which is what makes deep activity rows resolve at every
+    zoom level.
+
+    `docs_limit` asks for the BOUNDED projection instead — the most recent
+    N observations, used for the first paint so an analyst is not made to
+    wait for a 205k-observation history before seeing evidence. A bounded
+    projection is cached under its own key and is never mistaken for the
+    complete one: the caller labels it and the lane axis says its scope.
+    """
+    bounded = bool(docs_limit)
+    key = ("bounded:" if bounded else "") + _identity_key(ident) + "|" \
+        + ",".join(sorted(str(r) for r in (refs or []) if r))
+    now = time.time()
+    hit = _proj_cache.get(key)
+    if hit and hit[0] > now:
+        return hit[1]
+
+    # P0-2C · address the store by its DECLARED identity fields over the
+    # validated alias set.  Building this `$or` by hand is exactly how
+    # this projection came to ignore `collector_id` while the
+    # process-tree projection honoured it — two query sites, one store,
+    # two different answers about the same endpoint.
+    ref_set: List[str] = [str(r) for r in (refs or []) if r]
+    for v in (ident.get("device_iid"), ident.get("hostname")):
+        if v and str(v) not in ref_set:
+            ref_set.append(str(v))
+    if not ref_set:
+        return {"cat": build_lane_catalogue([]), "rows": [],
+                "bounded": False}
+    predicate = endpoint_predicate(ref_set, COLLECTION,
+                                   tenant_id=ident.get("tenant_id"))
+    cursor = db[COLLECTION].find(predicate, {"_id": 0})
+    if bounded:
+        cursor = cursor.sort("event.ts", -1).limit(int(docs_limit))
+    docs = []
+    async for d in cursor:
+        docs.append(d)
+        # The COMPLETE projection reads ~200k documents. Without an
+        # explicit yield the loop belongs to this one background task and
+        # every concurrent analyst request waits behind it (measured: an
+        # 18 s wait on a request whose own work was 0.9 s).
+        if not bounded and len(docs) % 500 == 0:
+            await asyncio.sleep(0)
+    attribution = await _detection_attribution(db, docs,
+                                               ident.get("tenant_id"))
+    evaluations = await _evaluations(db, docs, ident.get("tenant_id"))
+    cat = build_lane_catalogue(docs, attribution)
+    rows: List[Dict[str, Any]] = []
+    for i, doc in enumerate(docs):
+        _, lane_id, _ = _group_and_key(_ev(doc))
+        lane = cat["by_id"].get(lane_id)
+        if lane:
+            rows.append(_project(doc, lane,
+                                 _attr_of(doc, _ev(doc), attribution),
+                                 evaluations.get(
+                                     str(doc.get("canonical_event_id")))))
+        if not bounded and i % 500 == 0:
+            await asyncio.sleep(0)
+    rows.sort(key=_row_chrono)
+    out = _with_derived({"cat": cat, "rows": rows, "bounded": bounded,
+                         "docs_read": len(docs)})
+
+    if len(_proj_cache) >= _SCAN_MAX:
+        _proj_cache.pop(next(iter(_proj_cache)), None)
+    _proj_cache[key] = (now + _SCAN_TTL_S, out)
+    return out
+
+
+def _complete_is_warm(ident: Dict[str, Any],
+                      refs: Optional[List[str]]) -> bool:
+    key = _identity_key(ident) + "|" + ",".join(
+        sorted(str(r) for r in (refs or []) if r))
+    hit = _proj_cache.get(key)
+    return bool(hit and hit[0] > time.time())
+
+
+def _warm_complete(db, ident: Dict[str, Any],
+                   refs: Optional[List[str]]) -> None:
+    """Project the full history in the background, after the first paint.
+
+    The bounded response has already been sent, so this work never sits
+    in front of the analyst. It fills the same cache the next request
+    reads, which is how the viewport-invariant axis arrives without the
+    first screen waiting for it.
+
+    Single-flight ON PURPOSE: without it, four consecutive first paints
+    scheduled four concurrent 200k-document projections and every one of
+    them competed for the same loop — the measured effect was a bounded
+    read that should cost 1.4 s taking 14 s.
+    """
+    key = _identity_key(ident) + "|" + ",".join(
+        sorted(str(r) for r in (refs or []) if r))
+    if key in _warming:
+        return
+    _warming.add(key)
+
+    async def run() -> None:
+        # Let the bounded response flush first, then do the heavy work in
+        # a worker thread so no phase of it can block the loop.
+        await asyncio.sleep(0.5)
+        try:
+            ref_set = [str(r) for r in (refs or []) if r]
+            for v in (ident.get("device_iid"), ident.get("hostname")):
+                if v and str(v) not in ref_set:
+                    ref_set.append(str(v))
+            if not ref_set:
+                return
+            out = await asyncio.to_thread(_project_all_sync, ref_set,
+                                          ident.get("tenant_id"))
+            if len(_proj_cache) >= _SCAN_MAX:
+                _proj_cache.pop(next(iter(_proj_cache)), None)
+            _proj_cache[key] = (time.time() + _SCAN_TTL_S, out)
+        except Exception:                                    # noqa: BLE001
+            pass                 # a failed warm leaves the bounded truth
+        finally:
+            _warming.discard(key)
+    try:
+        asyncio.get_running_loop().create_task(run())
+    except RuntimeError:
+        _warming.discard(key)
+
+
+
+def _depth(iid: Optional[str], parents: Dict[str, Optional[str]],
+           seen: Optional[set] = None) -> int:
+    """Lineage depth from parent_iid links. Cycle-safe, and an unobserved
+    parent stops the chain rather than inventing an ancestor."""
+    seen = seen or set()
+    d = 0
+    cur = iid
+    while cur and cur in parents and parents[cur] and cur not in seen:
+        seen.add(cur)
+        cur = parents[cur]
+        d += 1
+        if d > 64:
+            break
+    return d
+
+
+def classify(ev: Dict[str, Any],
+             attribution: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Disposition + attribution from persisted evidence only.
+
+    `attribution` is the authoritative DETECTION_MATCHED derivation for
+    this observation. When one exists the observation HAS been assessed,
+    so it is never reported as UNKNOWN_NOT_ASSESSED.
+    """
+    raw = _raw(ev)
+    labels = [str(x).lower() for x in (ev.get("labels") or [])
+              if isinstance(x, (str, int))]
+    mitre = [str(x) for x in (ev.get("mitre") or []) if x]
+    conf = str(raw.get("confidence") or "").lower()
+    kind = str(ev.get("kind") or "").lower()
+
+    disposition = DISPOSITION_UNKNOWN
+    if set(labels) & _MALICIOUS_LABELS or conf == "high":
+        disposition = DISPOSITION_MALICIOUS
+    elif set(labels) & _SUSPICIOUS_LABELS or conf == "medium":
+        disposition = DISPOSITION_SUSPICIOUS
+
+    if attribution:
+        rank = _VERDICT_RANK.get(str(attribution.get("verdict") or "").upper(),
+                                 0)
+        graded = (DISPOSITION_MALICIOUS if rank >= 3
+                  else DISPOSITION_SUSPICIOUS if rank == 2
+                  else DISPOSITION_DETECTED)
+        # Escalate-only: an authoritative detection never softens a
+        # disposition the observation's own evidence already earned.
+        order = {DISPOSITION_UNKNOWN: 0, DISPOSITION_DETECTED: 1,
+                 DISPOSITION_SUSPICIOUS: 2, DISPOSITION_MALICIOUS: 3}
+        if order[graded] > order[disposition]:
+            disposition = graded
+
+    return {
+        "disposition": disposition,
+        "is_detection": kind == "detection" or bool(attribution),
+        #: A COMPROMISE is not a telemetry kind. `kind == "detection"` is a
+        #: normalizer classification — on this Windows corpus Sysmon
+        #: registry events (EID 12) arrive as `kind=detection` — so it can
+        #: never earn a navigator compromise marker on its own. Only an
+        #: authoritative claim counts: the detection fabric assessed the
+        #: observation, or the observation's own evidence names MITRE
+        #: technique attribution.
+        "compromise_authority": ("DETECTION_FABRIC_ATTRIBUTION" if attribution
+                                 else "MITRE_ATTRIBUTED_EVIDENCE" if mitre
+                                 else None),
+        "labels": labels,
+        "mitre": mitre,
+        "attributed": bool(mitre) or bool(attribution),
+    }
+
+
+def detected_by(doc: Dict[str, Any], ev: Dict[str, Any],
+                attribution: Optional[Dict[str, Any]] = None,
+                findings: Optional[List[Dict[str, Any]]] = None,
+                ) -> List[Dict[str, Any]]:
+    """Which engine produced this — named from provenance, never guessed.
+
+    An empty list is a real answer: the observation is telemetry that no
+    detection engine has claimed.
+    """
+    raw = _raw(ev)
+    prov = _prov(ev)
+    out: List[Dict[str, Any]] = []
+
+    if attribution:
+        # The authoritative record: the XDR detection fabric wrote this
+        # onto the immutable raw event. It is named first because it is
+        # the strongest claim available about this observation.
+        out.append({
+            "engine": (attribution.get("engines") or [None])[0]
+                      or "NivXRay detection content",
+            "component": "detection_content.xdr_pipeline",
+            "rule_id": (attribution.get("rule_ids") or [None])[0],
+            "rule_ids": attribution.get("rule_ids"),
+            "verdict": attribution.get("verdict"),
+            "detection_id": attribution.get("detection_id"),
+            "detected_at": attribution.get("detected_at"),
+            "incident_ids": attribution.get("incident_ids"),
+            "basis": attribution.get("basis"),
+            "authoritative": True,
+        })
+
+    # E3 · an engine that produced a FINDING against this observation is
+    # named from that finding. It is as authoritative as an ingest-time
+    # derivation; the only difference is WHEN it ran, and the finding
+    # says when.
+    for f in (findings or []):
+        out.append({
+            "engine": f.get("engine") or "NivXRay detection content",
+            "component": f.get("detection_source"),
+            "rule_id": f.get("rule_id"),
+            "rule_ids": [f["rule_id"]] if f.get("rule_id") else [],
+            "rule_name": f.get("rule_name"),
+            "severity": f.get("severity"),
+            "engine_version": f.get("engine_version"),
+            "detected_at": f.get("evaluated_at"),
+            "finding_id": f.get("finding_id"),
+            "basis": "EDR_FINDING_PLANE_DETECTION_RECORD",
+            "authoritative": True,
+        })
+
+    rule_id = raw.get("rule_id")
+    if rule_id:  # a rule actually fired
+        out.append({
+            "engine": "NivXRay detection content",
+            "component": raw.get("source") or prov.get("parser"),
+            "rule_id": rule_id,
+            "rule_label": raw.get("rule_label"),
+            "confidence": raw.get("confidence"),
+            "basis": "event.raw.rule_id",
+        })
+    for corr in (prov.get("correlation") or []):
+        if corr and corr != rule_id:
+            out.append({"engine": "NivXRay correlation",
+                        "rule_id": corr, "basis": "provenance.correlation"})
+    if str(ev.get("kind") or "").lower() == "detection":
+        out.append({
+            "engine": prov.get("source") or ev.get("adapter") or "sensor",
+            "component": prov.get("normalizer") or prov.get("adapter"),
+            "detail": raw.get("rule_label"),
+            "basis": "canonical kind=detection",
+        })
+    if not out:
+        origin = prov.get("origin") or doc.get("adapter")
+        out.append({
+            "engine": None,
+            "component": origin,
+            "basis": "no detection engine claimed this observation",
+            "telemetry_only": True,
+        })
+    return out
+
+
+def _artefact_files(ev: Dict[str, Any]) -> List[Dict[str, Any]]:
+    art = ev.get("artefacts")
+    files = (art or {}).get("file") if isinstance(art, dict) else None
+    out = []
+    for f in files or []:
+        if isinstance(f, dict):
+            out.append({"iid": f.get("iid"), "path": f.get("path"),
+                        "sha256": f.get("sha256")})
+    return out
+
+
+def build_lane_catalogue(docs: List[Dict[str, Any]],
+                         attribution: Optional[Dict[str, Dict[str, Any]]]
+                         = None) -> Dict[str, Any]:
+    """Deterministic lane axis. Processes by lineage depth, then files,
+    then network — an activity/causality order, never a severity rank."""
+    lanes: Dict[str, Dict[str, Any]] = {}
+    parents: Dict[str, Optional[str]] = {}
+    for doc in docs:
+        ev = _ev(doc)
+        group, lane_id, label = _group_and_key(ev)
+        ts = _ts(doc, ev)
+        proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
+        cls = classify(ev, _attr_of(doc, ev, attribution))
+        if group == "PROCESS" and proc.get("iid"):
+            parents[str(proc["iid"])] = (str(proc["parent_iid"])
+                                         if proc.get("parent_iid") else None)
+        lane = lanes.setdefault(lane_id, {
+            "lane_id": lane_id, "group": group, "label": label,
+            "process_iid": proc.get("iid") if group == "PROCESS" else None,
+            # The process this file/network/dns lane was observed under,
+            # taken from the observation's OWN canonical process identity.
+            # It is what groups the lane beneath its process on the axis;
+            # nothing is grouped by name, path or timestamp proximity.
+            "actor_process_iid": (None if group == "PROCESS"
+                                  else proc.get("iid")),
+            "parent_iid": proc.get("parent_iid") if group == "PROCESS"
+            else None,
+            # Three distinct truths, never collapsed into one: the
+            # sensor reported no parent at all; it reported a parent we
+            # never observed; or the parent is a row on this axis.
+            "parent_state": ("PENDING" if proc.get("parent_iid")
+                             else "PARENT_NOT_REPORTED_BY_SENSOR")
+            if group == "PROCESS" else "NOT_APPLICABLE",
+            "image": proc.get("image") or _raw(ev).get("image_path"),
+            "user": _raw(ev).get("user") or None,
+            # The PID the analyst needs to tell 15 identical `python3.11`
+            # rows apart. It is NOT an identity — process_iid is.
+            "pid": _raw(ev).get("pid"),
+            "first_seen": ts, "last_seen": ts, "count": 0,
+            "malicious_count": 0, "suspicious_count": 0,
+            "detection_count": 0, "attributed_count": 0,
+            "exit_observed": False})
+        lane["count"] += 1
+        if str(ev.get("kind") or "").lower() == "process_exit":
+            lane["exit_observed"] = True
+        if cls["disposition"] == DISPOSITION_MALICIOUS:
+            lane["malicious_count"] += 1
+        elif cls["disposition"] == DISPOSITION_SUSPICIOUS:
+            lane["suspicious_count"] += 1
+        if cls["is_detection"]:
+            lane["detection_count"] += 1
+        if cls["attributed"]:
+            lane["attributed_count"] += 1
+        if not lane.get("image"):
+            lane["image"] = proc.get("image") or _raw(ev).get("image_path")
+        if not lane.get("user"):
+            lane["user"] = _raw(ev).get("user") or None
+        if lane.get("pid") in (None, ""):
+            lane["pid"] = _raw(ev).get("pid")
+        if lane["group"] != "PROCESS" and not lane.get("actor_process_iid"):
+            lane["actor_process_iid"] = proc.get("iid")
+        if ts:
+            ti = instant_ms(ts)
+            fi = instant_ms(lane["first_seen"])
+            li = instant_ms(lane["last_seen"])
+            if not lane["first_seen"] or (ti is not None
+                                          and (fi is None or ti < fi)):
+                lane["first_seen"] = ts
+            if not lane["last_seen"] or (ti is not None
+                                         and (li is None or ti > li)):
+                lane["last_seen"] = ts
+
+    for lane in lanes.values():
+        lane["depth"] = (_depth(lane.get("process_iid"), parents)
+                         if lane["group"] == "PROCESS" else 0)
+
+    # ── Lineage pre-order ────────────────────────────────────────
+    # Ordering by (group, depth, first_seen) put every root first and
+    # its children hundreds of rows away, so a real parent→child chain
+    # rendered as a stack of unrelated rows. Cisco's vertical axis reads
+    # as lineage: a process is immediately followed by the processes it
+    # spawned. So the axis is a depth-first pre-order over the OBSERVED
+    # lineage — derived from process_iid/parent_iid only, never from PID
+    # and never invented. Files and network peers follow, as Cisco's
+    # "Files & Network" section does.
+    proc = [ln for ln in lanes.values() if ln["group"] == "PROCESS"]
+    by_iid = {str(ln["process_iid"]): ln for ln in proc
+              if ln.get("process_iid")}
+    children: Dict[str, List[Dict[str, Any]]] = {}
+    roots: List[Dict[str, Any]] = []
+    for ln in proc:
+        pid = str(ln["parent_iid"]) if ln.get("parent_iid") else None
+        if pid and pid in by_iid:
+            children.setdefault(pid, []).append(ln)
+        else:
+            roots.append(ln)
+    key = lambda ln: _chrono(instant_ms(ln["first_seen"]),  # noqa: E731
+                             ln["lane_id"])
+    roots.sort(key=key)
+    for kids in children.values():
+        kids.sort(key=key)
+
+    ranked: List[Dict[str, Any]] = []
+    seen_iids: set = set()
+    stack = list(reversed(roots))
+    while stack:
+        ln = stack.pop()
+        iid = str(ln.get("process_iid") or "")
+        if iid in seen_iids:          # cycle-safe
+            continue
+        seen_iids.add(iid)
+        ranked.append(ln)
+        for kid in reversed(children.get(iid, [])):
+            stack.append(kid)
+    # A process caught in a lineage cycle would otherwise be dropped
+    # from the axis entirely; it is appended rather than hidden.
+    for ln in sorted(proc, key=key):
+        if str(ln.get("process_iid") or "") not in seen_iids:
+            ranked.append(ln)
+            seen_iids.add(str(ln.get("process_iid") or ""))
+
+    order = {g: i for i, g in enumerate(GROUPS + ("OTHER",))}
+    #: DT2-3b · Cisco's vertical axis is "a list of files and processes",
+    #: and a file/network row belongs WITH the process that touched it.
+    #: Appending every non-process lane after ALL process lanes put the
+    #: file rows hundreds of lanes away, so a windowed client could not
+    #: hold a process and its own artefacts in one slice and no
+    #: process→file stem could render at all. Each non-process lane now
+    #: follows the process lane its own evidence names. A lane whose
+    #: actor process is not on this axis keeps the tail placement — it is
+    #: never attached to a process on proximity.
+    artefacts: Dict[str, List[Dict[str, Any]]] = {}
+    orphan: List[Dict[str, Any]] = []
+    akey = lambda ln: (order.get(ln["group"], 9),  # noqa: E731
+                       _chrono(instant_ms(ln["first_seen"]), ln["lane_id"]))
+    for ln in lanes.values():
+        if ln["group"] == "PROCESS":
+            continue
+        owner = str(ln.get("actor_process_iid") or "")
+        if owner and owner in by_iid:
+            artefacts.setdefault(owner, []).append(ln)
+        else:
+            orphan.append(ln)
+    for kids in artefacts.values():
+        kids.sort(key=akey)
+
+    grouped: List[Dict[str, Any]] = []
+    for ln in ranked:
+        grouped.append(ln)
+        grouped += artefacts.get(str(ln.get("process_iid") or ""), [])
+    ranked = grouped + sorted(orphan, key=akey)
+    for i, lane in enumerate(ranked):
+        lane["lane_index"] = i
+
+    # Parent→child connectors need the parent's ROW, and the parent row
+    # is frequently outside the requested slice. Resolving it here is the
+    # only way a windowed client can draw a lineage edge it cannot see
+    # both ends of.
+    by_proc = {ln["process_iid"]: ln for ln in ranked
+               if ln.get("process_iid")}
+    for lane in ranked:
+        pid = lane.get("parent_iid")
+        parent = by_proc.get(str(pid)) if pid else None
+        lane["parent_lane_index"] = parent["lane_index"] if parent else None
+        lane["parent_label"] = parent["label"] if parent else None
+        if pid:
+            lane["parent_state"] = ("OBSERVED" if parent
+                                    else "PARENT_NOT_OBSERVED_VISIBILITY_GAP")
+        # A process whose exit was never reported has an OPEN lifeline.
+        # Drawing it as if it ended at its last observation would assert
+        # a termination nothing observed.
+        lane["end_state"] = (
+            "NOT_APPLICABLE" if lane["group"] != "PROCESS"
+            else "EXIT_OBSERVED" if lane["exit_observed"]
+            else "END_NOT_OBSERVED")
+
+    digest = hashlib.sha256(
+        "|".join(ln["lane_id"] for ln in ranked).encode()).hexdigest()[:16]
+    return {"lanes": ranked, "by_id": {ln["lane_id"]: ln for ln in ranked},
+            "lane_axis_version": digest,
+            "group_counts": {g: sum(1 for ln in ranked if ln["group"] == g)
+                             for g in GROUPS + ("OTHER",)}}
+
+
+def _event_iid(doc: Dict[str, Any], ev: Dict[str, Any],
+               lane_id: str) -> str:
+    """A STABLE, UNIQUE identity per observation row.
+
+    `event.iid` alone is not unique — it is a CONTENT hash, and on the
+    real Windows corpus 2,250 of 3,299 distinct records share one, so
+    paging on it produced 8 duplicate rows out of 406 in the Stage 1
+    proof. The proven observation identity is preferred where the
+    observation carries one; the content fingerprint remains as the
+    fallback for rows recorded before observation identity existed. It is
+    derived only from persisted values, so it is identical on every
+    request.
+    """
+    base = str(doc.get("observation_id") or ev.get("iid")
+               or doc.get("canonical_event_id") or doc.get("iid") or "obs")
+    raw = _raw(ev)
+    fingerprint = "|".join(str(v) for v in (
+        _ts(doc, ev), lane_id, ev.get("kind"), doc.get("canonical_event_id"),
+        doc.get("case_id"), raw.get("command_line") or raw.get("text"),
+        raw.get("target"), raw.get("pid"), _prov(ev).get("ingest_job_id")))
+    return f"{base}#{hashlib.sha256(fingerprint.encode()).hexdigest()[:10]}"
+
+
+def _project(doc: Dict[str, Any], lane: Dict[str, Any],
+             attribution: Optional[Dict[str, Any]] = None,
+             evaluation: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """One trajectory event. Provenance travels with it; a field with no
+    evidence is omitted, never filled in."""
+    ev = _ev(doc)
+    raw = _raw(ev)
+    prov = _prov(ev)
+    proc = ev.get("process") if isinstance(ev.get("process"), dict) else {}
+    cls = classify(ev, attribution)
+    files = _artefact_files(ev)
+    # E3/E6 · a matched FINDING carries the producing rule's own id and
+    # the ATT&CK that rule DECLARED. That is the only attribution a
+    # trajectory may present as a technique claim; the normalizer's
+    # `event.mitre` tag is a source hint, not validated detection
+    # evidence, so it is carried under its own basis and never promoted.
+    found = list((evaluation or {}).get("findings") or [])
+    found_rules = [f["rule_id"] for f in found if f.get("rule_id")]
+    found_attck = sorted({t for f in found for t in (f.get("attck") or [])})
+    rule_ids = (list(attribution.get("rule_ids") or []) if attribution
+                else (found_rules
+                      or ([raw.get("rule_id")] if raw.get("rule_id")
+                          else [])))
+    ts = _ts(doc, ev)
+    inst = instant_ms(ts)
+    return {
+        "event_iid": _event_iid(doc, ev, lane["lane_id"]),
+        "canonical_iid": ev.get("iid"),
+        "timestamp": ts,
+        # The instant this observation is ordered and windowed by. The
+        # source string above is never rewritten; this is the parse of it.
+        "timestamp_instant_ms": inst,
+        "timestamp_basis": ("PARSED_UTC_INSTANT" if inst is not None
+                            else "TIMESTAMP_UNPARSEABLE_NOT_TIME_ORDERED"),
+        "event_type": ev.get("kind") or "observation",
+        "action": raw.get("action"),
+        "lane_id": lane["lane_id"], "lane_index": lane["lane_index"],
+        "lane_group": lane["group"],
+        "process": proc.get("name"),
+        "process_state": "OBSERVED" if proc.get("name") else "UNKNOWN",
+        "process_iid": proc.get("iid") or doc.get("process_iid"),
+        "parent_process_iid": proc.get("parent_iid"),
+        # DT2-3c REV 2 · the parent identity the OBSERVATION ITSELF
+        # carries. These were being dropped by the projection, which is
+        # why a child that named its parent still produced no
+        # PROCESS_PROCESS edge and rendered as "Unknown process". Nothing
+        # is inferred here: every value is read from the child's own
+        # evidence, and an absent field stays absent.
+        "parent_process_guid": (proc.get("parent_guid")
+                                or raw.get("parent_process_guid")),
+        "parent_image": (proc.get("parent_image")
+                         or raw.get("parent_image")),
+        "parent_process": proc.get("parent_name"),
+        "parent_lane_index": lane.get("parent_lane_index"),
+        "parent_process_name": lane.get("parent_label"),
+        "parent_state": lane.get("parent_state"),
+        "pid": raw.get("pid"), "ppid": raw.get("ppid"),
+        "image": proc.get("image") or raw.get("image_path"),
+        "command_line": raw.get("command_line") or raw.get("text"),
+        "user": raw.get("user"),
+        "file": raw.get("target") or raw.get("file"),
+        "network": raw.get("remote_ip") or raw.get("destination")
+        or (raw.get("entity") if lane["group"] == "NETWORK" else None),
+        "entity": raw.get("entity"),
+        # Naming that cannot be misread: this is a digest of the parsed
+        # event content, NOT the SHA-256 of a file on disk.
+        "event_content_digest": raw.get("sha256") or doc.get("input_sha256"),
+        # WHICH recorded observation this row is. A compromise's
+        # `contributing_event_refs[]` resolves against THIS, never against
+        # `event.iid`, which is a content hash that 2,250 of 3,299 real
+        # Windows records share.
+        "observation_id": doc.get("observation_id"),
+        "observation_identity_state": (doc.get("observation_identity_state")
+                                       or "NOT_RECORDED_LEGACY_OBSERVATION"),
+        "file_artefacts": files,
+        "file_sha256": files[0]["sha256"] if files else None,
+        "disposition": cls["disposition"],
+        "is_detection": cls["is_detection"],
+        "compromise_authority": cls["compromise_authority"],
+        "attributed": cls["attributed"],
+        "labels": cls["labels"],
+        "mitre": found_attck or cls["mitre"],
+        "mitre_basis": ("RULE_DECLARED_BY_MATCHED_DETECTION" if found_attck
+                        else ("SOURCE_NORMALIZER_TAG_NOT_VALIDATED_DETECTION"
+                              if cls["mitre"] else "NOT_ATTRIBUTED")),
+        "findings": found,
+        "rule_id": rule_ids[0] if rule_ids else None,
+        "rule_ids": rule_ids,
+        # The authoritative detection record for THIS observation, or
+        # null. Null is a real answer and the UI states which it is.
+        "detection": attribution,
+        # E3 · three DIFFERENT facts, never collapsed into one:
+        #   ASSESSED_BY_DETECTION_FABRIC  a rule matched this observation
+        #   EVALUATED_NO_DETECTION        the stated rule set ran and
+        #                                 nothing matched — NOT "benign"
+        #   NOT_EVALUATED                 nothing has looked at it yet
+        "assessment_state": _assessment_state(attribution, evaluation),
+        "evaluation": evaluation,
+        "evaluation_meaning": _EVAL_MEANING[
+            _assessment_state(attribution, evaluation)],
+        # `raw.rule_label` is the sensor's DISPLAY label ("bash · process
+        # create"), not a detection rule. Surfacing it as a rule would
+        # make every ordinary process look detected, so it is carried
+        # under its real name and `rule_label` is populated only when a
+        # rule actually fired.
+        "display_label": raw.get("rule_label"),
+        "rule_label": (", ".join(rule_ids) if attribution
+                       else (raw.get("rule_label") if raw.get("rule_id")
+                             else None)),
+        "detected_by": detected_by(doc, ev, attribution, found),
+        "provenance": {
+            "raw_event_id": prov.get("ingest_job_id"),
+            "canonical_event_id": doc.get("canonical_event_id"),
+            "evidence_id": doc.get("iid") or ev.get("iid"),
+            "incident_id": doc.get("case_id"),
+            "adapter": doc.get("adapter"),
+            "origin": prov.get("origin"),
+            "source": prov.get("source"),
+            "normalizer": prov.get("normalizer"),
+            "parser_state": prov.get("parser_state"),
+            "process_guid": (proc.get("guid")
+                             or raw.get("process_guid")),
+            "parent_process_guid": (proc.get("parent_guid")
+                                    or raw.get("parent_process_guid")),
+        },
+    }
+
+
+def _matches(row: Dict[str, Any], kinds: Optional[set],
+             needle: Optional[str], dispositions: Optional[set]) -> bool:
+    if kinds and str(row.get("event_type") or "").lower() not in kinds:
+        return False
+    if dispositions and row.get("disposition") not in dispositions:
+        return False
+    if needle:
+        corpus = " ".join(str(v) for v in (
+            row.get("process"), row.get("image"), row.get("command_line"),
+            row.get("file"), row.get("network"), row.get("user"),
+            row.get("rule_id"), row.get("rule_label"),
+            " ".join(row.get("rule_ids") or []),
+            (row.get("detection") or {}).get("detection_id"),
+            row.get("display_label"),
+            row.get("file_sha256"), row.get("event_content_digest"),
+            row.get("event_type"), " ".join(row.get("mitre") or []),
+        ) if v)
+        if needle not in corpus.lower():
+            return False
+    return True
+
+
+DAY_MS = 86400000
+DAY_BINS = 240          # 6-minute resolution across 24 h
+
+
+def _activity(rows: List[Dict[str, Any]],
+              hist_day: Optional[str]) -> Dict[str, Any]:
+    """Per-day volume for the 30-day navigator + per-6-minute volume for
+    the 24-hour navigator. Counts of persisted observations only — a day
+    with nothing observed stays empty and is never interpolated."""
+    days: Dict[str, Dict[str, int]] = {}
+    bins: Dict[int, Dict[str, Any]] = {}
+    for r in rows:
+        ts = r.get("timestamp")
+        if not ts:
+            continue
+        day = str(ts)[:10]
+        rec = days.setdefault(day, {"total": 0, "malicious": 0,
+                                    "suspicious": 0, "detections": 0,
+                                    "compromises": 0})
+        rec["total"] += 1
+        if r["disposition"] == DISPOSITION_MALICIOUS:
+            rec["malicious"] += 1
+        elif r["disposition"] == DISPOSITION_SUSPICIOUS:
+            rec["suspicious"] += 1
+        if r.get("is_detection"):
+            rec["detections"] += 1
+        if hist_day and day == hist_day:
+            hm = str(ts)[11:19]
+            try:
+                h, m, s = (int(x) for x in hm.split(":"))
+            except Exception:  # noqa: BLE001
+                continue
+            idx = min(DAY_BINS - 1,
+                      int(((h * 3600 + m * 60 + s) / 86400) * DAY_BINS))
+            b = bins.setdefault(idx, {"bin": idx, "total": 0, "malicious": 0,
+                                      "detections": 0, "compromises": 0,
+                                      "first_compromise_iid": None,
+                                      "first_compromise_at": None,
+                                      "first_event_iid": r["event_iid"],
+                                      "first_timestamp": ts})
+            b["total"] += 1
+            if r["disposition"] == DISPOSITION_MALICIOUS:
+                b["malicious"] += 1
+            if r.get("is_detection"):
+                b["detections"] += 1
+            if ts < b["first_timestamp"]:
+                b["first_timestamp"] = ts
+                b["first_event_iid"] = r["event_iid"]
+    return {
+        "days": [{"day": k, **v} for k, v in sorted(days.items())],
+        "day_bins": [bins[k] for k in sorted(bins)] if hist_day else [],
+        "day_bins_for": hist_day,
+        "day_bin_count": DAY_BINS,
+        "basis": "COUNTS_OF_PERSISTED_OBSERVATIONS",
+        "compromise_basis": "AUTHORITATIVE_COMPROMISE_EVENTS_ONLY",
+    }
+
+
+def _mark_compromises(activity: Dict[str, Any],
+                      compromise_events: Optional[List[Dict[str, Any]]],
+                      hist_day: Optional[str]) -> Dict[str, Any]:
+    """Stamp the navigator's compromise markers from the ONE authority.
+
+    A marker used to be counted from the per-observation
+    `compromise_authority` flag, which is a CLASSIFICATION of a single
+    observation, not a compromise. On the clean 3,299-record Windows
+    corpus that produced 70 navigator "compromise events" for an
+    endpoint whose contract state is
+    `NO_AUTHORITATIVE_COMPROMISE_OBSERVED`, while the fixture endpoint
+    that really does carry one reported zero. The marker now comes from
+    the contract-validated compromise store and nowhere else, so
+    `compromises > 0` and `compromise_events` can never disagree.
+    """
+    out = {**activity,
+           "days": [{**d, "compromises": 0} for d in activity.get("days")
+                    or []],
+           "day_bins": [{**b, "compromises": 0, "first_compromise_at": None,
+                         "first_compromise_iid": None}
+                        for b in activity.get("day_bins") or []]}
+    if not compromise_events:
+        return out
+    by_day = {d["day"]: d for d in out["days"]}
+    by_bin = {b["bin"]: b for b in out["day_bins"]}
+    for cev in compromise_events:
+        at = cev.get("observed_at")
+        if not at:
+            continue
+        day = str(at)[:10]
+        rec = by_day.get(day)
+        if rec is None:
+            rec = {"day": day, "total": 0, "malicious": 0, "suspicious": 0,
+                   "detections": 0, "compromises": 0}
+            by_day[day] = rec
+            out["days"].append(rec)
+        rec["compromises"] += 1
+        if not hist_day or day != hist_day:
+            continue
+        hm = str(at)[11:19]
+        try:
+            h, m, sec = (int(x) for x in hm.split(":"))
+        except Exception:                                    # noqa: BLE001
+            continue
+        idx = min(DAY_BINS - 1,
+                  int(((h * 3600 + m * 60 + sec) / 86400) * DAY_BINS))
+        b = by_bin.get(idx)
+        if b is None:
+            b = {"bin": idx, "total": 0, "malicious": 0, "detections": 0,
+                 "compromises": 0, "first_compromise_iid": None,
+                 "first_compromise_at": None,
+                 "first_event_iid": None, "first_timestamp": at}
+            by_bin[idx] = b
+            out["day_bins"].append(b)
+        b["compromises"] += 1
+        if (b["first_compromise_at"] is None
+                or instant_ms(at) < instant_ms(b["first_compromise_at"])):
+            b["first_compromise_at"] = at
+            b["first_compromise_iid"] = cev.get("compromise_event_id")
+    out["days"].sort(key=lambda d: d["day"])
+    out["day_bins"].sort(key=lambda b: b["bin"])
+    return out
+
+
+async def query_window(db, *, identity: Dict[str, Any],
+                       time_start: Optional[str] = None,
+                       time_end: Optional[str] = None,
+                       lane_start: int = 0, lane_end: int = 40,
+                       cursor: Optional[str] = None,
+                       limit: int = 500,
+                       kinds: Optional[str] = None,
+                       q: Optional[str] = None,
+                       dispositions: Optional[str] = None,
+                       hist_day: Optional[str] = None,
+                       refs: Optional[List[str]] = None) -> Dict[str, Any]:
+    limit = max(1, min(int(limit), MAX_LIMIT))
+    # First paint is BOUNDED: the most recent observations, fetched through
+    # the endpoint index, so evidence is on screen in well under a second
+    # even on a 205k-observation endpoint. The complete, viewport-invariant
+    # projection is warmed behind the response and served to the next
+    # request. A filtered, paged or history-pinned read always uses the
+    # complete projection, because a bounded slice cannot answer it.
+    wants_complete = bool(cursor or hist_day or kinds or q or dispositions
+                          or time_start or time_end)
+    complete = wants_complete or _complete_is_warm(identity, refs)
+    proj = await _projected(db, ident=identity, refs=refs,
+                            docs_limit=None if complete else BOUNDED_DOCS)
+    if not complete:
+        _warm_complete(db, identity, refs)
+    cat = proj["cat"]
+    all_rows = proj["rows"]
+    bounded = bool(proj.get("bounded"))
+    observations_all_time = len(all_rows)
+    if bounded:
+        observations_all_time = await db[COLLECTION].count_documents(
+            endpoint_predicate([str(r) for r in (refs or []) if r]
+                               or [str(identity.get("device_iid")
+                                       or identity.get("hostname"))],
+                               COLLECTION,
+                               tenant_id=identity.get("tenant_id")))
+
+    kind_set = ({k.strip().lower() for k in kinds.split(",") if k.strip()}
+                if kinds else None)
+    disp_set = ({d.strip().upper() for d in dispositions.split(",")
+                 if d.strip()} if dispositions else None)
+    needle = q.strip().lower() if q and q.strip() else None
+    unfiltered = not (kind_set or disp_set or needle)
+    # No filter ⇒ the population IS the projection. Copying 208k rows to
+    # say so cost a full pass per read and answered the same thing.
+    filtered = (all_rows if unfiltered
+                else [r for r in all_rows
+                      if _matches(r, kind_set, needle, disp_set)])
+
+    # A filter is an explicit analyst action, and Cisco visibly reduces
+    # the trajectory to the matching artefacts. So when a filter is
+    # active the axis is REBUILT over the rows that matched — otherwise a
+    # single matching detection would sit on a row the analyst has to
+    # hunt for. The unfiltered axis stays viewport-invariant; this axis
+    # is filter-scoped and says so.
+    axis_lanes = cat["lanes"]
+    axis_version = cat["lane_axis_version"]
+    axis_scope = ("BOUNDED_RECENT_OBSERVATIONS_PENDING_COMPLETE_PROJECTION"
+                  if bounded else "ENDPOINT_WIDE_INVARIANT_TO_VIEWPORT")
+    if kind_set or disp_set or needle:
+        keep_ids = {r["lane_id"] for r in filtered}
+        kept = [ln for ln in cat["lanes"] if ln["lane_id"] in keep_ids]
+        remap = {ln["lane_id"]: i for i, ln in enumerate(kept)}
+        by_old_index = {ln["lane_index"]: ln for ln in cat["lanes"]}
+        axis_lanes = []
+        for i, ln in enumerate(kept):
+            new = dict(ln)
+            new["lane_index"] = i
+            p_old = ln.get("parent_lane_index")
+            p_lane = by_old_index.get(p_old) if p_old is not None else None
+            new["parent_lane_index"] = (remap.get(p_lane["lane_id"])
+                                        if p_lane else None)
+            if ln.get("parent_iid") and new["parent_lane_index"] is None:
+                new["parent_state"] = "PARENT_NOT_IN_FILTERED_VIEW"
+            axis_lanes.append(new)
+        axis_version = hashlib.sha256(
+            ("|".join(ln["lane_id"] for ln in kept)
+             + f"#{sorted(kind_set or [])}{sorted(disp_set or [])}{needle}")
+            .encode()).hexdigest()[:16]
+        axis_scope = "FILTER_SCOPED_ROWS_WITH_MATCHING_ACTIVITY"
+        rebound = []
+        for r in filtered:
+            row = dict(r)
+            row["lane_index"] = remap[r["lane_id"]]
+            p_old = r.get("parent_lane_index")
+            p_lane = by_old_index.get(p_old) if p_old is not None else None
+            row["parent_lane_index"] = (remap.get(p_lane["lane_id"])
+                                        if p_lane else None)
+            rebound.append(row)
+        filtered = rebound
+
+    no_time_bound = not (time_start or time_end)
+    #: WINDOW INCLUSION IS AN INSTANT COMPARISON. Comparing the stored
+    #: string against an ISO bound excluded every Sysmon `UtcTime`
+    #: (`2026-09-22 15:43:31.770` < `2026-09-22T…Z` lexicographically),
+    #: hiding real evidence behind `NO_ACTIVITY_IN_RANGE`.
+    t0 = instant_ms(time_start) if time_start else None
+    t1 = instant_ms(time_end) if time_end else None
+    bad_bounds = [name for name, given, parsed
+                  in (("time_start", time_start, t0),
+                      ("time_end", time_end, t1)) if given and parsed is None]
+
+    def _in_window(r: Dict[str, Any]) -> bool:
+        i = _row_ms(r)
+        if i is None:                   # no instant → never assumed inside
+            return False
+        return ((t0 is None or i >= t0) and (t1 is None or i <= t1))
+
+    in_time = (filtered if no_time_bound
+               else ([] if bad_bounds
+                     else [r for r in filtered if _in_window(r)]))
+    if unfiltered and no_time_bound and lane_end - lane_start <= 64:
+        # The lane axis is already bucketed on the cached projection, so a
+        # viewport read touches only the lanes it asked for instead of
+        # scanning every row of the endpoint's history.
+        picked: List[Dict[str, Any]] = []
+        for li in range(lane_start, lane_end):
+            picked.extend(proj["by_lane"].get(li, ()))
+        picked.sort(key=_row_chrono)
+        in_lane = picked
+    else:
+        in_lane = [r for r in in_time
+                   if lane_start <= r["lane_index"] < lane_end]
+    after = _cursor_decode(cursor)
+    if after:
+        at = _chrono(after.get("ms"), after["iid"])
+        in_lane = [r for r in in_lane if _row_chrono(r) > at]
+    page = in_lane[:limit]
+    has_more = len(in_lane) > len(page)
+    # CONTRIBUTOR MEMBERSHIP IS RESOLVED HERE, SERVER-SIDE. The authority
+    # named observation identities; they are matched against the rows that
+    # actually exist in this projection, and a reference that matches
+    # nothing is reported as unresolved rather than attached to whatever
+    # happens to be nearby.
+    compromise = await compromise_store.resolve_for_device(
+        db, tenant_id=identity.get("tenant_id"),
+        device_iid=identity.get("device_iid"),
+        observation_ids=(r.get("observation_id") for r in all_rows))
+    contributor_of = compromise["contributor_of"]
+    if contributor_of:
+        page = [({**r, "contributor_of": contributor_of[r["observation_id"]],
+                  "contributor_state": "PROVEN_BY_AUTHORITY"}
+                 if r.get("observation_id") in contributor_of else r)
+                for r in page]
+    nxt = (_cursor_encode(page[-1]["timestamp"] or "", page[-1]["event_iid"],
+                          _row_ms(page[-1]))
+           if page and has_more else None)
+
+    stamps_start = proj.get("observed_start")
+    stamps_end = proj.get("observed_end")
+    lane_fields = ("lane_id", "lane_index", "group", "label", "depth",
+                   "process_iid", "parent_iid", "parent_lane_index",
+                   "parent_label", "parent_state", "end_state",
+                   "exit_observed", "image", "user", "pid", "first_seen",
+                   "last_seen", "count", "malicious_count",
+                   "suspicious_count", "detection_count",
+                   "attributed_count")
+    return {
+        "engine_id": ENGINE_ID, "read_model": True,
+        "endpoint": identity,
+        "time_range": {"requested_start": time_start,
+                       "requested_end": time_end,
+                       "observed_start": stamps_start,
+                       "observed_end": stamps_end,
+                       "comparison_basis": "PARSED_UTC_INSTANT",
+                       "unparseable_bounds": bad_bounds},
+        "lane_axis": {"lane_start": lane_start, "lane_end": lane_end,
+                      "lane_axis_version": axis_version,
+                      "total_lanes": len(axis_lanes),
+                      "axis_scope": axis_scope,
+                      "group_counts": cat["group_counts"],
+                      "lanes": [{k: ln.get(k) for k in lane_fields}
+                                for ln in axis_lanes
+                                if lane_start <= ln["lane_index"]
+                                < lane_end]},
+        "events": page,
+        "next_cursor": nxt, "has_more": has_more,
+        "returned": len(page),
+        "matched_in_window": len(in_lane),
+        "matched_in_time_range": len(in_time),
+        "matched_after_filters": len(filtered),
+        #: observations whose stored timestamp could not be parsed. They are
+        #: excluded from every time window and never given a time.
+        "timestamp_unparseable": sum(
+            1 for r in filtered if _row_ms(r) is None),
+        "observations_all_time": observations_all_time,
+        "projection": {
+            "state": "BOUNDED_RECENT" if bounded else "COMPLETE",
+            "observations_projected": len(all_rows),
+            "observations_all_time": observations_all_time,
+            "bounded_docs_limit": BOUNDED_DOCS if bounded else None,
+            "complete_projection": "WARMING_IN_BACKGROUND" if bounded
+                                   else "SERVED",
+            "basis": ("the most recent observations, read through the "
+                      "endpoint index so evidence is on screen immediately; "
+                      "the complete viewport-invariant projection is being "
+                      "built behind this response and the next read serves "
+                      "it. Counts above are exact, not estimated."
+                      if bounded else
+                      "every observation recorded for this endpoint"),
+        },
+        "activity": _mark_compromises(
+            (proj["activity_unfiltered"] if unfiltered and not hist_day
+             else _activity(filtered, hist_day)),
+            compromise["compromise_events"], hist_day),
+        "filters_applied": {"kinds": sorted(kind_set) if kind_set else [],
+                            "q": needle,
+                            "dispositions": sorted(disp_set) if disp_set
+                            else []},
+        "event_type_counts": proj["type_counts"],
+        #: COMPROMISES, from the authority that raised them. `kind` is
+        #: never a compromise, and the client never decides contributor
+        #: membership: `contributing_event_refs[]` is resolved here
+        #: against the observation identities that exist in this
+        #: projection, and an unresolvable reference is reported as
+        #: unresolved instead of being attached to a nearby row.
+        "compromise_events": compromise["compromise_events"],
+        "compromise_contract": {
+            "state": compromise["state"],
+            "reference_identity": "observation_id",
+            "resolved_server_side": True,
+            "frontend_may_infer_contributors": False,
+            "rejected": compromise["rejected"],
+            "basis": ("contributor membership is stated by the authority "
+                      "that raised the compromise — the detection fabric, "
+                      "the observation's own MITRE attribution, or the IOC "
+                      "correlation engine. Proximity, PID, lane and render "
+                      "adjacency are not evidence of contribution."),
+        },
+        "total_or_estimate": {"value": len(in_time), "basis": "EXACT_COUNT_"
+                              "OF_OBSERVATIONS_IN_REQUESTED_TIME_RANGE"},
+        "provenance": {"source": COLLECTION,
+                       "authoritative_chain": "edr_raw_events → canonical "
+                       "evidence → this projection",
+                       "creates_no_store": True},
+    }
+
+
+def _type_counts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    counts: Dict[str, int] = {}
+    for r in rows:
+        k = str(r.get("event_type") or "observation")
+        counts[k] = counts.get(k, 0) + 1
+    return [{"event_type": k, "count": v}
+            for k, v in sorted(counts.items(), key=lambda kv: -kv[1])]
+
+
+def empty_state(*, identity: Optional[Dict[str, Any]],
+                enrolled: bool, observations_all_time: int,
+                observations_in_window: int,
+                requested_ref: Optional[str] = None) -> Dict[str, Any]:
+    """The honest state, named. Never a blank canvas and never a demo
+    event on a production endpoint."""
+    if not identity:
+        # "Select an endpoint" is only true when none was asked for. When
+        # a reference WAS named and did not resolve, saying that would
+        # hide an authorisation outcome behind a UI hint.
+        if requested_ref:
+            return {"state": "ENDPOINT_NOT_RESOLVED",
+                    "requested_ref": requested_ref,
+                    "message": ("No endpoint you are authorised for "
+                                "resolves to this reference. Nothing is "
+                                "rendered, and no conclusion about the "
+                                "endpoint is implied.")}
+        return {"state": "NO_ENDPOINT_SELECTED",
+                "message": "Select an endpoint to view operational Device "
+                           "Trajectory."}
+    if not enrolled and observations_all_time == 0:
+        return {"state": "TELEMETRY_NOT_COLLECTED",
+                "message": "Telemetry not collected — this reference has "
+                           "never reported to NivXForge."}
+    if observations_all_time == 0:
+        return {"state": "NO_TELEMETRY",
+                "message": "No telemetry available — endpoint has not "
+                           "reported telemetry."}
+    if observations_in_window == 0:
+        return {"state": "NO_ACTIVITY_IN_RANGE",
+                "message": "No activity observed in this time range. That "
+                           "is an absence of observation, not an absence "
+                           "of activity."}
+    return {"state": "OBSERVED", "message": None}

@@ -1,0 +1,16 @@
+{
+  "asset_tag": "PLC-A17-BAY3",
+  "controller_kind": "programmable_logic",
+  "modbus_unit": 47,
+  "coil_state": true,
+  "setpoint_c": 82.4,
+  "measured_c": 84.9,
+  "operator_login": "eng_hendrickx",
+  "supervisor_host": "SCADA-SUP-01",
+  "network_endpoint": "10.42.7.15",
+  "iec61850_ied": "LD1/CTRL/GOOSE",
+  "safety_state": "run",
+  "last_program_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "cycle_ms": 5,
+  "hmi_screen": "TANK_LEVEL"
+}

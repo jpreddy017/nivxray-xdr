@@ -1,0 +1,4 @@
+# Analyst note — recovered AES-CBC key & IV from RE
+# key(b64): CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=
+# iv(b64):  CCCCCCCCCCCCCCCCCCCCCC==
+# plaintext (post-decrypt): 'http://aes-3.example.test/z'

@@ -1,0 +1,3 @@
+# rot47-decode · Golden Fixtures · RC3.2a
+# ROT47 (33..126 range, printable ASCII shift by 47).
+{"case_id":"rot47-ps-iex","description":"ROT47 → PowerShell IEX","input":"A@H6CD96==]6I6 :6I W:HC K9EEAi^^2]3^ID]AD`X","detect_min_confidence":0.5,"expected_output_contains":["powershell.exe","iex"]}

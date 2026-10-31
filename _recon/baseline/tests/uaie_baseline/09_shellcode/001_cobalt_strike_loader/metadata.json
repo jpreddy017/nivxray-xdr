@@ -1,0 +1,7 @@
+{
+  "artifact_type": "shellcode",
+  "origin": "synthetic",
+  "description": "Cobalt-Strike-style loader \u2014 PS-Enc \u2192 b64 \u2192 gzip \u2192 shellcode(149.28.81.19).",
+  "introduced_in": "R26",
+  "owner": "baseline"
+}

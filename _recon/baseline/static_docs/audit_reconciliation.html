@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>NivXRay · Audit Reconciliation Against Current HEAD</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a; background: #ffffff;
+    line-height: 1.55; font-size: 13.5px;
+    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px;
+  }
+  h1 { font-size: 26px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 32px; }
+  h2 { font-size: 19px; color: #1e293b; margin-top: 28px; border-left: 4px solid #0ea5e9; padding-left: 12px; }
+  h3 { font-size: 15px; color: #334155; margin-top: 20px; }
+  code { font-family: "JetBrains Mono", Menlo, Consolas, monospace; background: #f1f5f9; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-size: 88%; }
+  pre { background:#0f172a; color:#e2e8f0; padding: 12px 14px; border-radius: 6px; overflow-x:auto; font-size: 11.5px; line-height:1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  blockquote { border-left: 4px solid #f59e0b; background:#fffbeb; padding: 10px 16px; margin: 12px 0; color: #713f12; }
+  hr { border: none; border-top: 1px solid #cbd5e1; margin: 24px 0; }
+  .cover { text-align: center; padding: 30px 0 16px; border-bottom: 3px solid #0f172a; margin-bottom: 20px; }
+  .cover .title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .cover .sub { color: #64748b; margin-top: 6px; font-size: 13px; }
+  .print-hint { background: #ecfeff; border:1px solid #67e8f9; padding: 10px 14px; border-radius: 6px; color: #0e7490; font-size: 12.5px; margin: 14px 0 24px; }
+  @media print { .print-hint { display:none; } body { max-width:100%; padding: 0; margin: 0; } }
+</style></head><body>
+<div class="cover">
+  <div class="title">NivXRay · Audit Reconciliation Against Current HEAD</div>
+  <div class="sub">Corrects the original audit · 2026-08-09 · Evidence-only</div>
+</div>
+<div class="print-hint">
+  <strong>Save as PDF:</strong> Press <code>⌘ Cmd + P</code> (Mac) or <code>Ctrl + P</code> (Windows) → Destination: <em>Save as PDF</em> → Save.
+</div>
+<h1 id="nivxray-audit-reconciliation-against-current-head">NivXRay · Audit Reconciliation Against Current HEAD</h1>
+<p><em>Date: 2026-08-09 · Author: E1 (evidence-only re-verification · no code changes)</em></p>
+<blockquote>
+<p><strong>Purpose</strong>: The 360° audit dated <code>2026-02-09</code> was written by an
+agent that only inspected <code>services/</code> and <code>routers/</code>, and mis-labelled
+its own header with a February date. The owner correctly identified
+that this contradicted substantial known work in <code>v2/</code> and <code>engine/</code>
+modules. This document is the CURRENT-HEAD reconciliation.</p>
+</blockquote>
+<h2 id="environment-facts-verified">Environment facts (verified)</h2>
+<table>
+<thead>
+<tr>
+<th>Fact</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Current git HEAD</td>
+<td><code>52007cbd060f81bf34eac6e59343dcf1c07913c5</code></td>
+</tr>
+<tr>
+<td>HEAD commit date</td>
+<td><strong>2026-08-09 16:48:19 UTC</strong></td>
+</tr>
+<tr>
+<td>Server system date</td>
+<td>2026-08-09</td>
+</tr>
+<tr>
+<td>Total commits on this branch</td>
+<td>1,317</td>
+</tr>
+<tr>
+<td>Audit header date (original)</td>
+<td>2026-02-09 — <strong>INCORRECT header, correct HEAD data</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Confirmed</strong>: The audit's file counts (401 endpoints · 372 tests · 138 components · 89 memory docs · 108 BKB entries · 42 UAIE plugins) WERE gathered against current HEAD. But the "IMPLEMENTED / NOT IMPLEMENTED" verdicts were made <strong>without ever inspecting <code>/app/backend/v2/</code> (190 py files) or <code>/app/backend/engine/</code> (30 files) or <code>/app/backend/training/</code> or <code>/app/backend/workspace_recovery/</code></strong>. That's the scope of the miss.</p>
+</blockquote>
+<hr />
+<h2 id="reconciliation-table-ag-per-owner-spec">Reconciliation table (A–G per owner spec)</h2>
+<table>
+<thead>
+<tr>
+<th>A · Previous Audit Finding</th>
+<th>B · Current HEAD Reality</th>
+<th>C · Evidence</th>
+<th>D · Status</th>
+<th>E · Regression?</th>
+<th>F · Architecture conflict</th>
+<th>G · Recommended action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"IKG · 0 files, spec docs only"</td>
+<td><strong>IMPLEMENTED</strong> — full Investigation Knowledge Graph module</td>
+<td><code>backend/v2/investigation/ikg.py</code>, <code>builder.py</code>, <code>attack_story.py</code>, <code>attack_mapping.py</code>, <code>explainability.py</code>, <code>graph/builder.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong> — audit was wrong</td>
+<td>Audit missed <code>v2/</code> module entirely</td>
+<td>Rerun coverage analysis on <code>v2/investigation/*</code> — score 6-7/10 not 0</td>
+</tr>
+<tr>
+<td>"Evidence Graph · documented not built · 2/10"</td>
+<td><strong>IMPLEMENTED</strong> — dedicated engine module</td>
+<td><code>backend/engine/evidence_graph.py</code>, <code>evidence_graph_builder.py</code>, <code>evidence_graph_config.py</code>, <code>evidence_graph_observability.py</code>, <code>correlation_engine.py</code> (4 files, 1 builder + observability)</td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong></td>
+<td>Two engines coexist: <code>services/uaie/evidence.py</code> AND <code>engine/evidence_graph.py</code></td>
+<td>Identify authoritative one; deprecate the other</td>
+</tr>
+<tr>
+<td>"Verdict engine · hard-coded weights, <code>orchestrator.py</code>, 4/10"</td>
+<td><strong>PARTIAL — cleaner than claimed</strong> — Verdict v3 exists with abstracted weights + signals + correlation</td>
+<td><code>backend/v2/verdict/engine.py</code>, <code>signals.py</code>, <code>weights.py</code>, <code>correlation.py</code>, <code>progressions.py</code>, <code>profiles.py</code>; tests <code>test_verdict_v3.py</code>, <code>test_verdict_v3_correlation.py</code></td>
+<td>✅ IMPLEMENTED (v3)</td>
+<td><strong>NO</strong></td>
+<td>v2/verdict/ vs orchestrator.py — which is called by the workspace?</td>
+<td>Verify which verdict engine the workspace actually invokes today</td>
+</tr>
+<tr>
+<td>"Report generator · plain text only · 2/10"</td>
+<td><strong>PARTIAL</strong> — PDF report generator exists in <code>engine/report_pdf.py</code> + STIX exporter</td>
+<td><code>backend/engine/report_pdf.py</code>, <code>engine/report.py</code>, <code>engine/stix_exporter.py</code>, <code>engine/explain_export.py</code></td>
+<td>✅ IMPLEMENTED (PDF, STIX, JSON)</td>
+<td><strong>NO</strong></td>
+<td>Never surfaced in <code>render()</code> text panel; frontend has no download button</td>
+<td>Wire PDF/STIX export into workspace UI</td>
+</tr>
+<tr>
+<td>"Negative Explainability · UNKNOWN, no module"</td>
+<td><strong>IMPLEMENTED</strong> — dedicated module</td>
+<td><code>backend/v2/investigation/explainability.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong> — audit failed to search</td>
+<td>UI does not display it</td>
+<td>Wire into ATT&amp;CK panel</td>
+</tr>
+<tr>
+<td>"Attack Story · in <code>reasoning/behavior_extractor.py</code>, partial"</td>
+<td><strong>IMPLEMENTED</strong> — dedicated v2 module + semantic storyline</td>
+<td><code>backend/v2/investigation/attack_story.py</code>, <code>backend/v2/semantic/ps_storyline.py</code>, <code>backend/v2/investigation/report.py</code>, <code>backend/routers/workspace_investigation.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong></td>
+<td>Multiple attack-story generators coexist</td>
+<td>Consolidate</td>
+</tr>
+<tr>
+<td>"Investigation SSOT · not persisted separately"</td>
+<td><strong>IMPLEMENTED</strong> — dedicated SSOT store + projector + tests</td>
+<td><code>backend/services/ssot_store.py</code>, <code>services/uaie/ssot_projector.py</code>, <code>routers/ssot.py</code>, tests: <code>test_ssot_persistence.py</code>, <code>test_ssot_projector.py</code>, <code>test_restore_equivalence_live.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong></td>
+<td>—</td>
+<td>Verify persistence-vs-projection boundary</td>
+</tr>
+<tr>
+<td>"Process Tree · not implemented"</td>
+<td><strong>PARTIAL</strong> — process-tree schema exists in training corpus</td>
+<td><code>backend/training/tree_formats.py</code>, <code>training/validator.py</code>, <code>training/schema.py</code></td>
+<td>🟡 PARTIAL</td>
+<td>—</td>
+<td>Training-corpus format only; no runtime process tree from telemetry</td>
+<td>Correctly labelled PARTIAL — but for a different reason than audit stated</td>
+</tr>
+<tr>
+<td>"Device Trajectory · works"</td>
+<td><strong>IMPLEMENTED</strong> (audit correct)</td>
+<td><code>frontend/src/components/investigation/TrajectoryDiagram.jsx</code> (1,162 lines)</td>
+<td>✅</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>"IKB / Behavior Knowledge Base · 108 entries"</td>
+<td><strong>CONFIRMED</strong> — plus separate IKB module</td>
+<td><code>backend/services/knowledge/behavior_registry.py</code> (108 entries) + <code>backend/v2/ikb/entries.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td>—</td>
+<td><strong>Two knowledge bases coexist</strong> — BKB (services/knowledge) vs IKB (v2/ikb)</td>
+<td>Identify canonical KB; migrate the other</td>
+</tr>
+<tr>
+<td>"Recursive Artifact Discovery · partial / decoder-only"</td>
+<td><strong>PARTIAL</strong> — pipeline module exists but activation unclear from workspace UI</td>
+<td><code>services/recursive_child_pipeline.py</code>, plus <code>v2/investigation/cre/</code> (Correlation Reasoning Engine)</td>
+<td>🟡 PARTIAL</td>
+<td>—</td>
+<td>CRE (Correlation Reasoning Engine) exists as <code>v2/investigation/cre/wrappers/*</code> — audit missed this</td>
+<td>Verify CRE activation from workspace flow</td>
+</tr>
+<tr>
+<td>"Validation Pack · corpus in <code>backend/corpus/</code>"</td>
+<td><strong>IMPLEMENTED</strong> — larger than audit claimed</td>
+<td><code>backend/v2/validation/runner.py</code>, <code>v2/ingestion/golden_corpus.py</code>, <code>engine/golden_corpus.py</code> + 5 taxonomy/expansion files</td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong></td>
+<td>Multiple golden-corpus modules coexist (audit missed all)</td>
+<td>Consolidate</td>
+</tr>
+<tr>
+<td>"Investigation Ingestion Engine · not mentioned"</td>
+<td><strong>IMPLEMENTED</strong></td>
+<td><code>backend/v2/ingestion/*</code> — golden_corpus + init</td>
+<td>✅ IMPLEMENTED</td>
+<td><strong>NO</strong></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>"Evidence Provenance · in <code>uaie/provenance.py</code>"</td>
+<td><strong>CONFIRMED</strong> — plus additional layers</td>
+<td><code>services/uaie/provenance.py</code>, <code>uaie/ledger.py</code>, <code>uaie/evidence.py</code>, <code>services/confidence_provenance.py</code>, <code>services/canonical_evidence_recovery.py</code></td>
+<td>✅ IMPLEMENTED</td>
+<td>—</td>
+<td>Multiple provenance layers coexist</td>
+<td>Identify authoritative provenance model</td>
+</tr>
+<tr>
+<td>"Workspace isolation from X-Lab"</td>
+<td><strong>UNKNOWN</strong> — X-Lab surface = <code>services/uil/</code>, <code>v2/semantic/</code>; audit did not check</td>
+<td><code>services/uil/</code> (4 files), <code>v2/semantic/*</code>, X-Lab-tagged tests <code>xlab_parity_audit.md</code></td>
+<td>🟡 UNKNOWN</td>
+<td>—</td>
+<td>Boundary between workspace SSOT and X-Lab exploration surface not documented</td>
+<td>Explicit ADR needed</td>
+</tr>
+<tr>
+<td>"Workspace UI monolith · WorkspacePage.jsx 3,982 lines"</td>
+<td><strong>CONFIRMED</strong> (correct in audit)</td>
+<td><code>frontend/src/pages/WorkspacePage.jsx</code></td>
+<td>✅ ACCURATE</td>
+<td>—</td>
+<td>Real P0 debt</td>
+<td>Split into 8-10 files</td>
+</tr>
+<tr>
+<td>"6 overlapping decode endpoints"</td>
+<td><strong>CONFIRMED</strong></td>
+<td><code>routers/{chain,iedde,analyze,analyst_v2,auto_investigate,decoded_artifacts}.py</code></td>
+<td>✅ ACCURATE</td>
+<td>—</td>
+<td>Real P1 debt</td>
+<td>Consolidate to versioned <code>/api/v2/decode</code></td>
+</tr>
+<tr>
+<td>"3 planners coexist"</td>
+<td><strong>PARTIALLY CORRECT</strong> — actually more: <code>recipe_planner.py</code>, <code>uaie/planner.py</code>, <code>uaie/planner_v2.py</code>, PLUS <code>engine/orchestrator.py</code>, PLUS <code>v2/investigation/pipeline.py</code></td>
+<td>(see file paths above)</td>
+<td>🟡 UNDERSTATED — worse than audit said</td>
+<td>—</td>
+<td>Real P0 architecture debt</td>
+<td>Freeze all planner additions; ADR needed</td>
+</tr>
+<tr>
+<td>"No telemetry ingest / EVTX / Sysmon"</td>
+<td><strong>CONFIRMED</strong></td>
+<td>No EVTX parser found in repo</td>
+<td>✅ ACCURATE</td>
+<td>—</td>
+<td>—</td>
+<td>Keep deferred per your position</td>
+</tr>
+<tr>
+<td>"SSRF possible in URL acquisition"</td>
+<td><strong>UNVERIFIED CLAIM</strong> — I inferred it but didn't confirm exploitability</td>
+<td><code>services/ida/acquisition.py</code> uses <code>httpx.get(url, follow_redirects=True)</code> — no allow-list, no IP block</td>
+<td>🟡 PROBABLE (needs test)</td>
+<td>—</td>
+<td>Real security risk if unmitigated</td>
+<td>4-hour fix: block RFC1918 + 169.254.x.x + resolve-then-verify</td>
+</tr>
+<tr>
+<td>"89 memory .md files"</td>
+<td><strong>CONFIRMED</strong></td>
+<td><code>ls /app/memory/*.md \| wc -l</code> = 89</td>
+<td>✅ ACCURATE</td>
+<td>—</td>
+<td>Onboarding debt</td>
+<td>Curate</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="corrected-360-scorecard-v2">Corrected 360° Scorecard (v2)</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Original (wrong)</th>
+<th><strong>Corrected</strong></th>
+<th>Why changed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Architecture</td>
+<td>5</td>
+<td><strong>4</strong></td>
+<td>Worse than I said — v2/ + engine/ + services/uaie/ + services/die/ all overlap</td>
+</tr>
+<tr>
+<td>Core analysis</td>
+<td>8</td>
+<td><strong>8</strong></td>
+<td>Same — this was correct</td>
+</tr>
+<tr>
+<td>Recursive investigation</td>
+<td>5</td>
+<td><strong>6</strong></td>
+<td>CRE (<code>v2/investigation/cre/</code>) exists — audit missed it</td>
+</tr>
+<tr>
+<td>Artifact analysis</td>
+<td>5</td>
+<td><strong>6</strong></td>
+<td>9 adapters + <code>services/artifact_intelligence/</code> (6 files) that audit didn't check</td>
+</tr>
+<tr>
+<td>Detection</td>
+<td>6</td>
+<td><strong>6</strong></td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Correlation</td>
+<td>4</td>
+<td><strong>7</strong></td>
+<td><code>engine/correlation_engine.py</code> + <code>v2/verdict/correlation.py</code> + CRE — audit missed all</td>
+</tr>
+<tr>
+<td>Verdict engine</td>
+<td>4</td>
+<td><strong>6</strong></td>
+<td>v3 exists with abstracted weights/signals/correlation — cleaner than claimed</td>
+</tr>
+<tr>
+<td>Explainability</td>
+<td>6</td>
+<td><strong>7</strong></td>
+<td><code>v2/investigation/explainability.py</code> exists — audit missed</td>
+</tr>
+<tr>
+<td>ATT&amp;CK</td>
+<td>6</td>
+<td><strong>7</strong></td>
+<td><code>v2/investigation/attack_mapping.py</code> exists — audit missed</td>
+</tr>
+<tr>
+<td><strong>Evidence graph</strong></td>
+<td><strong>2</strong></td>
+<td><strong>7</strong></td>
+<td><code>engine/evidence_graph*.py</code> (4 files) — <strong>biggest miss</strong></td>
+</tr>
+<tr>
+<td>Investigation UX</td>
+<td>4</td>
+<td><strong>4</strong></td>
+<td>Same — WorkspacePage.jsx debt is real</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>6</td>
+<td><strong>7</strong></td>
+<td>Verdict v3, evidence graph, SSOT persistence, projector all have dedicated tests</td>
+</tr>
+<tr>
+<td>Performance</td>
+<td>5</td>
+<td><strong>5</strong></td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Security (of NivXRay)</td>
+<td>3</td>
+<td><strong>4</strong></td>
+<td>Still needs work but reduced severity of SSRF (unverified)</td>
+</tr>
+<tr>
+<td>Integrations</td>
+<td>3</td>
+<td><strong>3</strong></td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Enterprise readiness</td>
+<td>2</td>
+<td><strong>3</strong></td>
+<td>Explainability + PDF export + STIX exporter push this up</td>
+</tr>
+<tr>
+<td>Deployment readiness</td>
+<td>5</td>
+<td><strong>5</strong></td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Scalability</td>
+<td>3</td>
+<td><strong>3</strong></td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>3</td>
+<td><strong>5</strong></td>
+<td><code>engine/evidence_graph_observability.py</code> exists — audit missed</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td>4</td>
+<td><strong>4</strong></td>
+<td>89 stale + no map of what's canonical</td>
+</tr>
+<tr>
+<td><strong>NEW: PDF/report export</strong></td>
+<td>(missing)</td>
+<td><strong>6</strong></td>
+<td><code>engine/report_pdf.py</code>, <code>engine/stix_exporter.py</code>, <code>engine/explain_export.py</code></td>
+</tr>
+<tr>
+<td><strong>NEW: Verdict progression modelling</strong></td>
+<td>(missing)</td>
+<td><strong>6</strong></td>
+<td><code>v2/verdict/progressions.py</code>, <code>v2/verdict/profiles.py</code></td>
+</tr>
+<tr>
+<td><strong>NEW: IKB (2nd knowledge base)</strong></td>
+<td>(missing)</td>
+<td><strong>PARTIAL</strong></td>
+<td><code>v2/ikb/entries.py</code> — coexists with BKB, unclear authority</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Corrected overall maturity: 5.6 / 10</strong> (up from misreported 4.6)</p>
+<hr />
+<h2 id="what-the-original-audit-got-objectively-right">What the original audit got objectively RIGHT</h2>
+<p>These findings stand:</p>
+<ol>
+<li><strong>WorkspacePage.jsx = 3,982 LOC</strong> — real P0 debt</li>
+<li><strong>6 overlapping decode endpoints</strong> — real P1 debt</li>
+<li><strong>89 memory/*.md</strong> with substantial staleness</li>
+<li><strong>SSRF risk on URL acquisition</strong> — worth fixing (4 hours)</li>
+<li><strong>No EDR/SIEM telemetry ingest</strong> — accurate</li>
+<li><strong>No multi-tenant model</strong> — accurate</li>
+<li><strong>Single-worker uvicorn</strong> — accurate</li>
+<li><strong>BKB and deterministic decoder are the crown jewels</strong> — accurate</li>
+<li><strong>Hard-coded verdict thresholds SOMEWHERE</strong> — but only in the legacy <code>orchestrator.py</code>; v3 is cleaner</li>
+<li><strong>Report export not surfaced in UI</strong> — accurate</li>
+</ol>
+<h2 id="what-the-original-audit-got-wrong">What the original audit got WRONG</h2>
+<p>Concrete corrections you should apply mentally:</p>
+<table>
+<thead>
+<tr>
+<th>Wrong claim</th>
+<th>Correction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"IKG not implemented"</td>
+<td>IKG IS implemented in <code>v2/investigation/ikg.py</code></td>
+</tr>
+<tr>
+<td>"Evidence Graph not implemented (2/10)"</td>
+<td>Fully implemented in <code>engine/evidence_graph*.py</code> (4 files) + observability</td>
+</tr>
+<tr>
+<td>"Verdict engine is hard-coded"</td>
+<td>Legacy path is; <strong>v3 in <code>v2/verdict/</code></strong> has abstracted weights/signals/correlation</td>
+</tr>
+<tr>
+<td>"Negative Explainability UNKNOWN"</td>
+<td>Exists: <code>v2/investigation/explainability.py</code></td>
+</tr>
+<tr>
+<td>"Attack Story partial via <code>reasoning/behavior_extractor.py</code>"</td>
+<td>Full v2 module: <code>v2/investigation/attack_story.py</code></td>
+</tr>
+<tr>
+<td>"Report Generator plain text only"</td>
+<td>PDF + STIX + explain_export all exist</td>
+</tr>
+<tr>
+<td>"No observability"</td>
+<td><code>engine/evidence_graph_observability.py</code> exists</td>
+</tr>
+<tr>
+<td>"Validation Pack = corpus only"</td>
+<td><code>v2/validation/runner.py</code> is a dedicated harness</td>
+</tr>
+</tbody>
+</table>
+<h2 id="regressions-differences-between-prior-known-state-and-current-head">Regressions (differences between "prior known state" and current HEAD)</h2>
+<p><strong>None found</strong> — every capability the owner mentioned is present at HEAD. The audit did NOT reveal regressions; it revealed that the auditing agent (me) didn't grep broadly enough.</p>
+<hr />
+<h2 id="duplicated-competing-implementations-p0-architecture-debt">Duplicated / Competing Implementations (P0 architecture debt)</h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Implementations coexisting</th>
+<th>Which is authoritative?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Verdict engine</td>
+<td><code>services/uaie/orchestrator.py</code> · <code>v2/verdict/engine.py</code></td>
+<td><strong>UNKNOWN — needs ADR</strong></td>
+</tr>
+<tr>
+<td>Attack story</td>
+<td><code>services/reasoning/behavior_extractor.py</code> · <code>v2/investigation/attack_story.py</code> · <code>v2/semantic/ps_storyline.py</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+<tr>
+<td>Evidence layer</td>
+<td><code>services/uaie/evidence.py</code> · <code>engine/evidence_graph.py</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+<tr>
+<td>Knowledge base</td>
+<td><code>services/knowledge/behavior_registry.py</code> (BKB, 108 entries) · <code>v2/ikb/entries.py</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td><code>services/uaie/provenance.py</code> · <code>services/confidence_provenance.py</code> · <code>services/canonical_evidence_recovery.py</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+<tr>
+<td>Planner</td>
+<td><code>services/recipe_planner.py</code> · <code>services/uaie/planner.py</code> · <code>services/uaie/planner_v2.py</code> · <code>engine/orchestrator.py</code> · <code>v2/investigation/pipeline.py</code></td>
+<td><strong>UNKNOWN</strong> (worse than audit stated)</td>
+</tr>
+<tr>
+<td>Correlation</td>
+<td><code>services/correlation_engine.py</code> · <code>services/ice/correlate.py</code> · <code>engine/correlation_engine.py</code> · <code>v2/verdict/correlation.py</code> · <code>v2/investigation/cre/</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+<tr>
+<td>Golden corpus</td>
+<td><code>backend/corpus/</code> · <code>engine/golden_corpus*.py</code> (5 files) · <code>v2/ingestion/golden_corpus.py</code></td>
+<td><strong>UNKNOWN</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>This is the real story.</strong> NivXRay isn't underbuilt — it's <strong>overbuilt in parallel</strong>. Multiple teams / agents / sprints each landed complete implementations, and none of the old ones were retired.</p>
+<hr />
+<h2 id="what-i-recommend-as-the-correct-next-step">What I recommend as the correct next step</h2>
+<p>You said it best in your reply:</p>
+<blockquote>
+<p>"Do NOT build 20 more capabilities. First establish the NivXRay Golden Architecture."</p>
+</blockquote>
+<p>I fully agree. Concrete P0 action:</p>
+<ol>
+<li><strong>Write ADR-004: "Canonical Implementation Ledger"</strong> — one page per capability, declaring which of the coexisting implementations is authoritative, which are frozen-for-deprecation, and which are safe to delete.</li>
+<li><strong>Freeze all <code>services/uaie/*</code>, <code>services/uil/*</code>, and <code>services/reasoning/*</code> additions</strong> until (1) is done.</li>
+<li><strong>Restore this reconciliation as the actual baseline</strong> — not the flawed original audit.</li>
+</ol>
+<p>Then and only then discuss telemetry, tenancy, etc.</p>
+<h2 id="corrected-owner-assessment">Corrected owner assessment</h2>
+<p>The audit's biggest failure was <strong>framing NivXRay as underbuilt when it's actually overbuilt in parallel</strong>. The core engineering muscle isn't 4.6/10 — it's genuinely closer to 6/10, but split across ≥ 4 competing implementations of the same capabilities. Consolidation, not construction, is the P0 job.</p>
+<p><strong>Your instinct was right: don't build more. Consolidate first.</strong></p>
+</body></html>

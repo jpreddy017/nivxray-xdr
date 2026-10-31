@@ -1,0 +1,1 @@
+msiexec /q /i http://msi-4.example.test/pkg4.msi

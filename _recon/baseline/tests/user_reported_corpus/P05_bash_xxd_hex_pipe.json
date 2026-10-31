@@ -1,0 +1,11 @@
+{
+  "id": "P05",
+  "label": "Bash echo | xxd -r -p | bash (hex-decoder variant)",
+  "reported_at": "2026-08-05",
+  "input": "echo \"77686f616d69202626206c73202d6c61\" | xxd -r -p | bash",
+  "expected_terminal_state": "recovered",
+  "expected_decoded_output": "whoami && ls -la",
+  "min_confidence": 50,
+  "expected_chain_contains": ["decoder-bash-echo-b64-pipe"],
+  "notes": "Hex-decoder plugin (xxd -r -p) inside the bash pipeline registry."
+}

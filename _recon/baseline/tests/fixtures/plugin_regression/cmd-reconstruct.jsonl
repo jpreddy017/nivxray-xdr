@@ -1,0 +1,2 @@
+# cmd-reconstruct · Golden Fixtures · RC3.2a
+{"case_id": "cmd-caret-escape", "description": "Caret-escape ^p^o^w^e^r^s^h^e^l^l", "input": "^p^o^w^e^r^s^h^e^l^l.exe -c calc.exe", "detect_min_confidence": 0.3, "expected_output_contains": ["powershell.exe", "calc.exe"]}

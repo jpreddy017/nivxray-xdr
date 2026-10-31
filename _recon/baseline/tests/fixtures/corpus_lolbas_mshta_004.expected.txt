@@ -1,0 +1,1 @@
+http://mshta-4.example.test/d.hta

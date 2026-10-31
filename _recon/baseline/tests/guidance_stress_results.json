@@ -1,0 +1,520 @@
+{
+  "encoded": [
+    {
+      "name": "PS -enc utf16le download-cradle",
+      "ok": false,
+      "kind": "plaintext_malicious",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 4,
+      "engine": "ensemble",
+      "dt_ms": 5527
+    },
+    {
+      "name": "nested b64 (double wrap)",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 1,
+      "engine": "ensemble",
+      "dt_ms": 4525
+    },
+    {
+      "name": "hex-encoded PS",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 1,
+      "engine": "ensemble",
+      "dt_ms": 4322
+    },
+    {
+      "name": "url-encoded PS one-liner",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate",
+        "btn-nivxray-decode",
+        "btn-smart-decode"
+      ],
+      "signals_count": 7,
+      "engine": "ensemble",
+      "dt_ms": 10517
+    },
+    {
+      "name": "certutil download + b64 decode chain",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "encoded",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 7555
+    },
+    {
+      "name": "PS FromBase64String piped to iex",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate",
+        "btn-smart-decode"
+      ],
+      "signals_count": 7,
+      "engine": "ensemble",
+      "dt_ms": 9688
+    },
+    {
+      "name": "gzip magic b64 wrapped",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 1,
+      "engine": "ensemble",
+      "dt_ms": 4890
+    },
+    {
+      "name": "regsvr32 sct + b64 body",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 9698
+    },
+    {
+      "name": "triple-stage b64 \u2192 hex \u2192 PS",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 6207
+    },
+    {
+      "name": "ROT13 obfuscated PS",
+      "ok": true,
+      "kind": "unclear_cipher",
+      "expected": "unclear_cipher",
+      "rec": [
+        "btn-ai-decode",
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 2,
+      "engine": "ensemble",
+      "dt_ms": 5514
+    },
+    {
+      "name": "mshta remote + inline b64 exec",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 6577
+    },
+    {
+      "name": "XOR-loop shellcode bytes",
+      "ok": true,
+      "kind": "unclear_cipher",
+      "expected": "unclear_cipher",
+      "rec": [
+        "btn-ai-decode",
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 7394
+    },
+    {
+      "name": "empire-style Base64 launcher",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate",
+        "btn-smart-decode"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 14492
+    },
+    {
+      "name": "nested certutil + wmic pivot",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 9980
+    },
+    {
+      "name": "Reverse-b64 (base64 of reversed str)",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 1,
+      "engine": "ensemble",
+      "dt_ms": 6009
+    },
+    {
+      "name": "bitsadmin download + hex decode",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 13172
+    },
+    {
+      "name": "PowerShell string concat obfuscation",
+      "ok": false,
+      "kind": "plaintext_malicious",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 6363
+    },
+    {
+      "name": "VBS wscript.shell b64",
+      "ok": true,
+      "kind": "encoded",
+      "expected": "encoded",
+      "rec": [
+        "btn-auto-investigate",
+        "btn-smart-decode"
+      ],
+      "signals_count": 2,
+      "engine": "ensemble",
+      "dt_ms": 3427
+    },
+    {
+      "name": "Char-code array obfuscation (JS)",
+      "ok": false,
+      "kind": "encoded",
+      "expected": "unclear_cipher",
+      "rec": [
+        "btn-smart-decode",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 1,
+      "engine": "ensemble",
+      "dt_ms": 5174
+    },
+    {
+      "name": "Massive 4-stage cobalt-strike chain",
+      "ok": true,
+      "kind": "multi_line_chain",
+      "expected": "multi_line_chain",
+      "rec": [
+        "btn-chain-add-stage",
+        "btn-chain-run",
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 8988
+    }
+  ],
+  "plaintext": [
+    {
+      "name": "Get-EventLog Security",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 8639
+    },
+    {
+      "name": "Get-WinEvent PS operational",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 7,
+      "engine": "ensemble",
+      "dt_ms": 11303
+    },
+    {
+      "name": "Get-Process anomalous",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 11507
+    },
+    {
+      "name": "Get-CimInstance Win32_StartupCommand",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 7663
+    },
+    {
+      "name": "Get-ScheduledTask persistence hunt",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 7,
+      "engine": "ensemble",
+      "dt_ms": 9711
+    },
+    {
+      "name": "Get-NetTCPConnection non-common ports",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 9559
+    },
+    {
+      "name": "Get-LocalUser suspicious",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 8406
+    },
+    {
+      "name": "Add-MpPreference exclusion (evasion)",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 5098
+    },
+    {
+      "name": "Set-MpPreference disable RTM",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 8463
+    },
+    {
+      "name": "wmic shadowcopy delete (ransom precursor)",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 5981
+    },
+    {
+      "name": "vssadmin delete shadows",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 8069
+    },
+    {
+      "name": "net user creation",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 7,
+      "engine": "ensemble",
+      "dt_ms": 8364
+    },
+    {
+      "name": "reg add Run key persistence",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 5701
+    },
+    {
+      "name": "schtasks daily persistence",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 8432
+    },
+    {
+      "name": "bcdedit disable recovery",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 5750
+    },
+    {
+      "name": "wbadmin delete catalog",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 5,
+      "engine": "ensemble",
+      "dt_ms": 8903
+    },
+    {
+      "name": "netsh port-proxy pivot",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 9089
+    },
+    {
+      "name": "Invoke-Mimikatz creds hunt",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 8,
+      "engine": "ensemble",
+      "dt_ms": 9220
+    },
+    {
+      "name": "esentutl VSS credential dump",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 8567
+    },
+    {
+      "name": "rundll32 comsvcs minidump lsass",
+      "ok": true,
+      "kind": "plaintext_malicious",
+      "expected": "plaintext_malicious",
+      "rec": [
+        "btn-auto-investigate"
+      ],
+      "signals_count": 6,
+      "engine": "ensemble",
+      "dt_ms": 8200
+    }
+  ],
+  "summary": {
+    "total": 40,
+    "kind_correct": 37,
+    "llm_used": 0,
+    "avg_dt_ms": 7916
+  }
+}

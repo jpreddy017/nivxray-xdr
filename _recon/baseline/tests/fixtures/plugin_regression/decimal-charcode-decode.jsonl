@@ -1,0 +1,4 @@
+# decimal-charcode-decode · Golden Fixtures · RC3.2a
+# Whitespace-separated decimal char codes.
+{"case_id":"decimal-recon","description":"Decimal charcodes → cmd.exe /c whoami","input":"99 109 100 46 101 120 101 32 47 99 32 119 104 111 97 109 105","detect_min_confidence":0.5,"expected_output_contains":["cmd.exe","whoami"]}
+{"case_id":"decimal-powershell","description":"Space-separated decimal → powershell","input":"112 111 119 101 114 115 104 101 108 108","detect_min_confidence":0.3,"expected_output_contains":["powershell"]}

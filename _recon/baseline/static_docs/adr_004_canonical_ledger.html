@@ -1,0 +1,729 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>ADR-004 · Canonical Implementation Ledger</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  html,body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a; line-height: 1.55; font-size: 13.5px;
+    max-width: 1000px; margin: 40px auto; padding: 0 32px 80px; background:#fff;
+  }
+  h1 { font-size: 26px; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-top: 32px; }
+  h2 { font-size: 19px; color: #1e293b; margin-top: 28px; border-left: 4px solid #dc2626; padding-left: 12px; }
+  h3 { font-size: 15px; color: #334155; margin-top: 20px; }
+  code { font-family: "JetBrains Mono", Menlo, Consolas, monospace; background: #f1f5f9; color: #b91c1c; padding: 1px 5px; border-radius: 3px; font-size: 88%; }
+  pre { background:#0f172a; color:#e2e8f0; padding: 12px 14px; border-radius: 6px; overflow-x:auto; font-size: 11.5px; line-height:1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 11.5px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  blockquote { border-left: 4px solid #f59e0b; background:#fffbeb; padding: 10px 16px; margin: 12px 0; color: #713f12; }
+  hr { border: none; border-top: 1px solid #cbd5e1; margin: 24px 0; }
+  strong { color: #0f172a; }
+  .cover { text-align: center; padding: 30px 0 16px; border-bottom: 3px solid #dc2626; margin-bottom: 20px; }
+  .cover .title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .cover .sub { color: #64748b; margin-top: 6px; font-size: 13px; }
+  .print-hint { background: #fef3c7; border:1px solid #fcd34d; padding: 10px 14px; border-radius: 6px; color: #78350f; font-size: 12.5px; margin: 14px 0 24px; }
+  @media print { .print-hint { display:none; } body { max-width:100%; padding: 0; margin: 0; } }
+</style></head><body>
+<div class="cover">
+  <div class="title">ADR-004 · Canonical Implementation Ledger</div>
+  <div class="sub">ACCEPTED WITH AMENDMENTS · 2026-08-09</div>
+</div>
+<div class="print-hint">
+  <strong>Save as PDF:</strong> <code>⌘ Cmd + P</code> or <code>Ctrl + P</code> → Save as PDF.
+</div>
+<h1 id="adr-004-nivxray-canonical-implementation-ledger">ADR-004 · NivXRay Canonical Implementation Ledger</h1>
+<ul>
+<li><strong>Status</strong>: <strong>ACCEPTED WITH AMENDMENTS</strong> (owner sign-off 2026-08-09)</li>
+<li><strong>Date</strong>: 2026-08-09</li>
+<li><strong>Supersedes</strong>: Original 360° audit <code>2026-02-09</code> (rejected — see <code>CURRENT_STATE_AUDIT_RECONCILIATION.md</code>)</li>
+<li><strong>Author</strong>: E1 (evidence-driven, no code changes in this ADR)</li>
+<li><strong>Applies to</strong>: git HEAD <code>52007cbd</code></li>
+<li><strong>Amendments applied</strong>: A1 (freeze scope) · A2 (Provenance provisional) · A3 (BKB/IKB explicit decision required)</li>
+</ul>
+<hr />
+<h2 id="context">Context</h2>
+<p>The audit reconciliation established the operative diagnosis:</p>
+<blockquote>
+<p><strong>NivXRay is not underbuilt. It is overbuilt in parallel.</strong></p>
+</blockquote>
+<p>At least 12 distinct capabilities have <strong>≥ 2 competing implementations</strong> coexisting in the same repository. No document declares which one is authoritative. Every new sprint has been landing complete implementations without retiring the old ones. This is the P0 problem — not features, not integrations, not telemetry ingest.</p>
+<h2 id="decision">Decision</h2>
+<p>Adopt this Canonical Implementation Ledger. For every conceptual capability, one implementation is <strong>CANONICAL</strong> — it owns the truth. All others are marked <strong>FREEZE</strong> (no new work), <strong>MIGRATE</strong> (transition callers to canonical), or <strong>DELETE</strong> (after parity is proven).</p>
+<p>The ledger is binding for all future development, whether by human contributors or AI agents. <strong>No PR may add a new implementation of a listed capability.</strong> Extensions must happen inside the canonical module.</p>
+<hr />
+<h2 id="standing-rules-apply-to-every-entry-below">Standing rules (apply to every entry below)</h2>
+<ol>
+<li>Every capability has <strong>exactly one CANONICAL</strong> implementation. Multiple canonical impls = policy violation.</li>
+<li>Every canonical implementation must have a <strong>canonical API</strong> (single FastAPI router prefix). Overlapping routers are legacy.</li>
+<li>Every canonical implementation must have <strong>canonical tests</strong> in <code>/app/backend/tests/</code>. Tests against legacy paths remain valid as parity harnesses only.</li>
+<li><strong>Frontend</strong> (<code>WorkspacePage.jsx</code> and children) may consume the canonical API only. Direct calls to legacy endpoints are legacy and to be migrated.</li>
+<li><strong>Parity gate</strong>: A legacy implementation may only be DELETED after a diff-parity test proves canonical output matches legacy output on the vendor corpus (<code>backend/corpus/vendor/v1/</code>).</li>
+<li><strong>FREEZE means FREEZE.</strong> No refactors, no bug fixes, no new features on legacy paths. Callers migrate; legacy dies.</li>
+</ol>
+<hr />
+<h2 id="ledger">Ledger</h2>
+<h3 id="1-verdict-engine-verified-2026-08-09-situation-worse-than-reconciliation">1 · Verdict Engine (verified 2026-08-09 — situation worse than reconciliation)</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL (target)</td>
+<td><code>backend/v2/verdict/</code> (engine.py · signals.py · weights.py · correlation.py · progressions.py · profiles.py)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td><strong>NOT WIRED TODAY</strong> — no router in <code>backend/routers/*.py</code> imports <code>v2/verdict/engine</code>. Wiring is a migration prerequisite.</td>
+</tr>
+<tr>
+<td>CANONICAL data model</td>
+<td><code>v2/verdict/signals.py::Signal</code>, weights externalised in <code>weights.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td><code>tests/test_verdict_v3.py</code>, <code>tests/test_verdict_v3_correlation.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Workspace verdict card — currently reads from legacy path, NOT v3</td>
+</tr>
+<tr>
+<td>LEGACY #1</td>
+<td><code>services/uaie/orchestrator.py</code> — <strong>FREEZE</strong> (audit finding)</td>
+</tr>
+<tr>
+<td>LEGACY #2</td>
+<td><code>nivxforge.investigation.verdict_engine::refresh_verdict</code> — <strong>FREEZE</strong>. Currently invoked from <code>routers/auto_investigate.py:760,776</code> and <code>routers/ops.py:2387,2412</code>. <strong>A THIRD verdict path missed by the reconciliation.</strong></td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>(1) Confirm v3 handler wiring — add a router mount. (2) Freeze both legacy paths. (3) Route WorkspacePage verdict fetch to v3 API. (4) Parity test on vendor corpus. (5) Delete <code>refresh_verdict</code> calls from <code>auto_investigate.py</code> and <code>ops.py</code>.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Three verdict engines is one more than the reconciliation reported. The migration is more urgent than previously stated.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2-attack-story">2 · Attack Story</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL</td>
+<td><code>backend/v2/investigation/attack_story.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Consumed via <code>v2/investigation/pipeline.py</code> → <code>v2/investigation/report.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Any <code>tests/test_attack_story*</code> under <code>v2</code> (verify)</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Workspace "Attack Story" tab</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>services/reasoning/behavior_extractor.py</code>, <code>backend/v2/semantic/ps_storyline.py</code> — <strong>FREEZE</strong> both</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Freeze both legacies. <code>ps_storyline.py</code> narrative snippets may migrate INTO <code>attack_story.py</code> as helpers. <code>behavior_extractor.py</code>: retire once workspace reads v2.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>The v2 module has a first-class "story" model; the legacy ones return prose.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-evidence-layer-evidence-graph">3 · Evidence Layer + Evidence Graph</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL evidence model</td>
+<td><code>backend/engine/evidence_graph.py</code> (+ builder + config + observability)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Verify: engine module exports; likely surfaced via <code>routers/correlations.py</code> or <code>routers/rc5_entities.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL data model</td>
+<td><code>engine/evidence_graph.py</code> node/edge types</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify — grep <code>engine/evidence_graph</code> in tests/</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Evidence Explorer / RC5 diagnostic UI</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>services/uaie/evidence.py</code> (flat list model) — <strong>FREEZE</strong>, then <strong>MIGRATE</strong> callers</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>UAIE evidence list becomes a projection view over the graph. Workspace reads graph, not the flat list.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Graph is a superset of the list; only the graph supports path queries, ancestry, and correlation queries.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="4-provenance-amendment-a2-provisional">4 · Provenance (Amendment A2 · PROVISIONAL)</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL (provisional)</td>
+<td><code>backend/services/uaie/provenance.py</code> (+ <code>uaie/ledger.py</code>)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Read-only; exposed via case fetch endpoints</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>services/confidence_provenance.py</code>, <code>services/canonical_evidence_recovery.py</code> — <strong>FREEZE</strong>, boundary review pending</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>🟡 <strong>PROVISIONAL</strong> — pending architecture-boundary confirmation</td>
+</tr>
+<tr>
+<td><strong>Owner question</strong></td>
+<td>Why should canonical provenance live under a legacy/frozen <code>services/uaie/</code> namespace instead of migrating behind the canonical investigation/engine architecture (e.g. <code>backend/v2/investigation/provenance.py</code> or <code>backend/engine/provenance.py</code>)? Provenance is fundamental — the long-term chain <code>Input → Artifact → Derived Artifact → Evidence → Behavior → ATT&amp;CK → Verdict → Attack Story</code> must be traceable end-to-end. Do not permanently anchor it in a legacy namespace by inertia.</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Before promoting to permanent canonical: (a) inspect <code>uaie/provenance.py</code> for coupling to other frozen <code>uaie/</code> modules; (b) decide MOVE (to <code>v2/investigation/</code> or <code>engine/</code>) vs KEEP; (c) update this row. Until then, no downstream module may assume the permanent location.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Provenance is high-risk to split; every claim must trace back through one ledger. The current location may or may not be the right permanent home.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-planner-pipeline-orchestrator">5 · Planner / Pipeline / Orchestrator</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL pipeline</td>
+<td><code>backend/v2/investigation/pipeline.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td><code>routers/workspace_investigation.py</code> if it invokes v2/investigation/pipeline; verify</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify — grep <code>v2/investigation/pipeline</code> in tests/</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>AUTO INVESTIGATE workspace flow</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>services/recipe_planner.py</code>, <code>services/uaie/planner.py</code>, <code>services/uaie/planner_v2.py</code>, <code>engine/orchestrator.py</code> — <strong>FREEZE all 4</strong></td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>5-way planner conflict is the single biggest architectural risk in the repo. The v2 pipeline is the youngest and most cohesive. Freeze everything else immediately. Migrate WorkspacePage.jsx's <code>autoInvestigate()</code> to call the v2 pipeline endpoint.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Multiple planners = deterministic behavior guarantee is currently a lie. Every path picks different heuristics.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="6-correlation">6 · Correlation</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL</td>
+<td><code>backend/v2/investigation/cre/</code> (Correlation Reasoning Engine)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Verify — likely <code>routers/correlations.py</code> invocation path</td>
+</tr>
+<tr>
+<td>CANONICAL data model</td>
+<td>CRE wrappers in <code>v2/investigation/cre/wrappers/</code></td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Workspace correlation view</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>services/correlation_engine.py</code>, <code>services/ice/correlate.py</code>, <code>engine/correlation_engine.py</code>, <code>v2/verdict/correlation.py</code> — <strong>FREEZE all 4</strong></td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>CRE (Correlation Reasoning Engine) is the youngest and lives inside <code>v2/investigation/</code>. All other correlation paths must be marked legacy today. <code>v2/verdict/correlation.py</code> may remain as an internal helper of Verdict Engine — verify.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>5 correlation engines = 5 different truth models. Reduces trust in verdict deterministically.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="7-knowledge-base-amendment-a3-explicit-decision-required">7 · Knowledge Base (Amendment A3 · EXPLICIT DECISION REQUIRED)</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL (provisional)</td>
+<td><code>backend/services/knowledge/behavior_registry.py</code> (BKB · 108 curated entries · 532 LOC)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Read-only via ICE cluster projection; new admin endpoint TBD</td>
+</tr>
+<tr>
+<td>CANONICAL data model</td>
+<td>Static Python dict → PROMOTE to Mongo collection in future (see ADR-005)</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td><code>tests/test_bkb_ci_gate.py</code>, <code>tests/test_quality_dashboard.py</code> (locks entry count)</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Trajectory canvas + future BKB admin UI</td>
+</tr>
+<tr>
+<td>PARALLEL</td>
+<td><code>backend/v2/ikb/entries.py</code> — status <strong>TBD before ADR-004 becomes final</strong></td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>🟡 <strong>EXPLICIT OWNER DECISION REQUIRED</strong> — no ambiguity permitted</td>
+</tr>
+<tr>
+<td><strong>The three options</strong></td>
+<td>(a) <strong>BKB = authoritative behavior source, IKB = scoped extension</strong> (e.g. IKB covers cases/investigations, BKB covers behaviors). Both live, both have charters, boundary written. (b) <strong>IKB supersedes BKB</strong> — BKB migrates its 108 entries into IKB shape, BKB module deprecated. (c) <strong>Merge into one canonical knowledge authority</strong> with a single name and single data shape.</td>
+</tr>
+<tr>
+<td><strong>Prerequisite action</strong></td>
+<td>Inspect <code>backend/v2/ikb/entries.py</code> to determine what IKB actually contains and how it structurally differs from BKB. Then owner picks (a), (b), or (c). No permanent ambiguity permitted.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>BKB is a strategic asset (owner-stated); it must not be diluted by a competing knowledge base with unclear scope. Six months from now we cannot have "BKB says X · IKB says Y · Planner uses BKB · Verdict uses IKB · Attack Story uses both." That is exactly the pattern this ADR exists to eliminate.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="8-golden-corpus-validation-pack">8 · Golden Corpus / Validation Pack</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL corpus location</td>
+<td><code>backend/corpus/vendor/v1/</code> (curated vendor reports)</td>
+</tr>
+<tr>
+<td>CANONICAL harness</td>
+<td><code>backend/v2/validation/runner.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL taxonomy</td>
+<td><code>backend/engine/golden_corpus_taxonomy.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td><code>tests/test_quality_dashboard.py</code> (CI floors)</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Benchmark / Quality dashboard page</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td><code>engine/golden_corpus.py</code>, <code>engine/golden_corpus_expansion.py</code>, <code>_expansion_r2</code>, <code>_categories</code>, <code>_obfuscation_family</code> — <strong>CONSOLIDATE into runner.py or archive</strong></td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>The 5 <code>golden_corpus*</code> files in engine/ are historical expansions. Read them, extract any unique fixtures into <code>backend/corpus/vendor/v1/reports/</code>, then archive the modules. Runner is single owner going forward.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>3-way corpus fragmentation makes "did we regress on X?" impossible to answer reliably.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="9-report-generation">9 · Report Generation</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL PDF</td>
+<td><code>backend/engine/report_pdf.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL text</td>
+<td><code>backend/services/die/investigation_results.py::render</code></td>
+</tr>
+<tr>
+<td>CANONICAL STIX</td>
+<td><code>backend/engine/stix_exporter.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL Explain export</td>
+<td><code>backend/engine/explain_export.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Add <code>/api/v2/report/{case_id}?format=pdf|text|stix|json</code></td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td>Workspace "Export Report" button (<strong>MISSING TODAY — build this</strong>)</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Do NOT build a new report generator. Wire the existing ones into ONE endpoint with a <code>format=</code> query parameter. Add UI button.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Users have never been able to see that PDF/STIX/explain exports exist. This is a wiring problem, not a build problem.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="10-recursive-artifact-discovery">10 · Recursive Artifact Discovery</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL (partial)</td>
+<td><code>backend/services/recursive_child_pipeline.py</code> (decoder-level) + <code>backend/v2/investigation/cre/</code> (correlation-level)</td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Currently invoked internally by chain endpoint — external contract missing</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Recursive decoder tests exist; <strong>artifact-level recursion tests missing</strong></td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>🟡 <strong>PARTIAL</strong> — decoder recursion works end-to-end (proven with Sophos payload). Artifact recursion (a decoded artifact becoming a new investigation with its own children, with parent-child provenance) is <strong>not wired into the workspace UI flow</strong>.</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Explicit ADR-005 needed to define fixed-point termination, cycle detection beyond content-hash, and parent-child persistence in the Evidence Graph. Do NOT ship features that assume recursive artifact discovery is complete.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>This is a P1 architectural gap. Deferred to a dedicated ADR because it's design-heavy, not implementation-heavy.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="11-workspace-x-lab-boundary">11 · Workspace / X-Lab Boundary</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL workspace surface</td>
+<td>Analyst-facing pages in <code>frontend/src/pages/WorkspacePage.jsx</code> + <code>AnalystWorkspacePage.jsx</code> — decide ONE</td>
+</tr>
+<tr>
+<td>CANONICAL X-Lab surface</td>
+<td><code>backend/services/uil/</code> + engineering pages (<code>LabPage.jsx</code>, <code>MultiLayerBatteryPage.jsx</code>, <code>SemanticMappingInspectorPage.jsx</code>, <code>IEDDETracePage.jsx</code>)</td>
+</tr>
+<tr>
+<td>CANONICAL boundary rule</td>
+<td>Workspace consumes canonical APIs. X-Lab may call raw endpoints for exploration. They MUST NOT share React state or persistence collections.</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>ADR-006 needed to formally declare page ownership. 34 frontend pages exist today — probably 10 are legacy/duplicate.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Every regression in the last 4 forks traces back to workspace and X-Lab drifting into each other.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-attack-mapping-attck">12 · Attack Mapping / ATT&amp;CK</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL</td>
+<td><code>backend/v2/investigation/attack_mapping.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL data model</td>
+<td>Verify against MITRE STIX schema</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify</td>
+</tr>
+<tr>
+<td>LEGACY</td>
+<td>Inline MITRE references in <code>services/knowledge/behavior_registry.py</code>, <code>services/reasoning/behavior_extractor.py</code>, and elsewhere — these are references, not mappings, so probably OK to leave alone</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Declare v2 mapping authoritative for T-ID enrichment (name, tactic, description). Downstream references may continue to use T-IDs as strings.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>One source of truth for MITRE metadata prevents drift.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-negative-explainability">13 · Negative Explainability</h3>
+<table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CANONICAL</td>
+<td><code>backend/v2/investigation/explainability.py</code></td>
+</tr>
+<tr>
+<td>CANONICAL API</td>
+<td>Consumed via v2/investigation/pipeline output</td>
+</tr>
+<tr>
+<td>CANONICAL tests</td>
+<td>Verify</td>
+</tr>
+<tr>
+<td>CANONICAL UI consumer</td>
+<td><strong>MISSING TODAY — build UI panel</strong></td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>Ship the UI panel that renders <code>explainability.py</code> output. This is a wiring gap, not an implementation gap.</td>
+</tr>
+<tr>
+<td>Rationale</td>
+<td>Explainability is a differentiator ("why is this NOT malicious?"). It exists in code but analysts never see it.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="freeze-list-effective-immediately-until-ledger-sign-off">Freeze List (effective immediately, until ledger sign-off)</h2>
+<p><strong>No new work on:</strong>
+- <code>services/uaie/orchestrator.py</code>
+- <code>services/uaie/planner.py</code> · <code>services/uaie/planner_v2.py</code>
+- <code>services/uaie/evidence.py</code> (as canonical — use as projection over graph only)
+- <code>services/recipe_planner.py</code>
+- <code>services/reasoning/behavior_extractor.py</code>
+- <code>services/correlation_engine.py</code>
+- <code>services/ice/correlate.py</code>
+- <code>engine/orchestrator.py</code>
+- <code>engine/correlation_engine.py</code>
+- <code>v2/semantic/ps_storyline.py</code> (attack-story path)
+- All 5 <code>engine/golden_corpus*</code> legacy files (except <code>golden_corpus_taxonomy.py</code>)
+- Any new <code>memory/*.md</code> file (89 exist; curate first per audit §22)</p>
+<h2 id="freeze-scope-amendment-a1-2026-08-09">Freeze scope (Amendment A1 · 2026-08-09)</h2>
+<p><strong>Freeze prohibits architectural expansion. Freeze does NOT prohibit correctness work.</strong></p>
+<p>Explicitly ALLOWED during the freeze:
+- ✅ <strong>P0/P1 bug fixes</strong> on any module (canonical or legacy)
+- ✅ <strong>Security fixes</strong> (SSRF, injection, auth, etc.)
+- ✅ <strong>Crash/freeze/hang fixes</strong> (browser or backend)
+- ✅ <strong>Correctness fixes</strong> for verdicts, classifications, IOC extraction, MITRE mappings
+- ✅ <strong>Provenance-loss fixes</strong> — never let evidence drop invisibly
+- ✅ <strong>Regression tests</strong> and <strong>parity harnesses</strong> (both canonical and legacy)
+- ✅ <strong>Error-handling hardening</strong> on user-facing paths
+- ✅ <strong>Workspace ↔ X-Lab leakage fixes</strong> (state or persistence spillage)
+- ✅ <strong>Extracting reusable fixtures / helpers</strong> into the canonical module (with a git note)
+- ✅ <strong>Read-only inspection</strong> for parity testing</p>
+<p>Explicitly PROHIBITED during the freeze:
+- ❌ New competing implementations of listed capabilities
+- ❌ New product features / capabilities
+- ❌ New decode endpoints, new planners, new correlation engines
+- ❌ New <code>memory/*.md</code> documents until curation is done
+- ❌ Refactors of legacy modules "just to clean them up" (they will be deleted)</p>
+<p><strong>Principle</strong>: FREEZE = freeze architectural expansion, NOT freeze defect correction.</p>
+<hr />
+<h2 id="verification-findings-2026-08-09-5-question-grep-pass">Verification Findings (2026-08-09 · 5-question grep pass)</h2>
+<p>The 30-minute verification greps required by the original "PROPOSED" version have been executed. Findings:</p>
+<table>
+<thead>
+<tr>
+<th>Q</th>
+<th>Question</th>
+<th>Answer</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Which router mounts <code>v2/verdict/engine</code>?</td>
+<td><strong>NONE</strong> — no router imports it. But <code>nivxforge/investigation/verdict_engine.py::refresh_verdict</code> is called from <code>auto_investigate.py</code> and <code>ops.py</code>.</td>
+<td>ADR-004 §1 updated: <strong>3 verdict engines coexist</strong>, not 2.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Does <code>WorkspacePage.autoInvestigate()</code> call <code>v2/investigation/pipeline</code>?</td>
+<td><strong>NO</strong> — WorkspacePage calls <code>/api/decode/*</code> endpoints (chain, smart) and <code>/api/v2/analyze/report</code> for report export only. The canonical v2 pipeline is not on the workspace path.</td>
+<td>Migration step 3 becomes higher-risk; explicit wiring PR needed.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Are there tests for <code>v2/investigation/attack_story</code>?</td>
+<td><strong>YES</strong> — <code>tests/investigation/test_narrative_contract.py</code> + parity golden corpus.</td>
+<td>Canonical pick §2 is safe.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Does the Trajectory canvas use <code>engine/evidence_graph</code> or <code>ice/correlate</code>?</td>
+<td><strong><code>services/ice/correlate::enrich_clusters_in_place</code></strong> (invoked from <code>routers/cases.py:343</code>). This is the BKB projection path, not the canonical evidence graph.</td>
+<td>Migration step 4 (evidence graph canonicalization) requires re-plumbing Trajectory data source. Higher effort than estimated.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>What handles <code>POST /api/decode/chain</code>?</td>
+<td><code>backend/routers/chain.py</code> — its own router with 4 endpoints (<code>/decode/chain</code>, <code>/decode/chain/narrative</code>, <code>/decode/chain/export</code>, <code>/decode/chain/split</code>). Independent of <code>v2/investigation/pipeline</code>.</td>
+<td>Confirms <code>chain.py</code> is legacy; migration step 3 must add the v2 pipeline endpoint the workspace can call.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Consolidated implication</strong>: The situation is materially worse than the reconciliation indicated. The workspace UI does NOT consume any of the v2/canonical modules today — it consumes services/decode/chain + legacy orchestrator/nivxforge verdict paths. Migration is therefore not "swap in-place"; it is <strong>wire up + prove parity + swap</strong>. This does not change the direction, but it does change the effort estimate (add ~1-2 weeks).</p>
+<hr />
+<h2 id="migration-order-once-verification-greps-complete">Migration Order (once verification greps complete)</h2>
+<p>Follow strictly, no reordering:</p>
+<p><strong>0. P0/P1 Bug Hunt + Baseline</strong> <em>(NEW · owner amendment · 2026-08-09)</em> — a short controlled pass BEFORE any migration begins. Produce:
+   - Current-HEAD P0/P1 defect inventory (crashes, correctness bugs, security issues, provenance losses)
+   - Regression tests locking known-good behavior on the vendor corpus
+   - <strong>Rationale</strong>: if we migrate Verdict while unknown correctness bugs exist, we can't tell whether the migration fixed / preserved / introduced them. Establish a known-good behavioral baseline first. See <code>P0_P1_BUG_BASELINE.md</code>.</p>
+<ol>
+<li><strong>Verdict Engine v2 becomes canonical</strong> — route WorkspacePage verdict fetch to v3 API. Parity test on vendor corpus. Delete legacy verdict emission.</li>
+<li><strong>Correlation Reasoning Engine (CRE) becomes canonical</strong> — freeze the other 4. Migrate callers.</li>
+<li><strong>v2 Pipeline becomes canonical planner</strong> — freeze 4 legacy planners. <code>autoInvestigate()</code> in WorkspacePage.jsx routes through v2 pipeline.</li>
+<li><strong>Evidence Graph becomes canonical evidence model</strong> — flat list model deprecated to projection.</li>
+<li><strong>Attack Story consolidation</strong> — one module, one narrative shape.</li>
+<li><strong>Report Export UI wiring</strong> — expose PDF/STIX/explain via <code>/api/v2/report</code>.</li>
+<li><strong>Golden Corpus consolidation</strong> — one runner, fixtures unified.</li>
+<li><strong>Explainability UI panel</strong> — wire existing module to workspace.</li>
+<li><strong>BKB vs IKB decision</strong> — resolve Amendment A3.</li>
+<li><strong>THEN and only then</strong> — WorkspacePage.jsx split into 8-10 files (this is the biggest change and must ride on a stable API surface, not a moving one).</li>
+</ol>
+<p>Estimated: 6-10 weeks of focused consolidation work, plus ~3-5 days for Step 0. No new features during this window; bug fixes ALLOWED per Amendment A1.</p>
+<hr />
+<h2 id="what-we-will-not-do-until-migration-is-complete">What we will NOT do until migration is complete</h2>
+<ul>
+<li>❌ EVTX / Sysmon / Windows Event Log adapters</li>
+<li>❌ CrowdStrike / Defender / SentinelOne / Cisco / Wazuh / Elastic connectors</li>
+<li>❌ Multi-tenant SaaS</li>
+<li>❌ Autonomous response</li>
+<li>❌ New ML/LLM verdict path</li>
+<li>❌ Investigation Playback UI</li>
+<li>❌ Sub-technique heatmap expansion</li>
+<li>❌ Any new memory/*.md documents (curate existing first)</li>
+<li>❌ Any new decode endpoint</li>
+</ul>
+<hr />
+<h2 id="consequences">Consequences</h2>
+<p><strong>Positive:</strong>
+- One truth per capability → verdict, correlation, attack story become deterministic in fact, not just in claim
+- Every future PR has a clear canonical target
+- Fork agents inherit a coherent architecture, not a maze
+- Frontend can be split (P0 debt) against a stable API surface</p>
+<p><strong>Negative:</strong>
+- 6-10 weeks with no new features. This is an ownership-cost tradeoff.
+- Some existing behavior may change during migration (mitigated by parity tests on vendor corpus)
+- Legacy code deletion feels wasteful; it is the point.</p>
+<p><strong>Accepted risk:</strong>
+- If the vendor corpus doesn't cover a real edge case, migration parity tests will pass but real inputs may regress. Mitigation: the Validation Sprint (audit §22 item 5) should precede migration item #4 (Evidence Graph) and item #7 (corpus consolidation).</p>
+<hr />
+<h2 id="sign-off-required-from">Sign-off required from</h2>
+<ul>
+<li><strong>Product owner</strong> (this ADR's decisions on which impl is canonical)</li>
+<li><strong>Next agent / human developer</strong>: must read this before touching any of the freeze list</li>
+</ul>
+<hr />
+<p><em>End of ADR-004.</em></p>
+</body></html>

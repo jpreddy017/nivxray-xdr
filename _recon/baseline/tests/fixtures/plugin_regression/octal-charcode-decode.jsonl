@@ -1,0 +1,3 @@
+# octal-charcode-decode · Golden Fixtures · RC3.2a
+# Octal escapes: 143 154 141 = "cla" (base 8).
+{"case_id":"octal-cmd","description":"Octal charcodes → cmd.exe","input":"143 155 144 056 145 170 145 040 057 143 040 143 141 154 143 056 145 170 145","detect_min_confidence":0.3,"expected_output_contains":["cmd.exe","calc.exe"]}

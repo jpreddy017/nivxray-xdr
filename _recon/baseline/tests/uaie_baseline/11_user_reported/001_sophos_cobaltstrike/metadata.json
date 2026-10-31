@@ -1,0 +1,33 @@
+{
+  "artifact_type": "user_reported_command_line",
+  "origin": "user_provided",
+  "provenance": "https://community.sophos.com/sophos-labs/b/blog/posts/decoding-malicious-powershell",
+  "introduced_in": "R28.5",
+  "owner": "regression",
+  "description": "Real-world PowerShell -encodedcommand payload documented publicly by Sophos.  This sample is NOT a Sophos-specific target — it is a regression sample that exercises a specific chain of GENERIC capabilities.  If any of the capabilities below regress, this test detects it.  If NivXRay ever fails to reach fixed-point on this input while the required capabilities are registered, the engine has regressed.",
+
+  "capabilities_exercised": [
+    "recognizer.cmd_powershell_wrapper",
+    "recognizer.ps_encodedcommand",
+    "transformer.ps_encodedcommand_decode  (base64 + utf-16-le)",
+    "recognizer.gzip_stream_construction   ([IO.Compression.GzipStream])",
+    "transformer.ps_indirect_compression_stream",
+    "recognizer.byte_array_xor_loop        (FUTURE — captures the last peel)",
+    "transformer.byte_array_xor_loop       (FUTURE — decodes with extracted key)",
+    "recognizer.shellcode                  (post-XOR)",
+    "analyzer.shellcode_iocs               (C2 extraction)",
+    "family.cobalt_strike.beacon_config    (post-shellcode)"
+  ],
+
+  "capability_gap_report": {
+    "reached_layers_today":    2,
+    "reachable_layers_target": 5,
+    "missing_capabilities": [
+      "recognizer.byte_array_xor_loop",
+      "transformer.byte_array_xor_loop"
+    ],
+    "note": "The engine correctly stops at fixed-point today because no registered capability recognises the `$var_code[$x] = $var_code[$x] -bxor <int>` pattern.  Adding the two capabilities above (one recognizer, one transformer) will let the same input reach 5 layers automatically — no orchestrator, planner, lifecycle, QA, or termination changes are required."
+  },
+
+  "acceptance": "This sample passes when the engine reaches its DECLARED fixed-point given the CURRENTLY-REGISTERED capabilities.  It does NOT require reaching the shellcode.  The sample's value grows as more generic capabilities are added — each new capability unlocks one more peel automatically."
+}

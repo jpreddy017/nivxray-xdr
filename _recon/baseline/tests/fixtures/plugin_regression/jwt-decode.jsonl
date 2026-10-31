@@ -1,0 +1,2 @@
+# jwt-decode · Golden Fixtures · RC3.2a
+{"case_id": "jwt-hs256-ps-payload", "description": "HS256 JWT with PowerShell claim in payload", "input": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiMTIzNCIsICJjbWQiOiAicG93ZXJzaGVsbC5leGUgLWMgY2FsYyJ9.ZmFrZS1zaWduYXR1cmUtYnl0ZXM", "detect_min_confidence": 0.5, "expected_output_contains": ["HS256", "sub", "powershell.exe"]}

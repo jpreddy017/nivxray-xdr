@@ -1,0 +1,5 @@
+# utf16-decode · Golden Fixtures · RC3.2a
+# UTF-16LE (PowerShell -EncodedCommand format) + UTF-16BE (rare, but exists).
+# Inputs are the RAW UTF-16 bytes AS A STRING (latin-1) — this is what the
+# extract-wrapper hands us after base64-decode of a -EncodedCommand blob.
+{"case_id":"utf16le-ps-encodedcommand","description":"UTF-16LE (PowerShell -EncodedCommand)","input":"I\u0000E\u0000X\u0000(\u0000'\u0000h\u0000t\u0000t\u0000p\u0000:\u0000/\u0000/\u0000e\u0000.\u0000c\u0000o\u0000m\u0000/\u0000x\u0000'\u0000)\u0000","detect_min_confidence":0.5,"expected_output_contains":["IEX","http://e.com/x"]}

@@ -1,0 +1,329 @@
+"""Analyst Operations · Dashboard Lens Definitions.
+
+Single source of truth for the ten operational lenses.  Every tile on
+the Operations Dashboard and every filter on the Incident Queue MUST
+consume the predicates defined here — anything else would drift into
+fabricated counts.
+
+Locked by owner directive (Phase 1 · 2026-02-31):
+
+    Analyst Operations
+        │
+        ├─ Dashboard tile count      ← same Mongo predicate
+        └─ Incident Queue filter     ← same Mongo predicate
+              │
+              ▼
+        list_incidents(lens=...)
+
+The predicates below deliberately share every field name with the
+persisted extension schema so no client-side translation is required.
+
+Fields honored on the ``workspace_cases`` document:
+    incident_state           existing lifecycle state
+    incident_assignee        existing ownership
+    incident_priority        NEW · Phase 1 extension  (P1|P2|P3|P4|P5)
+    incident_severity        NEW · Phase 1 extension  (critical|high|medium|low|info)
+    high_fidelity            NEW · Phase 1 extension  (bool)
+    customer_engaged         NEW · Phase 1 extension  (bool)
+    on_hold_reason           NEW · Phase 1 extension  (str)
+    on_hold_until            NEW · Phase 1 extension  (ISO datetime)
+    sla_due_at               NEW · Phase 1 extension  (ISO datetime)
+    updated_at / created_at  existing
+
+All timestamps in the predicates are computed relative to
+``datetime.now(timezone.utc)`` at request time.  No cached counters.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Dict, List, Tuple
+
+# ── Lens definitions ────────────────────────────────────────────────
+# Ordered tuple (id, group, label, description, predicate_builder,
+#                default_sort_field, default_sort_direction).
+#
+# ``predicate_builder`` is called with ``user_email`` and returns a
+# Mongo filter dict.  It never mutates state.
+
+Lens = Dict[str, Any]
+
+LENS_GROUPS = ("triage", "ownership", "risk")
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.isoformat()
+
+
+def _open_states_clause() -> Dict[str, Any]:
+    """Everything except resolved/closed is 'open'."""
+    return {"incident_state": {"$nin": ["resolved", "closed"]}}
+
+
+# ── Predicate builders ──────────────────────────────────────────────
+
+def _pred_critical(email: str | None) -> Dict[str, Any]:
+    q: Dict[str, Any] = {**_open_states_clause(),
+                          "incident_priority": "P1"}
+    return _scope(q, email)
+
+
+def _pred_high_priority(email: str | None) -> Dict[str, Any]:
+    q: Dict[str, Any] = {**_open_states_clause(),
+                          "incident_priority": {"$in": ["P1", "P2"]}}
+    return _scope(q, email)
+
+
+def _pred_high_fidelity(email: str | None) -> Dict[str, Any]:
+    q: Dict[str, Any] = {**_open_states_clause(),
+                          "high_fidelity": True}
+    return _scope(q, email)
+
+
+def _pred_unassigned(email: str | None) -> Dict[str, Any]:
+    q: Dict[str, Any] = {
+        **_open_states_clause(),
+        "$or": [
+            {"incident_assignee": {"$exists": False}},
+            {"incident_assignee": None},
+            {"incident_assignee": ""},
+        ],
+    }
+    return _scope(q, email)
+
+
+def _pred_in_progress_mine(email: str | None) -> Dict[str, Any]:
+    if not email:
+        # Honest empty state — no user, no personal queue.
+        return {"__never_matches__": True}
+    q: Dict[str, Any] = {
+        "incident_state": "in_progress",
+        "incident_assignee": email,
+    }
+    return _scope(q, email)
+
+
+def _pred_customer_response(email: str | None) -> Dict[str, Any]:
+    q: Dict[str, Any] = {**_open_states_clause(),
+                          "customer_engaged": True,
+                          "incident_state": "on_hold"}
+    return _scope(q, email)
+
+
+def _pred_on_hold(email: str | None) -> Dict[str, Any]:
+    return _scope({"incident_state": "on_hold"}, email)
+
+
+def _pred_aging(email: str | None) -> Dict[str, Any]:
+    """SLA at risk: sla_due_at is in the past OR within the next 4 h,
+    and the incident is not resolved/closed."""
+    horizon = _iso(_now() + timedelta(hours=4))
+    q: Dict[str, Any] = {
+        **_open_states_clause(),
+        "sla_due_at": {"$exists": True, "$ne": None, "$lte": horizon},
+    }
+    return _scope(q, email)
+
+
+def _pred_recently_created(email: str | None) -> Dict[str, Any]:
+    since = _iso(_now() - timedelta(hours=24))
+    return _scope({"created_at": {"$gte": since}}, email)
+
+
+def _pred_recently_updated(email: str | None) -> Dict[str, Any]:
+    since = _iso(_now() - timedelta(hours=24))
+    return _scope({"updated_at": {"$gte": since}}, email)
+
+
+_DISPLAY_NAME_CLAUSE: Dict[str, Any] = {
+    # A surfaced record must carry a persisted display name.  Pipeline
+    # incidents persist `title`; analysis cases persist `name`.  Gating on
+    # `name` alone hid 191 of 198 real incidents from the queue.
+    "$or": [
+        {"name":  {"$exists": True, "$ne": ""}},
+        {"title": {"$exists": True, "$ne": ""}},
+    ]
+}
+
+
+# P0-FIX-6B-2 · these role names are NO LONGER AUTHORITY. They once made
+# `all_tenants: True` by themselves, which meant a free-text role string on a
+# user document granted every customer tenant. Tenant breadth now comes ONLY
+# from `users.authority_scope == "PLATFORM"` (explicit owner designation) or
+# from the explicit grant list `users.tenant_ids[]`. The constant is retained
+# for documentation/legacy references only and is read by no decision.
+_LEGACY_ROLE_BREADTH_RETIRED = frozenset({
+    "admin", "platform_admin", "soc_manager", "mssp_operator",
+})
+
+#: The two authority classes. PLATFORM is EXCEPTIONAL and must be stored
+#: explicitly; absent / null / malformed / anything else ⇒ CUSTOMER, the
+#: least-authority default.
+PLATFORM_SCOPE = "PLATFORM"
+CUSTOMER_SCOPE = "CUSTOMER"
+
+
+def authority_scope(user: Dict[str, Any] | None) -> str:
+    """The principal's authority CLASS — where it may operate.
+
+    PLATFORM iff the stored `authority_scope` is exactly "PLATFORM"
+    (whitespace-stripped, case-sensitive). Never inferred from role,
+    `tenants.read`, `organization.kind`, the number of tenant grants, the
+    customer picker or `X-Tenant-Id`. Anything else — absent, null, a
+    non-string, a role name, "platform", "CUSTOMER" — is CUSTOMER, the
+    least-authority default.
+    """
+    raw = (user or {}).get("authority_scope")
+    if isinstance(raw, str) and raw.strip() == PLATFORM_SCOPE:
+        return PLATFORM_SCOPE
+    return CUSTOMER_SCOPE
+
+
+def resolve_tenant_scope(email: str | None) -> Dict[str, Any]:
+    """Tenant-authorized visibility for the incident plane.
+
+    P0-2b (owner-authorised 2026-09-05): visibility is a TENANT
+    authorization, never an assignment/ownership gate.  Previously the
+    queue filtered on ``user_email``, which hid 180 of 198 real tenant
+    incidents from the very analysts responsible for them.
+
+    - anonymous          → ``{"authorized": False}`` (honest empty state)
+    - PLATFORM scope     → ``{"all_tenants": True}`` (explicit designation)
+    - everyone else      → ``{"tenant_ids": [...]}`` (explicit grants)
+
+    P0-FIX-6B-2 · ROLE IS NO LONGER TENANT AUTHORITY. ``role`` is still
+    returned because RBAC needs it, but it decides only WHAT the principal
+    may do. WHERE now comes from exactly two explicit, server-side facts:
+    ``authority_scope == "PLATFORM"`` or the grant list ``tenant_ids[]``.
+    ``all_tenants`` survives as a DERIVED convenience for existing consumers
+    and is true only for a PLATFORM principal.
+
+    P5 · B5/B7 · a user carrying neither ``tenant_ids`` nor ``tenant_id``
+    previously fell back to the literal ``"default"``, a scope concept that
+    exists nowhere in the tenant registry. It now returns an honest EMPTY
+    tenant list: authorised as a principal, holding no tenant. There is no
+    default tenant.
+    """
+    if not email:
+        return {"authorized": False}
+    from deps import sync_collection
+    user = sync_collection("users").find_one(
+        {"email": email},
+        {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1,
+         "authority_scope": 1},
+    ) or {}
+    role = str(user.get("role") or "").strip().lower()
+    scope = authority_scope(user)
+    tenants = [t for t in (user.get("tenant_ids") or []) if t]
+    if not tenants and user.get("tenant_id"):
+        tenants = [str(user["tenant_id"])]
+    return {"authorized": True, "authority_scope": scope,
+            "all_tenants": scope == PLATFORM_SCOPE,
+            "tenant_ids": tenants, "role": role}
+
+
+def _scope(q: Dict[str, Any], email: str | None) -> Dict[str, Any]:
+    """Attach the analyst's tenant scope.
+
+    P0-2 (owner-authorised 2026-09-05): the incident queue and the
+    dashboard tiles are restricted to ``doc_type == "xdr_incident"`` so
+    that analysis cases can no longer appear in the incident queue.  The
+    same predicate feeds tiles and queue, preserving the
+    tile-count == queue-count invariant.
+
+    P0-2b: the ownership filter is replaced by a tenant-authorization
+    filter (see ``resolve_tenant_scope``).
+    """
+    scope = resolve_tenant_scope(email)
+    if not scope.get("authorized"):
+        return {"__never_matches__": True}
+    q.setdefault("doc_type", "xdr_incident")
+    existing_and = q.get("$and")
+    if isinstance(existing_and, list):
+        existing_and.append(_DISPLAY_NAME_CLAUSE)
+    else:
+        q["$and"] = [_DISPLAY_NAME_CLAUSE]
+    if not scope.get("all_tenants"):
+        q["tenant_id"] = {"$in": scope["tenant_ids"]}
+    return q
+
+
+LENSES: Tuple[Lens, ...] = (
+    # ── TRIAGE ──────────────────────────────────────────────────────
+    {"id": "critical",           "group": "triage",
+     "label": "Critical",        "description": "Open P1 incidents.",
+     "predicate": _pred_critical,
+     "tone": "red"},
+    {"id": "high_priority",      "group": "triage",
+     "label": "High Priority",   "description": "Open P1 + P2 incidents.",
+     "predicate": _pred_high_priority,
+     "tone": "amber"},
+    {"id": "high_fidelity",      "group": "triage",
+     "label": "High Fidelity",   "description": "Open incidents flagged high-fidelity by the detection engine.",
+     "predicate": _pred_high_fidelity,
+     "tone": "cyan"},
+    # ── OWNERSHIP ───────────────────────────────────────────────────
+    {"id": "unassigned",         "group": "ownership",
+     "label": "Unassigned",      "description": "Open incidents with no assignee.",
+     "predicate": _pred_unassigned,
+     "tone": "amber"},
+    {"id": "in_progress_mine",   "group": "ownership",
+     "label": "In Progress — Mine",
+     "description": "Incidents in progress that are assigned to me.",
+     "predicate": _pred_in_progress_mine,
+     "tone": "mint"},
+    {"id": "customer_response",  "group": "ownership",
+     "label": "Customer Response",
+     "description": "Incidents on hold, awaiting a customer response.",
+     "predicate": _pred_customer_response,
+     "tone": "cyan"},
+    # ── RISK ────────────────────────────────────────────────────────
+    {"id": "on_hold",            "group": "risk",
+     "label": "On Hold",         "description": "Incidents currently on hold for any reason.",
+     "predicate": _pred_on_hold,
+     "tone": "amber"},
+    {"id": "aging",              "group": "risk",
+     "label": "SLA / Aging Risk",
+     "description": "Open incidents with an SLA due within 4 hours or already breached.",
+     "predicate": _pred_aging,
+     "tone": "red"},
+    {"id": "recently_created",   "group": "risk",
+     "label": "Recently Created",
+     "description": "Incidents created in the last 24 hours.",
+     "predicate": _pred_recently_created,
+     "tone": "cyan"},
+    {"id": "recently_updated",   "group": "risk",
+     "label": "Recently Updated",
+     "description": "Incidents updated in the last 24 hours.",
+     "predicate": _pred_recently_updated,
+     "tone": "mint"},
+)
+
+
+LENS_IDS: Tuple[str, ...] = tuple(l["id"] for l in LENSES)
+
+
+def get_lens(lens_id: str) -> Lens | None:
+    for l in LENSES:
+        if l["id"] == lens_id:
+            return l
+    return None
+
+
+def build_predicate(lens_id: str, email: str | None) -> Dict[str, Any]:
+    """Return the Mongo filter for a lens.  Raises KeyError for
+    unknown lenses — callers must translate to HTTP 400."""
+    lens = get_lens(lens_id)
+    if not lens:
+        raise KeyError(lens_id)
+    return lens["predicate"](email)
+
+
+def is_never_match(predicate: Dict[str, Any]) -> bool:
+    """The '__never_matches__' sentinel lets a lens honestly return
+    zero without hitting the database (e.g. `in_progress_mine` for an
+    unauthenticated caller)."""
+    return predicate.get("__never_matches__") is True

