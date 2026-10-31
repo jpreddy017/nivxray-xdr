@@ -74,6 +74,33 @@ against `nivxray_ci_local`. It only ever passed because another module
 overrode `DB_NAME` mid-session, the exact leak PR #28 removed. Test-fixture
 conflict, no product impact.
 
+## Preview serving (for browser validation)
+
+Port 3000 is held by supervisor program **`edrpreview`** →
+`node /root/spa.js /root/rcapp/apps/nivxray-xdr/dist 3000`, a static server for
+the candidate's frontend tree built from `18ccb5cc` with the preview API origin.
+Supervisor `frontend` (vite dev on /app source) is **STOPPED**: it was
+crash-looping with `ENOSPC: System limit for number of file watchers reached`
+(`fs.inotify.max_user_watches=12288`, cannot be raised — sysctl permission
+denied in this container). That crash loop is what made port 3000 flap and
+stalled the earlier browser runs. `/app/apps/nivxray-xdr` has been restored to
+its pre-verification state; snapshot at
+`/root/app_apps_nivxray-xdr_snapshot.tar.gz`.
+
+## Corpus-failure matrix (resolved)
+
+| Tree | DB_NAME | Result |
+|---|---|---|
+| candidate 18ccb5cc | test_database | 10 passed |
+| candidate 18ccb5cc | nivxray_ci_local | **the same 7 fail** |
+| baseline 35d47cc9 | test_database | 10 passed |
+| baseline 35d47cc9 | nivxray_ci_local | **the same 7 fail** (+2 network) |
+
+Same database, same fixtures, same 7 names on both trees — pre-existing, not a
+regression. `test_platform_seed::test_mac_is_labelled_fixture_only` remains an
+**unresolved intermittent** Mongo socket drop under xdist (passes alone; a
+different test drew it in each earlier run) — cause not demonstrated.
+
 ### Blockers before promotion
 0. **The purge route would be LIVE in production.** `EDR_MAINTENANCE_TOKEN` has a
    live slot, so after the backend deploy the route answers (403 without the
