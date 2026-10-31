@@ -8,7 +8,16 @@ const mocks={'./Grid':{__esModule:true,default:(p)=>React.createElement('grid-st
 const source=fs.readFileSync(path.join(__dirname,'../apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/TrajectoryPage.jsx'),'utf8');
 const code=transformSync(source,{loader:'jsx',format:'cjs'}).code,mod={exports:{}};
 const fallback=new Proxy({__esModule:true,default:empty},{get:(o,k)=>k in o?o[k]:empty});
-vm.runInNewContext(`(function(require,module,exports){${code}})`,{URLSearchParams,AbortController,performance,sessionStorage:{getItem:()=>null},ResizeObserver:class{observe(){} disconnect(){}},window:{innerHeight:1000,addEventListener(){},removeEventListener(){}},setTimeout})(id=>mocks[id]||fallback,mod,mod.exports);
+const sandbox={URLSearchParams,AbortController,performance,sessionStorage:{getItem:()=>null},ResizeObserver:class{observe(){} disconnect(){}},window:{innerHeight:1000,addEventListener(){},removeEventListener(){}},setTimeout};
+// The deep-link state machine and its banner are REAL here. Stubbing them would let the
+// harness pass while the analyst sees nothing, which is the exact failure being guarded.
+const load=(file,deps)=>{const m={exports:{}};
+  const src=transformSync(fs.readFileSync(path.join(__dirname,'../apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/',file),'utf8'),{loader:'jsx',format:'cjs'}).code;
+  vm.runInNewContext(`(function(require,module,exports){${src}})`,sandbox)(id=>deps[id]||fallback,m,m.exports);
+  return m.exports;};
+mocks['./deeplink']=load('deeplink.js',{});
+mocks['./DeepLinkBanner']=load('DeepLinkBanner.jsx',{react:React,'./theme':{C:{}}});
+vm.runInNewContext(`(function(require,module,exports){${code}})`,sandbox)(id=>mocks[id]||fallback,mod,mod.exports);
 (async()=>{
 let tree; await act(async()=>{tree=create(React.createElement(mod.exports.default,{device:'ep-a'}));});
 await act(async()=>calls[0].resolve({data:{state:'PAGE_READY',events:[]}}));
@@ -20,9 +29,10 @@ await act(async()=>calls.find(c=>c.url==='/edr/endpoints/ep-b/trajectory').resol
 const currentFocus=()=>calls.filter(c=>c.url.endsWith('/focus') && !c.options.signal.aborted).at(-1);
 assert.match(currentFocus().url,/ep-b.*focus/);
 await act(async()=>currentFocus().resolve({data:{state:'FOCUS_AUTHORITY_UNAVAILABLE'}}));
-assert.match(JSON.stringify(tree.toJSON()),/does not establish that it is absent/);
-assert.equal(tree.root.findAllByProps({'data-testid':'v3-focus-retry'}).length,1);
-await act(async()=>tree.root.findByProps({'data-testid':'v3-focus-retry'}).props.onClick());
+assert.match(JSON.stringify(tree.toJSON()),/neither found nor shown to be absent/);
+assert.equal(tree.root.findAllByProps({'data-deeplink-state':'INCOMPLETE'}).length,1);
+assert.equal(tree.root.findAllByProps({'data-testid':'v3-deeplink-retry'}).length,1);
+await act(async()=>tree.root.findByProps({'data-testid':'v3-deeplink-retry'}).props.onClick());
 await act(async()=>currentFocus().resolve({data:{state:'FOCUS_RESOLVED',focus:{window:{time_start:'2026-10-01',time_end:'2026-10-02'}}}}));
 assert.match(JSON.stringify(tree.toJSON()),/Observation located in retained evidence/);
 assert.doesNotMatch(JSON.stringify(tree.toJSON()),/Locating observation/);
