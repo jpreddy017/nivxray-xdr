@@ -26,5 +26,15 @@ try {
  test('localhost rejected',integration,preview,false,'http://localhost:8001');
  test('wrong metadata rejected',integration,preview,false,'',{api_origin:prod});
  test('suffix impersonation rejected',integration,preview,false,preview+'.evil.com');
+ const xdr={...base,NIVX_PRODUCT_SCOPE:'xdr',NIVX_XDR_INTEGRATION_PREVIEW:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'validation/xdr-preview-backend-2026-10-31'};
+ test('xdr preview passes',xdr,preview,true);
+ test('xdr production rejects preview flag',{...xdr,VERCEL_ENV:'production'},preview,false);
+ test('xdr wrong branch rejected',{...xdr,VERCEL_GIT_COMMIT_REF:'main'},preview,false);
+ test('xdr flag rejects edr scope',{...xdr,NIVX_PRODUCT_SCOPE:'edr'},preview,false);
+ test('xdr cross product rejected',{...xdr,NIVX_CROSS_PRODUCT_ORIGINS:'1'},preview,false);
+ test('both flags rejected',{...xdr,NIVX_EDR_INTEGRATION_PREVIEW:'1'},preview,false);
+ test('xdr invalid flag rejected',{...base,NIVX_XDR_INTEGRATION_PREVIEW:'2'},prod,false);
+ test('xdr mixed production rejected',xdr,preview,false,prod);
+ test('xdr foreign preview rejected',xdr,preview,false,'https://other.preview.emergentagent.com');
  console.log(`PASS ${count} build-boundary cases`);
 } finally {fs.rmSync(root,{recursive:true,force:true});}

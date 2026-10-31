@@ -43,6 +43,19 @@ if [[ "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" == "1" ]]; then
   API_ORIGIN="https://greeting-app-5782.preview.emergentagent.com"
 fi
 
+case "${NIVX_XDR_INTEGRATION_PREVIEW:-0}" in
+  0|1) ;;
+  *) echo "FATAL: NIVX_XDR_INTEGRATION_PREVIEW must be 0 or 1." >&2; exit 1 ;;
+esac
+if [[ "${NIVX_XDR_INTEGRATION_PREVIEW:-0}" == "1" ]]; then
+  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "xdr" || "${VERCEL_GIT_COMMIT_REF:-}" != "validation/xdr-preview-backend-2026-10-31" || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" || "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" != "0" ]]; then
+    echo "FATAL: integration build is restricted to the designated XDR preview branch." >&2
+    exit 1
+  fi
+  API_ORIGIN="https://greeting-app-5782.preview.emergentagent.com"
+fi
+INTEGRATION_PREVIEW=$(( ${NIVX_EDR_INTEGRATION_PREVIEW:-0} + ${NIVX_XDR_INTEGRATION_PREVIEW:-0} ))
+
 # Cross-product origins (public config only — never a credential).
 #
 # Deliberately EMPTY unless NIVX_CROSS_PRODUCT_ORIGINS=1 is set on the
@@ -84,7 +97,7 @@ cat > dist/build-info.json <<JSON
   "product_scope": "$SCOPE",
   "api_origin": "$API_ORIGIN",
   "phase": "2",
-  "integration_preview": ${NIVX_EDR_INTEGRATION_PREVIEW:-0},
+  "integration_preview": $INTEGRATION_PREVIEW,
   "cross_product_origins": ${NIVX_CROSS_PRODUCT_ORIGINS:-0},
   "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }

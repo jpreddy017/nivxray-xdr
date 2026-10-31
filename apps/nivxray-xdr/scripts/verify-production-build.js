@@ -38,12 +38,23 @@ if (!["0", "1"].includes(process.env.NIVX_EDR_INTEGRATION_PREVIEW || "0")) {
   console.error("NIVX_EDR_INTEGRATION_PREVIEW must be 0 or 1.");
   process.exit(1);
 }
-const INTEGRATION = process.env.NIVX_EDR_INTEGRATION_PREVIEW === "1";
-if (INTEGRATION && (process.env.VERCEL_ENV !== "preview" || SCOPE !== "edr" ||
+const EDR_INTEGRATION = process.env.NIVX_EDR_INTEGRATION_PREVIEW === "1";
+if (EDR_INTEGRATION && (process.env.VERCEL_ENV !== "preview" || SCOPE !== "edr" ||
     process.env.VERCEL_GIT_COMMIT_REF !== "validation/edr-preview-backend-2026-10-31" || CROSS_OK)) {
   console.error("Integration build requires the designated EDR preview branch, preview target and no cross-product origins.");
   process.exit(1);
 }
+if (!["0", "1"].includes(process.env.NIVX_XDR_INTEGRATION_PREVIEW || "0")) {
+  console.error("NIVX_XDR_INTEGRATION_PREVIEW must be 0 or 1.");
+  process.exit(1);
+}
+const XDR_INTEGRATION = process.env.NIVX_XDR_INTEGRATION_PREVIEW === "1";
+if (XDR_INTEGRATION && (EDR_INTEGRATION || process.env.VERCEL_ENV !== "preview" || SCOPE !== "xdr" ||
+    process.env.VERCEL_GIT_COMMIT_REF !== "validation/xdr-preview-backend-2026-10-31" || CROSS_OK)) {
+  console.error("XDR integration requires its designated preview branch, preview target and no cross-product origins.");
+  process.exit(1);
+}
+const INTEGRATION = EDR_INTEGRATION || XDR_INTEGRATION;
 const EXPECTED_API = INTEGRATION
   ? "https://greeting-app-5782.preview.emergentagent.com"
   : process.env.XDR_GUARD_EXPECTED_API || "https://nivxray.nivxforge.com";
