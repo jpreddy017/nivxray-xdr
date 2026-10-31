@@ -9237,3 +9237,30 @@ Also: banner extracted to `DeepLinkBanner.jsx` for mounted testing; `/app` `Traj
 - P2 · 2 `tests/edr/test_gate16_edr_independence.py` — WORKSPACE DRIFT: asserts test ids in `/app`'s `NivXForgeConsole.jsx` and `EdrTrajectoryResolver.jsx`, which are older than the release head (same drift as `TrajectoryPage.jsx` had). Fix = reconcile those two files with the release head.
 
 Unchanged blockers: production rollout HOLD; clean backend build payload; separate review of `server.py` `_arch`/`_pv` mounts, `transfer_bundle.py`, `edr_maintenance.py`; off-pod encrypted preservation; XDR/Workspace workflow certification.
+
+## 2026-10-31 · Review of Codex candidate `56a69f66` (PR #28) — migration harness bindings
+
+**Source identity verified.** Branch `repair/migration-test-binding-2026-10-31`, head `56a69f66c697cdb9f1eda171a1cabbaea1f3369b`, parent exactly `afb1304c`, ahead 1 / behind 0. One file, `backend/tests/edr/test_34h_a_migration_control.py` (+32 −8, blob `9c988dcb`). All 19 test bodies unchanged — diff touches only `sync` init and the three fixtures. `/app`'s copy equals the parent blob `fafdca1c`, so the baseline is exactly `afb1304c`.
+
+**Validation** (isolated scratch tree `/tmp/val`, never `/app`; local Mongo; no production). Same `-n 2 --dist loadscope` suites as the prior report:
+
+| Run | Result |
+|---|---|
+| baseline, file alone | 19 passed |
+| candidate, file alone | 19 passed |
+| baseline, combined | 14 failed (12 migration + 2 gate16) — reproduces the prior report |
+| candidate, combined | **3 failed** (1 migration + 2 gate16) |
+
+Failure **names** compared: zero new names; 11 of 12 migration failures fixed. (A first candidate combined run on an incomplete tree, missing `apps/` and `frontend/`, produced 11 spurious failures; discarded and re-run after rsyncing frontend source. Totals alone would have hidden this.)
+
+**Residual failure — exact repro, not fixed:** `test_report_mode_changes_nothing_and_names_the_exact_specs`, `At index 1 diff: 'pvw_sd_hostname_eventtime' != 'sd_canonical_hostname_eventtime'`. Reproduce standalone with `DB_NAME=test_database pytest "<that test>"`; passes with `DB_NAME=nivxray_ci_local`. Two pre-existing causes, both outside the candidate's scope:
+1. `tests/edr/test_p0_f7_live_api.py:17` and `tests/edr/test_contributor_contract_wiring.py:24` call `load_dotenv("/app/backend/.env", override=True)` **at import time**, flipping process `DB_NAME` to the preview `test_database` during collection (probe: combined → `test_database`, alone → `nivxray_ci_local`). Same class already fixed for `test_restore_equivalence_live.py`.
+2. Leftover `pvw_sd_*` indexes on `xdr_canonical_evidence` in the preview DB from `scripts/sd_preview_index_experiment.py` (reversible; `drop` never run). `migration_control._ensure_one` matches by KEY and reports the existing index NAME, so report mode truthfully returns `pvw_sd_hostname_eventtime`.
+
+**Ownership review:** closes only the client it creates; unbind inside `try` so startup failure still restores; assert failure still runs app shutdown then restore; `server.py` shutdown `client.close()` now closes only the app's own client because the candidate forces a fresh bind — under the old fixture a stale-but-open client meant shutdown could close another module's client. Reservations (non-blocking): the DB-name alignment assert is near-tautological and does not detect either real divergence; the fixture holds the global bindings for the whole module, safe only because `addopts` pins `--dist loadscope`.
+
+**Correction to the prior report:** the 12 were classified as cross-module *binding* only, asserting DB_NAME was constant. It is not — it flips at collection, so Codex's deferred-`sync` rationale is load-bearing, not merely defensive.
+
+**Verdict: ACCEPT** — correct, in-scope, regression-free, 11/12. Not full integration proof (one environment, one Mongo, one suite shape). Recommended separate bounded follow-ups: scope the two `override=True` imports, and/or run the preview index experiment's `drop`.
+
+Backlog unchanged: 2 gate16 frontend-drift failures (`NivXForgeConsole.jsx`, `EdrTrajectoryResolver.jsx` older than release head) remain separate; production rollout HOLD.
