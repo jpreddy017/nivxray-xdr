@@ -9217,3 +9217,23 @@ Carried through `production_service` (in-page resolution restricted to EXACT ide
 - P2 · `routers/edr.trajectory_focus` state mapping is covered by code review plus the service/resolver tests only; its own route tests fail on the pre-existing harness defect above, and no authenticated live call was made.
 - P1 · `/app` copy of `apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/TrajectoryPage.jsx` is OLDER than the branch head. Workspace original preserved at `_preservation/upstream/TrajectoryPage.local-original.jsx`; the committed blob was built from the branch copy via `_preservation/patch_trajectory_page.py`. The workspace frontend tree should be reconciled with the release head before further UI work.
 - Unchanged blockers: production rollout HOLD; clean backend build payload; separate review of `server.py` `_arch`/`_pv` mounts, `transfer_bundle.py`, `edr_maintenance.py`; off-pod encrypted preservation; XDR/Workspace workflow certification.
+
+## 2026-10-31 · EDR identity — follow-up 4: deep-link INTEGRATION repairs
+
+Commit **`afb1304cc2c5fdab63f25031db882e88c48b5b2d`** (parent `8927306c`). Only the reconciliation branch moved.
+
+Independent review of `8927306` found the resolver correct and three integration defects. All three fixed; no budget, timeout or architecture change.
+
+1. **NOT_FOUND was the fallback.** `deeplink.js` mapped `FOCUS_AUTHORITY_UNAVAILABLE` (which the route really emits on any resolver exception), the superseded `OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE`, unknown states and empty bodies to NOT_FOUND. Absence is now **default-deny**: reachable only from `OBSERVATION_NOT_RESOLVED` that declares itself complete, is unscoped, reports no unreadable store and carries no capped `state`/`cursor_state`.
+2. **Ambiguity offered dead buttons.** `trajectory_focus` forwarded candidates with the §d `event_id` only; `decode_iid("e3i1:0:YQ")` is None while the navigable form is `e3_ZTNpMTowOllR`. The route now returns both identities for candidates and partial matches (`_focus_candidates`); the UI navigates only by `event_iid` and disables a candidate without one.
+3. **"Narrow the search" narrowed nothing.** Genuine scoped lookup implemented: `time_start`/`time_end` on the route and `resolve_evidence`, only ever narrowing (tenant/endpoint asserted unchanged); unreadable or inverted bounds run **no** search; an exact versioned identity still resolves inside a scope; a scoped search may never report an absence and never resolves a legacy id off one match; ambiguity inside the window is still proven; `scope` is reported on every outcome. UI offers "Search this time range" / "Search all retained evidence" and states the window searched.
+
+Also: banner extracted to `DeepLinkBanner.jsx` for mounted testing; `/app` `TrajectoryPage.jsx` reconciled to the branch copy (original preserved at `_preservation/upstream/TrajectoryPage.local-original.jsx`); `tests/edr/conftest.py` gained a `bound_db` fixture (binds Motor on the current test loop, **restores** the prior binding — the proxies are process globals); the 17 G41 ID-contract failures fixed via `ids_of()` which decodes the exported identity **and** asserts it is well-formed in the versioned space (no invariant relaxed, no production code changed for them).
+
+**Results:** backend `tests/edr + edr_trajectory + edr_behavior` **14 failed / 2995 passed / 12 skipped** vs original baseline **36 failed / 2925 passed** — zero regressions, 22 pre-existing failures fixed. Frontend **315 passed / 17 files**, vite build clean.
+
+**Remaining 14, classified against the parent AND release `73e2bfea`, none introduced by this release, none fixed:**
+- P2 · 12 `tests/edr/test_34h_a_migration_control.py` — HARNESS · CROSS-MODULE DATABASE BINDING, **proven by isolation**: 19/19 pass alone, 12 fail combined. Imports nothing this release changed.
+- P2 · 2 `tests/edr/test_gate16_edr_independence.py` — WORKSPACE DRIFT: asserts test ids in `/app`'s `NivXForgeConsole.jsx` and `EdrTrajectoryResolver.jsx`, which are older than the release head (same drift as `TrajectoryPage.jsx` had). Fix = reconcile those two files with the release head.
+
+Unchanged blockers: production rollout HOLD; clean backend build payload; separate review of `server.py` `_arch`/`_pv` mounts, `transfer_bundle.py`, `edr_maintenance.py`; off-pod encrypted preservation; XDR/Workspace workflow certification.

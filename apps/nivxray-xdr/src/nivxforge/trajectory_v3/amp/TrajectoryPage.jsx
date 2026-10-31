@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
 import { AttackPanel } from "./AttackStrip";
+import { DeepLinkBanner } from "./DeepLinkBanner";
 import { hasTechnique } from "./attack";
 import { deepLinkFromError, deepLinkFromFocus, LOOKUP_AMBIGUOUS, LOOKUP_INCOMPLETE,
          selectedFor } from "./deeplink";
@@ -63,6 +64,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [loading, setLoading] = useState(false);
   const [readError, setReadError] = useState(null);
   const [olderError, setOlderError] = useState(null);
+  const olderRequest = useRef(null);
   const [retry, setRetry] = useState(0);
   const [details, setDetails] = useState(false);
   const [hover, setHover] = useState(null);
@@ -71,7 +73,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [approval, setApproval] = useState(null);
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
-  const [deepTry, setDeepTry] = useState(0);
+  const [focusRetry, setFocusRetry] = useState(0);
+  const [focusScope, setFocusScope] = useState(null);
   const [dbg, setDbg] = useState(false);
   const [legend, setLegend] = useState(false);
   const [netSum, setNetSum] = useState(false);
@@ -128,23 +131,28 @@ export default function TrajectoryPage({ device, onLegacy }) {
       .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
-    return () => { req.current += 1; ac.abort(); };
+    return () => { req.current += 1; ac.abort(); olderRequest.current?.abort(); olderRequest.current = null; };
   }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
-    if (loading || !older.cursor) return;
+    if (loading || olderRequest.current || !older.cursor) return;
     const id = req.current;
+    const ac = new AbortController();
+    olderRequest.current = ac;
     setLoading(true);
     setOlderError(null);
     try {
-      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
+      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario }, signal: ac.signal });
       if (id !== req.current) return;
       const r = d?.v3 || d;
       if (!r || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(r.state || ""))) throw new Error("Trajectory evidence contract unavailable");
+      if (r.e3_preview?.older_cursor === older.cursor) throw new Error("Trajectory cursor did not advance");
       setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
-    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (id === req.current) setLoading(false); }
+    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (olderRequest.current === ac) olderRequest.current = null; if (id === req.current) setLoading(false); }
   };
+  // Demand comes from a user gesture, never a render/resize or an automatic retry loop.
+  const requestOlder = () => { if (!olderError) void loadOlder(); };
 
   const os = String(data?.computer?.platform || JSON.stringify(data?.computer?.operating_system || "")).toLowerCase();
   const platform = /mac/.test(os) ? "macos" : /linux|ubuntu|debian|rhel/.test(os) ? "linux" : "windows";
@@ -193,16 +201,23 @@ export default function TrajectoryPage({ device, onLegacy }) {
       if (deep?.id !== wanted || deep.state !== "FOCUSED") { setDeep({ state: "FOCUSED", id: wanted }); setDetails(true); returnTo.current = true; }
       return;
     }
-    if (deep?.id === wanted && deepTry === deep.try) return;
-    setDeep({ state: "LOCATING", id: wanted, try: deepTry });
-    api.get(`${url}/focus`, { params: { event_iid: wanted } }).then(({ data: f }) => {
-      // A lookup that did not COMPLETE is never rendered as "not found", and no row is
-      // selected in its place. The three outcomes stay distinct all the way to the analyst.
-      const d = deepLinkFromFocus(f, { id: wanted, attempt: deepTry });
+    if (deep?.id === wanted && deep.scope === url && deep.state !== "LOCATING") return;
+    const ac = new AbortController(); let active = true;
+    setDeep({ state: "LOCATING", id: wanted, scope: url });
+    // A SCOPED lookup is the supported narrowing action. The bounds only ever narrow the
+    // search: tenant and endpoint are fixed server-side, and the server reports the scope back
+    // so a window-complete search is never presented as a search of retained history.
+    const params = { event_iid: wanted, ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
+    api.get(`${url}/focus`, { params, signal: ac.signal }).then(({ data: f }) => {
+      if (!active) return;
+      // An UNFINISHED lookup keeps its own state: it is never rendered as "not found", and no
+      // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
+      const d = deepLinkFromFocus(f, { id: wanted, scope: url, attempt: focusRetry });
       setDeep(d);
       if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1 }, true);
-    }).catch(() => setDeep(deepLinkFromError(wanted, { attempt: deepTry })));
-  }, [data, wanted, model, deepTry]); // eslint-disable-line
+    }).catch(() => { if (active) setDeep(deepLinkFromError(wanted, { scope: url, attempt: focusRetry })); });
+    return () => { active = false; ac.abort(); };
+  }, [data, wanted, model, url, focusRetry, focusScope]); // eslint-disable-line
 
   // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
@@ -212,7 +227,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
       try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } });
         if (f?.state === LOOKUP_INCOMPLETE || f?.state === LOOKUP_AMBIGUOUS) {
           setLoading(false);
-          setDeep(deepLinkFromFocus(f, { id: d.observation_id, attempt: deepTry }));
+          setDeep(deepLinkFromFocus(f, { id: d.observation_id, scope: url, attempt: focusRetry }));
           return;
         }
         id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
@@ -306,44 +321,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
-        {deep && !["FOCUSED"].includes(deep.state) && (
-          ["INCOMPLETE", "AMBIGUOUS"].includes(deep.state) ? (
-            <div role="status" data-testid="v3-deeplink-state" data-deeplink-state={deep.state}
-              style={{ fontSize: 13, color: C.text, marginBottom: 8, padding: "8px 12px", border: `1px solid ${C.amber}`, borderRadius: 8 }}>
-              <strong data-testid="v3-deeplink-headline">
-                {deep.state === "AMBIGUOUS" ? "Identifier is ambiguous" : "Lookup incomplete"}
-              </strong>
-              <div data-testid="v3-deeplink-note" style={{ color: C.muted, marginTop: 4 }}>
-                {deep.state === "AMBIGUOUS"
-                  ? (deep.note || `Observation ${deep.id} was exported by an older build and names more than one observation. Choose the intended one — nothing is selected automatically.`)
-                  : (deep.note || `The search for observation ${deep.id} did not finish, so it is neither found nor shown to be absent. Nothing is selected in its place.`)}
-                {deep.searched ? ` (${deep.searched} observations compared)` : ""}
-              </div>
-              {deep.state === "AMBIGUOUS" && deep.candidates?.length > 0 && (
-                <ul data-testid="v3-deeplink-candidates" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                  {deep.candidates.map((c) => (
-                    <li key={c.event_id}>
-                      <button className="v3-link" data-testid={`v3-deeplink-candidate-${c.event_id}`} style={{ fontSize: 13 }}
-                        onClick={() => { setDeep(null); upd({ event: c.event_iid || c.event_id }); }}>{c.event_id}</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
-                {deep.retryable !== false && (
-                  <button className="v3-btn" data-testid="v3-deeplink-retry" onClick={() => setDeepTry((n) => n + 1)}>Retry lookup</button>
-                )}
-                <button className="v3-btn" data-testid="v3-deeplink-narrow" onClick={() => { setDeep(null); upd({ event: null }); say("Deep link cleared. Narrow the time range, then open the link again to search a smaller span."); }}>
-                  Narrow the search
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div data-testid="v3-deeplink-state" data-deeplink-state={deep.state} style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-              {deep.state === "NOT_FOUND" ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`)
-                : deep.state === "OUTSIDE_PAGE" ? "Observation located in retained evidence. Its time range is selected; load older events if it is outside the loaded page."
-                : `Locating observation ${deep.id} in history…`}</div>
-          ))}
+        <DeepLinkBanner deep={deep} olderCursor={older.cursor} loading={loading} scopedNow={!!focusScope}
+          onRetry={() => { setDeep(null); setFocusRetry((v) => v + 1); }}
+          onNarrow={() => { setDeep(null); setFocusScope({ t0, t1 }); setFocusRetry((v) => v + 1); }}
+          onWiden={() => { setDeep(null); setFocusScope(null); setFocusRetry((v) => v + 1); }}
+          onCandidate={(c) => { setDeep(null); setFocusScope(null); upd({ event: c.event_iid }); }}
+          onLoadOlder={loadOlder} />
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
@@ -369,14 +352,15 @@ export default function TrajectoryPage({ device, onLegacy }) {
           </div>
           <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
-              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW}
+              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW} onOlder={requestOlder}
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
                 hits={hits} height={gridH} onContext={(e, it) => { setHover(null); setMenu({ x: e.clientX, y: e.clientY, it }); }}
                 onRowClick={(r) => { if (r.type === "Network") { setNetSum(true); setDetails(false); } }} />
               {q && !shown.length && !loading && <div data-testid="v3-search-empty" style={{ position: "absolute", inset: `${78}px 0 0 0`, display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
                 <Search size={28} color="currentColor" style={{ color: C.muted }} />
-                <div>No events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                <div>No loaded events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                {older.cursor && <button className="v3-link" onClick={loadOlder}>Load older events to search more evidence</button>}
                 <div style={{ color: C.muted, fontSize: 12.5 }}>Search matches SHA-256, filename, process, command line, IP, domain, user, detection name and ATT&amp;CK ID. Try a wider time range.</div>
                 <div style={{ display: "flex", gap: 14 }}>
                   <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
@@ -391,14 +375,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
               onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }} />
             <div data-testid="v3-activity-panel" style={{ background: C.panel, minWidth: 0, overflow: "hidden" }}>
               <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{netSum ? "Network" : details && sel ? "Activity Details" : "Activity"}</div>
-              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
+              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onOlder={requestOlder} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
               {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
               {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
                 model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</>}</span>
+            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
             {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
             <span style={{ flex: 1 }} />

@@ -30,6 +30,8 @@ from edr_plane import temporal_authority as ta  # noqa: E402
 from edr_plane.canonical_index_contract import \
     TARGET_TEMPORAL_INDEXES  # noqa: E402
 from edr_trajectory import production_adapter as pa  # noqa: E402
+from edr_trajectory.identity import \
+    decode_identity  # noqa: E402
 
 TENANT = "ten_g41"
 EP = "ep_g41endpoint"
@@ -38,6 +40,25 @@ CANON = pa.STORE_CANONICAL
 #: the exact production values from the confirmed 2026-09-27 inversion
 PROD_LATE_SPACE = "2026-09-27 23:55:38.144"
 PROD_EARLY_Z = "2026-09-27T00:06:30.7557375Z"
+
+
+def ids_of(items):
+    """Exported evidence identities, decoded back to the identifier the WRITER stamped.
+
+    OBSOLETE_CONTRACT CORRECTION (2026-10-31). `event_id` is now the versioned identity
+    encoding `e3i1:<rank>:<base64url>`, applied to every exported identity so the id cannot
+    depend on page composition. These suites assert ORDERING, LOSS and ISOLATION on the
+    identifiers they wrote, so the exported id is decoded back to the writer's own value here.
+
+    This does not weaken the checks: every id must ALSO be well-formed in the versioned space,
+    which the old bare-string comparison never verified.
+    """
+    out = []
+    for i in items:
+        key = decode_identity(i["event_id"])
+        assert key is not None, f"not a versioned evidence identity: {i['event_id']!r}"
+        out.append(key[1])
+    return out
 
 
 def row(event_time, eid, *, tenant=TENANT, endpoint=EP):
@@ -80,7 +101,7 @@ async def drain(scoped, size):
     ids, pages, cursor = [], [], None
     for _ in range(40):
         p = await page(scoped, page_size=size, cursor=cursor)
-        got = [i["event_id"] for i in p["items"]]
+        got = ids_of(p["items"])
         pages.append(got)
         ids += got
         cursor = p["next_cursor"]
@@ -203,7 +224,7 @@ async def test_the_confirmed_production_inversion_orders_correctly(db):
     await coll.insert_many([row(PROD_EARLY_Z, "early"),
                             row(PROD_LATE_SPACE, "late")])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["late", "early"], \
+    assert ids_of(p["items"]) == ["late", "early"], \
         "newest-first must put 23:55 before 00:06"
 
 
@@ -215,7 +236,7 @@ async def test_the_confirmed_production_inversion_returns_the_actual_newest_n(db
     await coll.insert_many([row(PROD_EARLY_Z, "early"),
                             row(PROD_LATE_SPACE, "late")])
     p = await page(scoped, page_size=1)
-    assert [i["event_id"] for i in p["items"]] == ["late"]
+    assert ids_of(p["items"]) == ["late"]
     assert p["has_more"] is True
 
 
@@ -273,7 +294,7 @@ async def test_the_window_includes_a_space_format_row_inside_the_range(db):
                             row("2026-09-26T10:00:00Z", "before")])
     p = await page(scoped, page_size=10, time_start="2026-09-27T00:00:00Z",
                    time_end="2026-09-28T00:00:00Z")
-    got = {i["event_id"] for i in p["items"]}
+    got = set(ids_of(p["items"]))
     assert got == {"late", "early"}, got
     assert p["window"]["applied"] is True
 
@@ -284,7 +305,7 @@ async def test_a_row_with_no_comparable_time_is_unplaceable_not_misplaced(db):
     await coll.insert_many([row(PROD_LATE_SPACE, "ok"),
                             row("not a time", "broken")])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["ok"]
+    assert ids_of(p["items"]) == ["ok"]
     # G-41 RETIREMENT · `stamp()` fails closed on an unparseable stored time, so
     # this row carries no comparable value and the comparable read excludes it
     # AT THE DATABASE. It is therefore no longer fetched-then-counted — but the
@@ -294,7 +315,7 @@ async def test_a_row_with_no_comparable_time_is_unplaceable_not_misplaced(db):
     assert p["temporal_health"]["assessed"] is True
     assert p["temporal_health"]["unstamped_evidence_present"] is True
     assert p["temporal_health"]["state"] == pa.TEMPORAL_UNSTAMPED
-    assert all(i["event_id"] != "broken" for i in p["items"])
+    assert "broken" not in ids_of(p["items"])
 
 
 @pytest.mark.asyncio
@@ -303,7 +324,7 @@ async def test_tenant_isolation(db):
     await coll.insert_many([row(PROD_LATE_SPACE, "mine"),
                             row(PROD_LATE_SPACE, "theirs", tenant="ten_other")])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["mine"]
+    assert ids_of(p["items"]) == ["mine"]
 
 
 @pytest.mark.asyncio
@@ -312,7 +333,7 @@ async def test_endpoint_isolation(db):
     await coll.insert_many([row(PROD_LATE_SPACE, "mine"),
                             row(PROD_LATE_SPACE, "other", endpoint="ep_elsewhere")])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["mine"]
+    assert ids_of(p["items"]) == ["mine"]
 
 
 # ── Behavior consumes the same corrected path ────────────────────────────

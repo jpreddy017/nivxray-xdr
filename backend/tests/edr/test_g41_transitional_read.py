@@ -32,11 +32,31 @@ if _ROOT not in sys.path:
 
 from edr_plane import temporal_authority as ta  # noqa: E402
 from edr_trajectory import production_adapter as pa  # noqa: E402
+from edr_trajectory.identity import decode_identity
 
 TENANT = "ten_g41t"
 EP = "ep_g41transition"
 CANON = pa.STORE_CANONICAL
 SHADOW = pa.STORE_SHADOW
+
+
+def ids_of(items):
+    """Exported evidence identities, decoded back to the identifier the WRITER stamped.
+
+    OBSOLETE_CONTRACT CORRECTION (2026-10-31). `event_id` is now the versioned identity
+    encoding `e3i1:<rank>:<base64url>`, applied to every exported identity so the id cannot
+    depend on page composition. These suites assert ORDERING, LOSS and ISOLATION on the
+    identifiers they wrote, so the exported id is decoded back to the writer's own value here.
+
+    This does not weaken the checks: every id must ALSO be well-formed in the versioned space,
+    which the old bare-string comparison never verified.
+    """
+    out = []
+    for i in items:
+        key = decode_identity(i["event_id"])
+        assert key is not None, f"not a versioned evidence identity: {i['event_id']!r}"
+        out.append(key[1])
+    return out
 
 
 def base(event_time, eid):
@@ -99,7 +119,7 @@ async def drain(scoped, size, stores=(CANON,)):
     ids, cursor = [], None
     for _ in range(40):
         p = await page(scoped, stores=stores, page_size=size, cursor=cursor)
-        ids += [i["event_id"] for i in p["items"]]
+        ids += ids_of(p["items"])
         cursor = p["next_cursor"]
         if not cursor:
             break
@@ -128,7 +148,7 @@ async def test_unstamped_evidence_cannot_displace_stamped_evidence(db):
         unstamped("2026-09-27 01:00:00.000", "old_01"),
     ])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["new_04", "new_02"]
+    assert ids_of(p["items"]) == ["new_04", "new_02"]
 
 
 # ── 2 · the unplaceable condition is never represented as clean ────────────
@@ -145,7 +165,7 @@ async def test_unstamped_evidence_is_reported_not_silently_dropped(db):
     assert th["state"] == pa.TEMPORAL_UNSTAMPED
     # the row is NOT in items and NOT in the unplaceable counter, so this flag
     # is the only honest signal that it exists
-    assert [i["event_id"] for i in p["items"]] == ["new_04"]
+    assert ids_of(p["items"]) == ["new_04"]
     assert th["state"] != pa.TEMPORAL_HEALTHY
 
 
@@ -159,7 +179,7 @@ async def test_a_clean_verdict_is_a_measured_verdict(db):
     assert th["assessed"] is True
     assert th["unstamped_evidence_present"] is False
     assert th["state"] == pa.TEMPORAL_HEALTHY
-    assert [i["event_id"] for i in p["items"]] == ["b", "a"]
+    assert ids_of(p["items"]) == ["b", "a"]
 
 
 @pytest.mark.asyncio
@@ -238,7 +258,7 @@ async def test_migrated_historical_evidence_is_still_visible_in_order(db):
     await coll.insert_many([stamped("2026-09-27 23:55:38.144", "late_space"),
                             stamped("2026-09-27T00:06:30.755Z", "early_z")])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["late_space", "early_z"]
+    assert ids_of(p["items"]) == ["late_space", "early_z"]
     assert p["temporal_health"]["unstamped_evidence_present"] is False
 
 
@@ -267,7 +287,7 @@ async def test_the_window_still_applies_to_migrated_evidence(db):
                             stamped("2026-09-25 12:00:00.000", "outside")])
     p = await page(scoped, page_size=10, time_start="2026-09-27T00:00:00Z",
                    time_end="2026-09-28T00:00:00Z")
-    assert [i["event_id"] for i in p["items"]] == ["inside"]
+    assert ids_of(p["items"]) == ["inside"]
 
 
 @pytest.mark.asyncio
@@ -277,7 +297,7 @@ async def test_tenant_isolation_holds(db):
     other["tenant_id"] = "ten_other"
     await coll.insert_many([stamped("2026-09-27T10:00:00Z", "mine"), other])
     p = await page(scoped, page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["mine"]
+    assert ids_of(p["items"]) == ["mine"]
 
 
 # ── 5 · the shadow store is UNCHANGED by this retirement ──────────────────
@@ -299,7 +319,7 @@ async def test_shadow_paging_still_carries_its_raw_string_resume_bound(db):
     await sh.insert_many([shadow(f"2026-09-27T{h:02d}:00:00Z", f"sh{h}")
                           for h in range(5)])
     p = await page(scoped, stores=(SHADOW,), page_size=2)
-    assert [i["event_id"] for i in p["items"]] == ["sh4", "sh3"]
+    assert ids_of(p["items"]) == ["sh4", "sh3"]
     assert p["next_cursor"]
     assert SHADOW in pa._decode(p["next_cursor"])["b"]
     # no comparable store was read, so no temporal claim is made about one
@@ -312,5 +332,5 @@ async def test_shadow_evidence_is_not_excluded_by_the_canonical_retirement(db):
     await coll.insert_many([stamped("2026-09-27T05:00:00Z", "canon_05")])
     await sh.insert_many([shadow("2026-09-27T06:00:00Z", "shadow_06")])
     p = await page(scoped, stores=(SHADOW, CANON), page_size=10)
-    assert [i["event_id"] for i in p["items"]] == ["shadow_06", "canon_05"]
+    assert ids_of(p["items"]) == ["shadow_06", "canon_05"]
     assert p["provenance"]["rows_per_store"] == {SHADOW: 1, CANON: 1}

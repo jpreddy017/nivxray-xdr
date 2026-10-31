@@ -12,6 +12,7 @@ import uuid
 
 import pytest
 
+
 import routers.edr as edr
 
 PAGE = 4000
@@ -35,6 +36,12 @@ TARGET_RAW = "raw_beyond_the_first_page"
 #: TEST CHANGED: yes. Production authorisation logic UNCHANGED — granting
 #: a default tenant to make this pass would be a security regression.
 TENANT = "ten_f135_handoff_test"
+
+
+@pytest.fixture(autouse=True)
+def _bound_db(bound_db):
+    """Every test in this module needs `deps.db` bound to its own loop (see tests/edr/conftest)."""
+    return bound_db
 
 
 def _obs(i: int, raw_id: str) -> dict:

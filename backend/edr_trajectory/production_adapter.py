@@ -622,6 +622,8 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                            event_id: str | None = None,
                            match: Any = None,
                            max_pages: int = FOCUS_PAGE_BUDGET,
+                           time_start: str | None = None,
+                           time_end: str | None = None,
                            stores: tuple[str, ...] = STORES) -> dict[str, Any]:
     """Deep link: one evidence identity → its exact observation, or an explicit miss.
 
@@ -633,12 +635,46 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
     e.g. a store's own `observation_id` carried in `provenance.ref`. It walks the SAME ordered
     pages through the SAME tenant- and endpoint-scoped adapter, so an alternative identifier can
     never widen the authorized scope or reach a row the identity path could not reach.
+
+    `time_start`/`time_end` SCOPE the search. They only ever NARROW it — the tenant and endpoint
+    bounds are unchanged — and the scope is reported on every outcome, because a search that
+    completed WITHIN A WINDOW has not searched retained history. An EXACT identity found inside
+    a scope still resolves (the versioned encoding names one identity group), but a scoped search
+    may never report an absence and may never resolve a non-unique LEGACY id off a single match.
     """
     tenant = require_tenant(tenant_id)
     refs = [str(r) for r in (refs or []) if r]
     if not refs or not (event_id or match):
         return {"state": "FOCUS_NOT_RESOLVED", "reason": "ENDPOINT_OR_EVENT_IDENTITY_MISSING",
                 "event_id": event_id, "event": None}
+    # A SCOPE THAT CANNOT BE READ IS NOT A SCOPE. An unparseable bound would otherwise be
+    # dropped and the caller would be told a narrowed search ran when it did not.
+    bad = [n for n, v in (("time_start", time_start), ("time_end", time_end))
+           if v is not None and observation_us(v) is None]
+    if bad:
+        return {"state": FOCUS_SEARCH_INCOMPLETE, "reason": "SEARCH_SCOPE_NOT_UNDERSTOOD",
+                "event_id": event_id, "event": None,
+                "scope": {"time_start": time_start, "time_end": time_end,
+                          "applied": False, "rejected_bounds": bad},
+                "retry": {"retryable": True,
+                          "narrow_by": ["an ISO-8601 time_start/time_end"]},
+                "meaning": ("the requested search scope could not be read, so no search was "
+                            "run. Nothing is claimed about the identifier.")}
+    lo, hi = observation_us(time_start) if time_start else None, \
+        observation_us(time_end) if time_end else None
+    if lo is not None and hi is not None and lo > hi:
+        return {"state": FOCUS_SEARCH_INCOMPLETE, "reason": "SEARCH_SCOPE_IS_EMPTY",
+                "event_id": event_id, "event": None,
+                "scope": {"time_start": time_start, "time_end": time_end, "applied": False},
+                "retry": {"retryable": True, "narrow_by": ["a time_start before time_end"]},
+                "meaning": "time_start is after time_end, so no search was run."}
+    scoped = time_start is not None or time_end is not None
+    scope = {"time_start": time_start, "time_end": time_end, "applied": scoped,
+             "basis": ("the search was bounded to this window. A COMPLETE search within a "
+                       "window is not a search of retained history, so a scoped search never "
+                       "reports an absence and never resolves a legacy id off one match."
+                       if scoped else
+                       "unscoped: the search walks newest-first from the newest observation.")}
     # Exact identity (the versioned encoding, or any alias the group publishes) is unique, so it
     # can resolve on first sight. A LEGACY bare id is not unique - the same text can exist in two
     # namespaces - so those matches are accumulated across the walk and a multi-match is reported
@@ -670,6 +706,7 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                 "stores_requested": list(stores),
                 "stores_unavailable": sorted(unreadable),
                 "store_read_errors": dict(sorted(unreadable.items())),
+                "scope": scope,
                 "continuation_available": bool(resume),
                 "resume_cursor": resume}
 
@@ -678,19 +715,23 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
         # established an absence either, so it may not borrow the vocabulary of either outcome.
         return {"state": FOCUS_SEARCH_INCOMPLETE, "reason": reason,
                 "event_id": requested, "event": None, "scanned": scanned,
+                "scope": scope,
                 "partial_matches": [{"event_id": h["event_id"],
                                      "identity_keys": h.get("identity_keys")}
                                     for h in legacy_hits],
                 "search": _search(state, resume=resume),
                 "retry": {"retryable": True,
-                          "narrow_by": ["time_start/time_end on the trajectory read",
-                                        "the versioned event_id instead of the legacy id"],
+                          "narrow_by": ["a narrower time_start/time_end on the lookup"]
+                                       + ([] if versioned else
+                                          ["the versioned event_id instead of the legacy id"]),
                           "resume_cursor": resume},
                 "meaning": meaning}
 
     while True:
         page = await page_device_evidence(db, tenant_id=tenant, refs=refs,
-                                          page_size=PAGE_MAX, cursor=cursor, stores=stores)
+                                          page_size=PAGE_MAX, cursor=cursor,
+                                          time_start=time_start, time_end=time_end,
+                                          stores=stores)
         pages += 1
         prov = page.get("provenance") or {}
         for s, err in (prov.get("store_read_errors") or {}).items():
@@ -708,6 +749,7 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                         "position": {"scanned_newer_first": scanned,
                                      "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
                         "search": _search("MATCH_FOUND_SEARCH_STOPPED"),
+                        "scope": scope,
                         "provenance": page["provenance"]}
             if match is None and _legacy(ev) and not any(
                     h["event_id"] == ev["event_id"] for h in legacy_hits):
@@ -722,6 +764,7 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                                             "identity_keys": h.get("identity_keys")}
                                            for h in legacy_hits],
                             "search": _search("AMBIGUITY_PROVEN_SEARCH_STOPPED"),
+                            "scope": scope,
                             "retry": {"retryable": False,
                                       "narrow_by": ["the versioned event_id of the intended row"]},
                             "meaning": ("this identifier was exported by an older build and is "
@@ -760,6 +803,16 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                             "searched range, so it is not resolved."
                             if legacy_hits else "")))
         if len(legacy_hits) == 1:
+            if scoped:
+                # A scoped walk saw every row IN THE WINDOW. A second row carrying the same
+                # legacy text can still sit outside it, so uniqueness is NOT established.
+                return _incomplete(
+                    "SCOPED_SEARCH_CANNOT_PROVE_A_LEGACY_IDENTITY_UNIQUE",
+                    "SCOPED_SEARCH_COMPLETED_WITHIN_WINDOW", resume=None,
+                    meaning=("exactly one match was found inside the requested window and the "
+                             "window was searched completely, but a legacy identifier is not "
+                             "unique and a second match can exist outside the window. Use the "
+                             "versioned event_id to resolve it."))
             ev = legacy_hits[0]
             return {"state": "FOCUS_RESOLVED", "event_id": ev["event_id"], "event": ev,
                     "observed_at": ev.get("observed_at"),
@@ -770,7 +823,17 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                     "uniqueness_basis": ("every retained observation for this endpoint was "
                                          "compared and exactly one carries this legacy id"),
                     "provenance": page["provenance"]}
+        if scoped:
+            # The window held no match. That is a statement about the WINDOW, never about the
+            # endpoint, so it must not be returned as an absence.
+            return _incomplete(
+                "SCOPED_SEARCH_FOUND_NOTHING_IN_THE_REQUESTED_WINDOW",
+                "SCOPED_SEARCH_COMPLETED_WITHIN_WINDOW", resume=None,
+                meaning=("the requested window was searched completely and holds no observation "
+                         "carrying this identifier. Retained evidence outside the window was "
+                         "not searched, so this is not an absence."))
         return {"state": "FOCUS_NOT_RESOLVED",
                 "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
                 "event_id": requested, "event": None, "scanned": scanned,
+                "scope": scope,
                 "search": _search("EXHAUSTED_SEARCH_COMPLETED")}
