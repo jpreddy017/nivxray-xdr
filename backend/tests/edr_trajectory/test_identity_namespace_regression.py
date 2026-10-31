@@ -8,7 +8,7 @@ without ever matching — the later row silently overwrote the earlier one, `sup
 import pytest
 
 from edr_trajectory.identity import (RANK_ACTIVITY_IDENTITY, RANK_CANONICAL_EVENT_ID,
-                                     RANK_CONTENT, dedupe, export_id)
+                                     RANK_CONTENT, dedupe, encode_identity)
 
 
 def row(marker, keys, tenant="t", event_id="same"):
@@ -41,13 +41,19 @@ def test_exported_event_ids_are_unique_so_paging_cannot_collide():
     out, _ = dedupe([dict(A), dict(B)])
     ids = [e["event_id"] for e in out]
     assert len(set(ids)) == len(ids), "two groups must never export the same event_id"
-    assert set(ids) == {export_id((RANK_ACTIVITY_IDENTITY, "same")),
-                        export_id((RANK_CANONICAL_EVENT_ID, "same"))}
+    assert set(ids) == {encode_identity((RANK_ACTIVITY_IDENTITY, "same")),
+                        encode_identity((RANK_CANONICAL_EVENT_ID, "same"))}
 
 
-def test_uncontended_identity_keeps_its_bare_value():
+def test_uncontended_identity_is_still_encoded_but_keeps_a_legacy_alias():
+    """Encoding is unconditional, so the exported id cannot depend on page composition.
+
+    The bare value an older build would have exported is retained as a legacy alias so existing
+    deep links still resolve.
+    """
     out, _ = dedupe([row("only", [(RANK_ACTIVITY_IDENTITY, "act_1")])])
-    assert out[0]["event_id"] == "act_1", "qualification applies only on collision"
+    assert out[0]["event_id"] == encode_identity((RANK_ACTIVITY_IDENTITY, "act_1"))
+    assert out[0]["legacy_event_ids"] == ["act_1"]
 
 
 # ── genuine merges must still happen ──────────────────────────────────────────────────────
@@ -65,7 +71,9 @@ def test_transitive_bridge_merges_three_rows_into_one():
     assert len(out) == 1, "a shared bridging identity must unify the chain"
     assert out[0]["identity_keys"] == [(RANK_ACTIVITY_IDENTITY, "k1"),
                                        (RANK_CANONICAL_EVENT_ID, "k2")]
-    assert out[0]["event_id"] == "k1", "rendered under the highest-ranked identity"
+    assert out[0]["event_id"] == encode_identity((RANK_ACTIVITY_IDENTITY, "k1")), \
+        "rendered under the highest-ranked identity"
+    assert sorted(out[0]["legacy_event_ids"]) == ["k1", "k2"]
     assert suppressed == 2
 
 
@@ -76,7 +84,7 @@ def test_transitive_bridge_is_order_independent(order):
             row("c", [(RANK_CANONICAL_EVENT_ID, "k2")])]
     out, suppressed = dedupe([dict(rows[i]) for i in order])
     assert len(out) == 1 and suppressed == 2
-    assert out[0]["event_id"] == "k1"
+    assert out[0]["event_id"] == encode_identity((RANK_ACTIVITY_IDENTITY, "k1"))
 
 
 # ── tenant separation ─────────────────────────────────────────────────────────────────────
@@ -112,4 +120,5 @@ def test_content_fallback_used_only_when_no_identity_is_stated():
     out, _ = dedupe([{"tenant_id": "t", "event_id": "ce_abc", "identity_keys": [],
                       "marker": "m", "sources": []}])
     assert out[0]["identity_keys"] == [(RANK_CONTENT, "ce_abc")]
-    assert out[0]["event_id"] == "ce_abc"
+    assert out[0]["event_id"] == encode_identity((RANK_CONTENT, "ce_abc"))
+    assert out[0]["legacy_event_ids"] == ["ce_abc"]

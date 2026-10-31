@@ -23,7 +23,7 @@ from edr_plane import temporal_authority as ta
 from edr_trajectory import production_adapter as pa
 from edr_trajectory import production_service as ps
 from edr_trajectory import v3_presentation as v3
-from edr_trajectory.identity import dedupe
+from edr_trajectory.identity import dedupe, decode_identity, encode_identity
 from edr_trajectory.providers import finalize, from_canonical, from_shadow
 
 from test_sd_production_adapter import DEV, T, FakeDB
@@ -111,7 +111,7 @@ def test_the_canonical_event_id_is_what_matches_the_two_stores():
 def test_the_stated_activity_identity_is_the_surviving_id():
     """Behavior evidence and deep links already hold `act_…`; merging must not move it."""
     merged, _ = dedupe(list(pair("cev_c_0", act="act_c")))
-    assert merged[0]["event_id"] == "act_c"
+    assert merged[0]["event_id"] == encode_identity((0, "act_c"))
     assert merged[0]["identity_keys"] == [(0, "act_c"), (1, "cev_c_0")]
 
 
@@ -119,7 +119,7 @@ def test_merging_is_order_independent():
     s, c = pair("cev_d_0", act="act_d")
     a, _ = dedupe([s, c])
     b, _ = dedupe([c, s])
-    assert a[0]["event_id"] == b[0]["event_id"] == "act_d"
+    assert a[0]["event_id"] == b[0]["event_id"] == encode_identity((0, "act_d"))
 
 
 def test_both_evidence_references_survive_the_merge():
@@ -139,7 +139,8 @@ def test_two_real_logons_by_the_same_account_in_the_same_instant_stay_two_rows()
                 canonical=[cn("cev_f1_0"), cn("cev_f2_0")])
     out = rows(db, page_size=50)
     assert len(out["items"]) == 2
-    assert {e["event_id"] for e in out["items"]} == {"act_f1", "act_f2"}
+    assert {e["event_id"] for e in out["items"]} == {encode_identity((0, "act_f1")),
+                                                 encode_identity((0, "act_f2"))}
 
 
 def test_pid_reuse_does_not_merge_two_activities():
@@ -183,6 +184,7 @@ def test_a_row_with_no_stated_identity_falls_back_to_content_identity():
     s = finalize(from_shadow({"tenant_id": T, "collector_id": EP, "observation_id": "o3",
                               "event": {"ts": TS, "kind": "logon_success", "device_iid": IID}}))
     assert s["identity_keys"] == []
+    # pre-export shape: encoding is applied at dedupe/export, not at provider level
     assert s["event_id"].startswith("ce_")
 
 
@@ -195,7 +197,8 @@ def test_a_shadow_row_without_an_activity_identity_still_matches_its_canonical_t
     """The real G4 shape in reverse: identity stated on one side only."""
     out = rows(FakeDB(shadow=[sh("cev_j_0")], canonical=[cn("cev_j_0", act="act_j")]))
     assert len(out["items"]) == 1
-    assert out["items"][0]["event_id"] == "act_j", "the stated activity identity still wins"
+    assert out["items"][0]["event_id"] == encode_identity((0, "act_j")), \
+        "the stated activity identity still wins"
 
 
 def test_a_malformed_identity_never_merges_unrelated_activities():
@@ -210,7 +213,7 @@ def test_a_malformed_identity_never_merges_unrelated_activities():
 def test_a_canonical_only_activity_is_not_lost():
     out = rows(FakeDB(shadow=[sh("cev_l_0", act="act_l")], canonical=[cn("cev_l_0"), cn("cev_m_0")]))
     assert len(out["items"]) == 2
-    only = [e for e in out["items"] if e["event_id"] == "cev_m_0"][0]
+    only = [e for e in out["items"] if "cev_m_0" in (e.get("legacy_event_ids") or [])][0]
     assert only["sources"] == [pa.STORE_CANONICAL]
 
 
@@ -218,7 +221,7 @@ def test_a_shadow_only_activity_is_not_lost():
     out = rows(FakeDB(shadow=[sh("cev_n_0", act="act_n"), sh("cev_o_0", act="act_o")],
                       canonical=[cn("cev_n_0")]))
     assert len(out["items"]) == 2
-    only = [e for e in out["items"] if e["event_id"] == "act_o"][0]
+    only = [e for e in out["items"] if "act_o" in (e.get("legacy_event_ids") or [])][0]
     assert only["sources"] == [pa.STORE_SHADOW]
 
 
@@ -263,7 +266,7 @@ def test_paging_is_duplicate_free_and_loss_free_after_merging():
         if not cursor:
             break
     assert len(seen) == 10 == len(set(seen))
-    assert seen == sorted(seen, key=lambda i: int(i.split("_")[1][1:]), reverse=True), \
+    assert seen == sorted(seen, key=lambda i: int(decode_identity(i)[1].split("_")[1][1:]), reverse=True), \
         "newest-first order survives the merge"
 
 
@@ -272,14 +275,14 @@ def test_the_merged_row_keeps_one_stable_presentation_identity():
     first = v3.build(e3(db), computer={"hostname": EP}, identity={"tenant_id": T})["events"][0]
     second = v3.build(e3(db), computer={"hostname": EP}, identity={"tenant_id": T})["events"][0]
     assert first["event_iid"] == second["event_iid"], "a deep link must not move between reads"
-    assert v3.decode_iid(first["event_iid"]) == "act_v"
+    assert v3.decode_iid(first["event_iid"]) == encode_identity((0, "act_v"))
 
 
 def test_the_merged_row_resolves_to_one_consistent_activity_detail():
     db = FakeDB(shadow=[sh("cev_w_0", act="act_w")], canonical=[cn("cev_w_0")])
     ev = e3(db)["page"]["items"][0]
     det = ps.activity_details(ev)
-    assert det["event_id"] == "act_w"
+    assert det["event_id"] == encode_identity((0, "act_w"))
     assert det["authentication"]["outcome"] == "SUCCESS"
     assert det["authentication"]["target_user"] == "SYSTEM"
     assert det["process"]["pid"] == "0x3b4"
