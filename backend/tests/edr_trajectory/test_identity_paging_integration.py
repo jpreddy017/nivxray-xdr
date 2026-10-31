@@ -12,7 +12,8 @@ import os
 import pytest
 
 from edr_trajectory.identity import decode_identity, encode_identity
-from edr_trajectory.production_adapter import page_device_evidence, resolve_evidence
+from edr_trajectory.production_adapter import (FOCUS_SEARCH_INCOMPLETE, page_device_evidence,
+                                               resolve_evidence)
 
 TENANT = os.environ.get("E3_IT_TENANT", "default")
 ENDPOINT = os.environ.get("E3_IT_ENDPOINT", "ep_2d57cbe6f80152062109")
@@ -140,18 +141,31 @@ def test_deep_link_resolves_by_versioned_id(db, refs, walk, loop):
     assert got["event_id"] == target["event_id"]
 
 
-def test_deep_link_resolves_by_legacy_id_or_reports_ambiguity(db, refs, walk, loop):
-    """An old link must resolve, or be reported ambiguous - never silently mis-resolved."""
+def test_deep_link_by_legacy_id_resolves_reports_ambiguity_or_says_it_did_not_finish(
+        db, refs, walk, loop):
+    """An old link must resolve, be reported ambiguous, or be reported INCOMPLETE.
+
+    On a large endpoint the bounded walk cannot prove that a legacy bare id is unique, and
+    `FOCUS_SEARCH_INCOMPLETE` is the honest answer: resolving the one match that happened to be
+    inside the budget would be a silent guess.
+    """
     pages, _ = walk
     target = pages[0]["items"][0]
     legacy = target["legacy_event_ids"][0]
     got = loop.run_until_complete(resolve_evidence(db, tenant_id=TENANT, refs=refs, event_id=legacy))
-    assert got["state"] in ("FOCUS_RESOLVED", "FOCUS_AMBIGUOUS", "FOCUS_NOT_RESOLVED")
+    assert got["state"] in ("FOCUS_RESOLVED", "FOCUS_AMBIGUOUS", "FOCUS_NOT_RESOLVED",
+                            FOCUS_SEARCH_INCOMPLETE)
     if got["state"] == "FOCUS_RESOLVED":
         assert legacy in (got["event"].get("legacy_event_ids") or [])
+        # a legacy id may ONLY resolve off a completed exhaustive search
+        assert got["search"]["state"] == "EXHAUSTED_SEARCH_COMPLETED"
+        assert got["search"]["stores_unavailable"] == []
     elif got["state"] == "FOCUS_AMBIGUOUS":
         assert len(got["candidates"]) > 1
         assert got["event"] is None
+    elif got["state"] == FOCUS_SEARCH_INCOMPLETE:
+        assert got["event"] is None
+        assert got["search"]["continuation_available"] is True or got["search"]["stores_unavailable"]
 
 
 def test_unknown_identity_is_not_resolved_to_some_other_row(db, refs, loop):
@@ -159,3 +173,21 @@ def test_unknown_identity_is_not_resolved_to_some_other_row(db, refs, loop):
                                        event_id=encode_identity((0, "no-such-identity"))))
     assert got["state"] != "FOCUS_RESOLVED"
     assert got["event"] is None
+
+
+def test_a_capped_search_on_real_history_reports_incomplete_not_absent(db, refs, loop):
+    """On REAL retained history the budget is reached long before the endpoint is exhausted.
+
+    The old contract returned FOCUS_NOT_RESOLVED here, which reads as "this endpoint never held
+    it". With 360k retained observations and a bounded walk, that claim was never established.
+    """
+    got = loop.run_until_complete(resolve_evidence(
+        db, tenant_id=TENANT, refs=refs,
+        event_id=encode_identity((0, "no-such-identity")), max_pages=2))
+    assert got["state"] == FOCUS_SEARCH_INCOMPLETE
+    assert got["event"] is None
+    assert got["reason"] == "SEARCH_BUDGET_REACHED_BEFORE_EXHAUSTING_RETAINED_EVIDENCE"
+    assert got["search"]["continuation_available"] is True
+    assert got["search"]["resume_cursor"]
+    assert got["search"]["stores_unavailable"] == []
+    assert got["retry"]["retryable"] is True

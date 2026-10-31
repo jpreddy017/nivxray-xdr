@@ -16,7 +16,8 @@ from typing import Any
 from .contracts import AUTH_KINDS, iso, reported as _reported
 from .lineage import build_graph, lanes
 from .paging import PAGE_DEFAULT
-from .production_adapter import STORES, page_device_evidence, resolve_evidence
+from .production_adapter import (FOCUS_SEARCH_INCOMPLETE, STORES, page_device_evidence,
+                                 resolve_evidence)
 from .timeline import coverage, density, lateness
 
 CONTRACT = "e3.dt.production.v1"
@@ -119,6 +120,9 @@ async def device_trajectory(db: Any, *, tenant_id: str, refs: list[str], endpoin
         e["lateness"] = lateness(e)
 
     if not events:
+        focus = await _focus(db, page=page, events=events, lane_model=None,
+                             tenant_id=tenant_id, refs=refs,
+                             focus_event_id=focus_event_id, stores=stores)
         return {"contract": CONTRACT, "endpoint_id": endpoint_id, "state": page["state"],
                 "evidence_state": "NO_REAL_EVIDENCE_FOR_THIS_ENDPOINT",
                 "meaning": ("no stored observation for this endpoint in this customer"
@@ -127,7 +131,7 @@ async def device_trajectory(db: Any, *, tenant_id: str, refs: list[str], endpoin
                             + ". Nothing is substituted: an empty trajectory is the truthful "
                               "answer, and it is not evidence that nothing happened."),
                 "page": page, "lanes": [], "process_graph": {"nodes": {}},
-                "families": _families([]), "focus": _focus_miss(focus_event_id),
+                "families": _families([]), "focus": focus,
                 "mock_data_reachable": False}
 
     t1 = max(e["observed_ms"] for e in events)
@@ -135,24 +139,9 @@ async def device_trajectory(db: Any, *, tenant_id: str, refs: list[str], endpoin
     graph = build_graph(events)
     lane_model = lanes(events, t0, t1)
 
-    focus = _focus_miss(focus_event_id)
-    if focus_event_id:
-        hit = next((e for e in events if e["event_id"] == focus_event_id), None)
-        if hit:
-            focus = {"state": "FOCUS_RESOLVED", "event_id": focus_event_id,
-                     "observed_at": hit.get("observed_at"),
-                     "lane_id": next(iter(_lane_ids_for(hit, lane_model)), None),
-                     "details": activity_details(hit), "basis": "RESOLVED_WITHIN_LOADED_PAGE"}
-        else:
-            deep = await resolve_evidence(db, tenant_id=tenant_id, refs=refs,
-                                          event_id=focus_event_id, stores=stores)
-            focus = ({"state": "FOCUS_RESOLVED", "event_id": focus_event_id,
-                      "observed_at": deep["observed_at"], "lane_id": None,
-                      "details": activity_details(deep["event"]),
-                      "basis": "RESOLVED_OUTSIDE_LOADED_PAGE_BY_EVIDENCE_IDENTITY",
-                      "position": deep.get("position")}
-                     if deep["state"] == "FOCUS_RESOLVED" else
-                     {**_focus_miss(focus_event_id), "reason": deep.get("reason")})
+    focus = await _focus(db, page=page, events=events, lane_model=lane_model,
+                         tenant_id=tenant_id, refs=refs,
+                         focus_event_id=focus_event_id, stores=stores)
 
     return {
         "contract": CONTRACT,
@@ -186,3 +175,59 @@ def _focus_miss(event_id: str | None) -> dict[str, Any]:
             "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
             "meaning": "the deep link names evidence this endpoint and customer do not hold. "
                        "No other observation is selected in its place."}
+
+
+async def _focus(db: Any, *, page: dict[str, Any], events: list[dict[str, Any]],
+                 lane_model: dict[str, Any] | None, tenant_id: str, refs: list[str],
+                 focus_event_id: str | None, stores: tuple[str, ...]) -> dict[str, Any]:
+    """Resolve one deep link, or report HONESTLY that it was not resolved.
+
+    Three outcomes are distinct and never collapsed into each other:
+      * FOCUS_RESOLVED           — an exact identity match, or a completed exhaustive search
+                                   over every requested store that found exactly one legacy row.
+      * FOCUS_AMBIGUOUS          — two or more verified rows carry the identifier.
+      * FOCUS_SEARCH_INCOMPLETE  — the search did not finish (budget, continuation, or an
+                                   unreadable store), so neither a hit nor an absence is claimed.
+    Only a completed zero-match search may report FOCUS_NOT_RESOLVED. In every non-resolved
+    outcome `details` is None and no other observation is selected in its place.
+    """
+    if not focus_event_id:
+        return _focus_miss(None)
+
+    # IN-PAGE resolution is restricted to the EXACT identity (the versioned id or one of its
+    # aliases), which names one identity group by construction. A legacy bare id is NOT unique,
+    # so a legacy hit inside the loaded page is not an answer — it goes to the bounded walk,
+    # which is the only path that can establish how many rows carry it.
+    hit = next((e for e in events
+                if e["event_id"] == focus_event_id
+                or focus_event_id in (e.get("identity_aliases") or [])), None)
+    if hit:
+        return {"state": "FOCUS_RESOLVED", "event_id": hit["event_id"],
+                "observed_at": hit.get("observed_at"),
+                "lane_id": (next(iter(_lane_ids_for(hit, lane_model)), None)
+                            if lane_model else None),
+                "details": activity_details(hit), "basis": "RESOLVED_WITHIN_LOADED_PAGE"}
+
+    deep = await resolve_evidence(db, tenant_id=tenant_id, refs=refs,
+                                  event_id=focus_event_id, stores=stores)
+    state = deep["state"]
+    if state == "FOCUS_RESOLVED":
+        return {"state": "FOCUS_RESOLVED", "event_id": deep["event_id"],
+                "observed_at": deep["observed_at"], "lane_id": None,
+                "details": activity_details(deep["event"]),
+                "basis": "RESOLVED_OUTSIDE_LOADED_PAGE_BY_EVIDENCE_IDENTITY",
+                "resolved_via": deep.get("resolved_via"),
+                "uniqueness_basis": deep.get("uniqueness_basis"),
+                "position": deep.get("position"), "search": deep.get("search")}
+    if state == "FOCUS_AMBIGUOUS":
+        return {"state": "FOCUS_AMBIGUOUS", "event_id": focus_event_id, "details": None,
+                "reason": deep.get("reason"), "candidates": deep.get("candidates"),
+                "search": deep.get("search"), "retry": deep.get("retry"),
+                "meaning": deep.get("meaning")}
+    if state == FOCUS_SEARCH_INCOMPLETE:
+        return {"state": FOCUS_SEARCH_INCOMPLETE, "event_id": focus_event_id, "details": None,
+                "reason": deep.get("reason"), "search": deep.get("search"),
+                "partial_matches": deep.get("partial_matches"), "retry": deep.get("retry"),
+                "meaning": deep.get("meaning")}
+    return {**_focus_miss(focus_event_id), "reason": deep.get("reason"),
+            "search": deep.get("search")}

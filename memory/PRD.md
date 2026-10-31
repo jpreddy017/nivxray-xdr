@@ -9188,3 +9188,32 @@ Division of work: ChatGPT owns all Vercel-side writes and browser verification; 
 
 Production backend `greeting-app-5782` untouched; EDR trajectory rollout remains on HOLD.
 
+
+---
+
+## 2026-10-31 · EDR identity — follow-up 3: deep-link lookup COMPLETENESS
+
+Branch `reconciliation/edr-identity-repair-2026-10-31`, commit **`8927306cc9fb3fe5d9ac16444fa1949ea3ce7bb3`** (parent `6a4f3f5f`, base `d749b99c`, release base `73e2bfea`). No other ref moved; no production publish; no release merge.
+
+**Defect.** A single LEGACY bare-id match was resolved even when the search that found it had not completed, and a budget-capped zero-match walk was returned as `FOCUS_NOT_RESOLVED` ("this endpoint never held it") — neither claim was established by a bounded read.
+
+**Contract now (production_adapter.resolve_evidence), four states, never rounded to each other:**
+- `FOCUS_RESOLVED` — exact versioned identity/alias (unique by construction), or exactly ONE legacy match after a COMPLETED exhaustive search over EVERY requested store.
+- `FOCUS_AMBIGUOUS` — ≥2 verified matches; returned the moment the second is seen.
+- `FOCUS_SEARCH_INCOMPLETE` — budget reached, continuation remaining, or an unreadable store. `event` is always None; partial matches disclosed; resume cursor + narrowing guidance returned.
+- `FOCUS_NOT_RESOLVED` — COMPLETED zero-match search only.
+
+Bounds unchanged: same tenant, same endpoint refs, same `FOCUS_PAGE_BUDGET=8`, same `PAGE_MAX`, no timeout change, no unbounded scan. `page_device_evidence` records `provenance.stores_unavailable` / `read_complete=false` / state `PARTIAL_STORE_READ` instead of aborting or silently shrinking. An identifier that PARSES as `e3i1:` is matched only in the versioned space and never retried as a legacy bare value.
+
+Carried through `production_service` (in-page resolution restricted to EXACT identity; `details=None` in every non-resolved outcome), `v3_presentation` (`focus` block + `evidence_read_complete`), `routers/edr` (`OBSERVATION_LOOKUP_INCOMPLETE` / `OBSERVATION_IDENTIFIER_AMBIGUOUS` / `OBSERVATION_NOT_RESOLVED` + `lookup_complete`), and the served frontend (`amp/deeplink.js` — "Lookup incomplete" / "Identifier is ambiguous" with Retry lookup and Narrow the search; candidates offered, never applied; no auto-selection; evidence preserved).
+
+**Verification.** edr_trajectory 506 passed / 19 skipped / 0 failed. Frontend 290 passed / 16 files, vite build clean against the exact committed blob. Like-for-like over tests/edr + tests/edr_trajectory + tests/edr_behavior: baseline 36 failed / 2925 passed, candidate 35 failed / 2958 passed, candidate failures a SUBSET of baseline → zero regressions. Live preview on the 360k-observation endpoint: exact id → RESOLVED 1.87s; legacy id → SEARCH_INCOMPLETE with continuation and 1 partial match, 8.14s (previously a silent resolve); absent versioned id → SEARCH_INCOMPLETE after 4,000 compared; foreign tenant → NOT_RESOLVED.
+
+**Known consequence (stated, not hidden):** on a large endpoint a LEGACY deep link now commonly reports "Lookup incomplete" instead of resolving, because uniqueness cannot be proven within the bound. The versioned `event_id` resolves immediately and is the narrowing action the UI offers.
+
+**Outstanding, NOT fixed here (pre-existing, reproduced at baseline):**
+- P1 · 17 failures in `tests/edr/test_g41_transitional_read.py` + `test_g41_temporal_authority.py` assert the OLD bare `event_id` and were broken by the versioned encoding in `6a4f3f5`. These assertions need updating to the versioned contract.
+- P2 · 12 failures in `tests/edr/test_34h_a_migration_control.py` (401 auth harness), 4 in `test_p0_f13_5_detection_handoff.py` (`deps.db accessed before init_database()`), 2 in `test_gate16_edr_independence.py` — unrelated to identity.
+- P2 · `routers/edr.trajectory_focus` state mapping is covered by code review plus the service/resolver tests only; its own route tests fail on the pre-existing harness defect above, and no authenticated live call was made.
+- P1 · `/app` copy of `apps/nivxray-xdr/src/nivxforge/trajectory_v3/amp/TrajectoryPage.jsx` is OLDER than the branch head. Workspace original preserved at `_preservation/upstream/TrajectoryPage.local-original.jsx`; the committed blob was built from the branch copy via `_preservation/patch_trajectory_page.py`. The workspace frontend tree should be reconciled with the release head before further UI work.
+- Unchanged blockers: production rollout HOLD; clean backend build payload; separate review of `server.py` `_arch`/`_pv` mounts, `transfer_bundle.py`, `edr_maintenance.py`; off-pod encrypted preservation; XDR/Workspace workflow certification.

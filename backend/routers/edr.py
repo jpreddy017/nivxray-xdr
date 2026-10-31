@@ -1806,16 +1806,27 @@ async def trajectory_focus(endpoint_id: str,
                     "meaning": ("the deep-link resolver could not read evidence. This is NOT a "
                                 "statement that the requested observation does not exist.")}
         if deep.get("state") != "FOCUS_RESOLVED":
-            incomplete = (deep.get("search") or {}).get("state", "").startswith("PAGE_BUDGET")
+            # The resolver's three non-resolved outcomes are carried through UNCHANGED. An
+            # unfinished search must never arrive at the UI wearing the words "not found",
+            # and an ambiguous identifier must never be narrowed to one candidate here.
+            st = deep.get("state")
+            search = deep.get("search") or {}
+            incomplete = st == e3pa.FOCUS_SEARCH_INCOMPLETE
+            ambiguous = st == "FOCUS_AMBIGUOUS"
             return {"engine_id": "nivxray::edr_trajectory::v3_focus",
-                    "state": ("OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE" if incomplete
-                              else "OBSERVATION_NOT_RESOLVED"),
+                    "state": ("OBSERVATION_LOOKUP_INCOMPLETE" if incomplete else
+                              "OBSERVATION_IDENTIFIER_AMBIGUOUS" if ambiguous else
+                              "OBSERVATION_NOT_RESOLVED"),
+                    "lookup_complete": not (incomplete or ambiguous),
                     "focus": None,
                     "requested": {"event_iid": event_iid, "observation_id": observation_id},
                     "reason": deep.get("reason"),
-                    "search": deep.get("search"),
+                    "search": search,
+                    "candidates": deep.get("candidates"),
+                    "partial_matches": deep.get("partial_matches"),
+                    "retry": deep.get("retry"),
                     "observations_searched": deep.get("scanned"),
-                    "missing_link": (deep.get("meaning") if incomplete else
+                    "missing_link": (deep.get("meaning") if (incomplete or ambiguous) else
                                      ("no observation on this endpoint, in this customer, carries "
                                       "the requested identifier. Nothing is focused in its place "
                                       "— no timestamp, hostname or process-name proximity is "

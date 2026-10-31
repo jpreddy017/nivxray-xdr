@@ -52,7 +52,7 @@ from services.edr.endpoint_query import (
 from edr_plane import temporal_authority as _ta
 
 from .contracts import require_tenant
-from .identity import RANK_ACTIVITY_IDENTITY, dedupe
+from .identity import RANK_ACTIVITY_IDENTITY, decode_identity, dedupe
 from .paging import PAGE_DEFAULT, PAGE_MAX, BadCursor
 from .providers import (
     STORE_CANONICAL,
@@ -112,6 +112,14 @@ TEMPORAL_NOT_ASSESSED = "NOT_ASSESSED_NO_COMPARABLE_STORE_READ"
 #: 279,554-observation endpoint. A budget that is REACHED is reported as reached, never as "not
 #: found", because the two statements are not the same claim.
 FOCUS_PAGE_BUDGET = 8
+
+#: A page whose evidence stores were not all readable. The rows are real; the gaps are unknown.
+PARTIAL_STORE_READ = "PARTIAL_STORE_READ"
+
+#: The deep-link search did not complete, so neither a hit nor a miss has been established.
+#: It is deliberately NOT a value of FOCUS_RESOLVED / FOCUS_NOT_RESOLVED: an unfinished search
+#: must never be reported as either a find or an absence.
+FOCUS_SEARCH_INCOMPLETE = "FOCUS_SEARCH_INCOMPLETE"
 
 
 def observation_us(value: Any) -> int | None:
@@ -374,10 +382,25 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                                      w_lo, w_hi, comparable, tiebreak))
             if comparable and inherited is None:
                 probes.append(_unstamped_probe(db[store], flt, tkey))
-    raw_pages = await asyncio.gather(*jobs)
-    unstamped_present = (inherited if inherited is not None
-                         else (any(await asyncio.gather(*probes)) if probes
-                               else None))
+    # A STORE THAT COULD NOT BE READ IS NOT A STORE THAT HELD NOTHING. One branch failing is
+    # recorded as an unavailable store rather than silently reducing the result set, so a caller
+    # can tell a partial read from a complete one instead of treating absence as evidence.
+    settled = await asyncio.gather(*jobs, return_exceptions=True)
+    raw_pages, unavailable = [], {}
+    for spec, res in zip(plan, settled):
+        if isinstance(res, BaseException):
+            raw_pages.append([])
+            unavailable.setdefault(spec["store"], type(res).__name__)
+        else:
+            raw_pages.append(res)
+    read_complete = not unavailable
+    if probes and inherited is None:
+        probed = await asyncio.gather(*probes, return_exceptions=True)
+        ok = [p for p in probed if not isinstance(p, BaseException)]
+        # an unprobed temporal health is UNKNOWN, never a clean verdict.
+        unstamped_present = any(ok) if len(ok) == len(probed) else None
+    else:
+        unstamped_present = inherited
 
     rows: list[dict[str, Any]] = []
     per_store: dict[str, int] = {s: 0 for s in stores}
@@ -476,9 +499,16 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                    "basis": ("exact microsecond placement against the stored observation time; "
                              "the query bound is the window itself with one second of slack and "
                              "never decides membership")},
-        "state": TIE_OVERFLOW if tie_overflow else "PAGE_READY",
+        "state": (TIE_OVERFLOW if tie_overflow else
+                  "PAGE_READY" if read_complete else PARTIAL_STORE_READ),
         "provenance": {
-            "stores_read": list(stores),
+            "stores_read": [s for s in stores if s not in unavailable],
+            "stores_unavailable": sorted(unavailable),
+            "store_read_errors": dict(sorted(unavailable.items())),
+            "read_complete": read_complete,
+            "read_complete_meaning": ("False means at least one evidence store could not be read "
+                                      "for this page. The rows returned are real, but their "
+                                      "absence proves nothing."),
             "rows_per_store": per_store,
             "observation_time_keys": {s: OBSERVATION_TIME_KEY[s] for s in stores},
             "order_key": "observed_us (full source precision), then stable evidence identity",
@@ -583,7 +613,9 @@ def _empty(size: int, reason: str) -> dict[str, Any]:
             # no store was read, so no temporal claim is made. An endpoint that
             # could not be addressed is NOT an endpoint proven clean.
             "temporal_health": _temporal_health(None, False), "state": reason,
-            "provenance": {"stores_read": [], "reason": reason}}
+            # no store was addressed at all, so this read establishes nothing either way.
+            "provenance": {"stores_read": [], "stores_unavailable": [],
+                           "read_complete": False, "reason": reason}}
 
 
 async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
@@ -614,65 +646,131 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
     def _exact(ev):
         return ev["event_id"] == event_id or event_id in (ev.get("identity_aliases") or [])
 
+    #: An identifier that PARSES as the versioned encoding is matched ONLY in the versioned
+    #: space. Retrying it as a legacy bare value would guess that a stored raw value which
+    #: merely looks like the encoding belongs to the namespace its text spells out.
+    versioned = decode_identity(str(event_id)) is not None if event_id else False
+
     def _legacy(ev):
-        return event_id in (ev.get("legacy_event_ids") or [])
+        return (not versioned) and event_id in (ev.get("legacy_event_ids") or [])
 
     hit = match if match else _exact
     legacy_hits: list[dict[str, Any]] = []
     cursor = None
     scanned = 0
     pages = 0
+    #: stores that failed anywhere in the walk. Their rows were never compared, so a zero- or
+    #: one-match outcome over the remaining stores is NOT an exhaustive result.
+    unreadable: dict[str, str] = {}
+    requested = event_id
+
+    def _search(state, *, resume=None):
+        return {"pages_searched": pages, "page_size": PAGE_MAX, "page_budget": max_pages,
+                "state": state, "observations_compared": scanned,
+                "stores_requested": list(stores),
+                "stores_unavailable": sorted(unreadable),
+                "store_read_errors": dict(sorted(unreadable.items())),
+                "continuation_available": bool(resume),
+                "resume_cursor": resume}
+
+    def _incomplete(reason, state, *, resume=None, meaning):
+        # event is ALWAYS None here: an unfinished search has not found anything and has not
+        # established an absence either, so it may not borrow the vocabulary of either outcome.
+        return {"state": FOCUS_SEARCH_INCOMPLETE, "reason": reason,
+                "event_id": requested, "event": None, "scanned": scanned,
+                "partial_matches": [{"event_id": h["event_id"],
+                                     "identity_keys": h.get("identity_keys")}
+                                    for h in legacy_hits],
+                "search": _search(state, resume=resume),
+                "retry": {"retryable": True,
+                          "narrow_by": ["time_start/time_end on the trajectory read",
+                                        "the versioned event_id instead of the legacy id"],
+                          "resume_cursor": resume},
+                "meaning": meaning}
+
     while True:
         page = await page_device_evidence(db, tenant_id=tenant, refs=refs,
                                           page_size=PAGE_MAX, cursor=cursor, stores=stores)
         pages += 1
+        prov = page.get("provenance") or {}
+        for s, err in (prov.get("store_read_errors") or {}).items():
+            unreadable.setdefault(s, err)
+        if not prov.get("read_complete", True) and not prov.get("store_read_errors"):
+            unreadable.setdefault("UNSPECIFIED_STORE", page.get("state") or "READ_INCOMPLETE")
         for ev in page["items"]:
             if hit(ev):
-                event_id = ev["event_id"]
-                return {"state": "FOCUS_RESOLVED", "event_id": event_id, "event": ev,
+                # The versioned encoding (and every alias of it) names exactly one identity
+                # group, so an exact match is unique by construction and needs no further walk.
+                return {"state": "FOCUS_RESOLVED", "event_id": ev["event_id"], "event": ev,
                         "observed_at": ev.get("observed_at"),
+                        "resolved_via": ("STORE_OBSERVATION_REFERENCE" if match
+                                         else "VERSIONED_EVIDENCE_IDENTITY"),
                         "position": {"scanned_newer_first": scanned,
                                      "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
+                        "search": _search("MATCH_FOUND_SEARCH_STOPPED"),
                         "provenance": page["provenance"]}
             if match is None and _legacy(ev) and not any(
                     h["event_id"] == ev["event_id"] for h in legacy_hits):
                 legacy_hits.append(ev)
+                if len(legacy_hits) > 1:
+                    # TWO VERIFIED MATCHES ARE ENOUGH. Ambiguity is proven by what was read, so
+                    # it is reported immediately and never resolved by choosing between them.
+                    return {"state": "FOCUS_AMBIGUOUS",
+                            "reason": "LEGACY_IDENTITY_MATCHES_MULTIPLE_ROWS",
+                            "event_id": requested, "event": None, "scanned": scanned,
+                            "candidates": [{"event_id": h["event_id"],
+                                            "identity_keys": h.get("identity_keys")}
+                                           for h in legacy_hits],
+                            "search": _search("AMBIGUITY_PROVEN_SEARCH_STOPPED"),
+                            "retry": {"retryable": False,
+                                      "narrow_by": ["the versioned event_id of the intended row"]},
+                            "meaning": ("this identifier was exported by an older build and is "
+                                        "not unique: it names rows in more than one identity "
+                                        "namespace. The caller must choose using the versioned "
+                                        "event_id.")}
             scanned += 1
-        if not page["has_more"] or pages >= max_pages:
-            if len(legacy_hits) > 1:
-                # NEVER choose between ambiguous aliases.
-                return {"state": "FOCUS_AMBIGUOUS",
-                        "reason": "LEGACY_IDENTITY_MATCHES_MULTIPLE_ROWS",
-                        "event_id": event_id, "event": None, "scanned": scanned,
-                        "candidates": [{"event_id": h["event_id"],
-                                        "identity_keys": h.get("identity_keys")}
-                                       for h in legacy_hits],
-                        "meaning": ("this identifier was exported by an older build and is not "
-                                    "unique: it names rows in more than one identity namespace. "
-                                    "The caller must choose using the versioned event_id.")}
-            if len(legacy_hits) == 1:
-                ev = legacy_hits[0]
-                return {"state": "FOCUS_RESOLVED", "event_id": ev["event_id"], "event": ev,
-                        "observed_at": ev.get("observed_at"),
-                        "resolved_via": "LEGACY_IDENTITY_ALIAS",
-                        "position": {"scanned_newer_first": scanned,
-                                     "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
-                        "provenance": page["provenance"]}
-        if not page["has_more"]:
-            return {"state": "FOCUS_NOT_RESOLVED",
-                    "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
-                    "event_id": event_id, "event": None, "scanned": scanned,
-                    "search": {"pages_searched": pages, "page_size": PAGE_MAX,
-                               "state": "EXHAUSTED_SEARCH_COMPLETED"}}
-        if pages >= max_pages:
-            # A BUDGET IS NOT AN ABSENCE. Walking an endpoint's whole history for a deep link
-            # that does not exist is an unbounded read, so the walk is capped — but reporting a
-            # capped walk as "not found" would assert something this resolver did not establish.
-            return {"state": "FOCUS_NOT_RESOLVED",
-                    "reason": "SEARCH_BUDGET_REACHED_BEFORE_EXHAUSTING_RETAINED_EVIDENCE",
-                    "event_id": event_id, "event": None, "scanned": scanned,
-                    "search": {"pages_searched": pages, "page_size": PAGE_MAX,
-                               "state": f"PAGE_BUDGET_REACHED_{max_pages}"},
-                    "meaning": ("the newest " + str(scanned) + " observations do not carry this "
-                                "identifier. This is NOT proof that the endpoint never held it.")}
-        cursor = page["next_cursor"]
+
+        exhausted = not page["has_more"]
+        budget_reached = pages >= max_pages
+        if not exhausted and not budget_reached:
+            cursor = page["next_cursor"]
+            continue
+
+        # From here the walk stops. Whether it stopped having SEEN EVERYTHING decides which
+        # vocabulary is permitted, and a single legacy match only counts once the relevant
+        # search completed over every requested store.
+        resume = None if exhausted else page.get("next_cursor")
+        if unreadable:
+            return _incomplete(
+                "EVIDENCE_STORE_READ_INCOMPLETE", "PARTIAL_STORE_READ", resume=resume,
+                meaning=("one or more evidence stores could not be read during this search, so "
+                         "the rows they hold were never compared. Nothing is reported as found "
+                         "or as absent."))
+        if not exhausted:
+            # A BUDGET IS NOT AN ABSENCE, and it is not a find either. Walking an endpoint's
+            # whole history for one deep link is an unbounded read, so the walk stays capped —
+            # and the unfinished state is returned instead of being rounded to an outcome.
+            return _incomplete(
+                "SEARCH_BUDGET_REACHED_BEFORE_EXHAUSTING_RETAINED_EVIDENCE",
+                f"PAGE_BUDGET_REACHED_{max_pages}", resume=resume,
+                meaning=(f"the newest {scanned} observations were compared and retained evidence "
+                         f"continues beyond them. This is neither proof that the endpoint holds "
+                         f"this identifier nor proof that it never did."
+                         + (" One match was seen, but a second match could lie beyond the "
+                            "searched range, so it is not resolved."
+                            if legacy_hits else "")))
+        if len(legacy_hits) == 1:
+            ev = legacy_hits[0]
+            return {"state": "FOCUS_RESOLVED", "event_id": ev["event_id"], "event": ev,
+                    "observed_at": ev.get("observed_at"),
+                    "resolved_via": "LEGACY_IDENTITY_ALIAS",
+                    "position": {"scanned_newer_first": scanned,
+                                 "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
+                    "search": _search("EXHAUSTED_SEARCH_COMPLETED"),
+                    "uniqueness_basis": ("every retained observation for this endpoint was "
+                                         "compared and exactly one carries this legacy id"),
+                    "provenance": page["provenance"]}
+        return {"state": "FOCUS_NOT_RESOLVED",
+                "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
+                "event_id": requested, "event": None, "scanned": scanned,
+                "search": _search("EXHAUSTED_SEARCH_COMPLETED")}

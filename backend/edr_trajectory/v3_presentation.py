@@ -320,6 +320,37 @@ def apply_findings(rows: list[dict[str, Any]], findings: list[dict[str, Any]]) -
             "authority": "E1_DURABLE_FINDINGS"}
 
 
+#: Deep-link outcomes that are NOT a resolution. Each keeps its own identity through the
+#: presentation layer; none of them may be rendered as a miss or as a selection.
+FOCUS_UNRESOLVED_STATES = ("FOCUS_AMBIGUOUS", "FOCUS_SEARCH_INCOMPLETE", "FOCUS_NOT_RESOLVED")
+
+
+def _focus_v3(focus: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Carry the §d focus outcome into V3 identity vocabulary without deciding anything."""
+    if not isinstance(focus, dict):
+        return None
+    state = focus.get("state")
+    out = {"state": state,
+           "lookup_complete": state not in ("FOCUS_AMBIGUOUS", "FOCUS_SEARCH_INCOMPLETE"),
+           "requested_event_id": focus.get("event_id"),
+           "requested_event_iid": (encode_iid(focus["event_id"])
+                                   if focus.get("event_id") else None)}
+    if state == "FOCUS_RESOLVED":
+        out |= {"event_id": focus.get("event_id"), "basis": focus.get("basis"),
+                "resolved_via": focus.get("resolved_via"),
+                "observed_at": focus.get("observed_at"), "lane_id": focus.get("lane_id")}
+        return out
+    if state in FOCUS_UNRESOLVED_STATES:
+        out |= {"event_id": None, "reason": focus.get("reason"),
+                "search": focus.get("search"), "retry": focus.get("retry"),
+                "candidates": [{"event_iid": encode_iid(c["event_id"]), **c}
+                               for c in (focus.get("candidates") or [])],
+                "partial_matches": [{"event_iid": encode_iid(c["event_id"]), **c}
+                                    for c in (focus.get("partial_matches") or [])],
+                "meaning": focus.get("meaning")}
+    return out
+
+
 def build(e3: dict[str, Any], *, computer: dict[str, Any] | None,
           identity: dict[str, Any] | None,
           attribution: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -387,6 +418,11 @@ def build(e3: dict[str, Any], *, computer: dict[str, Any] | None,
             "page_meaning": "ONE BOUNDED NEWEST-FIRST PAGE, not the endpoint's whole history",
         },
         "provenance": page.get("provenance"),
+        # The deep-link outcome travels to the UI in V3's own identity vocabulary. A lookup that
+        # did not complete keeps its own state here: it is never flattened into "not found", and
+        # no row is nominated in its place.
+        "focus": _focus_v3(e3.get("focus")),
+        "evidence_read_complete": (page.get("provenance") or {}).get("read_complete", True),
         "ordering_authority": "observed_us (full source precision) in production_adapter; "
                               "timestamp_instant_ms below is a RENDERING coordinate only",
         "suppressed_duplicates": page.get("suppressed_duplicates"),
