@@ -1,0 +1,12 @@
+AssertionError [ERR_ASSERTION]: computer path must use selected V3 renderer
+
+0 !== 1
+
+    at /workspace/scratch/f823ef4e6cc9/trajectory-repair/tools/test-trajectory-navigation.cjs:59:12 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: 1,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

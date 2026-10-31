@@ -13,7 +13,7 @@ import { ArrowLeft, Binary, Network, Radar, Shield, Terminal,
          FileSearch, LayoutGrid } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
-import EdrDeviceTrajectoryPage from "@/nivxforge/trajectory/EdrDeviceTrajectoryPage";
+import DeviceTrajectoryEntry from "@/nivxforge/trajectory_amp/DeviceTrajectoryEntry";
 import { NotImplementedBody } from "@/nivxforge/pages/EdrNotImplementedPage";
 import { getComputer } from "@/nivxforge/onboardingApi";
 import { Ago, Skeleton, StateChip } from "@/nivxforge/components/OpsPrimitives";
@@ -133,7 +133,7 @@ export default function EdrDevicePage() {
       {headReady && active === "overview"
         ? <DeviceOverview endpointId={endpointId} /> : null}
       {headReady && active === "trajectory"
-        ? <EdrDeviceTrajectoryPage embedded device={endpointId} /> : null}
+        ? <DeviceTrajectoryEntry key={endpointId} embedded device={endpointId} /> : null}
       {headReady && active === "commands"
         ? <CommandIntelligence endpointId={endpointId} /> : null}
       {headReady && current.ni ? (
