@@ -30,9 +30,16 @@ const JS_DIR = path.join(BUILD, "static", "js");
 
 // Origins this artefact is allowed to talk to. Extend ONLY with a
 // deliberate owner decision — Phase 4 adds the permanent API hostname.
-const ALLOWED_API_ORIGINS = [
-  "https://nivxray.nivxforge.com", // TEMPORARY_MIGRATION_DEPENDENCY (Phase 1)
-];
+const INTEGRATION_VALUE = process.env.NIVX_WORKSPACE_INTEGRATION_PREVIEW || "0";
+if (!["0", "1"].includes(INTEGRATION_VALUE)) throw new Error("Invalid Workspace preview flag");
+const INTEGRATION = INTEGRATION_VALUE === "1";
+if (INTEGRATION && (process.env.VERCEL_ENV !== "preview" ||
+    process.env.VERCEL_GIT_COMMIT_REF !== "validation/workspace-preview-backend-2026-10-31")) {
+  throw new Error("Workspace integration requires its designated preview branch and preview target");
+}
+const EXPECTED_API = INTEGRATION ? "https://greeting-app-5782.preview.emergentagent.com" : "https://nivxray.nivxforge.com";
+
+const ALLOWED_API_ORIGINS = [EXPECTED_API];
 
 const FLAGS = [
   "REACT_APP_NIVX_FLAG_TRAJECTORY_ENGINE",
@@ -66,10 +73,11 @@ function countAll(haystack, needle) {
 }
 
 const js = readBundle();
+if (INTEGRATION && js.includes("https://nivxray.nivxforge.com")) failures.push("Production API embedded in Workspace preview");
 
 if (js) {
   // -- 1 · no preview origin may ship --------------------------------
-  const preview = js.match(/https:\/\/[a-z0-9-]+\.preview\.emergentagent\.com/g) || [];
+  const preview = (INTEGRATION ? js.split(EXPECTED_API).join("") : js).match(/https:\/\/[a-z0-9-]+\.preview\.emergentagent\.com/g) || [];
   if (preview.length) {
     const uniq = [...new Set(preview)];
     failures.push(
