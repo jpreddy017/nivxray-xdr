@@ -1,5 +1,5 @@
 from __future__ import annotations
-import ast, types, unittest
+import ast, types, unittest, sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 SOURCE=Path(__file__).resolve().parents[1]/'backend/routers/edr.py'
@@ -44,4 +44,24 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HttpError) as c:await self.call(presentation='invalid')
         self.assertEqual(c.exception.status_code,422)
         self.legacy.assert_not_awaited();self.page.assert_not_awaited()
+    async def test_populated_real_v3_presentation_parity(self):
+        sys.path.insert(0,str(SOURCE.parents[1]))
+        from edr_trajectory import v3_presentation
+        self.modules['edr_trajectory'].v3_presentation=v3_presentation
+        self.modules['edr_plane.fabric']=types.SimpleNamespace(store=types.SimpleNamespace(read=lambda *a,**k:([],None)))
+        self.modules['edr_trajectory.attack']=types.SimpleNamespace(annotate_row=lambda _:None)
+        self.page.return_value={'contract':'e3.dt.production.v1','state':'AVAILABLE','page':{
+          'items':[{'event_id':'observed-1','kind':'PROCESS_START','process_key':'process-1','process':{'pid':100,'image':'observed.exe'},'observed_at':'2026-10-31T00:00:00Z','observed_ms':1793404800000},
+                   {'event_id':'observed-2','kind':'FILE_CREATE','file':{'path':'C:/observed.txt'},'observed_at':'2026-10-31T00:00:01Z','observed_ms':1793404801000}],
+          'next_cursor':'opaque-page-cursor','has_more':True,'provenance':{'stores_read':['test-store']}},'lanes':[], 'density':{'days':[{'day':'2026-10-31','count':2}]}}
+        combined=(await self.call())['v3']
+        paged=(await self.call(presentation='v3'))['v3']
+        self.assertEqual(len(paged['events']),2)
+        self.assertEqual(paged['e3_preview']['older_cursor'],'opaque-page-cursor')
+        self.assertTrue(paged['e3_preview']['remaining_older'])
+        self.assertEqual(paged['events'][0]['image'],'observed.exe')
+        self.assertEqual(paged['events'][1]['file'],'C:/observed.txt')
+        # Only intentionally unrequested whole-history header aggregates differ.
+        combined.pop('computer');paged.pop('computer')
+        self.assertEqual(combined,paged)
 if __name__=='__main__':unittest.main()
