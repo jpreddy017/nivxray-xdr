@@ -9166,3 +9166,25 @@ neither rule can fire and G4 step 5 cannot execute.
 - Vercel: VERCEL_TOKEN registered but EMPTY here (API returns missingToken) -> IDs/env scopes/deployment history/rollback BLOCKED. Verified instead: root dir apps/nivxray-xdr, root vercel.json refuses root deployment, framework null + Vite + dist, SPA rewrite, two host redirects, no /api route, 11 build env NAMES, build-info.json provenance.
 - Recovery matrix: 8 domains / 19 rows. ONLY restore-verified asset in the whole system = T1/T2 git history. Production recovery NOT verified anywhere.
 - HOLD continues.
+
+---
+
+## 2026-10-31 · PREVIEW ENVIRONMENT MAPPING (BINDING — read before any UI/UX work)
+
+**Canonical document: `docs/handoff/PREVIEW_ENVIRONMENTS.md`.** That file is authoritative; this entry is a pointer so the mapping is discoverable from the PRD.
+
+Stable demonstration URLs (use these for ALL demonstrations):
+- EDR → `https://nivxforge-edr-preview.vercel.app` · root `apps/nivxray-xdr` · scope `edr` · branch `validation/edr-preview-backend-2026-10-31` · commit `f22b74aa`
+- XDR → `https://nivxray-xdr-preview.vercel.app` · root `apps/nivxray-xdr` · scope `xdr` · branch `validation/xdr-preview-backend-2026-10-31` · commit `7ed7c03b`
+- Workspace → `https://nivxray-workspace-preview.vercel.app` · root `frontend` · scope `workspace` · branch `validation/workspace-preview-backend-2026-10-31` · commit `98713f70`
+
+`greeting-app-5782.preview.emergentagent.com` is a DEVELOPER CONVENIENCE ONLY — never present it as a product URL.
+
+Limitations (do not overstate): all three are distinct FRONTEND deployments sharing ONE non-production backend and ONE database. No independent runtimes or databases exist. No DB migration and no production deployment occurred. XDR had a successful browser login/Control Center load but is NOT workflow-certified; Workspace authenticated checks are PENDING.
+
+Alias rule: aliases are pinned MANUALLY to specific deployments. Editing `/app` or pushing a branch does NOT refresh them. Never claim a URL shows new work until its deployment AND commit are verified.
+
+Division of work: ChatGPT owns all Vercel-side writes and browser verification; Emergent owns the backend/preview runtime and read-only verification. Keep production build guards and Vercel protection enabled.
+
+Production backend `greeting-app-5782` untouched; EDR trajectory rollout remains on HOLD.
+
