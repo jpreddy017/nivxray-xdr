@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 620" width="1080" height="620" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .b { fill:#0f172a; }
+      .card { fill:#1e293b; stroke:#334155; stroke-width:1.5; }
+      .white { fill:#f8fafc; }
+      .muted { fill:#94a3b8; }
+      .lbl { font-size:10px; letter-spacing:1px; }
+      .body { font-size:11px; }
+      .title { font-weight:700; font-size:13px; }
+      .edge  { stroke:#94a3b8; stroke-width:1.5; fill:none; }
+    </style>
+  </defs>
+  <rect width="1080" height="620" class="b"/>
+  <text x="540" y="30" text-anchor="middle" class="white" font-size="18" font-weight="700">
+    Attack Graph Anatomy
+  </text>
+  <text x="540" y="52" text-anchor="middle" class="muted body">
+    Cytoscape.js graph — nodes are colour-coded, edges label the transformation that produced them.
+  </text>
+
+  <!-- Input node -->
+  <circle cx="120" cy="200" r="42" fill="#0b1220" stroke="#7ee3c9" stroke-width="2"/>
+  <text x="120" y="200" text-anchor="middle" class="lbl" fill="#7ee3c9">INPUT</text>
+  <text x="120" y="216" text-anchor="middle" class="body white">powershell</text>
+
+  <!-- Stage 1 decode node -->
+  <circle cx="340" cy="200" r="42" fill="#0b1220" stroke="#a78bfa" stroke-width="2"/>
+  <text x="340" y="200" text-anchor="middle" class="lbl" fill="#a78bfa">STAGE 1</text>
+  <text x="340" y="216" text-anchor="middle" class="body white">base64</text>
+
+  <!-- Stage 2 decode node -->
+  <circle cx="560" cy="200" r="42" fill="#0b1220" stroke="#a78bfa" stroke-width="2"/>
+  <text x="560" y="200" text-anchor="middle" class="lbl" fill="#a78bfa">STAGE 2</text>
+  <text x="560" y="216" text-anchor="middle" class="body white">utf16-le</text>
+
+  <!-- IOC nodes -->
+  <rect x="740" y="120" width="120" height="46" rx="6" fill="#0b1220" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="800" y="138" text-anchor="middle" class="lbl" fill="#f59e0b">IOC · URL</text>
+  <text x="800" y="156" text-anchor="middle" class="body white">evil.com/a.ps1</text>
+
+  <rect x="740" y="234" width="120" height="46" rx="6" fill="#0b1220" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="800" y="252" text-anchor="middle" class="lbl" fill="#f59e0b">MITRE</text>
+  <text x="800" y="270" text-anchor="middle" class="body white">T1059.001</text>
+
+  <!-- Verdict node -->
+  <rect x="920" y="177" width="130" height="60" rx="6" fill="#0b1220" stroke="#f43f5e" stroke-width="2"/>
+  <text x="985" y="197" text-anchor="middle" class="lbl" fill="#f43f5e">VERDICT</text>
+  <text x="985" y="217" text-anchor="middle" class="white title">MALICIOUS</text>
+  <text x="985" y="230" text-anchor="middle" class="body muted">confidence 0.94</text>
+
+  <!-- Edges -->
+  <line x1="162" y1="200" x2="298" y2="200" class="edge" marker-end="url(#a2)"/>
+  <text x="230" y="192" text-anchor="middle" class="lbl muted">decode</text>
+  <line x1="382" y1="200" x2="518" y2="200" class="edge" marker-end="url(#a2)"/>
+  <text x="450" y="192" text-anchor="middle" class="lbl muted">decode</text>
+  <line x1="602" y1="188" x2="738" y2="145" class="edge" marker-end="url(#a2)"/>
+  <text x="670" y="160" text-anchor="middle" class="lbl muted">extract</text>
+  <line x1="602" y1="212" x2="738" y2="255" class="edge" marker-end="url(#a2)"/>
+  <text x="670" y="248" text-anchor="middle" class="lbl muted">map</text>
+  <line x1="860" y1="143" x2="920" y2="197" class="edge" marker-end="url(#a2)"/>
+  <line x1="860" y1="257" x2="920" y2="217" class="edge" marker-end="url(#a2)"/>
+
+  <!-- Legend / node types -->
+  <g><rect x="60" y="360" width="960" height="220" rx="6" fill="#0b1220" stroke="#334155"/>
+    <text x="90" y="390" class="lbl" fill="#94a3b8">NODE TYPES · LEGEND</text>
+
+    <circle cx="90" cy="425" r="14" fill="#0b1220" stroke="#7ee3c9" stroke-width="2"/>
+    <text x="120" y="422" class="body white">INPUT — the raw payload the analyst pasted (always exactly one)</text>
+    <text x="120" y="440" class="body muted">Colour: mint · Shape: circle</text>
+
+    <circle cx="90" cy="475" r="14" fill="#0b1220" stroke="#a78bfa" stroke-width="2"/>
+    <text x="120" y="472" class="body white">STAGE — a decoder stage (one per operation in the chain)</text>
+    <text x="120" y="490" class="body muted">Colour: violet · Shape: circle · Edge label = operation name</text>
+
+    <rect x="76" y="510" width="28" height="16" fill="#0b1220" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="120" y="522" class="body white">IOC / MITRE — extracted indicators &amp; technique mappings</text>
+    <text x="120" y="540" class="body muted">Colour: amber · Shape: rounded rectangle</text>
+
+    <rect x="76" y="552" width="28" height="16" fill="#0b1220" stroke="#f43f5e" stroke-width="2"/>
+    <text x="120" y="564" class="body white">VERDICT — final classification with confidence &amp; MITRE chain</text>
+    <text x="120" y="577" class="body muted">Colour: rose · Shape: bold rectangle · always terminal</text>
+  </g>
+</svg>

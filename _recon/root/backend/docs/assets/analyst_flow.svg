@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NivXRay Analyst Decision Flow — 5W1H (Who/What/When/Where/Why/How/Which)
+  Hand-crafted SVG so it renders identically in HTML export and in the
+  reportlab PDF (via svglib).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 820" width="1080" height="820" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .b { fill:#0f172a; }
+      .card { fill:#1e293b; stroke:#334155; stroke-width:1.5; rx:8; }
+      .mint { fill:#7ee3c9; }
+      .amber { fill:#f59e0b; }
+      .rose { fill:#f43f5e; }
+      .violet { fill:#a78bfa; }
+      .muted { fill:#94a3b8; }
+      .white { fill:#f8fafc; }
+      .title { font-weight:700; font-size:14px; }
+      .body  { font-size:11px; }
+      .lbl   { font-size:10px; fill:#94a3b8; letter-spacing:1px; }
+      .edge  { stroke:#94a3b8; stroke-width:1.5; fill:none; }
+    </style>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect x="0" y="0" width="1080" height="820" class="b"/>
+
+  <!-- Title -->
+  <text x="540" y="40" text-anchor="middle" class="white" font-size="20" font-weight="700">
+    NivXRay Analyst Flow · 5W1H at a glance
+  </text>
+  <text x="540" y="60" text-anchor="middle" class="muted body">
+    Start on the WORKSPACE tab and follow the arrows — every step answers one of the six analyst questions.
+  </text>
+
+  <!-- WHAT (entry) -->
+  <g>
+    <rect x="440" y="90" width="200" height="70" class="card"/>
+    <text x="540" y="115" text-anchor="middle" class="mint lbl">WHAT</text>
+    <text x="540" y="135" text-anchor="middle" class="white title">A suspicious payload</text>
+    <text x="540" y="150" text-anchor="middle" class="body muted">command · blob · IOC · header</text>
+  </g>
+
+  <!-- WHERE -->
+  <g>
+    <rect x="440" y="200" width="200" height="70" class="card"/>
+    <text x="540" y="225" text-anchor="middle" class="mint lbl">WHERE</text>
+    <text x="540" y="245" text-anchor="middle" class="white title">Workspace ▸ Input textarea</text>
+    <text x="540" y="260" text-anchor="middle" class="body muted">Paste it or drag a file</text>
+  </g>
+
+  <!-- WHEN (left) / WHY (right) — two sibling drivers -->
+  <g>
+    <rect x="80" y="200" width="240" height="70" class="card"/>
+    <text x="200" y="225" text-anchor="middle" class="amber lbl">WHEN</text>
+    <text x="200" y="245" text-anchor="middle" class="white title">Triage · IOC hunt · Regression</text>
+    <text x="200" y="260" text-anchor="middle" class="body muted">any time you can't read the input</text>
+  </g>
+  <g>
+    <rect x="760" y="200" width="240" height="70" class="card"/>
+    <text x="880" y="225" text-anchor="middle" class="amber lbl">WHY</text>
+    <text x="880" y="245" text-anchor="middle" class="white title">Extract IOCs, verdict, MITRE</text>
+    <text x="880" y="260" text-anchor="middle" class="body muted">turn opaque bytes into action</text>
+  </g>
+
+  <!-- HOW (top-level fork) -->
+  <g>
+    <rect x="440" y="310" width="200" height="70" class="card"/>
+    <text x="540" y="335" text-anchor="middle" class="violet lbl">HOW</text>
+    <text x="540" y="355" text-anchor="middle" class="white title">Pick a decode strategy</text>
+    <text x="540" y="370" text-anchor="middle" class="body muted">NIVXRAY · AUTO · MAGIC · manual</text>
+  </g>
+
+  <!-- WHICH (four leaf choices) -->
+  <g>
+    <rect x="60" y="430" width="220" height="90" class="card"/>
+    <text x="170" y="455" text-anchor="middle" class="rose lbl">WHICH · A</text>
+    <text x="170" y="475" text-anchor="middle" class="white title">NIVXRAY DECODE</text>
+    <text x="170" y="493" text-anchor="middle" class="body muted">One click — deterministic +</text>
+    <text x="170" y="507" text-anchor="middle" class="body muted">LLM referee. Default winner.</text>
+  </g>
+  <g>
+    <rect x="300" y="430" width="220" height="90" class="card"/>
+    <text x="410" y="455" text-anchor="middle" class="rose lbl">WHICH · B</text>
+    <text x="410" y="475" text-anchor="middle" class="white title">AUTO INVESTIGATE</text>
+    <text x="410" y="493" text-anchor="middle" class="body muted">Full SOC pipeline: decode →</text>
+    <text x="410" y="507" text-anchor="middle" class="body muted">enrich → MITRE → verdict.</text>
+  </g>
+  <g>
+    <rect x="540" y="430" width="220" height="90" class="card"/>
+    <text x="650" y="455" text-anchor="middle" class="rose lbl">WHICH · C</text>
+    <text x="650" y="475" text-anchor="middle" class="white title">MAGIC DECODE</text>
+    <text x="650" y="493" text-anchor="middle" class="body muted">No AI, fully deterministic.</text>
+    <text x="650" y="507" text-anchor="middle" class="body muted">Repeatable · fast · offline-safe.</text>
+  </g>
+  <g>
+    <rect x="780" y="430" width="220" height="90" class="card"/>
+    <text x="890" y="455" text-anchor="middle" class="rose lbl">WHICH · D</text>
+    <text x="890" y="475" text-anchor="middle" class="white title">CHAIN MODE / RECIPE</text>
+    <text x="890" y="493" text-anchor="middle" class="body muted">Build your own multi-stage</text>
+    <text x="890" y="507" text-anchor="middle" class="body muted">recipe when you know the shape.</text>
+  </g>
+
+  <!-- Post-decode: 3 outcome cards -->
+  <g>
+    <rect x="60" y="570" width="300" height="120" class="card"/>
+    <text x="210" y="595" text-anchor="middle" class="mint lbl">OUTPUT</text>
+    <text x="210" y="615" text-anchor="middle" class="white title">Decoded text · Chain · Verdict</text>
+    <text x="210" y="638" text-anchor="middle" class="body muted">Read the OUTPUT panel + the</text>
+    <text x="210" y="652" text-anchor="middle" class="body muted">chain of stages that fired.</text>
+    <text x="210" y="672" text-anchor="middle" class="body muted">Copy · Hex · Base64 · Diff.</text>
+  </g>
+  <g>
+    <rect x="390" y="570" width="300" height="120" class="card"/>
+    <text x="540" y="595" text-anchor="middle" class="mint lbl">INSPECT</text>
+    <text x="540" y="615" text-anchor="middle" class="white title">Candidate Explorer</text>
+    <text x="540" y="638" text-anchor="middle" class="body muted">Why did Base64 win? See every</text>
+    <text x="540" y="652" text-anchor="middle" class="body muted">candidate + structured why-not</text>
+    <text x="540" y="672" text-anchor="middle" class="body muted">rejection reasons.</text>
+  </g>
+  <g>
+    <rect x="720" y="570" width="300" height="120" class="card"/>
+    <text x="870" y="595" text-anchor="middle" class="mint lbl">ACT</text>
+    <text x="870" y="615" text-anchor="middle" class="white title">Threat Analysis panel</text>
+    <text x="870" y="638" text-anchor="middle" class="body muted">Verdict · MITRE · IOCs · TI-Hits</text>
+    <text x="870" y="652" text-anchor="middle" class="body muted">· FLOW · CHAIN · Graph. Enrich</text>
+    <text x="870" y="672" text-anchor="middle" class="body muted">IOCs. Correct if wrong.</text>
+  </g>
+
+  <!-- Loop-back banner -->
+  <g>
+    <rect x="240" y="720" width="600" height="60" fill="#0b1220" stroke="#7ee3c9" stroke-width="1.2" rx="6"/>
+    <text x="540" y="740" text-anchor="middle" class="mint lbl">LEARN</text>
+    <text x="540" y="760" text-anchor="middle" class="white title">Not right? Click CORRECT THIS.</text>
+    <text x="540" y="775" text-anchor="middle" class="body muted">Correction feeds `learning_events` → regression corpus → tomorrow's engine is smarter.</text>
+  </g>
+
+  <!-- Edges -->
+  <!-- WHAT → WHERE -->
+  <line x1="540" y1="160" x2="540" y2="200" class="edge" marker-end="url(#arrow)"/>
+  <!-- WHERE fans out to WHEN (left) & WHY (right) & HOW (down) -->
+  <line x1="440" y1="235" x2="320" y2="235" class="edge" marker-end="url(#arrow)"/>
+  <line x1="640" y1="235" x2="760" y2="235" class="edge" marker-end="url(#arrow)"/>
+  <line x1="540" y1="270" x2="540" y2="310" class="edge" marker-end="url(#arrow)"/>
+  <!-- HOW → each WHICH -->
+  <line x1="500" y1="380" x2="200" y2="430" class="edge" marker-end="url(#arrow)"/>
+  <line x1="520" y1="380" x2="410" y2="430" class="edge" marker-end="url(#arrow)"/>
+  <line x1="560" y1="380" x2="650" y2="430" class="edge" marker-end="url(#arrow)"/>
+  <line x1="580" y1="380" x2="880" y2="430" class="edge" marker-end="url(#arrow)"/>
+  <!-- WHICH cards → each of the 3 outcome cards -->
+  <line x1="170" y1="520" x2="200" y2="570" class="edge" marker-end="url(#arrow)"/>
+  <line x1="410" y1="520" x2="500" y2="570" class="edge" marker-end="url(#arrow)"/>
+  <line x1="650" y1="520" x2="600" y2="570" class="edge" marker-end="url(#arrow)"/>
+  <line x1="890" y1="520" x2="850" y2="570" class="edge" marker-end="url(#arrow)"/>
+  <!-- Outcomes → LEARN banner -->
+  <line x1="540" y1="690" x2="540" y2="720" class="edge" marker-end="url(#arrow)"/>
+</svg>

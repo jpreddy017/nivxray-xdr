@@ -102,8 +102,12 @@ def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]
     """
     # every map is TENANT-SCOPED: two tenants may legitimately hold the same identifier and
     # must never be merged into one row.
-    groups: dict[tuple[str, str], dict[str, Any]] = {}
-    gkeys: dict[tuple[str, str], set[tuple[int, str]]] = {}
+    # The group key carries the RANK as well as the value. Two rows that state the same text in
+    # DIFFERENT namespaces are not evidenced to be the same activity, so they must land in
+    # different groups; keying on the bare string let the later row silently overwrite the
+    # earlier one, losing evidence and making the survivor depend on input order.
+    groups: dict[tuple[str, tuple[int, str]], dict[str, Any]] = {}
+    gkeys: dict[tuple[str, tuple[int, str]], set[tuple[int, str]]] = {}
     suppressed = 0
     for ev in events:
         tenant = ev["tenant_id"]
@@ -118,11 +122,41 @@ def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]
                 suppressed += 1
             ev = _merge(merged, ev)
             suppressed += 1
-        g = (tenant, min(keys)[1])
+        g = (tenant, min(keys))
         groups[g], gkeys[g] = ev, keys
+    return _export(groups, gkeys), suppressed
+
+
+def export_id(key: tuple[int, str]) -> str:
+    """Namespace-qualified identity, used only when the bare value would collide.
+
+    The writers do NOT guarantee disjoint namespaces: on real evidence the shadow store's
+    `activity_identity` is `act…` while canonical evidence carries no `activity_identity` at
+    all, and the canonical-event-id space mixes `cev…`/`sys…` with bare hex. A prefix is
+    therefore not a namespace, so the rank is stated explicitly rather than trusted.
+    """
+    return f"r{key[0]}:{key[1]}"
+
+
+def _export(groups: dict[tuple[str, tuple[int, str]], dict[str, Any]],
+            gkeys: dict[tuple[str, tuple[int, str]], set[tuple[int, str]]]
+            ) -> list[dict[str, Any]]:
+    """Emit one row per group with a UNIQUE exported `event_id`.
+
+    Downstream paging and ordering index rows by `event_id`, so two groups must never export
+    the same string: that is how a page boundary would resolve to the wrong row. Collisions are
+    resolved by qualifying EVERY colliding group, computed from the final group set so the
+    result does not depend on the order the rows arrived in.
+    """
+    best = {g: min(gkeys[g]) for g in groups}
+    seen: dict[str, int] = {}
+    for g in groups:
+        seen[best[g][1]] = seen.get(best[g][1], 0) + 1
     out = []
-    for (_t, gid), ev in groups.items():
+    for g, ev in groups.items():
         ev = dict(ev)
-        ev["event_id"], ev["identity_keys"] = gid, sorted(gkeys[(_t, gid)])
+        bare = best[g][1]
+        ev["event_id"] = bare if seen[bare] == 1 else export_id(best[g])
+        ev["identity_keys"] = sorted(gkeys[g])
         out.append(ev)
-    return out, suppressed
+    return out

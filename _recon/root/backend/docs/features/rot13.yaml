@@ -1,0 +1,45 @@
+id: rot13
+title: ROT13 / ROT-N / Caesar shift
+category: Decoders
+audience: user
+purpose: Reverse a mono-alphabetic letter-shift cipher (defaults to shift=13).
+when_to_use:
+- Obfuscated PowerShell command names (CbjreFuryy -Abc)
+- CTF / puzzle payloads
+- Historic malware that uses trivial substitution to bypass keyword scanners
+supported_formats:
+- ROT13
+- ROT-N (1-25)
+- Atbash
+confidence_rules:
+- Requires linguistic-score improvement of the DECODED text vs the input
+- Marginal improvement (<0.30) is flagged; below 0.15 the transform is rejected
+examples:
+- input: CbjreFuryy -Abc
+  output: PowerShell -Nop
+  notes: Analyst-linguistic case — ROT13 fires because the output contains a shell
+    token
+common_errors:
+- Applying ROT13 to random-looking text with no linguistic content — gets rejected
+  as spurious
+tips:
+- The reasoning engine tries every ROT-N (1..25) automatically and picks the one with
+  the highest English density
+related:
+- candidate_explorer
+- magic_decoder
+capture:
+  login: true
+  steps:
+  - url: /workspace
+    wait_for: '[data-testid="input-textarea"]'
+    type_into:
+      selector: '[data-testid="input-textarea"]'
+      text: Uryyb Jbeyq!
+    click_before: '[data-testid="btn-nivxray-decode"]'
+    delay_ms: 4000
+    post_click_ms: 6000
+    selectors:
+    - '[data-testid="input-card"]'
+    - '[data-testid="output-card"]'
+    - '[data-testid="threat-analysis-panel"]'
