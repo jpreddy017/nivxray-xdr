@@ -10,7 +10,8 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol
 
 from .contracts import event, iso, parse_instant, require_tenant
-from .identity import dedupe, fallback_event_id, process_key
+from .identity import (dedupe, fallback_event_id, identity_keys,
+                       process_key)
 
 STORE_SHADOW = "v2_shadow_observations"
 STORE_CANONICAL = "xdr_canonical_evidence"
@@ -20,14 +21,65 @@ _FILE_OPS = {"create": "FILE_CREATE", "write": "FILE_WRITE", "modify": "FILE_WRI
 _SEV = ("NONE", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL")
 
 
-def _kind(activity: str | None, op: str | None) -> str:
+#: The source's OWN authentication class token -> activity family.
+#: This vocabulary is the authoritative one already used by the top-level window
+#: projection (`edr_plane.trajectory_window._AUTH_KINDS`); it is repeated here so §d
+#: classifies an authentication record the same way the rest of the platform does
+#: instead of collapsing it into OTHER.
+_AUTH_FAMILY = {"logon_success": "AUTH_LOGON_SUCCESS",
+                "logon_failure": "AUTH_LOGON_FAILURE",
+                "logon_failed": "AUTH_LOGON_FAILURE",
+                "logon": "AUTH_LOGON",
+                "logoff": "AUTH_LOGOFF",
+                "credential_validation": "AUTH_CREDENTIAL_VALIDATION"}
+
+#: The source's own class token -> activity family, for every family §d renders.
+#: `activity_type`/`operation` is NOT written by the Windows sensor path (it carries only
+#: `AUTHENTICATION`, `PROCESS`, `FILE`, ... on canonical evidence and NOTHING on the shadow
+#: observation), so the class token is the only statement of class many real records carry.
+#: An execute flag is still not a process start, and an unlisted token is still OTHER.
+_CLASS_FAMILY = {**_AUTH_FAMILY,
+                 "process_create": "PROCESS_START", "process_start": "PROCESS_START",
+                 "process_end": "PROCESS_END", "process_terminate": "PROCESS_END",
+                 "process_exit": "PROCESS_END",
+                 "file_create": "FILE_CREATE", "file_write": "FILE_WRITE",
+                 "file_modify": "FILE_WRITE", "file_delete": "FILE_DELETE",
+                 "file_rename": "FILE_MOVE", "file_move": "FILE_MOVE",
+                 "file_execute": "FILE_EXECUTE",
+                 "network_connect": "NETWORK_CONNECT",
+                 "dns_query": "DNS_QUERY",
+                 "registry_value_set": "REGISTRY_SET", "registry_create": "REGISTRY_SET",
+                 "registry_delete": "REGISTRY_SET", "registry_rename": "REGISTRY_SET",
+                 "detection": "DETECTION"}
+
+
+def _kind(activity: str | None, op: str | None, event_class: str | None = None) -> str:
+    """Activity family from the evidence.
+
+    `event_class` is the class token the SOURCE states for this record
+    (`xdr_canonical_evidence.event_type` / `v2_shadow_observations.event.kind`) — the same
+    vocabulary the top-level window projection classifies from
+    (`edr_plane.trajectory_window`). For AUTHENTICATION it is the only field that carries the
+    outcome, so it is authoritative there: `activity_type` says only that an authentication
+    record exists, never whether the sign-in succeeded. For every other family the
+    `activity_type`/`operation` pair is used when the writer populated it, and the class token
+    is the fallback for the records that carry no such pair.
+
+    Nothing is promoted beyond what the source stated: an authentication record with no stated
+    outcome, and any unlisted token, stay OTHER.
+    """
+    cls = str(event_class or "").strip().lower()
+    fam = _AUTH_FAMILY.get(cls)
+    if fam:
+        return fam
     a, o = (activity or "").upper(), (op or "").lower()
     if a == "PROCESS":
         return "PROCESS_END" if o in ("end", "terminate", "termination", "exit") else "PROCESS_START"
     if a == "FILE":
         return _FILE_OPS.get(o, "FILE_WRITE")
-    return {"NETWORK": "NETWORK_CONNECT", "DNS": "DNS_QUERY", "REGISTRY": "REGISTRY_SET",
-            "DETECTION": "DETECTION"}.get(a, "OTHER")
+    direct = {"NETWORK": "NETWORK_CONNECT", "DNS": "DNS_QUERY", "REGISTRY": "REGISTRY_SET",
+              "DETECTION": "DETECTION"}.get(a)
+    return direct or _CLASS_FAMILY.get(cls, "OTHER")
 
 
 def _sev(v: Any) -> str:
@@ -80,7 +132,8 @@ def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
     host, prov = doc.get("host") or {}, doc.get("provenance") or {}
     tenant, device = doc.get("tenant_id"), prov.get("collector_id") or host.get("host_id") or host.get("hostname")
     ev = event(
-        tenant_id=tenant, device_id=device, kind=_kind(af.get("activity_type"), af.get("operation")),
+        tenant_id=tenant, device_id=device,
+        kind=_kind(af.get("activity_type"), af.get("operation"), doc.get("event_type")),
         observed_ms=parse_instant(doc.get("event_time")), ingested_ms=parse_instant(doc.get("ingest_time")),
         severity=_sev(af.get("severity")), boot_id=af.get("boot_id"),
         process={"pid": p.get("pid"), "guid": p.get("process_guid"), "start_time": p.get("start_time"),
@@ -94,19 +147,27 @@ def from_canonical(doc: dict[str, Any]) -> dict[str, Any]:
         network={"dest_ip": n.get("dest_ip"), "dest_port": n.get("dest_port"), "protocol": n.get("protocol"),
                  "src_ip": n.get("src_ip"), "initiated": n.get("initiated"), "query": (doc.get("dns") or {}).get("query")}
         if (n or doc.get("dns")) else {},
+        authentication=dict(doc.get("authentication") or {}),
         detection=af.get("detection"), sources=[STORE_CANONICAL],
         provenance={"store": STORE_CANONICAL, "ref": doc.get("event_id"), "label": af.get("data_label"),
                     "raw_ref": _raw_ref_canonical(doc)})
-    ev["event_id"] = af.get("activity_identity") or fallback_event_id(tenant, device, ev)
+    # The canonical event id is the identity the authenticated ingest boundary assigned to this
+    # delivery; the shadow observation carries the SAME value as `canonical_event_id`. Both
+    # stated identities travel so one activity collapses to one row across stores.
+    ev["identity_keys"] = identity_keys(doc.get("event_id"), af.get("activity_identity"))
+    ev["event_id"] = ev["identity_keys"][0][1] if ev["identity_keys"] \
+        else fallback_event_id(tenant, device, ev)
     return ev
 
 
 def from_shadow(doc: dict[str, Any]) -> dict[str, Any]:
     e = doc.get("event") or {}
     p, f, n = e.get("process") or {}, e.get("file") or {}, e.get("network") or {}
+    r = e.get("raw") if isinstance(e.get("raw"), dict) else {}
     tenant, device = doc.get("tenant_id"), e.get("device_iid") or doc.get("collector_id") or e.get("computer")
     ev = event(
-        tenant_id=tenant, device_id=device, kind=_kind(e.get("activity"), e.get("op")),
+        tenant_id=tenant, device_id=device,
+        kind=_kind(e.get("activity"), e.get("op"), e.get("kind") or doc.get("kind")),
         observed_ms=parse_instant(e.get("ts") or doc.get("captured_at")),
         ingested_ms=parse_instant(doc.get("ingest_time") or e.get("ingested_at")),
         severity=_sev(e.get("severity")), boot_id=e.get("boot_id"),
@@ -120,13 +181,16 @@ def from_shadow(doc: dict[str, Any]) -> dict[str, Any]:
               "operation": e.get("op")} if f else {},
         network={"dest_ip": n.get("dest_ip"), "dest_port": n.get("dest_port"), "protocol": n.get("proto"),
                  "src_ip": n.get("src_ip"), "initiated": n.get("initiated"), "query": n.get("query")} if n else {},
+        authentication=dict(r.get("authentication") or {}),
         detection=e.get("detection"), sources=[STORE_SHADOW],
         provenance={"store": STORE_SHADOW, "ref": doc.get("observation_id"), "label": e.get("data_label"),
                     # The DURABLE raw-event pointer the store already holds. Carried, never
                     # derived: the observation id identifies the observation, not the delivery,
                     # and substituting it would break the raw join.
                     "raw_ref": _raw_ref_shadow(doc)})
-    ev["event_id"] = doc.get("activity_identity") or fallback_event_id(tenant, device, ev)
+    ev["identity_keys"] = identity_keys(doc.get("canonical_event_id"), doc.get("activity_identity"))
+    ev["event_id"] = ev["identity_keys"][0][1] if ev["identity_keys"] \
+        else fallback_event_id(tenant, device, ev)
     return ev
 
 

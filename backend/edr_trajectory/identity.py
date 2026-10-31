@@ -50,6 +50,32 @@ def fallback_event_id(tenant_id: str, device_id: str, ev: dict[str, Any]) -> str
     return "ce_" + hashlib.sha256(json.dumps(material, default=str).encode()).hexdigest()[:24]
 
 
+#: Ranked identity keys for one activity. An activity may STATE several identities; a row is
+#: matched on ANY of them and RENDERED under the highest-ranked one, so the id downstream
+#: consumers already hold does not move.
+#: 0 — the activity identity the writer stamped on the store (the id behavior evidence and
+#:     deep links already use).
+#: 1 — the canonical event id the AUTHENTICATED INGEST BOUNDARY assigned to the delivery, which
+#:     BOTH stores carry (`xdr_canonical_evidence.event_id` ==
+#:     `v2_shadow_observations.canonical_event_id`, one raw delivery -> one canonical id). This
+#:     is the only identity the two stores provably share on real sensor evidence.
+#: 2 — content identity, used only when the source states no identity at all.
+RANK_ACTIVITY_IDENTITY = 0
+RANK_CANONICAL_EVENT_ID = 1
+RANK_CONTENT = 2
+
+
+def identity_keys(canonical_event_id: Any, activity_identity: Any) -> list[tuple[int, str]]:
+    """The identities one row STATES, as (rank, value), lowest rank first."""
+    out: list[tuple[int, str]] = []
+    for rank, v in ((RANK_ACTIVITY_IDENTITY, activity_identity),
+                    (RANK_CANONICAL_EVENT_ID, canonical_event_id)):
+        s = str(v).strip() if v is not None else ""
+        if s:
+            out.append((rank, s))
+    return out
+
+
 def _merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     out = dict(a)
     for k, v in b.items():
@@ -65,14 +91,38 @@ def _merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 
 
 def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    """Collapse the same activity seen in several stores (stable event identity). Returns (events, suppressed)."""
-    seen: dict[tuple[str, str], dict[str, Any]] = {}
+    """Collapse the representations of ONE activity. Returns (events, suppressed).
+
+    Two rows are the same activity only when they state the same identity (see
+    `identity_keys`) inside the same tenant. The stores name the endpoint differently —
+    canonical carries `ep_…`, the shadow observation carries `dev_…` for the same machine, which
+    is why device agreement is NOT part of the key and why a content hash can never match across
+    them. Nothing is matched on timestamp, PID or account: two genuine logons by the same
+    account in the same second state two different identities and stay two rows.
+    """
+    # every map is TENANT-SCOPED: two tenants may legitimately hold the same identifier and
+    # must never be merged into one row.
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    gkeys: dict[tuple[str, str], set[tuple[int, str]]] = {}
     suppressed = 0
     for ev in events:
-        k = (ev["tenant_id"], ev["event_id"])
-        if k in seen:
-            seen[k] = _merge(seen[k], ev)
+        tenant = ev["tenant_id"]
+        keys = set(ev.get("identity_keys") or []) or {(RANK_CONTENT, ev["event_id"])}
+        hits = sorted({g for g, ks in gkeys.items() if g[0] == tenant and ks & keys})
+        if hits:
+            for h in hits:
+                keys |= gkeys.pop(h)
+            merged = groups.pop(hits[0])
+            for h in hits[1:]:
+                merged = _merge(merged, groups.pop(h))
+                suppressed += 1
+            ev = _merge(merged, ev)
             suppressed += 1
-        else:
-            seen[k] = ev
-    return list(seen.values()), suppressed
+        g = (tenant, min(keys)[1])
+        groups[g], gkeys[g] = ev, keys
+    out = []
+    for (_t, gid), ev in groups.items():
+        ev = dict(ev)
+        ev["event_id"], ev["identity_keys"] = gid, sorted(gkeys[(_t, gid)])
+        out.append(ev)
+    return out, suppressed
