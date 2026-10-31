@@ -143,15 +143,20 @@ export default function Navigator({ days, dets, view, now, onView, onJump, fetch
     fetchHours?.(new Date(day0).toISOString().slice(0, 10)).then((h) => { if (live) setHours(h); }).catch(() => {});
     return () => { live = false; };
   }, [day0, fetchHours]);
-  const pts = cells.map((t, i) => `${i * 48 + 24},${30 - ((tot.get(t) || 0) / max) * 26}`).join(" ");
-  const dayTip = (t, dd) => ({ title: dateL(t), count: tot.get(t) || 0, dets: dd, t0: t, t1: t + DAY });
+  const trend = cells.map((t, i) => {
+    const count = tot.get(t);
+    if (count == null) return "";
+    const command = i > 0 && tot.get(cells[i - 1]) != null ? "L" : "M";
+    return `${command}${i * 48 + 24},${30 - (count / max) * 26}`;
+  }).join(" ");
+  const dayTip = (t, dd) => ({ title: dateL(t), count: tot.get(t) ?? null, dets: dd, t0: t, t1: t + DAY });
   return (
     <div data-testid="v3-navigator" style={{ background: C.nav, padding: "10px 16px 6px 8px", display: "flex", gap: 8, borderRadius: "10px 10px 0 0" }}>
       <button data-testid="v3-nav-collapse" onClick={() => setOpen(!open)} style={{ background: "none", border: 0, color: C.text, cursor: "pointer", alignSelf: "flex-start",
         fontSize: 15, width: 22, transform: open ? "none" : "rotate(-90deg)", transition: "transform .15s" }}>∨</button>
       {open ? <div style={{ flex: 1, minWidth: 0 }}>
         <svg data-testid="v3-sparkline" viewBox={`0 0 ${30 * 48} 32`} preserveAspectRatio="none" style={{ width: "100%", height: 22, display: "block" }}>
-          <polyline points={pts} fill="none" stroke={C.accent} strokeWidth={1.4} vectorEffect="non-scaling-stroke" /></svg>
+          <path d={trend} fill="none" stroke={C.accent} strokeWidth={1.4} vectorEffect="non-scaling-stroke" /></svg>
         <div style={{ display: "flex" }}>
           {cells.map((t) => {
             const dd = dets.filter((d) => d.ms >= t && d.ms < t + DAY), n = tot.get(t) || 0, cur = t === day0, d = new Date(t);
