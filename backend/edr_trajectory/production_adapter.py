@@ -52,7 +52,7 @@ from services.edr.endpoint_query import (
 from edr_plane import temporal_authority as _ta
 
 from .contracts import require_tenant
-from .identity import dedupe
+from .identity import RANK_ACTIVITY_IDENTITY, dedupe
 from .paging import PAGE_DEFAULT, PAGE_MAX, BadCursor
 from .providers import (
     STORE_CANONICAL,
@@ -413,14 +413,18 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
                 continue
             per_store[store] += 1
             eid = ev["event_id"]
-            o = order.setdefault(eid, {"us": us, "raw": {}})
-            o["us"] = min(o["us"], us)
-            # only a NON-COMPARABLE store still needs a raw-string resume bound;
-            # a comparable store resumes on the exact microsecond instead.
-            if not spec["comparable_temporal"]:
-                prev = o["raw"].get(store)
-                o["raw"][store] = str(raw_t) if prev is None \
-                    else min(prev, str(raw_t))
+            # the order/bound index is keyed by the FULL identity (rank, value), not the bare
+            # string: the writers do not guarantee disjoint namespaces, so a bare key would let
+            # one namespace's stored time answer a lookup for another's.
+            for ik in (ev.get("identity_keys") or [(RANK_ACTIVITY_IDENTITY, eid)]):
+                o = order.setdefault(ik, {"us": us, "raw": {}})
+                o["us"] = min(o["us"], us)
+                # only a NON-COMPARABLE store still needs a raw-string resume bound;
+                # a comparable store resumes on the exact microsecond instead.
+                if not spec["comparable_temporal"]:
+                    prev = o["raw"].get(store)
+                    o["raw"][store] = str(raw_t) if prev is None \
+                        else min(prev, str(raw_t))
             rows.append(ev)
 
     merged, suppressed = dedupe(rows)
@@ -431,8 +435,9 @@ async def page_device_evidence(db: Any, *, tenant_id: str, refs: list[str],
         # the earliest stored observation time among the representations that were read:
         # a merged activity orders by the instant its evidence first states, not by whichever
         # representation happened to be seen first.
-        e["observed_us"] = min(order[k]["us"] for (_r, k) in
-                               (e.get("identity_keys") or [(0, e["event_id"])]) if k in order)
+        e["observed_us"] = min([order[k]["us"] for k in
+                                (e.get("identity_keys") or [(RANK_ACTIVITY_IDENTITY, e["event_id"])])
+                                if k in order] or [e["observed_us"]])
     merged.sort(key=_key, reverse=True)
 
     tie_overflow = False
@@ -541,7 +546,7 @@ def _dig(doc: dict[str, Any], path: str) -> Any:
     return cur
 
 
-def _next_bounds(items: list[dict[str, Any]], order: dict[str, dict[str, Any]],
+def _next_bounds(items: list[dict[str, Any]], order: dict[tuple[int, str], dict[str, Any]],
                  stores: tuple[str, ...], previous: dict[str, str]) -> dict[str, str]:
     """The resume bound per store: the OLDEST raw stored time this page emitted from that store.
 
@@ -556,8 +561,14 @@ def _next_bounds(items: list[dict[str, Any]], order: dict[str, dict[str, Any]],
     """
     out: dict[str, str] = {}
     for store in stores:
-        vals = [order[e["event_id"]]["raw"][store] for e in items
-                if store in order.get(e["event_id"], {}).get("raw", {})]
+        # resolved through the item's FULL identity keys, so a page whose row is missing one
+        # store's representation still resumes on its own namespace rather than another's.
+        vals = []
+        for e in items:
+            for ik in (e.get("identity_keys") or [(RANK_ACTIVITY_IDENTITY, e["event_id"])]):
+                raw = order.get(ik, {}).get("raw", {})
+                if store in raw:
+                    vals.append(raw[store])
         if vals:
             out[store] = min(vals)
         elif previous.get(store):
