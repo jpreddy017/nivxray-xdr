@@ -27,50 +27,39 @@
  *   4. nothing resolvable → explicit ⊘ CAPABILITY UNAVAILABLE state
  */
 import React, { useEffect, useState } from "react";
-import { Navigate, useSearchParams, Link } from "react-router-dom";
+import { Navigate, useSearchParams, useLocation, Link } from "react-router-dom";
 import { Loader2, Radar } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import { listEndpoints } from "@/nivxforge/edrApi";
 import { apiErrorText } from "@/xdr/nx/apiError";
+import { resolveTrajectoryTarget, trajectoryDestination } from "../trajectoryTarget.mjs";
 
 export default function EdrTrajectoryResolver() {
   const [params] = useSearchParams();
+  const { hash } = useLocation();
   const [state, setState] = useState({ status: "resolving" });
 
   const deviceIid  = params.get("device_iid");
   const device     = params.get("device");
   const incidentId = params.get("incident_id");
-  const rule       = params.get("rule");
+  const requestKey = JSON.stringify([deviceIid, device, incidentId]);
 
   useEffect(() => {
     let cancel = false;
-    const ref = deviceIid || device;
+    setState({ status: "resolving", requestKey });
 
     (async () => {
       try {
         const data = await listEndpoints();
         const rows = data.endpoints || [];
-        let match = null;
-
-        if (ref) {
-          const needle = String(ref).trim().toLowerCase();
-          match = rows.find((r) =>
-            String(r.device_iid || "").toLowerCase() === needle ||
-            String(r.hostname  || "").toLowerCase() === needle ||
-            String(r.device_ref || "").toLowerCase() === needle);
-        }
-        if (!match && incidentId) {
-          match = rows.find((r) =>
-            (r.case_ids || []).includes(incidentId) ||
-            r.latest_incident_id === incidentId);
-        }
+        const match = resolveTrajectoryTarget(rows, { deviceIid, device, incidentId });
 
         if (cancel) return;
         if (match) {
-          setState({ status: "resolved", ref: match.device_ref });
+          setState({ status: "resolved", ref: match, requestKey });
         } else {
-          setState({ status: "unresolved", candidates: rows.length });
+          setState({ status: "unresolved", candidates: rows.length, requestKey });
         }
       } catch (e) {
         if (!cancel) {
@@ -78,32 +67,29 @@ export default function EdrTrajectoryResolver() {
             status: "unresolved",
             error: apiErrorText(e),
             candidates: 0,
+            requestKey,
           });
         }
       }
     })();
     return () => { cancel = true; };
-  }, [deviceIid, device, incidentId]);
+  }, [deviceIid, device, incidentId, requestKey]);
 
-  if (state.status === "resolved") {
+  if (state.status === "resolved" && state.requestKey === requestKey) {
     // The EDR Device Trajectory page reads its endpoint from `?device=`.
-    const qs = new URLSearchParams();
-    qs.set("device", state.ref);
-    if (incidentId) qs.set("incident_id", incidentId);
-    if (rule) qs.set("rule", rule);
-    return <Navigate replace to={`/edr/device-trajectory?${qs.toString()}`} />;
+    return <Navigate replace to={trajectoryDestination(params, state.ref, hash)} />;
   }
 
   return (
     <NivXForgeConsole activeTab="device-trajectory">
-      {state.status === "resolving" && (
+      {(state.status === "resolving" || state.requestKey !== requestKey) && (
         <div className="x-empty" data-testid="edr-trajectory-resolving">
           <Loader2 size={13} className="spin"
                     style={{ verticalAlign: "middle", marginRight: 6 }} />
           Resolving endpoint entity …
         </div>
       )}
-      {state.status === "unresolved" && (
+      {state.status === "unresolved" && state.requestKey === requestKey && (
         <section className="panel" style={{ padding: 18 }}
                   data-testid="edr-trajectory-unresolved">
           <div className="nx-ep" data-ep="capability_unavailable" data-known="true"

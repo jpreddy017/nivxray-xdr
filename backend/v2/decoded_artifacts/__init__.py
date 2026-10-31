@@ -43,7 +43,18 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
+from pymongo.errors import DuplicateKeyError
+
 from deps import db
+
+
+class ArtifactPersistenceError(RuntimeError):
+    """A write did not establish acknowledged artifact persistence."""
+
+
+def _require_update(result):
+    if not result.acknowledged or result.matched_count != 1:
+        raise ArtifactPersistenceError("artifact provenance update was not confirmed")
 
 COLL = "v2_decoded_payloads"
 
@@ -111,7 +122,8 @@ async def upsert_artifact(
         update: dict[str, Any] = {"$set": set_ops, "$inc": inc_ops}
         if push_ops:
             update["$push"] = push_ops
-        await db[COLL].update_one({"_id": h}, update)
+        result = await db[COLL].update_one({"_id": h}, update)
+        _require_update(result)
         return h, False
 
     doc = {
@@ -133,15 +145,18 @@ async def upsert_artifact(
         "created_at": now,
     }
     try:
-        await db[COLL].insert_one(doc)
-    except Exception:
+        result = await db[COLL].insert_one(doc)
+        if not result.acknowledged:
+            raise ArtifactPersistenceError("artifact insert was not acknowledged")
+    except DuplicateKeyError:
         # Race condition: another worker inserted the same hash. Treat as
         # a hit — bump provenance and move on.
-        await db[COLL].update_one(
+        result = await db[COLL].update_one(
             {"_id": h},
             {"$set": {"provenance.last_seen": now},
              "$inc": {"provenance.hit_count": 1}},
         )
+        _require_update(result)
         return h, False
     return h, True
 

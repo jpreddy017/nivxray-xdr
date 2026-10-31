@@ -1,0 +1,32 @@
+PAYLOAD CONTEXT (rule: whole /app verbatim, minus node_modules and top-level .git)
+estimated total: 2.95 GB  (platform measured 1.9 GB for run 81342093)
+
+         bytes         MB  path
+   922,466,746      922.5  .worktrees
+   674,917,038      674.9  rocket-p0
+   346,239,973      346.2  rocket-e2e
+   195,702,687      195.7  agents
+   179,911,821      179.9  memory
+   153,428,194      153.4  _preservation
+   132,652,451      132.7  backend
+   122,300,015      122.3  rocket-evidence
+    67,821,773       67.8  docs
+    63,533,436       63.5  evidence
+    31,605,367       31.6  frontend
+    29,155,345       29.2  apps
+    10,047,578       10.0  NIVXRAY_XDR_SOURCE_EXPORT.html.gz
+     5,168,689        5.2  test_reports
+     2,107,810        2.1  .vercel
+     2,096,033        2.1  deck_assets
+     2,062,518        2.1  .ruff_cache
+     1,731,527        1.7  scripts
+     1,508,618        1.5  SECURE_EXPORT
+       928,755        0.9  artifacts
+       586,574        0.6  XDR_PRODUCTION_RECOVERY_CANDIDATE.bundle
+       397,138        0.4  benchmarks
+       177,590        0.2  tools
+       175,182        0.2  NIVXFORGE_M1_G3_B3_AUTHZ_SNAPSHOT.bundle
+       170,347        0.2  NIVXFORGE_M1_G3_INTEGRATED_SNAPSHOT.bundle
+       169,214        0.2  .rollback
+       159,292        0.2  NIVXFORGE_M1_G3_SOURCE_SNAPSHOT.bundle
+       155,396        0.2  NIVXFORGE_G1_REVIEW_SOURCE_SNAPSHOT.tar.gz

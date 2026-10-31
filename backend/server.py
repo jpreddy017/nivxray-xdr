@@ -778,7 +778,7 @@ if os.environ.get("ARCH_DOCS_SHARE") == "1":
 
     # TEMPORARY · owner-requested one-time retrieval of preservation archives.
     # Capability path (unguessable segment); remove this mount after download.
-    _pv_dir = _ArchPath("/var/backups/nivx-preservation")
+    _pv_dir = _ArchPath("/app/_preservation")
     if _pv_dir.is_dir():
         app.mount(
             "/api/_pv/ff603ec885f6068365d62548",

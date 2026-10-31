@@ -59,6 +59,9 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [data, setData] = useState(null);
   const [older, setOlder] = useState({ events: [], cursor: null });
   const [loading, setLoading] = useState(false);
+  const [readError, setReadError] = useState(null);
+  const [olderError, setOlderError] = useState(null);
+  const [retry, setRetry] = useState(0);
   const [details, setDetails] = useState(false);
   const [hover, setHover] = useState(null);
   const [showF, setShowF] = useState(false);
@@ -105,6 +108,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const url = `/edr/endpoints/${encodeURIComponent(device)}/trajectory`;
 
   useEffect(() => {
+    setReadError(null);
+    setOlderError(null);
     if (perf) {
       const t = performance.now();
       setData({ events: perfEvents(perf, now), lane_axis: { lanes: [] }, computer: { hostname: `PERF-${perf}` }, activity: { days: [] },
@@ -114,22 +119,28 @@ export default function TrajectoryPage({ device, onLegacy }) {
     }
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
-    api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
-      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
-      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") say(`Trajectory read failed: ${e.message}`); })
+    setData(null);
+    setOlder({ events: [], cursor: null });
+    api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
+      .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
+      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
-    return () => ac.abort();
-  }, [url, t0, t1, perf, scenario]); // eslint-disable-line
+    return () => { req.current += 1; ac.abort(); };
+  }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
+    if (loading || !older.cursor) return;
     const id = req.current;
     setLoading(true);
+    setOlderError(null);
     try {
-      const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
-      const r = d.v3 || d;
-      if (id === req.current) setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
-    } catch (e) { say(`Older events read failed: ${e.message}`); } finally { setLoading(false); }
+      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
+      if (id !== req.current) return;
+      const r = d?.v3 || d;
+      if (!r || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(r.state || ""))) throw new Error("Trajectory evidence contract unavailable");
+      setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
+    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (id === req.current) setLoading(false); }
   };
 
   const os = String(data?.computer?.platform || JSON.stringify(data?.computer?.operating_system || "")).toLowerCase();
@@ -257,6 +268,10 @@ export default function TrajectoryPage({ device, onLegacy }) {
   return (
     <div className="v3amp" data-testid="v3-page" style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }} onClick={() => { setMenu(null); setShowF(false); }}>
       <style>{CSS}</style>
+      {readError && <div role="alert" data-testid="v3-read-error" style={{ padding: 12, marginBottom: 12, border: `1px solid ${C.amber}`, color: C.text }}>
+        <strong>Trajectory unavailable</strong><p>{readError}</p>
+        <button className="v3-btn" data-testid="v3-retry-read" onClick={() => setRetry((n) => n + 1)}>Retry</button>
+      </div>}
       <Header data={data} device={device} dets={dets} onShare={() => copy(window.location.href)} onJump={jump} pendingIso={pendingIso}
         onActions={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 16, deviceOnly: true, device, isolated: isolated || pendingIso === "ISOLATE_DEVICE", pending: devPending })} />
       <div style={{ background: C.panel, borderRadius: 12, padding: 16, border: `1px solid ${C.line}` }}>
@@ -336,8 +351,9 @@ export default function TrajectoryPage({ device, onLegacy }) {
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            <span data-testid="v3-loaded-count">Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</span>
-            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" onClick={loadOlder}>Load older events</button>}
+            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</>}</span>
+            {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
+            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
             <span style={{ flex: 1 }} />
             <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{!data ? "No data read"
               : /REAL PRODUCTION EVIDENCE/.test(data?.e3_preview?.data_label || "") ? "Production evidence (read-only)"
@@ -359,3 +375,4 @@ export default function TrajectoryPage({ device, onLegacy }) {
     </div>
   );
 }
+
