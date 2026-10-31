@@ -996,6 +996,7 @@ def _iso_ok(ts: Optional[str]) -> Optional[str]:
 @router.get("/endpoints/{endpoint_id}/trajectory")
 async def endpoint_trajectory_window(
     endpoint_id: str,
+    presentation: str = "combined",
     time_start: Optional[str] = None,
     time_end: Optional[str] = None,
     lane_start: int = 0,
@@ -1020,6 +1021,8 @@ async def endpoint_trajectory_window(
     investigation state. It is a projection over the existing canonical
     evidence and creates no telemetry store of its own.
     """
+    if presentation not in {"combined", "v3"}:
+        raise HTTPException(status_code=422, detail="unsupported trajectory presentation")
     from deps import db as _db
     from edr_plane import trajectory_window as tw
     import asyncio
@@ -1045,45 +1048,60 @@ async def endpoint_trajectory_window(
                     observations_in_window=0,
                     requested_ref=endpoint_id)}
     identity = res.identity
-    out = await tw.query_window(
-        _db, identity=identity, time_start=time_start, time_end=time_end,
-        lane_start=max(0, lane_start), lane_end=max(1, lane_end),
-        cursor=cursor, limit=limit, kinds=kinds, q=q,
-        dispositions=dispositions, hist_day=hist_day, refs=res.refs)
-    _t2 = _t.perf_counter()
-    ep = await _db["edr_endpoints"].find_one(
-        res.predicate("edr_endpoints"), {"_id": 0})
-    out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
-    out["epistemic_state"] = tw.empty_state(
-        identity=identity,
-        enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
-        observations_all_time=out["observations_all_time"],
-        observations_in_window=out["matched_in_window"])
-    out["computer"] = _computer_header(identity, ep, out)
-    # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
-    # client simply ignores `dt2`. Read-only projection, no store.
-    try:
-        dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
-                     if raw_event_id else None)
-        dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
-                                         or endpoint_id),
-                    requested_start=time_start, requested_end=time_end,
-                    focus=dt2_focus)
-        # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
-        # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
-        # the server-derived nodes and edges and infers no relationship of
-        # its own. Composed from the SAME rows already projected above.
-        from edr_plane.trajectory import projection as dt2_projection
-        out["dt2"]["graph"] = dt2_projection.build_graph(
-            out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
-            requested_start=time_start, requested_end=time_end,
-            focus=dt2_focus).to_dict()
-    except Exception as ex:                        # noqa: BLE001
-        # The V2 contract must never take the V1 surface down with it.
-        out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
-                      "state": "DT2_CONTRACT_UNAVAILABLE",
-                      "reason": type(ex).__name__}
-        _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
+    if presentation == "v3":
+        # V3 consumes the paged E3 evidence contract below, not the legacy
+        # whole-history lane projection. Do not compute unused contracts.
+        # Aggregate header fields are explicitly unknown, never zero.
+        out = {"time_range": {"observed_start": None, "observed_end": None},
+               "lane_axis": {"total_lanes": None, "group_counts": None},
+               "observations_all_time": None,
+               "projection": {"state": "V3_PAGED_ONLY",
+                              "aggregates": "NOT_REQUESTED"}}
+        ep = await _db["edr_endpoints"].find_one(
+            res.predicate("edr_endpoints"), {"_id": 0})
+        out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
+        out["computer"] = _computer_header(identity, ep, out)
+        _t2 = _t.perf_counter()
+    else:
+        out = await tw.query_window(
+            _db, identity=identity, time_start=time_start, time_end=time_end,
+            lane_start=max(0, lane_start), lane_end=max(1, lane_end),
+            cursor=cursor, limit=limit, kinds=kinds, q=q,
+            dispositions=dispositions, hist_day=hist_day, refs=res.refs)
+        _t2 = _t.perf_counter()
+        ep = await _db["edr_endpoints"].find_one(
+            res.predicate("edr_endpoints"), {"_id": 0})
+        out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
+        out["epistemic_state"] = tw.empty_state(
+            identity=identity,
+            enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
+            observations_all_time=out["observations_all_time"],
+            observations_in_window=out["matched_in_window"])
+        out["computer"] = _computer_header(identity, ep, out)
+        # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
+        # client simply ignores `dt2`. Read-only projection, no store.
+        try:
+            dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
+                         if raw_event_id else None)
+            dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
+                                             or endpoint_id),
+                        requested_start=time_start, requested_end=time_end,
+                        focus=dt2_focus)
+            # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
+            # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
+            # the server-derived nodes and edges and infers no relationship of
+            # its own. Composed from the SAME rows already projected above.
+            from edr_plane.trajectory import projection as dt2_projection
+            out["dt2"]["graph"] = dt2_projection.build_graph(
+                out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+                requested_start=time_start, requested_end=time_end,
+                focus=dt2_focus).to_dict()
+        except Exception as ex:                        # noqa: BLE001
+            # The V2 contract must never take the V1 surface down with it.
+            out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
+                          "state": "DT2_CONTRACT_UNAVAILABLE",
+                          "reason": type(ex).__name__}
+            _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
     # §d · PRODUCTION WIRING for the E3 Device Trajectory capability.
     #
     # Additive under `e3`: V1 and `dt2` above are untouched and a client that does not know

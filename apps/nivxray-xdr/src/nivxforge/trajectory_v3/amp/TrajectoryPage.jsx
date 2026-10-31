@@ -119,7 +119,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     setLoading(true);
     setData(null);
     setOlder({ events: [], cursor: null });
-    api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
+    api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
       .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
@@ -131,7 +131,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     const id = req.current;
     setLoading(true);
     try {
-      const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
+      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
       const r = d.v3 || d;
       if (id === req.current) setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
     } catch (e) { say(`Older events read failed: ${e.message}`); } finally { setLoading(false); }
