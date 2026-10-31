@@ -32,16 +32,40 @@ from edr_plane.canonical_index_contract import \
     TARGET_CANONICAL_INDEXES  # noqa: E402
 from server import app  # noqa: E402
 
-sync = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+sync = None  # Bound by client(), after collection-time environment changes settle.
 
 
 @pytest.fixture(scope="module")
 def client():
-    """One client for the module: the context manager runs the app's real
-    startup (which binds the database) and keeps a single event loop alive, so
-    the route is exercised exactly as it is in the running service."""
-    with TestClient(app) as c:
-        yield c
+    """Own both database bindings for this module and restore prior state.
+
+    Collection can import suites that temporarily change DB_NAME or leave a
+    Motor proxy bound to another database. Capture configuration at fixture
+    setup, create the synchronous writer then, and force application startup
+    to create its own Motor client using that same configuration. Never close
+    a client owned by another module.
+    """
+    global sync
+    prior_sync = sync
+    prior_client = object.__getattribute__(deps.client, "_real")
+    prior_db = object.__getattribute__(deps.db, "_real")
+    mongo_url, db_name = os.environ["MONGO_URL"], os.environ["DB_NAME"]
+    owned_sync = MongoClient(mongo_url)
+    try:
+        sync = owned_sync[db_name]
+        deps.client._bind(None)
+        deps.db._bind(None)
+        with TestClient(app) as c:
+            # Fail at setup, not as misleading authentication failures later.
+            actual_db = object.__getattribute__(deps.db, "_real")
+            assert actual_db is not None, "application startup did not bind its database"
+            assert actual_db.name == db_name, "API and fixture database names differ"
+            yield c
+    finally:
+        deps.client._bind(prior_client)
+        deps.db._bind(prior_db)
+        sync = prior_sync
+        owned_sync.close()
 
 BASE = "/api/internal/admin/migrations"
 ENSURE = f"{BASE}/ensure-canonical-identity-indexes"
@@ -62,14 +86,14 @@ def _user(role: str):
 
 
 @pytest.fixture
-def admin_user():
+def admin_user(client):
     email = _user("admin")
     yield email
     sync.users.delete_one({"email": email})
 
 
 @pytest.fixture
-def analyst_user():
+def analyst_user(client):
     email = _user("analyst")
     yield email
     sync.users.delete_one({"email": email})
