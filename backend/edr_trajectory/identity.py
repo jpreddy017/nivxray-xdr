@@ -1,10 +1,11 @@
 """Stable process-instance identity, event identity and cross-store duplicate suppression."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Optional
 
 from .contracts import ID_GUID, ID_PID_ONLY, ID_START_TIME, parse_instant
 
@@ -127,36 +128,78 @@ def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]
     return _export(groups, gkeys), suppressed
 
 
-def export_id(key: tuple[int, str]) -> str:
-    """Namespace-qualified identity, used only when the bare value would collide.
+#: Versioned identity encoding. Applied to EVERY exported identity, never conditionally, so the
+#: exported value is a pure function of (rank, value) and does not depend on which other rows
+#: share the page. The payload is base64url without padding, which cannot contain ':', so
+#: "<version>:<rank>:<payload>" is unambiguous and no raw identity can forge an encoded one.
+IDENTITY_ENCODING = "e3i1"
 
-    The writers do NOT guarantee disjoint namespaces: on real evidence the shadow store's
-    `activity_identity` is `act…` while canonical evidence carries no `activity_identity` at
-    all, and the canonical-event-id space mixes `cev…`/`sys…` with bare hex. A prefix is
-    therefore not a namespace, so the rank is stated explicitly rather than trusted.
+
+class AmbiguousIdentity(Exception):
+    """A legacy identity resolved to more than one row. Never resolved by guessing."""
+
+
+def encode_identity(key: tuple[int, str]) -> str:
+    """Encode (rank, value) into the versioned identity space.
+
+    Context-free by construction: adding or removing rows from the page cannot change the
+    result, which is what makes a cursor taken on one page valid on another.
     """
-    return f"r{key[0]}:{key[1]}"
+    payload = base64.urlsafe_b64encode(str(key[1]).encode("utf-8")).decode("ascii").rstrip("=")
+    return f"{IDENTITY_ENCODING}:{int(key[0])}:{payload}"
+
+
+def decode_identity(encoded: str) -> Optional[tuple[int, str]]:
+    """Inverse of `encode_identity`, or None if `encoded` is not of this version."""
+    parts = str(encoded).split(":", 2)
+    if len(parts) != 3 or parts[0] != IDENTITY_ENCODING or not parts[1].isdigit():
+        return None
+    pad = "=" * (-len(parts[2]) % 4)
+    try:
+        return int(parts[1]), base64.urlsafe_b64decode(parts[2] + pad).decode("utf-8")
+    except Exception:
+        return None
+
+
+def resolve_identity(identity: str, events: list[dict[str, Any]], tenant_id: str
+                     ) -> Optional[dict[str, Any]]:
+    """Resolve an encoded id OR a legacy bare id to exactly one row, within one tenant.
+
+    Legacy deep links carry the bare value that older builds exported, which is not unique on
+    its own: the same text can exist in two namespaces. When a legacy id matches more than one
+    row this raises rather than choosing, because no evidence states which was meant.
+    """
+    scoped = [e for e in events if e.get("tenant_id") == tenant_id]
+    exact = [e for e in scoped if e.get("event_id") == identity
+             or identity in (e.get("identity_aliases") or [])]
+    if exact:
+        return exact[0]
+    legacy = [e for e in scoped if identity in (e.get("legacy_event_ids") or [])]
+    if len(legacy) > 1:
+        raise AmbiguousIdentity(
+            f"legacy identity matches {len(legacy)} rows in tenant {tenant_id}; "
+            "it must be disambiguated by the caller, not selected here")
+    return legacy[0] if legacy else None
 
 
 def _export(groups: dict[tuple[str, tuple[int, str]], dict[str, Any]],
             gkeys: dict[tuple[str, tuple[int, str]], set[tuple[int, str]]]
             ) -> list[dict[str, Any]]:
-    """Emit one row per group with a UNIQUE exported `event_id`.
+    """Emit one row per group under the versioned identity encoding.
 
-    Downstream paging and ordering index rows by `event_id`, so two groups must never export
-    the same string: that is how a page boundary would resolve to the wrong row. Collisions are
-    resolved by qualifying EVERY colliding group, computed from the final group set so the
-    result does not depend on the order the rows arrived in.
+    `event_id` is always encoded, so it is stable across subset and superset pages and can never
+    collide with a raw identity that merely looks prefix-shaped. Every identity the group holds
+    is also published as an alias, and the bare values are published as legacy ids, so a cursor
+    or deep link minted before a further store representation raised the group's rank still
+    resolves instead of 404-ing.
     """
-    best = {g: min(gkeys[g]) for g in groups}
-    seen: dict[str, int] = {}
-    for g in groups:
-        seen[best[g][1]] = seen.get(best[g][1], 0) + 1
     out = []
     for g, ev in groups.items():
         ev = dict(ev)
-        bare = best[g][1]
-        ev["event_id"] = bare if seen[bare] == 1 else export_id(best[g])
-        ev["identity_keys"] = sorted(gkeys[g])
+        keys = sorted(gkeys[g])
+        ev["identity_keys"] = keys
+        ev["event_id"] = encode_identity(min(keys))
+        ev["identity_aliases"] = [encode_identity(k) for k in keys]
+        ev["legacy_event_ids"] = sorted({str(v) for _r, v in keys})
         out.append(ev)
     return out

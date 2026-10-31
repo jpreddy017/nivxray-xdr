@@ -1,0 +1,76 @@
+fix(edr_trajectory): versioned context-free identity encoding with legacy aliases
+
+Follow-up on 2c64e0c, which is PRESERVED as the parent. Repairs the two export
+defects reproduced by independent review on that exact source.
+
+DEFECTS REPRODUCED (synthetic, tenant t; A=(0,"same") B=(1,"same") C=(2,"r0:same"))
+  before:  A       -> 1 row,  1 unique id,  ids=['same']
+           A+B     -> 2 rows, 2 unique ids, ids=['r0:same','r1:same']
+           A+B+C   -> 3 rows, only 2 UNIQUE IDS, suppressed=0
+  (1) the exported id changed with page/filter composition, so a cursor or deep
+      link was only valid for the composition that minted it;
+  (2) conditional qualification could collide with a legitimate RAW identity
+      whose value was literally prefix-shaped.
+
+CONTRACT CHOICE
+  event_id = "e3i1:<rank>:<base64url_nopad(value)>", applied UNCONDITIONALLY.
+    - versioned: `e3i1` is explicit, and decode_identity() rejects other
+      versions instead of guessing.
+    - context-free: a pure function of (rank, value), so subset and superset
+      pages export the same id. Verified invariant across A, A+B, A+B+C, C+B+A.
+    - unforgeable: base64url cannot contain ':', so "<ver>:<rank>:<payload>" is
+      unambiguous and no raw value can impersonate an encoded one. A raw
+      "r0:same" at rank 2 now exports e3i1:2:cjA6c2FtZQ, distinct from
+      e3i1:0:c2FtZQ.
+  after:   A+B+C   -> 3 rows, 3 unique ids, suppressed=0
+
+SELECTION WHEN A HIGHER-RANKED KEY ARRIVES LATER
+  Qualification alone cannot fix this, as the review noted: a later page can
+  bridge in a higher-ranked identity and change which identity leads. So every
+  identity the group holds is published:
+    identity_aliases   encoded ids for ALL of the group's keys
+    legacy_event_ids   the bare values older builds exported
+  An id minted before the rank rose still resolves, instead of 404-ing.
+
+NEVER SELECTS AMONG AMBIGUOUS ALIASES
+  identity.resolve_identity() is tenant-scoped; exact/encoded ids resolve
+  directly, and a legacy bare id matching more than one row raises
+  AmbiguousIdentity rather than choosing.
+  production_adapter.resolve_evidence() mirrors this on the real walk: exact and
+  alias hits resolve on sight, legacy hits are ACCUMULATED across the walk, and
+  a multi-match returns state FOCUS_AMBIGUOUS with the candidate list and
+  event=None. A single legacy hit resolves with
+  resolved_via=LEGACY_IDENTITY_ALIAS.
+
+ADAPTER
+  The order/bound index remains keyed by the full (rank, value) identity in both
+  the order map and _next_bounds, so a page missing one store's representation
+  resumes on its own namespace.
+
+TESTS
+  test_identity_export_contract.py      (17) subset/superset stability,
+      arbitrary prefix-shaped raw ids, per-rank distinctness, version rejection,
+      added representation raising rank, missing representation, legacy
+      resolution, ambiguity raising, tenant scoping both ways, equal-time
+      ordering, count conservation.
+  test_identity_paging_integration.py    (9) REAL paged walk over a populated
+      endpoint: versioned+decodable ids, uniqueness within and across 3 pages,
+      highest-ranked selection, CURSOR RESUMES ON THE SAME BOUNDARY, equal-time
+      rows never tie, aliases published, deep link by versioned id, deep link by
+      legacy id resolving or reporting ambiguity, unknown id never mis-resolved.
+  test_identity_namespace_regression.py (17) updated to the new contract.
+  test_activity_identity.py              (24) updated; pre-export provider rows
+      intentionally still assert bare ids, since encoding happens at export.
+
+EVIDENCE (reported results, not exhaustive proof)
+  shared set, identical composition : baseline 401 / candidate 401, 0 failed
+  full trajectory suite             : 484 passed, 9 skipped, 0 failed
+  live preview, presentation=v3     : page1 200 + page2 200 via cursor,
+                                      0 overlap, all ids versioned, aliases
+                                      present, ~1.3s
+
+CONSUMER NOTE: trajectory_amp Grid/DetailsPane use event_id as an opaque
+selection key and data-testid suffix, so marker test ids change shape. No
+frontend logic parses event_id.
+
+Secret-scanned: 0 findings. Not a release. No production publish.

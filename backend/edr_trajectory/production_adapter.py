@@ -607,7 +607,18 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
     if not refs or not (event_id or match):
         return {"state": "FOCUS_NOT_RESOLVED", "reason": "ENDPOINT_OR_EVENT_IDENTITY_MISSING",
                 "event_id": event_id, "event": None}
-    hit = match if match else (lambda ev: ev["event_id"] == event_id)
+    # Exact identity (the versioned encoding, or any alias the group publishes) is unique, so it
+    # can resolve on first sight. A LEGACY bare id is not unique - the same text can exist in two
+    # namespaces - so those matches are accumulated across the walk and a multi-match is reported
+    # as ambiguous rather than silently resolved to whichever page arrived first.
+    def _exact(ev):
+        return ev["event_id"] == event_id or event_id in (ev.get("identity_aliases") or [])
+
+    def _legacy(ev):
+        return event_id in (ev.get("legacy_event_ids") or [])
+
+    hit = match if match else _exact
+    legacy_hits: list[dict[str, Any]] = []
     cursor = None
     scanned = 0
     pages = 0
@@ -623,7 +634,30 @@ async def resolve_evidence(db: Any, *, tenant_id: str, refs: list[str],
                         "position": {"scanned_newer_first": scanned,
                                      "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
                         "provenance": page["provenance"]}
+            if match is None and _legacy(ev) and not any(
+                    h["event_id"] == ev["event_id"] for h in legacy_hits):
+                legacy_hits.append(ev)
             scanned += 1
+        if not page["has_more"] or pages >= max_pages:
+            if len(legacy_hits) > 1:
+                # NEVER choose between ambiguous aliases.
+                return {"state": "FOCUS_AMBIGUOUS",
+                        "reason": "LEGACY_IDENTITY_MATCHES_MULTIPLE_ROWS",
+                        "event_id": event_id, "event": None, "scanned": scanned,
+                        "candidates": [{"event_id": h["event_id"],
+                                        "identity_keys": h.get("identity_keys")}
+                                       for h in legacy_hits],
+                        "meaning": ("this identifier was exported by an older build and is not "
+                                    "unique: it names rows in more than one identity namespace. "
+                                    "The caller must choose using the versioned event_id.")}
+            if len(legacy_hits) == 1:
+                ev = legacy_hits[0]
+                return {"state": "FOCUS_RESOLVED", "event_id": ev["event_id"], "event": ev,
+                        "observed_at": ev.get("observed_at"),
+                        "resolved_via": "LEGACY_IDENTITY_ALIAS",
+                        "position": {"scanned_newer_first": scanned,
+                                     "basis": "NEWEST_FIRST_OBSERVATION_TIME_ORDER"},
+                        "provenance": page["provenance"]}
         if not page["has_more"]:
             return {"state": "FOCUS_NOT_RESOLVED",
                     "reason": "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT",
