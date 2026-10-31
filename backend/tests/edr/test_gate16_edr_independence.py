@@ -29,7 +29,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SRC = Path("/app/apps/nivxray-xdr/src")
+SRC = Path(__file__).resolve().parents[3] / "apps/nivxray-xdr/src"
 EDR = SRC / "nivxforge"
 APP = SRC / "App.jsx"
 
@@ -39,9 +39,6 @@ ALLOWED_XDR_PIVOTS = {
     "edr-return-to-incident": (
         "NivXForgeConsole.jsx",
         "Return to NivXRay XDR incident ↗"),
-    "nvf-open-in-xdr": (
-        "NivXForgeConsole.jsx",
-        "Investigate in NivXRay XDR ↗"),
 }
 
 # A navigation target is what actually moves the analyst: a router `to=`,
@@ -183,8 +180,13 @@ def test_the_edr_trajectory_resolver_redirects_inside_edr():
     text = f.read_text(encoding="utf8")
     code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("*"))
     assert "XdrShell" not in code, "an EDR route must not render the XDR application shell"
-    assert "/edr/device-trajectory" in code, (
-        "the resolver must redirect to the EDR Device Trajectory surface")
+    assert 'from "../trajectoryTarget.mjs"' in code
+    assert "to={trajectoryDestination(params, state.ref, hash)}" in code, (
+        "the resolver must navigate through the reviewed EDR destination helper")
+    helper = (EDR / "trajectoryTarget.mjs").read_text(encoding="utf8")
+    assert 'return `/edr/device-trajectory?' in helper, (
+        "the helper must keep the destination inside EDR")
+    assert "/xdr/" not in helper, "the destination helper must not route into XDR"
     assert not re.search(r"""to=\{?[`"']/xdr/""", code), (
         "the resolver must not navigate into an XDR route")
 
@@ -205,3 +207,9 @@ def test_an_expired_session_on_an_edr_route_lands_on_the_edr_login():
     assert '"/edr/login"' in guard
     assert not re.search(r'Navigate to=\{`/login\?returnTo', guard), (
         "an EDR route must never be redirected to the XDR login")
+
+
+def test_removed_cross_product_header_controls_stay_removed():
+    text = (EDR / "NivXForgeConsole.jsx").read_text(encoding="utf8")
+    assert "nvf-open-in-xdr" not in text
+    assert "Investigate in NivXRay XDR" not in text

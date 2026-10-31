@@ -19,9 +19,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
-from dotenv import load_dotenv
-
-load_dotenv("/app/backend/.env", override=True)
+# Use the runner-selected test database; never load preview settings at collection.
 from motor.motor_asyncio import AsyncIOMotorClient        # noqa: E402
 
 from edr_plane import compromise_store as cs              # noqa: E402
