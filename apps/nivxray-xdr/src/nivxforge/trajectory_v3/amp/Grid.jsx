@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Mark } from "./Glyphs";
 import { C, HDR_H, LABEL_W, ROW_H } from "./theme";
 
@@ -40,7 +40,7 @@ function Label({ l, y, sel, hover, hits, expanded, toggle, onRowCtx, onRowClick 
   );
 }
 
-export default function Grid({ model, items, sel, onSelect, onContext, hover, setHover, colW, setColW, returnTo, expanded, toggle, hits, height, onRowClick }) {
+export default function Grid({ model, items, sel, onSelect, onContext, hover, setHover, colW, setColW, returnTo, expanded, toggle, hits, height, onRowClick, onOlder }) {
   const box = useRef(null);
   const [vp, setVp] = useState({ sl: 0, st: 0, vw: 1000, vh: 600 });
   const lines = useMemo(() => buildLines(model.rows, expanded), [model.rows, expanded]);
@@ -48,6 +48,20 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
   const rk = (r, iid) => (r && expanded.has(r.key) && iid && r.instances.has(iid) ? `${r.key}#${iid}` : r?.key);
   const W = Math.max(model.ncol * colW + 360, vp.vw), H = lines.length * ROW_H, x = (c) => c * colW + colW / 2;
   const sync = () => { const b = box.current; if (b) setVp({ sl: b.scrollLeft, st: b.scrollTop, vw: b.clientWidth - LABEL_W, vh: b.clientHeight - HDR_H }); };
+  const previous = useRef({ model, lines });
+  useLayoutEffect(() => {
+    const b = box.current, old = previous.current;
+    previous.current = { model, lines };
+    if (!b || old.model === model || !old.model.items.length) return;
+    const anchor = old.model.items.find((it) => it.col * colW >= b.scrollLeft) || old.model.items[old.model.items.length - 1];
+    const next = model.items.find((it) => it.ev.event_iid === anchor.ev.event_iid);
+    if (!next) return;
+    b.scrollLeft += (next.col - anchor.col) * colW;
+    const rowIndex = Math.floor(b.scrollTop / ROW_H), key = old.lines[rowIndex]?.key;
+    const nextRow = lines.findIndex((l) => l.key === key);
+    if (nextRow >= 0) b.scrollTop += (nextRow - rowIndex) * ROW_H;
+    sync();
+  }, [model, lines]); // eslint-disable-line
   useEffect(() => { sync(); const o = new ResizeObserver(sync); box.current && o.observe(box.current); return () => o.disconnect(); }, []);
   useEffect(() => {
     if (!sel || !box.current || !returnTo.current) return;
@@ -128,7 +142,9 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
     for (const n of insts) if (n.to >= c0 && n.from <= c1) instLines.push({ l, n, glow: sel && [sel.targetIid, sel.actorIid].includes(n.iid) });
   }
   return (
-    <div data-testid="v3-grid" data-colw={colW.toFixed(2)} ref={box} className="v3-scroll" onScroll={sync} onMouseDown={down}
+    <div data-testid="v3-grid" data-colw={colW.toFixed(2)} ref={box} className="v3-scroll" onScroll={sync} onWheel={(e) => {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.currentTarget.scrollLeft <= 80 && (e.deltaX < 0 || (e.shiftKey && e.deltaY < 0))) onOlder?.();
+    }} onMouseDown={down}
       style={{ overflow: "auto", height, position: "relative", background: C.page, userSelect: "none" }}>
       <div style={{ width: LABEL_W + W, height: HDR_H + H, position: "relative" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 6, display: "flex", width: LABEL_W + W, height: HDR_H, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
@@ -223,3 +239,4 @@ export default function Grid({ model, items, sel, onSelect, onContext, hover, se
     </div>
   );
 }
+

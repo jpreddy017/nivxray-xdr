@@ -61,6 +61,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [loading, setLoading] = useState(false);
   const [readError, setReadError] = useState(null);
   const [olderError, setOlderError] = useState(null);
+  const olderRequest = useRef(null);
   const [retry, setRetry] = useState(0);
   const [details, setDetails] = useState(false);
   const [hover, setHover] = useState(null);
@@ -125,23 +126,28 @@ export default function TrajectoryPage({ device, onLegacy }) {
       .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
-    return () => { req.current += 1; ac.abort(); };
+    return () => { req.current += 1; ac.abort(); olderRequest.current?.abort(); olderRequest.current = null; };
   }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
-    if (loading || !older.cursor) return;
+    if (loading || olderRequest.current || !older.cursor) return;
     const id = req.current;
+    const ac = new AbortController();
+    olderRequest.current = ac;
     setLoading(true);
     setOlderError(null);
     try {
-      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
+      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario }, signal: ac.signal });
       if (id !== req.current) return;
       const r = d?.v3 || d;
       if (!r || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(r.state || ""))) throw new Error("Trajectory evidence contract unavailable");
+      if (r.e3_preview?.older_cursor === older.cursor) throw new Error("Trajectory cursor did not advance");
       setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
-    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (id === req.current) setLoading(false); }
+    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (olderRequest.current === ac) olderRequest.current = null; if (id === req.current) setLoading(false); }
   };
+  // Demand comes from a user gesture, never a render/resize or an automatic retry loop.
+  const requestOlder = () => { if (!olderError) void loadOlder(); };
 
   const os = String(data?.computer?.platform || JSON.stringify(data?.computer?.operating_system || "")).toLowerCase();
   const platform = /mac/.test(os) ? "macos" : /linux|ubuntu|debian|rhel/.test(os) ? "linux" : "windows";
@@ -322,14 +328,15 @@ export default function TrajectoryPage({ device, onLegacy }) {
           </div>
           <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
-              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW}
+              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW} onOlder={requestOlder}
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
                 hits={hits} height={gridH} onContext={(e, it) => { setHover(null); setMenu({ x: e.clientX, y: e.clientY, it }); }}
                 onRowClick={(r) => { if (r.type === "Network") { setNetSum(true); setDetails(false); } }} />
               {q && !shown.length && !loading && <div data-testid="v3-search-empty" style={{ position: "absolute", inset: `${78}px 0 0 0`, display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
                 <Search size={28} color="currentColor" style={{ color: C.muted }} />
-                <div>No events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                <div>No loaded events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                {older.cursor && <button className="v3-link" onClick={loadOlder}>Load older events to search more evidence</button>}
                 <div style={{ color: C.muted, fontSize: 12.5 }}>Search matches SHA-256, filename, process, command line, IP, domain, user, detection name and ATT&amp;CK ID. Try a wider time range.</div>
                 <div style={{ display: "flex", gap: 14 }}>
                   <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
@@ -344,14 +351,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
               onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }} />
             <div data-testid="v3-activity-panel" style={{ background: C.panel, minWidth: 0, overflow: "hidden" }}>
               <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{netSum ? "Network" : details && sel ? "Activity Details" : "Activity"}</div>
-              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
+              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onOlder={requestOlder} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
               {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
               {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
                 model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</>}</span>
+            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
             {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
             <span style={{ flex: 1 }} />

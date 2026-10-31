@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Artifacts } from "./Artifacts";
 import { GlyphIcon } from "./Glyphs";
 import { cap, fmt, narrative, short } from "./model";
@@ -6,9 +6,18 @@ import { ACT_H, C } from "./theme";
 
 const SEV = { HIGH: C.red, CRITICAL: C.red, MEDIUM: C.amber, LOW: C.accent };
 
-export function ActivityList({ items, sel, onSelect, hidden, height, onCtx }) {
+export function ActivityList({ items, sel, onSelect, hidden, height, onCtx, onOlder }) {
   const ref = useRef(null);
   const [st, setSt] = useState(0);
+  const previous = useRef(items);
+  useLayoutEffect(() => {
+    const b = ref.current, old = previous.current;
+    previous.current = items;
+    if (!b || !old.length || old === items) return;
+    const index = Math.min(old.length - 1, Math.floor(b.scrollTop / ACT_H));
+    const next = items.findIndex((it) => it.ev.event_iid === old[index].ev.event_iid);
+    if (next >= 0) { b.scrollTop += (next - index) * ACT_H; setSt(b.scrollTop); }
+  }, [items]);
   const idx = sel ? items.findIndex((it) => it.col === sel.col) : -1;
   useEffect(() => {
     const b = ref.current;
@@ -18,7 +27,10 @@ export function ActivityList({ items, sel, onSelect, hidden, height, onCtx }) {
   }, [idx, hidden]);
   const r0 = Math.max(0, Math.floor(st / ACT_H) - 5), r1 = r0 + Math.ceil(height / ACT_H) + 10;
   return (
-    <div data-testid="v3-activity" ref={ref} className="v3-scroll" onScroll={(e) => setSt(e.currentTarget.scrollTop)}
+    <div data-testid="v3-activity" ref={ref} className="v3-scroll" onScroll={(e) => {
+      const top = e.currentTarget.scrollTop;
+      setSt(top);
+    }} onWheel={(e) => { if (!hidden && !e.ctrlKey && !e.metaKey && e.deltaY < 0 && e.currentTarget.scrollTop <= 80) onOlder?.(); }}
       style={{ overflowY: "auto", height, display: hidden ? "none" : "block", position: "relative" }}>
       <div style={{ height: items.length * ACT_H, position: "relative" }}>
         {items.slice(r0, r1).map((it, i) => {
@@ -93,3 +105,4 @@ export function ActivityDetails({ it, onBack, onCtx, onCopy, height, model, comp
     </div>
   );
 }
+
