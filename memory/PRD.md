@@ -9294,3 +9294,17 @@ Backlog unchanged: 2 gate16 frontend-drift failures (`NivXForgeConsole.jsx`, `Ed
 **PR #28 marked ready for review** (`isDraft: false`, `MERGEABLE`, `mergeable_state: clean`). Base `reconciliation/edr-identity-repair-2026-10-31`, head `bc6afd33`, 5 commits, 4 files, +79 −41 — **test files only, no production code**. Merging it is a test-only merge into the reconciliation branch, not a release merge. I did not merge it.
 
 Production Device Trajectory rollout remains a separate step and remains on HOLD.
+
+## 2026-10-31 · EDR preview UI cross-route check — BLOCKED (Vercel Deployment Protection)
+
+Requested: compare Computers → Device Trajectory against the Device Trajectory tab in the rendered UI at `https://nivxforge-edr-preview.vercel.app` for `ep_2d57cbe6f80152062109`.
+
+**BLOCKED.** The alias is behind Vercel Deployment Protection. A real browser navigation to `/edr/device-trajectory?endpoint=ep_2d57cbe6f80152062109` ends at `https://vercel.com/login?next=%2Fsso-api…` (title "Login – Vercel"); `curl` returns `302 → vercel.com/sso-api` with body "Protected by Vercel Authentication". The EDR app never loads, so no tenant, UTC range, filters, event IDs, or selected-event details could be recorded for either route. No Vercel session is available here and Vercel-side access is user-owned.
+
+Unblock options: Vercel share link / protection bypass token for automation; or re-run after access is granted.
+
+**Also:** the alias is pinned to `validation/edr-preview-backend-2026-10-31` @ `f22b74aa`, which PREDATES every identity and deep-link repair — once unblocked, that build would not exercise the current contract. `reconciliation/edr-identity-repair-2026-10-31` has moved `afb1304c → 51385426` (consistent with PR #28 merged).
+
+**Source-level lead (workspace tree, NOT a verdict, flags are build-time):** both routes resolve to the same component and the same API. `/edr/device-trajectory` → `<DeviceTrajectoryEntry />`; `/edr/computers/:id/trajectory` → `<DeviceTrajectoryEntry embedded device={endpointId} />` (`device/EdrDevicePage.jsx:136`). `DeviceTrajectoryPage.jsx:10` resolves `device = suppliedDevice ?? params.get("device")`, then both render `amp/TrajectoryPage` against `/edr/endpoints/{device}/trajectory`. Divergence risk is NOT the data path but the URL: time range and filters live in search params (`t0`, `t1`, `q`, `att`), and the Computers route carries no query string, so a range set on the tab is absent when entering via Computers. First thing to compare once access is restored.
+
+Preview-only, read-only. Production untouched; no database or index access.
