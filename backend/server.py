@@ -694,6 +694,10 @@ api.include_router(edr_enrollment_admin_router)
 api.include_router(edr_agent_router)
 from routers.edr_onboarding import router as edr_onboarding_router
 api.include_router(edr_onboarding_router)
+# Device-scoped evidence purge. 404s unless EDR_MAINTENANCE_TOKEN is set, and
+# dry-run unless the caller confirms. Never deletes the endpoint record.
+from routers.edr_device_purge import router as edr_device_purge_router
+api.include_router(edr_device_purge_router)
 # GATE 5 · policy authority + GATE 7 exclusions + GATE 11 events explorer
 # + connector productization (Management -> Downloads).
 from routers.edr_policies import (agent as edr_policy_agent,
