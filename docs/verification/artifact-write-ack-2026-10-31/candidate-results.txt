@@ -1,0 +1,14 @@
+test_cache_hit_deleted_before_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_cache_hit_deleted_before_update_refused) ... ok
+test_duplicate_with_missing_record_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_duplicate_with_missing_record_refused) ... ok
+test_existing_report_is_not_overwritten (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_existing_report_is_not_overwritten) ... ok
+test_genuine_duplicate_updates_existing_record (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_genuine_duplicate_updates_existing_record) ... ok
+test_successful_insert_preserves_contract (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_successful_insert_preserves_contract) ... ok
+test_unacknowledged_cache_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_cache_update_refused) ... ok
+test_unacknowledged_insert_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_insert_refused) ... ok
+test_unknown_insert_failure_is_not_duplicate (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unknown_insert_failure_is_not_duplicate) ... ok
+test_validation_error_propagates_without_fallback (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_validation_error_propagates_without_fallback) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.023s
+
+OK
