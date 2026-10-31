@@ -131,7 +131,10 @@ def dedupe(events: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]
 #: Versioned identity encoding. Applied to EVERY exported identity, never conditionally, so the
 #: exported value is a pure function of (rank, value) and does not depend on which other rows
 #: share the page. The payload is base64url without padding, which cannot contain ':', so
-#: "<version>:<rank>:<payload>" is unambiguous and no raw identity can forge an encoded one.
+#: "<version>:<rank>:<payload>" is UNAMBIGUOUS: a raw identity and an encoded identity are
+#: structurally distinguishable. This is an unambiguous encoding, NOT an unforgeable one — it
+#: carries no signature and makes no integrity claim. Its guarantee is that nothing has to be
+#: guessed when reading an identifier, not that an identifier cannot be fabricated.
 IDENTITY_ENCODING = "e3i1"
 
 
@@ -168,12 +171,19 @@ def resolve_identity(identity: str, events: list[dict[str, Any]], tenant_id: str
     Legacy deep links carry the bare value that older builds exported, which is not unique on
     its own: the same text can exist in two namespaces. When a legacy id matches more than one
     row this raises rather than choosing, because no evidence states which was meant.
+
+    An identifier that PARSES as the versioned encoding is only ever matched in the versioned
+    space. It is never retried as a legacy bare value, because doing so would guess that a
+    stored raw value which merely looks like the encoding belongs to the namespace its text
+    spells out. A malformed or unknown-version identifier matches nothing at all.
     """
     scoped = [e for e in events if e.get("tenant_id") == tenant_id]
     exact = [e for e in scoped if e.get("event_id") == identity
              or identity in (e.get("identity_aliases") or [])]
     if exact:
         return exact[0]
+    if decode_identity(identity) is not None:
+        return None
     legacy = [e for e in scoped if identity in (e.get("legacy_event_ids") or [])]
     if len(legacy) > 1:
         raise AmbiguousIdentity(
@@ -187,11 +197,11 @@ def _export(groups: dict[tuple[str, tuple[int, str]], dict[str, Any]],
             ) -> list[dict[str, Any]]:
     """Emit one row per group under the versioned identity encoding.
 
-    `event_id` is always encoded, so it is stable across subset and superset pages and can never
-    collide with a raw identity that merely looks prefix-shaped. Every identity the group holds
-    is also published as an alias, and the bare values are published as legacy ids, so a cursor
-    or deep link minted before a further store representation raised the group's rank still
-    resolves instead of 404-ing.
+    `event_id` is always encoded, so it is stable across subset and superset pages and is
+    structurally distinguishable from a raw identity that merely looks prefix-shaped. Every
+    identity the group holds is also published as an alias, and the bare values are published as
+    legacy ids, so a cursor or deep link minted before a further store representation raised the
+    group's rank still resolves instead of 404-ing.
     """
     out = []
     for g, ev in groups.items():
