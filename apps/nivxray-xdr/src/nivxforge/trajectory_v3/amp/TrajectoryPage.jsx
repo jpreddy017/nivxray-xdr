@@ -242,7 +242,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const span = t1 - t0;
   const setView = (v) => upd({ t0: Math.round(v.t0), t1: Math.round(Math.min(v.t1, now)) });
   const nav = (k) => () => ({
-    last24: () => upd({ t0: null, t1: null }), now: () => setView({ t0: now - span, t1: now }), prev: () => setView({ t0: t0 - span, t1: t1 - span }),
+    now: () => setView({ t0: now - span, t1: now }), prev: () => setView({ t0: t0 - span, t1: t1 - span }),
     next: () => setView({ t0: Math.min(t0 + span, now - span), t1: Math.min(t1 + span, now) }),
     fit: () => { const g = document.querySelector('[data-testid="v3-grid"]'); setColW(Math.max(1.5, Math.min(48, ((g?.clientWidth || 1200) - 300) / Math.max(1, vmodel.ncol)))); },
     reset: () => { upd({ t0: null, t1: null, q: null, f: null, iso: null, event: null, att: null }); setColW(24); setExpanded(new Set()); setDetails(false); },
@@ -342,7 +342,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
             <button className="v3-link" data-testid="dt-attack-filter-clear" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ att: null })}>Clear</button></div>}
           <div data-testid="v3-toolbar" style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", padding: "6px 10px", background: C.panel, borderBottom: `1px solid ${C.line}`, fontSize: 12 }}>
             <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
-            {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
+            {[["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
               <button key={k} className="v3-btn" data-testid={`v3-${k}`} style={{ padding: "3px 10px", fontSize: 12 }} onClick={nav(k)}>{l}</button>)}
             <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
               <button className="v3-btn" data-testid="v3-legend-toggle" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => setLegend(!legend)}>Legend</button>
