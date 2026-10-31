@@ -5,17 +5,18 @@ import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
 import { AttackPanel } from "./AttackStrip";
+import { DeepLinkBanner } from "./DeepLinkBanner";
 import { hasTechnique } from "./attack";
+import { deepLinkFromError, deepLinkFromFocus, LOOKUP_AMBIGUOUS, LOOKUP_INCOMPLETE,
+         selectedFor } from "./deeplink";
 import { FiltersPanel } from "./Filters";
 import Grid from "./Grid";
 import Header from "./Header";
-import { Legend } from "./Glyphs";
 import { ApprovalDialog, ContextMenu } from "./Menu";
 import { buildModel, DEFAULT_ON, lineage, matches, passes, presentKinds } from "./model";
 import Navigator from "./Navigator";
 import { perfEvents } from "./perf";
 import { C, CSS, DAY } from "./theme";
-import { readCollapsed, setCollapsedGlobal } from "../../EdrSidebar";
 
 const PANEL_KEY = "nvx.dt.panelW", PANEL_MIN = 320, PANEL_DEFAULT = 336;
 
@@ -31,22 +32,7 @@ function useUrlState() {
   return [params, upd];
 }
 
-function Debug({ data, timing, deep, onLegacy }) {
-  const p = data?.e3_preview || {};
-  return (
-    <div data-testid="v3-debug-drawer" style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 420, zIndex: 70, background: C.tip, borderLeft: `1px solid ${C.line}`,
-      padding: 16, fontSize: 12, color: C.text, overflowY: "auto", boxShadow: "-10px 0 40px rgba(0,0,0,.5)" }}>
-      <b style={{ fontSize: 14 }}>Debug (preview only)</b>
-      {[["engine", data?.engine_id], ["adapter", p.engine], ["data label", p.data_label], ["source", p.source || p.source_origin], ["window rows", p.window_rows],
-        ["remaining older", p.remaining_older], ["returned", data?.returned], ["timing ms", JSON.stringify(timing)], ["deep link", JSON.stringify(deep)],
-        ["detections basis", p.detections_basis]].map(([k, v]) => <div key={k} style={{ display: "grid", gridTemplateColumns: "120px 1fr", padding: "3px 0" }}>
-        <span style={{ color: C.muted }}>{k}</span><span style={{ wordBreak: "break-all" }}>{v ?? "—"}</span></div>)}
-      <button className="v3-btn" data-testid="v3-use-legacy" style={{ marginTop: 12 }} onClick={onLegacy}>Use Legacy Device Trajectory</button>
-    </div>
-  );
-}
-
-export default function TrajectoryPage({ device, onLegacy }) {
+export default function TrajectoryPage({ device }) {
   const [params, upd] = useUrlState();
   const now = useRef(Date.now()).current;
   const perf = Number(params.get("perf") || 0);
@@ -71,8 +57,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
   const [focusRetry, setFocusRetry] = useState(0);
-  const [dbg, setDbg] = useState(false);
-  const [legend, setLegend] = useState(false);
+  const [focusScope, setFocusScope] = useState(null);
   const [netSum, setNetSum] = useState(false);
   const [approvals, setApprovals] = useState({});
   const [devPending, setDevPending] = useState({});
@@ -83,8 +68,6 @@ export default function TrajectoryPage({ device, onLegacy }) {
   useEffect(() => setDraft(q), [q]);
   const returnTo = useRef(false), req = useRef(0), timing = useRef({}), pendingJump = useRef(false);
   const wsRef = useRef(null);
-  const [railed, setRailed] = useState(readCollapsed);
-  useEffect(() => { const on = (e) => setRailed(!!e.detail); window.addEventListener("nvx-sidebar", on); return () => window.removeEventListener("nvx-sidebar", on); }, []);
   const panelMax = useCallback(() => Math.max(PANEL_MIN, Math.floor((wsRef.current?.clientWidth || 1600) * 0.4)), []);
   const [panelW, setPanelW] = useState(() => { const v = Number(sessionStorage.getItem(PANEL_KEY)); return v >= PANEL_MIN ? v : PANEL_DEFAULT; });
   const setPanel = useCallback((w) => {
@@ -180,7 +163,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     const n = q.toLowerCase();
     return new Set(vmodel.rows.filter((r) => [r.label, r.path, r.hash].some((v) => v && String(v).toLowerCase().includes(n))).map((r) => r.key));
   }, [vmodel, q]);
-  const sel = wanted ? model.items.find((it) => it.ev.event_iid === wanted) || null : null;
+  const sel = selectedFor(model.items, wanted);
   const dets = (data?.e3_preview?.detections_all || []).map((d) => ({ ...d, ms: d.ms || Date.parse(d.at) }));
 
   const select = useCallback((it, center = false) => {
@@ -200,26 +183,33 @@ export default function TrajectoryPage({ device, onLegacy }) {
     if (deep?.id === wanted && deep.scope === url && deep.state !== "LOCATING") return;
     const ac = new AbortController(); let active = true;
     setDeep({ state: "LOCATING", id: wanted, scope: url });
-    api.get(`${url}/focus`, { params: { event_iid: wanted }, signal: ac.signal }).then(({ data: f }) => {
+    // A SCOPED lookup is the supported narrowing action. The bounds only ever narrow the
+    // search: tenant and endpoint are fixed server-side, and the server reports the scope back
+    // so a window-complete search is never presented as a search of retained history.
+    const params = { event_iid: wanted, ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
+    api.get(`${url}/focus`, { params, signal: ac.signal }).then(({ data: f }) => {
       if (!active) return;
-      if (f.state !== "FOCUS_RESOLVED") {
-        const incomplete = /UNAVAILABLE|INCOMPLETE/.test(f.state || "");
-        setDeep({ state: incomplete ? "UNAVAILABLE" : "NOT_FOUND", id: wanted, scope: url,
-          note: incomplete ? "The observation could not be located because the evidence read failed or the search was incomplete. This does not establish that it is absent." : f.missing_link || f.reason }); return;
-      }
-      if (!f.focus?.window || !Number.isFinite(Date.parse(f.focus.window.time_start)) || !Number.isFinite(Date.parse(f.focus.window.time_end))) throw new Error("Focus window unavailable");
-      setDeep({ state: "OUTSIDE_PAGE", id: wanted, scope: url });
-      upd({ t0: Date.parse(f.focus.window.time_start), t1: Date.parse(f.focus.window.time_end) }, true);
-    }).catch(() => { if (active) setDeep({ state: "UNAVAILABLE", id: wanted, scope: url, note: "The observation lookup failed. Retry to locate it; absence has not been established." }); });
+      // An UNFINISHED lookup keeps its own state: it is never rendered as "not found", and no
+      // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
+      const d = deepLinkFromFocus(f, { id: wanted, scope: url, attempt: focusRetry });
+      setDeep(d);
+      if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1 }, true);
+    }).catch(() => { if (active) setDeep(deepLinkFromError(wanted, { scope: url, attempt: focusRetry })); });
     return () => { active = false; ac.abort(); };
-  }, [data, wanted, model, url, focusRetry]); // eslint-disable-line
+  }, [data, wanted, model, url, focusRetry, focusScope]); // eslint-disable-line
 
   // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
     let id = d.event_iid, ms = d.ms;
     if (!id) {
       setLoading(true);
-      try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } }); id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
+      try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } });
+        if (f?.state === LOOKUP_INCOMPLETE || f?.state === LOOKUP_AMBIGUOUS) {
+          setLoading(false);
+          setDeep(deepLinkFromFocus(f, { id: d.observation_id, scope: url, attempt: focusRetry }));
+          return;
+        }
+        id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
       catch (e) { say(`Could not locate that detection: ${e.message}`); setLoading(false); return; }
       setLoading(false);
     }
@@ -228,15 +218,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     upd({ event: id, ...(ms ? { t0: Math.round(ms - 30 * 60_000), t1: Math.round(Math.min(ms + 30 * 60_000, now)) } : {}) });
   };
 
-  const span = t1 - t0;
   const setView = (v) => upd({ t0: Math.round(v.t0), t1: Math.round(Math.min(v.t1, now)) });
-  const nav = (k) => () => ({
-    last24: () => upd({ t0: null, t1: null }), now: () => setView({ t0: now - span, t1: now }), prev: () => setView({ t0: t0 - span, t1: t1 - span }),
-    next: () => setView({ t0: Math.min(t0 + span, now - span), t1: Math.min(t1 + span, now) }),
-    fit: () => { const g = document.querySelector('[data-testid="v3-grid"]'); setColW(Math.max(1.5, Math.min(48, ((g?.clientWidth || 1200) - 300) / Math.max(1, vmodel.ncol)))); },
-    reset: () => { upd({ t0: null, t1: null, q: null, f: null, iso: null, event: null, att: null }); setColW(24); setExpanded(new Set()); setDetails(false); },
-    zin: () => setColW((w) => Math.min(48, w * 1.25)), zout: () => setColW((w) => Math.max(1.5, w * 0.8)),
-  })[k]();
   const step = (d) => { if (!shown.length) return; const i = (hitIdx + d + shown.length) % shown.length; setHitIdx(i); select(shown[i], true); };
   const copy = (v) => { navigator.clipboard?.writeText(v || "").catch(() => {}); say("Copied to clipboard"); };
   const onAction = (a, v) => {
@@ -310,11 +292,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
-        {deep && !["FOCUSED"].includes(deep.state) && <div data-testid="v3-deeplink-state" style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-          {["NOT_FOUND", "UNAVAILABLE"].includes(deep.state) ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`)
-            : deep.state === "OUTSIDE_PAGE" ? "Observation located in retained evidence. Its time range is selected; load older events if it is outside the loaded page." : `Locating observation ${deep.id} in history…`}
-          {deep.state === "UNAVAILABLE" && <button className="v3-link" data-testid="v3-focus-retry" onClick={() => { setDeep(null); setFocusRetry((v) => v + 1); }}>Retry observation lookup</button>}
-          {deep.state === "OUTSIDE_PAGE" && older.cursor && <button className="v3-link" disabled={loading} onClick={loadOlder}>Load older events</button>}</div>}
+        <DeepLinkBanner deep={deep} olderCursor={older.cursor} loading={loading} scopedNow={!!focusScope}
+          onRetry={() => { setDeep(null); setFocusRetry((v) => v + 1); }}
+          onNarrow={() => { setDeep(null); setFocusScope({ t0, t1 }); setFocusRetry((v) => v + 1); }}
+          onWiden={() => { setDeep(null); setFocusScope(null); setFocusRetry((v) => v + 1); }}
+          onCandidate={(c) => { setDeep(null); setFocusScope(null); upd({ event: c.event_iid }); }}
+          onLoadOlder={loadOlder} />
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
@@ -328,16 +311,6 @@ export default function TrajectoryPage({ device, onLegacy }) {
           {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
             ATT&amp;CK {att} · {shown.length} mapped events in the loaded window (observed technique, not a confirmed attack)
             <button className="v3-link" data-testid="dt-attack-filter-clear" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ att: null })}>Clear</button></div>}
-          <div data-testid="v3-toolbar" style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", padding: "6px 10px", background: C.panel, borderBottom: `1px solid ${C.line}`, fontSize: 12 }}>
-            <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
-            {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
-              <button key={k} className="v3-btn" data-testid={`v3-${k}`} style={{ padding: "3px 10px", fontSize: 12 }} onClick={nav(k)}>{l}</button>)}
-            <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
-              <button className="v3-btn" data-testid="v3-legend-toggle" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => setLegend(!legend)}>Legend</button>
-              {legend && <Legend />}</span>
-            <button className="v3-btn" data-testid="v3-workspace-mode" data-mode={railed ? "max" : "standard"} style={{ padding: "3px 10px", fontSize: 12 }}
-              onClick={() => { setCollapsedGlobal(!railed); setPanel(railed ? PANEL_DEFAULT : PANEL_MIN); }}>{railed ? "Standard layout" : "Maximum workspace"}</button>
-          </div>
           <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
               <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW} onOlder={requestOlder}
@@ -379,7 +352,6 @@ export default function TrajectoryPage({ device, onLegacy }) {
               : /KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
               : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data"
               : /SYNTHETIC|PREVIEW/i.test(data?.e3_preview?.data_label || "") ? "Synthetic data" : "Data source not declared"}</span>
-            <button className="v3-link" data-testid="v3-debug-toggle" style={{ fontSize: 12, color: C.muted }} onClick={(e) => { e.stopPropagation(); setDbg(!dbg); }}>Debug</button>
           </div>
         </div>
       </div>
@@ -390,7 +362,6 @@ export default function TrajectoryPage({ device, onLegacy }) {
       </div>}
       {menu && <ContextMenu menu={menu} onAction={onAction} />}
       {approval && <ApprovalDialog req={approval} onCancel={() => setApproval(null)} onConfirm={confirmApproval} />}
-      {dbg && <Debug data={data} timing={timing.current} deep={deep} onLegacy={onLegacy} />}
     </div>
   );
 }

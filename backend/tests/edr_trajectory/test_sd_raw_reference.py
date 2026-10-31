@@ -209,9 +209,9 @@ def test_provenance_keeps_every_pre_existing_key():
 
 def test_row_contract_keys_are_otherwise_identical():
     row = from_shadow(shadow_doc())
-    expected = {"schema", "event_id", "tenant_id", "device_id", "kind",
+    expected = {"schema", "event_id", "identity_keys", "tenant_id", "device_id", "kind",
                 "observed_ms", "ingested_ms", "severity", "process", "parent",
-                "creator", "file", "network", "detection", "boot_id",
+                "creator", "file", "network", "authentication", "detection", "boot_id",
                 "sources", "provenance", "observed_at", "ingested_at"}
     assert set(row) == expected
 

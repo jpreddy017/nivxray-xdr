@@ -26,20 +26,21 @@ const DetLinks = ({ dets, onJump, testid }) => dets.length ? dets.slice(0, 8).ma
 export default function Header({ data, device, dets, onActions, onShare, onJump, pendingIso }) {
   const [pop, setPop] = useState(null);
   const c = data?.computer || {}, v = (x) => (x && typeof x === "object" ? x.state : x) || "not collected";
-  const attn = dets.length > 0;
   const toggle = (k) => (e) => { e.stopPropagation(); setPop(pop === k ? null : k); };
   const jump = (d) => { setPop(null); onJump(d); };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }} onClick={() => setPop(null)}>
-      <h1 data-testid="v3-hostname" style={{ margin: 0, fontSize: 34, fontWeight: 700, color: C.text, letterSpacing: "-.01em" }}>{c.hostname || device}</h1>
-      <IsolationChip c={c} pending={pendingIso} />
       <div style={{ position: "relative" }}>
-        <button className="v3-btn v3-btn-outline" data-testid="v3-show-details" onClick={toggle("details")}>Show details</button>
+        <h1 data-testid="v3-hostname" style={{ margin: 0, fontSize: 34 }}>
+          <button className="v3-link" data-testid="v3-show-details" aria-expanded={pop === "details"}
+            style={{ font: "inherit" }} onClick={toggle("details")}>{c.hostname || device}</button>
+        </h1>
         {pop === "details" && <Pop testid="v3-details-pop">
           {[["Operating system", v(c.operating_system)], ["Sensor version", v(c.connector_version)], ["Device", c.device_iid || device], ["Endpoint", c.endpoint_id],
             ["Last telemetry", utc(c.last_telemetry_at)], ["Group", v(c.group)], ["Policy", v(c.policy)]].map(([k, val]) =>
             <div key={k} data-testid={`v3-details-row-${k.toLowerCase().replace(/ /g, "-")}`} style={{ display: "grid", gridTemplateColumns: "130px 1fr", padding: "2px 0" }}>
               <span style={{ color: C.muted }}>{k}</span><span>{val || "not collected"}</span></div>)}
+          <IsolationChip c={c} pending={pendingIso} />
           <div style={{ color: C.muted, margin: "10px 0 4px", borderTop: `1px solid ${C.line}`, paddingTop: 8 }}>Related compromise events · {dets.length}</div>
           <DetLinks dets={dets} onJump={jump} testid="v3-details-det" />
         </Pop>}
@@ -47,15 +48,12 @@ export default function Header({ data, device, dets, onActions, onShare, onJump,
       <button className="v3-btn v3-btn-blue" data-testid="v3-actions" onClick={(e) => { e.stopPropagation(); onActions(e); }}>Actions ▾</button>
       <span style={{ flex: 1 }} />
       <div style={{ position: "relative" }}>
-        <button className="v3-btn" data-testid="v3-inbox-status" onClick={toggle("inbox")} style={{ border: 0, fontSize: 14 }}>
-          <span style={{ color: C.muted }}>Inbox status: </span><b style={{ color: attn ? C.red : C.text }}>{attn ? "Requires attention" : "No open items"}</b> ▾</button>
-        {pop === "inbox" && <Pop testid="v3-inbox-pop" right>
-          <div style={{ color: C.muted, marginBottom: 6 }}>Mapped from NivXForge detections on this device (incident inbox is owned by XDR).</div>
-          <DetLinks dets={dets} onJump={jump} testid="v3-inbox-det" />
+        <button className="v3-btn" data-testid="v3-share" aria-expanded={pop === "share"} onClick={toggle("share")}><Share2 size={16} /> Share</button>
+        {pop === "share" && <Pop testid="v3-share-menu" right>
+          <button className="v3-link" onClick={() => { setPop(null); onShare(); }}>Copy URL</button>
         </Pop>}
       </div>
-      <button className="v3-btn v3-sq" data-testid="v3-share" title="Copy deep link" onClick={onShare}><Share2 size={16} /></button>
-      <button className="v3-btn v3-sq" data-testid="v3-fullscreen" title="Fullscreen" onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}><Maximize2 size={16} /></button>
+      <button className="v3-btn v3-sq" data-testid="v3-fullscreen" title="Fullscreen" onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch(() => {})}><Maximize2 size={16} /></button>
     </div>
   );
 }
