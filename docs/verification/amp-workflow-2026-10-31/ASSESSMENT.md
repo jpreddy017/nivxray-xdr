@@ -33,3 +33,8 @@ This is component-level verification with doubles, not real authenticated API or
 Observed production customer Internal Validation lists two computers, KUSHU and DESKTOP-A9HGFJJ. Missing VM is unresolved. Historical Hyper-V VM name NivX-Win11-G4-01 is a lead, not proof of guest hostname or enrollment. Earlier VM connectivity/enrollment failures must be checked against current endpoint/service evidence. Do not synthesize an inventory row.
 
 No production promotion in this checkpoint. G3 independent review, matching preview configuration, authenticated candidate tests and applicable G0-G6 gates remain required. Frontend promotion alone does not deploy the backend repairs.
+
+## Independent-review correction
+The first candidate e84090b failed independent review: saved-view requests could complete out of order, and the test VM omitted URLSearchParams, masking a caught error. The successor invalidates saved-view requests on newer selection, clear and unmount. The harness now supplies URLSearchParams and asserts URL, active view, absence of refusal, B-before-A completion, and clear while C is pending. All four frontend suites and the reviewer-run nine backend acknowledgement checks pass. Independent exact-SHA successor verification remains required.
+
+Production VITE_E3_DT_V3=1 was verified through the single-variable API. A branch-scoped preview flag now matches it; e84090b was rebuilt successfully. The candidate reaches application login; production login is not shared across origins. Authenticated candidate verification remains blocked on secure sign-in.

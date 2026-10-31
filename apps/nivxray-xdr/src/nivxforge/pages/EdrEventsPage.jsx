@@ -263,9 +263,13 @@ export default function EdrEventsPage() {
   // Resolving a deep link is a SERVER call: the tenant predicate is
   // applied there, which is why a shared URL cannot reach another
   // customer's evidence.
+  const viewGeneration = useRef(0);
+  useEffect(() => () => { viewGeneration.current += 1; }, []);
   const openView = useCallback((viewId) => {
+    const generation = ++viewGeneration.current;
     getSavedView(viewId)
       .then((v) => {
+        if (generation !== viewGeneration.current) return;
         const f = v.filters || {};
         setActivity(f.activity || "");
         setDetection(f.detection || "");
@@ -283,6 +287,7 @@ export default function EdrEventsPage() {
         setSearch(next, { replace: true });
       })
       .catch((e) => {
+        if (generation !== viewGeneration.current) return;
         setActiveView(null);
         setErr(apiErrorText(e, "saved view unavailable"));
       });
@@ -323,6 +328,7 @@ export default function EdrEventsPage() {
   };
 
   const clearView = () => {
+    viewGeneration.current += 1;
     setActiveView(null);
     const next = new URLSearchParams(search);
     next.delete("view");
