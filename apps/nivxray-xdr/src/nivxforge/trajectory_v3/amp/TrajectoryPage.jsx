@@ -363,7 +363,7 @@ export default function TrajectoryPage({ device }) {
               <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{netSum ? "Network" : details && sel ? "Activity Details" : "Activity"}</div>
               <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onOlder={requestOlder} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
               {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
-              {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
+              {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => { setDetails(false); setDeep(null); upd({ event: null }); }} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
                 model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>

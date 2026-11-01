@@ -127,3 +127,15 @@ it("retains activity and exposes a background read failure", async () => {
   await tick(30000); expect(api.get).toHaveBeenCalledTimes(2);
 });
 
+it("does not reopen a closed inspection when its event leaves the refreshed head", async () => {
+  api.get.mockResolvedValueOnce(response(["inspect"]))
+    .mockResolvedValue(response(["new head"]));
+  await mount();
+  fireEvent.click(screen.getByText("inspect")); await settle();
+  fireEvent.click(screen.getByText("Back to activity")); await settle();
+  await tick();
+  expect(screen.getByText("new head")).toBeTruthy();
+  expect(api.get).toHaveBeenCalledTimes(2);
+  expect(api.get.mock.calls.every(([url]) => !url.endsWith("/focus"))).toBe(true);
+});
+
