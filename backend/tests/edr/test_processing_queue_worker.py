@@ -342,3 +342,22 @@ async def test_worker_loop_survives_transient_process_one_exception(monkeypatch)
         pq._stop_event = None
 
     assert calls == 2
+
+
+@pytest.mark.asyncio
+async def test_worker_alternates_live_and_recovery_under_backlog(monkeypatch):
+    turns = []
+    q._stop_event = asyncio.Event()
+
+    async def process(*args, **kwargs):
+        turns.append(kwargs["newest_first"])
+        if len(turns) == 6:
+            q._stop_event.set()
+        return {"processed": True, "state": q.DONE}
+
+    monkeypatch.setattr(q, "process_one", process)
+    try:
+        await asyncio.wait_for(q._worker_loop(object()), timeout=1)
+    finally:
+        q._stop_event = None
+    assert turns == [True, False, True, False, True, False]

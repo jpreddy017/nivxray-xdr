@@ -106,8 +106,13 @@ async def claim(
     db: Any,
     *,
     lease_seconds: int = 60,
+    newest_first: bool = False,
 ) -> dict[str, Any] | None:
     """Atomically claim one pending/retryable job.
+
+    newest_first reserves a turn for fresh arrivals during backlog recovery;
+    the worker alternates it with an oldest-first turn to preserve recovery.
+    This changes scheduling only, never the evidence timestamp or readiness.
 
     Expired PROCESSING leases are also reclaimable so a worker crash cannot
     permanently strand evidence.
@@ -136,7 +141,7 @@ async def claim(
             },
             "$inc": {"attempts": 1},
         },
-        sort=[("created_at", 1)],
+        sort=[("created_at", -1 if newest_first else 1)],
         return_document=ReturnDocument.AFTER,
     )
 
@@ -223,6 +228,7 @@ async def process_one(
     *,
     lease_seconds: int = DEFAULT_WORKER_LEASE_SECONDS,
     retry_after_seconds: int = DEFAULT_RETRY_SECONDS,
+    newest_first: bool = False,
 ) -> dict[str, Any]:
     """Claim and process one durable EDR work item.
 
@@ -236,7 +242,7 @@ async def process_one(
     from edr_plane import raw_events
     from edr_plane.canonical_bridge import bridge
 
-    job = await claim(db, lease_seconds=lease_seconds)
+    job = await claim(db, lease_seconds=lease_seconds, newest_first=newest_first)
     if not job:
         return {"processed": False, "reason": "no_work"}
 
@@ -467,13 +473,19 @@ async def _worker_loop(
     """Continuously consume durable work with bounded concurrency."""
     assert _stop_event is not None
 
+    # One fresh turn, one recovery turn: a historical FIFO backlog must not
+    # hide every live arrival. Keep the same worker/concurrency and atomic
+    # lease protocol; every second turn still services the oldest ready job.
+    newest_first = True
     while not _stop_event.is_set():
         try:
             result = await process_one(
                 db,
                 lease_seconds=DEFAULT_WORKER_LEASE_SECONDS,
                 retry_after_seconds=DEFAULT_RETRY_SECONDS,
+                newest_first=newest_first,
             )
+            newest_first = not newest_first
         except asyncio.CancelledError:
             raise
         except Exception:
