@@ -96,7 +96,7 @@ class IndexPlanTests(unittest.IsolatedAsyncioTestCase):
             await db.edr_raw_events.insert_many(docs)
             await db.edr_raw_events.create_index(
                 [("tenant_id", 1), ("ingest_time", -1), ("raw_id", -1)], name="events_keyset")
-            query = {"tenant_id": "A", "raw_id": "raw_049999"}
+            query = {"tenant_id": "A", "raw_id": "raw_000000"}
             before = await db.command("explain", {"find": "edr_raw_events", "filter": query,
                 "limit": 1, "hint": "events_keyset"}, verbosity="executionStats")
             await raw.ensure_indexes(db)
