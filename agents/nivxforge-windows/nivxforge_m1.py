@@ -1464,16 +1464,35 @@ def m1_service_run(argv: list[str]) -> None:
             win32event.SetEvent(self.stop_event)
 
         def SvcDoRun(self):
+            fast_cycles = 0
             while True:
-                sensor.run(config.origin, config.interval, once=True)
+                report = sensor.run(config.origin, config.interval, once=True)
+                wait_seconds, fast_cycles = delivery_wait(
+                    report, config.interval, fast_cycles)
                 if win32event.WaitForSingleObject(
                         self.stop_event,
-                        max(5, config.interval) * 1000) == win32event.WAIT_OBJECT_0:
+                        wait_seconds * 1000) == win32event.WAIT_OBJECT_0:
                     break
 
     servicemanager.Initialize()
     servicemanager.PrepareToHostSingle(M1SensorService)
     servicemanager.StartServiceCtrlDispatcher()
+
+
+def delivery_wait(report, interval, fast_cycles):
+    """Bound successful backlog draining; never accelerate failure retries."""
+    normal = max(5, interval)
+    if not isinstance(report, dict):
+        return normal, 0
+    try:
+        progressing = (report.get("sent", 0) > 0
+                       and report.get("queue_depth", 0) > 0
+                       and report.get("failed") == 0)
+    except TypeError:
+        progressing = False
+    if not progressing or fast_cycles >= 19:
+        return normal, 0
+    return min(5, normal), fast_cycles + 1
 
 
 def _argv_value(argv: list[str], flag: str) -> str | None:
@@ -2565,3 +2584,4 @@ class _NamedMutex:
             self._k32.ReleaseMutex(self._handle)
             self._k32.CloseHandle(self._handle)
         return False
+
