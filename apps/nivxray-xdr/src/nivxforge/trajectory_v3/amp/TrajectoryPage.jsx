@@ -34,9 +34,11 @@ function useUrlState() {
 
 export default function TrajectoryPage({ device }) {
   const [params, upd] = useUrlState();
-  const now = useRef(Date.now()).current;
+  const [now, setNow] = useState(Date.now);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const perf = Number(params.get("perf") || 0);
-  const t0 = Number(params.get("t0")) || now - DAY, t1 = Number(params.get("t1")) || now;
+  const followNow = !params.has("t1") || params.get("follow") === "1";
+  const t0 = Number(params.get("t0")) || now - DAY, t1 = followNow ? now : Number(params.get("t1")) || now;
   const view = useMemo(() => ({ t0, t1 }), [t0, t1]);
   const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event"), att = params.get("att");
   const sev = params.get("sev"), ioc = params.get("ioc"), scenario = params.get("scenario") || undefined;
@@ -48,6 +50,8 @@ export default function TrajectoryPage({ device }) {
   const [readError, setReadError] = useState(null);
   const [olderError, setOlderError] = useState(null);
   const olderRequest = useRef(null);
+  const loadedScope = useRef(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [retry, setRetry] = useState(0);
   const [details, setDetails] = useState(false);
   const [hover, setHover] = useState(null);
@@ -92,7 +96,10 @@ export default function TrajectoryPage({ device }) {
   const say = useCallback((m) => { setNotice(m); setTimeout(() => setNotice((n) => (n === m ? null : n)), 4500); }, []);
   const url = `/edr/endpoints/${encodeURIComponent(device)}/trajectory`;
 
+  const scope = `${url}|${params.get("t0") || "rolling"}|${params.get("t1") || "now"}|${perf}|${scenario || ""}|${params.get("follow") || ""}`;
   useEffect(() => {
+    const changed = loadedScope.current !== scope;
+    loadedScope.current = scope;
     setReadError(null);
     setOlderError(null);
     if (perf) {
@@ -104,14 +111,32 @@ export default function TrajectoryPage({ device }) {
     }
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
-    setData(null);
-    setOlder({ events: [], cursor: null });
+    if (changed) {
+      setData(null);
+      setOlder({ events: [], cursor: null });
+      setLastUpdated(null);
+    }
     api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
-      .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
+      .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); setLastUpdated(Date.now()); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
       .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
     return () => { req.current += 1; ac.abort(); olderRequest.current?.abort(); olderRequest.current = null; };
-  }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
+  }, [url, t0, t1, perf, scenario, retry, scope]); // eslint-disable-line
+
+  // Poll only after the previous read finishes. Keep inspections and older
+  // pages stable; returning to the activity list resumes head refreshes.
+  useEffect(() => {
+    if (!autoRefresh || perf || loading || details || older.events.length || readError || !data) return undefined;
+    const tick = () => {
+      if (document.visibilityState !== "visible" || olderRequest.current) return;
+      setNow(Date.now());
+      setRetry((n) => n + 1);
+    };
+    const timer = window.setInterval(tick, 10000);
+    const visible = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", visible); };
+  }, [autoRefresh, perf, loading, details, older.events.length, readError, !!data]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
@@ -193,7 +218,7 @@ export default function TrajectoryPage({ device }) {
       // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
       const d = deepLinkFromFocus(f, { id: wanted, scope: url, attempt: focusRetry });
       setDeep(d);
-      if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1 }, true);
+      if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1, follow: null }, true);
     }).catch(() => { if (active) setDeep(deepLinkFromError(wanted, { scope: url, attempt: focusRetry })); });
     return () => { active = false; ac.abort(); };
   }, [data, wanted, model, url, focusRetry, focusScope]); // eslint-disable-line
@@ -215,10 +240,10 @@ export default function TrajectoryPage({ device }) {
     }
     if (!id) { say("That event could not be resolved in retained evidence."); return; }
     setDeep(null); setDetails(true); setNetSum(false); returnTo.current = true; pendingJump.current = true;
-    upd({ event: id, ...(ms ? { t0: Math.round(ms - 30 * 60_000), t1: Math.round(Math.min(ms + 30 * 60_000, now)) } : {}) });
+    upd({ event: id, follow: null, ...(ms ? { t0: Math.round(ms - 30 * 60_000), t1: Math.round(Math.min(ms + 30 * 60_000, now)) } : {}) });
   };
 
-  const setView = (v) => upd({ t0: Math.round(v.t0), t1: Math.round(Math.min(v.t1, now)) });
+  const setView = (v) => upd({ t0: Math.round(v.t0), t1: Math.round(Math.min(v.t1, now)), follow: v.t1 >= now - 1000 ? "1" : null });
   const step = (d) => { if (!shown.length) return; const i = (hitIdx + d + shown.length) % shown.length; setHitIdx(i); select(shown[i], true); };
   const copy = (v) => { navigator.clipboard?.writeText(v || "").catch(() => {}); say("Copied to clipboard"); };
   const onAction = (a, v) => {
@@ -326,7 +351,7 @@ export default function TrajectoryPage({ device }) {
                 <div style={{ display: "flex", gap: 14 }}>
                   <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
                   <button className="v3-link" data-testid="v3-search-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Search last 30 days</button></div></div>}
-              {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
+              {loading && (!data || olderRequest.current) && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}
             </div>
             <div data-testid="v3-panel-divider" role="separator" aria-orientation="vertical" aria-label="Resize Activity panel" tabIndex={0}
@@ -343,6 +368,9 @@ export default function TrajectoryPage({ device }) {
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
+            {!perf && <button className="v3-btn" data-testid="v3-auto-refresh" aria-pressed={autoRefresh} onClick={() => setAutoRefresh((v) => !v)}>{autoRefresh ? "Pause updates" : "Resume updates"}</button>}
+            {!perf && <span data-testid="v3-refresh-state">{!autoRefresh ? "Updates paused" : details ? "Updates paused while viewing details" : older.events.length ? "Updates paused while viewing older history" : readError ? "Updates unavailable — retry" : loading ? "Updating…" : "Auto-refresh every 10s"}{lastUpdated && ` · Last read ${new Date(lastUpdated).toLocaleTimeString()}`}</span>}
+            {!perf && older.events.length > 0 && <button className="v3-btn" data-testid="v3-refresh-latest" onClick={() => { setOlder({ events: [], cursor: null }); setDetails(false); setDeep(null); upd({ event: null }); setNow(Date.now()); setRetry((n) => n + 1); }}>Latest in range</button>}
             <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
             {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
