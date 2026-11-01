@@ -46,7 +46,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-JOURNAL_VERSION = "1.0.0"
+JOURNAL_VERSION = "1.0.1"
 SCHEMA_VERSION = 1
 JOURNAL_FILENAME = "evidence_journal.db"
 INTEGRITY_FILENAME = "acquisition_integrity.json"
@@ -404,12 +404,29 @@ class Journal:
 
     def mark_accepted(self, sequences: list[int]) -> None:
         """Only the platform's accept may set this. A send that merely left
-        the host is not an acceptance and must never reach here."""
+        the host is not an acceptance and must never reach here.
+
+        One received acknowledgement batch is one durable transaction.
+        In autocommit mode executemany otherwise fsyncs every row, and a
+        failed update leaves a partially recorded acknowledgement batch.
+        Rollback keeps all rows deliverable for a safe retry.
+        """
+        if not sequences:
+            return
         now = _now()
-        self._db.executemany(
-            "UPDATE evidence SET state=?, accepted_at=?, updated_at=?,"
-            " last_error=NULL WHERE journal_sequence=?",
-            [(BACKEND_ACCEPTED, now, now, int(s)) for s in sequences])
+        rows = [(BACKEND_ACCEPTED, now, now, int(s)) for s in sequences]
+        self._db.execute("BEGIN IMMEDIATE")
+        try:
+            self._db.executemany(
+                "UPDATE evidence SET state=?, accepted_at=?, updated_at=?,"
+                " last_error=NULL WHERE journal_sequence=?", rows)
+            self._db.execute("COMMIT")
+        except BaseException:
+            try:
+                self._db.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
 
     def mark_attempt_failed(self, sequence: int, error: str) -> None:
         now = _now()
@@ -587,10 +604,12 @@ class Journal:
         """
         state = self.pressure()
         if not state["critical"]:
+            self._halted, self._halt_reason = False, None
             return True, None
         self.reclaim()
         state = self.pressure()
         if not state["critical"]:
+            self._halted, self._halt_reason = False, None
             return True, None
         reason = ("local durable capacity exhausted: journal holds "
                   f"{state['journal_live_bytes']}B of evidence against a "
@@ -739,3 +758,4 @@ def open_journal(state_dir: str | os.PathLike,
     if bookmark_file is not None:
         migrate_legacy(journal, Path(bookmark_file))
     return journal
+
