@@ -82,7 +82,10 @@ def _millis(value):
 
 
 def project(doc, query):
-    obs = from_observation(doc)
+    try:
+        obs = from_observation(doc)
+    except (AttributeError, TypeError, ValueError):
+        return None, "FILE_RECORD_UNREADABLE"
     if obs is None:
         return None, None
     stamp = _millis(obs.observed_at)

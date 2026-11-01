@@ -138,6 +138,11 @@ class FileEvidenceTests(unittest.TestCase):
         files.project(record, self.q)
         self.assertEqual(record, before)
 
+    def test_malformed_record_does_not_destroy_the_page(self):
+        page = files.scan_page([{"_id": f"{2:024x}", "event": {"raw": "invalid"}}, doc(1)], self.q, "ten_a")
+        self.assertEqual(len(page["observations"]), 1)
+        self.assertEqual(page["issues"], {"FILE_RECORD_UNREADABLE": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

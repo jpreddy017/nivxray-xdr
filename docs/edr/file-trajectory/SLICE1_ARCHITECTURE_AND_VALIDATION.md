@@ -94,10 +94,14 @@ Failure: invalid request→422; unauthorized tenant→existing denial; unresolve
 
 ## Verification executed
 - Python compile check of downloaded baseline modules and changed backend files: PASS.
-- 21 stdlib unittest tests: PASS. Actual file identity adapter and canonical constants used, not reimplemented stand-ins.
+- 22 stdlib unittest tests: PASS. Actual file identity adapter and canonical constants used, not reimplemented stand-ins.
 - 14 React behavior assertions: PASS, React18 renderer and esbuild, mocked router/API.
   Checks include explicit submission, endpoint scope, unknown hashes, append, selection retention, stale endpoint response discard,403, empty partial scan, customer context clearing.
-- No production data/config changes, sensor settings, purge execution or deployment.
+- Isolated remote run at cb10b229: 27 tests passed in1.159s (the then21 projection tests +6 real Mongo integration tests). The additional malformed-record case passed locally afterward.
+- Real Mongo checks use only a new UUID-named local test database, remove their own fixtures and never read application database configuration. They cover actual ObjectId continuation, customer/endpoint predicates, context refusal and new inserts.
+- FastAPI200/422 exercised using real read code and Mongo, with identity/customer boundary mocked; this does not establish full authentication coverage.
+- Vercel EDR preview build for cb10b229: successful combined status; final head build verification tracked separately.
+- No production data/config changes, sensor settings, purge execution or promotion.
 The author-run checks are not independent G3 review.
 
 Reproduce:
@@ -106,7 +110,7 @@ NIVX_TEST_NODE_MODULES=/absolute/test-runtime/node_modules node tools/test-edr-f
 The focused React harness needs esbuild, react18 and react-test-renderer18 in that test-runtime directory. These are test tooling, not new product runtime dependencies.
 
 ## Open release gates / limitations
-1. Real Mongo cursor/query authorization integration (including registered alias and cross-tenant cases).
+1. Full authentication/identity integration with real session authority; the lower-level Mongo scoping tests passed with an explicit endpoint resolution.
 2. FastAPI authenticated route checks, identity refusal and503 handling.
 3. Existing endpoint identity guard and relevant regression suites in a complete backend environment.
 4. Full Vite production build and EDR/XDR guard checks.

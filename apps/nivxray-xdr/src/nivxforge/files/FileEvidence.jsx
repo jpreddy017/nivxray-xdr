@@ -104,7 +104,7 @@ export default function FileEvidence({ endpointId }) {
         <p>Coverage has not been proven. A missing hash is unknown; no detection verdict is inferred. Records appear in receipt-record order, not event-time order.</p>
         {!rows.length ? <p>{data.next_cursor ? "No file matches in this scan page. Continue scanning before concluding there are no matches."
           : "No matching file observations found in the scanned records. This does not prove that no file activity occurred."}</p> : null}
-        {Object.keys(data.issues || {}).length ? <p>Some file records have unresolved timestamps and were excluded from this time-window view.</p> : null}
+        {Object.keys(data.issues || {}).length ? <p>Some source records could not be interpreted or timed and were excluded. Coverage is incomplete.</p> : null}
         <div className="ft-table-wrap"><table>
           <caption>File observations within the selected UTC window</caption>
           <thead><tr><th>Observed (UTC)</th><th>File / path</th><th>Action</th><th>Content identity</th><th>Details</th></tr></thead>
