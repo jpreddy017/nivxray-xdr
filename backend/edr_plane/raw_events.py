@@ -151,6 +151,10 @@ class RawEndpointEvent(BaseModel):
 
 
 async def ensure_indexes(db: Any) -> None:
+    # Event details and replay address a row by tenant + raw_id. The dedup
+    # index cannot serve raw_id equality; avoid scanning the tenant corpus.
+    await db[COLLECTION].create_index(
+        [("tenant_id", 1), ("raw_id", 1)], name="tenant_raw_id_lookup")
     await db[COLLECTION].create_index(
         [("tenant_id", 1), ("dedup_key", 1)], unique=True,
         name="uniq_tenant_dedup")
@@ -256,3 +260,4 @@ async def stats(db: Any, *, tenant_id: str) -> dict[str, Any]:
             "payloads are security signals and are never treated as "
             "endpoint evidence."),
     }
+
