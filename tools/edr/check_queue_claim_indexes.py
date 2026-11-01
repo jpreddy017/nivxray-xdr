@@ -88,6 +88,20 @@ async def main():
         assert report["after"]["totalDocsExamined"] <= 10, report
         assert report["after"]["totalKeysExamined"] <= 10, report
         assert "SORT" not in report["after"]["stages"], report
+        await q.claim({q.COLLECTION: Capture()}, newest_first=True)
+        newest_command = dict(findAndModify=q.COLLECTION,
+                              query=captured["query"], update=captured["update"],
+                              sort=dict(captured["kwargs"]["sort"]), new=True)
+        newest_plan = await db.command("explain", newest_command, verbosity="executionStats")
+        newest_stats = newest_plan["executionStats"]
+        report["newest"] = {key: newest_stats[key] for key in
+                            ("executionTimeMillis", "totalKeysExamined", "totalDocsExamined")}
+        report["newest"]["stages"] = list(stages(newest_plan["queryPlanner"]["winningPlan"]))
+        assert report["newest"]["totalDocsExamined"] <= 10, report
+        assert report["newest"]["totalKeysExamined"] <= 10, report
+        assert "SORT" not in report["newest"]["stages"], report
+        newest = await q.claim(db, newest_first=True)
+        assert newest["raw_id"] == "49999" and newest["attempts"] == 1
         first = await q.claim(db)
         assert first["raw_id"] == "10000" and first["attempts"] == 1
         assert first["state"] == q.PROCESSING
@@ -110,6 +124,14 @@ async def main():
             job("ready_retry", q.RETRY, 500),
             job("ready_pending", q.PENDING, 400),
         ])
+        # Fresh and recovery turns share readiness/lease rules.
+        fresh = await q.claim(db, newest_first=True)
+        assert fresh["raw_id"] == "ready_pending"
+        assert await q.mark_done(db, tenant_id="fixture", raw_id="ready_pending",
+                                 attempts=fresh["attempts"])
+        # Restore the synthetic ready job for the original FIFO checks.
+        await coll.update_one({"raw_id": "ready_pending"},
+                              {"$set": {"state": q.PENDING, "lease_until": None}})
         ordered = [await q.claim(db) for _ in range(3)]
         assert [row["raw_id"] for row in ordered] == [
             "expired_lease", "ready_retry", "ready_pending"]
@@ -128,6 +150,19 @@ async def main():
                                   attempts=ordered[1]["attempts"],
                                   error="fixture retry", retry_after_seconds=30)
         assert await q.claim(db) is None
+        # Continuous arrivals cannot consume recovery turns. No extra worker
+        # is introduced and every historical job remains durable.
+        await coll.delete_many({})
+        await coll.insert_many([job("old_" + str(i), q.PENDING, 10000 - i)
+                                for i in range(100)])
+        for i in range(20):
+            await coll.insert_one(job("live_" + str(i), q.PENDING, -i))
+            fresh = await q.claim(db, newest_first=True)
+            recovery = await q.claim(db)
+            assert fresh["raw_id"] == "live_" + str(i)
+            assert recovery["raw_id"] == "old_" + str(i)
+        assert await coll.count_documents({"raw_id": {"$regex": "^old_"},
+                                           "state": q.PENDING}) == 80
         print(json.dumps(report, indent=2))
         print("PASS: atomic query plan, FIFO, retry readiness, lease recovery, "
               "24 concurrent claims, completion, retry delay, repeat startup")
