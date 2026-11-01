@@ -41,13 +41,13 @@ def main():
         from routers import auth, xdr_rbac, edr_onboarding
         from fastapi.middleware.cors import CORSMiddleware
         owner.app.include_router(auth.router, prefix="/api")
-        owner.app.include_router(xdr_rbac.router, prefix="/api")
+        owner.app.include_router(xdr_rbac.router)
         owner.app.include_router(edr_onboarding.router, prefix="/api")
         owner.app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:8311"],
                                  allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Tenant-Id"])
         password = "Synthetic-browser-test-only-8311"
         owner.database.users.update_one({"email": "files-a@example.invalid"},
-            {"$set": {"password": owner.deps.hash_password(password)}})
+            {"$set": {"email": "files-a@example.com", "password": owner.deps.hash_password(password)}})
 
         # Simulated source XML traverses the actual bridge and observation
         # adapter. This is NOT proof of a live Windows sensor acquisition.
@@ -119,12 +119,25 @@ def main():
             context.route("**/*", proxy)
             page = context.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
+            network = []
+            page.on("response", lambda r: network.append({"path": urlsplit(r.url).path, "status": r.status}) if "/api/" in r.url else None)
             page.goto("http://127.0.0.1:8311/edr/login")
-            page.locator('input[type="email"]').fill("files-a@example.invalid")
+            page.locator('input[type="email"]').fill("files-a@example.com")
             page.locator('input[type="password"]').fill(password)
             page.get_by_role("button", name="Sign in", exact=True).click()
-            page.wait_for_url("**/edr", timeout=15000)
+            try:
+                page.wait_for_url("**/edr", timeout=15000)
+            except Exception:
+                page.screenshot(path=str(output / "login-failure.png"))
+                print(json.dumps({"login_url": page.url, "visible_text": page.locator("body").inner_text()[:1400], "network": network}))
+                raise
             page.goto("http://127.0.0.1:8311/edr/files?device=ep_files_a&t0=1788220800000&t1=1790812800000")
+            try:
+                page.get_by_test_id("edr-file-evidence").wait_for(state="visible", timeout=5000)
+            except Exception:
+                page.screenshot(path=str(output / "files-entry-failure.png"))
+                print(json.dumps({"files_url": page.url, "visible_text": page.locator("body").inner_text()[:2000], "network": network, "errors": errors}))
+                raise
             page.get_by_role("button", name="Search observations", exact=True).click()
             expect(page.get_by_text("100 observations loaded", exact=False)).to_be_visible(timeout=15000)
             checks.append("real login and source XML→bridge→Mongo→API→UI, first100")
@@ -134,12 +147,14 @@ def main():
             expect(page.get_by_text("120 observations loaded", exact=False)).to_be_visible()
             expect(page.get_by_role("complementary", name="Selected file observation")).to_be_visible()
             checks.append("pagination120 and selected observation preserved")
-            page.screenshot(path=str(output / "files-light.png"), full_page=True)
+            page.get_by_role("heading", name="File Trajectory", exact=True).scroll_into_view_if_needed()
+            page.screenshot(path=str(output / "files-light.png"), full_page=False)
             page.get_by_test_id("nvf-theme-toggle").click()
-            page.screenshot(path=str(output / "files-dark.png"), full_page=True)
+            page.screenshot(path=str(output / "files-dark.png"), full_page=False)
             checks.append("light and dark rendered")
             page.set_viewport_size({"width": 390, "height": 844})
-            page.screenshot(path=str(output / "files-mobile.png"), full_page=True)
+            page.get_by_role("heading", name="File Trajectory", exact=True).scroll_into_view_if_needed()
+            page.screenshot(path=str(output / "files-mobile.png"), full_page=False)
             checks.append("390px viewport rendered")
             page.set_viewport_size({"width": 1440, "height": 1050})
             page.get_by_role("link", name="Open Device Trajectory in this window").click()
@@ -147,6 +162,10 @@ def main():
             page.get_by_test_id("edr-device-tab-files").click()
             expect(page.get_by_test_id("edr-file-evidence")).to_be_visible()
             checks.append("device and standalone paths and preserved window")
+            # Drain pending proxy callbacks before their API context is disposed.
+            page.goto("about:blank")
+            context.unroute_all(behavior="wait")
+            context.close()
             browser.close()
         result = {"evidence_type": "SYNTHETIC_NOT_LIVE_SENSOR", "checks": checks,
                   "page_errors": errors, "source_xml_observations": 120,

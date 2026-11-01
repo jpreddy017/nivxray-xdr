@@ -23,6 +23,8 @@ export default function FileEvidence({ endpointId }) {
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [request, setRequest] = useState({ number: 0, cursor: null });
   const generation = useRef(0);
+  const detailsHeading = useRef(null), lastInspect = useRef(null);
+  useEffect(() => { if (selected) detailsHeading.current?.focus(); }, [selected]);
 
   // A different endpoint must never display the previous endpoint's evidence.
   useEffect(() => {
@@ -105,18 +107,19 @@ export default function FileEvidence({ endpointId }) {
         {!rows.length ? <p>{data.next_cursor ? "No file matches in this scan page. Continue scanning before concluding there are no matches."
           : "No matching file observations found in the scanned records. This does not prove that no file activity occurred."}</p> : null}
         {Object.keys(data.issues || {}).length ? <p>Some source records could not be interpreted or timed and were excluded. Coverage is incomplete.</p> : null}
+        <div className="ft-results" data-has-selection={Boolean(selected)}>
         <div className="ft-table-wrap"><table>
           <caption>File observations within the selected UTC window</caption>
           <thead><tr><th>Observed (UTC)</th><th>File / path</th><th>Action</th><th>Content identity</th><th>Details</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.record_id}>
+          <tbody>{rows.map((row) => <tr key={row.record_id} data-selected={selected?.record_id === row.record_id}>
             <td>{row.observed_at}</td><td className="ft-path">{row.path}</td><td>{row.action || "Not reported"}</td>
             <td>{row.hashes?.sha256 || (Object.keys(row.hashes || {}).length ? "Other source hash" : "Hash not observed")}</td>
-            <td><button className="btn" onClick={() => setSelected(row)} aria-label={`Inspect ${row.name || row.path}`}>Inspect</button></td>
+            <td><button className="btn" onClick={(e) => { lastInspect.current = e?.currentTarget; setSelected(row); }} aria-label={`Inspect ${row.name || row.path}`}>Inspect</button></td>
           </tr>)}</tbody>
         </table></div>
         {data.next_cursor ? <button className="btn" disabled={busy} onClick={() => setRequest((r) => ({ number: r.number + 1, cursor: data.next_cursor }))}>Continue scanning</button> : null}
         {selected ? <aside className="ft-details" aria-label="Selected file observation">
-          <h3>{selected.name || "File observation"}</h3>
+          <h3 ref={detailsHeading} tabIndex={-1}>{selected.name || "File observation"}</h3>
           <dl>{Object.entries({ Path: selected.path, Action: selected.action,
             "Observed (UTC)": selected.observed_at, "Identity basis": selected.identity_basis,
             "SHA-256": selected.hashes?.sha256, "Source-stated process": selected.writer_image,
@@ -128,8 +131,9 @@ export default function FileEvidence({ endpointId }) {
               <dt>{label}</dt><dd>{value ?? "Not observed"}{value === "" ? "Not observed" : ""}</dd>
             </React.Fragment>)}</dl>
           <Link to={trajectory}>Open Device Trajectory in this window</Link>
-          <button className="btn" onClick={() => setSelected(null)}>Close details</button>
+          <button className="btn" onClick={() => { setSelected(null); lastInspect.current?.focus(); }}>Close details</button>
         </aside> : null}
+        </div>
       </> : null}
     </section>
   );

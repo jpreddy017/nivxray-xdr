@@ -83,7 +83,7 @@ UI:
 - Device-tab navigation now preserves query context.
 - Requests cancel on replacement; stale results ignored. Customer context events clear loaded evidence; customer picker also reloads the product.
 - API unavailable, unauthorized, unresolved identity, incomplete scan and no matching observations have different messages.
-- Uses existing theme variables and responsive overflow/form layout. Visual light/dark QA remains open.
+- Uses existing theme variables and responsive overflow/form layout. Desktop details use a sticky pane; narrower screens put details before the table. Inspect moves keyboard focus to the heading and Close returns it to the selected row.
 - This slice replaces the reserved Files route import and device placeholder; other reserved capabilities are unchanged. Capability registry is not upgraded to runtime-verified. Registry/UI reconciliation is a release gate.
 
 ## Flows
@@ -109,12 +109,22 @@ python -m unittest discover -s backend/tests/edr -p test_endpoint_file_evidence.
 NIVX_TEST_NODE_MODULES=/absolute/test-runtime/node_modules node tools/test-edr-file-evidence.cjs
 The focused React harness needs esbuild, react18 and react-test-renderer18 in that test-runtime directory. These are test tooling, not new product runtime dependencies.
 
+## Additional validation — 2026-11-01
+- 38 backend tests passed in the complete remote Python/Mongo environment: 22 projection tests, 6 Mongo/API tests and 10 real session authorization tests.
+- The 10 session tests use actual JWT validation, user registry, tenant authority and endpoint resolver. Only database location and the synthetic signing secret are replaced; there are no FastAPI dependency overrides or mocked authorization functions.
+- Covered missing/invalid authentication, password-change gate, customer auto-binding, cross-customer refusal, unresolved endpoint, archived customer, explicit customer requirement for platform users and platform scope selection.
+- Registered the new GET route as TENANT_SCOPED in the existing route classification map.
+- Isolated browser acceptance passed using 120 synthetic Sysmon11 XML records through the actual canonical bridge, observation adapter, Mongo, real login/session APIs and guarded frontend build. Verified first100 then120 records, selected-detail retention, both Files entry paths and preservation of the trajectory time window. No JavaScript page errors.
+- This proves the synthetic integration path, NOT live Windows acquisition or sensor coverage. No production user, evidence database, app source or server was modified.
+- The preview integration build passed the EDR artifact guard. Its API targets preview by design. A later local UI refinement is identified by source hashes, not falsely represented as an unchanged Git artifact.
+- Vercel currently rejects additional EDR builds with “Deployment rate limited — retry in24hours.” Changes are batched; no upgrade or production promotion was requested.
+
 ## Open release gates / limitations
-1. Full authentication/identity integration with real session authority; the lower-level Mongo scoping tests passed with an explicit endpoint resolution.
-2. FastAPI authenticated route checks, identity refusal and503 handling.
+1. Live sensor acquisition, current source-coverage measurement and supported file-content hashing remain unverified.
+2. Production-scale503/timeout behavior and full authenticated regression coverage beyond this focused suite remain open.
 3. Existing endpoint identity guard and relevant regression suites in a complete backend environment.
 4. Full Vite production build and EDR/XDR guard checks.
-5. Light/dark browser, keyboard and narrow-screen verification.
+5. Final refined-layout visual review and keyboard focus verification; synthetic browser screenshots do not certify every viewport or control.
 6. Real Sysmon file event through sensor→ingestion→API→browser, with hashing both unavailable and valid. No sensor capability claim until measured.
 7. Deep-link/back navigation and customer-switch checks in the real shell.
 8. Independently review architecture and code. Existing registry prose discrepancies must be reconciled against runtime behavior.
