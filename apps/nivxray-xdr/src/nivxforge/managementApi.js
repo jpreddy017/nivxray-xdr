@@ -19,8 +19,8 @@ export async function getEventFacets(hours = 24) {
   return data;
 }
 
-export async function getEvent(rawId) {
-  const { data } = await api.get(`/edr/events/${encodeURIComponent(rawId)}`);
+export async function getEvent(rawId, signal) {
+  const { data } = await api.get(`/edr/events/${encodeURIComponent(rawId)}`, { signal });
   return data;
 }
 
@@ -182,3 +182,4 @@ export async function deleteSavedView(viewId) {
   const { data } = await api.delete(`/edr/saved-views/${encodeURIComponent(viewId)}`);
   return data;
 }
+

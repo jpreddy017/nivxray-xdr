@@ -35,15 +35,17 @@ const DETECTIONS = [
 function EventPane({ rawId, onClose }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
+    const controller = new AbortController();
     setData(null); setErr(null);
-    getEvent(rawId)
+    getEvent(rawId, controller.signal)
       .then((d) => { if (live) setData(d); })
       .catch((e) => { if (live) setErr(apiErrorText(e, "event unavailable")); });
-    return () => { live = false; };
-  }, [rawId]);
+    return () => { live = false; controller.abort(); };
+  }, [rawId, attempt]);
 
   const ev = data?.event;
   return (
@@ -61,8 +63,10 @@ function EventPane({ rawId, onClose }) {
         <button className="btn" onClick={onClose}
                 data-testid="edr-event-pane-close"><X size={11} /></button>
       </div>
-      {err ? <Refusal title="Event unavailable" body={err}
-                      testid="edr-event-pane-error" /> : null}
+      {err ? <><Refusal title="Event unavailable" body={err}
+                      testid="edr-event-pane-error" />
+        <button className="btn" data-testid="edr-event-pane-retry"
+                onClick={() => setAttempt((n) => n + 1)}>Retry event</button></> : null}
       {!data && !err ? <Skeleton rows={6} testid="edr-event-pane-loading" />
         : null}
       {ev ? (
@@ -523,3 +527,4 @@ export default function EdrEventsPage() {
     </NivXForgeConsole>
   );
 }
+
