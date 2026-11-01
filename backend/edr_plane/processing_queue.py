@@ -53,6 +53,14 @@ async def ensure_indexes(db: Any) -> None:
         [("state", 1), ("lease_until", 1)],
         name="expired_leases",
     )
+    # claim() sorts eligible work by created_at. Putting available_at (a
+    # range predicate) before created_at forces a blocking sort of the ready
+    # backlog for every claim. Keep this additive so existing indexes and
+    # the atomic FIFO/lease query remain compatible with older deployments.
+    await db[COLLECTION].create_index(
+        [("state", 1), ("created_at", 1), ("available_at", 1), ("lease_until", 1)],
+        name="fifo_work",
+    )
 
 
 async def enqueue(
@@ -570,3 +578,4 @@ async def stop_workers() -> None:
     finally:
         _supervisor_task = None
         _stop_event = None
+
