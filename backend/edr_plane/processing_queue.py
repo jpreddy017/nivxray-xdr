@@ -16,6 +16,8 @@ from typing import Any
 
 from pymongo import ReturnDocument
 
+from edr_plane.stage_timing import measure
+
 log = logging.getLogger(__name__)
 
 COLLECTION = "edr_processing_queue"
@@ -137,6 +139,8 @@ async def claim(
             "$set": {
                 "state": PROCESSING,
                 "lease_until": lease_until,
+                "processing_started_at": now,
+                "processing_timings": None,
                 "updated_at": now,
             },
             "$inc": {"attempts": 1},
@@ -152,6 +156,7 @@ async def mark_done(
     tenant_id: str,
     raw_id: str,
     attempts: int,
+    timings: dict[str, Any] | None = None,
 ) -> bool:
     """Complete only the still-live claim returned to this worker.
 
@@ -171,6 +176,7 @@ async def mark_done(
         {
             "$set": {
                 "state": DONE,
+                "processing_timings": timings,
                 "completed_at": now,
                 "updated_at": now,
                 "lease_until": None,
@@ -189,6 +195,7 @@ async def mark_retry(
     attempts: int,
     error: str,
     retry_after_seconds: int = 30,
+    timings: dict[str, Any] | None = None,
 ) -> bool:
     """Return failed work only while this worker still owns a live claim."""
     now = _now()
@@ -205,6 +212,7 @@ async def mark_retry(
         {
             "$set": {
                 "state": RETRY,
+                "processing_timings": timings,
                 "available_at": available_at,
                 "updated_at": now,
                 "lease_until": None,
@@ -248,6 +256,7 @@ async def process_one(
 
     tenant_id = job["tenant_id"]
     raw_id = job["raw_id"]
+    timings = {"contract": "edr.processing_timings.v1", "attempt": job["attempts"], "stages": {}}
 
     try:
         raw_doc = await raw_events.get(
@@ -276,24 +285,27 @@ async def process_one(
                 f"endpoint identity missing for raw event {raw_id}"
             )
 
-        result = await bridge(
-            db,
-            raw_id=raw_id,
-            tenant_id=tenant_id,
-            payload=raw_doc["payload"],
-            endpoint_id=endpoint_id,
-            hostname=authentication.get("hostname"),
-            authentication=authentication,
-            source_kind=raw_doc.get("source_kind"),
-            sensor_version=raw_doc.get("sensor_version"),
-            nivx_received_at=raw_doc.get("ingest_time"),
-        )
+        with measure(timings["stages"], "canonical_bridge"):
+            result = await bridge(
+                db,
+                raw_id=raw_id,
+                tenant_id=tenant_id,
+                payload=raw_doc["payload"],
+                endpoint_id=endpoint_id,
+                hostname=authentication.get("hostname"),
+                authentication=authentication,
+                source_kind=raw_doc.get("source_kind"),
+                sensor_version=raw_doc.get("sensor_version"),
+                nivx_received_at=raw_doc.get("ingest_time"),
+                stage_timings=timings["stages"],
+            )
 
         completed = await mark_done(
             db,
             tenant_id=tenant_id,
             raw_id=raw_id,
             attempts=job["attempts"],
+            timings=timings,
         )
         if not completed:
             raise RuntimeError(
@@ -316,6 +328,7 @@ async def process_one(
             attempts=job["attempts"],
             error=str(exc),
             retry_after_seconds=retry_after_seconds,
+            timings=timings,
         )
 
         return {
@@ -603,4 +616,5 @@ async def stop_workers() -> None:
     finally:
         _supervisor_task = None
         _stop_event = None
+
 
