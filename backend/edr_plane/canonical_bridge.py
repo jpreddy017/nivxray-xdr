@@ -27,6 +27,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from edr_plane.stage_timing import measure
 from edr_plane import file_content_acquisition as fca
 from edr_plane import windows_eventlog as winlog
 from edr_plane.contracts.identity import ProcessIdentity
@@ -501,7 +502,8 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
                  authentication: dict,
                  source_kind: Optional[str] = None,
                  sensor_version: Optional[str] = None,
-                 nivx_received_at: Optional[str] = None) -> dict[str, Any]:
+                 nivx_received_at: Optional[str] = None,
+                 stage_timings: Optional[dict] = None) -> dict[str, Any]:
     """Parse → canonical → CES/CEM observation → append the derivation.
 
     Returns what actually happened. A parse failure is reported as a
@@ -513,7 +515,9 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
     gen = await next_generation(db, tenant_id=tenant_id, raw_id=raw_id)
 
     try:
-        canonical = parse(payload)
+        # This parser also normalizes the envelope; it is one measured stage.
+        with measure(stage_timings, "parse_and_normalize"):
+            canonical = parse(payload)
     except Exception as e:  # noqa: BLE001
         reason = (f"sensor payload could not be parsed; the raw bytes are "
                   f"retained and replayable after a parser fix: "
@@ -800,3 +804,4 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             "observation_id": obs_id,
             "activity_type": canonical["additional_fields"]["activity_type"],
             "detection": detection}
+
