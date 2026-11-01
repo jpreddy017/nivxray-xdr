@@ -122,8 +122,10 @@ async def main():
         assert await coll.count_documents({"raw_id": {"$in": [
             "future_pending", "future_retry", "active_lease"]},
             "attempts": 0}) == 3
-        assert await q.mark_done(db, tenant_id="fixture", raw_id="ready_pending")
+        assert await q.mark_done(db, tenant_id="fixture", raw_id="ready_pending",
+                                 attempts=ordered[2]["attempts"])
         assert await q.mark_retry(db, tenant_id="fixture", raw_id="ready_retry",
+                                  attempts=ordered[1]["attempts"],
                                   error="fixture retry", retry_after_seconds=30)
         assert await q.claim(db) is None
         print(json.dumps(report, indent=2))
