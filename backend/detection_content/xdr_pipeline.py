@@ -418,7 +418,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
        state=(canonical.get("additional_fields") or {}).get(_temporal.STATE_KEY),
        observation_us=canonical.get(_temporal.OBSERVATION_US))
 
-    await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
+    persisted = await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
     _s("canonical_evidence", "EXECUTED",
                 event_id=canonical["event_id"],
                 collection=CANONICAL_COLLECTION)
@@ -567,7 +567,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
                       source=f"pipeline:verdict:{verdict.get('engine_id')}"))
     _tsb = canonical["provenance"]["timestamps"]
     await db[CANONICAL_COLLECTION].update_one(
-        {"event_id": canonical["event_id"]},
+        {"_id": persisted.inserted_id,
+         "tenant_id": canonical.get("tenant_id") or tenant_id},
         {"$set": {
             "provenance.timestamps.rule_evaluated_at":
                 _tsb["rule_evaluated_at"],
@@ -724,3 +725,4 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "response":       response,
             "closed_loop":    loop if incident.get("created") else None,
             "framework":      framework if incident.get("created") else None}
+
