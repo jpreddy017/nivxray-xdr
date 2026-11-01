@@ -336,6 +336,20 @@ export default function TrajectoryPage({ device }) {
           {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
             ATT&amp;CK {att} · {shown.length} mapped events in the loaded window (observed technique, not a confirmed attack)
             <button className="v3-link" data-testid="dt-attack-filter-clear" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ att: null })}>Clear</button></div>}
+          <div data-testid="v3-status-bar" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderBottom: `1px solid ${C.line}` }}>
+            {!perf && <button className="v3-btn" data-testid="v3-auto-refresh" aria-pressed={autoRefresh} onClick={() => setAutoRefresh((v) => !v)}>{autoRefresh ? "Pause updates" : "Resume updates"}</button>}
+            {!perf && <span data-testid="v3-refresh-state">{!autoRefresh ? "Updates paused" : details ? "Updates paused while viewing details" : older.events.length ? "Updates paused while viewing older history" : readError ? "Updates unavailable — retry" : loading ? "Updating…" : "Auto-refresh every 10s"}{lastUpdated && ` · Last read ${new Date(lastUpdated).toLocaleTimeString()}`}</span>}
+            {!perf && older.events.length > 0 && <button className="v3-btn" data-testid="v3-refresh-latest" onClick={() => { setOlder({ events: [], cursor: null }); setDetails(false); setDeep(null); upd({ event: null }); setNow(Date.now()); setRetry((n) => n + 1); }}>Latest in range</button>}
+            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · partial history — more events available" : ""}</>}</span>
+            {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
+            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
+            <span style={{ flex: 1 }} />
+            <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{!data ? "No data read"
+              : /REAL PRODUCTION EVIDENCE/.test(data?.e3_preview?.data_label || "") ? "Production evidence (read-only)"
+              : /KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
+              : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data"
+              : /SYNTHETIC|PREVIEW/i.test(data?.e3_preview?.data_label || "") ? "Synthetic data" : "Data source not declared"}</span>
+          </div>
           <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
               <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW} onOlder={requestOlder}
@@ -367,20 +381,7 @@ export default function TrajectoryPage({ device }) {
                 model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>
-          <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            {!perf && <button className="v3-btn" data-testid="v3-auto-refresh" aria-pressed={autoRefresh} onClick={() => setAutoRefresh((v) => !v)}>{autoRefresh ? "Pause updates" : "Resume updates"}</button>}
-            {!perf && <span data-testid="v3-refresh-state">{!autoRefresh ? "Updates paused" : details ? "Updates paused while viewing details" : older.events.length ? "Updates paused while viewing older history" : readError ? "Updates unavailable — retry" : loading ? "Updating…" : "Auto-refresh every 10s"}{lastUpdated && ` · Last read ${new Date(lastUpdated).toLocaleTimeString()}`}</span>}
-            {!perf && older.events.length > 0 && <button className="v3-btn" data-testid="v3-refresh-latest" onClick={() => { setOlder({ events: [], cursor: null }); setDetails(false); setDeep(null); upd({ event: null }); setNow(Date.now()); setRetry((n) => n + 1); }}>Latest in range</button>}
-            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
-            {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
-            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
-            <span style={{ flex: 1 }} />
-            <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{!data ? "No data read"
-              : /REAL PRODUCTION EVIDENCE/.test(data?.e3_preview?.data_label || "") ? "Production evidence (read-only)"
-              : /KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
-              : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data"
-              : /SYNTHETIC|PREVIEW/i.test(data?.e3_preview?.data_label || "") ? "Synthetic data" : "Data source not declared"}</span>
-          </div>
+
         </div>
       </div>
       {hover?.x != null && (hover.it || hover.text) && <div data-testid="v3-tooltip" style={{ position: "fixed", left: hover.x + 14, top: hover.y + 14, zIndex: 95, pointerEvents: "none", background: C.tip,
