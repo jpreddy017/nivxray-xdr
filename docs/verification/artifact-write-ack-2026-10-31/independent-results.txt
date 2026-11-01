@@ -1,0 +1,56 @@
+test_body_cannot_override_tenant_or_version (test_api.APIContract.test_body_cannot_override_tenant_or_version) ... ok
+test_read_failure_is_503_not_missing (test_api.APIContract.test_read_failure_is_503_not_missing) ... ok
+test_read_scope_and_explicit_absence (test_api.APIContract.test_read_scope_and_explicit_absence) ... ok
+test_unauthenticated_and_read_only_cannot_produce (test_api.APIContract.test_unauthenticated_and_read_only_cannot_produce) ... ok
+test_write_failure_is_503_without_internal_detail (test_api.APIContract.test_write_failure_is_503_without_internal_detail) ... ok
+test_cache_hit_deleted_before_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_cache_hit_deleted_before_update_refused) ... ok
+test_duplicate_with_missing_record_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_duplicate_with_missing_record_refused) ... ok
+test_existing_report_is_not_overwritten (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_existing_report_is_not_overwritten) ... ok
+test_genuine_duplicate_updates_existing_record (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_genuine_duplicate_updates_existing_record) ... ok
+test_successful_insert_preserves_contract (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_successful_insert_preserves_contract) ... ok
+test_unacknowledged_cache_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_cache_update_refused) ... ok
+test_unacknowledged_insert_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_insert_refused) ... ok
+test_unknown_insert_failure_is_not_duplicate (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unknown_insert_failure_is_not_duplicate) ... ok
+test_validation_error_propagates_without_fallback (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_validation_error_propagates_without_fallback) ... ok
+test_ack_and_match_required (test_artifacts.ArtifactContract.test_ack_and_match_required) ... ok
+test_failed_refresh_preserves_old (test_artifacts.ArtifactContract.test_failed_refresh_preserves_old) ... ok
+test_insert_error_never_success (test_artifacts.ArtifactContract.test_insert_error_never_success) ... ok
+test_new_version_preserves_old (test_artifacts.ArtifactContract.test_new_version_preserves_old) ... ok
+test_no_ambiguous_identity_encoding (test_artifacts.ArtifactContract.test_no_ambiguous_identity_encoding) ... ok
+test_repeat_does_not_replace_evidence (test_artifacts.ArtifactContract.test_repeat_does_not_replace_evidence) ... ok
+test_required_scope_and_version (test_artifacts.ArtifactContract.test_required_scope_and_version) ... ok
+test_roundtrip (test_artifacts.ArtifactContract.test_roundtrip) ... ok
+test_tenant_isolation (test_artifacts.ArtifactContract.test_tenant_isolation) ... ok
+test_preserved_canonical_and_tenant_key_signatures (test_audit_parity.AuditSigningParity.test_preserved_canonical_and_tenant_key_signatures) ... ok
+test_bundled_catalogue_scans_without_http (test_offline_lolbas.OfflineScan.test_bundled_catalogue_scans_without_http) ... ok
+test_fixed_corpus_persisted_report_parity (test_parity.ProducerParity.test_fixed_corpus_persisted_report_parity) ... ok
+test_32_concurrent_upserts_one_artifact (test_real_mongo.RealMongo.test_32_concurrent_upserts_one_artifact) ... ok
+test_asgi_real_decoder_mongo_reader (test_real_mongo.RealMongo.test_asgi_real_decoder_mongo_reader) ... ok
+test_audit_concurrent_independent_writers_and_tenant_chains (test_real_mongo.RealMongo.test_audit_concurrent_independent_writers_and_tenant_chains) ... ok
+test_audit_fail_closed_storage_and_unacknowledged_configuration (test_real_mongo.RealMongo.test_audit_fail_closed_storage_and_unacknowledged_configuration) ... ok
+test_audit_limit_rotation_and_missing_key_are_not_valid (test_real_mongo.RealMongo.test_audit_limit_rotation_and_missing_key_are_not_valid) ... ok
+test_audit_refuses_historical_schema (test_real_mongo.RealMongo.test_audit_refuses_historical_schema) ... ok
+test_audit_tampering_and_interior_deletion (test_real_mongo.RealMongo.test_audit_tampering_and_interior_deletion) ... ok
+test_owned_authentication_refusals_and_password_gate (test_real_mongo.RealMongo.test_owned_authentication_refusals_and_password_gate) ... ok
+test_owned_startup_refuses_unmarked_database (test_real_mongo.RealMongo.test_owned_startup_refuses_unmarked_database) ... ok
+test_owned_startup_signed_auth_decode_mongo_read (test_real_mongo.RealMongo.test_owned_startup_signed_auth_decode_mongo_read) ... ok
+test_owned_tenant_and_restriction_boundaries (test_real_mongo.RealMongo.test_owned_tenant_and_restriction_boundaries) ... ok
+test_provenance_bounded_and_report_immutable (test_real_mongo.RealMongo.test_provenance_bounded_and_report_immutable) ... ok
+test_real_decoder_roundtrip_and_scope (test_real_mongo.RealMongo.test_real_decoder_roundtrip_and_scope) ... ok
+test_rejected_refresh_keeps_previous_evidence (test_real_mongo.RealMongo.test_rejected_refresh_keeps_previous_evidence) ... ok
+test_restart_and_cold_backup_restore (test_real_mongo.RealMongo.test_restart_and_cold_backup_restore) ... ok
+test_unacknowledged_write_never_reports_success (test_real_mongo.RealMongo.test_unacknowledged_write_never_reports_success) ... ok
+test_versions_and_tenants_are_separate_records (test_real_mongo.RealMongo.test_versions_and_tenants_are_separate_records) ... ok
+test_cached_report_does_not_invoke_decoder (test_service.ServiceTests.test_cached_report_does_not_invoke_decoder) ... ok
+test_cancellation_reaps_worker (test_service.ServiceTests.test_cancellation_reaps_worker) ... ok
+test_missing_plugin_refuses_persistence (test_service.ServiceTests.test_missing_plugin_refuses_persistence) ... ok
+test_oversize_input_refused_before_launch (test_service.ServiceTests.test_oversize_input_refused_before_launch) ... ok
+test_real_decode_store_read (test_service.ServiceTests.test_real_decode_store_read) ... ok
+test_storage_failure_not_decoded (test_service.ServiceTests.test_storage_failure_not_decoded) ... ok
+test_tenant_and_version_no_fallback (test_service.ServiceTests.test_tenant_and_version_no_fallback) ... ok
+test_timeout_reaps_worker_and_does_not_persist (test_service.ServiceTests.test_timeout_reaps_worker_and_does_not_persist) ... ok
+
+----------------------------------------------------------------------
+Ran 51 tests in 8.339s
+
+OK

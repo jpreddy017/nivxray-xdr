@@ -32,6 +32,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+from .contracts import reported
 from .lineage import lane_of
 
 CONTRACT = "e3.dt.v3_presentation.v1"
@@ -56,8 +57,19 @@ EVENT_TYPE = {
     "DNS_QUERY": "dns_query",
     "REGISTRY_SET": "registry_value_set",
     "DETECTION": "detection",
+    # Authentication. These are the tokens `trajectory_v3/amp/labels.js` (KIND) knows, so a
+    # sign-in renders with its own glyph, label and filter instead of the generic "other" row.
+    "AUTH_LOGON_SUCCESS": "logon_success",
+    "AUTH_LOGON_FAILURE": "logon_failure",
+    "AUTH_LOGON": "logon",
+    "AUTH_LOGOFF": "logoff",
+    "AUTH_CREDENTIAL_VALIDATION": "credential_validation",
     "OTHER": "other",
 }
+
+#: Families whose row carries authentication evidence.
+AUTH_FAMILIES = ("AUTH_LOGON_SUCCESS", "AUTH_LOGON_FAILURE", "AUTH_LOGON", "AUTH_LOGOFF",
+                 "AUTH_CREDENTIAL_VALIDATION")
 
 
 def encode_iid(event_id: str) -> str:
@@ -161,6 +173,34 @@ def present_event(ev: dict[str, Any], *, lane_index: int | None,
                           else str(n["dest_ip"]))
     if n.get("query"):
         row["entity"] = n["query"]
+    if kind in AUTH_FAMILIES:
+        # Authentication is reported per ACCOUNT, and only the account the source named. The
+        # lane identity is carried so the Activity Details "Identity lane" is the server's own
+        # lane rather than a guess, and `-` (Windows' "not reported on this record") is never
+        # shown as if it were an account, an address or a workstation.
+        a = ev.get("authentication") or {}
+        account = reported(p.get("user")) or reported(a.get("target_user"))
+        if account is not None:
+            row["user"] = account
+        row["lane_id"] = lane_of(ev)
+        detail = {k: v for k, v in (
+            ("logon_type", a.get("logon_type")), ("logon_type_name", a.get("logon_type_name")),
+            ("logon_process", a.get("logon_process")),
+            ("authentication_package", a.get("authentication_package")),
+            ("target_user", reported(a.get("target_user"))),
+            ("target_domain", reported(a.get("target_domain"))),
+            ("subject_user", reported(a.get("subject_user"))),
+            ("failure_reason", a.get("failure_reason")),
+            ("source_address", reported(a.get("source_ip"))),
+            ("workstation_name", reported(a.get("workstation_name"))),
+        ) if v not in (None, "")}
+        if detail:
+            winlog = {k: detail[k] for k in ("logon_type", "source_address", "workstation_name")
+                      if k in detail}
+            row["e3_doc"] = {"basis": "AUTHENTICATION EVIDENCE AS THE SOURCE STATED IT "
+                                      "(E1 canonical/shadow observation, read-only)",
+                             "raw": {**detail, **({"winlog": winlog} if winlog else {})},
+                             "artefacts": {}}
     det = _detection(ev)
     if det:
         row["e3_detection"] = det
@@ -280,6 +320,37 @@ def apply_findings(rows: list[dict[str, Any]], findings: list[dict[str, Any]]) -
             "authority": "E1_DURABLE_FINDINGS"}
 
 
+#: Deep-link outcomes that are NOT a resolution. Each keeps its own identity through the
+#: presentation layer; none of them may be rendered as a miss or as a selection.
+FOCUS_UNRESOLVED_STATES = ("FOCUS_AMBIGUOUS", "FOCUS_SEARCH_INCOMPLETE", "FOCUS_NOT_RESOLVED")
+
+
+def _focus_v3(focus: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Carry the §d focus outcome into V3 identity vocabulary without deciding anything."""
+    if not isinstance(focus, dict):
+        return None
+    state = focus.get("state")
+    out = {"state": state,
+           "lookup_complete": state not in ("FOCUS_AMBIGUOUS", "FOCUS_SEARCH_INCOMPLETE"),
+           "requested_event_id": focus.get("event_id"),
+           "requested_event_iid": (encode_iid(focus["event_id"])
+                                   if focus.get("event_id") else None)}
+    if state == "FOCUS_RESOLVED":
+        out |= {"event_id": focus.get("event_id"), "basis": focus.get("basis"),
+                "resolved_via": focus.get("resolved_via"),
+                "observed_at": focus.get("observed_at"), "lane_id": focus.get("lane_id")}
+        return out
+    if state in FOCUS_UNRESOLVED_STATES:
+        out |= {"event_id": None, "reason": focus.get("reason"),
+                "search": focus.get("search"), "retry": focus.get("retry"),
+                "candidates": [{"event_iid": encode_iid(c["event_id"]), **c}
+                               for c in (focus.get("candidates") or [])],
+                "partial_matches": [{"event_iid": encode_iid(c["event_id"]), **c}
+                                    for c in (focus.get("partial_matches") or [])],
+                "meaning": focus.get("meaning")}
+    return out
+
+
 def build(e3: dict[str, Any], *, computer: dict[str, Any] | None,
           identity: dict[str, Any] | None,
           attribution: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -347,6 +418,11 @@ def build(e3: dict[str, Any], *, computer: dict[str, Any] | None,
             "page_meaning": "ONE BOUNDED NEWEST-FIRST PAGE, not the endpoint's whole history",
         },
         "provenance": page.get("provenance"),
+        # The deep-link outcome travels to the UI in V3's own identity vocabulary. A lookup that
+        # did not complete keeps its own state here: it is never flattened into "not found", and
+        # no row is nominated in its place.
+        "focus": _focus_v3(e3.get("focus")),
+        "evidence_read_complete": (page.get("provenance") or {}).get("read_complete", True),
         "ordering_authority": "observed_us (full source precision) in production_adapter; "
                               "timestamp_instant_ms below is a RENDERING coordinate only",
         "suppressed_duplicates": page.get("suppressed_duplicates"),

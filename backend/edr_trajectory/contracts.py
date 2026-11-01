@@ -6,8 +6,16 @@ from typing import Any
 
 EVENT_SCHEMA = "e3.dt.event.v1"
 
+#: Authentication families. Each one names the OUTCOME the source itself stated
+#: (`logon_success`, `logon_failure`, ...); none of them is inferred from an
+#: activity_type alone, because "an authentication record exists" does not say
+#: whether the sign-in succeeded.
+AUTH_KINDS = ("AUTH_LOGON_SUCCESS", "AUTH_LOGON_FAILURE", "AUTH_LOGON", "AUTH_LOGOFF",
+              "AUTH_CREDENTIAL_VALIDATION")
+
 KINDS = ("PROCESS_START", "PROCESS_END", "FILE_CREATE", "FILE_WRITE", "FILE_DELETE", "FILE_MOVE",
-         "FILE_EXECUTE", "NETWORK_CONNECT", "DNS_QUERY", "REGISTRY_SET", "DETECTION", "OTHER")
+         "FILE_EXECUTE", "NETWORK_CONNECT", "DNS_QUERY", "REGISTRY_SET", "DETECTION",
+         *AUTH_KINDS, "OTHER")
 
 SEVERITY_RANK = {"NONE": 0, "INFO": 1, "LOW": 2, "MEDIUM": 3, "HIGH": 4, "CRITICAL": 5}
 
@@ -63,12 +71,24 @@ def iso(ms: int | None) -> str | None:
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def reported(v: Any) -> Any:
+    """Windows writes `-` for a field it did not report on THIS record.
+
+    Returning None keeps that an explicit absence instead of showing a dash as if it were an
+    address, an account or a workstation name.
+    """
+    s = str(v).strip() if v is not None else ""
+    return None if s in ("", "-", "--") else v
+
+
 def event(**kw: Any) -> dict[str, Any]:
     """Build a normalized event with every contract key present (absent = None, never guessed)."""
     base: dict[str, Any] = {
-        "schema": EVENT_SCHEMA, "event_id": None, "tenant_id": None, "device_id": None,
+        "schema": EVENT_SCHEMA, "event_id": None, "identity_keys": [],
+        "tenant_id": None, "device_id": None,
         "kind": "OTHER", "observed_ms": None, "ingested_ms": None, "severity": "NONE",
-        "process": {}, "parent": {}, "creator": {}, "file": {}, "network": {}, "detection": None,
+        "process": {}, "parent": {}, "creator": {}, "file": {}, "network": {},
+        "authentication": {}, "detection": None,
         "boot_id": None, "sources": [], "provenance": {},
     }
     base.update(kw)

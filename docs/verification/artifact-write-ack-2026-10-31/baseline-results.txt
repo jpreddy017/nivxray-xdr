@@ -1,0 +1,104 @@
+test_cache_hit_deleted_before_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_cache_hit_deleted_before_update_refused) ... FAIL
+test_duplicate_with_missing_record_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_duplicate_with_missing_record_refused) ... FAIL
+test_existing_report_is_not_overwritten (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_existing_report_is_not_overwritten) ... ok
+test_genuine_duplicate_updates_existing_record (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_genuine_duplicate_updates_existing_record) ... ok
+test_successful_insert_preserves_contract (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_successful_insert_preserves_contract) ... ok
+test_unacknowledged_cache_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_cache_update_refused) ... FAIL
+test_unacknowledged_insert_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_insert_refused) ... FAIL
+test_unknown_insert_failure_is_not_duplicate (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unknown_insert_failure_is_not_duplicate) ... FAIL
+test_validation_error_propagates_without_fallback (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_validation_error_propagates_without_fallback) ... FAIL
+
+======================================================================
+FAIL: test_cache_hit_deleted_before_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_cache_hit_deleted_before_update_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 71, in test_cache_hit_deleted_before_update_refused
+    with self.assertRaises(RuntimeError): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_duplicate_with_missing_record_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_duplicate_with_missing_record_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 66, in test_duplicate_with_missing_record_refused
+    with self.assertRaises(RuntimeError): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_unacknowledged_cache_update_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_cache_update_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 76, in test_unacknowledged_cache_update_refused
+    with self.assertRaises(RuntimeError): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_unacknowledged_insert_refused (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unacknowledged_insert_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 61, in test_unacknowledged_insert_refused
+    with self.assertRaises(RuntimeError): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_unknown_insert_failure_is_not_duplicate (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_unknown_insert_failure_is_not_duplicate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 56, in test_unknown_insert_failure_is_not_duplicate
+    with self.assertRaisesRegex(RuntimeError, "unknown write outcome"): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_validation_error_propagates_without_fallback (test_artifact_write_ack.ArtifactWriteAcknowledgement.test_validation_error_propagates_without_fallback)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f823ef4e6cc9/current-edr-repair/tools/test_artifact_write_ack.py", line 51, in test_validation_error_propagates_without_fallback
+    with self.assertRaises(OperationFailure): await self.invoke()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: OperationFailure not raised
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.026s
+
+FAILED (failures=6)

@@ -5,17 +5,18 @@ import api from "@/lib/api";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
 import { AttackPanel } from "./AttackStrip";
+import { DeepLinkBanner } from "./DeepLinkBanner";
 import { hasTechnique } from "./attack";
+import { deepLinkFromError, deepLinkFromFocus, LOOKUP_AMBIGUOUS, LOOKUP_INCOMPLETE,
+         selectedFor } from "./deeplink";
 import { FiltersPanel } from "./Filters";
 import Grid from "./Grid";
 import Header from "./Header";
-import { Legend } from "./Glyphs";
 import { ApprovalDialog, ContextMenu } from "./Menu";
 import { buildModel, DEFAULT_ON, lineage, matches, passes, presentKinds } from "./model";
 import Navigator from "./Navigator";
 import { perfEvents } from "./perf";
 import { C, CSS, DAY } from "./theme";
-import { readCollapsed, setCollapsedGlobal } from "../../EdrSidebar";
 
 const PANEL_KEY = "nvx.dt.panelW", PANEL_MIN = 320, PANEL_DEFAULT = 336;
 
@@ -31,22 +32,7 @@ function useUrlState() {
   return [params, upd];
 }
 
-function Debug({ data, timing, deep, onLegacy }) {
-  const p = data?.e3_preview || {};
-  return (
-    <div data-testid="v3-debug-drawer" style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: 420, zIndex: 70, background: C.tip, borderLeft: `1px solid ${C.line}`,
-      padding: 16, fontSize: 12, color: C.text, overflowY: "auto", boxShadow: "-10px 0 40px rgba(0,0,0,.5)" }}>
-      <b style={{ fontSize: 14 }}>Debug (preview only)</b>
-      {[["engine", data?.engine_id], ["adapter", p.engine], ["data label", p.data_label], ["source", p.source || p.source_origin], ["window rows", p.window_rows],
-        ["remaining older", p.remaining_older], ["returned", data?.returned], ["timing ms", JSON.stringify(timing)], ["deep link", JSON.stringify(deep)],
-        ["detections basis", p.detections_basis]].map(([k, v]) => <div key={k} style={{ display: "grid", gridTemplateColumns: "120px 1fr", padding: "3px 0" }}>
-        <span style={{ color: C.muted }}>{k}</span><span style={{ wordBreak: "break-all" }}>{v ?? "—"}</span></div>)}
-      <button className="v3-btn" data-testid="v3-use-legacy" style={{ marginTop: 12 }} onClick={onLegacy}>Use Legacy Device Trajectory</button>
-    </div>
-  );
-}
-
-export default function TrajectoryPage({ device, onLegacy }) {
+export default function TrajectoryPage({ device }) {
   const [params, upd] = useUrlState();
   const now = useRef(Date.now()).current;
   const perf = Number(params.get("perf") || 0);
@@ -59,6 +45,10 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [data, setData] = useState(null);
   const [older, setOlder] = useState({ events: [], cursor: null });
   const [loading, setLoading] = useState(false);
+  const [readError, setReadError] = useState(null);
+  const [olderError, setOlderError] = useState(null);
+  const olderRequest = useRef(null);
+  const [retry, setRetry] = useState(0);
   const [details, setDetails] = useState(false);
   const [hover, setHover] = useState(null);
   const [showF, setShowF] = useState(false);
@@ -66,8 +56,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [approval, setApproval] = useState(null);
   const [notice, setNotice] = useState(null);
   const [deep, setDeep] = useState(null);
-  const [dbg, setDbg] = useState(false);
-  const [legend, setLegend] = useState(false);
+  const [focusRetry, setFocusRetry] = useState(0);
+  const [focusScope, setFocusScope] = useState(null);
   const [netSum, setNetSum] = useState(false);
   const [approvals, setApprovals] = useState({});
   const [devPending, setDevPending] = useState({});
@@ -78,8 +68,6 @@ export default function TrajectoryPage({ device, onLegacy }) {
   useEffect(() => setDraft(q), [q]);
   const returnTo = useRef(false), req = useRef(0), timing = useRef({}), pendingJump = useRef(false);
   const wsRef = useRef(null);
-  const [railed, setRailed] = useState(readCollapsed);
-  useEffect(() => { const on = (e) => setRailed(!!e.detail); window.addEventListener("nvx-sidebar", on); return () => window.removeEventListener("nvx-sidebar", on); }, []);
   const panelMax = useCallback(() => Math.max(PANEL_MIN, Math.floor((wsRef.current?.clientWidth || 1600) * 0.4)), []);
   const [panelW, setPanelW] = useState(() => { const v = Number(sessionStorage.getItem(PANEL_KEY)); return v >= PANEL_MIN ? v : PANEL_DEFAULT; });
   const setPanel = useCallback((w) => {
@@ -105,6 +93,8 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const url = `/edr/endpoints/${encodeURIComponent(device)}/trajectory`;
 
   useEffect(() => {
+    setReadError(null);
+    setOlderError(null);
     if (perf) {
       const t = performance.now();
       setData({ events: perfEvents(perf, now), lane_axis: { lanes: [] }, computer: { hostname: `PERF-${perf}` }, activity: { days: [] },
@@ -114,23 +104,34 @@ export default function TrajectoryPage({ device, onLegacy }) {
     }
     const ac = new AbortController(), id = ++req.current, t = performance.now();
     setLoading(true);
-    api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
-      .then(({ data: d }) => { if (id !== req.current) return; timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
-      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") say(`Trajectory read failed: ${e.message}`); })
+    setData(null);
+    setOlder({ events: [], cursor: null });
+    api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
+      .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
+      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
       .finally(() => { if (id === req.current) setLoading(false); });
-    return () => ac.abort();
-  }, [url, t0, t1, perf, scenario]); // eslint-disable-line
+    return () => { req.current += 1; ac.abort(); olderRequest.current?.abort(); olderRequest.current = null; };
+  }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
 
   const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
   const loadOlder = async () => {
+    if (loading || olderRequest.current || !older.cursor) return;
     const id = req.current;
+    const ac = new AbortController();
+    olderRequest.current = ac;
     setLoading(true);
+    setOlderError(null);
     try {
-      const { data: d } = await api.get(url, { params: { time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario } });
-      const r = d.v3 || d;
-      if (id === req.current) setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
-    } catch (e) { say(`Older events read failed: ${e.message}`); } finally { setLoading(false); }
+      const { data: d } = await api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, before: older.cursor, scenario }, signal: ac.signal });
+      if (id !== req.current) return;
+      const r = d?.v3 || d;
+      if (!r || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(r.state || ""))) throw new Error("Trajectory evidence contract unavailable");
+      if (r.e3_preview?.older_cursor === older.cursor) throw new Error("Trajectory cursor did not advance");
+      setOlder((o) => ({ events: [...(r.events || []), ...o.events], cursor: r?.e3_preview?.older_cursor || null }));
+    } catch (e) { if (id === req.current) setOlderError("Older evidence could not be loaded. Previously loaded evidence is retained; retry to continue."); } finally { if (olderRequest.current === ac) olderRequest.current = null; if (id === req.current) setLoading(false); }
   };
+  // Demand comes from a user gesture, never a render/resize or an automatic retry loop.
+  const requestOlder = () => { if (!olderError) void loadOlder(); };
 
   const os = String(data?.computer?.platform || JSON.stringify(data?.computer?.operating_system || "")).toLowerCase();
   const platform = /mac/.test(os) ? "macos" : /linux|ubuntu|debian|rhel/.test(os) ? "linux" : "windows";
@@ -162,7 +163,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     const n = q.toLowerCase();
     return new Set(vmodel.rows.filter((r) => [r.label, r.path, r.hash].some((v) => v && String(v).toLowerCase().includes(n))).map((r) => r.key));
   }, [vmodel, q]);
-  const sel = wanted ? model.items.find((it) => it.ev.event_iid === wanted) || null : null;
+  const sel = selectedFor(model.items, wanted);
   const dets = (data?.e3_preview?.detections_all || []).map((d) => ({ ...d, ms: d.ms || Date.parse(d.at) }));
 
   const select = useCallback((it, center = false) => {
@@ -179,21 +180,36 @@ export default function TrajectoryPage({ device, onLegacy }) {
       if (deep?.id !== wanted || deep.state !== "FOCUSED") { setDeep({ state: "FOCUSED", id: wanted }); setDetails(true); returnTo.current = true; }
       return;
     }
-    if (deep?.id === wanted) return;
-    setDeep({ state: "LOCATING", id: wanted });
-    api.get(`${url}/focus`, { params: { event_iid: wanted } }).then(({ data: f }) => {
-      if (f.state !== "FOCUS_RESOLVED") { setDeep({ state: "NOT_FOUND", id: wanted, note: f.missing_link || f.reason }); return; }
-      setDeep({ state: "FOCUSING", id: wanted });
-      upd({ t0: Date.parse(f.focus.window.time_start), t1: Date.parse(f.focus.window.time_end) }, true);
-    }).catch(() => setDeep({ state: "NOT_FOUND", id: wanted }));
-  }, [data, wanted, model]); // eslint-disable-line
+    if (deep?.id === wanted && deep.scope === url && deep.state !== "LOCATING") return;
+    const ac = new AbortController(); let active = true;
+    setDeep({ state: "LOCATING", id: wanted, scope: url });
+    // A SCOPED lookup is the supported narrowing action. The bounds only ever narrow the
+    // search: tenant and endpoint are fixed server-side, and the server reports the scope back
+    // so a window-complete search is never presented as a search of retained history.
+    const params = { event_iid: wanted, ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
+    api.get(`${url}/focus`, { params, signal: ac.signal }).then(({ data: f }) => {
+      if (!active) return;
+      // An UNFINISHED lookup keeps its own state: it is never rendered as "not found", and no
+      // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
+      const d = deepLinkFromFocus(f, { id: wanted, scope: url, attempt: focusRetry });
+      setDeep(d);
+      if (d.state === "OUTSIDE_PAGE") upd({ t0: d.window.t0, t1: d.window.t1 }, true);
+    }).catch(() => { if (active) setDeep(deepLinkFromError(wanted, { scope: url, attempt: focusRetry })); });
+    return () => { active = false; ac.abort(); };
+  }, [data, wanted, model, url, focusRetry, focusScope]); // eslint-disable-line
 
   // Detection jump: one history entry (Back restores the prior range); ±30 min window centred on the detection.
   const jump = async (d) => {
     let id = d.event_iid, ms = d.ms;
     if (!id) {
       setLoading(true);
-      try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } }); id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
+      try { const { data: f } = await api.get(`${url}/focus`, { params: { observation_id: d.observation_id } });
+        if (f?.state === LOOKUP_INCOMPLETE || f?.state === LOOKUP_AMBIGUOUS) {
+          setLoading(false);
+          setDeep(deepLinkFromFocus(f, { id: d.observation_id, scope: url, attempt: focusRetry }));
+          return;
+        }
+        id = f?.focus?.event_iid; ms = ms || Date.parse(f?.focus?.observed_at || ""); }
       catch (e) { say(`Could not locate that detection: ${e.message}`); setLoading(false); return; }
       setLoading(false);
     }
@@ -202,15 +218,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
     upd({ event: id, ...(ms ? { t0: Math.round(ms - 30 * 60_000), t1: Math.round(Math.min(ms + 30 * 60_000, now)) } : {}) });
   };
 
-  const span = t1 - t0;
   const setView = (v) => upd({ t0: Math.round(v.t0), t1: Math.round(Math.min(v.t1, now)) });
-  const nav = (k) => () => ({
-    last24: () => upd({ t0: null, t1: null }), now: () => setView({ t0: now - span, t1: now }), prev: () => setView({ t0: t0 - span, t1: t1 - span }),
-    next: () => setView({ t0: Math.min(t0 + span, now - span), t1: Math.min(t1 + span, now) }),
-    fit: () => { const g = document.querySelector('[data-testid="v3-grid"]'); setColW(Math.max(1.5, Math.min(48, ((g?.clientWidth || 1200) - 300) / Math.max(1, vmodel.ncol)))); },
-    reset: () => { upd({ t0: null, t1: null, q: null, f: null, iso: null, event: null, att: null }); setColW(24); setExpanded(new Set()); setDetails(false); },
-    zin: () => setColW((w) => Math.min(48, w * 1.25)), zout: () => setColW((w) => Math.max(1.5, w * 0.8)),
-  })[k]();
   const step = (d) => { if (!shown.length) return; const i = (hitIdx + d + shown.length) % shown.length; setHitIdx(i); select(shown[i], true); };
   const copy = (v) => { navigator.clipboard?.writeText(v || "").catch(() => {}); say("Copied to clipboard"); };
   const onAction = (a, v) => {
@@ -257,6 +265,10 @@ export default function TrajectoryPage({ device, onLegacy }) {
   return (
     <div className="v3amp" data-testid="v3-page" style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }} onClick={() => { setMenu(null); setShowF(false); }}>
       <style>{CSS}</style>
+      {readError && <div role="alert" data-testid="v3-read-error" style={{ padding: 12, marginBottom: 12, border: `1px solid ${C.amber}`, color: C.text }}>
+        <strong>Trajectory unavailable</strong><p>{readError}</p>
+        <button className="v3-btn" data-testid="v3-retry-read" onClick={() => setRetry((n) => n + 1)}>Retry</button>
+      </div>}
       <Header data={data} device={device} dets={dets} onShare={() => copy(window.location.href)} onJump={jump} pendingIso={pendingIso}
         onActions={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 16, deviceOnly: true, device, isolated: isolated || pendingIso === "ISOLATE_DEVICE", pending: devPending })} />
       <div style={{ background: C.panel, borderRadius: 12, padding: 16, border: `1px solid ${C.line}` }}>
@@ -280,8 +292,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
           <button className="v3-link" data-testid="v3-filters" onClick={() => setShowF(!showF)} style={{ display: "flex", alignItems: "center", gap: 2 }}>Filters <ChevronDown size={15} /></button>
           {showF && <FiltersPanel present={present} applied={filters} onCancel={() => setShowF(false)} onApply={(s) => { setShowF(false); upd({ f: [...s].sort().join(",") === [...DEFAULT_ON].sort().join(",") ? null : [...s].join(",") }); }} />}
         </div>
-        {deep && !["FOCUSED"].includes(deep.state) && <div data-testid="v3-deeplink-state" style={{ fontSize: 13, color: deep.state === "NOT_FOUND" ? C.amber : C.muted, marginBottom: 8 }}>
-          {deep.state === "NOT_FOUND" ? (deep.note || `Observation ${deep.id} was not found in retained evidence for this device.`) : `Locating observation ${deep.id} in history…`}</div>}
+        <DeepLinkBanner deep={deep} olderCursor={older.cursor} loading={loading} scopedNow={!!focusScope}
+          onRetry={() => { setDeep(null); setFocusRetry((v) => v + 1); }}
+          onNarrow={() => { setDeep(null); setFocusScope({ t0, t1 }); setFocusRetry((v) => v + 1); }}
+          onWiden={() => { setDeep(null); setFocusScope(null); setFocusRetry((v) => v + 1); }}
+          onCandidate={(c) => { setDeep(null); setFocusScope(null); upd({ event: c.event_iid }); }}
+          onLoadOlder={loadOlder} />
         {isoItem && <div data-testid="v3-isolate-banner" style={{ fontSize: 13, marginBottom: 8, color: C.accent }}>Isolated lineage of {isoItem.target?.label} · {shown.length} events
           <button className="v3-link" data-testid="v3-isolate-restore" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ iso: null })}>Restore</button></div>}
         {notice && <div data-testid={/Approval/.test(notice) ? "dt-approval-result" : "v3-notice"} onClick={() => setNotice(null)} style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 90, background: C.tip,
@@ -295,26 +311,17 @@ export default function TrajectoryPage({ device, onLegacy }) {
           {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
             ATT&amp;CK {att} · {shown.length} mapped events in the loaded window (observed technique, not a confirmed attack)
             <button className="v3-link" data-testid="dt-attack-filter-clear" style={{ marginLeft: 10, fontSize: 13 }} onClick={() => upd({ att: null })}>Clear</button></div>}
-          <div data-testid="v3-toolbar" style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end", padding: "6px 10px", background: C.panel, borderBottom: `1px solid ${C.line}`, fontSize: 12 }}>
-            <span style={{ color: C.muted, marginRight: "auto" }}>{new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
-            {[["last24", "Last 24h"], ["now", "Now"], ["prev", "‹ Prev"], ["next", "Next ›"], ["fit", "Fit to evidence"], ["reset", "Reset"], ["zout", "−"], ["zin", "+"]].map(([k, l]) =>
-              <button key={k} className="v3-btn" data-testid={`v3-${k}`} style={{ padding: "3px 10px", fontSize: 12 }} onClick={nav(k)}>{l}</button>)}
-            <span style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
-              <button className="v3-btn" data-testid="v3-legend-toggle" style={{ padding: "3px 10px", fontSize: 12 }} onClick={() => setLegend(!legend)}>Legend</button>
-              {legend && <Legend />}</span>
-            <button className="v3-btn" data-testid="v3-workspace-mode" data-mode={railed ? "max" : "standard"} style={{ padding: "3px 10px", fontSize: 12 }}
-              onClick={() => { setCollapsedGlobal(!railed); setPanel(railed ? PANEL_DEFAULT : PANEL_MIN); }}>{railed ? "Standard layout" : "Maximum workspace"}</button>
-          </div>
           <div style={{ overflowX: "auto" }}><div ref={wsRef} data-testid="v3-workspace" style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) 6px ${panelW}px`, minWidth: 260 + 380 + 6 + PANEL_MIN }}>
             <div style={{ position: "relative", minWidth: 0 }}>
-              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW}
+              <Grid model={vmodel} items={shown} sel={sel} onSelect={(it) => select(it)} hover={hover} setHover={setHover} colW={colW} setColW={setColW} onOlder={requestOlder}
                 returnTo={returnTo} expanded={expanded} toggle={(k) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })}
                 hits={hits} height={gridH} onContext={(e, it) => { setHover(null); setMenu({ x: e.clientX, y: e.clientY, it }); }}
                 onRowClick={(r) => { if (r.type === "Network") { setNetSum(true); setDetails(false); } }} />
               {q && !shown.length && !loading && <div data-testid="v3-search-empty" style={{ position: "absolute", inset: `${78}px 0 0 0`, display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
                 <Search size={28} color="currentColor" style={{ color: C.muted }} />
-                <div>No events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                <div>No loaded events match &lsquo;<b>{q}</b>&rsquo; in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                {older.cursor && <button className="v3-link" onClick={loadOlder}>Load older events to search more evidence</button>}
                 <div style={{ color: C.muted, fontSize: 12.5 }}>Search matches SHA-256, filename, process, command line, IP, domain, user, detection name and ATT&amp;CK ID. Try a wider time range.</div>
                 <div style={{ display: "flex", gap: 14 }}>
                   <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
@@ -329,22 +336,22 @@ export default function TrajectoryPage({ device, onLegacy }) {
               onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }} />
             <div data-testid="v3-activity-panel" style={{ background: C.panel, minWidth: 0, overflow: "hidden" }}>
               <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", fontWeight: 600, fontSize: 18, borderBottom: `1px solid ${C.line}` }}>{netSum ? "Network" : details && sel ? "Activity Details" : "Activity"}</div>
-              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
+              <ActivityList items={shown} sel={sel} onSelect={(it) => select(it, true)} hidden={(details && !!sel) || netSum} height={gridH - 44} onOlder={requestOlder} onCtx={(e, it) => setMenu({ x: e.clientX, y: e.clientY, it })} />
               {netSum && <NetworkSummary model={model} height={gridH - 44} onBack={() => setNetSum(false)} onFilter={(v) => { upd({ q: v }); setNetSum(false); }} />}
               {!netSum && details && sel && <ActivityDetails it={sel} height={gridH - 44} onBack={() => setDetails(false)} onCopy={copy} onCtx={(e) => setMenu({ x: e.clientX, y: e.clientY, it: sel })}
                 model={model} computer={data?.computer} device={device} approvals={approvals[sel.ev.event_iid]} onSearch={(v) => upd({ q: v })} onJump={(x) => select(x, true)} range={view} />}
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            <span data-testid="v3-loaded-count">Showing {model.items.length} of {data?.e3_preview?.window_rows ?? data?.matched_in_window ?? 0} events in range</span>
-            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" onClick={loadOlder}>Load older events</button>}
+            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
+            {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
+            {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
             <span style={{ flex: 1 }} />
             <span data-testid="v3-data-label" title={data?.e3_preview?.data_label}>{!data ? "No data read"
               : /REAL PRODUCTION EVIDENCE/.test(data?.e3_preview?.data_label || "") ? "Production evidence (read-only)"
               : /KUSHU/.test(data?.e3_preview?.data_label || "") ? "Production export (read-only)"
               : /FIXTURE/.test(data?.e3_preview?.data_label || "") ? "Fixture data"
               : /SYNTHETIC|PREVIEW/i.test(data?.e3_preview?.data_label || "") ? "Synthetic data" : "Data source not declared"}</span>
-            <button className="v3-link" data-testid="v3-debug-toggle" style={{ fontSize: 12, color: C.muted }} onClick={(e) => { e.stopPropagation(); setDbg(!dbg); }}>Debug</button>
           </div>
         </div>
       </div>
@@ -355,7 +362,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
       </div>}
       {menu && <ContextMenu menu={menu} onAction={onAction} />}
       {approval && <ApprovalDialog req={approval} onCancel={() => setApproval(null)} onConfirm={confirmApproval} />}
-      {dbg && <Debug data={data} timing={timing.current} deep={deep} onLegacy={onLegacy} />}
     </div>
   );
 }
+

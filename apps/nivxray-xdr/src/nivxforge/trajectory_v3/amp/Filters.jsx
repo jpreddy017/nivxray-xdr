@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { FILTER_GROUPS } from "./model";
 import { C } from "./theme";
 
-const LIVE = FILTER_GROUPS.flatMap(([, its]) => its.filter((x) => !x[2]).map((x) => x[0]));
+const panelGroups = FILTER_GROUPS.filter(([name]) => name !== "All ATT&CK tactics");
+const LIVE = panelGroups.flatMap(([, its]) => its.filter((x) => !x[2]).map((x) => x[0]));
 
 export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }) {
   const [on, setOn] = useState(new Set(applied));
@@ -14,7 +15,7 @@ export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }
       <div className="v3-scroll" style={{ maxHeight: 520, overflowY: "auto", padding: "12px 16px" }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, marginBottom: 8 }}>
           <input data-testid="v3-filter-all-types" type="checkbox" checked={allOn} onChange={() => set(LIVE, !allOn)} /> All types</label>
-        {FILTER_GROUPS.map(([g, its]) => {
+        {panelGroups.map(([g, its]) => {
           const live = its.filter((x) => !x[2]).map((x) => x[0]), all = live.every((k) => on.has(k));
           return (<div key={g} style={{ marginBottom: 10, paddingLeft: 10 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600 }}>

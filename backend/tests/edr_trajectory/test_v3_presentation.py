@@ -276,10 +276,14 @@ def test_a_capped_deep_link_search_is_not_reported_as_an_absence():
     with mock.patch.object(pa, "PAGE_MAX", 4):
         got = asyncio.run(pa.resolve_evidence(db, tenant_id=T, refs=REFS,
                                               event_id="ce_nope", max_pages=1))
-    assert got["state"] == "FOCUS_NOT_RESOLVED"
+    # The capped walk previously reported FOCUS_NOT_RESOLVED with an explanatory reason. The
+    # state itself now says the search did not finish, so a consumer that only reads `state`
+    # cannot mistake it for an absence.
+    assert got["state"] == pa.FOCUS_SEARCH_INCOMPLETE
+    assert got["event"] is None
     assert got["reason"] == "SEARCH_BUDGET_REACHED_BEFORE_EXHAUSTING_RETAINED_EVIDENCE"
     assert got["search"]["state"] == "PAGE_BUDGET_REACHED_1"
-    assert "NOT proof" in got["meaning"]
+    assert "neither proof" in got["meaning"]
 
 
 def test_an_exhausted_deep_link_search_says_so():

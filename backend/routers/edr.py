@@ -996,6 +996,7 @@ def _iso_ok(ts: Optional[str]) -> Optional[str]:
 @router.get("/endpoints/{endpoint_id}/trajectory")
 async def endpoint_trajectory_window(
     endpoint_id: str,
+    presentation: str = "combined",
     time_start: Optional[str] = None,
     time_end: Optional[str] = None,
     lane_start: int = 0,
@@ -1020,6 +1021,8 @@ async def endpoint_trajectory_window(
     investigation state. It is a projection over the existing canonical
     evidence and creates no telemetry store of its own.
     """
+    if presentation not in {"combined", "v3"}:
+        raise HTTPException(status_code=422, detail="unsupported trajectory presentation")
     from deps import db as _db
     from edr_plane import trajectory_window as tw
     import asyncio
@@ -1045,45 +1048,60 @@ async def endpoint_trajectory_window(
                     observations_in_window=0,
                     requested_ref=endpoint_id)}
     identity = res.identity
-    out = await tw.query_window(
-        _db, identity=identity, time_start=time_start, time_end=time_end,
-        lane_start=max(0, lane_start), lane_end=max(1, lane_end),
-        cursor=cursor, limit=limit, kinds=kinds, q=q,
-        dispositions=dispositions, hist_day=hist_day, refs=res.refs)
-    _t2 = _t.perf_counter()
-    ep = await _db["edr_endpoints"].find_one(
-        res.predicate("edr_endpoints"), {"_id": 0})
-    out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
-    out["epistemic_state"] = tw.empty_state(
-        identity=identity,
-        enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
-        observations_all_time=out["observations_all_time"],
-        observations_in_window=out["matched_in_window"])
-    out["computer"] = _computer_header(identity, ep, out)
-    # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
-    # client simply ignores `dt2`. Read-only projection, no store.
-    try:
-        dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
-                     if raw_event_id else None)
-        dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
-                                         or endpoint_id),
-                    requested_start=time_start, requested_end=time_end,
-                    focus=dt2_focus)
-        # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
-        # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
-        # the server-derived nodes and edges and infers no relationship of
-        # its own. Composed from the SAME rows already projected above.
-        from edr_plane.trajectory import projection as dt2_projection
-        out["dt2"]["graph"] = dt2_projection.build_graph(
-            out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
-            requested_start=time_start, requested_end=time_end,
-            focus=dt2_focus).to_dict()
-    except Exception as ex:                        # noqa: BLE001
-        # The V2 contract must never take the V1 surface down with it.
-        out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
-                      "state": "DT2_CONTRACT_UNAVAILABLE",
-                      "reason": type(ex).__name__}
-        _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
+    if presentation == "v3":
+        # V3 consumes the paged E3 evidence contract below, not the legacy
+        # whole-history lane projection. Do not compute unused contracts.
+        # Aggregate header fields are explicitly unknown, never zero.
+        out = {"time_range": {"observed_start": None, "observed_end": None},
+               "lane_axis": {"total_lanes": None, "group_counts": None},
+               "observations_all_time": None,
+               "projection": {"state": "V3_PAGED_ONLY",
+                              "aggregates": "NOT_REQUESTED"}}
+        ep = await _db["edr_endpoints"].find_one(
+            res.predicate("edr_endpoints"), {"_id": 0})
+        out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
+        out["computer"] = _computer_header(identity, ep, out)
+        _t2 = _t.perf_counter()
+    else:
+        out = await tw.query_window(
+            _db, identity=identity, time_start=time_start, time_end=time_end,
+            lane_start=max(0, lane_start), lane_end=max(1, lane_end),
+            cursor=cursor, limit=limit, kinds=kinds, q=q,
+            dispositions=dispositions, hist_day=hist_day, refs=res.refs)
+        _t2 = _t.perf_counter()
+        ep = await _db["edr_endpoints"].find_one(
+            res.predicate("edr_endpoints"), {"_id": 0})
+        out["identity"] = _identity_with_display_hostname(res.descriptor(), ep)
+        out["epistemic_state"] = tw.empty_state(
+            identity=identity,
+            enrolled=bool(ep and ep.get("enrollment_state") == "ENROLLED"),
+            observations_all_time=out["observations_all_time"],
+            observations_in_window=out["matched_in_window"])
+        out["computer"] = _computer_header(identity, ep, out)
+        # DT2-0 · additive V2 contract. V1 keys above are untouched; a V1
+        # client simply ignores `dt2`. Read-only projection, no store.
+        try:
+            dt2_focus = (dt2.FocusTarget(kind="raw_event_id", value=raw_event_id)
+                         if raw_event_id else None)
+            dt2.augment(out, endpoint_id=str(identity.get("endpoint_id")
+                                             or endpoint_id),
+                        requested_start=time_start, requested_end=time_end,
+                        focus=dt2_focus)
+            # DT2-3 · the PROCESS / RELATIONSHIP / TIME render contract
+            # (DT2-2E). Additive under `dt2.graph`: the client renders exactly
+            # the server-derived nodes and edges and infers no relationship of
+            # its own. Composed from the SAME rows already projected above.
+            from edr_plane.trajectory import projection as dt2_projection
+            out["dt2"]["graph"] = dt2_projection.build_graph(
+                out, endpoint_id=str(identity.get("endpoint_id") or endpoint_id),
+                requested_start=time_start, requested_end=time_end,
+                focus=dt2_focus).to_dict()
+        except Exception as ex:                        # noqa: BLE001
+            # The V2 contract must never take the V1 surface down with it.
+            out["dt2"] = {"contract_version": dt2.DT2_CONTRACT_VERSION,
+                          "state": "DT2_CONTRACT_UNAVAILABLE",
+                          "reason": type(ex).__name__}
+            _log.warning("[trajectory] dt2 contract unavailable: %s", ex)
     # §d · PRODUCTION WIRING for the E3 Device Trajectory capability.
     #
     # Additive under `e3`: V1 and `dt2` above are untouched and a client that does not know
@@ -1193,6 +1211,22 @@ def _identity_with_display_hostname(descriptor: Dict[str, Any],
     hostname, basis = _display_hostname(descriptor, ep)
     return {**descriptor, "hostname": hostname, "hostname_basis": basis,
             "observed_hostname": descriptor.get("hostname")}
+
+
+def _focus_candidates(rows: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Name every offered candidate in the V3 PRESENTATION identity space as well as §d's.
+
+    The UI navigates by `event_iid` and `decode_iid` deliberately rejects anything outside the
+    V3 namespace — a §d `event_id` included. A candidate offered without `event_iid` is a button
+    that cannot resolve, so the presentation identity is added here rather than guessed there.
+    """
+    from edr_trajectory import v3_presentation as _e3v3
+    out: List[Dict[str, Any]] = []
+    for r in rows or []:
+        eid = r.get("event_id")
+        out.append({**r, "event_iid": _e3v3.encode_iid(eid) if eid else None})
+    return out
+
 
 
 def _focus_endpoint_block(endpoint_id: str, descriptor: Dict[str, Any],
@@ -1738,6 +1772,8 @@ async def trajectory_focus(endpoint_id: str,
                            observation_id: Optional[str] = None,
                            detection_id: Optional[str] = None,
                            incident_id: Optional[str] = None,
+                           time_start: Optional[str] = None,
+                           time_end: Optional[str] = None,
                            user=Depends(get_current_user),
                            tenant_id: str = Depends(edr_tenant)
                            ) -> Dict[str, Any]:
@@ -1779,25 +1815,43 @@ async def trajectory_focus(endpoint_id: str,
             deep = await e3pa.resolve_evidence(
                 _db, tenant_id=str(identity.get("tenant_id") or tenant_id), refs=res.refs,
                 event_id=v3_event_id,
+                time_start=time_start, time_end=time_end,
                 match=((lambda ev: (ev.get("provenance") or {}).get("ref") == observation_id)
                        if (observation_id and not v3_event_id) else None))
         except Exception as ex:                        # noqa: BLE001
             return {"engine_id": "nivxray::edr_trajectory::v3_focus",
                     "state": "FOCUS_AUTHORITY_UNAVAILABLE", "focus": None,
+                    "lookup_complete": False,
                     "reason": type(ex).__name__,
                     "meaning": ("the deep-link resolver could not read evidence. This is NOT a "
                                 "statement that the requested observation does not exist.")}
         if deep.get("state") != "FOCUS_RESOLVED":
-            incomplete = (deep.get("search") or {}).get("state", "").startswith("PAGE_BUDGET")
+            # The resolver's three non-resolved outcomes are carried through UNCHANGED. An
+            # unfinished search must never arrive at the UI wearing the words "not found",
+            # and an ambiguous identifier must never be narrowed to one candidate here.
+            st = deep.get("state")
+            search = deep.get("search") or {}
+            incomplete = st == e3pa.FOCUS_SEARCH_INCOMPLETE
+            ambiguous = st == "FOCUS_AMBIGUOUS"
             return {"engine_id": "nivxray::edr_trajectory::v3_focus",
-                    "state": ("OBSERVATION_NOT_RESOLVED_SEARCH_INCOMPLETE" if incomplete
-                              else "OBSERVATION_NOT_RESOLVED"),
+                    "state": ("OBSERVATION_LOOKUP_INCOMPLETE" if incomplete else
+                              "OBSERVATION_IDENTIFIER_AMBIGUOUS" if ambiguous else
+                              "OBSERVATION_NOT_RESOLVED"),
+                    "lookup_complete": not (incomplete or ambiguous),
                     "focus": None,
                     "requested": {"event_iid": event_iid, "observation_id": observation_id},
                     "reason": deep.get("reason"),
-                    "search": deep.get("search"),
+                    "search": search,
+                    "scope": deep.get("scope"),
+                    # §8 · a candidate the UI can ACT ON must be named in the identity space the
+                    # UI navigates by. `event_id` is the §d evidence identity and `decode_iid`
+                    # does not accept it, so a candidate offered without `event_iid` would be a
+                    # button that cannot resolve.
+                    "candidates": _focus_candidates(deep.get("candidates")),
+                    "partial_matches": _focus_candidates(deep.get("partial_matches")),
+                    "retry": deep.get("retry"),
                     "observations_searched": deep.get("scanned"),
-                    "missing_link": (deep.get("meaning") if incomplete else
+                    "missing_link": (deep.get("meaning") if (incomplete or ambiguous) else
                                      ("no observation on this endpoint, in this customer, carries "
                                       "the requested identifier. Nothing is focused in its place "
                                       "— no timestamp, hostname or process-name proximity is "

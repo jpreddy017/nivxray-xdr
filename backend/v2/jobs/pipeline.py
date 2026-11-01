@@ -178,22 +178,21 @@ async def _decode_with_cache(cmd: dict, job_id: str | None):
     if archetype_layers:
         status["archetype_id"] = archetype_layers[-1]["decoder"]
     if report is not None:
-        try:
-            report_dict = report.model_dump()
-            # Bake archetype layers into the persisted report.trace so a
-            # cache-hit next time still shows the full chain.
-            if archetype_layers:
-                existing_trace = report_dict.get("trace") or []
-                report_dict["trace"] = archetype_layers + existing_trace
-            await _artifact_upsert(
-                command_binary=cmd.get("binary") or "",
-                command_line=cmdline,
-                report_dict=report_dict,
-                job_id=job_id,
-                pipeline_version=PIPELINE_VERSION,
-            )
-        except Exception as e:  # noqa: BLE001
-            log.warning("artifact upsert failed sha=%s: %s", sha, e)
+        # A decoded report is not durable until the write is acknowledged.
+        # Propagate persistence/serialization failures to the job failure path.
+        report_dict = report.model_dump()
+        # Bake archetype layers into the persisted report.trace so a
+        # cache-hit next time still shows the full chain.
+        if archetype_layers:
+            existing_trace = report_dict.get("trace") or []
+            report_dict["trace"] = archetype_layers + existing_trace
+        await _artifact_upsert(
+            command_binary=cmd.get("binary") or "",
+            command_line=cmdline,
+            report_dict=report_dict,
+            job_id=job_id,
+            pipeline_version=PIPELINE_VERSION,
+        )
     return report, status, False, archetype_layers
 
 

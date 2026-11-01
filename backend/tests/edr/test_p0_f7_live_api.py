@@ -10,27 +10,35 @@ import asyncio
 
 import pytest
 import requests
-from dotenv import load_dotenv
-# Load backend .env so tests target the SAME Mongo/DB the preview backend
-# uses (conftest.py force-sets DB_NAME=nivxray_ci_local for CI-only tests;
-# for the projection equality checks we need the real deployed DB).
-load_dotenv("/app/backend/.env", override=True)
+from dotenv import dotenv_values
+# Read preview configuration only when this live suite runs; never mutate os.environ.
 from motor.motor_asyncio import AsyncIOMotorClient
 
-BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/") \
-    if os.environ.get("REACT_APP_BACKEND_URL") \
-    else "https://greeting-app-5782.preview.emergentagent.com"
-ADMIN_EMAIL = "admin@nivxray.com"
-ADMIN_PASS = "uulVDp5cCSB3Hva99s7UUAwK"
+BASE_URL = (dotenv_values("/app/backend/.env").get("REACT_APP_BACKEND_URL")
+            or os.environ.get("REACT_APP_BACKEND_URL")
+            or "https://greeting-app-5782.preview.emergentagent.com").rstrip("/")
 INC = "inc_c253027ba781494684db"
 EP = "ep_2d57cbe6f80152062109"
 UA = {"User-Agent": "nivxray-test/1.0"}
 
 
 @pytest.fixture(scope="module")
-def token():
+def live_config():
+    config = dict(os.environ)
+    config.update({key: value for key, value in
+                   dotenv_values("/app/backend/.env").items() if value is not None})
+    required = ("MONGO_URL", "DB_NAME", "ADMIN_EMAIL", "ADMIN_PASSWORD")
+    missing = [key for key in required if not config.get(key)]
+    if missing:
+        pytest.fail("Live preview configuration missing: " + ", ".join(missing))
+    return config
+
+
+@pytest.fixture(scope="module")
+def token(live_config):
     r = requests.post(f"{BASE_URL}/api/auth/login",
-                      json={"email": ADMIN_EMAIL, "password": ADMIN_PASS},
+                      json={"email": live_config["ADMIN_EMAIL"],
+                            "password": live_config["ADMIN_PASSWORD"]},
                       headers=UA, timeout=30)
     assert r.status_code == 200, r.text
     return r.json()["access_token"]
@@ -101,9 +109,9 @@ def test_auth_required():
 
 # --- Point 2: Projection equality vs Mongo & no new writes -----------------
 @pytest.mark.asyncio
-async def test_projection_matches_mongo_and_writes_nothing(auth, story):
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = client[os.environ["DB_NAME"]]
+async def test_projection_matches_mongo_and_writes_nothing(auth, story, live_config):
+    client = AsyncIOMotorClient(live_config["MONGO_URL"])
+    db = client[live_config["DB_NAME"]]
     try:
         # Re-read the projection HERE rather than trusting the
         # module-scoped fixture: the fixture is fetched once at suite
@@ -172,9 +180,9 @@ async def test_projection_matches_mongo_and_writes_nothing(auth, story):
 
 # --- Point 3: Provenance chain resolves ------------------------------------
 @pytest.mark.asyncio
-async def test_provenance_chain_resolves(story):
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = client[os.environ["DB_NAME"]]
+async def test_provenance_chain_resolves(story, live_config):
+    client = AsyncIOMotorClient(live_config["MONGO_URL"])
+    db = client[live_config["DB_NAME"]]
     try:
         checked = 0
         for a in story["activities"][:5]:
@@ -212,9 +220,9 @@ async def test_provenance_chain_resolves(story):
 
 # --- Point 4: Response honesty ---------------------------------------------
 @pytest.mark.asyncio
-async def test_response_honesty(story):
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = client[os.environ["DB_NAME"]]
+async def test_response_honesty(story, live_config):
+    client = AsyncIOMotorClient(live_config["MONGO_URL"])
+    db = client[live_config["DB_NAME"]]
     try:
         assert story["responses"], "expected correlated responses"
         verified_kill = False
@@ -270,10 +278,10 @@ def test_404_for_bogus_incident(auth):
 
 
 @pytest.mark.asyncio
-async def test_404_for_non_endpoint_incident(auth):
+async def test_404_for_non_endpoint_incident(auth, live_config):
     """Find (or create) an incident with no endpoint_campaign and confirm."""
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = client[os.environ["DB_NAME"]]
+    client = AsyncIOMotorClient(live_config["MONGO_URL"])
+    db = client[live_config["DB_NAME"]]
     try:
         doc = await db["workspace_cases"].find_one(
             {"tenant_id": "default",

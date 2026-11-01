@@ -16,14 +16,49 @@ from any product route still fails immediately, which is the point.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import pytest
+import pytest_asyncio
 import requests
 
 _TOKEN_CACHE: dict[tuple[str, str], str] = {}
 _MAX_ATTEMPTS = 6
 _BACKOFF_S = (0.4, 0.9, 1.8, 3.2, 5.0)
+
+
+@pytest_asyncio.fixture
+async def bound_db():
+    """Bind `deps.client`/`deps.db` to a Motor client created on THIS test's event loop.
+
+    Classification of the failures this removes: `HARNESS · UNBOUND_DATABASE` and
+    `HARNESS · EVENT_LOOP_REUSE`. In-process route tests call route functions directly, so no
+    FastAPI startup ever runs and `deps.db` stays unbound — the route raises
+    "deps.db accessed before init_database()" before reaching anything it asserts.
+
+    `deps.init_database()` alone is NOT sufficient here. It is idempotent and only rebinds a
+    client it can detect as closed; a client bound by an earlier module in the same xdist worker
+    is still "open" while the loop that owns it is gone, so the next await raises
+    "Event loop is closed". The binding is therefore made explicitly, per test, and the PREVIOUS
+    binding is restored afterwards — never unbound — because these proxies are process globals
+    shared with every other module in the worker.
+    """
+    import deps
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    deps.validate_config()
+    prior_client = object.__getattribute__(deps.client, "_real")
+    prior_db = object.__getattribute__(deps.db, "_real")
+    mine = AsyncIOMotorClient(os.environ["MONGO_URL"])
+    deps.client._bind(mine)
+    deps.db._bind(mine[os.environ["DB_NAME"]])
+    try:
+        yield deps.db
+    finally:
+        deps.client._bind(prior_client)
+        deps.db._bind(prior_db)
+        mine.close()
 
 
 def _is_login(url: str) -> bool:

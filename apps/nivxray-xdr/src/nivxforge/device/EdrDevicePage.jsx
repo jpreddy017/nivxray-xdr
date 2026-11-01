@@ -13,7 +13,7 @@ import { ArrowLeft, Binary, Network, Radar, Shield, Terminal,
          FileSearch, LayoutGrid } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
-import EdrDeviceTrajectoryPage from "@/nivxforge/trajectory/EdrDeviceTrajectoryPage";
+import DeviceTrajectoryEntry from "@/nivxforge/trajectory_amp/DeviceTrajectoryEntry";
 import { NotImplementedBody } from "@/nivxforge/pages/EdrNotImplementedPage";
 import { getComputer } from "@/nivxforge/onboardingApi";
 import { Ago, Skeleton, StateChip } from "@/nivxforge/components/OpsPrimitives";
@@ -76,7 +76,7 @@ export default function EdrDevicePage() {
     return () => { live = false; };
   }, [endpointId]);
 
-  const current = TABS.find((t) => t.key === active) || TABS[0];
+  const current = TABS.find((t) => t.key === active);
 
   return (
     <NivXForgeConsole activeTab="computers">
@@ -133,10 +133,15 @@ export default function EdrDevicePage() {
       {headReady && active === "overview"
         ? <DeviceOverview endpointId={endpointId} /> : null}
       {headReady && active === "trajectory"
-        ? <EdrDeviceTrajectoryPage embedded device={endpointId} /> : null}
+        ? <DeviceTrajectoryEntry key={endpointId} embedded device={endpointId} /> : null}
       {headReady && active === "commands"
         ? <CommandIntelligence endpointId={endpointId} /> : null}
-      {headReady && current.ni ? (
+      {headReady && !current ? (
+        <div className="x-empty" data-testid="edr-device-unknown-tab">
+          This device view does not exist. Choose a device tab above.
+        </div>
+      ) : null}
+      {headReady && current?.ni ? (
         <NotImplementedBody heading={current.ni[0]} body={current.ni[1]}
                             why={current.ni[2]}
                             testid={`edr-device-ni-${current.key}`} />

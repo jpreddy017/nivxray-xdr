@@ -29,7 +29,19 @@ if [[ "$SCOPE" != "xdr" && "$SCOPE" != "edr" ]]; then
   exit 1
 fi
 
+case "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" in
+  0|1) ;;
+  *) echo "FATAL: NIVX_EDR_INTEGRATION_PREVIEW must be 0 or 1." >&2; exit 1 ;;
+esac
+
 API_ORIGIN="${XDR_PROD_API_ORIGIN:-https://nivxray.nivxforge.com}"
+if [[ "${NIVX_EDR_INTEGRATION_PREVIEW:-0}" == "1" ]]; then
+  if [[ "${VERCEL_ENV:-}" != "preview" || "$SCOPE" != "edr" || "${VERCEL_GIT_COMMIT_REF:-}" != "validation/edr-preview-backend-2026-10-31" || "${NIVX_CROSS_PRODUCT_ORIGINS:-0}" != "0" ]]; then
+    echo "FATAL: integration build is restricted to the designated EDR preview branch." >&2
+    exit 1
+  fi
+  API_ORIGIN="https://greeting-app-5782.preview.emergentagent.com"
+fi
 
 # Cross-product origins (public config only — never a credential).
 #
@@ -72,9 +84,11 @@ cat > dist/build-info.json <<JSON
   "product_scope": "$SCOPE",
   "api_origin": "$API_ORIGIN",
   "phase": "2",
+  "integration_preview": ${NIVX_EDR_INTEGRATION_PREVIEW:-0},
   "cross_product_origins": ${NIVX_CROSS_PRODUCT_ORIGINS:-0},
   "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 JSON
 
 NIVX_PRODUCT_SCOPE="$SCOPE" node scripts/verify-production-build.js
+

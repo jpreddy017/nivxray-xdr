@@ -8,33 +8,27 @@ BASE_URL = "http://localhost:8001"
 DECODE_URL = f"{BASE_URL}/api/decode/smart"
 
 _TOKEN = None
+
+
 def _token():
+    """Session token, held in memory only.
+
+    Never cached to disk: a token written into the source tree is a live credential inside the
+    repository and inside every build context taken from it. Credentials come from the
+    environment, not from a literal in this file.
+    """
     global _TOKEN
     if _TOKEN:
         return _TOKEN
-    # Try cached token first
-    try:
-        with open("/app/.tok") as f:
-            t = f.read().strip()
-            if t:
-                # quick validity check
-                r = requests.get(f"{BASE_URL}/api/auth/me",
-                                 headers={"Authorization": f"Bearer {t}"}, timeout=30)
-                if r.status_code == 200:
-                    _TOKEN = t
-                    return _TOKEN
-    except Exception:
-        pass
+    email = os.environ.get("ADMIN_EMAIL")
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not email or not password:
+        import pytest
+        pytest.skip("ADMIN_EMAIL/ADMIN_PASSWORD not set in the environment")
     r = requests.post(f"{BASE_URL}/api/auth/login",
-                      json={"email": "admin@nivxray.com",
-                            "password": "uulVDp5cCSB3Hva99s7UUAwK"}, timeout=300)
+                      json={"email": email, "password": password}, timeout=300)
     assert r.status_code == 200, f"login failed: {r.status_code} {r.text[:200]}"
     _TOKEN = r.json()["access_token"]
-    try:
-        with open("/app/.tok", "w") as f:
-            f.write(_TOKEN)
-    except Exception:
-        pass
     return _TOKEN
 
 def _post(payload):
