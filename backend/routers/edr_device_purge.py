@@ -5,7 +5,7 @@ deliberately not mounted. This route can only ever touch the evidence of the
 single endpoint it resolves, so a mistyped tenant cannot cascade.
 
 Safety model (same vocabulary as the dev-reset port, intentionally):
-  * 404s unless EDR_MAINTENANCE_TOKEN is set in the environment
+  * 404s unless EDR_PURGE_ENABLED is exactly "1" AND EDR_MAINTENANCE_TOKEN is set
   * every call must present that token in X-Maintenance-Token
   * mode="dry" is the DEFAULT and writes nothing — it reports what would go
   * mode="execute" additionally requires confirm="DELETE-DEVICE-EVIDENCE" and a
@@ -48,6 +48,8 @@ class PurgeRequest(BaseModel):
 
 
 def _guard(token: str | None) -> None:
+    if os.environ.get("EDR_PURGE_ENABLED") != "1":
+        raise HTTPException(status_code=404, detail="Not Found")
     expected = os.environ.get("EDR_MAINTENANCE_TOKEN")
     if not expected:
         raise HTTPException(status_code=404, detail="Not Found")
