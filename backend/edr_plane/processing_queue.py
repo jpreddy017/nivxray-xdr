@@ -53,6 +53,14 @@ async def ensure_indexes(db: Any) -> None:
         [("state", 1), ("lease_until", 1)],
         name="expired_leases",
     )
+    # claim() sorts eligible work by created_at. Putting available_at (a
+    # range predicate) before created_at forces a blocking sort of the ready
+    # backlog for every claim. Keep this additive so existing indexes and
+    # the atomic FIFO/lease query remain compatible with older deployments.
+    await db[COLLECTION].create_index(
+        [("state", 1), ("created_at", 1), ("available_at", 1), ("lease_until", 1)],
+        name="fifo_work",
+    )
 
 
 async def enqueue(
@@ -138,14 +146,22 @@ async def mark_done(
     *,
     tenant_id: str,
     raw_id: str,
+    attempts: int,
 ) -> bool:
-    """Mark successfully processed durable work complete."""
+    """Complete only the still-live claim returned to this worker.
+
+    claim() increments attempts atomically on every assignment. Matching that
+    generation fences a former owner after an expired lease is reassigned.
+    This protects queue state; bridge side effects need their own idempotency.
+    """
     now = _now()
     result = await db[COLLECTION].update_one(
         {
             "tenant_id": tenant_id,
             "raw_id": raw_id,
             "state": PROCESSING,
+            "attempts": attempts,
+            "lease_until": {"$gt": now},
         },
         {
             "$set": {
@@ -165,10 +181,11 @@ async def mark_retry(
     *,
     tenant_id: str,
     raw_id: str,
+    attempts: int,
     error: str,
     retry_after_seconds: int = 30,
 ) -> bool:
-    """Return failed work to the durable queue without losing evidence."""
+    """Return failed work only while this worker still owns a live claim."""
     now = _now()
     available_at = now + timedelta(seconds=max(1, retry_after_seconds))
 
@@ -177,6 +194,8 @@ async def mark_retry(
             "tenant_id": tenant_id,
             "raw_id": raw_id,
             "state": PROCESSING,
+            "attempts": attempts,
+            "lease_until": {"$gt": now},
         },
         {
             "$set": {
@@ -268,6 +287,7 @@ async def process_one(
             db,
             tenant_id=tenant_id,
             raw_id=raw_id,
+            attempts=job["attempts"],
         )
         if not completed:
             raise RuntimeError(
@@ -287,6 +307,7 @@ async def process_one(
             db,
             tenant_id=tenant_id,
             raw_id=raw_id,
+            attempts=job["attempts"],
             error=str(exc),
             retry_after_seconds=retry_after_seconds,
         )
@@ -570,3 +591,4 @@ async def stop_workers() -> None:
     finally:
         _supervisor_task = None
         _stop_event = None
+

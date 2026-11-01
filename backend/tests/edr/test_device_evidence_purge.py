@@ -24,7 +24,9 @@ EP = "ep_purge_fixture_01"
 def client():
     # One application startup for the whole module: each TestClient entry
     # rebuilds every router and scheduler, which dominates the runtime.
+    prior_enabled = os.environ.get("EDR_PURGE_ENABLED")
     prior = os.environ.get("EDR_MAINTENANCE_TOKEN")
+    os.environ["EDR_PURGE_ENABLED"] = "1"
     os.environ["EDR_MAINTENANCE_TOKEN"] = TOKEN
     try:
         ctx = TestClient(app)
@@ -37,6 +39,10 @@ def client():
             # closes the shared Mongo client other modules may still hold.
             pass
     finally:
+        if prior_enabled is None:
+            os.environ.pop("EDR_PURGE_ENABLED", None)
+        else:
+            os.environ["EDR_PURGE_ENABLED"] = prior_enabled
         if prior is None:
             os.environ.pop("EDR_MAINTENANCE_TOKEN", None)
         else:
@@ -67,6 +73,33 @@ def seeded(client):
     sync["edr_endpoints"].delete_many({"endpoint_id": EP})
     sync["v2_shadow_observations"].delete_many({"event.raw.computer": HOST})
     owned.close()
+
+
+
+@pytest.mark.parametrize("enabled", [None, "", "0", "false", "true", "2", " 1", "1 "])
+@pytest.mark.parametrize("mode", ["dry", "execute"])
+def test_purge_requires_explicit_enablement(client, monkeypatch, enabled, mode):
+    # A valid token and execute confirmation must not bypass the release switch.
+    # Refuse before even looking up the endpoint, so disabled requests cannot
+    # read or delete evidence.
+    from routers import edr_device_purge
+
+    class NoDatabaseAccess:
+        def __getitem__(self, name):
+            raise AssertionError("disabled purge accessed the database")
+
+    monkeypatch.setattr(edr_device_purge, "_db", NoDatabaseAccess())
+    monkeypatch.setenv("EDR_MAINTENANCE_TOKEN", TOKEN)
+    if enabled is None:
+        monkeypatch.delenv("EDR_PURGE_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("EDR_PURGE_ENABLED", enabled)
+    r = client.post(URL, json={
+        "endpoint_id": EP, "mode": mode,
+        "confirm": "DELETE-DEVICE-EVIDENCE", "backup": "test-only-reference",
+    }, headers={"X-Maintenance-Token": TOKEN})
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Not Found"}
 
 
 def test_without_a_token_the_route_does_not_exist(client, seeded):

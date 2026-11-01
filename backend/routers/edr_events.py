@@ -18,12 +18,14 @@ filter pretends those events exist.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pymongo.errors import PyMongoError
 
 from deps import db as _db, get_current_user
 from edr_plane import windows_eventlog as winlog
@@ -395,18 +397,29 @@ async def get_event(raw_id: str, user: dict = Depends(get_current_user),
                     tenant_id: str = Depends(edr_tenant)) -> Dict[str, Any]:
     """One event, verbatim, with every derivation the pipeline appended."""
     tenant = _scoped(tenant_id, user)
-    doc = await _db[RAW].find_one({"tenant_id": tenant, "raw_id": raw_id},
-                                  {"_id": 0})
+    try:
+        doc = await asyncio.wait_for(
+            _db[RAW].find_one({"tenant_id": tenant, "raw_id": raw_id},
+                              {"_id": 0}, max_time_ms=5000), timeout=8)
+    except (asyncio.TimeoutError, PyMongoError):
+        raise HTTPException(503, detail={
+            "code": "EVENT_LOOKUP_UNAVAILABLE",
+            "reason": "event lookup could not complete; retry shortly"}) from None
     if doc is None:
         raise HTTPException(404, detail={
             "code": "EVENT_NOT_FOUND",
             "reason": "no such event in the tenant you are authorised for"})
     hosts = {}
     if doc.get("endpoint_ref"):
-        ep = await _db[enrollment_store.ENDPOINTS].find_one(
-            {"tenant_id": tenant, "endpoint_id": doc["endpoint_ref"]},
-            {"_id": 0, "endpoint_id": 1, "hostname": 1, "platform": 1,
-             "group_id": 1, "policy_id": 1})
+        try:
+            ep = await asyncio.wait_for(
+                _db[enrollment_store.ENDPOINTS].find_one(
+                    {"tenant_id": tenant, "endpoint_id": doc["endpoint_ref"]},
+                    {"_id": 0, "endpoint_id": 1, "hostname": 1},
+                    max_time_ms=2000), timeout=3)
+        except (asyncio.TimeoutError, PyMongoError):
+            # Optional hostname enrichment must not hide the raw evidence.
+            ep = None
         if ep:
             hosts[ep["endpoint_id"]] = ep.get("hostname")
     return {
@@ -422,3 +435,4 @@ async def get_event(raw_id: str, user: dict = Depends(get_current_user),
                          "never overwrites the original."),
         "coverage": COVERAGE_NOTE,
     }
+
