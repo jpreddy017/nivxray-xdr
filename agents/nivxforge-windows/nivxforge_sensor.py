@@ -43,7 +43,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-SENSOR_VERSION = "0.3.0-windows"
+SENSOR_VERSION = "0.3.1-windows"
 PLATFORM = "WINDOWS"
 
 def _default_state_root() -> str:
@@ -1315,7 +1315,13 @@ def run(api: str, interval: int = 30, once: bool = False) -> dict:
             print(json.dumps(report))
             if once:
                 return report
-            time.sleep(max(5, interval))
+            # A productive drain with work still queued should get another
+            # bounded cycle rather than idle for a whole reporting period.
+            # Do not hot-loop when transport is failing or making no progress.
+            progressing = (report.get("queue_depth", 0) > 0
+                           and report.get("sent", 0) > 0
+                           and report.get("failed", 0) == 0)
+            time.sleep(1 if progressing else max(5, interval))
     finally:
         journal.close()
         TRANSPORT.close()
@@ -1375,3 +1381,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
