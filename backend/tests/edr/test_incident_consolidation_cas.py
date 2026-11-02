@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(
 def seed(tenant="tenant_a", score=0):
     return {
         "id": "inc_shared", "doc_type": "xdr_incident", "tenant_id": tenant,
-        "incident_state": "OPEN", "provenance": "PROVENANCE_UNKNOWN",
+        "incident_state": "new", "provenance": "PROVENANCE_UNKNOWN",
         "endpoint_campaign": {
             "endpoint_id": "ep_probe",
             "last_activity_at": datetime.now(timezone.utc).isoformat(),
@@ -118,12 +118,12 @@ async def test_concurrent_closure_is_not_overwritten_or_enriched():
         async def update_one(self, *a, **kw):
             if not self.closed:
                 self.closed = True
-                await col.update_one({"tenant_id": "tenant_a"}, {"$set": {"incident_state": "CLOSED"}})
+                await col.update_one({"tenant_id": "tenant_a"}, {"$set": {"incident_state": "closed"}})
             return await col.update_one(*a, **kw)
     try:
         assert await _consolidate(WrappedDB(CloseBeforeWrite()), *args()) is None
         row = await col.find_one({"tenant_id": "tenant_a"})
-        assert row["incident_state"] == "CLOSED"
+        assert row["incident_state"] == "closed"
         assert row["endpoint_campaign"]["detections"] == []
     finally:
         client.close()
