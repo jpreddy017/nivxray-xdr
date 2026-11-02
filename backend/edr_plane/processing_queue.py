@@ -241,6 +241,7 @@ async def process_one(
     """
     from edr_plane import raw_events
     from edr_plane.canonical_bridge import bridge
+    from edr_plane.processing_lease import run_with_lease
 
     job = await claim(db, lease_seconds=lease_seconds, newest_first=newest_first)
     if not job:
@@ -276,7 +277,7 @@ async def process_one(
                 f"endpoint identity missing for raw event {raw_id}"
             )
 
-        result = await bridge(
+        result = await run_with_lease(db, job, bridge(
             db,
             raw_id=raw_id,
             tenant_id=tenant_id,
@@ -287,7 +288,7 @@ async def process_one(
             source_kind=raw_doc.get("source_kind"),
             sensor_version=raw_doc.get("sensor_version"),
             nivx_received_at=raw_doc.get("ingest_time"),
-        )
+        ), lease_seconds=lease_seconds)
 
         completed = await mark_done(
             db,
