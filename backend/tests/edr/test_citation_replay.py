@@ -101,3 +101,28 @@ async def test_actual_pipeline_retry_after_citation_write(monkeypatch):
         assert await db[p.DETECTION_MATCH_COLLECTION].count_documents({}) == 1
     finally:
         client.close()
+
+@local
+@pytest.mark.asyncio
+async def test_partial_multi_citation_write_can_resume():
+    client, db = local_db()
+    coll = db["citations"]
+    class Interrupted:
+        def __init__(self):
+            self.calls = 0
+        async def insert_one(self, doc):
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("injected mid-list failure")
+            return await coll.insert_one(doc)
+        async def find_one(self, query):
+            return await coll.find_one(query)
+    rows = [ROW, {**ROW, "rule_id": "second-rule"}]
+    try:
+        with pytest.raises(RuntimeError, match="mid-list"):
+            await persist_citations(Interrupted(), rows, protected=True)
+        assert await coll.count_documents({}) == 1
+        await persist_citations(coll, rows, protected=True)
+        assert await coll.count_documents({}) == 2
+    finally:
+        client.close()
