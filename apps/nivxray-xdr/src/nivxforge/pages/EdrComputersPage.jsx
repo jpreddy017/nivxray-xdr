@@ -16,6 +16,10 @@ import { KeyRound, RefreshCw, Search } from "lucide-react";
 
 import NivXForgeConsole from "@/nivxforge/NivXForgeConsole";
 import { getComputers } from "@/nivxforge/onboardingApi";
+import {
+  CUSTOMER_NONE, CUSTOMER_PENDING, CUSTOMER_READY, CUSTOMER_SEALED,
+  useActingCustomer,
+} from "@/lib/actingCustomer";
 import { Ago, Kpi, NA, OpsTable, Refusal, Skeleton, StateChip }
   from "@/nivxforge/components/OpsPrimitives";
 import { apiErrorText } from "@/xdr/nx/apiError";
@@ -183,15 +187,26 @@ export default function EdrComputersPage() {
   const [group, setGroup] = useState("all");
   const [sel, setSel] = useState(null);
   const [tick, setTick] = useState(0);
+  const customer = useActingCustomer();
 
+  // The fleet is tenant-scoped evidence, so it is never requested before the
+  // SERVER resolved a customer, and a customer switch DISCARDS the previous
+  // customer's rows before anything new is read. A response that arrives for
+  // a customer that is no longer the acting one is aborted and ignored.
   useEffect(() => {
+    setData(null); setErr(null); setSel(null);
+    if (customer.state !== CUSTOMER_READY) return undefined;
+    const ac = new AbortController();
     let live = true;
-    setData(null); setErr(null);
-    getComputers(win)
+    getComputers(win, { signal: ac.signal })
       .then((d) => { if (live) setData(d); })
-      .catch((e) => { if (live) setErr(apiErrorText(e, "computers unavailable")); });
-    return () => { live = false; };
-  }, [win, tick]);
+      .catch((e) => {
+        if (live && e?.name !== "CanceledError" && e?.code !== "ERR_CANCELED") {
+          setErr(apiErrorText(e, "computers unavailable"));
+        }
+      });
+    return () => { live = false; ac.abort(); };
+  }, [win, tick, customer.state, customer.tenant]);
 
   const rows = useMemo(() => {
     const all = data?.computers || [];
@@ -284,6 +299,22 @@ export default function EdrComputersPage() {
       {err ? <Refusal title="Fleet unavailable" body={err}
                       testid="edr-computers-refusal" /> : null}
 
+      {customer.state === CUSTOMER_SEALED ? (
+        <Refusal title="Access denied"
+                 body={"The customer context for this session could not be "
+                       + "established, so no customer's fleet may be read. "
+                       + "Sign in again or ask an administrator to confirm "
+                       + "your customer assignment."}
+                 testid="edr-computers-denied" />
+      ) : null}
+
+      {customer.state === CUSTOMER_NONE ? (
+        <div className="x-empty" data-testid="edr-computers-no-customer">
+          Select a customer to view its computers. NivXForge has no default
+          customer, so no fleet is read until one is chosen.
+        </div>
+      ) : null}
+
       {data ? (
         <div className="kpi-rail" data-testid="edr-computers-kpis">
           <Kpi label="Computers" value={counts.total} testid="edr-kpi-total" />
@@ -330,7 +361,9 @@ export default function EdrComputersPage() {
             </div>
           </div>
 
-          {!data && !err ? <Skeleton rows={10} testid="edr-computers-loading" /> : null}
+          {!data && !err && (customer.state === CUSTOMER_PENDING
+                             || customer.state === CUSTOMER_READY)
+            ? <Skeleton rows={10} testid="edr-computers-loading" /> : null}
           {data && rows.length === 0 ? (
             <div className="x-empty" data-testid="edr-computers-empty">
               No computer matches this filter. {data.count} computer(s) are

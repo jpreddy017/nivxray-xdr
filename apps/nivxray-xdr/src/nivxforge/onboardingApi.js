@@ -12,9 +12,9 @@ export async function getSensorPackages() {
   return data;
 }
 
-export async function getComputers(detectionWindowHours = 24) {
+export async function getComputers(detectionWindowHours = 24, { signal } = {}) {
   const { data } = await api.get("/edr/onboarding/computers", {
-    params: { detection_window_hours: detectionWindowHours },
+    params: { detection_window_hours: detectionWindowHours }, signal,
   });
   return data;
 }

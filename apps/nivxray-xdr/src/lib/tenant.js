@@ -44,6 +44,12 @@ export const TENANT_HEADER = "X-Tenant-Id";
 let serverTenant = null;
 let serverSwitchable = true;
 let sealed = false;
+// Has the SERVER's customer authority been established yet (bound or sealed)?
+// Before that, "no tenant" means NOT YET RESOLVED, which is not the same fact
+// as "this principal has no customer selected". A tenant-scoped surface that
+// cannot tell the two apart fires a request with no `X-Tenant-Id` and renders
+// the server's correct TENANT_REQUIRED refusal as a failure.
+let resolved = false;
 
 /**
  * Record the customer the SERVER resolved for this principal.
@@ -57,10 +63,12 @@ export function bindServerTenant(tenantId, { switchable = false } = {}) {
   const id = tenantId && String(tenantId).trim()
     ? String(tenantId).trim() : null;
   const changed = id !== serverTenant
-    || Boolean(switchable) !== serverSwitchable;
+    || Boolean(switchable) !== serverSwitchable
+    || !resolved;
   serverTenant = id;
   serverSwitchable = Boolean(switchable);
   sealed = false;
+  resolved = true;
   if (id && !serverSwitchable) {
     try {
       if (window.localStorage.getItem(STORAGE_KEY) !== id) {
@@ -96,6 +104,7 @@ export function sealTenantAuthority() {
   serverTenant = null;
   serverSwitchable = false;
   sealed = true;
+  resolved = true;
   try {
     window.dispatchEvent(new CustomEvent(TENANT_BOUND_EVENT, { detail: null }));
   } catch {
@@ -108,11 +117,17 @@ export function tenantAuthoritySealed() {
   return sealed;
 }
 
+/** True once the SERVER's customer authority was established (bound or sealed). */
+export function tenantAuthorityResolved() {
+  return resolved;
+}
+
 /** Test/diagnostic helper: forget the binding. */
 export function resetServerTenant() {
   serverTenant = null;
   serverSwitchable = true;
   sealed = false;
+  resolved = false;
 }
 
 export function serverBoundTenant() {

@@ -2,6 +2,10 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Search, X } from "lucide-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
+import {
+  CUSTOMER_NONE, CUSTOMER_PENDING, CUSTOMER_READY, CUSTOMER_SEALED,
+  useActingCustomer,
+} from "@/lib/actingCustomer";
 import { ActivityDetails, ActivityList } from "./Activity";
 import { NetworkSummary } from "./Artifacts";
 import { AttackPanel } from "./AttackStrip";
@@ -23,6 +27,33 @@ import { readCollapsed, setCollapsedGlobal } from "../../EdrSidebar";
 const PANEL_KEY = "nvx.dt.panelW", PANEL_MIN = 320, PANEL_DEFAULT = 336;
 
 const iso = (ms) => new Date(ms).toISOString();
+
+// A refusal, a timeout and a broken service are DIFFERENT facts, and only a
+// retryable one is offered Retry: re-issuing a refusal cannot change it.
+export function classifyReadError(e) {
+  const status = e?.response?.status;
+  const detail = e?.response?.data?.detail;
+  const reason = typeof detail === "string" ? detail
+    : detail?.reason || detail?.error || null;
+  if (status === 403) {
+    return { kind: "DENIED", title: "Access denied", retryable: false,
+      text: reason || "This customer's trajectory evidence is not authorised "
+        + "for your session. Nothing was read." };
+  }
+  if (status === 404) {
+    return { kind: "NOT_RESOLVED", title: "Device not resolved", retryable: false,
+      text: reason || "No endpoint entity matches this device in the acting "
+        + "customer, so no trajectory was opened." };
+  }
+  if (e?.code === "ECONNABORTED") {
+    return { kind: "TIMEOUT", title: "Trajectory unavailable", retryable: true,
+      text: "The trajectory request timed out. Evidence could not be loaded; "
+        + "this does not mean the endpoint had no activity." };
+  }
+  return { kind: "FAILED", title: "Trajectory unavailable", retryable: true,
+    text: "The trajectory request failed. Evidence is unavailable for this "
+      + "range. Retry the request or check the backend service." };
+}
 
 function useUrlState() {
   const [params, setParams] = useSearchParams();
@@ -51,6 +82,7 @@ function Debug({ data, timing, deep, onLegacy }) {
 
 export default function TrajectoryPage({ device, onLegacy }) {
   const [params, upd] = useUrlState();
+  const customer = useActingCustomer();
   const now = useRef(Date.now()).current;
   const perf = Number(params.get("perf") || 0);
   const t0 = Number(params.get("t0")) || now - DAY, t1 = Number(params.get("t1")) || now;
@@ -124,17 +156,32 @@ export default function TrajectoryPage({ device, onLegacy }) {
       return undefined;
     }
     const ac = new AbortController(), id = ++req.current, t = performance.now();
-    setLoading(true);
     setData(null);
     setOlder({ events: [], cursor: null });
+    // Tenant-scoped evidence is not requested before the server resolved a
+    // customer, and a customer the authority refused is stated as a refusal.
+    if (customer.state === CUSTOMER_PENDING) { setLoading(true); return undefined; }
+    if (customer.state !== CUSTOMER_READY) {
+      setLoading(false);
+      setReadError(customer.state === CUSTOMER_SEALED
+        ? { kind: "DENIED", title: "Access denied", retryable: false,
+            text: "The customer context for this session could not be "
+              + "established, so no customer's evidence may be read." }
+        : { kind: "NO_CUSTOMER", title: "Select a customer", retryable: false,
+            neutral: true,
+            text: "NivXForge has no default customer. Choose the customer "
+              + "that owns this device to read its trajectory." });
+      return undefined;
+    }
+    setLoading(true);
     api.get(url, { params: { presentation: "v3", time_start: iso(t0), time_end: iso(t1), lane_start: 0, lane_end: 100000, limit: 500, scenario }, signal: ac.signal })
       .then(({ data: d }) => { if (id !== req.current) return; const response = d?.v3 || d; if (!response || /UNAVAILABLE|FAILED_CLOSED|NOT_RESOLVED/.test(String(response.state || ""))) { throw new Error("Trajectory evidence contract unavailable"); } timing.current.fetch = Math.round(performance.now() - t); setData(d.v3 || d); if (pendingJump.current) { returnTo.current = true; pendingJump.current = false; } setOlder({ events: [], cursor: (d.v3 || d)?.e3_preview?.older_cursor || null }); })
-      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(e?.code === "ECONNABORTED" ? "The trajectory request timed out. Evidence could not be loaded; this does not mean the endpoint had no activity." : "The trajectory request failed. Evidence is unavailable for this range. Retry the request or check the backend service."); })
+      .catch((e) => { if (id === req.current && e?.name !== "CanceledError") setReadError(classifyReadError(e)); })
       .finally(() => { if (id === req.current) setLoading(false); });
     return () => { req.current += 1; ac.abort(); olderRequest.current?.abort(); olderRequest.current = null; };
-  }, [url, t0, t1, perf, scenario, retry]); // eslint-disable-line
+  }, [url, t0, t1, perf, scenario, retry, customer.state, customer.tenant]); // eslint-disable-line
 
-  const fetchHours = useCallback((day) => (perf ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf]);
+  const fetchHours = useCallback((day) => ((perf || customer.state !== CUSTOMER_READY) ? Promise.resolve(null) : api.get(`${url}/hours`, { params: { day } }).then(({ data: d }) => d.hours)), [url, perf, customer.state]);
   const loadOlder = async () => {
     if (loading || olderRequest.current || !older.cursor) return;
     const id = req.current;
@@ -294,9 +341,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
   return (
     <div className="v3amp" data-testid="v3-page" style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }} onClick={() => { setMenu(null); setShowF(false); }}>
       <style>{CSS}</style>
-      {readError && <div role="alert" data-testid="v3-read-error" style={{ padding: 12, marginBottom: 12, border: `1px solid ${C.amber}`, color: C.text }}>
-        <strong>Trajectory unavailable</strong><p>{readError}</p>
-        <button className="v3-btn" data-testid="v3-retry-read" onClick={() => setRetry((n) => n + 1)}>Retry</button>
+      {readError && <div role={readError.neutral ? "status" : "alert"} data-testid="v3-read-error"
+        data-error-kind={readError.kind} data-retryable={String(!!readError.retryable)}
+        style={{ padding: 12, marginBottom: 12, border: `1px solid ${readError.neutral ? C.line : C.amber}`, color: C.text }}>
+        <strong>{readError.title}</strong><p>{readError.text}</p>
+        {readError.retryable && <button className="v3-btn" data-testid="v3-retry-read" onClick={() => setRetry((n) => n + 1)}>Retry</button>}
       </div>}
       <Header data={data} device={device} dets={dets} onShare={() => copy(window.location.href)} onJump={jump} pendingIso={pendingIso}
         onActions={(e) => setMenu({ x: e.clientX - 200, y: e.clientY + 16, deviceOnly: true, device, isolated: isolated || pendingIso === "ISOLATE_DEVICE", pending: devPending })} />
@@ -335,7 +384,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
           <Navigator days={data?.activity?.days} dets={dets} view={view} now={now} onView={setView} onJump={jump} fetchHours={fetchHours} selMs={sel?.ev.e3_detection ? sel.ev.timestamp_instant_ms : null}
             onMore={(a, b) => { try { sessionStorage.setItem("e3.dt.strip.collapsed.tab", "ioc"); sessionStorage.setItem("e3.dt.strip.collapsed", "0"); } catch { /* ok */ }
               setView({ t0: a, t1: Math.min(b, now) }); window.dispatchEvent(new Event("e3:strip-ioc")); }} />
-          {!perf && <AttackPanel url={url} device={device} t0={t0} t1={t1} active={att} dets={dets} onJump={jump} onPick={(v) => upd({ att: v })}
+          {!perf && customer.state === CUSTOMER_READY && <AttackPanel url={url} device={device} t0={t0} t1={t1} active={att} dets={dets} onJump={jump} onPick={(v) => upd({ att: v })}
             sev={sev} onSev={(v) => upd({ sev: v })} ioc={ioc} onIoc={(v, d) => (d?.event_iid ? upd({ ioc: v, event: d.event_iid }) : (upd({ ioc: v }), d && setTimeout(() => jump(d), 0)))} scenario={scenario} />}
           {att && <div data-testid="dt-attack-filter-banner" style={{ fontSize: 13, padding: "6px 12px", color: C.accent, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
             ATT&amp;CK {att} · {shown.length} mapped events in the loaded window (observed technique, not a confirmed attack)
@@ -365,6 +414,11 @@ export default function TrajectoryPage({ device, onLegacy }) {
                 <div style={{ display: "flex", gap: 14 }}>
                   <button className="v3-link" data-testid="v3-search-empty-clear" onClick={() => { setDraft(""); upd({ q: null }); }}>Clear search</button>
                   <button className="v3-link" data-testid="v3-search-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Search last 30 days</button></div></div>}
+              {!q && !loading && !readError && data && !model.items.length && <div data-testid="v3-empty" style={{ position: "absolute", inset: "78px 0 0 0", display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
+                <div>No activity was recorded for this device in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
+                <div style={{ color: C.muted, fontSize: 12.5 }}>The range was read successfully — this is an empty result, not a failed request.</div>
+                <button className="v3-link" data-testid="v3-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Look back 30 days</button></div>}
               {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}
             </div>
@@ -382,7 +436,7 @@ export default function TrajectoryPage({ device, onLegacy }) {
             </div>
           </div></div>
           <div data-testid="v3-status-bar" style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 12px", fontSize: 12, color: C.muted, borderTop: `1px solid ${C.line}` }}>
-            <span data-testid="v3-loaded-count">{readError ? "Evidence unavailable" : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
+            <span data-testid="v3-loaded-count">{readError ? (readError.kind === "NO_CUSTOMER" ? "No customer selected" : readError.kind === "DENIED" ? "Access denied" : "Evidence unavailable") : loading ? "Loading evidence…" : <>{model.items.length} events loaded{older.cursor ? " · older evidence available" : ""}</>}</span>
             {olderError && <span role="alert" data-testid="v3-older-error">{olderError}</span>}
             {older.cursor && <button className="v3-btn" style={{ padding: "2px 10px", fontSize: 12 }} data-testid="v3-load-older" disabled={loading} onClick={loadOlder}>{olderError ? "Retry older events" : "Load older events"}</button>}
             <span style={{ flex: 1 }} />
