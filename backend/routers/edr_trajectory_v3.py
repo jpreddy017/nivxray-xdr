@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pymongo.errors import OperationFailure
 
 from deps import get_current_user
 from routers.edr_tenancy import edr_tenant
@@ -41,6 +42,14 @@ DAY_MS = 24 * HOUR_MS
 _UTC_ISO = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$"
 _NOT_UTC = "__NOT_STRICT_UTC__"
 
+# MongoDB: QueryExceededMemoryLimitNoDiskUseAllowed. The grouping below is keyed
+# on an hour prefix inside a range of at most four calendar days, so its working
+# set is bounded at ~97 keys no matter how much history the endpoint has — this
+# should be unreachable. If it is ever raised, the honest answer is a refusal:
+# returning zeros would render as "nothing was retained", which is the one lie
+# this surface must never tell.
+_MEM_LIMIT_CODE = 292
+
 
 def _scope(user, tenant_id: str) -> Dict[str, Any]:
     from routers.edr import _tenant_scope
@@ -58,6 +67,38 @@ def _day_bounds(day: str) -> tuple[int, int]:
     if us is None:
         raise HTTPException(422, "day must be YYYY-MM-DD")
     return us // 1000, us // 1000 + DAY_MS
+
+
+async def _hour_buckets(_db, store: str, match: Dict[str, Any], tkey: str) -> list:
+    """Count the matched rows per UTC hour, IN THE STORE.
+
+    `allowDiskUse=False` is deliberate: this grouping must never spill. Its
+    working set is one key per distinct hour inside the widened range, so a
+    memory-limit error here would mean the engine disagreed with that bound —
+    in which case we refuse rather than under-report.
+    """
+    try:
+        return await _db[store].aggregate([
+            {"$match": match},
+            {"$group": {"_id": {"$cond": [
+                {"$and": [{"$eq": [{"$type": f"${tkey}"}, "string"]},
+                          {"$regexMatch": {"input": {"$ifNull": [f"${tkey}", ""]},
+                                           "regex": _UTC_ISO}}]},
+                {"$substrBytes": [f"${tkey}", 0, 13]},
+                _NOT_UTC]},
+                "n": {"$sum": 1}}},
+        ], allowDiskUse=False).to_list(None)
+    except OperationFailure as ex:
+        if ex.code == _MEM_LIMIT_CODE:
+            raise HTTPException(503, {
+                "state": "HOURS_UNAVAILABLE",
+                "reason": "STORE_SIDE_HOUR_GROUPING_EXCEEDED_MEMORY_LIMIT",
+                "store": store,
+                "meaning": ("The per-hour count could not be computed without "
+                            "spilling to disk. This is a REFUSAL, not an empty "
+                            "day: no claim is made about what was retained."),
+            }) from ex
+        raise
 
 
 @router.get("/endpoints/{endpoint_id}/trajectory/hours")
@@ -127,16 +168,7 @@ async def trajectory_hours(endpoint_id: str, day: str,
         # Only a value provably UTC is bucketed by its characters. Everything else
         # still goes through `observation_us`, so a row this platform cannot place in
         # time is never counted into an hour it cannot prove.
-        grouped = await _db[store].aggregate([
-            {"$match": match},
-            {"$group": {"_id": {"$cond": [
-                {"$and": [{"$eq": [{"$type": f"${tkey}"}, "string"]},
-                          {"$regexMatch": {"input": {"$ifNull": [f"${tkey}", ""]},
-                                           "regex": _UTC_ISO}}]},
-                {"$substrBytes": [f"${tkey}", 0, 13]},
-                _NOT_UTC]},
-                "n": {"$sum": 1}}},
-        ], allowDiskUse=False).to_list(None)
+        grouped = await _hour_buckets(_db, store, match, tkey)
         odd = 0
         for row in grouped:
             seen += row["n"]

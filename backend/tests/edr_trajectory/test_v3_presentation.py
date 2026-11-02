@@ -294,6 +294,26 @@ def test_an_exhausted_deep_link_search_says_so():
     assert got["reason"] == "EVIDENCE_IDENTITY_NOT_FOUND_FOR_THIS_ENDPOINT"
 
 
+def hours_day_range_rule(src: str) -> None:
+    """THE RULE, in one place so it can be exercised against a defective source.
+
+    Raises AssertionError if `src` does not bound the day on the stored time
+    field and derive the hour from that same field.
+    """
+    assert 'tkey: {"$gte": lo, "$lt": hi}' in src, "the day must bound the QUERY, not the result"
+    assert '{"$substrBytes": [f"${tkey}", 0, 13]}' in src, \
+        "the hour must be derived from the same field the query ranges on"
+    assert "observation_us(cur)" in src, \
+        "a time this platform cannot prove is UTC must still be placed by the ordering authority"
+    assert "truncation_meaning" in src, "a truncated count must declare itself a lower bound"
+
+
+def hours_source() -> str:
+    import inspect
+    from routers import edr_trajectory_v3 as rv3
+    return inspect.getsource(rv3.trajectory_hours) + inspect.getsource(rv3._hour_buckets)
+
+
 def test_hours_bounds_the_day_on_the_stored_time_field():
     # Regression guard for a defect found during this phase: matching the endpoint and filtering
     # the day in Python fetched an unordered prefix of a 279,554-observation history, never
@@ -304,17 +324,10 @@ def test_hours_bounds_the_day_on_the_stored_time_field():
     # IMPLEMENTATION of that rule, and a costly one: `$or` across the seven endpoint
     # alias fields cannot be served by one index together with that sort, so the read
     # paid a blocking in-memory sort and spilled under concurrency. The rule itself is
-    # unchanged and is still asserted: the day bounds the QUERY, and the per-hour count
-    # is produced from the SAME field the query ranges on — now grouped by the store.
-    import inspect
-    from routers import edr_trajectory_v3 as rv3
-    src = inspect.getsource(rv3.trajectory_hours)
-    assert 'tkey: {"$gte": lo, "$lt": hi}' in src, "the day must bound the QUERY, not the result"
-    assert '{"$substrBytes": [f"${tkey}", 0, 13]}' in src, \
-        "the hour must be derived from the same field the query ranges on"
-    assert "observation_us(cur)" in src, \
-        "a time this platform cannot prove is UTC must still be placed by the ordering authority"
-    assert "truncation_meaning" in src, "a truncated count must declare itself a lower bound"
+    # unchanged and is still asserted — see `hours_day_range_rule`, which
+    # `test_b6_hours_aggregation` additionally runs against the ORIGINAL defective
+    # source to prove it still catches the defect this guard was written for.
+    hours_day_range_rule(hours_source())
 
 
 def test_an_analyst_window_bounds_the_read_on_the_ordering_field():
