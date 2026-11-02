@@ -88,7 +88,7 @@ async def test_actual_pipeline_detection_failure_retry_keeps_one_canonical(monke
     print("RETAINED_TEST_DATABASE", db.name)
     event_id = "cev_synthetic_0"
     raw = {
-        "activity": "PROCESS", "pid": 12, "ppid": 1,
+        "activity": "PROCESS", "collection_method": "PROC_POLL", "pid": 12, "ppid": 1,
         "observed_at": "2026-11-02T00:00:00+00:00",
         "start_time": "2026-11-01T00:00:00+00:00",
         "image_path": "/bin/echo", "image": "echo", "command_line": "echo audit",
