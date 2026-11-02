@@ -39,7 +39,8 @@ DAY_MS = 24 * HOUR_MS
 
 # A stored time this platform can prove is UTC, and therefore place by its own
 # characters. Anything else is placed by `observation_us`, never by substring.
-_UTC_ISO = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$"
+_UTC_ISO = (r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):"
+            r"[0-5][0-9]:[0-5][0-9](\.[0-9]+)?(Z|\+00:00)$")
 _NOT_UTC = "__NOT_STRICT_UTC__"
 
 # MongoDB: QueryExceededMemoryLimitNoDiskUseAllowed. The grouping below is keyed

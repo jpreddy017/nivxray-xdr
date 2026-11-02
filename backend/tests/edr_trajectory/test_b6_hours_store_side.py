@@ -223,3 +223,22 @@ def test_other_operation_failures_are_not_swallowed():
 
     with pytest.raises(OperationFailure):
         asyncio.run(_hour_buckets({COLL: _Other()}, COLL, _match(), TKEY))
+
+
+@pytest.mark.parametrize("ts", ["2026-10-18T24:00:00Z", "2026-10-18T99:00:00Z", "2026-10-18T14:60:00Z", "2026-10-18T14:00:60Z", "2026-10-18T14:99:99Z"])
+def test_invalid_clock_values_use_authoritative_fallback(ts):
+    from edr_trajectory.production_adapter import observation_us
+    assert observation_us(ts) is None
+    async def go(db):
+        coll = "invalid_clock_" + uuid.uuid4().hex
+        await db[coll].insert_one(_doc(ts))
+        return await _hour_buckets(db, coll, _match(), TKEY)
+    assert _run(go) == [{"_id": _NOT_UTC, "n": 1}]
+
+@pytest.mark.parametrize("value", [None, 42, {"bad": "timestamp"}, ["2026-10-18T14:00:00Z"]])
+def test_non_string_time_is_safe_in_group_expression(value):
+    async def go(db):
+        coll = "invalid_type_" + uuid.uuid4().hex
+        await db[coll].insert_one(_doc(value))
+        return await _hour_buckets(db, coll, {"tenant_id": TEN}, TKEY)
+    assert _run(go) == [{"_id": _NOT_UTC, "n": 1}]
