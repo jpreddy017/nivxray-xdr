@@ -358,8 +358,8 @@ def _status(record: dict) -> dict[str, Any]:
     if telemetry_age <= limit:
         return {"status": "CONNECTED",
                 "basis": ("authenticated telemetry received "
-                          f"{int(telemetry_age)}s ago, within the sensor's own "
-                          f"declared cadence ({int(limit)}s)")}
+                          f"{int(telemetry_age)}s ago, within the telemetry "
+                          f"freshness threshold ({int(limit)}s)")}
     heartbeat_age = _age_seconds(record.get("last_heartbeat_at"))
     if heartbeat_age is not None and heartbeat_age <= limit:
         return {"status": "ALIVE_NO_RECENT_TELEMETRY",
