@@ -346,7 +346,7 @@ async def enroll(db: Any, *, tenant_id: str, presented_token: str,
             "Enrolment is not evidence of visibility."
             if sensor_state == SensorState.ENROLLED_NEVER_REPORTED.value else
             "This endpoint had already delivered telemetry under a previous "
-            f"credential ({stored.get('event_count') or 0} event(s), last at "
+            f"credential ({stored.get('event_count', 'unavailable')} telemetry report(s), last at "
             f"{stored.get('last_telemetry_at')}). Re-enrolment re-issued the "
             "credential and deliberately did NOT reset the delivery record — "
             "that record is the evidence blindness detection is derived "
