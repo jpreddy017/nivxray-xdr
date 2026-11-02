@@ -78,3 +78,26 @@ export function Legend() {
     </div>
   );
 }
+
+export function FilterIcon({ filterKey: k }) {
+ const alias={execute:"exec",network:"net",scan_det:"scan",registry:"reg",logon:"auth",logon_failed:"auth_failed",logoff:"auth_off",reboot:"restore"};
+ let mark=INNER[alias[k]||k];
+ if(k.startsWith("d_")) mark=<Shape shape={k==="d_benign"?"circle":k==="d_malicious"?"hexagon":"square"} r={4}/>;
+ const symbols={
+ f_warning:<path d="M0,-4 L4,3 H-4 Z M0,-1 V1 M0,2 V2.5" fill="none" stroke={C.amber}/>,
+ f_audit:<g fill="none" stroke={C.text}><path d="M-4,0 Q0,-5 4,0 Q0,5 -4,0Z"/><circle r={1.2}/></g>,
+ f_cmd:<g fill="none" stroke={C.text}><rect x={-4} y={-3} width={8} height={6}/><path d="M-2,-1 L0,0 L-2,1 M1,1 H3"/></g>,
+ f_none:<path d="M-3,0 H3" stroke={C.text}/>,
+ snapshot:<g fill="none" stroke={C.text}><rect x={-4} y={-2.5} width={8} height={6}/><circle cy={0.5} r={1.7}/></g>,
+ telemetry:<path d="M-4,1 L-2,-1 L0,2 L2,-3 L4,0" fill="none" stroke={C.text}/>,
+ isolation:<g fill="none" stroke={C.text}><rect x={-3} y={-3} width={6} height={6}/><path d="M-5,-5 L5,5"/></g>,
+ sensor_update:<path d="M0,-4 V3 M-3,0 L0,3 L3,0" fill="none" stroke={C.text}/>,
+ uninstall:<path d="M0,4 V-3 M-3,0 L0,-3 L3,0" fill="none" stroke={C.red}/>,
+ compromise:<path d="M0,-4 V1 M0,3 V4" stroke={C.red} strokeWidth={2}/>,
+ scan:<g fill="none" stroke={C.text}><circle cx={-1} cy={-1} r={2.5}/><path d="M1,1 L4,4"/></g>,
+ scan_sched:<g fill="none" stroke={C.text}><circle r={4}/><path d="M0,-3 V0 H2"/></g>
+ };
+ mark=symbols[k]||mark;
+ if(!mark) mark=<g fill="none" stroke={C.text}><path d="M-3,-4 H1 L3,-2 V4 H-3 Z M1,-4 V-2 H3 M-1,0 H1 M-1,2 H1"/></g>;
+ return <svg data-testid={"v3-filter-icon-"+k} aria-hidden="true" focusable="false" width={18} height={18} viewBox="-6 -6 20 14" style={{overflow:"visible"}}>{mark}</svg>;
+}

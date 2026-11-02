@@ -1,3 +1,5 @@
+import "./filters.css";
+import { FilterIcon } from "./Glyphs";
 import React, { useMemo, useRef, useState } from "react";
 import { DEFAULT_ON, FILTER_GROUPS } from "./model";
 import { C } from "./theme";
@@ -35,9 +37,9 @@ export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }
     || [...applied].some((k) => !on.has(k));
 
   return (
-    <div data-testid="v3-filters-panel" style={{ position: "absolute", right: 0, top: 46, zIndex: 40, width: 330, background: C.tip, border: `1px solid ${C.line}`,
+    <div data-testid="v3-filters-panel" style={{ position: "absolute", right: 0, top: 46, zIndex: 40, width: "min(960px, calc(100vw - 40px))", background: C.tip, border: `1px solid ${C.line}`,
       borderRadius: 8, boxShadow: "0 14px 40px rgba(0,0,0,.55)", fontSize: 13.5, color: C.text, animation: "v3in .12s ease-out" }}>
-      <div className="v3-scroll" style={{ maxHeight: 520, overflowY: "auto", padding: "12px 16px" }}>
+      <div className="v3-scroll" style={{ maxHeight: "min(620px, 65vh)", overflowY: "auto", padding: "12px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, flex: 1 }}>
             <Tri on={allOn} off={allOff} testid="v3-filter-all-types" onChange={() => set(available, !allOn)} /> All types</label>
@@ -45,13 +47,13 @@ export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }
             disabled={DEFAULT_ON.every((k) => on.has(k)) && on.size === DEFAULT_ON.length}
             onClick={() => setOn(new Set(DEFAULT_ON))}>Reset</button>
         </div>
-        {live.map(([g, its, ks]) => {
+        <div className="v3-filter-groups">{live.map(([g, its, ks], groupIndex) => {
           const id = groupId(g);
           const all = ks.length > 0 && ks.every((k) => on.has(k));
           const none = !ks.some((k) => on.has(k));
           const sel = ks.filter((k) => on.has(k)).length;
           const open = !shut.has(g);
-          return (<div key={g} data-testid={`v3-filter-section-${id}`} style={{ marginBottom: 10, paddingLeft: 10 }}>
+          return (<div key={g} className={groupIndex < 2 ? "v3-filter-section v3-filter-section-wide" : "v3-filter-section"} data-testid={`v3-filter-section-${id}`} style={{ marginBottom: 10, paddingLeft: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600, flex: 1 }}>
                 <Tri on={all} off={none} testid={`v3-filter-group-${id}`} onChange={() => set(ks, !all)} /> {g}</label>
@@ -63,13 +65,13 @@ export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }
                 {open ? "\u2212" : "+"}</button>
             </div>
             {/* Rendered even when collapsed: hiding must not change what is selected. */}
-            <div style={{ display: open ? "block" : "none" }}>
+            <div className="v3-filter-options" style={{ display: open ? "grid" : "none" }}>
               {its.map(([k, l, nc0]) => { const nc = nc0 && !present.has(k); return <label key={k} data-testid={`v3-filter-${k}`} style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 22, color: nc ? C.muted : C.label, opacity: nc ? 0.55 : 1 }}>
-                <span style={{ color: C.muted }}>•</span>
+                <FilterIcon filterKey={k} />
                 <input type="checkbox" disabled={!!nc} checked={!nc && on.has(k)} onChange={() => set([k], !on.has(k))} /> {l}{nc ? <i style={{ fontSize: 11 }}> · not collected</i> : ""}</label>; })}
             </div>
           </div>);
-        })}
+        })}</div>
       </div>
       <div style={{ display: "flex", gap: 16, justifyContent: "flex-end", alignItems: "center", padding: "10px 16px", borderTop: `1px solid ${C.line}` }}>
         {allOff && <span data-testid="v3-filters-none-warning" style={{ marginRight: "auto", fontSize: 11.5, color: C.amber }}>

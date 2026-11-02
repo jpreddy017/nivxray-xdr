@@ -71,3 +71,18 @@ test('a type this device never produced stays inert and uncheckable', () => {
   expect(input.disabled).toBe(true);
   expect(screen.getByTestId(`v3-filter-${dyn}`).textContent).toContain('not collected');
 });
+test('every filter has a decorative SVG without replacing its accessible label', () => {
+ render(<FiltersPanel applied={new Set(DEFAULT_ON)} onApply={() => {}} onCancel={() => {}} />);
+ for (const [, items] of FILTER_GROUPS) for (const [key, label] of items) {
+  expect(screen.getByTestId('v3-filter-icon-'+key).getAttribute('aria-hidden')).toBe('true');
+  expect(screen.getByTestId('v3-filter-'+key).textContent).toContain(label);
+ }
+});
+test('cancel does not apply edited selections', () => {
+ const apply=vi.fn(), cancel=vi.fn();
+ render(<FiltersPanel applied={new Set(DEFAULT_ON)} onApply={apply} onCancel={cancel} />);
+ fireEvent.click(screen.getByTestId('v3-filter-all-types'));
+ fireEvent.click(screen.getByTestId('v3-filters-cancel'));
+ expect(cancel).toHaveBeenCalledOnce();
+ expect(apply).not.toHaveBeenCalled();
+});
