@@ -506,7 +506,9 @@ def _row(record: dict, policy: dict | None, group: dict | None,
         "telemetry": {
             "last_telemetry_at": record.get("last_telemetry_at"),
             "last_heartbeat_at": record.get("last_heartbeat_at"),
-            "event_count": record.get("event_count") or 0,
+            "event_count": record.get("event_count"),  # legacy report counter
+            "report_count": record.get("event_count"),
+            "report_count_basis": "SUCCESSFUL_TELEMETRY_SUBMISSIONS",
             "queue_depth_at_sensor": record.get("outbox_queue_depth"),
             "report_interval_seconds": record.get("report_interval_seconds"),
         },
