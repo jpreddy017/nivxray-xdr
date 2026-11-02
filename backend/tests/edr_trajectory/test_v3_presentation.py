@@ -299,11 +299,21 @@ def test_hours_bounds_the_day_on_the_stored_time_field():
     # the day in Python fetched an unordered prefix of a 279,554-observation history, never
     # reached the requested day, and returned 0 for every hour of a day holding 6,643
     # observations. The day MUST be a range on the store's own observation-time field.
+    #
+    # B6 · the ordering clause this guard used to pin (`.sort(tkey, -1)`) was an
+    # IMPLEMENTATION of that rule, and a costly one: `$or` across the seven endpoint
+    # alias fields cannot be served by one index together with that sort, so the read
+    # paid a blocking in-memory sort and spilled under concurrency. The rule itself is
+    # unchanged and is still asserted: the day bounds the QUERY, and the per-hour count
+    # is produced from the SAME field the query ranges on — now grouped by the store.
     import inspect
     from routers import edr_trajectory_v3 as rv3
     src = inspect.getsource(rv3.trajectory_hours)
     assert 'tkey: {"$gte": lo, "$lt": hi}' in src, "the day must bound the QUERY, not the result"
-    assert ".sort(tkey, -1)" in src, "the read must be ordered by the same field it ranges on"
+    assert '{"$substrBytes": [f"${tkey}", 0, 13]}' in src, \
+        "the hour must be derived from the same field the query ranges on"
+    assert "observation_us(cur)" in src, \
+        "a time this platform cannot prove is UTC must still be placed by the ordering authority"
     assert "truncation_meaning" in src, "a truncated count must declare itself a lower bound"
 
 

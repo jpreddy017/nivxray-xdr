@@ -36,6 +36,11 @@ router = APIRouter(prefix="/edr", tags=["edr"])
 HOUR_MS = 3_600_000
 DAY_MS = 24 * HOUR_MS
 
+# A stored time this platform can prove is UTC, and therefore place by its own
+# characters. Anything else is placed by `observation_us`, never by substring.
+_UTC_ISO = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$"
+_NOT_UTC = "__NOT_STRICT_UTC__"
+
 
 def _scope(user, tenant_id: str) -> Dict[str, Any]:
     from routers.edr import _tenant_scope
@@ -109,23 +114,60 @@ async def trajectory_hours(endpoint_id: str, day: str,
         if partition:
             match[partition] = tenant
         n = seen = 0
-        async for doc in _db[store].find(match, {"_id": 0, tkey.split(".")[0]: 1}) \
-                .sort(tkey, -1).limit(CAP):
-            seen += 1
-            cur: Any = doc
-            for part in tkey.split("."):
-                cur = cur.get(part) if isinstance(cur, dict) else None
-            us = observation_us(cur)
-            if us is None:
-                unplaceable += 1
+        # B6 · The hour bucket is computed BY THE STORE. The previous read sorted the
+        # matched rows by observation time and streamed up to CAP of them to Python
+        # purely to count them: `$or` across seven endpoint fields cannot be served by
+        # one index together with that sort, so every call paid a BLOCKING in-memory
+        # sort (measured: 122,836 keys examined for 30,707 rows, and six concurrent
+        # calls spilled the sort to disk and failed). Counting is an aggregate, so the
+        # store now does it. The MATCH is byte-for-byte the one above — same endpoint
+        # alias set, same tenant partition, same widened range — so authorisation,
+        # identity and historical visibility are unchanged.
+        #
+        # Only a value provably UTC is bucketed by its characters. Everything else
+        # still goes through `observation_us`, so a row this platform cannot place in
+        # time is never counted into an hour it cannot prove.
+        grouped = await _db[store].aggregate([
+            {"$match": match},
+            {"$group": {"_id": {"$cond": [
+                {"$and": [{"$eq": [{"$type": f"${tkey}"}, "string"]},
+                          {"$regexMatch": {"input": {"$ifNull": [f"${tkey}", ""]},
+                                           "regex": _UTC_ISO}}]},
+                {"$substrBytes": [f"${tkey}", 0, 13]},
+                _NOT_UTC]},
+                "n": {"$sum": 1}}},
+        ], allowDiskUse=False).to_list(None)
+        odd = 0
+        for row in grouped:
+            seen += row["n"]
+            bucket = row["_id"]
+            if bucket == _NOT_UTC:
+                odd = row["n"]
                 continue
-            ms = us // 1000
-            if d0 <= ms < d1:
-                counts[(ms - d0) // HOUR_MS] += 1
-                n += 1
+            if bucket[:10] != day:
+                continue                              # the deliberately widened edge days
+            counts[int(bucket[11:13])] += row["n"]
+            n += row["n"]
+        if odd:
+            # Rare: the two offset representations plus the three known corrupt strings.
+            # Placed one at a time by the SAME ordering authority as before.
+            async for doc in _db[store].find(
+                    {**match, tkey: {"$gte": lo, "$lt": hi, "$not": {"$regex": _UTC_ISO}}},
+                    {"_id": 0, tkey.split(".")[0]: 1}).limit(CAP):
+                cur: Any = doc
+                for part in tkey.split("."):
+                    cur = cur.get(part) if isinstance(cur, dict) else None
+                us = observation_us(cur)
+                if us is None:
+                    unplaceable += 1
+                    continue
+                ms = us // 1000
+                if d0 <= ms < d1:
+                    counts[(ms - d0) // HOUR_MS] += 1
+                    n += 1
         per_store[store] = n
         scanned[store] = seen
-        truncated[store] = seen >= CAP
+        truncated[store] = odd >= CAP
     return {
         "day": day,
         "hours": counts,
