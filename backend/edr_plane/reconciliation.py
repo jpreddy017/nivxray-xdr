@@ -20,10 +20,11 @@ async def reconcile_page(db: Any, *, enqueue, contract: str, limit: int):
     try:
         await cursors.update_one(key, {"$setOnInsert": {
             "version": 0, "after": None, "upper": None}}, upsert=True)
-    except DuplicateKeyError:
+    except DuplicateKeyError as exc:
         # Only the fixed cursor identity can race here. A missing winner
         # below is an error, never permission to advance without a cursor.
-        pass
+        if (exc.details or {}).get("keyPattern") != {"_id": 1}:
+            raise
     state = await cursors.find_one(key)
     if state is None:
         raise RuntimeError("reconciliation cursor could not be read")
