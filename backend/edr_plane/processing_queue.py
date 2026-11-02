@@ -62,6 +62,12 @@ async def ensure_indexes(db: Any) -> None:
         name="fifo_work",
     )
 
+    # Supports bounded historical sweeps without scanning unowned evidence.
+    await db["edr_raw_events"].create_index(
+        [("processing_contract", 1), ("trust_state", 1), ("_id", 1)],
+        name="owned_reconciliation_scan",
+    )
+
 
 async def enqueue(
     db: Any,
@@ -335,82 +341,15 @@ async def reconcile_missing_jobs(
     limit: int = 500,
     window_seconds: int = RECONCILE_WINDOW_SECONDS,
 ) -> dict[str, int]:
-    """Repair durable-ACK raw evidence whose processing job did not persist.
+    """Ensure jobs for marked raw evidence using durable bounded progress.
 
-    AUTHORITY IS THE MARKER, NOT TIME. Only raw evidence stamped
-    `processing_contract == "durable_queue_v1"` at creation declares that a
-    processing obligation ought to exist for it, so only such evidence is
-    reconcilable. This is what makes a rolling deployment safe: an event
-    accepted by a pod still running the previous build never carries the
-    marker, is never reconciled, and is therefore never double-owned or
-    retro-queued by the new build. Historical evidence is not merely
-    skipped by a filter — it is outside the contract.
-
-    The window is a PERFORMANCE BOUND ONLY. It exists so this loop reads a
-    small, index-covered slice of recent traffic every interval instead of
-    the whole corpus; it confers no ownership of its own. Repair of a job
-    older than the window is still guaranteed, because the crash window
-    being repaired is seconds wide (raw write succeeded, queue write did
-    not) and the next ingest/redelivery from the endpoint re-enqueues
-    idempotently.
-
-    `enqueue()` remains the single idempotent authority: this function does
-    not pre-check the queue and does not write queue documents itself.
+    window_seconds is retained for caller compatibility; it no longer
+    excludes older owned obligations. The marker and authenticated trust,
+    not age, establish ownership. Existing jobs remain unchanged.
     """
-    from edr_plane import raw_events
-
-    limit = max(1, min(int(limit), 5000))
-    window_seconds = max(1, int(window_seconds))
-    since = (
-        _now() - timedelta(seconds=window_seconds)
-    ).isoformat()
-
-    cursor = (
-        db[raw_events.COLLECTION]
-        .find(
-            {
-                "processing_contract": PROCESSING_CONTRACT,
-                "trust_state": "AUTHENTICATED",
-                "ingest_time": {"$gte": since},
-            },
-            {"_id": 0, "tenant_id": 1, "raw_id": 1},
-        )
-        .sort("ingest_time", 1)
-        .limit(limit)
-    )
-
-    scanned = 0
-    created = 0
-    already_present = 0
-
-    async for raw_doc in cursor:
-        tenant_id = raw_doc.get("tenant_id")
-        raw_id = raw_doc.get("raw_id")
-
-        if not tenant_id or not raw_id:
-            continue
-
-        scanned += 1
-
-        result = await enqueue(
-            db,
-            tenant_id=tenant_id,
-            raw_id=raw_id,
-        )
-
-        if result["created"]:
-            created += 1
-        else:
-            # Another worker/reconciler may have repaired it after the
-            # aggregation snapshot. That race is safe because enqueue()
-            # is idempotent.
-            already_present += 1
-
-    return {
-        "scanned": scanned,
-        "created": created,
-        "already_present": already_present,
-    }
+    from edr_plane.reconciliation import reconcile_page
+    return await reconcile_page(
+        db, enqueue=enqueue, contract=PROCESSING_CONTRACT, limit=limit)
 
 
 # ---------------------------------------------------------------------------
