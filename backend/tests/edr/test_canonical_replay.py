@@ -78,3 +78,39 @@ async def test_concurrent_retry_preserves_first_record_and_tenant_generation():
         assert await coll.count_documents({}) == 3
     finally:
         client.close()
+
+@local
+@pytest.mark.asyncio
+async def test_actual_pipeline_detection_failure_retry_keeps_one_canonical(monkeypatch):
+    from detection_content import xdr_pipeline as pipeline
+    client = AsyncIOMotorClient("mongodb://127.0.0.1:27017", serverSelectionTimeoutMS=2000)
+    db = client["nivx_pipeline_canonical_" + uuid.uuid4().hex]
+    print("RETAINED_TEST_DATABASE", db.name)
+    event_id = "cev_synthetic_0"
+    raw = {
+        "activity": "PROCESS", "pid": 12, "ppid": 1,
+        "observed_at": "2026-11-02T00:00:00+00:00",
+        "start_time": "2026-11-01T00:00:00+00:00",
+        "image_path": "/bin/echo", "image": "echo", "command_line": "echo audit",
+        "endpoint_id": "ep-audit", "hostname": "audit",
+        "_authenticated_ingest": {
+            "canonical_event_id": event_id,
+            "canonical_event_id_authority": CANONICAL_EVENT_ID_AUTHORITY,
+            "source_kind": "ENDPOINT_SENSOR", "sensor_version": "synthetic-test",
+            "trust_state": "AUTHENTICATED", "raw_id": "raw_synthetic",
+            "replay_generation": 0, "authenticated_endpoint_id": "ep-audit"}}
+    monkeypatch.setattr(pipeline, "evaluate_detection",
+                        lambda canonical: {"status": "EXECUTION_FAILED", "error": "injected"})
+    try:
+        first = await pipeline.process_event_through_pipeline(
+            db, raw, trace_id="raw_synthetic", integration_id="nivxforge-linux-sensor",
+            collector_id="ep-audit", tenant_id="tenant-audit")
+        second = await pipeline.process_event_through_pipeline(
+            db, raw, trace_id="raw_synthetic", integration_id="nivxforge-linux-sensor",
+            collector_id="ep-audit", tenant_id="tenant-audit")
+        assert first["blocker"] == second["blocker"] == "detection"
+        assert await db[pipeline.CANONICAL_COLLECTION].count_documents({}) == 1
+        assert first["canonical"] == second["canonical"]
+        assert first["canonical"]["processing_receipt"]["contract"] == "endpoint_canonical_replay_v1"
+    finally:
+        client.close()
