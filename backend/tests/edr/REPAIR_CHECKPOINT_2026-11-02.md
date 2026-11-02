@@ -20,3 +20,12 @@ Remaining blockers:
 - Original working changes in apps/nivxray-xdr/yarn.lock and rocket-p0/a3 preserved.
 
 Storage last checked: shared /app /root /data/db 9.8G total, 2.4G available, 77% used. No full repository copies created. Test logs remain temporary under /tmp/reaudit-20261102; this checkpoint and committed tests preserve essential evidence in Git.
+
+## Device Trajectory filter repair: audit and bulk selection
+- Audit-only now matches explicit audit evidence; No flag excludes audit-only rows.
+- All types and group toggles include dynamically present event kinds.
+- Regression proof: 3 failed / 1 passed before; 73 passed across five trajectory frontend test files after.
+- Tests use synthetic in-memory fixtures and mounted React controls; no database writes or load tests.
+- Shared volume: 2.4 GB available (77% used). No dependency install, deletion, build, merge or deployment.
+- Remaining: Warning still derives from detection presence and requires evidence-contract review; search completeness and AMP-style wide grouped layout remain open. This is not full Cisco parity or release readiness.
+- Root /app repository owns this checkpoint. apps/nivxray-xdr also contains a nested repository; do not confuse its HEAD with the repair branch.

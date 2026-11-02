@@ -7,15 +7,15 @@ const LIVE = FILTER_GROUPS.flatMap(([, its]) => its.filter((x) => !x[2]).map((x)
 export function FiltersPanel({ applied, onApply, onCancel, present = new Set() }) {
   const [on, setOn] = useState(new Set(applied));
   const set = (keys, v) => setOn((s) => { const n = new Set(s); keys.forEach((k) => (v ? n.add(k) : n.delete(k))); return n; });
-  const allOn = LIVE.every((k) => on.has(k));
+  const available = FILTER_GROUPS.flatMap(([, its]) => its.filter(([k, , nc]) => !nc || present.has(k)).map(([k]) => k)); const allOn = available.every((k) => on.has(k));
   return (
     <div data-testid="v3-filters-panel" style={{ position: "absolute", right: 0, top: 46, zIndex: 40, width: 330, background: C.tip, border: `1px solid ${C.line}`,
       borderRadius: 8, boxShadow: "0 14px 40px rgba(0,0,0,.55)", fontSize: 13.5, color: C.text, animation: "v3in .12s ease-out" }}>
       <div className="v3-scroll" style={{ maxHeight: 520, overflowY: "auto", padding: "12px 16px" }}>
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, marginBottom: 8 }}>
-          <input data-testid="v3-filter-all-types" type="checkbox" checked={allOn} onChange={() => set(LIVE, !allOn)} /> All types</label>
+          <input data-testid="v3-filter-all-types" type="checkbox" checked={allOn} onChange={() => set(available, !allOn)} /> All types</label>
         {FILTER_GROUPS.map(([g, its]) => {
-          const live = its.filter((x) => !x[2]).map((x) => x[0]), all = live.every((k) => on.has(k));
+          const live = its.filter(([k, , nc]) => !nc || present.has(k)).map(([k]) => k), all = live.every((k) => on.has(k));
           return (<div key={g} style={{ marginBottom: 10, paddingLeft: 10 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600 }}>
               <input type="checkbox" data-testid={`v3-filter-group-${g.split(" ")[1].replace(/[^A-Za-z]/g, "")}`} checked={all} onChange={() => set(live, !all)} /> {g}</label>

@@ -142,7 +142,7 @@ export function passes(it, f) {
   if (!f.has(it.kind.filter) && it.kind.filter !== "other") return false;
   if (!f.has(DISP[it.shape])) return false;
   if (it.ftype && !f.has(TYPE_FILTER[it.ftype] || "t_Other")) return false;
-  return (it.flags.warn && f.has("f_warning")) || (it.flags.cmd && f.has("f_cmd")) || (!it.flags.warn && !it.flags.cmd && f.has("f_none"));
+  return (it.flags.warn && f.has("f_warning")) || (it.flags.cmd && f.has("f_cmd")) || (it.flags.audit && f.has("f_audit")) || (!it.flags.warn && !it.flags.cmd && !it.flags.audit && f.has("f_none"));
 }
 
 export const fmt = (ms, local) => {
@@ -191,7 +191,7 @@ export const FILTER_GROUPS = [
   ["All activity", ACTIVITY_FILTERS],
   ["All system", SYSTEM_FILTERS],
   ["All dispositions", [["d_benign", "Benign (circle)"], ["d_malicious", "Malicious (hexagon)"], ["d_unknown", "Unknown (square)"]]],
-  ["All flags", [["f_warning", "Warning"], ["f_audit", "Audit only", 1], ["f_cmd", "Command line"], ["f_none", "No flag"]]],
+  ["All flags", [["f_warning", "Warning"], ["f_audit", "Audit only"], ["f_cmd", "Command line"], ["f_none", "No flag"]]],
   ["All file types", [["t_PE", "Executable [PE]"], ["t_ELF", "ELF"], ["t_MachO", "Mach-O"], ["t_Office", "MS Office"], ["t_PDF", "PDF"],
     ["t_Archive", "Zip/GZ archive"], ["t_MSI", "MS Cabinet/MSI"], ["t_Script", "Script"], ["t_Other", "Other"]]],
   // Hides only events whose mappings are all in unchecked tactics; unmapped events are never hidden (no mapping ≠ no attack).
