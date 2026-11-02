@@ -169,16 +169,26 @@ class _FakeRawCursor:
     """
 
     def __init__(self, docs):
-        self.docs = docs
+        self.docs = [dict(doc, _id=i + 1) for i, doc in enumerate(docs)]
         self.query = None
         self.projection = None
         self.sort_spec = None
         self.limit_value = None
 
+    async def find_one(self, query, projection=None, sort=None):
+        assert query["processing_contract"] == q.PROCESSING_CONTRACT
+        assert query["trust_state"] == "AUTHENTICATED"
+        return self.docs[-1] if self.docs else None
+
     def find(self, query, projection=None):
+        assert query["processing_contract"] == q.PROCESSING_CONTRACT
+        assert query["trust_state"] == "AUTHENTICATED"
         self.query = query
         self.projection = projection
-        self._selected = list(self.docs)
+        bounds = query["_id"]
+        self._selected = [d for d in self.docs
+                          if d["_id"] <= bounds["$lte"]
+                          and d["_id"] > bounds.get("$gt", 0)]
         return self
 
     def sort(self, field, direction=1):
@@ -201,8 +211,31 @@ class _FakeRawCursor:
             raise StopAsyncIteration
 
 
+class _FakeCursorState:
+    def __init__(self):
+        self.doc = None
+
+    async def update_one(self, query, update, upsert=False):
+        from types import SimpleNamespace
+        if self.doc is None and upsert:
+            self.doc = {**query, **update["$setOnInsert"]}
+            return SimpleNamespace(modified_count=0)
+        if self.doc is None or any(self.doc.get(k) != v for k, v in query.items()):
+            return SimpleNamespace(modified_count=0)
+        self.doc.update(update.get("$set", {}))
+        for k, v in update.get("$inc", {}).items():
+            self.doc[k] = self.doc.get(k, 0) + v
+        return SimpleNamespace(modified_count=1)
+
+    async def find_one(self, query):
+        return dict(self.doc) if self.doc else None
+
+
 class _FakeDB(dict):
-    pass
+    def __init__(self):
+        super().__init__()
+        from edr_plane.reconciliation import CURSORS
+        self[CURSORS] = _FakeCursorState()
 
 
 @pytest.mark.asyncio
