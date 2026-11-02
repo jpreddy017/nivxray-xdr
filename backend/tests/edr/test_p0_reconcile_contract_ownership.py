@@ -582,13 +582,30 @@ def test_start_workers_defaults_to_a_single_worker():
     assert sig.parameters["worker_count"].default == 1
 
 
-def test_server_startup_requests_exactly_one_worker():
+def test_server_startup_uses_validated_worker_count():
+    import ast
     src = (Path(__file__).resolve().parents[2] / "server.py").read_text()
-    assert re.search(r"_start_edr_workers\(\s*\n\s*_edr_worker_db,\s*\n"
-                     r"\s*worker_count=1,", src), (
-        "server.py must start the EDR durable processing supervisor with "
-        "worker_count=1 per pod")
+    tree = ast.parse(src)
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Name) and n.func.id == "_start_edr_workers"]
+    assert len(calls) == 1
+    value = next(k.value for k in calls[0].keywords if k.arg == "worker_count")
+    assert isinstance(value, ast.Name) and value.id == "_edr_worker_count"
+    assignments = [n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                   and any(isinstance(v, ast.Name) and v.id == value.id for v in n.targets)]
+    assert len(assignments) == 1
+    assert isinstance(assignments[0].value, ast.Call)
+    assert assignments[0].value.func.id == "processing_worker_count"
 
+@pytest.mark.parametrize("setting, expected", [(None, 1), ("2", 2), ("8", 8),
+    ("0", 1), ("9", 1), ("bad", 1), ("-1", 1)])
+def test_worker_configuration_is_bounded(monkeypatch, setting, expected):
+    from edr_plane.worker_config import processing_worker_count
+    if setting is None:
+        monkeypatch.delenv("NIVX_EDR_PROCESSING_WORKERS", raising=False)
+    else:
+        monkeypatch.setenv("NIVX_EDR_PROCESSING_WORKERS", setting)
+    assert processing_worker_count() == expected
 
 @pytest.mark.asyncio
 async def test_reconciliation_index_is_created_and_is_partial():

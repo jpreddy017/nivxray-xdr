@@ -29,6 +29,7 @@ async def test_worker_success_marks_done(monkeypatch):
             "tenant_id": "t",
             "raw_id": "raw_1",
             "state": q.PROCESSING,
+            "attempts": 1,
         }
 
     async def _get(*a, **k):
@@ -65,7 +66,7 @@ async def test_worker_success_marks_done(monkeypatch):
 
     assert out["processed"] is True
     assert out["state"] == q.DONE
-    assert done == [{"tenant_id": "t", "raw_id": "raw_1"}]
+    assert done == [{"tenant_id": "t", "raw_id": "raw_1", "attempts": 1}]
 
 
 @pytest.mark.asyncio
@@ -78,6 +79,7 @@ async def test_worker_bridge_failure_records_retry(monkeypatch):
             "tenant_id": "t",
             "raw_id": "raw_2",
             "state": q.PROCESSING,
+            "attempts": 1,
         }
 
     async def _get(*a, **k):
@@ -111,6 +113,7 @@ async def test_worker_bridge_failure_records_retry(monkeypatch):
     assert out["processed"] is False
     assert out["state"] == q.RETRY
     assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 1
     assert "bridge failed" in out["error"]
     assert retries[0]["tenant_id"] == "t"
     assert retries[0]["raw_id"] == "raw_2"
@@ -126,6 +129,7 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
             "tenant_id": "t",
             "raw_id": "raw_missing",
             "state": q.PROCESSING,
+            "attempts": 1,
         }
 
     async def _get(*a, **k):
@@ -146,6 +150,7 @@ async def test_worker_missing_raw_records_retry(monkeypatch):
     assert out["processed"] is False
     assert out["state"] == q.RETRY
     assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 1
     assert "raw evidence missing" in out["error"]
     assert retries[0]["raw_id"] == "raw_missing"
 
