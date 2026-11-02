@@ -49,7 +49,9 @@ async def test_worker_success_marks_done(monkeypatch):
         }
 
     async def _bridge(*a, **k):
-        return {"canonicalized": True}
+        return {"canonicalized": True, "parser_state": "OK", "detection": {
+            "evaluated": True, "finding_plane": {"evaluation_state": "EVALUATED_NO_FINDING"},
+            "stage_results": [{"stage": "detection", "status": "EXECUTED"}]}}
 
     done = []
 
@@ -343,3 +345,35 @@ async def test_worker_loop_survives_transient_process_one_exception(monkeypatch)
         pq._stop_event = None
 
     assert calls == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["canonical", "parser", "evaluation", "finding", "stages", "failed_stage"])
+async def test_incomplete_processing_never_marks_done(monkeypatch, failure):
+    from edr_plane import raw_events, canonical_bridge
+    result = {"canonicalized": True, "parser_state": "OK", "detection": {
+        "evaluated": True, "finding_plane": {"evaluation_state": "EVALUATED_NO_FINDING"},
+        "stage_results": [{"stage": "detection", "status": "EXECUTED"}]}}
+    if failure == "canonical": result["canonicalized"] = False
+    if failure == "parser": result["parser_state"] = "FAILED"
+    if failure == "evaluation": result["detection"]["evaluated"] = False
+    if failure == "finding": result["detection"]["finding_plane"]["evaluation_state"] = "EVALUATION_FAILED"
+    if failure == "stages": result["detection"]["stage_results"] = []
+    if failure == "failed_stage": result["detection"]["stage_results"][0]["status"] = "FAILED"
+    async def claim(*a, **k): return {"tenant_id": "t", "raw_id": "r", "attempts": 3}
+    async def raw(*a, **k): return {"payload": "{}", "endpoint_ref": "ep", "source_kind": "sensor", "authentication": {"endpoint_id": "ep", "auth_method": "session"}}
+    async def bridge(*a, **k): return result
+    async def done(*a, **k): pytest.fail("incomplete processing reached DONE")
+    retries = []
+    async def retry(*a, **k):
+        retries.append(k)
+        return True
+    monkeypatch.setattr(q, "claim", claim)
+    monkeypatch.setattr(raw_events, "get", raw)
+    monkeypatch.setattr(canonical_bridge, "bridge", bridge)
+    monkeypatch.setattr(q, "mark_done", done)
+    monkeypatch.setattr(q, "mark_retry", retry)
+    out = await q.process_one(object())
+    assert out["retry_recorded"] is True
+    assert retries[0]["attempts"] == 3
+    assert "refusing DONE" in retries[0]["error"]

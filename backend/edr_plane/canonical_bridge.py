@@ -727,6 +727,8 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             "verdict_score": verdict.get("score"),
             "incident_id": (result.get("incident") or {}).get("incident_id"),
             "stages": [s.get("stage") for s in (result.get("stages") or ())],
+            "stage_results": [{"stage": s.get("stage"), "status": s.get("status")}
+                              for s in (result.get("stages") or ())],
         }
         await add_derivation(
             db, tenant_id=tenant_id, raw_id=raw_id,
