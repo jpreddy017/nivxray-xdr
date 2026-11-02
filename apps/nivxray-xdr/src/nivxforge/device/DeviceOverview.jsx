@@ -57,8 +57,11 @@ export default function DeviceOverview({ endpointId }) {
         <Kpi label="Detections · total" value={c.detections_total}
              tone={c.detections_total ? "red" : undefined}
              testid="edr-device-kpi-dettotal" />
-        <Kpi label="Events received" value={(c.telemetry?.event_count ?? 0)
-               .toLocaleString()} testid="edr-device-kpi-events" />
+        <Kpi label="Telemetry reports" value={
+               (c.telemetry?.report_count ?? c.telemetry?.event_count)
+                 ?.toLocaleString() ?? <NA />}
+             title="Recorded successful telemetry submissions. A submission may contain multiple events; this is not a unique-event or processing count."
+             testid="edr-device-kpi-events" />
         <Kpi label="Sensor" value={c.sensor_version}
              testid="edr-device-kpi-sensor" />
         <Kpi label="Prevention"
