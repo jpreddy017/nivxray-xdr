@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 from edr_plane import file_content_acquisition as fca
 from edr_plane import windows_eventlog as winlog
+from edr_plane.detection_result import require_detection_result
 from edr_plane.contracts.identity import ProcessIdentity
 from edr_plane.raw_events import Derivation, add_derivation, next_generation
 from services import event_time_basis
@@ -712,7 +713,7 @@ async def bridge(db: Any, *, raw_id: str, tenant_id: str, payload: str,
             db, sensor_event, trace_id=raw_id,
             integration_id=PARSER_NAME, collector_id=endpoint_id,
             tenant_id=tenant_id)
-        det = (result.get("detection") or {})
+        det = require_detection_result(result)
         matches = det.get("detections") or []
         verdict = (result.get("verdict") or {})
         detection = {
