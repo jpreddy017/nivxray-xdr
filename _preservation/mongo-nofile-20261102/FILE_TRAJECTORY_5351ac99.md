@@ -172,4 +172,4 @@ browser run's own output; only these two images were written to disk.
 The XDR incident → EDR pivot is untouched; no tenant was registered, no record
 created, altered or deleted; no index added; no collection changed. Production
 promotion remains on hold, and the whole stack still exists only in this
-workspace — see `review-stack-11-commits.patch`.
+workspace — see `review-stack-13-commits.patch`.
