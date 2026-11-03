@@ -4,8 +4,8 @@
 // cleanly and then crashes the whole app at runtime with
 // "React is not defined".
 import React, { useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { PRODUCT_SCOPE, isForeignPath, productOfPath } from "@/productScope";
+import { Link, useLocation } from "react-router-dom";
+import { HOME_PATH, PRODUCT_SCOPE, isForeignPath, productOfPath } from "@/productScope";
 
 /**
  * Blocks the other product from ever rendering on this deployment.
@@ -60,6 +60,21 @@ function WrongProductHost({ pathname }) {
           {" "}<strong>{LABEL[wanted] || "it"}</strong>{" "}
           from its own address.
         </p>
+        {/* A refusal must not be a dead end. `vercel.json` only has a
+            host redirect for `/`, so a foreign path like /xdr/incidents
+            reloads onto this same artifact and stops here — the analyst
+            needs a way back into the product they are actually on. */}
+        <Link
+          to={HOME_PATH}
+          data-testid="wrong-product-host-back"
+          style={{
+            display: "inline-block", marginTop: 18, fontSize: 12,
+            color: "#93c5fd", textDecoration: "none",
+            borderBottom: "1px solid #334155", paddingBottom: 2,
+          }}
+        >
+          ← Back to {LABEL[PRODUCT_SCOPE]}
+        </Link>
       </div>
     </div>
   );
