@@ -1,3 +1,7 @@
+import { DashboardIcon as EvidenceIcon } from './EdrSecuritySummary';
+import { Info as FleetInfo } from "lucide-react";
+import EdrSecuritySummary, { DashboardIcon } from "./EdrSecuritySummary";
+import "./EdrDashboard.css";
 /**
  * NivXForge EDR · Dashboard body (approved mockup composition).
  *
@@ -35,7 +39,7 @@ const Panel = ({ title, right, children, testid, style }) => (
                     minWidth: 0, ...style }}>
     <div style={{ display: "flex", justifyContent: "space-between",
                   alignItems: "center", gap: 12, marginBottom: 12 }}>
-      <h2 style={{ fontSize: 14, margin: 0, letterSpacing: "-.005em" }}>{title}</h2>
+      <h2 style={{ fontSize: 14, margin: 0, letterSpacing: "-.005em" }}> <EvidenceIcon name={String(title).startsWith('Activity') ? 'Recorded activity' : title}/>{title}</h2>
       {right}
     </div>
     {children}
@@ -54,6 +58,7 @@ export default function EdrDashboardBody({ device = null }) {
   const [auto, setAuto] = useState(false);
   const [diag, setDiag] = useState(false);
 
+  const [view, setView] = useState("Dashboard");
   const [fleet, setFleet] = useState(null);
   const [board, setBoard] = useState(null);
   const [lastOk, setLastOk] = useState(null);
@@ -100,7 +105,26 @@ export default function EdrDashboardBody({ device = null }) {
   // Six tiles are readable; ten truncate their own labels.
   const files = (board?.files || []).slice(0, 6);
   const sel = board?.selected_file || null;
-  const total = files.reduce((n, f) => n + f.sightings, 0) || 1;
+  const boxes = [];
+  function partition(group, x, y, w, h) {
+    if (!group.length) return;
+    if (group.length === 1) {
+      boxes.push({ left: x + "%", top: y + "%", width: w + "%", height: h + "%" });
+      return;
+    }
+    const total = group.reduce((n, file) => n + file.sightings, 0);
+    let cut = 1, sum = group[0].sightings;
+    while (cut < group.length - 1 && Math.abs(total / 2 - sum - group[cut].sightings) < Math.abs(total / 2 - sum)) sum += group[cut++].sightings;
+    const share = total ? sum / total : cut / group.length;
+    if (w * 1.45 >= h) {
+      partition(group.slice(0, cut), x, y, w * share, h);
+      partition(group.slice(cut), x + w * share, y, w * (1 - share), h);
+    } else {
+      partition(group.slice(0, cut), x, y, w, h * share);
+      partition(group.slice(cut), x, y + h * share, w, h * (1 - share));
+    }
+  }
+  partition(files, 0, 0, 100, 100);
   const maxAct = Math.max(1, ...Object.values(sel?.activities || { x: 1 }));
 
   const investigateHref = (r) => {
@@ -117,7 +141,8 @@ export default function EdrDashboardBody({ device = null }) {
     () => ["ALL", ...(board?.activities_available || [])], [board]);
 
   return (
-    <div data-testid="edr-dashboard" style={{ display: "grid", gap: 12 }}>
+    <div className="evidence-board" data-testid="edr-dashboard" style={{ display: "grid", gap: 12 }}>
+      <nav className="security-tabs" aria-label="Endpoint console">{['Dashboard','Inbox','Overview'].map(name=><button key={name} aria-pressed={view===name} onClick={()=>setView(name)}><DashboardIcon name={name}/>{name}</button>)}<Link to="/edr/events"><DashboardIcon name="Events"/>Events</Link><button aria-pressed={view==='Evidence'} onClick={()=>setView('Evidence')}><DashboardIcon name="Historical evidence"/>Historical evidence</button></nav>
       {/* ── controls ─────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between",
                     alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -162,10 +187,10 @@ export default function EdrDashboardBody({ device = null }) {
                         ? "rgba(63,174,125,.45)" : "rgba(208,135,0,.55)"}`,
                       background: fleet.condition === "DELIVERING"
                         ? "rgba(63,174,125,.07)" : "rgba(208,135,0,.08)",
-                      borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>
-          <TriangleAlert size={15} style={{ color: "var(--amber, #d08700)", flexShrink: 0 }} />
+                      ...(fleet.enrolled === 0 && !fleet.unavailable ? {background:"transparent",borderColor:"var(--border, #88939e)"} : {}), borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>
+          {fleet.enrolled === 0 && !fleet.unavailable ? <FleetInfo size={15}/> : <TriangleAlert size={15} style={{ color: "var(--amber, #d08700)", flexShrink: 0 }} />}
           <span style={{ fontWeight: 600 }}>
-            {fleet.unavailable ? "Fleet state unavailable" : fleet.headline}
+            {fleet.unavailable ? "Fleet state unavailable" : fleet.enrolled === 0 ? "No endpoints enrolled" : fleet.headline}
           </span>
           <span style={{ opacity: 0.65, fontSize: 12 }}>
             {fleet.unavailable
@@ -196,6 +221,7 @@ export default function EdrDashboardBody({ device = null }) {
         </div>
       )}
 
+      {view !== 'Evidence' ? <EdrSecuritySummary view={view} fleet={fleet} failed={Boolean(err)} /> : err ? null : <>
       {/* ── main row 38 / 38 / 24 ────────────────────────────────────────── */}
       <div style={{ display: "grid", gap: 12,
                     gridTemplateColumns: "minmax(0,38fr) minmax(0,38fr) minmax(0,24fr)" }}>
@@ -219,7 +245,7 @@ export default function EdrDashboardBody({ device = null }) {
                         aria-pressed={f.sha256 === sel?.sha256}
                         title={`${f.name} · ${f.sightings} sightings · ${f.sha256}`}
                         onClick={() => setSha(f.sha256)}
-                        style={{ flex: `${Math.max(f.sightings / total, 0.05)} 1 0`,
+                        style={{ ...boxes[i], position: "absolute",
                                  minWidth: 46, border: f.sha256 === sel?.sha256
                                    ? "2px solid #cfe6ff" : "1px solid rgba(0,0,0,.25)",
                                  borderRadius: 4, cursor: "pointer", color: "#f2f6fb",
@@ -395,6 +421,7 @@ export default function EdrDashboardBody({ device = null }) {
           </p>
         )}
       </Panel>
-    </div>
+    </>}
+</div>
   );
 }
