@@ -150,7 +150,10 @@ describe("the Cisco Secure Endpoint layout", () => {
     api.get.mockResolvedValue({ data: payload() });
     mount();
     const legend = await screen.findByTestId("edr-files-legend");
-    expect(legend.textContent).toMatch(/moved · scanned · quarantined · written · deleted/);
+    expect(legend.textContent).toMatch(/never observed, so never shown: moved · scanned · quarantined/);
+    // created, modified and deleted ARE reported in watched directories: the
+    // substrate carries 12 creations and 12 deletions for the proof files.
+    expect(legend.textContent).toMatch(/created, modified and deleted ARE reported/);
     expect(legend.textContent).toMatch(/file created — in a directory the sensor watches/);
     fireEvent.click(screen.getByTestId("edr-files-details-toggle"));
     expect(screen.getByTestId("edr-files-not-collected").textContent)

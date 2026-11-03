@@ -222,7 +222,9 @@ function Graphic({ data, selected, onSelect }) {
           shows the newest in the group and says how many it covers
         </span>
         <span style={{ opacity: 0.8 }}>
-          never shown because never observed: moved · scanned · quarantined · written · deleted
+          never observed, so never shown: moved · scanned · quarantined. File
+          created, modified and deleted ARE reported, but only inside the
+          directories the sensor watches
         </span>
         {drawn < total && (
           <span data-testid="edr-files-graphic-partial" style={{ opacity: 0.9 }}>
