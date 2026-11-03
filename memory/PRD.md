@@ -54,9 +54,10 @@ Branch `fix/xdr-timeline-trajectory-context`, tip **`6d7a1d027b089a732d07a95d4e7
 | `57051d74` | an instant is sent as `at`; a link range is used whole or not at all |
 | `7e40b040` | the Timeline tab's orange button now carries the incident instead of opening a blank canvas |
 | `6d7a1d02` | that tab's copy names `/edr/device-trajectory` |
+| `8a543f9e` | a refused trajectory read states only the refusal, with a return to the incident |
 
-- Shared preview serves `6d7a1d02` as a **combined** artifact (`/` + `/xdr` XDR,
-  `/edr` EDR), `not_eligible_for_production: true`. Tests 27 files / 386 passed.
+- Shared preview serves `8a543f9e` as a **combined** artifact (`/` + `/xdr` XDR,
+  `/edr` EDR), `not_eligible_for_production: true`. Tests 27 files / 389 passed.
 - **None of these SHAs exist on GitHub.** Export via Save to Github to a
   non-production branch; Support could not confirm SHA preservation, so compare
   against `review-stack-4-commits.patch`.

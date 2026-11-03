@@ -8683,3 +8683,29 @@ Branch `fix/xdr-timeline-trajectory-context`, on top of `57051d74`.
 - Evidence: `_preservation/mongo-nofile-20261102/XDR_TIMELINE_TRAJECTORY_6d7a1d02.md`,
   `review-stack-4-commits.patch`, `review-stack-4-commits.bundle`.
 - Production promotion still on hold. No backend, database or MongoDB change.
+
+## 2026-11-03 · A refused trajectory read now states only the refusal
+
+- `8a543f9e` — a 403/404 left the whole canvas mounted under the denial banner
+  ("Loading ATT&CK mapping…", zero indicators in every lane, a device **Actions**
+  menu, an events-loaded counter, an empty timeline), so unavailable evidence
+  read as a completed investigation of a quiet endpoint. `DENIED` and
+  `NOT_RESOLVED` now render one panel: the refusal, the device and window that
+  were requested, the fact that an empty trajectory proves nothing here, and a
+  **Return to XDR incident** link. `NO_CUSTOMER` is excluded on purpose.
+- Verified on the shared preview with `inc_e2eb6978efca42aa88a7`'s own link:
+  `data-refused="DENIED"`, all seven canvas testids absent, no ATT&CK text, the
+  return link resolving to the incident, XDR tab unchanged. Tests 27 files /
+  **389 passed**.
+- Read-only trace of that incident: `ep_f` / `lab-01` / `p0f-c375caa0` are
+  literals from `backend/tests/edr/test_p0_f_endpoint_detection.py`
+  (`test_bridge_records_the_detection_outcome_on_the_raw_event`). The tenant is a
+  per-run UUID, never registered via `POST /api/xdr/tenants`; the test deletes its
+  raw events and canonical evidence but not the promoted `workspace_cases`
+  incident. 427 `p0f*` tenants → 438 incidents, **0 registered endpoints, 0 raw
+  events**. Expected test-data limitation, not a mapping error; nothing was
+  registered or deleted to make it pass.
+- Also observed, not fixed: such fixture incidents carry the **test run time**
+  (2026-10-31 17:55) while the event they describe was observed 2026-06-06, so
+  the link opens the wrong UTC day even before the denial.
+- Evidence: `_preservation/mongo-nofile-20261102/TRACE_inc_e2eb6978_AND_REFUSAL_8a543f9e.md`.
