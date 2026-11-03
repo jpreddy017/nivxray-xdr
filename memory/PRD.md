@@ -103,6 +103,38 @@ true, but the shape was a report, not a trajectory.
   and offers "Back to today". Verified: strip Aug 24 – Sep 22 with **8**
   selected. Frontend tests 28 files / **417 passed**.
 
+### Live Query — BUILT and answered live (2026-11-03, `9d91bdf8`)
+
+One read-only question — which running processes match this exact name on this
+computer now — on the same command plane as snapshots, so a query id IS a
+command id and both entry points open one record: **Dashboard → Live Query**
+and **Computer → Actions → Live Query**.
+
+- Live: `mongod` → 1 of 29 examined, pid 291 `/usr/bin/mongod`, collected
+  2026-11-03 15:29:34Z (`cmd_d06cb2cb12c84852a716`, same id in dashboard
+  history); `definitelynotaprocess` → 0 of 24 examined
+  (`cmd_7deb0e118bc54ea586f1`). Cross-customer read `404 QUERY_NOT_FOUND`,
+  cross-customer list 0, empty name `400 EMPTY_PROCESS_NAME`.
+- Kernel truncates `/proc/<pid>/comm` to 15 characters, so a longer name is
+  compared on its first 15 and the answer says so.
+- Statuses kept apart: matches, NO matches (an answer, with processes
+  examined), failed, capability-unavailable, timed-out (180s). Stored
+  telemetry is never searched.
+- Read-only: permission-gated, never approval-gated, never VERIFIED; a
+  redelivered answer preserves the original.
+- Tests: backend 10 (disposable DB), frontend 30 files / 437. Evidence:
+  `_preservation/mongo-nofile-20261102/LIVE_QUERY_9d91bdf8.md`.
+- Registry: `backend.service.live_query` + `experience.live_query_ui` →
+  REAL_ENDPOINT_VALIDATED (one question only).
+
+### Dashboard Board — NEXT, decisions settled (2026-11-03)
+
+Landing page only · telemetry-backed widgets plus one coverage section ·
+persistent per-detection Inbox triage · 30-day UTC default with a 14-day preset
+and custom dates · optional 60-second refresh showing last successful refresh.
+Forensic Snapshots stays reachable from the Dashboard. Snapshot Diff and the
+canonicalisation eligibility trace remain deferred.
+
 ### Forensic Snapshots — BUILT and captured live (2026-11-03, `95f81a2a`)
 
 The gap below was closed rather than worked around: the Linux sensor gained
