@@ -809,8 +809,14 @@ _EXPERIENCE = [
     ("file_intelligence", "File intelligence", FS.BACKEND_IMPLEMENTED, _N,
      _P, GC.TELEMETRY_MISSING, "/edr/files · EdrReservedPages.jsx",
      "Honest reserved surface — not a mock."),
-    ("file_trajectory_ui", "File trajectory UI", FS.BACKEND_IMPLEMENTED, _P,
-     _P, GC.TELEMETRY_MISSING, "XdrFleetFileTrajectoryPage.jsx", None),
+    ("file_trajectory_ui", "File trajectory UI", FS.REAL_ENDPOINT_VALIDATED,
+     _P, _P, GC.NONE,
+     "EdrFilesPage.jsx · GET /api/edr/files/{sha256}/sightings · "
+     "services/edr/file_sightings.py · tests/edr/test_file_sightings.py",
+     "SHA-256 keyed on edr_raw_events.payload.sha256 — the sensor's digest of "
+     "the executed image, verified against real preview telemetry (one digest "
+     "under 14 paths). Executed-image sightings only: file create/write/delete "
+     "are still not collected, so this is not file-system evidence."),
     ("fleet_file_trajectory_ui", "Fleet file trajectory UI",
      FS.BACKEND_IMPLEMENTED, _P, _P, GC.TELEMETRY_MISSING,
      "XdrFleetFileTrajectoryPage.jsx · GET /api/edr/fleet-spread-index",
@@ -818,7 +824,9 @@ _EXPERIENCE = [
     ("sha256_pivot_menu", "SHA-256 universal pivot menu", FS.NOT_IMPLEMENTED,
      _N, _A, GC.NONE, "docs/uiux/NIVXFORGE_EDR_TARGET_UX_ARCHITECTURE.md:167",
      "Cisco baseline (14 pivots) plus the NivXRay extension (15) is "
-     "specified. Not built as a context menu."),
+     "specified. The trajectory context menu now carries ONE of them — View "
+     "File Trajectory, enabled only on an event that actually has a digest. "
+     "The menu as specified is not built."),
     ("network_ui", "Network investigation UI", FS.NOT_IMPLEMENTED, _A, _P,
      GC.UI_ONLY, "/edr/network · EdrReservedPages.jsx",
      "Honest reserved page. No network investigation backend."),

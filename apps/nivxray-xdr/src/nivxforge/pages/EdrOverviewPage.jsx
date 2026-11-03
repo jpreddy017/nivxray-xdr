@@ -37,13 +37,7 @@ const SURFACES = [
     hint: "Parent → child ancestry from canonical process identities." },
   { key: "files",        label: "Files",             to: "/edr/files",
     icon: FileText,    capability: "experience.file_trajectory_ui",
-    // The capability is real, but the surface that delivers it today is
-    // the XDR-hosted Fleet File Trajectory. The EDR route is still a
-    // reserved stub, so this product must not offer to open it.
-    stubInThisProduct: "the file-trajectory capability is graded implemented, but it is "
-                     + "currently delivered by the XDR-hosted Fleet File Trajectory — "
-                     + "the NivXRay EDR route is not wired to it yet (F-3 class)",
-    hint: "File-system evidence: writes, drops, signers, hashes." },
+    hint: "SHA-256 sightings across this customer's endpoints: paths, activity and observed times." },
   { key: "network",      label: "Network",           to: "/edr/network",
     icon: Wifi,        capability: "experience.network_ui",
     hint: "Endpoint-observed network connections + DNS." },
