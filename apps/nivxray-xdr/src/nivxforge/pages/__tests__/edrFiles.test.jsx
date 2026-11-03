@@ -304,3 +304,35 @@ describe("a lane dense with sightings stays clickable", () => {
     expect(screen.getAllByTestId(/^edr-files-event-row-\d+$/).length).toBe(41);
   });
 });
+
+describe("a ringed mark the graphic cannot show is named, not implied", () => {
+  it("says how many day-shifted sightings fall outside the marks drawn", async () => {
+    // Visibility counts the day-shifted sighting; the read returned only newer
+    // marks, so no ringed mark is drawn. Saying nothing would leave the legend
+    // promising a mark that is not there.
+    api.get.mockResolvedValue({ data: payload({
+      total_sightings: 850, day_shifted_sightings: 1,
+      day_shifted_examples: [SHIFTED],
+      endpoint_count: 1,
+      endpoints: [{ endpoint_id: DEVICE, hostname: "agent-env-630704a1",
+                    identity: "registered", sighting_count: 850,
+                    paths: ["/usr/bin/dash"],
+                    first_observed: SHIFTED.observed_at,
+                    last_observed: LATER.observed_at,
+                    sightings: [LATER] }],
+    }) });
+    mount();
+    const note = await screen.findByTestId("edr-files-graphic-shift-offaxis");
+    expect(note.getAttribute("data-count")).toBe("1");
+    expect(note.textContent).toMatch(/older than the marks drawn here/);
+    expect(screen.queryAllByTestId(/^edr-files-glyph-/).filter(
+      (m) => m.getAttribute("data-day-shift") === "1")).toHaveLength(0);
+  });
+
+  it("stays quiet when every day-shifted sighting is actually drawn", async () => {
+    api.get.mockResolvedValue({ data: payload() });   // SHIFTED is in the lane
+    mount();
+    await screen.findByTestId("edr-files-result");
+    expect(screen.queryByTestId("edr-files-graphic-shift-offaxis")).toBeNull();
+  });
+});

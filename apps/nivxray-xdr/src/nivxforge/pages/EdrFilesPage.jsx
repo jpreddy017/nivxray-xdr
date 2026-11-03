@@ -93,6 +93,11 @@ function Graphic({ data, selected, onSelect }) {
 
   const drawn = eps.reduce((n, e) => n + (e.sightings || []).length, 0);
   const total = eps.reduce((n, e) => n + (e.sighting_count || 0), 0);
+  // A ringed mark the analyst cannot find is a promise the graphic did not keep:
+  // day-shifted sightings older than the marks drawn are named, not implied.
+  const shiftedDrawn = eps.reduce(
+    (n, e) => n + (e.sightings || []).filter((s) => s.ingest_day_differs).length, 0);
+  const shiftedOffAxis = Math.max(0, (data.day_shifted_sightings || 0) - shiftedDrawn);
 
   const at = (iso) => {
     const v = ms(iso);
@@ -195,6 +200,15 @@ function Graphic({ data, selected, onSelect }) {
         {drawn < total && (
           <span data-testid="edr-files-graphic-partial" style={{ opacity: 0.9 }}>
             showing the newest {drawn} of {total} sightings on this axis
+          </span>
+        )}
+        {shiftedOffAxis > 0 && (
+          <span data-testid="edr-files-graphic-shift-offaxis"
+                data-count={shiftedOffAxis}
+                style={{ color: "var(--amber, #d08700)" }}>
+            {shiftedOffAxis} delivered on another UTC day{" "}
+            {shiftedOffAxis === 1 ? "is" : "are"} older than the marks drawn here —
+            listed under “Delivered on a different UTC day” below
           </span>
         )}
       </div>
