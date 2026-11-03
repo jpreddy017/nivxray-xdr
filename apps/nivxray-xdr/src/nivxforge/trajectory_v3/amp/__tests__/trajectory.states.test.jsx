@@ -136,3 +136,52 @@ describe("a real API failure is reported as one, and can be retried", () => {
     expect(screen.queryByTestId("v3-retry-read")).toBeNull();
   });
 });
+
+describe("a refused read is not dressed as a finished investigation", () => {
+  const mountDeep = () => render(
+    <MemoryRouter initialEntries={[
+      `/edr/device-trajectory?device=${DEVICE}&incident_id=inc_e2eb6978efca42aa88a7`
+      + "&at=2026-10-31T17:55:31.272472%2B00:00&tenant=p0f-c375caa0"]}>
+      <TrajectoryPage device={DEVICE} onLegacy={() => {}} />
+    </MemoryRouter>);
+
+  const refuse = (status, reason) => api.get.mockImplementation(
+    route({ trajectory: { response: { status, data: { detail: { reason } } } } }));
+
+  it("shows the refusal alone — no ATT&CK, no counts, no device actions", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    refuse(403, "customer p0f-c375caa0 is not registered in this control plane");
+    mountDeep();
+    await waitFor(() => expect(screen.getByTestId("v3-read-error")).toBeTruthy());
+
+    expect(screen.getByTestId("v3-page").getAttribute("data-refused")).toBe("DENIED");
+    for (const gone of ["dt-attack-strip", "v3-toolbar", "v3-workspace",
+                        "v3-status-bar", "v3-actions", "v3-loaded-count",
+                        "v3-activity-panel", "v3-empty"]) {
+      expect(screen.queryByTestId(gone), gone).toBeNull();
+    }
+    expect(screen.queryByText(/Loading ATT&CK mapping/)).toBeNull();
+    expect(screen.queryByTestId("v3-retry-read")).toBeNull();
+  });
+
+  it("states what was refused and offers the way back to the incident", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    refuse(403, "customer p0f-c375caa0 is not registered in this control plane");
+    mountDeep();
+    const back = await screen.findByTestId("v3-refused-return");
+    expect(back.getAttribute("href")).toBe("/xdr/incidents/inc_e2eb6978efca42aa88a7");
+    expect(screen.getByTestId("v3-refused-request").textContent).toContain(DEVICE);
+    expect(screen.getByTestId("v3-refused-meaning").textContent)
+      .toMatch(/would not mean the device was quiet/);
+  });
+
+  it("treats an unresolved device the same way", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    refuse(404, "no endpoint entity matches ep_f in this customer");
+    mountDeep();
+    await waitFor(() => expect(screen.getByTestId("v3-page")
+      .getAttribute("data-refused")).toBe("NOT_RESOLVED"));
+    expect(screen.queryByTestId("v3-workspace")).toBeNull();
+    expect(screen.getByTestId("v3-refused-return")).toBeTruthy();
+  });
+});

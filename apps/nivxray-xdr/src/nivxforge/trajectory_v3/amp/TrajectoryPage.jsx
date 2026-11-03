@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronLeft, ChevronRight, Info, Search, X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import {
   CUSTOMER_NONE, CUSTOMER_PENDING, CUSTOMER_READY, CUSTOMER_SEALED,
@@ -53,6 +53,42 @@ export function classifyReadError(e) {
   return { kind: "FAILED", title: "Trajectory unavailable", retryable: true,
     text: "The trajectory request failed. Evidence is unavailable for this "
       + "range. Retry the request or check the backend service." };
+}
+
+// A REFUSED read is not an investigation. Rendering the canvas underneath the
+// refusal — ATT&CK still "loading", zero indicators, device actions offered —
+// dresses unavailable evidence as a completed, clean investigation. When the
+// read was refused outright, this is the whole page: one statement of what was
+// refused, and the way back to the incident the analyst came from.
+function RefusedRead({ err, device, incidentId, t0, t1 }) {
+  const win = `${new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – `
+    + `${new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  return (
+    <div className="v3amp" data-testid="v3-page" data-refused={err.kind}
+         style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }}>
+      <style>{CSS}</style>
+      <div role="alert" data-testid="v3-read-error" data-error-kind={err.kind} data-retryable="false"
+           style={{ maxWidth: 760, padding: "22px 24px", border: `1px solid ${C.amber}`, borderRadius: 12,
+                    background: C.panel, color: C.text }}>
+        <strong style={{ fontSize: 18 }}>{err.title}</strong>
+        <p style={{ marginTop: 10 }}>{err.text}</p>
+        <p data-testid="v3-refused-request" style={{ color: C.muted, fontSize: 12.5 }}>
+          Requested: device <span className="mono">{device || "not stated"}</span> · {win}
+        </p>
+        <p data-testid="v3-refused-meaning" style={{ color: C.muted, fontSize: 12.5 }}>
+          No evidence was read, so this page shows no activity, no indicators and
+          no device actions. An empty trajectory here would not mean the device
+          was quiet — it means nothing was returned to judge.
+        </p>
+        {incidentId && (
+          <Link to={`/xdr/incidents/${encodeURIComponent(incidentId)}`} className="v3-link"
+                data-testid="v3-refused-return" style={{ fontSize: 13.5 }}>
+            ← Return to XDR incident ↗
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function useUrlState() {
@@ -361,6 +397,14 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const isoSt = String((data?.computer?.isolation && typeof data.computer.isolation === "object" ? data.computer.isolation.state : data?.computer?.isolation) || data?.computer?.isolation_status || "").toUpperCase();
   const isolated = isoSt === "ISOLATED";
   const pendingIso = devPending.STOP_ISOLATION ? "STOP_ISOLATION" : devPending.ISOLATE_DEVICE ? "ISOLATE_DEVICE" : null;
+
+  // DENIED and NOT_RESOLVED are refusals of THIS read: there is no evidence to
+  // lay out and no device to act on. NO_CUSTOMER is not one — the analyst only
+  // has to pick a customer, and the canvas stays in place for them.
+  if (readError && (readError.kind === "DENIED" || readError.kind === "NOT_RESOLVED")) {
+    return <RefusedRead err={readError} device={device} t0={t0} t1={t1}
+                        incidentId={params.get("incident_id") || params.get("incidentId")} />;
+  }
 
   return (
     <div className="v3amp" data-testid="v3-page" style={{ color: C.text, padding: "20px 24px", background: C.page, minHeight: "100%" }} onClick={() => { setMenu(null); setShowF(false); }}>
