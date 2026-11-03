@@ -91,7 +91,30 @@ true, but the shape was a report, not a trajectory.
   `/edr` EDR), `not_eligible_for_production: true`. Tests 28 files / 415 passed
   (frontend) + 17 backend sighting tests.
 
-### File Trajectory · owner's four preview checks closed (2026-11-03, `3db78b9a`)
+### Device Trajectory display fixes (2026-11-03, `b061f74e`)
+
+- An empty canvas no longer denies the sighting shown underneath it: with a
+  linked raw sighting the headline is "No timeline events are available for this
+  period. The sensor recorded the file creation shown below."; without one the
+  ordinary empty state is kept verbatim.
+- The day navigator was hard-anchored to the last 30 days, so a September link
+  left no cell selected while the strip read Oct–Nov above a September canvas.
+  The window now moves to contain the selected day, marks it, names the shift
+  and offers "Back to today". Verified: strip Aug 24 – Sep 22 with **8**
+  selected. Frontend tests 28 files / **417 passed**.
+
+### Forensic Snapshots — traced, NOT built (2026-11-03)
+
+The endpoint collection capability is missing, and the gap was named before any
+sensor change: the sensor supports only `KILL_PROCESS` / `ISOLATE_ENDPOINT` /
+`RELEASE_ISOLATION` and refuses unknown actions; `edr_plane/response.py ACTIONS`
+cannot express a snapshot; there is no job/results store and no artifact
+transport (telemetry carries one JSON line per event). Registry already grades
+`backend.service.forensic_snapshot` TELEMETRY_MISSING. Full trace and the
+ordered requirements: `_preservation/mongo-nofile-20261102/FORENSIC_SNAPSHOTS_COLLECTION_GAP.md`.
+Live Query remains next in sequence; the canonicalisation-gap dashboard is
+deferred pending a read-only eligibility trace.
+
 
 - **Path filtering now spans the whole history.** It ran in the browser over one
   capped read, so `/var/tmp` matched nothing while File details listed those very
