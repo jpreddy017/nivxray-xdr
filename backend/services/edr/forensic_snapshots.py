@@ -52,6 +52,41 @@ STATUS_MEANING = {
 }
 
 
+#: What Cisco's Orbital-backed snapshot collects, and what ours does. AMP's
+#: catalog query returns loaded modules, logged-in users, open network ports,
+#: wireless networks and shell history; this sensor collects processes only.
+#: The sections are listed either way, because an analyst comparing the two
+#: consoles must be able to see the difference rather than infer it from an
+#: absence.
+SECTIONS = (
+    ("Running processes", True,
+     "pid, name and executable path from one /proc walk at capture time"),
+    ("Logged-in users", False, "not collected by this sensor"),
+    ("Open network ports", False,
+     "not collected on demand; connections are not collected at all"),
+    ("Loaded modules", False, "not collected by this sensor"),
+    ("Wireless networks", False, "not collected by this sensor"),
+    ("Shell history", False, "not collected by this sensor"),
+    ("Scheduled tasks and services", False, "not collected by this sensor"),
+    ("Memory image", False,
+     "never collected; a snapshot is metadata, not a memory dump"),
+)
+
+#: Nothing deletes a snapshot here. Cisco's console keeps one for two days;
+#: this preview keeps every job until its database is cleared, and says so
+#: rather than implying a retention policy it does not run.
+RETENTION_NOTE = ("No retention job runs in this preview: every snapshot and "
+                  "its rows are kept until the database is cleared. Cisco's "
+                  "console keeps a snapshot for two days.")
+
+
+def sections(row_count: Optional[int]) -> List[Dict[str, Any]]:
+    return [{"section": name,
+             "state": "COLLECTED" if ok else "NOT_COLLECTED",
+             "rows": row_count if ok else None,
+             "note": note} for name, ok, note in SECTIONS]
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -107,6 +142,8 @@ def _job(doc: Dict[str, Any], *, rows: bool = False,
     if rows:
         out["rows"] = ev.get("rows") or []
         out["rows_truncated"] = bool(ev.get("rows_truncated"))
+        out["sections"] = sections(ev.get("row_count") if ev else None)
+        out["retention_note"] = RETENTION_NOTE
     return out
 
 

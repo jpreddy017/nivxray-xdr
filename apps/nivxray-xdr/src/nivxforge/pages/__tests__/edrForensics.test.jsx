@@ -32,6 +32,17 @@ const job = (over = {}) => ({
   status_meaning: "the sensor captured and returned process rows",
   command_state: "EXECUTED", sensor_version: "0.2.0",
   not_observed: ["command line", "user"],
+  sections: [
+    { section: "Running processes", state: "COLLECTED", rows: 2,
+      note: "pid, name and executable path from one /proc walk at capture time" },
+    { section: "Logged-in users", state: "NOT_COLLECTED", rows: null,
+      note: "not collected by this sensor" },
+    { section: "Open network ports", state: "NOT_COLLECTED", rows: null,
+      note: "not collected on demand; connections are not collected at all" },
+    { section: "Memory image", state: "NOT_COLLECTED", rows: null,
+      note: "never collected; a snapshot is metadata, not a memory dump" },
+  ],
+  retention_note: "No retention job runs in this preview: every snapshot and its rows are kept until the database is cleared. Cisco's console keeps a snapshot for two days.",
   rows: [{ pid: 1, name: "entrypoint.sh", path: "/usr/bin/bash" },
          { pid: 10, name: "uvicorn", path: null, path_unavailable: "PermissionError" }],
   ...over,
@@ -71,6 +82,21 @@ describe("Forensic Snapshots history and result", () => {
     expect(screen.getByTestId("snapshot-row-1").textContent).toMatch(/not readable · PermissionError/);
     expect(screen.getByTestId("snapshot-not-observed").textContent)
       .toMatch(/command line · user/);
+
+    // Cisco's snapshot covers more than this one. The sections say which parts
+    // exist here and which do not, so the two consoles can be compared.
+    expect(screen.getByTestId("snapshot-section-running-processes")
+      .getAttribute("data-state")).toBe("COLLECTED");
+    expect(screen.getByTestId("snapshot-section-running-processes").textContent)
+      .toContain("2");
+    for (const s of ["logged-in-users", "open-network-ports", "memory-image"]) {
+      expect(screen.getByTestId(`snapshot-section-${s}`)
+        .getAttribute("data-state")).toBe("NOT_COLLECTED");
+    }
+    expect(screen.getByTestId("snapshot-section-memory-image").textContent)
+      .toMatch(/not a memory dump/);
+    expect(screen.getByTestId("snapshot-retention").textContent)
+      .toMatch(/kept until the database is cleared/);
   });
 
   it("calls a zero-row capture an empty result, not a failure", async () => {

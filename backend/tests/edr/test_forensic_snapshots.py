@@ -219,3 +219,25 @@ async def test_a_snapshot_is_never_sent_to_an_unenrolled_endpoint(db):
         await fs.request(db, tenant_id=OWNER, endpoint_id="ep_never_enrolled",
                          requested_by=WHO)
     assert e.value.code == "ENDPOINT_NOT_ENROLLED"
+
+
+@pytest.mark.asyncio
+async def test_the_result_lists_what_it_covers_and_what_it_does_not(db):
+    # Cisco's Orbital snapshot returns loaded modules, logged-in users, open
+    # ports, wireless networks and shell history. This one returns processes.
+    # The difference is listed, not left to be inferred from an absence.
+    job = await _request(db)
+    await _claim(db)
+    await resp.record_result(
+        db, tenant_id=OWNER, endpoint_id=EP, command_id=job["job_id"],
+        outcome="EXECUTED", detail="3 process rows captured",
+        evidence={"row_count": 3, "rows": [{"pid": 1, "name": "init"}]})
+    out = await fs.get_job(db, tenant_id=OWNER, job_id=job["job_id"])
+    by_name = {s["section"]: s for s in out["sections"]}
+    assert by_name["Running processes"]["state"] == "COLLECTED"
+    assert by_name["Running processes"]["rows"] == 3
+    for absent in ("Logged-in users", "Open network ports", "Loaded modules",
+                   "Wireless networks", "Shell history", "Memory image"):
+        assert by_name[absent]["state"] == "NOT_COLLECTED"
+        assert by_name[absent]["rows"] is None
+    assert "kept until the database is cleared" in out["retention_note"]

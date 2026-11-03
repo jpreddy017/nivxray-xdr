@@ -52,6 +52,11 @@ export function ContextMenu({ menu, onAction }) {
               disabled={!hash} sub={!!hash}
               onClick={() => onAction("file-trajectory", hash)} />
         <Item id="file-analysis" label="File Analysis (not yet built)" sub onClick={() => onAction("nyb", "File Analysis")} />
+        {/* AMP puts a camera on the event row. The wording has to be exact:
+            a snapshot reads the machine NOW, it cannot reconstruct the moment
+            this event was recorded. */}
+        <Item id="event-forensic-snapshot" label="Forensic snapshot of this computer (captures it now)" sub
+              onClick={() => onAction("forensic-snapshot", null)} />
         <Sect>APPROVAL REQUEST ONLY</Sect>
         {APPROVALS.slice(0, 4).map(([a, l]) => <Item key={a} id={a} label={`${a === "ISOLATE_DEVICE" ? "Isolate device" : l}…`} onClick={() => onAction("approve", a)} />)}
       </>}

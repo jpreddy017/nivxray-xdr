@@ -8,6 +8,7 @@ import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ContextMenu } from "../Menu";
 import TrajectoryPage from "../TrajectoryPage";
 import api from "@/lib/api";
 import { bindServerTenant, resetServerTenant, sealTenantAuthority } from "@/lib/tenant";
@@ -331,5 +332,30 @@ describe("Computer → Actions → Request forensic snapshot", () => {
       await waitFor(() => expect(api.post).toHaveBeenCalled());
       expect(openedAnything).toBe(false);
     } finally { window.open = realOpen; }
+  });
+});
+
+describe("the camera on an event, the way AMP offers it", () => {
+  // AMP puts a camera on the event row. Ours sits in the event's menu and
+  // must not imply it reconstructs the moment the event was recorded.
+  it("offers a snapshot of the computer, worded as a capture of NOW", () => {
+    const acts = [];
+    render(<ContextMenu
+      menu={{ x: 10, y: 10, it: { target: { path: "/usr/bin/sleep", hash: null } } }}
+      onAction={(a, v) => acts.push([a, v])} />);
+    const item = screen.getByTestId("v3-ctx-event-forensic-snapshot");
+    expect(item.textContent).toMatch(/captures it now/i);
+    fireEvent.click(item);
+    expect(acts).toEqual([["forensic-snapshot", null]]);
+  });
+
+  it("keeps the device menu's own request separate from approval-only items", () => {
+    const acts = [];
+    render(<ContextMenu menu={{ x: 10, y: 10, deviceOnly: true, device: DEVICE }}
+                        onAction={(a, v) => acts.push([a, v])} />);
+    fireEvent.click(screen.getByTestId("v3-ctx-forensic-snapshot"));
+    expect(acts).toEqual([["forensic-snapshot", DEVICE]]);
+    // the approval stub for the same action is gone: one action, one door
+    expect(screen.queryByTestId("v3-ctx-FORENSIC_SNAPSHOT")).toBeNull();
   });
 });

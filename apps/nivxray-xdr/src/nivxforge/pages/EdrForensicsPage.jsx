@@ -197,6 +197,34 @@ export default function EdrForensicsPage() {
                 Not collected by this capture: {job.not_observed.join(" · ")}.
               </p>
             )}
+            {job.sections?.length > 0 && (
+              <div data-testid="snapshot-sections" style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase",
+                              opacity: 0.6, marginBottom: 6 }}>
+                  What this snapshot covers
+                </div>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: 12.5,
+                             display: "grid", gap: 3 }}>
+                  {job.sections.map((s) => (
+                    <li key={s.section} data-testid={`snapshot-section-${s.section.replace(/\s+/g, "-").toLowerCase()}`}
+                        data-state={s.state}
+                        style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                      <span style={{ width: 210, color: s.state === "COLLECTED"
+                        ? "var(--mint, #3fae7d)" : "inherit",
+                        opacity: s.state === "COLLECTED" ? 1 : 0.55 }}>
+                        {s.state === "COLLECTED" ? "▪" : "▫"} {s.section}
+                        {s.rows != null ? ` · ${s.rows}` : ""}
+                      </span>
+                      <span style={{ opacity: 0.6 }}>{s.note}</span>
+                    </li>
+                  ))}
+                </ul>
+                {job.retention_note && (
+                  <p style={{ fontSize: 11.5, opacity: 0.6, marginTop: 8, maxWidth: 820 }}
+                     data-testid="snapshot-retention">{job.retention_note}</p>
+                )}
+              </div>
+            )}
             <div style={{ marginTop: 14 }}><Rows job={job} /></div>
           </section>
         )}
