@@ -2,7 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Search, X } from "lucide-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
-import { fileSightings } from "@/nivxforge/edrApi";
+import { fileSightings, requestSnapshot } from "@/nivxforge/edrApi";
 import {
   CUSTOMER_NONE, CUSTOMER_PENDING, CUSTOMER_READY, CUSTOMER_SEALED,
   useActingCustomer,
@@ -394,6 +394,19 @@ export default function TrajectoryPage({ device, onLegacy }) {
     else if (a === "file-trajectory") {
       window.open(`/edr/files?sha256=${encodeURIComponent(v)}`,
                   "_blank", "noopener,noreferrer");
+    }
+    else if (a === "forensic-snapshot") {
+      // Request here, follow it in Forensic Snapshots: the id returned is the
+      // SAME job the dashboard history lists, not a second record.
+      requestSnapshot(v || device, "requested from the computer's Actions menu")
+        .then((d) => {
+          say(`Snapshot ${d.job_id} requested — opening Forensic Snapshots`);
+          window.open(`/edr/forensics?device=${encodeURIComponent(v || device)}`
+                      + `&job=${encodeURIComponent(d.job_id)}`,
+                      "_blank", "noopener,noreferrer");
+        })
+        .catch((e) => say(String(e?.response?.data?.detail?.reason
+                                 || e?.response?.data?.detail?.error || e.message)));
     }
     else if (a === "pivot") say(`${v} opens in the XDR console (not wired in this preview)`);
     else if (a === "approve") setApproval({ action: v, it: menu?.deviceOnly ? null : it, device: !!menu?.deviceOnly, target: menu?.deviceOnly || v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });

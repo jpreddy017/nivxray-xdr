@@ -194,3 +194,24 @@ export async function fileSightings(sha256, limit = 300, pathContains = "",
                 ...(rawId ? { raw_id: rawId } : {}) } });
   return data;
 }
+
+// ── Forensic snapshots ──────────────────────────────────────────────────────
+// The job id is the response-plane command id, so the computer's Actions menu
+// and Dashboard history address the SAME job rather than parallel records.
+export async function requestSnapshot(endpointId, reason = "") {
+  const { data } = await api.post("/edr/forensics/snapshots",
+                                  { endpoint_id: endpointId, reason });
+  return data;
+}
+
+export async function listSnapshots(endpointId, limit = 50) {
+  const { data } = await api.get("/edr/forensics/snapshots", {
+    params: { limit, ...(endpointId ? { endpoint_id: endpointId } : {}) } });
+  return data;
+}
+
+export async function snapshotJob(jobId) {
+  const { data } = await api.get(
+    `/edr/forensics/snapshots/${encodeURIComponent(jobId)}`);
+  return data;
+}

@@ -288,3 +288,48 @@ describe("the day navigator agrees with the day on the canvas", () => {
     expect(screen.queryByTestId("v3-nav-window-shifted")).toBeNull();
   });
 });
+
+describe("Computer → Actions → Request forensic snapshot", () => {
+  // The second entry point. It must hand back the SAME job id the dashboard
+  // lists, and it must not pretend a capture happened.
+  it("requests a snapshot for this computer and opens that job", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    api.get.mockImplementation(route({}));
+    api.post.mockResolvedValue({ data: { job_id: "cmd_from_actions",
+                                         status: "QUEUED" } });
+    const opened = [];
+    const realOpen = window.open;
+    window.open = (u) => { opened.push(u); return null; };
+    try {
+      mount();
+      await waitFor(() => expect(screen.getByTestId("v3-actions")).toBeTruthy());
+      fireEvent.click(screen.getByTestId("v3-actions"));
+      fireEvent.click(await screen.findByTestId("v3-ctx-forensic-snapshot"));
+      await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+        "/edr/forensics/snapshots",
+        expect.objectContaining({ endpoint_id: DEVICE })));
+      await waitFor(() => expect(opened.length).toBe(1));
+      expect(opened[0]).toContain("/edr/forensics?device=" + DEVICE);
+      expect(opened[0]).toContain("job=cmd_from_actions");
+    } finally { window.open = realOpen; }
+  });
+
+  it("reports a refusal instead of claiming a capture", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    api.get.mockImplementation(route({}));
+    api.post.mockRejectedValue({ response: { data: { detail: {
+      error: "ENDPOINT_NOT_ENROLLED",
+      reason: "a response cannot be sent to an endpoint that has never enrolled",
+    } } } });
+    const realOpen = window.open;
+    let openedAnything = false;
+    window.open = () => { openedAnything = true; return null; };
+    try {
+      mount();
+      fireEvent.click(await screen.findByTestId("v3-actions"));
+      fireEvent.click(await screen.findByTestId("v3-ctx-forensic-snapshot"));
+      await waitFor(() => expect(api.post).toHaveBeenCalled());
+      expect(openedAnything).toBe(false);
+    } finally { window.open = realOpen; }
+  });
+});

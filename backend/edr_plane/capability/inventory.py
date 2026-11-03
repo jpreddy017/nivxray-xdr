@@ -697,9 +697,16 @@ SERVICE_CAPABILITIES: list[Capability] = [
          gap=GC.CONTROL_DRIVER_MISSING, driver=_A, wave="Wave 2"),
     _cap("backend.service.forensic_snapshot", Plane.BACKEND, "investigation",
          "Forensic snapshot",
-         "Point-in-time endpoint inventory: processes, files, network, "
-         "services, tasks, startup, users, PowerShell, USB, memory metadata.",
-         gap=GC.TELEMETRY_MISSING, wave="Wave 7"),
+         "On-demand PROCESS collection: the Linux sensor performs a fresh "
+         "/proc walk when it claims the job and returns pid, name and path "
+         "with capture start/finish in UTC. Files, network, services, tasks, "
+         "startup, users, PowerShell, USB and memory metadata are NOT "
+         "collected. Stored telemetry is never used to answer a snapshot.",
+         state=FS.REAL_ENDPOINT_VALIDATED,
+         gap=GC.NONE, wave="Wave 7",
+         note="POST/GET /api/edr/forensics/snapshots · "
+              "services/edr/forensic_snapshots.py · "
+              "tests/edr/test_forensic_snapshots.py"),
     _cap("backend.service.live_query", Plane.BACKEND, "investigation",
          "Live query",
          "Ad-hoc real-time query against a live endpoint.",
@@ -836,8 +843,14 @@ _EXPERIENCE = [
      "DESIGN-READY, API missing."),
     ("threat_hunting_ui", "Threat hunting UI", FS.NOT_IMPLEMENTED, _A, _P,
      GC.UI_ONLY, "/edr/hunting · EdrReservedPages.jsx", None),
-    ("forensics_ui", "Forensics UI", FS.NOT_IMPLEMENTED, _A, _P, GC.UI_ONLY,
-     "/edr/forensics · EdrReservedPages.jsx", None),
+    ("forensics_ui", "Forensics UI", FS.REAL_ENDPOINT_VALIDATED, _P, _P,
+     GC.NONE,
+     "/edr/forensics · EdrForensicsPage.jsx · POST+GET "
+     "/api/edr/forensics/snapshots · Computer → Actions → Request forensic "
+     "snapshot (Menu.jsx)",
+     "Process collection only. Both entry points open ONE job id; queued, "
+     "running, completed-with-rows, completed-zero-rows, failed, "
+     "capability-unavailable and timed-out are distinguished on screen."),
     ("live_query_ui", "Live query UI", FS.NOT_IMPLEMENTED, _A, _P,
      GC.UI_ONLY, "/edr/live-query · XdrReservedPage.jsx",
      "Audit finding: UI-only, zero routes. Honestly declared "

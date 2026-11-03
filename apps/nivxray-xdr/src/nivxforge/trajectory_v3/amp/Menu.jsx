@@ -8,7 +8,7 @@ const label = (a) => APPROVALS.find(([k]) => k === a)?.[1];
 
 // AMP device Actions: pivots open another page (›); mutating actions only ever record APPROVAL_REQUESTED.
 export const DEVICE_PIVOTS = [["events", "Events"], ["process-tree", "Process Tree"], ["campaign-story", "Campaign Story"], ["live-query", "Live Query"], ["view-changes", "View Changes"]];
-const DEVICE_MUTATING = (isolated) => ["FORENSIC_SNAPSHOT", isolated ? "STOP_ISOLATION" : "ISOLATE_DEVICE", "RUN_SCAN", "DIAGNOSE_SENSOR", "MOVE_TO_GROUP"];
+const DEVICE_MUTATING = (isolated) => [isolated ? "STOP_ISOLATION" : "ISOLATE_DEVICE", "RUN_SCAN", "DIAGNOSE_SENSOR", "MOVE_TO_GROUP"];
 
 const DT = { "copy-hash": "dt-ctx-copy-hash", "isolate-lineage": "dt-ctx-isolate-lineage", QUARANTINE_FILE: "dt-ctx-quarantine" };
 const Item = ({ id, label: l, onClick, disabled, sub, note }) => (
@@ -25,6 +25,10 @@ function DeviceItems({ menu, onAction }) {
   const pending = menu.pending || {};
   return <>
     {DEVICE_PIVOTS.map(([k, l]) => <Item key={k} id={`dev-${k}`} label={l} sub onClick={() => onAction("pivot", l)} />)}
+    {/* Read-only collection: permission-gated, never approval-gated, so it
+        sits above the approval section rather than inside it. */}
+    <Item id="forensic-snapshot" label="Request forensic snapshot" sub
+          onClick={() => onAction("forensic-snapshot", menu.device)} />
     <Item id="copy-device" label="Copy device id" onClick={() => onAction("copy-path", menu.device)} />
     <Sect>APPROVAL REQUEST ONLY</Sect>
     {DEVICE_MUTATING(menu.isolated).map((a) => <Item key={a} id={a} label={`${label(a)}…`} note={pending[a] ? "Approval requested" : null} onClick={() => onAction("approve", a)} />)}

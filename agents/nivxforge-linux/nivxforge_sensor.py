@@ -77,6 +77,12 @@ CAPABILITIES = {
         "file.actor_process", "registry.*", "usb_device.*", "memory.*",
     ],
     "response_actions": ["KILL_PROCESS"],
+    #: Read-only, on-demand collection. Declared separately from response
+    #: actions because it changes nothing: it answers "what is running NOW"
+    #: with a fresh /proc walk. A platform talking to an older sensor will
+    #: not find this key, and that sensor reports CAPABILITY_UNAVAILABLE at
+    #: command time rather than letting the platform answer from history.
+    "collection_actions": ["COLLECT_PROCESS_SNAPSHOT"],
     #: Declared but privilege-gated. The sensor reports the exact missing
     #: capability at command time rather than claiming containment it
     #: cannot enforce.
@@ -95,6 +101,9 @@ CAPABILITIES = {
         "processes that start and exit within one poll interval are missed "
         "entirely — a visibility gap, not an absence of activity",
         "no eBPF, so no syscall-level fidelity",
+        "a process snapshot is a point-in-time /proc walk: a process that "
+        "starts or exits DURING the walk may be included or missed, and the "
+        "walk is not atomic across the machine",
     ],
 }
 
@@ -1076,7 +1085,71 @@ def _execute_command(cmd: dict, api: str = "") -> tuple[str, str, dict]:
                  "identity_confirmed_before_signal": True})
     if action in ("ISOLATE_ENDPOINT", "RELEASE_ISOLATION"):
         return _execute_isolation(cmd, api)
+    if action == "COLLECT_PROCESS_SNAPSHOT":
+        return _collect_process_snapshot()
     return "FAILED", f"unknown action {action}", {}
+
+
+#: A snapshot is capped so one endpoint cannot post an unbounded body.
+SNAPSHOT_ROW_CAP = 5000
+
+
+def _collect_process_snapshot() -> tuple[str, str, dict]:
+    """A fresh /proc walk: what is running on THIS endpoint, right now.
+
+    Not a replay of what the poller has emitted. Stored telemetry records
+    which processes were first observed, which cannot establish the set that
+    existed at capture time — so this reads the machine or it reports that it
+    could not.
+    """
+    started = _now()
+    rows: list[dict] = []
+    truncated = False
+    try:
+        pids = sorted(int(p.name) for p in Path("/proc").iterdir()
+                      if p.name.isdigit())
+    except OSError as e:
+        return "FAILED", f"/proc is not readable on this endpoint: {e}", {
+            "capture_started_at": started, "capture_finished_at": _now(),
+            "row_count": 0, "rows": []}
+    for pid in pids:
+        if len(rows) >= SNAPSHOT_ROW_CAP:
+            truncated = True
+            break
+        try:
+            name = (Path(f"/proc/{pid}/comm").read_text().strip() or None)
+        except OSError:
+            # The process exited between listing and reading. That is the
+            # walk's own race and is reported, not hidden.
+            continue
+        try:
+            path = os.readlink(f"/proc/{pid}/exe")
+        except OSError as e:
+            path, path_reason = None, type(e).__name__
+        else:
+            path_reason = None
+        row = {"pid": pid, "name": name, "path": path}
+        if path_reason:
+            row["path_unavailable"] = path_reason
+        rows.append(row)
+    finished = _now()
+    evidence = {
+        "capture_started_at": started,
+        "capture_finished_at": finished,
+        "row_count": len(rows),
+        "rows": rows,
+        "rows_truncated": truncated,
+        "sensor_version": SENSOR_VERSION,
+        "collection_basis": ("one /proc walk performed when this command was "
+                             "claimed; no stored telemetry was consulted"),
+        "not_observed": ["command line", "user", "start time",
+                         "image digest",
+                         "processes that started or exited during the walk"],
+    }
+    detail = (f"{len(rows)} process rows captured between {started} and "
+              f"{finished}"
+              + (f" (capped at {SNAPSHOT_ROW_CAP})" if truncated else ""))
+    return "EXECUTED", detail, evidence
 
 
 def _verify_command(cmd: dict, result: tuple) -> dict:
@@ -1140,7 +1213,12 @@ def _serve_commands(api: str, ident: dict, session: dict) -> int:
               {"command_id": cmd["command_id"], "outcome": outcome,
                "detail": detail, "evidence": evidence},
               bearer=session["token"])
-        if outcome == "EXECUTED":
+        if outcome == "EXECUTED" and cmd.get("action") == "COLLECT_PROCESS_SNAPSHOT":
+            # Deliberately NOT verified. The rows are the evidence; a second
+            # /proc walk cannot prove what the first one saw, and claiming
+            # VERIFIED here would dress a re-read up as proof.
+            print(f"[{_now()}]   collection reported; not verified by design")
+        elif outcome == "EXECUTED":
             if cmd.get("action") in ("ISOLATE_ENDPOINT",
                                      "RELEASE_ISOLATION"):
                 probe = _verify_isolation({**cmd, "_applied": evidence}, api)
