@@ -103,6 +103,34 @@ true, but the shape was a report, not a trajectory.
   and offers "Back to today". Verified: strip Aug 24 – Sep 22 with **8**
   selected. Frontend tests 28 files / **417 passed**.
 
+### Forensic Snapshots — BUILT and captured live (2026-11-03, `95f81a2a`)
+
+The gap below was closed rather than worked around: the Linux sensor gained
+`COLLECT_PROCESS_SNAPSHOT`, a fresh `/proc` walk performed when the command is
+claimed, returning pid / name / path with capture start and finish in UTC.
+
+- One job is one response-plane command, so the job id is the command id and
+  **both entry points open the same record**: Computer → Actions → Request
+  forensic snapshot, and Dashboard → Forensic Snapshots for history. AMP's
+  camera-on-the-event is offered too, worded "captures it now".
+- Live capture `cmd_b3e31417ab4245bc8ff6` — 30 process rows, captured
+  2026-11-03 15:12:26Z, same job id in dashboard history.
+- Statuses kept apart: queued, running, completed-with-rows,
+  completed-ZERO-rows, failed, capability-unavailable, timed-out (180s). An
+  older sensor answers CAPABILITY_UNAVAILABLE and history is never used in its
+  place.
+- Read-only: permission-gated, never approval-gated, never marked VERIFIED.
+  The duplicate approval-only snapshot stub was removed.
+- Sections list all eight areas Cisco's Orbital snapshot covers with
+  COLLECTED / NOT_COLLECTED and a reason, plus a stated retention position.
+- Caught by the live run, not by a test: the redelivery guard matched the
+  `sensor_result: None` placeholder and swallowed the first real result, which
+  then timed out (`cmd_8f07875923d34708ab3f`, still visible as evidence).
+- Tests: backend 11 (disposable DB), frontend 29 files / 429. Evidence:
+  `_preservation/mongo-nofile-20261102/FORENSIC_SNAPSHOTS_95f81a2a.md`.
+- Capability registry updated: `backend.service.forensic_snapshot` and
+  `experience.forensics_ui` → REAL_ENDPOINT_VALIDATED (process collection only).
+
 ### Forensic Snapshots — traced, NOT built (2026-11-03)
 
 The endpoint collection capability is missing, and the gap was named before any
