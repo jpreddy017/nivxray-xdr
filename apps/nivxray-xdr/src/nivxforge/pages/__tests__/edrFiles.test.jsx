@@ -52,6 +52,7 @@ const payload = (over = {}) => ({
                 last_observed: ELSEWHERE.observed_at, endpoints: 2 },
   entry_points: [{ endpoint_id: DEVICE, hostname: "agent-env-630704a1",
                    first_observed: SHIFTED.observed_at }],
+  entry_point_basis: "the earliest observation of this digest in this customer. An endpoint seeing the same digest is not evidence that the file moved there from another endpoint; transfer is not observed.",
   activity_breakdown: { PROCESS_OBSERVED: 3 },
   attributes: { sha256: HASH, known_names: ["dash"], users: ["root"],
                 parent_images: ["/usr/bin/bash"], sensor_versions: ["0.1.0"],
@@ -124,7 +125,7 @@ describe("the Cisco Secure Endpoint layout", () => {
     // The entry point is the earliest observation, and the page says so rather
     // than claiming the file arrived there.
     expect(screen.getByTestId("edr-files-entry-point").textContent)
-      .toMatch(/not the same as proof of where it arrived from/);
+      .toMatch(/not evidence that the file moved there/);
   });
 
   it("draws one lane per computer and one glyph per sighting", async () => {
@@ -150,7 +151,7 @@ describe("the Cisco Secure Endpoint layout", () => {
     mount();
     const legend = await screen.findByTestId("edr-files-legend");
     expect(legend.textContent).toMatch(/moved · scanned · quarantined · written · deleted/);
-    expect(legend.textContent).toMatch(/created — a FILE\/CREATE in a watched directory/);
+    expect(legend.textContent).toMatch(/file created — in a directory the sensor watches/);
     fireEvent.click(screen.getByTestId("edr-files-details-toggle"));
     expect(screen.getByTestId("edr-files-not-collected").textContent)
       .toMatch(/signing certificate/);
@@ -170,21 +171,45 @@ describe("the Cisco Secure Endpoint layout", () => {
       .toContain("at=2026-09-23T18%3A28%3A31.162868%2B00%3A00");
   });
 
-  it("filters the graphic by path and says the counts still describe everything read", async () => {
+  it("filters on the SERVER across every sighting, not on the rows it holds", async () => {
+    // The real failure this replaces: /var/tmp creations are older than the
+    // newest 300 executions, so filtering the returned rows found nothing and
+    // read as "never created there".
     api.get.mockResolvedValue({ data: payload() });
     mount();
     await screen.findByTestId("edr-files-graphic");
+    api.get.mockClear();
+    api.get.mockResolvedValue({ data: payload({
+      total_sightings: 24, total_sightings_unfiltered: 809,
+      filter: { path_contains: "/var/tmp", matched_sightings: 24,
+                of_sightings: 809, applied: "across every authorized sighting" },
+    }) });
     fireEvent.change(screen.getByTestId("edr-files-path-filter"),
                      { target: { value: "/var/tmp" } });
-    await waitFor(() => expect(screen.queryByTestId("edr-files-lane-1")).toBeNull());
-    expect(screen.getByTestId("edr-files-filtered-note").textContent)
-      .toMatch(/counts above still describe everything that was read/);
-    expect(screen.getByTestId("edr-files-result").getAttribute("data-total")).toBe("3");
-    fireEvent.change(screen.getByTestId("edr-files-path-filter"),
-                     { target: { value: "/nothing-matches" } });
-    await waitFor(() => expect(screen.getByTestId("edr-files-filter-empty")).toBeTruthy());
-    expect(screen.getByTestId("edr-files-filter-empty").textContent)
-      .toMatch(/it does not re-read/);
+    fireEvent.click(screen.getByTestId("edr-files-path-filter-apply"));
+
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(api.get.mock.calls[0][1].params.path_contains).toBe("/var/tmp");
+
+    const note = await screen.findByTestId("edr-files-filtered-note");
+    expect(note.getAttribute("data-matched")).toBe("24");
+    expect(note.getAttribute("data-of")).toBe("809");
+    expect(note.textContent).toMatch(/not only the newest ones/);
+    expect(screen.getByTestId("edr-files-result").getAttribute("data-total")).toBe("24");
+  });
+
+  it("calls a filtered zero a real zero, because the server matched everything", async () => {
+    api.get.mockResolvedValue({ data: payload({
+      total_sightings: 0, total_sightings_unfiltered: 809, endpoints: [],
+      filter: { path_contains: "/nothing-matches", matched_sightings: 0,
+                of_sightings: 809, applied: "across every authorized sighting" },
+    }) });
+    render(
+      <MemoryRouter initialEntries={[`/edr/files?sha256=${HASH}&path=/nothing-matches`]}>
+        <EdrFilesPage />
+      </MemoryRouter>);
+    const empty = await screen.findByTestId("edr-files-none");
+    expect(empty.textContent).toMatch(/honest zero/);
   });
 });
 
@@ -334,5 +359,53 @@ describe("a ringed mark the graphic cannot show is named, not implied", () => {
     mount();
     await screen.findByTestId("edr-files-result");
     expect(screen.queryByTestId("edr-files-graphic-shift-offaxis")).toBeNull();
+  });
+});
+
+describe("an individual sighting inside a group stays reachable", () => {
+  // A grouped marker opens the NEWEST member. The older members have to be
+  // selectable too, or the evidence the analyst wants is behind a mark that
+  // keeps answering with a different event.
+  it("follows the exact evidence id selected from Event history", async () => {
+    api.get.mockResolvedValue({ data: payload() });
+    mount();
+    const rows = await screen.findAllByTestId(/^edr-files-event-row-\d+$/);
+    expect(rows.length).toBeGreaterThan(1);
+
+    // the OLDEST row — the one a grouped marker would not open
+    fireEvent.click(rows[rows.length - 1]);
+    const d = await screen.findByTestId("edr-files-detail");
+    expect(d.getAttribute("data-raw-id")).toBe("raw_shift");
+    // it is this sighting's own evidence, not the group's lead
+    expect(screen.queryByTestId("edr-files-detail-covers")).toBeNull();
+    expect(d.textContent).toContain("raw_shift");
+    // and the pivot carries THIS sighting's endpoint and observed time
+    const href = screen.getByTestId("edr-files-detail-open").getAttribute("href");
+    expect(href).toContain(`device=${DEVICE}`);
+    expect(href).toContain("at=2026-09-23T18%3A28%3A31.162868%2B00%3A00");
+  });
+
+  it("labels polling records as observations, not as launches", async () => {
+    api.get.mockResolvedValue({ data: payload({
+      process_observation_basis: "PROCESS_OBSERVED is one row per process identity that /proc polling actually saw, so this is a count of observations, not of launches.",
+      activity_breakdown_unfiltered: { PROCESS_OBSERVED: 797, CREATE: 12 },
+    }) });
+    mount();
+    const rows = await screen.findAllByTestId(/^edr-files-event-row-\d+$/);
+    expect(rows[0].textContent).toContain("Process observed");
+    fireEvent.click(screen.getByTestId("edr-files-details-toggle"));
+    expect(screen.getByTestId("edr-files-attribute-facts").textContent)
+      .toMatch(/Process observed ×797 · File created ×12/);
+    expect(screen.getByTestId("edr-files-observation-basis").textContent)
+      .toMatch(/count of observations, not of launches/);
+  });
+
+  it("names which field supplied the path, so the digest's subject is clear", async () => {
+    api.get.mockResolvedValue({ data: payload() });
+    mount();
+    const rows = await screen.findAllByTestId(/^edr-files-event-row-\d+$/);
+    fireEvent.click(rows[0]);
+    const d = await screen.findByTestId("edr-files-detail");
+    expect(d.textContent).toMatch(/Path source/);
   });
 });

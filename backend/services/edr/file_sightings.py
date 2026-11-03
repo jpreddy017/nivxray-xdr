@@ -52,18 +52,39 @@ def _day(ts: Optional[str]) -> Optional[str]:
     return str(ts)[:10] if ts else None
 
 
+#: Which payload field supplied a sighting's path, traced to the sensor
+#: (`agents/nivxforge-linux/nivxforge_sensor.py`):
+#:   * `image_path` — `collect_processes` reads `/proc/<pid>/exe` and hashes
+#:     THAT file, so the digest belongs to the executed image at this path.
+#:   * `path` — `collect_files` walks the watched directory and hashes the
+#:     file it found, so the digest belongs to the file created at this path.
+#: Naming the field is the difference between "this ran" and "this appeared".
+PATH_FIELDS = ("image_path", "image", "path")
+
+
+def _path_of(payload: Dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    for f in PATH_FIELDS:
+        v = payload.get(f)
+        if v:
+            return str(v), f
+    return None, None
+
+
 def _sighting(doc: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     observed = payload.get("observed_at")
     ingested = doc.get("ingest_time")
     ingested = ingested if isinstance(ingested, str) else (
         ingested.isoformat() if ingested else None)
+    path, path_field = _path_of(payload)
     return {
         "raw_id": doc.get("raw_id"),
         "endpoint_id": doc.get("endpoint_ref"),
         # A PROCESS_OBSERVED event names the executed image; a FILE/CREATE
         # event names the file it created. Both are this digest's own path.
-        "path": (payload.get("image_path") or payload.get("image")
-                 or payload.get("path")),
+        "path": path,
+        "path_field": path_field,
+        "size": payload.get("size"),
+        "start_time": payload.get("start_time"),
         "activity_family": payload.get("activity"),
         "image": payload.get("image"),
         "activity": payload.get("operation") or payload.get("activity"),
@@ -87,12 +108,20 @@ def _sighting(doc: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def sightings(sha256: str, tenant_id: str,
-              limit: int = DEFAULT_LIMIT) -> Dict[str, Any]:
+              limit: int = DEFAULT_LIMIT,
+              path_contains: Optional[str] = None) -> Dict[str, Any]:
     """Every sighting of one content digest within ONE customer.
 
     `tenant_id` is the server-resolved acting customer (see
     `routers.edr_tenancy.edr_tenant`); it is never taken from the query, so a
     hash cannot be used to read another customer's endpoints.
+
+    `path_contains` is applied to EVERY authorized sighting before the
+    per-endpoint limit. Filtering only the rows a capped read happened to
+    return would hide the very creations an analyst filters for: the 12
+    `/var/tmp` creations of `17a623f3…` are older than its newest 300
+    executions, so a client-side filter finds nothing and reads as "never
+    created there".
     """
     key = (sha256 or "").strip().lower()
     if not SHA256_RE.match(key):
@@ -124,6 +153,29 @@ def sightings(sha256: str, tenant_id: str,
         rows.append(_sighting(d, payload))
 
     rows.sort(key=lambda r: str(r.get("observed_at") or ""), reverse=True)
+
+    # ── the path filter, across the WHOLE history, before any limit ──────────
+    needle = (path_contains or "").strip()
+    all_rows = rows
+    if needle:
+        rows = [r for r in all_rows
+                if needle.lower() in str(r.get("path") or "").lower()]
+    filter_state = {
+        "path_contains": needle or None,
+        "matched_sightings": len(rows),
+        "of_sightings": len(all_rows),
+        "applied": ("across every authorized sighting, before the "
+                    "per-endpoint limit"),
+    } if needle else {"path_contains": None, "matched_sightings": None,
+                      "of_sightings": len(all_rows), "applied": None}
+
+    # Every path the digest was ever seen at stays visible even under a
+    # filter: File details is where an analyst learns a /var/tmp copy exists
+    # in the first place, and hiding it would hide the reason to filter.
+    all_paths: List[str] = []
+    for r in all_rows:
+        if r.get("path") and r["path"] not in all_paths:
+            all_paths.append(r["path"])
 
     # ── per-endpoint rollup, hostname only where the endpoint is registered ──
     refs = sorted({r["endpoint_id"] for r in rows if r.get("endpoint_id")})
@@ -193,58 +245,105 @@ def sightings(sha256: str, tenant_id: str,
                     for e in endpoint_rows if e.get("first_observed") == first_seen]
 
     names: List[str] = []
-    for p in paths:
+    for p in all_paths:
         leaf = str(p).replace("\\", "/").split("/")[-1]
         if leaf and leaf not in names:
             names.append(leaf)
 
-    def _distinct(field: str) -> List[Any]:
+    def _distinct(field: str, source: Optional[List[Dict[str, Any]]] = None) -> List[Any]:
         out: List[Any] = []
-        for r in rows:
+        for r in (all_rows if source is None else source):
             v = r.get(field)
             if v and v not in out:
                 out.append(v)
         return out
 
-    activity_breakdown: Dict[str, int] = {}
-    for r in rows:
-        a = r.get("activity") or "UNSPECIFIED"
-        activity_breakdown[a] = activity_breakdown.get(a, 0) + 1
+    def _breakdown(source: List[Dict[str, Any]]) -> Dict[str, int]:
+        out: Dict[str, int] = {}
+        for r in source:
+            a = r.get("activity") or "UNSPECIFIED"
+            out[a] = out.get(a, 0) + 1
+        return out
+
+    activity_breakdown = _breakdown(rows)
+    # Which payload field named the path, per event type. This is the
+    # reconciliation between "14 recorded paths" and the sighting counts:
+    # PROCESS_OBSERVED paths come from `image_path`, FILE/CREATE paths from
+    # `path`, and a file that was both created and executed appears in both.
+    path_provenance: Dict[str, Dict[str, Any]] = {}
+    for r in all_rows:
+        prov_key = f"{r.get('activity_family') or '?'}/{r.get('activity') or '?'}"
+        ent = path_provenance.setdefault(
+            prov_key, {"sightings": 0, "path_field": r.get("path_field"),
+                       "distinct_paths": 0, "_seen": set()})
+        ent["sightings"] += 1
+        if r.get("path"):
+            ent["_seen"].add(r["path"])
+    for ent in path_provenance.values():
+        ent["distinct_paths"] = len(ent.pop("_seen"))
 
     return {
         "ok": True,
         "sha256": key,
         "tenant": tenant_id,
         "total_sightings": len(rows),
+        "total_sightings_unfiltered": len(all_rows),
+        "filter": filter_state,
         "endpoint_count": len(endpoint_rows),
         "endpoints": endpoint_rows,
         "observed_paths": paths,
+        "all_observed_paths": all_paths,
         "observed_names": names,
+        "path_provenance": path_provenance,
+        "activity_breakdown_unfiltered": _breakdown(all_rows),
         "visibility": {
             "first_observed": min(observed) if observed else None,
             "last_observed": max(observed) if observed else None,
             "endpoints": len(endpoint_rows),
-            "basis": "every sighting read for this customer",
+            "basis": ("every sighting matching the path filter" if needle
+                      else "every sighting read for this customer"),
         },
         "entry_points": entry_points,
+        "entry_point_basis": (
+            "the earliest observation among sightings matching the path filter"
+            if needle else
+            "the earliest observation of this digest in this customer. An "
+            "endpoint seeing the same digest is not evidence that the file "
+            "moved there from another endpoint; transfer is not observed."),
         "activity_breakdown": activity_breakdown,
+        # What a PROCESS_OBSERVED count is and is not. `collect_processes`
+        # emits once per (pid, start_ticks) read from /proc, so each row is a
+        # distinct observed process identity — but discovery is polling, and
+        # anything that starts and exits inside one interval is never seen.
+        # So this is a count of OBSERVATIONS, never a count of launches.
+        "process_observation_basis": (
+            "PROCESS_OBSERVED is one row per process identity (pid + kernel "
+            "start counter) that /proc polling actually saw. Processes that "
+            "started and exited within a poll interval were never observed, "
+            "so this is a count of observations, not of launches."),
         "attributes": {
             "sha256": key,
             "known_names": names,
-            "known_paths": paths,
+            "known_paths": all_paths,
+            "sizes_bytes": _distinct("size"),
             "users": _distinct("user"),
             "parent_images": _distinct("parent_image"),
             "sensor_versions": _distinct("sensor_version"),
             "collection_methods": _distinct("collection_method"),
         },
-        # Cisco AMP shows size, real file type, signing certificate, disposition
-        # and a network profile here. None of them exist on this substrate, and
-        # an empty field an analyst reads as "clean" is worse than a stated gap.
+        # Cisco AMP shows size, real file type, signing certificate,
+        # disposition and a network profile here. Size IS collected — but only
+        # on FILE events, where the sensor stat()s the file it found; a process
+        # observation carries no size. The rest do not exist on this substrate,
+        # and an empty field an analyst reads as "clean" is worse than a stated
+        # gap.
         "not_collected": [
-            "file size", "real file type", "signing certificate",
+            "file size on process observations (collected on FILE events only)",
+            "real file type", "signing certificate",
             "file disposition / reputation", "network profile (ports, IPs, URLs)",
             "moved, scanned and quarantined events",
             "file creation outside the paths the sensor watches",
+            "which process created a file — the writer is never attributed",
         ],
         "first_observed": min(observed) if observed else None,
         "last_observed": max(observed) if observed else None,
@@ -253,6 +352,15 @@ def sightings(sha256: str, tenant_id: str,
         "scanned": len(docs),
         "truncated": len(docs) >= SCAN_CAP,
         "evidence_basis": EVIDENCE_BASIS,
+        "digest_basis": {
+            "PROCESS/PROCESS_OBSERVED": (
+                "collect_processes reads /proc/<pid>/exe and hashes THAT file: "
+                "the digest is the executed image at image_path"),
+            "FILE/CREATE": (
+                "collect_files walks the watched directory and hashes the file "
+                "it found: the digest is the file created at path, read at "
+                "observation time"),
+        },
         "time_basis": ("payload.observed_at — the time the ENDPOINT observed "
                        "the execution, not the time the record was ingested"),
         "collection_limit": ("The sensor reports the digest of an executed image, "
