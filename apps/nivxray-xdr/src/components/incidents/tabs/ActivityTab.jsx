@@ -71,7 +71,7 @@ export default function ActivityTab({ incident }) {
           <div className="section-title">Canonical Activity Inventory</div>
           <div className="x-subtle" style={{ marginTop: 4 }}>
             One canonical object drives every panel (owner rule #19).
-            Full temporal canvas lives at <span className="mono" style={{ color: "var(--xcyan)" }}>/edr/trajectory</span>.
+            Full temporal canvas lives at <span className="mono" style={{ color: "var(--xcyan)" }}>/edr/device-trajectory</span>.
           </div>
         </div>
         <OpenInEdr
