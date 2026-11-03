@@ -140,3 +140,17 @@ describe("the lookup answers honestly", () => {
       .toMatch(/more sightings than one read returns/);
   });
 });
+
+describe("no customer is a prompt, not a failure", () => {
+  it("asks for a customer instead of reporting a red error", async () => {
+    api.get.mockRejectedValue({ response: { status: 403, data: { detail: {
+      code: "TENANT_REQUIRED",
+      reason: "platform-scoped principal must name the customer it is operating in" } } } });
+    mount();
+    const box = await screen.findByTestId("edr-files-no-customer");
+    expect(box.getAttribute("data-code")).toBe("TENANT_REQUIRED");
+    expect(box.textContent).toMatch(/Select a customer/);
+    expect(screen.queryByTestId("edr-files-error")).toBeNull();
+    expect(screen.queryByTestId("edr-files-none")).toBeNull();
+  });
+});

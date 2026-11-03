@@ -96,9 +96,16 @@ export default function EdrFilesPage() {
     setLoading(true); setErr(null);
     fileSightings(hash)
       .then((d) => setData(d))
-      .catch((e) => setErr(e?.response?.data?.detail?.reason
-                           || e?.response?.data?.detail?.error
-                           || e?.message || String(e)))
+      .catch((e) => {
+        const detail = e?.response?.data?.detail || {};
+        // "Pick a customer first" is not a failure of the read, and must not
+        // be dressed in red as one.
+        setErr({
+          neutral: ["TENANT_REQUIRED", "TENANT_NOT_RESOLVED"].includes(detail.code),
+          code: detail.code || null,
+          text: detail.reason || detail.error || e?.message || String(e),
+        });
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -153,11 +160,19 @@ export default function EdrFilesPage() {
         )}
 
         {err && !loading && (
-          <div className="x-empty" data-testid="edr-files-error"
-               style={{ color: "var(--red)" }}>
-            The sighting read failed: {err}. No evidence was returned, so this
-            is not an absence of sightings.
-          </div>
+          err.neutral ? (
+            <div className="x-empty" data-testid="edr-files-no-customer"
+                 data-code={err.code}>
+              Select a customer to look up a file. Sightings are read within one
+              customer, so there is nothing to search until you name it.
+            </div>
+          ) : (
+            <div className="x-empty" data-testid="edr-files-error"
+                 data-code={err.code} style={{ color: "var(--red)" }}>
+              The sighting read failed: {err.text}. No evidence was returned, so
+              this is not an absence of sightings.
+            </div>
+          )
         )}
 
         {data && !loading && !err && data.ok === false && (
