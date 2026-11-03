@@ -42,8 +42,9 @@ import {
 } from "./tenantContext";
 import {
   activeTenant, bindServerTenant, sealTenantAuthority, serverBoundTenant,
-  setActiveTenant, TENANT_BOUND_EVENT,
+  setActiveTenant, TENANT_BOUND_EVENT, TENANT_HEADER,
 } from "@/lib/tenant";
+import api from "@/lib/api";
 import "./nivxforge.css";
 import "./nvf-ops.css";
 
@@ -217,7 +218,7 @@ export function IncidentContextBanner() {
 export default function NivXForgeConsole({ activeTab, children }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
 
   const active = useMemo(() => {
     if (activeTab) return activeTab;
@@ -231,6 +232,9 @@ export default function NivXForgeConsole({ activeTab, children }) {
   const [sessState, setSessState] = useState("loading");
   const [sessAttempt, setSessAttempt] = useState(0);
   const [tenant, setTenant] = useState(() => activeTenant());
+  // A cross-product deep link NAMES a customer; this is what the server said
+  // about it. "refused" must never silently become another customer.
+  const [tenantAdoption, setTenantAdoption] = useState(null);
   const tenants = useMemo(() => {
     const named = (sess?.customers || []).map((c) => c.customer);
     const scoped = sess?.tenant_scope?.tenant_ids || [];
@@ -283,12 +287,49 @@ export default function NivXForgeConsole({ activeTab, children }) {
       setTenant(bound);
     } else if (control === CONTROL_SWITCHABLE) {
       // Only now may a deep link's `?tenant=` become the selection: the
-      // SERVER said this principal has more than one customer. The server
-      // still re-authorises the value on every request.
+      // SERVER said this principal has more than one customer. It is still
+      // not adopted on the browser's word — a cross-product deep link from
+      // XDR NAMES a customer, and the server decides whether this principal
+      // may act in it (`POST /edr/session/active-tenant`, the same authority
+      // the picker uses). A refusal leaves the previous selection alone and
+      // is stated, never swapped for a customer the analyst did not ask for.
       const fromUrl = (params.get("tenant") || "").trim();
-      if (fromUrl && fromUrl !== activeTenant()) setActiveTenant(fromUrl);
+      if (fromUrl && fromUrl !== activeTenant()) {
+        let live = true;
+        setTenantAdoption({ state: "pending", tenant: fromUrl });
+        api.post("/edr/session/active-tenant", null,
+                 { headers: { [TENANT_HEADER]: fromUrl } })
+          .then(() => {
+            if (!live) return;
+            setActiveTenant(fromUrl);
+            setTenant(fromUrl);
+            setTenantAdoption({ state: "adopted", tenant: fromUrl });
+            // Surfaces below this console resolved the acting customer on
+            // their first render, before this answer arrived. Re-announce
+            // the binding so they re-read it instead of sitting on
+            // "select a customer" while every request already carries it.
+            window.dispatchEvent(new CustomEvent(TENANT_BOUND_EVENT,
+                                                 { detail: fromUrl }));
+            // Consume the parameter. A link states an OPENING customer, not a
+            // standing instruction: left in the URL it re-applies on the next
+            // reload and silently undoes a switch the analyst just made.
+            const rest = new URLSearchParams(params);
+            rest.delete("tenant");
+            setParams(rest, { replace: true });
+          })
+          .catch((e) => {
+            if (!live) return;
+            setTenant(activeTenant());
+            setTenantAdoption({
+              state: "refused", tenant: fromUrl,
+              code: e?.response?.data?.detail?.code || "TENANT_REFUSED",
+            });
+          });
+        return () => { live = false; };
+      }
       setTenant(activeTenant());
     }
+    return undefined;
   }, [gate, control, bound, params]);
 
   // WAVE UI-1 · the Cisco Secure Endpoint console is LIGHT-FIRST, and the
@@ -378,6 +419,18 @@ export default function NivXForgeConsole({ activeTab, children }) {
           Endpoint detection &amp; response
         </span>
         <span style={{ flex: 1 }} />
+        {tenantAdoption?.state === "refused" && (
+          <span data-testid="nvf-tenant-link-refused"
+                data-code={tenantAdoption.code}
+                title={`The link named customer "${tenantAdoption.tenant}", `
+                  + "and the server refused this session for it. No other "
+                  + "customer was substituted."}
+                style={{ fontSize: 10, letterSpacing: .4, color: "#f59e0b",
+                         border: "1px solid #f59e0b", borderRadius: 4,
+                         padding: "2px 7px", marginRight: 8 }}>
+            ◇ linked customer refused ({tenantAdoption.code})
+          </span>
+        )}
         {control === CONTROL_SWITCHABLE
           ? <CustomerPicker customers={authorizedCustomers(sess)}
                             withEvidence={tenants}

@@ -85,7 +85,19 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const customer = useActingCustomer();
   const now = useRef(Date.now()).current;
   const perf = Number(params.get("perf") || 0);
-  const t0 = Number(params.get("t0")) || now - DAY, t1 = Number(params.get("t1")) || now;
+  // A cross-product deep link from an XDR incident states the range the
+  // incident is ABOUT (`time_start`/`time_end`). Opening on "the last 24
+  // hours" instead would silently show a different period than the link
+  // promised. In-canvas navigation still writes t0/t1, which wins.
+  const linkMs = (k) => {
+    const v = params.get(k);
+    if (!v) return 0;
+    const ms = Date.parse(v);
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  const linkT0 = linkMs("time_start"), linkT1 = linkMs("time_end");
+  const t0 = Number(params.get("t0")) || linkT0 || now - DAY;
+  const t1 = Number(params.get("t1")) || (linkT0 && linkT1 > linkT0 ? linkT1 : 0) || now;
   const view = useMemo(() => ({ t0, t1 }), [t0, t1]);
   const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event"), att = params.get("att");
   const sev = params.get("sev"), ioc = params.get("ioc"), scenario = params.get("scenario") || undefined;

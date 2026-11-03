@@ -9,6 +9,7 @@
  */
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 
 import { NxEntity, NxButton, NxSection, NxChip } from "@/xdr/nx";
 import { pivotsFor } from "./investigationPivots";
@@ -78,14 +79,26 @@ export default function IncidentEntities({ incident, canRespond,
               {e.source}
             </NxChip>
             <span style={{ flex: 1 }} />
-            {pivots.map((p) => (
+            {pivots.map((p) => (p.newTab ? (
+              <a key={p.label} href={p.to} target="_blank"
+                 rel="noopener noreferrer" title={p.why}
+                 className="nx-btn"
+                 data-testid={`${testid}-pivot-${i}-${p.label
+                   .toLowerCase().replace(/[^a-z]+/g, "-")}`}
+                 style={{ display: "inline-flex", alignItems: "center",
+                          gap: 6, textDecoration: "none" }}>
+                {p.label}
+                <ExternalLink size={11} aria-hidden="true" />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            ) : (
               <NxButton key={p.label} onClick={() => navigate(p.to)}
                         title={p.why}
                         testid={`${testid}-pivot-${i}-${p.label
                           .toLowerCase().replace(/[^a-z]+/g, "-")}`}>
                 {p.label}
               </NxButton>
-            ))}
+            )))}
             {respondable && (
               <NxButton variant="primary" onClick={() => onRespond(e)}
                         title="Request a response against this endpoint. Approval, dispatch, execution and independent verification remain five separate facts."

@@ -14,6 +14,8 @@
 
 const enc = encodeURIComponent;
 
+import { buildEdrTrajectoryLink } from "@/xdr/components/OpenInEdr";
+
 /** Event Explorer reads `q · host · channel · event_id · user · process`. */
 export function pivotRelatedEvents(entity, incident) {
   if (!entity?.value) return null;
@@ -52,17 +54,32 @@ export function pivotIocIntelligence(entity, incident) {
   };
 }
 
-/** Device / process trajectory — endpoint identity is required. */
+/** Device / process trajectory — endpoint identity is required.
+ *
+ *  This one LEAVES the product: Device Trajectory is a NivXForge EDR
+ *  surface. It opens in a new tab so the incident being read here stays
+ *  open, and it carries the customer, the incident and the incident's
+ *  time range so the canvas opens on the evidence rather than on an
+ *  unrelated present. EDR re-authorises every one of those server-side.
+ */
 export function pivotTrajectory(entity, incident) {
   const device = entity?.kind === "device" || entity?.kind === "server"
     ? (entity.id || entity.value) : null;
   if (!device) return null;
-  const qs = new URLSearchParams({ device });
-  if (incident?.id) qs.set("incident", incident.id);
+  const { href } = buildEdrTrajectoryLink({
+    device,
+    incidentId: incident?.id,
+    tenant: incident?.tenant,
+    timeStart: incident?.created_at,
+    timeEnd: incident?.updated_at,
+  });
   return {
-    to: `/xdr/edr/device-trajectory?${qs.toString()}`,
+    to: href,
     label: "Process / device trajectory",
-    why: "Endpoint event stream for this device, anchored on this incident",
+    why: "Endpoint event stream for this device in NivXForge EDR, anchored on "
+       + "this incident — opens in a new tab, this incident stays open",
+    newTab: true,
+    product: "edr",
   };
 }
 

@@ -239,9 +239,10 @@ export default function XdrIncidentDetailPage() {
           device={incident.endpoint_campaign?.endpoint_id
                   || incident.endpoint_campaign?.device_ref
                   || incident.endpoint_campaign?.device_iid}
-          incident={incident.id}
-          disabledReason="This incident carries no endpoint identity, so no
-                          trajectory can be opened for it."
+          incidentId={incident.id}
+          tenant={incident.tenant}
+          timeStart={incident.created_at}
+          timeEnd={incident.updated_at}
         />
       </>
     );
