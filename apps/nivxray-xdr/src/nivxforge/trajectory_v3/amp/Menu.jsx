@@ -43,7 +43,10 @@ export function ContextMenu({ menu, onAction }) {
         <Item id="copy-path" label="Copy path" disabled={!it?.target?.path} onClick={() => onAction("copy-path", it.target.path)} />
         <Item id="search" label="Search trajectory" onClick={() => onAction("search", it?.target?.label)} />
         <Item id="isolate-lineage" label="Isolate lineage" onClick={() => onAction("isolate", it)} />
-        <Item id="file-trajectory" label="Open File Trajectory (not yet built)" sub onClick={() => onAction("nyb", "File Trajectory")} />
+        <Item id="file-trajectory"
+              label={hash ? "View File Trajectory" : "View File Trajectory (no hash on this event)"}
+              disabled={!hash} sub={!!hash}
+              onClick={() => onAction("file-trajectory", hash)} />
         <Item id="file-analysis" label="File Analysis (not yet built)" sub onClick={() => onAction("nyb", "File Analysis")} />
         <Sect>APPROVAL REQUEST ONLY</Sect>
         {APPROVALS.slice(0, 4).map(([a, l]) => <Item key={a} id={a} label={`${a === "ISOLATE_DEVICE" ? "Isolate device" : l}…`} onClick={() => onAction("approve", a)} />)}

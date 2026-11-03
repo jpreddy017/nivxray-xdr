@@ -79,8 +79,7 @@ const NAV = [
       reason: "Endpoint hunting over the raw evidence store is not "
         + "implemented in this wave." },
     { key: "files", label: "Files", icon: FileText,
-      reason: "The sensor does not collect file-system observation yet, so "
-        + "there is no file evidence to present." },
+      to: "/edr/files" },
     { key: "network", label: "Network", icon: Wifi,
       reason: "Endpoint-observed connections and DNS are not collected by "
         + "the current sensor." },

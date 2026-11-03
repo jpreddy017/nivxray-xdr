@@ -364,6 +364,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
     else if (a === "search") { upd({ q: v }); setHitIdx(-1); }
     else if (a === "isolate") upd({ iso: v.ev.event_iid });
     else if (a === "nyb") say(`${v} is not yet built`);
+    // The file investigation is its own surface: open it in a new tab so this
+    // device canvas, and whatever the analyst was reading on it, stays put.
+    else if (a === "file-trajectory") {
+      window.open(`/edr/files?sha256=${encodeURIComponent(v)}`,
+                  "_blank", "noopener,noreferrer");
+    }
     else if (a === "pivot") say(`${v} opens in the XDR console (not wired in this preview)`);
     else if (a === "approve") setApproval({ action: v, it: menu?.deviceOnly ? null : it, device: !!menu?.deviceOnly, target: menu?.deviceOnly || v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });
   };

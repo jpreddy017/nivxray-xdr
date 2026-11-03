@@ -177,3 +177,14 @@ export async function getSessionContext() {
   const { data } = await api.get("/xdr/rbac/session-context");
   return data?.data || null;
 }
+
+/**
+ * P1.8b · every sighting of ONE content digest inside the acting customer.
+ * The customer is resolved server-side from the session; the hash is only a
+ * key within it and can never widen the read.
+ */
+export async function fileSightings(sha256, limit = 300) {
+  const { data } = await api.get(
+    `/edr/files/${encodeURIComponent(sha256)}/sightings`, { params: { limit } });
+  return data;
+}
