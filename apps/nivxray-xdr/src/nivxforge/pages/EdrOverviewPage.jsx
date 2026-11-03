@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import { Radar, ShieldAlert, GitBranch, FileText, Wifi, ArrowRight } from "lucide-react";
 
 import NivXForgeConsole, { useIncidentContext } from "@/nivxforge/NivXForgeConsole";
+import EdrDashboardBody from "@/nivxforge/pages/EdrDashboardBody";
 import { getEdrCapabilities } from "@/nivxforge/edrApi";
 import { TelemetryFreshnessBanner }
   from "@/nivxforge/components/TelemetryFreshness";
@@ -37,13 +38,7 @@ const SURFACES = [
     hint: "Parent → child ancestry from canonical process identities." },
   { key: "files",        label: "Files",             to: "/edr/files",
     icon: FileText,    capability: "experience.file_trajectory_ui",
-    // The capability is real, but the surface that delivers it today is
-    // the XDR-hosted Fleet File Trajectory. The EDR route is still a
-    // reserved stub, so this product must not offer to open it.
-    stubInThisProduct: "the file-trajectory capability is graded implemented, but it is "
-                     + "currently delivered by the XDR-hosted Fleet File Trajectory — "
-                     + "the NivXRay EDR route is not wired to it yet (F-3 class)",
-    hint: "File-system evidence: writes, drops, signers, hashes." },
+    hint: "SHA-256 sightings across this customer's endpoints: paths, activity and observed times." },
   { key: "network",      label: "Network",           to: "/edr/network",
     icon: Wifi,        capability: "experience.network_ui",
     hint: "Endpoint-observed network connections + DNS." },
@@ -83,30 +78,16 @@ export default function EdrOverviewPage() {
 
   return (
     <NivXForgeConsole activeTab="overview">
-      <h1 className="page-h1" data-testid="edr-overview-heading">Endpoint Overview</h1>
-      <div className="page-sub">
-        {ctx.incident_id
-          ? "Opened from an operational incident — endpoint context is pinned at the top of every page in this console."
-          : "Endpoint state, recent detections, and pivots into the operational surfaces of NivXRay EDR."}
-      </div>
+      <h1 className="page-h1" data-testid="edr-overview-heading">Dashboard</h1>
 
-      {/* P0-3 · the product states whether it is receiving anything at
-          all, BEFORE it shows any endpoint surface. An empty surface on a
-          blind pipeline is a visibility gap, not an all-clear. */}
-      <TelemetryFreshnessBanner endpoint={ctx.device || null} />
+      {/* P0-3 · the product still states whether it is receiving anything at
+          all BEFORE any endpoint surface — but as one compact line, with the
+          full pipeline explanation behind Diagnostics inside the board. Six
+          permanent lines of warning pushed the evidence off a 900px screen,
+          and evidence nobody scrolls to is evidence nobody reads. */}
+      <EdrDashboardBody device={ctx.device || null} />
 
-      <div className="stat-grid" data-testid="edr-overview-stats">
-        <Stat label="Device"       value={ctx.device || "Not provided"}  tone={ctx.device ? "cyan" : "faint"} />
-        <Stat label="Customer"     value={ctx.tenant || "Not provided"}  tone={ctx.tenant ? "cyan" : "faint"} />
-        <Stat label="User"         value={ctx.user   || "Not provided"}  tone={ctx.user   ? "cyan" : "faint"} />
-        <Stat label="Agent Status" value="Not assessed on this surface"                       tone="faint" />
-        {/* Isolation is never asserted without evidence: absence of a
-            proven containment record is not proof that a host is free. */}
-        <Stat label="Isolation"    value="Not assessed on this surface"                       tone="faint" />
-        <Stat label="Risk"         value={ctx.incident_id ? "See Incident" : "—"}             tone="faint" />
-      </div>
-
-      <div className="section-title" style={{ marginBottom: 8 }}>Console Surfaces</div>
+      <div className="section-title" style={{ margin: "26px 0 8px" }}>Console Surfaces</div>
       <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10 }}
            data-testid="edr-overview-capability-basis">
         {capErr

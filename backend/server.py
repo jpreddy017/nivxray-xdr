@@ -760,6 +760,8 @@ except Exception as _v2_exc:                             # pragma: no cover
         "v2 routers unavailable — RC5 continues unaffected (%s)", _v2_exc,
     )
 
+from routers.edr_dashboard import board_router
+api.include_router(board_router)
 app.include_router(api)
 
 # E3 preview router mount STRIPPED for production integration (brief §b).
