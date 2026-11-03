@@ -175,6 +175,36 @@ def sightings(sha256: str, tenant_id: str,
     # to the wrong day, so these rows are surfaced even when the per-endpoint
     # slice above does not reach them.
     shifted = [r for r in rows if r["ingest_day_differs"]]
+
+    # ── Cisco AMP's framing: visibility, entry point, attributes ─────────────
+    # "Entry point" is AMP's patient zero: the endpoint that saw it FIRST. Ties
+    # are kept rather than broken arbitrarily — two endpoints that first saw it
+    # in the same instant are both candidates, and saying so is the answer.
+    first_seen = min((e["first_observed"] for e in endpoint_rows
+                      if e.get("first_observed")), default=None)
+    entry_points = [{"endpoint_id": e["endpoint_id"], "hostname": e["hostname"],
+                     "first_observed": e["first_observed"]}
+                    for e in endpoint_rows if e.get("first_observed") == first_seen]
+
+    names: List[str] = []
+    for p in paths:
+        leaf = str(p).replace("\\", "/").split("/")[-1]
+        if leaf and leaf not in names:
+            names.append(leaf)
+
+    def _distinct(field: str) -> List[Any]:
+        out: List[Any] = []
+        for r in rows:
+            v = r.get(field)
+            if v and v not in out:
+                out.append(v)
+        return out
+
+    activity_breakdown: Dict[str, int] = {}
+    for r in rows:
+        a = r.get("activity") or "UNSPECIFIED"
+        activity_breakdown[a] = activity_breakdown.get(a, 0) + 1
+
     return {
         "ok": True,
         "sha256": key,
@@ -183,6 +213,32 @@ def sightings(sha256: str, tenant_id: str,
         "endpoint_count": len(endpoint_rows),
         "endpoints": endpoint_rows,
         "observed_paths": paths,
+        "observed_names": names,
+        "visibility": {
+            "first_observed": min(observed) if observed else None,
+            "last_observed": max(observed) if observed else None,
+            "endpoints": len(endpoint_rows),
+            "basis": "every sighting read for this customer",
+        },
+        "entry_points": entry_points,
+        "activity_breakdown": activity_breakdown,
+        "attributes": {
+            "sha256": key,
+            "known_names": names,
+            "known_paths": paths,
+            "users": _distinct("user"),
+            "parent_images": _distinct("parent_image"),
+            "sensor_versions": _distinct("sensor_version"),
+            "collection_methods": _distinct("collection_method"),
+        },
+        # Cisco AMP shows size, real file type, signing certificate, disposition
+        # and a network profile here. None of them exist on this substrate, and
+        # an empty field an analyst reads as "clean" is worse than a stated gap.
+        "not_collected": [
+            "file size", "real file type", "signing certificate",
+            "file disposition / reputation", "network profile (ports, IPs, URLs)",
+            "created, moved, scanned and quarantined events",
+        ],
         "first_observed": min(observed) if observed else None,
         "last_observed": max(observed) if observed else None,
         "day_shifted_sightings": len(shifted),

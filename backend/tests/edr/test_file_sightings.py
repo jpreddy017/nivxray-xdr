@@ -126,3 +126,27 @@ def test_a_capped_read_says_it_is_capped():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+def test_the_answer_carries_the_sections_the_console_lays_out():
+    """Visibility, entry point and attributes — Cisco AMP's File Trajectory
+    framing — must come from the read, not be assembled in the browser."""
+    out = _require_substrate()
+    vis = out["visibility"]
+    assert vis["first_observed"] == out["first_observed"]
+    assert vis["last_observed"] == out["last_observed"]
+    assert vis["endpoints"] == out["endpoint_count"]
+
+    # Entry point is the EARLIEST observation, and every tie is kept.
+    eps = out["entry_points"]
+    assert eps, "a substrate with sightings must name an entry point"
+    earliest = min(e["first_observed"] for e in out["endpoints"]
+                   if e["first_observed"])
+    assert all(e["first_observed"] == earliest for e in eps)
+
+    assert out["observed_names"], "path leaves are the file's known names"
+    assert out["activity_breakdown"], out["activity_breakdown"]
+    assert out["attributes"]["sha256"] == out["sha256"]
+    # The fields AMP shows and this substrate does not collect are NAMED.
+    for gap in ("file size", "signing certificate"):
+        assert any(gap in n for n in out["not_collected"]), out["not_collected"]
