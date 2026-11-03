@@ -96,8 +96,20 @@ export default function TrajectoryPage({ device, onLegacy }) {
     return Number.isFinite(ms) ? ms : 0;
   };
   const linkT0 = linkMs("time_start"), linkT1 = linkMs("time_end");
-  const t0 = Number(params.get("t0")) || linkT0 || now - DAY;
-  const t1 = Number(params.get("t1")) || (linkT0 && linkT1 > linkT0 ? linkT1 : 0) || now;
+  const atMs = linkMs("at");
+  // The pair is used or ignored TOGETHER. Using a stated start with "now" as
+  // the end opens a window the link never described — wider than the evidence
+  // and anchored on the present instead of the incident.
+  let winT0 = 0, winT1 = 0;
+  if (linkT0 && linkT1 > linkT0) { winT0 = linkT0; winT1 = linkT1; }
+  else if (atMs) {
+    // An instant, not a range: open the UTC day containing it, which is the
+    // unit this canvas already navigates by.
+    winT0 = Math.floor(atMs / DAY) * DAY;
+    winT1 = winT0 + DAY;
+  }
+  const t0 = Number(params.get("t0")) || winT0 || now - DAY;
+  const t1 = Number(params.get("t1")) || winT1 || now;
   const view = useMemo(() => ({ t0, t1 }), [t0, t1]);
   const q = params.get("q") || "", fp = params.get("f"), isoId = params.get("iso"), wanted = params.get("event"), att = params.get("att");
   const sev = params.get("sev"), ioc = params.get("ioc"), scenario = params.get("scenario") || undefined;

@@ -61,11 +61,20 @@ export function buildEdrTrajectoryLink(ctx = {}) {
   put("canonical_event_id", ctx.canonicalEventId);
   put("event", ctx.eventIid);
   put("process_iid", ctx.processIid);
-  put("at", ctx.at);
   // The range the incident is actually about, so the canvas opens on the
   // evidence rather than on "the last 24 hours" of an unrelated present.
-  put("time_start", ctx.timeStart);
-  put("time_end", ctx.timeEnd);
+  // An incident whose start equals its end describes an INSTANT, not a
+  // range: say so with `at`, because a zero-length window is unusable and
+  // half of it would open a period the incident never covered.
+  const ms = (v) => { const t = Date.parse(v == null ? "" : String(v)); return Number.isFinite(t) ? t : null; };
+  const a = ms(ctx.timeStart), b = ms(ctx.timeEnd);
+  if (a != null && b != null && b > a) {
+    put("time_start", ctx.timeStart);
+    put("time_end", ctx.timeEnd);
+    put("at", ctx.at);
+  } else {
+    put("at", ctx.at || ctx.timeStart || ctx.timeEnd);
+  }
   // Names the customer to act in. The EDR side adopts it only after the
   // SERVER authorises this principal for it, and re-authorises every
   // request after that — so it can never widen scope.

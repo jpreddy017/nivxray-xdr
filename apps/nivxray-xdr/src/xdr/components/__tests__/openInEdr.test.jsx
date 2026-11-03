@@ -50,6 +50,37 @@ describe("the deep link carries the whole investigation context", () => {
   });
 });
 
+describe("an instant is stated as an instant", () => {
+  it("sends `at` instead of a zero-length range", () => {
+    const u = new URL(buildEdrTrajectoryLink({
+      device: "ep_1",
+      timeStart: "2026-11-02T10:06:51.589166+00:00",
+      timeEnd: "2026-11-02T10:06:51.589166+00:00",
+    }).href);
+    expect(u.searchParams.get("at")).toBe("2026-11-02T10:06:51.589166+00:00");
+    expect(u.searchParams.get("time_start")).toBeNull();
+    expect(u.searchParams.get("time_end")).toBeNull();
+  });
+
+  it("sends `at` when the incident has no end at all", () => {
+    const u = new URL(buildEdrTrajectoryLink({
+      device: "ep_1", timeStart: "2026-11-02T10:06:51Z",
+    }).href);
+    expect(u.searchParams.get("at")).toBe("2026-11-02T10:06:51Z");
+    expect(u.searchParams.get("time_start")).toBeNull();
+  });
+
+  it("keeps a real range as a range", () => {
+    const u = new URL(buildEdrTrajectoryLink({
+      device: "ep_1", timeStart: "2026-10-18T00:00:00Z",
+      timeEnd: "2026-10-18T06:00:00Z",
+    }).href);
+    expect(u.searchParams.get("time_start")).toBe("2026-10-18T00:00:00Z");
+    expect(u.searchParams.get("time_end")).toBe("2026-10-18T06:00:00Z");
+    expect(u.searchParams.get("at")).toBeNull();
+  });
+});
+
 describe("an unresolvable endpoint is explained, never guessed", () => {
   it("refuses when no endpoint is named", () => {
     expect(resolveEndpoint({}).reason).toBe("NO_ENDPOINT");

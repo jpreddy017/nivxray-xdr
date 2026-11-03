@@ -75,6 +75,24 @@ describe("the canvas opens on the range the link states", () => {
     expect(Date.parse(p.time_end) - Date.parse(p.time_start)).toBe(86_400_000);
   });
 
+  it("opens the UTC day containing a stated instant", async () => {
+    mountAt("?at=2026-10-18T13%3A45%3A00Z");
+    await waitFor(() => expect(trajectoryParams().time_start).toBeTruthy());
+    const p = trajectoryParams();
+    expect(p.time_start).toBe("2026-10-18T00:00:00.000Z");
+    expect(p.time_end).toBe("2026-10-19T00:00:00.000Z");
+  });
+
+  it("never opens a window the link did not describe", async () => {
+    // start == end is an instant, not a range: using the start with "now"
+    // as the end would open a period the incident never covered.
+    mountAt("?time_start=2026-11-02T10%3A06%3A51Z&time_end=2026-11-02T10%3A06%3A51Z");
+    await waitFor(() => expect(trajectoryParams().time_start).toBeTruthy());
+    const p = trajectoryParams();
+    expect(Date.parse(p.time_end) - Date.parse(p.time_start)).toBe(86_400_000);
+    expect(p.time_start).not.toBe("2026-11-02T10:06:51.000Z");
+  });
+
   it("ignores an inverted range rather than reading backwards", async () => {
     mountAt("?time_start=2026-10-18T06%3A00%3A00Z&time_end=2026-10-18T00%3A00%3A00Z");
     await waitFor(() => expect(trajectoryParams().time_start).toBeTruthy());
