@@ -61,6 +61,21 @@ const Panel = ({ title, sub, children, testid }) => (
 
 /* ── the trajectory graphic: computers down, time across ─────────────────── */
 
+// Dense lanes overlap: marks nearer than one mark wide cannot all be clicked,
+// so they are grouped and the group says how many sightings it stands for.
+// Nothing is dropped — the full list stays in Event history.
+function groupLane(sightings, at) {
+  const out = [];
+  for (const s of sightings) {
+    const x = at(s.observed_at);
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.x - x) < 1.1) last.items.push(s);
+    else out.push({ x, lead: s, items: [s] });
+  }
+  return out;
+}
+
+
 function Graphic({ data, selected, onSelect }) {
   const eps = data.endpoints || [];
   const [t0, t1] = useMemo(() => {
@@ -126,22 +141,35 @@ function Graphic({ data, selected, onSelect }) {
           <div style={{ position: "relative", height: 54 }}>
             <div style={{ position: "absolute", left: 0, right: 0, top: 26,
                           height: 1, background: "rgba(128,128,128,.28)" }} />
-            {(ep.sightings || []).map((s, j) => {
+            {groupLane(ep.sightings || [], at).map((grp, j) => {
+              const s = grp.lead;
               const on = selected?.raw_id === s.raw_id;
+              const created = /CREATE/i.test(s.activity || "");
+              const many = grp.items.length > 1;
               return (
                 <button key={s.raw_id || j} type="button"
                         data-testid={`edr-files-glyph-${i}-${j}`}
-                        data-day-shift={s.ingest_day_differs ? "1" : "0"}
-                        aria-label={`${s.activity} ${s.path} at ${utc(s.observed_at)}`}
-                        title={`${utc(s.observed_at)} · ${s.activity} · ${s.path}`}
-                        onClick={() => onSelect(on ? null : s)}
+                        data-day-shift={grp.items.some((x) => x.ingest_day_differs) ? "1" : "0"}
+                        data-activity={created ? "created" : "executed"}
+                        data-covers={grp.items.length}
+                        aria-label={many
+                          ? `${grp.items.length} sightings around ${utc(s.observed_at)}, newest ${s.activity} ${s.path}`
+                          : `${s.activity} ${s.path} at ${utc(s.observed_at)}`}
+                        title={many
+                          ? `${grp.items.length} sightings · ${utc(grp.items[grp.items.length - 1].observed_at)} → ${utc(s.observed_at)} · newest ${s.activity} ${s.path}`
+                          : `${utc(s.observed_at)} · ${s.activity} · ${s.path}`}
+                        onClick={() => onSelect(on ? null : { ...s, _covers: grp.items })}
                         style={{ position: "absolute", left: `${at(s.observed_at)}%`,
                                  top: 19, transform: "translateX(-50%)",
-                                 width: 15, height: 15, borderRadius: 3, padding: 0,
+                                 width: 15, height: 15, padding: 0,
+                                 borderRadius: created ? 15 : 3,
                                  cursor: "pointer", transition: "transform .1s, box-shadow .1s",
-                                 border: `1px solid ${on ? "var(--cyan, #39b7c4)" : "rgba(128,128,128,.55)"}`,
-                                 background: s.ingest_day_differs
-                                   ? "var(--amber, #d08700)" : "var(--cyan, #39b7c4)",
+                                 border: `1px solid ${grp.items.some((x) => x.ingest_day_differs)
+                                   ? "var(--amber, #d08700)"
+                                   : on ? "var(--cyan, #39b7c4)" : "rgba(128,128,128,.55)"}`,
+                                 borderWidth: grp.items.some((x) => x.ingest_day_differs) ? 2 : 1,
+                                 background: created
+                                   ? "var(--mint, #3fae7d)" : "var(--cyan, #39b7c4)",
                                  boxShadow: on ? "0 0 0 3px rgba(57,183,196,.28)" : "none" }} />
               );
             })}
@@ -153,11 +181,16 @@ function Graphic({ data, selected, onSelect }) {
                     fontSize: 10.5, opacity: 0.72,
                     borderTop: "1px solid rgba(128,128,128,.18)" }}
            data-testid="edr-files-legend">
-        <span>▪ executed (image digest reported)</span>
-        <span style={{ color: "var(--amber, #d08700)" }}>▪ delivered on another UTC day</span>
+        <span>▪ executed — the sensor reported the running image's digest</span>
+        <span style={{ color: "var(--mint, #3fae7d)" }}>● created — a FILE/CREATE in a watched directory</span>
+        <span style={{ color: "var(--amber, #d08700)" }}>▫ ringed — delivered on another UTC day</span>
         <span>◆ entry point — first endpoint to see it</span>
         <span style={{ opacity: 0.8 }}>
-          not collected, so never shown: created · moved · scanned · quarantined
+          marks closer together than one mark wide are grouped; selecting one
+          shows the newest in the group and says how many it covers
+        </span>
+        <span style={{ opacity: 0.8 }}>
+          never shown because never observed: moved · scanned · quarantined · written · deleted
         </span>
         {drawn < total && (
           <span data-testid="edr-files-graphic-partial" style={{ opacity: 0.9 }}>
@@ -196,6 +229,15 @@ const Detail = ({ s, sha256, customer }) => {
   ];
   return (
     <div data-testid="edr-files-detail" data-raw-id={s.raw_id}>
+      {s._covers && s._covers.length > 1 && (
+        <div data-testid="edr-files-detail-covers"
+             data-covers={s._covers.length}
+             style={{ fontSize: 11.5, marginBottom: 8, opacity: 0.75 }}>
+          This mark covers {s._covers.length} sightings between{" "}
+          {utc(s._covers[s._covers.length - 1].observed_at)} and {utc(s._covers[0].observed_at)};
+          the newest one is shown. Every one of them is listed in Event history.
+        </div>
+      )}
       {s.ingest_day_differs && (
         <div data-testid="edr-files-detail-day-shift"
              style={{ fontSize: 11.5, marginBottom: 8, color: "var(--amber, #d08700)" }}>
@@ -341,9 +383,10 @@ export default function EdrFilesPage() {
         <h1 className="x-h1"><FileText size={18} /> File Trajectory</h1>
         <p className="x-sub" data-testid="edr-files-scope">
           Where one piece of content has been seen across the acting customer's
-          endpoints. The sensor reports the digest of the executed image, so a
-          sighting means this content ran from this path — file create, write and
-          delete are not collected, and silence here is not proof the file is absent.
+          endpoints. A sighting means this content was executed from this path, or
+          created at it in a directory the sensor watches. Write, delete, move,
+          scan and quarantine are never observed, so silence here is not proof the
+          file is absent.
         </p>
 
         <form onSubmit={submit} className="x-row" data-testid="edr-files-form"
@@ -498,8 +541,9 @@ export default function EdrFilesPage() {
                       <Graphic data={view} selected={sel} onSelect={setSel} />
                     ) : (
                       <div className="x-empty" data-testid="edr-files-filter-empty">
-                        No sighting's path contains “{pathFilter}”. The filter hid them;
-                        nothing was re-read.
+                        No path among the sightings READ contains “{pathFilter}”.
+                        Filtering hides rows; it does not re-read, so a match older
+                        than this read's limit will not appear.
                       </div>
                     )}
                     <div style={{ border: "1px solid rgba(128,128,128,.22)", borderRadius: 10,

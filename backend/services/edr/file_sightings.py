@@ -17,9 +17,11 @@ Verified on the preview substrate before this module was written (tenant
     executed from `/usr/bin/sleep` and from copies under `/var/tmp`. That is a
     file trajectory in the plain sense of the word.
 
-What this is NOT: file create/write/delete observation. The sensor does not
-collect file-system activity, so a sighting here means "this content was
-executed from this path at this time", never "this file was written here".
+What a sighting means: this content was EXECUTED from this path
+(`PROCESS_OBSERVED`), or was CREATED at it where the sensor watches that
+directory (`FILE`/`CREATE` — 12 of the 809 sightings of `17a623f3…` are
+creations under `/var/tmp/nivxforge-watch/`). File write, delete, move, scan and
+quarantine are not observed at all, so absence here is never absence of a file.
 
 Time rule: a sighting is placed at `payload.observed_at` — when the endpoint
 observed it — never at `ingest_time`. The two fall on different UTC days
@@ -58,7 +60,11 @@ def _sighting(doc: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "raw_id": doc.get("raw_id"),
         "endpoint_id": doc.get("endpoint_ref"),
-        "path": payload.get("image_path") or payload.get("image"),
+        # A PROCESS_OBSERVED event names the executed image; a FILE/CREATE
+        # event names the file it created. Both are this digest's own path.
+        "path": (payload.get("image_path") or payload.get("image")
+                 or payload.get("path")),
+        "activity_family": payload.get("activity"),
         "image": payload.get("image"),
         "activity": payload.get("operation") or payload.get("activity"),
         "observed_at": observed,
@@ -237,7 +243,8 @@ def sightings(sha256: str, tenant_id: str,
         "not_collected": [
             "file size", "real file type", "signing certificate",
             "file disposition / reputation", "network profile (ports, IPs, URLs)",
-            "created, moved, scanned and quarantined events",
+            "moved, scanned and quarantined events",
+            "file creation outside the paths the sensor watches",
         ],
         "first_observed": min(observed) if observed else None,
         "last_observed": max(observed) if observed else None,
@@ -248,10 +255,11 @@ def sightings(sha256: str, tenant_id: str,
         "evidence_basis": EVIDENCE_BASIS,
         "time_basis": ("payload.observed_at — the time the ENDPOINT observed "
                        "the execution, not the time the record was ingested"),
-        "collection_limit": ("The sensor reports executed-image digests only. "
-                            "A sighting means this content ran from this path; "
-                            "file create, write and delete are not collected, "
-                            "so absence here is not absence of the file."),
+        "collection_limit": ("The sensor reports the digest of an executed image, "
+                             "and FILE/CREATE for the paths it watches. File write, "
+                             "delete, move, scan and quarantine are not observed at "
+                             "all, and creation outside a watched path is not seen, "
+                             "so absence here is not absence of the file."),
         "scope": {
             "customer": tenant_id,
             "authority": "server",

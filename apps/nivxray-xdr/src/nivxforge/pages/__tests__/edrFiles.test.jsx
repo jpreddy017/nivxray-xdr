@@ -135,6 +135,10 @@ describe("the Cisco Secure Endpoint layout", () => {
     expect(screen.getByTestId("edr-files-lane-1").getAttribute("data-endpoint")).toBe(OTHER);
     expect(screen.getByTestId("edr-files-glyph-0-0")).toBeTruthy();
     expect(screen.getByTestId("edr-files-glyph-0-1").getAttribute("data-day-shift")).toBe("1");
+    // An execution and a creation are different marks, because they are
+    // different facts about the file.
+    expect(screen.getByTestId("edr-files-glyph-0-0").getAttribute("data-activity")).toBe("executed");
+    expect(screen.getByTestId("edr-files-glyph-1-0").getAttribute("data-activity")).toBe("executed");
     expect(screen.getByTestId("edr-files-glyph-1-0")).toBeTruthy();
     // Only the first computer saw it first.
     expect(screen.getByTestId("edr-files-lane-0-entry")).toBeTruthy();
@@ -145,7 +149,8 @@ describe("the Cisco Secure Endpoint layout", () => {
     api.get.mockResolvedValue({ data: payload() });
     mount();
     const legend = await screen.findByTestId("edr-files-legend");
-    expect(legend.textContent).toMatch(/created · moved · scanned · quarantined/);
+    expect(legend.textContent).toMatch(/moved · scanned · quarantined · written · deleted/);
+    expect(legend.textContent).toMatch(/created — a FILE\/CREATE in a watched directory/);
     fireEvent.click(screen.getByTestId("edr-files-details-toggle"));
     expect(screen.getByTestId("edr-files-not-collected").textContent)
       .toMatch(/signing certificate/);
@@ -179,7 +184,7 @@ describe("the Cisco Secure Endpoint layout", () => {
                      { target: { value: "/nothing-matches" } });
     await waitFor(() => expect(screen.getByTestId("edr-files-filter-empty")).toBeTruthy());
     expect(screen.getByTestId("edr-files-filter-empty").textContent)
-      .toMatch(/nothing was re-read/);
+      .toMatch(/it does not re-read/);
   });
 });
 
@@ -259,5 +264,43 @@ describe("the graphic does not redraw history it did not read", () => {
     expect(screen.getByTestId("edr-files-graphic-t0").textContent).toContain("2026-09-06");
     expect(screen.getByTestId("edr-files-graphic-partial").textContent)
       .toMatch(/newest 2 of 500 sightings/);
+  });
+});
+
+describe("a lane dense with sightings stays clickable", () => {
+  // 809 executions of the same image land on one lane. Drawn one mark per
+  // sighting they overlap and intercept each other's clicks, so marks closer
+  // than one mark wide are grouped — and the group has to say so.
+  const burst = Array.from({ length: 40 }, (_, k) => ({
+    ...LATER, raw_id: `raw_burst_${k}`,
+    observed_at: `2026-10-18T14:${String(35 - k).padStart(2, "0")}:00.000000+00:00`,
+  }));
+
+  it("groups marks that would overlap and names how many each covers", async () => {
+    api.get.mockResolvedValue({ data: payload({
+      total_sightings: 41, endpoint_count: 1,
+      endpoints: [{ endpoint_id: DEVICE, hostname: "agent-env-630704a1",
+                    identity: "registered", sighting_count: 41,
+                    paths: ["/var/tmp/copy/dash"],
+                    first_observed: SHIFTED.observed_at,
+                    last_observed: LATER.observed_at,
+                    sightings: [...burst, SHIFTED] }],
+    }) });
+    mount();
+    await screen.findByTestId("edr-files-result");
+
+    const marks = screen.getAllByTestId(/^edr-files-glyph-0-/);
+    expect(marks.length).toBeLessThan(41);          // overlapping marks collapsed
+    expect(marks.length).toBeGreaterThan(1);        // but the span is still read
+
+    const grouped = marks.find((m) => Number(m.getAttribute("data-covers")) > 1);
+    expect(grouped).toBeTruthy();
+    fireEvent.click(grouped);
+    const covers = await screen.findByTestId("edr-files-detail-covers");
+    expect(covers.textContent).toMatch(/covers \d+ sightings between/);
+    expect(covers.textContent).toMatch(/listed in Event history/);
+
+    // nothing was dropped: every sighting read is still a history row
+    expect(screen.getAllByTestId(/^edr-files-event-row-\d+$/).length).toBe(41);
   });
 });
