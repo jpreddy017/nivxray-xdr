@@ -40,13 +40,14 @@ export function sightingHref(sha256, s, customer) {
 const SightingRow = ({ s, sha256, customer, testid }) => {
   const href = sightingHref(sha256, s, customer);
   return (
-    <tr data-testid={testid} data-day-shift={s.ingest_day_differs ? "1" : "0"}>
-      <td className="mono" style={{ whiteSpace: "nowrap" }}>{utc(s.observed_at)}</td>
-      <td>{s.activity || "—"}</td>
-      <td className="mono" style={{ wordBreak: "break-all" }}>{s.path || "—"}</td>
-      <td className="mono">{s.user || "—"}</td>
-      <td className="mono">{s.pid ?? "—"}</td>
-      <td>
+    <tr data-testid={testid} data-day-shift={s.ingest_day_differs ? "1" : "0"}
+        style={{ borderTop: "1px solid rgba(128,128,128,.18)" }}>
+      <td className="mono" style={{ whiteSpace: "nowrap", padding: "5px 14px 5px 0" }}>{utc(s.observed_at)}</td>
+      <td style={{ padding: "5px 14px 5px 0" }}>{s.activity || "—"}</td>
+      <td className="mono" style={{ wordBreak: "break-all", padding: "5px 14px 5px 0" }}>{s.path || "—"}</td>
+      <td className="mono" style={{ padding: "5px 14px 5px 0" }}>{s.user || "—"}</td>
+      <td className="mono" style={{ padding: "5px 14px 5px 0" }}>{s.pid ?? "—"}</td>
+      <td style={{ padding: "5px 0", whiteSpace: "nowrap" }}>
         {href ? (
           <a href={href} target="_blank" rel="noopener noreferrer"
              data-testid={`${testid}-open`}
@@ -66,10 +67,16 @@ const SightingRow = ({ s, sha256, customer, testid }) => {
 };
 
 const SightingTable = ({ rows, sha256, customer, prefix }) => (
-  <table className="x-table" data-testid={`${prefix}-table`}>
-    <thead><tr>
-      <th>Observed (UTC)</th><th>Activity</th><th>Path</th>
-      <th>User</th><th>PID</th><th>Device Trajectory</th>
+  <table className="x-table" data-testid={`${prefix}-table`}
+         style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <thead><tr style={{ textAlign: "left", opacity: 0.6, fontSize: 10.5,
+                        letterSpacing: ".06em", textTransform: "uppercase" }}>
+      <th style={{ padding: "6px 14px 6px 0" }}>Observed (UTC)</th>
+      <th style={{ padding: "6px 14px 6px 0" }}>Activity</th>
+      <th style={{ padding: "6px 14px 6px 0" }}>Path</th>
+      <th style={{ padding: "6px 14px 6px 0" }}>User</th>
+      <th style={{ padding: "6px 14px 6px 0" }}>PID</th>
+      <th style={{ padding: "6px 0" }}>Device Trajectory</th>
     </tr></thead>
     <tbody>
       {rows.map((s, i) => (
@@ -182,19 +189,22 @@ export default function EdrFilesPage() {
 
         {data?.ok && !loading && (
           <div data-testid="edr-files-result" data-total={data.total_sightings}>
-            <div className="x-facts" data-testid="edr-files-summary">
-              <span><span className="k">SHA-256</span>
-                <span className="v mono" data-testid="edr-files-key">{data.sha256}</span></span>
-              <span><span className="k">Customer</span>
-                <span className="v" data-testid="edr-files-customer">{data.tenant}</span></span>
-              <span><span className="k">Sightings</span>
-                <span className="v">{data.total_sightings}</span></span>
-              <span><span className="k">Endpoints</span>
-                <span className="v">{data.endpoint_count}</span></span>
-              <span><span className="k">First observed</span>
-                <span className="v mono">{utc(data.first_observed)}</span></span>
-              <span><span className="k">Last observed</span>
-                <span className="v mono">{utc(data.last_observed)}</span></span>
+            <div data-testid="edr-files-summary"
+                 style={{ display: "flex", flexWrap: "wrap", gap: "18px 34px",
+                          margin: "6px 0 18px" }}>
+              {[["SHA-256", <span className="mono" data-testid="edr-files-key" key="k">{data.sha256}</span>],
+                ["Customer", <span data-testid="edr-files-customer" key="c">{data.tenant}</span>],
+                ["Sightings", data.total_sightings],
+                ["Endpoints", data.endpoint_count],
+                ["First observed", <span className="mono" key="f">{utc(data.first_observed)}</span>],
+                ["Last observed", <span className="mono" key="l">{utc(data.last_observed)}</span>]]
+                .map(([k, v]) => (
+                  <span key={k} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <span style={{ fontSize: 10.5, letterSpacing: ".06em",
+                                   textTransform: "uppercase", opacity: 0.6 }}>{k}</span>
+                    <span style={{ fontSize: 13 }}>{v}</span>
+                  </span>
+                ))}
             </div>
 
             {data.total_sightings === 0 && (
