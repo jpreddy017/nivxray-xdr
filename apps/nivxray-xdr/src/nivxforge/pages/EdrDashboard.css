@@ -1,0 +1,32 @@
+.evidence-board {background:#15191d;color:#eef2f6;color-scheme:dark;padding:16px;font:15px/1.45 system-ui,sans-serif;min-width:0}
+.evidence-board section,.evidence-board>div:first-child {background:#20252b!important;border:1px solid #404952!important;border-radius:5px!important;padding:15px!important;min-width:0}
+.evidence-board h2 {font-size:19px!important;letter-spacing:-.025em;font-weight:650}
+.evidence-board a,.evidence-board [data-testid= dash-diagnostics] {color:#65c5ff!important}
+.evidence-board :is(input,select,button.x-btn) {background:#22282e;color:#eef2f6;border:1px solid #63707c;border-radius:4px;padding:5px 8px}
+.evidence-board [data-testid=dash-treemap] {position:relative;height:clamp(232px,28vh,330px)!important;overflow:hidden}
+.evidence-board [data-testid=dash-treemap] button {box-sizing:border-box;min-width:0!important;border-radius:0!important;border:1px solid #20252b!important;justify-content:center!important;background:#195da5!important}
+.evidence-board [data-testid=dash-treemap] button:nth-child(even){background:#26747d!important}
+.evidence-board [data-testid=dash-treemap] button[aria-pressed=true]{box-shadow:inset 0 0 0 2px #9bd7ff}
+.evidence-board :focus-visible{outline:2px solid #83d2ff;outline-offset:-2px}
+.evidence-board table{font-size:14px!important;color:#eef2f6;font-variant-numeric:tabular-nums}
+.evidence-board th,.evidence-board td{padding:9px 8px!important;border-bottom:1px solid #414850}
+.evidence-board tbody tr:hover{background:#29343d}
+@media(max-width:960px){.evidence-board div:has(>section[data-testid=dash-files]){grid-template-columns:1fr!important}.evidence-board section{overflow-x:auto}}
+.security-tabs{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid #56616b;padding-bottom:7px}.security-tabs button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:8px 3px}.security-tabs [aria-pressed=true]{border-bottom:3px solid #4399ff;font-weight:650}.security-layout,.security-columns{display:grid;gap:18px;grid-template-columns:3fr 3fr 2fr}.security-layout>div,.security-layout aside{display:grid;align-content:start;gap:16px}.security-summary,.security-inbox{display:grid;grid-template-columns:1fr 1fr;gap:16px}.security-summary strong,.security-kpis strong{font-size:clamp(30px,3vw,56px);font-weight:400}.security-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));text-align:center;gap:12px}.security-kpis strong,.security-map span{display:block}.security-map{min-height:170px;display:grid;align-content:center;text-align:center;padding:12px;border-top:3px solid;margin-top:14px}.compromise{border-color:#a83c47;background:#8f384414}.quarantine{border-color:#a56632;background:#a5653214}.security-status{padding:18px}.evidence-board{background:var(--dashboard-canvas,Canvas);color:var(--dashboard-ink,CanvasText);color-scheme:inherit}.evidence-board section,.evidence-board>div:first-child{background:color-mix(in srgb,Canvas 94%,CanvasText)!important;color:CanvasText}.evidence-board table{color:inherit}.evidence-board :is(input,select,button.x-btn){background:Canvas;color:CanvasText}@media(max-width:850px){.security-layout,.security-columns,.security-inbox{grid-template-columns:1fr}}
+
+.evidence-board .security-map { min-height:0; padding:18px 12px; border:0; background:transparent; text-align:left; justify-items:start; gap:4px; }
+.security-panel h2 { margin:0 0 12px; }
+.priority-empty { margin:12px 0; }
+.priority-empty b { margin-right:14px; color:#f46369; }
+.priority-empty b+b { color:#f39745; }
+.theme-light .security-panel { background:white; border-color:#cbd5df; color:#172b40; }
+.theme-light .evidence-board a { color:#145ca3; }
+.theme-light .priority-empty b { color:#a62c38; }
+.theme-light .priority-empty b+b { color:#974300; }
+.nvf-product:not(.theme-dark) .evidence-board .security-layout .security-panel { background:#fff; border-color:#cbd5df; color:#172b40; }
+.nvf-product:not(.theme-dark) .evidence-board .security-layout a { color:#145ca3; }
+
+.inbox-status-card { box-sizing:border-box; width:100%; padding:12px 16px; border:1px solid color-mix(in srgb,currentColor 22%,transparent); border-radius:6px; text-align:left; }
+.inbox-status-card h2 { margin:0 0 8px; }
+.inbox-status-card ul { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0 0 6px; padding:0; }
+.inbox-status-card li { padding:3px 9px; border-radius:4px; background:color-mix(in srgb,currentColor 8%,transparent); font-size:13px; }
