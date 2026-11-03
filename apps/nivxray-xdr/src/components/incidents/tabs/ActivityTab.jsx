@@ -2,15 +2,17 @@
  * ActivityTab · XDR skin.
  *
  * Reads canonical Activity Inventory (rule #19) and shows the counts.
- * The full temporal canvas lives at /edr/trajectory — this tab surfaces
- * a deep link to open it in a new browser tab (owner telemetry rule).
+ * The full temporal canvas is a NivXForge EDR surface: this tab offers
+ * the same pivot control as the incident header, carrying this
+ * incident's customer, endpoint and time range, and refusing to open
+ * anything when the record names no endpoint.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import api from "@/lib/api";
 import { INCIDENT_TESTIDS as T } from "@/constants/incidentTestIds";
-import { productHref, productMode } from "@/productOrigins";
+import OpenInEdr, { incidentEndpointId } from "@/xdr/components/OpenInEdr";
 
 const KINDS = [
   { key: "process",  label: "Processes",  accent: "var(--xpurple)" },
@@ -72,16 +74,16 @@ export default function ActivityTab({ incident }) {
             Full temporal canvas lives at <span className="mono" style={{ color: "var(--xcyan)" }}>/edr/trajectory</span>.
           </div>
         </div>
-        <button
-          type="button"
+        <OpenInEdr
+          testid="activity-open-trajectory"
+          label="Open Device Trajectory"
           className="btn primary"
-          data-testid="activity-open-trajectory"
-          data-pivot-mode={productMode("edr")}
-          onClick={() => window.open(productHref("edr", "/edr/trajectory"),
-                                     "_blank", "noopener,noreferrer")}
-        >
-          Open Device Trajectory <ExternalLink size={11} />
-        </button>
+          device={incidentEndpointId(incident)}
+          incidentId={incident?.id}
+          tenant={incident?.tenant}
+          timeStart={incident?.created_at}
+          timeEnd={incident?.updated_at}
+        />
       </div>
 
       <div className="panel2" style={{ padding: 14 }} data-testid={T.activityInventoryStatus}>

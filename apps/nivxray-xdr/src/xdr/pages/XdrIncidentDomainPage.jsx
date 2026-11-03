@@ -27,6 +27,7 @@ import {
 import { DOMAIN_META } from "@/xdr/domains/domainMeta";
 import { getIncident } from "@/lib/incidentsApi";
 import { isCrossOrigin, productHref } from "@/productOrigins";
+import OpenInEdr, { incidentEndpointId } from "@/xdr/components/OpenInEdr";
 import { apiErrorText } from "@/xdr/nx/apiError";
 
 export default function XdrIncidentDomainPage() {
@@ -58,14 +59,6 @@ export default function XdrIncidentDomainPage() {
     || incident?.ssot?.investigation_object?.host
     || incident?.ssot?.investigation_object?.device?.hostname
     || null;
-
-  const openTrajectory = () => {
-    const qs = new URLSearchParams({ incident_id: String(id) });
-    if (host) qs.set("device", host);
-    const path = `/edr/trajectory?${qs.toString()}`;
-    if (isCrossOrigin("edr")) window.location.assign(productHref("edr", path));
-    else navigate(path);
-  };
 
   return (
     <XdrShell>
@@ -138,8 +131,7 @@ export default function XdrIncidentDomainPage() {
               </NxFacts>
             </NxSection>
 
-            <DomainBody incident={incident} meta={meta} host={host}
-                        onOpenTrajectory={openTrajectory} />
+            <DomainBody incident={incident} meta={meta} host={host} />
           </>
         )}
       </NxPageShell>
@@ -147,7 +139,7 @@ export default function XdrIncidentDomainPage() {
   );
 }
 
-function DomainBody({ incident, meta, host, onOpenTrajectory }) {
+function DomainBody({ incident, meta, host }) {
   if (!meta.connected) {
     return (
       <NxSection title={meta.label}
@@ -203,10 +195,15 @@ function DomainBody({ incident, meta, host, onOpenTrajectory }) {
                      reason="No endpoint rule recorded"
                      testid="xdr-domain-endpoints-rules" />
         </NxFacts>
-        <NxButton variant="primary" onClick={onOpenTrajectory}
-                  testid="xdr-domain-endpoints-open-trajectory">
-          <Radar size={12} /> Open Device Trajectory
-        </NxButton>
+        <OpenInEdr testid="xdr-domain-endpoints-open-trajectory"
+                   label="Open Device Trajectory"
+                   className="nx-btn nx-btn--primary"
+                   icon={<Radar size={12} />}
+                   device={incidentEndpointId(incident)}
+                   incidentId={incident?.id}
+                   tenant={incident?.tenant}
+                   timeStart={incident?.created_at}
+                   timeEnd={incident?.updated_at} />
       </NxSection>
     );
   }

@@ -44,6 +44,23 @@ export function resolveEndpoint({ device, endpointId } = {}) {
   return { endpoint: unique[0], reason: null };
 }
 
+/**
+ * The ONE endpoint an incident record names, in authority order.
+ *
+ * An authoritative endpoint id beats a projected hostname for the same
+ * machine, so this is precedence — not a choice between rival devices.
+ * Every control on the record reads it from here, so the header link and
+ * the Timeline button can never disagree about which device they mean.
+ */
+export function incidentEndpointId(incident) {
+  const ep = incident?.endpoint_campaign || null;
+  const io = incident?.ssot?.investigation_object || null;
+  return [ep?.endpoint_id, ep?.device_ref, ep?.device_iid, ep?.hostname,
+          io?.host, io?.device?.hostname]
+    .map((v) => (v == null ? "" : String(v).trim()))
+    .find(Boolean) || null;
+}
+
 /** The deep link, or why it cannot honestly be offered. */
 export function buildEdrTrajectoryLink(ctx = {}) {
   const { endpoint, reason, candidates } = resolveEndpoint(ctx);
@@ -100,6 +117,7 @@ const NOTE = {
 
 export default function OpenInEdr({ label = "Open in NivXRay EDR",
                                     compact = false, disabledReason,
+                                    className = "btn ghost", icon = null,
                                     testid = "open-in-edr", ...ctx }) {
   const { href, reason, candidates } = buildEdrTrajectoryLink(ctx);
 
@@ -141,11 +159,12 @@ export default function OpenInEdr({ label = "Open in NivXRay EDR",
        title={"Opens the NivXRay EDR Device Trajectory for this customer, "
               + "endpoint, incident and time range in a new tab. This "
               + "incident stays open here."}
-       className="btn ghost"
+       className={className}
        style={{ display: "inline-flex", alignItems: "center", gap: 6,
                 textDecoration: "none",
                 fontSize: compact ? 10 : 11,
                 padding: compact ? "3px 8px" : "5px 11px" }}>
+      {icon}
       {compact ? "EDR" : label}
       <ExternalLink size={compact ? 9 : 10} aria-hidden="true" />
       <span className="sr-only">(opens in a new tab)</span>

@@ -29,7 +29,7 @@ import {
   NxInvSection, NxInvMetrics, NxInvValue, NxInvTech, ABSENCE, NxState,
 } from "@/xdr/nx";
 import AnalystResponseDrawer from "@/xdr/respond/AnalystResponseDrawer";
-import OpenInEdr from "@/xdr/components/OpenInEdr";
+import OpenInEdr, { incidentEndpointId } from "@/xdr/components/OpenInEdr";
 import IncidentIntelligenceContext from "@/xdr/intelligence/IncidentIntelligenceContext";
 import IncidentEntities from "@/xdr/incidents/IncidentEntities";
 import RecommendedActions from "@/xdr/incidents/RecommendedActions";
@@ -236,9 +236,7 @@ export default function XdrIncidentDetailPage() {
           Respond
         </button>
         <OpenInEdr
-          device={incident.endpoint_campaign?.endpoint_id
-                  || incident.endpoint_campaign?.device_ref
-                  || incident.endpoint_campaign?.device_iid}
+          device={incidentEndpointId(incident)}
           incidentId={incident.id}
           tenant={incident.tenant}
           timeStart={incident.created_at}
