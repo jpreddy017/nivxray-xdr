@@ -56,9 +56,40 @@ Branch `fix/xdr-timeline-trajectory-context`, tip **`6d7a1d027b089a732d07a95d4e7
 | `6d7a1d02` | that tab's copy names `/edr/device-trajectory` |
 | `8a543f9e` | a refused trajectory read states only the refusal, with a return to the incident |
 | `f99e281e` → `5351ac99` | File Trajectory: SHA-256 sightings per customer, sighting → device canvas at the observed time |
+| `2e1611b8` → `e44fc0f4` | File Trajectory laid out the way Cisco Secure Endpoint lays it out — see below |
 
-- Shared preview serves `5351ac99` as a **combined** artifact (`/` + `/xdr` XDR,
-  `/edr` EDR), `not_eligible_for_production: true`. Tests 29 files / 399 passed (frontend) + 8 backend sighting tests.
+### File Trajectory aligned to Cisco Secure Endpoint / AMP (2026-11-03, `e44fc0f4`)
+
+Researched AMP's File Trajectory and rebuilt ours to its order: **Visibility →
+Entry point → File details → the computers-against-time graphic with a detail
+pane → Event history**. Previously it was a flat per-endpoint table: every fact
+true, but the shape was a report, not a trajectory.
+
+- Lanes are computers, the axis is observed time, each mark is a sighting, and
+  selecting one opens its detail beside the graphic with its own device-canvas
+  pivot at the observed time.
+- Entry point keeps ties rather than breaking them and states that earliest-seen
+  is not proof of where the file arrived from.
+- Four corrections made against real data during the work: the axis spanned only
+  the sightings returned instead of the digest's known range; the copy wrongly
+  denied `FILE/CREATE` collection (the substrate reports it with its own `path`,
+  12 such events on a real digest); 300 overlapping marks intercepted each
+  other's clicks so most history had no reachable detail (marks are now grouped
+  and the group says how many it covers); and Visibility counted a day-shifted
+  sighting whose ringed mark was off-axis, now named in the footer.
+- Fields AMP shows and this sensor does not collect — size, real type, signing
+  certificate, disposition, network profile, moved/scanned/quarantined — are
+  listed as not collected rather than drawn empty.
+- Verified on the preview with customer `default`: real digest `17a623f3…`
+  (809 sightings, entry point `ep_2d57cbe6f80152062109`), day-shift digest
+  `15fc4c72…` (pivot carries the 09-23 observed time, not the 09-24 ingest day),
+  zero-sighting digest, unregistered customer `403 TENANT_NOT_FOUND`, malformed
+  digest `INVALID_SHA256`. Evidence:
+  `_preservation/mongo-nofile-20261102/FILE_TRAJECTORY_AMP_ALIGNMENT_e44fc0f4.md`.
+
+- Shared preview now serves `e44fc0f4` as a **combined** artifact (`/` + `/xdr` XDR,
+  `/edr` EDR), `not_eligible_for_production: true`. Tests 28 files / 408 passed
+  (frontend) + 9 backend sighting tests.
 - **None of these SHAs exist on GitHub.** Export via Save to Github to a
   non-production branch; Support could not confirm SHA preservation, so compare
   against `review-stack-4-commits.patch`.
