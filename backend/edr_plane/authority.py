@@ -53,7 +53,8 @@ VERB_ACTION_ID: Dict[str, str] = {
 
 #: Restorative verbs: permission-gated, never approval-gated.
 PERMISSION_ONLY_VERBS: Tuple[str, ...] = ("RELEASE_ISOLATION",
-                                          "COLLECT_PROCESS_SNAPSHOT")
+                                          "COLLECT_PROCESS_SNAPSHOT",
+                                          "LIVE_QUERY_PROCESS_NAME")
 
 #: The authority's artifact carries `approved_at` but no expiry. EDR
 #: enforces a bounded freshness window of its own so an old approval
@@ -387,12 +388,13 @@ async def authorize(*, verb: str, tenant_id: str, endpoint_id: str,
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if verb == "COLLECT_PROCESS_SNAPSHOT":
+    if verb in ("COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME"):
         return {**decision, "approval_required": False,
                 "approval_requirement_basis":
                     "READ_ONLY_COLLECTION_PERMISSION_ONLY",
                 "approval_requirement_note":
-                    ("a process snapshot reads /proc and changes nothing on "
+                    ("a process snapshot or live query reads /proc and "
+                     "changes nothing on "
                      "the endpoint, so it is permission-gated and audited "
                      "but carries no containment approval. It is also never "
                      "marked VERIFIED: the rows it returns are the evidence, "

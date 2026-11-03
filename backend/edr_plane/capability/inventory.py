@@ -709,10 +709,15 @@ SERVICE_CAPABILITIES: list[Capability] = [
               "tests/edr/test_forensic_snapshots.py"),
     _cap("backend.service.live_query", Plane.BACKEND, "investigation",
          "Live query",
-         "Ad-hoc real-time query against a live endpoint.",
-         gap=GC.TELEMETRY_MISSING,
-         note="Zero routes. The UI is an honest reserved page, not a mock.",
-         wave="Wave 7"),
+         "One read-only question against a live endpoint: which running "
+         "processes match an exact name now. The sensor walks /proc when it "
+         "claims the query and returns pid, name, path and collection time in "
+         "UTC. Matching is against /proc/<pid>/comm, which the kernel "
+         "truncates to 15 characters, and a truncated comparison says so. "
+         "Ad-hoc SQL-style queries over other artifacts are NOT supported.",
+         state=FS.REAL_ENDPOINT_VALIDATED, gap=GC.NONE, wave="Wave 7",
+         note="POST/GET /api/edr/live-query/queries · "
+              "services/edr/live_query.py · tests/edr/test_live_query.py"),
     _cap("backend.service.threat_intel", Plane.BACKEND, "investigation",
          "Threat intelligence enrichment",
          "Hash / IP / domain reputation enrichment.",
@@ -851,10 +856,13 @@ _EXPERIENCE = [
      "Process collection only. Both entry points open ONE job id; queued, "
      "running, completed-with-rows, completed-zero-rows, failed, "
      "capability-unavailable and timed-out are distinguished on screen."),
-    ("live_query_ui", "Live query UI", FS.NOT_IMPLEMENTED, _A, _P,
-     GC.UI_ONLY, "/edr/live-query · XdrReservedPage.jsx",
-     "Audit finding: UI-only, zero routes. Honestly declared "
-     "NOT_CONFIGURED on screen."),
+    ("live_query_ui", "Live query UI", FS.REAL_ENDPOINT_VALIDATED, _P, _P,
+     GC.NONE,
+     "/edr/live-query · EdrLiveQueryPage.jsx · POST+GET "
+     "/api/edr/live-query/queries · Computer → Actions → Live Query",
+     "One question: running processes matching an exact name. Both entry "
+     "points open ONE query id; matches, no-matches, failed, "
+     "capability-unavailable and timed-out are distinguished on screen."),
     ("malware_analysis_ui", "Malware analysis UI", FS.BACKEND_IMPLEMENTED,
      _P, _P, GC.NONE, "XdrInvestigationWorkspacePage.jsx", None),
     ("threat_intel_ui", "Threat intelligence UI", FS.BACKEND_IMPLEMENTED,

@@ -215,3 +215,25 @@ export async function snapshotJob(jobId) {
     `/edr/forensics/snapshots/${encodeURIComponent(jobId)}`);
   return data;
 }
+
+// ── Live Query ──────────────────────────────────────────────────────────────
+// Each call collects fresh on the endpoint; a previous answer is never reused,
+// because the question is about now.
+export async function liveQuery(endpointId, processName) {
+  const { data } = await api.post("/edr/live-query/queries",
+                                  { endpoint_id: endpointId,
+                                    process_name: processName });
+  return data;
+}
+
+export async function listQueries(endpointId, limit = 50) {
+  const { data } = await api.get("/edr/live-query/queries", {
+    params: { limit, ...(endpointId ? { endpoint_id: endpointId } : {}) } });
+  return data;
+}
+
+export async function queryResult(queryId) {
+  const { data } = await api.get(
+    `/edr/live-query/queries/${encodeURIComponent(queryId)}`);
+  return data;
+}

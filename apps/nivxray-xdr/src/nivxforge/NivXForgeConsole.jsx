@@ -86,8 +86,7 @@ const NAV = [
     { key: "forensics", label: "Forensic Snapshots", icon: Camera,
       to: "/edr/forensics" },
     { key: "live-query", label: "Live Query", icon: Terminal,
-      reason: "Live query requires an endpoint execution channel with "
-        + "approval, which is not implemented." },
+      to: "/edr/live-query" },
   ] },
   { title: "Respond", items: [
     { key: "response", label: "Response", icon: ArrowRightLeft,

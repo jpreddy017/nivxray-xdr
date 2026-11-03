@@ -82,7 +82,8 @@ CAPABILITIES = {
     #: with a fresh /proc walk. A platform talking to an older sensor will
     #: not find this key, and that sensor reports CAPABILITY_UNAVAILABLE at
     #: command time rather than letting the platform answer from history.
-    "collection_actions": ["COLLECT_PROCESS_SNAPSHOT"],
+    "collection_actions": ["COLLECT_PROCESS_SNAPSHOT",
+                           "LIVE_QUERY_PROCESS_NAME"],
     #: Declared but privilege-gated. The sensor reports the exact missing
     #: capability at command time rather than claiming containment it
     #: cannot enforce.
@@ -1087,6 +1088,8 @@ def _execute_command(cmd: dict, api: str = "") -> tuple[str, str, dict]:
         return _execute_isolation(cmd, api)
     if action == "COLLECT_PROCESS_SNAPSHOT":
         return _collect_process_snapshot()
+    if action == "LIVE_QUERY_PROCESS_NAME":
+        return _live_query_process_name(target)
     return "FAILED", f"unknown action {action}", {}
 
 
@@ -1152,6 +1155,62 @@ def _collect_process_snapshot() -> tuple[str, str, dict]:
     return "EXECUTED", detail, evidence
 
 
+def _live_query_process_name(target: dict) -> tuple[str, str, dict]:
+    """Which processes are running under this exact name, right now.
+
+    The comparison is against /proc/<pid>/comm, which the kernel truncates to
+    15 characters, so a longer name is compared on its first 15 and the answer
+    says so. Nothing is matched against stored telemetry: an empty answer here
+    means the name is not running at this instant, not that it never ran.
+    """
+    want = str((target or {}).get("name_compared")
+               or (target or {}).get("process_name") or "").strip()
+    if not want:
+        return "FAILED", "no process name in the query target", {}
+    collected = _now()
+    rows: list[dict] = []
+    examined = 0
+    try:
+        pids = sorted(int(p.name) for p in Path("/proc").iterdir()
+                      if p.name.isdigit())
+    except OSError as e:
+        return "FAILED", f"/proc is not readable on this endpoint: {e}", {
+            "collected_at": collected, "match_count": 0, "rows": []}
+    for pid in pids:
+        try:
+            comm = Path(f"/proc/{pid}/comm").read_text().strip()
+        except OSError:
+            continue           # exited between listing and reading
+        examined += 1
+        if comm != want:
+            continue
+        try:
+            path = os.readlink(f"/proc/{pid}/exe")
+        except OSError as e:
+            path, reason = None, type(e).__name__
+        else:
+            reason = None
+        row = {"pid": pid, "name": comm, "path": path}
+        if reason:
+            row["path_unavailable"] = reason
+        rows.append(row)
+    evidence = {
+        "collected_at": collected,
+        "match_count": len(rows),
+        "processes_examined": examined,
+        "rows": rows,
+        "sensor_version": SENSOR_VERSION,
+        "collection_basis": ("one /proc walk performed when this query was "
+                             "claimed, comparing /proc/<pid>/comm; no stored "
+                             "telemetry was searched"),
+        "not_observed": ["command line", "user", "start time", "image digest",
+                         "processes that started or exited during the walk"],
+    }
+    detail = (f"{len(rows)} of {examined} running processes matched "
+              f"{want!r} at {collected}")
+    return "EXECUTED", detail, evidence
+
+
 def _verify_command(cmd: dict, result: tuple) -> dict:
     """Evidence gathered AFTER the action, independent of the action.
 
@@ -1213,7 +1272,8 @@ def _serve_commands(api: str, ident: dict, session: dict) -> int:
               {"command_id": cmd["command_id"], "outcome": outcome,
                "detail": detail, "evidence": evidence},
               bearer=session["token"])
-        if outcome == "EXECUTED" and cmd.get("action") == "COLLECT_PROCESS_SNAPSHOT":
+        if outcome == "EXECUTED" and cmd.get("action") in (
+                "COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME"):
             # Deliberately NOT verified. The rows are the evidence; a second
             # /proc walk cannot prove what the first one saw, and claiming
             # VERIFIED here would dress a re-read up as proof.

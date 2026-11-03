@@ -408,6 +408,12 @@ export default function TrajectoryPage({ device, onLegacy }) {
         .catch((e) => say(String(e?.response?.data?.detail?.reason
                                  || e?.response?.data?.detail?.error || e.message)));
     }
+    else if (a === "live-query") {
+      // Preselect this computer; the question is asked on the Live Query page
+      // so the analyst sees what was checked next to the answer.
+      window.open(`/edr/live-query?device=${encodeURIComponent(v || device)}`,
+                  "_blank", "noopener,noreferrer");
+    }
     else if (a === "pivot") say(`${v} opens in the XDR console (not wired in this preview)`);
     else if (a === "approve") setApproval({ action: v, it: menu?.deviceOnly ? null : it, device: !!menu?.deviceOnly, target: menu?.deviceOnly || v === "ISOLATE_DEVICE" ? data?.computer?.hostname || device : it?.target?.path || it?.target?.label });
   };

@@ -358,4 +358,12 @@ describe("the camera on an event, the way AMP offers it", () => {
     // the approval stub for the same action is gone: one action, one door
     expect(screen.queryByTestId("v3-ctx-FORENSIC_SNAPSHOT")).toBeNull();
   });
+
+  it("offers Live Query on the computer, preselecting it", () => {
+    const acts = [];
+    render(<ContextMenu menu={{ x: 10, y: 10, deviceOnly: true, device: DEVICE }}
+                        onAction={(a, v) => acts.push([a, v])} />);
+    fireEvent.click(screen.getByTestId("v3-ctx-live-query"));
+    expect(acts).toEqual([["live-query", DEVICE]]);
+  });
 });

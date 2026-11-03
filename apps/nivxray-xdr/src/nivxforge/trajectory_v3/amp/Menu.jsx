@@ -29,6 +29,8 @@ function DeviceItems({ menu, onAction }) {
         sits above the approval section rather than inside it. */}
     <Item id="forensic-snapshot" label="Request forensic snapshot" sub
           onClick={() => onAction("forensic-snapshot", menu.device)} />
+    <Item id="live-query" label="Live Query" sub
+          onClick={() => onAction("live-query", menu.device)} />
     <Item id="copy-device" label="Copy device id" onClick={() => onAction("copy-path", menu.device)} />
     <Sect>APPROVAL REQUEST ONLY</Sect>
     {DEVICE_MUTATING(menu.isolated).map((a) => <Item key={a} id={a} label={`${label(a)}…`} note={pending[a] ? "Approval requested" : null} onClick={() => onAction("approve", a)} />)}

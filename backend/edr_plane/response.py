@@ -35,7 +35,7 @@ ENGINE_ID = "nivxray::edr_plane::response"
 #: permission-gated but never approval-gated, and it is never "verified":
 #: a collection's rows ARE its evidence, and a second read of /proc cannot
 #: prove what the first one saw.
-COLLECTION_ACTIONS = ("COLLECT_PROCESS_SNAPSHOT",)
+COLLECTION_ACTIONS = ("COLLECT_PROCESS_SNAPSHOT", "LIVE_QUERY_PROCESS_NAME")
 ACTIONS = ("KILL_PROCESS", "ISOLATE_ENDPOINT", "RELEASE_ISOLATION",
            *COLLECTION_ACTIONS)
 TERMINAL = ("VERIFIED", "VERIFICATION_FAILED", "FAILED",
