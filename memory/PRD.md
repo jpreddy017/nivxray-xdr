@@ -87,9 +87,40 @@ true, but the shape was a report, not a trajectory.
   digest `INVALID_SHA256`. Evidence:
   `_preservation/mongo-nofile-20261102/FILE_TRAJECTORY_AMP_ALIGNMENT_e44fc0f4.md`.
 
-- Shared preview now serves `e44fc0f4` as a **combined** artifact (`/` + `/xdr` XDR,
-  `/edr` EDR), `not_eligible_for_production: true`. Tests 28 files / 408 passed
-  (frontend) + 9 backend sighting tests.
+- Shared preview now serves `3db78b9a` as a **combined** artifact (`/` + `/xdr` XDR,
+  `/edr` EDR), `not_eligible_for_production: true`. Tests 28 files / 415 passed
+  (frontend) + 17 backend sighting tests.
+
+### File Trajectory · owner's four preview checks closed (2026-11-03, `3db78b9a`)
+
+- **Path filtering now spans the whole history.** It ran in the browser over one
+  capped read, so `/var/tmp` matched nothing while File details listed those very
+  paths. Now a server re-read applied before any limit: `/var/tmp` on `17a623f3…`
+  returns **24 of 809** (12 created + 12 observed), all displayed, and an older
+  creation (`2026-09-08 00:35:30Z`) is selectable and openable.
+- **Each digest's subject is traced to the sensor.** `FILE/CREATE` hashes the file
+  found at `path`; `PROCESS_OBSERVED` hashes `/proc/<pid>/exe` at `image_path`.
+  Shown per sighting as "Path source". Polling records are labelled "Process
+  observed" and counted as observations, never launches. The 14 paths reconcile:
+  797 observations via `image_path` (14 paths) + 12 creations via `path` (12),
+  each proof file both created and executed. FILE events carry `size`, so the
+  earlier "file size not collected" was also wrong and is corrected.
+- **Individual sightings are reachable**, and the device-canvas gap is explained:
+  the canvas reads canonical evidence (zero for 2026-09-08, 26k+ for 2026-10-18)
+  while File Trajectory reads 31,589 raw events for that day, so an empty canvas
+  keeps the sighting on screen and names the canonicalisation gap.
+- **Two computers proved on a disposable database** (`test_file_sightings_fleet_fixture.py`,
+  dropped after the run; no endpoint enrolled, nothing written to preview data):
+  two lanes in one customer, a tie keeping both first observers, a third
+  endpoint in another customer excluded. Section renamed **"First observed on"**;
+  transfer is explicitly not claimed.
+- Regression caught: a loop variable shadowed the digest, so responses came back
+  keyed `PROCESS/PROCESS_OBSERVED` and every pivot link carried that. Fixed and
+  asserted.
+- Evidence: `_preservation/mongo-nofile-20261102/FILE_TRAJECTORY_OWNER_CHECKS_3db78b9a.md`
+  with three screenshots.
+- Next, as instructed, kept separate: Dashboard → Forensic Snapshots and
+  Dashboard → Live Query.
 - **None of these SHAs exist on GitHub.** Export via Save to Github to a
   non-production branch; Support could not confirm SHA preservation, so compare
   against `review-stack-4-commits.patch`.
