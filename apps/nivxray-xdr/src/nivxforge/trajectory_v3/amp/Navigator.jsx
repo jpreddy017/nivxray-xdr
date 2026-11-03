@@ -133,10 +133,18 @@ export default function Navigator({ days, dets, view, now, onView, onJump, fetch
   const [hours, setHours] = useState(null);
   const T = useTip();
   const today = Math.floor(now / DAY) * DAY;
-  const cells = Array.from({ length: 30 }, (_, i) => today - (29 - i) * DAY);
+  const day0 = Math.floor(Math.min(view.t1 - view.t0 <= 2 * H ? (view.t0 + view.t1) / 2 : view.t1 - 1, now) / DAY) * DAY;
+  // The strip used to be hard-anchored to the last 30 days. A deep link to an
+  // older day — a file sighting from September — then left NO cell selected
+  // while the strip still read Oct–Nov above a September canvas, so the
+  // navigator described a different day from the one being shown. When the
+  // selected day falls outside the window, the window moves to contain it and
+  // says that it has.
+  const end = day0 < today - 29 * DAY ? Math.min(today, day0 + 14 * DAY) : today;
+  const cells = Array.from({ length: 30 }, (_, i) => end - (29 - i) * DAY);
+  const shifted = end !== today;
   const tot = new Map((days || []).map((d) => [Date.parse(`${d.day}T00:00:00Z`), d.total]));
   const max = Math.max(1, ...cells.map((t) => tot.get(t) || 0));
-  const day0 = Math.floor(Math.min(view.t1 - view.t0 <= 2 * H ? (view.t0 + view.t1) / 2 : view.t1 - 1, now) / DAY) * DAY;
   useEffect(() => {
     let live = true;
     setHours(null);
@@ -150,6 +158,17 @@ export default function Navigator({ days, dets, view, now, onView, onJump, fetch
       <button data-testid="v3-nav-collapse" onClick={() => setOpen(!open)} style={{ background: "none", border: 0, color: C.text, cursor: "pointer", alignSelf: "flex-start",
         fontSize: 15, width: 22, transform: open ? "none" : "rotate(-90deg)", transition: "transform .15s" }}>∨</button>
       {open ? <div style={{ flex: 1, minWidth: 0 }}>
+        {shifted && (
+          <div data-testid="v3-nav-window-shifted" data-day={new Date(day0).toISOString().slice(0, 10)}
+               style={{ fontSize: 11.5, color: C.muted, marginBottom: 4 }}>
+            Showing the 30 days to {dateL(end)} — the selected day,{" "}
+            <b style={{ color: C.text }}>{dateL(day0)}</b>, falls outside the last 30 days.{" "}
+            <button className="v3-link" data-testid="v3-nav-window-today"
+                    onClick={() => onView({ t0: today, t1: Math.min(today + DAY, now) })}>
+              Back to today
+            </button>
+          </div>
+        )}
         <svg data-testid="v3-sparkline" viewBox={`0 0 ${30 * 48} 32`} preserveAspectRatio="none" style={{ width: "100%", height: 22, display: "block" }}>
           <polyline points={pts} fill="none" stroke={C.accent} strokeWidth={1.4} vectorEffect="non-scaling-stroke" /></svg>
         <div style={{ display: "flex" }}>

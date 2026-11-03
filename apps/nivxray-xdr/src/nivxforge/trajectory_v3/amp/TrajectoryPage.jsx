@@ -515,8 +515,13 @@ export default function TrajectoryPage({ device, onLegacy }) {
                   <button className="v3-link" data-testid="v3-search-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Search last 30 days</button></div></div>}
               {!q && !loading && !readError && data && !model.items.length && <div data-testid="v3-empty" style={{ position: "absolute", inset: "78px 0 0 0", display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
-                <div>No activity was recorded for this device in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
-                <div style={{ color: C.muted, fontSize: 12.5 }}>The range was read successfully — this is an empty result, not a failed request.</div>
+                <div data-testid="v3-empty-headline">{sourceSighting && !sourceSighting._missing && !sourceSighting._unreadable
+                  ? `No timeline events are available for this period. The sensor recorded the ${
+                      sourceSighting.activity === "CREATE" ? "file creation" : "activity"} shown below.`
+                  : `No activity was recorded for this device in ${new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – ${new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.`}</div>
+                {!(sourceSighting && !sourceSighting._missing && !sourceSighting._unreadable) && (
+                  <div style={{ color: C.muted, fontSize: 12.5 }}>The range was read successfully — this is an empty result, not a failed request.</div>
+                )}
                 {sourceSighting && !sourceSighting._missing && !sourceSighting._unreadable && (
                   <div data-testid="v3-source-sighting" data-raw-id={sourceSighting.raw_id}
                        style={{ maxWidth: 680, textAlign: "left", border: `1px solid ${C.line}`,

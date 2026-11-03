@@ -224,6 +224,11 @@ describe("an empty canvas does not erase the sighting that sent the analyst here
     expect(panel.textContent).toContain("2026-09-08 00:35:30Z");
     expect(panel.textContent).toMatch(/canonicalisation gap for this range/);
     expect(panel.textContent).toMatch(/not an absence of activity/);
+    // The headline must not read as a denial of the evidence shown underneath it.
+    const head = screen.getByTestId("v3-empty-headline").textContent;
+    expect(head).toBe("No timeline events are available for this period. "
+      + "The sensor recorded the file creation shown below.");
+    expect(head).not.toMatch(/No activity was recorded/);
     expect(screen.getByTestId("v3-source-sighting-back").getAttribute("href"))
       .toBe(`/edr/files?sha256=${HASH}`);
   });
@@ -233,6 +238,9 @@ describe("an empty canvas does not erase the sighting that sent the analyst here
     withSighting([]);
     mountPivot();
     const miss = await screen.findByTestId("v3-source-sighting-missing");
+    // No sighting to show: the ordinary empty state is kept.
+    expect(screen.getByTestId("v3-empty-headline").textContent)
+      .toMatch(/No activity was recorded for this device/);
     expect(miss.textContent).toMatch(/nothing about it is asserted here/);
     expect(screen.queryByTestId("v3-source-sighting")).toBeNull();
   });
@@ -246,5 +254,37 @@ describe("an empty canvas does not erase the sighting that sent the analyst here
     mountPivot();
     await waitFor(() => expect(screen.queryByTestId("v3-empty")).toBeNull());
     expect(screen.queryByTestId("v3-source-sighting")).toBeNull();
+  });
+});
+
+describe("the day navigator agrees with the day on the canvas", () => {
+  // The strip was hard-anchored to the last 30 days, so a deep link to a
+  // September sighting left no cell selected while the strip read Oct–Nov
+  // above a September canvas.
+  const OLD_DAY = Date.UTC(2026, 8, 8);   // 2026-09-08
+
+  it("moves its window to contain a selected day older than 30 days, and says so", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    api.get.mockImplementation(route({}));
+    render(
+      <MemoryRouter initialEntries={[
+        `/edr/device-trajectory?device=${DEVICE}&t0=${OLD_DAY}&t1=${OLD_DAY + 86400000}`]}>
+        <TrajectoryPage device={DEVICE} onLegacy={() => {}} />
+      </MemoryRouter>);
+    const note = await screen.findByTestId("v3-nav-window-shifted");
+    expect(note.getAttribute("data-day")).toBe("2026-09-08");
+    expect(note.textContent).toMatch(/falls outside the last 30 days/);
+    // and the selected day is a cell in the window, marked as selected
+    const cell = screen.getByTestId("v3-day-cell-2026-09-08");
+    expect(cell.getAttribute("data-selected")).toBe("1");
+    expect(screen.getByTestId("v3-nav-window-today")).toBeTruthy();
+  });
+
+  it("says nothing when the selected day is inside the last 30 days", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    api.get.mockImplementation(route({}));
+    mount();
+    await waitFor(() => expect(screen.getByTestId("v3-navigator")).toBeTruthy());
+    expect(screen.queryByTestId("v3-nav-window-shifted")).toBeNull();
   });
 });
