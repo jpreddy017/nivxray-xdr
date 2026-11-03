@@ -64,12 +64,20 @@ const Panel = ({ title, sub, children, testid }) => (
 function Graphic({ data, selected, onSelect }) {
   const eps = data.endpoints || [];
   const [t0, t1] = useMemo(() => {
-    const all = eps.flatMap((e) => (e.sightings || []).map((s) => ms(s.observed_at)))
-      .filter(Number.isFinite);
+    // The axis spans the KNOWN range of this digest, not just the slice of
+    // sightings this read returned — otherwise a capped read would redraw the
+    // file's history as starting later than Visibility says it did.
+    const all = eps.flatMap((e) => [
+      ...(e.sightings || []).map((s) => ms(s.observed_at)),
+      ms(e.first_observed), ms(e.last_observed),
+    ]).filter(Number.isFinite);
     if (!all.length) return [0, 1];
     const lo = Math.min(...all), hi = Math.max(...all);
     return lo === hi ? [lo - 1800000, hi + 1800000] : [lo, hi];
   }, [eps]);
+
+  const drawn = eps.reduce((n, e) => n + (e.sightings || []).length, 0);
+  const total = eps.reduce((n, e) => n + (e.sighting_count || 0), 0);
 
   const at = (iso) => {
     const v = ms(iso);
@@ -151,6 +159,11 @@ function Graphic({ data, selected, onSelect }) {
         <span style={{ opacity: 0.8 }}>
           not collected, so never shown: created · moved · scanned · quarantined
         </span>
+        {drawn < total && (
+          <span data-testid="edr-files-graphic-partial" style={{ opacity: 0.9 }}>
+            showing the newest {drawn} of {total} sightings on this axis
+          </span>
+        )}
       </div>
     </div>
   );

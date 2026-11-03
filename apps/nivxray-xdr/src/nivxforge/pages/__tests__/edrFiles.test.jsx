@@ -241,3 +241,23 @@ describe("the lookup answers honestly", () => {
       .toMatch(/more sightings than one read returns/);
   });
 });
+
+describe("the graphic does not redraw history it did not read", () => {
+  it("spans the digest's known range, not just the returned slice", async () => {
+    // The endpoint has 500 sightings but only the newest two came back.
+    api.get.mockResolvedValue({ data: payload({
+      total_sightings: 500, endpoint_count: 1, truncated: true, scanned: 4000,
+      endpoints: [{ endpoint_id: DEVICE, hostname: "agent-env-630704a1",
+        identity: "registered", sighting_count: 500,
+        paths: ["/usr/bin/dash"],
+        first_observed: "2026-09-06T08:17:03.000000+00:00",
+        last_observed: LATER.observed_at,
+        sightings: [LATER, SHIFTED] }] }) });
+    mount();
+    await screen.findByTestId("edr-files-graphic");
+    // Visibility starts 2026-09-06, so the axis must start there too.
+    expect(screen.getByTestId("edr-files-graphic-t0").textContent).toContain("2026-09-06");
+    expect(screen.getByTestId("edr-files-graphic-partial").textContent)
+      .toMatch(/newest 2 of 500 sightings/);
+  });
+});
