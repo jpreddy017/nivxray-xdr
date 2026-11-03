@@ -169,3 +169,25 @@ def test_delivery_across_midnight_is_placed_on_the_observed_day(fleet):
     assert shifted["observed_day_utc"] == "2026-09-03"
     assert shifted["ingest_day_utc"] == "2026-09-04"
     assert shifted["endpoint_id"] == EP_B
+
+
+def test_one_exact_sighting_is_readable_regardless_of_the_limit(fleet):
+    # The device canvas asks for exactly this when it has no evidence of its
+    # own for the day: the sighting has to stay on screen, however old it is.
+    whole = svc.sightings(DIGEST, tenant_id=OWNER)
+    oldest = sorted((s for e in whole["endpoints"] for s in e["sightings"]),
+                    key=lambda s: s["observed_at"])[0]
+    out = svc.sightings(DIGEST, tenant_id=OWNER, limit=1,
+                        raw_id=oldest["raw_id"])
+    rows = [s for e in out["endpoints"] for s in e["sightings"]]
+    assert len(rows) == 1
+    assert rows[0]["raw_id"] == oldest["raw_id"]
+    assert rows[0]["observed_at"] == oldest["observed_at"]
+
+
+def test_another_customer_cannot_read_a_sighting_by_its_evidence_id(fleet):
+    owner_row = [s for e in svc.sightings(DIGEST, tenant_id=OWNER)["endpoints"]
+                 for s in e["sightings"]][0]
+    out = svc.sightings(DIGEST, tenant_id=OUTSIDER, raw_id=owner_row["raw_id"])
+    assert out["total_sightings"] == 0
+    assert out["endpoints"] == []

@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Search, X } from "lucide-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
+import { fileSightings } from "@/nivxforge/edrApi";
 import {
   CUSTOMER_NONE, CUSTOMER_PENDING, CUSTOMER_READY, CUSTOMER_SEALED,
   useActingCustomer,
@@ -173,6 +174,13 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const [approvals, setApprovals] = useState({});
   const [devPending, setDevPending] = useState({});
   const [colW, setColW] = useState(24);
+  // A pivot from File Trajectory carries the sighting that sent the analyst
+  // here. If this canvas has nothing for that day, the sighting must stay on
+  // screen with the reason the two reads disagree — not be replaced by a bare
+  // "no activity", which reads as a denial of evidence that does exist.
+  const sightingId = params.get("sighting");
+  const shaParam = params.get("sha256");
+  const [sourceSighting, setSourceSighting] = useState(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [hitIdx, setHitIdx] = useState(-1);
   const [draft, setDraft] = useState(q);
@@ -272,6 +280,23 @@ export default function TrajectoryPage({ device, onLegacy }) {
   const isoItem = isoId ? model.items.find((it) => it.ev.event_iid === isoId) : null;
   useEffect(() => { setPresent(presentKinds(model.items)); }, [model]);
   useEffect(() => { window.__v3perf = { ...timing.current, n: model.total, cols: model.ncol, rows: model.rows.length }; }, [model]);
+  // Read the originating sighting only when this canvas came up empty for the
+  // range: that is the only moment the analyst needs it kept on screen.
+  useEffect(() => {
+    if (!sightingId || !shaParam || loading || readError) return;
+    if (!data || model.items.length) { setSourceSighting(null); return; }
+    let live = true;
+    fileSightings(shaParam, 1, "", sightingId)
+      .then((d) => {
+        if (!live) return;
+        const row = (d?.endpoints || []).flatMap((e) => e.sightings || [])
+          .find((s) => s.raw_id === sightingId);
+        setSourceSighting(row ? { ...row, _read: d } : { _missing: true });
+      })
+      .catch(() => { if (live) setSourceSighting({ _unreadable: true }); });
+    return () => { live = false; };
+  }, [sightingId, shaParam, data, model.items.length, loading, readError]);
+
   const lin = useMemo(() => (isoItem ? lineage(model, isoItem) : null), [model, isoItem]);
   const shown = useMemo(() => model.items.filter((it) => passes(it, filters) && matches(it, q) && (!lin || lin.has(it.actorIid) || lin.has(it.targetIid))
     && (!att || hasTechnique(it, att)) && (!sev || it.ev.e3_detection?.severity === sev)
@@ -492,6 +517,42 @@ export default function TrajectoryPage({ device, onLegacy }) {
                 alignItems: "center", justifyContent: "center", gap: 10, background: C.panel, color: C.label, fontSize: 14, zIndex: 7 }}>
                 <div>No activity was recorded for this device in {new Date(t0).toISOString().slice(0, 16).replace("T", " ")} – {new Date(t1).toISOString().slice(0, 16).replace("T", " ")} UTC.</div>
                 <div style={{ color: C.muted, fontSize: 12.5 }}>The range was read successfully — this is an empty result, not a failed request.</div>
+                {sourceSighting && !sourceSighting._missing && !sourceSighting._unreadable && (
+                  <div data-testid="v3-source-sighting" data-raw-id={sourceSighting.raw_id}
+                       style={{ maxWidth: 680, textAlign: "left", border: `1px solid ${C.line}`,
+                                borderRadius: 10, padding: "12px 14px", background: C.bg || "transparent" }}>
+                    <div style={{ fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase",
+                                  color: C.muted, marginBottom: 8 }}>
+                      The sighting that sent you here is still evidence
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                      <div><b>{sourceSighting.activity === "CREATE" ? "File created" : sourceSighting.activity === "PROCESS_OBSERVED" ? "Process observed" : sourceSighting.activity}</b>{" "}
+                        at <span className="mono">{sourceSighting.path}</span></div>
+                      <div style={{ color: C.muted }}>
+                        observed <span className="mono">{String(sourceSighting.observed_at).slice(0, 19).replace("T", " ")}Z</span>
+                        {" · "}evidence id <span className="mono">{sourceSighting.raw_id}</span>
+                        {sourceSighting.size != null ? ` · ${sourceSighting.size} bytes` : ""}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: C.muted, marginTop: 10 }}>
+                      File Trajectory reads authenticated RAW sensor events. This canvas reads
+                      CANONICAL evidence. Both reads succeeded, so the difference is a
+                      canonicalisation gap for this range — not a contradiction, and not an
+                      absence of activity on the endpoint.
+                    </div>
+                    <Link to={`/edr/files?sha256=${encodeURIComponent(shaParam)}`}
+                          data-testid="v3-source-sighting-back"
+                          className="v3-link" style={{ display: "inline-block", marginTop: 10 }}>
+                      Back to this file's sightings
+                    </Link>
+                  </div>
+                )}
+                {sourceSighting?._missing && (
+                  <div data-testid="v3-source-sighting-missing" style={{ color: C.muted, fontSize: 12.5, maxWidth: 620 }}>
+                    The sighting that sent you here (<span className="mono">{sightingId}</span>) could not be
+                    re-read in this customer, so nothing about it is asserted here.
+                  </div>
+                )}
                 <button className="v3-link" data-testid="v3-empty-widen" onClick={() => setView({ t0: now - 30 * DAY, t1: now })}>Look back 30 days</button></div>}
               {loading && <div data-testid="v3-loading" style={{ position: "absolute", inset: 0, background: "rgba(16,18,22,.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 8 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 38, border: `3px solid ${C.line}`, borderTopColor: C.accent, animation: "v3spin .8s linear infinite" }} /></div>}

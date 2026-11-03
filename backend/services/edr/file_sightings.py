@@ -109,7 +109,8 @@ def _sighting(doc: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def sightings(sha256: str, tenant_id: str,
               limit: int = DEFAULT_LIMIT,
-              path_contains: Optional[str] = None) -> Dict[str, Any]:
+              path_contains: Optional[str] = None,
+              raw_id: Optional[str] = None) -> Dict[str, Any]:
     """Every sighting of one content digest within ONE customer.
 
     `tenant_id` is the server-resolved acting customer (see
@@ -157,7 +158,12 @@ def sightings(sha256: str, tenant_id: str,
     # ── the path filter, across the WHOLE history, before any limit ──────────
     needle = (path_contains or "").strip()
     all_rows = rows
-    if needle:
+    if raw_id:
+        # One exact sighting, regardless of how old it is. The device canvas
+        # asks for this when it has no evidence of its own for that day and
+        # must still keep the sighting that sent the analyst there on screen.
+        rows = [r for r in all_rows if r.get("raw_id") == raw_id]
+    elif needle:
         rows = [r for r in all_rows
                 if needle.lower() in str(r.get("path") or "").lower()]
     filter_state = {

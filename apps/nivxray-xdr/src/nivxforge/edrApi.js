@@ -183,12 +183,14 @@ export async function getSessionContext() {
  * The customer is resolved server-side from the session; the hash is only a
  * key within it and can never widen the read.
  */
-export async function fileSightings(sha256, limit = 300, pathContains = "") {
+export async function fileSightings(sha256, limit = 300, pathContains = "",
+                                    rawId = "") {
   const { data } = await api.get(
     `/edr/files/${encodeURIComponent(sha256)}/sightings`,
     // The path filter is applied by the SERVER across every authorized
     // sighting. Filtering in the browser only narrows the slice the read
     // returned, which hides matches older than the limit.
-    { params: { limit, ...(pathContains ? { path_contains: pathContains } : {}) } });
+    { params: { limit, ...(pathContains ? { path_contains: pathContains } : {}),
+                ...(rawId ? { raw_id: rawId } : {}) } });
   return data;
 }

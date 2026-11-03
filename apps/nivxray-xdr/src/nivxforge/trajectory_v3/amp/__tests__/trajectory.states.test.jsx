@@ -185,3 +185,66 @@ describe("a refused read is not dressed as a finished investigation", () => {
     expect(screen.getByTestId("v3-refused-return")).toBeTruthy();
   });
 });
+
+describe("an empty canvas does not erase the sighting that sent the analyst here", () => {
+  // Real case: a FILE/CREATE sighting observed 2026-09-08 exists in raw
+  // authenticated evidence, while the canonical store holds nothing for that
+  // day. A bare "no activity" then reads as a denial of evidence that exists.
+  const SIGHTING = {
+    raw_id: "raw_98b8aec512212938f62fd84a", endpoint_id: DEVICE,
+    activity: "CREATE", path: "/var/tmp/nivxforge-watch/nivx-p03-proof-1788827716",
+    observed_at: "2026-09-08T00:35:30.688220+00:00", size: 68432,
+  };
+  const HASH = "17a623f303e2489770e64a9eab9420c66e576ec5ad215ea7c46ec392a2212f49";
+
+  const mountPivot = (sighting = SIGHTING.raw_id) => render(
+    <MemoryRouter initialEntries={[
+      `/edr/device-trajectory?device=${DEVICE}&at=${SIGHTING.observed_at}`
+      + `&sha256=${HASH}&sighting=${sighting}&tenant=${OWN}`]}>
+      <TrajectoryPage device={DEVICE} onLegacy={() => {}} />
+    </MemoryRouter>);
+
+  const withSighting = (rows) => api.get.mockImplementation((u, cfg) => {
+    if (/\/sightings$/.test(u)) {
+      expect(cfg.params.raw_id).toBe(SIGHTING.raw_id);
+      return Promise.resolve({ data: { ok: true, sha256: HASH, tenant: OWN,
+        endpoints: rows.length ? [{ endpoint_id: DEVICE, sightings: rows }] : [] } });
+    }
+    return route({})(u);
+  });
+
+  it("keeps the sighting on screen and names the gap between the two reads", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    withSighting([SIGHTING]);
+    mountPivot();
+    const panel = await screen.findByTestId("v3-source-sighting");
+    expect(panel.getAttribute("data-raw-id")).toBe(SIGHTING.raw_id);
+    expect(panel.textContent).toContain("File created");
+    expect(panel.textContent).toContain(SIGHTING.path);
+    expect(panel.textContent).toContain("2026-09-08 00:35:30Z");
+    expect(panel.textContent).toMatch(/canonicalisation gap for this range/);
+    expect(panel.textContent).toMatch(/not an absence of activity/);
+    expect(screen.getByTestId("v3-source-sighting-back").getAttribute("href"))
+      .toBe(`/edr/files?sha256=${HASH}`);
+  });
+
+  it("asserts nothing when the sighting cannot be re-read in this customer", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    withSighting([]);
+    mountPivot();
+    const miss = await screen.findByTestId("v3-source-sighting-missing");
+    expect(miss.textContent).toMatch(/nothing about it is asserted here/);
+    expect(screen.queryByTestId("v3-source-sighting")).toBeNull();
+  });
+
+  it("stays out of the way when the canvas actually has events", async () => {
+    bindServerTenant(OWN, { switchable: false });
+    api.get.mockImplementation(route({ trajectory: ok([{
+      event_iid: "ev1", event_time: SIGHTING.observed_at, kind: "process_create",
+      process: { image: "sleep", image_path: "/usr/bin/sleep" },
+    }]) }));
+    mountPivot();
+    await waitFor(() => expect(screen.queryByTestId("v3-empty")).toBeNull());
+    expect(screen.queryByTestId("v3-source-sighting")).toBeNull();
+  });
+});

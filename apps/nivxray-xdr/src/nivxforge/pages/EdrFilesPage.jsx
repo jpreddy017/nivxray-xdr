@@ -35,6 +35,9 @@ const utc = (iso, len = 19) => {
 export function sightingHref(sha256, s, customer) {
   if (!s?.endpoint_id || !s?.observed_at) return null;
   const q = new URLSearchParams({ device: s.endpoint_id, at: s.observed_at, sha256 });
+  // The evidence id travels with the pivot so the device canvas can keep the
+  // sighting on screen when it has nothing of its own for that day.
+  if (s.raw_id) q.set("sighting", s.raw_id);
   if (customer) q.set("tenant", customer);
   return `/edr/device-trajectory?${q.toString()}`;
 }

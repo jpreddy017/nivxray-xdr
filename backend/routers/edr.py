@@ -816,6 +816,7 @@ async def file_trajectory(key: str, key_type: str = "name",
 @router.get("/files/{sha256}/sightings")
 async def file_sightings(sha256: str, limit: int = 300,
                          path_contains: str | None = None,
+                         raw_id: str | None = None,
                          user=Depends(get_current_user),
                          tenant_id: str = Depends(edr_tenant)):
     """Where a SHA-256 has been seen across THIS customer's endpoints.
@@ -829,7 +830,8 @@ async def file_sightings(sha256: str, limit: int = 300,
     """
     return file_sightings_svc.sightings(sha256, tenant_id=tenant_id,
                                         limit=limit,
-                                        path_contains=path_contains)
+                                        path_contains=path_contains,
+                                        raw_id=raw_id)
 
 
 @router.get("/fleet-spread-index")
