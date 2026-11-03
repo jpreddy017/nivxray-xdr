@@ -42,6 +42,29 @@ output `dist`, SPA rewrite, host redirect edr.nivxforge.com → /edr. Repo-root
 `NIVX_EDR_INTEGRATION_PREVIEW=1` + `VERCEL_ENV=preview` + branch
 `validation/edr-preview-backend-2026-10-31`.
 
+## Cross-product review stack — local only, promotion on hold (2026-11-03)
+
+Branch `fix/xdr-timeline-trajectory-context`, tip **`6d7a1d027b089a732d07a95d4e72cf25f484d4a8`**:
+
+| commit | what |
+|---|---|
+| `f16edf16` | EDR UI candidate: grouped filters, tenant ordering, stale-response handling, neutral "Select a computer" state |
+| `ec498a61` | ProductScopeGuard no longer strands the analyst on a foreign `/xdr/*` path |
+| `e934e8c7` | XDR incident → EDR trajectory opens in a NEW TAB, carrying endpoint/customer/incident/range |
+| `57051d74` | an instant is sent as `at`; a link range is used whole or not at all |
+| `7e40b040` | the Timeline tab's orange button now carries the incident instead of opening a blank canvas |
+| `6d7a1d02` | that tab's copy names `/edr/device-trajectory` |
+
+- Shared preview serves `6d7a1d02` as a **combined** artifact (`/` + `/xdr` XDR,
+  `/edr` EDR), `not_eligible_for_production: true`. Tests 27 files / 386 passed.
+- **None of these SHAs exist on GitHub.** Export via Save to Github to a
+  non-production branch; Support could not confirm SHA preservation, so compare
+  against `review-stack-4-commits.patch`.
+- Open before any promotion: Vercel `VITE_E3_DT_V3=1` unverified on the EDR
+  project; authenticated production-backend compatibility still blocked;
+  endpoint-ambiguity path test-verified only (no such incident exists here).
+
+
 ## Release candidate — ready, not promoted
 
 - Branch `release/edr-production-2026-10-31`, commit

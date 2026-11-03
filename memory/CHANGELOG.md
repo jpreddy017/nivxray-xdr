@@ -8658,3 +8658,28 @@ Stopped after producing the host acceptance package as instructed.
 - Bundle `NIVXFORGE_P0_INSTALLER_UPGRADE_R4.bundle` sha256
   `f2722816002b788b8fa8314fc28c7fc294ec78c63de1964e5f62703bc6a5d013`.
   RELEASE STATUS: **HOLD**.
+
+## 2026-11-03 · Timeline → Open Device Trajectory carries the incident
+
+Branch `fix/xdr-timeline-trajectory-context`, on top of `57051d74`.
+
+- `7e40b040` — the orange **Open Device Trajectory** button on the incident
+  Timeline tab opened a context-free `/edr/trajectory` canvas (no endpoint, no
+  customer, no incident reference, no time range) for every incident, including
+  records naming no endpoint. It now renders the same `OpenInEdr` link as the
+  incident header. The endpoint is resolved once by `incidentEndpointId()`
+  (`endpoint_id → device_ref → device_iid → hostname → ssot host`), so the header
+  and the Timeline control can never name different devices. The Endpoints
+  domain page, which navigated **in-tab** to the same path, was corrected too.
+- `6d7a1d02` — the tab's own copy now names `/edr/device-trajectory`.
+- Verified on the shared preview (source `6d7a1d02`, combined scope,
+  `VITE_E3_DT_V3=1`): `inc_664ddf5212194bfcb94a` opens customer `default`,
+  device `ep_2d57cbe6f80152062109`, window **2026-10-17 23:34 – 2026-10-18 05:07
+  UTC** with visible process/network events, while the XDR incident stays open in
+  tab 1; `inc_46286baa72db4b1583c5` offers no link and reads "no endpoint on this
+  record". Tests 27 files · **386 passed**.
+- Ambiguity (two rival endpoints on one record) remains **test-verified only** —
+  no such incident exists in this environment.
+- Evidence: `_preservation/mongo-nofile-20261102/XDR_TIMELINE_TRAJECTORY_6d7a1d02.md`,
+  `review-stack-4-commits.patch`, `review-stack-4-commits.bundle`.
+- Production promotion still on hold. No backend, database or MongoDB change.
