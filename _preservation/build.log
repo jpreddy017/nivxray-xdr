@@ -1,0 +1,9 @@
+[1] single archive: full .git (superset of the bundle: all refs + unreachable objects + reflogs)
+f854f5202fc510ad2b7d98e3c11e28b0e3ecbc9eb5d860a4e17e4e073c307120  ROCKET-P0-SRC_GIT_DIR_FULL_2026-10-31.tar.gz
+total 149836
+-rw-r--r-- 1 root root 153418171 Oct 31 07:34 ROCKET-P0-SRC_GIT_DIR_FULL_2026-10-31.tar.gz
+-rw-r--r-- 1 root root       111 Oct 31 07:34 SHA256SUMS.txt
+-rw-r--r-- 1 root root       208 Oct 31 07:34 build.log
+-rw-r--r-- 1 root root      2157 Oct 31 07:34 contention.sh
+DONE_OK
+/dev/nvme0n11   9.8G  9.0G  845M  92% /app
