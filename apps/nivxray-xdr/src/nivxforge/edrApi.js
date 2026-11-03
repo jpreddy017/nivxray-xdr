@@ -177,3 +177,19 @@ export async function getSessionContext() {
   const { data } = await api.get("/xdr/rbac/session-context");
   return data?.data || null;
 }
+
+export async function dashboardFleet() {
+  const { data } = await api.get("/edr/dashboard/fleet");
+  return data;
+}
+
+export async function dashboardBoard({ start, end, sha256, path_contains,
+                                       activity, limit = 100 }) {
+  const { data } = await api.get("/edr/dashboard/board", {
+    params: { start, end, limit,
+              ...(sha256 ? { sha256 } : {}),
+              ...(path_contains ? { path_contains } : {}),
+              ...(activity && activity !== "ALL" ? { activity } : {}) } });
+  return data;
+}
+
