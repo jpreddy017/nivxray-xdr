@@ -8709,3 +8709,36 @@ Branch `fix/xdr-timeline-trajectory-context`, on top of `57051d74`.
   (2026-10-31 17:55) while the event they describe was observed 2026-06-06, so
   the link opens the wrong UTC day even before the denial.
 - Evidence: `_preservation/mongo-nofile-20261102/TRACE_inc_e2eb6978_AND_REFUSAL_8a543f9e.md`.
+
+## 2026-11-03 · NivXForge EDR File Trajectory (SHA-256)
+
+Branch `fix/xdr-timeline-trajectory-context`, on top of `8a543f9e`.
+
+- Traced first: `artefacts.file[].sha256` and `canonical_evidence.file.sha256`
+  really are empty, but the Linux sensor reports the **executed image digest** in
+  `edr_raw_events.payload.sha256`. Verified on tenant `default` (360,660 raw
+  events): never equal to the record's own `payload_sha256` (0/1001), 55 distinct
+  digests, no digest under more than one `image_path`, and `17a623f3…` under
+  **14 paths** (`/usr/bin/sleep` plus copies in `/var/tmp`). File create/write/
+  delete remain uncollected — named as the missing field, not worked around.
+- `f99e281e` — `GET /api/edr/files/{sha256}/sightings`
+  (`services/edr/file_sightings.py`), customer resolved by `edr_tenant`; sightings
+  dated by `observed_at`, never `ingest_time`; midnight-crossing rows surfaced
+  separately; capped reads say they are capped. `Investigate → Files` enabled
+  (`EdrFilesPage.jsx`); the trajectory context menu's "not yet built" item is now
+  **View File Trajectory**, enabled only where a digest exists.
+- `df31790e` — "pick a customer" is a neutral prompt, not a red failure.
+- `70b82102` — capability registry corrected: `file_trajectory_ui` was telling the
+  analyst the EDR route "is not wired to it yet" while the surface was live.
+- `5351ac99` — summary/table laid out legibly.
+- Verified on the shared preview: `17a623f3…` → 809 sightings, 14 paths, link
+  opens `ep_2d57cbe6f80152062109` on **2026-10-18** with 200 events while the file
+  page stays open; `15fc4c72…` → the 2026-09-23 sighting ingested 09-24 links to
+  the **observed** day; 64 zeros → honest zero; `nivx-live` → 0 with no leak of the
+  owner's endpoint; unheld customer → 403; right-click → pivot opens 85 sightings.
+- Known limit: a September sighting opens the correct device and day, but the
+  canvas has no canonical evidence that far back for it, so it shows its empty
+  range. The link is right; the raw and canonical stores have different reach.
+- Tests: frontend 29 files / **399 passed**; `tests/edr/test_file_sightings.py`
+  **8 passed** against the real substrate, 4 skipped loudly on an empty DB.
+- Evidence: `_preservation/mongo-nofile-20261102/FILE_TRAJECTORY_5351ac99.md`.
