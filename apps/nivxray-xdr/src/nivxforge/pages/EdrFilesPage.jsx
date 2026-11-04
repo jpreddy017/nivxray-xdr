@@ -19,6 +19,7 @@ function FilesBody() {
   useEffect(() => {
     let live = true;
     setError("");
+    if (!tenant) return () => { live = false; };
     getComputers().then((d) => { if (live) setComputers(d.computers || []); })
       .catch(() => { if (live) setError("Computer list unavailable. Open Files from Computers instead."); });
     return () => { live = false; };
@@ -26,7 +27,7 @@ function FilesBody() {
   return <>
     <h1 className="page-h1">Files</h1>
     <GlobalFileSearch />
-    <details><summary>Endpoint-only search (existing view)</summary>
+    {tenant ? <details><summary>Endpoint-only search (existing view)</summary>
     <label>Computer <select value={endpoint} onChange={(e) => {
       const next = new URLSearchParams(params);
       if (e.target.value) next.set("device", e.target.value); else next.delete("device");
@@ -38,7 +39,7 @@ function FilesBody() {
     <p>{computers.length} computers loaded from the directory. A multi-computer search covers this list only.</p>
     {error ? <p role="alert">{error}</p> : null}
     {endpoint ? <FileEvidence key={`${tenant}:${endpoint}:${computers.map((c) => c.endpoint_id).join(",")}`} endpointId={endpoint === "__listed__" ? undefined : endpoint} endpointIds={endpoint === "__listed__" ? computers.map((c) => c.endpoint_id).filter(Boolean) : undefined} computers={computers} /> : <p>Select a computer to investigate its recorded file observations.</p>}
-    </details>
+    </details> : null}
   </>;
 }
 

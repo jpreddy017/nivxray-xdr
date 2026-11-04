@@ -19,7 +19,7 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [], 
   const [start, setStart] = useState(() => iso(validMillis(startParam) ? startParam : end - 30 * day));
   const [finish, setFinish] = useState(() => iso(validMillis(endParam) ? endParam : end));
   const [kind, setKind] = useState(() => indexSearch?.key_type || params.get("file_key_type") || (endpointIds ? "sha256" : "path"));
-  const [key, setKey] = useState(() => indexSearch?.key || params.get("file_key") || "");
+  const [key, setKey] = useState(() => indexSearch?.key || (endpointIds && !/^[a-f0-9]{64}$/i.test(params.get("file_key") || "") ? "" : params.get("file_key")) || "");
   const [eventFilter, setEventFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [ascending, setAscending] = useState(true);
