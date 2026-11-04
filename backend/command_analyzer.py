@@ -262,12 +262,56 @@ def split_pipeline(text: str) -> List[Dict[str, str]]:
     return [p for p in parts if p["cmd"]]
 
 
+def tokenize_windows(cmd: str) -> List[str]:
+    """Windows / PowerShell argv split.
+
+    R-1 · On Windows `\\` is a PATH SEPARATOR, never an escape character.
+    POSIX `shlex` deletes it, which silently rewrites
+    `C:\\Windows\\System32\\cmd.exe` into `C:WindowsSystem32cmd.exe` — the
+    observed evidence no longer matches the recorded evidence. This tokenizer
+    honours quoting but treats every other character literally.
+    """
+    toks: List[str] = []
+    buf: List[str] = []
+    started = False
+    quote: Optional[str] = None
+    for ch in cmd:
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                buf.append(ch)
+            continue
+        if ch in ('"', "'"):
+            quote = ch
+            started = True
+            continue
+        if ch.isspace():
+            if started or buf:
+                toks.append("".join(buf))
+            buf = []
+            started = False
+            continue
+        buf.append(ch)
+        started = True
+    if started or buf:
+        toks.append("".join(buf))
+    return [t for t in toks if t != ""]
+
+
 def tokenize(cmd: str) -> List[str]:
     """Shell-aware tokenizer. Uses shlex for POSIX-ish rules, but silently
     falls back to a whitespace split when shlex raises on unbalanced quotes.
     """
     if not cmd:
         return []
+    # Select by executable, not by a Windows-looking argument to a POSIX tool.
+    first = re.match(r'^\s*(?:"([^"\n]+)"|([^\s]+))', cmd)
+    executable = ((first.group(1) or first.group(2)) if first else '').lower()
+    name = executable.replace('\\', '/').rsplit('/', 1)[-1]
+    if name in {'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe',
+                'certutil', 'certutil.exe', 'rundll32', 'rundll32.exe', '%comspec%'} or executable.endswith(('.exe', '.cmd', '.bat')):
+        return tokenize_windows(cmd)
     try:
         return shlex.split(cmd, posix=True)
     except ValueError:
