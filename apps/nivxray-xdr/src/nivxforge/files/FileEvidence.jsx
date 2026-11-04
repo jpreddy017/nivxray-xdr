@@ -123,8 +123,8 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [], 
         <button className="btn" disabled={!rows.length} onClick={exportRows}>Export loaded evidence</button>
         <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); setNotice("Investigation link copied."); } catch { setNotice("Copy the investigation URL from the address bar."); } }}>Copy link</button>
       </div></div><p role="status">{notice}</p>
-      <p>Recorded file activity for the selected computers. This view does not enumerate its current disk contents.</p>
-      <form className="ft-query" onSubmit={(e) => { e.preventDefault(); load(); }}>
+      <p>{indexSearch ? `Recorded activity for “${indexSearch.key}” on this device. Use the search above to change the file or time range.` : "Recorded file activity for the selected computers. This view does not enumerate its current disk contents."}</p>
+      {!indexSearch && <form className="ft-query" onSubmit={(e) => { e.preventDefault(); load(); }}>
         <label>Start (UTC)<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required /></label>
         <label>End (UTC, exclusive)<input type="datetime-local" value={finish} onChange={(e) => setFinish(e.target.value)} required /></label>
         <label>Match by<select value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -132,12 +132,13 @@ export default function FileEvidence({ endpointId, endpointIds, computers = [], 
         </select></label>
         <label className="ft-key">{endpointIds ? "SHA-256 (required across computers)" : "File filter (optional)"}<input value={key} maxLength={4096} onChange={(e) => setKey(e.target.value)} placeholder={endpointIds ? "Enter 64 hexadecimal characters" : "Leave empty to inspect recorded files"} /></label>
         <button className="btn" type="submit" disabled={busy || (!endpointId && !endpointIds?.length)}>Search observations</button>
-      </form>
+      </form>}
       {error ? <div role="alert" className="ft-error">{String(error)}</div> : null}
       {busy ? <p role="status">Reading file evidence…</p> : null}
       {data?.state === "ENDPOINT_NOT_RESOLVED" ? <p role="alert">Endpoint identity or permission could not be resolved. This is not an empty file history.</p> : null}
       {data && data.state !== "ENDPOINT_NOT_RESOLVED" ? <>
         <p role="status">{rows.length} observations loaded · {indexSearch ? (data.complete ? "all matching indexed evidence loaded" : "more matching indexed evidence available") : (data.complete ? "scan reached the end" : "more source records remain")}.</p>
+        {indexSearch && rows.length > 0 && <p className="ft-coverage"><strong>Loaded evidence:</strong> {rows.filter(r => r.action === 'Observed execution').length} execution observations · {rows.filter(r => r.action === 'Observed process image').length} process-image observations · {rows.filter(r => !['Observed execution', 'Observed process image'].includes(r.action)).length} other observations. Related observations may describe the same process; these are not a count of unique executions.</p>}
         <p className="ft-coverage">{indexSearch ? "Evidence is limited to index coverage shown above. Missing hashes and verdicts remain unknown. Timeline and history show loaded evidence." : "Coverage has not been proven. A missing hash is unknown; no detection verdict is inferred. Timeline and history show loaded evidence chronologically; continue scanning to retrieve more."}</p>
         {!rows.length ? <p>{data.next_cursor ? "No file matches in this scan page. Continue scanning before concluding there are no matches."
           : "No matching file observations found in the scanned records. This does not prove that no file activity occurred."}</p> : null}
