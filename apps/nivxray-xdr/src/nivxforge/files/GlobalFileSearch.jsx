@@ -59,7 +59,7 @@ export default function GlobalFileSearch() {
       {busy && <p role="status">Searching indexed evidence…</p>}
       {data && <>
         <p role="status">{devices.length} matching devices loaded{data.next_cursor ? ' · more devices available' : ''}. Counts represent unique indexed events.</p>
-        <p className="ft-coverage">Index checked: {data.coverage?.checked_at || 'Unavailable'}. {data.coverage?.caught_up_at_check ? 'Caught up at that check' : 'Backfill incomplete'} · unresolved source records: {data.coverage?.unresolved ?? 'unknown'}. Newer or unindexed evidence may not appear yet.</p>
+        <p className="ft-coverage">Index status: {data.coverage?.status || 'unknown'}. Last successful check: {data.coverage?.checked_at || 'Unavailable'}. {data.coverage?.caught_up_at_check ? 'Caught up at that check' : 'Backfill incomplete'} · unresolved source records: {data.coverage?.unresolved ?? 'unknown'}. Newer or unindexed evidence may not appear yet.</p>
         <div className="ft-table-wrap"><table><thead><tr><th>Device</th><th>Matching events</th><th>First seen (UTC)</th><th>Last seen (UTC)</th><th>Investigation</th></tr></thead><tbody>
           {devices.map(d => <tr key={d.endpoint_id}><td>{d.hostname}<small className="global-endpoint">{d.endpoint_id}</small></td><td>{d.matching_events}</td><td>{format(d.first_seen)}</td><td>{format(d.last_seen)}</td><td><button className="btn" onClick={() => setSelection({device: d, query: {...query, endpoint_id: d.endpoint_id}})}>View matching events & trajectory</button></td></tr>)}
         </tbody></table></div>

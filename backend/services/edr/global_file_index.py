@@ -15,6 +15,24 @@ CHECKPOINTS = 'edr_file_search_checkpoints_v1'
 HASHES = {'sha256': 64, 'sha1': 40, 'md5': 32}
 
 
+def coverage_status(checkpoint, now=None):
+    """Expose freshness without leaking worker identity or internal errors."""
+    now = now or datetime.now(timezone.utc)
+    public = {k: checkpoint.get(k) for k in (
+        'checked_at', 'caught_up_at_check', 'scanned', 'unresolved', 'schema_version')}
+    try:
+        checked = datetime.fromisoformat(checkpoint['checked_at'].replace('Z', '+00:00'))
+        age = max(0, (now - checked).total_seconds())
+    except (KeyError, TypeError, ValueError):
+        age = None
+    public['age_seconds'] = age
+    public['status'] = ('error' if checkpoint.get('worker_status') == 'error' else
+                        'stale' if age is None or age > 60 else
+                        'catching_up' if not checkpoint.get('caught_up_at_check') else
+                        'partial' if checkpoint.get('unresolved', 0) else 'current')
+    return public
+
+
 def normalized(value):
     return str(value or '').strip().replace('/', '\\').casefold()
 

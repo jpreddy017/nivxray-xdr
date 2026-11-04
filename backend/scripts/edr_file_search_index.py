@@ -6,7 +6,9 @@ The source must be append-only with monotonically increasing ObjectIds;
 late records inserted with older IDs require an explicit rebuild.
 """
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from uuid import uuid4
+from pymongo.errors import DuplicateKeyError, PyMongoError
 import time
 from bson import ObjectId
 from pymongo import MongoClient
@@ -15,7 +17,34 @@ from services.edr import endpoint_query as eq
 from services.edr.global_file_index import COLLECTION, CHECKPOINTS, ensure_indexes, project_document
 
 
-def batch(db, tenant, size=500):
+class LeaseBusy(RuntimeError):
+    pass
+
+
+def acquire(db, tenant, owner):
+    now = datetime.now(timezone.utc)
+    try:
+        result = db[CHECKPOINTS].update_one(
+            {'_id': tenant, '$or': [{'lease_until': {'$lt': now}},
+                                  {'lease_until': {'$exists': False}}, {'owner': owner}]},
+            {'$set': {'owner': owner, 'lease_until': now + timedelta(seconds=60)}}, upsert=True)
+        return bool(result.matched_count or result.upserted_id)
+    except DuplicateKeyError:
+        return False
+
+
+def renew(db, tenant, owner):
+    now = datetime.now(timezone.utc)
+    result = db[CHECKPOINTS].update_one(
+        {'_id': tenant, 'owner': owner, 'lease_until': {'$gt': now}},
+        {'$set': {'lease_until': now + timedelta(seconds=60)}})
+    if not result.matched_count:
+        raise LeaseBusy('Indexer lease lost')
+
+
+def batch(db, tenant, size=500, owner=None):
+    if owner:
+        renew(db, tenant, owner)
     source, target, state = db.v2_shadow_observations, db[COLLECTION], db[CHECKPOINTS]
     checkpoint = state.find_one({'_id': tenant}) or {}
     query = {'tenant_id': tenant}
@@ -25,6 +54,8 @@ def batch(db, tenant, size=500):
     scope = {'all_tenants': False, 'tenant_ids': [tenant]}
     cache, skipped, written = {}, 0, 0
     for doc in docs:
+        if owner:
+            renew(db, tenant, owner)
         ref = doc.get('connector_id') or doc.get('collector_id')
         if ref not in cache:
             cache[ref] = eq.resolve_endpoint(ref, scope) if ref else None
@@ -39,10 +70,16 @@ def batch(db, tenant, size=500):
     # Checkpoint only after all writes succeed. Replays are idempotent.
     now = datetime.now(timezone.utc).isoformat()
     update = {'checked_at': now, 'caught_up_at_check': len(docs) < size,
-              'schema_version': 1}
+              'schema_version': 1, 'worker_status': 'running'}
     if docs:
         update['after'] = str(docs[-1]['_id'])
-    state.update_one({'_id': tenant}, {'$set': update, '$inc': {'scanned': len(docs), 'unresolved': skipped}}, upsert=True)
+    predicate = {'_id': tenant}
+    if owner:
+        renew(db, tenant, owner)
+        predicate.update(owner=owner)
+    result = state.update_one(predicate, {'$set': update, '$inc': {'scanned': len(docs), 'unresolved': skipped}}, upsert=not bool(owner))
+    if owner and not result.matched_count:
+        raise LeaseBusy('Indexer lease lost before checkpoint')
     return len(docs), written
 
 
@@ -53,16 +90,41 @@ def main():
     args = parser.parse_args()
     if not deps.MONGO_URL or not deps.DB_NAME:
         raise SystemExit('Configure the candidate MONGO_URL and DB_NAME')
-    client = MongoClient(deps.MONGO_URL)
+    client = MongoClient(deps.MONGO_URL, serverSelectionTimeoutMS=5000,
+                         socketTimeoutMS=10000, connectTimeoutMS=5000)
     db = client[deps.DB_NAME]
-    ensure_indexes(db[COLLECTION])
-    while True:
-        count, written = batch(db, args.tenant)
-        print(f'scanned={count} indexed={written}', flush=True)
-        if count < 500:
-            if not args.follow:
-                break
-            time.sleep(5)
+    owner, failures = str(uuid4()), 0
+    try:
+        while True:
+            try:
+                if not acquire(db, args.tenant, owner):
+                    raise LeaseBusy('Another indexer holds this tenant lease')
+                ensure_indexes(db[COLLECTION])
+                count, written = batch(db, args.tenant, owner=owner)
+                failures = 0
+                print(f'scanned={count} indexed={written}', flush=True)
+                if count < 500:
+                    if not args.follow:
+                        break
+                    time.sleep(5)
+            except (PyMongoError, LeaseBusy):
+                if not args.follow:
+                    raise
+                failures += 1
+                try:
+                    db[CHECKPOINTS].update_one({'_id': args.tenant, 'owner': owner},
+                        {'$set': {'worker_status': 'error'}})
+                except PyMongoError:
+                    pass
+                # Log no connection strings, source payloads, or credentials.
+                print('Indexer retry pending; last successful checkpoint retained', flush=True)
+                time.sleep(min(30, 2 ** min(failures, 5)))
+    finally:
+        try:
+            db[CHECKPOINTS].update_one({'_id': args.tenant, 'owner': owner},
+                {'$unset': {'owner': '', 'lease_until': ''}})
+        finally:
+            client.close()
 
 
 if __name__ == '__main__':

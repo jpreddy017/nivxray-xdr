@@ -811,7 +811,7 @@ def global_file_search(key: str, time_start: int, time_end: int,
         result = index.search(sync_collection(index.COLLECTION), tenant_id, scope,
                               eq.resolve_endpoint, token, time_start, time_end,
                               endpoint_id, cursor, limit)
-        result["coverage"] = coverage
+        result["coverage"] = index.coverage_status(coverage)
         result["note"] = "Counts cover indexed evidence, not current disk inventory. Same filenames do not prove identical content."
         if endpoint_id and result.get("observations"):
             from services.edr.file_context import enrich
