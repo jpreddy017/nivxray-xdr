@@ -38,11 +38,20 @@ export default function GlobalFileSearch() {
   const [selection, setSelection] = useState(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const generation = useRef(0);
+  const awaitingInitialTenant = useRef(!activeTenant());
   useEffect(() => {
     if (saved.current && activeTenant()) { setQuery(saved.current); setRequest(saved.current); }
   }, []);
   useEffect(() => {
-    const clear = () => { savedDevice.current = null; setTenant(activeTenant()); generation.current++; setDevices([]); setData(null); setQuery(null); setRequest(null); setSelection(null); setBusy(false); setError(''); };
+    const clear = () => {
+      const nextTenant = activeTenant();
+      if (awaitingInitialTenant.current && nextTenant) {
+        awaitingInitialTenant.current = false;
+        setTenant(nextTenant);
+        if (saved.current) { setQuery(saved.current); setRequest(saved.current); }
+        return;
+      }
+      savedDevice.current = null; setTenant(activeTenant()); generation.current++; setDevices([]); setData(null); setQuery(null); setRequest(null); setSelection(null); setBusy(false); setError(''); };
     window.addEventListener(TENANT_BOUND_EVENT, clear);
     return () => window.removeEventListener(TENANT_BOUND_EVENT, clear);
   }, []);
