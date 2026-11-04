@@ -74,7 +74,18 @@ def test_current_endpoint_authorization_and_tenant_required():
 
 def test_exact_event_link_carries_identity_time_and_source_reference():
     row,=project_document(document(),resolution())
+    assert urlparse(device_link(row)).path == '/edr/computers/ep_a/trajectory'
     q=parse_qs(urlparse(device_link(row)).query)
-    assert q['event']==['source1'] and q['device']==['ep_a']
+    assert q['event'][0].startswith('source1#') and q['device']==['ep_a']
+    assert q['observation_id']==['source1'] and q['source']==['file_search']
     assert int(q['t0'][0]) < row['time_ms'] < int(q['t1'][0])
     assert 'from' in q and 'to' in q
+
+
+def test_repeated_content_fingerprint_does_not_collapse_distinct_observations():
+    first=document('obs-first'); second=document('obs-second')
+    first['event']['iid']=second['event']['iid']='same-content-fingerprint'
+    a,=project_document(first,resolution()); b,=project_document(second,resolution())
+    assert a['event_key'] != b['event_key']
+    assert a['_id'] != b['_id']
+    assert a['trajectory_event_iid'] != b['trajectory_event_iid']

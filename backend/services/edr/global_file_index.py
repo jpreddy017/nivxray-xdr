@@ -9,9 +9,10 @@ import re
 from urllib.parse import urlencode
 
 from services.edr.endpoint_file_evidence import project, validate_query, _millis
+from edr_plane.trajectory_window import _event_iid, _group_and_key
 
-COLLECTION = 'edr_file_search_v1'
-CHECKPOINTS = 'edr_file_search_checkpoints_v1'
+COLLECTION = 'edr_file_search_v2'
+CHECKPOINTS = 'edr_file_search_checkpoints_v2'
 HASHES = {'sha256': 64, 'sha1': 40, 'md5': 32}
 
 
@@ -63,7 +64,7 @@ def project_document(doc, resolution):
     stamp = _millis(ev.get('ts') or doc.get('captured_at'))
     if stamp is None:
         return []
-    event_id = str(ev.get('iid') or doc.get('observation_id') or doc.get('_id') or '')
+    event_id = str(doc.get('observation_id') or doc.get('_id') or '')
     if not event_id:
         return []
     rows = []
@@ -93,6 +94,7 @@ def project_document(doc, resolution):
         row.update(_id=hashlib.sha256(uid.encode()).hexdigest(), tenant_id=tenant,
                    endpoint_id=endpoint, hostname=identity.get('hostname') or endpoint,
                    event_key=event_id, event_iid=ev.get('iid'), evidence_ref=doc.get('observation_id'),
+                   trajectory_event_iid=_event_iid(doc, ev, _group_and_key(ev)[1]),
                    record_id=str(doc['_id']), time_ms=stamp, tokens=sorted(tokens))
     return rows
 
@@ -107,12 +109,14 @@ def device_link(row):
     args = {'device': row['endpoint_id'], 't0': stamp - 60000, 't1': stamp + 60000,
             'from': datetime.fromtimestamp((stamp - 60000)/1000, timezone.utc).isoformat(),
             'to': datetime.fromtimestamp((stamp + 60000)/1000, timezone.utc).isoformat(),
-            'at': row['observed_at']}
-    # Existing trajectory context resolver accepts observation identity as event.
-    ref = row.get('evidence_ref') or row.get('event_iid')
+            'at': row['observed_at'], 'source': 'file_search'}
+    # V2 uses a persisted observation plus lane fingerprint, not the raw observation ID.
+    ref = row.get('trajectory_event_iid')
+    if row.get('evidence_ref'):
+        args['observation_id'] = row['evidence_ref']
     if ref:
         args['event'] = ref
-    return '/edr/device-trajectory?' + urlencode(args)
+    return '/edr/computers/' + row['endpoint_id'] + '/trajectory?' + urlencode(args)
 
 
 def search(collection, tenant, scope, resolve, token, start, end, endpoint=None, after='', limit=50):

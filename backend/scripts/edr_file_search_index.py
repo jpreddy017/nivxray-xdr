@@ -70,7 +70,7 @@ def batch(db, tenant, size=500, owner=None):
     # Checkpoint only after all writes succeed. Replays are idempotent.
     now = datetime.now(timezone.utc).isoformat()
     update = {'checked_at': now, 'caught_up_at_check': len(docs) < size,
-              'schema_version': 1, 'worker_status': 'running'}
+              'schema_version': 2, 'worker_status': 'running'}
     if docs:
         update['after'] = str(docs[-1]['_id'])
     predicate = {'_id': tenant}

@@ -211,9 +211,14 @@ export default function TrajectoryPage({ device }) {
     // A SCOPED lookup is the supported narrowing action. The bounds only ever narrow the
     // search: tenant and endpoint are fixed server-side, and the server reports the scope back
     // so a window-complete search is never presented as a search of retained history.
-    const params = { event_iid: wanted, ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
-    api.get(`${url}/focus`, { params, signal: ac.signal }).then(({ data: f }) => {
+    const fromFile = params.get("source") === "file_search" ? params.get("observation_id") : null;
+    const focusParams = { event_iid: wanted, ...(fromFile ? { observation_id: fromFile } : {}), ...(focusScope ? { time_start: new Date(focusScope.t0).toISOString(), time_end: new Date(focusScope.t1).toISOString() } : {}) };
+    api.get(`${url}/focus`, { params: focusParams, signal: ac.signal }).then(({ data: f }) => {
       if (!active) return;
+      if (fromFile && f.state === "FOCUS_RESOLVED" && f.focus?.event_iid) {
+        upd({event: f.focus.event_iid, source: null}, true);
+        return;
+      }
       // An UNFINISHED lookup keeps its own state: it is never rendered as "not found", and no
       // row is selected in its place. An AMBIGUOUS identifier is offered, never narrowed here.
       const d = deepLinkFromFocus(f, { id: wanted, scope: url, attempt: focusRetry });

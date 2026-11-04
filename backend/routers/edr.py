@@ -811,6 +811,13 @@ def global_file_search(key: str, time_start: int, time_end: int,
         result = index.search(sync_collection(index.COLLECTION), tenant_id, scope,
                               eq.resolve_endpoint, token, time_start, time_end,
                               endpoint_id, cursor, limit)
+        # Display the authoritative enrolled name after endpoint authorization.
+        for device in result.get("devices", []):
+            enrolled = sync_collection("edr_endpoints").find_one(
+                {"tenant_id": tenant_id, "endpoint_id": device["endpoint_id"]},
+                {"_id": 0, "hostname": 1}) or {}
+            if enrolled.get("hostname"):
+                device["hostname"] = enrolled["hostname"]
         result["coverage"] = index.coverage_status(coverage)
         result["note"] = "Counts cover indexed evidence, not current disk inventory. Same filenames do not prove identical content."
         if endpoint_id and result.get("observations"):

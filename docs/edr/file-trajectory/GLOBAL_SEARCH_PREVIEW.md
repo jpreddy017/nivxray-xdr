@@ -25,7 +25,7 @@ With the candidate environment's configured database and runtime dependencies:
 PYTHONPATH=backend python backend/scripts/edr_file_search_index.py --tenant REGISTERED_TENANT_ID --follow
 ```
 
-This creates `edr_file_search_v1` and `edr_file_search_checkpoints_v1`, indexes
+This creates `edr_file_search_v2` and `edr_file_search_checkpoints_v2`, indexes
 500 source documents per batch and polls every five seconds once caught up.
 Run a supervised worker for each tenant. MongoDB leases reject competing workers; expired leases permit restart recovery. Transient database failures retry with bounded backoff. It writes no source telemetry. Checkpoints
 advance after durable upserts; reprocessing uses deterministic IDs. Backfill
@@ -53,3 +53,5 @@ and not a point-in-time database snapshot.
 - Preview tenant backfill processed 15,333 records with zero unresolved identities. A 30-day wevtutil.exe search returned 6,141 evidence events on one endpoint in 66 ms (one measured query, not a load benchmark).
 - Authenticated browser navigation, exact-event selection, source retention/rebuild policy and production worker provisioning remain release gates.
 - Production remains unchanged. The preview FastAPI instance has the additive route and a supervised candidate indexer. This feature branch may opt into NIVX_EDR_INTEGRATION_PREVIEW=1 only for the EDR preview target; production builds still reject that flag.
+
+The index schema v2 uses observation identity (not event content fingerprints) for distinct-event counts and carries the trajectory presentation identity. File links open the device workspace, and the preview enables V3 to match production. Legacy V2 links resolve their lane before selection.
