@@ -1086,6 +1086,9 @@ async def _startup():
         )
 
 
+    from edr_plane.file_index_lifecycle import start_file_index_worker
+    await start_file_index_worker()
+
     # P1.1 · FileStore retention sweeper (application-controlled TTL)
     try:
         from services.files.retention_sweeper import start_retention_sweeper
@@ -1193,6 +1196,8 @@ async def _startup():
 
 @app.on_event("shutdown")
 async def _shutdown():
+    from edr_plane.file_index_lifecycle import stop_file_index_worker
+    await stop_file_index_worker()
     try:
         from edr_plane.processing_queue import stop_workers as _stop_edr_workers
         await _stop_edr_workers()
