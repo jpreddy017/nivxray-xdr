@@ -40,6 +40,7 @@ import { HISTORY, REQ, WINDOW_STATE, bucketsOf, centreOn, clampLaneStart,
          retentionBounds, selectionState, serialize, spikes, stepDetection,
          stepObservation, windowForBucket, windowStateOf,
          zoomBySteps } from "./dt2";
+import EndpointPicker from "./EndpointPicker";
 import AmpComputerHeader from "./AmpComputerHeader";
 import AmpFilterBar from "./AmpFilterBar";
 import AmpCanvas from "./AmpCanvas";
@@ -81,6 +82,27 @@ const DETAILS_W = 394;
  *  in the Cisco reference, so none of them is presented. */
 const PARKED_NIVXFORGE_UI = false;
 
+export default function EdrDeviceTrajectoryPage(props) {
+  if (props.embedded) return <TrajectoryContent {...props} />;
+  return <NivXForgeConsole activeTab="device-trajectory"><TrajectoryContent {...props} /></NivXForgeConsole>;
+}
+
+function TrajectoryContent({ embedded = false,
+                                                 device: deviceProp = null,
+                                                 referenceNow = null }) {
+  const [params, setParams] = useSearchParams();
+  const device = deviceProp || params.get("device") || "";
+
+  const [theme, setCurrentTheme] = useState(() => {
+    try { return localStorage.getItem("nx.theme") === "dark" ? "dark" : "light"; }
+    catch { return "light"; }
+  });
+  useEffect(() => {
+    const changed = (e) => setCurrentTheme(e.detail === "dark" ? "dark" : "light");
+    window.addEventListener("nx-theme", changed);
+    return () => window.removeEventListener("nx-theme", changed);
+  }, []);
+  setTheme(theme);
 const navBtn = { fontSize: 10.4, cursor: "pointer", background: C.paperAlt,
                  color: C.link, border: `1px solid ${C.gridStrong}`,
                  borderRadius: 2, padding: "3px 7px" };
@@ -92,21 +114,7 @@ const iconBtn = { width: 34, height: 32, cursor: "pointer",
                   alignItems: "center", justifyContent: "center",
                   flexShrink: 0 };
 
-export default function EdrDeviceTrajectoryPage({ embedded = false,
-                                                 device: deviceProp = null,
-                                                 referenceNow = null }) {
-  const [params, setParams] = useSearchParams();
-  const device = deviceProp || params.get("device") || "";
 
-  /** The Cisco Device Trajectory is ONE investigation surface. The
-   *  reference defines it, so this page offers no theme choice; the
-   *  surrounding NivXForge console chrome keeps its own.
-   *
-   *  REV 2 (owner ruling): the current Cisco Secure Endpoint console the
-   *  owner captured is DARK. The light figure in the User Guide remains
-   *  useful for GRAPH SEMANTICS, but the live console takes priority for
-   *  visual parity, so this surface is dark. */
-  setTheme("dark");
 
   const [meta, setMeta] = useState(null);
   /** DT2-3c REV 2 · TIME FOCUSING BY DEEP LINK.
@@ -147,7 +155,6 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   const [fullscreen, setFullscreen] = useState(false);
   const [status, setStatus] = useState({ loading: true, err: null });
   const [locating, setLocating] = useState(false);
-  const [endpoints, setEndpoints] = useState([]);
   const [sessCtx, setSessCtx] = useState(null);
 
   /** dt.time.v1 · the REFERENCE time. Rolling windows end here; the newest
@@ -275,9 +282,6 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
 
   useEffect(() => {
     if (device) return;
-    api.get("/edr/endpoints").then(({ data }) =>
-      setEndpoints((data.endpoints || []).filter((e) => e.device_iid)))
-      .catch(() => {});
     getSessionContext().then(setSessCtx).catch(() => {});
   }, [device]);
 
@@ -1220,27 +1224,11 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
         </div>
       )}
 
-      {!device && (
-        <div data-testid="amp-no-endpoint"
-             style={{ background: C.paper, border: `1px solid ${C.grid}`,
-                      padding: 16, color: C.ink, fontSize: 11.5 }}>
-          <b>Select an endpoint</b>
-          <div style={{ marginTop: 10, display: "flex", gap: 8,
-                        flexWrap: "wrap" }}>
-            {endpoints.map((e) => (
-              <button key={e.device_iid}
-                      data-testid={`amp-pick-${e.device_iid}`}
-                      onClick={() => setParams({ device: e.device_iid })}
-                      style={{ fontSize: 10.5, padding: "5px 9px",
-                               cursor: "pointer", background: C.paperAlt,
-                               border: `1px solid ${C.gridStrong}`,
-                               color: C.ink }}>
-                {e.hostname || e.device_iid}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {!device && <EndpointPicker onSelect={(id) => {
+        const next = new URLSearchParams(params);
+        next.set("device", id);
+        setParams(next);
+      }} />}
 
       {(status.err || req.err) && (
         <div data-testid="amp-error"
@@ -1515,13 +1503,12 @@ export default function EdrDeviceTrajectoryPage({ embedded = false,
   }
 
   return (
-    <NivXForgeConsole activeTab="device-trajectory">
-      <div data-testid="amp-page-surface"
+    <div data-testid="amp-page-surface"
            style={{ background: C.page,
                     border: `1px solid ${C.gridStrong}`, borderRadius: 6,
                     padding: "12px 14px 14px", margin: "-4px -8px 0" }}>
         {body}
       </div>
-    </NivXForgeConsole>
   );
 }
+

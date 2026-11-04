@@ -8,7 +8,7 @@
  * command evidence.
  */
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Binary, Network, Radar, Shield, Terminal,
          FileSearch, LayoutGrid } from "lucide-react";
 
@@ -19,20 +19,14 @@ import { getComputer } from "@/nivxforge/onboardingApi";
 import { Ago, Skeleton, StateChip } from "@/nivxforge/components/OpsPrimitives";
 import DeviceOverview from "./DeviceOverview";
 import CommandIntelligence from "./CommandIntelligence";
+import FileEvidence from "@/nivxforge/files/FileEvidence";
 import "@/nivxforge/nvf-ops.css";
 
 const TABS = [
   { key: "overview",   label: "Overview",             icon: LayoutGrid },
   { key: "trajectory", label: "Trajectory",           icon: Radar },
   { key: "commands",   label: "Command Intelligence", icon: Terminal },
-  { key: "files",      label: "Files",                icon: Binary,
-    ni: ["File evidence for this computer",
-         "Writes, drops, signers and hashes observed by the sensor, each "
-         + "pivoting into IOC and Malware Intelligence.",
-         "The Windows V1 sensor reports process execution and event-log "
-         + "acquisition. File-system observation is not collected yet, so "
-         + "there is no evidence to render and nothing is inferred from "
-         + "process paths."] },
+  { key: "files", label: "Files", icon: Binary },
   { key: "network",    label: "Network",              icon: Network,
     ni: ["Endpoint-observed connections and DNS",
          "Per-process network attribution with pivots into the network "
@@ -60,6 +54,7 @@ const TABS = [
 export default function EdrDevicePage() {
   const { endpointId, tab } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
   const active = tab || "overview";
   const [head, setHead] = useState(null);
   const [headReady, setHeadReady] = useState(false);
@@ -120,7 +115,7 @@ export default function EdrDevicePage() {
             <button key={t.key} data-on={String(t.key === active)}
                     data-testid={`edr-device-tab-${t.key}`}
                     onClick={() => nav(
-                      `/edr/computers/${encodeURIComponent(endpointId)}/${t.key}`)}>
+                      `/edr/computers/${encodeURIComponent(endpointId)}/${t.key}${location.search}`)}>
               <Icon size={12} /> {t.label}
               {t.ni ? <span className="chip" style={{ fontSize: 8.4 }}>N/I</span>
                     : null}
@@ -136,6 +131,8 @@ export default function EdrDevicePage() {
         ? <DeviceTrajectoryEntry key={endpointId} embedded device={endpointId} /> : null}
       {headReady && active === "commands"
         ? <CommandIntelligence endpointId={endpointId} /> : null}
+      {headReady && active === "files"
+        ? <FileEvidence key={endpointId} endpointId={endpointId} /> : null}
       {headReady && !current ? (
         <div className="x-empty" data-testid="edr-device-unknown-tab">
           This device view does not exist. Choose a device tab above.
@@ -149,3 +146,4 @@ export default function EdrDevicePage() {
     </NivXForgeConsole>
   );
 }
+
