@@ -182,7 +182,13 @@ def main():
                     pending = pending or count == 500 or replayed == 500 or validated == 500
                     failures = 0
                     print(f'scanned={count} indexed={written} reconciled={replayed} validated={validated}', flush=True)
-                except (PyMongoError, LeaseBusy):
+                except LeaseBusy:
+                    if not args.follow:
+                        raise
+                    # Another replica owns the lease; do not mark its index unhealthy.
+                    failures += 1
+                    print('Indexer standby: tenant lease held by another worker or lease lost; retrying', flush=True)
+                except PyMongoError as exc:
                     if not args.follow:
                         raise
                     failures += 1
@@ -191,7 +197,7 @@ def main():
                             {'$set': {'worker_status': 'error'}})
                     except PyMongoError:
                         pass
-                    print('Indexer retry pending; last successful checkpoint retained', flush=True)
+                    print(f'Indexer database retry: {type(exc).__name__}; last successful checkpoint retained', flush=True)
             if not args.follow and not pending:
                 break
             if failures or not pending:
