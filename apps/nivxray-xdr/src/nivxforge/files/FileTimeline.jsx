@@ -76,7 +76,7 @@ export default function FileTimeline({ rows, endpointId, selected, onSelect, sta
             <p>Grouped by position on the timeline. Inspect an observation to see its source evidence.</p>
             <div className="ft-cluster-list">{cluster.rows.map((r) => <div className="ft-observation-row" key={eventKey(r)}>
               <div><time>{stamp(Date.parse(r.observed_at))}</time><strong>{r.action || 'Observed'}</strong><span>{r.path}</span>
-                {r.writer_pid != null && <small>PID: {r.writer_pid}</small>}{r.command_line && <small>Command: {r.command_line}</small>}{r.hashes?.sha256 && <small>SHA-256: {r.hashes.sha256}</small>}
+                {(r.process_pid ?? r.writer_pid) != null && <small>PID: {r.process_pid ?? r.writer_pid}</small>}{r.command_line && <small>Command: {r.command_line}</small>}{r.hashes?.sha256 && <small>SHA-256: {r.hashes.sha256}</small>}
               </div><div className="ft-tools"><button className="btn" onClick={(e) => onSelect(r, e.currentTarget)}>Inspect observation</button>{r.trajectory_url && <Link to={r.trajectory_url}>View this event in Device Trajectory</Link>}</div>
             </div>)}</div></div>}
 

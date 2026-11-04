@@ -30,10 +30,11 @@ This creates `edr_file_search_v2` and `edr_file_search_checkpoints_v2`, indexes
 Run a supervised worker for each tenant. MongoDB leases reject competing workers; expired leases permit restart recovery. Transient database failures retry with bounded backoff. It writes no source telemetry. Checkpoints
 advance after durable upserts; reprocessing uses deterministic IDs. Backfill
 requires existing authoritative endpoint mappings. Unresolved records are
-counted, never reassigned by hostname. A fresh backfill is required after fixing
-historical unresolved mappings. The source is append-only; late insertion with
-older ObjectIds, historical updates/deletions and retention synchronization need
-an explicit rebuild/operational retention policy before promotion.
+counted, never reassigned by hostname. A separate resumable historical cursor revisits older ObjectIds and repaired
+endpoint mappings in bounded batches, using the same tenant lease. A completed
+pass replaces the unresolved count and records reconciled_at. Source evidence
+is never modified. Historical source deletions and retention synchronization
+still require an approved policy before promotion.
 
 The API returns 503 (not an empty result) until this customer's first successful checkpoint exists.
 Coverage includes checked time, caught-up status and unresolved source count. The API reports current, partial, catching_up, stale (over 60 seconds since a successful poll), or error; it never treats an old checkpoint as current.
@@ -55,3 +56,29 @@ and not a point-in-time database snapshot.
 - Production remains unchanged. The preview FastAPI instance has the additive route and a supervised candidate indexer. This feature branch may opt into NIVX_EDR_INTEGRATION_PREVIEW=1 only for the EDR preview target; production builds still reject that flag.
 
 The index schema v2 uses observation identity (not event content fingerprints) for distinct-event counts and carries the trajectory presentation identity. File links open the device workspace, and the preview enables V3 to match production. Legacy V2 links resolve their lane before selection.
+
+## Recovery candidate (not yet applied to a live backend)
+
+Use `--all-registered-tenants --follow` instead of `--tenant ID --follow`
+to discover tenant IDs from the authoritative `edr_endpoints` directory on each
+poll. Each tenant remains independently leased and resolved; one tenant's failure
+does not stop other tenants. Empty directories yield no work. This is a trusted
+backend worker option, not a user-facing authorization bypass.
+
+Deploy with an environment-owned process supervisor, automatic startup/restart,
+existing backend credentials, and bounded log rotation. Verify the backend origin
+and database before starting. Do not replace the whole shared backend from this
+frontend branch. Preserve existing services and the derived index collections.
+
+Release checks still required:
+- Candidate login and customer authority must succeed on a fresh page load.
+- Run the real-Mongo recovery suite on an isolated synthetic database.
+- Restart the candidate worker and observe a fresh checked_at/reconciled_at.
+- Check each registered tenant separately; no data must cross tenant boundaries.
+- Compare name/hash observations and selected Device Trajectory events.
+- Resolve source-deletion/retention policy; no automatic source deletion is added.
+- Review #29/#31 semantic differences and backend PR dependencies before merging.
+
+Synthetic recovery tests verify older-ID arrival, mapping repair, repeat-pass
+idempotence, lease takeover, source preservation and cross-tenant exclusion.
+These tests are not evidence of production provisioning or sensor freshness.

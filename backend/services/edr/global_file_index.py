@@ -20,7 +20,7 @@ def coverage_status(checkpoint, now=None):
     """Expose freshness without leaking worker identity or internal errors."""
     now = now or datetime.now(timezone.utc)
     public = {k: checkpoint.get(k) for k in (
-        'checked_at', 'caught_up_at_check', 'scanned', 'unresolved', 'schema_version')}
+        'checked_at', 'caught_up_at_check', 'scanned', 'unresolved', 'schema_version', 'reconciled_at')}
     try:
         checked = datetime.fromisoformat(checkpoint['checked_at'].replace('Z', '+00:00'))
         age = max(0, (now - checked).total_seconds())
@@ -81,7 +81,7 @@ def project_document(doc, resolution):
                          evidence_type='PROCESS_IMAGE', hash_class='PROCESS_IMAGE_HASH',
                          identity_basis='CONTENT_IDENTITY_SHA256' if hashes.get('sha256') else 'PATH_IDENTITY_ONLY',
                          writer_basis='NOT_A_FILE_WRITE', writer_image='', writer_process_guid='',
-                         process_image=path, process_guid=proc.get('guid'),
+                         process_image=path, process_guid=proc.get('guid'), process_pid=proc.get('pid'),
                          command_line=proc.get('command_line') or (ev.get('raw') or {}).get('command_line'),
                          parent_image=proc.get('parent_image'),
                          observed_at=datetime.fromtimestamp(stamp / 1000, timezone.utc).isoformat(),
