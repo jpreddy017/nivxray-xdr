@@ -53,6 +53,40 @@ def local_db():
 
 @local
 @pytest.mark.asyncio
+async def test_real_rule_citation_persists_with_matching_source_values():
+    """Exercise real parsing, rules and persistence in a fresh synthetic DB."""
+    from detection_content.xdr_pipeline import process_event_through_pipeline
+    from detection_content.library.models import resolve_field
+    client, db = local_db()
+    raw = {"activity": "PROCESS", "collection_method": "PROC_POLL",
+           "pid": 12001, "image": "/usr/bin/bash",
+           "command_line": "/bin/bash /tmp/payload.sh",
+           "observed_at": "2026-11-04T07:00:00+00:00"}
+    try:
+        result = await process_event_through_pipeline(
+            db, raw, trace_id="synthetic-citation-acceptance",
+            integration_id="nivxforge-linux-sensor",
+            collector_id="ep-synthetic-citation", tenant_id="tenant-synthetic")
+        assert not result.get("blocker")
+        row = await db.xdr_detection_matches.find_one({
+            "tenant_id": "tenant-synthetic", "rule_id": "EDR-LNX-002",
+            "declaration_state": "DECLARED"})
+        assert row and row["rule_result"] == "MATCH"
+        assert row["rule_version"] and row["engine_id"] and row["evaluated_at"]
+        source = await db.xdr_canonical_evidence.find_one({
+            "tenant_id": "tenant-synthetic", "event_id": row["canonical_event_id"]})
+        assert source and row["matched_conditions"]
+        assert row["evidence_ref"].endswith(source["event_id"])
+        for condition in row["matched_conditions"]:
+            observed, state = resolve_field(source, condition["canonical_field"])
+            assert state == "PRESENT"
+            assert observed == condition["observed_value"]
+            assert condition["evidence_ref"] == row["evidence_ref"]
+    finally:
+        client.close()
+
+@local
+@pytest.mark.asyncio
 async def test_concurrent_replay_timestamp_conflict_and_scope():
     client, db = local_db()
     coll = db["citations"]
