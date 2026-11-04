@@ -23,6 +23,18 @@ def resolve_file_identity(doc, store, tenant, resolver, cache):
     if key not in cache:
         cache[key] = resolver(ref, {'all_tenants': False, 'tenant_ids': [tenant]})
     res = cache[key]
+    if res and res.identity.get('tenant_id') == tenant and not res.identity.get('endpoint_id'):
+        iid = res.identity.get('device_iid')
+        if not iid:
+            return None
+        from deps import sync_collection
+        rows = list(sync_collection('edr_endpoints').find(
+            {'tenant_id': tenant, 'device_iid': iid}, {'endpoint_id': 1}).limit(2))
+        # Ambiguous enrollments must not silently merge distinct devices.
+        if len(rows) != 1 or not rows[0].get('endpoint_id'):
+            return None
+        res = resolver(rows[0]['endpoint_id'], {'all_tenants': False, 'tenant_ids': [tenant]})
+        cache[key] = res
     if not res or res.identity.get('tenant_id') != tenant or not res.identity.get('endpoint_id'):
         return None
     return res
