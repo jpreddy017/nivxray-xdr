@@ -28,12 +28,13 @@ function FilesBody() {
       const next = new URLSearchParams(params);
       if (e.target.value) next.set("device", e.target.value); else next.delete("device");
       setParams(next);
-    }}><option value="">Select a computer</option>
-      {endpoint && !computers.some((c) => c.endpoint_id === endpoint) ? <option value={endpoint}>{endpoint}</option> : null}
+    }}><option value="">Select a computer</option><option value="__listed__">Search all listed computers by SHA-256</option>
+      {endpoint && endpoint !== "__listed__" && !computers.some((c) => c.endpoint_id === endpoint) ? <option value={endpoint}>{endpoint}</option> : null}
       {computers.map((c) => <option key={c.endpoint_id} value={c.endpoint_id}>{c.hostname || c.endpoint_id}</option>)}
     </select></label>
+    <p>{computers.length} computers loaded from the directory. A multi-computer search covers this list only.</p>
     {error ? <p role="alert">{error}</p> : null}
-    {endpoint ? <FileEvidence key={`${tenant}:${endpoint}`} endpointId={endpoint} /> : <p>Select a computer to investigate its recorded file observations.</p>}
+    {endpoint ? <FileEvidence key={`${tenant}:${endpoint}:${computers.map((c) => c.endpoint_id).join(",")}`} endpointId={endpoint === "__listed__" ? undefined : endpoint} endpointIds={endpoint === "__listed__" ? computers.map((c) => c.endpoint_id).filter(Boolean) : undefined} computers={computers} /> : <p>Select a computer to investigate its recorded file observations.</p>}
   </>;
 }
 

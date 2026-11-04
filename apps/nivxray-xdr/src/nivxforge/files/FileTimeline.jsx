@@ -1,39 +1,64 @@
-import React from "react";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import Icon from './TrajectoryIcon';
+import { chronological, eventKey, eventStyle, clusterEvents, unique, unavailable } from './trajectoryModel.mjs';
 
-export default function FileTimeline({ rows, endpointId, selected, onSelect, start, end }) {
-  const events = rows.filter((row) => Number.isFinite(Date.parse(row.observed_at)))
-    .slice().sort((a, b) => Date.parse(a.observed_at) - Date.parse(b.observed_at));
-  const lanes = [];
-  const positioned = events.map((row) => {
-    const position = Math.max(0, Math.min(100, (Date.parse(row.observed_at) - start) / (end - start) * 100));
-    let lane = lanes.findIndex((last) => position - last >= 7);
-    if (lane < 0) lane = lanes.length;
-    lanes[lane] = position;
-    return { row, position, lane };
-  });
-  const paths = [...new Set(rows.map((row) => row.path).filter(Boolean))];
-  const hashes = [...new Set(rows.map((row) => row.hashes?.sha256).filter(Boolean))];
-  return <section className="ft-trajectory" aria-label="Trajectory timeline">
-    <div className="ft-summary">
-      <div><h3>Visibility</h3><strong>{rows.length}</strong><p>Loaded observations</p></div>
-      <div><h3>File details</h3><strong>{hashes.length}</strong><p>Observed SHA-256 hashes · {paths.length} paths</p></div>
-      <div><h3>First observed in loaded results</h3><p>{events[0]?.observed_at || "Unavailable from this source"}</p></div>
-      <div><h3>Last observed in loaded results</h3><p>{events[events.length - 1]?.observed_at || "Unavailable from this source"}</p></div>
+const stamp = (t) => new Date(t).toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+function Field({ label, values }) {
+  const list = unique(values);
+  return <div><dt>{label}</dt><dd>{list.length ? list.map((v) => <div key={String(v)}>{String(v)}</div>) : unavailable}</dd></div>;
+}
+export default function FileTimeline({ rows, endpointId, selected, onSelect, start, end, computers = [] }) {
+  const [zoom, setZoom] = useState(1), [offset, setOffset] = useState(0), [expanded, setExpanded] = useState({});
+  const [cluster, setCluster] = useState(null);
+  const events = chronological(rows);
+  const ids = unique(rows.map((r) => r.endpoint_id || endpointId));
+  const name = (id) => computers.find((c) => c.endpoint_id === id)?.hostname || id;
+  const duration = (end - start) / zoom;
+  const from = start + offset * (end - start - duration), to = from + duration;
+  const first = events[0];
+  const writers = unique(rows.map((r) => r.writer_image));
+  return <>
+    <div className="ft-top-grid">
+      <section className="ft-card"><h3><Icon name="eye" />Visibility</h3>
+        <div className="ft-metrics"><div><strong>{rows.length}</strong><span>Loaded events</span></div><div><strong>{ids.length}</strong><span>Computers in results</span></div></div>
+        <dl><Field label="First seen in loaded results" values={[first?.observed_at]} /><Field label="Last seen in loaded results" values={[events[events.length - 1]?.observed_at]} /></dl>
+      </section>
+      <section className="ft-card"><h3><Icon name="entry" />Entry Point</h3>
+        <p className="ft-unavailable">Origin not established</p><dl><Field label="Earliest computer in loaded results" values={[first && name(first.endpoint_id || endpointId)]} /><Field label="First observed path" values={[first?.path]} /></dl><p>Earliest loaded evidence does not establish how a file entered the environment.</p>
+      </section>
+      <section className="ft-card"><h3><Icon name="process" />Related Processes</h3>
+        <strong>{writers.length}</strong><p>Source-stated process images</p><ul>{writers.slice(0, 3).map((w) => <li key={w}>{w}</li>)}</ul>{!writers.length && <p>{unavailable}</p>}
+        <p>Process association alone does not prove which process created or delivered the file.</p>
+      </section>
     </div>
-    <h3>Trajectory</h3>
-    <p>Select an event to inspect its file, process and source evidence. Times are UTC.</p>
-    <div className="ft-timeline-scroll">
-      <div className="ft-time-axis"><span>{new Date(start).toISOString()}</span><span>{new Date(end).toISOString()}</span></div>
-      <div className="ft-host-label">{endpointId}</div>
-      <div className="ft-time-track" style={{ height: Math.max(136, lanes.length * 32 + 24) }}>
-        {positioned.map(({ row, position, lane }) => <button key={row.record_id} type="button"
-          className="ft-time-event" aria-pressed={selected?.record_id === row.record_id}
-          style={{ left: `${position}%`, top: `${12 + lane * 32}px` }}
-          title={`${row.observed_at} · ${row.action || "Event"} · ${row.path || "Path unavailable"}`}
-          aria-label={`Inspect event ${row.observed_at}, ${row.action || "Event"}, ${row.path || "Path unavailable"}`}
-          onClick={(event) => onSelect(row, event.currentTarget)} />)}
-      </div>
-    </div>
-    {!events.length && <p>No timed events in the loaded results.</p>}
-  </section>;
+    <details className="ft-card ft-disclosure" open><summary><Icon name="file" />File Details</summary>
+      <div className="ft-attributes"><dl><Field label="Known As · SHA-256" values={rows.map((r) => r.hashes?.sha256)} /><Field label="SHA-1" values={rows.map((r) => r.hashes?.sha1)} /><Field label="MD5" values={rows.map((r) => r.hashes?.md5)} /></dl>
+      <dl><Field label="Known Names" values={rows.map((r) => r.name)} /><Field label="Size (bytes)" values={rows.map((r) => r.size)} /><Field label="Signer" values={rows.map((r) => r.signer)} /></dl>
+      <dl><Field label="File type" values={[]} /><Field label="Detected As" values={[]} /><Field label="Current disposition" values={[]} /><Field label="Evidence sources" values={rows.map((r) => r.source)} /></dl></div>
+      <p>Attributes describe loaded observations. Name and path matches may represent different file contents. Missing detection data is not a clean verdict.</p>
+    </details>
+    <details className="ft-card ft-disclosure"><summary><Icon name="network" />Network Profile</summary>
+      <div className="ft-attributes"><dl><Field label="IP addresses" values={[]} /><Field label="Ports" values={[]} /></dl><dl><Field label="URLs" values={[]} /><Field label="Flagged connections" values={[]} /></dl></div>
+      <p>The file-observation feed does not provide correlated network activity. No connections are inferred from a filename or process ID.</p>
+    </details>
+    <section className="ft-card" aria-label="Trajectory timeline"><div className="ft-section-head"><h3><Icon name="timeline" />Trajectory</h3>
+      <div className="ft-tools"><label>Zoom <select aria-label="Zoom" value={zoom} onChange={(e) => { setZoom(Number(e.target.value)); setOffset(0); }}><option value={1}>Full window</option><option value={2}>2×</option><option value={4}>4×</option><option value={8}>8×</option></select></label><button className="btn" onClick={() => { setZoom(1); setOffset(0); }}>Reset view</button></div></div>
+      <div className="ft-legend">{['created','executed','quarantined','deleted','renamed','observed'].map((a) => { const s = eventStyle(a); return <span key={a} data-tone={s.tone}><Icon name={s.icon} />{s.label}</span>; })}</div>
+      {zoom > 1 && <label className="ft-pan">Pan time window <input aria-label="Pan time window" type="range" min="0" max="100" value={offset * 100} onChange={(e) => setOffset(Number(e.target.value) / 100)} /></label>}
+      <p>Click an event for details or a numbered cluster to expand nearby events. Expand a computer for related processes. Ordering shows time, not causality.</p>
+      <div className="ft-timeline-scroll"><div className="ft-timeline-inner"><div className="ft-axis-row"><span>Computer</span><div className="ft-time-axis">{[0,1,2,3,4].map((n) => <time key={n}>{stamp(from + duration * n / 4)}</time>)}</div></div>
+      {ids.map((id) => {
+        const hostRows = rows.filter((r) => (r.endpoint_id || endpointId) === id);
+        const positioned = clusterEvents(hostRows, from, to);
+        const height = 80;
+        const processes = unique(hostRows.map((r) => r.writer_image));
+        return <div className="ft-host-group" key={id}><div className="ft-host-row"><button className="ft-host-label" aria-expanded={Boolean(expanded[id])} onClick={() => setExpanded((old) => ({ ...old, [id]: !old[id] }))}><Icon name="computer" /><span>{name(id)}<small>{hostRows.length} loaded events</small></span><span>{expanded[id] ? '−' : '+'}</span></button>
+          <div className="ft-time-track" style={{ height }}>{positioned.map(({ rows: grouped, position }) => { const row = grouped[0], s = eventStyle(row.action); return <button key={eventKey(row)} type="button" className="ft-time-event" data-tone={grouped.length > 1 ? 'gray' : s.tone} aria-pressed={Boolean(selected && grouped.some((r) => eventKey(selected) === eventKey(r)))} style={{ left: `${position}%`, top: 22 }} title={grouped.length > 1 ? `${grouped.length} events · click to expand` : `${row.observed_at} · ${row.action || 'Observed'}`} aria-label={grouped.length > 1 ? `Expand ${grouped.length} events on ${name(id)}` : `Inspect event ${row.observed_at}, ${row.action || 'Observed'}, ${row.path || unavailable}`} onClick={(e) => grouped.length > 1 ? setCluster({ id, rows: grouped }) : onSelect(row, e.currentTarget)}>{grouped.length > 1 ? grouped.length : <Icon name={s.icon} />}</button>; })}{!positioned.length && <p>No loaded events in this zoom window</p>}</div></div>
+          {cluster?.id === id && <div className="ft-cluster"><div className="ft-section-head"><h4>{cluster.rows.length} grouped events · {name(id)}</h4><button className="btn" onClick={() => setCluster(null)}>Close grouped events</button></div><div className="ft-cluster-list">{cluster.rows.map((r) => <button className="ft-cluster-event" key={eventKey(r)} onClick={(e) => onSelect(r, e.currentTarget)}><Icon name={eventStyle(r.action).icon} /><time>{r.observed_at}</time><span>{r.action || 'Observed'}</span><span>{r.path}</span></button>)}</div></div>}
+          {expanded[id] && <div className="ft-host-processes"><h4>Related processes on {name(id)}</h4>{processes.length ? <ul>{processes.map((p) => <li key={p}>{p}</li>)}</ul> : <p>{unavailable}</p>}<Link to={`/edr/computers/${encodeURIComponent(id)}/trajectory?t0=${start}&t1=${end}`}>Open Device Trajectory →</Link></div>}
+        </div>;
+      })}{!ids.length && <div className="ft-empty">No matching file events in the loaded results.</div>}</div></div>
+    </section>
+  </>;
 }
