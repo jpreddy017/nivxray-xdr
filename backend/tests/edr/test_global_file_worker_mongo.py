@@ -101,3 +101,27 @@ def test_device_iid_only_evidence_is_indexed_with_authoritative_endpoint(db):
     batch(db,'index-test',owner='iid-worker')
     assert db[COLLECTION].find_one()['endpoint_id']=='ep_test_a'
     assert db.v2_shadow_observations.find_one({'_id':oid})==before
+
+
+def test_real_mongo_validation_withdraws_and_restores_without_source_writes(db):
+    from scripts.edr_file_search_index import reconcile_index
+    oid=seed(db)
+    ensure_indexes(db[COLLECTION])
+    assert acquire(db,'index-test','validation-worker')
+    batch(db,'index-test',owner='validation-worker')
+    saved=db.v2_shadow_observations.find_one({'_id':oid})
+    original=db[COLLECTION].find_one()
+    db.v2_shadow_observations.delete_one({'_id':oid})
+    reconcile_index(db,'index-test',owner='validation-worker')
+    assert db[COLLECTION].find_one()['tokens']==[]
+    assert db[COLLECTION].find_one()['previous_tokens']==original['tokens']
+    scope={'all_tenants':False,'tenant_ids':['index-test']}
+    result=search(db[COLLECTION],'index-test',scope,eq.resolve_endpoint,
+                  'name:wevtutil.exe',1793757600000,1793757601000)
+    assert result['devices']==[]
+    db.v2_shadow_observations.insert_one(saved)
+    reconcile_index(db,'index-test',owner='validation-worker')
+    assert db[COLLECTION].find_one()['tokens']==original['tokens']
+    assert db.v2_shadow_observations.find_one({'_id':oid})==saved
+    plan=db[COLLECTION].find({'tenant_id':'index-test'}).sort('_id',1).hint('file_validation').explain()
+    assert 'IXSCAN' in str(plan['queryPlanner']['winningPlan'])

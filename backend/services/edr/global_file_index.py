@@ -20,7 +20,7 @@ def coverage_status(checkpoint, now=None):
     """Expose freshness without leaking worker identity or internal errors."""
     now = now or datetime.now(timezone.utc)
     public = {k: checkpoint.get(k) for k in (
-        'checked_at', 'caught_up_at_check', 'scanned', 'unresolved', 'schema_version', 'reconciled_at')}
+        'checked_at', 'caught_up_at_check', 'scanned', 'unresolved', 'schema_version', 'reconciled_at', 'validated_at')}
     try:
         checked = datetime.fromisoformat(checkpoint['checked_at'].replace('Z', '+00:00'))
         age = max(0, (now - checked).total_seconds())
@@ -100,6 +100,7 @@ def project_document(doc, resolution):
 
 
 def ensure_indexes(collection):
+    collection.create_index([('tenant_id', 1), ('_id', 1)], name='file_validation')
     collection.create_index([('tenant_id', 1), ('tokens', 1), ('time_ms', 1), ('endpoint_id', 1)], name='file_discovery')
     collection.create_index([('tenant_id', 1), ('endpoint_id', 1), ('tokens', 1), ('time_ms', 1)], name='file_device_events')
 
