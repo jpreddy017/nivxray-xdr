@@ -122,3 +122,9 @@
 .ft-evidence .ft-section-head { margin-top: 0; }
 .ft-host-label { cursor: default; }
 @media (max-width: 760px) { .ft-investigation-summary { grid-template-columns: 1fr; gap: 12px; } }
+
+.ft-observation-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--ft-border); }
+.ft-observation-row > div { min-width: 0; }
+.ft-observation-row time, .ft-observation-row strong, .ft-observation-row span, .ft-observation-row small { display: block; margin-bottom: 4px; overflow-wrap: anywhere; }
+.ft-observation-row time, .ft-observation-row small { color: var(--muted); font-size: 12px; }
+@media(max-width: 760px) { .ft-observation-row { flex-direction: column; } }

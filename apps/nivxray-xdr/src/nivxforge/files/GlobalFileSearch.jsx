@@ -17,20 +17,32 @@ export function fileSearchError(error) {
 const day = 86400000;
 const dateInput = ms => new Date(ms).toISOString().slice(0, 16);
 const format = ms => new Date(ms).toISOString();
+const kinds = ['auto', 'name', 'path', 'sha256', 'sha1', 'md5'];
+function savedSearch(params) {
+  const a = Number(params.get('t0')), b = Number(params.get('t1'));
+  const key = params.get('file_key')?.trim(), kind = params.get('file_key_type') || 'auto';
+  return key && a > 0 && b > a && b - a <= 31 * day && kinds.includes(kind)
+    ? {key, key_type: kind, time_start: a, time_end: b, limit: 50} : null;
+}
 export default function GlobalFileSearch() {
   const [params, setParams] = useSearchParams();
+  const saved = useRef(savedSearch(params));
+  const savedDevice = useRef(params.get('device'));
   const [tenant, setTenant] = useState(activeTenant);
   const [key, setKey] = useState(params.get('file_key') || '');
-  const [kind, setKind] = useState('auto');
-  const [start, setStart] = useState(dateInput(Date.now() - 30 * day));
-  const [end, setEnd] = useState(dateInput(Date.now()));
+  const [kind, setKind] = useState(saved.current?.key_type || 'auto');
+  const [start, setStart] = useState(dateInput(saved.current?.time_start || Date.now() - 30 * day));
+  const [end, setEnd] = useState(dateInput(saved.current?.time_end || Date.now()));
   const [devices, setDevices] = useState([]), [data, setData] = useState(null);
   const [query, setQuery] = useState(null), [request, setRequest] = useState(null);
   const [selection, setSelection] = useState(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const generation = useRef(0);
   useEffect(() => {
-    const clear = () => { setTenant(activeTenant()); generation.current++; setDevices([]); setData(null); setQuery(null); setRequest(null); setSelection(null); setBusy(false); setError(''); };
+    if (saved.current && activeTenant()) { setQuery(saved.current); setRequest(saved.current); }
+  }, []);
+  useEffect(() => {
+    const clear = () => { savedDevice.current = null; setTenant(activeTenant()); generation.current++; setDevices([]); setData(null); setQuery(null); setRequest(null); setSelection(null); setBusy(false); setError(''); };
     window.addEventListener(TENANT_BOUND_EVENT, clear);
     return () => window.removeEventListener(TENANT_BOUND_EVENT, clear);
   }, []);
@@ -41,6 +53,10 @@ export default function GlobalFileSearch() {
     api.get('/edr/files/search', {params: request, signal: ac.signal}).then(({data: d}) => {
       if (ac.signal.aborted || ticket !== generation.current) return;
       setData(d); setDevices(old => request.cursor ? [...old, ...d.devices] : d.devices);
+      if (savedDevice.current) {
+        const device = d.devices.find(item => item.endpoint_id === savedDevice.current);
+        if (device) { setSelection({device, query: {...request, endpoint_id: device.endpoint_id}}); savedDevice.current = null; }
+      }
     }).catch(e => {
       if (!ac.signal.aborted && ticket === generation.current) setError(fileSearchError(e));
     }).finally(() => { if (!ac.signal.aborted && ticket === generation.current) setBusy(false); });
@@ -52,8 +68,8 @@ export default function GlobalFileSearch() {
     const a = Date.parse(start + ':00Z'), b = Date.parse(end + ':00Z');
     if (!key.trim() || !Number.isFinite(a) || !Number.isFinite(b) || b <= a || b - a > 31 * day) { setError('Enter a search value and an increasing UTC range of at most 31 days.'); return; }
     const q = {key: key.trim(), key_type: kind, time_start: a, time_end: b, limit: 50};
-    generation.current++; setDevices([]); setData(null); setSelection(null); setQuery(q); setRequest(q);
-    const next = new URLSearchParams(params); next.delete('device'); next.set('file_key', q.key); setParams(next, {replace: true});
+    savedDevice.current = null; generation.current++; setDevices([]); setData(null); setSelection(null); setQuery(q); setRequest(q);
+    const next = new URLSearchParams(params); next.delete('device'); next.set('file_key', q.key); next.set('file_key_type', q.key_type); next.set('t0', String(a)); next.set('t1', String(b)); setParams(next, {replace: true});
   }
   return <>
     <section className="ft-workspace global-files" aria-label="Global file search">
@@ -73,12 +89,12 @@ export default function GlobalFileSearch() {
         <p role="status">{devices.length} matching devices loaded{data.next_cursor ? ' · more devices available' : ''}. Counts represent recorded observations, not unique executions.</p>
         <details className="ft-coverage"><summary>Search coverage and freshness</summary><p>Index status: {data.coverage?.status || 'unknown'}. Last successful check: {data.coverage?.checked_at || 'Unavailable'}. {data.coverage?.caught_up_at_check ? 'Caught up at that check' : 'Backfill incomplete'} · unresolved source records: {data.coverage?.unresolved ?? 'unknown'}. Newer or unindexed evidence may not appear yet.</p></details>
         <div className="ft-table-wrap"><table><thead><tr><th>Device</th><th>Observations</th><th>First seen (UTC)</th><th>Last seen (UTC)</th><th>Investigation</th></tr></thead><tbody>
-          {devices.map(d => <tr key={d.endpoint_id}><td>{d.hostname}<small className="global-endpoint">{d.endpoint_id}</small></td><td>{d.matching_events}</td><td>{format(d.first_seen)}</td><td>{format(d.last_seen)}</td><td><button className="btn" onClick={() => setSelection({device: d, query: {...query, endpoint_id: d.endpoint_id}})}>Investigate file activity</button></td></tr>)}
+          {devices.map(d => <tr key={d.endpoint_id}><td>{d.hostname}<small className="global-endpoint">{d.endpoint_id}</small></td><td>{d.matching_events}</td><td>{format(d.first_seen)}</td><td>{format(d.last_seen)}</td><td><button className="btn" onClick={() => { setSelection({device: d, query: {...query, endpoint_id: d.endpoint_id}}); const next = new URLSearchParams(params); next.set('device', d.endpoint_id); setParams(next, {replace: true}); }}>Investigate file activity</button></td></tr>)}
         </tbody></table></div>
         {!devices.length && <p>No matches in indexed evidence for this time range. This does not establish that the file is absent.</p>}
         {data.next_cursor && <button className="btn" disabled={busy} onClick={() => setRequest({...query, cursor: data.next_cursor})}>Load more devices</button>}
       </>}
     </section>
-    {selection && <section aria-label="Matching device investigation"><h2>{selection.device.hostname} — matching file evidence</h2><button className="btn" onClick={() => setSelection(null)}>Close device investigation</button><FileEvidence key={`${selection.device.endpoint_id}:${JSON.stringify(selection.query)}`} endpointId={selection.device.endpoint_id} computers={[selection.device]} indexSearch={selection.query} /></section>}
+    {selection && <section aria-label="Matching device investigation"><h2>{selection.device.hostname} — matching file evidence</h2><button className="btn" onClick={() => { setSelection(null); savedDevice.current = null; const next = new URLSearchParams(params); next.delete('device'); setParams(next, {replace: true}); }}>Close device investigation</button><FileEvidence key={`${selection.device.endpoint_id}:${JSON.stringify(selection.query)}`} endpointId={selection.device.endpoint_id} computers={[selection.device]} indexSearch={selection.query} /></section>}
   </>;
 }
