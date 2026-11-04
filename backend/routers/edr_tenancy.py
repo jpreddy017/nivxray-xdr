@@ -57,6 +57,7 @@ ROUTE_CLASSIFICATION: Dict[tuple, str] = {
     ("GET", "/api/edr/campaign-story"): TENANT_SCOPED,
     ("GET", "/api/edr/observation-narrative"): TENANT_SCOPED,
     ("GET", "/api/edr/file-trajectory"): TENANT_SCOPED,
+    ("GET", "/api/edr/endpoint-file-observations"): TENANT_SCOPED,
     ("GET", "/api/edr/fleet-spread-index"): TENANT_SCOPED,
     ("GET", "/api/edr/telemetry/freshness"): TENANT_SCOPED,
     ("GET", "/api/edr/endpoints"): TENANT_SCOPED,
@@ -395,3 +396,4 @@ def edr_scope(tenant_id: str, user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {"authorized": True, "all_tenants": False,
             "tenant_ids": [tenant_id], "explicit_tenant": tenant_id,
             "role": scope.get("role")}
+

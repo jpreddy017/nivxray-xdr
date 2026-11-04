@@ -794,6 +794,36 @@ async def observation_narrative(device: str, event_iid: str,
             **narrative_svc.compose(doc)}
 
 
+
+@router.get("/endpoint-file-observations")
+def endpoint_file_observations(endpoint_id: str, time_start: int,
+                               time_end: int, key_type: str = "path",
+                               key: str = "", limit: int = 100,
+                               cursor: str | None = None,
+                               user=Depends(get_current_user),
+                               tenant_id: str = Depends(edr_tenant)):
+    """Read-only file evidence for one authorized endpoint; bounded scan."""
+    from services.edr import endpoint_file_evidence as files
+    from pymongo.errors import PyMongoError
+    try:
+        query = files.validate_query(endpoint_id, time_start, time_end,
+                                     key_type, key, limit)
+        # Reject query/cursor drift before touching the evidence store.
+        files.decode_cursor(cursor, query, tenant_id)
+        resolution = eq.resolve_endpoint(query["endpoint_id"],
+                                          _tenant_scope(user, tenant_id))
+        if not resolution:
+            return eq.unresolved_envelope(endpoint_id,
+                                           observations=[], complete=False)
+        return files.read_page(sync_collection(files.STORE), resolution,
+                                query, tenant_id, cursor)
+    except files.InvalidFileQuery as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PyMongoError as exc:
+        raise HTTPException(status_code=503,
+                            detail="File evidence is temporarily unavailable") from exc
+
+
 @router.get("/file-trajectory")
 async def file_trajectory(key: str, key_type: str = "name",
                           user=Depends(get_current_user),
@@ -2068,3 +2098,4 @@ async def trajectory_focus(endpoint_id: str,
         "note": ("exact identifier match over the canonical projection — "
                  "no hostname, process-name or timestamp inference"),
     }
+
