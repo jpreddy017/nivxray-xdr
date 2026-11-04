@@ -27,7 +27,7 @@ PYTHONPATH=backend python backend/scripts/edr_file_search_index.py --tenant REGI
 
 This creates `edr_file_search_v1` and `edr_file_search_checkpoints_v1`, indexes
 500 source documents per batch and polls every five seconds once caught up.
-Run ONE worker for each tenant. It writes no source telemetry. Checkpoints
+Run a supervised worker for each tenant. MongoDB leases reject competing workers; expired leases permit restart recovery. Transient database failures retry with bounded backoff. It writes no source telemetry. Checkpoints
 advance after durable upserts; reprocessing uses deterministic IDs. Backfill
 requires existing authoritative endpoint mappings. Unresolved records are
 counted, never reassigned by hostname. A fresh backfill is required after fixing
@@ -35,8 +35,8 @@ historical unresolved mappings. The source is append-only; late insertion with
 older ObjectIds, historical updates/deletions and retention synchronization need
 an explicit rebuild/operational retention policy before promotion.
 
-The API returns 503 (not an empty result) until this customer's checkpoint exists.
-Coverage includes checked time, caught-up status and unresolved source count.
+The API returns 503 (not an empty result) until this customer's first successful checkpoint exists.
+Coverage includes checked time, caught-up status and unresolved source count. The API reports current, partial, catching_up, stale (over 60 seconds since a successful poll), or error; it never treats an old checkpoint as current.
 Counts are exact over the indexed source-event identities, not a live disk
 inventory or proof of full telemetry coverage. Search aggregation has a 5-second
 limit; timeouts are 503, not zero matches. Pagination is ordered by endpoint/id
@@ -49,7 +49,7 @@ and not a point-in-time database snapshot.
   authorization, event-link parameters.
 - Existing FileEvidence React regressions plus new Chromium synthetic tests:
   global search, multiple devices, selected events, links and tenant reset.
-- Candidate Mongo index backfill, real query explain/performance, live endpoint
-  navigation and authenticated customer evidence remain release gates.
-- Production remains unchanged. Vercel previews alone do not deploy FastAPI or
-  start the indexer; configure a candidate backend before live-data acceptance.
+- Real MongoDB isolated tests passed: resume after lease expiry, competing-worker exclusion, new-record pickup, per-device counts, tenant denial and IXSCAN.
+- Preview tenant backfill processed 15,333 records with zero unresolved identities. A 30-day wevtutil.exe search returned 6,141 evidence events on one endpoint in 66 ms (one measured query, not a load benchmark).
+- Authenticated browser navigation, exact-event selection, source retention/rebuild policy and production worker provisioning remain release gates.
+- Production remains unchanged. The preview FastAPI instance has the additive route and a supervised candidate indexer. This feature branch may opt into NIVX_EDR_INTEGRATION_PREVIEW=1 only for the EDR preview target; production builds still reject that flag.

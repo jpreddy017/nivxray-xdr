@@ -806,7 +806,7 @@ def global_file_search(key: str, time_start: int, time_end: int,
     try:
         token = index.query_args(key, key_type, time_start, time_end)
         coverage = sync_collection(index.CHECKPOINTS).find_one({"_id": tenant_id}, {"_id": 0})
-        if not coverage:
+        if not coverage or not coverage.get("checked_at"):
             raise HTTPException(status_code=503, detail="Global file index is not ready for this customer. Endpoint search remains available.")
         result = index.search(sync_collection(index.COLLECTION), tenant_id, scope,
                               eq.resolve_endpoint, token, time_start, time_end,
