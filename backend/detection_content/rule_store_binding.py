@@ -321,13 +321,15 @@ class _Binding:
                 else RUNTIME_EVALUATOR_ID)
 
 
-_cache: Dict[str, Any] = {"at": 0.0, "bindings": []}
+_cache: Dict[str, Any] = {"at": 0.0, "bindings": None}
 
 
 def load_bindings(force: bool = False) -> List[_Binding]:
     """Bind every authored rule in the store. Cached, because binding
-    parses Sigma and must not run per event."""
-    if not force and _cache["bindings"] and (
+    parses Sigma and must not run per event. None means never loaded; an
+    empty successful result is cached for the same TTL as a populated one.
+    Failed reads never replace the previous snapshot or refresh its TTL."""
+    if not force and _cache["bindings"] is not None and (
             time.time() - _cache["at"] < _CACHE_TTL_SECONDS):
         return _cache["bindings"]
     from deps import sync_collection

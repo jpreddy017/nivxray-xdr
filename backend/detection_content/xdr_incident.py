@@ -252,7 +252,7 @@ def _campaign_detection(canonical: dict, detection: dict | None,
 
 async def _consolidate(db, canonical: dict, detection: dict | None,
                        verdict: dict, trace_id: str, tenant_id: str,
-                       label: str, score: int) -> dict | None:
+                       label: str, score: int, *, _attempt: int = 0) -> dict | None:
     """Attach this observation to the OPEN campaign on the SAME endpoint,
     if one is still inside the rolling window.
 
@@ -265,6 +265,8 @@ async def _consolidate(db, canonical: dict, detection: dict | None,
     would fragment ONE intrusion into several, which is the same triage
     failure in the opposite direction.
     """
+    if _attempt >= 16:
+        raise RuntimeError("incident consolidation contention limit reached")
     scope = _endpoint_scope(canonical)
     if not scope:
         return None                      # non-endpoint sources unchanged
@@ -340,11 +342,22 @@ async def _consolidate(db, canonical: dict, detection: dict | None,
                        f"→ {merged_class} on consolidation of a "
                        f"{incoming['provenance']} observation")})
 
-    await db[INCIDENT_COLLECTION].update_one(
-        {"id": existing["id"]},
+    # Compare the state used to compute this update. A concurrent observation,
+    # analyst closure, or provenance change must force a fresh decision.
+    # Scope the write as strictly as the read; IDs alone are not a tenant boundary.
+    result = await db[INCIDENT_COLLECTION].update_one(
+        {"_id": existing["_id"], "id": existing["id"],
+         "tenant_id": tenant_id, "doc_type": "xdr_incident",
+         "endpoint_campaign": camp,
+         "incident_state": existing.get("incident_state"),
+         "provenance": existing.get("provenance")},
         {"$set": update,
          "$push": {"endpoint_campaign.detections": row,
                    "incident_state_history": {"$each": history}}})
+    if result.matched_count != 1:
+        return await _consolidate(
+            db, canonical, detection, verdict, trace_id, tenant_id,
+            label, score, _attempt=_attempt + 1)
     n = len(camp.get("detections") or []) + 1
     return {
         "created":      False,

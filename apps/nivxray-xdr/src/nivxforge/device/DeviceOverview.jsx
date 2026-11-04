@@ -22,21 +22,39 @@ export default function DeviceOverview({ endpointId }) {
   const [data, setData] = useState(null);
   const [dets, setDets] = useState(null);
   const [err, setErr] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   useEffect(() => {
     let live = true;
-    setData(null); setErr(null); setDets(null);
-    getComputer(endpointId, 24)
-      .then((d) => { if (live) setData(d); })
-      .catch((e) => { if (live) setErr(apiErrorText(e, "device unavailable")); });
-    listEndpointDetections(endpointId, 24)
-      .then((d) => { if (live) setDets(d); })
-      .catch(() => { if (live) setDets({ detections: [], count: 0,
-                                         state: "UNAVAILABLE" }); });
-    return () => { live = false; };
+    let timer;
+    setData(null); setErr(null); setDets(null); setUpdatedAt(null);
+    async function refresh() {
+      await Promise.all([
+        getComputer(endpointId, 24)
+          .then((d) => {
+            if (live) {
+              setData(d); setErr(null);
+              setUpdatedAt(new Date().toISOString());
+            }
+          })
+          .catch((e) => {
+            if (live) setErr(apiErrorText(e, "device unavailable"));
+          }),
+        listEndpointDetections(endpointId, 24)
+          .then((d) => { if (live) setDets(d); })
+          .catch(() => {
+            if (live) setDets({ detections: [], count: null,
+                               state: "UNAVAILABLE" });
+          }),
+      ]);
+      // Schedule after completion: slow requests must never overlap.
+      if (live) timer = setTimeout(refresh, 30000);
+    }
+    refresh();
+    return () => { live = false; clearTimeout(timer); };
   }, [endpointId]);
 
-  if (err) {
+  if (err && !data) {
     return <Refusal title="Device unavailable" body={err}
                     testid="edr-device-refusal" />;
   }
@@ -47,6 +65,10 @@ export default function DeviceOverview({ endpointId }) {
 
   return (
     <div data-testid="edr-device-overview">
+      <div className="basis" data-testid="edr-device-refresh-state">
+        Last successful overview refresh: <Ago iso={updatedAt} />.
+        {err ? ` Refresh failed; showing the previous snapshot. ${err}` : ""}
+      </div>
       <div className="kpi-rail">
         <Kpi label="Status" value={c.status.replace(/_/g, " ")}
              tone={c.status === "CONNECTED" ? "mint" : "amber"}
@@ -57,8 +79,11 @@ export default function DeviceOverview({ endpointId }) {
         <Kpi label="Detections · total" value={c.detections_total}
              tone={c.detections_total ? "red" : undefined}
              testid="edr-device-kpi-dettotal" />
-        <Kpi label="Events received" value={(c.telemetry?.event_count ?? 0)
-               .toLocaleString()} testid="edr-device-kpi-events" />
+        <Kpi label="Telemetry reports" value={
+               (c.telemetry?.report_count ?? c.telemetry?.event_count)
+                 ?.toLocaleString() ?? <NA />}
+             title="Recorded successful telemetry submissions. A submission may contain multiple events; this is not a unique-event or processing count."
+             testid="edr-device-kpi-events" />
         <Kpi label="Sensor" value={c.sensor_version}
              testid="edr-device-kpi-sensor" />
         <Kpi label="Prevention"

@@ -32,6 +32,8 @@ from services import ingest_provenance as ingest_prov
 from services import source_routing
 from edr_plane import canonical_identity_contract as identity_contract
 from services import tenant_authority
+from .canonical_replay import persist_canonical, CONTRACT as CANONICAL_REPLAY_CONTRACT
+from .citation_replay import persist_citations
 
 
 # ── DSM Registry ────────────────────────────────────────────────
@@ -418,7 +420,8 @@ async def process_event_through_pipeline(db, raw_event: dict,
        state=(canonical.get("additional_fields") or {}).get(_temporal.STATE_KEY),
        observation_us=canonical.get(_temporal.OBSERVATION_US))
 
-    persisted = await db[CANONICAL_COLLECTION].insert_one(dict(canonical))
+    canonical, persisted_id = await persist_canonical(
+        db[CANONICAL_COLLECTION], canonical, raw_event)
     _s("canonical_evidence", "EXECUTED",
                 event_id=canonical["event_id"],
                 collection=CANONICAL_COLLECTION)
@@ -474,7 +477,10 @@ async def process_event_through_pipeline(db, raw_event: dict,
             "evaluated_at":       t_rule,
         })
     if _cit_rows:
-        await db[DETECTION_MATCH_COLLECTION].insert_many(_cit_rows)
+        await persist_citations(
+            db[DETECTION_MATCH_COLLECTION], _cit_rows,
+            protected=(canonical.get("processing_receipt") or {}).get("contract")
+            == CANONICAL_REPLAY_CONTRACT)
     _s("detection_citations",
             "EXECUTED" if _cit_rows else "NOT_CREATED",
             rows=len(_cit_rows),
@@ -567,7 +573,7 @@ async def process_event_through_pipeline(db, raw_event: dict,
                       source=f"pipeline:verdict:{verdict.get('engine_id')}"))
     _tsb = canonical["provenance"]["timestamps"]
     await db[CANONICAL_COLLECTION].update_one(
-        {"_id": persisted.inserted_id,
+        {"_id": persisted_id,
          "tenant_id": canonical.get("tenant_id") or tenant_id},
         {"$set": {
             "provenance.timestamps.rule_evaluated_at":

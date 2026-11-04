@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from pymongo.errors import DuplicateKeyError
 
 COLLECTION = "edr_raw_events"
 
@@ -190,7 +191,24 @@ async def append(db: Any, event: RawEndpointEvent) -> dict[str, Any]:
                 "duplicate_count": (existing.get("duplicate_count", 0) + 1),
                 "reason": "byte-identical payload already retained; the "
                           "original is immutable and was not modified"}
-    await db[COLLECTION].insert_one(doc)
+    try:
+        await db[COLLECTION].insert_one(doc)
+    except DuplicateKeyError as exc:
+        # Only the declared tenant/dedup constraint is a redelivery race.
+        # Other unique-key failures must remain errors.
+        details = exc.details or {}
+        if details.get("keyPattern") != {"tenant_id": 1, "dedup_key": 1}:
+            raise
+        existing = await db[COLLECTION].find_one_and_update(
+            {"tenant_id": event.tenant_id, "dedup_key": event.dedup_key},
+            {"$inc": {"duplicate_count": 1}},
+            projection={"raw_id": 1, "duplicate_count": 1})
+        if existing is None:
+            raise
+        return {"stored": False, "duplicate": True,
+                "raw_id": existing["raw_id"],
+                "duplicate_count": existing.get("duplicate_count", 0) + 1,
+                "reason": "concurrent byte-identical delivery already retained"}
     return {"stored": True, "duplicate": False, "raw_id": event.raw_id}
 
 
